@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(\"C:/Program Files/Go/bin/go.exe\" get:*)",
+      "Bash(\"C:/Program Files/Go/bin/go.exe\" build:*)",
+      "Bash(sqlc generate:*)",
+      "Bash(~/go/bin/sqlc generate:*)",
+      "Bash(\"C:/Program Files/Go/bin/go.exe\" build ./...)",
+      "Bash(tree:*)",
+      "Bash(go test:*)"
+    ]
+  }
+}

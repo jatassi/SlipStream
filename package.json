@@ -1,0 +1,12 @@
+{
+  "name": "slipstream",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev:frontend",
+    "dev:frontend": "cd web && npm run dev",
+    "dev:backend": "cd cmd/slipstream && go run .",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd web && npm run build",
+    "install:frontend": "cd web && npm install"
+  }
+}

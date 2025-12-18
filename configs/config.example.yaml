@@ -1,0 +1,23 @@
+# SlipStream Configuration
+# Copy this file to config.yaml and modify as needed.
+
+server:
+  # Address to bind to
+  host: 0.0.0.0
+  # Port to listen on
+  port: 8080
+
+database:
+  # Path to SQLite database file
+  path: ./data/slipstream.db
+
+logging:
+  # Log level: debug, info, warn, error
+  level: info
+  # Log format: console, json
+  format: console
+
+# Authentication
+auth:
+  # Password for accessing the web interface (leave empty to disable)
+  password: ""
