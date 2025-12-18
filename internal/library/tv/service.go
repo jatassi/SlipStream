@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/rs/zerolog"
 
@@ -658,13 +657,15 @@ func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
 }
 
 // GenerateSeriesPath generates a path for a series.
+// Returns a path with forward slashes for consistency across platforms.
 func GenerateSeriesPath(rootPath, title string) string {
-	return filepath.Join(rootPath, title)
+	return rootPath + "/" + title
 }
 
 // GenerateSeasonPath generates a path for a season folder.
+// Returns a path with forward slashes for consistency across platforms.
 func GenerateSeasonPath(seriesPath string, seasonNumber int) string {
-	return filepath.Join(seriesPath, fmt.Sprintf("Season %02d", seasonNumber))
+	return seriesPath + "/" + fmt.Sprintf("Season %02d", seasonNumber)
 }
 
 func boolToInt(b bool) int64 {

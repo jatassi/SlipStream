@@ -194,7 +194,10 @@ func ParsePath(fullPath string) *ParsedMedia {
 		folderParsed := ParseFilename(folderName)
 		if folderParsed.Year != 0 {
 			parsed.Year = folderParsed.Year
-			if parsed.Title == "" || parsed.Title == cleanTitle(filename) {
+			// Use folder's title when folder parsing was successful (has year)
+			// This handles cases like "The Matrix (1999)/The.Matrix.1080p.BluRay.mkv"
+			// where the filename lacks the proper title format
+			if folderParsed.Title != "" {
 				parsed.Title = folderParsed.Title
 			}
 		}

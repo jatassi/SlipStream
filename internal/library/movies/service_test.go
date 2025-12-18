@@ -574,7 +574,8 @@ func TestGenerateMoviePath(t *testing.T) {
 	}{
 		{"/movies", "The Matrix", 1999, "/movies/The Matrix (1999)"},
 		{"/movies", "Unknown", 0, "/movies/Unknown"},
-		{"C:\\Movies", "Inception", 2010, "C:\\Movies\\Inception (2010)"},
+		// Uses forward slash as separator for cross-platform consistency
+		{"C:\\Movies", "Inception", 2010, "C:\\Movies/Inception (2010)"},
 	}
 
 	for _, tt := range tests {

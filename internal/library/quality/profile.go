@@ -169,13 +169,18 @@ func (p *Profile) IsAcceptable(qualityID int) bool {
 
 // IsUpgrade checks if candidate quality is an upgrade over current quality.
 func (p *Profile) IsUpgrade(currentQualityID, candidateQualityID int) bool {
-	// If we're at or above cutoff, no upgrades
+	// Validate current quality - invalid quality can't be upgraded
 	currentQuality, ok := GetQualityByID(currentQualityID)
-	if ok && currentQuality.Weight >= p.getCutoffWeight() {
+	if !ok {
 		return false
 	}
 
-	// Check if candidate is better
+	// If we're at or above cutoff, no upgrades
+	if currentQuality.Weight >= p.getCutoffWeight() {
+		return false
+	}
+
+	// Check if candidate is valid
 	candidateQuality, ok := GetQualityByID(candidateQualityID)
 	if !ok {
 		return false

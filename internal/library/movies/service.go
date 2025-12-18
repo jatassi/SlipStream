@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/rs/zerolog"
 
@@ -450,12 +449,13 @@ func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
 }
 
 // GenerateMoviePath generates a path for a movie.
+// Returns a path with forward slashes for consistency across platforms.
 func GenerateMoviePath(rootPath, title string, year int) string {
 	folderName := title
 	if year > 0 {
 		folderName = fmt.Sprintf("%s (%d)", title, year)
 	}
-	return filepath.Join(rootPath, folderName)
+	return rootPath + "/" + folderName
 }
 
 func boolToInt(b bool) int64 {
