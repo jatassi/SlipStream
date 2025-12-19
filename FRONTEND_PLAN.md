@@ -303,7 +303,17 @@ export interface Movie {
 - Download queue preview (active downloads)
 - Quick action buttons (Add Movie, Add Series)
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Card` - Container for each dashboard section
+- `Badge` - Status indicators (healthy, warning)
+- `Button` - Quick action buttons
+- `Skeleton` - Loading states for async data
+- `@magic-ui/bento-grid` - Dashboard layout
+- `@magic-ui/animated-number` - Animated statistics counters
+- `@origin-ui/stat-card` - Enhanced stat displays
+- `@origin-ui/metric-card` - KPI metrics
+
+**Custom Components:**
 - `StatusCard` - System health/version display
 - `LibrarySummary` - Movie/series counts with links
 - `ActivityFeed` - Recent history items
@@ -329,12 +339,23 @@ export interface Movie {
 - Bulk actions (delete selected, refresh all)
 - "Add Movie" button → navigates to `/movies/add`
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Data Table` - Advanced table with sorting, filtering, pagination
+- `Card` - Movie poster cards in grid view
+- `Input` - Search input field
+- `Select` - Sort and filter dropdowns
+- `Toggle Group` - Grid/List view switcher
+- `Button` - Action buttons (Add Movie, Bulk Actions)
+- `Checkbox` - Multi-select for bulk actions
+- `Badge` - Status indicators (Missing, Available, Downloading)
+- `Dropdown Menu` - Bulk actions menu
+- `Skeleton` - Loading placeholders
+- `Pagination` - Page navigation
+
+**Custom Components:**
 - `MovieGrid` - Poster-based grid display
-- `MovieTable` - Table with columns
-- `MovieCard` - Individual movie poster card
+- `MovieCard` - Individual movie poster card (using `Card`)
 - `MovieFilters` - Filter/sort controls
-- `ViewToggle` - Grid/List switch
 
 **API calls:**
 - `GET /api/v1/movies`
@@ -359,12 +380,25 @@ export interface Movie {
 - Quality profile badge
 - Monitored toggle
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Card` - Content sections
+- `Badge` - Genre tags, quality profile, status
+- `Button` - Action buttons
+- `Dialog` - Edit movie modal
+- `Alert Dialog` - Delete confirmation
+- `Switch` - Monitored toggle
+- `Separator` - Visual dividers
+- `Tabs` - Organize file info, metadata sections
+- `Table` - File information display
+- `@aceternity/background-gradient` - Hero section background
+- `@aceternity/3d-card` - Poster display with 3D effect
+
+**Custom Components:**
 - `MovieHero` - Backdrop + overlay info
 - `MovieInfo` - Metadata display
 - `MovieFiles` - File list/info
 - `MovieActions` - Action button group
-- `EditMovieModal` - Edit form dialog
+- `EditMovieModal` - Edit form dialog (wraps `Dialog`)
 
 **API calls:**
 - `GET /api/v1/movies/:id`
@@ -389,11 +423,23 @@ export interface Movie {
   - Start search immediately (toggle)
 - Step 4: Confirm and add
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Input` - Search field with debounce
+- `Card` - Search result cards
+- `Dialog` or `Sheet` - Wizard container
+- `Form` - Configuration form with validation
+- `Select` - Root folder and quality profile dropdowns
+- `Switch` - Toggle options (monitored, auto-search)
+- `Button` - Navigation buttons (Next, Back, Add)
+- `Badge` - Year, status badges
+- `Skeleton` - Loading states for search results
+- `Command` - Alternative search interface with keyboard nav
+
+**Custom Components:**
 - `MetadataSearch` - Search input with debounce
 - `SearchResults` - Grid of search result cards
 - `SearchResultCard` - Poster + title + year
-- `AddMovieForm` - Configuration form
+- `AddMovieForm` - Configuration form (wraps `Form`)
 
 **API calls:**
 - `GET /api/v1/metadata/movie/search?query=...`
@@ -442,12 +488,27 @@ export interface Movie {
 - Season monitoring toggles
 - Episode-level actions (search individual episode)
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Accordion` - Collapsible season sections (perfect use case!)
+- `Tabs` - Alternative layout for seasons
+- `Card` - Season cards and content sections
+- `Table` or `Data Table` - Episode list with columns
+- `Badge` - Episode status, network, quality
+- `Button` - Action buttons
+- `Dialog` - Edit series modal
+- `Alert Dialog` - Delete confirmation
+- `Switch` - Season monitoring toggles
+- `Separator` - Visual dividers
+- `Scroll Area` - Long episode lists
+- `Collapsible` - Individual episode details
+- `@aceternity/hero-parallax` - Hero section with parallax effect
+
+**Custom Components:**
 - `SeriesHero`
 - `SeriesInfo`
-- `SeasonList` - Collapsible season sections
+- `SeasonList` - Wraps `Accordion`
 - `SeasonCard` - Season header with stats
-- `EpisodeTable` - Episodes within season
+- `EpisodeTable` - Episodes within season (wraps `Table`)
 - `EpisodeRow` - Single episode with status/actions
 - `EditSeriesModal`
 
@@ -495,10 +556,20 @@ export interface Movie {
 - Tabs: Queue | History
 - Real-time updates via WebSocket
 
-**Components needed:**
-- `QueueTable` - Download queue list
+**shadcn/ui Components:**
+- `Tabs` - Switch between Queue and History
+- `Data Table` or `Table` - Queue items list
+- `Progress` - Download progress bars
+- `Badge` - Status indicators (downloading, paused, completed)
+- `Button` - Cancel/remove actions
+- `Alert Dialog` - Confirm removal
+- `Card` - Container for queue section
+- `Skeleton` - Loading states
+
+**Custom Components:**
+- `QueueTable` - Download queue list (wraps `Data Table`)
 - `QueueItem` - Single queue row with progress bar
-- `ProgressBar` - Visual progress indicator
+- `ProgressBar` - Custom progress indicator (or use `Progress`)
 
 **API calls:**
 - `GET /api/v1/queue`
@@ -519,11 +590,21 @@ export interface Movie {
 - Search by title
 - Event details on click/expand
 
-**Components needed:**
-- `HistoryTable` - Paginated table
+**shadcn/ui Components:**
+- `Data Table` - Paginated history with sorting and filtering
+- `Select` - Event type filter
+- `Date Picker` - Date range filter
+- `Input` - Search input
+- `Pagination` - Page navigation
+- `Badge` - Event type badges
+- `Collapsible` - Expandable event details
+- `Card` - Container
+- `@origin-ui/timeline` - Alternative timeline view for history
+
+**Custom Components:**
+- `HistoryTable` - Paginated table (wraps `Data Table`)
 - `HistoryRow` - Single history entry
 - `HistoryFilters` - Event type, date filters
-- `Pagination` - Page controls
 
 **API calls:**
 - `GET /api/v1/history?page=1&limit=50&eventType=...`
@@ -545,12 +626,25 @@ export interface Movie {
   - Upgrade allowed toggle
 - Delete profile (with usage check)
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Card` - Profile cards
+- `Button` - Add/Edit/Delete buttons
+- `Dialog` - Edit profile modal
+- `Alert Dialog` - Delete confirmation
+- `Form` - Profile configuration form
+- `Input` - Profile name input
+- `Select` - Cutoff quality dropdown
+- `Switch` - Upgrade allowed toggle
+- `Checkbox` - Quality tier multi-select
+- `Badge` - Quality tier badges
+- `Separator` - Visual dividers
+
+**Custom Components:**
 - `ProfileList` - Cards for each profile
 - `ProfileCard` - Profile summary
-- `ProfileEditor` - Modal with quality config
+- `ProfileEditor` - Modal with quality config (wraps `Dialog`)
 - `QualitySelector` - Multi-select quality tiers
-- `DraggableList` - Reorder quality priority
+- `DraggableList` - Reorder quality priority (implement with dnd-kit or similar)
 
 **API calls:**
 - `GET /api/v1/qualityprofiles`
@@ -595,10 +689,23 @@ export interface Movie {
 - Enable/disable toggle
 - Delete indexer
 
-**Components needed:**
+**shadcn/ui Components:**
+- `Card` - Indexer cards
+- `Button` - Add/Edit/Delete/Test buttons
+- `Dialog` - Add/edit indexer modal
+- `Alert Dialog` - Delete confirmation
+- `Form` - Indexer configuration form
+- `Input` - URL, API key inputs
+- `Select` - Indexer type dropdown
+- `Switch` - Enable/disable toggle
+- `Badge` - Status indicator (connected, error)
+- `Alert` - Test results display
+- `Spinner` - Testing state
+
+**Custom Components:**
 - `IndexerList`
 - `IndexerCard`
-- `IndexerForm` - Add/edit form with URL, API key, categories
+- `IndexerForm` - Add/edit form with URL, API key, categories (wraps `Form`)
 - `TestConnectionButton`
 
 **API calls:**
@@ -663,40 +770,40 @@ export interface Movie {
 
 ### Layout Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `RootLayout` | `src/components/layout/RootLayout.tsx` | Main app shell |
-| `Sidebar` | `src/components/layout/Sidebar.tsx` | Navigation sidebar |
-| `Header` | `src/components/layout/Header.tsx` | Top bar |
-| `PageHeader` | `src/components/layout/PageHeader.tsx` | Page title + actions |
+| Component | File | Purpose | shadcn Components Used |
+|-----------|------|---------|------------------------|
+| `RootLayout` | `src/components/layout/RootLayout.tsx` | Main app shell | `Sidebar` (v4), `Separator` |
+| `Sidebar` | `src/components/layout/Sidebar.tsx` | Navigation sidebar | `Sidebar` component from shadcn/ui |
+| `Header` | `src/components/layout/Header.tsx` | Top bar | `Input`, `Command`, `Dropdown Menu`, `Avatar` |
+| `PageHeader` | `src/components/layout/PageHeader.tsx` | Page title + actions | `Breadcrumb`, `Button` |
 
 ### Data Display
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `DataTable` | `src/components/data/DataTable.tsx` | Generic table with sorting/pagination |
-| `EmptyState` | `src/components/data/EmptyState.tsx` | "No data" placeholder |
-| `LoadingState` | `src/components/data/LoadingState.tsx` | Loading skeleton |
-| `ErrorState` | `src/components/data/ErrorState.tsx` | Error display with retry |
-| `Pagination` | `src/components/data/Pagination.tsx` | Page navigation |
+| Component | File | Purpose | shadcn Components Used |
+|-----------|------|---------|------------------------|
+| `DataTable` | `src/components/data/DataTable.tsx` | Generic table with sorting/pagination | `Data Table`, `Table`, `Checkbox` |
+| `EmptyState` | `src/components/data/EmptyState.tsx` | "No data" placeholder | `Card`, custom illustration |
+| `LoadingState` | `src/components/data/LoadingState.tsx` | Loading skeleton | `Skeleton`, `Card` |
+| `ErrorState` | `src/components/data/ErrorState.tsx` | Error display with retry | `Alert`, `Button` |
+| `Pagination` | `src/components/data/Pagination.tsx` | Page navigation | `Pagination` component |
 
 ### Media Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `PosterImage` | `src/components/media/PosterImage.tsx` | Poster with fallback |
-| `BackdropImage` | `src/components/media/BackdropImage.tsx` | Backdrop with gradient overlay |
-| `StatusBadge` | `src/components/media/StatusBadge.tsx` | Missing/Available/Downloading |
-| `QualityBadge` | `src/components/media/QualityBadge.tsx` | Quality tier display |
-| `ProgressBar` | `src/components/media/ProgressBar.tsx` | Download progress |
+| Component | File | Purpose | shadcn Components Used |
+|-----------|------|---------|------------------------|
+| `PosterImage` | `src/components/media/PosterImage.tsx` | Poster with fallback | `@aceternity/3d-card`, `Card` |
+| `BackdropImage` | `src/components/media/BackdropImage.tsx` | Backdrop with gradient overlay | `@aceternity/background-gradient` |
+| `StatusBadge` | `src/components/media/StatusBadge.tsx` | Missing/Available/Downloading | `Badge` |
+| `QualityBadge` | `src/components/media/QualityBadge.tsx` | Quality tier display | `Badge` |
+| `ProgressBar` | `src/components/media/ProgressBar.tsx` | Download progress | `Progress` |
 
 ### Form Components
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `SearchInput` | `src/components/forms/SearchInput.tsx` | Debounced search field |
-| `ConfirmDialog` | `src/components/forms/ConfirmDialog.tsx` | Confirmation modal |
-| `FormField` | `src/components/forms/FormField.tsx` | Label + input + error |
+| Component | File | Purpose | shadcn Components Used |
+|-----------|------|---------|------------------------|
+| `SearchInput` | `src/components/forms/SearchInput.tsx` | Debounced search field | `Input`, `Command` |
+| `ConfirmDialog` | `src/components/forms/ConfirmDialog.tsx` | Confirmation modal | `Alert Dialog` |
+| `FormField` | `src/components/forms/FormField.tsx` | Label + input + error | `Form`, `Label`, `Input` |
 
 ### Existing shadcn/ui Components
 
@@ -705,22 +812,201 @@ Already available in `src/components/ui/`:
 - `Select`, `Dropdown`, `Combobox`
 - `AlertDialog`, `Separator`, `Textarea`
 
-### Additional shadcn Components to Add
+### shadcn/ui Components to Add
 
+Based on the requirements for a media management application, install these components from the official [shadcn/ui registry](https://ui.shadcn.com/docs/components):
+
+#### Essential Data Display Components
 ```bash
-# Run these to add more shadcn components as needed
-npx shadcn@latest add dialog
-npx shadcn@latest add tabs
+# Data tables with sorting, filtering, and pagination
+npx shadcn@latest add data-table
+
+# Basic table for simpler displays
 npx shadcn@latest add table
+
+# Skeleton loaders for async content
 npx shadcn@latest add skeleton
-npx shadcn@latest add toast
-npx shadcn@latest add switch
-npx shadcn@latest add checkbox
-npx shadcn@latest add slider
-npx shadcn@latest add progress
-npx shadcn@latest add collapsible
-npx shadcn@latest add accordion
+
+# Avatar for user profiles
+npx shadcn@latest add avatar
+
+# Charts for dashboard analytics
+npx shadcn@latest add chart
 ```
+
+#### Navigation & Layout Components
+```bash
+# Tabs for organizing content (series seasons, activity views)
+npx shadcn@latest add tabs
+
+# Accordion for collapsible sections (episode lists)
+npx shadcn@latest add accordion
+
+# Collapsible for expandable content
+npx shadcn@latest add collapsible
+
+# Breadcrumb for navigation context
+npx shadcn@latest add breadcrumb
+
+# Sidebar for main navigation (v4 component)
+npx shadcn@latest add sidebar
+
+# Scroll area for long content lists
+npx shadcn@latest add scroll-area
+
+# Resizable panels for advanced layouts
+npx shadcn@latest add resizable
+```
+
+#### Modal & Overlay Components
+```bash
+# Dialog for modals (edit forms, confirmations)
+npx shadcn@latest add dialog
+
+# Drawer for side panels
+npx shadcn@latest add drawer
+
+# Sheet for overlays
+npx shadcn@latest add sheet
+
+# Popover for contextual information
+npx shadcn@latest add popover
+
+# Hover card for preview on hover
+npx shadcn@latest add hover-card
+
+# Context menu for right-click actions
+npx shadcn@latest add context-menu
+
+# Dropdown menu for action menus
+npx shadcn@latest add dropdown-menu
+```
+
+#### Form Components
+```bash
+# Form primitives with validation
+npx shadcn@latest add form
+
+# Switch for toggle options (monitoring)
+npx shadcn@latest add switch
+
+# Checkbox for multi-select
+npx shadcn@latest add checkbox
+
+# Radio group for single selection
+npx shadcn@latest add radio-group
+
+# Slider for quality/priority settings
+npx shadcn@latest add slider
+
+# Calendar and date picker for scheduling
+npx shadcn@latest add calendar
+npx shadcn@latest add date-picker
+
+# Input OTP for auth (if needed)
+npx shadcn@latest add input-otp
+```
+
+#### Feedback & Status Components
+```bash
+# Toast notifications for actions
+npx shadcn@latest add toast
+npx shadcn@latest add sonner  # Alternative toast library
+
+# Progress bars for downloads
+npx shadcn@latest add progress
+
+# Spinner for loading states
+npx shadcn@latest add spinner
+
+# Alert for important messages
+npx shadcn@latest add alert
+```
+
+#### Advanced Components
+```bash
+# Carousel for poster galleries
+npx shadcn@latest add carousel
+
+# Pagination for long lists
+npx shadcn@latest add pagination
+
+# Command palette for quick actions
+npx shadcn@latest add command
+
+# Toggle group for view modes
+npx shadcn@latest add toggle-group
+npx shadcn@latest add toggle
+```
+
+### Community Registry Components
+
+Enhance the UI with components from popular shadcn/ui community registries:
+
+#### Origin UI (@origin-ui) - 400+ Advanced Components
+[Origin UI](https://originui.com/) provides enterprise-grade components across 25+ categories.
+
+**Recommended components for SlipStream:**
+```bash
+# Timeline for activity feed/history view
+npx shadcn@latest add @origin-ui/timeline
+
+# Advanced data display components
+npx shadcn@latest add @origin-ui/stat-card
+npx shadcn@latest add @origin-ui/metric-card
+
+# Enhanced dialogs with better UX
+npx shadcn@latest add @origin-ui/modal
+
+# File upload for manual imports
+npx shadcn@latest add @origin-ui/file-upload
+```
+
+#### Magic UI (@magic-ui) - 50+ Animated Components
+[Magic UI](https://magicui.design/) specializes in beautiful animations using Framer Motion.
+
+**Recommended for visual polish:**
+```bash
+# Animated number counters for dashboard stats
+npx shadcn@latest add @magic-ui/animated-number
+
+# Animated background effects for hero sections
+npx shadcn@latest add @magic-ui/particles
+
+# Marquee for scrolling announcements
+npx shadcn@latest add @magic-ui/marquee
+
+# Bento grid for dashboard layout
+npx shadcn@latest add @magic-ui/bento-grid
+
+# Animated beam for connecting elements
+npx shadcn@latest add @magic-ui/animated-beam
+```
+
+#### Aceternity UI (@aceternity) - Modern Animated Components
+[Aceternity UI](https://ui.aceternity.com/) offers highly interactive, modern components.
+
+**Recommended for media-rich pages:**
+```bash
+# 3D card effect for movie/series posters
+npx shadcn@latest add @aceternity/3d-card
+
+# Hero sections with parallax effects
+npx shadcn@latest add @aceternity/hero-parallax
+
+# Background gradients for visual depth
+npx shadcn@latest add @aceternity/background-gradient
+
+# Animated spotlight for featured content
+npx shadcn@latest add @aceternity/spotlight
+```
+
+### Additional Registries to Explore
+
+- **[registry.directory](https://registry.directory/)** - Curated collection of 88+ shadcn/ui registries
+- **[Tremor](https://tremor.so/)** - Specialized dashboard and analytics components (charts, KPIs)
+- **[Lukacho UI](https://ui.lukacho.com/)** - Modern components with unique designs
+- **[Shadcn Studio](https://shadcnstudio.com/)** - Component variants and customizations
 
 ---
 
@@ -990,13 +1276,120 @@ Recommended order for building out the frontend:
 
 ---
 
+## 9. Quick Start: Component Installation
+
+### Install All Essential shadcn/ui Components
+
+Run this command to install all core components at once:
+
+```bash
+cd web && npx shadcn@latest add \
+  data-table table skeleton avatar chart \
+  tabs accordion collapsible breadcrumb sidebar scroll-area resizable \
+  dialog drawer sheet popover hover-card context-menu dropdown-menu \
+  form switch checkbox radio-group slider calendar date-picker \
+  toast sonner progress spinner alert \
+  carousel pagination command toggle-group toggle
+```
+
+### Install Community Registry Components
+
+After setting up the base components, enhance with community components:
+
+```bash
+# Origin UI components (verify namespace with Origin UI docs)
+npx shadcn@latest add @origin-ui/timeline @origin-ui/stat-card @origin-ui/metric-card
+
+# Magic UI components (verify namespace with Magic UI docs)
+npx shadcn@latest add @magic-ui/animated-number @magic-ui/bento-grid
+
+# Aceternity UI components (verify namespace with Aceternity docs)
+npx shadcn@latest add @aceternity/3d-card @aceternity/background-gradient
+```
+
+**Note:** Community registry namespaces may vary. Check the official documentation for each registry for exact installation commands.
+
+---
+
+## 10. Implementation Tips
+
+### Component Usage Patterns
+
+1. **Data Tables** - Use `Data Table` for complex lists with sorting/filtering, and plain `Table` for simple displays
+2. **Modals** - Use `Dialog` for forms/content, `Sheet` for side panels, `Alert Dialog` for confirmations
+3. **Loading States** - Always provide `Skeleton` loaders during data fetching for better UX
+4. **Form Validation** - Leverage `Form` component with React Hook Form + Zod integration
+5. **Notifications** - Use `Sonner` (modern toast library) instead of basic `Toast` for better animations
+
+### Accessibility Checklist
+
+- ✅ All interactive elements have proper ARIA labels
+- ✅ Keyboard navigation works throughout (Tab, Enter, Escape)
+- ✅ Focus management in modals and dialogs
+- ✅ Color contrast meets WCAG 2.1 AA standards
+- ✅ Screen reader friendly component structure
+
+### Performance Optimization
+
+- Use `React.lazy()` for code-splitting large pages
+- Implement virtual scrolling for very long lists (react-window or @tanstack/react-virtual)
+- Optimize images with proper sizing and lazy loading
+- Use TanStack Query's built-in caching to minimize API calls
+- Debounce search inputs (300ms recommended)
+
+### Design System Consistency
+
+**Color Coding for Status:**
+- 🟢 Green: Available, Complete, Success
+- 🟡 Yellow: Downloading, In Progress, Warning
+- 🔴 Red: Missing, Error, Failed
+- ⚪ Gray: Unmonitored, Disabled, Neutral
+
+**Component Sizes:**
+- Buttons: Use `size="default"` for primary actions, `size="sm"` for compact areas
+- Inputs: Match button sizes for visual alignment
+- Cards: Use consistent padding (p-6 for content, p-4 for compact)
+
+### Community Registry Best Practices
+
+**When to use community components:**
+- ✅ Use for unique features not in core shadcn/ui
+- ✅ Use for enhanced visual polish (animations, gradients)
+- ✅ Use for specialized layouts (bento grids, timelines)
+- ❌ Avoid overusing animations (can hurt performance)
+- ❌ Don't mix too many different style systems
+
+**Recommended approach:**
+1. Build core functionality with official shadcn/ui components
+2. Add community components selectively for key visual areas (dashboard, detail pages)
+3. Test performance impact before committing to animated components
+4. Keep community components in separate directories for easy replacement
+
+---
+
 ## Summary
 
 This plan outlines a comprehensive frontend implementation with:
 - **14 main pages/views**
-- **~50+ components** (shared + page-specific)
+- **~50+ shadcn/ui components** from official and community registries
+- **~50+ custom components** (shared + page-specific)
 - **10 API modules** with corresponding query hooks
 - **Clear file organization** for maintainability
+- **Specific component recommendations** for each page
+
+### Component Breakdown:
+- **Official shadcn/ui**: 40+ core components
+- **Origin UI**: Timeline, stat cards, metric cards
+- **Magic UI**: Animated numbers, bento grid
+- **Aceternity UI**: 3D cards, background gradients, hero parallax
 
 The implementation is phased to deliver core functionality first (library views) before moving to settings and polish.
+
+### Key References:
+- [shadcn/ui Components](https://ui.shadcn.com/docs/components) - Official component library
+- [Data Table Documentation](https://ui.shadcn.com/docs/components/data-table) - TanStack Table integration
+- [registry.directory](https://registry.directory/) - Community registry collection
+- [Origin UI](https://originui.com/) - 400+ enterprise components
+- [Magic UI](https://magicui.design/) - Animated components
+- [Aceternity UI](https://ui.aceternity.com/) - Modern interactive components
 
