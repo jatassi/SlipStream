@@ -1,0 +1,259 @@
+package metadata
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/labstack/echo/v4"
+)
+
+// Handlers provides HTTP handlers for metadata operations.
+type Handlers struct {
+	service  *Service
+	artwork  *ArtworkDownloader
+}
+
+// NewHandlers creates new metadata handlers.
+func NewHandlers(service *Service, artwork *ArtworkDownloader) *Handlers {
+	return &Handlers{
+		service: service,
+		artwork: artwork,
+	}
+}
+
+// RegisterRoutes registers the metadata routes.
+func (h *Handlers) RegisterRoutes(g *echo.Group) {
+	// Movie metadata
+	g.GET("/movie/search", h.SearchMovies)
+	g.GET("/movie/:id", h.GetMovie)
+	g.POST("/movie/:id/artwork", h.DownloadMovieArtwork)
+
+	// Series metadata
+	g.GET("/series/search", h.SearchSeries)
+	g.GET("/series/tmdb/:id", h.GetSeriesByTMDB)
+	g.GET("/series/tvdb/:id", h.GetSeriesByTVDB)
+	g.POST("/series/:id/artwork", h.DownloadSeriesArtwork)
+
+	// Cache management
+	g.DELETE("/cache", h.ClearCache)
+
+	// Provider status
+	g.GET("/status", h.GetStatus)
+}
+
+// SearchMovies searches for movies by query.
+// GET /api/v1/metadata/movie/search?query=...
+func (h *Handlers) SearchMovies(c echo.Context) error {
+	query := c.QueryParam("query")
+	if query == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "query parameter is required")
+	}
+
+	results, err := h.service.SearchMovies(c.Request().Context(), query)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, results)
+}
+
+// GetMovie gets detailed movie info by TMDB ID.
+// GET /api/v1/metadata/movie/:id
+func (h *Handlers) GetMovie(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	result, err := h.service.GetMovie(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// DownloadMovieArtwork downloads artwork for a movie.
+// POST /api/v1/metadata/movie/:id/artwork
+func (h *Handlers) DownloadMovieArtwork(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	// Get movie details first
+	movie, err := h.service.GetMovie(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Download artwork
+	if err := h.artwork.DownloadMovieArtwork(c.Request().Context(), movie); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return paths if available
+	response := map[string]string{
+		"poster":   h.artwork.GetArtworkPath(MediaTypeMovie, id, ArtworkTypePoster),
+		"backdrop": h.artwork.GetArtworkPath(MediaTypeMovie, id, ArtworkTypeBackdrop),
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// SearchSeries searches for TV series by query.
+// GET /api/v1/metadata/series/search?query=...
+func (h *Handlers) SearchSeries(c echo.Context) error {
+	query := c.QueryParam("query")
+	if query == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "query parameter is required")
+	}
+
+	results, err := h.service.SearchSeries(c.Request().Context(), query)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, results)
+}
+
+// GetSeriesByTMDB gets series details by TMDB ID.
+// GET /api/v1/metadata/series/tmdb/:id
+func (h *Handlers) GetSeriesByTMDB(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	result, err := h.service.GetSeriesByTMDB(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "series not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// GetSeriesByTVDB gets series details by TVDB ID.
+// GET /api/v1/metadata/series/tvdb/:id
+func (h *Handlers) GetSeriesByTVDB(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	result, err := h.service.GetSeriesByTVDB(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "series not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// DownloadSeriesArtwork downloads artwork for a series.
+// POST /api/v1/metadata/series/:id/artwork
+func (h *Handlers) DownloadSeriesArtwork(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	// Check if this is a TVDB or TMDB ID based on query param, default to TMDB
+	source := c.QueryParam("source")
+
+	var series *SeriesResult
+	switch source {
+	case "tvdb":
+		series, err = h.service.GetSeriesByTVDB(c.Request().Context(), id)
+	default:
+		series, err = h.service.GetSeriesByTMDB(c.Request().Context(), id)
+	}
+
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "series not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Download artwork
+	if err := h.artwork.DownloadSeriesArtwork(c.Request().Context(), series); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return paths if available
+	response := map[string]string{
+		"poster":   h.artwork.GetArtworkPath(MediaTypeSeries, id, ArtworkTypePoster),
+		"backdrop": h.artwork.GetArtworkPath(MediaTypeSeries, id, ArtworkTypeBackdrop),
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// ClearCache clears the metadata cache.
+// DELETE /api/v1/metadata/cache
+func (h *Handlers) ClearCache(c echo.Context) error {
+	h.service.ClearCache()
+	return c.NoContent(http.StatusNoContent)
+}
+
+// ProviderStatus represents the status of a metadata provider.
+type ProviderStatus struct {
+	Name       string `json:"name"`
+	Configured bool   `json:"configured"`
+}
+
+// StatusResponse represents the metadata service status.
+type StatusResponse struct {
+	Movie  []ProviderStatus `json:"movie"`
+	Series []ProviderStatus `json:"series"`
+}
+
+// GetStatus returns the status of configured metadata providers.
+// GET /api/v1/metadata/status
+func (h *Handlers) GetStatus(c echo.Context) error {
+	response := StatusResponse{
+		Movie: []ProviderStatus{
+			{Name: "tmdb", Configured: h.service.HasMovieProvider()},
+		},
+		Series: []ProviderStatus{
+			{Name: "tmdb", Configured: h.service.IsTMDBConfigured()},
+			{Name: "tvdb", Configured: h.service.IsTVDBConfigured()},
+		},
+	}
+
+	return c.JSON(http.StatusOK, response)
+}

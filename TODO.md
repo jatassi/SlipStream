@@ -41,13 +41,13 @@ This file tracks development progress across sessions. Mark items `[x]` when com
 
 ## Testing
 
-- [ ] Scanner/parser unit tests (filename parsing, extension detection)
-- [ ] Quality profile unit tests (matching, upgrades, serialization)
-- [ ] Organizer/templates unit tests (naming templates, path generation)
-- [ ] Movie service integration tests
-- [ ] TV service integration tests
-- [ ] API endpoint integration tests
-- [ ] Test coverage reporting
+- [x] Scanner/parser unit tests (filename parsing, extension detection)
+- [x] Quality profile unit tests (matching, upgrades, serialization)
+- [x] Organizer/templates unit tests (naming templates, path generation)
+- [x] Movie service integration tests
+- [x] TV service integration tests
+- [x] API endpoint integration tests
+- [x] Test coverage reporting
 
 ---
 
@@ -70,10 +70,10 @@ This file tracks development progress across sessions. Mark items `[x]` when com
 
 ## Phase 3: Metadata Integration
 
-- [ ] TMDB API client
-- [ ] TVDB API client
-- [ ] Metadata fetching and caching
-- [ ] Artwork downloading
+- [x] TMDB API client
+- [x] TVDB API client
+- [x] Metadata fetching and caching
+- [x] Artwork downloading
 
 ---
 

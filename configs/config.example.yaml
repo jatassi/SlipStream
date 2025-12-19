@@ -21,3 +21,27 @@ logging:
 auth:
   # Password for accessing the web interface (leave empty to disable)
   password: ""
+
+# Metadata providers for movie/TV information
+metadata:
+  # TMDB (The Movie Database) - https://www.themoviedb.org/
+  tmdb:
+    # API key from TMDB (required for metadata lookups)
+    # Get one at: https://www.themoviedb.org/settings/api
+    api_key: ""
+    # Base URL for API (default: https://api.themoviedb.org/3)
+    base_url: "https://api.themoviedb.org/3"
+    # Base URL for images (default: https://image.tmdb.org/t/p)
+    image_base_url: "https://image.tmdb.org/t/p"
+    # Request timeout in seconds
+    timeout_seconds: 30
+
+  # TVDB (The TV Database) - https://thetvdb.com/
+  tvdb:
+    # API key from TVDB (required for TV metadata)
+    # Get one at: https://thetvdb.com/api-information
+    api_key: ""
+    # Base URL for API (default: https://api4.thetvdb.com/v4)
+    base_url: "https://api4.thetvdb.com/v4"
+    # Request timeout in seconds
+    timeout_seconds: 30

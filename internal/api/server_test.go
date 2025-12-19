@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -14,7 +15,23 @@ func setupTestServer(t *testing.T) (*Server, func()) {
 	t.Helper()
 
 	tdb := testutil.NewTestDB(t)
-	server := NewServer(tdb.Conn, nil, tdb.Logger)
+
+	// Create minimal test config
+	cfg := &config.Config{
+		Metadata: config.MetadataConfig{
+			TMDB: config.TMDBConfig{
+				BaseURL:      "https://api.themoviedb.org/3",
+				ImageBaseURL: "https://image.tmdb.org/t/p",
+				Timeout:      5,
+			},
+			TVDB: config.TVDBConfig{
+				BaseURL: "https://api4.thetvdb.com/v4",
+				Timeout: 5,
+			},
+		},
+	}
+
+	server := NewServer(tdb.Conn, nil, cfg, tdb.Logger)
 
 	cleanup := func() {
 		tdb.Close()

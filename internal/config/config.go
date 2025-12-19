@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -13,6 +15,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Auth     AuthConfig     `mapstructure:"auth"`
+	Metadata MetadataConfig `mapstructure:"metadata"`
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -37,6 +40,27 @@ type AuthConfig struct {
 	JWTSecret string `mapstructure:"jwt_secret"`
 }
 
+// MetadataConfig holds metadata provider configuration.
+type MetadataConfig struct {
+	TMDB TMDBConfig `mapstructure:"tmdb"`
+	TVDB TVDBConfig `mapstructure:"tvdb"`
+}
+
+// TMDBConfig holds TMDB API configuration.
+type TMDBConfig struct {
+	APIKey       string `mapstructure:"api_key"`
+	BaseURL      string `mapstructure:"base_url"`
+	ImageBaseURL string `mapstructure:"image_base_url"`
+	Timeout      int    `mapstructure:"timeout_seconds"`
+}
+
+// TVDBConfig holds TVDB API configuration.
+type TVDBConfig struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+	Timeout int    `mapstructure:"timeout_seconds"`
+}
+
 // Default returns a Config with default values.
 func Default() *Config {
 	return &Config{
@@ -54,12 +78,33 @@ func Default() *Config {
 		Auth: AuthConfig{
 			JWTSecret: "", // Will be generated if empty
 		},
+		Metadata: MetadataConfig{
+			TMDB: TMDBConfig{
+				BaseURL:      "https://api.themoviedb.org/3",
+				ImageBaseURL: "https://image.tmdb.org/t/p",
+				Timeout:      30,
+			},
+			TVDB: TVDBConfig{
+				BaseURL: "https://api4.thetvdb.com/v4",
+				Timeout: 30,
+			},
+		},
 	}
 }
 
 // Load reads configuration from file and environment variables.
-// Priority: environment variables > config file > defaults
+// Priority: environment variables > .env file > config file > defaults
 func Load(configPath string) (*Config, error) {
+	// Load .env file if it exists (secrets go here)
+	// Try multiple locations: current dir, configs dir
+	envFiles := []string{".env", "configs/.env"}
+	for _, envFile := range envFiles {
+		if _, err := os.Stat(envFile); err == nil {
+			_ = godotenv.Load(envFile) // Ignore error, env vars are optional
+			break
+		}
+	}
+
 	v := viper.New()
 
 	// Set defaults
@@ -113,6 +158,13 @@ func setDefaults(v *viper.Viper) {
 
 	// Auth defaults
 	v.SetDefault("auth.jwt_secret", "")
+
+	// Metadata provider defaults
+	v.SetDefault("metadata.tmdb.base_url", "https://api.themoviedb.org/3")
+	v.SetDefault("metadata.tmdb.image_base_url", "https://image.tmdb.org/t/p")
+	v.SetDefault("metadata.tmdb.timeout_seconds", 30)
+	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
+	v.SetDefault("metadata.tvdb.timeout_seconds", 30)
 }
 
 // Address returns the server address string.

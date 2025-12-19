@@ -10,10 +10,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -29,10 +31,12 @@ type Server struct {
 	tvService         *tv.Service
 	qualityService    *quality.Service
 	rootFolderService *rootfolder.Service
+	metadataService   *metadata.Service
+	artworkDownloader *metadata.ArtworkDownloader
 }
 
 // NewServer creates a new API server instance.
-func NewServer(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Server {
+func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -49,6 +53,10 @@ func NewServer(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Server {
 	s.tvService = tv.NewService(db, hub, logger)
 	s.qualityService = quality.NewService(db, logger)
 	s.rootFolderService = rootfolder.NewService(db, logger)
+
+	// Initialize metadata service and artwork downloader
+	s.metadataService = metadata.NewService(cfg.Metadata, logger)
+	s.artworkDownloader = metadata.NewArtworkDownloader(metadata.DefaultArtworkConfig(), logger)
 
 	s.setupMiddleware()
 	s.setupRoutes()
@@ -142,6 +150,10 @@ func (s *Server) setupRoutes() {
 	// Root folders routes
 	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
 	rootFolderHandlers.RegisterRoutes(api.Group("/rootfolders"))
+
+	// Metadata routes
+	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
+	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
 
 	// Settings routes
 	settings := api.Group("/settings")
