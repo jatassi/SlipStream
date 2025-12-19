@@ -127,3 +127,31 @@
     @apply font-sans;
   }
 }
+
+/* Collapsible animations for sidebar menus */
+@keyframes collapse-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--collapsible-panel-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapse-up {
+  from {
+    height: var(--collapsible-panel-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+@theme inline {
+  --animate-collapse-down: collapse-down 200ms ease-out;
+  --animate-collapse-up: collapse-up 200ms ease-out;
+}

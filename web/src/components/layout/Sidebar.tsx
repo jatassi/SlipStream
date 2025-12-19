@@ -1,0 +1,281 @@
+import { Link, useRouterState } from '@tanstack/react-router'
+import {
+  LayoutDashboard,
+  Film,
+  Tv,
+  Activity,
+  History,
+  Settings,
+  FolderOpen,
+  Sliders,
+  Rss,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { useUIStore } from '@/stores'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+
+interface NavItem {
+  title: string
+  href: string
+  icon: React.ElementType
+}
+
+interface CollapsibleNavGroup {
+  id: string
+  title: string
+  icon: React.ElementType
+  items: NavItem[]
+}
+
+const mainNavItems: NavItem[] = [
+  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { title: 'Movies', href: '/movies', icon: Film },
+  { title: 'Series', href: '/series', icon: Tv },
+]
+
+const activityGroup: CollapsibleNavGroup = {
+  id: 'activity',
+  title: 'Activity',
+  icon: Activity,
+  items: [
+    { title: 'Queue', href: '/activity', icon: Activity },
+    { title: 'History', href: '/activity/history', icon: History },
+  ],
+}
+
+const settingsGroup: CollapsibleNavGroup = {
+  id: 'settings',
+  title: 'Settings',
+  icon: Settings,
+  items: [
+    { title: 'General', href: '/settings', icon: Settings },
+    { title: 'Quality Profiles', href: '/settings/profiles', icon: Sliders },
+    { title: 'Root Folders', href: '/settings/rootfolders', icon: FolderOpen },
+    { title: 'Indexers', href: '/settings/indexers', icon: Rss },
+    { title: 'Download Clients', href: '/settings/downloadclients', icon: Download },
+  ],
+}
+
+function NavLink({
+  item,
+  collapsed,
+  indented = false,
+}: {
+  item: NavItem
+  collapsed: boolean
+  indented?: boolean
+}) {
+  const router = useRouterState()
+  const isActive = router.location.pathname === item.href
+
+  const linkContent = (
+    <>
+      <item.icon className="size-4 shrink-0" />
+      {!collapsed && <span>{item.title}</span>}
+    </>
+  )
+
+  const linkClassName = cn(
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    'hover:bg-accent hover:text-accent-foreground',
+    isActive && 'bg-accent text-accent-foreground',
+    collapsed && 'justify-center px-2',
+    indented && !collapsed && 'ml-4 border-l border-border pl-4'
+  )
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={<Link to={item.href} className={linkClassName} />}
+        >
+          {linkContent}
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.title}</TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Link to={item.href} className={linkClassName}>
+      {linkContent}
+    </Link>
+  )
+}
+
+function NavSection({ items, collapsed }: { items: NavItem[]; collapsed: boolean }) {
+  return (
+    <div className="space-y-1">
+      {items.map((item) => (
+        <NavLink key={item.href} item={item} collapsed={collapsed} />
+      ))}
+    </div>
+  )
+}
+
+function CollapsibleNavSection({
+  group,
+  collapsed: sidebarCollapsed,
+}: {
+  group: CollapsibleNavGroup
+  collapsed: boolean
+}) {
+  const router = useRouterState()
+  const { expandedMenus, toggleMenu } = useUIStore()
+
+  const isExpanded = expandedMenus[group.id] ?? false
+  const isAnyChildActive = group.items.some(
+    (item) => router.location.pathname === item.href
+  )
+
+  // When sidebar is collapsed, show a tooltip with submenu items
+  if (sidebarCollapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          className={cn(
+            'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            isAnyChildActive && 'bg-accent text-accent-foreground'
+          )}
+        >
+          <group.icon className="size-5 shrink-0" />
+        </TooltipTrigger>
+        <TooltipContent side="right" className="flex flex-col gap-1 p-2">
+          <span className="mb-1 text-xs font-semibold">{group.title}</span>
+          {group.items.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={cn(
+                'flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent',
+                router.location.pathname === item.href && 'bg-accent'
+              )}
+            >
+              <item.icon className="size-3" />
+              {item.title}
+            </Link>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Collapsible open={isExpanded} onOpenChange={() => toggleMenu(group.id)}>
+      <CollapsibleTrigger
+        className={cn(
+          'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          'hover:bg-accent hover:text-accent-foreground',
+          isAnyChildActive && 'text-accent-foreground'
+        )}
+      >
+        <group.icon className="size-5 shrink-0" />
+        <span className="flex-1 text-left">{group.title}</span>
+        <ChevronDown
+          className={cn(
+            'size-4 shrink-0 transition-transform duration-200',
+            isExpanded && 'rotate-180'
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="overflow-hidden data-[ending-style]:animate-collapse-up data-[starting-style]:animate-collapse-down">
+        <div className="mt-1 space-y-1">
+          {group.items.map((item) => (
+            <NavLink key={item.href} item={item} collapsed={false} indented />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+export function Sidebar() {
+  const { sidebarCollapsed, toggleSidebar } = useUIStore()
+
+  return (
+    <TooltipProvider delay={0}>
+      <aside
+        className={cn(
+          'flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
+          sidebarCollapsed ? 'w-16' : 'w-64'
+        )}
+      >
+        {/* Logo */}
+        <div
+          className={cn(
+            'flex h-14 items-center border-b border-border px-4',
+            sidebarCollapsed && 'justify-center px-2'
+          )}
+        >
+          <Link to="/" className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Film className="size-5" />
+            </div>
+            {!sidebarCollapsed && (
+              <span className="text-lg font-semibold">SlipStream</span>
+            )}
+          </Link>
+        </div>
+
+        {/* Navigation */}
+        <ScrollArea className="flex-1 px-3 py-4">
+          <nav className="space-y-4">
+            {/* Main navigation */}
+            <NavSection items={mainNavItems} collapsed={sidebarCollapsed} />
+
+            {/* Divider */}
+            <div className="h-px bg-border" />
+
+            {/* Activity collapsible menu */}
+            <CollapsibleNavSection
+              group={activityGroup}
+              collapsed={sidebarCollapsed}
+            />
+
+            {/* Settings collapsible menu */}
+            <CollapsibleNavSection
+              group={settingsGroup}
+              collapsed={sidebarCollapsed}
+            />
+          </nav>
+        </ScrollArea>
+
+        {/* Collapse toggle */}
+        <div className="border-t border-border p-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSidebar}
+            className={cn('w-full', sidebarCollapsed && 'px-2')}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="size-4" />
+            ) : (
+              <>
+                <ChevronLeft className="size-4" />
+                <span className="ml-2">Collapse</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </aside>
+    </TooltipProvider>
+  )
+}

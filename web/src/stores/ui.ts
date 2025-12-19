@@ -1,0 +1,102 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+export interface Notification {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message?: string
+  duration?: number
+}
+
+interface UIState {
+  // Sidebar
+  sidebarCollapsed: boolean
+  toggleSidebar: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
+
+  // Sidebar menu expansion state
+  expandedMenus: Record<string, boolean>
+  toggleMenu: (menuId: string) => void
+  setMenuExpanded: (menuId: string, expanded: boolean) => void
+
+  // Theme
+  theme: 'light' | 'dark' | 'system'
+  setTheme: (theme: 'light' | 'dark' | 'system') => void
+
+  // View preferences
+  moviesView: 'grid' | 'table'
+  seriesView: 'grid' | 'table'
+  setMoviesView: (view: 'grid' | 'table') => void
+  setSeriesView: (view: 'grid' | 'table') => void
+
+  // Notifications
+  notifications: Notification[]
+  addNotification: (notification: Omit<Notification, 'id'>) => void
+  dismissNotification: (id: string) => void
+  clearNotifications: () => void
+}
+
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      // Sidebar
+      sidebarCollapsed: false,
+      toggleSidebar: () =>
+        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+
+      // Sidebar menu expansion state
+      expandedMenus: { settings: true, activity: false },
+      toggleMenu: (menuId) =>
+        set((state) => ({
+          expandedMenus: {
+            ...state.expandedMenus,
+            [menuId]: !state.expandedMenus[menuId],
+          },
+        })),
+      setMenuExpanded: (menuId, expanded) =>
+        set((state) => ({
+          expandedMenus: {
+            ...state.expandedMenus,
+            [menuId]: expanded,
+          },
+        })),
+
+      // Theme
+      theme: 'dark',
+      setTheme: (theme) => set({ theme }),
+
+      // View preferences
+      moviesView: 'grid',
+      seriesView: 'grid',
+      setMoviesView: (view) => set({ moviesView: view }),
+      setSeriesView: (view) => set({ seriesView: view }),
+
+      // Notifications
+      notifications: [],
+      addNotification: (notification) =>
+        set((state) => ({
+          notifications: [
+            ...state.notifications,
+            { ...notification, id: crypto.randomUUID() },
+          ],
+        })),
+      dismissNotification: (id) =>
+        set((state) => ({
+          notifications: state.notifications.filter((n) => n.id !== id),
+        })),
+      clearNotifications: () => set({ notifications: [] }),
+    }),
+    {
+      name: 'slipstream-ui',
+      partialize: (state) => ({
+        sidebarCollapsed: state.sidebarCollapsed,
+        expandedMenus: state.expandedMenus,
+        theme: state.theme,
+        moviesView: state.moviesView,
+        seriesView: state.seriesView,
+      }),
+    }
+  )
+)

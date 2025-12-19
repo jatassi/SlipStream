@@ -53,19 +53,38 @@ This file tracks development progress across sessions. Mark items `[x]` when com
 
 ## Frontend Development
 
-- [ ] Dashboard/home page (system status, recent activity)
-- [ ] Movies list and detail views
-- [ ] Series list and detail views (with season/episode hierarchy)
-- [ ] Add movie/series workflow (search + add)
-- [ ] Quality profiles management UI
-- [ ] Root folders management UI
-- [ ] Settings pages
-- [ ] Indexer configuration UI
-- [ ] Download client configuration UI
-- [ ] Queue/activity view
-- [ ] History view
-- [ ] Real-time updates via WebSocket
+- [x] Dashboard/home page (system status, recent activity)
+- [x] Movies list and detail views
+- [x] Series list and detail views (with season/episode hierarchy)
+- [x] Add movie/series workflow (search + add)
+- [x] Quality profiles management UI
+- [x] Root folders management UI
+- [x] Settings pages (General, Quality Profiles, Root Folders, Indexers, Download Clients)
+- [x] Indexer configuration UI
+- [x] Download client configuration UI
+- [x] Queue/activity view
+- [x] History view
+- [x] Real-time updates via WebSocket
+- [x] Collapsible sidebar with Activity and Settings submenus
+- [x] Folder browser dialog for root folder selection
 
+---
+
+## File Scanning & Watching (In Progress)
+
+Backend features for automatic library management:
+
+- [x] Filesystem browser API (`internal/filesystem/`) - browse directories, list drives (Windows)
+- [ ] Library manager service (`internal/library/librarymanager/`) - orchestrates scanning and watching
+- [ ] Extend scanner with batched scanning for large libraries (100K+ files)
+- [ ] Trigger async scan when root folder is created
+- [ ] File watcher package (`internal/watcher/`) with fsnotify
+- [ ] Event debouncing (500ms window for rapid file events)
+- [ ] Auto-search metadata for new files (TMDB/TVDB)
+- [ ] Scan progress WebSocket events (`scan:started`, `scan:progress`, `scan:completed`)
+- [ ] Frontend scan progress indicators
+
+The plan file at `C:\Users\jacks\.claude\plans\squishy-booping-snowglobe.md` contains the full implementation details for the remaining features.
 ---
 
 ## Phase 3: Metadata Integration

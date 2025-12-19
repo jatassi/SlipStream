@@ -1,0 +1,271 @@
+import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Search, Check } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { PosterImage } from '@/components/media/PosterImage'
+import { LoadingState } from '@/components/data/LoadingState'
+import { EmptyState } from '@/components/data/EmptyState'
+import { useSeriesSearch, useQualityProfiles, useRootFoldersByType, useCreateSeries } from '@/hooks'
+import { toast } from 'sonner'
+import type { SeriesSearchResult, CreateSeriesInput } from '@/types'
+
+type Step = 'search' | 'configure'
+
+export function AddSeriesPage() {
+  const navigate = useNavigate()
+  const [step, setStep] = useState<Step>('search')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null)
+
+  // Form state
+  const [rootFolderId, setRootFolderId] = useState<string>('')
+  const [qualityProfileId, setQualityProfileId] = useState<string>('')
+  const [monitored, setMonitored] = useState(true)
+  const [seasonFolder, setSeasonFolder] = useState(true)
+  const [searchOnAdd, setSearchOnAdd] = useState(true)
+
+  const { data: searchResults, isLoading: searching } = useSeriesSearch(searchQuery)
+  const { data: rootFolders } = useRootFoldersByType('tv')
+  const { data: qualityProfiles } = useQualityProfiles()
+  const createMutation = useCreateSeries()
+
+  const handleSelectSeries = (series: SeriesSearchResult) => {
+    setSelectedSeries(series)
+    setStep('configure')
+  }
+
+  const handleBack = () => {
+    if (step === 'configure') {
+      setStep('search')
+      setSelectedSeries(null)
+    } else {
+      navigate({ to: '/series' })
+    }
+  }
+
+  const handleAdd = async () => {
+    if (!selectedSeries || !rootFolderId || !qualityProfileId) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const input: CreateSeriesInput = {
+      title: selectedSeries.title,
+      year: selectedSeries.year,
+      tvdbId: selectedSeries.tvdbId,
+      tmdbId: selectedSeries.tmdbId,
+      imdbId: selectedSeries.imdbId,
+      overview: selectedSeries.overview,
+      runtime: selectedSeries.runtime,
+      rootFolderId: parseInt(rootFolderId),
+      qualityProfileId: parseInt(qualityProfileId),
+      monitored,
+      seasonFolder,
+    }
+
+    try {
+      const series = await createMutation.mutateAsync(input)
+      toast.success(`Added "${series.title}"`)
+      navigate({ to: '/series/$id', params: { id: String(series.id) } })
+    } catch {
+      toast.error('Failed to add series')
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title="Add Series"
+        breadcrumbs={[
+          { label: 'Series', href: '/series' },
+          { label: 'Add' },
+        ]}
+        actions={
+          <Button variant="ghost" onClick={handleBack}>
+            <ArrowLeft className="size-4 mr-2" />
+            Back
+          </Button>
+        }
+      />
+
+      {step === 'search' && (
+        <div className="space-y-6">
+          {/* Search input */}
+          <div className="max-w-xl">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search for a series..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Results */}
+          {searching ? (
+            <LoadingState count={4} />
+          ) : searchQuery.length < 2 ? (
+            <EmptyState
+              icon={<Search className="size-8" />}
+              title="Search for a series"
+              description="Enter at least 2 characters to search"
+            />
+          ) : !searchResults?.length ? (
+            <EmptyState
+              icon={<Search className="size-8" />}
+              title="No results found"
+              description="Try a different search term"
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {searchResults.map((series) => (
+                <Card
+                  key={series.tmdbId}
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => handleSelectSeries(series)}
+                >
+                  <div className="aspect-[2/3] relative">
+                    <PosterImage
+                      path={series.posterPath}
+                      alt={series.title}
+                      type="series"
+                      className="absolute inset-0 rounded-t-lg"
+                    />
+                  </div>
+                  <CardContent className="p-3">
+                    <h3 className="font-semibold truncate">{series.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {series.year || 'Unknown year'}
+                      {series.network && ` - ${series.network}`}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'configure' && selectedSeries && (
+        <div className="max-w-2xl space-y-6">
+          {/* Selected series preview */}
+          <Card>
+            <CardContent className="p-4 flex gap-4">
+              <PosterImage
+                path={selectedSeries.posterPath}
+                alt={selectedSeries.title}
+                type="series"
+                className="w-24 h-36 rounded shrink-0"
+              />
+              <div>
+                <h2 className="text-xl font-semibold">{selectedSeries.title}</h2>
+                <p className="text-muted-foreground">
+                  {selectedSeries.year || 'Unknown year'}
+                  {selectedSeries.network && ` - ${selectedSeries.network}`}
+                </p>
+                {selectedSeries.overview && (
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                    {selectedSeries.overview}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configuration form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="rootFolder">Root Folder *</Label>
+                <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rootFolders?.map((folder) => (
+                      <SelectItem key={folder.id} value={String(folder.id)}>
+                        {folder.path}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="qualityProfile">Quality Profile *</Label>
+                <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {qualityProfiles?.map((profile) => (
+                      <SelectItem key={profile.id} value={String(profile.id)}>
+                        {profile.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Monitored</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically search for and download releases
+                  </p>
+                </div>
+                <Switch checked={monitored} onCheckedChange={setMonitored} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Season Folder</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Organize episodes into season folders
+                  </p>
+                </div>
+                <Switch checked={seasonFolder} onCheckedChange={setSeasonFolder} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Search on Add</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Start searching for releases immediately
+                  </p>
+                </div>
+                <Switch checked={searchOnAdd} onCheckedChange={setSearchOnAdd} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={handleBack}>
+              Back
+            </Button>
+            <Button
+              onClick={handleAdd}
+              disabled={!rootFolderId || !qualityProfileId || createMutation.isPending}
+            >
+              <Check className="size-4 mr-2" />
+              Add Series
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

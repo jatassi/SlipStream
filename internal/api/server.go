@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
@@ -27,12 +28,13 @@ type Server struct {
 	logger zerolog.Logger
 
 	// Services
-	movieService      *movies.Service
-	tvService         *tv.Service
-	qualityService    *quality.Service
-	rootFolderService *rootfolder.Service
-	metadataService   *metadata.Service
-	artworkDownloader *metadata.ArtworkDownloader
+	movieService       *movies.Service
+	tvService          *tv.Service
+	qualityService     *quality.Service
+	rootFolderService  *rootfolder.Service
+	metadataService    *metadata.Service
+	artworkDownloader  *metadata.ArtworkDownloader
+	filesystemService  *filesystem.Service
 }
 
 // NewServer creates a new API server instance.
@@ -57,6 +59,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
 	s.artworkDownloader = metadata.NewArtworkDownloader(metadata.DefaultArtworkConfig(), logger)
+
+	// Initialize filesystem service
+	s.filesystemService = filesystem.NewService(logger)
 
 	s.setupMiddleware()
 	s.setupRoutes()
@@ -154,6 +159,10 @@ func (s *Server) setupRoutes() {
 	// Metadata routes
 	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
 	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
+
+	// Filesystem routes (for folder browsing)
+	filesystemHandlers := filesystem.NewHandlers(s.filesystemService)
+	filesystemHandlers.RegisterRoutes(api.Group("/filesystem"))
 
 	// Settings routes
 	settings := api.Group("/settings")
