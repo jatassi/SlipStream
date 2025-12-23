@@ -32,8 +32,9 @@ package-lock.json
 .DS_Store
 Thumbs.db
 
-# Data directory
+# Data directory (for app runtime data, not source code)
 data/
+!web/src/components/data/
 *.db
 *.db-shm
 *.db-wal

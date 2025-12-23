@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Film } from 'lucide-react'
+import { Plus, Grid, List, Film, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -11,7 +11,7 @@ import { MovieTable } from '@/components/movies/MovieTable'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useMovies, useSearchMovie, useDeleteMovie } from '@/hooks'
+import { useMovies, useSearchMovie, useDeleteMovie, useScanLibrary } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Movie } from '@/types'
@@ -26,6 +26,16 @@ export function MoviesPage() {
   const { data: movies, isLoading, isError, refetch } = useMovies()
   const searchMutation = useSearchMovie()
   const deleteMutation = useDeleteMovie()
+  const scanMutation = useScanLibrary()
+
+  const handleScanLibrary = async () => {
+    try {
+      await scanMutation.mutateAsync()
+      toast.success('Library scan started')
+    } catch {
+      toast.error('Failed to start library scan')
+    }
+  }
 
   // Filter movies
   const filteredMovies = (movies || []).filter((movie: Movie) => {
@@ -82,12 +92,22 @@ export function MoviesPage() {
         title="Movies"
         description={`${movies?.length || 0} movies in library`}
         actions={
-          <Link to="/movies/add">
-            <Button>
-              <Plus className="size-4 mr-1" />
-              Add Movie
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleScanLibrary}
+              disabled={scanMutation.isPending}
+            >
+              <RefreshCw className={`size-4 mr-1 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
+              {scanMutation.isPending ? 'Scanning...' : 'Refresh'}
             </Button>
-          </Link>
+            <Link to="/movies/add">
+              <Button>
+                <Plus className="size-4 mr-1" />
+                Add Movie
+              </Button>
+            </Link>
+          </div>
         }
       />
 
