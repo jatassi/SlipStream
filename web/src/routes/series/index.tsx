@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Tv } from 'lucide-react'
+import { Plus, Grid, List, Tv, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -10,8 +10,9 @@ import { SeriesGrid } from '@/components/series/SeriesGrid'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSeries } from '@/hooks'
+import { useSeries, useScanLibrary } from '@/hooks'
 import { useUIStore } from '@/stores'
+import { toast } from 'sonner'
 import type { Series } from '@/types'
 
 type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
@@ -22,6 +23,16 @@ export function SeriesListPage() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
 
   const { data: seriesList, isLoading, isError, refetch } = useSeries()
+  const scanMutation = useScanLibrary()
+
+  const handleScanLibrary = async () => {
+    try {
+      await scanMutation.mutateAsync()
+      toast.success('Library scan started')
+    } catch {
+      toast.error('Failed to start library scan')
+    }
+  }
 
   // Filter series
   const filteredSeries = (seriesList || []).filter((s: Series) => {
@@ -60,12 +71,22 @@ export function SeriesListPage() {
         title="Series"
         description={`${seriesList?.length || 0} series in library`}
         actions={
-          <Link to="/series/add">
-            <Button>
-              <Plus className="size-4 mr-1" />
-              Add Series
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleScanLibrary}
+              disabled={scanMutation.isPending}
+            >
+              <RefreshCw className={`size-4 mr-1 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
+              {scanMutation.isPending ? 'Scanning...' : 'Refresh'}
             </Button>
-          </Link>
+            <Link to="/series/add">
+              <Button>
+                <Plus className="size-4 mr-1" />
+                Add Series
+              </Button>
+            </Link>
+          </div>
         }
       />
 

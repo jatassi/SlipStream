@@ -83,7 +83,7 @@ Backend features for automatic library management:
 - [x] Auto-search metadata for new files (TMDB/TVDB)
 - [x] Progress tracking system (`internal/progress/`) with WebSocket events
 - [x] Frontend progress indicators (sidebar activity section with auto-dismiss)
-- [ ] Add refresh button to Movies and Series pages to trigger manual scan
+- [x] Add refresh button to Movies and Series pages to trigger manual scan
 ---
 
 ## Phase 3: Metadata Integration
