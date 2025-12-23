@@ -4,6 +4,8 @@ import { movieKeys } from '@/hooks/useMovies'
 import { seriesKeys } from '@/hooks/useSeries'
 import { queueKeys } from '@/hooks/useQueue'
 import { historyKeys } from '@/hooks/useHistory'
+import { useProgressStore } from './progress'
+import type { Activity, ProgressEventType } from '@/types/progress'
 
 export interface WSMessage {
   type: string
@@ -114,6 +116,18 @@ export function useWebSocketHandler() {
         break
       case 'download:progress':
         queryClient.invalidateQueries({ queryKey: queueKeys.list() })
+        break
+
+      // Progress events
+      case 'progress:started':
+      case 'progress:update':
+      case 'progress:completed':
+      case 'progress:error':
+      case 'progress:cancelled':
+        useProgressStore.getState().handleProgressEvent(
+          lastMessage.type as ProgressEventType,
+          lastMessage.payload as Activity
+        )
         break
     }
   }

@@ -12,11 +12,15 @@ import (
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/filesystem"
+	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/progress"
+	"github.com/slipstream/slipstream/internal/watcher"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -28,13 +32,17 @@ type Server struct {
 	logger zerolog.Logger
 
 	// Services
-	movieService       *movies.Service
-	tvService          *tv.Service
-	qualityService     *quality.Service
-	rootFolderService  *rootfolder.Service
-	metadataService    *metadata.Service
-	artworkDownloader  *metadata.ArtworkDownloader
-	filesystemService  *filesystem.Service
+	scannerService        *scanner.Service
+	movieService          *movies.Service
+	tvService             *tv.Service
+	qualityService        *quality.Service
+	rootFolderService     *rootfolder.Service
+	metadataService       *metadata.Service
+	artworkDownloader     *metadata.ArtworkDownloader
+	filesystemService     *filesystem.Service
+	libraryManagerService *librarymanager.Service
+	watcherService        *watcher.Service
+	progressManager       *progress.Manager
 }
 
 // NewServer creates a new API server instance.
@@ -51,6 +59,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	}
 
 	// Initialize services
+	s.scannerService = scanner.NewService(logger)
 	s.movieService = movies.NewService(db, hub, logger)
 	s.tvService = tv.NewService(db, hub, logger)
 	s.qualityService = quality.NewService(db, logger)
@@ -62,6 +71,34 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize filesystem service
 	s.filesystemService = filesystem.NewService(logger)
+
+	// Initialize progress manager for tracking activities
+	s.progressManager = progress.NewManager(hub, logger)
+
+	// Initialize library manager service (orchestrates scanning and file matching)
+	s.libraryManagerService = librarymanager.NewService(
+		db,
+		s.scannerService,
+		s.movieService,
+		s.tvService,
+		s.metadataService,
+		s.rootFolderService,
+		s.qualityService,
+		s.progressManager,
+		logger,
+	)
+
+	// Initialize watcher service for real-time file monitoring
+	watcherSvc, err := watcher.NewService(s.rootFolderService, logger)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Failed to initialize watcher service")
+	} else {
+		s.watcherService = watcherSvc
+		// Set file processor to use library manager
+		s.watcherService.SetFileProcessor(func(ctx context.Context, filePath string) error {
+			return s.libraryManagerService.ScanSingleFile(ctx, filePath)
+		})
+	}
 
 	s.setupMiddleware()
 	s.setupRoutes()
@@ -156,6 +193,25 @@ func (s *Server) setupRoutes() {
 	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
 	rootFolderHandlers.RegisterRoutes(api.Group("/rootfolders"))
 
+	// Library manager routes (scanning)
+	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
+
+	// Wire up auto-scan when root folder is created
+	rootFolderHandlers.SetOnFolderCreated(func(folderID int64) {
+		ctx := context.Background()
+		_, err := s.libraryManagerService.ScanRootFolder(ctx, folderID)
+		if err != nil {
+			s.logger.Error().Err(err).Int64("rootFolderId", folderID).Msg("Auto-scan failed for new root folder")
+		}
+	})
+
+	rootFoldersGroup := api.Group("/rootfolders")
+	rootFoldersGroup.POST("/:id/scan", libraryManagerHandlers.ScanRootFolder)
+	rootFoldersGroup.GET("/:id/scan", libraryManagerHandlers.GetScanStatus)
+	rootFoldersGroup.DELETE("/:id/scan", libraryManagerHandlers.CancelScan)
+	api.GET("/scans", libraryManagerHandlers.GetAllScanStatuses)
+	api.POST("/scans", libraryManagerHandlers.ScanAllRootFolders)
+
 	// Metadata routes
 	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
 	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
@@ -201,12 +257,28 @@ func (s *Server) setupRoutes() {
 // Start begins listening for HTTP requests.
 func (s *Server) Start(address string) error {
 	s.logger.Info().Str("address", address).Msg("starting HTTP server")
+
+	// Start the file watcher service
+	if s.watcherService != nil {
+		if err := s.watcherService.Start(context.Background()); err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to start watcher service")
+		}
+	}
+
 	return s.echo.Start(address)
 }
 
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("shutting down HTTP server")
+
+	// Stop the file watcher service
+	if s.watcherService != nil {
+		if err := s.watcherService.Stop(); err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to stop watcher service")
+		}
+	}
+
 	return s.echo.Shutdown(ctx)
 }
 

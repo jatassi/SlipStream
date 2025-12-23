@@ -304,6 +304,15 @@ func (q *Queries) DeleteSeries(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteSeriesByRootFolder = `-- name: DeleteSeriesByRootFolder :exec
+DELETE FROM series WHERE root_folder_id = ?
+`
+
+func (q *Queries) DeleteSeriesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteSeriesByRootFolder, rootFolderID)
+	return err
+}
+
 const getEpisode = `-- name: GetEpisode :one
 SELECT id, series_id, season_number, episode_number, title, overview, air_date, monitored FROM episodes WHERE id = ? LIMIT 1
 `

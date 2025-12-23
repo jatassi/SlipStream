@@ -38,6 +38,9 @@ RETURNING *;
 -- name: DeleteMovie :exec
 DELETE FROM movies WHERE id = ?;
 
+-- name: DeleteMoviesByRootFolder :exec
+DELETE FROM movies WHERE root_folder_id = ?;
+
 -- name: CountMovies :one
 SELECT COUNT(*) FROM movies;
 

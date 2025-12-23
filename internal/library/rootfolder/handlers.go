@@ -8,14 +8,23 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// OnRootFolderCreatedFunc is called when a root folder is created.
+type OnRootFolderCreatedFunc func(folderID int64)
+
 // Handlers provides HTTP handlers for root folder operations.
 type Handlers struct {
-	service *Service
+	service           *Service
+	onFolderCreated   OnRootFolderCreatedFunc
 }
 
 // NewHandlers creates new root folder handlers.
 func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+// SetOnFolderCreated sets the callback for when a folder is created.
+func (h *Handlers) SetOnFolderCreated(fn OnRootFolderCreatedFunc) {
+	h.onFolderCreated = fn
 }
 
 // RegisterRoutes registers the root folder routes.
@@ -87,6 +96,12 @@ func (h *Handlers) Create(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
+
+	// Trigger async scan for the newly created folder
+	if h.onFolderCreated != nil {
+		go h.onFolderCreated(folder.ID)
+	}
+
 	return c.JSON(http.StatusCreated, folder)
 }
 

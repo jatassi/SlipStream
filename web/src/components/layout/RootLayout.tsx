@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Toaster } from '@/components/ui/sonner'
-import { useWebSocketStore, useUIStore } from '@/stores'
+import { useWebSocketStore, useWebSocketHandler, useUIStore } from '@/stores'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -23,6 +23,9 @@ interface RootLayoutProps {
 function LayoutContent({ children }: RootLayoutProps) {
   const { connect, disconnect } = useWebSocketStore()
   const { theme } = useUIStore()
+
+  // Process WebSocket messages (handles progress events, query invalidation, etc.)
+  useWebSocketHandler()
 
   // Apply theme
   useEffect(() => {

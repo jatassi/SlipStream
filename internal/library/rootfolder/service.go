@@ -41,6 +41,7 @@ type CreateRootFolderInput struct {
 
 // Service provides root folder operations.
 type Service struct {
+	db      *sql.DB
 	queries *sqlc.Queries
 	logger  zerolog.Logger
 }
@@ -48,6 +49,7 @@ type Service struct {
 // NewService creates a new root folder service.
 func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	return &Service{
+		db:      db,
 		queries: sqlc.New(db),
 		logger:  logger.With().Str("component", "rootfolder").Logger(),
 	}
@@ -172,7 +174,7 @@ func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*Roo
 	return s.rowToRootFolder(row), nil
 }
 
-// Delete deletes a root folder.
+// Delete deletes a root folder and all associated movies/series.
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	// Get folder first for logging
 	folder, err := s.Get(ctx, id)
@@ -180,14 +182,38 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 
-	if err := s.queries.DeleteRootFolder(ctx, id); err != nil {
+	// Use a transaction to ensure atomic deletion
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	queries := s.queries.WithTx(tx)
+
+	// Delete all movies in this root folder (cascade: files are deleted by FK constraint)
+	if err := queries.DeleteMoviesByRootFolder(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		return fmt.Errorf("failed to delete movies: %w", err)
+	}
+
+	// Delete all series in this root folder (cascade: seasons, episodes, files are deleted by FK constraint)
+	if err := queries.DeleteSeriesByRootFolder(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		return fmt.Errorf("failed to delete series: %w", err)
+	}
+
+	// Delete the root folder itself
+	if err := queries.DeleteRootFolder(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete root folder: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	s.logger.Info().
 		Int64("id", id).
 		Str("path", folder.Path).
-		Msg("Deleted root folder")
+		Msg("Deleted root folder and associated media")
 
 	return nil
 }

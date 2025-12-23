@@ -170,6 +170,15 @@ func (q *Queries) DeleteMovieFilesByMovie(ctx context.Context, movieID int64) er
 	return err
 }
 
+const deleteMoviesByRootFolder = `-- name: DeleteMoviesByRootFolder :exec
+DELETE FROM movies WHERE root_folder_id = ?
+`
+
+func (q *Queries) DeleteMoviesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteMoviesByRootFolder, rootFolderID)
+	return err
+}
+
 const getMovie = `-- name: GetMovie :one
 SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at FROM movies WHERE id = ? LIMIT 1
 `

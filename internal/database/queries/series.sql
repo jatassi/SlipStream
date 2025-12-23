@@ -40,6 +40,9 @@ RETURNING *;
 -- name: DeleteSeries :exec
 DELETE FROM series WHERE id = ?;
 
+-- name: DeleteSeriesByRootFolder :exec
+DELETE FROM series WHERE root_folder_id = ?;
+
 -- name: CountSeries :one
 SELECT COUNT(*) FROM series;
 

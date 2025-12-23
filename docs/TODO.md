@@ -75,16 +75,15 @@ This file tracks development progress across sessions. Mark items `[x]` when com
 Backend features for automatic library management:
 
 - [x] Filesystem browser API (`internal/filesystem/`) - browse directories, list drives (Windows)
-- [ ] Library manager service (`internal/library/librarymanager/`) - orchestrates scanning and watching
+- [x] Library manager service (`internal/library/librarymanager/`) - orchestrates scanning and file matching
 - [ ] Extend scanner with batched scanning for large libraries (100K+ files)
-- [ ] Trigger async scan when root folder is created
-- [ ] File watcher package (`internal/watcher/`) with fsnotify
-- [ ] Event debouncing (500ms window for rapid file events)
-- [ ] Auto-search metadata for new files (TMDB/TVDB)
-- [ ] Scan progress WebSocket events (`scan:started`, `scan:progress`, `scan:completed`)
-- [ ] Frontend scan progress indicators
-
-The plan file at `C:\Users\jacks\.claude\plans\squishy-booping-snowglobe.md` contains the full implementation details for the remaining features.
+- [x] Trigger async scan when root folder is created
+- [x] File watcher package (`internal/watcher/`) with fsnotify
+- [x] Event debouncing (500ms window for rapid file events)
+- [x] Auto-search metadata for new files (TMDB/TVDB)
+- [x] Progress tracking system (`internal/progress/`) with WebSocket events
+- [x] Frontend progress indicators (sidebar activity section with auto-dismiss)
+- [ ] Add refresh button to Movies and Series pages to trigger manual scan
 ---
 
 ## Phase 3: Metadata Integration
@@ -93,6 +92,7 @@ The plan file at `C:\Users\jacks\.claude\plans\squishy-booping-snowglobe.md` con
 - [x] TVDB API client
 - [x] Metadata fetching and caching
 - [x] Artwork downloading
+- [ ] Integration with scanning service (async call to metadata fetching and artwork APIs once library scan is complete - batch API calls where possible)
 
 ---
 

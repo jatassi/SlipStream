@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SlipStream is a unified media management system (similar to Sonarr/Radarr) with a Go backend and React frontend. It manages movies and TV shows, integrates with metadata providers (TMDB/TVDB), and supports torrent/usenet download clients.
+SlipStream is a unified media management system (similar to Sonarr/Radarr) with a Go backend and React frontend. It manages movies and TV shows, integrates with metadata providers (TMDB/TVDB), and supports torrent/usenet download clients. This project is still undergoing initial development meaning that it is not necessary to maintain backward compatibility with existing implementations. Always prioritize neat, clean code over cumbersome backward compatible workarounds.
 
 ## Additional Documentation
+
 Various documents detailing specific aspects of the application may be available in the `docs/` directory. When creating new documents, ALWAYS put them in this directory.
 
 ## Common Commands
