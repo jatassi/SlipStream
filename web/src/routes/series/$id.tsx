@@ -114,7 +114,8 @@ export function SeriesDetailPage() {
       {/* Hero with backdrop */}
       <div className="relative h-64 md:h-80">
         <BackdropImage
-          path={undefined} // TODO: Get from metadata
+          tmdbId={series.tmdbId}
+          type="series"
           alt={series.title}
           className="absolute inset-0"
         />
@@ -123,7 +124,7 @@ export function SeriesDetailPage() {
             {/* Poster */}
             <div className="hidden md:block shrink-0">
               <PosterImage
-                path={undefined}
+                tmdbId={series.tmdbId}
                 alt={series.title}
                 type="series"
                 className="w-40 h-60 rounded-lg shadow-lg"

@@ -519,6 +519,52 @@ func (q *Queries) ListMoviesPaginated(ctx context.Context, arg ListMoviesPaginat
 	return items, nil
 }
 
+const listUnmatchedMoviesByRootFolder = `-- name: ListUnmatchedMoviesByRootFolder :many
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at FROM movies
+WHERE root_folder_id = ?
+  AND (tmdb_id IS NULL OR tmdb_id = 0)
+ORDER BY sort_title
+`
+
+func (q *Queries) ListUnmatchedMoviesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) ([]*Movie, error) {
+	rows, err := q.db.QueryContext(ctx, listUnmatchedMoviesByRootFolder, rootFolderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Movie{}
+	for rows.Next() {
+		var i Movie
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.SortTitle,
+			&i.Year,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Overview,
+			&i.Runtime,
+			&i.Path,
+			&i.RootFolderID,
+			&i.QualityProfileID,
+			&i.Monitored,
+			&i.Status,
+			&i.AddedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchMovies = `-- name: SearchMovies :many
 SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at FROM movies
 WHERE title LIKE ? OR sort_title LIKE ?

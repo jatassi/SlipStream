@@ -14,7 +14,19 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Phase 3 metadata integration and frontend development plan\n\n- Implement TMDB and TVDB API clients for metadata fetching\n- Add metadata service with caching layer\n- Add artwork downloading functionality\n- Add metadata API handlers and routes\n- Update config with metadata settings\n- Create comprehensive frontend development plan \\(FRONTEND_PLAN.md\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream && setup.bat\")",
+      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream && go version\")",
+      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream && node --version\")",
+      "Bash(go version:*)",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(go mod download:*)",
+      "Bash(sqlc version:*)",
+      "Bash(npx vite:*)",
+      "Bash(git -C:*)",
+      "Bash(go test:*)",
+      "Bash(go run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,4 +1,4 @@
-// TMDB image base URL
+// TMDB image base URL (used for search results before download)
 export const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
 export const POSTER_SIZES = {
@@ -16,6 +16,14 @@ export const BACKDROP_SIZES = {
   w780: `${TMDB_IMAGE_BASE}/w780`,
   w1280: `${TMDB_IMAGE_BASE}/w1280`,
   original: `${TMDB_IMAGE_BASE}/original`,
+}
+
+// Local artwork API base URL
+export const ARTWORK_API_BASE = '/api/v1/metadata/artwork'
+
+// Build local artwork URL
+export function getLocalArtworkUrl(type: 'movie' | 'series', tmdbId: number, artworkType: 'poster' | 'backdrop'): string {
+  return `${ARTWORK_API_BASE}/${type}/${tmdbId}/${artworkType}`
 }
 
 // Status colors

@@ -148,3 +148,41 @@ func (h *Handlers) ScanAllRootFolders(c echo.Context) error {
 		"rootFolderIds": startedScans,
 	})
 }
+
+// RefreshMovie handles POST /api/v1/movies/:id/refresh
+// Refreshes metadata for a single movie.
+func (h *Handlers) RefreshMovie(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie ID")
+	}
+
+	movie, err := h.service.RefreshMovieMetadata(c.Request().Context(), id)
+	if err != nil {
+		if err == ErrNoMetadataProvider {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, movie)
+}
+
+// RefreshSeries handles POST /api/v1/series/:id/refresh
+// Refreshes metadata for a single series.
+func (h *Handlers) RefreshSeries(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid series ID")
+	}
+
+	series, err := h.service.RefreshSeriesMetadata(c.Request().Context(), id)
+	if err != nil {
+		if err == ErrNoMetadataProvider {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, series)
+}

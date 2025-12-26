@@ -127,6 +127,20 @@ func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Se
 	return seriesList, nil
 }
 
+// ListUnmatchedByRootFolder returns series without metadata (no TVDB/TMDB ID) in a root folder.
+func (s *Service) ListUnmatchedByRootFolder(ctx context.Context, rootFolderID int64) ([]*Series, error) {
+	rows, err := s.queries.ListUnmatchedSeriesByRootFolder(ctx, sql.NullInt64{Int64: rootFolderID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list unmatched series: %w", err)
+	}
+
+	seriesList := make([]*Series, len(rows))
+	for i, row := range rows {
+		seriesList[i] = s.rowToSeries(row)
+	}
+	return seriesList, nil
+}
+
 // CreateSeries creates a new series.
 func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*Series, error) {
 	if input.Title == "" {
@@ -521,6 +535,20 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 	file := s.rowToEpisodeFile(row)
 	s.logger.Info().Int64("episodeId", episodeID).Str("path", input.Path).Msg("Added episode file")
 
+	return &file, nil
+}
+
+// GetEpisodeFileByPath retrieves an episode file by its path.
+// Returns nil, nil if the file doesn't exist.
+func (s *Service) GetEpisodeFileByPath(ctx context.Context, path string) (*EpisodeFile, error) {
+	row, err := s.queries.GetEpisodeFileByPath(ctx, path)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get episode file by path: %w", err)
+	}
+	file := s.rowToEpisodeFile(row)
 	return &file, nil
 }
 

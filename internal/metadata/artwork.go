@@ -169,28 +169,40 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 }
 
 // DownloadSeriesArtwork downloads both poster and backdrop for a series.
+// Uses TmdbID for storage since the frontend expects artwork keyed by TMDB ID.
 func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *SeriesResult) error {
 	if series == nil {
 		return ErrInvalidMediaType
 	}
 
+	// Determine which ID to use - prefer TmdbID, fall back to ID
+	artworkID := series.TmdbID
+	if artworkID == 0 {
+		artworkID = series.ID
+	}
+
+	if artworkID == 0 {
+		d.logger.Warn().Str("title", series.Title).Msg("No valid ID for series artwork download")
+		return ErrInvalidMediaType
+	}
+
 	// Download poster
 	if series.PosterURL != "" {
-		path, err := d.Download(ctx, series.PosterURL, MediaTypeSeries, series.ID, ArtworkTypePoster)
+		path, err := d.Download(ctx, series.PosterURL, MediaTypeSeries, artworkID, ArtworkTypePoster)
 		if err != nil {
-			d.logger.Warn().Err(err).Int("seriesId", series.ID).Msg("Failed to download series poster")
+			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series poster")
 		} else {
-			d.logger.Debug().Str("path", path).Int("seriesId", series.ID).Msg("Downloaded series poster")
+			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series poster")
 		}
 	}
 
 	// Download backdrop
 	if series.BackdropURL != "" {
-		path, err := d.Download(ctx, series.BackdropURL, MediaTypeSeries, series.ID, ArtworkTypeBackdrop)
+		path, err := d.Download(ctx, series.BackdropURL, MediaTypeSeries, artworkID, ArtworkTypeBackdrop)
 		if err != nil {
-			d.logger.Warn().Err(err).Int("seriesId", series.ID).Msg("Failed to download series backdrop")
+			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series backdrop")
 		} else {
-			d.logger.Debug().Str("path", path).Int("seriesId", series.ID).Msg("Downloaded series backdrop")
+			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series backdrop")
 		}
 	}
 

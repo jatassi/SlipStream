@@ -82,6 +82,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		s.movieService,
 		s.tvService,
 		s.metadataService,
+		s.artworkDownloader,
 		s.rootFolderService,
 		s.qualityService,
 		s.progressManager,
@@ -185,6 +186,13 @@ func (s *Server) setupRoutes() {
 	tvHandlers := tv.NewHandlers(s.tvService)
 	tvHandlers.RegisterRoutes(api.Group("/series"))
 
+	// Library manager routes (scanning and refresh) - initialized here for refresh endpoints
+	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
+
+	// Refresh metadata endpoints (need to be on the movies/series groups)
+	api.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
+	api.POST("/series/:id/refresh", libraryManagerHandlers.RefreshSeries)
+
 	// Quality profiles routes
 	qualityHandlers := quality.NewHandlers(s.qualityService)
 	qualityHandlers.RegisterRoutes(api.Group("/qualityprofiles"))
@@ -192,9 +200,6 @@ func (s *Server) setupRoutes() {
 	// Root folders routes
 	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
 	rootFolderHandlers.RegisterRoutes(api.Group("/rootfolders"))
-
-	// Library manager routes (scanning)
-	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
 
 	// Wire up auto-scan when root folder is created
 	rootFolderHandlers.SetOnFolderCreated(func(folderID int64) {

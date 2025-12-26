@@ -104,7 +104,8 @@ export function MovieDetailPage() {
       {/* Hero with backdrop */}
       <div className="relative h-64 md:h-80">
         <BackdropImage
-          path={undefined} // TODO: Get from metadata
+          tmdbId={movie.tmdbId}
+          type="movie"
           alt={movie.title}
           className="absolute inset-0"
         />
@@ -113,7 +114,7 @@ export function MovieDetailPage() {
             {/* Poster */}
             <div className="hidden md:block shrink-0">
               <PosterImage
-                path={undefined}
+                tmdbId={movie.tmdbId}
                 alt={movie.title}
                 type="movie"
                 className="w-40 h-60 rounded-lg shadow-lg"

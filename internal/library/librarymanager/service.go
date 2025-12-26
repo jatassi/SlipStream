@@ -30,12 +30,20 @@ var (
 
 // ScanResult represents the final result of a scan operation.
 type ScanResult struct {
-	RootFolderID int64    `json:"rootFolderId"`
-	TotalFiles   int      `json:"totalFiles"`
-	MoviesAdded  int      `json:"moviesAdded"`
-	SeriesAdded  int      `json:"seriesAdded"`
-	FilesLinked  int      `json:"filesLinked"`
-	Errors       []string `json:"errors,omitempty"`
+	RootFolderID    int64    `json:"rootFolderId"`
+	TotalFiles      int      `json:"totalFiles"`
+	MoviesAdded     int      `json:"moviesAdded"`
+	SeriesAdded     int      `json:"seriesAdded"`
+	FilesLinked     int      `json:"filesLinked"`
+	MetadataMatched int      `json:"metadataMatched"`
+	ArtworksFetched int      `json:"artworksFetched"`
+	Errors          []string `json:"errors,omitempty"`
+}
+
+// pendingArtwork tracks items that need artwork downloaded.
+type pendingArtwork struct {
+	movieMeta  []*metadata.MovieResult
+	seriesMeta []*metadata.SeriesResult
 }
 
 // Service orchestrates library scanning, file matching, and metadata lookup.
@@ -46,6 +54,7 @@ type Service struct {
 	movies          *movies.Service
 	tv              *tv.Service
 	metadata        *metadata.Service
+	artwork         *metadata.ArtworkDownloader
 	rootfolders     *rootfolder.Service
 	qualityProfiles *quality.Service
 	progress        *progress.Manager
@@ -63,6 +72,7 @@ func NewService(
 	moviesSvc *movies.Service,
 	tvSvc *tv.Service,
 	metadataSvc *metadata.Service,
+	artworkSvc *metadata.ArtworkDownloader,
 	rootfolderSvc *rootfolder.Service,
 	qualityProfileSvc *quality.Service,
 	progressMgr *progress.Manager,
@@ -75,6 +85,7 @@ func NewService(
 		movies:          moviesSvc,
 		tv:              tvSvc,
 		metadata:        metadataSvc,
+		artwork:         artworkSvc,
 		rootfolders:     rootfolderSvc,
 		qualityProfiles: qualityProfileSvc,
 		progress:        progressMgr,
@@ -148,11 +159,29 @@ func (s *Service) ScanRootFolder(ctx context.Context, rootFolderID int64) (*Scan
 		Errors:       make([]string, 0),
 	}
 
+	// Track pending artwork to download
+	pending := &pendingArtwork{
+		movieMeta:  make([]*metadata.MovieResult, 0),
+		seriesMeta: make([]*metadata.SeriesResult, 0),
+	}
+
 	// Process results based on media type
 	if folder.MediaType == "movie" {
-		s.processMovies(ctx, folder, scanResult.Movies, defaultProfile.ID, result, activity)
+		s.processMovies(ctx, folder, scanResult.Movies, defaultProfile.ID, result, activity, pending)
 	} else {
-		s.processEpisodes(ctx, folder, scanResult.Episodes, defaultProfile.ID, result, activity)
+		s.processEpisodes(ctx, folder, scanResult.Episodes, defaultProfile.ID, result, activity, pending)
+	}
+
+	// Try to match metadata for any previously unmatched items in this folder
+	if folder.MediaType == "movie" {
+		s.matchUnmatchedMovies(ctx, folder, result, activity, pending)
+	} else {
+		s.matchUnmatchedSeries(ctx, folder, result, activity, pending)
+	}
+
+	// Download artwork for newly added and newly matched items
+	if s.artwork != nil && (len(pending.movieMeta) > 0 || len(pending.seriesMeta) > 0) {
+		s.downloadPendingArtwork(ctx, pending, result, activity)
 	}
 
 	// Add scan errors to result
@@ -162,12 +191,7 @@ func (s *Service) ScanRootFolder(ctx context.Context, rootFolderID int64) (*Scan
 
 	// Complete
 	if activity != nil {
-		summary := fmt.Sprintf("Found %d files", result.TotalFiles)
-		if result.MoviesAdded > 0 {
-			summary = fmt.Sprintf("Added %d movies", result.MoviesAdded)
-		} else if result.SeriesAdded > 0 {
-			summary = fmt.Sprintf("Added %d series", result.SeriesAdded)
-		}
+		summary := s.buildScanSummary(result)
 		activity.Complete(summary)
 	}
 
@@ -177,6 +201,8 @@ func (s *Service) ScanRootFolder(ctx context.Context, rootFolderID int64) (*Scan
 		Int("moviesAdded", result.MoviesAdded).
 		Int("seriesAdded", result.SeriesAdded).
 		Int("filesLinked", result.FilesLinked).
+		Int("metadataMatched", result.MetadataMatched).
+		Int("artworksFetched", result.ArtworksFetched).
 		Int("errors", len(result.Errors)).
 		Msg("Library scan completed")
 
@@ -191,6 +217,7 @@ func (s *Service) processMovies(
 	qualityProfileID int64,
 	result *ScanResult,
 	activity *progress.ActivityBuilder,
+	pending *pendingArtwork,
 ) {
 	total := len(parsedMovies)
 	for i, parsed := range parsedMovies {
@@ -204,8 +231,19 @@ func (s *Service) processMovies(
 			activity.Update(subtitle, pct)
 		}
 
+		// Skip files that are already tracked
+		existingFile, err := s.movies.GetFileByPath(ctx, parsed.FilePath)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("failed to check file %s: %v", parsed.FilePath, err))
+			continue
+		}
+		if existingFile != nil {
+			s.logger.Debug().Str("path", parsed.FilePath).Msg("Movie file already tracked, skipping")
+			continue
+		}
+
 		// Try to match to existing movie or create new one
-		movie, created, err := s.matchOrCreateMovie(ctx, folder, parsed, qualityProfileID)
+		movie, created, meta, err := s.matchOrCreateMovie(ctx, folder, parsed, qualityProfileID)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("failed to process %s: %v", parsed.FilePath, err))
 			continue
@@ -213,12 +251,15 @@ func (s *Service) processMovies(
 
 		if created {
 			result.MoviesAdded++
+			// Queue artwork for download if we have metadata with images
+			if meta != nil && (meta.PosterURL != "" || meta.BackdropURL != "") {
+				pending.movieMeta = append(pending.movieMeta, meta)
+			}
 		}
 
 		// Add file to movie
 		if movie != nil {
-			err = s.addMovieFile(ctx, movie.ID, parsed)
-			if err != nil {
+			if err := s.addMovieFile(ctx, movie.ID, parsed); err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to add file %s: %v", parsed.FilePath, err))
 			} else {
 				result.FilesLinked++
@@ -235,6 +276,7 @@ func (s *Service) processEpisodes(
 	qualityProfileID int64,
 	result *ScanResult,
 	activity *progress.ActivityBuilder,
+	pending *pendingArtwork,
 ) {
 	// Group episodes by series (title)
 	seriesMap := make(map[string][]scanner.ParsedMedia)
@@ -251,21 +293,8 @@ func (s *Service) processEpisodes(
 			continue
 		}
 
-		// Use the first episode to identify the series
-		firstEp := episodes[0]
-
-		// Try to match or create series
-		series, created, err := s.matchOrCreateSeries(ctx, folder, firstEp, qualityProfileID)
-		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("failed to process series %s: %v", firstEp.Title, err))
-			continue
-		}
-
-		if created {
-			result.SeriesAdded++
-		}
-
-		// Process each episode file
+		// First, filter out files that are already tracked
+		var newEpisodes []scanner.ParsedMedia
 		for _, parsed := range episodes {
 			processedFiles++
 
@@ -275,13 +304,49 @@ func (s *Service) processEpisodes(
 				if total > 0 {
 					pct = processedFiles * 100 / total
 				}
-				subtitle := fmt.Sprintf("Processing: %s", filepath.Base(parsed.FilePath))
+				subtitle := fmt.Sprintf("Checking: %s", filepath.Base(parsed.FilePath))
 				activity.Update(subtitle, pct)
 			}
 
+			existingFile, err := s.tv.GetEpisodeFileByPath(ctx, parsed.FilePath)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to check file %s: %v", parsed.FilePath, err))
+				continue
+			}
+			if existingFile != nil {
+				s.logger.Debug().Str("path", parsed.FilePath).Msg("Episode file already tracked, skipping")
+				continue
+			}
+			newEpisodes = append(newEpisodes, parsed)
+		}
+
+		// Skip series processing if all files are already tracked
+		if len(newEpisodes) == 0 {
+			continue
+		}
+
+		// Use the first new episode to identify the series
+		firstEp := newEpisodes[0]
+
+		// Try to match or create series
+		series, created, meta, err := s.matchOrCreateSeries(ctx, folder, firstEp, qualityProfileID)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("failed to process series %s: %v", firstEp.Title, err))
+			continue
+		}
+
+		if created {
+			result.SeriesAdded++
+			// Queue artwork for download if we have metadata with images
+			if meta != nil && (meta.PosterURL != "" || meta.BackdropURL != "") {
+				pending.seriesMeta = append(pending.seriesMeta, meta)
+			}
+		}
+
+		// Add new episode files
+		for _, parsed := range newEpisodes {
 			if series != nil {
-				err = s.addEpisodeFile(ctx, series.ID, parsed)
-				if err != nil {
+				if err := s.addEpisodeFile(ctx, series.ID, parsed); err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("failed to add episode file %s: %v", parsed.FilePath, err))
 				} else {
 					result.FilesLinked++
@@ -292,30 +357,28 @@ func (s *Service) processEpisodes(
 }
 
 // matchOrCreateMovie finds an existing movie or creates a new one from parsed media.
+// Returns the movie, whether it was created, the metadata used (if any), and any error.
 func (s *Service) matchOrCreateMovie(
 	ctx context.Context,
 	folder *rootfolder.RootFolder,
 	parsed scanner.ParsedMedia,
 	qualityProfileID int64,
-) (*movies.Movie, bool, error) {
-	searchQuery := parsed.Title
-	if parsed.Year > 0 {
-		searchQuery = fmt.Sprintf("%s %d", parsed.Title, parsed.Year)
-	}
-
+) (*movies.Movie, bool, *metadata.MovieResult, error) {
 	// Check if we have metadata provider
 	if !s.metadata.HasMovieProvider() {
-		return s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		movie, created, err := s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		return movie, created, nil, err
 	}
 
-	// Search metadata
-	results, err := s.metadata.SearchMovies(ctx, searchQuery)
+	// Search metadata using title and year
+	results, err := s.metadata.SearchMovies(ctx, parsed.Title, parsed.Year)
 	if err != nil {
-		s.logger.Warn().Err(err).Str("query", searchQuery).Msg("Metadata search failed, creating movie without metadata")
-		return s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		s.logger.Warn().Err(err).Str("title", parsed.Title).Int("year", parsed.Year).Msg("Metadata search failed, creating movie without metadata")
+		movie, created, err := s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		return movie, created, nil, err
 	}
 
-	// Find best match
+	// Find best match - prefer exact year match
 	var bestMatch *metadata.MovieResult
 	if len(results) > 0 {
 		for i := range results {
@@ -331,11 +394,12 @@ func (s *Service) matchOrCreateMovie(
 		// Check if movie with this TMDB ID already exists
 		existing, err := s.movies.GetByTmdbID(ctx, bestMatch.ID)
 		if err == nil && existing != nil {
-			return existing, false, nil
+			return existing, false, nil, nil
 		}
 	}
 
-	return s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
+	movie, created, err := s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
+	return movie, created, bestMatch, err
 }
 
 // createMovieFromParsed creates a new movie from parsed media and optional metadata.
@@ -381,6 +445,7 @@ func (s *Service) createMovieFromParsed(
 }
 
 // addMovieFile adds a file to a movie.
+// Callers should check if the file already exists before calling this.
 func (s *Service) addMovieFile(ctx context.Context, movieID int64, parsed scanner.ParsedMedia) error {
 	input := movies.CreateMovieFileInput{
 		Path:       parsed.FilePath,
@@ -395,20 +460,23 @@ func (s *Service) addMovieFile(ctx context.Context, movieID int64, parsed scanne
 }
 
 // matchOrCreateSeries finds an existing series or creates a new one from parsed media.
+// Returns the series, whether it was created, the metadata used (if any), and any error.
 func (s *Service) matchOrCreateSeries(
 	ctx context.Context,
 	folder *rootfolder.RootFolder,
 	parsed scanner.ParsedMedia,
 	qualityProfileID int64,
-) (*tv.Series, bool, error) {
+) (*tv.Series, bool, *metadata.SeriesResult, error) {
 	if !s.metadata.HasSeriesProvider() {
-		return s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		return series, created, nil, err
 	}
 
 	results, err := s.metadata.SearchSeries(ctx, parsed.Title)
 	if err != nil {
 		s.logger.Warn().Err(err).Str("title", parsed.Title).Msg("Metadata search failed, creating series without metadata")
-		return s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, nil)
+		return series, created, nil, err
 	}
 
 	var bestMatch *metadata.SeriesResult
@@ -418,12 +486,13 @@ func (s *Service) matchOrCreateSeries(
 		if bestMatch.TvdbID > 0 {
 			existing, err := s.tv.GetSeriesByTvdbID(ctx, bestMatch.TvdbID)
 			if err == nil && existing != nil {
-				return existing, false, nil
+				return existing, false, nil, nil
 			}
 		}
 	}
 
-	return s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
+	series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
+	return series, created, bestMatch, err
 }
 
 // createSeriesFromParsed creates a new series from parsed media and optional metadata.
@@ -470,6 +539,7 @@ func (s *Service) createSeriesFromParsed(
 }
 
 // addEpisodeFile adds a file to an episode, creating the season/episode if needed.
+// Callers should check if the file already exists before calling this.
 func (s *Service) addEpisodeFile(ctx context.Context, seriesID int64, parsed scanner.ParsedMedia) error {
 	episode, err := s.getOrCreateEpisode(ctx, seriesID, parsed.Season, parsed.Episode)
 	if err != nil {
@@ -629,20 +699,40 @@ func (s *Service) ScanSingleFile(ctx context.Context, filePath string) error {
 	}
 
 	if folder.MediaType == "movie" {
-		movie, _, err := s.matchOrCreateMovie(ctx, folder, *parsed, defaultProfile.ID)
+		movie, created, meta, err := s.matchOrCreateMovie(ctx, folder, *parsed, defaultProfile.ID)
 		if err != nil {
 			return err
 		}
 		if movie != nil {
-			return s.addMovieFile(ctx, movie.ID, *parsed)
+			if err := s.addMovieFile(ctx, movie.ID, *parsed); err != nil {
+				return err
+			}
+			// Download artwork for newly created movie
+			if created && meta != nil && s.artwork != nil {
+				go func() {
+					if err := s.artwork.DownloadMovieArtwork(context.Background(), meta); err != nil {
+						s.logger.Warn().Err(err).Int("tmdbId", meta.ID).Msg("Failed to download movie artwork")
+					}
+				}()
+			}
 		}
 	} else {
-		series, _, err := s.matchOrCreateSeries(ctx, folder, *parsed, defaultProfile.ID)
+		series, created, meta, err := s.matchOrCreateSeries(ctx, folder, *parsed, defaultProfile.ID)
 		if err != nil {
 			return err
 		}
 		if series != nil {
-			return s.addEpisodeFile(ctx, series.ID, *parsed)
+			if err := s.addEpisodeFile(ctx, series.ID, *parsed); err != nil {
+				return err
+			}
+			// Download artwork for newly created series
+			if created && meta != nil && s.artwork != nil {
+				go func() {
+					if err := s.artwork.DownloadSeriesArtwork(context.Background(), meta); err != nil {
+						s.logger.Warn().Err(err).Int("tvdbId", meta.TvdbID).Msg("Failed to download series artwork")
+					}
+				}()
+			}
 		}
 	}
 
@@ -668,4 +758,489 @@ func (s *Service) findRootFolderForPath(ctx context.Context, filePath string) (*
 	}
 
 	return nil, fmt.Errorf("file is not within any root folder: %s", filePath)
+}
+
+// downloadPendingArtwork downloads artwork for all pending items in batch.
+// This is called after scan processing is complete to batch artwork downloads.
+func (s *Service) downloadPendingArtwork(
+	ctx context.Context,
+	pending *pendingArtwork,
+	result *ScanResult,
+	activity *progress.ActivityBuilder,
+) {
+	totalItems := len(pending.movieMeta) + len(pending.seriesMeta)
+	if totalItems == 0 {
+		return
+	}
+
+	s.logger.Info().
+		Int("movies", len(pending.movieMeta)).
+		Int("series", len(pending.seriesMeta)).
+		Msg("Downloading artwork for newly added items")
+
+	if activity != nil {
+		activity.Update("Downloading artwork...", -1)
+		activity.SetMetadata("artworkTotal", totalItems)
+	}
+
+	downloaded := 0
+
+	// Download movie artwork
+	for i, movie := range pending.movieMeta {
+		if activity != nil {
+			pct := (i + 1) * 100 / totalItems
+			activity.Update(fmt.Sprintf("Downloading artwork: %s", movie.Title), pct)
+		}
+
+		if err := s.artwork.DownloadMovieArtwork(ctx, movie); err != nil {
+			s.logger.Warn().Err(err).
+				Int("tmdbId", movie.ID).
+				Str("title", movie.Title).
+				Msg("Failed to download movie artwork")
+		} else {
+			downloaded++
+		}
+	}
+
+	// Download series artwork
+	for i, series := range pending.seriesMeta {
+		if activity != nil {
+			pct := (len(pending.movieMeta) + i + 1) * 100 / totalItems
+			activity.Update(fmt.Sprintf("Downloading artwork: %s", series.Title), pct)
+		}
+
+		if err := s.artwork.DownloadSeriesArtwork(ctx, series); err != nil {
+			s.logger.Warn().Err(err).
+				Int("tvdbId", series.TvdbID).
+				Str("title", series.Title).
+				Msg("Failed to download series artwork")
+		} else {
+			downloaded++
+		}
+	}
+
+	result.ArtworksFetched = downloaded
+
+	if activity != nil {
+		activity.SetMetadata("artworkDownloaded", downloaded)
+	}
+
+	s.logger.Info().
+		Int("downloaded", downloaded).
+		Int("total", totalItems).
+		Msg("Artwork download complete")
+}
+
+// RefreshMovieMetadata fetches metadata for a single movie and downloads artwork.
+func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*movies.Movie, error) {
+	s.logger.Debug().Int64("movieId", movieID).Msg("[REFRESH] Starting movie metadata refresh")
+
+	// Get the movie
+	movie, err := s.movies.Get(ctx, movieID)
+	if err != nil {
+		s.logger.Error().Err(err).Int64("movieId", movieID).Msg("[REFRESH] Failed to get movie from database")
+		return nil, fmt.Errorf("failed to get movie: %w", err)
+	}
+
+	s.logger.Debug().
+		Int64("movieId", movieID).
+		Str("title", movie.Title).
+		Int("year", movie.Year).
+		Int("currentTmdbId", movie.TmdbID).
+		Msg("[REFRESH] Retrieved movie from database")
+
+	// Check if we have a metadata provider
+	if !s.metadata.HasMovieProvider() {
+		s.logger.Warn().Msg("[REFRESH] No metadata provider configured")
+		return nil, ErrNoMetadataProvider
+	}
+
+	s.logger.Debug().Msg("[REFRESH] Metadata provider is configured")
+
+	// Search for metadata using title and year
+	s.logger.Debug().Str("title", movie.Title).Int("year", movie.Year).Msg("[REFRESH] Searching for metadata")
+
+	results, err := s.metadata.SearchMovies(ctx, movie.Title, movie.Year)
+	if err != nil {
+		s.logger.Error().Err(err).Str("title", movie.Title).Int("year", movie.Year).Msg("[REFRESH] Metadata search failed")
+		return nil, fmt.Errorf("metadata search failed: %w", err)
+	}
+
+	s.logger.Debug().Int("resultCount", len(results)).Msg("[REFRESH] Metadata search completed")
+
+	if len(results) == 0 {
+		s.logger.Warn().Str("title", movie.Title).Int("year", movie.Year).Msg("[REFRESH] No metadata results found")
+		return movie, nil // No results, return existing movie
+	}
+
+	// Log all results for debugging
+	for i, r := range results {
+		s.logger.Debug().
+			Int("index", i).
+			Int("tmdbId", r.ID).
+			Str("title", r.Title).
+			Int("year", r.Year).
+			Str("imdbId", r.ImdbID).
+			Str("posterUrl", r.PosterURL).
+			Msg("[REFRESH] Search result")
+	}
+
+	// Find best match
+	var bestMatch *metadata.MovieResult
+	for i := range results {
+		if results[i].Year == movie.Year {
+			bestMatch = &results[i]
+			s.logger.Debug().Int("index", i).Msg("[REFRESH] Found year match")
+			break
+		}
+	}
+	if bestMatch == nil {
+		bestMatch = &results[0]
+		s.logger.Debug().Msg("[REFRESH] No year match, using first result")
+	}
+
+	s.logger.Info().
+		Int("tmdbId", bestMatch.ID).
+		Str("title", bestMatch.Title).
+		Int("year", bestMatch.Year).
+		Str("imdbId", bestMatch.ImdbID).
+		Str("overview", bestMatch.Overview[:min(100, len(bestMatch.Overview))]).
+		Int("runtime", bestMatch.Runtime).
+		Str("posterUrl", bestMatch.PosterURL).
+		Str("backdropUrl", bestMatch.BackdropURL).
+		Msg("[REFRESH] Best match selected")
+
+	// Update movie with metadata
+	title := bestMatch.Title
+	year := bestMatch.Year
+	tmdbID := bestMatch.ID
+	imdbID := bestMatch.ImdbID
+	overview := bestMatch.Overview
+	runtime := bestMatch.Runtime
+
+	s.logger.Debug().
+		Str("title", title).
+		Int("year", year).
+		Int("tmdbId", tmdbID).
+		Str("imdbId", imdbID).
+		Int("runtime", runtime).
+		Msg("[REFRESH] Calling movies.Update with these values")
+
+	updatedMovie, err := s.movies.Update(ctx, movie.ID, movies.UpdateMovieInput{
+		Title:    &title,
+		Year:     &year,
+		TmdbID:   &tmdbID,
+		ImdbID:   &imdbID,
+		Overview: &overview,
+		Runtime:  &runtime,
+	})
+	if err != nil {
+		s.logger.Error().Err(err).Int64("movieId", movie.ID).Msg("[REFRESH] Failed to update movie in database")
+		return nil, fmt.Errorf("failed to update movie: %w", err)
+	}
+
+	s.logger.Debug().
+		Int64("movieId", updatedMovie.ID).
+		Str("title", updatedMovie.Title).
+		Int("tmdbId", updatedMovie.TmdbID).
+		Str("imdbId", updatedMovie.ImdbID).
+		Msg("[REFRESH] Movie updated in database, returned values")
+
+	// Download artwork asynchronously
+	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "") {
+		s.logger.Debug().
+			Str("posterUrl", bestMatch.PosterURL).
+			Str("backdropUrl", bestMatch.BackdropURL).
+			Msg("[REFRESH] Starting artwork download")
+		go func() {
+			if err := s.artwork.DownloadMovieArtwork(context.Background(), bestMatch); err != nil {
+				s.logger.Warn().Err(err).Int("tmdbId", bestMatch.ID).Msg("[REFRESH] Failed to download movie artwork")
+			} else {
+				s.logger.Info().Int("tmdbId", bestMatch.ID).Msg("[REFRESH] Artwork download completed")
+			}
+		}()
+	} else {
+		s.logger.Debug().
+			Bool("artworkNil", s.artwork == nil).
+			Str("posterUrl", bestMatch.PosterURL).
+			Str("backdropUrl", bestMatch.BackdropURL).
+			Msg("[REFRESH] Skipping artwork download")
+	}
+
+	s.logger.Info().
+		Int64("movieId", movie.ID).
+		Str("title", bestMatch.Title).
+		Int("tmdbId", bestMatch.ID).
+		Msg("[REFRESH] Movie metadata refresh completed")
+
+	return updatedMovie, nil
+}
+
+// RefreshSeriesMetadata fetches metadata for a single series and downloads artwork.
+func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*tv.Series, error) {
+	// Get the series
+	series, err := s.tv.GetSeries(ctx, seriesID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get series: %w", err)
+	}
+
+	// Check if we have a metadata provider
+	if !s.metadata.HasSeriesProvider() {
+		return nil, ErrNoMetadataProvider
+	}
+
+	// Search for metadata
+	results, err := s.metadata.SearchSeries(ctx, series.Title)
+	if err != nil {
+		return nil, fmt.Errorf("metadata search failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return series, nil // No results, return existing series
+	}
+
+	bestMatch := &results[0]
+
+	// Update series with metadata
+	title := bestMatch.Title
+	year := bestMatch.Year
+	tvdbID := bestMatch.TvdbID
+	tmdbID := bestMatch.TmdbID
+	imdbID := bestMatch.ImdbID
+	overview := bestMatch.Overview
+	runtime := bestMatch.Runtime
+
+	updatedSeries, err := s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
+		Title:    &title,
+		Year:     &year,
+		TvdbID:   &tvdbID,
+		TmdbID:   &tmdbID,
+		ImdbID:   &imdbID,
+		Overview: &overview,
+		Runtime:  &runtime,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update series: %w", err)
+	}
+
+	// Download artwork asynchronously
+	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "") {
+		go func() {
+			if err := s.artwork.DownloadSeriesArtwork(context.Background(), bestMatch); err != nil {
+				s.logger.Warn().Err(err).Int("tvdbId", bestMatch.TvdbID).Msg("Failed to download series artwork")
+			}
+		}()
+	}
+
+	s.logger.Info().
+		Int64("seriesId", series.ID).
+		Str("title", bestMatch.Title).
+		Int("tvdbId", bestMatch.TvdbID).
+		Msg("Refreshed series metadata")
+
+	return updatedSeries, nil
+}
+
+// buildScanSummary creates a human-readable summary of scan results.
+func (s *Service) buildScanSummary(result *ScanResult) string {
+	var parts []string
+
+	if result.MoviesAdded > 0 {
+		parts = append(parts, fmt.Sprintf("%d movies added", result.MoviesAdded))
+	}
+	if result.SeriesAdded > 0 {
+		parts = append(parts, fmt.Sprintf("%d series added", result.SeriesAdded))
+	}
+	if result.MetadataMatched > 0 {
+		parts = append(parts, fmt.Sprintf("%d matched", result.MetadataMatched))
+	}
+	if result.ArtworksFetched > 0 {
+		parts = append(parts, fmt.Sprintf("%d artworks", result.ArtworksFetched))
+	}
+
+	if len(parts) == 0 {
+		return fmt.Sprintf("Found %d files", result.TotalFiles)
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// matchUnmatchedMovies finds movies without metadata and attempts to match them.
+func (s *Service) matchUnmatchedMovies(
+	ctx context.Context,
+	folder *rootfolder.RootFolder,
+	result *ScanResult,
+	activity *progress.ActivityBuilder,
+	pending *pendingArtwork,
+) {
+	if !s.metadata.HasMovieProvider() {
+		return
+	}
+
+	unmatched, err := s.movies.ListUnmatchedByRootFolder(ctx, folder.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("rootFolderId", folder.ID).Msg("Failed to list unmatched movies")
+		return
+	}
+
+	if len(unmatched) == 0 {
+		return
+	}
+
+	s.logger.Info().Int("count", len(unmatched)).Msg("Attempting to match unmatched movies")
+
+	if activity != nil {
+		activity.Update("Matching unmatched movies...", -1)
+		activity.SetMetadata("unmatchedMovies", len(unmatched))
+	}
+
+	for i, movie := range unmatched {
+		if activity != nil {
+			pct := (i + 1) * 100 / len(unmatched)
+			activity.Update(fmt.Sprintf("Matching: %s", movie.Title), pct)
+		}
+
+		// Search for metadata using title and year
+		results, err := s.metadata.SearchMovies(ctx, movie.Title, movie.Year)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("title", movie.Title).Int("year", movie.Year).Msg("Metadata search failed for unmatched movie")
+			continue
+		}
+
+		if len(results) == 0 {
+			continue
+		}
+
+		// Find best match - prefer exact year match
+		var bestMatch *metadata.MovieResult
+		for i := range results {
+			if results[i].Year == movie.Year {
+				bestMatch = &results[i]
+				break
+			}
+		}
+		if bestMatch == nil {
+			bestMatch = &results[0]
+		}
+
+		// Update movie with metadata
+		title := bestMatch.Title
+		year := bestMatch.Year
+		tmdbID := bestMatch.ID
+		imdbID := bestMatch.ImdbID
+		overview := bestMatch.Overview
+		runtime := bestMatch.Runtime
+
+		_, err = s.movies.Update(ctx, movie.ID, movies.UpdateMovieInput{
+			Title:    &title,
+			Year:     &year,
+			TmdbID:   &tmdbID,
+			ImdbID:   &imdbID,
+			Overview: &overview,
+			Runtime:  &runtime,
+		})
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Failed to update movie with metadata")
+			continue
+		}
+
+		result.MetadataMatched++
+
+		// Queue artwork for download
+		if bestMatch.PosterURL != "" || bestMatch.BackdropURL != "" {
+			pending.movieMeta = append(pending.movieMeta, bestMatch)
+		}
+
+		s.logger.Info().
+			Int64("movieId", movie.ID).
+			Str("title", bestMatch.Title).
+			Int("tmdbId", bestMatch.ID).
+			Msg("Matched unmatched movie")
+	}
+}
+
+// matchUnmatchedSeries finds series without metadata and attempts to match them.
+func (s *Service) matchUnmatchedSeries(
+	ctx context.Context,
+	folder *rootfolder.RootFolder,
+	result *ScanResult,
+	activity *progress.ActivityBuilder,
+	pending *pendingArtwork,
+) {
+	if !s.metadata.HasSeriesProvider() {
+		return
+	}
+
+	unmatched, err := s.tv.ListUnmatchedByRootFolder(ctx, folder.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("rootFolderId", folder.ID).Msg("Failed to list unmatched series")
+		return
+	}
+
+	if len(unmatched) == 0 {
+		return
+	}
+
+	s.logger.Info().Int("count", len(unmatched)).Msg("Attempting to match unmatched series")
+
+	if activity != nil {
+		activity.Update("Matching unmatched series...", -1)
+		activity.SetMetadata("unmatchedSeries", len(unmatched))
+	}
+
+	for i, series := range unmatched {
+		if activity != nil {
+			pct := (i + 1) * 100 / len(unmatched)
+			activity.Update(fmt.Sprintf("Matching: %s", series.Title), pct)
+		}
+
+		// Search for metadata
+		results, err := s.metadata.SearchSeries(ctx, series.Title)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("title", series.Title).Msg("Metadata search failed for unmatched series")
+			continue
+		}
+
+		if len(results) == 0 {
+			continue
+		}
+
+		bestMatch := &results[0]
+
+		// Update series with metadata
+		title := bestMatch.Title
+		year := bestMatch.Year
+		tvdbID := bestMatch.TvdbID
+		tmdbID := bestMatch.TmdbID
+		imdbID := bestMatch.ImdbID
+		overview := bestMatch.Overview
+		runtime := bestMatch.Runtime
+
+		_, err = s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
+			Title:    &title,
+			Year:     &year,
+			TvdbID:   &tvdbID,
+			TmdbID:   &tmdbID,
+			ImdbID:   &imdbID,
+			Overview: &overview,
+			Runtime:  &runtime,
+		})
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to update series with metadata")
+			continue
+		}
+
+		result.MetadataMatched++
+
+		// Queue artwork for download
+		if bestMatch.PosterURL != "" || bestMatch.BackdropURL != "" {
+			pending.seriesMeta = append(pending.seriesMeta, bestMatch)
+		}
+
+		s.logger.Info().
+			Int64("seriesId", series.ID).
+			Str("title", bestMatch.Title).
+			Int("tvdbId", bestMatch.TvdbID).
+			Msg("Matched unmatched series")
+	}
 }

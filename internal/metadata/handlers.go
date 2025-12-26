@@ -35,6 +35,9 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/series/tvdb/:id", h.GetSeriesByTVDB)
 	g.POST("/series/:id/artwork", h.DownloadSeriesArtwork)
 
+	// Artwork serving
+	g.GET("/artwork/:type/:id/:artworkType", h.GetArtwork)
+
 	// Cache management
 	g.DELETE("/cache", h.ClearCache)
 
@@ -43,14 +46,22 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 }
 
 // SearchMovies searches for movies by query.
-// GET /api/v1/metadata/movie/search?query=...
+// GET /api/v1/metadata/movie/search?query=...&year=...
 func (h *Handlers) SearchMovies(c echo.Context) error {
 	query := c.QueryParam("query")
 	if query == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "query parameter is required")
 	}
 
-	results, err := h.service.SearchMovies(c.Request().Context(), query)
+	// Parse optional year parameter
+	var year int
+	if yearStr := c.QueryParam("year"); yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil {
+			year = y
+		}
+	}
+
+	results, err := h.service.SearchMovies(c.Request().Context(), query, year)
 	if err != nil {
 		if errors.Is(err, ErrNoProvidersConfigured) {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
@@ -256,4 +267,51 @@ func (h *Handlers) GetStatus(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response)
+}
+
+// GetArtwork serves artwork images from local storage.
+// GET /api/v1/metadata/artwork/:type/:id/:artworkType
+// :type is "movie" or "series"
+// :artworkType is "poster" or "backdrop"
+func (h *Handlers) GetArtwork(c echo.Context) error {
+	mediaTypeStr := c.Param("type")
+	idStr := c.Param("id")
+	artworkTypeStr := c.Param("artworkType")
+
+	// Validate media type
+	var mediaType MediaType
+	switch mediaTypeStr {
+	case "movie":
+		mediaType = MediaTypeMovie
+	case "series":
+		mediaType = MediaTypeSeries
+	default:
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid media type, must be 'movie' or 'series'")
+	}
+
+	// Parse ID
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	// Validate artwork type
+	var artworkType ArtworkType
+	switch artworkTypeStr {
+	case "poster":
+		artworkType = ArtworkTypePoster
+	case "backdrop":
+		artworkType = ArtworkTypeBackdrop
+	default:
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid artwork type, must be 'poster' or 'backdrop'")
+	}
+
+	// Get artwork path
+	path := h.artwork.GetArtworkPath(mediaType, id, artworkType)
+	if path == "" {
+		return echo.NewHTTPError(http.StatusNotFound, "artwork not found")
+	}
+
+	// Serve the file
+	return c.File(path)
 }

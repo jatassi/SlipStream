@@ -84,7 +84,8 @@ func TestClient_SearchMovies(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	results, err := client.SearchMovies(context.Background(), "Matrix")
+	// Test without year (year=0 means no filter)
+	results, err := client.SearchMovies(context.Background(), "Matrix", 0)
 	if err != nil {
 		t.Fatalf("SearchMovies() error = %v", err)
 	}
@@ -104,9 +105,57 @@ func TestClient_SearchMovies(t *testing.T) {
 	}
 }
 
+func TestClient_SearchMovies_WithYear(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/search/movie" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		query := r.URL.Query().Get("query")
+		if query != "Matrix" {
+			t.Errorf("unexpected query: %s", query)
+		}
+
+		year := r.URL.Query().Get("year")
+		if year != "1999" {
+			t.Errorf("unexpected year: %s, want 1999", year)
+		}
+
+		response := SearchMoviesResponse{
+			Page:         1,
+			TotalResults: 1,
+			TotalPages:   1,
+			Results: []MovieResult{
+				{
+					ID:          603,
+					Title:       "The Matrix",
+					Overview:    "A computer hacker learns about the true nature of reality.",
+					ReleaseDate: "1999-03-30",
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	results, err := client.SearchMovies(context.Background(), "Matrix", 1999)
+	if err != nil {
+		t.Fatalf("SearchMovies() error = %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("SearchMovies() returned %d results, want 1", len(results))
+	}
+
+	if results[0].Title != "The Matrix" {
+		t.Errorf("results[0].Title = %q, want %q", results[0].Title, "The Matrix")
+	}
+}
+
 func TestClient_SearchMovies_NoAPIKey(t *testing.T) {
 	client := NewClient(config.TMDBConfig{}, zerolog.Nop())
-	_, err := client.SearchMovies(context.Background(), "Matrix")
+	_, err := client.SearchMovies(context.Background(), "Matrix", 0)
 	if err != ErrAPIKeyMissing {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrAPIKeyMissing)
 	}
@@ -310,7 +359,7 @@ func TestClient_RateLimited(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	_, err := client.SearchMovies(context.Background(), "test")
+	_, err := client.SearchMovies(context.Background(), "test", 0)
 	if err != ErrRateLimited {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrRateLimited)
 	}

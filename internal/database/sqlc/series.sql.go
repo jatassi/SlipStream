@@ -948,6 +948,55 @@ func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginat
 	return items, nil
 }
 
+const listUnmatchedSeriesByRootFolder = `-- name: ListUnmatchedSeriesByRootFolder :many
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, status, added_at, updated_at FROM series
+WHERE root_folder_id = ?
+  AND (tvdb_id IS NULL OR tvdb_id = 0)
+  AND (tmdb_id IS NULL OR tmdb_id = 0)
+ORDER BY sort_title
+`
+
+func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) ([]*Series, error) {
+	rows, err := q.db.QueryContext(ctx, listUnmatchedSeriesByRootFolder, rootFolderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Series{}
+	for rows.Next() {
+		var i Series
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.SortTitle,
+			&i.Year,
+			&i.TvdbID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Overview,
+			&i.Runtime,
+			&i.Path,
+			&i.RootFolderID,
+			&i.QualityProfileID,
+			&i.Monitored,
+			&i.SeasonFolder,
+			&i.Status,
+			&i.AddedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchSeries = `-- name: SearchSeries :many
 SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, status, added_at, updated_at FROM series
 WHERE title LIKE ? OR sort_title LIKE ?

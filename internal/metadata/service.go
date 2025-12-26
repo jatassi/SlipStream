@@ -97,22 +97,23 @@ func (s *Service) HasSeriesProvider() bool {
 }
 
 // SearchMovies searches for movies using available providers.
-func (s *Service) SearchMovies(ctx context.Context, query string) ([]MovieResult, error) {
+// If year is > 0, it will be used to filter results.
+func (s *Service) SearchMovies(ctx context.Context, query string, year int) ([]MovieResult, error) {
 	if !s.HasMovieProvider() {
 		return nil, ErrNoProvidersConfigured
 	}
 
 	// Check cache
-	cacheKey := fmt.Sprintf("movie:search:%s", query)
+	cacheKey := fmt.Sprintf("movie:search:%s:%d", query, year)
 	if results, ok := s.cache.GetMovieResults(cacheKey); ok {
-		s.logger.Debug().Str("query", query).Msg("Movie search cache hit")
+		s.logger.Debug().Str("query", query).Int("year", year).Msg("Movie search cache hit")
 		return results, nil
 	}
 
 	// Search TMDB (primary provider for movies)
-	tmdbResults, err := s.tmdb.SearchMovies(ctx, query)
+	tmdbResults, err := s.tmdb.SearchMovies(ctx, query, year)
 	if err != nil {
-		s.logger.Error().Err(err).Str("query", query).Msg("TMDB movie search failed")
+		s.logger.Error().Err(err).Str("query", query).Int("year", year).Msg("TMDB movie search failed")
 		return nil, fmt.Errorf("movie search failed: %w", err)
 	}
 
@@ -127,6 +128,7 @@ func (s *Service) SearchMovies(ctx context.Context, query string) ([]MovieResult
 
 	s.logger.Info().
 		Str("query", query).
+		Int("year", year).
 		Int("results", len(results)).
 		Msg("Movie search completed")
 

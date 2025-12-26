@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { BACKDROP_SIZES } from '@/lib/constants'
+import { BACKDROP_SIZES, getLocalArtworkUrl } from '@/lib/constants'
 
 interface BackdropImageProps {
+  // For TMDB paths (search results) - e.g., "/abc123.jpg"
   path?: string | null
+  // For local artwork (library items) - the TMDB ID
+  tmdbId?: number | null
+  // Media type for local artwork lookup
+  type?: 'movie' | 'series'
   alt: string
   size?: keyof typeof BACKDROP_SIZES
   className?: string
@@ -12,6 +17,8 @@ interface BackdropImageProps {
 
 export function BackdropImage({
   path,
+  tmdbId,
+  type = 'movie',
   alt,
   size = 'w1280',
   className,
@@ -20,7 +27,13 @@ export function BackdropImage({
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const imageUrl = path ? `${BACKDROP_SIZES[size]}${path}` : null
+  // Prefer local artwork if tmdbId is provided, otherwise use TMDB path
+  let imageUrl: string | null = null
+  if (tmdbId && tmdbId > 0) {
+    imageUrl = getLocalArtworkUrl(type, tmdbId, 'backdrop')
+  } else if (path) {
+    imageUrl = `${BACKDROP_SIZES[size]}${path}`
+  }
 
   if (!imageUrl || error) {
     return (

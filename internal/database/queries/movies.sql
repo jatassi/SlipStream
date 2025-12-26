@@ -90,3 +90,9 @@ SELECT * FROM movie_files WHERE path = ? LIMIT 1;
 
 -- name: CountMovieFiles :one
 SELECT COUNT(*) FROM movie_files WHERE movie_id = ?;
+
+-- name: ListUnmatchedMoviesByRootFolder :many
+SELECT * FROM movies
+WHERE root_folder_id = ?
+  AND (tmdb_id IS NULL OR tmdb_id = 0)
+ORDER BY sort_title;

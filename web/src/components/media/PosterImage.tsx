@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Film, Tv } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { POSTER_SIZES } from '@/lib/constants'
+import { POSTER_SIZES, getLocalArtworkUrl } from '@/lib/constants'
 
 interface PosterImageProps {
+  // For TMDB paths (search results) - e.g., "/abc123.jpg"
   path?: string | null
+  // For local artwork (library items) - the TMDB ID
+  tmdbId?: number | null
   alt: string
   size?: keyof typeof POSTER_SIZES
   type?: 'movie' | 'series'
@@ -13,6 +16,7 @@ interface PosterImageProps {
 
 export function PosterImage({
   path,
+  tmdbId,
   alt,
   size = 'w342',
   type = 'movie',
@@ -21,7 +25,13 @@ export function PosterImage({
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const imageUrl = path ? `${POSTER_SIZES[size]}${path}` : null
+  // Prefer local artwork if tmdbId is provided, otherwise use TMDB path
+  let imageUrl: string | null = null
+  if (tmdbId && tmdbId > 0) {
+    imageUrl = getLocalArtworkUrl(type, tmdbId, 'poster')
+  } else if (path) {
+    imageUrl = `${POSTER_SIZES[size]}${path}`
+  }
 
   if (!imageUrl || error) {
     return (

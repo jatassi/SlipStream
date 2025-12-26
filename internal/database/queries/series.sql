@@ -171,3 +171,10 @@ WHERE e.series_id = ?;
 SELECT COUNT(*) FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ? AND e.season_number = ?;
+
+-- name: ListUnmatchedSeriesByRootFolder :many
+SELECT * FROM series
+WHERE root_folder_id = ?
+  AND (tvdb_id IS NULL OR tvdb_id = 0)
+  AND (tmdb_id IS NULL OR tmdb_id = 0)
+ORDER BY sort_title;

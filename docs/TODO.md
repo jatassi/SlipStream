@@ -92,7 +92,7 @@ Backend features for automatic library management:
 - [x] TVDB API client
 - [x] Metadata fetching and caching
 - [x] Artwork downloading
-- [ ] Integration with scanning service (async call to metadata fetching and artwork APIs once library scan is complete - batch API calls where possible)
+- [x] Integration with scanning service (async call to metadata fetching and artwork APIs once library scan is complete - batch API calls where possible)
 
 ---
 

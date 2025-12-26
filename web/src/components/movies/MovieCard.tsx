@@ -21,7 +21,7 @@ export function MovieCard({ movie, className }: MovieCardProps) {
     >
       <div className="relative aspect-[2/3]">
         <PosterImage
-          path={undefined} // TODO: Get from metadata
+          tmdbId={movie.tmdbId}
           alt={movie.title}
           type="movie"
           className="absolute inset-0"

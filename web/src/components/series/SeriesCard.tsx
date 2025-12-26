@@ -22,7 +22,7 @@ export function SeriesCard({ series, className }: SeriesCardProps) {
     >
       <div className="relative aspect-[2/3]">
         <PosterImage
-          path={undefined} // TODO: Get from metadata
+          tmdbId={series.tmdbId}
           alt={series.title}
           type="series"
           className="absolute inset-0"

@@ -51,8 +51,8 @@ func (c *Client) IsConfigured() bool {
 	return c.config.APIKey != ""
 }
 
-// SearchMovies searches for movies by query.
-func (c *Client) SearchMovies(ctx context.Context, query string) ([]NormalizedMovieResult, error) {
+// SearchMovies searches for movies by query with optional year filter.
+func (c *Client) SearchMovies(ctx context.Context, query string, year int) ([]NormalizedMovieResult, error) {
 	if !c.IsConfigured() {
 		return nil, ErrAPIKeyMissing
 	}
@@ -62,6 +62,9 @@ func (c *Client) SearchMovies(ctx context.Context, query string) ([]NormalizedMo
 	params.Set("api_key", c.config.APIKey)
 	params.Set("query", query)
 	params.Set("include_adult", "false")
+	if year > 0 {
+		params.Set("year", fmt.Sprintf("%d", year))
+	}
 
 	var response SearchMoviesResponse
 	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
@@ -75,6 +78,7 @@ func (c *Client) SearchMovies(ctx context.Context, query string) ([]NormalizedMo
 
 	c.logger.Debug().
 		Str("query", query).
+		Int("year", year).
 		Int("results", len(results)).
 		Msg("Movie search completed")
 
@@ -286,6 +290,7 @@ func (c *Client) toSeriesResult(tv TVResult) NormalizedSeriesResult {
 
 	result := NormalizedSeriesResult{
 		ID:       tv.ID,
+		TmdbID:   tv.ID, // Set TmdbID same as ID for TMDB search results
 		Title:    tv.Name,
 		Year:     year,
 		Overview: tv.Overview,

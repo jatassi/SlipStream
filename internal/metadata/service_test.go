@@ -57,7 +57,8 @@ func TestService_SearchMovies(t *testing.T) {
 
 	svc := NewService(cfg, zerolog.Nop())
 
-	results, err := svc.SearchMovies(context.Background(), "Matrix")
+	// Test without year filter (year=0)
+	results, err := svc.SearchMovies(context.Background(), "Matrix", 0)
 	if err != nil {
 		t.Fatalf("SearchMovies() error = %v", err)
 	}
@@ -94,13 +95,13 @@ func TestService_SearchMovies_Caching(t *testing.T) {
 	svc := NewService(cfg, zerolog.Nop())
 
 	// First call
-	_, err := svc.SearchMovies(context.Background(), "Matrix")
+	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
 	if err != nil {
 		t.Fatalf("First SearchMovies() error = %v", err)
 	}
 
 	// Second call (should be cached)
-	_, err = svc.SearchMovies(context.Background(), "Matrix")
+	_, err = svc.SearchMovies(context.Background(), "Matrix", 0)
 	if err != nil {
 		t.Fatalf("Second SearchMovies() error = %v", err)
 	}
@@ -197,7 +198,7 @@ func TestService_NoProviderConfigured(t *testing.T) {
 
 	svc := NewService(cfg, zerolog.Nop())
 
-	_, err := svc.SearchMovies(context.Background(), "Matrix")
+	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
 	if err != ErrNoProvidersConfigured {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrNoProvidersConfigured)
 	}
@@ -255,7 +256,7 @@ func TestService_ClearCache(t *testing.T) {
 	svc := NewService(cfg, zerolog.Nop())
 
 	// Populate cache
-	_, _ = svc.SearchMovies(context.Background(), "Matrix")
+	_, _ = svc.SearchMovies(context.Background(), "Matrix", 0)
 
 	// Clear cache
 	svc.ClearCache()

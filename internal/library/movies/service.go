@@ -123,6 +123,20 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 	return movies, nil
 }
 
+// ListUnmatchedByRootFolder returns movies without metadata (no TMDB ID) in a root folder.
+func (s *Service) ListUnmatchedByRootFolder(ctx context.Context, rootFolderID int64) ([]*Movie, error) {
+	rows, err := s.queries.ListUnmatchedMoviesByRootFolder(ctx, sql.NullInt64{Int64: rootFolderID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list unmatched movies: %w", err)
+	}
+
+	movies := make([]*Movie, len(rows))
+	for i, row := range rows {
+		movies[i] = s.rowToMovie(row)
+	}
+	return movies, nil
+}
+
 // Create creates a new movie.
 func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, error) {
 	if input.Title == "" {
@@ -180,42 +194,58 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 
 // Update updates an existing movie.
 func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) (*Movie, error) {
+	s.logger.Debug().Int64("id", id).Msg("[UPDATE] Starting movie update")
+
 	// Get current movie
 	current, err := s.Get(ctx, id)
 	if err != nil {
+		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Failed to get current movie")
 		return nil, err
 	}
+
+	s.logger.Debug().
+		Int64("id", id).
+		Str("currentTitle", current.Title).
+		Int("currentTmdbId", current.TmdbID).
+		Str("currentImdbId", current.ImdbID).
+		Msg("[UPDATE] Current movie state")
 
 	// Apply updates
 	title := current.Title
 	if input.Title != nil {
 		title = *input.Title
+		s.logger.Debug().Str("newTitle", title).Msg("[UPDATE] Title will be updated")
 	}
 	sortTitle := generateSortTitle(title)
 
 	year := current.Year
 	if input.Year != nil {
 		year = *input.Year
+		s.logger.Debug().Int("newYear", year).Msg("[UPDATE] Year will be updated")
 	}
 
 	tmdbID := current.TmdbID
 	if input.TmdbID != nil {
 		tmdbID = *input.TmdbID
+		s.logger.Debug().Int("newTmdbId", tmdbID).Msg("[UPDATE] TmdbID will be updated")
 	}
 
 	imdbID := current.ImdbID
 	if input.ImdbID != nil {
 		imdbID = *input.ImdbID
+		s.logger.Debug().Str("newImdbId", imdbID).Msg("[UPDATE] ImdbID will be updated")
 	}
 
 	overview := current.Overview
 	if input.Overview != nil {
 		overview = *input.Overview
+		s.logger.Debug().Int("overviewLen", len(overview)).Msg("[UPDATE] Overview will be updated")
 	}
 
 	runtime := current.Runtime
 	if input.Runtime != nil {
 		runtime = *input.Runtime
+		s.logger.Debug().Int("newRuntime", runtime).Msg("[UPDATE] Runtime will be updated")
 	}
 
 	path := current.Path
@@ -238,6 +268,14 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		monitored = *input.Monitored
 	}
 
+	s.logger.Debug().
+		Str("title", title).
+		Int("year", year).
+		Int("tmdbId", tmdbID).
+		Str("imdbId", imdbID).
+		Int("runtime", runtime).
+		Msg("[UPDATE] Final values to be saved")
+
 	row, err := s.queries.UpdateMovie(ctx, sqlc.UpdateMovieParams{
 		ID:               id,
 		Title:            title,
@@ -254,11 +292,17 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		Status:           current.Status,
 	})
 	if err != nil {
+		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
 		return nil, fmt.Errorf("failed to update movie: %w", err)
 	}
 
 	movie := s.rowToMovie(row)
-	s.logger.Info().Int64("id", id).Str("title", movie.Title).Msg("Updated movie")
+	s.logger.Info().
+		Int64("id", id).
+		Str("title", movie.Title).
+		Int("tmdbId", movie.TmdbID).
+		Str("imdbId", movie.ImdbID).
+		Msg("[UPDATE] Movie updated successfully")
 
 	// Broadcast event
 	if s.hub != nil {
@@ -340,6 +384,20 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 	file := s.rowToMovieFile(row)
 	s.logger.Info().Int64("movieId", movieID).Str("path", input.Path).Msg("Added movie file")
 
+	return &file, nil
+}
+
+// GetFileByPath retrieves a movie file by its path.
+// Returns nil, nil if the file doesn't exist.
+func (s *Service) GetFileByPath(ctx context.Context, path string) (*MovieFile, error) {
+	row, err := s.queries.GetMovieFileByPath(ctx, path)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get movie file by path: %w", err)
+	}
+	file := s.rowToMovieFile(row)
 	return &file, nil
 }
 
