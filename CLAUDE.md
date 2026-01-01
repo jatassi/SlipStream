@@ -136,6 +136,38 @@ Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`
 
 Unit tests are in `*_test.go` files alongside source. Integration tests may use `internal/testutil` helpers. Scanner tests parse media filenames; quality tests validate profile matching logic.
 
+## Developer Mode
+
+SlipStream supports a developer mode for testing and debugging features. When enabled:
+- Debug buttons are visible in the UI (e.g., download client dialogs)
+- Mock download queue items can be created based on library content
+- The `/api/v1/status` endpoint includes `developerMode: true`
+
+### Best Practices
+
+- Always check `developerMode` before exposing debug/testing features
+- Mock data should use realistic values from the actual library
+- Debug endpoints should return 403 Forbidden when not in developer mode
+
+### Enabling Developer Mode
+
+Set `DEVELOPER_MODE=true` in your `.env` file
+
+### Frontend Hook
+
+Use the `useDeveloperMode()` hook to check developer mode status in React components:
+```typescript
+import { useDeveloperMode } from '@/hooks'
+
+function MyComponent() {
+  const developerMode = useDeveloperMode()
+
+  if (developerMode) {
+    // Show debug features
+  }
+}
+```
+
 ## Claude Code Notes
 
 When running bash commands on Windows, use forward slashes for paths:

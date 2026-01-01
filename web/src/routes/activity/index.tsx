@@ -1,41 +1,45 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Pause, Play, X, Film, Tv, Activity } from 'lucide-react'
+import { Pause, Play, Trash2, Film, Tv, Download } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProgressBar } from '@/components/media/ProgressBar'
+import { QualityBadge } from '@/components/media/QualityBadge'
+import { FormatBadges } from '@/components/media/FormatBadges'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   useQueue,
   useRemoveFromQueue,
   usePauseQueueItem,
   useResumeQueueItem,
 } from '@/hooks'
-import { formatBytes, formatSpeed, formatEta } from '@/lib/formatters'
+import { formatBytes, formatSpeed, formatEta, formatSeriesTitle } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { QueueItem } from '@/types'
 
-const statusColors: Record<string, string> = {
-  queued: 'bg-gray-500',
-  downloading: 'bg-blue-500',
-  paused: 'bg-yellow-500',
-  completed: 'bg-green-500',
-  failed: 'bg-red-500',
-}
+type MediaFilter = 'all' | 'movies' | 'series'
 
-function QueueItemRow({ item }: { item: QueueItem }) {
+function DownloadRow({ item }: { item: QueueItem }) {
   const removeMutation = useRemoveFromQueue()
   const pauseMutation = usePauseQueueItem()
   const resumeMutation = useResumeQueueItem()
 
   const handlePause = async () => {
     try {
-      await pauseMutation.mutateAsync(item.id)
+      await pauseMutation.mutateAsync({ clientId: item.clientId, id: item.id })
       toast.success('Download paused')
     } catch {
       toast.error('Failed to pause download')
@@ -44,102 +48,183 @@ function QueueItemRow({ item }: { item: QueueItem }) {
 
   const handleResume = async () => {
     try {
-      await resumeMutation.mutateAsync(item.id)
+      await resumeMutation.mutateAsync({ clientId: item.clientId, id: item.id })
       toast.success('Download resumed')
     } catch {
       toast.error('Failed to resume download')
     }
   }
 
-  const handleRemove = async () => {
+  const handleRemove = async (deleteFiles: boolean) => {
     try {
-      await removeMutation.mutateAsync(item.id)
-      toast.success('Removed from queue')
+      await removeMutation.mutateAsync({
+        clientId: item.clientId,
+        id: item.id,
+        deleteFiles,
+      })
+      toast.success(deleteFiles ? 'Download removed with files' : 'Download removed')
     } catch {
-      toast.error('Failed to remove from queue')
+      toast.error('Failed to remove download')
     }
   }
 
+  // Format title for display
+  const displayTitle =
+    item.mediaType === 'series'
+      ? formatSeriesTitle(item.title, item.season, item.episode)
+      : item.title
+
+  // Format progress text
+  const progressText = `${formatBytes(item.downloadedSize)} / ${formatBytes(item.size)}`
+
   return (
-    <div className="flex items-center gap-4 p-4 border-b last:border-0">
-      <div className="flex size-10 items-center justify-center rounded bg-muted">
-        {item.mediaType === 'movie' ? (
-          <Film className="size-5" />
-        ) : (
-          <Tv className="size-5" />
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h4 className="font-medium truncate">{item.title}</h4>
-          <Badge
-            variant="secondary"
-            className={`${statusColors[item.status]} text-white text-xs`}
-          >
-            {item.status}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-          <span>{formatBytes(item.size)}</span>
-          {item.speed && <span>{formatSpeed(item.speed)}</span>}
-          {item.eta && <span>ETA: {formatEta(parseInt(item.eta))}</span>}
-        </div>
-        {item.status === 'downloading' && (
-          <div className="mt-2">
-            <ProgressBar value={item.progress} size="sm" showLabel />
+    <TableRow>
+      {/* Title */}
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded bg-muted shrink-0">
+            {item.mediaType === 'movie' ? (
+              <Film className="size-4" />
+            ) : (
+              <Tv className="size-4" />
+            )}
           </div>
-        )}
-      </div>
+          <span className="font-medium truncate max-w-[300px]" title={displayTitle}>
+            {displayTitle}
+          </span>
+        </div>
+      </TableCell>
 
-      <div className="flex gap-1">
-        {item.status === 'downloading' && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePause}
-            disabled={pauseMutation.isPending}
-          >
-            <Pause className="size-4" />
-          </Button>
-        )}
-        {item.status === 'paused' && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleResume}
-            disabled={resumeMutation.isPending}
-          >
-            <Play className="size-4" />
-          </Button>
-        )}
-        <ConfirmDialog
-          trigger={
-            <Button variant="ghost" size="icon">
-              <X className="size-4" />
-            </Button>
-          }
-          title="Remove from queue"
-          description={`Are you sure you want to remove "${item.title}" from the queue?`}
-          confirmLabel="Remove"
-          variant="destructive"
-          onConfirm={handleRemove}
+      {/* Quality */}
+      <TableCell>
+        {item.quality && <QualityBadge quality={item.quality} />}
+      </TableCell>
+
+      {/* Attributes */}
+      <TableCell>
+        <FormatBadges
+          source={item.source}
+          codec={item.codec}
+          attributes={item.attributes}
         />
-      </div>
-    </div>
+      </TableCell>
+
+      {/* Progress */}
+      <TableCell className="min-w-[180px]">
+        <div className="space-y-1">
+          <ProgressBar value={item.progress} size="sm" />
+          <div className="text-xs text-muted-foreground">{progressText}</div>
+        </div>
+      </TableCell>
+
+      {/* Time Left */}
+      <TableCell className="text-muted-foreground">
+        {item.status === 'downloading' ? formatEta(item.eta) : '--'}
+      </TableCell>
+
+      {/* Speed */}
+      <TableCell className="text-muted-foreground">
+        {item.status === 'downloading' ? formatSpeed(item.downloadSpeed) : '--'}
+      </TableCell>
+
+      {/* Actions */}
+      <TableCell>
+        <div className="flex gap-1">
+          {item.status === 'downloading' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePause}
+              disabled={pauseMutation.isPending}
+              title="Pause"
+            >
+              <Pause className="size-4" />
+            </Button>
+          )}
+          {item.status === 'paused' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleResume}
+              disabled={resumeMutation.isPending}
+              title="Resume"
+            >
+              <Play className="size-4" />
+            </Button>
+          )}
+          <ConfirmDialog
+            trigger={
+              <Button variant="ghost" size="icon" title="Remove">
+                <Trash2 className="size-4" />
+              </Button>
+            }
+            title="Remove download"
+            description={`Are you sure you want to remove "${displayTitle}" from the queue?`}
+            confirmLabel="Remove"
+            variant="destructive"
+            onConfirm={() => handleRemove(false)}
+          />
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function DownloadsTable({ items }: { items: QueueItem[] }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={<Download className="size-8" />}
+        title="No downloads"
+        description="Downloads will appear here when they start"
+        className="py-8"
+      />
+    )
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Title</TableHead>
+          <TableHead>Quality</TableHead>
+          <TableHead>Attributes</TableHead>
+          <TableHead>Progress</TableHead>
+          <TableHead>Time Left</TableHead>
+          <TableHead>Speed</TableHead>
+          <TableHead className="w-[100px]">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((item) => (
+          <DownloadRow key={`${item.clientId}-${item.id}`} item={item} />
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 
 export function ActivityPage() {
+  const [filter, setFilter] = useState<MediaFilter>('all')
   const { data: queue, isLoading, isError, refetch } = useQueue()
 
-  const activeCount = queue?.filter((q) => q.status === 'downloading').length || 0
-  const queuedCount = queue?.filter((q) => q.status === 'queued').length || 0
+  // Filter items by media type
+  const filteredItems = queue?.filter((item) => {
+    if (filter === 'all') return true
+    if (filter === 'movies') return item.mediaType === 'movie'
+    if (filter === 'series') return item.mediaType === 'series'
+    return true
+  }) || []
+
+  // Count items by media type
+  const movieCount = queue?.filter((q) => q.mediaType === 'movie').length || 0
+  const seriesCount = queue?.filter((q) => q.mediaType === 'series').length || 0
+  const totalCount = queue?.length || 0
 
   if (isLoading) {
     return (
       <div>
-        <PageHeader title="Activity" />
+        <PageHeader title="Downloads" />
         <LoadingState variant="list" />
       </div>
     )
@@ -148,7 +233,7 @@ export function ActivityPage() {
   if (isError) {
     return (
       <div>
-        <PageHeader title="Activity" />
+        <PageHeader title="Downloads" />
         <ErrorState onRetry={refetch} />
       </div>
     )
@@ -157,8 +242,8 @@ export function ActivityPage() {
   return (
     <div>
       <PageHeader
-        title="Activity"
-        description="Monitor downloads and activity"
+        title="Downloads"
+        description="Monitor active downloads"
         actions={
           <Link to="/activity/history">
             <Button variant="outline">View History</Button>
@@ -166,66 +251,40 @@ export function ActivityPage() {
         }
       />
 
-      <Tabs defaultValue="queue" className="space-y-4">
+      <Tabs value={filter} onValueChange={(v) => setFilter(v as MediaFilter)} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="queue">
-            Queue
-            {activeCount > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {activeCount}
-              </Badge>
+          <TabsTrigger value="all">
+            All
+            {totalCount > 0 && (
+              <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="queued">
-            Queued
-            {queuedCount > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {queuedCount}
-              </Badge>
+          <TabsTrigger value="movies">
+            Movies
+            {movieCount > 0 && (
+              <span className="ml-2 text-xs text-muted-foreground">({movieCount})</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="series">
+            Series
+            {seriesCount > 0 && (
+              <span className="ml-2 text-xs text-muted-foreground">({seriesCount})</span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="queue">
+        <TabsContent value={filter}>
           <Card>
             <CardHeader>
-              <CardTitle>Active Downloads</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="size-5" />
+                {filter === 'all' && 'All Downloads'}
+                {filter === 'movies' && 'Movie Downloads'}
+                {filter === 'series' && 'Series Downloads'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {!queue?.filter((q) => q.status === 'downloading').length ? (
-                <EmptyState
-                  icon={<Activity className="size-8" />}
-                  title="No active downloads"
-                  description="Downloads will appear here when they start"
-                  className="py-8"
-                />
-              ) : (
-                queue
-                  .filter((q) => q.status === 'downloading')
-                  .map((item) => <QueueItemRow key={item.id} item={item} />)
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="queued">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Downloads</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {!queue?.filter((q) => q.status === 'queued').length ? (
-                <EmptyState
-                  icon={<Activity className="size-8" />}
-                  title="No pending downloads"
-                  description="Queued downloads will appear here"
-                  className="py-8"
-                />
-              ) : (
-                queue
-                  .filter((q) => q.status === 'queued')
-                  .map((item) => <QueueItemRow key={item.id} item={item} />)
-              )}
+              <DownloadsTable items={filteredItems} />
             </CardContent>
           </Card>
         </TabsContent>

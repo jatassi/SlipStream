@@ -1,19 +1,22 @@
 export interface QueueItem {
-  id: number
-  clientId?: number
-  externalId?: string
+  id: string
+  clientId: number
+  clientName: string
   title: string
-  mediaType: 'movie' | 'series'
-  mediaId: number
+  mediaType: 'movie' | 'series' | 'unknown'
   status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed'
   progress: number
   size: number
-  downloadUrl?: string
-  outputPath?: string
-  addedAt: string
-  completedAt?: string
-  eta?: string
-  speed?: number
+  downloadedSize: number
+  downloadSpeed: number
+  eta: number
+  quality?: string
+  source?: string
+  codec?: string
+  attributes: string[]
+  season?: number
+  episode?: number
+  downloadPath: string
 }
 
 export interface QueueStats {

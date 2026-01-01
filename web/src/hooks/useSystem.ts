@@ -51,3 +51,8 @@ export function useRegenerateApiKey() {
     },
   })
 }
+
+export function useDeveloperMode() {
+  const { data } = useStatus()
+  return data?.developerMode ?? false
+}

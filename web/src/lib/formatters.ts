@@ -116,3 +116,15 @@ export function formatPercent(value: number, decimals = 1): string {
 export function formatEpisodeNumber(season: number, episode: number): string {
   return `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
 }
+
+/**
+ * Format series title with season/episode info
+ */
+export function formatSeriesTitle(
+  seriesName: string,
+  season?: number,
+  episode?: number
+): string {
+  if (!season || !episode) return seriesName
+  return `${seriesName} - ${formatEpisodeNumber(season, episode)}`
+}

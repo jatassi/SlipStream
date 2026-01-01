@@ -9,18 +9,19 @@ import (
 
 // ParsedMedia represents a media file parsed from a filename.
 type ParsedMedia struct {
-	Title      string `json:"title"`
-	Year       int    `json:"year,omitempty"`
-	Season     int    `json:"season,omitempty"`     // 0 for movies
-	Episode    int    `json:"episode,omitempty"`    // 0 for movies
-	EndEpisode int    `json:"endEpisode,omitempty"` // For multi-episode files
-	Quality    string `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
-	Resolution int    `json:"resolution,omitempty"` // 720, 1080, 2160
-	Source     string `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
-	Codec      string `json:"codec,omitempty"`      // "x264", "x265", "HEVC"
-	IsTV       bool   `json:"isTv"`
-	FilePath   string `json:"filePath"`
-	FileSize   int64  `json:"fileSize"`
+	Title      string   `json:"title"`
+	Year       int      `json:"year,omitempty"`
+	Season     int      `json:"season,omitempty"`     // 0 for movies
+	Episode    int      `json:"episode,omitempty"`    // 0 for movies
+	EndEpisode int      `json:"endEpisode,omitempty"` // For multi-episode files
+	Quality    string   `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
+	Resolution int      `json:"resolution,omitempty"` // 720, 1080, 2160
+	Source     string   `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
+	Codec      string   `json:"codec,omitempty"`      // "x264", "x265", "HEVC"
+	Attributes []string `json:"attributes,omitempty"` // HDR, Atmos, REMUX, etc.
+	IsTV       bool     `json:"isTv"`
+	FilePath   string   `json:"filePath"`
+	FileSize   int64    `json:"fileSize"`
 }
 
 // Regex patterns for parsing
@@ -63,6 +64,28 @@ var (
 		"XviD":  regexp.MustCompile(`(?i)xvid`),
 		"DivX":  regexp.MustCompile(`(?i)divx`),
 		"MPEG2": regexp.MustCompile(`(?i)mpeg-?2`),
+	}
+
+	// HDR patterns (order matters - more specific patterns first)
+	hdrPatterns = map[string]*regexp.Regexp{
+		"DV":     regexp.MustCompile(`(?i)(dolby[\.\s]?vision|dovi|\.dv\.)`),
+		"HDR10+": regexp.MustCompile(`(?i)hdr10\+`),
+		"HDR10":  regexp.MustCompile(`(?i)hdr10`),
+		"HDR":    regexp.MustCompile(`(?i)[\.\s\-]hdr[\.\s\-]`),
+		"HLG":    regexp.MustCompile(`(?i)hlg`),
+	}
+
+	// Audio patterns (order matters - more specific patterns first)
+	audioPatterns = map[string]*regexp.Regexp{
+		"Atmos":  regexp.MustCompile(`(?i)atmos`),
+		"DTS-X":  regexp.MustCompile(`(?i)dts[\.\-]?x`),
+		"DTS-HD": regexp.MustCompile(`(?i)dts[\.\-]?hd([\.\-]?ma)?`),
+		"TrueHD": regexp.MustCompile(`(?i)truehd`),
+		"DTS":    regexp.MustCompile(`(?i)[\.\s\-]dts[\.\s\-]`),
+		"DD+":    regexp.MustCompile(`(?i)(ddp|dd\+|e[\.\-]?ac[\.\-]?3)`),
+		"DD":     regexp.MustCompile(`(?i)(dd[25]\.[01]|[\.\s\-]ac[\.\-]?3[\.\s\-])`),
+		"AAC":    regexp.MustCompile(`(?i)[\.\s\-]aac[\.\s\-]`),
+		"FLAC":   regexp.MustCompile(`(?i)[\.\s\-]flac[\.\s\-]`),
 	}
 
 	// Clean up patterns
@@ -143,7 +166,7 @@ func cleanTitle(title string) string {
 	return cleaned
 }
 
-// parseQualityInfo extracts quality, source, and codec from remaining text.
+// parseQualityInfo extracts quality, source, codec, and attributes from remaining text.
 func parseQualityInfo(text string, parsed *ParsedMedia) {
 	// Quality
 	for quality, pattern := range qualityPatterns {
@@ -177,6 +200,36 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 			parsed.Codec = codec
 			break
 		}
+	}
+
+	// Attributes
+	var attributes []string
+
+	// Check for REMUX (from source)
+	if parsed.Source == "Remux" {
+		attributes = append(attributes, "REMUX")
+	}
+
+	// HDR attributes (check in priority order)
+	hdrOrder := []string{"DV", "HDR10+", "HDR10", "HDR", "HLG"}
+	for _, hdr := range hdrOrder {
+		if pattern, ok := hdrPatterns[hdr]; ok && pattern.MatchString(text) {
+			attributes = append(attributes, hdr)
+			break // Only add the most specific HDR type
+		}
+	}
+
+	// Audio attributes (check in priority order)
+	audioOrder := []string{"Atmos", "DTS-X", "DTS-HD", "TrueHD", "DTS", "DD+", "DD", "AAC", "FLAC"}
+	for _, audio := range audioOrder {
+		if pattern, ok := audioPatterns[audio]; ok && pattern.MatchString(text) {
+			attributes = append(attributes, audio)
+			break // Only add the most specific audio type
+		}
+	}
+
+	if len(attributes) > 0 {
+		parsed.Attributes = attributes
 	}
 }
 

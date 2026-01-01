@@ -55,7 +55,7 @@ const activityGroup: CollapsibleNavGroup = {
   title: 'Activity',
   icon: Activity,
   items: [
-    { title: 'Queue', href: '/activity', icon: Activity },
+    { title: 'Downloads', href: '/activity', icon: Download },
     { title: 'History', href: '/activity/history', icon: History },
   ],
 }

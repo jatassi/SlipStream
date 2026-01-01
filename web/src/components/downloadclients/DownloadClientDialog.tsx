@@ -24,6 +24,7 @@ import {
   useCreateDownloadClient,
   useUpdateDownloadClient,
   useTestNewDownloadClient,
+  useDeveloperMode,
 } from '@/hooks'
 import { downloadClientsApi } from '@/api'
 import type { DownloadClient, DownloadClientType, CreateDownloadClientInput } from '@/types'
@@ -103,6 +104,7 @@ export function DownloadClientDialog({
   const createMutation = useCreateDownloadClient()
   const updateMutation = useUpdateDownloadClient()
   const testNewMutation = useTestNewDownloadClient()
+  const developerMode = useDeveloperMode()
 
   const isEditing = !!client
 
@@ -359,12 +361,12 @@ export function DownloadClientDialog({
               )}
               Test
             </Button>
-            {isEditing && formData.type === 'transmission' && (
+            {developerMode && isEditing && formData.type === 'transmission' && (
               <Button
                 variant="outline"
                 onClick={handleDebugTorrent}
                 disabled={isAddingDebugTorrent}
-                title="Add Ubuntu ISO torrent for testing"
+                title="Add mock download for testing"
               >
                 {isAddingDebugTorrent ? (
                   <Loader2 className="size-4 mr-2 animate-spin" />

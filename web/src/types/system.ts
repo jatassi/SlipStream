@@ -7,6 +7,7 @@ export interface SystemStatus {
   seriesCount: number
   episodeCount: number
   queueCount: number
+  developerMode: boolean
 }
 
 export interface HealthCheck {

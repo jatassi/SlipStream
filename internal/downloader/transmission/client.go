@@ -28,12 +28,15 @@ type Config struct {
 
 // Torrent represents a torrent in Transmission.
 type Torrent struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Status   string  `json:"status"`
-	Progress float64 `json:"progress"`
-	Size     int64   `json:"size"`
-	Path     string  `json:"path"`
+	ID             string  `json:"id"`
+	Name           string  `json:"name"`
+	Status         string  `json:"status"`
+	Progress       float64 `json:"progress"`
+	Size           int64   `json:"size"`
+	DownloadedSize int64   `json:"downloadedSize"`
+	DownloadSpeed  int64   `json:"downloadSpeed"`
+	ETA            int64   `json:"eta"` // seconds, -1 if unavailable
+	Path           string  `json:"path"`
 }
 
 // Client implements a Transmission RPC client.
@@ -164,6 +167,7 @@ func (c *Client) List() ([]Torrent, error) {
 		"fields": []string{
 			"id", "name", "status", "percentDone",
 			"totalSize", "downloadDir", "hashString",
+			"eta", "rateDownload", "downloadedEver", "sizeWhenDone",
 		},
 	}
 
@@ -185,12 +189,15 @@ func (c *Client) List() ([]Torrent, error) {
 		}
 
 		item := Torrent{
-			ID:       fmt.Sprintf("%v", torrent["hashString"]),
-			Name:     getString(torrent, "name"),
-			Status:   mapStatus(getInt(torrent, "status")),
-			Progress: getFloat(torrent, "percentDone"),
-			Size:     int64(getFloat(torrent, "totalSize")),
-			Path:     getString(torrent, "downloadDir"),
+			ID:             fmt.Sprintf("%v", torrent["hashString"]),
+			Name:           getString(torrent, "name"),
+			Status:         mapStatus(getInt(torrent, "status")),
+			Progress:       getFloat(torrent, "percentDone"),
+			Size:           int64(getFloat(torrent, "sizeWhenDone")),
+			DownloadedSize: int64(getFloat(torrent, "downloadedEver")),
+			DownloadSpeed:  int64(getFloat(torrent, "rateDownload")),
+			ETA:            int64(getFloat(torrent, "eta")),
+			Path:           getString(torrent, "downloadDir"),
 		}
 		torrents = append(torrents, item)
 	}
@@ -216,6 +223,27 @@ func (c *Client) Start(id string) error {
 	}
 
 	_, err := c.call("torrent-start", args)
+	return err
+}
+
+// Stop stops a torrent.
+func (c *Client) Stop(id string) error {
+	args := map[string]interface{}{
+		"ids": []string{id},
+	}
+
+	_, err := c.call("torrent-stop", args)
+	return err
+}
+
+// RemoveWithData removes a torrent and deletes its data.
+func (c *Client) RemoveWithData(id string) error {
+	args := map[string]interface{}{
+		"ids":               []string{id},
+		"delete-local-data": true,
+	}
+
+	_, err := c.call("torrent-remove", args)
 	return err
 }
 

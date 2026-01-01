@@ -32,6 +32,7 @@ type Server struct {
 	db     *sql.DB
 	hub    *websocket.Hub
 	logger zerolog.Logger
+	cfg    *config.Config
 
 	// Services
 	scannerService        *scanner.Service
@@ -59,6 +60,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		db:     db,
 		hub:    hub,
 		logger: logger,
+		cfg:    cfg,
 	}
 
 	// Initialize services
@@ -78,6 +80,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize downloader service
 	s.downloaderService = downloader.NewService(db, logger)
+	s.downloaderService.SetDeveloperMode(cfg.DeveloperMode)
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -264,6 +267,8 @@ func (s *Server) setupRoutes() {
 
 	// Queue/Downloads routes
 	api.GET("/queue", s.getQueue)
+	api.POST("/queue/:id/pause", s.pauseDownload)
+	api.POST("/queue/:id/resume", s.resumeDownload)
 	api.DELETE("/queue/:id", s.removeFromQueue)
 
 	// History routes
@@ -324,10 +329,11 @@ func (s *Server) getStatus(c echo.Context) error {
 	seriesCount, _ := s.tvService.Count(ctx)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"version":     "0.0.1-dev",
-		"startTime":   time.Now().Format(time.RFC3339),
-		"movieCount":  movieCount,
-		"seriesCount": seriesCount,
+		"version":       "0.0.1-dev",
+		"startTime":     time.Now().Format(time.RFC3339),
+		"movieCount":    movieCount,
+		"seriesCount":   seriesCount,
+		"developerMode": s.cfg.DeveloperMode,
 	})
 }
 
@@ -510,37 +516,94 @@ func (s *Server) debugAddTorrent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 
-	// Ubuntu 24.04 ISO torrents for testing
-	movieTorrentURL := "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-live-server-amd64.iso.torrent"
-	seriesTorrentURL := "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-desktop-amd64.iso.torrent"
-
-	// Add movie torrent
-	movieID, err := s.downloaderService.AddTorrent(ctx, id, movieTorrentURL, "movie")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add movie torrent: " + err.Error()})
+	// Only allow in developer mode
+	if !s.cfg.DeveloperMode {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "debug features only available in developer mode"})
 	}
 
-	// Add series torrent
-	seriesID, err := s.downloaderService.AddTorrent(ctx, id, seriesTorrentURL, "series")
+	// Get client name for the mock items
+	client, err := s.downloaderService.Get(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add series torrent: " + err.Error()})
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+	}
+
+	// Add mock downloads using library content
+	mockIDs, err := s.downloaderService.AddMockDownloads(ctx, id, client.Name)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add mock downloads: " + err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success":       true,
-		"movieTorrentId":  movieID,
-		"seriesTorrentId": seriesID,
-		"message":       "Ubuntu 24.04 ISO torrents added successfully (movie + series)",
+		"success": true,
+		"mockIds": mockIDs,
+		"message": "Mock downloads added based on library content",
 	})
 }
 
-// Queue handlers (placeholders)
+// Queue handlers
 func (s *Server) getQueue(c echo.Context) error {
-	return c.JSON(http.StatusOK, []interface{}{})
+	ctx := c.Request().Context()
+
+	items, err := s.downloaderService.GetQueue(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, items)
+}
+
+func (s *Server) pauseDownload(c echo.Context) error {
+	ctx := c.Request().Context()
+	torrentID := c.Param("id")
+
+	var body struct {
+		ClientID int64 `json:"clientId"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if err := s.downloaderService.PauseDownload(ctx, body.ClientID, torrentID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "paused"})
+}
+
+func (s *Server) resumeDownload(c echo.Context) error {
+	ctx := c.Request().Context()
+	torrentID := c.Param("id")
+
+	var body struct {
+		ClientID int64 `json:"clientId"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if err := s.downloaderService.ResumeDownload(ctx, body.ClientID, torrentID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "resumed"})
 }
 
 func (s *Server) removeFromQueue(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+	torrentID := c.Param("id")
+
+	clientID, err := strconv.ParseInt(c.QueryParam("clientId"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid clientId"})
+	}
+
+	deleteFiles := c.QueryParam("deleteFiles") == "true"
+
+	if err := s.downloaderService.RemoveDownload(ctx, clientID, torrentID, deleteFiles); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 // History handler (placeholder)

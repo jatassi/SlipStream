@@ -5,7 +5,6 @@ export const queueKeys = {
   all: ['queue'] as const,
   list: () => [...queueKeys.all, 'list'] as const,
   stats: () => [...queueKeys.all, 'stats'] as const,
-  detail: (id: number) => [...queueKeys.all, 'detail', id] as const,
 }
 
 export function useQueue() {
@@ -24,18 +23,20 @@ export function useQueueStats() {
   })
 }
 
-export function useQueueItem(id: number) {
-  return useQuery({
-    queryKey: queueKeys.detail(id),
-    queryFn: () => queueApi.get(id),
-    enabled: !!id,
-  })
+interface QueueItemParams {
+  clientId: number
+  id: string
+}
+
+interface RemoveParams extends QueueItemParams {
+  deleteFiles?: boolean
 }
 
 export function useRemoveFromQueue() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => queueApi.remove(id),
+    mutationFn: ({ clientId, id, deleteFiles = false }: RemoveParams) =>
+      queueApi.remove(clientId, id, deleteFiles),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKeys.all })
     },
@@ -45,7 +46,8 @@ export function useRemoveFromQueue() {
 export function usePauseQueueItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => queueApi.pause(id),
+    mutationFn: ({ clientId, id }: QueueItemParams) =>
+      queueApi.pause(clientId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKeys.all })
     },
@@ -55,7 +57,8 @@ export function usePauseQueueItem() {
 export function useResumeQueueItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => queueApi.resume(id),
+    mutationFn: ({ clientId, id }: QueueItemParams) =>
+      queueApi.resume(clientId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKeys.all })
     },

@@ -72,16 +72,42 @@ type TestResult struct {
 
 // Service provides download client operations.
 type Service struct {
-	queries *sqlc.Queries
-	logger  zerolog.Logger
+	queries       *sqlc.Queries
+	logger        zerolog.Logger
+	developerMode bool
+	mockQueue     []MockQueueItem
+}
+
+// MockQueueItem represents a mock queue item for developer mode.
+type MockQueueItem struct {
+	ID         string
+	ClientID   int64
+	ClientName string
+	Title      string
+	MediaType  string
+	Quality    string
+	Source     string
+	Codec      string
+	Attributes []string
+	Season     int
+	Episode    int
+	Size       int64
+	Progress   float64
+	Status     string
 }
 
 // NewService creates a new download client service.
 func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	return &Service{
-		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "downloader").Logger(),
+		queries:   sqlc.New(db),
+		logger:    logger.With().Str("component", "downloader").Logger(),
+		mockQueue: make([]MockQueueItem, 0),
 	}
+}
+
+// SetDeveloperMode sets the developer mode flag.
+func (s *Service) SetDeveloperMode(enabled bool) {
+	s.developerMode = enabled
 }
 
 // Get retrieves a download client by ID.
