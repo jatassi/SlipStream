@@ -154,10 +154,12 @@ type RootFolder struct {
 }
 
 type Season struct {
-	ID           int64 `json:"id"`
-	SeriesID     int64 `json:"series_id"`
-	SeasonNumber int64 `json:"season_number"`
-	Monitored    int64 `json:"monitored"`
+	ID           int64          `json:"id"`
+	SeriesID     int64          `json:"series_id"`
+	SeasonNumber int64          `json:"season_number"`
+	Monitored    int64          `json:"monitored"`
+	Overview     sql.NullString `json:"overview"`
+	PosterUrl    sql.NullString `json:"poster_url"`
 }
 
 type Series struct {

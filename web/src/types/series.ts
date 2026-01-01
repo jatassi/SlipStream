@@ -27,6 +27,8 @@ export interface Season {
   seriesId: number
   seasonNumber: number
   monitored: boolean
+  overview?: string
+  posterUrl?: string
   episodeCount: number
   episodeFileCount: number
   sizeOnDisk?: number

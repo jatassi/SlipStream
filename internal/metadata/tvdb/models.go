@@ -189,3 +189,23 @@ type NormalizedSeriesResult struct {
 	Status      string   `json:"status,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
 }
+
+// NormalizedSeasonResult is the normalized season result with episodes.
+type NormalizedSeasonResult struct {
+	SeasonNumber int                       `json:"seasonNumber"`
+	Name         string                    `json:"name"`
+	Overview     string                    `json:"overview"`
+	PosterURL    string                    `json:"posterUrl,omitempty"`
+	AirDate      string                    `json:"airDate,omitempty"`
+	Episodes     []NormalizedEpisodeResult `json:"episodes"`
+}
+
+// NormalizedEpisodeResult is the normalized episode result.
+type NormalizedEpisodeResult struct {
+	EpisodeNumber int    `json:"episodeNumber"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	Title         string `json:"title"`
+	Overview      string `json:"overview,omitempty"`
+	AirDate       string `json:"airDate,omitempty"`
+	Runtime       int    `json:"runtime,omitempty"`
+}

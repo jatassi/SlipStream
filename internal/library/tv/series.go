@@ -33,6 +33,8 @@ type Season struct {
 	SeriesID         int64  `json:"seriesId"`
 	SeasonNumber     int    `json:"seasonNumber"`
 	Monitored        bool   `json:"monitored"`
+	Overview         string `json:"overview,omitempty"`
+	PosterURL        string `json:"posterUrl,omitempty"`
 	EpisodeCount     int    `json:"episodeCount"`
 	EpisodeFileCount int    `json:"episodeFileCount"`
 	SizeOnDisk       int64  `json:"sizeOnDisk,omitempty"`

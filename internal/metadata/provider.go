@@ -51,3 +51,23 @@ type SeriesResult struct {
 	Status      string   `json:"status,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
 }
+
+// SeasonResult represents a TV season with episodes from a metadata provider.
+type SeasonResult struct {
+	SeasonNumber int             `json:"seasonNumber"`
+	Name         string          `json:"name"`
+	Overview     string          `json:"overview,omitempty"`
+	PosterURL    string          `json:"posterUrl,omitempty"`
+	AirDate      string          `json:"airDate,omitempty"`
+	Episodes     []EpisodeResult `json:"episodes,omitempty"`
+}
+
+// EpisodeResult represents a TV episode from a metadata provider.
+type EpisodeResult struct {
+	EpisodeNumber int    `json:"episodeNumber"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	Title         string `json:"title"`
+	Overview      string `json:"overview,omitempty"`
+	AirDate       string `json:"airDate,omitempty"`
+	Runtime       int    `json:"runtime,omitempty"`
+}

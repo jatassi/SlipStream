@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -625,12 +626,19 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 
 // rowToSeason converts a database row to a Season.
 func (s *Service) rowToSeason(row *sqlc.Season) Season {
-	return Season{
+	season := Season{
 		ID:           row.ID,
 		SeriesID:     row.SeriesID,
 		SeasonNumber: int(row.SeasonNumber),
 		Monitored:    row.Monitored == 1,
 	}
+	if row.Overview.Valid {
+		season.Overview = row.Overview.String
+	}
+	if row.PosterUrl.Valid {
+		season.PosterURL = row.PosterUrl.String
+	}
+	return season
 }
 
 // rowToEpisode converts a database row to an Episode.
@@ -701,4 +709,98 @@ func boolToInt(b bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+// parseAirDate attempts to parse a date string in common formats.
+func parseAirDate(s string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05.000Z",
+		"January 2, 2006",
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", s)
+}
+
+// SeasonMetadata represents season metadata from a provider.
+type SeasonMetadata struct {
+	SeasonNumber int
+	Name         string
+	Overview     string
+	PosterURL    string
+	AirDate      string
+	Episodes     []EpisodeMetadata
+}
+
+// EpisodeMetadata represents episode metadata from a provider.
+type EpisodeMetadata struct {
+	EpisodeNumber int
+	SeasonNumber  int
+	Title         string
+	Overview      string
+	AirDate       string
+	Runtime       int
+}
+
+// UpdateSeasonsFromMetadata updates all seasons and episodes from metadata.
+func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64, seasons []SeasonMetadata) error {
+	for _, seasonMeta := range seasons {
+		// Upsert season with metadata
+		_, err := s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
+			SeriesID:     seriesID,
+			SeasonNumber: int64(seasonMeta.SeasonNumber),
+			Monitored:    1, // Default to monitored
+			Overview:     sql.NullString{String: seasonMeta.Overview, Valid: seasonMeta.Overview != ""},
+			PosterUrl:    sql.NullString{String: seasonMeta.PosterURL, Valid: seasonMeta.PosterURL != ""},
+		})
+		if err != nil {
+			s.logger.Warn().
+				Err(err).
+				Int64("seriesId", seriesID).
+				Int("seasonNumber", seasonMeta.SeasonNumber).
+				Msg("Failed to upsert season")
+			continue
+		}
+
+		// Upsert episodes for this season
+		for _, epMeta := range seasonMeta.Episodes {
+			var airDate sql.NullTime
+			if epMeta.AirDate != "" {
+				// Try parsing common date formats
+				if t, err := parseAirDate(epMeta.AirDate); err == nil {
+					airDate = sql.NullTime{Time: t, Valid: true}
+				}
+			}
+
+			_, err := s.queries.UpsertEpisode(ctx, sqlc.UpsertEpisodeParams{
+				SeriesID:      seriesID,
+				SeasonNumber:  int64(epMeta.SeasonNumber),
+				EpisodeNumber: int64(epMeta.EpisodeNumber),
+				Title:         sql.NullString{String: epMeta.Title, Valid: epMeta.Title != ""},
+				Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
+				AirDate:       airDate,
+				Monitored:     1, // Default to monitored
+			})
+			if err != nil {
+				s.logger.Warn().
+					Err(err).
+					Int64("seriesId", seriesID).
+					Int("seasonNumber", epMeta.SeasonNumber).
+					Int("episodeNumber", epMeta.EpisodeNumber).
+					Msg("Failed to upsert episode")
+			}
+		}
+	}
+
+	s.logger.Info().
+		Int64("seriesId", seriesID).
+		Int("seasons", len(seasons)).
+		Msg("Updated seasons from metadata")
+
+	return nil
 }

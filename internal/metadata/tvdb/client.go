@@ -188,6 +188,66 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 	return &result, nil
 }
 
+// GetSeriesEpisodes gets all episodes for a series grouped by season.
+func (c *Client) GetSeriesEpisodes(ctx context.Context, id int) ([]NormalizedSeasonResult, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	if err := c.authenticate(ctx); err != nil {
+		return nil, err
+	}
+
+	// Fetch all episodes using the episodes/default endpoint
+	endpoint := fmt.Sprintf("%s/series/%d/episodes/default", c.config.BaseURL, id)
+
+	var response EpisodesResponse
+	if err := c.doRequest(ctx, endpoint, nil, &response); err != nil {
+		return nil, err
+	}
+
+	// Group episodes by season
+	seasonMap := make(map[int]*NormalizedSeasonResult)
+
+	for _, ep := range response.Data.Episodes {
+		season, exists := seasonMap[ep.SeasonNumber]
+		if !exists {
+			season = &NormalizedSeasonResult{
+				SeasonNumber: ep.SeasonNumber,
+				Name:         fmt.Sprintf("Season %d", ep.SeasonNumber),
+				Episodes:     []NormalizedEpisodeResult{},
+			}
+			if ep.SeasonNumber == 0 {
+				season.Name = "Specials"
+			}
+			seasonMap[ep.SeasonNumber] = season
+		}
+
+		episode := NormalizedEpisodeResult{
+			EpisodeNumber: ep.Number,
+			SeasonNumber:  ep.SeasonNumber,
+			Title:         ep.Name,
+			Overview:      ep.Overview,
+			AirDate:       ep.Aired,
+			Runtime:       ep.Runtime,
+		}
+		season.Episodes = append(season.Episodes, episode)
+	}
+
+	// Convert map to slice
+	results := make([]NormalizedSeasonResult, 0, len(seasonMap))
+	for _, season := range seasonMap {
+		results = append(results, *season)
+	}
+
+	c.logger.Debug().
+		Int("id", id).
+		Int("seasons", len(results)).
+		Msg("Got series episodes")
+
+	return results, nil
+}
+
 // doRequest performs an HTTP GET request with authentication.
 func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Values, result interface{}) error {
 	reqURL := endpoint

@@ -1010,7 +1010,7 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
 
-	updatedSeries, err := s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
+	_, err = s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
 		Title:    &title,
 		Year:     &year,
 		TvdbID:   &tvdbID,
@@ -1021,6 +1021,52 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
+	}
+
+	// Fetch and update seasons/episodes metadata
+	if tmdbID > 0 || tvdbID > 0 {
+		seasonResults, err := s.metadata.GetSeriesSeasons(ctx, tmdbID, tvdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Int("tvdbId", tvdbID).Msg("Failed to fetch season metadata")
+		} else {
+			// Convert metadata.SeasonResult to tv.SeasonMetadata
+			seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
+			for i, sr := range seasonResults {
+				episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
+				for j, ep := range sr.Episodes {
+					episodes[j] = tv.EpisodeMetadata{
+						EpisodeNumber: ep.EpisodeNumber,
+						SeasonNumber:  ep.SeasonNumber,
+						Title:         ep.Title,
+						Overview:      ep.Overview,
+						AirDate:       ep.AirDate,
+						Runtime:       ep.Runtime,
+					}
+				}
+				seasonMeta[i] = tv.SeasonMetadata{
+					SeasonNumber: sr.SeasonNumber,
+					Name:         sr.Name,
+					Overview:     sr.Overview,
+					PosterURL:    sr.PosterURL,
+					AirDate:      sr.AirDate,
+					Episodes:     episodes,
+				}
+			}
+
+			if err := s.tv.UpdateSeasonsFromMetadata(ctx, seriesID, seasonMeta); err != nil {
+				s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to update seasons from metadata")
+			} else {
+				totalEpisodes := 0
+				for _, sm := range seasonMeta {
+					totalEpisodes += len(sm.Episodes)
+				}
+				s.logger.Info().
+					Int64("seriesId", seriesID).
+					Int("seasons", len(seasonMeta)).
+					Int("episodes", totalEpisodes).
+					Msg("Updated seasons and episodes from metadata")
+			}
+		}
 	}
 
 	// Download artwork asynchronously
@@ -1038,7 +1084,8 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 		Int("tvdbId", bestMatch.TvdbID).
 		Msg("Refreshed series metadata")
 
-	return updatedSeries, nil
+	// Re-fetch series to include updated seasons
+	return s.tv.GetSeries(ctx, seriesID)
 }
 
 // buildScanSummary creates a human-readable summary of scan results.
@@ -1319,7 +1366,7 @@ type AddSeriesInput struct {
 	BackdropURL      string           `json:"backdropUrl,omitempty"`
 }
 
-// AddSeries creates a new series and downloads artwork in the background.
+// AddSeries creates a new series, fetches metadata, and downloads artwork in the background.
 func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Series, error) {
 	// Create the series
 	series, err := s.tv.CreateSeries(ctx, tv.CreateSeriesInput{
@@ -1339,6 +1386,52 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Fetch and update seasons/episodes metadata
+	if input.TmdbID > 0 || input.TvdbID > 0 {
+		seasonResults, err := s.metadata.GetSeriesSeasons(ctx, input.TmdbID, input.TvdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Failed to fetch season metadata for new series")
+		} else {
+			// Convert metadata.SeasonResult to tv.SeasonMetadata
+			seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
+			for i, sr := range seasonResults {
+				episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
+				for j, ep := range sr.Episodes {
+					episodes[j] = tv.EpisodeMetadata{
+						EpisodeNumber: ep.EpisodeNumber,
+						SeasonNumber:  ep.SeasonNumber,
+						Title:         ep.Title,
+						Overview:      ep.Overview,
+						AirDate:       ep.AirDate,
+						Runtime:       ep.Runtime,
+					}
+				}
+				seasonMeta[i] = tv.SeasonMetadata{
+					SeasonNumber: sr.SeasonNumber,
+					Name:         sr.Name,
+					Overview:     sr.Overview,
+					PosterURL:    sr.PosterURL,
+					AirDate:      sr.AirDate,
+					Episodes:     episodes,
+				}
+			}
+
+			if err := s.tv.UpdateSeasonsFromMetadata(ctx, series.ID, seasonMeta); err != nil {
+				s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to update seasons from metadata for new series")
+			} else {
+				totalEpisodes := 0
+				for _, sm := range seasonMeta {
+					totalEpisodes += len(sm.Episodes)
+				}
+				s.logger.Info().
+					Int64("seriesId", series.ID).
+					Int("seasons", len(seasonMeta)).
+					Int("episodes", totalEpisodes).
+					Msg("Updated seasons and episodes for new series")
+			}
+		}
 	}
 
 	// Download artwork in the background if we have URLs
@@ -1365,5 +1458,6 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		}()
 	}
 
-	return series, nil
+	// Re-fetch series to include updated seasons and episodes
+	return s.tv.GetSeries(ctx, series.ID)
 }

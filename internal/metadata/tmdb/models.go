@@ -169,3 +169,46 @@ type NormalizedSeriesResult struct {
 	Status      string   `json:"status,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
 }
+
+// SeasonDetails is the detailed season info from TMDB /tv/{id}/season/{number} endpoint.
+type SeasonDetails struct {
+	ID           int              `json:"id"`
+	Name         string           `json:"name"`
+	Overview     string           `json:"overview"`
+	AirDate      string           `json:"air_date"`
+	PosterPath   *string          `json:"poster_path"`
+	SeasonNumber int              `json:"season_number"`
+	Episodes     []EpisodeDetails `json:"episodes"`
+}
+
+// EpisodeDetails is the episode info from TMDB season details.
+type EpisodeDetails struct {
+	ID            int     `json:"id"`
+	Name          string  `json:"name"`
+	Overview      string  `json:"overview"`
+	AirDate       string  `json:"air_date"`
+	EpisodeNumber int     `json:"episode_number"`
+	SeasonNumber  int     `json:"season_number"`
+	StillPath     *string `json:"still_path"`
+	Runtime       int     `json:"runtime"`
+}
+
+// NormalizedSeasonResult is the normalized season result with episodes.
+type NormalizedSeasonResult struct {
+	SeasonNumber int                       `json:"seasonNumber"`
+	Name         string                    `json:"name"`
+	Overview     string                    `json:"overview"`
+	PosterURL    string                    `json:"posterUrl,omitempty"`
+	AirDate      string                    `json:"airDate,omitempty"`
+	Episodes     []NormalizedEpisodeResult `json:"episodes"`
+}
+
+// NormalizedEpisodeResult is the normalized episode result.
+type NormalizedEpisodeResult struct {
+	EpisodeNumber int    `json:"episodeNumber"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	Title         string `json:"title"`
+	Overview      string `json:"overview,omitempty"`
+	AirDate       string `json:"airDate,omitempty"`
+	Runtime       int    `json:"runtime,omitempty"`
+}

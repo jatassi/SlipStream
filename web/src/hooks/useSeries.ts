@@ -98,7 +98,13 @@ export function useRefreshSeries() {
   return useMutation({
     mutationFn: (id: number) => seriesApi.refresh(id),
     onSuccess: (series: Series) => {
+      // Invalidate all series-related queries to refresh seasons and episodes
       queryClient.setQueryData(seriesKeys.detail(series.id), series)
+      queryClient.invalidateQueries({ queryKey: seriesKeys.seasons(series.id) })
+      // Invalidate all episode queries for this series (any season)
+      queryClient.invalidateQueries({
+        queryKey: [...seriesKeys.detail(series.id), 'episodes'],
+      })
     },
   })
 }

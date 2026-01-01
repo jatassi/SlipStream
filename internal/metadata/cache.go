@@ -220,3 +220,13 @@ func (c *Cache) GetSeriesResult(key string) (*SeriesResult, bool) {
 	result, ok := val.(*SeriesResult)
 	return result, ok
 }
+
+// GetSeasonResults retrieves cached season results.
+func (c *Cache) GetSeasonResults(key string) ([]SeasonResult, bool) {
+	val, ok := c.Get(key)
+	if !ok {
+		return nil, false
+	}
+	results, ok := val.([]SeasonResult)
+	return results, ok
+}

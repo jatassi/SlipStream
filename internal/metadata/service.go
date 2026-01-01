@@ -341,3 +341,122 @@ func (s *Service) IsTMDBConfigured() bool {
 func (s *Service) IsTVDBConfigured() bool {
 	return s.tvdb.IsConfigured()
 }
+
+// tmdbSeasonToResult converts a TMDB season result to metadata.SeasonResult.
+func tmdbSeasonToResult(s tmdb.NormalizedSeasonResult) SeasonResult {
+	episodes := make([]EpisodeResult, len(s.Episodes))
+	for i, ep := range s.Episodes {
+		episodes[i] = EpisodeResult{
+			EpisodeNumber: ep.EpisodeNumber,
+			SeasonNumber:  ep.SeasonNumber,
+			Title:         ep.Title,
+			Overview:      ep.Overview,
+			AirDate:       ep.AirDate,
+			Runtime:       ep.Runtime,
+		}
+	}
+	return SeasonResult{
+		SeasonNumber: s.SeasonNumber,
+		Name:         s.Name,
+		Overview:     s.Overview,
+		PosterURL:    s.PosterURL,
+		AirDate:      s.AirDate,
+		Episodes:     episodes,
+	}
+}
+
+// tvdbSeasonToResult converts a TVDB season result to metadata.SeasonResult.
+func tvdbSeasonToResult(s tvdb.NormalizedSeasonResult) SeasonResult {
+	episodes := make([]EpisodeResult, len(s.Episodes))
+	for i, ep := range s.Episodes {
+		episodes[i] = EpisodeResult{
+			EpisodeNumber: ep.EpisodeNumber,
+			SeasonNumber:  ep.SeasonNumber,
+			Title:         ep.Title,
+			Overview:      ep.Overview,
+			AirDate:       ep.AirDate,
+			Runtime:       ep.Runtime,
+		}
+	}
+	return SeasonResult{
+		SeasonNumber: s.SeasonNumber,
+		Name:         s.Name,
+		Overview:     s.Overview,
+		PosterURL:    s.PosterURL,
+		AirDate:      s.AirDate,
+		Episodes:     episodes,
+	}
+}
+
+// GetSeriesSeasons gets all seasons and episodes for a series.
+// Uses TMDB as primary, TVDB as fallback.
+func (s *Service) GetSeriesSeasons(ctx context.Context, tmdbID, tvdbID int) ([]SeasonResult, error) {
+	if !s.HasSeriesProvider() {
+		return nil, ErrNoProvidersConfigured
+	}
+
+	// Check cache
+	cacheKey := fmt.Sprintf("series:seasons:tmdb:%d:tvdb:%d", tmdbID, tvdbID)
+	if results, ok := s.cache.GetSeasonResults(cacheKey); ok {
+		s.logger.Debug().Int("tmdbId", tmdbID).Int("tvdbId", tvdbID).Msg("Series seasons cache hit")
+		return results, nil
+	}
+
+	var results []SeasonResult
+	var err error
+
+	// Try TMDB first (more comprehensive data)
+	if tmdbID > 0 && s.tmdb.IsConfigured() {
+		tmdbResults, tmdbErr := s.tmdb.GetAllSeasons(ctx, tmdbID)
+		if tmdbErr != nil {
+			s.logger.Warn().Err(tmdbErr).Int("tmdbId", tmdbID).Msg("TMDB get seasons failed, trying TVDB")
+			err = tmdbErr
+		} else {
+			results = make([]SeasonResult, len(tmdbResults))
+			for i, r := range tmdbResults {
+				results[i] = tmdbSeasonToResult(r)
+			}
+		}
+	}
+
+	// Fall back to TVDB if TMDB failed or not configured
+	if len(results) == 0 && tvdbID > 0 && s.tvdb.IsConfigured() {
+		tvdbResults, tvdbErr := s.tvdb.GetSeriesEpisodes(ctx, tvdbID)
+		if tvdbErr != nil {
+			s.logger.Error().Err(tvdbErr).Int("tvdbId", tvdbID).Msg("TVDB get episodes failed")
+			if err != nil {
+				return nil, fmt.Errorf("get series seasons failed: %w", err)
+			}
+			return nil, fmt.Errorf("get series seasons failed: %w", tvdbErr)
+		}
+		results = make([]SeasonResult, len(tvdbResults))
+		for i, r := range tvdbResults {
+			results[i] = tvdbSeasonToResult(r)
+		}
+		err = nil
+	}
+
+	// If we still have no results but had an error, return it
+	if len(results) == 0 && err != nil {
+		return nil, fmt.Errorf("get series seasons failed: %w", err)
+	}
+
+	// Cache results
+	if len(results) > 0 {
+		s.cache.Set(cacheKey, results)
+	}
+
+	totalEpisodes := 0
+	for _, season := range results {
+		totalEpisodes += len(season.Episodes)
+	}
+
+	s.logger.Info().
+		Int("tmdbId", tmdbID).
+		Int("tvdbId", tvdbID).
+		Int("seasons", len(results)).
+		Int("episodes", totalEpisodes).
+		Msg("Got series seasons")
+
+	return results, nil
+}

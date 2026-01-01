@@ -166,6 +166,72 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 	return &result, nil
 }
 
+// GetSeasonDetails gets detailed info for a specific season including all episodes.
+func (c *Client) GetSeasonDetails(ctx context.Context, seriesID, seasonNumber int) (*NormalizedSeasonResult, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/tv/%d/season/%d", c.config.BaseURL, seriesID, seasonNumber)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var details SeasonDetails
+	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		return nil, err
+	}
+
+	result := c.seasonDetailsToResult(details)
+
+	c.logger.Debug().
+		Int("seriesID", seriesID).
+		Int("seasonNumber", seasonNumber).
+		Int("episodes", len(result.Episodes)).
+		Msg("Got season details")
+
+	return &result, nil
+}
+
+// GetAllSeasons gets all seasons with episodes for a series.
+func (c *Client) GetAllSeasons(ctx context.Context, seriesID int) ([]NormalizedSeasonResult, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	// First get series details to know which seasons exist
+	endpoint := fmt.Sprintf("%s/tv/%d", c.config.BaseURL, seriesID)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var details TVDetails
+	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		return nil, err
+	}
+
+	results := make([]NormalizedSeasonResult, 0, len(details.Seasons))
+
+	// Fetch each season's details including episodes
+	for _, season := range details.Seasons {
+		seasonResult, err := c.GetSeasonDetails(ctx, seriesID, season.SeasonNumber)
+		if err != nil {
+			c.logger.Warn().
+				Err(err).
+				Int("seriesID", seriesID).
+				Int("seasonNumber", season.SeasonNumber).
+				Msg("Failed to get season details, skipping")
+			continue
+		}
+		results = append(results, *seasonResult)
+	}
+
+	c.logger.Debug().
+		Int("seriesID", seriesID).
+		Int("seasons", len(results)).
+		Msg("Got all seasons")
+
+	return results, nil
+}
+
 // GetImageURL returns a full image URL for a given path and size.
 // Size options: "w92", "w154", "w185", "w342", "w500", "w780", "original"
 func (c *Client) GetImageURL(path string, size string) string {
@@ -301,6 +367,35 @@ func (c *Client) toSeriesResult(tv TVResult) NormalizedSeriesResult {
 	}
 	if tv.BackdropPath != nil {
 		result.BackdropURL = c.GetImageURL(*tv.BackdropPath, "w780")
+	}
+
+	return result
+}
+
+// seasonDetailsToResult converts TMDB season details to a NormalizedSeasonResult.
+func (c *Client) seasonDetailsToResult(details SeasonDetails) NormalizedSeasonResult {
+	episodes := make([]NormalizedEpisodeResult, len(details.Episodes))
+	for i, ep := range details.Episodes {
+		episodes[i] = NormalizedEpisodeResult{
+			EpisodeNumber: ep.EpisodeNumber,
+			SeasonNumber:  ep.SeasonNumber,
+			Title:         ep.Name,
+			Overview:      ep.Overview,
+			AirDate:       ep.AirDate,
+			Runtime:       ep.Runtime,
+		}
+	}
+
+	result := NormalizedSeasonResult{
+		SeasonNumber: details.SeasonNumber,
+		Name:         details.Name,
+		Overview:     details.Overview,
+		AirDate:      details.AirDate,
+		Episodes:     episodes,
+	}
+
+	if details.PosterPath != nil {
+		result.PosterURL = c.GetImageURL(*details.PosterPath, "w500")
 	}
 
 	return result

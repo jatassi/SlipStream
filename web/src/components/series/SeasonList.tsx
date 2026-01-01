@@ -50,10 +50,17 @@ export function SeasonList({
           >
             <AccordionTrigger className="hover:no-underline py-3">
               <div className="flex items-center gap-4 flex-1">
+                {season.posterUrl && (
+                  <img
+                    src={season.posterUrl}
+                    alt={`Season ${season.seasonNumber}`}
+                    className="w-10 h-14 object-cover rounded shrink-0"
+                  />
+                )}
                 <span className="font-semibold">
                   {season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`}
                 </span>
-                <Badge variant={fileCount === totalCount ? 'default' : 'secondary'}>
+                <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
                   {fileCount}/{totalCount}
                 </Badge>
                 {onSeasonMonitoredChange && (
@@ -72,6 +79,11 @@ export function SeasonList({
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4">
+              {season.overview && (
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                  {season.overview}
+                </p>
+              )}
               {seasonEpisodes.length > 0 ? (
                 <EpisodeTable episodes={seasonEpisodes} />
               ) : (

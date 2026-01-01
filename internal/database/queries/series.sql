@@ -178,3 +178,27 @@ WHERE root_folder_id = ?
   AND (tvdb_id IS NULL OR tvdb_id = 0)
   AND (tmdb_id IS NULL OR tmdb_id = 0)
 ORDER BY sort_title;
+
+-- name: UpsertSeason :one
+INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(series_id, season_number) DO UPDATE SET
+    overview = COALESCE(excluded.overview, seasons.overview),
+    poster_url = COALESCE(excluded.poster_url, seasons.poster_url)
+RETURNING *;
+
+-- name: UpsertEpisode :one
+INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(series_id, season_number, episode_number) DO UPDATE SET
+    title = COALESCE(excluded.title, episodes.title),
+    overview = COALESCE(excluded.overview, episodes.overview),
+    air_date = COALESCE(excluded.air_date, episodes.air_date)
+RETURNING *;
+
+-- name: UpdateSeasonMetadata :one
+UPDATE seasons SET
+    overview = ?,
+    poster_url = ?
+WHERE id = ?
+RETURNING *;

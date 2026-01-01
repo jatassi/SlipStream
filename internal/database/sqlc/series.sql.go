@@ -164,7 +164,7 @@ func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFilePa
 const createSeason = `-- name: CreateSeason :one
 INSERT INTO seasons (series_id, season_number, monitored)
 VALUES (?, ?, ?)
-RETURNING id, series_id, season_number, monitored
+RETURNING id, series_id, season_number, monitored, overview, poster_url
 `
 
 type CreateSeasonParams struct {
@@ -181,6 +181,8 @@ func (q *Queries) CreateSeason(ctx context.Context, arg CreateSeasonParams) (*Se
 		&i.SeriesID,
 		&i.SeasonNumber,
 		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
 	)
 	return &i, err
 }
@@ -406,7 +408,7 @@ func (q *Queries) GetEpisodeFileByPath(ctx context.Context, path string) (*Episo
 }
 
 const getSeason = `-- name: GetSeason :one
-SELECT id, series_id, season_number, monitored FROM seasons WHERE id = ? LIMIT 1
+SELECT id, series_id, season_number, monitored, overview, poster_url FROM seasons WHERE id = ? LIMIT 1
 `
 
 // Seasons
@@ -418,12 +420,14 @@ func (q *Queries) GetSeason(ctx context.Context, id int64) (*Season, error) {
 		&i.SeriesID,
 		&i.SeasonNumber,
 		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
 	)
 	return &i, err
 }
 
 const getSeasonByNumber = `-- name: GetSeasonByNumber :one
-SELECT id, series_id, season_number, monitored FROM seasons WHERE series_id = ? AND season_number = ? LIMIT 1
+SELECT id, series_id, season_number, monitored, overview, poster_url FROM seasons WHERE series_id = ? AND season_number = ? LIMIT 1
 `
 
 type GetSeasonByNumberParams struct {
@@ -439,6 +443,8 @@ func (q *Queries) GetSeasonByNumber(ctx context.Context, arg GetSeasonByNumberPa
 		&i.SeriesID,
 		&i.SeasonNumber,
 		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
 	)
 	return &i, err
 }
@@ -775,7 +781,7 @@ func (q *Queries) ListMonitoredSeries(ctx context.Context) ([]*Series, error) {
 }
 
 const listSeasonsBySeries = `-- name: ListSeasonsBySeries :many
-SELECT id, series_id, season_number, monitored FROM seasons WHERE series_id = ? ORDER BY season_number
+SELECT id, series_id, season_number, monitored, overview, poster_url FROM seasons WHERE series_id = ? ORDER BY season_number
 `
 
 func (q *Queries) ListSeasonsBySeries(ctx context.Context, seriesID int64) ([]*Season, error) {
@@ -792,6 +798,8 @@ func (q *Queries) ListSeasonsBySeries(ctx context.Context, seriesID int64) ([]*S
 			&i.SeriesID,
 			&i.SeasonNumber,
 			&i.Monitored,
+			&i.Overview,
+			&i.PosterUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -1098,7 +1106,7 @@ func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) (*
 }
 
 const updateSeason = `-- name: UpdateSeason :one
-UPDATE seasons SET monitored = ? WHERE id = ? RETURNING id, series_id, season_number, monitored
+UPDATE seasons SET monitored = ? WHERE id = ? RETURNING id, series_id, season_number, monitored, overview, poster_url
 `
 
 type UpdateSeasonParams struct {
@@ -1114,6 +1122,36 @@ func (q *Queries) UpdateSeason(ctx context.Context, arg UpdateSeasonParams) (*Se
 		&i.SeriesID,
 		&i.SeasonNumber,
 		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
+	)
+	return &i, err
+}
+
+const updateSeasonMetadata = `-- name: UpdateSeasonMetadata :one
+UPDATE seasons SET
+    overview = ?,
+    poster_url = ?
+WHERE id = ?
+RETURNING id, series_id, season_number, monitored, overview, poster_url
+`
+
+type UpdateSeasonMetadataParams struct {
+	Overview  sql.NullString `json:"overview"`
+	PosterUrl sql.NullString `json:"poster_url"`
+	ID        int64          `json:"id"`
+}
+
+func (q *Queries) UpdateSeasonMetadata(ctx context.Context, arg UpdateSeasonMetadataParams) (*Season, error) {
+	row := q.db.QueryRowContext(ctx, updateSeasonMetadata, arg.Overview, arg.PosterUrl, arg.ID)
+	var i Season
+	err := row.Scan(
+		&i.ID,
+		&i.SeriesID,
+		&i.SeasonNumber,
+		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
 	)
 	return &i, err
 }
@@ -1210,4 +1248,85 @@ type UpdateSeriesStatusParams struct {
 func (q *Queries) UpdateSeriesStatus(ctx context.Context, arg UpdateSeriesStatusParams) error {
 	_, err := q.db.ExecContext(ctx, updateSeriesStatus, arg.Status, arg.ID)
 	return err
+}
+
+const upsertEpisode = `-- name: UpsertEpisode :one
+INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(series_id, season_number, episode_number) DO UPDATE SET
+    title = COALESCE(excluded.title, episodes.title),
+    overview = COALESCE(excluded.overview, episodes.overview),
+    air_date = COALESCE(excluded.air_date, episodes.air_date)
+RETURNING id, series_id, season_number, episode_number, title, overview, air_date, monitored
+`
+
+type UpsertEpisodeParams struct {
+	SeriesID      int64          `json:"series_id"`
+	SeasonNumber  int64          `json:"season_number"`
+	EpisodeNumber int64          `json:"episode_number"`
+	Title         sql.NullString `json:"title"`
+	Overview      sql.NullString `json:"overview"`
+	AirDate       sql.NullTime   `json:"air_date"`
+	Monitored     int64          `json:"monitored"`
+}
+
+func (q *Queries) UpsertEpisode(ctx context.Context, arg UpsertEpisodeParams) (*Episode, error) {
+	row := q.db.QueryRowContext(ctx, upsertEpisode,
+		arg.SeriesID,
+		arg.SeasonNumber,
+		arg.EpisodeNumber,
+		arg.Title,
+		arg.Overview,
+		arg.AirDate,
+		arg.Monitored,
+	)
+	var i Episode
+	err := row.Scan(
+		&i.ID,
+		&i.SeriesID,
+		&i.SeasonNumber,
+		&i.EpisodeNumber,
+		&i.Title,
+		&i.Overview,
+		&i.AirDate,
+		&i.Monitored,
+	)
+	return &i, err
+}
+
+const upsertSeason = `-- name: UpsertSeason :one
+INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(series_id, season_number) DO UPDATE SET
+    overview = COALESCE(excluded.overview, seasons.overview),
+    poster_url = COALESCE(excluded.poster_url, seasons.poster_url)
+RETURNING id, series_id, season_number, monitored, overview, poster_url
+`
+
+type UpsertSeasonParams struct {
+	SeriesID     int64          `json:"series_id"`
+	SeasonNumber int64          `json:"season_number"`
+	Monitored    int64          `json:"monitored"`
+	Overview     sql.NullString `json:"overview"`
+	PosterUrl    sql.NullString `json:"poster_url"`
+}
+
+func (q *Queries) UpsertSeason(ctx context.Context, arg UpsertSeasonParams) (*Season, error) {
+	row := q.db.QueryRowContext(ctx, upsertSeason,
+		arg.SeriesID,
+		arg.SeasonNumber,
+		arg.Monitored,
+		arg.Overview,
+		arg.PosterUrl,
+	)
+	var i Season
+	err := row.Scan(
+		&i.ID,
+		&i.SeriesID,
+		&i.SeasonNumber,
+		&i.Monitored,
+		&i.Overview,
+		&i.PosterUrl,
+	)
+	return &i, err
 }
