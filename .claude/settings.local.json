@@ -26,7 +26,8 @@
       "Bash(npx vite:*)",
       "Bash(git -C:*)",
       "Bash(go test:*)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream\\\\web && npm run build\")"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -135,3 +135,10 @@ Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`
 ## Testing Notes
 
 Unit tests are in `*_test.go` files alongside source. Integration tests may use `internal/testutil` helpers. Scanner tests parse media filenames; quality tests validate profile matching logic.
+
+## Claude Code Notes
+
+When running bash commands on Windows, use forward slashes for paths:
+```bash
+cd c:/Git/SlipStream/web && npm run build 2>&1
+```

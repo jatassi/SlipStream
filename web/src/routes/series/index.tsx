@@ -5,7 +5,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SearchInput } from '@/components/forms/SearchInput'
 import { SeriesGrid } from '@/components/series/SeriesGrid'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
@@ -19,7 +18,6 @@ type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
 
 export function SeriesListPage() {
   const { seriesView, setSeriesView } = useUIStore()
-  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
 
   const { data: seriesList, isLoading, isError, refetch } = useSeries()
@@ -34,13 +32,8 @@ export function SeriesListPage() {
     }
   }
 
-  // Filter series
+  // Filter series by status
   const filteredSeries = (seriesList || []).filter((s: Series) => {
-    // Search filter
-    if (search && !s.title.toLowerCase().includes(search.toLowerCase())) {
-      return false
-    }
-    // Status filter
     if (statusFilter === 'monitored' && !s.monitored) return false
     if (statusFilter === 'continuing' && s.status !== 'continuing') return false
     if (statusFilter === 'ended' && s.status !== 'ended') return false
@@ -92,13 +85,6 @@ export function SeriesListPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search series..."
-          className="w-64"
-        />
-
         <Select
           value={statusFilter}
           onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
@@ -135,12 +121,12 @@ export function SeriesListPage() {
           icon={<Tv className="size-8" />}
           title="No series found"
           description={
-            search || statusFilter !== 'all'
+            statusFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'Add your first series to get started'
           }
           action={
-            !search && statusFilter === 'all'
+            statusFilter === 'all'
               ? { label: 'Add Series', onClick: () => {} }
               : undefined
           }

@@ -5,7 +5,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SearchInput } from '@/components/forms/SearchInput'
 import { MovieGrid } from '@/components/movies/MovieGrid'
 import { MovieTable } from '@/components/movies/MovieTable'
 import { LoadingState } from '@/components/data/LoadingState'
@@ -20,7 +19,6 @@ type FilterStatus = 'all' | 'monitored' | 'missing' | 'available'
 
 export function MoviesPage() {
   const { moviesView, setMoviesView } = useUIStore()
-  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
 
   const { data: movies, isLoading, isError, refetch } = useMovies()
@@ -37,13 +35,8 @@ export function MoviesPage() {
     }
   }
 
-  // Filter movies
+  // Filter movies by status
   const filteredMovies = (movies || []).filter((movie: Movie) => {
-    // Search filter
-    if (search && !movie.title.toLowerCase().includes(search.toLowerCase())) {
-      return false
-    }
-    // Status filter
     if (statusFilter === 'monitored' && !movie.monitored) return false
     if (statusFilter === 'missing' && movie.status !== 'missing') return false
     if (statusFilter === 'available' && movie.status !== 'available') return false
@@ -113,13 +106,6 @@ export function MoviesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search movies..."
-          className="w-64"
-        />
-
         <Select
           value={statusFilter}
           onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
@@ -156,12 +142,12 @@ export function MoviesPage() {
           icon={<Film className="size-8" />}
           title="No movies found"
           description={
-            search || statusFilter !== 'all'
+            statusFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'Add your first movie to get started'
           }
           action={
-            !search && statusFilter === 'all'
+            statusFilter === 'all'
               ? { label: 'Add Movie', onClick: () => {} }
               : undefined
           }

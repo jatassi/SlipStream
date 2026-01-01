@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Search, Check } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useMovieSearch, useQualityProfiles, useRootFoldersByType, useAddMovie, useDebounce } from '@/hooks'
+import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
 import type { MovieSearchResult, AddMovieInput } from '@/types'
 
@@ -19,10 +19,40 @@ type Step = 'search' | 'configure'
 
 export function AddMoviePage() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('search')
+  // Get tmdbId from URL search params
+  const searchParams = useSearch({ strict: false }) as { tmdbId?: string }
+  const tmdbId = useMemo(() => {
+    const id = searchParams.tmdbId
+    return id ? Number(id) : undefined
+  }, [searchParams.tmdbId])
+
+  const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | null>(null)
   const debouncedSearchQuery = useDebounce(searchQuery, 900)
+
+  // Fetch movie metadata if tmdbId is provided
+  const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId || 0)
+
+  // Auto-select movie when metadata is loaded
+  useEffect(() => {
+    if (tmdbId && movieMetadata && !selectedMovie) {
+      setSelectedMovie({
+        id: movieMetadata.id,
+        tmdbId: movieMetadata.tmdbId,
+        imdbId: movieMetadata.imdbId,
+        title: movieMetadata.title,
+        originalTitle: movieMetadata.originalTitle,
+        year: movieMetadata.year,
+        overview: movieMetadata.overview,
+        posterUrl: movieMetadata.posterUrl,
+        backdropUrl: movieMetadata.backdropUrl,
+        runtime: movieMetadata.runtime,
+        genres: movieMetadata.genres,
+      })
+      setStep('configure')
+    }
+  }, [tmdbId, movieMetadata, selectedMovie])
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -94,7 +124,14 @@ export function AddMoviePage() {
         }
       />
 
-      {step === 'search' && (
+      {/* Loading state when fetching by tmdbId */}
+      {tmdbId && loadingMetadata && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {step === 'search' && !tmdbId && (
         <div className="space-y-6">
           {/* Search input */}
           <div className="max-w-xl">

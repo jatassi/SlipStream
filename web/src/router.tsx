@@ -8,6 +8,7 @@ import { RootLayout } from '@/components/layout/RootLayout'
 
 // Pages
 import { DashboardPage } from '@/routes/index'
+import { SearchPage } from '@/routes/search/index'
 import { MoviesPage } from '@/routes/movies/index'
 import { MovieDetailPage } from '@/routes/movies/$id'
 import { AddMoviePage } from '@/routes/movies/add'
@@ -37,6 +38,19 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: DashboardPage,
+})
+
+// Search route
+const searchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/search',
+  component: () => {
+    const { q } = searchRoute.useSearch()
+    return <SearchPage q={q} />
+  },
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: (search.q as string) || '',
+  }),
 })
 
 // Movies routes
@@ -130,6 +144,7 @@ const generalSettingsRoute = createRoute({
 // Build route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  searchRoute,
   moviesRoute,
   movieDetailRoute,
   addMovieRoute,

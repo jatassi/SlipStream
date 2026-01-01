@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Search, Check } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useSeriesSearch, useQualityProfiles, useRootFoldersByType, useAddSeries, useDebounce } from '@/hooks'
+import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
 import type { SeriesSearchResult, AddSeriesInput } from '@/types'
 
@@ -19,10 +19,43 @@ type Step = 'search' | 'configure'
 
 export function AddSeriesPage() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('search')
+  // Get tmdbId from URL search params
+  const searchParams = useSearch({ strict: false }) as { tmdbId?: string }
+  const tmdbId = useMemo(() => {
+    const id = searchParams.tmdbId
+    return id ? Number(id) : undefined
+  }, [searchParams.tmdbId])
+
+  const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null)
   const debouncedSearchQuery = useDebounce(searchQuery, 900)
+
+  // Fetch series metadata if tmdbId is provided
+  const { data: seriesMetadata, isLoading: loadingMetadata } = useSeriesMetadata(tmdbId || 0)
+
+  // Auto-select series when metadata is loaded
+  useEffect(() => {
+    if (tmdbId && seriesMetadata && !selectedSeries) {
+      setSelectedSeries({
+        id: seriesMetadata.id,
+        tmdbId: seriesMetadata.tmdbId,
+        tvdbId: seriesMetadata.tvdbId,
+        imdbId: seriesMetadata.imdbId,
+        title: seriesMetadata.title,
+        originalTitle: seriesMetadata.originalTitle,
+        year: seriesMetadata.year,
+        overview: seriesMetadata.overview,
+        posterUrl: seriesMetadata.posterUrl,
+        backdropUrl: seriesMetadata.backdropUrl,
+        runtime: seriesMetadata.runtime,
+        genres: seriesMetadata.genres,
+        status: seriesMetadata.status,
+        network: seriesMetadata.network,
+      })
+      setStep('configure')
+    }
+  }, [tmdbId, seriesMetadata, selectedSeries])
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -97,7 +130,14 @@ export function AddSeriesPage() {
         }
       />
 
-      {step === 'search' && (
+      {/* Loading state when fetching by tmdbId */}
+      {tmdbId && loadingMetadata && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {step === 'search' && !tmdbId && (
         <div className="space-y-6">
           {/* Search input */}
           <div className="max-w-xl">

@@ -33,6 +33,7 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/series/search", h.SearchSeries)
 	g.GET("/series/tmdb/:id", h.GetSeriesByTMDB)
 	g.GET("/series/tvdb/:id", h.GetSeriesByTVDB)
+	g.GET("/series/:id", h.GetSeries)
 	g.POST("/series/:id/artwork", h.DownloadSeriesArtwork)
 
 	// Artwork serving
@@ -145,6 +146,29 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, results)
+}
+
+// GetSeries gets series details by ID (defaults to TMDB).
+// GET /api/v1/metadata/series/:id
+func (h *Handlers) GetSeries(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	// Default to TMDB as that's what search results return
+	result, err := h.service.GetSeriesByTMDB(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "series not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
 
 // GetSeriesByTMDB gets series details by TMDB ID.

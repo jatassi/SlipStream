@@ -19,8 +19,8 @@ export function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      // Navigate to search or filter current view
-      console.log('Search:', searchQuery)
+      navigate({ to: '/search', search: { q: searchQuery.trim() } })
+      setSearchQuery('')
     }
   }
 
