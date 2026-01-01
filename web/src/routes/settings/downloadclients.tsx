@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Plus, Edit, Trash2, Download, TestTube } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,7 @@ import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { DownloadClientDialog } from '@/components/downloadclients/DownloadClientDialog'
 import {
   useDownloadClients,
   useDeleteDownloadClient,
@@ -15,6 +17,7 @@ import {
   useUpdateDownloadClient,
 } from '@/hooks'
 import { toast } from 'sonner'
+import type { DownloadClient } from '@/types'
 
 const clientTypeLabels: Record<string, string> = {
   qbittorrent: 'qBittorrent',
@@ -24,10 +27,23 @@ const clientTypeLabels: Record<string, string> = {
 }
 
 export function DownloadClientsPage() {
+  const [showDialog, setShowDialog] = useState(false)
+  const [editingClient, setEditingClient] = useState<DownloadClient | null>(null)
+
   const { data: clients, isLoading, isError, refetch } = useDownloadClients()
   const deleteMutation = useDeleteDownloadClient()
   const testMutation = useTestDownloadClient()
   const updateMutation = useUpdateDownloadClient()
+
+  const handleOpenAdd = () => {
+    setEditingClient(null)
+    setShowDialog(true)
+  }
+
+  const handleOpenEdit = (client: DownloadClient) => {
+    setEditingClient(client)
+    setShowDialog(true)
+  }
 
   const handleToggleEnabled = async (id: number, enabled: boolean) => {
     try {
@@ -88,7 +104,7 @@ export function DownloadClientsPage() {
           { label: 'Download Clients' },
         ]}
         actions={
-          <Button>
+          <Button onClick={handleOpenAdd}>
             <Plus className="size-4 mr-2" />
             Add Client
           </Button>
@@ -100,7 +116,7 @@ export function DownloadClientsPage() {
           icon={<Download className="size-8" />}
           title="No download clients configured"
           description="Add a download client to start downloading"
-          action={{ label: 'Add Client', onClick: () => {} }}
+          action={{ label: 'Add Client', onClick: handleOpenAdd }}
         />
       ) : (
         <div className="space-y-4">
@@ -138,7 +154,7 @@ export function DownloadClientsPage() {
                     <TestTube className="size-4 mr-1" />
                     Test
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(client)}>
                     <Edit className="size-4" />
                   </Button>
                   <ConfirmDialog
@@ -159,6 +175,12 @@ export function DownloadClientsPage() {
           ))}
         </div>
       )}
+
+      <DownloadClientDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        client={editingClient}
+      />
     </div>
   )
 }

@@ -36,4 +36,10 @@ export const downloadClientsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  debugAddTorrent: (id: number) =>
+    apiFetch<{ success: boolean; torrentId: string; message: string }>(
+      `/downloadclients/${id}/debug/addtorrent`,
+      { method: 'POST' }
+    ),
 }

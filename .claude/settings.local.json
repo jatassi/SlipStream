@@ -27,7 +27,9 @@
       "Bash(git -C:*)",
       "Bash(go test:*)",
       "Bash(go run:*)",
-      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream\\\\web && npm run build\")"
+      "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream\\\\web && npm run build\")",
+      "Bash(grep:*)",
+      "Bash(go mod tidy:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

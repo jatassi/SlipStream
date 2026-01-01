@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -11,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
@@ -43,6 +45,7 @@ type Server struct {
 	libraryManagerService *librarymanager.Service
 	watcherService        *watcher.Service
 	progressManager       *progress.Manager
+	downloaderService     *downloader.Service
 }
 
 // NewServer creates a new API server instance.
@@ -72,6 +75,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize filesystem service
 	s.filesystemService = filesystem.NewService(logger)
+
+	// Initialize downloader service
+	s.downloaderService = downloader.NewService(db, logger)
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -249,10 +255,12 @@ func (s *Server) setupRoutes() {
 	clients := api.Group("/downloadclients")
 	clients.GET("", s.listDownloadClients)
 	clients.POST("", s.addDownloadClient)
+	clients.POST("/test", s.testNewDownloadClient)
 	clients.GET("/:id", s.getDownloadClient)
 	clients.PUT("/:id", s.updateDownloadClient)
 	clients.DELETE("/:id", s.deleteDownloadClient)
 	clients.POST("/:id/test", s.testDownloadClient)
+	clients.POST("/:id/debug/addtorrent", s.debugAddTorrent)
 
 	// Queue/Downloads routes
 	api.GET("/queue", s.getQueue)
@@ -373,29 +381,157 @@ func (s *Server) testIndexer(c echo.Context) error {
 	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
 }
 
-// Download client handlers (placeholders)
+// Download client handlers
 func (s *Server) listDownloadClients(c echo.Context) error {
-	return c.JSON(http.StatusOK, []interface{}{})
+	ctx := c.Request().Context()
+
+	clients, err := s.downloaderService.List(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, clients)
 }
 
 func (s *Server) addDownloadClient(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+
+	var input downloader.CreateClientInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	client, err := s.downloaderService.Create(ctx, input)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, client)
 }
 
 func (s *Server) getDownloadClient(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	client, err := s.downloaderService.Get(ctx, id)
+	if err != nil {
+		if err == downloader.ErrClientNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, client)
 }
 
 func (s *Server) updateDownloadClient(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	var input downloader.UpdateClientInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	client, err := s.downloaderService.Update(ctx, id, input)
+	if err != nil {
+		if err == downloader.ErrClientNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, client)
 }
 
 func (s *Server) deleteDownloadClient(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	if err := s.downloaderService.Delete(ctx, id); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) testDownloadClient(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+	ctx := c.Request().Context()
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	result, err := s.downloaderService.Test(ctx, id)
+	if err != nil {
+		if err == downloader.ErrClientNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+func (s *Server) testNewDownloadClient(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	var input downloader.CreateClientInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	result, err := s.downloaderService.TestConfig(ctx, input)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+func (s *Server) debugAddTorrent(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	// Ubuntu 24.04 ISO torrents for testing
+	movieTorrentURL := "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-live-server-amd64.iso.torrent"
+	seriesTorrentURL := "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-desktop-amd64.iso.torrent"
+
+	// Add movie torrent
+	movieID, err := s.downloaderService.AddTorrent(ctx, id, movieTorrentURL, "movie")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add movie torrent: " + err.Error()})
+	}
+
+	// Add series torrent
+	seriesID, err := s.downloaderService.AddTorrent(ctx, id, seriesTorrentURL, "series")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add series torrent: " + err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":       true,
+		"movieTorrentId":  movieID,
+		"seriesTorrentId": seriesID,
+		"message":       "Ubuntu 24.04 ISO torrents added successfully (movie + series)",
+	})
 }
 
 // Queue handlers (placeholders)
