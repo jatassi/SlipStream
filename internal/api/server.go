@@ -68,6 +68,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
 	s.artworkDownloader = metadata.NewArtworkDownloader(metadata.DefaultArtworkConfig(), logger)
+	s.artworkDownloader.SetBroadcaster(hub)
 
 	// Initialize filesystem service
 	s.filesystemService = filesystem.NewService(logger)
@@ -192,6 +193,11 @@ func (s *Server) setupRoutes() {
 	// Refresh metadata endpoints (need to be on the movies/series groups)
 	api.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
 	api.POST("/series/:id/refresh", libraryManagerHandlers.RefreshSeries)
+
+	// Library add endpoints (creates item + downloads artwork)
+	libraryGroup := api.Group("/library")
+	libraryGroup.POST("/movies", libraryManagerHandlers.AddMovie)
+	libraryGroup.POST("/series", libraryManagerHandlers.AddSeries)
 
 	// Quality profiles routes
 	qualityHandlers := quality.NewHandlers(s.qualityService)

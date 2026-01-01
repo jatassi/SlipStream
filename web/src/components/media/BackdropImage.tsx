@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { BACKDROP_SIZES, getLocalArtworkUrl } from '@/lib/constants'
+import { useArtworkStore } from '@/stores/artwork'
 
 interface BackdropImageProps {
   // For TMDB paths (search results) - e.g., "/abc123.jpg"
@@ -27,13 +28,37 @@ export function BackdropImage({
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Subscribe to artwork version changes for this specific artwork
+  const artworkVersion = useArtworkStore((state) =>
+    tmdbId ? state.getVersion(type, tmdbId, 'backdrop') : 0
+  )
+
+  // Determine if this is a local artwork request
+  const isLocalArtwork = !!(tmdbId && tmdbId > 0)
+
   // Prefer local artwork if tmdbId is provided, otherwise use TMDB path
   let imageUrl: string | null = null
-  if (tmdbId && tmdbId > 0) {
-    imageUrl = getLocalArtworkUrl(type, tmdbId, 'backdrop')
+  if (isLocalArtwork) {
+    // Add cache-busting param when artwork version changes
+    const baseUrl = getLocalArtworkUrl(type, tmdbId, 'backdrop')
+    imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
   } else if (path) {
     imageUrl = `${BACKDROP_SIZES[size]}${path}`
   }
+
+  // Reset error state when artwork version changes (new artwork available)
+  useEffect(() => {
+    if (artworkVersion > 0) {
+      setError(false)
+      setLoading(true)
+    }
+  }, [artworkVersion])
+
+  // Reset state when tmdbId changes
+  useEffect(() => {
+    setError(false)
+    setLoading(true)
+  }, [tmdbId])
 
   if (!imageUrl || error) {
     return (

@@ -11,9 +11,9 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useMovieSearch, useQualityProfiles, useRootFoldersByType, useCreateMovie } from '@/hooks'
+import { useMovieSearch, useQualityProfiles, useRootFoldersByType, useAddMovie, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
-import type { MovieSearchResult, CreateMovieInput } from '@/types'
+import type { MovieSearchResult, AddMovieInput } from '@/types'
 
 type Step = 'search' | 'configure'
 
@@ -22,6 +22,7 @@ export function AddMoviePage() {
   const [step, setStep] = useState<Step>('search')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | null>(null)
+  const debouncedSearchQuery = useDebounce(searchQuery, 900)
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -29,10 +30,10 @@ export function AddMoviePage() {
   const [monitored, setMonitored] = useState(true)
   const [searchOnAdd, setSearchOnAdd] = useState(true)
 
-  const { data: searchResults, isLoading: searching } = useMovieSearch(searchQuery)
+  const { data: searchResults, isLoading: searching } = useMovieSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('movie')
   const { data: qualityProfiles } = useQualityProfiles()
-  const createMutation = useCreateMovie()
+  const addMutation = useAddMovie()
 
   const handleSelectMovie = (movie: MovieSearchResult) => {
     setSelectedMovie(movie)
@@ -54,7 +55,7 @@ export function AddMoviePage() {
       return
     }
 
-    const input: CreateMovieInput = {
+    const input: AddMovieInput = {
       title: selectedMovie.title,
       year: selectedMovie.year,
       tmdbId: selectedMovie.tmdbId,
@@ -64,10 +65,12 @@ export function AddMoviePage() {
       rootFolderId: parseInt(rootFolderId),
       qualityProfileId: parseInt(qualityProfileId),
       monitored,
+      posterUrl: selectedMovie.posterUrl,
+      backdropUrl: selectedMovie.backdropUrl,
     }
 
     try {
-      const movie = await createMutation.mutateAsync(input)
+      const movie = await addMutation.mutateAsync(input)
       toast.success(`Added "${movie.title}"`)
       navigate({ to: '/movies/$id', params: { id: String(movie.id) } })
     } catch {
@@ -126,13 +129,13 @@ export function AddMoviePage() {
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((movie) => (
                 <Card
-                  key={movie.tmdbId}
+                  key={movie.tmdbId || movie.id}
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => handleSelectMovie(movie)}
                 >
                   <div className="aspect-[2/3] relative">
                     <PosterImage
-                      path={movie.posterPath}
+                      url={movie.posterUrl}
                       alt={movie.title}
                       type="movie"
                       className="absolute inset-0 rounded-t-lg"
@@ -157,7 +160,7 @@ export function AddMoviePage() {
           <Card>
             <CardContent className="p-4 flex gap-4">
               <PosterImage
-                path={selectedMovie.posterPath}
+                url={selectedMovie.posterUrl}
                 alt={selectedMovie.title}
                 type="movie"
                 className="w-24 h-36 rounded shrink-0"
@@ -243,7 +246,7 @@ export function AddMoviePage() {
             </Button>
             <Button
               onClick={handleAdd}
-              disabled={!rootFolderId || !qualityProfileId || createMutation.isPending}
+              disabled={!rootFolderId || !qualityProfileId || addMutation.isPending}
             >
               <Check className="size-4 mr-2" />
               Add Movie

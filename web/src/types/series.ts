@@ -74,6 +74,11 @@ export interface CreateSeriesInput {
   seasons?: SeasonInput[]
 }
 
+export interface AddSeriesInput extends CreateSeriesInput {
+  posterUrl?: string
+  backdropUrl?: string
+}
+
 export interface SeasonInput {
   seasonNumber: number
   monitored: boolean

@@ -53,11 +53,24 @@ func DefaultArtworkConfig() ArtworkConfig {
 	}
 }
 
+// ArtworkBroadcaster is an interface for broadcasting artwork events.
+type ArtworkBroadcaster interface {
+	Broadcast(msgType string, payload interface{}) error
+}
+
+// ArtworkReadyPayload is the payload sent when artwork is ready.
+type ArtworkReadyPayload struct {
+	MediaType   string `json:"mediaType"`
+	MediaID     int    `json:"mediaId"`
+	ArtworkType string `json:"artworkType"`
+}
+
 // ArtworkDownloader handles downloading and storing artwork images.
 type ArtworkDownloader struct {
-	config     ArtworkConfig
-	httpClient *http.Client
-	logger     zerolog.Logger
+	config      ArtworkConfig
+	httpClient  *http.Client
+	logger      zerolog.Logger
+	broadcaster ArtworkBroadcaster
 }
 
 // NewArtworkDownloader creates a new ArtworkDownloader.
@@ -68,6 +81,26 @@ func NewArtworkDownloader(cfg ArtworkConfig, logger zerolog.Logger) *ArtworkDown
 			Timeout: cfg.Timeout,
 		},
 		logger: logger.With().Str("component", "artwork").Logger(),
+	}
+}
+
+// SetBroadcaster sets the broadcaster for artwork events.
+func (d *ArtworkDownloader) SetBroadcaster(b ArtworkBroadcaster) {
+	d.broadcaster = b
+}
+
+// notifyArtworkReady broadcasts that artwork is ready.
+func (d *ArtworkDownloader) notifyArtworkReady(mediaType MediaType, mediaID int, artworkType ArtworkType) {
+	if d.broadcaster == nil {
+		return
+	}
+	payload := ArtworkReadyPayload{
+		MediaType:   string(mediaType),
+		MediaID:     mediaID,
+		ArtworkType: string(artworkType),
+	}
+	if err := d.broadcaster.Broadcast("artwork:ready", payload); err != nil {
+		d.logger.Warn().Err(err).Msg("Failed to broadcast artwork ready event")
 	}
 }
 
@@ -152,6 +185,7 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie poster")
 		} else {
 			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie poster")
+			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypePoster)
 		}
 	}
 
@@ -162,6 +196,7 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie backdrop")
 		} else {
 			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie backdrop")
+			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeBackdrop)
 		}
 	}
 
@@ -193,6 +228,7 @@ func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *S
 			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series poster")
 		} else {
 			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series poster")
+			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypePoster)
 		}
 	}
 
@@ -203,6 +239,7 @@ func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *S
 			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series backdrop")
 		} else {
 			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series backdrop")
+			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeBackdrop)
 		}
 	}
 

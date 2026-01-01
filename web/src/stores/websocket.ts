@@ -5,6 +5,7 @@ import { seriesKeys } from '@/hooks/useSeries'
 import { queueKeys } from '@/hooks/useQueue'
 import { historyKeys } from '@/hooks/useHistory'
 import { useProgressStore } from './progress'
+import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
 import type { Activity, ProgressEventType } from '@/types/progress'
 
 export interface WSMessage {
@@ -127,6 +128,13 @@ export function useWebSocketHandler() {
         useProgressStore.getState().handleProgressEvent(
           lastMessage.type as ProgressEventType,
           lastMessage.payload as Activity
+        )
+        break
+
+      // Artwork events
+      case 'artwork:ready':
+        useArtworkStore.getState().notifyReady(
+          lastMessage.payload as ArtworkReadyPayload
         )
         break
     }

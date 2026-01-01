@@ -96,6 +96,7 @@ func (h *Handlers) Create(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
+
 	return c.JSON(http.StatusCreated, movie)
 }
 

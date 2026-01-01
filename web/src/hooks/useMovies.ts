@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { moviesApi } from '@/api'
-import type { Movie, CreateMovieInput, UpdateMovieInput, ListMoviesOptions } from '@/types'
+import { moviesApi, libraryApi } from '@/api'
+import type { Movie, CreateMovieInput, AddMovieInput, UpdateMovieInput, ListMoviesOptions } from '@/types'
 
 export const movieKeys = {
   all: ['movies'] as const,
@@ -29,6 +29,16 @@ export function useCreateMovie() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateMovieInput) => moviesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: movieKeys.all })
+    },
+  })
+}
+
+export function useAddMovie() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: AddMovieInput) => libraryApi.addMovie(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
     },

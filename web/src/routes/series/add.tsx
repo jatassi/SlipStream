@@ -11,9 +11,9 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useSeriesSearch, useQualityProfiles, useRootFoldersByType, useCreateSeries } from '@/hooks'
+import { useSeriesSearch, useQualityProfiles, useRootFoldersByType, useAddSeries, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
-import type { SeriesSearchResult, CreateSeriesInput } from '@/types'
+import type { SeriesSearchResult, AddSeriesInput } from '@/types'
 
 type Step = 'search' | 'configure'
 
@@ -22,6 +22,7 @@ export function AddSeriesPage() {
   const [step, setStep] = useState<Step>('search')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null)
+  const debouncedSearchQuery = useDebounce(searchQuery, 900)
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -30,10 +31,10 @@ export function AddSeriesPage() {
   const [seasonFolder, setSeasonFolder] = useState(true)
   const [searchOnAdd, setSearchOnAdd] = useState(true)
 
-  const { data: searchResults, isLoading: searching } = useSeriesSearch(searchQuery)
+  const { data: searchResults, isLoading: searching } = useSeriesSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('tv')
   const { data: qualityProfiles } = useQualityProfiles()
-  const createMutation = useCreateSeries()
+  const addMutation = useAddSeries()
 
   const handleSelectSeries = (series: SeriesSearchResult) => {
     setSelectedSeries(series)
@@ -55,7 +56,7 @@ export function AddSeriesPage() {
       return
     }
 
-    const input: CreateSeriesInput = {
+    const input: AddSeriesInput = {
       title: selectedSeries.title,
       year: selectedSeries.year,
       tvdbId: selectedSeries.tvdbId,
@@ -67,10 +68,12 @@ export function AddSeriesPage() {
       qualityProfileId: parseInt(qualityProfileId),
       monitored,
       seasonFolder,
+      posterUrl: selectedSeries.posterUrl,
+      backdropUrl: selectedSeries.backdropUrl,
     }
 
     try {
-      const series = await createMutation.mutateAsync(input)
+      const series = await addMutation.mutateAsync(input)
       toast.success(`Added "${series.title}"`)
       navigate({ to: '/series/$id', params: { id: String(series.id) } })
     } catch {
@@ -129,13 +132,13 @@ export function AddSeriesPage() {
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((series) => (
                 <Card
-                  key={series.tmdbId}
+                  key={series.tmdbId || series.id}
                   className="cursor-pointer hover:border-primary transition-colors"
                   onClick={() => handleSelectSeries(series)}
                 >
                   <div className="aspect-[2/3] relative">
                     <PosterImage
-                      path={series.posterPath}
+                      url={series.posterUrl}
                       alt={series.title}
                       type="series"
                       className="absolute inset-0 rounded-t-lg"
@@ -161,7 +164,7 @@ export function AddSeriesPage() {
           <Card>
             <CardContent className="p-4 flex gap-4">
               <PosterImage
-                path={selectedSeries.posterPath}
+                url={selectedSeries.posterUrl}
                 alt={selectedSeries.title}
                 type="series"
                 className="w-24 h-36 rounded shrink-0"
@@ -258,7 +261,7 @@ export function AddSeriesPage() {
             </Button>
             <Button
               onClick={handleAdd}
-              disabled={!rootFolderId || !qualityProfileId || createMutation.isPending}
+              disabled={!rootFolderId || !qualityProfileId || addMutation.isPending}
             >
               <Check className="size-4 mr-2" />
               Add Series

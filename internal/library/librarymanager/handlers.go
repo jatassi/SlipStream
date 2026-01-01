@@ -186,3 +186,35 @@ func (h *Handlers) RefreshSeries(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, series)
 }
+
+// AddMovie handles POST /api/v1/library/movies
+// Creates a new movie and downloads artwork in the background.
+func (h *Handlers) AddMovie(c echo.Context) error {
+	var input AddMovieInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	movie, err := h.service.AddMovie(c.Request().Context(), input)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, movie)
+}
+
+// AddSeries handles POST /api/v1/library/series
+// Creates a new series and downloads artwork in the background.
+func (h *Handlers) AddSeries(c echo.Context) error {
+	var input AddSeriesInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	series, err := h.service.AddSeries(c.Request().Context(), input)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusCreated, series)
+}

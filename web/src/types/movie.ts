@@ -44,6 +44,11 @@ export interface CreateMovieInput {
   monitored: boolean
 }
 
+export interface AddMovieInput extends CreateMovieInput {
+  posterUrl?: string
+  backdropUrl?: string
+}
+
 export interface UpdateMovieInput {
   title?: string
   year?: number

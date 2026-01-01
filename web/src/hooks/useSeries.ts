@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { seriesApi } from '@/api'
+import { seriesApi, libraryApi } from '@/api'
 import type {
   Series,
   CreateSeriesInput,
+  AddSeriesInput,
   UpdateSeriesInput,
   UpdateEpisodeInput,
   ListSeriesOptions,
@@ -38,6 +39,16 @@ export function useCreateSeries() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateSeriesInput) => seriesApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+    },
+  })
+}
+
+export function useAddSeries() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: AddSeriesInput) => libraryApi.addSeries(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
     },

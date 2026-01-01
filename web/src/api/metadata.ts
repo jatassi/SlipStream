@@ -1,21 +1,73 @@
 import { apiFetch } from './client'
 import type { MovieSearchResult, SeriesSearchResult, MetadataImages } from '@/types'
 
-export const metadataApi = {
-  searchMovies: (query: string) =>
-    apiFetch<MovieSearchResult[]>(`/metadata/movie/search?query=${encodeURIComponent(query)}`),
+// Backend response types (before transformation)
+interface BackendMovieResult {
+  id: number
+  title: string
+  year?: number
+  overview?: string
+  posterUrl?: string
+  backdropUrl?: string
+  imdbId?: string
+  genres?: string[]
+  runtime?: number
+}
 
-  getMovie: (tmdbId: number) =>
-    apiFetch<MovieSearchResult>(`/metadata/movie/${tmdbId}`),
+interface BackendSeriesResult {
+  id: number
+  title: string
+  year?: number
+  overview?: string
+  posterUrl?: string
+  backdropUrl?: string
+  imdbId?: string
+  tvdbId?: number
+  tmdbId?: number
+  genres?: string[]
+  status?: string
+  runtime?: number
+}
+
+// Transform backend movie result to frontend format
+function transformMovieResult(result: BackendMovieResult): MovieSearchResult {
+  return {
+    ...result,
+    tmdbId: result.id,
+  }
+}
+
+// Transform backend series result to frontend format
+function transformSeriesResult(result: BackendSeriesResult): SeriesSearchResult {
+  return {
+    ...result,
+    tmdbId: result.tmdbId || result.id,
+  }
+}
+
+export const metadataApi = {
+  searchMovies: async (query: string) => {
+    const results = await apiFetch<BackendMovieResult[]>(`/metadata/movie/search?query=${encodeURIComponent(query)}`)
+    return results.map(transformMovieResult)
+  },
+
+  getMovie: async (tmdbId: number) => {
+    const result = await apiFetch<BackendMovieResult>(`/metadata/movie/${tmdbId}`)
+    return transformMovieResult(result)
+  },
 
   getMovieImages: (tmdbId: number) =>
     apiFetch<MetadataImages>(`/metadata/movie/${tmdbId}/images`),
 
-  searchSeries: (query: string) =>
-    apiFetch<SeriesSearchResult[]>(`/metadata/series/search?query=${encodeURIComponent(query)}`),
+  searchSeries: async (query: string) => {
+    const results = await apiFetch<BackendSeriesResult[]>(`/metadata/series/search?query=${encodeURIComponent(query)}`)
+    return results.map(transformSeriesResult)
+  },
 
-  getSeries: (tmdbId: number) =>
-    apiFetch<SeriesSearchResult>(`/metadata/series/${tmdbId}`),
+  getSeries: async (tmdbId: number) => {
+    const result = await apiFetch<BackendSeriesResult>(`/metadata/series/${tmdbId}`)
+    return transformSeriesResult(result)
+  },
 
   getSeriesImages: (tmdbId: number) =>
     apiFetch<MetadataImages>(`/metadata/series/${tmdbId}/images`),

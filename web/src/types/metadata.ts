@@ -1,12 +1,13 @@
 export interface MovieSearchResult {
+  id: number
   tmdbId: number
   imdbId?: string
   title: string
   originalTitle?: string
   year?: number
   overview?: string
-  posterPath?: string
-  backdropPath?: string
+  posterUrl?: string
+  backdropUrl?: string
   voteAverage?: number
   runtime?: number
   genres?: string[]
@@ -14,6 +15,7 @@ export interface MovieSearchResult {
 }
 
 export interface SeriesSearchResult {
+  id: number
   tvdbId?: number
   tmdbId: number
   imdbId?: string
@@ -21,8 +23,8 @@ export interface SeriesSearchResult {
   originalTitle?: string
   year?: number
   overview?: string
-  posterPath?: string
-  backdropPath?: string
+  posterUrl?: string
+  backdropUrl?: string
   voteAverage?: number
   runtime?: number
   genres?: string[]

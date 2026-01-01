@@ -17,7 +17,7 @@ export function SearchInput({
   value: controlledValue,
   onChange,
   placeholder = 'Search...',
-  debounceMs = 300,
+  debounceMs = 900,
   className,
   autoFocus = false,
 }: SearchInputProps) {

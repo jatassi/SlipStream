@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Film, Tv } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { POSTER_SIZES, getLocalArtworkUrl } from '@/lib/constants'
+import { useArtworkStore } from '@/stores/artwork'
 
 interface PosterImageProps {
-  // For TMDB paths (search results) - e.g., "/abc123.jpg"
+  // For TMDB paths - e.g., "/abc123.jpg" (will be prefixed with TMDB base URL)
   path?: string | null
+  // For full URLs from search results - e.g., "https://image.tmdb.org/t/p/w500/abc123.jpg"
+  url?: string | null
   // For local artwork (library items) - the TMDB ID
   tmdbId?: number | null
   alt: string
@@ -16,6 +19,7 @@ interface PosterImageProps {
 
 export function PosterImage({
   path,
+  url,
   tmdbId,
   alt,
   size = 'w342',
@@ -25,13 +29,39 @@ export function PosterImage({
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Prefer local artwork if tmdbId is provided, otherwise use TMDB path
+  // Subscribe to artwork version changes for this specific artwork
+  const artworkVersion = useArtworkStore((state) =>
+    tmdbId ? state.getVersion(type, tmdbId, 'poster') : 0
+  )
+
+  // Determine if this is a local artwork request
+  const isLocalArtwork = !!(tmdbId && tmdbId > 0)
+
+  // Priority: local artwork (tmdbId) > full URL > TMDB path
   let imageUrl: string | null = null
-  if (tmdbId && tmdbId > 0) {
-    imageUrl = getLocalArtworkUrl(type, tmdbId, 'poster')
+  if (isLocalArtwork) {
+    // Add cache-busting param when artwork version changes
+    const baseUrl = getLocalArtworkUrl(type, tmdbId, 'poster')
+    imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
+  } else if (url) {
+    imageUrl = url
   } else if (path) {
     imageUrl = `${POSTER_SIZES[size]}${path}`
   }
+
+  // Reset error state when artwork version changes (new artwork available)
+  useEffect(() => {
+    if (artworkVersion > 0) {
+      setError(false)
+      setLoading(true)
+    }
+  }, [artworkVersion])
+
+  // Reset state when tmdbId changes
+  useEffect(() => {
+    setError(false)
+    setLoading(true)
+  }, [tmdbId])
 
   if (!imageUrl || error) {
     return (

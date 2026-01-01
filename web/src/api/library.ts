@@ -1,4 +1,5 @@
 import { apiFetch } from './client'
+import type { Movie, AddMovieInput, Series, AddSeriesInput } from '@/types'
 
 export interface ScanResponse {
   message: string
@@ -39,4 +40,18 @@ export const libraryApi = {
   /** Cancel a scan for a specific root folder */
   cancelScan: (id: number) =>
     apiFetch<{ message: string; rootFolderId: number }>(`/rootfolders/${id}/scan`, { method: 'DELETE' }),
+
+  /** Add a movie with artwork download */
+  addMovie: (data: AddMovieInput) =>
+    apiFetch<Movie>('/library/movies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** Add a series with artwork download */
+  addSeries: (data: AddSeriesInput) =>
+    apiFetch<Series>('/library/series', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }

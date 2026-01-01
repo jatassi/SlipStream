@@ -1244,3 +1244,126 @@ func (s *Service) matchUnmatchedSeries(
 			Msg("Matched unmatched series")
 	}
 }
+
+// AddMovieInput contains fields for adding a movie with artwork.
+type AddMovieInput struct {
+	Title            string `json:"title"`
+	Year             int    `json:"year,omitempty"`
+	TmdbID           int    `json:"tmdbId,omitempty"`
+	ImdbID           string `json:"imdbId,omitempty"`
+	Overview         string `json:"overview,omitempty"`
+	Runtime          int    `json:"runtime,omitempty"`
+	Path             string `json:"path,omitempty"`
+	RootFolderID     int64  `json:"rootFolderId"`
+	QualityProfileID int64  `json:"qualityProfileId"`
+	Monitored        bool   `json:"monitored"`
+	PosterURL        string `json:"posterUrl,omitempty"`
+	BackdropURL      string `json:"backdropUrl,omitempty"`
+}
+
+// AddMovie creates a new movie and downloads artwork in the background.
+func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Movie, error) {
+	// Create the movie
+	movie, err := s.movies.Create(ctx, movies.CreateMovieInput{
+		Title:            input.Title,
+		Year:             input.Year,
+		TmdbID:           input.TmdbID,
+		ImdbID:           input.ImdbID,
+		Overview:         input.Overview,
+		Runtime:          input.Runtime,
+		Path:             input.Path,
+		RootFolderID:     input.RootFolderID,
+		QualityProfileID: input.QualityProfileID,
+		Monitored:        input.Monitored,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Download artwork in the background if we have URLs
+	if s.artwork != nil && input.TmdbID > 0 && (input.PosterURL != "" || input.BackdropURL != "") {
+		go func() {
+			movieResult := &metadata.MovieResult{
+				ID:          input.TmdbID,
+				Title:       input.Title,
+				PosterURL:   input.PosterURL,
+				BackdropURL: input.BackdropURL,
+			}
+			if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
+				s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Msg("Failed to download movie artwork")
+			} else {
+				s.logger.Info().Int("tmdbId", input.TmdbID).Msg("Movie artwork downloaded")
+			}
+		}()
+	}
+
+	return movie, nil
+}
+
+// AddSeriesInput contains fields for adding a series with artwork.
+type AddSeriesInput struct {
+	Title            string           `json:"title"`
+	Year             int              `json:"year,omitempty"`
+	TvdbID           int              `json:"tvdbId,omitempty"`
+	TmdbID           int              `json:"tmdbId,omitempty"`
+	ImdbID           string           `json:"imdbId,omitempty"`
+	Overview         string           `json:"overview,omitempty"`
+	Runtime          int              `json:"runtime,omitempty"`
+	Path             string           `json:"path,omitempty"`
+	RootFolderID     int64            `json:"rootFolderId"`
+	QualityProfileID int64            `json:"qualityProfileId"`
+	Monitored        bool             `json:"monitored"`
+	SeasonFolder     bool             `json:"seasonFolder"`
+	Seasons          []tv.SeasonInput `json:"seasons,omitempty"`
+	PosterURL        string           `json:"posterUrl,omitempty"`
+	BackdropURL      string           `json:"backdropUrl,omitempty"`
+}
+
+// AddSeries creates a new series and downloads artwork in the background.
+func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Series, error) {
+	// Create the series
+	series, err := s.tv.CreateSeries(ctx, tv.CreateSeriesInput{
+		Title:            input.Title,
+		Year:             input.Year,
+		TvdbID:           input.TvdbID,
+		TmdbID:           input.TmdbID,
+		ImdbID:           input.ImdbID,
+		Overview:         input.Overview,
+		Runtime:          input.Runtime,
+		Path:             input.Path,
+		RootFolderID:     input.RootFolderID,
+		QualityProfileID: input.QualityProfileID,
+		Monitored:        input.Monitored,
+		SeasonFolder:     input.SeasonFolder,
+		Seasons:          input.Seasons,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Download artwork in the background if we have URLs
+	// Use TmdbID for artwork storage since frontend expects artwork keyed by TMDB ID
+	artworkID := input.TmdbID
+	if artworkID == 0 {
+		artworkID = input.TvdbID
+	}
+	if s.artwork != nil && artworkID > 0 && (input.PosterURL != "" || input.BackdropURL != "") {
+		go func() {
+			seriesResult := &metadata.SeriesResult{
+				ID:          artworkID,
+				TmdbID:      input.TmdbID,
+				TvdbID:      input.TvdbID,
+				Title:       input.Title,
+				PosterURL:   input.PosterURL,
+				BackdropURL: input.BackdropURL,
+			}
+			if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
+				s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Failed to download series artwork")
+			} else {
+				s.logger.Info().Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Series artwork downloaded")
+			}
+		}()
+	}
+
+	return series, nil
+}
