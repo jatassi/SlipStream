@@ -10,6 +10,85 @@ import (
 	"database/sql"
 )
 
+const clearDefinitionMetadata = `-- name: ClearDefinitionMetadata :exec
+DELETE FROM definition_metadata
+`
+
+func (q *Queries) ClearDefinitionMetadata(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearDefinitionMetadata)
+	return err
+}
+
+const clearIndexerFailure = `-- name: ClearIndexerFailure :exec
+UPDATE indexer_status SET
+    initial_failure = NULL,
+    most_recent_failure = NULL,
+    escalation_level = 0,
+    disabled_till = NULL
+WHERE indexer_id = ?
+`
+
+func (q *Queries) ClearIndexerFailure(ctx context.Context, indexerID int64) error {
+	_, err := q.db.ExecContext(ctx, clearIndexerFailure, indexerID)
+	return err
+}
+
+const countDefinitionMetadata = `-- name: CountDefinitionMetadata :one
+SELECT COUNT(*) FROM definition_metadata
+`
+
+func (q *Queries) CountDefinitionMetadata(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countDefinitionMetadata)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countEnabledIndexers = `-- name: CountEnabledIndexers :one
+SELECT COUNT(*) FROM indexers WHERE enabled = 1
+`
+
+func (q *Queries) CountEnabledIndexers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countEnabledIndexers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countIndexerGrabs = `-- name: CountIndexerGrabs :one
+SELECT COUNT(*) FROM indexer_history
+WHERE indexer_id = ? AND event_type = 'grab' AND created_at > ?
+`
+
+type CountIndexerGrabsParams struct {
+	IndexerID int64        `json:"indexer_id"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+func (q *Queries) CountIndexerGrabs(ctx context.Context, arg CountIndexerGrabsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIndexerGrabs, arg.IndexerID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countIndexerQueries = `-- name: CountIndexerQueries :one
+SELECT COUNT(*) FROM indexer_history
+WHERE indexer_id = ? AND event_type = 'query' AND created_at > ?
+`
+
+type CountIndexerQueriesParams struct {
+	IndexerID int64        `json:"indexer_id"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+func (q *Queries) CountIndexerQueries(ctx context.Context, arg CountIndexerQueriesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIndexerQueries, arg.IndexerID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countIndexers = `-- name: CountIndexers :one
 SELECT COUNT(*) FROM indexers
 `
@@ -23,16 +102,15 @@ func (q *Queries) CountIndexers(ctx context.Context) (int64, error) {
 
 const createIndexer = `-- name: CreateIndexer :one
 INSERT INTO indexers (
-    name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at
+    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at
 `
 
 type CreateIndexerParams struct {
 	Name           string         `json:"name"`
-	Type           string         `json:"type"`
-	Url            string         `json:"url"`
-	ApiKey         sql.NullString `json:"api_key"`
+	DefinitionID   string         `json:"definition_id"`
+	Settings       sql.NullString `json:"settings"`
 	Categories     sql.NullString `json:"categories"`
 	SupportsMovies int64          `json:"supports_movies"`
 	SupportsTv     int64          `json:"supports_tv"`
@@ -43,9 +121,8 @@ type CreateIndexerParams struct {
 func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*Indexer, error) {
 	row := q.db.QueryRowContext(ctx, createIndexer,
 		arg.Name,
-		arg.Type,
-		arg.Url,
-		arg.ApiKey,
+		arg.DefinitionID,
+		arg.Settings,
 		arg.Categories,
 		arg.SupportsMovies,
 		arg.SupportsTv,
@@ -56,9 +133,8 @@ func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Type,
-		&i.Url,
-		&i.ApiKey,
+		&i.DefinitionID,
+		&i.Settings,
 		&i.Categories,
 		&i.SupportsMovies,
 		&i.SupportsTv,
@@ -68,6 +144,62 @@ func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const createIndexerHistoryEvent = `-- name: CreateIndexerHistoryEvent :one
+
+INSERT INTO indexer_history (
+    indexer_id, event_type, successful, query, categories, results_count, elapsed_ms, data
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, indexer_id, event_type, successful, "query", categories, results_count, elapsed_ms, data, created_at
+`
+
+type CreateIndexerHistoryEventParams struct {
+	IndexerID    int64          `json:"indexer_id"`
+	EventType    string         `json:"event_type"`
+	Successful   int64          `json:"successful"`
+	Query        sql.NullString `json:"query"`
+	Categories   sql.NullString `json:"categories"`
+	ResultsCount sql.NullInt64  `json:"results_count"`
+	ElapsedMs    sql.NullInt64  `json:"elapsed_ms"`
+	Data         sql.NullString `json:"data"`
+}
+
+// Indexer History queries
+func (q *Queries) CreateIndexerHistoryEvent(ctx context.Context, arg CreateIndexerHistoryEventParams) (*IndexerHistory, error) {
+	row := q.db.QueryRowContext(ctx, createIndexerHistoryEvent,
+		arg.IndexerID,
+		arg.EventType,
+		arg.Successful,
+		arg.Query,
+		arg.Categories,
+		arg.ResultsCount,
+		arg.ElapsedMs,
+		arg.Data,
+	)
+	var i IndexerHistory
+	err := row.Scan(
+		&i.ID,
+		&i.IndexerID,
+		&i.EventType,
+		&i.Successful,
+		&i.Query,
+		&i.Categories,
+		&i.ResultsCount,
+		&i.ElapsedMs,
+		&i.Data,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const deleteDefinitionMetadata = `-- name: DeleteDefinitionMetadata :exec
+DELETE FROM definition_metadata WHERE id = ?
+`
+
+func (q *Queries) DeleteDefinitionMetadata(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteDefinitionMetadata, id)
+	return err
 }
 
 const deleteIndexer = `-- name: DeleteIndexer :exec
@@ -79,8 +211,39 @@ func (q *Queries) DeleteIndexer(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteOldIndexerHistory = `-- name: DeleteOldIndexerHistory :exec
+DELETE FROM indexer_history WHERE created_at < ?
+`
+
+func (q *Queries) DeleteOldIndexerHistory(ctx context.Context, createdAt sql.NullTime) error {
+	_, err := q.db.ExecContext(ctx, deleteOldIndexerHistory, createdAt)
+	return err
+}
+
+const getDefinitionMetadata = `-- name: GetDefinitionMetadata :one
+
+SELECT id, name, description, privacy, language, protocol, cached_at, file_path FROM definition_metadata WHERE id = ? LIMIT 1
+`
+
+// Definition Metadata queries
+func (q *Queries) GetDefinitionMetadata(ctx context.Context, id string) (*DefinitionMetadatum, error) {
+	row := q.db.QueryRowContext(ctx, getDefinitionMetadata, id)
+	var i DefinitionMetadatum
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Privacy,
+		&i.Language,
+		&i.Protocol,
+		&i.CachedAt,
+		&i.FilePath,
+	)
+	return &i, err
+}
+
 const getIndexer = `-- name: GetIndexer :one
-SELECT id, name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE id = ? LIMIT 1
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetIndexer(ctx context.Context, id int64) (*Indexer, error) {
@@ -89,9 +252,8 @@ func (q *Queries) GetIndexer(ctx context.Context, id int64) (*Indexer, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Type,
-		&i.Url,
-		&i.ApiKey,
+		&i.DefinitionID,
+		&i.Settings,
 		&i.Categories,
 		&i.SupportsMovies,
 		&i.SupportsTv,
@@ -103,8 +265,251 @@ func (q *Queries) GetIndexer(ctx context.Context, id int64) (*Indexer, error) {
 	return &i, err
 }
 
+const getIndexerByDefinitionID = `-- name: GetIndexerByDefinitionID :one
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE definition_id = ? LIMIT 1
+`
+
+func (q *Queries) GetIndexerByDefinitionID(ctx context.Context, definitionID string) (*Indexer, error) {
+	row := q.db.QueryRowContext(ctx, getIndexerByDefinitionID, definitionID)
+	var i Indexer
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.DefinitionID,
+		&i.Settings,
+		&i.Categories,
+		&i.SupportsMovies,
+		&i.SupportsTv,
+		&i.Priority,
+		&i.Enabled,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getIndexerStats = `-- name: GetIndexerStats :one
+SELECT
+    COUNT(*) as total_events,
+    SUM(CASE WHEN successful = 1 THEN 1 ELSE 0 END) as successful_events,
+    SUM(CASE WHEN event_type = 'query' THEN 1 ELSE 0 END) as total_queries,
+    SUM(CASE WHEN event_type = 'grab' THEN 1 ELSE 0 END) as total_grabs,
+    AVG(CASE WHEN event_type = 'query' THEN elapsed_ms ELSE NULL END) as avg_query_time_ms
+FROM indexer_history
+WHERE indexer_id = ?
+`
+
+type GetIndexerStatsRow struct {
+	TotalEvents      int64           `json:"total_events"`
+	SuccessfulEvents sql.NullFloat64 `json:"successful_events"`
+	TotalQueries     sql.NullFloat64 `json:"total_queries"`
+	TotalGrabs       sql.NullFloat64 `json:"total_grabs"`
+	AvgQueryTimeMs   sql.NullFloat64 `json:"avg_query_time_ms"`
+}
+
+func (q *Queries) GetIndexerStats(ctx context.Context, indexerID int64) (*GetIndexerStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getIndexerStats, indexerID)
+	var i GetIndexerStatsRow
+	err := row.Scan(
+		&i.TotalEvents,
+		&i.SuccessfulEvents,
+		&i.TotalQueries,
+		&i.TotalGrabs,
+		&i.AvgQueryTimeMs,
+	)
+	return &i, err
+}
+
+const getIndexerStatus = `-- name: GetIndexerStatus :one
+
+SELECT id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration FROM indexer_status WHERE indexer_id = ? LIMIT 1
+`
+
+// Indexer Status queries
+func (q *Queries) GetIndexerStatus(ctx context.Context, indexerID int64) (*IndexerStatus, error) {
+	row := q.db.QueryRowContext(ctx, getIndexerStatus, indexerID)
+	var i IndexerStatus
+	err := row.Scan(
+		&i.ID,
+		&i.IndexerID,
+		&i.InitialFailure,
+		&i.MostRecentFailure,
+		&i.EscalationLevel,
+		&i.DisabledTill,
+		&i.LastRssSync,
+		&i.Cookies,
+		&i.CookiesExpiration,
+	)
+	return &i, err
+}
+
+const listDefinitionMetadata = `-- name: ListDefinitionMetadata :many
+SELECT id, name, description, privacy, language, protocol, cached_at, file_path FROM definition_metadata ORDER BY name
+`
+
+func (q *Queries) ListDefinitionMetadata(ctx context.Context) ([]*DefinitionMetadatum, error) {
+	rows, err := q.db.QueryContext(ctx, listDefinitionMetadata)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*DefinitionMetadatum{}
+	for rows.Next() {
+		var i DefinitionMetadatum
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Privacy,
+			&i.Language,
+			&i.Protocol,
+			&i.CachedAt,
+			&i.FilePath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDefinitionMetadataByPrivacy = `-- name: ListDefinitionMetadataByPrivacy :many
+SELECT id, name, description, privacy, language, protocol, cached_at, file_path FROM definition_metadata WHERE privacy = ? ORDER BY name
+`
+
+func (q *Queries) ListDefinitionMetadataByPrivacy(ctx context.Context, privacy sql.NullString) ([]*DefinitionMetadatum, error) {
+	rows, err := q.db.QueryContext(ctx, listDefinitionMetadataByPrivacy, privacy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*DefinitionMetadatum{}
+	for rows.Next() {
+		var i DefinitionMetadatum
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Privacy,
+			&i.Language,
+			&i.Protocol,
+			&i.CachedAt,
+			&i.FilePath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDefinitionMetadataByProtocol = `-- name: ListDefinitionMetadataByProtocol :many
+SELECT id, name, description, privacy, language, protocol, cached_at, file_path FROM definition_metadata WHERE protocol = ? ORDER BY name
+`
+
+func (q *Queries) ListDefinitionMetadataByProtocol(ctx context.Context, protocol sql.NullString) ([]*DefinitionMetadatum, error) {
+	rows, err := q.db.QueryContext(ctx, listDefinitionMetadataByProtocol, protocol)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*DefinitionMetadatum{}
+	for rows.Next() {
+		var i DefinitionMetadatum
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Privacy,
+			&i.Language,
+			&i.Protocol,
+			&i.CachedAt,
+			&i.FilePath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDisabledIndexers = `-- name: ListDisabledIndexers :many
+SELECT i.id, i.name, i.definition_id, i.settings, i.categories, i.supports_movies, i.supports_tv, i.priority, i.enabled, i.created_at, i.updated_at, s.disabled_till FROM indexers i
+JOIN indexer_status s ON i.id = s.indexer_id
+WHERE s.disabled_till IS NOT NULL AND s.disabled_till > CURRENT_TIMESTAMP
+`
+
+type ListDisabledIndexersRow struct {
+	ID             int64          `json:"id"`
+	Name           string         `json:"name"`
+	DefinitionID   string         `json:"definition_id"`
+	Settings       sql.NullString `json:"settings"`
+	Categories     sql.NullString `json:"categories"`
+	SupportsMovies int64          `json:"supports_movies"`
+	SupportsTv     int64          `json:"supports_tv"`
+	Priority       int64          `json:"priority"`
+	Enabled        int64          `json:"enabled"`
+	CreatedAt      sql.NullTime   `json:"created_at"`
+	UpdatedAt      sql.NullTime   `json:"updated_at"`
+	DisabledTill   sql.NullTime   `json:"disabled_till"`
+}
+
+func (q *Queries) ListDisabledIndexers(ctx context.Context) ([]*ListDisabledIndexersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDisabledIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListDisabledIndexersRow{}
+	for rows.Next() {
+		var i ListDisabledIndexersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DisabledTill,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEnabledIndexers = `-- name: ListEnabledIndexers :many
-SELECT id, name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE enabled = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE enabled = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -119,9 +524,8 @@ func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Type,
-			&i.Url,
-			&i.ApiKey,
+			&i.DefinitionID,
+			&i.Settings,
 			&i.Categories,
 			&i.SupportsMovies,
 			&i.SupportsTv,
@@ -143,8 +547,133 @@ func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
 	return items, nil
 }
 
+const listEnabledMovieIndexers = `-- name: ListEnabledMovieIndexers :many
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE enabled = 1 AND supports_movies = 1 ORDER BY priority, name
+`
+
+func (q *Queries) ListEnabledMovieIndexers(ctx context.Context) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listEnabledMovieIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEnabledTVIndexers = `-- name: ListEnabledTVIndexers :many
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE enabled = 1 AND supports_tv = 1 ORDER BY priority, name
+`
+
+func (q *Queries) ListEnabledTVIndexers(ctx context.Context) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listEnabledTVIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIndexerHistory = `-- name: ListIndexerHistory :many
+SELECT id, indexer_id, event_type, successful, "query", categories, results_count, elapsed_ms, data, created_at FROM indexer_history
+WHERE indexer_id = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListIndexerHistoryParams struct {
+	IndexerID int64 `json:"indexer_id"`
+	Limit     int64 `json:"limit"`
+	Offset    int64 `json:"offset"`
+}
+
+func (q *Queries) ListIndexerHistory(ctx context.Context, arg ListIndexerHistoryParams) ([]*IndexerHistory, error) {
+	rows, err := q.db.QueryContext(ctx, listIndexerHistory, arg.IndexerID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*IndexerHistory{}
+	for rows.Next() {
+		var i IndexerHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.IndexerID,
+			&i.EventType,
+			&i.Successful,
+			&i.Query,
+			&i.Categories,
+			&i.ResultsCount,
+			&i.ElapsedMs,
+			&i.Data,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIndexers = `-- name: ListIndexers :many
-SELECT id, name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers ORDER BY priority, name
 `
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -159,9 +688,8 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Type,
-			&i.Url,
-			&i.ApiKey,
+			&i.DefinitionID,
+			&i.Settings,
 			&i.Categories,
 			&i.SupportsMovies,
 			&i.SupportsTv,
@@ -169,6 +697,90 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIndexersByDefinition = `-- name: ListIndexersByDefinition :many
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at FROM indexers WHERE definition_id = ? ORDER BY priority, name
+`
+
+func (q *Queries) ListIndexersByDefinition(ctx context.Context, definitionID string) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listIndexersByDefinition, definitionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentIndexerHistory = `-- name: ListRecentIndexerHistory :many
+SELECT id, indexer_id, event_type, successful, "query", categories, results_count, elapsed_ms, data, created_at FROM indexer_history
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListRecentIndexerHistoryParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) ListRecentIndexerHistory(ctx context.Context, arg ListRecentIndexerHistoryParams) ([]*IndexerHistory, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentIndexerHistory, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*IndexerHistory{}
+	for rows.Next() {
+		var i IndexerHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.IndexerID,
+			&i.EventType,
+			&i.Successful,
+			&i.Query,
+			&i.Categories,
+			&i.ResultsCount,
+			&i.ElapsedMs,
+			&i.Data,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -186,9 +798,8 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
 const updateIndexer = `-- name: UpdateIndexer :one
 UPDATE indexers SET
     name = ?,
-    type = ?,
-    url = ?,
-    api_key = ?,
+    definition_id = ?,
+    settings = ?,
     categories = ?,
     supports_movies = ?,
     supports_tv = ?,
@@ -196,14 +807,13 @@ UPDATE indexers SET
     enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, type, url, api_key, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at
+RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at
 `
 
 type UpdateIndexerParams struct {
 	Name           string         `json:"name"`
-	Type           string         `json:"type"`
-	Url            string         `json:"url"`
-	ApiKey         sql.NullString `json:"api_key"`
+	DefinitionID   string         `json:"definition_id"`
+	Settings       sql.NullString `json:"settings"`
 	Categories     sql.NullString `json:"categories"`
 	SupportsMovies int64          `json:"supports_movies"`
 	SupportsTv     int64          `json:"supports_tv"`
@@ -215,9 +825,8 @@ type UpdateIndexerParams struct {
 func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (*Indexer, error) {
 	row := q.db.QueryRowContext(ctx, updateIndexer,
 		arg.Name,
-		arg.Type,
-		arg.Url,
-		arg.ApiKey,
+		arg.DefinitionID,
+		arg.Settings,
 		arg.Categories,
 		arg.SupportsMovies,
 		arg.SupportsTv,
@@ -229,9 +838,8 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (*
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Type,
-		&i.Url,
-		&i.ApiKey,
+		&i.DefinitionID,
+		&i.Settings,
 		&i.Categories,
 		&i.SupportsMovies,
 		&i.SupportsTv,
@@ -239,6 +847,113 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (*
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const updateIndexerLastRssSync = `-- name: UpdateIndexerLastRssSync :exec
+INSERT INTO indexer_status (indexer_id, last_rss_sync)
+VALUES (?, CURRENT_TIMESTAMP)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    last_rss_sync = CURRENT_TIMESTAMP
+`
+
+func (q *Queries) UpdateIndexerLastRssSync(ctx context.Context, indexerID int64) error {
+	_, err := q.db.ExecContext(ctx, updateIndexerLastRssSync, indexerID)
+	return err
+}
+
+const upsertDefinitionMetadata = `-- name: UpsertDefinitionMetadata :one
+INSERT INTO definition_metadata (id, name, description, privacy, language, protocol, cached_at, file_path)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    description = excluded.description,
+    privacy = excluded.privacy,
+    language = excluded.language,
+    protocol = excluded.protocol,
+    cached_at = excluded.cached_at,
+    file_path = excluded.file_path
+RETURNING id, name, description, privacy, language, protocol, cached_at, file_path
+`
+
+type UpsertDefinitionMetadataParams struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Privacy     sql.NullString `json:"privacy"`
+	Language    sql.NullString `json:"language"`
+	Protocol    sql.NullString `json:"protocol"`
+	CachedAt    sql.NullTime   `json:"cached_at"`
+	FilePath    sql.NullString `json:"file_path"`
+}
+
+func (q *Queries) UpsertDefinitionMetadata(ctx context.Context, arg UpsertDefinitionMetadataParams) (*DefinitionMetadatum, error) {
+	row := q.db.QueryRowContext(ctx, upsertDefinitionMetadata,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.Privacy,
+		arg.Language,
+		arg.Protocol,
+		arg.CachedAt,
+		arg.FilePath,
+	)
+	var i DefinitionMetadatum
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.Privacy,
+		&i.Language,
+		&i.Protocol,
+		&i.CachedAt,
+		&i.FilePath,
+	)
+	return &i, err
+}
+
+const upsertIndexerStatus = `-- name: UpsertIndexerStatus :one
+INSERT INTO indexer_status (indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    initial_failure = excluded.initial_failure,
+    most_recent_failure = excluded.most_recent_failure,
+    escalation_level = excluded.escalation_level,
+    disabled_till = excluded.disabled_till,
+    last_rss_sync = excluded.last_rss_sync
+RETURNING id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration
+`
+
+type UpsertIndexerStatusParams struct {
+	IndexerID         int64         `json:"indexer_id"`
+	InitialFailure    sql.NullTime  `json:"initial_failure"`
+	MostRecentFailure sql.NullTime  `json:"most_recent_failure"`
+	EscalationLevel   sql.NullInt64 `json:"escalation_level"`
+	DisabledTill      sql.NullTime  `json:"disabled_till"`
+	LastRssSync       sql.NullTime  `json:"last_rss_sync"`
+}
+
+func (q *Queries) UpsertIndexerStatus(ctx context.Context, arg UpsertIndexerStatusParams) (*IndexerStatus, error) {
+	row := q.db.QueryRowContext(ctx, upsertIndexerStatus,
+		arg.IndexerID,
+		arg.InitialFailure,
+		arg.MostRecentFailure,
+		arg.EscalationLevel,
+		arg.DisabledTill,
+		arg.LastRssSync,
+	)
+	var i IndexerStatus
+	err := row.Scan(
+		&i.ID,
+		&i.IndexerID,
+		&i.InitialFailure,
+		&i.MostRecentFailure,
+		&i.EscalationLevel,
+		&i.DisabledTill,
+		&i.LastRssSync,
+		&i.Cookies,
+		&i.CookiesExpiration,
 	)
 	return &i, err
 }

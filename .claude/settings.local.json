@@ -30,7 +30,11 @@
       "Bash(cmd /c \"cd /d c:\\\\Git\\\\SlipStream\\\\web && npm run build\")",
       "Bash(grep:*)",
       "Bash(go mod tidy:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(cmd /c \"dev.bat\")",
+      "WebFetch(domain:indexers.prowlarr.com)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   },
   "enableAllProjectMcpServers": true,

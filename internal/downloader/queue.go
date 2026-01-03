@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/slipstream/slipstream/internal/downloader/transmission"
+	"github.com/slipstream/slipstream/internal/downloader/types"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
@@ -52,58 +52,60 @@ func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
 		items = append(items, mockItems...)
 	}
 
-	for _, client := range clients {
-		switch client.Type {
-		case "transmission":
-			clientItems, err := s.getTransmissionQueue(ctx, client.ID, client.Name)
-			if err != nil {
-				s.logger.Warn().Err(err).Int64("clientId", client.ID).Str("name", client.Name).Msg("Failed to get queue from client")
-				continue
-			}
-			items = append(items, clientItems...)
+	for _, dbClient := range clients {
+		// Skip unimplemented clients
+		if !IsClientTypeImplemented(dbClient.Type) {
+			continue
 		}
+
+		clientItems, err := s.getClientQueue(ctx, dbClient.ID, dbClient.Name)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Str("name", dbClient.Name).Msg("Failed to get queue from client")
+			continue
+		}
+		items = append(items, clientItems...)
 	}
 
 	return items, nil
 }
 
-// getTransmissionQueue fetches queue items from a Transmission client.
-func (s *Service) getTransmissionQueue(ctx context.Context, clientID int64, clientName string) ([]QueueItem, error) {
-	client, err := s.GetTransmissionClient(ctx, clientID)
+// getClientQueue fetches queue items from any download client using the unified interface.
+func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName string) ([]QueueItem, error) {
+	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
 		return nil, err
 	}
 
-	torrents, err := client.List()
+	downloads, err := client.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]QueueItem, 0, len(torrents))
-	for _, t := range torrents {
-		item := s.torrentToQueueItem(t, clientID, clientName)
+	items := make([]QueueItem, 0, len(downloads))
+	for _, d := range downloads {
+		item := s.downloadItemToQueueItem(d, clientID, clientName)
 		items = append(items, item)
 	}
 
 	return items, nil
 }
 
-// torrentToQueueItem converts a Transmission torrent to a QueueItem.
-func (s *Service) torrentToQueueItem(t transmission.Torrent, clientID int64, clientName string) QueueItem {
-	// Parse the torrent name to extract metadata
-	parsed := scanner.ParseFilename(t.Name)
+// downloadItemToQueueItem converts a DownloadItem to a QueueItem.
+func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, clientName string) QueueItem {
+	// Parse the download name to extract metadata
+	parsed := scanner.ParseFilename(d.Name)
 
 	// Determine media type from download path
-	mediaType := detectMediaType(t.Path)
+	mediaType := detectMediaType(d.DownloadDir)
 
-	// Use parsed title or fall back to the torrent name
+	// Use parsed title or fall back to the download name
 	title := parsed.Title
 	if title == "" {
-		title = t.Name
+		title = d.Name
 	}
 
 	// Map status
-	status := mapQueueStatus(t.Status)
+	status := mapDownloadStatus(d.Status)
 
 	// Ensure attributes is not nil
 	attributes := parsed.Attributes
@@ -112,24 +114,24 @@ func (s *Service) torrentToQueueItem(t transmission.Torrent, clientID int64, cli
 	}
 
 	return QueueItem{
-		ID:             t.ID,
+		ID:             d.ID,
 		ClientID:       clientID,
 		ClientName:     clientName,
 		Title:          title,
 		MediaType:      mediaType,
 		Status:         status,
-		Progress:       t.Progress * 100, // Convert from 0-1 to 0-100
-		Size:           t.Size,
-		DownloadedSize: t.DownloadedSize,
-		DownloadSpeed:  t.DownloadSpeed,
-		ETA:            t.ETA,
+		Progress:       d.Progress,
+		Size:           d.Size,
+		DownloadedSize: d.DownloadedSize,
+		DownloadSpeed:  d.DownloadSpeed,
+		ETA:            d.ETA,
 		Quality:        parsed.Quality,
 		Source:         parsed.Source,
 		Codec:          parsed.Codec,
 		Attributes:     attributes,
 		Season:         parsed.Season,
 		Episode:        parsed.Episode,
-		DownloadPath:   t.Path,
+		DownloadPath:   d.DownloadDir,
 	}
 }
 
@@ -145,92 +147,57 @@ func detectMediaType(path string) string {
 	return "unknown"
 }
 
-// mapQueueStatus maps transmission status to our queue status.
-func mapQueueStatus(status string) string {
+// mapDownloadStatus maps types.Status to our queue status string.
+func mapDownloadStatus(status types.Status) string {
 	switch status {
-	case "downloading":
+	case types.StatusDownloading:
 		return "downloading"
-	case "paused":
+	case types.StatusPaused:
 		return "paused"
-	case "completed":
+	case types.StatusCompleted, types.StatusSeeding:
 		return "completed"
+	case types.StatusQueued:
+		return "queued"
+	case types.StatusError:
+		return "error"
 	default:
 		return "queued"
 	}
 }
 
 // PauseDownload pauses a download.
-func (s *Service) PauseDownload(ctx context.Context, clientID int64, torrentID string) error {
-	cfg, err := s.Get(ctx, clientID)
+func (s *Service) PauseDownload(ctx context.Context, clientID int64, downloadID string) error {
+	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
 		return err
 	}
 
-	switch cfg.Type {
-	case "transmission":
-		client := transmission.New(transmission.Config{
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			UseSSL:   cfg.UseSSL,
-		})
-		return client.Stop(torrentID)
-	default:
-		return ErrUnsupportedClient
-	}
+	return client.Pause(ctx, downloadID)
 }
 
 // ResumeDownload resumes a paused download.
-func (s *Service) ResumeDownload(ctx context.Context, clientID int64, torrentID string) error {
-	cfg, err := s.Get(ctx, clientID)
+func (s *Service) ResumeDownload(ctx context.Context, clientID int64, downloadID string) error {
+	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
 		return err
 	}
 
-	switch cfg.Type {
-	case "transmission":
-		client := transmission.New(transmission.Config{
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			UseSSL:   cfg.UseSSL,
-		})
-		return client.Start(torrentID)
-	default:
-		return ErrUnsupportedClient
-	}
+	return client.Resume(ctx, downloadID)
 }
 
 // RemoveDownload removes a download from the client.
-func (s *Service) RemoveDownload(ctx context.Context, clientID int64, torrentID string, deleteFiles bool) error {
+func (s *Service) RemoveDownload(ctx context.Context, clientID int64, downloadID string, deleteFiles bool) error {
 	// Check if this is a mock item
-	if strings.HasPrefix(torrentID, "mock-") {
-		return s.removeMockItem(torrentID)
+	if strings.HasPrefix(downloadID, "mock-") {
+		return s.removeMockItem(downloadID)
 	}
 
-	cfg, err := s.Get(ctx, clientID)
+	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
 		return err
 	}
 
-	switch cfg.Type {
-	case "transmission":
-		client := transmission.New(transmission.Config{
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			UseSSL:   cfg.UseSSL,
-		})
-		if deleteFiles {
-			return client.RemoveWithData(torrentID)
-		}
-		return client.Remove(torrentID)
-	default:
-		return ErrUnsupportedClient
-	}
+	return client.Remove(ctx, downloadID, deleteFiles)
 }
 
 // AddMockDownloads adds mock download items based on library content.

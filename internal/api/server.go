@@ -14,6 +14,12 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/filesystem"
+	"github.com/slipstream/slipstream/internal/indexer"
+	"github.com/slipstream/slipstream/internal/indexer/cardigann"
+	"github.com/slipstream/slipstream/internal/indexer/grab"
+	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
+	"github.com/slipstream/slipstream/internal/indexer/search"
+	"github.com/slipstream/slipstream/internal/indexer/status"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
@@ -47,6 +53,11 @@ type Server struct {
 	watcherService        *watcher.Service
 	progressManager       *progress.Manager
 	downloaderService     *downloader.Service
+	indexerService        *indexer.Service
+	searchService         *search.Service
+	statusService         *status.Service
+	rateLimiter           *ratelimit.Limiter
+	grabService           *grab.Service
 }
 
 // NewServer creates a new API server instance.
@@ -81,6 +92,34 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize downloader service
 	s.downloaderService = downloader.NewService(db, logger)
 	s.downloaderService.SetDeveloperMode(cfg.DeveloperMode)
+
+	// Initialize Cardigann manager for indexer definitions
+	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
+	cardigannManager, err := cardigann.NewManager(cardigann.DefaultManagerConfig(), logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize Cardigann manager")
+	}
+
+	// Initialize indexer service
+	s.indexerService = indexer.NewService(db, cardigannManager, logger)
+
+	// Initialize indexer status service
+	s.statusService = status.NewService(db, logger)
+
+	// Initialize rate limiter
+	s.rateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
+
+	// Initialize search service with status, rate limiting, and WebSocket events
+	s.searchService = search.NewService(s.indexerService, logger)
+	s.searchService.SetStatusService(s.statusService)
+	s.searchService.SetRateLimiter(s.rateLimiter)
+	s.searchService.SetBroadcaster(hub)
+
+	// Initialize grab service with status, rate limiting, and WebSocket events
+	s.grabService = grab.NewService(db, s.downloaderService, logger)
+	s.grabService.SetStatusService(s.statusService)
+	s.grabService.SetRateLimiter(s.rateLimiter)
+	s.grabService.SetBroadcaster(hub)
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -246,13 +285,9 @@ func (s *Server) setupRoutes() {
 	settings.PUT("", s.updateSettings)
 
 	// Indexers routes
-	indexers := api.Group("/indexers")
-	indexers.GET("", s.listIndexers)
-	indexers.POST("", s.addIndexer)
-	indexers.GET("/:id", s.getIndexer)
-	indexers.PUT("/:id", s.updateIndexer)
-	indexers.DELETE("/:id", s.deleteIndexer)
-	indexers.POST("/:id/test", s.testIndexer)
+	indexerHandlers := indexer.NewHandlers(s.indexerService)
+	indexerHandlers.SetStatusService(s.statusService)
+	indexerHandlers.RegisterRoutes(api.Group("/indexers"))
 
 	// Download clients routes
 	clients := api.Group("/downloadclients")
@@ -273,9 +308,15 @@ func (s *Server) setupRoutes() {
 
 	// History routes
 	api.GET("/history", s.getHistory)
+	api.GET("/history/indexer", s.getIndexerHistory)
 
 	// Search routes
-	api.GET("/search", s.search)
+	searchHandlers := search.NewHandlers(s.searchService)
+	searchHandlers.RegisterRoutes(api.Group("/search"))
+
+	// Grab routes (under /search for grabbing search results)
+	grabHandlers := grab.NewHandlers(s.grabService)
+	grabHandlers.RegisterRoutes(api.Group("/search"))
 }
 
 // Start begins listening for HTTP requests.
@@ -359,31 +400,6 @@ func (s *Server) getSettings(c echo.Context) error {
 }
 
 func (s *Server) updateSettings(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
-
-// Indexer handlers (placeholders)
-func (s *Server) listIndexers(c echo.Context) error {
-	return c.JSON(http.StatusOK, []interface{}{})
-}
-
-func (s *Server) addIndexer(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
-
-func (s *Server) getIndexer(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
-
-func (s *Server) updateIndexer(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
-
-func (s *Server) deleteIndexer(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
-
-func (s *Server) testIndexer(c echo.Context) error {
 	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
 }
 
@@ -611,7 +627,26 @@ func (s *Server) getHistory(c echo.Context) error {
 	return c.JSON(http.StatusOK, []interface{}{})
 }
 
-// Search handler (placeholder)
-func (s *Server) search(c echo.Context) error {
-	return c.JSON(http.StatusOK, []interface{}{})
+// getIndexerHistory returns indexer search and grab history.
+func (s *Server) getIndexerHistory(c echo.Context) error {
+	limit := 50
+	offset := 0
+
+	if l := c.QueryParam("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
+		}
+	}
+	if o := c.QueryParam("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil {
+			offset = parsed
+		}
+	}
+
+	history, err := s.grabService.GetGrabHistory(c.Request().Context(), limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, history)
 }

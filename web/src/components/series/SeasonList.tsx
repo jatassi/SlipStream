@@ -1,3 +1,4 @@
+import { Search, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Accordion,
@@ -6,6 +7,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { EpisodeTable } from './EpisodeTable'
 import type { Season, Episode } from '@/types'
@@ -14,6 +16,10 @@ interface SeasonListProps {
   seasons: Season[]
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
+  onSeasonSearch?: (seasonNumber: number) => void
+  onSeasonAutoSearch?: (seasonNumber: number) => void
+  onEpisodeSearch?: (episode: Episode) => void
+  onEpisodeAutoSearch?: (episode: Episode) => void
   className?: string
 }
 
@@ -21,6 +27,10 @@ export function SeasonList({
   seasons,
   episodes = [],
   onSeasonMonitoredChange,
+  onSeasonSearch,
+  onSeasonAutoSearch,
+  onEpisodeSearch,
+  onEpisodeAutoSearch,
   className,
 }: SeasonListProps) {
   // Group episodes by season
@@ -63,19 +73,34 @@ export function SeasonList({
                 <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
                   {fileCount}/{totalCount}
                 </Badge>
-                {onSeasonMonitoredChange && (
-                  <div
-                    className="ml-auto mr-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {onSeasonSearch && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onSeasonSearch(season.seasonNumber)}
+                    >
+                      <Search className="size-4" />
+                    </Button>
+                  )}
+                  {onSeasonAutoSearch && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onSeasonAutoSearch(season.seasonNumber)}
+                    >
+                      <Zap className="size-4" />
+                    </Button>
+                  )}
+                  {onSeasonMonitoredChange && (
                     <Switch
                       checked={season.monitored}
                       onCheckedChange={(checked) =>
                         onSeasonMonitoredChange(season.seasonNumber, checked)
                       }
                     />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4">
@@ -85,7 +110,11 @@ export function SeasonList({
                 </p>
               )}
               {seasonEpisodes.length > 0 ? (
-                <EpisodeTable episodes={seasonEpisodes} />
+                <EpisodeTable
+                  episodes={seasonEpisodes}
+                  onManualSearch={onEpisodeSearch}
+                  onAutoSearch={onEpisodeAutoSearch}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground py-2">
                   No episodes found

@@ -15,6 +15,17 @@ type Auth struct {
 	UpdatedAt    sql.NullTime `json:"updated_at"`
 }
 
+type DefinitionMetadatum struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	Privacy     sql.NullString `json:"privacy"`
+	Language    sql.NullString `json:"language"`
+	Protocol    sql.NullString `json:"protocol"`
+	CachedAt    sql.NullTime   `json:"cached_at"`
+	FilePath    sql.NullString `json:"file_path"`
+}
+
 type Download struct {
 	ID          int64          `json:"id"`
 	ClientID    sql.NullInt64  `json:"client_id"`
@@ -84,9 +95,8 @@ type History struct {
 type Indexer struct {
 	ID             int64          `json:"id"`
 	Name           string         `json:"name"`
-	Type           string         `json:"type"`
-	Url            string         `json:"url"`
-	ApiKey         sql.NullString `json:"api_key"`
+	DefinitionID   string         `json:"definition_id"`
+	Settings       sql.NullString `json:"settings"`
 	Categories     sql.NullString `json:"categories"`
 	SupportsMovies int64          `json:"supports_movies"`
 	SupportsTv     int64          `json:"supports_tv"`
@@ -94,6 +104,31 @@ type Indexer struct {
 	Enabled        int64          `json:"enabled"`
 	CreatedAt      sql.NullTime   `json:"created_at"`
 	UpdatedAt      sql.NullTime   `json:"updated_at"`
+}
+
+type IndexerHistory struct {
+	ID           int64          `json:"id"`
+	IndexerID    int64          `json:"indexer_id"`
+	EventType    string         `json:"event_type"`
+	Successful   int64          `json:"successful"`
+	Query        sql.NullString `json:"query"`
+	Categories   sql.NullString `json:"categories"`
+	ResultsCount sql.NullInt64  `json:"results_count"`
+	ElapsedMs    sql.NullInt64  `json:"elapsed_ms"`
+	Data         sql.NullString `json:"data"`
+	CreatedAt    sql.NullTime   `json:"created_at"`
+}
+
+type IndexerStatus struct {
+	ID                int64          `json:"id"`
+	IndexerID         int64          `json:"indexer_id"`
+	InitialFailure    sql.NullTime   `json:"initial_failure"`
+	MostRecentFailure sql.NullTime   `json:"most_recent_failure"`
+	EscalationLevel   sql.NullInt64  `json:"escalation_level"`
+	DisabledTill      sql.NullTime   `json:"disabled_till"`
+	LastRssSync       sql.NullTime   `json:"last_rss_sync"`
+	Cookies           sql.NullString `json:"cookies"`
+	CookiesExpiration sql.NullTime   `json:"cookies_expiration"`
 }
 
 type Job struct {
