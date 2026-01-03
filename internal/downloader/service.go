@@ -11,6 +11,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
+	"github.com/slipstream/slipstream/internal/downloader/types"
 )
 
 var (
@@ -247,43 +248,55 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 
 // TestConfig tests a download client connection using provided configuration.
 func (s *Service) TestConfig(ctx context.Context, input CreateClientInput) (*TestResult, error) {
-	switch input.Type {
-	case "transmission":
-		client := transmission.New(transmission.Config{
-			Host:     input.Host,
-			Port:     input.Port,
-			Username: input.Username,
-			Password: input.Password,
-			UseSSL:   input.UseSSL,
-		})
+	// Build config for the factory
+	config := types.ClientConfig{
+		Host:     input.Host,
+		Port:     input.Port,
+		Username: input.Username,
+		Password: input.Password,
+		UseSSL:   input.UseSSL,
+		Category: input.Category,
+	}
 
-		if err := client.Test(); err != nil {
+	// Check if this client type is implemented
+	if !IsClientTypeImplemented(input.Type) {
+		if IsClientTypeSupported(input.Type) {
 			return &TestResult{
 				Success: false,
-				Message: fmt.Sprintf("Connection failed: %s", err.Error()),
+				Message: fmt.Sprintf("%s client is not yet implemented", input.Type),
 			}, nil
 		}
-
-		return &TestResult{
-			Success: true,
-			Message: "Successfully connected to Transmission",
-		}, nil
-
-	case "qbittorrent", "deluge", "rtorrent", "sabnzbd", "nzbget":
-		return &TestResult{
-			Success: false,
-			Message: fmt.Sprintf("%s client is not yet implemented", input.Type),
-		}, nil
-
-	default:
 		return &TestResult{
 			Success: false,
 			Message: fmt.Sprintf("Unknown client type: %s", input.Type),
 		}, nil
 	}
+
+	// Create client using factory
+	client, err := NewClient(ClientType(input.Type), config)
+	if err != nil {
+		return &TestResult{
+			Success: false,
+			Message: fmt.Sprintf("Failed to create client: %s", err.Error()),
+		}, nil
+	}
+
+	// Test the connection
+	if err := client.Test(ctx); err != nil {
+		return &TestResult{
+			Success: false,
+			Message: fmt.Sprintf("Connection failed: %s", err.Error()),
+		}, nil
+	}
+
+	return &TestResult{
+		Success: true,
+		Message: fmt.Sprintf("Successfully connected to %s", input.Type),
+	}, nil
 }
 
 // GetTransmissionClient returns a Transmission client for the given download client ID.
+// Deprecated: Use GetClient or GetTorrentClient instead for better abstraction.
 func (s *Service) GetTransmissionClient(ctx context.Context, id int64) (*transmission.Client, error) {
 	cfg, err := s.Get(ctx, id)
 	if err != nil {
@@ -301,6 +314,28 @@ func (s *Service) GetTransmissionClient(ctx context.Context, id int64) (*transmi
 		Password: cfg.Password,
 		UseSSL:   cfg.UseSSL,
 	}), nil
+}
+
+// GetClient returns a Client interface for the given download client ID.
+// This allows using the polymorphic interface for any supported client type.
+func (s *Service) GetClient(ctx context.Context, id int64) (Client, error) {
+	cfg, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return ClientFromDownloadClient(cfg)
+}
+
+// GetTorrentClient returns a TorrentClient interface for the given download client ID.
+// Returns an error if the client is not a torrent client.
+func (s *Service) GetTorrentClient(ctx context.Context, id int64) (TorrentClient, error) {
+	cfg, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return TorrentClientFromDownloadClient(cfg)
 }
 
 // AddTorrent adds a torrent from a URL to a specific client.
@@ -322,32 +357,40 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 		subDir = "SlipStream"
 	}
 
-	switch cfg.Type {
-	case "transmission":
-		client := transmission.New(transmission.Config{
-			Host:     cfg.Host,
-			Port:     cfg.Port,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			UseSSL:   cfg.UseSSL,
-		})
-
-		torrentID, err := client.AddURL(url, subDir)
-		if err != nil {
-			return "", fmt.Errorf("failed to add torrent: %w", err)
-		}
-
-		// Start the torrent
-		if err := client.Start(torrentID); err != nil {
-			s.logger.Warn().Err(err).Str("id", torrentID).Msg("Failed to start torrent")
-		}
-
-		s.logger.Info().Str("url", url).Str("torrentId", torrentID).Str("mediaType", mediaType).Str("subDir", subDir).Msg("Added torrent")
-		return torrentID, nil
-
-	default:
-		return "", ErrUnsupportedClient
+	// Get the client using the factory
+	client, err := ClientFromDownloadClient(cfg)
+	if err != nil {
+		return "", err
 	}
+
+	// Get default download dir and construct full path
+	defaultDir, err := client.GetDownloadDir(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Could not get default download dir, using relative path")
+		defaultDir = ""
+	}
+
+	var downloadDir string
+	if defaultDir != "" {
+		downloadDir = fmt.Sprintf("%s/%s", defaultDir, subDir)
+	}
+
+	// Add the torrent
+	torrentID, err := client.Add(ctx, types.AddOptions{
+		URL:         url,
+		DownloadDir: downloadDir,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to add torrent: %w", err)
+	}
+
+	// Start the torrent
+	if err := client.Resume(ctx, torrentID); err != nil {
+		s.logger.Warn().Err(err).Str("id", torrentID).Msg("Failed to start torrent")
+	}
+
+	s.logger.Info().Str("url", url).Str("torrentId", torrentID).Str("mediaType", mediaType).Str("subDir", subDir).Msg("Added torrent")
+	return torrentID, nil
 }
 
 // rowToClient converts a database row to a DownloadClient.

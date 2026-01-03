@@ -1,47 +1,34 @@
 package indexer
 
+import (
+	"context"
+)
+
 // Indexer defines the interface for search indexers.
 type Indexer interface {
-	// Name returns the indexer name.
+	// Identity
 	Name() string
+	Definition() *IndexerDefinition
 
-	// Test verifies the indexer connection.
-	Test() error
+	// Operations
+	Test(ctx context.Context) error
+	Search(ctx context.Context, criteria SearchCriteria) ([]ReleaseInfo, error)
+	Download(ctx context.Context, url string) ([]byte, error)
 
-	// Search searches for releases.
-	Search(query SearchQuery) ([]Release, error)
-
-	// Capabilities returns the indexer capabilities.
-	Capabilities() Capabilities
+	// Capabilities
+	Capabilities() *Capabilities
+	SupportsSearch() bool
+	SupportsRSS() bool
 }
 
-// SearchQuery defines search parameters.
-type SearchQuery struct {
-	Query      string   `json:"query,omitempty"`
-	TmdbID     int      `json:"tmdbId,omitempty"`
-	TvdbID     int      `json:"tvdbId,omitempty"`
-	ImdbID     string   `json:"imdbId,omitempty"`
-	Season     int      `json:"season,omitempty"`
-	Episode    int      `json:"episode,omitempty"`
-	Categories []int    `json:"categories,omitempty"`
+// TorrentIndexer extends Indexer with torrent-specific methods.
+type TorrentIndexer interface {
+	Indexer
+	SearchTorrents(ctx context.Context, criteria SearchCriteria) ([]TorrentInfo, error)
 }
 
-// Release represents a search result from an indexer.
-type Release struct {
-	Title       string  `json:"title"`
-	DownloadURL string  `json:"downloadUrl"`
-	InfoURL     string  `json:"infoUrl,omitempty"`
-	Size        int64   `json:"size"`
-	Seeders     int     `json:"seeders,omitempty"`
-	Leechers    int     `json:"leechers,omitempty"`
-	Indexer     string  `json:"indexer"`
-	Protocol    string  `json:"protocol"` // torrent, usenet
-	PublishDate string  `json:"publishDate,omitempty"`
-}
-
-// Capabilities describes what an indexer supports.
-type Capabilities struct {
-	SupportsMovies bool `json:"supportsMovies"`
-	SupportsTV     bool `json:"supportsTV"`
-	SupportsSearch bool `json:"supportsSearch"`
+// UsenetIndexer extends Indexer with usenet-specific methods.
+type UsenetIndexer interface {
+	Indexer
+	SearchUsenet(ctx context.Context, criteria SearchCriteria) ([]UsenetInfo, error)
 }

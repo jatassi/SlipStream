@@ -1,4 +1,5 @@
-import { Plus, Edit, Trash2, Rss, TestTube } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Edit, Trash2, Rss, TestTube, Globe, Lock, Unlock } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -8,6 +9,7 @@ import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { IndexerDialog } from '@/components/indexers/IndexerDialog'
 import {
   useIndexers,
   useDeleteIndexer,
@@ -15,12 +17,43 @@ import {
   useUpdateIndexer,
 } from '@/hooks'
 import { toast } from 'sonner'
+import type { Indexer, Privacy, Protocol } from '@/types'
+
+const privacyIcons: Record<Privacy, React.ReactNode> = {
+  public: <Globe className="size-3" />,
+  'semi-private': <Unlock className="size-3" />,
+  private: <Lock className="size-3" />,
+}
+
+const privacyColors: Record<Privacy, string> = {
+  public: 'bg-green-500/10 text-green-500 hover:bg-green-500/20',
+  'semi-private': 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20',
+  private: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
+}
+
+const protocolColors: Record<Protocol, string> = {
+  torrent: 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20',
+  usenet: 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20',
+}
 
 export function IndexersPage() {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingIndexer, setEditingIndexer] = useState<Indexer | null>(null)
+
   const { data: indexers, isLoading, isError, refetch } = useIndexers()
   const deleteMutation = useDeleteIndexer()
   const testMutation = useTestIndexer()
   const updateMutation = useUpdateIndexer()
+
+  const handleAdd = () => {
+    setEditingIndexer(null)
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (indexer: Indexer) => {
+    setEditingIndexer(indexer)
+    setDialogOpen(true)
+  }
 
   const handleToggleEnabled = async (id: number, enabled: boolean) => {
     try {
@@ -75,13 +108,13 @@ export function IndexersPage() {
     <div>
       <PageHeader
         title="Indexers"
-        description="Configure search providers"
+        description="Configure search providers for finding releases"
         breadcrumbs={[
           { label: 'Settings', href: '/settings' },
           { label: 'Indexers' },
         ]}
         actions={
-          <Button>
+          <Button onClick={handleAdd}>
             <Plus className="size-4 mr-2" />
             Add Indexer
           </Button>
@@ -93,7 +126,7 @@ export function IndexersPage() {
           icon={<Rss className="size-8" />}
           title="No indexers configured"
           description="Add an indexer to search for releases"
-          action={{ label: 'Add Indexer', onClick: () => {} }}
+          action={{ label: 'Add Indexer', onClick: handleAdd }}
         />
       ) : (
         <div className="space-y-4">
@@ -107,16 +140,24 @@ export function IndexersPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-base">{indexer.name}</CardTitle>
-                      <Badge variant="outline">{indexer.type}</Badge>
-                      {indexer.supportsMovies && (
-                        <Badge variant="secondary">Movies</Badge>
-                      )}
-                      {indexer.supportsTv && (
-                        <Badge variant="secondary">TV</Badge>
-                      )}
+                      <Badge variant="secondary" className={protocolColors[indexer.protocol]}>
+                        {indexer.protocol}
+                      </Badge>
+                      <Badge variant="secondary" className={privacyColors[indexer.privacy]}>
+                        <span className="mr-1">{privacyIcons[indexer.privacy]}</span>
+                        {indexer.privacy}
+                      </Badge>
                     </div>
-                    <CardDescription className="text-xs">
-                      {indexer.url}
+                    <CardDescription className="text-xs flex items-center gap-2">
+                      <span>{indexer.definitionId}</span>
+                      <span className="text-muted-foreground/50">|</span>
+                      {indexer.supportsMovies && <span>Movies</span>}
+                      {indexer.supportsMovies && indexer.supportsTv && (
+                        <span className="text-muted-foreground/50">/</span>
+                      )}
+                      {indexer.supportsTv && <span>TV</span>}
+                      <span className="text-muted-foreground/50">|</span>
+                      <span>Priority: {indexer.priority}</span>
                     </CardDescription>
                   </div>
                 </div>
@@ -134,7 +175,7 @@ export function IndexersPage() {
                     <TestTube className="size-4 mr-1" />
                     Test
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(indexer)}>
                     <Edit className="size-4" />
                   </Button>
                   <ConfirmDialog
@@ -155,6 +196,12 @@ export function IndexersPage() {
           ))}
         </div>
       )}
+
+      <IndexerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        indexer={editingIndexer}
+      />
     </div>
   )
 }

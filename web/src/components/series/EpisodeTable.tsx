@@ -20,25 +20,30 @@ import type { Episode } from '@/types'
 
 interface EpisodeTableProps {
   episodes: Episode[]
-  onSearch?: (episode: Episode) => void
+  onAutoSearch?: (episode: Episode) => void
+  onManualSearch?: (episode: Episode) => void
 }
 
-export function EpisodeTable({ episodes, onSearch }: EpisodeTableProps) {
+export function EpisodeTable({ episodes, onAutoSearch, onManualSearch }: EpisodeTableProps) {
   // Sort by episode number
   const sortedEpisodes = [...episodes].sort(
     (a, b) => a.episodeNumber - b.episodeNumber
   )
 
   const handleAutoSearch = (episode: Episode) => {
-    if (onSearch) {
-      onSearch(episode)
+    if (onAutoSearch) {
+      onAutoSearch(episode)
     } else {
       toast.info('Automatic search not yet implemented')
     }
   }
 
-  const handleManualSearch = (_episode: Episode) => {
-    toast.info('Manual search not yet implemented')
+  const handleManualSearch = (episode: Episode) => {
+    if (onManualSearch) {
+      onManualSearch(episode)
+    } else {
+      toast.info('Manual search not yet implemented')
+    }
   }
 
   return (

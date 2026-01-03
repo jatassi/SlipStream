@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
   Search,
@@ -9,6 +10,7 @@ import {
   HardDrive,
   Bookmark,
   BookmarkX,
+  Zap,
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
@@ -17,6 +19,7 @@ import { QualityBadge } from '@/components/media/QualityBadge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { SearchModal } from '@/components/search/SearchModal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +47,8 @@ export function MovieDetailPage() {
   const navigate = useNavigate()
   const movieId = parseInt(id)
 
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
+
   const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
@@ -63,13 +68,17 @@ export function MovieDetailPage() {
     }
   }
 
-  const handleSearch = async () => {
+  const handleAutoSearch = async () => {
     try {
       await searchMutation.mutateAsync(movieId)
-      toast.success('Search started')
+      toast.success('Automatic search started')
     } catch {
       toast.error('Failed to start search')
     }
+  }
+
+  const handleManualSearch = () => {
+    setSearchModalOpen(true)
   }
 
   const handleRefresh = async () => {
@@ -159,9 +168,17 @@ export function MovieDetailPage() {
 
       {/* Actions */}
       <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
-        <Button onClick={handleSearch} disabled={searchMutation.isPending}>
+        <Button onClick={handleManualSearch}>
           <Search className="size-4 mr-2" />
           Search
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleAutoSearch}
+          disabled={searchMutation.isPending}
+        >
+          <Zap className="size-4 mr-2" />
+          Auto Search
         </Button>
         <Button
           variant="outline"
@@ -280,6 +297,17 @@ export function MovieDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal
+        open={searchModalOpen}
+        onOpenChange={setSearchModalOpen}
+        movieId={movie.id}
+        movieTitle={movie.title}
+        tmdbId={movie.tmdbId}
+        imdbId={movie.imdbId}
+        year={movie.year}
+      />
     </div>
   )
 }

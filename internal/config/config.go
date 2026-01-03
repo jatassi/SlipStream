@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
@@ -16,6 +17,7 @@ type Config struct {
 	Logging       LoggingConfig  `mapstructure:"logging"`
 	Auth          AuthConfig     `mapstructure:"auth"`
 	Metadata      MetadataConfig `mapstructure:"metadata"`
+	Indexer       IndexerConfig  `mapstructure:"indexer"`
 	DeveloperMode bool           `mapstructure:"developer_mode"`
 }
 
@@ -62,6 +64,63 @@ type TVDBConfig struct {
 	Timeout int    `mapstructure:"timeout_seconds"`
 }
 
+// IndexerConfig holds indexer-related configuration.
+type IndexerConfig struct {
+	Cardigann CardigannConfig `mapstructure:"cardigann"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	Status    StatusConfig    `mapstructure:"status"`
+}
+
+// CardigannConfig holds Cardigann definition system configuration.
+type CardigannConfig struct {
+	RepositoryURL  string `mapstructure:"repository_url"`  // Default: "https://indexers.prowlarr.com"
+	Branch         string `mapstructure:"branch"`          // Default: "master"
+	Version        string `mapstructure:"version"`         // Default: "v10"
+	DefinitionsDir string `mapstructure:"definitions_dir"` // Default: "./data/definitions"
+	CustomDir      string `mapstructure:"custom_dir"`      // Default: "./data/definitions/custom"
+	AutoUpdate     bool   `mapstructure:"auto_update"`     // Default: true
+	UpdateInterval int    `mapstructure:"update_interval"` // Default: 24 (hours)
+	RequestTimeout int    `mapstructure:"request_timeout"` // Default: 60 (seconds)
+}
+
+// RateLimitConfig holds rate limiting configuration for indexers.
+type RateLimitConfig struct {
+	QueryLimit  int `mapstructure:"query_limit"`  // Default: 100
+	QueryPeriod int `mapstructure:"query_period"` // Default: 60 (minutes)
+	GrabLimit   int `mapstructure:"grab_limit"`   // Default: 25
+	GrabPeriod  int `mapstructure:"grab_period"`  // Default: 60 (minutes)
+}
+
+// StatusConfig holds indexer health status configuration.
+type StatusConfig struct {
+	// BackoffMultiplier controls the exponential backoff multiplier.
+	BackoffMultiplier float64 `mapstructure:"backoff_multiplier"` // Default: 2.0
+	// MaxBackoffHours is the maximum backoff duration in hours.
+	MaxBackoffHours int `mapstructure:"max_backoff_hours"` // Default: 3
+	// InitialBackoffMinutes is the initial backoff duration in minutes.
+	InitialBackoffMinutes int `mapstructure:"initial_backoff_minutes"` // Default: 5
+}
+
+// QueryPeriodDuration returns the query period as a time.Duration.
+func (r *RateLimitConfig) QueryPeriodDuration() time.Duration {
+	return time.Duration(r.QueryPeriod) * time.Minute
+}
+
+// GrabPeriodDuration returns the grab period as a time.Duration.
+func (r *RateLimitConfig) GrabPeriodDuration() time.Duration {
+	return time.Duration(r.GrabPeriod) * time.Minute
+}
+
+// UpdateIntervalDuration returns the update interval as a time.Duration.
+func (c *CardigannConfig) UpdateIntervalDuration() time.Duration {
+	return time.Duration(c.UpdateInterval) * time.Hour
+}
+
+// RequestTimeoutDuration returns the request timeout as a time.Duration.
+func (c *CardigannConfig) RequestTimeoutDuration() time.Duration {
+	return time.Duration(c.RequestTimeout) * time.Second
+}
+
 // Default returns a Config with default values.
 func Default() *Config {
 	return &Config{
@@ -88,6 +147,29 @@ func Default() *Config {
 			TVDB: TVDBConfig{
 				BaseURL: "https://api4.thetvdb.com/v4",
 				Timeout: 30,
+			},
+		},
+		Indexer: IndexerConfig{
+			Cardigann: CardigannConfig{
+				RepositoryURL:  "https://indexers.prowlarr.com",
+				Branch:         "master",
+				Version:        "v10",
+				DefinitionsDir: "./data/definitions",
+				CustomDir:      "./data/definitions/custom",
+				AutoUpdate:     true,
+				UpdateInterval: 24,
+				RequestTimeout: 60,
+			},
+			RateLimit: RateLimitConfig{
+				QueryLimit:  100,
+				QueryPeriod: 60,
+				GrabLimit:   25,
+				GrabPeriod:  60,
+			},
+			Status: StatusConfig{
+				BackoffMultiplier:     2.0,
+				MaxBackoffHours:       3,
+				InitialBackoffMinutes: 5,
 			},
 		},
 	}
@@ -174,9 +256,53 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metadata.tvdb.api_key", "")
 	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
 	v.SetDefault("metadata.tvdb.timeout_seconds", 30)
+
+	// Indexer defaults
+	// Cardigann definition system
+	v.SetDefault("indexer.cardigann.repository_url", "https://indexers.prowlarr.com")
+	v.SetDefault("indexer.cardigann.branch", "master")
+	v.SetDefault("indexer.cardigann.version", "v10")
+	v.SetDefault("indexer.cardigann.definitions_dir", "./data/definitions")
+	v.SetDefault("indexer.cardigann.custom_dir", "./data/definitions/custom")
+	v.SetDefault("indexer.cardigann.auto_update", true)
+	v.SetDefault("indexer.cardigann.update_interval", 24)
+	v.SetDefault("indexer.cardigann.request_timeout", 60)
+
+	// Rate limiting
+	v.SetDefault("indexer.rate_limit.query_limit", 100)
+	v.SetDefault("indexer.rate_limit.query_period", 60)
+	v.SetDefault("indexer.rate_limit.grab_limit", 25)
+	v.SetDefault("indexer.rate_limit.grab_period", 60)
+
+	// Status/backoff
+	v.SetDefault("indexer.status.backoff_multiplier", 2.0)
+	v.SetDefault("indexer.status.max_backoff_hours", 3)
+	v.SetDefault("indexer.status.initial_backoff_minutes", 5)
 }
 
 // Address returns the server address string.
 func (c *ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// ToManagerConfig converts IndexerConfig to cardigann.ManagerConfig compatible values.
+// Returns RepositoryConfig values, CacheConfig values, and manager settings.
+func (ic *IndexerConfig) ToManagerConfigValues() (
+	repoURL, branch, version, userAgent string,
+	requestTimeout time.Duration,
+	definitionsDir, customDir string,
+	autoUpdate bool,
+	updateInterval time.Duration,
+) {
+	c := ic.Cardigann
+	repoURL = c.RepositoryURL
+	branch = c.Branch
+	version = c.Version
+	userAgent = "SlipStream/1.0"
+	requestTimeout = c.RequestTimeoutDuration()
+	definitionsDir = c.DefinitionsDir
+	customDir = c.CustomDir
+	autoUpdate = c.AutoUpdate
+	updateInterval = c.UpdateIntervalDuration()
+	return
 }

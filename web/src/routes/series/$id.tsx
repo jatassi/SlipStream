@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
   Search,
@@ -10,6 +11,7 @@ import {
   Bookmark,
   BookmarkX,
   Tv,
+  Zap,
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
@@ -18,6 +20,7 @@ import { SeasonList } from '@/components/series/SeasonList'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { SearchModal } from '@/components/search/SearchModal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,11 +36,20 @@ import {
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
+import type { Episode } from '@/types'
+
+interface SearchContext {
+  season?: number
+  episode?: Episode
+}
 
 export function SeriesDetailPage() {
   const { id } = useParams({ from: '/series/$id' })
   const navigate = useNavigate()
   const seriesId = parseInt(id)
+
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
+  const [searchContext, setSearchContext] = useState<SearchContext>({})
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
   const { data: episodes } = useEpisodes(seriesId)
@@ -60,13 +72,36 @@ export function SeriesDetailPage() {
     }
   }
 
-  const handleSearch = async () => {
+  const handleAutoSearch = async () => {
     try {
       await searchMutation.mutateAsync(seriesId)
-      toast.success('Search started')
+      toast.success('Automatic search started')
     } catch {
       toast.error('Failed to start search')
     }
+  }
+
+  const handleManualSearch = () => {
+    setSearchContext({})
+    setSearchModalOpen(true)
+  }
+
+  const handleSeasonSearch = (seasonNumber: number) => {
+    setSearchContext({ season: seasonNumber })
+    setSearchModalOpen(true)
+  }
+
+  const handleSeasonAutoSearch = async (seasonNumber: number) => {
+    toast.info(`Auto search for Season ${seasonNumber} - not yet implemented`)
+  }
+
+  const handleEpisodeSearch = (episode: Episode) => {
+    setSearchContext({ season: episode.seasonNumber, episode })
+    setSearchModalOpen(true)
+  }
+
+  const handleEpisodeAutoSearch = async (_episode: Episode) => {
+    toast.info('Auto search for episode - not yet implemented')
   }
 
   const handleRefresh = async () => {
@@ -173,9 +208,17 @@ export function SeriesDetailPage() {
 
       {/* Actions */}
       <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
-        <Button onClick={handleSearch} disabled={searchMutation.isPending}>
+        <Button onClick={handleManualSearch}>
           <Search className="size-4 mr-2" />
-          Search All
+          Search
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleAutoSearch}
+          disabled={searchMutation.isPending}
+        >
+          <Zap className="size-4 mr-2" />
+          Auto Search All
         </Button>
         <Button
           variant="outline"
@@ -272,6 +315,10 @@ export function SeriesDetailPage() {
                 seasons={series.seasons}
                 episodes={episodes}
                 onSeasonMonitoredChange={handleSeasonMonitoredChange}
+                onSeasonSearch={handleSeasonSearch}
+                onSeasonAutoSearch={handleSeasonAutoSearch}
+                onEpisodeSearch={handleEpisodeSearch}
+                onEpisodeAutoSearch={handleEpisodeAutoSearch}
               />
             ) : (
               <p className="text-muted-foreground">No seasons found</p>
@@ -279,6 +326,17 @@ export function SeriesDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal
+        open={searchModalOpen}
+        onOpenChange={setSearchModalOpen}
+        seriesId={series.id}
+        seriesTitle={series.title}
+        tvdbId={series.tvdbId}
+        season={searchContext.season}
+        episode={searchContext.episode?.episodeNumber}
+      />
     </div>
   )
 }
