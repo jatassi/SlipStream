@@ -266,6 +266,19 @@ func (h *Handlers) ListDefinitions(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// Lazy load: If no definitions cached, trigger an update
+	if len(definitions) == 0 {
+		if err := h.service.UpdateDefinitions(c.Request().Context()); err == nil {
+			// Retry listing after successful update
+			definitions, err = h.service.ListDefinitions()
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
+		}
+		// If update fails, silently return empty list - user can manually trigger update
+	}
+
 	return c.JSON(http.StatusOK, definitions)
 }
 
