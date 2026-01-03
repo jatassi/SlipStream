@@ -40,5 +40,6 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "shadcn"
-  ]
+  ],
+  "outputStyle": "default"
 }
