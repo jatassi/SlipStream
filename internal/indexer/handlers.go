@@ -279,7 +279,28 @@ func (h *Handlers) ListDefinitions(c echo.Context) error {
 		// If update fails, silently return empty list - user can manually trigger update
 	}
 
-	return c.JSON(http.StatusOK, definitions)
+	// Transform to response format (maps Type -> privacy for frontend)
+	type resp struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Privacy     string `json:"privacy"`
+		Language    string `json:"language"`
+		Protocol    string `json:"protocol"`
+	}
+	out := make([]resp, len(definitions))
+	for i, def := range definitions {
+		out[i] = resp{
+			ID:          def.ID,
+			Name:        def.Name,
+			Description: def.Description,
+			Privacy:     def.Type,
+			Language:    def.Language,
+			Protocol:    def.Protocol,
+		}
+	}
+
+	return c.JSON(http.StatusOK, out)
 }
 
 // SearchDefinitions searches for definitions matching query and filters.

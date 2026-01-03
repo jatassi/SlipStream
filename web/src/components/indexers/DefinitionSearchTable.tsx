@@ -156,7 +156,7 @@ export function DefinitionSearchTable({
       </div>
 
       {/* Table */}
-      <ScrollArea className="flex-1 border rounded-md">
+      <ScrollArea className="flex-1 min-h-0 border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>

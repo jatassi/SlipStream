@@ -72,11 +72,11 @@ type CategoryMapping struct {
 
 // Setting defines a user-configurable option for the indexer.
 type Setting struct {
-	Name    string            `yaml:"name"`
-	Type    string            `yaml:"type"` // text, password, checkbox, select, info, info_cookie, info_flaresolverr
-	Label   string            `yaml:"label"`
-	Default string            `yaml:"default"`
-	Options map[string]string `yaml:"options"` // For select type
+	Name    string            `yaml:"name" json:"name"`
+	Type    string            `yaml:"type" json:"type"` // text, password, checkbox, select, info, info_cookie, info_flaresolverr
+	Label   string            `yaml:"label" json:"label"`
+	Default string            `yaml:"default" json:"default,omitempty"`
+	Options map[string]string `yaml:"options" json:"options,omitempty"` // For select type
 }
 
 // LoginBlock defines how to authenticate with the indexer.

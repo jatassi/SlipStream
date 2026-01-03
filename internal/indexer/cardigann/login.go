@@ -22,6 +22,16 @@ type LoginHandler struct {
 	userAgent  string
 }
 
+// joinURL properly joins a base URL with a path, ensuring exactly one slash between them.
+func joinURL(baseURL, path string) string {
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	path = strings.TrimPrefix(path, "/")
+	if path == "" {
+		return baseURL
+	}
+	return baseURL + "/" + path
+}
+
 // NewLoginHandler creates a new login handler.
 func NewLoginHandler(baseURL string, logger zerolog.Logger) (*LoginHandler, error) {
 	jar, err := cookiejar.New(nil)
@@ -72,7 +82,7 @@ func (h *LoginHandler) Authenticate(ctx context.Context, login *LoginBlock, sett
 
 // loginPOST performs POST-based authentication.
 func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, settings map[string]string) error {
-	loginURL := h.baseURL + login.Path
+	loginURL := joinURL(h.baseURL, login.Path)
 
 	// Build form data
 	formData := url.Values{}
@@ -142,7 +152,7 @@ func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, setting
 // loginForm performs form-based authentication with selector inputs.
 func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, settings map[string]string) error {
 	// First, fetch the login page to get form fields
-	loginPageURL := h.baseURL + login.Path
+	loginPageURL := joinURL(h.baseURL, login.Path)
 
 	h.logger.Debug().Str("url", loginPageURL).Msg("Fetching login page")
 
@@ -304,7 +314,7 @@ func (h *LoginHandler) Test(ctx context.Context, login *LoginBlock) error {
 		return nil // No test defined
 	}
 
-	testURL := h.baseURL + login.Test.Path
+	testURL := joinURL(h.baseURL, login.Test.Path)
 
 	h.logger.Debug().Str("url", testURL).Msg("Testing authentication")
 

@@ -34,7 +34,8 @@
       "Bash(cmd /c \"dev.bat\")",
       "WebFetch(domain:indexers.prowlarr.com)",
       "WebSearch",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__ide__getDiagnostics"
     ]
   },
   "enableAllProjectMcpServers": true,

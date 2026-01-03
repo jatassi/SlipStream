@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import {
   useCreateIndexer,
@@ -200,7 +201,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={step === 'select' ? 'max-w-3xl h-[600px]' : 'max-w-md'}>
+      <DialogContent className={step === 'select' ? 'sm:max-w-3xl h-[600px] flex flex-col overflow-hidden' : 'sm:max-w-2xl h-[80vh] flex flex-col overflow-hidden'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === 'configure' && !isEditing && (
@@ -218,7 +219,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
         </DialogHeader>
 
         {step === 'select' && (
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <DefinitionSearchTable
               definitions={definitions}
               isLoading={isLoadingDefinitions}
@@ -228,7 +229,8 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
         )}
 
         {step === 'configure' && selectedDefinition && (
-          <div className="space-y-4 py-4">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-4 py-4 pr-4">
             {/* Definition Info Banner */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
               <div className="flex-1">
@@ -324,7 +326,8 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
               />
             </div>
-          </div>
+            </div>
+          </ScrollArea>
         )}
 
         {step === 'configure' && (
