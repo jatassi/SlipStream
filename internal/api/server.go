@@ -117,6 +117,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize grab service with status, rate limiting, and WebSocket events
 	s.grabService = grab.NewService(db, s.downloaderService, logger)
+	s.grabService.SetIndexerService(s.indexerService)
 	s.grabService.SetStatusService(s.statusService)
 	s.grabService.SetRateLimiter(s.rateLimiter)
 	s.grabService.SetBroadcaster(hub)

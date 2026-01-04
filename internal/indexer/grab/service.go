@@ -35,10 +35,16 @@ type Broadcaster interface {
 type Service struct {
 	queries           *sqlc.Queries
 	downloaderService *downloader.Service
+	indexerService    IndexerClientProvider
 	statusService     *status.Service
 	rateLimiter       *ratelimit.Limiter
 	broadcaster       Broadcaster
 	logger            zerolog.Logger
+}
+
+// IndexerClientProvider provides access to indexer clients for downloading torrents.
+type IndexerClientProvider interface {
+	GetClient(ctx context.Context, id int64) (indexer.Indexer, error)
 }
 
 // NewService creates a new grab service.
@@ -52,6 +58,11 @@ func NewService(
 		downloaderService: downloaderService,
 		logger:            logger.With().Str("component", "grab").Logger(),
 	}
+}
+
+// SetIndexerService sets the indexer service for downloading torrents with authentication.
+func (s *Service) SetIndexerService(indexerService IndexerClientProvider) {
+	s.indexerService = indexerService
 }
 
 // SetStatusService sets the status service for tracking indexer health.
@@ -305,8 +316,34 @@ func (s *Service) clientSupportsProtocol(client *downloader.DownloadClient, prot
 
 // sendToClient sends the release to a download client.
 func (s *Service) sendToClient(ctx context.Context, client *downloader.DownloadClient, release *types.ReleaseInfo, mediaType string) (string, error) {
-	// Use the downloader service to add the torrent via URL
-	// The download client will fetch the torrent/NZB directly
+	// For torrent protocol, download the torrent file using the authenticated indexer client,
+	// then pass the file content to the download client. This is necessary because private
+	// trackers require authentication cookies that the download client doesn't have.
+	if release.Protocol == types.ProtocolTorrent && s.indexerService != nil {
+		indexerClient, err := s.indexerService.GetClient(ctx, release.IndexerID)
+		if err != nil {
+			s.logger.Warn().
+				Err(err).
+				Int64("indexerId", release.IndexerID).
+				Msg("Failed to get indexer client, falling back to direct URL")
+		} else {
+			torrentData, err := indexerClient.Download(ctx, release.DownloadURL)
+			if err != nil {
+				s.logger.Warn().
+					Err(err).
+					Str("url", release.DownloadURL).
+					Msg("Failed to download torrent via indexer, falling back to direct URL")
+			} else {
+				downloadID, err := s.downloaderService.AddTorrentWithContent(ctx, client.ID, torrentData, mediaType)
+				if err != nil {
+					return "", fmt.Errorf("failed to add download: %w", err)
+				}
+				return downloadID, nil
+			}
+		}
+	}
+
+	// Fallback: Use direct URL (works for public trackers or magnet links)
 	downloadID, err := s.downloaderService.AddTorrent(ctx, client.ID, release.DownloadURL, mediaType)
 	if err != nil {
 		return "", fmt.Errorf("failed to add download: %w", err)
