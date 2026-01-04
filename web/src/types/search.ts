@@ -33,6 +33,10 @@ export interface ReleaseInfo {
   imdbId?: number
   tmdbId?: number
   tvdbId?: number
+  // Parsed quality info
+  quality?: string    // "720p", "1080p", "2160p"
+  source?: string     // "BluRay", "WEB-DL", "HDTV"
+  resolution?: number // 720, 1080, 2160
 }
 
 // Torrent-specific release info

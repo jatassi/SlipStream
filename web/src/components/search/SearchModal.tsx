@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Download, Loader2, ExternalLink, AlertCircle } from 'lucide-react'
+import { Search, Download, Loader2, ExternalLink, AlertCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,9 +21,9 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useIndexerMovieSearch, useIndexerTVSearch, useGrab } from '@/hooks'
-import { formatBytes, formatDate } from '@/lib/formatters'
+import { formatBytes, formatRelativeTime } from '@/lib/formatters'
 import { toast } from 'sonner'
-import type { ReleaseInfo, TorrentInfo, SearchCriteria } from '@/types'
+import type { TorrentInfo, SearchCriteria } from '@/types'
 
 interface SearchModalProps {
   open: boolean
@@ -42,10 +42,16 @@ interface SearchModalProps {
   episode?: number
 }
 
-type Release = ReleaseInfo | TorrentInfo
+type SortColumn = 'title' | 'quality' | 'indexer' | 'size' | 'age' | 'peers'
+type SortDirection = 'asc' | 'desc'
 
-function isTorrent(release: Release): release is TorrentInfo {
-  return 'seeders' in release
+// Resolution order for quality sorting (higher = better)
+const RESOLUTION_ORDER: Record<string, number> = {
+  '2160p': 4,
+  '1080p': 3,
+  '720p': 2,
+  '480p': 1,
+  'SD': 0,
 }
 
 export function SearchModal({
@@ -64,6 +70,8 @@ export function SearchModal({
 }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [searchEnabled, setSearchEnabled] = useState(false)
+  const [sortColumn, setSortColumn] = useState<SortColumn>('peers')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
   const isMovie = !!movieId || !!tmdbId
   const mediaTitle = movieTitle || seriesTitle || ''
@@ -95,6 +103,8 @@ export function SearchModal({
     if (open) {
       setQuery('')
       setSearchEnabled(true)
+      setSortColumn('peers')
+      setSortDirection('desc')
     } else {
       setSearchEnabled(false)
     }
@@ -105,7 +115,7 @@ export function SearchModal({
     refetch()
   }
 
-  const handleGrab = async (release: Release) => {
+  const handleGrab = async (release: TorrentInfo) => {
     try {
       const result = await grabMutation.mutateAsync({
         release: {
@@ -134,9 +144,65 @@ export function SearchModal({
     }
   }
 
-  const releases = data?.releases || []
+  const rawReleases = data?.releases || []
   const errors = data?.errors || []
-  const hasTorrents = releases.some(isTorrent)
+  // All results now include torrent info (seeders/leechers)
+  const hasTorrents = rawReleases.length > 0
+
+  // Toggle sort or change column
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      // Default direction based on column type
+      setSortDirection(column === 'title' || column === 'indexer' ? 'asc' : 'desc')
+    }
+  }
+
+  // Sort releases
+  const releases = useMemo(() => {
+    const sorted = [...rawReleases]
+    sorted.sort((a, b) => {
+      let comparison = 0
+      switch (sortColumn) {
+        case 'title':
+          comparison = a.title.localeCompare(b.title)
+          break
+        case 'quality':
+          const aRes = RESOLUTION_ORDER[a.quality || ''] ?? -1
+          const bRes = RESOLUTION_ORDER[b.quality || ''] ?? -1
+          comparison = aRes - bRes
+          break
+        case 'indexer':
+          comparison = a.indexer.localeCompare(b.indexer)
+          break
+        case 'size':
+          comparison = a.size - b.size
+          break
+        case 'age':
+          const aDate = a.publishDate ? new Date(a.publishDate).getTime() : 0
+          const bDate = b.publishDate ? new Date(b.publishDate).getTime() : 0
+          comparison = aDate - bDate
+          break
+        case 'peers':
+          comparison = (a.seeders ?? 0) - (b.seeders ?? 0)
+          break
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+    return sorted
+  }, [rawReleases, sortColumn, sortDirection])
+
+  // Sort icon helper
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="ml-1 size-3 text-muted-foreground" />
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="ml-1 size-3" />
+      : <ArrowDown className="ml-1 size-3" />
+  }
 
   // Build title
   let title = 'Search Releases'
@@ -150,7 +216,7 @@ export function SearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[85vh]">
+      <DialogContent className="sm:max-w-6xl h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -186,7 +252,7 @@ export function SearchModal({
         )}
 
         {/* Results */}
-        <ScrollArea className="h-[500px]">
+        <ScrollArea className="flex-1 min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center h-40">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -210,27 +276,78 @@ export function SearchModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">Title</TableHead>
-                  <TableHead>Indexer</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Age</TableHead>
-                  {hasTorrents && <TableHead>Peers</TableHead>}
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('title')}
+                    >
+                      Title
+                      <SortIcon column="title" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[100px]">
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('quality')}
+                    >
+                      Quality
+                      <SortIcon column="quality" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[100px]">
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('indexer')}
+                    >
+                      Indexer
+                      <SortIcon column="indexer" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[80px]">
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('size')}
+                    >
+                      Size
+                      <SortIcon column="size" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[100px]">
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('age')}
+                    >
+                      Age
+                      <SortIcon column="age" />
+                    </button>
+                  </TableHead>
+                  {hasTorrents && (
+                    <TableHead className="w-[100px]">
+                      <button
+                        className="flex items-center hover:text-foreground transition-colors"
+                        onClick={() => handleSort('peers')}
+                      >
+                        Peers
+                        <SortIcon column="peers" />
+                      </button>
+                    </TableHead>
+                  )}
+                  <TableHead className="w-[80px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {releases.map((release) => (
                   <TableRow key={release.guid}>
-                    <TableCell className="max-w-[300px]">
+                    <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span className="font-medium truncate" title={release.title}>
+                        <span className="font-medium">
                           {release.title}
                         </span>
                         <div className="flex gap-1">
                           <Badge variant="outline" className="text-xs">
                             {release.protocol}
                           </Badge>
-                          {isTorrent(release) && release.downloadVolumeFactor === 0 && (
+                          {release.downloadVolumeFactor === 0 && (
                             <Badge variant="secondary" className="text-xs">
                               Freeleech
                             </Badge>
@@ -239,23 +356,26 @@ export function SearchModal({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{release.indexer}</Badge>
+                      {release.quality ? (
+                        <Badge variant="secondary">{release.quality}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{release.indexer}</Badge>
                     </TableCell>
                     <TableCell>{formatBytes(release.size)}</TableCell>
                     <TableCell>
-                      {release.publishDate ? formatDate(release.publishDate) : '-'}
+                      {release.publishDate ? formatRelativeTime(release.publishDate) : '-'}
                     </TableCell>
                     {hasTorrents && (
                       <TableCell>
-                        {isTorrent(release) ? (
-                          <span className="text-sm">
-                            <span className="text-green-500">{release.seeders}</span>
-                            {' / '}
-                            <span className="text-red-500">{release.leechers}</span>
-                          </span>
-                        ) : (
-                          '-'
-                        )}
+                        <span className="text-sm">
+                          <span className="text-green-500">{release.seeders ?? 0}</span>
+                          {' / '}
+                          <span className="text-red-500">{release.leechers ?? 0}</span>
+                        </span>
                       </TableCell>
                     )}
                     <TableCell className="text-right">

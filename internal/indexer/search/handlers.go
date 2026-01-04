@@ -69,6 +69,7 @@ func (h *Handlers) Search(c echo.Context) error {
 
 // SearchMovie handles movie-specific search requests.
 // GET /api/v1/search/movie?query=...&tmdbId=...&imdbId=...&year=...
+// Returns TorrentSearchResult with seeders/leechers info for torrent indexers.
 func (h *Handlers) SearchMovie(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -78,8 +79,9 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 	}
 
 	criteria := h.toCriteria(req)
+	criteria.Type = "movie"
 
-	result, err := h.service.SearchMovies(c.Request().Context(), criteria)
+	result, err := h.service.SearchTorrents(c.Request().Context(), criteria)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -91,6 +93,7 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 
 // SearchTV handles TV-specific search requests.
 // GET /api/v1/search/tv?query=...&tvdbId=...&season=...&episode=...
+// Returns TorrentSearchResult with seeders/leechers info for torrent indexers.
 func (h *Handlers) SearchTV(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -100,8 +103,9 @@ func (h *Handlers) SearchTV(c echo.Context) error {
 	}
 
 	criteria := h.toCriteria(req)
+	criteria.Type = "tvsearch"
 
-	result, err := h.service.SearchTV(c.Request().Context(), criteria)
+	result, err := h.service.SearchTorrents(c.Request().Context(), criteria)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),

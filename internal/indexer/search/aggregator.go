@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
 // aggregateResults combines results from multiple indexers.
@@ -28,6 +29,9 @@ func (s *Service) aggregateResults(results <-chan searchTaskResult) *SearchResul
 
 	// Deduplicate by GUID, prefer higher priority indexer (lower priority number)
 	deduplicated := deduplicateReleases(allReleases)
+
+	// Enrich with parsed quality info
+	enrichWithQuality(deduplicated)
 
 	// Sort: by publish date descending (newest first)
 	sortReleases(deduplicated)
@@ -61,6 +65,9 @@ func (s *Service) aggregateTorrentResults(results <-chan searchTaskResult) *Torr
 
 	// Deduplicate by GUID or InfoHash
 	deduplicated := deduplicateTorrents(allTorrents)
+
+	// Enrich with parsed quality info
+	enrichTorrentsWithQuality(deduplicated)
 
 	// Sort: by seeders descending (most seeds first)
 	sortTorrents(deduplicated)
@@ -213,4 +220,24 @@ func FilterFreeleech(torrents []types.TorrentInfo) []types.TorrentInfo {
 		}
 	}
 	return filtered
+}
+
+// enrichWithQuality parses quality info from release titles using the scanner parser.
+func enrichWithQuality(releases []types.ReleaseInfo) {
+	for i := range releases {
+		parsed := scanner.ParseFilename(releases[i].Title)
+		releases[i].Quality = parsed.Quality
+		releases[i].Source = parsed.Source
+		releases[i].Resolution = parsed.Resolution
+	}
+}
+
+// enrichTorrentsWithQuality parses quality info from torrent titles using the scanner parser.
+func enrichTorrentsWithQuality(torrents []types.TorrentInfo) {
+	for i := range torrents {
+		parsed := scanner.ParseFilename(torrents[i].Title)
+		torrents[i].Quality = parsed.Quality
+		torrents[i].Source = parsed.Source
+		torrents[i].Resolution = parsed.Resolution
+	}
 }

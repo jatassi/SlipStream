@@ -62,13 +62,16 @@ func NewSearchEngine(def *Definition, httpClient *http.Client, logger zerolog.Lo
 
 // Search executes a search and returns parsed results.
 func (e *SearchEngine) Search(ctx context.Context, query SearchQuery, settings map[string]string) ([]SearchResult, error) {
-	// Build template context
-	tmplCtx := e.buildTemplateContext(query, settings)
+	// Merge definition defaults with user settings
+	mergedSettings := e.mergeSettingsWithDefaults(settings)
 
-	// Process keywords through filters
+	// Build template context
+	tmplCtx := e.buildTemplateContext(query, mergedSettings)
+
+	// Process keywords through filters (with template support for filter args)
 	keywords := query.Query
 	if len(e.def.Search.KeywordsFilters) > 0 {
-		filtered, err := ApplyFilters(keywords, e.def.Search.KeywordsFilters)
+		filtered, err := ApplyFiltersWithContext(keywords, e.def.Search.KeywordsFilters, e.templateEngine, tmplCtx)
 		if err != nil {
 			e.logger.Warn().Err(err).Msg("Failed to apply keyword filters")
 		} else {
@@ -76,6 +79,7 @@ func (e *SearchEngine) Search(ctx context.Context, query SearchQuery, settings m
 		}
 	}
 	tmplCtx.Query.Keywords = keywords
+	tmplCtx.Keywords = keywords // Keep top-level in sync
 
 	var allResults []SearchResult
 
@@ -102,7 +106,8 @@ func (e *SearchEngine) Search(ctx context.Context, query SearchQuery, settings m
 func (e *SearchEngine) buildTemplateContext(query SearchQuery, settings map[string]string) *TemplateContext {
 	ctx := NewTemplateContext()
 	ctx.Config = settings
-	ctx.Categories = query.Categories
+	ctx.Categories = e.mapCategoriesToIndexer(query.Categories)
+	ctx.Keywords = query.Query // Top-level for Cardigann compatibility
 
 	ctx.Query = QueryContext{
 		Q:        query.Query,
@@ -134,6 +139,116 @@ func (e *SearchEngine) buildTemplateContext(query SearchQuery, settings map[stri
 	}
 
 	return ctx
+}
+
+// mergeSettingsWithDefaults combines user settings with definition defaults.
+func (e *SearchEngine) mergeSettingsWithDefaults(settings map[string]string) map[string]string {
+	merged := make(map[string]string)
+
+	// First, apply defaults from definition
+	for _, setting := range e.def.Settings {
+		// For checkbox types, use empty string for false (Go templates treat non-empty strings as truthy)
+		// Only set to "true" if user explicitly enabled it
+		if setting.Type == "checkbox" {
+			if val, ok := settings[setting.Name]; ok && val == "true" {
+				merged[setting.Name] = "true"
+			}
+			// Don't set anything for false - empty/missing is falsy in Go templates
+		} else if setting.Default != "" {
+			merged[setting.Name] = setting.Default
+		}
+	}
+
+	// Then override with user-provided settings (for non-checkbox types)
+	for k, v := range settings {
+		// Skip checkboxes as they're already handled above
+		isCheckbox := false
+		for _, s := range e.def.Settings {
+			if s.Name == k && s.Type == "checkbox" {
+				isCheckbox = true
+				break
+			}
+		}
+		if !isCheckbox {
+			merged[k] = v
+		}
+	}
+
+	return merged
+}
+
+// newznabCategoryNames maps Newznab category IDs to their names.
+var newznabCategoryNames = map[string]string{
+	// Movies
+	"2000": "Movies",
+	"2010": "Movies/Foreign",
+	"2020": "Movies/Other",
+	"2030": "Movies/SD",
+	"2040": "Movies/HD",
+	"2045": "Movies/UHD",
+	"2050": "Movies/BluRay",
+	"2060": "Movies/3D",
+	"2070": "Movies/DVD",
+	"2080": "Movies/WEB-DL",
+	// TV
+	"5000": "TV",
+	"5010": "TV/WEB-DL",
+	"5020": "TV/Foreign",
+	"5030": "TV/SD",
+	"5040": "TV/HD",
+	"5045": "TV/UHD",
+	"5050": "TV/Other",
+	"5060": "TV/Sport",
+	"5070": "TV/Anime",
+	"5080": "TV/Documentary",
+}
+
+// mapCategoriesToIndexer converts Newznab category IDs to indexer-native IDs.
+func (e *SearchEngine) mapCategoriesToIndexer(newznabCategories []string) []string {
+	if len(newznabCategories) == 0 {
+		return nil
+	}
+
+	// Build reverse mapping: Newznab cat name -> indexer ID
+	catNameToIndexerID := make(map[string]string)
+	for _, mapping := range e.def.Caps.CategoryMappings {
+		catNameToIndexerID[mapping.Cat] = mapping.ID
+	}
+
+	// Map each Newznab category
+	var indexerCategories []string
+	seen := make(map[string]bool)
+
+	for _, nzCat := range newznabCategories {
+		// Get the Newznab category name
+		catName, ok := newznabCategoryNames[nzCat]
+		if !ok {
+			continue
+		}
+
+		// Try exact match first
+		if indexerID, ok := catNameToIndexerID[catName]; ok {
+			if !seen[indexerID] {
+				indexerCategories = append(indexerCategories, indexerID)
+				seen[indexerID] = true
+			}
+			continue
+		}
+
+		// Try parent category match (e.g., "Movies/HD" -> "Movies")
+		if idx := strings.Index(catName, "/"); idx > 0 {
+			parentCat := catName[:idx]
+			// Find all indexer categories that start with this parent
+			for mappingCat, indexerID := range catNameToIndexerID {
+				if strings.HasPrefix(mappingCat, parentCat) && !seen[indexerID] {
+					indexerCategories = append(indexerCategories, indexerID)
+					seen[indexerID] = true
+				}
+			}
+		}
+	}
+
+	return indexerCategories
 }
 
 // pathMatchesCategories checks if a search path applies to the requested categories.
@@ -241,12 +356,10 @@ func (e *SearchEngine) buildSearchURL(path SearchPath, tmplCtx *TemplateContext)
 		return "", err
 	}
 
-	// Build base URL
-	searchURL := e.baseURL
-	if !strings.HasPrefix(pathStr, "/") {
-		searchURL += "/"
-	}
-	searchURL += pathStr
+	// Build base URL - ensure exactly one slash between base and path
+	baseURL := strings.TrimSuffix(e.baseURL, "/")
+	pathStr = strings.TrimPrefix(pathStr, "/")
+	searchURL := baseURL + "/" + pathStr
 
 	// Parse URL
 	u, err := url.Parse(searchURL)
@@ -378,8 +491,14 @@ func (e *SearchEngine) extractResultFromRow(row *goquery.Selection, tmplCtx *Tem
 	localCtx := *tmplCtx
 	localCtx.Result = make(map[string]string)
 
-	// Extract each field
+	// Two-pass extraction: first extract fields with selectors, then fields with templates
+	// This ensures that fields like "title_test" are available when "title" template is evaluated
+	// Pass 1: Fields with selectors (no .Result references in templates)
 	for fieldName, fieldDef := range e.def.Search.Fields {
+		// Skip fields that use templates referencing .Result - process in second pass
+		if fieldDef.Text != "" && strings.Contains(fieldDef.Text, ".Result") {
+			continue
+		}
 		val, err := ExtractField(row, fieldDef, &localCtx)
 		if err != nil {
 			if !fieldDef.Optional {
@@ -387,11 +506,23 @@ func (e *SearchEngine) extractResultFromRow(row *goquery.Selection, tmplCtx *Tem
 			}
 			continue
 		}
-
-		// Store in result context for field references
 		localCtx.Result[fieldName] = val
+		e.mapFieldToResult(result, fieldName, val)
+	}
 
-		// Map to result struct
+	// Pass 2: Fields with templates that reference .Result
+	for fieldName, fieldDef := range e.def.Search.Fields {
+		if fieldDef.Text == "" || !strings.Contains(fieldDef.Text, ".Result") {
+			continue
+		}
+		val, err := ExtractField(row, fieldDef, &localCtx)
+		if err != nil {
+			if !fieldDef.Optional {
+				return nil, fmt.Errorf("failed to extract %s: %w", fieldName, err)
+			}
+			continue
+		}
+		localCtx.Result[fieldName] = val
 		e.mapFieldToResult(result, fieldName, val)
 	}
 
@@ -429,8 +560,14 @@ func (e *SearchEngine) extractResultFromJSON(rowData interface{}, tmplCtx *Templ
 	localCtx := *tmplCtx
 	localCtx.Result = make(map[string]string)
 
-	// Extract each field
+	// Two-pass extraction: first extract fields with selectors, then fields with templates
+	// This ensures that fields like "title_test" are available when "title" template is evaluated
+	// Pass 1: Fields with selectors (no .Result references in templates)
 	for fieldName, fieldDef := range e.def.Search.Fields {
+		// Skip fields that use templates referencing .Result - process in second pass
+		if fieldDef.Text != "" && strings.Contains(fieldDef.Text, ".Result") {
+			continue
+		}
 		val, err := ExtractJSONField(rowData, fieldDef, &localCtx)
 		if err != nil {
 			if !fieldDef.Optional {
@@ -438,7 +575,22 @@ func (e *SearchEngine) extractResultFromJSON(rowData interface{}, tmplCtx *Templ
 			}
 			continue
 		}
+		localCtx.Result[fieldName] = val
+		e.mapFieldToResult(result, fieldName, val)
+	}
 
+	// Pass 2: Fields with templates that reference .Result
+	for fieldName, fieldDef := range e.def.Search.Fields {
+		if fieldDef.Text == "" || !strings.Contains(fieldDef.Text, ".Result") {
+			continue
+		}
+		val, err := ExtractJSONField(rowData, fieldDef, &localCtx)
+		if err != nil {
+			if !fieldDef.Optional {
+				return nil, fmt.Errorf("failed to extract %s: %w", fieldName, err)
+			}
+			continue
+		}
 		localCtx.Result[fieldName] = val
 		e.mapFieldToResult(result, fieldName, val)
 	}

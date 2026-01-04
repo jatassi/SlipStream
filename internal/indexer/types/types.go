@@ -91,6 +91,11 @@ type ReleaseInfo struct {
 	ImdbID int `json:"imdbId,omitempty"`
 	TmdbID int `json:"tmdbId,omitempty"`
 	TvdbID int `json:"tvdbId,omitempty"`
+
+	// Parsed quality info (from title)
+	Quality    string `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
+	Source     string `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
+	Resolution int    `json:"resolution,omitempty"` // 720, 1080, 2160
 }
 
 // TorrentInfo extends ReleaseInfo with torrent-specific fields.

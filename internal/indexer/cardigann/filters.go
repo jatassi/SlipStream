@@ -66,9 +66,27 @@ var filters = map[string]FilterFunc{
 
 // ApplyFilters applies a sequence of filters to a value.
 func ApplyFilters(value string, filterList []Filter) (string, error) {
+	return ApplyFiltersWithContext(value, filterList, nil, nil)
+}
+
+// ApplyFiltersWithContext applies filters with template evaluation support.
+func ApplyFiltersWithContext(value string, filterList []Filter, engine *TemplateEngine, ctx *TemplateContext) (string, error) {
 	result := value
 	for _, f := range filterList {
 		args := normalizeFilterArgs(f.Args)
+
+		// Evaluate template expressions in filter arguments
+		if engine != nil && ctx != nil {
+			for i, arg := range args {
+				if strings.Contains(arg, "{{") {
+					evaluated, err := engine.Evaluate(arg, ctx)
+					if err == nil {
+						args[i] = evaluated
+					}
+				}
+			}
+		}
+
 		fn, ok := filters[f.Name]
 		if !ok {
 			// Unknown filter, skip with warning

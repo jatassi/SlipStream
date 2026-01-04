@@ -35,13 +35,13 @@ export const searchApi = {
   search: (criteria: SearchCriteria) =>
     apiFetch<SearchResult>(`/search?${buildSearchQuery(criteria)}`),
 
-  // Movie-specific search
+  // Movie-specific search (returns torrent info with seeders/leechers)
   searchMovie: (criteria: SearchCriteria) =>
-    apiFetch<SearchResult>(`/search/movie?${buildSearchQuery(criteria)}`),
+    apiFetch<TorrentSearchResult>(`/search/movie?${buildSearchQuery(criteria)}`),
 
-  // TV-specific search
+  // TV-specific search (returns torrent info with seeders/leechers)
   searchTV: (criteria: SearchCriteria) =>
-    apiFetch<SearchResult>(`/search/tv?${buildSearchQuery(criteria)}`),
+    apiFetch<TorrentSearchResult>(`/search/tv?${buildSearchQuery(criteria)}`),
 
   // Torrent search with torrent-specific info
   searchTorrents: (criteria: SearchCriteria) =>

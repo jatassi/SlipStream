@@ -393,6 +393,63 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 	return torrentID, nil
 }
 
+// AddTorrentWithContent adds a torrent from raw file content to a specific client.
+// This is used when the torrent file has been pre-downloaded (e.g., from a private tracker
+// that requires authentication cookies to download the torrent file).
+// mediaType should be "movie" or "series" to determine the download subdirectory.
+func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, content []byte, mediaType string) (string, error) {
+	cfg, err := s.Get(ctx, clientID)
+	if err != nil {
+		return "", err
+	}
+
+	// Determine subdirectory based on media type
+	var subDir string
+	switch mediaType {
+	case "movie":
+		subDir = "SlipStream/Movies"
+	case "series", "episode":
+		subDir = "SlipStream/Series"
+	default:
+		subDir = "SlipStream"
+	}
+
+	// Get the client using the factory
+	client, err := ClientFromDownloadClient(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	// Get default download dir and construct full path
+	defaultDir, err := client.GetDownloadDir(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Could not get default download dir, using relative path")
+		defaultDir = ""
+	}
+
+	var downloadDir string
+	if defaultDir != "" {
+		downloadDir = fmt.Sprintf("%s/%s", defaultDir, subDir)
+	}
+
+	// Add the torrent using file content
+	torrentID, err := client.Add(ctx, types.AddOptions{
+		FileContent: content,
+		DownloadDir: downloadDir,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to add torrent: %w", err)
+	}
+
+	// Start the torrent
+	if err := client.Resume(ctx, torrentID); err != nil {
+		s.logger.Warn().Err(err).Str("id", torrentID).Msg("Failed to start torrent")
+	}
+
+	s.logger.Info().Int("contentSize", len(content)).Str("torrentId", torrentID).Str("mediaType", mediaType).Str("subDir", subDir).Msg("Added torrent from content")
+	return torrentID, nil
+}
+
 // rowToClient converts a database row to a DownloadClient.
 func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 	client := &DownloadClient{
