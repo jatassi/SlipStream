@@ -49,6 +49,7 @@ export function useDeleteRootFolder() {
     mutationFn: (id: number) => rootFoldersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rootFolderKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['defaults'] })
     },
   })
 }

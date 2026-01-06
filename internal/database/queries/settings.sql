@@ -121,3 +121,21 @@ SELECT * FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at 
 INSERT INTO history (event_type, media_type, media_id, source, quality, data)
 VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
+
+-- Default Settings
+-- name: GetDefaultForEntityTypeAndMediaType :one
+SELECT * FROM settings WHERE key = ? LIMIT 1;
+
+-- name: SetDefaultForEntityTypeAndMediaType :one
+INSERT INTO settings (key, value, updated_at)
+VALUES (?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(key) DO UPDATE SET
+    value = excluded.value,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING *;
+
+-- name: GetDefaultsForEntityType :many
+SELECT * FROM settings WHERE key LIKE ? ORDER BY key;
+
+-- name: GetAllDefaults :many
+SELECT * FROM settings WHERE key LIKE 'default_%' ORDER BY key;

@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDebounce } from '@/hooks'
+import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDefault, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
 import type { SeriesSearchResult, AddSeriesInput } from '@/types'
 
@@ -67,7 +67,15 @@ export function AddSeriesPage() {
   const { data: searchResults, isLoading: searching } = useSeriesSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('tv')
   const { data: qualityProfiles } = useQualityProfiles()
+  const { data: defaultRootFolder } = useDefault('root_folder', 'tv')
   const addMutation = useAddSeries()
+
+  // Pre-populate root folder with default
+  useEffect(() => {
+    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !rootFolderId) {
+      setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
+    }
+  }, [defaultRootFolder, rootFolderId])
 
   const handleSelectSeries = (series: SeriesSearchResult) => {
     setSelectedSeries(series)
@@ -234,12 +242,14 @@ export function AddSeriesPage() {
                 <Label htmlFor="rootFolder">Root Folder *</Label>
                 <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {rootFolders?.map((folder) => (
                       <SelectItem key={folder.id} value={String(folder.id)}>
-                        {folder.path}
+                        {folder.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -250,7 +260,9 @@ export function AddSeriesPage() {
                 <Label htmlFor="qualityProfile">Quality Profile *</Label>
                 <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {qualityProfiles?.map((profile) => (

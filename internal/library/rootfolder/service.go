@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/defaults"
 )
 
 var (
@@ -30,6 +31,7 @@ type RootFolder struct {
 	MediaType string    `json:"mediaType"` // "movie" or "tv"
 	FreeSpace int64     `json:"freeSpace"`
 	CreatedAt time.Time `json:"createdAt"`
+	IsDefault bool      `json:"isDefault"`
 }
 
 // CreateRootFolderInput contains fields for creating a root folder.
@@ -41,17 +43,19 @@ type CreateRootFolderInput struct {
 
 // Service provides root folder operations.
 type Service struct {
-	db      *sql.DB
-	queries *sqlc.Queries
-	logger  zerolog.Logger
+	db       *sql.DB
+	queries  *sqlc.Queries
+	logger   zerolog.Logger
+	defaults *defaults.Service
 }
 
 // NewService creates a new root folder service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger zerolog.Logger, defaults *defaults.Service) *Service {
 	return &Service{
-		db:      db,
-		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "rootfolder").Logger(),
+		db:       db,
+		queries:  sqlc.New(db),
+		logger:   logger.With().Str("component", "rootfolder").Logger(),
+		defaults: defaults,
 	}
 }
 
@@ -93,7 +97,7 @@ func (s *Service) List(ctx context.Context) ([]*RootFolder, error) {
 
 	folders := make([]*RootFolder, len(rows))
 	for i, row := range rows {
-		folders[i] = s.rowToRootFolder(row)
+		folders[i] = s.rowToRootFolderWithDefaults(ctx, row)
 	}
 	return folders, nil
 }
@@ -107,7 +111,7 @@ func (s *Service) ListByType(ctx context.Context, mediaType string) ([]*RootFold
 
 	folders := make([]*RootFolder, len(rows))
 	for i, row := range rows {
-		folders[i] = s.rowToRootFolder(row)
+		folders[i] = s.rowToRootFolderWithDefaults(ctx, row)
 	}
 	return folders, nil
 }
@@ -270,5 +274,59 @@ func (s *Service) rowToRootFolder(row *sqlc.RootFolder) *RootFolder {
 	if row.CreatedAt.Valid {
 		rf.CreatedAt = row.CreatedAt.Time
 	}
+
 	return rf
+}
+
+// rowToRootFolderWithDefaults converts a database row to a RootFolder with default info.
+func (s *Service) rowToRootFolderWithDefaults(ctx context.Context, row *sqlc.RootFolder) *RootFolder {
+	rf := s.rowToRootFolder(row)
+
+	// Check if this is default for its media type
+	if s.defaults != nil {
+		mediaType := defaults.MediaType(row.MediaType)
+		defaultEntry, err := s.defaults.GetDefault(ctx, defaults.EntityTypeRootFolder, mediaType)
+		if err == nil && defaultEntry != nil && defaultEntry.EntityID == row.ID {
+			rf.IsDefault = true
+		}
+	}
+
+	return rf
+}
+
+// SetDefault sets a root folder as default for its media type
+func (s *Service) SetDefault(ctx context.Context, id int64) error {
+	// Get root folder to determine its media type
+	folder, err := s.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get root folder: %w", err)
+	}
+
+	// Set default using defaults service
+	var mediaType defaults.MediaType
+	switch folder.MediaType {
+	case "movie":
+		mediaType = defaults.MediaTypeMovie
+	case "tv":
+		mediaType = defaults.MediaTypeTV
+	default:
+		return errors.New("invalid media type for default")
+	}
+
+	return s.defaults.SetDefault(ctx, defaults.EntityTypeRootFolder, mediaType, id)
+}
+
+// ClearDefault clears the default for the specified media type
+func (s *Service) ClearDefault(ctx context.Context, mediaType string) error {
+	var defaultMediaType defaults.MediaType
+	switch mediaType {
+	case "movie":
+		defaultMediaType = defaults.MediaTypeMovie
+	case "tv":
+		defaultMediaType = defaults.MediaTypeTV
+	default:
+		return errors.New("invalid media type")
+	}
+
+	return s.defaults.ClearDefault(ctx, defaults.EntityTypeRootFolder, defaultMediaType)
 }

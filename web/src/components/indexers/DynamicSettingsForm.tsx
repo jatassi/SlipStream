@@ -110,7 +110,9 @@ function SettingField({ setting, value, onChange, disabled }: SettingFieldProps)
           <Label htmlFor={setting.name}>{setting.label}</Label>
           <Select value={value} onValueChange={(v) => v && onChange(v)} disabled={disabled}>
             <SelectTrigger id={setting.name}>
-              <SelectValue />
+              <SelectValue>
+                {value && setting.options ? setting.options[value] : value}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {setting.options &&

@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/indexer"
@@ -58,6 +60,7 @@ type Server struct {
 	statusService         *status.Service
 	rateLimiter           *ratelimit.Limiter
 	grabService           *grab.Service
+	defaultsService       *defaults.Service
 }
 
 // NewServer creates a new API server instance.
@@ -79,7 +82,8 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.movieService = movies.NewService(db, hub, logger)
 	s.tvService = tv.NewService(db, hub, logger)
 	s.qualityService = quality.NewService(db, logger)
-	s.rootFolderService = rootfolder.NewService(db, logger)
+	s.defaultsService = defaults.NewService(sqlc.New(db))
+	s.rootFolderService = rootfolder.NewService(db, logger, s.defaultsService)
 
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
@@ -121,6 +125,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.grabService.SetStatusService(s.statusService)
 	s.grabService.SetRateLimiter(s.rateLimiter)
 	s.grabService.SetBroadcaster(hub)
+
+	// Initialize defaults service
+	s.defaultsService = defaults.NewService(sqlc.New(db))
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -318,6 +325,10 @@ func (s *Server) setupRoutes() {
 	// Grab routes (under /search for grabbing search results)
 	grabHandlers := grab.NewHandlers(s.grabService)
 	grabHandlers.RegisterRoutes(api.Group("/search"))
+
+	// Defaults routes
+	defaultsHandlers := defaults.NewHandlers(s.defaultsService)
+	defaultsHandlers.RegisterRoutes(api.Group("/defaults"))
 }
 
 // Start begins listening for HTTP requests.

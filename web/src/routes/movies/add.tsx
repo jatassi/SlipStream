@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDebounce } from '@/hooks'
+import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDefault, useDebounce } from '@/hooks'
 import { toast } from 'sonner'
 import type { MovieSearchResult, AddMovieInput } from '@/types'
 
@@ -63,7 +63,15 @@ export function AddMoviePage() {
   const { data: searchResults, isLoading: searching } = useMovieSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('movie')
   const { data: qualityProfiles } = useQualityProfiles()
+  const { data: defaultRootFolder } = useDefault('root_folder', 'movie')
   const addMutation = useAddMovie()
+
+  // Pre-populate root folder with default
+  useEffect(() => {
+    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !rootFolderId) {
+      setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
+    }
+  }, [defaultRootFolder, rootFolderId])
 
   const handleSelectMovie = (movie: MovieSearchResult) => {
     setSelectedMovie(movie)
@@ -226,12 +234,14 @@ export function AddMoviePage() {
                 <Label htmlFor="rootFolder">Root Folder *</Label>
                 <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {rootFolders?.map((folder) => (
                       <SelectItem key={folder.id} value={String(folder.id)}>
-                        {folder.path}
+                        {folder.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -242,7 +252,9 @@ export function AddMoviePage() {
                 <Label htmlFor="qualityProfile">Quality Profile *</Label>
                 <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {qualityProfiles?.map((profile) => (

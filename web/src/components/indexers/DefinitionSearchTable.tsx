@@ -124,7 +124,12 @@ export function DefinitionSearchTable({
               onValueChange={(v) => v && setProtocolFilter(v as Protocol | 'all')}
             >
               <SelectTrigger className="w-32">
-                <SelectValue />
+                <SelectValue>
+                  {protocolFilter === 'all' ? `All (${stats.total})` :
+                   protocolFilter === 'torrent' ? `Torrent (${stats.torrent})` :
+                   protocolFilter === 'usenet' ? `Usenet (${stats.usenet})` :
+                   protocolFilter}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ({stats.total})</SelectItem>
@@ -138,7 +143,13 @@ export function DefinitionSearchTable({
               onValueChange={(v) => v && setPrivacyFilter(v as Privacy | 'all')}
             >
               <SelectTrigger className="w-36">
-                <SelectValue />
+                <SelectValue>
+                  {privacyFilter === 'all' ? 'All' :
+                   privacyFilter === 'public' ? `Public (${stats.public})` :
+                   privacyFilter === 'semi-private' ? 'Semi-Private' :
+                   privacyFilter === 'private' ? `Private (${stats.private})` :
+                   privacyFilter}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>

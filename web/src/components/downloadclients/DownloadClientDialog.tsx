@@ -221,7 +221,9 @@ export function DownloadClientDialog({
               onValueChange={(v) => handleTypeChange(v as DownloadClientType)}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>
+                  {clientTypeConfigs[formData.type].label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="transmission">Transmission</SelectItem>

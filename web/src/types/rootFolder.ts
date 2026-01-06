@@ -5,6 +5,7 @@ export interface RootFolder {
   mediaType: 'movie' | 'tv'
   freeSpace: number
   createdAt: string
+  isDefault?: boolean
 }
 
 export interface CreateRootFolderInput {

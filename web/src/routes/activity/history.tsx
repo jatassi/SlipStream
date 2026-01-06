@@ -111,7 +111,15 @@ export function HistoryPage() {
           onValueChange={(v) => v && setEventType(v as HistoryEventType | 'all')}
         >
           <SelectTrigger className="w-36">
-            <SelectValue />
+            <SelectValue>
+              {eventType === 'all' ? 'All Events' :
+               eventType === 'grabbed' ? 'Grabbed' :
+               eventType === 'imported' ? 'Imported' :
+               eventType === 'deleted' ? 'Deleted' :
+               eventType === 'failed' ? 'Failed' :
+               eventType === 'renamed' ? 'Renamed' :
+               eventType}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Events</SelectItem>
