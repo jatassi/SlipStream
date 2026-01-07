@@ -36,10 +36,11 @@ func (s *Service) listDrives() []DriveInfo {
 				Type:   driveType,
 			}
 
-			// Try to get free space
-			freeSpace := getDiskFreeSpace(drivePath)
+			// Try to get disk space info
+			freeSpace, totalSpace := getDiskSpace(drivePath)
 			if freeSpace > 0 {
 				drive.FreeSpace = freeSpace
+				drive.TotalSpace = totalSpace
 			}
 
 			drives = append(drives, drive)
@@ -70,14 +71,14 @@ func getDriveTypeValue(proc *syscall.LazyProc, path string) string {
 	}
 }
 
-// getDiskFreeSpace returns free space in bytes for a drive
-func getDiskFreeSpace(path string) int64 {
+// getDiskSpace returns free space and total space in bytes for a drive
+func getDiskSpace(path string) (int64, int64) {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	getDiskFreeSpaceEx := kernel32.NewProc("GetDiskFreeSpaceExW")
 
 	pathPtr, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return 0
+		return 0, 0
 	}
 
 	var freeBytesAvailable, totalBytes, totalFreeBytes uint64
@@ -89,8 +90,13 @@ func getDiskFreeSpace(path string) int64 {
 	)
 
 	if ret == 0 {
-		return 0
+		return 0, 0
 	}
 
-	return int64(freeBytesAvailable)
+	return int64(freeBytesAvailable), int64(totalBytes)
+}
+
+// ListVolumes returns empty slice on Windows (no volume concept)
+func (s *Service) ListVolumes() []VolumeInfo {
+	return nil
 }

@@ -51,6 +51,7 @@ type Server struct {
 	metadataService       *metadata.Service
 	artworkDownloader     *metadata.ArtworkDownloader
 	filesystemService     *filesystem.Service
+	storageService        *filesystem.StorageService
 	libraryManagerService *librarymanager.Service
 	watcherService        *watcher.Service
 	progressManager       *progress.Manager
@@ -92,6 +93,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize filesystem service
 	s.filesystemService = filesystem.NewService(logger)
+
+	// Initialize storage service (combines filesystem and root folder data)
+	s.storageService = filesystem.NewStorageService(s.filesystemService, s.rootFolderService, logger)
 
 	// Initialize downloader service
 	s.downloaderService = downloader.NewService(db, logger)
@@ -284,7 +288,7 @@ func (s *Server) setupRoutes() {
 	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
 
 	// Filesystem routes (for folder browsing)
-	filesystemHandlers := filesystem.NewHandlers(s.filesystemService)
+	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystemService, s.storageService)
 	filesystemHandlers.RegisterRoutes(api.Group("/filesystem"))
 
 	// Settings routes

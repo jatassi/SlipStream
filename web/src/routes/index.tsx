@@ -4,15 +4,16 @@ import {
   Tv,
   Download,
   Plus,
-  HardDrive,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useStatus, useQueue, useHistory } from '@/hooks'
-import { formatBytes, formatRelativeTime } from '@/lib/formatters'
+import { useStorage } from '@/hooks/useStorage'
+import { formatRelativeTime } from '@/lib/formatters'
 import { ProgressBar } from '@/components/media/ProgressBar'
+import { StorageCard } from '@/components/dashboard/StorageCard'
 
 function StatCard({
   title,
@@ -175,6 +176,7 @@ function RecentActivity() {
 export function DashboardPage() {
   const { data: status, isLoading: statusLoading } = useStatus()
   const { data: queue } = useQueue()
+  const storage = useStorage()
 
   const activeDownloads = queue?.filter((q) => q.status === 'downloading').length || 0
 
@@ -224,11 +226,9 @@ export function DashboardPage() {
           description="Active"
           loading={statusLoading}
         />
-        <StatCard
-          title="Database"
-          value={status ? formatBytes(status.databaseSize) : '0 B'}
-          icon={HardDrive}
-          loading={statusLoading}
+        <StorageCard
+          storage={storage?.data}
+          loading={storage?.isLoading}
         />
       </div>
 

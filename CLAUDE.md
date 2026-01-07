@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
+
+### Making Changes
+When making changes to this file, ALWAYS make the same update to AGENTS.md in the same directory.
 
 ## Project Overview
 
@@ -11,6 +14,8 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 Various documents detailing specific aspects of the application may be available in the `docs/` directory. When creating new documents, ALWAYS put them in this directory.
 
 ## Common Commands
+
+Important: Do not attempt to start either frontend or backend servers. Assume servers are already running on default ports. Prompt user to start or restart servers as required.
 
 ### Development
 
@@ -70,42 +75,6 @@ cd web
 npm run dev           # Start dev server
 npm run build         # Production build (runs tsc first)
 npm run lint          # ESLint
-```
-
-## Architecture
-
-```
-cmd/slipstream/       # Application entry point (main.go)
-internal/
-├── api/              # Echo HTTP server, routes, middleware
-├── auth/             # JWT authentication
-├── config/           # Viper config (env → .env → yaml → defaults)
-├── database/
-│   ├── migrations/   # Goose SQL migrations
-│   ├── queries/      # sqlc query definitions
-│   └── sqlc/         # Generated query code (DO NOT EDIT)
-├── library/
-│   ├── movies/       # Movie CRUD service & handlers
-│   ├── tv/           # Series/seasons/episodes service
-│   ├── scanner/      # Filesystem media file detection
-│   ├── organizer/    # File naming/path templates
-│   ├── quality/      # Quality profile management
-│   └── rootfolder/   # Library path management
-├── metadata/
-│   ├── tmdb/         # TMDB API client
-│   └── tvdb/         # TVDB API client
-├── indexer/          # Search provider abstraction (Torznab/Newznab)
-├── downloader/       # Download client abstraction
-│   ├── torrent/      # qBittorrent, Transmission, etc.
-│   └── usenet/       # SABnzbd, NZBGet, etc.
-├── websocket/        # Real-time updates hub
-├── scheduler/        # Background jobs
-└── logger/           # Zerolog setup
-web/                  # React frontend
-├── src/
-│   ├── components/   # UI components (shadcn/ui)
-│   └── lib/          # Utilities
-└── vite.config.ts    # Dev server proxies /api→:8080, /ws→ws://:8080
 ```
 
 ## Key Patterns
@@ -168,7 +137,7 @@ function MyComponent() {
 }
 ```
 
-## Claude Code Notes
+## Windows-Specific Notes
 
 When running bash commands on Windows, use forward slashes for paths:
 ```bash

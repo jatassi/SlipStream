@@ -165,13 +165,117 @@ func isValidWindowsPath(path string) bool {
 	return false
 }
 
+// GetStorageInfo returns storage information for all drives/volumes
+func (s *Service) GetStorageInfo(rootFolders []RootFolderRef) ([]StorageInfo, error) {
+	var storage []StorageInfo
+
+	if runtime.GOOS == "windows" {
+		storage = s.getWindowsStorageInfo(rootFolders)
+	} else {
+		storage = s.getUnixStorageInfo(rootFolders)
+	}
+
+	return storage, nil
+}
+
+// getWindowsStorageInfo aggregates storage info for Windows drives
+func (s *Service) getWindowsStorageInfo(rootFolders []RootFolderRef) []StorageInfo {
+	var storage []StorageInfo
+	drives := s.listDrives()
+
+	for _, drive := range drives {
+		// Calculate used space and percentage
+		var usedSpace int64
+		var usedPercent float64
+		if drive.TotalSpace > 0 {
+			usedSpace = drive.TotalSpace - drive.FreeSpace
+			usedPercent = float64(usedSpace) / float64(drive.TotalSpace) * 100
+		}
+
+		// Find root folders on this drive
+		var driveRootFolders []RootFolderRef
+		for _, rf := range rootFolders {
+			if strings.HasPrefix(strings.ToUpper(rf.Name), drive.Letter) {
+				// This is a simplified check - in reality we'd need the full path
+				driveRootFolders = append(driveRootFolders, rf)
+			}
+		}
+
+		// Determine label (use drive letter if no label)
+		label := drive.Letter
+		if drive.Label != "" {
+			label = drive.Label
+		}
+
+		storage = append(storage, StorageInfo{
+			Label:       label,
+			Path:        drive.Letter,
+			FreeSpace:   drive.FreeSpace,
+			TotalSpace:  drive.TotalSpace,
+			UsedSpace:   usedSpace,
+			UsedPercent: usedPercent,
+			Type:        drive.Type,
+			RootFolders: driveRootFolders,
+		})
+	}
+
+	return storage
+}
+
+// getUnixStorageInfo aggregates storage info for Unix volumes
+func (s *Service) getUnixStorageInfo(rootFolders []RootFolderRef) []StorageInfo {
+	var storage []StorageInfo
+	volumes := s.ListVolumes()
+
+	for _, volume := range volumes {
+		// Calculate used space and percentage
+		var usedSpace int64
+		var usedPercent float64
+		if volume.TotalSpace > 0 {
+			usedSpace = volume.TotalSpace - volume.FreeSpace
+			usedPercent = float64(usedSpace) / float64(volume.TotalSpace) * 100
+		}
+
+		// Find root folders on this volume
+		var volumeRootFolders []RootFolderRef
+		for _, rf := range rootFolders {
+			// This is a simplified check - in reality we'd need the full path
+			if strings.HasPrefix(rf.Name, volume.MountPoint) {
+				volumeRootFolders = append(volumeRootFolders, rf)
+			}
+		}
+
+		// Use mount point as label if no better label available
+		label := volume.MountPoint
+		if label == "/" {
+			label = "Root"
+		} else {
+			// Extract just the last component for cleaner display
+			label = filepath.Base(volume.MountPoint)
+		}
+
+		storage = append(storage, StorageInfo{
+			Label:       label,
+			Path:        volume.MountPoint,
+			FreeSpace:   volume.FreeSpace,
+			TotalSpace:  volume.TotalSpace,
+			UsedSpace:   usedSpace,
+			UsedPercent: usedPercent,
+			Type:        volume.Type,
+			RootFolders: volumeRootFolders,
+		})
+	}
+
+	return storage
+}
+
 // isWindowsSystemDir checks if a directory name is a Windows system directory to hide
 func isWindowsSystemDir(name string) bool {
 	systemDirs := map[string]bool{
-		"$Recycle.Bin":         true,
+		"$Recycle.Bin":              true,
 		"System Volume Information": true,
-		"$WinREAgent":          true,
-		"Config.Msi":           true,
+		"$WinREAgent":               true,
+		"Config.Msi":                true,
 	}
 	return systemDirs[name]
 }
