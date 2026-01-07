@@ -51,10 +51,11 @@ type MetadataConfig struct {
 
 // TMDBConfig holds TMDB API configuration.
 type TMDBConfig struct {
-	APIKey       string `mapstructure:"api_key"`
-	BaseURL      string `mapstructure:"base_url"`
-	ImageBaseURL string `mapstructure:"image_base_url"`
-	Timeout      int    `mapstructure:"timeout_seconds"`
+	APIKey                string `mapstructure:"api_key"`
+	BaseURL               string `mapstructure:"base_url"`
+	ImageBaseURL          string `mapstructure:"image_base_url"`
+	Timeout               int    `mapstructure:"timeout_seconds"`
+	DisableSearchOrdering bool   `mapstructure:"disable_search_ordering"`
 }
 
 // TVDBConfig holds TVDB API configuration.
@@ -140,9 +141,10 @@ func Default() *Config {
 		},
 		Metadata: MetadataConfig{
 			TMDB: TMDBConfig{
-				BaseURL:      "https://api.themoviedb.org/3",
-				ImageBaseURL: "https://image.tmdb.org/t/p",
-				Timeout:      30,
+				BaseURL:               "https://api.themoviedb.org/3",
+				ImageBaseURL:          "https://image.tmdb.org/t/p",
+				Timeout:               30,
+				DisableSearchOrdering: false,
 			},
 			TVDB: TVDBConfig{
 				BaseURL: "https://api4.thetvdb.com/v4",
@@ -253,6 +255,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metadata.tmdb.base_url", "https://api.themoviedb.org/3")
 	v.SetDefault("metadata.tmdb.image_base_url", "https://image.tmdb.org/t/p")
 	v.SetDefault("metadata.tmdb.timeout_seconds", 30)
+	v.SetDefault("metadata.tmdb.disable_search_ordering", false)
 	v.SetDefault("metadata.tvdb.api_key", "")
 	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
 	v.SetDefault("metadata.tvdb.timeout_seconds", 30)

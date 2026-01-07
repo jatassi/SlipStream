@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Search, Film, Tv, Loader2 } from 'lucide-react'
+import { Search, Film, Tv, Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/data/EmptyState'
@@ -8,7 +8,15 @@ import { MovieCard } from '@/components/movies/MovieCard'
 import { SeriesCard } from '@/components/series/SeriesCard'
 import { ExternalMovieCard } from '@/components/search/ExternalMovieCard'
 import { ExternalSeriesCard } from '@/components/search/ExternalSeriesCard'
-import { useMovies, useSeries, useMovieSearch, useSeriesSearch } from '@/hooks'
+import { 
+  useMovies, 
+  useSeries, 
+  useMovieSearch, 
+  useSeriesSearch, 
+  useTMDBSearchOrdering, 
+  useUpdateTMDBSearchOrdering, 
+  useDeveloperMode 
+} from '@/hooks'
 
 interface SearchPageProps {
   q: string
@@ -18,6 +26,24 @@ export function SearchPage({ q }: SearchPageProps) {
   const navigate = useNavigate()
   const query = q?.trim() || ''
   const [externalEnabled, setExternalEnabled] = useState(false)
+  const [expandedMovies, setExpandedMovies] = useState(false)
+  const [expandedSeries, setExpandedSeries] = useState(false)
+  const [expandedLibraryMovies, setExpandedLibraryMovies] = useState(false)
+  const [expandedLibrarySeries, setExpandedLibrarySeries] = useState(false)
+
+  // Hooks
+  const developerMode = useDeveloperMode()
+  const disableSearchOrdering = useTMDBSearchOrdering()
+  const updateTMDBSearchOrdering = useUpdateTMDBSearchOrdering()
+
+  // Reset expansion state when query changes
+  useEffect(() => {
+    setExpandedMovies(false)
+    setExpandedSeries(false)
+    setExpandedLibraryMovies(false)
+    setExpandedLibrarySeries(false)
+    setExternalEnabled(false)
+  }, [query])
 
   // Fetch library results
   const { data: libraryMovies = [], isLoading: loadingLibraryMovies } = useMovies(
@@ -48,11 +74,6 @@ export function SearchPage({ q }: SearchPageProps) {
   const libraryMovieTmdbIds = new Set(libraryMovies.map((m) => m.tmdbId))
   const librarySeriesTmdbIds = new Set(librarySeries.map((s) => s.tmdbId))
 
-  // Reset external state when query changes
-  useEffect(() => {
-    setExternalEnabled(false)
-  }, [query])
-
   if (!query) {
     return (
       <div>
@@ -71,9 +92,25 @@ export function SearchPage({ q }: SearchPageProps) {
       <PageHeader
         title={`Search results for "${query}"`}
         actions={
-          <Button variant="ghost" onClick={() => navigate({ to: '/' })}>
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mr-4">
+              <span className="text-sm text-muted-foreground">Search Ordering:</span>
+              <Button
+                variant={disableSearchOrdering ? "destructive" : "default"}
+                size="sm"
+                onClick={() => updateTMDBSearchOrdering.mutate(!disableSearchOrdering)}
+                disabled={updateTMDBSearchOrdering.isPending}
+              >
+                {disableSearchOrdering ? "Disabled" : "Enabled"}
+              </Button>
+              <span className="text-xs text-gray-500 ml-2">
+                {developerMode ? 'DEV MODE' : 'API'}
+              </span>
+            </div>
+            <Button variant="ghost" onClick={() => navigate({ to: '/' })}>
+              Back to Dashboard
+            </Button>
+          </div>
         }
       />
 
@@ -102,30 +139,80 @@ export function SearchPage({ q }: SearchPageProps) {
             {/* Library Movies */}
             {libraryMovies.length > 0 && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Film className="size-4" />
+                <div 
+                  className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-all duration-200"
+                  onClick={() => setExpandedLibraryMovies(!expandedLibraryMovies)}
+                >
+                  <ChevronRight 
+                    className={`size-4 transition-transform duration-200 ${expandedLibraryMovies ? 'rotate-90' : ''}`}
+                  />
                   <span>Movies ({libraryMovies.length})</span>
                 </div>
-                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {libraryMovies.map((movie) => (
+                <div className={`grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 transition-all duration-300 ease-in-out ${expandedLibraryMovies ? 'grid-rows-[1fr]' : 'grid-rows-1'}`}>
+                  {(expandedLibraryMovies ? libraryMovies : libraryMovies.slice(0, 3)).map((movie) => (
                     <MovieCard key={movie.id} movie={movie} />
                   ))}
                 </div>
+                {libraryMovies.length > 3 && (
+                  <div 
+                    className="flex justify-center pt-2 cursor-pointer hover:text-foreground transition-all duration-200"
+                    onClick={() => setExpandedLibraryMovies(!expandedLibraryMovies)}
+                  >
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      {expandedLibraryMovies ? (
+                        <>
+                          <ChevronDown className="size-4" />
+                          <span>Show less</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="size-4" />
+                          <span>Show {libraryMovies.length - 3} more</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Library Series */}
             {librarySeries.length > 0 && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Tv className="size-4" />
+                <div 
+                  className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-all duration-200"
+                  onClick={() => setExpandedLibrarySeries(!expandedLibrarySeries)}
+                >
+                  <ChevronRight 
+                    className={`size-4 transition-transform duration-200 ${expandedLibrarySeries ? 'rotate-90' : ''}`}
+                  />
                   <span>Series ({librarySeries.length})</span>
                 </div>
-                <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {librarySeries.map((series) => (
+                <div className={`grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 transition-all duration-300 ease-in-out ${expandedLibrarySeries ? 'grid-rows-[1fr]' : 'grid-rows-1'}`}>
+                  {(expandedLibrarySeries ? librarySeries : librarySeries.slice(0, 3)).map((series) => (
                     <SeriesCard key={series.id} series={series} />
                   ))}
                 </div>
+                {librarySeries.length > 3 && (
+                  <div 
+                    className="flex justify-center pt-2 cursor-pointer hover:text-foreground transition-all duration-200"
+                    onClick={() => setExpandedLibrarySeries(!expandedLibrarySeries)}
+                  >
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      {expandedLibrarySeries ? (
+                        <>
+                          <ChevronDown className="size-4" />
+                          <span>Show less</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="size-4" />
+                          <span>Show {librarySeries.length - 3} more</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -172,13 +259,26 @@ export function SearchPage({ q }: SearchPageProps) {
                   <span>Movies from TMDB ({externalMovies.length})</span>
                 </div>
                 <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {externalMovies.map((movie) => (
+                  {(expandedMovies ? externalMovies : externalMovies.slice(0, 5)).map((movie) => (
                     <ExternalMovieCard
                       key={movie.tmdbId || movie.id}
                       movie={movie}
                       inLibrary={libraryMovieTmdbIds.has(movie.tmdbId)}
                     />
                   ))}
+                  {!expandedMovies && externalMovies.length > 5 && (
+                    <div 
+                      className="aspect-[2/3] rounded-lg border-2 border-dashed border-border bg-card/50 flex items-center justify-center cursor-pointer hover:bg-card/80 transition-colors"
+                      onClick={() => setExpandedMovies(true)}
+                    >
+                      <div className="text-center p-4">
+                        <ChevronDown className="size-6 mx-auto mb-2 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Show {externalMovies.length - 5} more...
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -191,13 +291,26 @@ export function SearchPage({ q }: SearchPageProps) {
                   <span>Series from TMDB ({externalSeries.length})</span>
                 </div>
                 <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {externalSeries.map((series) => (
+                  {(expandedSeries ? externalSeries : externalSeries.slice(0, 5)).map((series) => (
                     <ExternalSeriesCard
                       key={series.tmdbId || series.id}
                       series={series}
                       inLibrary={librarySeriesTmdbIds.has(series.tmdbId)}
                     />
                   ))}
+                  {!expandedSeries && externalSeries.length > 5 && (
+                    <div 
+                      className="aspect-[2/3] rounded-lg border-2 border-dashed border-border bg-card/50 flex items-center justify-center cursor-pointer hover:bg-card/80 transition-colors"
+                      onClick={() => setExpandedSeries(true)}
+                    >
+                      <div className="text-center p-4">
+                        <ChevronDown className="size-6 mx-auto mb-2 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Show {externalSeries.length - 5} more...
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

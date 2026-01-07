@@ -19,4 +19,10 @@ export const systemApi = {
 
   regenerateApiKey: () =>
     apiFetch<{ apiKey: string }>('/settings/apikey', { method: 'POST' }),
+
+  updateTMDBSearchOrdering: (disableSearchOrdering: boolean) =>
+    apiFetch<{ disableSearchOrdering: boolean }>('/metadata/tmdb/search-ordering', {
+      method: 'POST',
+      body: JSON.stringify({ disableSearchOrdering }),
+    }),
 }

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
@@ -71,16 +73,68 @@ func (c *Client) SearchMovies(ctx context.Context, query string, year int) ([]No
 		return nil, err
 	}
 
-	results := make([]NormalizedMovieResult, len(response.Results))
-	for i, movie := range response.Results {
-		results[i] = c.toMovieResult(movie)
+	// Apply relevance scoring if not disabled
+	if len(response.Results) > 0 {
+		if !c.config.DisableSearchOrdering {
+			currentYear := time.Now().Year()
+
+			// Find max vote count for normalization
+			maxVoteCount := 0
+			for _, movie := range response.Results {
+				if movie.VoteCount > maxVoteCount {
+					maxVoteCount = movie.VoteCount
+				}
+			}
+
+			// Calculate scores for all movies
+			scoreableMovies := make([]scoreableMovie, len(response.Results))
+			for i, movie := range response.Results {
+				scoreableMovies[i] = scoreableMovie{
+					MovieResult: movie,
+					Score:       c.calculateMovieScore(movie, maxVoteCount, currentYear),
+				}
+			}
+
+			// Sort by score (highest first)
+			sort.Slice(scoreableMovies, func(i, j int) bool {
+				return scoreableMovies[i].Score > scoreableMovies[j].Score
+			})
+
+			// Convert to normalized results with scoring
+			results := make([]NormalizedMovieResult, len(scoreableMovies))
+			for i, sm := range scoreableMovies {
+				results[i] = c.toMovieResult(sm.MovieResult)
+			}
+
+			c.logger.Debug().
+				Str("query", query).
+				Int("year", year).
+				Int("results", len(results)).
+				Msg("Movie search completed with scoring")
+
+			return results, nil
+		} else {
+			// Scoring disabled, return results in original order
+			c.logger.Debug().
+				Str("query", query).
+				Int("year", year).
+				Bool("scoring_disabled", true).
+				Msg("Movie search completed without scoring")
+
+			results := make([]NormalizedMovieResult, len(response.Results))
+			for i, movie := range response.Results {
+				results[i] = c.toMovieResult(movie)
+			}
+			return results, nil
+		}
 	}
 
+	results := make([]NormalizedMovieResult, 0)
 	c.logger.Debug().
 		Str("query", query).
 		Int("year", year).
 		Int("results", len(results)).
-		Msg("Movie search completed")
+		Msg("Movie search completed with no results")
 
 	return results, nil
 }
@@ -127,15 +181,65 @@ func (c *Client) SearchSeries(ctx context.Context, query string) ([]NormalizedSe
 		return nil, err
 	}
 
-	results := make([]NormalizedSeriesResult, len(response.Results))
-	for i, tv := range response.Results {
-		results[i] = c.toSeriesResult(tv)
+	// Apply relevance scoring if not disabled
+	if len(response.Results) > 0 {
+		if !c.config.DisableSearchOrdering {
+			currentYear := time.Now().Year()
+
+			// Find max vote count for normalization
+			maxVoteCount := 0
+			for _, series := range response.Results {
+				if series.VoteCount > maxVoteCount {
+					maxVoteCount = series.VoteCount
+				}
+			}
+
+			// Calculate scores for all series
+			scoreableSeriesList := make([]scoreableSeries, len(response.Results))
+			for i, series := range response.Results {
+				scoreableSeriesList[i] = scoreableSeries{
+					TVResult: series,
+					Score:    c.calculateSeriesScore(series, maxVoteCount, currentYear),
+				}
+			}
+
+			// Sort by score (highest first)
+			sort.Slice(scoreableSeriesList, func(i, j int) bool {
+				return scoreableSeriesList[i].Score > scoreableSeriesList[j].Score
+			})
+
+			// Convert to normalized results with scoring
+			results := make([]NormalizedSeriesResult, len(scoreableSeriesList))
+			for i, ss := range scoreableSeriesList {
+				results[i] = c.toSeriesResult(ss.TVResult)
+			}
+
+			c.logger.Debug().
+				Str("query", query).
+				Int("results", len(results)).
+				Msg("TV search completed with scoring")
+
+			return results, nil
+		} else {
+			// Scoring disabled, return results in original order
+			c.logger.Debug().
+				Str("query", query).
+				Bool("scoring_disabled", true).
+				Msg("TV search completed without scoring")
+
+			results := make([]NormalizedSeriesResult, len(response.Results))
+			for i, series := range response.Results {
+				results[i] = c.toSeriesResult(series)
+			}
+			return results, nil
+		}
 	}
 
+	results := make([]NormalizedSeriesResult, 0)
 	c.logger.Debug().
 		Str("query", query).
 		Int("results", len(results)).
-		Msg("TV search completed")
+		Msg("TV search completed with no results")
 
 	return results, nil
 }
@@ -453,4 +557,98 @@ func (c *Client) tvDetailsToResult(details TVDetails) NormalizedSeriesResult {
 	}
 
 	return result
+}
+
+// scoreableMovie represents a movie with scoring data
+type scoreableMovie struct {
+	MovieResult MovieResult
+	Score       float64
+}
+
+// scoreableSeries represents a series with scoring data
+type scoreableSeries struct {
+	TVResult TVResult
+	Score    float64
+}
+
+// calculateMovieScore calculates the relevance score for a movie result
+func (c *Client) calculateMovieScore(movie MovieResult, maxVoteCount int, currentYear int) float64 {
+	// Normalize vote count to 0-1 scale
+	voteCountNormalized := 0.0
+	if maxVoteCount > 0 {
+		voteCountNormalized = float64(movie.VoteCount) / float64(maxVoteCount)
+	}
+
+	// Calculate recency factor (0-1 scale, newer is better)
+	recencyFactor := 0.0
+	year := 0
+	if len(movie.ReleaseDate) >= 4 {
+		year, _ = strconv.Atoi(movie.ReleaseDate[:4])
+	}
+	if year > 0 {
+		yearsDiff := currentYear - year
+		// Max 10 years for recency scoring, exponential decay
+		recencyFactor = math.Exp(-float64(yearsDiff) * 0.2)
+	}
+
+	// Calculate completeness factor
+	completenessFactor := 0.0
+	if movie.PosterPath != nil {
+		completenessFactor += 0.05
+	}
+	if movie.Overview != "" {
+		completenessFactor += 0.03
+	}
+	if len(movie.GenreIDs) > 0 {
+		completenessFactor += 0.02
+	}
+
+	// Final score calculation
+	score := (movie.Popularity * 0.3) +
+		(movie.VoteAverage * voteCountNormalized * 0.4) +
+		(recencyFactor * 0.2) +
+		(completenessFactor * 0.1)
+
+	return score
+}
+
+// calculateSeriesScore calculates the relevance score for a series result
+func (c *Client) calculateSeriesScore(series TVResult, maxVoteCount int, currentYear int) float64 {
+	// Normalize vote count to 0-1 scale
+	voteCountNormalized := 0.0
+	if maxVoteCount > 0 {
+		voteCountNormalized = float64(series.VoteCount) / float64(maxVoteCount)
+	}
+
+	// Calculate recency factor (0-1 scale, newer is better)
+	recencyFactor := 0.0
+	year := 0
+	if len(series.FirstAirDate) >= 4 {
+		year, _ = strconv.Atoi(series.FirstAirDate[:4])
+	}
+	if year > 0 {
+		yearsDiff := currentYear - year
+		// Max 10 years for recency scoring, exponential decay
+		recencyFactor = math.Exp(-float64(yearsDiff) * 0.2)
+	}
+
+	// Calculate completeness factor
+	completenessFactor := 0.0
+	if series.PosterPath != nil {
+		completenessFactor += 0.05
+	}
+	if series.Overview != "" {
+		completenessFactor += 0.03
+	}
+	if len(series.GenreIDs) > 0 {
+		completenessFactor += 0.02
+	}
+
+	// Final score calculation
+	score := (series.Popularity * 0.3) +
+		(series.VoteAverage * voteCountNormalized * 0.4) +
+		(recencyFactor * 0.2) +
+		(completenessFactor * 0.1)
+
+	return score
 }

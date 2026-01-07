@@ -287,6 +287,9 @@ func (s *Server) setupRoutes() {
 	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
 	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
 
+	// TMDB configuration endpoints
+	api.POST("/metadata/tmdb/search-ordering", s.updateTMDBSearchOrdering)
+
 	// Filesystem routes (for folder browsing)
 	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystemService, s.storageService)
 	filesystemHandlers.RegisterRoutes(api.Group("/filesystem"))
@@ -391,6 +394,36 @@ func (s *Server) getStatus(c echo.Context) error {
 		"movieCount":    movieCount,
 		"seriesCount":   seriesCount,
 		"developerMode": s.cfg.DeveloperMode,
+		"tmdb": map[string]interface{}{
+			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
+		},
+	})
+}
+
+// UpdateTMDBSearchOrdering toggles search ordering for TMDB.
+// POST /api/v1/metadata/tmdb/search-ordering
+func (s *Server) updateTMDBSearchOrdering(c echo.Context) error {
+	if !s.cfg.DeveloperMode {
+		return echo.NewHTTPError(http.StatusForbidden, "debug features require developer mode")
+	}
+
+	var request struct {
+		DisableSearchOrdering bool `json:"disableSearchOrdering"`
+	}
+
+	if err := c.Bind(&request); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	// Update configuration
+	s.cfg.Metadata.TMDB.DisableSearchOrdering = request.DisableSearchOrdering
+
+	s.logger.Info().
+		Bool("disableSearchOrdering", request.DisableSearchOrdering).
+		Msg("TMDB search ordering setting updated")
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 	})
 }
 

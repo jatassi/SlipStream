@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
@@ -515,5 +517,55 @@ func TestMoviesAPI_CreateEmptyTitle(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Create movie with empty title status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestTMDBSearchOrdering(t *testing.T) {
+	e := echo.New()
+	server := &Server{
+		cfg: &config.Config{
+			DeveloperMode: true,
+			Metadata: config.MetadataConfig{
+				TMDB: config.TMDBConfig{
+					DisableSearchOrdering: false,
+				},
+			},
+		},
+		logger: zerolog.Nop(),
+	}
+
+	// Test enabling search ordering
+	req := httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := server.updateTMDBSearchOrdering(c)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	if !server.cfg.Metadata.TMDB.DisableSearchOrdering {
+		t.Error("Expected DisableSearchOrdering to be true")
+	}
+
+	// Test with developer mode disabled
+	server.cfg.DeveloperMode = false
+	req = httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": false}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+
+	err = server.updateTMDBSearchOrdering(c)
+	if err == nil {
+		t.Fatal("Expected error when developer mode is disabled")
+	}
+
+	if !strings.Contains(err.Error(), "debug features require developer mode") {
+		t.Errorf("Expected error to mention developer mode, got: %v", err)
 	}
 }

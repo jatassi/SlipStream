@@ -56,3 +56,25 @@ export function useDeveloperMode() {
   const { data } = useStatus()
   return data?.developerMode ?? false
 }
+
+export function useTMDBSearchOrdering() {
+  const { data } = useStatus()
+  return data?.tmdb?.disableSearchOrdering ?? false
+}
+
+export function useUpdateTMDBSearchOrdering() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (disableSearchOrdering: boolean) => systemApi.updateTMDBSearchOrdering(disableSearchOrdering),
+    onSuccess: (data, variables) => {
+      console.log('useUpdateTMDBSearchOrdering - Success:', { data, variables })
+      queryClient.invalidateQueries({ queryKey: systemKeys.status() })
+    },
+    onError: (error) => {
+      console.error('useUpdateTMDBSearchOrdering - Error:', error)
+    },
+    onSettled: () => {
+      console.log('useUpdateTMDBSearchOrdering - Settled')
+    }
+  })
+}

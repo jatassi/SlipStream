@@ -8,6 +8,9 @@ export interface SystemStatus {
   episodeCount: number
   queueCount: number
   developerMode: boolean
+  tmdb?: {
+    disableSearchOrdering: boolean
+  }
 }
 
 export interface HealthCheck {

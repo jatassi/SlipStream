@@ -22,6 +22,10 @@ func newTestClient(server *httptest.Server) *Client {
 	return NewClient(cfg, zerolog.Nop())
 }
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestClient_Name(t *testing.T) {
 	client := NewClient(config.TMDBConfig{}, zerolog.Nop())
 	if client.Name() != "tmdb" {
@@ -68,14 +72,24 @@ func TestClient_SearchMovies(t *testing.T) {
 				{
 					ID:          603,
 					Title:       "The Matrix",
-					Overview:    "A computer hacker learns about the true nature of reality.",
+					Overview:    "A computer hacker learns about the true nature of reality and his role in the war against its controllers.",
 					ReleaseDate: "1999-03-30",
+					VoteAverage: 8.2,
+					VoteCount:   18000,
+					Popularity:  60.5,
+					PosterPath:  stringPtr("/matrix.jpg"),
+					GenreIDs:    []int{28, 12, 878},
 				},
 				{
 					ID:          604,
 					Title:       "The Matrix Reloaded",
 					Overview:    "Neo and the rebel leaders continue to fight.",
 					ReleaseDate: "2003-05-15",
+					VoteAverage: 7.2,
+					VoteCount:   12000,
+					Popularity:  35.2,
+					PosterPath:  stringPtr("/reloaded.jpg"),
+					GenreIDs:    []int{28, 12, 878},
 				},
 			},
 		}
@@ -171,13 +185,13 @@ func TestClient_GetMovie(t *testing.T) {
 		}
 
 		response := MovieDetails{
-			ID:          603,
-			Title:       "The Matrix",
-			Overview:    "A computer hacker learns about the true nature of reality.",
-			ReleaseDate: "1999-03-30",
-			Runtime:     136,
-			ImdbID:      "tt0133093",
-			PosterPath:  &poster,
+			ID:           603,
+			Title:        "The Matrix",
+			Overview:     "A computer hacker learns about the true nature of reality.",
+			ReleaseDate:  "1999-03-30",
+			Runtime:      136,
+			ImdbID:       "tt0133093",
+			PosterPath:   &poster,
 			BackdropPath: &backdrop,
 			Genres: []Genre{
 				{ID: 28, Name: "Action"},
