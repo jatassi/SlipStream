@@ -1,65 +1,27 @@
-import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { Search, Plus, Bell } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Bell } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useUIStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
+import { SearchBar } from '@/components/search/SearchBar'
 
 export function Header() {
-  const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = useState('')
   const { notifications, dismissNotification } = useUIStore()
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate({ to: '/search', search: { q: searchQuery.trim() } })
-      setSearchQuery('')
-    }
-  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-6">
       {/* Search */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-md">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search movies, series..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+      <div className="flex-1 flex justify-center">
+        <div className="flex-1 max-w-2xl">
+          <SearchBar />
         </div>
-      </form>
+      </div>
 
       {/* Actions */}
-      <div className="ml-auto flex items-center gap-2">
-        {/* Add dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/90 rounded-md px-3 text-sm h-8"
-          >
-            <Plus className="size-4" />
-            Add
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate({ to: '/movies/add' })}>
-              Add Movie
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate({ to: '/series/add' })}>
-              Add Series
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
+      <div className="flex items-center gap-2">
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger className="relative inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-9 w-9">

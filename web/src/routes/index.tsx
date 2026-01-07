@@ -3,7 +3,6 @@ import {
   Film,
   Tv,
   Download,
-  Plus,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -185,22 +184,6 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Overview of your media library"
-        actions={
-          <div className="flex gap-2">
-            <Link to="/movies/add">
-              <Button size="sm">
-                <Plus className="size-4 mr-1" />
-                Add Movie
-              </Button>
-            </Link>
-            <Link to="/series/add">
-              <Button size="sm" variant="outline">
-                <Plus className="size-4 mr-1" />
-                Add Series
-              </Button>
-            </Link>
-          </div>
-        }
       />
 
       {/* Stats grid */}
