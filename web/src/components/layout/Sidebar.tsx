@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Film,
   Tv,
+  Calendar,
   Activity,
   History,
   Settings,
@@ -48,6 +49,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard },
   { title: 'Movies', href: '/movies', icon: Film },
   { title: 'Series', href: '/series', icon: Tv },
+  { title: 'Calendar', href: '/calendar', icon: Calendar },
 ]
 
 const activityGroup: CollapsibleNavGroup = {

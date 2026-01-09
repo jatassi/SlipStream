@@ -7,7 +7,7 @@ export function SearchBar() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>()
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (debounceTimeoutRef.current) {

@@ -15,6 +15,7 @@ import { AddMoviePage } from '@/routes/movies/add'
 import { SeriesListPage } from '@/routes/series/index'
 import { SeriesDetailPage } from '@/routes/series/$id'
 import { AddSeriesPage } from '@/routes/series/add'
+import { CalendarPage } from '@/routes/calendar/index'
 import { ActivityPage } from '@/routes/activity/index'
 import { HistoryPage } from '@/routes/activity/history'
 import { SettingsPage } from '@/routes/settings/index'
@@ -91,6 +92,13 @@ const addSeriesRoute = createRoute({
   component: AddSeriesPage,
 })
 
+// Calendar route
+const calendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/calendar',
+  component: CalendarPage,
+})
+
 // Activity routes
 const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -151,6 +159,7 @@ const routeTree = rootRoute.addChildren([
   seriesRoute,
   seriesDetailRoute,
   addSeriesRoute,
+  calendarRoute,
   activityRoute,
   historyRoute,
   settingsRoute,

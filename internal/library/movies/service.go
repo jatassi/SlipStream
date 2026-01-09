@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -163,19 +164,37 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		// For now, leave empty and let it be set later
 	}
 
+	// Parse release dates
+	// ReleaseDate stores the digital/streaming release date
+	// PhysicalReleaseDate stores the Bluray release date
+	var releaseDate, physicalReleaseDate sql.NullTime
+	if input.ReleaseDate != "" {
+		if t, err := time.Parse("2006-01-02", input.ReleaseDate); err == nil {
+			releaseDate = sql.NullTime{Time: t, Valid: true}
+		}
+	}
+	if input.PhysicalReleaseDate != "" {
+		if t, err := time.Parse("2006-01-02", input.PhysicalReleaseDate); err == nil {
+			physicalReleaseDate = sql.NullTime{Time: t, Valid: true}
+		}
+	}
+
 	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
-		Title:            input.Title,
-		SortTitle:        sortTitle,
-		Year:             sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
-		TmdbID:           sql.NullInt64{Int64: int64(input.TmdbID), Valid: input.TmdbID > 0},
-		ImdbID:           sql.NullString{String: input.ImdbID, Valid: input.ImdbID != ""},
-		Overview:         sql.NullString{String: input.Overview, Valid: input.Overview != ""},
-		Runtime:          sql.NullInt64{Int64: int64(input.Runtime), Valid: input.Runtime > 0},
-		Path:             sql.NullString{String: path, Valid: path != ""},
-		RootFolderID:     sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
-		QualityProfileID: sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
-		Monitored:        boolToInt(input.Monitored),
-		Status:           "missing",
+		Title:               input.Title,
+		SortTitle:           sortTitle,
+		Year:                sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
+		TmdbID:              sql.NullInt64{Int64: int64(input.TmdbID), Valid: input.TmdbID > 0},
+		ImdbID:              sql.NullString{String: input.ImdbID, Valid: input.ImdbID != ""},
+		Overview:            sql.NullString{String: input.Overview, Valid: input.Overview != ""},
+		Runtime:             sql.NullInt64{Int64: int64(input.Runtime), Valid: input.Runtime > 0},
+		Path:                sql.NullString{String: path, Valid: path != ""},
+		RootFolderID:        sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
+		QualityProfileID:    sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
+		Monitored:           boolToInt(input.Monitored),
+		Status:              "missing",
+		ReleaseDate:         releaseDate,
+		DigitalReleaseDate:  sql.NullTime{}, // Deprecated, use ReleaseDate for digital
+		PhysicalReleaseDate: physicalReleaseDate,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -473,6 +492,15 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 	}
 	if row.UpdatedAt.Valid {
 		m.UpdatedAt = row.UpdatedAt.Time
+	}
+
+	// Release dates
+	// ReleaseDate stores the digital/streaming release date
+	if row.ReleaseDate.Valid {
+		m.ReleaseDate = &row.ReleaseDate.Time
+	}
+	if row.PhysicalReleaseDate.Valid {
+		m.PhysicalReleaseDate = &row.PhysicalReleaseDate.Time
 	}
 
 	return m

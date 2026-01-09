@@ -19,6 +19,7 @@ type Series struct {
 	Monitored        bool      `json:"monitored"`
 	SeasonFolder     bool      `json:"seasonFolder"`
 	Status           string    `json:"status"` // "continuing", "ended", "upcoming"
+	Network          string    `json:"network,omitempty"`
 	AddedAt          time.Time `json:"addedAt"`
 	UpdatedAt        time.Time `json:"updatedAt,omitempty"`
 	EpisodeCount     int       `json:"episodeCount"`
@@ -81,6 +82,7 @@ type CreateSeriesInput struct {
 	QualityProfileID int64         `json:"qualityProfileId"`
 	Monitored        bool          `json:"monitored"`
 	SeasonFolder     bool          `json:"seasonFolder"`
+	Network          string        `json:"network,omitempty"`
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
 }
 

@@ -8,6 +8,7 @@ import type {
   UpdateEpisodeInput,
   ListSeriesOptions,
 } from '@/types'
+import { calendarKeys } from './useCalendar'
 
 export const seriesKeys = {
   all: ['series'] as const,
@@ -41,6 +42,7 @@ export function useCreateSeries() {
     mutationFn: (data: CreateSeriesInput) => seriesApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }
@@ -51,6 +53,7 @@ export function useAddSeries() {
     mutationFn: (data: AddSeriesInput) => libraryApi.addSeries(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }
@@ -73,6 +76,7 @@ export function useDeleteSeries() {
     mutationFn: (id: number) => seriesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }

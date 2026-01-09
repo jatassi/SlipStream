@@ -35,7 +35,9 @@
       "WebFetch(domain:indexers.prowlarr.com)",
       "WebSearch",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(go install:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

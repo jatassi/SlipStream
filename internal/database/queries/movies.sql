@@ -13,8 +13,9 @@ SELECT * FROM movies WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateMovie :one
 INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, status
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, status,
+    release_date, digital_release_date, physical_release_date
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovie :one
@@ -31,6 +32,9 @@ UPDATE movies SET
     quality_profile_id = ?,
     monitored = ?,
     status = ?,
+    release_date = ?,
+    digital_release_date = ?,
+    physical_release_date = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -96,3 +100,19 @@ SELECT * FROM movies
 WHERE root_folder_id = ?
   AND (tmdb_id IS NULL OR tmdb_id = 0)
 ORDER BY sort_title;
+
+-- Calendar queries
+-- name: GetMoviesInDateRange :many
+SELECT * FROM movies
+WHERE (release_date BETWEEN ? AND ?)
+   OR (digital_release_date BETWEEN ? AND ?)
+   OR (physical_release_date BETWEEN ? AND ?)
+ORDER BY COALESCE(release_date, digital_release_date, physical_release_date);
+
+-- name: UpdateMovieReleaseDates :exec
+UPDATE movies SET
+    release_date = ?,
+    digital_release_date = ?,
+    physical_release_date = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?;

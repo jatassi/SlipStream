@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { moviesApi, libraryApi } from '@/api'
 import type { Movie, CreateMovieInput, AddMovieInput, UpdateMovieInput, ListMoviesOptions } from '@/types'
+import { calendarKeys } from './useCalendar'
 
 export const movieKeys = {
   all: ['movies'] as const,
@@ -31,6 +32,7 @@ export function useCreateMovie() {
     mutationFn: (data: CreateMovieInput) => moviesApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }
@@ -41,6 +43,7 @@ export function useAddMovie() {
     mutationFn: (data: AddMovieInput) => libraryApi.addMovie(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }
@@ -63,6 +66,7 @@ export function useDeleteMovie() {
     mutationFn: (id: number) => moviesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
     },
   })
 }

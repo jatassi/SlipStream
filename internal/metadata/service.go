@@ -327,6 +327,16 @@ func (s *Service) ClearCache() {
 	s.logger.Info().Msg("Metadata cache cleared")
 }
 
+// GetMovieReleaseDates fetches release dates for a movie by TMDB ID.
+// Returns digital (streaming/VOD) and physical (Bluray) release dates.
+func (s *Service) GetMovieReleaseDates(ctx context.Context, tmdbID int) (digital, physical string, err error) {
+	if !s.tmdb.IsConfigured() {
+		return "", "", ErrNoProvidersConfigured
+	}
+
+	return s.tmdb.GetMovieReleaseDates(ctx, tmdbID)
+}
+
 // GetTMDBImageURL returns a full TMDB image URL for a given path.
 func (s *Service) GetTMDBImageURL(path, size string) string {
 	return s.tmdb.GetImageURL(path, size)

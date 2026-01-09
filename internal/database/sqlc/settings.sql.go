@@ -216,6 +216,72 @@ func (q *Queries) DeleteSetting(ctx context.Context, key string) error {
 	return err
 }
 
+const getAllDefaults = `-- name: GetAllDefaults :many
+SELECT "key", value, updated_at FROM settings WHERE key LIKE 'default_%' ORDER BY key
+`
+
+func (q *Queries) GetAllDefaults(ctx context.Context) ([]*Setting, error) {
+	rows, err := q.db.QueryContext(ctx, getAllDefaults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Setting{}
+	for rows.Next() {
+		var i Setting
+		if err := rows.Scan(&i.Key, &i.Value, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDefaultForEntityTypeAndMediaType = `-- name: GetDefaultForEntityTypeAndMediaType :one
+SELECT "key", value, updated_at FROM settings WHERE key = ? LIMIT 1
+`
+
+// Default Settings
+func (q *Queries) GetDefaultForEntityTypeAndMediaType(ctx context.Context, key string) (*Setting, error) {
+	row := q.db.QueryRowContext(ctx, getDefaultForEntityTypeAndMediaType, key)
+	var i Setting
+	err := row.Scan(&i.Key, &i.Value, &i.UpdatedAt)
+	return &i, err
+}
+
+const getDefaultsForEntityType = `-- name: GetDefaultsForEntityType :many
+SELECT "key", value, updated_at FROM settings WHERE key LIKE ? ORDER BY key
+`
+
+func (q *Queries) GetDefaultsForEntityType(ctx context.Context, key string) ([]*Setting, error) {
+	rows, err := q.db.QueryContext(ctx, getDefaultsForEntityType, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Setting{}
+	for rows.Next() {
+		var i Setting
+		if err := rows.Scan(&i.Key, &i.Value, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDownload = `-- name: GetDownload :one
 SELECT id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE id = ? LIMIT 1
 `
@@ -648,6 +714,27 @@ func (q *Queries) ListSettings(ctx context.Context) ([]*Setting, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDefaultForEntityTypeAndMediaType = `-- name: SetDefaultForEntityTypeAndMediaType :one
+INSERT INTO settings (key, value, updated_at)
+VALUES (?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(key) DO UPDATE SET
+    value = excluded.value,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING "key", value, updated_at
+`
+
+type SetDefaultForEntityTypeAndMediaTypeParams struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (q *Queries) SetDefaultForEntityTypeAndMediaType(ctx context.Context, arg SetDefaultForEntityTypeAndMediaTypeParams) (*Setting, error) {
+	row := q.db.QueryRowContext(ctx, setDefaultForEntityTypeAndMediaType, arg.Key, arg.Value)
+	var i Setting
+	err := row.Scan(&i.Key, &i.Value, &i.UpdatedAt)
+	return &i, err
 }
 
 const setSetting = `-- name: SetSetting :one

@@ -143,15 +143,18 @@ type ErrorResponse struct {
 
 // NormalizedMovieResult is the normalized movie result returned by the client.
 type NormalizedMovieResult struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Year        int      `json:"year"`
-	Overview    string   `json:"overview"`
-	PosterURL   string   `json:"posterUrl,omitempty"`
-	BackdropURL string   `json:"backdropUrl,omitempty"`
-	ImdbID      string   `json:"imdbId,omitempty"`
-	Genres      []string `json:"genres,omitempty"`
-	Runtime     int      `json:"runtime,omitempty"`
+	ID                  int      `json:"id"`
+	Title               string   `json:"title"`
+	Year                int      `json:"year"`
+	Overview            string   `json:"overview"`
+	PosterURL           string   `json:"posterUrl,omitempty"`
+	BackdropURL         string   `json:"backdropUrl,omitempty"`
+	ImdbID              string   `json:"imdbId,omitempty"`
+	Genres              []string `json:"genres,omitempty"`
+	Runtime             int      `json:"runtime,omitempty"`
+	ReleaseDate         string   `json:"releaseDate,omitempty"`
+	DigitalReleaseDate  string   `json:"digitalReleaseDate,omitempty"`
+	PhysicalReleaseDate string   `json:"physicalReleaseDate,omitempty"`
 }
 
 // NormalizedSeriesResult is the normalized series result returned by the client.
@@ -168,6 +171,7 @@ type NormalizedSeriesResult struct {
 	Genres      []string `json:"genres,omitempty"`
 	Status      string   `json:"status,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
+	Network     string   `json:"network,omitempty"`
 }
 
 // SeasonDetails is the detailed season info from TMDB /tv/{id}/season/{number} endpoint.
@@ -212,3 +216,36 @@ type NormalizedEpisodeResult struct {
 	AirDate       string `json:"airDate,omitempty"`
 	Runtime       int    `json:"runtime,omitempty"`
 }
+
+// ReleaseDatesResponse is the response from TMDB /movie/{id}/release_dates endpoint.
+type ReleaseDatesResponse struct {
+	ID      int                    `json:"id"`
+	Results []ReleaseDatesByRegion `json:"results"`
+}
+
+// ReleaseDatesByRegion contains release dates for a specific country/region.
+type ReleaseDatesByRegion struct {
+	ISO3166_1    string        `json:"iso_3166_1"`
+	ReleaseDates []ReleaseDate `json:"release_dates"`
+}
+
+// ReleaseDate represents a single release date entry.
+// Type: 1=Premiere, 2=Theatrical (limited), 3=Theatrical, 4=Digital, 5=Physical, 6=TV
+type ReleaseDate struct {
+	Certification string `json:"certification"`
+	Descriptors   []any  `json:"descriptors"`
+	ISO639_1      string `json:"iso_639_1"`
+	Note          string `json:"note"`
+	ReleaseDate   string `json:"release_date"`
+	Type          int    `json:"type"`
+}
+
+// ReleaseDateType constants for TMDB release date types.
+const (
+	ReleaseDateTypePremiere          = 1
+	ReleaseDateTypeTheatricalLimited = 2
+	ReleaseDateTypeTheatrical        = 3
+	ReleaseDateTypeDigital           = 4
+	ReleaseDateTypePhysical          = 5
+	ReleaseDateTypeTV                = 6
+)

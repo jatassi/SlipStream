@@ -1294,34 +1294,57 @@ func (s *Service) matchUnmatchedSeries(
 
 // AddMovieInput contains fields for adding a movie with artwork.
 type AddMovieInput struct {
-	Title            string `json:"title"`
-	Year             int    `json:"year,omitempty"`
-	TmdbID           int    `json:"tmdbId,omitempty"`
-	ImdbID           string `json:"imdbId,omitempty"`
-	Overview         string `json:"overview,omitempty"`
-	Runtime          int    `json:"runtime,omitempty"`
-	Path             string `json:"path,omitempty"`
-	RootFolderID     int64  `json:"rootFolderId"`
-	QualityProfileID int64  `json:"qualityProfileId"`
-	Monitored        bool   `json:"monitored"`
-	PosterURL        string `json:"posterUrl,omitempty"`
-	BackdropURL      string `json:"backdropUrl,omitempty"`
+	Title               string `json:"title"`
+	Year                int    `json:"year,omitempty"`
+	TmdbID              int    `json:"tmdbId,omitempty"`
+	ImdbID              string `json:"imdbId,omitempty"`
+	Overview            string `json:"overview,omitempty"`
+	Runtime             int    `json:"runtime,omitempty"`
+	Path                string `json:"path,omitempty"`
+	RootFolderID        int64  `json:"rootFolderId"`
+	QualityProfileID    int64  `json:"qualityProfileId"`
+	Monitored           bool   `json:"monitored"`
+	PosterURL           string `json:"posterUrl,omitempty"`
+	BackdropURL         string `json:"backdropUrl,omitempty"`
+	ReleaseDate         string `json:"releaseDate,omitempty"`         // Digital/streaming release date
+	PhysicalReleaseDate string `json:"physicalReleaseDate,omitempty"` // Bluray release date
 }
 
 // AddMovie creates a new movie and downloads artwork in the background.
 func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Movie, error) {
+	// Fetch release dates from TMDB if we have a TMDB ID and no release dates provided
+	releaseDate := input.ReleaseDate
+	physicalReleaseDate := input.PhysicalReleaseDate
+
+	if input.TmdbID > 0 && releaseDate == "" && physicalReleaseDate == "" {
+		digital, physical, err := s.metadata.GetMovieReleaseDates(ctx, input.TmdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Msg("Failed to fetch release dates from TMDB")
+		} else {
+			releaseDate = digital // Digital release is the main release date
+			physicalReleaseDate = physical
+			s.logger.Debug().
+				Int("tmdbId", input.TmdbID).
+				Str("digital", digital).
+				Str("physical", physical).
+				Msg("Fetched release dates from TMDB")
+		}
+	}
+
 	// Create the movie
 	movie, err := s.movies.Create(ctx, movies.CreateMovieInput{
-		Title:            input.Title,
-		Year:             input.Year,
-		TmdbID:           input.TmdbID,
-		ImdbID:           input.ImdbID,
-		Overview:         input.Overview,
-		Runtime:          input.Runtime,
-		Path:             input.Path,
-		RootFolderID:     input.RootFolderID,
-		QualityProfileID: input.QualityProfileID,
-		Monitored:        input.Monitored,
+		Title:               input.Title,
+		Year:                input.Year,
+		TmdbID:              input.TmdbID,
+		ImdbID:              input.ImdbID,
+		Overview:            input.Overview,
+		Runtime:             input.Runtime,
+		Path:                input.Path,
+		RootFolderID:        input.RootFolderID,
+		QualityProfileID:    input.QualityProfileID,
+		Monitored:           input.Monitored,
+		ReleaseDate:         releaseDate,
+		PhysicalReleaseDate: physicalReleaseDate,
 	})
 	if err != nil {
 		return nil, err

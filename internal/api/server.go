@@ -18,6 +18,7 @@ import (
 	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
+	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
 	"github.com/slipstream/slipstream/internal/indexer/search"
@@ -62,6 +63,7 @@ type Server struct {
 	rateLimiter           *ratelimit.Limiter
 	grabService           *grab.Service
 	defaultsService       *defaults.Service
+	calendarService       *calendar.Service
 }
 
 // NewServer creates a new API server instance.
@@ -132,6 +134,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize defaults service
 	s.defaultsService = defaults.NewService(sqlc.New(db))
+
+	// Initialize calendar service
+	s.calendarService = calendar.NewService(db, logger)
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -336,6 +341,10 @@ func (s *Server) setupRoutes() {
 	// Defaults routes
 	defaultsHandlers := defaults.NewHandlers(s.defaultsService)
 	defaultsHandlers.RegisterRoutes(api.Group("/defaults"))
+
+	// Calendar routes
+	calendarHandlers := calendar.NewHandlers(s.calendarService)
+	calendarHandlers.RegisterRoutes(api.Group("/calendar"))
 }
 
 // Start begins listening for HTTP requests.

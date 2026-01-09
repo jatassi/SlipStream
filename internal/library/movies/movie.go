@@ -22,6 +22,10 @@ type Movie struct {
 	HasFile          bool       `json:"hasFile"`
 	SizeOnDisk       int64      `json:"sizeOnDisk,omitempty"`
 	MovieFiles       []MovieFile `json:"movieFiles,omitempty"`
+
+	// Release dates
+	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`         // Digital/streaming release date
+	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"` // Bluray release date
 }
 
 // MovieFile represents a movie file on disk.
@@ -49,6 +53,10 @@ type CreateMovieInput struct {
 	RootFolderID     int64  `json:"rootFolderId"`
 	QualityProfileID int64  `json:"qualityProfileId"`
 	Monitored        bool   `json:"monitored"`
+
+	// Release dates (YYYY-MM-DD strings)
+	ReleaseDate         string `json:"releaseDate,omitempty"`         // Digital/streaming release date
+	PhysicalReleaseDate string `json:"physicalReleaseDate,omitempty"` // Bluray release date
 }
 
 // UpdateMovieInput contains fields for updating a movie.
@@ -63,6 +71,10 @@ type UpdateMovieInput struct {
 	RootFolderID     *int64  `json:"rootFolderId,omitempty"`
 	QualityProfileID *int64  `json:"qualityProfileId,omitempty"`
 	Monitored        *bool   `json:"monitored,omitempty"`
+
+	// Release dates (YYYY-MM-DD strings)
+	ReleaseDate         *string `json:"releaseDate,omitempty"`         // Digital/streaming release date
+	PhysicalReleaseDate *string `json:"physicalReleaseDate,omitempty"` // Bluray release date
 }
 
 // ListMoviesOptions contains options for listing movies.

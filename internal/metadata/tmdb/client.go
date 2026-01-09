@@ -270,6 +270,70 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 	return &result, nil
 }
 
+// GetMovieReleaseDates fetches release dates for a movie by TMDB ID.
+// Returns digital (streaming/VOD) and physical (Bluray) release dates.
+// US release dates are preferred, with fallback to other regions.
+func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical string, err error) {
+	if !c.IsConfigured() {
+		return "", "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d/release_dates", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response ReleaseDatesResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return "", "", err
+	}
+
+	// Find US region first, fallback to first available
+	var regionData *ReleaseDatesByRegion
+	for i := range response.Results {
+		if response.Results[i].ISO3166_1 == "US" {
+			regionData = &response.Results[i]
+			break
+		}
+	}
+	if regionData == nil && len(response.Results) > 0 {
+		regionData = &response.Results[0]
+	}
+
+	if regionData == nil {
+		return "", "", nil
+	}
+
+	// Extract digital and physical release dates
+	for _, rd := range regionData.ReleaseDates {
+		dateStr := ""
+		if len(rd.ReleaseDate) >= 10 {
+			dateStr = rd.ReleaseDate[:10] // YYYY-MM-DD
+		}
+		if dateStr == "" {
+			continue
+		}
+
+		switch rd.Type {
+		case ReleaseDateTypeDigital:
+			if digital == "" {
+				digital = dateStr
+			}
+		case ReleaseDateTypePhysical:
+			if physical == "" {
+				physical = dateStr
+			}
+		}
+	}
+
+	c.logger.Debug().
+		Int("id", id).
+		Str("digital", digital).
+		Str("physical", physical).
+		Msg("Got movie release dates")
+
+	return digital, physical, nil
+}
+
 // GetSeasonDetails gets detailed info for a specific season including all episodes.
 func (c *Client) GetSeasonDetails(ctx context.Context, seriesID, seasonNumber int) (*NormalizedSeasonResult, error) {
 	if !c.IsConfigured() {
@@ -432,13 +496,14 @@ func (c *Client) movieDetailsToResult(details MovieDetails) NormalizedMovieResul
 	}
 
 	result := NormalizedMovieResult{
-		ID:       details.ID,
-		Title:    details.Title,
-		Year:     year,
-		Overview: details.Overview,
-		Runtime:  details.Runtime,
-		ImdbID:   details.ImdbID,
-		Genres:   genres,
+		ID:          details.ID,
+		Title:       details.Title,
+		Year:        year,
+		Overview:    details.Overview,
+		Runtime:     details.Runtime,
+		ImdbID:      details.ImdbID,
+		Genres:      genres,
+		ReleaseDate: details.ReleaseDate, // Basic release date from details
 	}
 
 	if details.PosterPath != nil {
@@ -528,6 +593,12 @@ func (c *Client) tvDetailsToResult(details TVDetails) NormalizedSeriesResult {
 		status = "upcoming"
 	}
 
+	// Get primary network (first in list)
+	network := ""
+	if len(details.Networks) > 0 {
+		network = details.Networks[0].Name
+	}
+
 	result := NormalizedSeriesResult{
 		ID:       details.ID,
 		TmdbID:   details.ID,
@@ -536,6 +607,7 @@ func (c *Client) tvDetailsToResult(details TVDetails) NormalizedSeriesResult {
 		Overview: details.Overview,
 		Status:   status,
 		Genres:   genres,
+		Network:  network,
 	}
 
 	if details.PosterPath != nil {

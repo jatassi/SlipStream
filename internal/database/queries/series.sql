@@ -13,8 +13,8 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, status
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -33,6 +33,7 @@ UPDATE series SET
     monitored = ?,
     season_folder = ?,
     status = ?,
+    network = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -202,3 +203,25 @@ UPDATE seasons SET
     poster_url = ?
 WHERE id = ?
 RETURNING *;
+
+-- Calendar queries
+-- name: GetEpisodesInDateRange :many
+SELECT
+    e.id,
+    e.series_id,
+    e.season_number,
+    e.episode_number,
+    e.title,
+    e.overview,
+    e.air_date,
+    e.monitored,
+    s.title as series_title,
+    s.network,
+    s.tmdb_id as series_tmdb_id
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+WHERE e.air_date BETWEEN ? AND ?
+ORDER BY e.air_date, s.title, e.season_number, e.episode_number;
+
+-- name: UpdateSeriesNetwork :exec
+UPDATE series SET network = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;

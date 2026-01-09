@@ -176,6 +176,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		Monitored:        boolToInt(input.Monitored),
 		SeasonFolder:     boolToInt(input.SeasonFolder),
 		Status:           "continuing",
+		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create series: %w", err)
@@ -619,6 +620,9 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	}
 	if row.UpdatedAt.Valid {
 		series.UpdatedAt = row.UpdatedAt.Time
+	}
+	if row.Network.Valid {
+		series.Network = row.Network.String
 	}
 
 	return series
