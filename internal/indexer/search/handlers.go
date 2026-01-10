@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -8,17 +9,25 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/library/quality"
 )
+
+// QualityService provides quality profile operations for search handlers.
+type QualityService interface {
+	Get(ctx context.Context, id int64) (*quality.Profile, error)
+}
 
 // Handlers provides HTTP handlers for search operations.
 type Handlers struct {
-	service *Service
+	service        *Service
+	qualityService QualityService
 }
 
 // NewHandlers creates new search handlers.
-func NewHandlers(service *Service) *Handlers {
+func NewHandlers(service *Service, qualityService QualityService) *Handlers {
 	return &Handlers{
-		service: service,
+		service:        service,
+		qualityService: qualityService,
 	}
 }
 
@@ -31,22 +40,26 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 }
 
 // SearchRequest represents a search request.
+// All torrent search endpoints require qualityProfileId for scoring.
 type SearchRequest struct {
-	Query      string `query:"query"`
-	Type       string `query:"type"`       // search, tvsearch, movie
-	Categories string `query:"categories"` // comma-separated category IDs
-	ImdbID     string `query:"imdbId"`
-	TmdbID     int    `query:"tmdbId"`
-	TvdbID     int    `query:"tvdbId"`
-	Season     int    `query:"season"`
-	Episode    int    `query:"episode"`
-	Year       int    `query:"year"`
-	Limit      int    `query:"limit"`
-	Offset     int    `query:"offset"`
+	Query            string `query:"query"`
+	Type             string `query:"type"`       // search, tvsearch, movie
+	Categories       string `query:"categories"` // comma-separated category IDs
+	ImdbID           string `query:"imdbId"`
+	TmdbID           int    `query:"tmdbId"`
+	TvdbID           int    `query:"tvdbId"`
+	Season           int    `query:"season"`
+	Episode          int    `query:"episode"`
+	Year             int    `query:"year"`
+	Limit            int    `query:"limit"`
+	Offset           int    `query:"offset"`
+	QualityProfileID int64  `query:"qualityProfileId"`
 }
 
 // Search handles general search requests.
 // GET /api/v1/search?query=...&type=...&categories=...
+// Note: This endpoint returns basic ReleaseInfo without torrent-specific fields or scoring.
+// For torrent searches with scoring, use /movie, /tv, or /torrents endpoints.
 func (h *Handlers) Search(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -67,9 +80,9 @@ func (h *Handlers) Search(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// SearchMovie handles movie-specific search requests.
-// GET /api/v1/search/movie?query=...&tmdbId=...&imdbId=...&year=...
-// Returns TorrentSearchResult with seeders/leechers info for torrent indexers.
+// SearchMovie handles movie-specific search requests with desirability scoring.
+// GET /api/v1/search/movie?qualityProfileId=...&query=...&tmdbId=...&imdbId=...&year=...
+// Returns TorrentSearchResult with scores populated, sorted by score descending.
 func (h *Handlers) SearchMovie(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -78,10 +91,30 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 		})
 	}
 
+	// Quality profile is required for scoring
+	if req.QualityProfileID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "qualityProfileId is required",
+		})
+	}
+
+	// Fetch the quality profile
+	profile, err := h.qualityService.Get(c.Request().Context(), req.QualityProfileID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "Quality profile not found",
+		})
+	}
+
 	criteria := h.toCriteria(req)
 	criteria.Type = "movie"
 
-	result, err := h.service.SearchTorrents(c.Request().Context(), criteria)
+	params := ScoredSearchParams{
+		QualityProfile: profile,
+		SearchYear:     req.Year,
+	}
+
+	result, err := h.service.SearchTorrents(c.Request().Context(), criteria, params)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -91,9 +124,9 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// SearchTV handles TV-specific search requests.
-// GET /api/v1/search/tv?query=...&tvdbId=...&season=...&episode=...
-// Returns TorrentSearchResult with seeders/leechers info for torrent indexers.
+// SearchTV handles TV-specific search requests with desirability scoring.
+// GET /api/v1/search/tv?qualityProfileId=...&query=...&tvdbId=...&season=...&episode=...
+// Returns TorrentSearchResult with scores populated, sorted by score descending.
 func (h *Handlers) SearchTV(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -102,10 +135,31 @@ func (h *Handlers) SearchTV(c echo.Context) error {
 		})
 	}
 
+	// Quality profile is required for scoring
+	if req.QualityProfileID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "qualityProfileId is required",
+		})
+	}
+
+	// Fetch the quality profile
+	profile, err := h.qualityService.Get(c.Request().Context(), req.QualityProfileID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "Quality profile not found",
+		})
+	}
+
 	criteria := h.toCriteria(req)
 	criteria.Type = "tvsearch"
 
-	result, err := h.service.SearchTorrents(c.Request().Context(), criteria)
+	params := ScoredSearchParams{
+		QualityProfile: profile,
+		SearchSeason:   req.Season,
+		SearchEpisode:  req.Episode,
+	}
+
+	result, err := h.service.SearchTorrents(c.Request().Context(), criteria, params)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -115,8 +169,9 @@ func (h *Handlers) SearchTV(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// SearchTorrents handles torrent-specific search requests with torrent info.
-// GET /api/v1/search/torrents?query=...&type=...
+// SearchTorrents handles torrent-specific search requests with desirability scoring.
+// GET /api/v1/search/torrents?qualityProfileId=...&query=...&type=...
+// Returns TorrentSearchResult with scores populated, sorted by score descending.
 func (h *Handlers) SearchTorrents(c echo.Context) error {
 	var req SearchRequest
 	if err := c.Bind(&req); err != nil {
@@ -125,9 +180,31 @@ func (h *Handlers) SearchTorrents(c echo.Context) error {
 		})
 	}
 
+	// Quality profile is required for scoring
+	if req.QualityProfileID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "qualityProfileId is required",
+		})
+	}
+
+	// Fetch the quality profile
+	profile, err := h.qualityService.Get(c.Request().Context(), req.QualityProfileID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "Quality profile not found",
+		})
+	}
+
 	criteria := h.toCriteria(req)
 
-	result, err := h.service.SearchTorrents(c.Request().Context(), criteria)
+	params := ScoredSearchParams{
+		QualityProfile: profile,
+		SearchYear:     req.Year,
+		SearchSeason:   req.Season,
+		SearchEpisode:  req.Episode,
+	}
+
+	result, err := h.service.SearchTorrents(c.Request().Context(), criteria, params)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),

@@ -309,7 +309,8 @@ SELECT
     s.tvdb_id as series_tvdb_id,
     s.tmdb_id as series_tmdb_id,
     s.imdb_id as series_imdb_id,
-    s.year as series_year
+    s.year as series_year,
+    s.quality_profile_id as series_quality_profile_id
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 LEFT JOIN episode_files ef ON e.id = ef.episode_id

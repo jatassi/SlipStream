@@ -9,7 +9,7 @@ export interface Movie {
   runtime?: number
   path?: string
   rootFolderId?: number
-  qualityProfileId?: number
+  qualityProfileId: number
   monitored: boolean
   status: 'missing' | 'downloading' | 'available'
   addedAt: string

@@ -1,6 +1,7 @@
 import { apiFetch } from './client'
 import type {
   SearchCriteria,
+  ScoredSearchCriteria,
   SearchResult,
   TorrentSearchResult,
   GrabRequest,
@@ -30,22 +31,30 @@ function buildSearchQuery(criteria: SearchCriteria): string {
   return params.toString()
 }
 
+// Build query string for scored search criteria (includes qualityProfileId)
+function buildScoredSearchQuery(criteria: ScoredSearchCriteria): string {
+  const baseQuery = buildSearchQuery(criteria)
+  const params = new URLSearchParams(baseQuery)
+  params.set('qualityProfileId', String(criteria.qualityProfileId))
+  return params.toString()
+}
+
 export const searchApi = {
-  // General search
+  // General search (basic ReleaseInfo, no scoring)
   search: (criteria: SearchCriteria) =>
     apiFetch<SearchResult>(`/search?${buildSearchQuery(criteria)}`),
 
-  // Movie-specific search (returns torrent info with seeders/leechers)
-  searchMovie: (criteria: SearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/movie?${buildSearchQuery(criteria)}`),
+  // Movie-specific search with scoring (returns scored TorrentInfo)
+  searchMovie: (criteria: ScoredSearchCriteria) =>
+    apiFetch<TorrentSearchResult>(`/search/movie?${buildScoredSearchQuery(criteria)}`),
 
-  // TV-specific search (returns torrent info with seeders/leechers)
-  searchTV: (criteria: SearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/tv?${buildSearchQuery(criteria)}`),
+  // TV-specific search with scoring (returns scored TorrentInfo)
+  searchTV: (criteria: ScoredSearchCriteria) =>
+    apiFetch<TorrentSearchResult>(`/search/tv?${buildScoredSearchQuery(criteria)}`),
 
-  // Torrent search with torrent-specific info
-  searchTorrents: (criteria: SearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/torrents?${buildSearchQuery(criteria)}`),
+  // Torrent search with scoring (returns scored TorrentInfo)
+  searchTorrents: (criteria: ScoredSearchCriteria) =>
+    apiFetch<TorrentSearchResult>(`/search/torrents?${buildScoredSearchQuery(criteria)}`),
 
   // Grab a release
   grab: (request: GrabRequest) =>

@@ -7,6 +7,7 @@ export interface MissingMovie {
   releaseDate?: string
   physicalReleaseDate?: string
   path?: string
+  qualityProfileId: number
 }
 
 export interface MissingEpisode {
@@ -35,6 +36,7 @@ export interface MissingSeries {
   tvdbId?: number
   tmdbId?: number
   imdbId?: string
+  qualityProfileId: number
   missingCount: number
   missingSeasons: MissingSeason[]
 }

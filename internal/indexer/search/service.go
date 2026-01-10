@@ -12,8 +12,10 @@ import (
 
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
+	"github.com/slipstream/slipstream/internal/indexer/scoring"
 	"github.com/slipstream/slipstream/internal/indexer/status"
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/library/quality"
 )
 
 // Broadcaster interface for sending events to clients.
@@ -164,8 +166,9 @@ func (s *Service) broadcastSearchCompleted(criteria types.SearchCriteria, result
 	})
 }
 
-// SearchTorrents executes a search across all enabled torrent indexers and returns torrent-specific results.
-func (s *Service) SearchTorrents(ctx context.Context, criteria types.SearchCriteria) (*TorrentSearchResult, error) {
+// searchTorrentsInternal executes a search across all enabled torrent indexers and returns torrent-specific results.
+// This is an internal method; use SearchTorrents for scored results.
+func (s *Service) searchTorrentsInternal(ctx context.Context, criteria types.SearchCriteria) (*TorrentSearchResult, error) {
 	// Get enabled torrent indexers
 	indexers, err := s.indexerService.ListEnabledByProtocol(ctx, indexer.ProtocolTorrent)
 	if err != nil {
@@ -541,5 +544,69 @@ func (s *Service) searchIndexerTorrents(ctx context.Context, def *types.IndexerD
 		Msg("Torrent search completed for indexer")
 
 	return result
+}
+
+// ScoredSearchParams contains parameters for scored search operations.
+type ScoredSearchParams struct {
+	QualityProfile *quality.Profile
+	SearchYear     int // Expected year for movies
+	SearchSeason   int // Expected season for TV
+	SearchEpisode  int // Expected episode for TV
+}
+
+// SearchTorrents performs a torrent search and returns results scored by desirability.
+// Results are sorted by score descending (highest score first).
+// All torrent searches include scoring - unscored searches are not supported.
+func (s *Service) SearchTorrents(ctx context.Context, criteria types.SearchCriteria, params ScoredSearchParams) (*TorrentSearchResult, error) {
+	// First, perform the internal search
+	result, err := s.searchTorrentsInternal(ctx, criteria)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Releases) == 0 {
+		return result, nil
+	}
+
+	// Build indexer priority map
+	indexerPriorities, err := s.getIndexerPriorities(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to get indexer priorities, using defaults")
+		indexerPriorities = make(map[int64]int)
+	}
+
+	// Create scoring context
+	scoringCtx := scoring.ScoringContext{
+		QualityProfile:    params.QualityProfile,
+		SearchYear:        params.SearchYear,
+		SearchSeason:      params.SearchSeason,
+		SearchEpisode:     params.SearchEpisode,
+		IndexerPriorities: indexerPriorities,
+		Now:               time.Now(),
+	}
+
+	// Score and sort torrents
+	scorer := scoring.NewDefaultScorer()
+	scorer.ScoreTorrents(result.Releases, scoringCtx)
+
+	s.logger.Debug().
+		Int("totalResults", len(result.Releases)).
+		Msg("Scored and sorted torrent search results")
+
+	return result, nil
+}
+
+// getIndexerPriorities returns a map of indexer ID to priority.
+func (s *Service) getIndexerPriorities(ctx context.Context) (map[int64]int, error) {
+	indexers, err := s.indexerService.ListEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	priorities := make(map[int64]int, len(indexers))
+	for _, idx := range indexers {
+		priorities[idx.ID] = idx.Priority
+	}
+	return priorities, nil
 }
 

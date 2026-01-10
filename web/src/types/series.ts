@@ -10,7 +10,7 @@ export interface Series {
   runtime?: number
   path?: string
   rootFolderId?: number
-  qualityProfileId?: number
+  qualityProfileId: number
   monitored: boolean
   seasonFolder: boolean
   status: 'continuing' | 'ended' | 'upcoming'

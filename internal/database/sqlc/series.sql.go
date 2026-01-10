@@ -1044,7 +1044,8 @@ SELECT
     s.tvdb_id as series_tvdb_id,
     s.tmdb_id as series_tmdb_id,
     s.imdb_id as series_imdb_id,
-    s.year as series_year
+    s.year as series_year,
+    s.quality_profile_id as series_quality_profile_id
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
@@ -1053,20 +1054,21 @@ ORDER BY e.air_date DESC
 `
 
 type ListMissingEpisodesRow struct {
-	ID            int64          `json:"id"`
-	SeriesID      int64          `json:"series_id"`
-	SeasonNumber  int64          `json:"season_number"`
-	EpisodeNumber int64          `json:"episode_number"`
-	Title         sql.NullString `json:"title"`
-	Overview      sql.NullString `json:"overview"`
-	AirDate       sql.NullTime   `json:"air_date"`
-	Monitored     int64          `json:"monitored"`
-	Released      int64          `json:"released"`
-	SeriesTitle   string         `json:"series_title"`
-	SeriesTvdbID  sql.NullInt64  `json:"series_tvdb_id"`
-	SeriesTmdbID  sql.NullInt64  `json:"series_tmdb_id"`
-	SeriesImdbID  sql.NullString `json:"series_imdb_id"`
-	SeriesYear    sql.NullInt64  `json:"series_year"`
+	ID                     int64          `json:"id"`
+	SeriesID               int64          `json:"series_id"`
+	SeasonNumber           int64          `json:"season_number"`
+	EpisodeNumber          int64          `json:"episode_number"`
+	Title                  sql.NullString `json:"title"`
+	Overview               sql.NullString `json:"overview"`
+	AirDate                sql.NullTime   `json:"air_date"`
+	Monitored              int64          `json:"monitored"`
+	Released               int64          `json:"released"`
+	SeriesTitle            string         `json:"series_title"`
+	SeriesTvdbID           sql.NullInt64  `json:"series_tvdb_id"`
+	SeriesTmdbID           sql.NullInt64  `json:"series_tmdb_id"`
+	SeriesImdbID           sql.NullString `json:"series_imdb_id"`
+	SeriesYear             sql.NullInt64  `json:"series_year"`
+	SeriesQualityProfileID sql.NullInt64  `json:"series_quality_profile_id"`
 }
 
 // Missing episodes queries
@@ -1094,6 +1096,7 @@ func (q *Queries) ListMissingEpisodes(ctx context.Context) ([]*ListMissingEpisod
 			&i.SeriesTmdbID,
 			&i.SeriesImdbID,
 			&i.SeriesYear,
+			&i.SeriesQualityProfileID,
 		); err != nil {
 			return nil, err
 		}

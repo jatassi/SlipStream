@@ -18,6 +18,7 @@ interface MissingSeriesListProps {
 }
 
 interface SearchContext {
+  qualityProfileId?: number
   seriesId?: number
   seriesTitle?: string
   tvdbId?: number
@@ -56,6 +57,7 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
 
   const handleSeriesSearch = (s: MissingSeries) => {
     setSearchContext({
+      qualityProfileId: s.qualityProfileId,
       seriesId: s.id,
       seriesTitle: s.title,
       tvdbId: s.tvdbId,
@@ -67,6 +69,7 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
 
   const handleSeasonSearch = (s: MissingSeries, season: MissingSeason) => {
     setSearchContext({
+      qualityProfileId: s.qualityProfileId,
       seriesId: s.id,
       seriesTitle: s.title,
       tvdbId: s.tvdbId,
@@ -79,6 +82,7 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
 
   const handleEpisodeSearch = (s: MissingSeries, episode: MissingEpisode) => {
     setSearchContext({
+      qualityProfileId: s.qualityProfileId,
       seriesId: s.id,
       seriesTitle: s.title,
       tvdbId: s.tvdbId,
@@ -297,6 +301,7 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
       <SearchModal
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}
+        qualityProfileId={searchContext.qualityProfileId ?? 0}
         seriesId={searchContext.seriesId}
         seriesTitle={searchContext.seriesTitle}
         tvdbId={searchContext.tvdbId}

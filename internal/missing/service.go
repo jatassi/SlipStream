@@ -37,6 +37,7 @@ type MissingMovie struct {
 	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`
 	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"`
 	Path                string     `json:"path,omitempty"`
+	QualityProfileID    int64      `json:"qualityProfileId"`
 }
 
 // MissingEpisode represents an episode that is released but has no file.
@@ -62,14 +63,15 @@ type MissingSeason struct {
 
 // MissingSeries groups missing episodes by series with hierarchical structure.
 type MissingSeries struct {
-	ID             int64            `json:"id"`
-	Title          string           `json:"title"`
-	Year           int              `json:"year,omitempty"`
-	TvdbID         int              `json:"tvdbId,omitempty"`
-	TmdbID         int              `json:"tmdbId,omitempty"`
-	ImdbID         string           `json:"imdbId,omitempty"`
-	MissingCount   int              `json:"missingCount"`
-	MissingSeasons []*MissingSeason `json:"missingSeasons"`
+	ID               int64            `json:"id"`
+	Title            string           `json:"title"`
+	Year             int              `json:"year,omitempty"`
+	TvdbID           int              `json:"tvdbId,omitempty"`
+	TmdbID           int              `json:"tmdbId,omitempty"`
+	ImdbID           string           `json:"imdbId,omitempty"`
+	QualityProfileID int64            `json:"qualityProfileId"`
+	MissingCount     int              `json:"missingCount"`
+	MissingSeasons   []*MissingSeason `json:"missingSeasons"`
 }
 
 // MissingCounts returns counts for nav badge.
@@ -127,6 +129,9 @@ func (s *Service) GetMissingSeries(ctx context.Context) ([]*MissingSeries, error
 			}
 			if row.SeriesImdbID.Valid {
 				series.ImdbID = row.SeriesImdbID.String
+			}
+			if row.SeriesQualityProfileID.Valid {
+				series.QualityProfileID = row.SeriesQualityProfileID.Int64
 			}
 			seriesMap[seriesID] = series
 			seasonMap[seriesID] = make(map[int]*MissingSeason)
@@ -209,6 +214,9 @@ func (s *Service) rowToMissingMovie(row *sqlc.Movie) *MissingMovie {
 	}
 	if row.PhysicalReleaseDate.Valid {
 		m.PhysicalReleaseDate = &row.PhysicalReleaseDate.Time
+	}
+	if row.QualityProfileID.Valid {
+		m.QualityProfileID = row.QualityProfileID.Int64
 	}
 
 	return m

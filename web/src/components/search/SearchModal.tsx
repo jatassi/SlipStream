@@ -23,11 +23,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useIndexerMovieSearch, useIndexerTVSearch, useGrab } from '@/hooks'
 import { formatBytes, formatRelativeTime } from '@/lib/formatters'
 import { toast } from 'sonner'
-import type { TorrentInfo, SearchCriteria } from '@/types'
+import type { TorrentInfo, ScoredSearchCriteria } from '@/types'
 
 interface SearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Required for scoring
+  qualityProfileId: number
   // Movie search props
   movieId?: number
   movieTitle?: string
@@ -42,7 +44,7 @@ interface SearchModalProps {
   episode?: number
 }
 
-type SortColumn = 'title' | 'quality' | 'indexer' | 'size' | 'age' | 'peers'
+type SortColumn = 'score' | 'title' | 'quality' | 'indexer' | 'size' | 'age' | 'peers'
 type SortDirection = 'asc' | 'desc'
 
 // Resolution order for quality sorting (higher = better)
@@ -57,6 +59,7 @@ const RESOLUTION_ORDER: Record<string, number> = {
 export function SearchModal({
   open,
   onOpenChange,
+  qualityProfileId,
   movieId,
   movieTitle,
   tmdbId,
@@ -70,16 +73,17 @@ export function SearchModal({
 }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [searchEnabled, setSearchEnabled] = useState(false)
-  const [sortColumn, setSortColumn] = useState<SortColumn>('peers')
+  const [sortColumn, setSortColumn] = useState<SortColumn>('score')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
   const isMovie = !!movieId || !!tmdbId
   const mediaTitle = movieTitle || seriesTitle || ''
   const mediaId = movieId || seriesId
 
-  // Build search criteria based on what we have
-  const criteria: SearchCriteria = useMemo(() => ({
+  // Build search criteria based on what we have (requires qualityProfileId for scoring)
+  const criteria: ScoredSearchCriteria = useMemo(() => ({
     query: query || mediaTitle,
+    qualityProfileId: qualityProfileId,
     tmdbId: tmdbId,
     imdbId: imdbId,
     tvdbId: tvdbId,
@@ -87,7 +91,7 @@ export function SearchModal({
     episode: episode,
     year: year,
     limit: 100,
-  }), [query, mediaTitle, tmdbId, imdbId, tvdbId, season, episode, year])
+  }), [query, mediaTitle, qualityProfileId, tmdbId, imdbId, tvdbId, season, episode, year])
 
   // Use appropriate search hook
   const movieSearch = useIndexerMovieSearch(criteria, { enabled: searchEnabled && isMovie })
@@ -103,7 +107,7 @@ export function SearchModal({
     if (open) {
       setQuery('')
       setSearchEnabled(true)
-      setSortColumn('peers')
+      setSortColumn('score')
       setSortDirection('desc')
     } else {
       setSearchEnabled(false)
@@ -166,6 +170,9 @@ export function SearchModal({
     sorted.sort((a, b) => {
       let comparison = 0
       switch (sortColumn) {
+        case 'score':
+          comparison = (a.score ?? 0) - (b.score ?? 0)
+          break
         case 'title':
           comparison = a.title.localeCompare(b.title)
           break
@@ -285,6 +292,15 @@ export function SearchModal({
                       <SortIcon column="title" />
                     </button>
                   </TableHead>
+                  <TableHead className="w-[70px]">
+                    <button
+                      className="flex items-center hover:text-foreground transition-colors"
+                      onClick={() => handleSort('score')}
+                    >
+                      Score
+                      <SortIcon column="score" />
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[100px]">
                     <button
                       className="flex items-center hover:text-foreground transition-colors"
@@ -354,6 +370,9 @@ export function SearchModal({
                           )}
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">{release.normalizedScore ?? '-'}</span>
                     </TableCell>
                     <TableCell>
                       {release.quality ? (

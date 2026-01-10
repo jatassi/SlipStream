@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { searchApi } from '@/api/search'
 import type {
   SearchCriteria,
+  ScoredSearchCriteria,
   GrabRequest,
   BulkGrabRequest,
 } from '@/types'
@@ -10,14 +11,14 @@ import type {
 export const searchKeys = {
   all: ['search'] as const,
   results: (criteria: SearchCriteria) => [...searchKeys.all, 'results', criteria] as const,
-  movieResults: (criteria: SearchCriteria) => [...searchKeys.all, 'movie', criteria] as const,
-  tvResults: (criteria: SearchCriteria) => [...searchKeys.all, 'tv', criteria] as const,
-  torrentResults: (criteria: SearchCriteria) => [...searchKeys.all, 'torrents', criteria] as const,
+  movieResults: (criteria: ScoredSearchCriteria) => [...searchKeys.all, 'movie', criteria] as const,
+  tvResults: (criteria: ScoredSearchCriteria) => [...searchKeys.all, 'tv', criteria] as const,
+  torrentResults: (criteria: ScoredSearchCriteria) => [...searchKeys.all, 'torrents', criteria] as const,
   grabHistory: (limit?: number, offset?: number) => [...searchKeys.all, 'history', { limit, offset }] as const,
   indexerStatuses: () => [...searchKeys.all, 'statuses'] as const,
 }
 
-// General search hook
+// General search hook (basic ReleaseInfo, no scoring)
 export function useSearch(criteria: SearchCriteria, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: searchKeys.results(criteria),
@@ -27,32 +28,32 @@ export function useSearch(criteria: SearchCriteria, options?: { enabled?: boolea
   })
 }
 
-// Movie search hook (searches indexers for movie releases)
-export function useIndexerMovieSearch(criteria: SearchCriteria, options?: { enabled?: boolean }) {
+// Movie search hook with scoring (searches indexers for movie releases)
+export function useIndexerMovieSearch(criteria: ScoredSearchCriteria, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: searchKeys.movieResults(criteria),
     queryFn: () => searchApi.searchMovie(criteria),
-    enabled: options?.enabled ?? (!!criteria.query || !!criteria.tmdbId || !!criteria.imdbId),
+    enabled: options?.enabled ?? (!!criteria.qualityProfileId && (!!criteria.query || !!criteria.tmdbId || !!criteria.imdbId)),
     staleTime: 30000,
   })
 }
 
-// TV search hook (searches indexers for TV releases)
-export function useIndexerTVSearch(criteria: SearchCriteria, options?: { enabled?: boolean }) {
+// TV search hook with scoring (searches indexers for TV releases)
+export function useIndexerTVSearch(criteria: ScoredSearchCriteria, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: searchKeys.tvResults(criteria),
     queryFn: () => searchApi.searchTV(criteria),
-    enabled: options?.enabled ?? (!!criteria.query || !!criteria.tvdbId),
+    enabled: options?.enabled ?? (!!criteria.qualityProfileId && (!!criteria.query || !!criteria.tvdbId)),
     staleTime: 30000,
   })
 }
 
-// Torrent search hook
-export function useSearchTorrents(criteria: SearchCriteria, options?: { enabled?: boolean }) {
+// Torrent search hook with scoring
+export function useSearchTorrents(criteria: ScoredSearchCriteria, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: searchKeys.torrentResults(criteria),
     queryFn: () => searchApi.searchTorrents(criteria),
-    enabled: options?.enabled ?? (!!criteria.query || !!criteria.tmdbId || !!criteria.tvdbId || !!criteria.imdbId),
+    enabled: options?.enabled ?? (!!criteria.qualityProfileId && (!!criteria.query || !!criteria.tmdbId || !!criteria.tvdbId || !!criteria.imdbId)),
     staleTime: 30000,
   })
 }

@@ -350,6 +350,7 @@ export function SeriesDetailPage() {
       <SearchModal
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}
+        qualityProfileId={series.qualityProfileId}
         seriesId={series.id}
         seriesTitle={series.title}
         tvdbId={series.tvdbId}

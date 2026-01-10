@@ -356,8 +356,8 @@ func (s *Server) setupRoutes() {
 	api.GET("/history", s.getHistory)
 	api.GET("/history/indexer", s.getIndexerHistory)
 
-	// Search routes
-	searchHandlers := search.NewHandlers(s.searchService)
+	// Search routes (with quality service for scored search endpoints)
+	searchHandlers := search.NewHandlers(s.searchService, s.qualityService)
 	searchHandlers.RegisterRoutes(api.Group("/search"))
 
 	// Grab routes (under /search for grabbing search results)

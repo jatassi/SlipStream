@@ -98,6 +98,17 @@ type ReleaseInfo struct {
 	Resolution int    `json:"resolution,omitempty"` // 720, 1080, 2160
 }
 
+// ScoreBreakdown provides detailed scoring information for a release.
+type ScoreBreakdown struct {
+	QualityScore float64 `json:"qualityScore"`
+	QualityID    int     `json:"qualityId,omitempty"`
+	QualityName  string  `json:"qualityName,omitempty"`
+	HealthScore  float64 `json:"healthScore"`
+	IndexerScore float64 `json:"indexerScore"`
+	MatchScore   float64 `json:"matchScore"`
+	AgeScore     float64 `json:"ageScore"`
+}
+
 // TorrentInfo extends ReleaseInfo with torrent-specific fields.
 type TorrentInfo struct {
 	ReleaseInfo
@@ -109,6 +120,11 @@ type TorrentInfo struct {
 	MinimumSeedTime      int64   `json:"minimumSeedTime,omitempty"` // seconds
 	DownloadVolumeFactor float64 `json:"downloadVolumeFactor"`      // 0 = freeleech
 	UploadVolumeFactor   float64 `json:"uploadVolumeFactor"`        // 2 = double upload
+
+	// Scoring fields (populated by scored search endpoints)
+	Score           float64         `json:"score,omitempty"`
+	NormalizedScore int             `json:"normalizedScore,omitempty"` // 0-100 for UI display
+	ScoreBreakdown  *ScoreBreakdown `json:"scoreBreakdown,omitempty"`
 }
 
 // UsenetInfo extends ReleaseInfo with usenet-specific fields.

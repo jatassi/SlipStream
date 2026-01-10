@@ -304,6 +304,7 @@ export function MovieDetailPage() {
       <SearchModal
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}
+        qualityProfileId={movie.qualityProfileId}
         movieId={movie.id}
         movieTitle={movie.title}
         tmdbId={movie.tmdbId}

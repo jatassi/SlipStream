@@ -102,6 +102,7 @@ export function MissingMoviesList({ movies }: MissingMoviesListProps) {
         <SearchModal
           open={searchModalOpen}
           onOpenChange={setSearchModalOpen}
+          qualityProfileId={selectedMovie.qualityProfileId}
           movieId={selectedMovie.id}
           movieTitle={selectedMovie.title}
           tmdbId={selectedMovie.tmdbId}

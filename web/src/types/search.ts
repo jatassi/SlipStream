@@ -13,6 +13,11 @@ export interface SearchCriteria {
   offset?: number
 }
 
+// Extended search criteria for scored search endpoints
+export interface ScoredSearchCriteria extends SearchCriteria {
+  qualityProfileId: number
+}
+
 // Re-export Protocol from indexer
 import type { Protocol } from './indexer'
 export type { Protocol }
@@ -39,6 +44,17 @@ export interface ReleaseInfo {
   resolution?: number // 720, 1080, 2160
 }
 
+// Score breakdown for desirability scoring
+export interface ScoreBreakdown {
+  qualityScore: number
+  qualityId?: number
+  qualityName?: string
+  healthScore: number
+  indexerScore: number
+  matchScore: number
+  ageScore: number
+}
+
 // Torrent-specific release info
 export interface TorrentInfo extends ReleaseInfo {
   seeders: number
@@ -49,6 +65,10 @@ export interface TorrentInfo extends ReleaseInfo {
   minimumSeedTime?: number
   downloadVolumeFactor: number
   uploadVolumeFactor: number
+  // Scoring fields (populated by all torrent search endpoints)
+  score?: number
+  normalizedScore?: number
+  scoreBreakdown?: ScoreBreakdown
 }
 
 // Usenet-specific release info
