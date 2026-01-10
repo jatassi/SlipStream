@@ -17,5 +17,5 @@
 [ ] Update missing page
 [ ] Config backup & restore
 [ ] Update mechanism
-[ ] Refactor & Security Audit
+[ ] Simplification, Refactor, Enhanced Test Suite, Security Audit, Production-Readiness
 [ ] Onboarding wizard
