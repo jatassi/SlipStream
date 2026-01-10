@@ -20,6 +20,8 @@ export interface Series {
   episodeFileCount: number
   sizeOnDisk?: number
   seasons?: Season[]
+  released: boolean // True if all seasons are released
+  availabilityStatus: string // Badge text: "Available", "Season X Airing", "Seasons 1-N Available", or "Unreleased"
 }
 
 export interface Season {
@@ -33,6 +35,7 @@ export interface Season {
   episodeFileCount: number
   sizeOnDisk?: number
   episodes?: Episode[]
+  released: boolean // True if all episodes in season have aired
 }
 
 export interface Episode {
@@ -46,6 +49,7 @@ export interface Episode {
   monitored: boolean
   hasFile: boolean
   episodeFile?: EpisodeFile
+  released: boolean // True if air date is in the past
 }
 
 export interface EpisodeFile {

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { PosterImage } from '@/components/media/PosterImage'
 import { StatusBadge } from '@/components/media/StatusBadge'
+import { MovieAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import type { Movie } from '@/types'
 
 interface MovieCardProps {
@@ -26,8 +27,9 @@ export function MovieCard({ movie, className }: MovieCardProps) {
           type="movie"
           className="absolute inset-0"
         />
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
           <StatusBadge status={movie.status} />
+          <MovieAvailabilityBadge movie={movie} />
         </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
           <h3 className="font-semibold text-white truncate">{movie.title}</h3>

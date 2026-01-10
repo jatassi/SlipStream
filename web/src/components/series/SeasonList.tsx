@@ -9,6 +9,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { SeasonAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { EpisodeTable } from './EpisodeTable'
 import type { Season, Episode } from '@/types'
 
@@ -73,6 +74,7 @@ export function SeasonList({
                 <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
                   {fileCount}/{totalCount}
                 </Badge>
+                <SeasonAvailabilityBadge season={season} />
                 <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {onSeasonSearch && (
                     <Button

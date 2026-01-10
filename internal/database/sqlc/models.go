@@ -67,6 +67,7 @@ type Episode struct {
 	Overview      sql.NullString `json:"overview"`
 	AirDate       sql.NullTime   `json:"air_date"`
 	Monitored     int64          `json:"monitored"`
+	Released      int64          `json:"released"`
 }
 
 type EpisodeFile struct {
@@ -159,6 +160,8 @@ type Movie struct {
 	ReleaseDate         sql.NullTime   `json:"release_date"`
 	DigitalReleaseDate  sql.NullTime   `json:"digital_release_date"`
 	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
+	Released            int64          `json:"released"`
+	AvailabilityStatus  string         `json:"availability_status"`
 }
 
 type MovieFile struct {
@@ -198,27 +201,30 @@ type Season struct {
 	Monitored    int64          `json:"monitored"`
 	Overview     sql.NullString `json:"overview"`
 	PosterUrl    sql.NullString `json:"poster_url"`
+	Released     int64          `json:"released"`
 }
 
 type Series struct {
-	ID               int64          `json:"id"`
-	Title            string         `json:"title"`
-	SortTitle        string         `json:"sort_title"`
-	Year             sql.NullInt64  `json:"year"`
-	TvdbID           sql.NullInt64  `json:"tvdb_id"`
-	TmdbID           sql.NullInt64  `json:"tmdb_id"`
-	ImdbID           sql.NullString `json:"imdb_id"`
-	Overview         sql.NullString `json:"overview"`
-	Runtime          sql.NullInt64  `json:"runtime"`
-	Path             sql.NullString `json:"path"`
-	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
-	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	Monitored        int64          `json:"monitored"`
-	SeasonFolder     int64          `json:"season_folder"`
-	Status           string         `json:"status"`
-	AddedAt          sql.NullTime   `json:"added_at"`
-	UpdatedAt        sql.NullTime   `json:"updated_at"`
-	Network          sql.NullString `json:"network"`
+	ID                 int64          `json:"id"`
+	Title              string         `json:"title"`
+	SortTitle          string         `json:"sort_title"`
+	Year               sql.NullInt64  `json:"year"`
+	TvdbID             sql.NullInt64  `json:"tvdb_id"`
+	TmdbID             sql.NullInt64  `json:"tmdb_id"`
+	ImdbID             sql.NullString `json:"imdb_id"`
+	Overview           sql.NullString `json:"overview"`
+	Runtime            sql.NullInt64  `json:"runtime"`
+	Path               sql.NullString `json:"path"`
+	RootFolderID       sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID   sql.NullInt64  `json:"quality_profile_id"`
+	Monitored          int64          `json:"monitored"`
+	SeasonFolder       int64          `json:"season_folder"`
+	Status             string         `json:"status"`
+	AddedAt            sql.NullTime   `json:"added_at"`
+	UpdatedAt          sql.NullTime   `json:"updated_at"`
+	Network            sql.NullString `json:"network"`
+	Released           int64          `json:"released"`
+	AvailabilityStatus string         `json:"availability_status"`
 }
 
 type Setting struct {

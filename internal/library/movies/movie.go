@@ -26,6 +26,10 @@ type Movie struct {
 	// Release dates
 	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`         // Digital/streaming release date
 	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"` // Bluray release date
+
+	// Availability
+	Released           bool   `json:"released"`           // True if release date is in the past
+	AvailabilityStatus string `json:"availabilityStatus"` // Badge text: "Available" or "Unreleased"
 }
 
 // MovieFile represents a movie file on disk.

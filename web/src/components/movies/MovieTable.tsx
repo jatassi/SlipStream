@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { StatusBadge } from '@/components/media/StatusBadge'
+import { MovieAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { formatBytes, formatDate } from '@/lib/formatters'
 import type { Movie } from '@/types'
 
@@ -39,6 +40,7 @@ export function MovieTable({
             <TableHead>Title</TableHead>
             <TableHead>Year</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Release</TableHead>
             <TableHead>Size</TableHead>
             <TableHead>Added</TableHead>
             <TableHead className="w-[70px]"></TableHead>
@@ -59,6 +61,9 @@ export function MovieTable({
               <TableCell>{movie.year || '-'}</TableCell>
               <TableCell>
                 <StatusBadge status={movie.status} />
+              </TableCell>
+              <TableCell>
+                <MovieAvailabilityBadge movie={movie} />
               </TableCell>
               <TableCell>
                 {movie.sizeOnDisk ? formatBytes(movie.sizeOnDisk) : '-'}

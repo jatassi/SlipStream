@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { PosterImage } from '@/components/media/PosterImage'
 import { StatusBadge } from '@/components/media/StatusBadge'
+import { SeriesAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { Badge } from '@/components/ui/badge'
 import type { Series } from '@/types'
 
@@ -27,8 +28,9 @@ export function SeriesCard({ series, className }: SeriesCardProps) {
           type="series"
           className="absolute inset-0"
         />
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
           <StatusBadge status={series.status} />
+          <SeriesAvailabilityBadge series={series} />
         </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
           <h3 className="font-semibold text-white truncate">{series.title}</h3>

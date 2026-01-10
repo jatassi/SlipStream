@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -72,6 +73,15 @@ const settingsGroup: CollapsibleNavGroup = {
     { title: 'Root Folders', href: '/settings/rootfolders', icon: FolderOpen },
     { title: 'Indexers', href: '/settings/indexers', icon: Rss },
     { title: 'Download Clients', href: '/settings/downloadclients', icon: Download },
+  ],
+}
+
+const systemGroup: CollapsibleNavGroup = {
+  id: 'system',
+  title: 'System',
+  icon: Clock,
+  items: [
+    { title: 'Scheduled Tasks', href: '/system/tasks', icon: Clock },
   ],
 }
 
@@ -255,6 +265,12 @@ export function Sidebar() {
             {/* Settings collapsible menu */}
             <CollapsibleNavSection
               group={settingsGroup}
+              collapsed={sidebarCollapsed}
+            />
+
+            {/* System collapsible menu */}
+            <CollapsibleNavSection
+              group={systemGroup}
               collapsed={sidebarCollapsed}
             />
           </nav>

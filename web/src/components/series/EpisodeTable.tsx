@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { QualityBadge } from '@/components/media/QualityBadge'
+import { EpisodeAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { Episode } from '@/types'
@@ -53,6 +54,7 @@ export function EpisodeTable({ episodes, onAutoSearch, onManualSearch }: Episode
           <TableHead className="w-16">#</TableHead>
           <TableHead>Title</TableHead>
           <TableHead>Air Date</TableHead>
+          <TableHead>Aired</TableHead>
           <TableHead className="max-w-xs">Description</TableHead>
           <TableHead className="w-24">Monitored</TableHead>
           <TableHead className="w-20">Status</TableHead>
@@ -67,6 +69,9 @@ export function EpisodeTable({ episodes, onAutoSearch, onManualSearch }: Episode
             <TableCell className="font-medium">{episode.title}</TableCell>
             <TableCell>
               {episode.airDate ? formatDate(episode.airDate) : '-'}
+            </TableCell>
+            <TableCell>
+              <EpisodeAvailabilityBadge released={episode.released} />
             </TableCell>
             <TableCell className="max-w-xs">
               {episode.overview ? (

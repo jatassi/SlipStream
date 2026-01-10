@@ -13,8 +13,8 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network, released
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -34,6 +34,7 @@ UPDATE series SET
     season_folder = ?,
     status = ?,
     network = ?,
+    released = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -59,8 +60,8 @@ SELECT * FROM episodes WHERE series_id = ? AND season_number = ? ORDER BY episod
 
 -- name: CreateEpisode :one
 INSERT INTO episodes (
-    series_id, season_number, episode_number, title, overview, air_date, monitored
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+    series_id, season_number, episode_number, title, overview, air_date, monitored, released
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateEpisode :one
@@ -68,7 +69,8 @@ UPDATE episodes SET
     title = ?,
     overview = ?,
     air_date = ?,
-    monitored = ?
+    monitored = ?,
+    released = ?
 WHERE id = ?
 RETURNING *;
 
@@ -83,12 +85,12 @@ SELECT * FROM seasons WHERE id = ? LIMIT 1;
 SELECT * FROM seasons WHERE series_id = ? ORDER BY season_number;
 
 -- name: CreateSeason :one
-INSERT INTO seasons (series_id, season_number, monitored)
-VALUES (?, ?, ?)
+INSERT INTO seasons (series_id, season_number, monitored, released)
+VALUES (?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeason :one
-UPDATE seasons SET monitored = ? WHERE id = ? RETURNING *;
+UPDATE seasons SET monitored = ?, released = ? WHERE id = ? RETURNING *;
 
 -- name: SearchSeries :many
 SELECT * FROM series
@@ -181,16 +183,16 @@ WHERE root_folder_id = ?
 ORDER BY sort_title;
 
 -- name: UpsertSeason :one
-INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url, released)
+VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(series_id, season_number) DO UPDATE SET
     overview = COALESCE(excluded.overview, seasons.overview),
     poster_url = COALESCE(excluded.poster_url, seasons.poster_url)
 RETURNING *;
 
 -- name: UpsertEpisode :one
-INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored, released)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(series_id, season_number, episode_number) DO UPDATE SET
     title = COALESCE(excluded.title, episodes.title),
     overview = COALESCE(excluded.overview, episodes.overview),
@@ -225,3 +227,76 @@ ORDER BY e.air_date, s.title, e.season_number, e.episode_number;
 
 -- name: UpdateSeriesNetwork :exec
 UPDATE series SET network = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- Availability queries
+-- name: UpdateEpisodesReleasedByDate :execresult
+UPDATE episodes SET released = 1
+WHERE released = 0 AND air_date IS NOT NULL AND air_date <= date('now');
+
+-- name: UpdateEpisodeReleased :exec
+UPDATE episodes SET released = ? WHERE id = ?;
+
+-- name: UpdateSeasonReleased :exec
+UPDATE seasons SET released = ? WHERE id = ?;
+
+-- name: UpdateSeriesReleased :exec
+UPDATE series SET released = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- name: UpdateSeasonReleasedFromEpisodes :exec
+UPDATE seasons SET released = (
+    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
+    FROM episodes WHERE episodes.series_id = seasons.series_id
+    AND episodes.season_number = seasons.season_number
+) WHERE seasons.id = ?;
+
+-- name: UpdateAllSeasonsReleased :execresult
+UPDATE seasons SET released = (
+    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
+    FROM episodes WHERE episodes.series_id = seasons.series_id
+    AND episodes.season_number = seasons.season_number
+);
+
+-- name: UpdateSeriesReleasedFromSeasons :exec
+UPDATE series SET released = (
+    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
+    FROM seasons WHERE seasons.series_id = series.id
+), updated_at = CURRENT_TIMESTAMP WHERE series.id = ?;
+
+-- name: UpdateAllSeriesReleased :execresult
+UPDATE series SET released = (
+    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
+    FROM seasons WHERE seasons.series_id = series.id
+), updated_at = CURRENT_TIMESTAMP;
+
+-- name: GetSeasonsBySeriesID :many
+SELECT * FROM seasons WHERE series_id = ? ORDER BY season_number;
+
+-- name: UpdateSeriesAvailabilityStatus :exec
+UPDATE series SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- name: GetSeriesAvailabilityData :one
+SELECT
+    s.id,
+    s.status,
+    s.released,
+    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
+    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
+    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
+    (SELECT COUNT(*) FROM episodes e
+     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+FROM series s
+WHERE s.id = ?;
+
+-- name: ListAllSeriesForAvailability :many
+SELECT
+    s.id,
+    s.status,
+    s.released,
+    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
+    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
+    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
+    (SELECT COUNT(*) FROM episodes e
+     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+FROM series s;

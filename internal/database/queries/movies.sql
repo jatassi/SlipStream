@@ -14,8 +14,8 @@ SELECT * FROM movies WHERE monitored = 1 ORDER BY sort_title;
 INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, status,
-    release_date, digital_release_date, physical_release_date
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    release_date, digital_release_date, physical_release_date, released
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovie :one
@@ -35,6 +35,7 @@ UPDATE movies SET
     release_date = ?,
     digital_release_date = ?,
     physical_release_date = ?,
+    released = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -116,3 +117,23 @@ UPDATE movies SET
     physical_release_date = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
+
+-- Availability queries
+-- name: UpdateMoviesReleasedByDate :execresult
+UPDATE movies SET released = 1, updated_at = CURRENT_TIMESTAMP
+WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now');
+
+-- name: UpdateMovieReleased :exec
+UPDATE movies SET released = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- name: GetUnreleasedMoviesWithPastDate :many
+SELECT * FROM movies
+WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now');
+
+-- name: UpdateMovieAvailabilityStatus :exec
+UPDATE movies SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- name: UpdateAllMoviesAvailabilityStatus :execresult
+UPDATE movies SET
+    availability_status = CASE WHEN released = 1 THEN 'Available' ELSE 'Unreleased' END,
+    updated_at = CURRENT_TIMESTAMP;

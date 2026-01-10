@@ -47,9 +47,9 @@ const createMovie = `-- name: CreateMovie :one
 INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, status,
-    release_date, digital_release_date, physical_release_date
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date
+    release_date, digital_release_date, physical_release_date, released
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status
 `
 
 type CreateMovieParams struct {
@@ -68,6 +68,7 @@ type CreateMovieParams struct {
 	ReleaseDate         sql.NullTime   `json:"release_date"`
 	DigitalReleaseDate  sql.NullTime   `json:"digital_release_date"`
 	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
+	Released            int64          `json:"released"`
 }
 
 func (q *Queries) CreateMovie(ctx context.Context, arg CreateMovieParams) (*Movie, error) {
@@ -87,6 +88,7 @@ func (q *Queries) CreateMovie(ctx context.Context, arg CreateMovieParams) (*Movi
 		arg.ReleaseDate,
 		arg.DigitalReleaseDate,
 		arg.PhysicalReleaseDate,
+		arg.Released,
 	)
 	var i Movie
 	err := row.Scan(
@@ -108,6 +110,8 @@ func (q *Queries) CreateMovie(ctx context.Context, arg CreateMovieParams) (*Movi
 		&i.ReleaseDate,
 		&i.DigitalReleaseDate,
 		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
 	)
 	return &i, err
 }
@@ -190,7 +194,7 @@ func (q *Queries) DeleteMoviesByRootFolder(ctx context.Context, rootFolderID sql
 }
 
 const getMovie = `-- name: GetMovie :one
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies WHERE id = ? LIMIT 1
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetMovie(ctx context.Context, id int64) (*Movie, error) {
@@ -215,12 +219,14 @@ func (q *Queries) GetMovie(ctx context.Context, id int64) (*Movie, error) {
 		&i.ReleaseDate,
 		&i.DigitalReleaseDate,
 		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
 	)
 	return &i, err
 }
 
 const getMovieByPath = `-- name: GetMovieByPath :one
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies WHERE path = ? LIMIT 1
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetMovieByPath(ctx context.Context, path sql.NullString) (*Movie, error) {
@@ -245,12 +251,14 @@ func (q *Queries) GetMovieByPath(ctx context.Context, path sql.NullString) (*Mov
 		&i.ReleaseDate,
 		&i.DigitalReleaseDate,
 		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
 	)
 	return &i, err
 }
 
 const getMovieByTmdbID = `-- name: GetMovieByTmdbID :one
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies WHERE tmdb_id = ? LIMIT 1
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies WHERE tmdb_id = ? LIMIT 1
 `
 
 func (q *Queries) GetMovieByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (*Movie, error) {
@@ -275,6 +283,8 @@ func (q *Queries) GetMovieByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (*
 		&i.ReleaseDate,
 		&i.DigitalReleaseDate,
 		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
 	)
 	return &i, err
 }
@@ -323,7 +333,7 @@ func (q *Queries) GetMovieFileByPath(ctx context.Context, path string) (*MovieFi
 }
 
 const getMoviesInDateRange = `-- name: GetMoviesInDateRange :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies
 WHERE (release_date BETWEEN ? AND ?)
    OR (digital_release_date BETWEEN ? AND ?)
    OR (physical_release_date BETWEEN ? AND ?)
@@ -375,6 +385,57 @@ func (q *Queries) GetMoviesInDateRange(ctx context.Context, arg GetMoviesInDateR
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUnreleasedMoviesWithPastDate = `-- name: GetUnreleasedMoviesWithPastDate :many
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies
+WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now')
+`
+
+func (q *Queries) GetUnreleasedMoviesWithPastDate(ctx context.Context) ([]*Movie, error) {
+	rows, err := q.db.QueryContext(ctx, getUnreleasedMoviesWithPastDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Movie{}
+	for rows.Next() {
+		var i Movie
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.SortTitle,
+			&i.Year,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Overview,
+			&i.Runtime,
+			&i.Path,
+			&i.RootFolderID,
+			&i.QualityProfileID,
+			&i.Monitored,
+			&i.Status,
+			&i.AddedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.DigitalReleaseDate,
+			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -390,7 +451,7 @@ func (q *Queries) GetMoviesInDateRange(ctx context.Context, arg GetMoviesInDateR
 }
 
 const listMonitoredMovies = `-- name: ListMonitoredMovies :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies WHERE monitored = 1 ORDER BY sort_title
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies WHERE monitored = 1 ORDER BY sort_title
 `
 
 func (q *Queries) ListMonitoredMovies(ctx context.Context) ([]*Movie, error) {
@@ -421,6 +482,8 @@ func (q *Queries) ListMonitoredMovies(ctx context.Context) ([]*Movie, error) {
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -473,7 +536,7 @@ func (q *Queries) ListMovieFiles(ctx context.Context, movieID int64) ([]*MovieFi
 }
 
 const listMovies = `-- name: ListMovies :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies ORDER BY sort_title
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies ORDER BY sort_title
 `
 
 func (q *Queries) ListMovies(ctx context.Context) ([]*Movie, error) {
@@ -504,6 +567,8 @@ func (q *Queries) ListMovies(ctx context.Context) ([]*Movie, error) {
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -519,7 +584,7 @@ func (q *Queries) ListMovies(ctx context.Context) ([]*Movie, error) {
 }
 
 const listMoviesByRootFolder = `-- name: ListMoviesByRootFolder :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies WHERE root_folder_id = ? ORDER BY sort_title
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies WHERE root_folder_id = ? ORDER BY sort_title
 `
 
 func (q *Queries) ListMoviesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) ([]*Movie, error) {
@@ -550,6 +615,8 @@ func (q *Queries) ListMoviesByRootFolder(ctx context.Context, rootFolderID sql.N
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -565,7 +632,7 @@ func (q *Queries) ListMoviesByRootFolder(ctx context.Context, rootFolderID sql.N
 }
 
 const listMoviesPaginated = `-- name: ListMoviesPaginated :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies
 ORDER BY sort_title
 LIMIT ? OFFSET ?
 `
@@ -603,6 +670,8 @@ func (q *Queries) ListMoviesPaginated(ctx context.Context, arg ListMoviesPaginat
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -618,7 +687,7 @@ func (q *Queries) ListMoviesPaginated(ctx context.Context, arg ListMoviesPaginat
 }
 
 const listUnmatchedMoviesByRootFolder = `-- name: ListUnmatchedMoviesByRootFolder :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies
 WHERE root_folder_id = ?
   AND (tmdb_id IS NULL OR tmdb_id = 0)
 ORDER BY sort_title
@@ -652,6 +721,8 @@ func (q *Queries) ListUnmatchedMoviesByRootFolder(ctx context.Context, rootFolde
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -667,7 +738,7 @@ func (q *Queries) ListUnmatchedMoviesByRootFolder(ctx context.Context, rootFolde
 }
 
 const searchMovies = `-- name: SearchMovies :many
-SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date FROM movies
+SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status FROM movies
 WHERE title LIKE ? OR sort_title LIKE ?
 ORDER BY sort_title
 LIMIT ? OFFSET ?
@@ -713,6 +784,8 @@ func (q *Queries) SearchMovies(ctx context.Context, arg SearchMoviesParams) ([]*
 			&i.ReleaseDate,
 			&i.DigitalReleaseDate,
 			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -725,6 +798,16 @@ func (q *Queries) SearchMovies(ctx context.Context, arg SearchMoviesParams) ([]*
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAllMoviesAvailabilityStatus = `-- name: UpdateAllMoviesAvailabilityStatus :execresult
+UPDATE movies SET
+    availability_status = CASE WHEN released = 1 THEN 'Available' ELSE 'Unreleased' END,
+    updated_at = CURRENT_TIMESTAMP
+`
+
+func (q *Queries) UpdateAllMoviesAvailabilityStatus(ctx context.Context) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateAllMoviesAvailabilityStatus)
 }
 
 const updateMovie = `-- name: UpdateMovie :one
@@ -744,9 +827,10 @@ UPDATE movies SET
     release_date = ?,
     digital_release_date = ?,
     physical_release_date = ?,
+    released = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date
+RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status
 `
 
 type UpdateMovieParams struct {
@@ -765,6 +849,7 @@ type UpdateMovieParams struct {
 	ReleaseDate         sql.NullTime   `json:"release_date"`
 	DigitalReleaseDate  sql.NullTime   `json:"digital_release_date"`
 	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
+	Released            int64          `json:"released"`
 	ID                  int64          `json:"id"`
 }
 
@@ -785,6 +870,7 @@ func (q *Queries) UpdateMovie(ctx context.Context, arg UpdateMovieParams) (*Movi
 		arg.ReleaseDate,
 		arg.DigitalReleaseDate,
 		arg.PhysicalReleaseDate,
+		arg.Released,
 		arg.ID,
 	)
 	var i Movie
@@ -807,8 +893,24 @@ func (q *Queries) UpdateMovie(ctx context.Context, arg UpdateMovieParams) (*Movi
 		&i.ReleaseDate,
 		&i.DigitalReleaseDate,
 		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
 	)
 	return &i, err
+}
+
+const updateMovieAvailabilityStatus = `-- name: UpdateMovieAvailabilityStatus :exec
+UPDATE movies SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdateMovieAvailabilityStatusParams struct {
+	AvailabilityStatus string `json:"availability_status"`
+	ID                 int64  `json:"id"`
+}
+
+func (q *Queries) UpdateMovieAvailabilityStatus(ctx context.Context, arg UpdateMovieAvailabilityStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateMovieAvailabilityStatus, arg.AvailabilityStatus, arg.ID)
+	return err
 }
 
 const updateMovieReleaseDates = `-- name: UpdateMovieReleaseDates :exec
@@ -837,6 +939,20 @@ func (q *Queries) UpdateMovieReleaseDates(ctx context.Context, arg UpdateMovieRe
 	return err
 }
 
+const updateMovieReleased = `-- name: UpdateMovieReleased :exec
+UPDATE movies SET released = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdateMovieReleasedParams struct {
+	Released int64 `json:"released"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) UpdateMovieReleased(ctx context.Context, arg UpdateMovieReleasedParams) error {
+	_, err := q.db.ExecContext(ctx, updateMovieReleased, arg.Released, arg.ID)
+	return err
+}
+
 const updateMovieStatus = `-- name: UpdateMovieStatus :exec
 UPDATE movies SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
 `
@@ -849,4 +965,14 @@ type UpdateMovieStatusParams struct {
 func (q *Queries) UpdateMovieStatus(ctx context.Context, arg UpdateMovieStatusParams) error {
 	_, err := q.db.ExecContext(ctx, updateMovieStatus, arg.Status, arg.ID)
 	return err
+}
+
+const updateMoviesReleasedByDate = `-- name: UpdateMoviesReleasedByDate :execresult
+UPDATE movies SET released = 1, updated_at = CURRENT_TIMESTAMP
+WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now')
+`
+
+// Availability queries
+func (q *Queries) UpdateMoviesReleasedByDate(ctx context.Context) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateMoviesReleasedByDate)
 }

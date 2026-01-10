@@ -24,6 +24,7 @@ import { RootFoldersPage } from '@/routes/settings/rootfolders'
 import { IndexersPage } from '@/routes/settings/indexers'
 import { DownloadClientsPage } from '@/routes/settings/downloadclients'
 import { GeneralSettingsPage } from '@/routes/settings/general'
+import { TasksPage } from '@/routes/system/tasks'
 
 // Create root route with layout
 const rootRoute = createRootRoute({
@@ -149,6 +150,13 @@ const generalSettingsRoute = createRoute({
   component: GeneralSettingsPage,
 })
 
+// System routes
+const tasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/tasks',
+  component: TasksPage,
+})
+
 // Build route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -168,6 +176,7 @@ const routeTree = rootRoute.addChildren([
   indexersRoute,
   downloadclientsRoute,
   generalSettingsRoute,
+  tasksRoute,
 ])
 
 // Create router

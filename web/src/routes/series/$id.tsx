@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
   Search,
@@ -16,6 +16,7 @@ import {
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
 import { StatusBadge } from '@/components/media/StatusBadge'
+import { SeriesAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { SeasonList } from '@/components/series/SeasonList'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
@@ -53,6 +54,23 @@ export function SeriesDetailPage() {
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
   const { data: episodes } = useEpisodes(seriesId)
+
+  // Get the first episode's air date (S01E01, or earliest by air date)
+  const firstAirDate = useMemo(() => {
+    if (!episodes || episodes.length === 0) return null
+
+    // Try to find S01E01 first
+    const s01e01 = episodes.find(ep => ep.seasonNumber === 1 && ep.episodeNumber === 1)
+    if (s01e01?.airDate) return s01e01.airDate
+
+    // Otherwise find the earliest episode with an air date
+    const episodesWithAirDate = episodes
+      .filter(ep => ep.airDate && ep.seasonNumber > 0)
+      .sort((a, b) => new Date(a.airDate!).getTime() - new Date(b.airDate!).getTime())
+
+    return episodesWithAirDate[0]?.airDate || null
+  }, [episodes])
+
   const updateMutation = useUpdateSeries()
   const deleteMutation = useDeleteSeries()
   const searchMutation = useSearchSeries()
@@ -170,6 +188,7 @@ export function SeriesDetailPage() {
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
                 <StatusBadge status={series.status} />
+                <SeriesAvailabilityBadge series={series} />
                 {series.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (
@@ -178,10 +197,10 @@ export function SeriesDetailPage() {
               </div>
               <h1 className="text-3xl font-bold text-white">{series.title}</h1>
               <div className="flex items-center gap-4 text-sm text-gray-300">
-                {series.year && (
+                {(firstAirDate || series.year) && (
                   <span className="flex items-center gap-1">
                     <Calendar className="size-4" />
-                    {series.year}
+                    {firstAirDate ? formatDate(firstAirDate) : series.year}
                   </span>
                 )}
                 {series.runtime && (

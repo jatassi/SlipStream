@@ -15,6 +15,7 @@ import {
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
 import { StatusBadge } from '@/components/media/StatusBadge'
+import { MovieAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { QualityBadge } from '@/components/media/QualityBadge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
@@ -134,6 +135,7 @@ export function MovieDetailPage() {
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
                 <StatusBadge status={movie.status} />
+                <MovieAvailabilityBadge movie={movie} />
                 {movie.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (
@@ -142,10 +144,10 @@ export function MovieDetailPage() {
               </div>
               <h1 className="text-3xl font-bold text-white">{movie.title}</h1>
               <div className="flex items-center gap-4 text-sm text-gray-300">
-                {movie.year && (
+                {(movie.releaseDate || movie.year) && (
                   <span className="flex items-center gap-1">
                     <Calendar className="size-4" />
-                    {movie.year}
+                    {movie.releaseDate ? formatDate(movie.releaseDate) : movie.year}
                   </span>
                 )}
                 {movie.runtime && (

@@ -177,6 +177,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		SeasonFolder:     boolToInt(input.SeasonFolder),
 		Status:           "continuing",
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
+		Released:         0, // Will be calculated by availability service
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create series: %w", err)
@@ -188,6 +189,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 			SeriesID:     row.ID,
 			SeasonNumber: int64(seasonInput.SeasonNumber),
 			Monitored:    boolToInt(seasonInput.Monitored),
+			Released:     0, // Will be calculated by availability service
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Int("season", seasonInput.SeasonNumber).Msg("Failed to create season")
@@ -199,6 +201,11 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 			if episodeInput.AirDate != nil {
 				airDate = sql.NullTime{Time: *episodeInput.AirDate, Valid: true}
 			}
+			// Calculate released status based on air date
+			released := int64(0)
+			if episodeInput.AirDate != nil && !episodeInput.AirDate.After(time.Now()) {
+				released = 1
+			}
 			_, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 				SeriesID:      row.ID,
 				SeasonNumber:  int64(seasonInput.SeasonNumber),
@@ -207,6 +214,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 				Overview:      sql.NullString{String: episodeInput.Overview, Valid: episodeInput.Overview != ""},
 				AirDate:       airDate,
 				Monitored:     boolToInt(episodeInput.Monitored),
+				Released:      released,
 			})
 			if err != nil {
 				s.logger.Warn().Err(err).Int("episode", episodeInput.EpisodeNumber).Msg("Failed to create episode")
@@ -314,6 +322,8 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		Monitored:        boolToInt(monitored),
 		SeasonFolder:     boolToInt(seasonFolder),
 		Status:           status,
+		Network:          sql.NullString{String: current.Network, Valid: current.Network != ""},
+		Released:         boolToInt(current.Released), // Preserve current value
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -402,6 +412,7 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 	updated, err := s.queries.UpdateSeason(ctx, sqlc.UpdateSeasonParams{
 		ID:        row.ID,
 		Monitored: boolToInt(monitored),
+		Released:  row.Released, // Preserve current value
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update season: %w", err)
@@ -498,12 +509,19 @@ func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpiso
 		airDateSQL = sql.NullTime{Time: *airDate, Valid: true}
 	}
 
+	// Calculate released status based on air date
+	released := int64(0)
+	if airDate != nil && !airDate.After(time.Now()) {
+		released = 1
+	}
+
 	row, err := s.queries.UpdateEpisode(ctx, sqlc.UpdateEpisodeParams{
 		ID:        id,
 		Title:     sql.NullString{String: title, Valid: title != ""},
 		Overview:  sql.NullString{String: overview, Valid: overview != ""},
 		AirDate:   airDateSQL,
 		Monitored: boolToInt(monitored),
+		Released:  released,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update episode: %w", err)
@@ -625,6 +643,10 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 		series.Network = row.Network.String
 	}
 
+	// Availability
+	series.Released = row.Released == 1
+	series.AvailabilityStatus = row.AvailabilityStatus
+
 	return series
 }
 
@@ -635,6 +657,7 @@ func (s *Service) rowToSeason(row *sqlc.Season) Season {
 		SeriesID:     row.SeriesID,
 		SeasonNumber: int(row.SeasonNumber),
 		Monitored:    row.Monitored == 1,
+		Released:     row.Released == 1,
 	}
 	if row.Overview.Valid {
 		season.Overview = row.Overview.String
@@ -653,6 +676,7 @@ func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
 		SeasonNumber:  int(row.SeasonNumber),
 		EpisodeNumber: int(row.EpisodeNumber),
 		Monitored:     row.Monitored == 1,
+		Released:      row.Released == 1,
 	}
 
 	if row.Title.Valid {
@@ -761,6 +785,7 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 			Monitored:    1, // Default to monitored
 			Overview:     sql.NullString{String: seasonMeta.Overview, Valid: seasonMeta.Overview != ""},
 			PosterUrl:    sql.NullString{String: seasonMeta.PosterURL, Valid: seasonMeta.PosterURL != ""},
+			Released:     0, // Will be calculated by availability service
 		})
 		if err != nil {
 			s.logger.Warn().
@@ -781,6 +806,12 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 				}
 			}
 
+			// Calculate released status based on air date
+			released := int64(0)
+			if airDate.Valid && !airDate.Time.After(time.Now()) {
+				released = 1
+			}
+
 			_, err := s.queries.UpsertEpisode(ctx, sqlc.UpsertEpisodeParams{
 				SeriesID:      seriesID,
 				SeasonNumber:  int64(epMeta.SeasonNumber),
@@ -789,6 +820,7 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 				Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
 				AirDate:       airDate,
 				Monitored:     1, // Default to monitored
+				Released:      released,
 			})
 			if err != nil {
 				s.logger.Warn().

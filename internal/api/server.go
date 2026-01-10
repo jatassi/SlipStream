@@ -11,6 +11,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/api/handlers"
+	"github.com/slipstream/slipstream/internal/availability"
+	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
@@ -18,7 +21,6 @@ import (
 	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
-	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
 	"github.com/slipstream/slipstream/internal/indexer/search"
@@ -31,6 +33,8 @@ import (
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/progress"
+	"github.com/slipstream/slipstream/internal/scheduler"
+	"github.com/slipstream/slipstream/internal/scheduler/tasks"
 	"github.com/slipstream/slipstream/internal/watcher"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -64,6 +68,8 @@ type Server struct {
 	grabService           *grab.Service
 	defaultsService       *defaults.Service
 	calendarService       *calendar.Service
+	scheduler             *scheduler.Scheduler
+	availabilityService   *availability.Service
 }
 
 // NewServer creates a new API server instance.
@@ -137,6 +143,21 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize calendar service
 	s.calendarService = calendar.NewService(db, logger)
+
+	// Initialize availability service
+	s.availabilityService = availability.NewService(db, logger)
+
+	// Initialize scheduler
+	sched, err := scheduler.New(logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize scheduler")
+	} else {
+		s.scheduler = sched
+		// Register availability refresh task
+		if err := tasks.RegisterAvailabilityTask(s.scheduler, s.availabilityService); err != nil {
+			logger.Error().Err(err).Msg("Failed to register availability task")
+		}
+	}
 
 	// Initialize progress manager for tracking activities
 	s.progressManager = progress.NewManager(hub, logger)
@@ -345,6 +366,15 @@ func (s *Server) setupRoutes() {
 	// Calendar routes
 	calendarHandlers := calendar.NewHandlers(s.calendarService)
 	calendarHandlers.RegisterRoutes(api.Group("/calendar"))
+
+	// Scheduler routes
+	if s.scheduler != nil {
+		schedulerHandler := handlers.NewSchedulerHandler(s.scheduler)
+		schedulerGroup := api.Group("/scheduler")
+		schedulerGroup.GET("/tasks", schedulerHandler.ListTasks)
+		schedulerGroup.GET("/tasks/:id", schedulerHandler.GetTask)
+		schedulerGroup.POST("/tasks/:id/run", schedulerHandler.RunTask)
+	}
 }
 
 // Start begins listening for HTTP requests.
@@ -358,12 +388,26 @@ func (s *Server) Start(address string) error {
 		}
 	}
 
+	// Start the scheduler
+	if s.scheduler != nil {
+		if err := s.scheduler.Start(); err != nil {
+			s.logger.Error().Err(err).Msg("Failed to start scheduler")
+		}
+	}
+
 	return s.echo.Start(address)
 }
 
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("shutting down HTTP server")
+
+	// Stop the scheduler
+	if s.scheduler != nil {
+		if err := s.scheduler.Stop(); err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to stop scheduler")
+		}
+	}
 
 	// Stop the file watcher service
 	if s.watcherService != nil {

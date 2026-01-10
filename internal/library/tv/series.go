@@ -25,7 +25,9 @@ type Series struct {
 	EpisodeCount     int       `json:"episodeCount"`
 	EpisodeFileCount int       `json:"episodeFileCount"`
 	SizeOnDisk       int64     `json:"sizeOnDisk,omitempty"`
-	Seasons          []Season  `json:"seasons,omitempty"`
+	Seasons            []Season `json:"seasons,omitempty"`
+	Released           bool     `json:"released"`           // True if all seasons are released
+	AvailabilityStatus string   `json:"availabilityStatus"` // Badge text: "Available", "Airing", "Seasons 1-2 Available", etc.
 }
 
 // Season represents a season of a TV series.
@@ -39,20 +41,22 @@ type Season struct {
 	EpisodeCount     int    `json:"episodeCount"`
 	EpisodeFileCount int    `json:"episodeFileCount"`
 	SizeOnDisk       int64  `json:"sizeOnDisk,omitempty"`
+	Released         bool   `json:"released"` // True if all episodes in season have aired
 }
 
 // Episode represents an episode of a TV series.
 type Episode struct {
-	ID            int64       `json:"id"`
-	SeriesID      int64       `json:"seriesId"`
-	SeasonNumber  int         `json:"seasonNumber"`
-	EpisodeNumber int         `json:"episodeNumber"`
-	Title         string      `json:"title"`
-	Overview      string      `json:"overview,omitempty"`
-	AirDate       *time.Time  `json:"airDate,omitempty"`
-	Monitored     bool        `json:"monitored"`
-	HasFile       bool        `json:"hasFile"`
+	ID            int64        `json:"id"`
+	SeriesID      int64        `json:"seriesId"`
+	SeasonNumber  int          `json:"seasonNumber"`
+	EpisodeNumber int          `json:"episodeNumber"`
+	Title         string       `json:"title"`
+	Overview      string       `json:"overview,omitempty"`
+	AirDate       *time.Time   `json:"airDate,omitempty"`
+	Monitored     bool         `json:"monitored"`
+	HasFile       bool         `json:"hasFile"`
 	EpisodeFile   *EpisodeFile `json:"episodeFile,omitempty"`
+	Released      bool         `json:"released"` // True if air date is in the past
 }
 
 // EpisodeFile represents an episode file on disk.

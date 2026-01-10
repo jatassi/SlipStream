@@ -428,6 +428,17 @@ func (s *Service) createMovieFromParsed(
 		input.Overview = meta.Overview
 		input.Runtime = meta.Runtime
 		input.Path = movies.GenerateMoviePath(folder.Path, meta.Title, meta.Year)
+
+		// Fetch release dates from TMDB
+		if meta.ID > 0 {
+			digital, physical, err := s.metadata.GetMovieReleaseDates(ctx, meta.ID)
+			if err != nil {
+				s.logger.Warn().Err(err).Int("tmdbId", meta.ID).Msg("Failed to fetch release dates during scan")
+			} else {
+				input.ReleaseDate = digital
+				input.PhysicalReleaseDate = physical
+			}
+		}
 	}
 
 	movie, err := s.movies.Create(ctx, input)
@@ -918,22 +929,47 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
 
+	// Fetch release dates from TMDB
+	var releaseDate, physicalReleaseDate string
+	if tmdbID > 0 {
+		digital, physical, err := s.metadata.GetMovieReleaseDates(ctx, tmdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("[REFRESH] Failed to fetch release dates")
+		} else {
+			releaseDate = digital
+			physicalReleaseDate = physical
+			s.logger.Debug().
+				Str("digital", digital).
+				Str("physical", physical).
+				Msg("[REFRESH] Fetched release dates from TMDB")
+		}
+	}
+
 	s.logger.Debug().
 		Str("title", title).
 		Int("year", year).
 		Int("tmdbId", tmdbID).
 		Str("imdbId", imdbID).
 		Int("runtime", runtime).
+		Str("releaseDate", releaseDate).
 		Msg("[REFRESH] Calling movies.Update with these values")
 
-	updatedMovie, err := s.movies.Update(ctx, movie.ID, movies.UpdateMovieInput{
+	updateInput := movies.UpdateMovieInput{
 		Title:    &title,
 		Year:     &year,
 		TmdbID:   &tmdbID,
 		ImdbID:   &imdbID,
 		Overview: &overview,
 		Runtime:  &runtime,
-	})
+	}
+	if releaseDate != "" {
+		updateInput.ReleaseDate = &releaseDate
+	}
+	if physicalReleaseDate != "" {
+		updateInput.PhysicalReleaseDate = &physicalReleaseDate
+	}
+
+	updatedMovie, err := s.movies.Update(ctx, movie.ID, updateInput)
 	if err != nil {
 		s.logger.Error().Err(err).Int64("movieId", movie.ID).Msg("[REFRESH] Failed to update movie in database")
 		return nil, fmt.Errorf("failed to update movie: %w", err)
@@ -1178,14 +1214,30 @@ func (s *Service) matchUnmatchedMovies(
 		overview := bestMatch.Overview
 		runtime := bestMatch.Runtime
 
-		_, err = s.movies.Update(ctx, movie.ID, movies.UpdateMovieInput{
+		// Fetch release dates from TMDB
+		updateInput := movies.UpdateMovieInput{
 			Title:    &title,
 			Year:     &year,
 			TmdbID:   &tmdbID,
 			ImdbID:   &imdbID,
 			Overview: &overview,
 			Runtime:  &runtime,
-		})
+		}
+		if tmdbID > 0 {
+			digital, physical, err := s.metadata.GetMovieReleaseDates(ctx, tmdbID)
+			if err != nil {
+				s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to fetch release dates for unmatched movie")
+			} else {
+				if digital != "" {
+					updateInput.ReleaseDate = &digital
+				}
+				if physical != "" {
+					updateInput.PhysicalReleaseDate = &physical
+				}
+			}
+		}
+
+		_, err = s.movies.Update(ctx, movie.ID, updateInput)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Failed to update movie with metadata")
 			continue
