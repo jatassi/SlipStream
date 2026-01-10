@@ -10,6 +10,6 @@
     "install:frontend": "cd web && npm install"
   },
   "devDependencies": {
-    "shadcn": "^3.6.2"
+    "shadcn": "^3.6.3"
   }
 }
