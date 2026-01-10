@@ -106,6 +106,32 @@ Priority: environment variables > `.env` file > config.yaml > defaults
 - WebSocket: `/ws` endpoint for real-time library/progress updates
 - State: TanStack Query for data fetching, Zustand for local state
 
+### UI Components (Base UI, NOT Radix)
+This project uses **Base UI** (`@base-ui/react`) for shadcn/ui components, NOT Radix UI. This affects how you customize trigger elements:
+
+**WRONG - Radix-style `asChild` does not work:**
+```tsx
+<TooltipTrigger asChild>
+  <Button>Click me</Button>
+</TooltipTrigger>
+```
+
+**CORRECT - Use `render` prop instead:**
+```tsx
+<TooltipTrigger render={<Button />}>
+  Button content here
+</TooltipTrigger>
+```
+
+This applies to: `TooltipTrigger`, `DialogTrigger`, `PopoverTrigger`, `DropdownMenuTrigger`, and similar components.
+
+For simple cases where you just need the trigger to be a div or the default element, you can skip the render prop entirely:
+```tsx
+<TooltipTrigger>
+  <div>Content</div>
+</TooltipTrigger>
+```
+
 ### Service Layer
 Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`) which wrap sqlc queries. Services are injected into handlers during server setup.
 
