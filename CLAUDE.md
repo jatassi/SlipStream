@@ -18,6 +18,7 @@ Various documents detailing specific aspects of the application may be available
 - At the end of each of your messages, put **Restart Backend** if a backend restart is required
 - If following an external plan or to-do list, always update it once you finish a task/phase/feature
 - Deviation from the plan or the spec requires pausing to ask the user's approval. If approved, update the plan/spec before making code changes
+- When a tool use of a frequently used operation fails, think carefully about the root cause, find the issue, and improve the common commands sections of AGENTS.md and CLAUDE.md to avoid the failure in the future
 
 ## Common Commands
 
