@@ -16,6 +16,7 @@ import { SeriesListPage } from '@/routes/series/index'
 import { SeriesDetailPage } from '@/routes/series/$id'
 import { AddSeriesPage } from '@/routes/series/add'
 import { CalendarPage } from '@/routes/calendar/index'
+import { MissingPage } from '@/routes/missing/index'
 import { ActivityPage } from '@/routes/activity/index'
 import { HistoryPage } from '@/routes/activity/history'
 import { SettingsPage } from '@/routes/settings/index'
@@ -100,6 +101,13 @@ const calendarRoute = createRoute({
   component: CalendarPage,
 })
 
+// Missing route
+const missingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/missing',
+  component: MissingPage,
+})
+
 // Activity routes
 const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -168,6 +176,7 @@ const routeTree = rootRoute.addChildren([
   seriesDetailRoute,
   addSeriesRoute,
   calendarRoute,
+  missingRoute,
   activityRoute,
   historyRoute,
   settingsRoute,

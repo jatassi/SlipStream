@@ -15,10 +15,12 @@ import {
   ChevronRight,
   ChevronDown,
   Clock,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useUIStore } from '@/stores'
+import { useMissingCounts } from '@/hooks'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Tooltip,
@@ -51,6 +53,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Movies', href: '/movies', icon: Film },
   { title: 'Series', href: '/series', icon: Tv },
   { title: 'Calendar', href: '/calendar', icon: Calendar },
+  { title: 'Missing', href: '/missing', icon: Search },
 ]
 
 const activityGroup: CollapsibleNavGroup = {
@@ -89,10 +92,12 @@ function NavLink({
   item,
   collapsed,
   indented = false,
+  badge,
 }: {
   item: NavItem
   collapsed: boolean
   indented?: boolean
+  badge?: React.ReactNode
 }) {
   const router = useRouterState()
   const isActive = router.location.pathname === item.href
@@ -100,7 +105,12 @@ function NavLink({
   const linkContent = (
     <>
       <item.icon className="size-4 shrink-0" />
-      {!collapsed && <span>{item.title}</span>}
+      {!collapsed && (
+        <>
+          <span className="flex-1">{item.title}</span>
+          {badge}
+        </>
+      )}
     </>
   )
 
@@ -120,7 +130,12 @@ function NavLink({
         >
           {linkContent}
         </TooltipTrigger>
-        <TooltipContent side="right">{item.title}</TooltipContent>
+        <TooltipContent side="right">
+          <div className="flex items-center gap-2">
+            {item.title}
+            {badge}
+          </div>
+        </TooltipContent>
       </Tooltip>
     )
   }
@@ -132,11 +147,41 @@ function NavLink({
   )
 }
 
+function MissingBadge() {
+  const { data: counts } = useMissingCounts()
+
+  if (!counts || (counts.movies === 0 && counts.episodes === 0)) {
+    return null
+  }
+
+  return (
+    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+      {counts.movies > 0 && (
+        <span className="flex items-center gap-0.5">
+          <Film className="size-3" />
+          {counts.movies}
+        </span>
+      )}
+      {counts.episodes > 0 && (
+        <span className="flex items-center gap-0.5">
+          <Tv className="size-3" />
+          {counts.episodes}
+        </span>
+      )}
+    </span>
+  )
+}
+
 function NavSection({ items, collapsed }: { items: NavItem[]; collapsed: boolean }) {
   return (
     <div className="space-y-1">
       {items.map((item) => (
-        <NavLink key={item.href} item={item} collapsed={collapsed} />
+        <NavLink
+          key={item.href}
+          item={item}
+          collapsed={collapsed}
+          badge={item.href === '/missing' ? <MissingBadge /> : undefined}
+        />
       ))}
     </div>
   )

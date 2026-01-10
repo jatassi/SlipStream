@@ -10,6 +10,19 @@ import (
 	"database/sql"
 )
 
+const countMissingMovies = `-- name: CountMissingMovies :one
+SELECT COUNT(*) FROM movies m
+LEFT JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.released = 1 AND m.monitored = 1 AND mf.id IS NULL
+`
+
+func (q *Queries) CountMissingMovies(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMissingMovies)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMonitoredMovies = `-- name: CountMonitoredMovies :one
 SELECT COUNT(*) FROM movies WHERE monitored = 1
 `
@@ -408,6 +421,58 @@ WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now')
 
 func (q *Queries) GetUnreleasedMoviesWithPastDate(ctx context.Context) ([]*Movie, error) {
 	rows, err := q.db.QueryContext(ctx, getUnreleasedMoviesWithPastDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Movie{}
+	for rows.Next() {
+		var i Movie
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.SortTitle,
+			&i.Year,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Overview,
+			&i.Runtime,
+			&i.Path,
+			&i.RootFolderID,
+			&i.QualityProfileID,
+			&i.Monitored,
+			&i.Status,
+			&i.AddedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.DigitalReleaseDate,
+			&i.PhysicalReleaseDate,
+			&i.Released,
+			&i.AvailabilityStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMissingMovies = `-- name: ListMissingMovies :many
+SELECT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.added_at, m.updated_at, m.release_date, m.digital_release_date, m.physical_release_date, m.released, m.availability_status FROM movies m
+LEFT JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.released = 1 AND m.monitored = 1 AND mf.id IS NULL
+ORDER BY m.release_date DESC
+`
+
+// Missing movies queries
+func (q *Queries) ListMissingMovies(ctx context.Context) ([]*Movie, error) {
+	rows, err := q.db.QueryContext(ctx, listMissingMovies)
 	if err != nil {
 		return nil, err
 	}

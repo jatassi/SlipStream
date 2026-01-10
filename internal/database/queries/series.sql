@@ -300,3 +300,41 @@ SELECT
      JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
      WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
 FROM series s;
+
+-- Missing episodes queries
+-- name: ListMissingEpisodes :many
+SELECT
+    e.*,
+    s.title as series_title,
+    s.tvdb_id as series_tvdb_id,
+    s.tmdb_id as series_tmdb_id,
+    s.imdb_id as series_imdb_id,
+    s.year as series_year
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY e.air_date DESC;
+
+-- name: CountMissingEpisodes :one
+SELECT COUNT(*) FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL;
+
+-- name: GetMissingEpisodesBySeries :many
+SELECT e.* FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY e.season_number, e.episode_number;
+
+-- name: CountMissingEpisodesBySeries :one
+SELECT COUNT(*) FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL;
+
+-- name: ListSeriesWithMissingEpisodes :many
+SELECT DISTINCT s.* FROM series s
+JOIN episodes e ON s.id = e.series_id
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY s.sort_title;

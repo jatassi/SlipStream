@@ -68,6 +68,32 @@ func (q *Queries) CountEpisodesBySeries(ctx context.Context, seriesID int64) (in
 	return count, err
 }
 
+const countMissingEpisodes = `-- name: CountMissingEpisodes :one
+SELECT COUNT(*) FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+`
+
+func (q *Queries) CountMissingEpisodes(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMissingEpisodes)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countMissingEpisodesBySeries = `-- name: CountMissingEpisodesBySeries :one
+SELECT COUNT(*) FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+`
+
+func (q *Queries) CountMissingEpisodesBySeries(ctx context.Context, seriesID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMissingEpisodesBySeries, seriesID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSeries = `-- name: CountSeries :one
 SELECT COUNT(*) FROM series
 `
@@ -486,6 +512,46 @@ func (q *Queries) GetEpisodesInDateRange(ctx context.Context, arg GetEpisodesInD
 			&i.SeriesTitle,
 			&i.Network,
 			&i.SeriesTmdbID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMissingEpisodesBySeries = `-- name: GetMissingEpisodesBySeries :many
+SELECT e.id, e.series_id, e.season_number, e.episode_number, e.title, e.overview, e.air_date, e.monitored, e.released FROM episodes e
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY e.season_number, e.episode_number
+`
+
+func (q *Queries) GetMissingEpisodesBySeries(ctx context.Context, seriesID int64) ([]*Episode, error) {
+	rows, err := q.db.QueryContext(ctx, getMissingEpisodesBySeries, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Episode{}
+	for rows.Next() {
+		var i Episode
+		if err := rows.Scan(
+			&i.ID,
+			&i.SeriesID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.Title,
+			&i.Overview,
+			&i.AirDate,
+			&i.Monitored,
+			&i.Released,
 		); err != nil {
 			return nil, err
 		}
@@ -971,6 +1037,77 @@ func (q *Queries) ListEpisodesBySeries(ctx context.Context, seriesID int64) ([]*
 	return items, nil
 }
 
+const listMissingEpisodes = `-- name: ListMissingEpisodes :many
+SELECT
+    e.id, e.series_id, e.season_number, e.episode_number, e.title, e.overview, e.air_date, e.monitored, e.released,
+    s.title as series_title,
+    s.tvdb_id as series_tvdb_id,
+    s.tmdb_id as series_tmdb_id,
+    s.imdb_id as series_imdb_id,
+    s.year as series_year
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY e.air_date DESC
+`
+
+type ListMissingEpisodesRow struct {
+	ID            int64          `json:"id"`
+	SeriesID      int64          `json:"series_id"`
+	SeasonNumber  int64          `json:"season_number"`
+	EpisodeNumber int64          `json:"episode_number"`
+	Title         sql.NullString `json:"title"`
+	Overview      sql.NullString `json:"overview"`
+	AirDate       sql.NullTime   `json:"air_date"`
+	Monitored     int64          `json:"monitored"`
+	Released      int64          `json:"released"`
+	SeriesTitle   string         `json:"series_title"`
+	SeriesTvdbID  sql.NullInt64  `json:"series_tvdb_id"`
+	SeriesTmdbID  sql.NullInt64  `json:"series_tmdb_id"`
+	SeriesImdbID  sql.NullString `json:"series_imdb_id"`
+	SeriesYear    sql.NullInt64  `json:"series_year"`
+}
+
+// Missing episodes queries
+func (q *Queries) ListMissingEpisodes(ctx context.Context) ([]*ListMissingEpisodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMissingEpisodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListMissingEpisodesRow{}
+	for rows.Next() {
+		var i ListMissingEpisodesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SeriesID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.Title,
+			&i.Overview,
+			&i.AirDate,
+			&i.Monitored,
+			&i.Released,
+			&i.SeriesTitle,
+			&i.SeriesTvdbID,
+			&i.SeriesTmdbID,
+			&i.SeriesImdbID,
+			&i.SeriesYear,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMonitoredSeries = `-- name: ListMonitoredSeries :many
 SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, status, added_at, updated_at, network, released, availability_status FROM series WHERE monitored = 1 ORDER BY sort_title
 `
@@ -1163,6 +1300,58 @@ type ListSeriesPaginatedParams struct {
 
 func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginatedParams) ([]*Series, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesPaginated, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Series{}
+	for rows.Next() {
+		var i Series
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.SortTitle,
+			&i.Year,
+			&i.TvdbID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Overview,
+			&i.Runtime,
+			&i.Path,
+			&i.RootFolderID,
+			&i.QualityProfileID,
+			&i.Monitored,
+			&i.SeasonFolder,
+			&i.Status,
+			&i.AddedAt,
+			&i.UpdatedAt,
+			&i.Network,
+			&i.Released,
+			&i.AvailabilityStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeriesWithMissingEpisodes = `-- name: ListSeriesWithMissingEpisodes :many
+SELECT DISTINCT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.status, s.added_at, s.updated_at, s.network, s.released, s.availability_status FROM series s
+JOIN episodes e ON s.id = e.series_id
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+ORDER BY s.sort_title
+`
+
+func (q *Queries) ListSeriesWithMissingEpisodes(ctx context.Context) ([]*Series, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesWithMissingEpisodes)
 	if err != nil {
 		return nil, err
 	}

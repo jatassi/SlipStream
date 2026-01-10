@@ -137,3 +137,15 @@ UPDATE movies SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE 
 UPDATE movies SET
     availability_status = CASE WHEN released = 1 THEN 'Available' ELSE 'Unreleased' END,
     updated_at = CURRENT_TIMESTAMP;
+
+-- Missing movies queries
+-- name: ListMissingMovies :many
+SELECT m.* FROM movies m
+LEFT JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.released = 1 AND m.monitored = 1 AND mf.id IS NULL
+ORDER BY m.release_date DESC;
+
+-- name: CountMissingMovies :one
+SELECT COUNT(*) FROM movies m
+LEFT JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.released = 1 AND m.monitored = 1 AND mf.id IS NULL;

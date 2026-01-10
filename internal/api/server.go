@@ -32,6 +32,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
@@ -70,6 +71,7 @@ type Server struct {
 	calendarService       *calendar.Service
 	scheduler             *scheduler.Scheduler
 	availabilityService   *availability.Service
+	missingService        *missing.Service
 }
 
 // NewServer creates a new API server instance.
@@ -146,6 +148,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize availability service
 	s.availabilityService = availability.NewService(db, logger)
+
+	// Initialize missing service
+	s.missingService = missing.NewService(db, logger)
 
 	// Initialize scheduler
 	sched, err := scheduler.New(logger)
@@ -366,6 +371,10 @@ func (s *Server) setupRoutes() {
 	// Calendar routes
 	calendarHandlers := calendar.NewHandlers(s.calendarService)
 	calendarHandlers.RegisterRoutes(api.Group("/calendar"))
+
+	// Missing routes
+	missingHandlers := missing.NewHandlers(s.missingService)
+	missingHandlers.RegisterRoutes(api.Group("/missing"))
 
 	// Scheduler routes
 	if s.scheduler != nil {

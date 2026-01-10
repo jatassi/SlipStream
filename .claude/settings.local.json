@@ -37,7 +37,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "mcp__ide__getDiagnostics",
       "Bash(go install:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(go generate:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
