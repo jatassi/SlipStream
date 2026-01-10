@@ -12,6 +12,13 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 
 Various documents detailing specific aspects of the application may be available in the `docs/` directory. When creating new documents, ALWAYS put them in this directory.
 
+## Mandatory Directives
+- Avoid frivolous comments. Frivolous comments include describing well-named variables, self explanatory logic, common operations, etc. - **your code should be self-documenting and simple**
+- Aside from running automated tests, do not conduct your own testing after implementation unless explicitly instructed. Suggest testing to the user if necessary.
+- At the end of each of your messages, put **Restart Backend** if a backend restart is required
+- If following an external plan or to-do list, always update it once you finish a task/phase/feature
+- Deviation from the plan or the spec requires pausing to ask the user's approval. If approved, update the plan/spec before making code changes
+
 ## Common Commands
 
 Important: Do not attempt to start either frontend or backend servers. Assume servers are already running on default ports. Prompt user to start or restart servers as required.
