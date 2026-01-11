@@ -72,10 +72,10 @@ cd web && npm install # Frontend dependencies only
 
 ### Database
 ```bash
-sqlc generate         # Regenerate Go code from SQL queries
+go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate   # Regenerate Go code from SQL queries
 ```
 
-After modifying `internal/database/queries/*.sql`, run `sqlc generate` to update `internal/database/sqlc/`.
+After modifying `internal/database/queries/*.sql`, run the sqlc generate command to update `internal/database/sqlc/`.
 
 ### Frontend
 ```bash
