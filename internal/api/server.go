@@ -214,6 +214,18 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.libraryManagerService.SetAutosearchService(s.autosearchService)
 	s.libraryManagerService.SetPreferencesService(s.preferencesService)
 
+	// Register library-dependent scheduled tasks (after library manager is initialized)
+	if s.scheduler != nil {
+		// Register library scan task (runs daily at 11:30 PM)
+		if err := tasks.RegisterLibraryScanTask(s.scheduler, s.libraryManagerService, s.rootFolderService, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register library scan task")
+		}
+		// Register metadata refresh task (runs daily at 11:30 PM)
+		if err := tasks.RegisterMetadataRefreshTask(s.scheduler, s.libraryManagerService, s.movieService, s.tvService, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register metadata refresh task")
+		}
+	}
+
 	// Initialize watcher service for real-time file monitoring
 	watcherSvc, err := watcher.NewService(s.rootFolderService, logger)
 	if err != nil {
