@@ -1,9 +1,9 @@
 [x] Automatic search and fetch
-[ ] System Health
+[*] System Health
 [ ] Notifications
-[ ] Episode and movie naming config
+[ ] Release Importing (Episode and movie naming config)
 [ ] Script hook for import
-[ ] Enhanced Quality Profiles (default to TRaSH guides)
+[ ] Enhanced Quality Profiles (default to TRaSH guides, incl. upgrades)
 [ ] Multiple Editions
 [ ] External Requests
 [ ] Web app settings (port, auth, https, etc)
