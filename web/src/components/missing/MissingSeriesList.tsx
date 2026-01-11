@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Search, Zap, Tv, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, Zap, Tv, ChevronDown, ChevronRight, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -11,10 +11,15 @@ import { SearchModal } from '@/components/search/SearchModal'
 import { EmptyState } from '@/components/data/EmptyState'
 import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
+import { useAutoSearchSeries, useAutoSearchSeason, useAutoSearchEpisode } from '@/hooks'
+import { useDownloadingStore } from '@/stores'
+import { toast } from 'sonner'
 import type { MissingSeries, MissingSeason, MissingEpisode } from '@/types/missing'
+import type { AutoSearchResult, BatchAutoSearchResult } from '@/types'
 
 interface MissingSeriesListProps {
   series: MissingSeries[]
+  isSearchingAll?: boolean
 }
 
 interface SearchContext {
@@ -28,11 +33,52 @@ interface SearchContext {
   episode?: number
 }
 
-export function MissingSeriesList({ series }: MissingSeriesListProps) {
+export function MissingSeriesList({ series, isSearchingAll = false }: MissingSeriesListProps) {
   const [expandedSeries, setExpandedSeries] = useState<Set<number>>(new Set())
   const [expandedSeasons, setExpandedSeasons] = useState<Set<string>>(new Set())
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [searchContext, setSearchContext] = useState<SearchContext>({})
+  const [searchingSeriesId, setSearchingSeriesId] = useState<number | null>(null)
+  const [searchingSeasonKey, setSearchingSeasonKey] = useState<string | null>(null)
+  const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
+
+  const seriesAutoSearchMutation = useAutoSearchSeries()
+  const seasonAutoSearchMutation = useAutoSearchSeason()
+  const episodeAutoSearchMutation = useAutoSearchEpisode()
+
+  // Select queueItems directly so component re-renders when it changes
+  const queueItems = useDownloadingStore((state) => state.queueItems)
+
+  const isSeriesDownloading = (seriesId: number) => {
+    return queueItems.some(
+      (item) =>
+        item.seriesId === seriesId &&
+        item.isCompleteSeries &&
+        (item.status === 'downloading' || item.status === 'queued')
+    )
+  }
+
+  const isSeasonDownloading = (seriesId: number, seasonNumber: number) => {
+    return queueItems.some(
+      (item) =>
+        item.seriesId === seriesId &&
+        ((item.seasonNumber === seasonNumber && item.isSeasonPack) ||
+          item.isCompleteSeries) &&
+        (item.status === 'downloading' || item.status === 'queued')
+    )
+  }
+
+  const isEpisodeDownloading = (episodeId: number, seriesId?: number, seasonNumber?: number) => {
+    return queueItems.some((item) => {
+      if (item.status !== 'downloading' && item.status !== 'queued') return false
+      if (item.episodeId === episodeId) return true
+      if (seriesId && item.seriesId === seriesId) {
+        if (item.isCompleteSeries) return true
+        if (seasonNumber && item.seasonNumber === seasonNumber && item.isSeasonPack) return true
+      }
+      return false
+    })
+  }
 
   const toggleSeries = (seriesId: number) => {
     const newExpanded = new Set(expandedSeries)
@@ -94,9 +140,89 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
     setSearchModalOpen(true)
   }
 
-  const handleAutoSearch = () => {
-    // Placeholder for automatic search - will be wired up later
-    console.log('Auto search triggered')
+  const formatBatchResult = (result: BatchAutoSearchResult, label: string) => {
+    if (result.downloaded > 0) {
+      toast.success(`Found ${result.downloaded} releases for ${label}`, {
+        description: `Searched ${result.totalSearched} items`,
+      })
+    } else if (result.found > 0) {
+      toast.info(`Found ${result.found} releases but none downloaded for ${label}`)
+    } else if (result.failed > 0) {
+      toast.error(`Search failed for ${result.failed} items in ${label}`)
+    } else {
+      toast.warning(`No releases found for ${label}`)
+    }
+  }
+
+  const formatSingleResult = (result: AutoSearchResult, title: string) => {
+    if (result.error) {
+      toast.error(`Search failed for "${title}"`, { description: result.error })
+      return
+    }
+    if (!result.found) {
+      toast.warning(`No releases found for "${title}"`)
+      return
+    }
+    if (result.downloaded) {
+      const message = result.upgraded ? 'Quality upgrade found' : 'Found and downloading'
+      toast.success(`${message}: ${result.release?.title || title}`, {
+        description: result.clientName ? `Sent to ${result.clientName}` : undefined,
+      })
+    } else {
+      toast.info(`Release found but not downloaded: ${result.release?.title || title}`)
+    }
+  }
+
+  const handleSeriesAutoSearch = async (s: MissingSeries) => {
+    setSearchingSeriesId(s.id)
+    try {
+      const result = await seriesAutoSearchMutation.mutateAsync(s.id)
+      formatBatchResult(result, s.title)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`"${s.title}" is already in the download queue`)
+      } else {
+        toast.error(`Search failed for "${s.title}"`)
+      }
+    } finally {
+      setSearchingSeriesId(null)
+    }
+  }
+
+  const handleSeasonAutoSearch = async (s: MissingSeries, season: MissingSeason) => {
+    const key = `${s.id}-${season.seasonNumber}`
+    setSearchingSeasonKey(key)
+    try {
+      const result = await seasonAutoSearchMutation.mutateAsync({
+        seriesId: s.id,
+        seasonNumber: season.seasonNumber,
+      })
+      formatBatchResult(result, `${s.title} Season ${season.seasonNumber}`)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`Season ${season.seasonNumber} is already in the download queue`)
+      } else {
+        toast.error(`Search failed for Season ${season.seasonNumber}`)
+      }
+    } finally {
+      setSearchingSeasonKey(null)
+    }
+  }
+
+  const handleEpisodeAutoSearch = async (_s: MissingSeries, episode: MissingEpisode) => {
+    setSearchingEpisodeId(episode.id)
+    try {
+      const result = await episodeAutoSearchMutation.mutateAsync(episode.id)
+      formatSingleResult(result, `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`Episode is already in the download queue`)
+      } else {
+        toast.error(`Search failed for episode`)
+      }
+    } finally {
+      setSearchingEpisodeId(null)
+    }
   }
 
   const getSeasonSummary = (seasons: MissingSeason[]): string => {
@@ -160,14 +286,30 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
                     )}
                   </span>
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleAutoSearch()}
-                      title="Automatic Search (All Missing)"
-                    >
-                      <Zap className="size-4" />
-                    </Button>
+                    {isSeriesDownloading(s.id) ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled
+                        title="Downloading"
+                      >
+                        <Download className="size-4 text-green-500" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSeriesAutoSearch(s)}
+                        disabled={isSearchingAll || searchingSeriesId === s.id}
+                        title="Automatic Search (All Missing)"
+                      >
+                        {isSearchingAll || searchingSeriesId === s.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Zap className="size-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -212,15 +354,32 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
                             </Collapsible>
 
                             <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleAutoSearch()}
-                                title="Automatic Search (Season)"
-                                className="h-7 w-7 p-0"
-                              >
-                                <Zap className="size-3" />
-                              </Button>
+                              {isSeasonDownloading(s.id, season.seasonNumber) ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled
+                                  title="Downloading"
+                                  className="h-7 w-7 p-0"
+                                >
+                                  <Download className="size-3 text-green-500" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSeasonAutoSearch(s, season)}
+                                  disabled={isSearchingAll || searchingSeasonKey === seasonKey}
+                                  title="Automatic Search (Season)"
+                                  className="h-7 w-7 p-0"
+                                >
+                                  {isSearchingAll || searchingSeasonKey === seasonKey ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <Zap className="size-3" />
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -237,7 +396,9 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
                           <Collapsible open={isSeasonExpanded}>
                             <CollapsibleContent>
                               <div className="ml-5 space-y-1 border-l pl-4">
-                                {season.missingEpisodes.map((episode) => (
+                                {[...season.missingEpisodes]
+                                  .sort((a, b) => a.episodeNumber - b.episodeNumber)
+                                  .map((episode) => (
                                   <div
                                     key={episode.id}
                                     className="flex items-center justify-between py-1.5 text-sm"
@@ -263,15 +424,32 @@ export function MissingSeriesList({ series }: MissingSeriesListProps) {
                                     </div>
 
                                     <div className="flex gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleAutoSearch()}
-                                        title="Automatic Search"
-                                        className="h-6 w-6 p-0"
-                                      >
-                                        <Zap className="size-3" />
-                                      </Button>
+                                      {isEpisodeDownloading(episode.id, s.id, episode.seasonNumber) ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          disabled
+                                          title="Downloading"
+                                          className="h-6 w-6 p-0"
+                                        >
+                                          <Download className="size-3 text-green-500" />
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleEpisodeAutoSearch(s, episode)}
+                                          disabled={isSearchingAll || searchingEpisodeId === episode.id}
+                                          title="Automatic Search"
+                                          className="h-6 w-6 p-0"
+                                        >
+                                          {isSearchingAll || searchingEpisodeId === episode.id ? (
+                                            <Loader2 className="size-3 animate-spin" />
+                                          ) : (
+                                            <Zap className="size-3" />
+                                          )}
+                                        </Button>
+                                      )}
                                       <Button
                                         variant="ghost"
                                         size="sm"

@@ -7,6 +7,9 @@ import type {
   UpdateSeriesInput,
   UpdateEpisodeInput,
   ListSeriesOptions,
+  BulkMonitorInput,
+  BulkEpisodeMonitorInput,
+  MonitoringStats,
 } from '@/types'
 
 export const seriesApi = {
@@ -78,9 +81,31 @@ export const seriesApi = {
       }
     ),
 
+  updateEpisodeById: (seriesId: number, episodeId: number, data: UpdateEpisodeInput) =>
+    apiFetch<Episode>(`/series/${seriesId}/episodes/${episodeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
   searchEpisode: (seriesId: number, seasonNumber: number, episodeNumber: number) =>
     apiFetch<void>(
       `/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}/search`,
       { method: 'POST' }
     ),
+
+  // Bulk monitoring operations
+  bulkMonitor: (seriesId: number, data: BulkMonitorInput) =>
+    apiFetch<{ status: string }>(`/series/${seriesId}/monitor`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  bulkMonitorEpisodes: (seriesId: number, data: BulkEpisodeMonitorInput) =>
+    apiFetch<{ status: string }>(`/series/${seriesId}/episodes/monitor`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getMonitoringStats: (seriesId: number) =>
+    apiFetch<MonitoringStats>(`/series/${seriesId}/monitor/stats`),
 }

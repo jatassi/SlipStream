@@ -158,6 +158,12 @@ export function IndexersPage() {
                       {indexer.supportsTv && <span>TV</span>}
                       <span className="text-muted-foreground/50">|</span>
                       <span>Priority: {indexer.priority}</span>
+                      {!indexer.autoSearchEnabled && (
+                        <>
+                          <span className="text-muted-foreground/50">|</span>
+                          <span className="text-yellow-500">Manual search only</span>
+                        </>
+                      )}
                     </CardDescription>
                   </div>
                 </div>

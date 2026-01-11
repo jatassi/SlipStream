@@ -82,10 +82,14 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 
 // GrabRequest represents a request to grab a release.
 type GrabRequest struct {
-	Release   *types.ReleaseInfo `json:"release"`
-	ClientID  int64              `json:"clientId,omitempty"`  // Optional: specific client
-	MediaType string             `json:"mediaType,omitempty"` // movie, episode
-	MediaID   int64              `json:"mediaId,omitempty"`   // movie_id or episode_id
+	Release          *types.ReleaseInfo `json:"release"`
+	ClientID         int64              `json:"clientId,omitempty"`  // Optional: specific client
+	MediaType        string             `json:"mediaType,omitempty"` // movie, episode, season
+	MediaID          int64              `json:"mediaId,omitempty"`   // movie_id, episode_id, or series_id (for season packs)
+	SeriesID         int64              `json:"seriesId,omitempty"`  // For episodes
+	SeasonNumber     int                `json:"seasonNumber,omitempty"`
+	IsSeasonPack     bool               `json:"isSeasonPack,omitempty"`
+	IsCompleteSeries bool               `json:"isCompleteSeries,omitempty"`
 }
 
 // GrabResult contains the result of a grab operation.
@@ -195,6 +199,9 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 	// Record in history
 	s.recordGrabHistory(ctx, req, client, downloadID)
 
+	// Create download mapping for tracking what's downloading
+	s.createDownloadMapping(ctx, req, client.ID, downloadID)
+
 	result := &GrabResult{
 		Success:    true,
 		DownloadID: downloadID,
@@ -204,6 +211,9 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 
 	// Broadcast grab completed event
 	s.broadcastGrabCompleted(req.Release, result, "")
+
+	// Broadcast queue updated so frontends refresh their download status
+	s.broadcastQueueUpdated()
 
 	s.logger.Info().
 		Str("title", req.Release.Title).
@@ -242,6 +252,14 @@ func (s *Service) broadcastGrabCompleted(release *types.ReleaseInfo, result *Gra
 		payload.ClientName = result.ClientName
 	}
 	s.broadcaster.Broadcast(indexer.EventGrabCompleted, payload)
+}
+
+// broadcastQueueUpdated notifies frontends that the queue has changed.
+func (s *Service) broadcastQueueUpdated() {
+	if s.broadcaster == nil {
+		return
+	}
+	s.broadcaster.Broadcast("queue:updated", nil)
 }
 
 // GrabBulk grabs multiple releases.
@@ -434,4 +452,45 @@ type GrabHistoryItem struct {
 	Successful bool      `json:"successful"`
 	CreatedAt  time.Time `json:"createdAt"`
 	Data       string    `json:"data,omitempty"`
+}
+
+// createDownloadMapping creates a mapping between a download and its library item.
+func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, clientID int64, downloadID string) {
+	params := sqlc.CreateDownloadMappingParams{
+		ClientID:   clientID,
+		DownloadID: downloadID,
+	}
+
+	switch req.MediaType {
+	case "movie":
+		params.MovieID = sql.NullInt64{Int64: req.MediaID, Valid: true}
+	case "episode":
+		params.EpisodeID = sql.NullInt64{Int64: req.MediaID, Valid: true}
+		if req.SeriesID > 0 {
+			params.SeriesID = sql.NullInt64{Int64: req.SeriesID, Valid: true}
+		}
+		if req.SeasonNumber > 0 {
+			params.SeasonNumber = sql.NullInt64{Int64: int64(req.SeasonNumber), Valid: true}
+		}
+	case "season":
+		params.SeriesID = sql.NullInt64{Int64: req.MediaID, Valid: true}
+		params.SeasonNumber = sql.NullInt64{Int64: int64(req.SeasonNumber), Valid: true}
+		if req.IsSeasonPack {
+			params.IsSeasonPack = 1
+		}
+		if req.IsCompleteSeries {
+			params.IsCompleteSeries = 1
+		}
+	default:
+		return
+	}
+
+	_, err := s.queries.CreateDownloadMapping(ctx, params)
+	if err != nil {
+		s.logger.Warn().Err(err).
+			Str("downloadId", downloadID).
+			Str("mediaType", req.MediaType).
+			Int64("mediaId", req.MediaID).
+			Msg("Failed to create download mapping")
+	}
 }

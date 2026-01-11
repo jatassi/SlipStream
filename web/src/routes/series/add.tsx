@@ -11,9 +11,9 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDefault, useDebounce } from '@/hooks'
+import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDefault, useDebounce, useAddFlowPreferences } from '@/hooks'
 import { toast } from 'sonner'
-import type { SeriesSearchResult, AddSeriesInput } from '@/types'
+import type { SeriesSearchResult, AddSeriesInput, SeriesSearchOnAdd, SeriesMonitorOnAdd } from '@/types'
 
 type Step = 'search' | 'configure'
 
@@ -60,15 +60,32 @@ export function AddSeriesPage() {
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
   const [qualityProfileId, setQualityProfileId] = useState<string>('')
-  const [monitored, setMonitored] = useState(true)
   const [seasonFolder, setSeasonFolder] = useState(true)
-  const [searchOnAdd, setSearchOnAdd] = useState(true)
+  const [monitorOnAdd, setMonitorOnAdd] = useState<SeriesMonitorOnAdd | undefined>(undefined)
+  const [searchOnAdd, setSearchOnAdd] = useState<SeriesSearchOnAdd | undefined>(undefined)
+  const [includeSpecials, setIncludeSpecials] = useState<boolean | undefined>(undefined)
 
   const { data: searchResults, isLoading: searching } = useSeriesSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('tv')
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: defaultRootFolder } = useDefault('root_folder', 'tv')
+  const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddSeries()
+
+  // Initialize from preferences
+  useEffect(() => {
+    if (addFlowPreferences) {
+      if (monitorOnAdd === undefined) {
+        setMonitorOnAdd(addFlowPreferences.seriesMonitorOnAdd)
+      }
+      if (searchOnAdd === undefined) {
+        setSearchOnAdd(addFlowPreferences.seriesSearchOnAdd)
+      }
+      if (includeSpecials === undefined) {
+        setIncludeSpecials(addFlowPreferences.seriesIncludeSpecials)
+      }
+    }
+  }, [addFlowPreferences, monitorOnAdd, searchOnAdd, includeSpecials])
 
   // Pre-populate root folder with default
   useEffect(() => {
@@ -107,10 +124,13 @@ export function AddSeriesPage() {
       runtime: selectedSeries.runtime,
       rootFolderId: parseInt(rootFolderId),
       qualityProfileId: parseInt(qualityProfileId),
-      monitored,
+      monitored: monitorOnAdd !== 'none',
       seasonFolder,
       posterUrl: selectedSeries.posterUrl,
       backdropUrl: selectedSeries.backdropUrl,
+      searchOnAdd: searchOnAdd ?? 'no',
+      monitorOnAdd: monitorOnAdd ?? 'future',
+      includeSpecials: includeSpecials ?? false,
     }
 
     try {
@@ -274,14 +294,42 @@ export function AddSeriesPage() {
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Monitored</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically search for and download releases
-                  </p>
-                </div>
-                <Switch checked={monitored} onCheckedChange={setMonitored} />
+              <div className="space-y-2">
+                <Label>Monitor</Label>
+                <Select value={monitorOnAdd ?? 'future'} onValueChange={(v) => setMonitorOnAdd(v as SeriesMonitorOnAdd)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Episodes</SelectItem>
+                    <SelectItem value="future">Future Episodes Only</SelectItem>
+                    <SelectItem value="first_season">First Season Only</SelectItem>
+                    <SelectItem value="latest_season">Latest Season Only</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  Which episodes should be monitored for automatic downloads
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Search on Add</Label>
+                <Select value={searchOnAdd ?? 'no'} onValueChange={(v) => setSearchOnAdd(v as SeriesSearchOnAdd)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no">Don't Search</SelectItem>
+                    <SelectItem value="first_episode">First Episode Only</SelectItem>
+                    <SelectItem value="first_season">First Season Only</SelectItem>
+                    <SelectItem value="latest_season">Latest Season Only</SelectItem>
+                    <SelectItem value="all">All Monitored Episodes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  Start searching for releases immediately after adding
+                </p>
               </div>
 
               <div className="flex items-center justify-between">
@@ -296,12 +344,12 @@ export function AddSeriesPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Search on Add</Label>
+                  <Label>Include Specials</Label>
                   <p className="text-sm text-muted-foreground">
-                    Start searching for releases immediately
+                    Monitor and search for special episodes (Season 0)
                   </p>
                 </div>
-                <Switch checked={searchOnAdd} onCheckedChange={setSearchOnAdd} />
+                <Switch checked={includeSpecials ?? false} onCheckedChange={setIncludeSpecials} />
               </div>
             </CardContent>
           </Card>

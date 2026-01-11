@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Search, Zap, Film } from 'lucide-react'
+import { Search, Zap, Film, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -13,24 +13,73 @@ import {
 import { SearchModal } from '@/components/search/SearchModal'
 import { EmptyState } from '@/components/data/EmptyState'
 import { formatDate } from '@/lib/formatters'
+import { useAutoSearchMovie } from '@/hooks'
+import { useDownloadingStore } from '@/stores'
+import { toast } from 'sonner'
 import type { MissingMovie } from '@/types/missing'
+import type { AutoSearchResult } from '@/types'
 
 interface MissingMoviesListProps {
   movies: MissingMovie[]
+  isSearchingAll?: boolean
 }
 
-export function MissingMoviesList({ movies }: MissingMoviesListProps) {
+export function MissingMoviesList({ movies, isSearchingAll = false }: MissingMoviesListProps) {
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [selectedMovie, setSelectedMovie] = useState<MissingMovie | null>(null)
+  const [searchingMovieId, setSearchingMovieId] = useState<number | null>(null)
+
+  const autoSearchMutation = useAutoSearchMovie()
+
+  // Select queueItems directly so component re-renders when it changes
+  const queueItems = useDownloadingStore((state) => state.queueItems)
+
+  const isMovieDownloading = (movieId: number) => {
+    return queueItems.some(
+      (item) =>
+        item.movieId === movieId &&
+        (item.status === 'downloading' || item.status === 'queued')
+    )
+  }
 
   const handleManualSearch = (movie: MissingMovie) => {
     setSelectedMovie(movie)
     setSearchModalOpen(true)
   }
 
-  const handleAutoSearch = (movie: MissingMovie) => {
-    // Placeholder for automatic search - will be wired up later
-    console.log('Auto search for movie:', movie.title)
+  const formatResult = (result: AutoSearchResult, title: string) => {
+    if (result.error) {
+      toast.error(`Search failed for "${title}"`, { description: result.error })
+      return
+    }
+    if (!result.found) {
+      toast.warning(`No releases found for "${title}"`)
+      return
+    }
+    if (result.downloaded) {
+      const message = result.upgraded ? 'Quality upgrade found' : 'Found and downloading'
+      toast.success(`${message}: ${result.release?.title || title}`, {
+        description: result.clientName ? `Sent to ${result.clientName}` : undefined,
+      })
+    } else {
+      toast.info(`Release found but not downloaded: ${result.release?.title || title}`)
+    }
+  }
+
+  const handleAutoSearch = async (movie: MissingMovie) => {
+    setSearchingMovieId(movie.id)
+    try {
+      const result = await autoSearchMutation.mutateAsync(movie.id)
+      formatResult(result, movie.title)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`"${movie.title}" is already in the download queue`)
+      } else {
+        toast.error(`Search failed for "${movie.title}"`)
+      }
+    } finally {
+      setSearchingMovieId(null)
+    }
   }
 
   if (movies.length === 0) {
@@ -75,14 +124,30 @@ export function MissingMoviesList({ movies }: MissingMoviesListProps) {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleAutoSearch(movie)}
-                    title="Automatic Search"
-                  >
-                    <Zap className="size-4" />
-                  </Button>
+                  {isMovieDownloading(movie.id) ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled
+                      title="Downloading"
+                    >
+                      <Download className="size-4 text-green-500" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleAutoSearch(movie)}
+                      disabled={isSearchingAll || searchingMovieId === movie.id}
+                      title="Automatic Search"
+                    >
+                      {isSearchingAll || searchingMovieId === movie.id ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Zap className="size-4" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"

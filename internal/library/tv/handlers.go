@@ -25,9 +25,12 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id", h.GetSeries)
 	g.PUT("/:id", h.UpdateSeries)
 	g.DELETE("/:id", h.DeleteSeries)
+	g.PUT("/:id/monitor", h.BulkMonitor)
+	g.GET("/:id/monitor/stats", h.GetMonitoringStats)
 	g.GET("/:id/seasons", h.ListSeasons)
 	g.PUT("/:id/seasons/:seasonNumber", h.UpdateSeason)
 	g.GET("/:id/episodes", h.ListEpisodes)
+	g.PUT("/:id/episodes/monitor", h.BulkMonitorEpisodes)
 	g.GET("/:id/episodes/:episodeId", h.GetEpisode)
 	g.PUT("/:id/episodes/:episodeId", h.UpdateEpisode)
 	g.POST("/:id/episodes/:episodeId/files", h.AddEpisodeFile)
@@ -143,6 +146,68 @@ func (h *Handlers) DeleteSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// BulkMonitor applies a monitoring preset to a series.
+// PUT /api/v1/series/:id/monitor
+func (h *Handlers) BulkMonitor(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	var input BulkMonitorInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := h.service.BulkMonitor(c.Request().Context(), id, input); err != nil {
+		if errors.Is(err, ErrSeriesNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// GetMonitoringStats returns monitoring statistics for a series.
+// GET /api/v1/series/:id/monitor/stats
+func (h *Handlers) GetMonitoringStats(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	stats, err := h.service.GetMonitoringStats(c.Request().Context(), id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, stats)
+}
+
+// BulkMonitorEpisodes updates the monitored status of multiple episodes.
+// PUT /api/v1/series/:id/episodes/monitor
+func (h *Handlers) BulkMonitorEpisodes(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	var input BulkEpisodeMonitorInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := h.service.BulkMonitorEpisodes(c.Request().Context(), id, input); err != nil {
+		if errors.Is(err, ErrSeriesNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // ListSeasons returns all seasons for a series.

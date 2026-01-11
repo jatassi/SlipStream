@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useUIStore } from '@/stores'
+import { useUIStore, useDownloadingStore } from '@/stores'
 import { useMissingCounts } from '@/hooks'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -172,6 +172,21 @@ function MissingBadge() {
   )
 }
 
+function DownloadsBadge() {
+  const queueItems = useDownloadingStore((state) => state.queueItems)
+  const count = queueItems.length
+
+  if (count === 0) {
+    return null
+  }
+
+  return (
+    <span className="text-xs text-muted-foreground">
+      {count}
+    </span>
+  )
+}
+
 function NavSection({ items, collapsed }: { items: NavItem[]; collapsed: boolean }) {
   return (
     <div className="space-y-1">
@@ -227,7 +242,8 @@ function CollapsibleNavSection({
               )}
             >
               <item.icon className="size-3" />
-              {item.title}
+              <span className="flex-1">{item.title}</span>
+              {item.href === '/activity' && <DownloadsBadge />}
             </Link>
           ))}
         </TooltipContent>
@@ -256,7 +272,13 @@ function CollapsibleNavSection({
       <CollapsibleContent className="overflow-hidden data-[ending-style]:animate-collapse-up data-[starting-style]:animate-collapse-down">
         <div className="mt-1 space-y-1">
           {group.items.map((item) => (
-            <NavLink key={item.href} item={item} collapsed={false} indented />
+            <NavLink
+              key={item.href}
+              item={item}
+              collapsed={false}
+              indented
+              badge={item.href === '/activity' ? <DownloadsBadge /> : undefined}
+            />
           ))}
         </div>
       </CollapsibleContent>

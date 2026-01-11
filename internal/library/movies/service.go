@@ -419,11 +419,17 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 		return nil, err
 	}
 
+	qualityID := sql.NullInt64{}
+	if input.QualityID != nil {
+		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
+	}
+
 	row, err := s.queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
 		MovieID:    movieID,
 		Path:       input.Path,
 		Size:       input.Size,
 		Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+		QualityID:  qualityID,
 		VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
 		AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
 		Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},

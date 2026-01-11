@@ -12,9 +12,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/api/handlers"
+	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
 	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/history"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
@@ -33,6 +35,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
@@ -72,6 +75,10 @@ type Server struct {
 	scheduler             *scheduler.Scheduler
 	availabilityService   *availability.Service
 	missingService        *missing.Service
+	autosearchService     *autosearch.Service
+	scheduledSearcher     *autosearch.ScheduledSearcher
+	preferencesService    *preferences.Service
+	historyService        *history.Service
 }
 
 // NewServer creates a new API server instance.
@@ -152,6 +159,25 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize missing service
 	s.missingService = missing.NewService(db, logger)
 
+	// Initialize preferences service
+	s.preferencesService = preferences.NewService(sqlc.New(db))
+
+	// Initialize history service
+	s.historyService = history.NewService(db, logger)
+
+	// Initialize autosearch service
+	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
+	s.autosearchService.SetBroadcaster(hub)
+	s.autosearchService.SetHistoryService(s.historyService)
+
+	// Load saved autosearch settings into config before creating scheduler
+	if err := autosearch.LoadSettingsIntoConfig(context.Background(), sqlc.New(db), &cfg.AutoSearch); err != nil {
+		logger.Warn().Err(err).Msg("Failed to load autosearch settings, using defaults")
+	}
+
+	// Initialize scheduled searcher for automatic background searches
+	s.scheduledSearcher = autosearch.NewScheduledSearcher(s.autosearchService, &cfg.AutoSearch, logger)
+
 	// Initialize scheduler
 	sched, err := scheduler.New(logger)
 	if err != nil {
@@ -161,6 +187,10 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		// Register availability refresh task
 		if err := tasks.RegisterAvailabilityTask(s.scheduler, s.availabilityService); err != nil {
 			logger.Error().Err(err).Msg("Failed to register availability task")
+		}
+		// Register automatic search task
+		if err := tasks.RegisterAutoSearchTask(s.scheduler, s.scheduledSearcher, &cfg.AutoSearch); err != nil {
+			logger.Error().Err(err).Msg("Failed to register autosearch task")
 		}
 	}
 
@@ -180,6 +210,9 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		s.progressManager,
 		logger,
 	)
+	// Wire up optional services for search-on-add functionality
+	s.libraryManagerService.SetAutosearchService(s.autosearchService)
+	s.libraryManagerService.SetPreferencesService(s.preferencesService)
 
 	// Initialize watcher service for real-time file monitoring
 	watcherSvc, err := watcher.NewService(s.rootFolderService, logger)
@@ -353,7 +386,8 @@ func (s *Server) setupRoutes() {
 	api.DELETE("/queue/:id", s.removeFromQueue)
 
 	// History routes
-	api.GET("/history", s.getHistory)
+	historyHandlers := history.NewHandlers(s.historyService)
+	historyHandlers.RegisterRoutes(api.Group("/history"))
 	api.GET("/history/indexer", s.getIndexerHistory)
 
 	// Search routes (with quality service for scored search endpoints)
@@ -368,6 +402,10 @@ func (s *Server) setupRoutes() {
 	defaultsHandlers := defaults.NewHandlers(s.defaultsService)
 	defaultsHandlers.RegisterRoutes(api.Group("/defaults"))
 
+	// Preferences routes
+	preferencesHandlers := preferences.NewHandlers(s.preferencesService)
+	preferencesHandlers.RegisterRoutes(api.Group("/preferences"))
+
 	// Calendar routes
 	calendarHandlers := calendar.NewHandlers(s.calendarService)
 	calendarHandlers.RegisterRoutes(api.Group("/calendar"))
@@ -375,6 +413,16 @@ func (s *Server) setupRoutes() {
 	// Missing routes
 	missingHandlers := missing.NewHandlers(s.missingService)
 	missingHandlers.RegisterRoutes(api.Group("/missing"))
+
+	// Autosearch routes
+	autosearchHandlers := autosearch.NewHandlers(s.autosearchService)
+	autosearchHandlers.SetScheduledSearcher(s.scheduledSearcher)
+	autosearchHandlers.RegisterRoutes(api.Group("/autosearch"))
+
+	// Autosearch settings routes
+	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.db), &s.cfg.AutoSearch)
+	settings.GET("/autosearch", autosearchSettings.GetSettings)
+	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
 
 	// Scheduler routes
 	if s.scheduler != nil {
@@ -694,6 +742,9 @@ func (s *Server) pauseDownload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	// Broadcast queue update so UI refreshes immediately
+	s.hub.Broadcast("queue:updated", nil)
+
 	return c.JSON(http.StatusOK, map[string]string{"status": "paused"})
 }
 
@@ -711,6 +762,9 @@ func (s *Server) resumeDownload(c echo.Context) error {
 	if err := s.downloaderService.ResumeDownload(ctx, body.ClientID, torrentID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+
+	// Broadcast queue update so UI refreshes immediately
+	s.hub.Broadcast("queue:updated", nil)
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "resumed"})
 }
@@ -730,12 +784,10 @@ func (s *Server) removeFromQueue(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.NoContent(http.StatusNoContent)
-}
+	// Broadcast queue update so UI refreshes immediately
+	s.hub.Broadcast("queue:updated", nil)
 
-// History handler (placeholder)
-func (s *Server) getHistory(c echo.Context) error {
-	return c.JSON(http.StatusOK, []interface{}{})
+	return c.NoContent(http.StatusNoContent)
 }
 
 // getIndexerHistory returns indexer search and grab history.

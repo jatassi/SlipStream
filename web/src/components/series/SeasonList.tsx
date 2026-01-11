@@ -1,4 +1,4 @@
-import { Search, Zap } from 'lucide-react'
+import { Search, Zap, Download, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Accordion,
@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { SeasonAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { EpisodeTable } from './EpisodeTable'
+import { useDownloadingStore } from '@/stores'
 import type { Season, Episode } from '@/types'
 
 interface SeasonListProps {
+  seriesId: number
   seasons: Season[]
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
@@ -21,10 +23,14 @@ interface SeasonListProps {
   onSeasonAutoSearch?: (seasonNumber: number) => void
   onEpisodeSearch?: (episode: Episode) => void
   onEpisodeAutoSearch?: (episode: Episode) => void
+  onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
+  searchingSeasonNumber?: number | null
+  searchingEpisodeId?: number | null
   className?: string
 }
 
 export function SeasonList({
+  seriesId,
   seasons,
   episodes = [],
   onSeasonMonitoredChange,
@@ -32,8 +38,23 @@ export function SeasonList({
   onSeasonAutoSearch,
   onEpisodeSearch,
   onEpisodeAutoSearch,
+  onEpisodeMonitoredChange,
+  searchingSeasonNumber,
+  searchingEpisodeId,
   className,
 }: SeasonListProps) {
+  // Select queueItems directly so component re-renders when it changes
+  const queueItems = useDownloadingStore((state) => state.queueItems)
+
+  const isSeasonDownloading = (sId: number, seasonNum: number) => {
+    return queueItems.some(
+      (item) =>
+        item.seriesId === sId &&
+        ((item.seasonNumber === seasonNum && item.isSeasonPack) ||
+          item.isCompleteSeries) &&
+        (item.status === 'downloading' || item.status === 'queued')
+    )
+  }
   // Group episodes by season
   const episodesBySeason: Record<number, Episode[]> = {}
   episodes.forEach((ep) => {
@@ -86,13 +107,33 @@ export function SeasonList({
                     </Button>
                   )}
                   {onSeasonAutoSearch && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onSeasonAutoSearch(season.seasonNumber)}
-                    >
-                      <Zap className="size-4" />
-                    </Button>
+                    isSeasonDownloading(seriesId, season.seasonNumber) ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        title="Downloading"
+                      >
+                        <Download className="size-4 text-green-500" />
+                      </Button>
+                    ) : searchingSeasonNumber === season.seasonNumber ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        title="Searching..."
+                      >
+                        <Loader2 className="size-4 animate-spin" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onSeasonAutoSearch(season.seasonNumber)}
+                      >
+                        <Zap className="size-4" />
+                      </Button>
+                    )
                   )}
                   {onSeasonMonitoredChange && (
                     <Switch
@@ -113,9 +154,12 @@ export function SeasonList({
               )}
               {seasonEpisodes.length > 0 ? (
                 <EpisodeTable
+                  seriesId={seriesId}
                   episodes={seasonEpisodes}
                   onManualSearch={onEpisodeSearch}
                   onAutoSearch={onEpisodeAutoSearch}
+                  onMonitoredChange={onEpisodeMonitoredChange}
+                  searchingEpisodeId={searchingEpisodeId}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground py-2">

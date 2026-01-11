@@ -1,4 +1,4 @@
-[*] Automatic search and fetch
+[x] Automatic search and fetch
 [ ] System Health
 [ ] Notifications
 [ ] Episode and movie naming config

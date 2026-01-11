@@ -80,9 +80,15 @@ export interface CreateSeriesInput {
   seasons?: SeasonInput[]
 }
 
+export type SeriesSearchOnAdd = 'no' | 'first_episode' | 'first_season' | 'latest_season' | 'all'
+export type SeriesMonitorOnAdd = 'none' | 'first_season' | 'latest_season' | 'future' | 'all'
+
 export interface AddSeriesInput extends CreateSeriesInput {
   posterUrl?: string
   backdropUrl?: string
+  searchOnAdd?: SeriesSearchOnAdd
+  monitorOnAdd?: SeriesMonitorOnAdd
+  includeSpecials?: boolean
 }
 
 export interface SeasonInput {
@@ -128,4 +134,24 @@ export interface ListSeriesOptions {
   rootFolderId?: number
   page?: number
   pageSize?: number
+}
+
+// Bulk monitoring types
+export type MonitorType = 'all' | 'none' | 'future' | 'first_season' | 'latest_season'
+
+export interface BulkMonitorInput {
+  monitorType: MonitorType
+  includeSpecials: boolean
+}
+
+export interface BulkEpisodeMonitorInput {
+  episodeIds: number[]
+  monitored: boolean
+}
+
+export interface MonitoringStats {
+  totalSeasons: number
+  monitoredSeasons: number
+  totalEpisodes: number
+  monitoredEpisodes: number
 }

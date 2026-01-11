@@ -114,6 +114,44 @@ DELETE FROM downloads WHERE id = ?;
 -- name: ListHistory :many
 SELECT * FROM history ORDER BY created_at DESC LIMIT ?;
 
+-- name: ListHistoryPaginated :many
+SELECT * FROM history
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListHistoryByEventType :many
+SELECT * FROM history
+WHERE event_type = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListHistoryByMediaType :many
+SELECT * FROM history
+WHERE media_type = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListHistoryFiltered :many
+SELECT * FROM history
+WHERE (? = '' OR event_type = ?)
+  AND (? = '' OR media_type = ?)
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountHistory :one
+SELECT COUNT(*) FROM history;
+
+-- name: CountHistoryByEventType :one
+SELECT COUNT(*) FROM history WHERE event_type = ?;
+
+-- name: CountHistoryByMediaType :one
+SELECT COUNT(*) FROM history WHERE media_type = ?;
+
+-- name: CountHistoryFiltered :one
+SELECT COUNT(*) FROM history
+WHERE (? = '' OR event_type = ?)
+  AND (? = '' OR media_type = ?);
+
 -- name: ListHistoryByMedia :many
 SELECT * FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at DESC;
 
@@ -121,6 +159,12 @@ SELECT * FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at 
 INSERT INTO history (event_type, media_type, media_id, source, quality, data)
 VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
+
+-- name: DeleteAllHistory :exec
+DELETE FROM history;
+
+-- name: DeleteOldHistory :exec
+DELETE FROM history WHERE created_at < ?;
 
 -- Default Settings
 -- name: GetDefaultForEntityTypeAndMediaType :one

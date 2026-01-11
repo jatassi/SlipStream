@@ -9,19 +9,22 @@ import (
 
 // ParsedMedia represents a media file parsed from a filename.
 type ParsedMedia struct {
-	Title      string   `json:"title"`
-	Year       int      `json:"year,omitempty"`
-	Season     int      `json:"season,omitempty"`     // 0 for movies
-	Episode    int      `json:"episode,omitempty"`    // 0 for movies
-	EndEpisode int      `json:"endEpisode,omitempty"` // For multi-episode files
-	Quality    string   `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
-	Resolution int      `json:"resolution,omitempty"` // 720, 1080, 2160
-	Source     string   `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
-	Codec      string   `json:"codec,omitempty"`      // "x264", "x265", "HEVC"
-	Attributes []string `json:"attributes,omitempty"` // HDR, Atmos, REMUX, etc.
-	IsTV       bool     `json:"isTv"`
-	FilePath   string   `json:"filePath"`
-	FileSize   int64    `json:"fileSize"`
+	Title            string   `json:"title"`
+	Year             int      `json:"year,omitempty"`
+	Season           int      `json:"season,omitempty"`           // 0 for movies or complete series
+	EndSeason        int      `json:"endSeason,omitempty"`        // For multi-season packs (S01-S04)
+	Episode          int      `json:"episode,omitempty"`          // 0 for movies or season packs
+	EndEpisode       int      `json:"endEpisode,omitempty"`       // For multi-episode files
+	IsSeasonPack     bool     `json:"isSeasonPack,omitempty"`     // True for season packs (S01 without episode)
+	IsCompleteSeries bool     `json:"isCompleteSeries,omitempty"` // True for complete series boxsets
+	Quality          string   `json:"quality,omitempty"`          // "720p", "1080p", "2160p"
+	Resolution       int      `json:"resolution,omitempty"`       // 720, 1080, 2160
+	Source           string   `json:"source,omitempty"`           // "BluRay", "WEB-DL", "HDTV"
+	Codec            string   `json:"codec,omitempty"`            // "x264", "x265", "HEVC"
+	Attributes       []string `json:"attributes,omitempty"`       // HDR, Atmos, REMUX, etc.
+	IsTV             bool     `json:"isTv"`
+	FilePath         string   `json:"filePath"`
+	FileSize         int64    `json:"fileSize"`
 }
 
 // Regex patterns for parsing
@@ -29,6 +32,19 @@ var (
 	// TV patterns: Show.S01E02 or Show.1x02
 	tvPatternSE = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss](\d{1,2})[Ee](\d{1,2})(?:[Ee](\d{1,2}))?[\.\s_-]*(.*)$`)
 	tvPatternX  = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+(\d{1,2})[xX](\d{1,2})[\.\s_-]*(.*)$`)
+
+	// TV season pack pattern: Show.S01 (no episode number - for season packs/boxsets)
+	tvPatternSeasonPack = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss](\d{1,2})(?:[\.\s_-]|$)(.*)$`)
+
+	// TV season pack pattern with spelled out "Season": Show.Season.1 or Show Season 01
+	tvPatternSeasonSpelled = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss]eason[\.\s_-]+(\d{1,2})(?:[\.\s_-]|$)(.*)$`)
+
+	// TV multi-season range pattern: Show.S01-04 or Show.S01-S04 (complete series boxsets)
+	tvPatternSeasonRange = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss](\d{1,2})-[Ss]?(\d{1,2})[\.\s_-]+(.*)$`)
+
+	// TV complete series pattern: Show.COMPLETE or Show.Complete.Series (no season number)
+	// Must NOT have S## pattern - those are handled by season pack patterns above
+	tvPatternComplete = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+(?:complete[\.\s_-]*(?:series)?|the[\.\s_-]+complete[\.\s_-]+series)[\.\s_-]+(.*)$`)
 
 	// Movie pattern: Title.Year or Title (Year)
 	moviePatternDot    = regexp.MustCompile(`^(.+?)[\.\s_-]+(\d{4})[\.\s_-]+(.*)$`)
@@ -121,6 +137,54 @@ func ParseFilename(filename string) *ParsedMedia {
 		parsed.Season, _ = strconv.Atoi(match[2])
 		parsed.Episode, _ = strconv.Atoi(match[3])
 		parseQualityInfo(match[4], parsed)
+		return parsed
+	}
+
+	// Try multi-season range pattern FIRST (S01-04 or S01-S04 - complete series boxsets)
+	// Must check before single season pack to avoid S01 matching prematurely
+	if match := tvPatternSeasonRange.FindStringSubmatch(name); match != nil {
+		parsed.IsTV = true
+		parsed.IsSeasonPack = true
+		parsed.IsCompleteSeries = true
+		parsed.Title = cleanTitle(match[1])
+		parsed.Season, _ = strconv.Atoi(match[2])
+		parsed.EndSeason, _ = strconv.Atoi(match[3])
+		parsed.Episode = 0
+		parseQualityInfo(match[4], parsed)
+		return parsed
+	}
+
+	// Try season pack pattern (S01 without episode number)
+	if match := tvPatternSeasonPack.FindStringSubmatch(name); match != nil {
+		parsed.IsTV = true
+		parsed.IsSeasonPack = true
+		parsed.Title = cleanTitle(match[1])
+		parsed.Season, _ = strconv.Atoi(match[2])
+		parsed.Episode = 0 // Season pack - no specific episode
+		parseQualityInfo(match[3], parsed)
+		return parsed
+	}
+
+	// Try spelled out "Season X" pattern (Season 1, Season 02, etc.)
+	if match := tvPatternSeasonSpelled.FindStringSubmatch(name); match != nil {
+		parsed.IsTV = true
+		parsed.IsSeasonPack = true
+		parsed.Title = cleanTitle(match[1])
+		parsed.Season, _ = strconv.Atoi(match[2])
+		parsed.Episode = 0 // Season pack - no specific episode
+		parseQualityInfo(match[3], parsed)
+		return parsed
+	}
+
+	// Try complete series pattern (COMPLETE without season number)
+	if match := tvPatternComplete.FindStringSubmatch(name); match != nil {
+		parsed.IsTV = true
+		parsed.IsSeasonPack = true
+		parsed.IsCompleteSeries = true
+		parsed.Title = cleanTitle(match[1])
+		parsed.Season = 0 // Complete series - all seasons
+		parsed.Episode = 0
+		parseQualityInfo(match[2], parsed)
 		return parsed
 	}
 

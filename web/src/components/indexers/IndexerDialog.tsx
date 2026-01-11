@@ -61,6 +61,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
     supportsTv: boolean
     priority: number
     enabled: boolean
+    autoSearchEnabled: boolean
   }>({
     name: '',
     settings: {},
@@ -68,6 +69,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
     supportsTv: true,
     priority: 50,
     enabled: true,
+    autoSearchEnabled: true,
   })
   const [isTesting, setIsTesting] = useState(false)
 
@@ -106,6 +108,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
           supportsTv: indexer.supportsTv,
           priority: indexer.priority,
           enabled: indexer.enabled,
+          autoSearchEnabled: indexer.autoSearchEnabled,
         })
         setStep('configure')
       } else {
@@ -118,6 +121,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
           supportsTv: true,
           priority: 50,
           enabled: true,
+          autoSearchEnabled: true,
         })
         setStep('select')
       }
@@ -178,6 +182,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
       supportsTv: formData.supportsTv,
       priority: formData.priority,
       enabled: formData.enabled,
+      autoSearchEnabled: formData.autoSearchEnabled,
     }
 
     try {
@@ -324,6 +329,21 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
                 id="enabled"
                 checked={formData.enabled}
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
+              />
+            </div>
+
+            {/* Auto Search Enabled Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
+                <p className="text-xs text-muted-foreground">
+                  Use this indexer when automatically searching for releases
+                </p>
+              </div>
+              <Switch
+                id="autoSearchEnabled"
+                checked={formData.autoSearchEnabled}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))}
               />
             </div>
             </div>

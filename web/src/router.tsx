@@ -25,6 +25,7 @@ import { RootFoldersPage } from '@/routes/settings/rootfolders'
 import { IndexersPage } from '@/routes/settings/indexers'
 import { DownloadClientsPage } from '@/routes/settings/downloadclients'
 import { GeneralSettingsPage } from '@/routes/settings/general'
+import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
 import { TasksPage } from '@/routes/system/tasks'
 
 // Create root route with layout
@@ -158,6 +159,12 @@ const generalSettingsRoute = createRoute({
   component: GeneralSettingsPage,
 })
 
+const autosearchSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/autosearch',
+  component: AutoSearchSettingsPage,
+})
+
 // System routes
 const tasksRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -185,6 +192,7 @@ const routeTree = rootRoute.addChildren([
   indexersRoute,
   downloadclientsRoute,
   generalSettingsRoute,
+  autosearchSettingsRoute,
   tasksRoute,
 ])
 

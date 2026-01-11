@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Toaster } from '@/components/ui/sonner'
 import { useWebSocketStore, useWebSocketHandler, useUIStore } from '@/stores'
+import { useQueue } from '@/hooks'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -26,6 +27,9 @@ function LayoutContent({ children }: RootLayoutProps) {
 
   // Process WebSocket messages (handles progress events, query invalidation, etc.)
   useWebSocketHandler()
+
+  // Keep downloading store synced globally (polls queue and syncs to store)
+  useQueue()
 
   // Apply theme
   useEffect(() => {

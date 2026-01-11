@@ -80,8 +80,8 @@ SELECT * FROM movie_files WHERE id = ? LIMIT 1;
 SELECT * FROM movie_files WHERE movie_id = ? ORDER BY path;
 
 -- name: CreateMovieFile :one
-INSERT INTO movie_files (movie_id, path, size, quality, video_codec, audio_codec, resolution)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO movie_files (movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: DeleteMovieFile :exec
@@ -149,3 +149,34 @@ ORDER BY m.release_date DESC;
 SELECT COUNT(*) FROM movies m
 LEFT JOIN movie_files mf ON m.id = mf.movie_id
 WHERE m.released = 1 AND m.monitored = 1 AND mf.id IS NULL;
+
+-- Upgrade candidate queries (movies with files below quality cutoff)
+-- name: ListMovieUpgradeCandidates :many
+SELECT m.*, mf.id as file_id, mf.quality_id as current_quality_id, qp.cutoff
+FROM movies m
+JOIN movie_files mf ON m.id = mf.movie_id
+JOIN quality_profiles qp ON m.quality_profile_id = qp.id
+WHERE m.monitored = 1
+  AND m.released = 1
+  AND mf.quality_id IS NOT NULL
+  AND mf.quality_id < qp.cutoff
+ORDER BY m.release_date DESC;
+
+-- name: CountMovieUpgradeCandidates :one
+SELECT COUNT(*) FROM movies m
+JOIN movie_files mf ON m.id = mf.movie_id
+JOIN quality_profiles qp ON m.quality_profile_id = qp.id
+WHERE m.monitored = 1
+  AND m.released = 1
+  AND mf.quality_id IS NOT NULL
+  AND mf.quality_id < qp.cutoff;
+
+-- name: GetMovieWithFileQuality :one
+SELECT m.*, mf.id as file_id, mf.quality_id as current_quality_id
+FROM movies m
+LEFT JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.id = ?
+LIMIT 1;
+
+-- name: UpdateMovieFileQualityID :exec
+UPDATE movie_files SET quality_id = ? WHERE id = ?;

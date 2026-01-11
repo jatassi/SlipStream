@@ -329,6 +329,23 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		return nil, fmt.Errorf("failed to update series: %w", err)
 	}
 
+	// Cascade monitoring changes to seasons and episodes
+	if input.Monitored != nil && *input.Monitored != current.Monitored {
+		monitoredInt := boolToInt(monitored)
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: monitoredInt,
+			SeriesID:  id,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to seasons")
+		}
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: monitoredInt,
+			SeriesID:  id,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to episodes")
+		}
+	}
+
 	series := s.rowToSeries(row)
 	s.logger.Info().Int64("id", id).Str("title", series.Title).Msg("Updated series")
 
@@ -418,8 +435,277 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 		return nil, fmt.Errorf("failed to update season: %w", err)
 	}
 
+	// Cascade monitoring to all episodes in this season
+	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+		Monitored:    boolToInt(monitored),
+		SeriesID:     seriesID,
+		SeasonNumber: int64(seasonNumber),
+	}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Int("seasonNumber", seasonNumber).Msg("Failed to cascade monitoring to episodes")
+	}
+
 	season := s.rowToSeason(updated)
 	return &season, nil
+}
+
+// BulkMonitor applies a monitoring preset to a series.
+func (s *Service) BulkMonitor(ctx context.Context, seriesID int64, input BulkMonitorInput) error {
+	// Verify series exists
+	_, err := s.GetSeries(ctx, seriesID)
+	if err != nil {
+		return err
+	}
+
+	switch input.MonitorType {
+	case MonitorTypeAll:
+		// Monitor all seasons and episodes
+		if input.IncludeSpecials {
+			if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+				Monitored: 1,
+				SeriesID:  seriesID,
+			}); err != nil {
+				return fmt.Errorf("failed to monitor seasons: %w", err)
+			}
+			if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+				Monitored: 1,
+				SeriesID:  seriesID,
+			}); err != nil {
+				return fmt.Errorf("failed to monitor episodes: %w", err)
+			}
+		} else {
+			if err := s.queries.UpdateSeasonsMonitoredExcludingSpecials(ctx, sqlc.UpdateSeasonsMonitoredExcludingSpecialsParams{
+				Monitored: 1,
+				SeriesID:  seriesID,
+			}); err != nil {
+				return fmt.Errorf("failed to monitor seasons: %w", err)
+			}
+			if err := s.queries.UpdateEpisodesMonitoredExcludingSpecials(ctx, sqlc.UpdateEpisodesMonitoredExcludingSpecialsParams{
+				Monitored: 1,
+				SeriesID:  seriesID,
+			}); err != nil {
+				return fmt.Errorf("failed to monitor episodes: %w", err)
+			}
+			// Explicitly unmonitor specials
+			if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+				Monitored:    0,
+				SeriesID:     seriesID,
+				SeasonNumber: 0,
+			}); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("failed to unmonitor specials season: %w", err)
+			}
+			if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+				Monitored:    0,
+				SeriesID:     seriesID,
+				SeasonNumber: 0,
+			}); err != nil {
+				return fmt.Errorf("failed to unmonitor specials: %w", err)
+			}
+		}
+
+	case MonitorTypeNone:
+		// Unmonitor all seasons and episodes
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor seasons: %w", err)
+		}
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor episodes: %w", err)
+		}
+
+	case MonitorTypeFuture:
+		// Monitor only unreleased episodes
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor episodes: %w", err)
+		}
+		if err := s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
+			Monitored: 1,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor future episodes: %w", err)
+		}
+		// Update season monitoring based on whether they have future episodes
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor seasons: %w", err)
+		}
+		if err := s.queries.UpdateFutureSeasonsMonitored(ctx, sqlc.UpdateFutureSeasonsMonitoredParams{
+			Monitored:  1,
+			SeriesID:   seriesID,
+			SeriesID_2: seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor future seasons: %w", err)
+		}
+		if !input.IncludeSpecials {
+			if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+				Monitored:    0,
+				SeriesID:     seriesID,
+				SeasonNumber: 0,
+			}); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("failed to unmonitor specials season: %w", err)
+			}
+			if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+				Monitored:    0,
+				SeriesID:     seriesID,
+				SeasonNumber: 0,
+			}); err != nil {
+				return fmt.Errorf("failed to unmonitor specials: %w", err)
+			}
+		}
+
+	case MonitorTypeFirstSeason:
+		// Monitor only first season
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor episodes: %w", err)
+		}
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor seasons: %w", err)
+		}
+		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: 1,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor first season: %w", err)
+		}
+		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: 1,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor first season episodes: %w", err)
+		}
+
+	case MonitorTypeLatest:
+		// Monitor only latest season
+		latestResult, err := s.queries.GetLatestSeasonNumber(ctx, seriesID)
+		if err != nil {
+			return fmt.Errorf("failed to get latest season: %w", err)
+		}
+		var latestSeason int64
+		switch v := latestResult.(type) {
+		case int64:
+			latestSeason = v
+		case int:
+			latestSeason = int64(v)
+		case nil:
+			return nil // No seasons to monitor
+		default:
+			return nil // No seasons to monitor
+		}
+		if latestSeason == 0 {
+			return nil // No seasons to monitor
+		}
+
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor episodes: %w", err)
+		}
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return fmt.Errorf("failed to unmonitor seasons: %w", err)
+		}
+		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: latestSeason,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor latest season: %w", err)
+		}
+		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: latestSeason,
+		}); err != nil {
+			return fmt.Errorf("failed to monitor latest season episodes: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("unknown monitor type: %s", input.MonitorType)
+	}
+
+	s.logger.Info().
+		Int64("seriesId", seriesID).
+		Str("monitorType", string(input.MonitorType)).
+		Bool("includeSpecials", input.IncludeSpecials).
+		Msg("Applied bulk monitoring")
+
+	if s.hub != nil {
+		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
+	}
+
+	return nil
+}
+
+// BulkMonitorEpisodes updates the monitored status of multiple episodes.
+func (s *Service) BulkMonitorEpisodes(ctx context.Context, seriesID int64, input BulkEpisodeMonitorInput) error {
+	// Verify series exists
+	_, err := s.GetSeries(ctx, seriesID)
+	if err != nil {
+		return err
+	}
+
+	if len(input.EpisodeIDs) == 0 {
+		return nil
+	}
+
+	if err := s.queries.UpdateEpisodesMonitoredByIDs(ctx, sqlc.UpdateEpisodesMonitoredByIDsParams{
+		Monitored: boolToInt(input.Monitored),
+		Ids:       input.EpisodeIDs,
+	}); err != nil {
+		return fmt.Errorf("failed to update episodes: %w", err)
+	}
+
+	s.logger.Info().
+		Int64("seriesId", seriesID).
+		Int("episodeCount", len(input.EpisodeIDs)).
+		Bool("monitored", input.Monitored).
+		Msg("Applied bulk episode monitoring")
+
+	if s.hub != nil {
+		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
+	}
+
+	return nil
+}
+
+// GetMonitoringStats returns monitoring statistics for a series.
+func (s *Service) GetMonitoringStats(ctx context.Context, seriesID int64) (*MonitoringStats, error) {
+	row, err := s.queries.GetSeriesMonitoringStats(ctx, sqlc.GetSeriesMonitoringStatsParams{
+		SeriesID:   seriesID,
+		SeriesID_2: seriesID,
+		SeriesID_3: seriesID,
+		SeriesID_4: seriesID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monitoring stats: %w", err)
+	}
+
+	return &MonitoringStats{
+		TotalSeasons:      row.TotalSeasons,
+		MonitoredSeasons:  row.MonitoredSeasons,
+		TotalEpisodes:     row.TotalEpisodes,
+		MonitoredEpisodes: row.MonitoredEpisodes,
+	}, nil
 }
 
 // ListEpisodes returns episodes for a series, optionally filtered by season.
@@ -539,11 +825,17 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 		return nil, err
 	}
 
+	qualityID := sql.NullInt64{}
+	if input.QualityID != nil {
+		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
+	}
+
 	row, err := s.queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
 		EpisodeID:  episodeID,
 		Path:       input.Path,
 		Size:       input.Size,
 		Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+		QualityID:  qualityID,
 		VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
 		AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
 		Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},

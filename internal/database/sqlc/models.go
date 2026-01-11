@@ -6,6 +6,7 @@ package sqlc
 
 import (
 	"database/sql"
+	"time"
 )
 
 type Auth struct {
@@ -13,6 +14,15 @@ type Auth struct {
 	PasswordHash string       `json:"password_hash"`
 	CreatedAt    sql.NullTime `json:"created_at"`
 	UpdatedAt    sql.NullTime `json:"updated_at"`
+}
+
+type AutosearchStatus struct {
+	ID               int64        `json:"id"`
+	ItemType         string       `json:"item_type"`
+	ItemID           int64        `json:"item_id"`
+	FailureCount     int64        `json:"failure_count"`
+	LastSearchedAt   sql.NullTime `json:"last_searched_at"`
+	LastMetaChangeAt sql.NullTime `json:"last_meta_change_at"`
 }
 
 type DefinitionMetadatum struct {
@@ -58,6 +68,19 @@ type DownloadClient struct {
 	UpdatedAt sql.NullTime   `json:"updated_at"`
 }
 
+type DownloadMapping struct {
+	ID               int64         `json:"id"`
+	ClientID         int64         `json:"client_id"`
+	DownloadID       string        `json:"download_id"`
+	MovieID          sql.NullInt64 `json:"movie_id"`
+	SeriesID         sql.NullInt64 `json:"series_id"`
+	SeasonNumber     sql.NullInt64 `json:"season_number"`
+	EpisodeID        sql.NullInt64 `json:"episode_id"`
+	IsSeasonPack     int64         `json:"is_season_pack"`
+	IsCompleteSeries int64         `json:"is_complete_series"`
+	CreatedAt        time.Time     `json:"created_at"`
+}
+
 type Episode struct {
 	ID            int64          `json:"id"`
 	SeriesID      int64          `json:"series_id"`
@@ -80,6 +103,7 @@ type EpisodeFile struct {
 	AudioCodec sql.NullString `json:"audio_codec"`
 	Resolution sql.NullString `json:"resolution"`
 	CreatedAt  sql.NullTime   `json:"created_at"`
+	QualityID  sql.NullInt64  `json:"quality_id"`
 }
 
 type History struct {
@@ -94,17 +118,18 @@ type History struct {
 }
 
 type Indexer struct {
-	ID             int64          `json:"id"`
-	Name           string         `json:"name"`
-	DefinitionID   string         `json:"definition_id"`
-	Settings       sql.NullString `json:"settings"`
-	Categories     sql.NullString `json:"categories"`
-	SupportsMovies int64          `json:"supports_movies"`
-	SupportsTv     int64          `json:"supports_tv"`
-	Priority       int64          `json:"priority"`
-	Enabled        int64          `json:"enabled"`
-	CreatedAt      sql.NullTime   `json:"created_at"`
-	UpdatedAt      sql.NullTime   `json:"updated_at"`
+	ID                int64          `json:"id"`
+	Name              string         `json:"name"`
+	DefinitionID      string         `json:"definition_id"`
+	Settings          sql.NullString `json:"settings"`
+	Categories        sql.NullString `json:"categories"`
+	SupportsMovies    int64          `json:"supports_movies"`
+	SupportsTv        int64          `json:"supports_tv"`
+	Priority          int64          `json:"priority"`
+	Enabled           int64          `json:"enabled"`
+	CreatedAt         sql.NullTime   `json:"created_at"`
+	UpdatedAt         sql.NullTime   `json:"updated_at"`
+	AutoSearchEnabled int64          `json:"auto_search_enabled"`
 }
 
 type IndexerHistory struct {
@@ -174,6 +199,7 @@ type MovieFile struct {
 	AudioCodec sql.NullString `json:"audio_codec"`
 	Resolution sql.NullString `json:"resolution"`
 	CreatedAt  sql.NullTime   `json:"created_at"`
+	QualityID  sql.NullInt64  `json:"quality_id"`
 }
 
 type QualityProfile struct {

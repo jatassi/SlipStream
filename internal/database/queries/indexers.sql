@@ -21,8 +21,8 @@ SELECT * FROM indexers WHERE definition_id = ? ORDER BY priority, name;
 
 -- name: CreateIndexer :one
 INSERT INTO indexers (
-    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, auto_search_enabled
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateIndexer :one
@@ -35,6 +35,7 @@ UPDATE indexers SET
     supports_tv = ?,
     priority = ?,
     enabled = ?,
+    auto_search_enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -158,3 +159,17 @@ DELETE FROM definition_metadata;
 
 -- name: CountDefinitionMetadata :one
 SELECT COUNT(*) FROM definition_metadata;
+
+-- Auto-search enabled indexer queries
+
+-- name: ListAutoSearchEnabledMovieIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_movies = 1 ORDER BY priority, name;
+
+-- name: ListAutoSearchEnabledTVIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_tv = 1 ORDER BY priority, name;
+
+-- name: ListAutoSearchEnabledIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 ORDER BY priority, name;
+
+-- name: UpdateIndexerAutoSearchEnabled :exec
+UPDATE indexers SET auto_search_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;

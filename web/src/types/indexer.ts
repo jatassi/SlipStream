@@ -18,6 +18,7 @@ export interface Indexer {
   supportsRss: boolean
   priority: number
   enabled: boolean
+  autoSearchEnabled: boolean
   settings?: Record<string, string>
   createdAt?: string
   updatedAt?: string
@@ -33,6 +34,7 @@ export interface CreateIndexerInput {
   supportsTv: boolean
   priority?: number
   enabled?: boolean
+  autoSearchEnabled?: boolean
 }
 
 // UpdateIndexerInput is the input for updating an indexer
@@ -45,6 +47,7 @@ export interface UpdateIndexerInput {
   supportsTv?: boolean
   priority?: number
   enabled?: boolean
+  autoSearchEnabled?: boolean
 }
 
 // TestConfigInput is the input for testing an indexer configuration

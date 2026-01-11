@@ -143,6 +143,240 @@ func TestParseFilename_TVShow_XFormat(t *testing.T) {
 	}
 }
 
+func TestParseFilename_TVShow_SeasonPack(t *testing.T) {
+	tests := []struct {
+		name           string
+		filename       string
+		wantTitle      string
+		wantSeason     int
+		wantEp         int
+		wantIsTV       bool
+		wantSeasonPack bool
+	}{
+		{
+			name:           "season pack S01 format",
+			filename:       "Mr Robot S01 iTALiAN MULTi 1080p BluRay x264-NTROPiC",
+			wantTitle:      "Mr Robot",
+			wantSeason:     1,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "season pack S02 format",
+			filename:       "Breaking.Bad.S02.1080p.BluRay.x264",
+			wantTitle:      "Breaking Bad",
+			wantSeason:     2,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "season pack with hyphen",
+			filename:       "The-Office-S03-720p-HDTV",
+			wantTitle:      "The Office",
+			wantSeason:     3,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "season pack double digit",
+			filename:       "Supernatural.S15.Complete.1080p.WEB-DL",
+			wantTitle:      "Supernatural",
+			wantSeason:     15,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "special E00 is NOT a season pack",
+			filename:       "Mr Robot S02E00 Special 1080p BluRay x264",
+			wantTitle:      "Mr Robot",
+			wantSeason:     2,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: false,
+		},
+		{
+			name:           "regular episode is NOT a season pack",
+			filename:       "Mr Robot S02E05 1080p BluRay x264",
+			wantTitle:      "Mr Robot",
+			wantSeason:     2,
+			wantEp:         5,
+			wantIsTV:       true,
+			wantSeasonPack: false,
+		},
+		{
+			name:           "spelled out Season 2 format",
+			filename:       "Mr Robot Season 2 1080p BluRay",
+			wantTitle:      "Mr Robot",
+			wantSeason:     2,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "spelled out Season 02 with dots",
+			filename:       "Mr.Robot.Season.02.1080p.BluRay",
+			wantTitle:      "Mr Robot",
+			wantSeason:     2,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "spelled out Season 1 Complete",
+			filename:       "Breaking Bad Season 1 Complete 720p",
+			wantTitle:      "Breaking Bad",
+			wantSeason:     1,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+		{
+			name:           "spelled out Season with underscores",
+			filename:       "The_Office_Season_3_1080p_WEB-DL",
+			wantTitle:      "The Office",
+			wantSeason:     3,
+			wantEp:         0,
+			wantIsTV:       true,
+			wantSeasonPack: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseFilename(tt.filename)
+
+			if result.Title != tt.wantTitle {
+				t.Errorf("Title = %q, want %q", result.Title, tt.wantTitle)
+			}
+			if result.Season != tt.wantSeason {
+				t.Errorf("Season = %d, want %d", result.Season, tt.wantSeason)
+			}
+			if result.Episode != tt.wantEp {
+				t.Errorf("Episode = %d, want %d", result.Episode, tt.wantEp)
+			}
+			if result.IsTV != tt.wantIsTV {
+				t.Errorf("IsTV = %v, want %v", result.IsTV, tt.wantIsTV)
+			}
+			if result.IsSeasonPack != tt.wantSeasonPack {
+				t.Errorf("IsSeasonPack = %v, want %v", result.IsSeasonPack, tt.wantSeasonPack)
+			}
+		})
+	}
+}
+
+func TestParseFilename_TVShow_CompleteSeries(t *testing.T) {
+	tests := []struct {
+		name             string
+		filename         string
+		wantTitle        string
+		wantSeason       int
+		wantEndSeason    int
+		wantIsTV         bool
+		wantSeasonPack   bool
+		wantCompleteSeries bool
+	}{
+		{
+			name:             "COMPLETE keyword only",
+			filename:         "Mr Robot COMPLETE 1080p BluRay AV1 DDP 5 1-dAV1nci",
+			wantTitle:        "Mr Robot",
+			wantSeason:       0,
+			wantEndSeason:    0,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "Complete Series phrase",
+			filename:         "Breaking Bad Complete Series 1080p BluRay x264",
+			wantTitle:        "Breaking Bad",
+			wantSeason:       0,
+			wantEndSeason:    0,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "The Complete Series phrase",
+			filename:         "The Office The Complete Series 720p WEB-DL",
+			wantTitle:        "The Office",
+			wantSeason:       0,
+			wantEndSeason:    0,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "season range S01-04 format",
+			filename:         "Mr Robot S01-04 1080p BluRay x265-RARBG",
+			wantTitle:        "Mr Robot",
+			wantSeason:       1,
+			wantEndSeason:    4,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "season range S01-S04 format",
+			filename:         "Breaking Bad S01-S05 2160p UHD BluRay x265",
+			wantTitle:        "Breaking Bad",
+			wantSeason:       1,
+			wantEndSeason:    5,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "complete series with year in parens",
+			filename:         "Mr Robot (2015) Complete Series S01-S04 1080p BluRay x265 HEVC 10bit AAC 5 1 Vyndros",
+			wantTitle:        "Mr Robot (2015) Complete Series",
+			wantSeason:       1,
+			wantEndSeason:    4,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: true,
+		},
+		{
+			name:             "single season with Complete is NOT complete series",
+			filename:         "Mr Robot S02 Complete 1080p BluRay x264",
+			wantTitle:        "Mr Robot",
+			wantSeason:       2,
+			wantEndSeason:    0,
+			wantIsTV:         true,
+			wantSeasonPack:   true,
+			wantCompleteSeries: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseFilename(tt.filename)
+
+			if result.Title != tt.wantTitle {
+				t.Errorf("Title = %q, want %q", result.Title, tt.wantTitle)
+			}
+			if result.Season != tt.wantSeason {
+				t.Errorf("Season = %d, want %d", result.Season, tt.wantSeason)
+			}
+			if result.EndSeason != tt.wantEndSeason {
+				t.Errorf("EndSeason = %d, want %d", result.EndSeason, tt.wantEndSeason)
+			}
+			if result.IsTV != tt.wantIsTV {
+				t.Errorf("IsTV = %v, want %v", result.IsTV, tt.wantIsTV)
+			}
+			if result.IsSeasonPack != tt.wantSeasonPack {
+				t.Errorf("IsSeasonPack = %v, want %v", result.IsSeasonPack, tt.wantSeasonPack)
+			}
+			if result.IsCompleteSeries != tt.wantCompleteSeries {
+				t.Errorf("IsCompleteSeries = %v, want %v", result.IsCompleteSeries, tt.wantCompleteSeries)
+			}
+		})
+	}
+}
+
 func TestParseFilename_Movie_DotFormat(t *testing.T) {
 	tests := []struct {
 		name      string

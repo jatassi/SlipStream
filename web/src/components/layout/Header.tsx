@@ -1,16 +1,27 @@
-import { Bell } from 'lucide-react'
+import { Bell, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useUIStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/SearchBar'
+import { useScheduledTasks } from '@/hooks'
 
 export function Header() {
   const { notifications, dismissNotification } = useUIStore()
+  const { data: tasks } = useScheduledTasks()
+
+  const runningTasks = tasks?.filter(t => t.running) || []
+  const hasRunningTasks = runningTasks.length > 0
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-6">
@@ -23,6 +34,29 @@ export function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        {/* Running Tasks Indicator */}
+        {hasRunningTasks && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-600/10 text-blue-600">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span className="text-sm font-medium">
+                    {runningTasks.length === 1 ? runningTasks[0].name : `${runningTasks.length} tasks`}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-1">
+                  {runningTasks.map(task => (
+                    <p key={task.id}>{task.name}</p>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger className="relative inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-9 w-9">

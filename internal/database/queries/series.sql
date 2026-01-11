@@ -152,8 +152,8 @@ ORDER BY e.episode_number;
 SELECT * FROM episode_files WHERE episode_id = ? ORDER BY path;
 
 -- name: CreateEpisodeFile :one
-INSERT INTO episode_files (episode_id, path, size, quality, video_codec, audio_codec, resolution)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: DeleteEpisodeFile :exec
@@ -164,6 +164,9 @@ DELETE FROM episode_files WHERE episode_id = ?;
 
 -- name: GetEpisodeFileByPath :one
 SELECT * FROM episode_files WHERE path = ? LIMIT 1;
+
+-- name: CountEpisodeFiles :one
+SELECT COUNT(*) FROM episode_files WHERE episode_id = ?;
 
 -- name: CountEpisodeFilesBySeries :one
 SELECT COUNT(*) FROM episode_files ef
@@ -301,7 +304,7 @@ SELECT
      WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
 FROM series s;
 
--- Missing episodes queries
+-- Missing episodes queries (respects cascading monitoring: series -> season -> episode)
 -- name: ListMissingEpisodes :many
 SELECT
     e.*,
@@ -313,29 +316,171 @@ SELECT
     s.quality_profile_id as series_quality_profile_id
 FROM episodes e
 JOIN series s ON e.series_id = s.id
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+WHERE e.released = 1
+  AND s.monitored = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL
 ORDER BY e.air_date DESC;
 
 -- name: CountMissingEpisodes :one
 SELECT COUNT(*) FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL;
+WHERE e.released = 1
+  AND s.monitored = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL;
 
 -- name: GetMissingEpisodesBySeries :many
 SELECT e.* FROM episodes e
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+WHERE e.series_id = ?
+  AND e.released = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL
 ORDER BY e.season_number, e.episode_number;
 
 -- name: CountMissingEpisodesBySeries :one
 SELECT COUNT(*) FROM episodes e
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.series_id = ? AND e.released = 1 AND e.monitored = 1 AND ef.id IS NULL;
+WHERE e.series_id = ?
+  AND e.released = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL;
 
 -- name: ListSeriesWithMissingEpisodes :many
 SELECT DISTINCT s.* FROM series s
 JOIN episodes e ON s.id = e.series_id
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1 AND e.monitored = 1 AND ef.id IS NULL
+WHERE e.released = 1
+  AND s.monitored = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL
 ORDER BY s.sort_title;
+
+-- Upgrade candidate queries (episodes with files below quality cutoff)
+-- name: ListEpisodeUpgradeCandidates :many
+SELECT
+    e.*,
+    s.title as series_title,
+    s.tvdb_id as series_tvdb_id,
+    s.tmdb_id as series_tmdb_id,
+    s.imdb_id as series_imdb_id,
+    s.year as series_year,
+    s.quality_profile_id as series_quality_profile_id,
+    ef.id as file_id,
+    ef.quality_id as current_quality_id,
+    qp.cutoff
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN episode_files ef ON e.id = ef.episode_id
+JOIN quality_profiles qp ON s.quality_profile_id = qp.id
+WHERE e.monitored = 1
+  AND e.released = 1
+  AND s.monitored = 1
+  AND ef.quality_id IS NOT NULL
+  AND ef.quality_id < qp.cutoff
+ORDER BY e.air_date DESC;
+
+-- name: CountEpisodeUpgradeCandidates :one
+SELECT COUNT(*) FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN episode_files ef ON e.id = ef.episode_id
+JOIN quality_profiles qp ON s.quality_profile_id = qp.id
+WHERE e.monitored = 1
+  AND e.released = 1
+  AND s.monitored = 1
+  AND ef.quality_id IS NOT NULL
+  AND ef.quality_id < qp.cutoff;
+
+-- name: ListEpisodeUpgradeCandidatesBySeries :many
+SELECT
+    e.*,
+    ef.id as file_id,
+    ef.quality_id as current_quality_id,
+    qp.cutoff
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN episode_files ef ON e.id = ef.episode_id
+JOIN quality_profiles qp ON s.quality_profile_id = qp.id
+WHERE e.series_id = ?
+  AND e.monitored = 1
+  AND e.released = 1
+  AND ef.quality_id IS NOT NULL
+  AND ef.quality_id < qp.cutoff
+ORDER BY e.season_number, e.episode_number;
+
+-- name: GetEpisodeWithFileQuality :one
+SELECT
+    e.*,
+    s.quality_profile_id as series_quality_profile_id,
+    ef.id as file_id,
+    ef.quality_id as current_quality_id
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.id = ?
+LIMIT 1;
+
+-- name: UpdateEpisodeFileQualityID :exec
+UPDATE episode_files SET quality_id = ? WHERE id = ?;
+
+-- Bulk monitoring updates for add flow
+-- name: UpdateAllEpisodesMonitoredBySeries :exec
+UPDATE episodes SET monitored = ? WHERE series_id = ?;
+
+-- name: UpdateEpisodesMonitoredBySeason :exec
+UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number = ?;
+
+-- name: UpdateEpisodesMonitoredExcludingSeason :exec
+UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number != ?;
+
+-- name: UpdateSeasonMonitoredBySeries :exec
+UPDATE seasons SET monitored = ? WHERE series_id = ?;
+
+-- name: UpdateSeasonMonitoredByNumber :exec
+UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number = ?;
+
+-- name: GetLatestSeasonNumber :one
+SELECT COALESCE(MAX(season_number), 0) as latest FROM seasons WHERE series_id = ? AND season_number > 0;
+
+-- name: UpdateFutureEpisodesMonitored :exec
+UPDATE episodes SET monitored = ? WHERE series_id = ? AND released = 0;
+
+-- name: UpdateFutureSeasonsMonitored :exec
+UPDATE seasons SET monitored = ?
+WHERE seasons.series_id = ? AND seasons.season_number IN (
+    SELECT DISTINCT e.season_number FROM episodes e
+    WHERE e.series_id = ? AND e.released = 0
+);
+
+-- name: UpdateEpisodesMonitoredByIDs :exec
+UPDATE episodes SET monitored = ? WHERE id IN (sqlc.slice('ids'));
+
+-- name: UpdateSeasonsMonitoredExcluding :exec
+UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number NOT IN (sqlc.slice('excludeSeasons'));
+
+-- name: UpdateEpisodesMonitoredExcludingSpecials :exec
+UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number > 0;
+
+-- name: UpdateSeasonsMonitoredExcludingSpecials :exec
+UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number > 0;
+
+-- Monitoring status queries
+-- name: GetSeriesMonitoringStats :one
+SELECT
+    (SELECT COUNT(*) FROM seasons s WHERE s.series_id = ?) as total_seasons,
+    (SELECT COUNT(*) FROM seasons s WHERE s.series_id = ? AND s.monitored = 1) as monitored_seasons,
+    (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ?) as total_episodes,
+    (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ? AND e.monitored = 1) as monitored_episodes;

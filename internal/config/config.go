@@ -12,13 +12,14 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Server        ServerConfig   `mapstructure:"server"`
-	Database      DatabaseConfig `mapstructure:"database"`
-	Logging       LoggingConfig  `mapstructure:"logging"`
-	Auth          AuthConfig     `mapstructure:"auth"`
-	Metadata      MetadataConfig `mapstructure:"metadata"`
-	Indexer       IndexerConfig  `mapstructure:"indexer"`
-	DeveloperMode bool           `mapstructure:"developer_mode"`
+	Server        ServerConfig     `mapstructure:"server"`
+	Database      DatabaseConfig   `mapstructure:"database"`
+	Logging       LoggingConfig    `mapstructure:"logging"`
+	Auth          AuthConfig       `mapstructure:"auth"`
+	Metadata      MetadataConfig   `mapstructure:"metadata"`
+	Indexer       IndexerConfig    `mapstructure:"indexer"`
+	AutoSearch    AutoSearchConfig `mapstructure:"autosearch"`
+	DeveloperMode bool             `mapstructure:"developer_mode"`
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -102,6 +103,24 @@ type StatusConfig struct {
 	InitialBackoffMinutes int `mapstructure:"initial_backoff_minutes"` // Default: 5
 }
 
+// AutoSearchConfig holds automatic search scheduling configuration.
+type AutoSearchConfig struct {
+	Enabled          bool `mapstructure:"enabled"`           // Default: true
+	IntervalHours    int  `mapstructure:"interval_hours"`    // Default: 1 (range: 1-24)
+	BackoffThreshold int  `mapstructure:"backoff_threshold"` // Default: 12
+	BaseDelayMs      int  `mapstructure:"base_delay_ms"`     // Default: 1000
+}
+
+// IntervalDuration returns the search interval as a time.Duration.
+func (c *AutoSearchConfig) IntervalDuration() time.Duration {
+	return time.Duration(c.IntervalHours) * time.Hour
+}
+
+// BaseDelayDuration returns the base delay between searches.
+func (c *AutoSearchConfig) BaseDelayDuration() time.Duration {
+	return time.Duration(c.BaseDelayMs) * time.Millisecond
+}
+
 // QueryPeriodDuration returns the query period as a time.Duration.
 func (r *RateLimitConfig) QueryPeriodDuration() time.Duration {
 	return time.Duration(r.QueryPeriod) * time.Minute
@@ -173,6 +192,12 @@ func Default() *Config {
 				MaxBackoffHours:       3,
 				InitialBackoffMinutes: 5,
 			},
+		},
+		AutoSearch: AutoSearchConfig{
+			Enabled:          true,
+			IntervalHours:    1,
+			BackoffThreshold: 12,
+			BaseDelayMs:      1000,
 		},
 	}
 }
@@ -281,6 +306,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("indexer.status.backoff_multiplier", 2.0)
 	v.SetDefault("indexer.status.max_backoff_hours", 3)
 	v.SetDefault("indexer.status.initial_backoff_minutes", 5)
+
+	// AutoSearch defaults
+	v.SetDefault("autosearch.enabled", true)
+	v.SetDefault("autosearch.interval_hours", 1)
+	v.SetDefault("autosearch.backoff_threshold", 12)
+	v.SetDefault("autosearch.base_delay_ms", 1000)
 }
 
 // Address returns the server address string.

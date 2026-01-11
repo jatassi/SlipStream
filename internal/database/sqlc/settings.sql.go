@@ -10,6 +10,64 @@ import (
 	"database/sql"
 )
 
+const countHistory = `-- name: CountHistory :one
+SELECT COUNT(*) FROM history
+`
+
+func (q *Queries) CountHistory(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistory)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countHistoryByEventType = `-- name: CountHistoryByEventType :one
+SELECT COUNT(*) FROM history WHERE event_type = ?
+`
+
+func (q *Queries) CountHistoryByEventType(ctx context.Context, eventType string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistoryByEventType, eventType)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countHistoryByMediaType = `-- name: CountHistoryByMediaType :one
+SELECT COUNT(*) FROM history WHERE media_type = ?
+`
+
+func (q *Queries) CountHistoryByMediaType(ctx context.Context, mediaType string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistoryByMediaType, mediaType)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countHistoryFiltered = `-- name: CountHistoryFiltered :one
+SELECT COUNT(*) FROM history
+WHERE (? = '' OR event_type = ?)
+  AND (? = '' OR media_type = ?)
+`
+
+type CountHistoryFilteredParams struct {
+	Column1   interface{} `json:"column_1"`
+	EventType string      `json:"event_type"`
+	Column3   interface{} `json:"column_3"`
+	MediaType string      `json:"media_type"`
+}
+
+func (q *Queries) CountHistoryFiltered(ctx context.Context, arg CountHistoryFilteredParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistoryFiltered,
+		arg.Column1,
+		arg.EventType,
+		arg.Column3,
+		arg.MediaType,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMoviesUsingProfile = `-- name: CountMoviesUsingProfile :one
 SELECT COUNT(*) FROM movies WHERE quality_profile_id = ?
 `
@@ -180,12 +238,30 @@ func (q *Queries) CreateRootFolder(ctx context.Context, arg CreateRootFolderPara
 	return &i, err
 }
 
+const deleteAllHistory = `-- name: DeleteAllHistory :exec
+DELETE FROM history
+`
+
+func (q *Queries) DeleteAllHistory(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllHistory)
+	return err
+}
+
 const deleteDownload = `-- name: DeleteDownload :exec
 DELETE FROM downloads WHERE id = ?
 `
 
 func (q *Queries) DeleteDownload(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteDownload, id)
+	return err
+}
+
+const deleteOldHistory = `-- name: DeleteOldHistory :exec
+DELETE FROM history WHERE created_at < ?
+`
+
+func (q *Queries) DeleteOldHistory(ctx context.Context, createdAt sql.NullTime) error {
+	_, err := q.db.ExecContext(ctx, deleteOldHistory, createdAt)
 	return err
 }
 
@@ -512,6 +588,51 @@ func (q *Queries) ListHistory(ctx context.Context, limit int64) ([]*History, err
 	return items, nil
 }
 
+const listHistoryByEventType = `-- name: ListHistoryByEventType :many
+SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+WHERE event_type = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListHistoryByEventTypeParams struct {
+	EventType string `json:"event_type"`
+	Limit     int64  `json:"limit"`
+	Offset    int64  `json:"offset"`
+}
+
+func (q *Queries) ListHistoryByEventType(ctx context.Context, arg ListHistoryByEventTypeParams) ([]*History, error) {
+	rows, err := q.db.QueryContext(ctx, listHistoryByEventType, arg.EventType, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.MediaType,
+			&i.MediaID,
+			&i.Source,
+			&i.Quality,
+			&i.Data,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHistoryByMedia = `-- name: ListHistoryByMedia :many
 SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at DESC
 `
@@ -523,6 +644,150 @@ type ListHistoryByMediaParams struct {
 
 func (q *Queries) ListHistoryByMedia(ctx context.Context, arg ListHistoryByMediaParams) ([]*History, error) {
 	rows, err := q.db.QueryContext(ctx, listHistoryByMedia, arg.MediaType, arg.MediaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.MediaType,
+			&i.MediaID,
+			&i.Source,
+			&i.Quality,
+			&i.Data,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHistoryByMediaType = `-- name: ListHistoryByMediaType :many
+SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+WHERE media_type = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListHistoryByMediaTypeParams struct {
+	MediaType string `json:"media_type"`
+	Limit     int64  `json:"limit"`
+	Offset    int64  `json:"offset"`
+}
+
+func (q *Queries) ListHistoryByMediaType(ctx context.Context, arg ListHistoryByMediaTypeParams) ([]*History, error) {
+	rows, err := q.db.QueryContext(ctx, listHistoryByMediaType, arg.MediaType, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.MediaType,
+			&i.MediaID,
+			&i.Source,
+			&i.Quality,
+			&i.Data,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHistoryFiltered = `-- name: ListHistoryFiltered :many
+SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+WHERE (? = '' OR event_type = ?)
+  AND (? = '' OR media_type = ?)
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListHistoryFilteredParams struct {
+	Column1   interface{} `json:"column_1"`
+	EventType string      `json:"event_type"`
+	Column3   interface{} `json:"column_3"`
+	MediaType string      `json:"media_type"`
+	Limit     int64       `json:"limit"`
+	Offset    int64       `json:"offset"`
+}
+
+func (q *Queries) ListHistoryFiltered(ctx context.Context, arg ListHistoryFilteredParams) ([]*History, error) {
+	rows, err := q.db.QueryContext(ctx, listHistoryFiltered,
+		arg.Column1,
+		arg.EventType,
+		arg.Column3,
+		arg.MediaType,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*History{}
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.MediaType,
+			&i.MediaID,
+			&i.Source,
+			&i.Quality,
+			&i.Data,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHistoryPaginated = `-- name: ListHistoryPaginated :many
+SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListHistoryPaginatedParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) ListHistoryPaginated(ctx context.Context, arg ListHistoryPaginatedParams) ([]*History, error) {
+	rows, err := q.db.QueryContext(ctx, listHistoryPaginated, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

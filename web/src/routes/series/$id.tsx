@@ -11,7 +11,6 @@ import {
   Bookmark,
   BookmarkX,
   Tv,
-  Zap,
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
@@ -22,6 +21,7 @@ import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { SearchModal } from '@/components/search/SearchModal'
+import { AutoSearchButton } from '@/components/search/AutoSearchButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -30,14 +30,16 @@ import {
   useSeriesDetail,
   useUpdateSeries,
   useDeleteSeries,
-  useSearchSeries,
   useRefreshSeries,
   useEpisodes,
   useUpdateSeasonMonitored,
+  useUpdateEpisodeMonitored,
+  useAutoSearchSeason,
+  useAutoSearchEpisode,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
-import type { Episode } from '@/types'
+import type { Episode, AutoSearchResult, BatchAutoSearchResult } from '@/types'
 
 interface SearchContext {
   season?: number
@@ -51,6 +53,8 @@ export function SeriesDetailPage() {
 
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [searchContext, setSearchContext] = useState<SearchContext>({})
+  const [searchingSeasonNumber, setSearchingSeasonNumber] = useState<number | null>(null)
+  const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
   const { data: episodes } = useEpisodes(seriesId)
@@ -73,9 +77,11 @@ export function SeriesDetailPage() {
 
   const updateMutation = useUpdateSeries()
   const deleteMutation = useDeleteSeries()
-  const searchMutation = useSearchSeries()
   const refreshMutation = useRefreshSeries()
   const updateSeasonMonitoredMutation = useUpdateSeasonMonitored()
+  const updateEpisodeMonitoredMutation = useUpdateEpisodeMonitored()
+  const seasonAutoSearchMutation = useAutoSearchSeason()
+  const episodeAutoSearchMutation = useAutoSearchEpisode()
 
   const handleToggleMonitored = async () => {
     if (!series) return
@@ -90,15 +96,6 @@ export function SeriesDetailPage() {
     }
   }
 
-  const handleAutoSearch = async () => {
-    try {
-      await searchMutation.mutateAsync(seriesId)
-      toast.success('Automatic search started')
-    } catch {
-      toast.error('Failed to start search')
-    }
-  }
-
   const handleManualSearch = () => {
     setSearchContext({})
     setSearchModalOpen(true)
@@ -109,8 +106,53 @@ export function SeriesDetailPage() {
     setSearchModalOpen(true)
   }
 
+  const formatBatchResult = (result: BatchAutoSearchResult, label: string) => {
+    if (result.downloaded > 0) {
+      toast.success(`Found ${result.downloaded} releases for ${label}`, {
+        description: `Searched ${result.totalSearched} items`,
+      })
+    } else if (result.found > 0) {
+      toast.info(`Found ${result.found} releases but none downloaded for ${label}`)
+    } else if (result.failed > 0) {
+      toast.error(`Search failed for ${result.failed} items in ${label}`)
+    } else {
+      toast.warning(`No releases found for ${label}`)
+    }
+  }
+
+  const formatSingleResult = (result: AutoSearchResult, title: string) => {
+    if (result.error) {
+      toast.error(`Search failed for "${title}"`, { description: result.error })
+      return
+    }
+    if (!result.found) {
+      toast.warning(`No releases found for "${title}"`)
+      return
+    }
+    if (result.downloaded) {
+      const message = result.upgraded ? 'Quality upgrade found' : 'Found and downloading'
+      toast.success(`${message}: ${result.release?.title || title}`, {
+        description: result.clientName ? `Sent to ${result.clientName}` : undefined,
+      })
+    } else {
+      toast.info(`Release found but not downloaded: ${result.release?.title || title}`)
+    }
+  }
+
   const handleSeasonAutoSearch = async (seasonNumber: number) => {
-    toast.info(`Auto search for Season ${seasonNumber} - not yet implemented`)
+    setSearchingSeasonNumber(seasonNumber)
+    try {
+      const result = await seasonAutoSearchMutation.mutateAsync({ seriesId, seasonNumber })
+      formatBatchResult(result, `Season ${seasonNumber}`)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`Season ${seasonNumber} is already in the download queue`)
+      } else {
+        toast.error(`Search failed for Season ${seasonNumber}`)
+      }
+    } finally {
+      setSearchingSeasonNumber(null)
+    }
   }
 
   const handleEpisodeSearch = (episode: Episode) => {
@@ -118,8 +160,20 @@ export function SeriesDetailPage() {
     setSearchModalOpen(true)
   }
 
-  const handleEpisodeAutoSearch = async (_episode: Episode) => {
-    toast.info('Auto search for episode - not yet implemented')
+  const handleEpisodeAutoSearch = async (episode: Episode) => {
+    setSearchingEpisodeId(episode.id)
+    try {
+      const result = await episodeAutoSearchMutation.mutateAsync(episode.id)
+      formatSingleResult(result, `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning(`Episode is already in the download queue`)
+      } else {
+        toast.error(`Search failed for episode`)
+      }
+    } finally {
+      setSearchingEpisodeId(null)
+    }
   }
 
   const handleRefresh = async () => {
@@ -151,6 +205,19 @@ export function SeriesDetailPage() {
       toast.success(`Season ${seasonNumber} ${monitored ? 'monitored' : 'unmonitored'}`)
     } catch {
       toast.error('Failed to update season')
+    }
+  }
+
+  const handleEpisodeMonitoredChange = async (episode: Episode, monitored: boolean) => {
+    try {
+      await updateEpisodeMonitoredMutation.mutateAsync({
+        seriesId,
+        episodeId: episode.id,
+        monitored,
+      })
+      toast.success(`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')} ${monitored ? 'monitored' : 'unmonitored'}`)
+    } catch {
+      toast.error('Failed to update episode')
     }
   }
 
@@ -231,14 +298,11 @@ export function SeriesDetailPage() {
           <Search className="size-4 mr-2" />
           Search
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleAutoSearch}
-          disabled={searchMutation.isPending}
-        >
-          <Zap className="size-4 mr-2" />
-          Auto Search All
-        </Button>
+        <AutoSearchButton
+          mediaType="series"
+          seriesId={series.id}
+          title={series.title}
+        />
         <Button
           variant="outline"
           onClick={handleRefresh}
@@ -247,16 +311,20 @@ export function SeriesDetailPage() {
           <RefreshCw className="size-4 mr-2" />
           Refresh
         </Button>
-        <Button variant="outline" onClick={handleToggleMonitored}>
+        <Button
+          variant="outline"
+          onClick={handleToggleMonitored}
+          disabled={updateMutation.isPending}
+        >
           {series.monitored ? (
             <>
-              <BookmarkX className="size-4 mr-2" />
-              Unmonitor
+              <Bookmark className="size-4 mr-2" />
+              Monitored
             </>
           ) : (
             <>
-              <Bookmark className="size-4 mr-2" />
-              Monitor
+              <BookmarkX className="size-4 mr-2" />
+              Unmonitored
             </>
           )}
         </Button>
@@ -331,6 +399,7 @@ export function SeriesDetailPage() {
           <CardContent>
             {series.seasons && series.seasons.length > 0 ? (
               <SeasonList
+                seriesId={series.id}
                 seasons={series.seasons}
                 episodes={episodes}
                 onSeasonMonitoredChange={handleSeasonMonitoredChange}
@@ -338,6 +407,9 @@ export function SeriesDetailPage() {
                 onSeasonAutoSearch={handleSeasonAutoSearch}
                 onEpisodeSearch={handleEpisodeSearch}
                 onEpisodeAutoSearch={handleEpisodeAutoSearch}
+                onEpisodeMonitoredChange={handleEpisodeMonitoredChange}
+                searchingSeasonNumber={searchingSeasonNumber}
+                searchingEpisodeId={searchingEpisodeId}
               />
             ) : (
               <p className="text-muted-foreground">No seasons found</p>

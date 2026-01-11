@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
@@ -34,6 +35,13 @@ type QueueItem struct {
 	Season         int      `json:"season,omitempty"`
 	Episode        int      `json:"episode,omitempty"`
 	DownloadPath   string   `json:"downloadPath"`
+	// Library mapping - populated from download_mappings table
+	MovieID          *int64 `json:"movieId,omitempty"`
+	SeriesID         *int64 `json:"seriesId,omitempty"`
+	SeasonNumber     *int   `json:"seasonNumber,omitempty"`
+	EpisodeID        *int64 `json:"episodeId,omitempty"`
+	IsSeasonPack     bool   `json:"isSeasonPack,omitempty"`
+	IsCompleteSeries bool   `json:"isCompleteSeries,omitempty"`
 }
 
 // GetQueue returns all items from all enabled download clients.
@@ -66,7 +74,56 @@ func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
 		items = append(items, clientItems...)
 	}
 
+	// Enrich items with library IDs from download mappings
+	s.enrichQueueItemsWithMappings(ctx, items)
+
 	return items, nil
+}
+
+// enrichQueueItemsWithMappings populates library IDs on queue items from download_mappings.
+func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []QueueItem) {
+	if len(items) == 0 {
+		return
+	}
+
+	// Get all active download mappings
+	mappings, err := s.queries.ListActiveDownloadMappings(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to get download mappings")
+		return
+	}
+
+	// Build lookup map: clientID:downloadID -> mapping
+	mappingLookup := make(map[string]*sqlc.DownloadMapping)
+	for _, m := range mappings {
+		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
+		mappingLookup[key] = m
+	}
+
+	// Enrich each item
+	for i := range items {
+		key := fmt.Sprintf("%d:%s", items[i].ClientID, items[i].ID)
+		if mapping, ok := mappingLookup[key]; ok {
+			if mapping.MovieID.Valid {
+				movieID := mapping.MovieID.Int64
+				items[i].MovieID = &movieID
+			}
+			if mapping.SeriesID.Valid {
+				seriesID := mapping.SeriesID.Int64
+				items[i].SeriesID = &seriesID
+			}
+			if mapping.SeasonNumber.Valid {
+				seasonNum := int(mapping.SeasonNumber.Int64)
+				items[i].SeasonNumber = &seasonNum
+			}
+			if mapping.EpisodeID.Valid {
+				episodeID := mapping.EpisodeID.Int64
+				items[i].EpisodeID = &episodeID
+			}
+			items[i].IsSeasonPack = mapping.IsSeasonPack == 1
+			items[i].IsCompleteSeries = mapping.IsCompleteSeries == 1
+		}
+	}
 }
 
 // getClientQueue fetches queue items from any download client using the unified interface.

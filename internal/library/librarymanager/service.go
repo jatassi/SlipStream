@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
@@ -19,6 +20,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 )
 
@@ -60,6 +62,10 @@ type Service struct {
 	progress        *progress.Manager
 	logger          zerolog.Logger
 
+	// Optional services for search-on-add
+	autosearchSvc  *autosearch.Service
+	preferencesSvc *preferences.Service
+
 	// Track active scans by root folder ID
 	activeScans map[int64]string // maps folderID -> activityID
 	scanMu      sync.RWMutex
@@ -92,6 +98,16 @@ func NewService(
 		logger:          logger.With().Str("component", "librarymanager").Logger(),
 		activeScans:     make(map[int64]string),
 	}
+}
+
+// SetAutosearchService sets the optional autosearch service for search-on-add functionality
+func (s *Service) SetAutosearchService(svc *autosearch.Service) {
+	s.autosearchSvc = svc
+}
+
+// SetPreferencesService sets the optional preferences service for add-flow defaults
+func (s *Service) SetPreferencesService(svc *preferences.Service) {
+	s.preferencesSvc = svc
 }
 
 // ScanRootFolder scans a root folder for media files and matches them to metadata.
@@ -1360,6 +1376,7 @@ type AddMovieInput struct {
 	BackdropURL         string `json:"backdropUrl,omitempty"`
 	ReleaseDate         string `json:"releaseDate,omitempty"`         // Digital/streaming release date
 	PhysicalReleaseDate string `json:"physicalReleaseDate,omitempty"` // Bluray release date
+	SearchOnAdd         *bool  `json:"searchOnAdd,omitempty"`         // Trigger autosearch after add
 }
 
 // AddMovie creates a new movie and downloads artwork in the background.
@@ -1419,6 +1436,25 @@ func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Mo
 		}()
 	}
 
+	// Trigger autosearch in background if requested and movie is released
+	if input.SearchOnAdd != nil && *input.SearchOnAdd && s.autosearchSvc != nil && movie.Released {
+		go func() {
+			s.logger.Info().Int64("movieId", movie.ID).Str("title", movie.Title).Msg("Triggering search-on-add for movie")
+			if _, err := s.autosearchSvc.SearchMovie(context.Background(), movie.ID, autosearch.SearchSourceAdd); err != nil {
+				s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Search-on-add failed for movie")
+			}
+		}()
+	}
+
+	// Save preference if provided
+	if input.SearchOnAdd != nil && s.preferencesSvc != nil {
+		go func() {
+			if err := s.preferencesSvc.SetMovieSearchOnAdd(context.Background(), *input.SearchOnAdd); err != nil {
+				s.logger.Warn().Err(err).Msg("Failed to save movie search-on-add preference")
+			}
+		}()
+	}
+
 	return movie, nil
 }
 
@@ -1439,6 +1475,162 @@ type AddSeriesInput struct {
 	Seasons          []tv.SeasonInput `json:"seasons,omitempty"`
 	PosterURL        string           `json:"posterUrl,omitempty"`
 	BackdropURL      string           `json:"backdropUrl,omitempty"`
+
+	// Search and monitoring options for add flow
+	SearchOnAdd     *string `json:"searchOnAdd,omitempty"`     // "no", "first_episode", "first_season", "latest_season", "all"
+	MonitorOnAdd    *string `json:"monitorOnAdd,omitempty"`    // "none", "first_season", "latest_season", "future", "all"
+	IncludeSpecials *bool   `json:"includeSpecials,omitempty"` // Whether to include specials in monitoring/search
+}
+
+// applyMonitoringOnAdd applies the monitoring-on-add settings to a newly added series
+func (s *Service) applyMonitoringOnAdd(ctx context.Context, seriesID int64, monitorOnAdd string, includeSpecials bool) error {
+	monitorType := preferences.SeriesMonitorOnAdd(monitorOnAdd)
+	if !preferences.ValidSeriesMonitorOnAdd(monitorOnAdd) {
+		monitorType = preferences.SeriesMonitorOnAddFuture // Default
+	}
+
+	switch monitorType {
+	case preferences.SeriesMonitorOnAddNone:
+		// Unmonitor everything
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		// Also unmonitor the series itself
+		if _, err := s.tv.UpdateSeries(ctx, seriesID, tv.UpdateSeriesInput{Monitored: boolPtr(false)}); err != nil {
+			return err
+		}
+
+	case preferences.SeriesMonitorOnAddFirstSeason:
+		// Monitor only first season (season 1, not 0)
+		// First, unmonitor all
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		// Then monitor season 1
+		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: 1,
+		}); err != nil {
+			return err
+		}
+		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+			Monitored:    1,
+			SeriesID:     seriesID,
+			SeasonNumber: 1,
+		}); err != nil {
+			return err
+		}
+
+	case preferences.SeriesMonitorOnAddLatestSeason:
+		// Get latest season number
+		latestSeasonVal, err := s.queries.GetLatestSeasonNumber(ctx, seriesID)
+		if err != nil {
+			return err
+		}
+		// Unmonitor all, then monitor latest
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		// Handle potential NULL value from MAX
+		var latestSeason int64
+		if latestSeasonVal != nil {
+			switch v := latestSeasonVal.(type) {
+			case int64:
+				latestSeason = v
+			case int:
+				latestSeason = int64(v)
+			}
+		}
+		if latestSeason > 0 {
+			if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+				Monitored:    1,
+				SeriesID:     seriesID,
+				SeasonNumber: latestSeason,
+			}); err != nil {
+				return err
+			}
+			if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+				Monitored:    1,
+				SeriesID:     seriesID,
+				SeasonNumber: latestSeason,
+			}); err != nil {
+				return err
+			}
+		}
+
+	case preferences.SeriesMonitorOnAddFuture:
+		// Monitor only unreleased episodes
+		// First, unmonitor all released episodes
+		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+			Monitored: 0,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		// Then monitor unreleased
+		if err := s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
+			Monitored: 1,
+			SeriesID:  seriesID,
+		}); err != nil {
+			return err
+		}
+		// Seasons default to monitored
+
+	case preferences.SeriesMonitorOnAddAll:
+		// Everything is already monitored by default, nothing to do
+	}
+
+	// Handle specials (season 0) - if not including specials, unmonitor them
+	if !includeSpecials {
+		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
+			Monitored:    0,
+			SeriesID:     seriesID,
+			SeasonNumber: 0,
+		}); err != nil {
+			return err
+		}
+		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
+			Monitored:    0,
+			SeriesID:     seriesID,
+			SeasonNumber: 0,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 // AddSeries creates a new series, fetches metadata, and downloads artwork in the background.
@@ -1533,6 +1725,105 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		}()
 	}
 
+	// Apply monitoring-on-add settings if provided
+	if input.MonitorOnAdd != nil {
+		includeSpecials := false
+		if input.IncludeSpecials != nil {
+			includeSpecials = *input.IncludeSpecials
+		}
+		if err := s.applyMonitoringOnAdd(ctx, series.ID, *input.MonitorOnAdd, includeSpecials); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to apply monitoring-on-add settings")
+		}
+	}
+
+	// Save preferences if provided
+	if s.preferencesSvc != nil {
+		go func() {
+			if input.SearchOnAdd != nil {
+				if err := s.preferencesSvc.SetSeriesSearchOnAdd(context.Background(), preferences.SeriesSearchOnAdd(*input.SearchOnAdd)); err != nil {
+					s.logger.Warn().Err(err).Msg("Failed to save series search-on-add preference")
+				}
+			}
+			if input.MonitorOnAdd != nil {
+				if err := s.preferencesSvc.SetSeriesMonitorOnAdd(context.Background(), preferences.SeriesMonitorOnAdd(*input.MonitorOnAdd)); err != nil {
+					s.logger.Warn().Err(err).Msg("Failed to save series monitor-on-add preference")
+				}
+			}
+			if input.IncludeSpecials != nil {
+				if err := s.preferencesSvc.SetSeriesIncludeSpecials(context.Background(), *input.IncludeSpecials); err != nil {
+					s.logger.Warn().Err(err).Msg("Failed to save series include-specials preference")
+				}
+			}
+		}()
+	}
+
+	// Trigger autosearch in background if requested
+	if input.SearchOnAdd != nil && *input.SearchOnAdd != "no" && s.autosearchSvc != nil {
+		go func() {
+			s.triggerSeriesSearchOnAdd(series.ID, *input.SearchOnAdd, input.IncludeSpecials)
+		}()
+	}
+
 	// Re-fetch series to include updated seasons and episodes
 	return s.tv.GetSeries(ctx, series.ID)
+}
+
+// triggerSeriesSearchOnAdd triggers autosearch based on the search-on-add option
+func (s *Service) triggerSeriesSearchOnAdd(seriesID int64, searchOnAdd string, includeSpecials *bool) {
+	ctx := context.Background()
+	searchType := preferences.SeriesSearchOnAdd(searchOnAdd)
+
+	// Get series info
+	series, err := s.tv.GetSeries(ctx, seriesID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to get series for search-on-add")
+		return
+	}
+
+	s.logger.Info().Int64("seriesId", seriesID).Str("title", series.Title).Str("searchType", searchOnAdd).Msg("Triggering search-on-add for series")
+
+	switch searchType {
+	case preferences.SeriesSearchOnAddFirstEpisode:
+		// Search for S01E01 only
+		seasonNum := 1
+		episodes, err := s.tv.ListEpisodes(ctx, seriesID, &seasonNum)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to get season 1 episodes")
+			return
+		}
+		for _, ep := range episodes {
+			if ep.EpisodeNumber == 1 && ep.Released {
+				if _, err := s.autosearchSvc.SearchEpisode(ctx, ep.ID, autosearch.SearchSourceAdd); err != nil {
+					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Search-on-add failed for episode")
+				}
+				return
+			}
+		}
+
+	case preferences.SeriesSearchOnAddFirstSeason:
+		// Search for all released episodes in season 1
+		if _, err := s.autosearchSvc.SearchSeason(ctx, seriesID, 1, autosearch.SearchSourceAdd); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Search-on-add failed for first season")
+		}
+
+	case preferences.SeriesSearchOnAddLatestSeason:
+		// Find and search the latest season
+		var latestSeason int
+		for _, season := range series.Seasons {
+			if season.SeasonNumber > latestSeason && season.SeasonNumber > 0 {
+				latestSeason = season.SeasonNumber
+			}
+		}
+		if latestSeason > 0 {
+			if _, err := s.autosearchSvc.SearchSeason(ctx, seriesID, latestSeason, autosearch.SearchSourceAdd); err != nil {
+				s.logger.Warn().Err(err).Int64("seriesId", seriesID).Int("season", latestSeason).Msg("Search-on-add failed for latest season")
+			}
+		}
+
+	case preferences.SeriesSearchOnAddAll:
+		// Search for entire series
+		if _, err := s.autosearchSvc.SearchSeries(ctx, seriesID, autosearch.SearchSourceAdd); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Search-on-add failed for series")
+		}
+	}
 }

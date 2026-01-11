@@ -318,9 +318,9 @@ func TestScorer_MatchScore_Episode(t *testing.T) {
 			title:         "Show.Name.S01.Complete.1080p.WEB-DL",
 			searchSeason:  1,
 			searchEpisode: 5,
-			minScore:      10, // Year only - parser doesn't extract season-only format
-			maxScore:      12,
-			description:   "Parser doesn't detect season packs without episode number",
+			minScore:      18, // Year + Season match (no episode points for season pack)
+			maxScore:      22,
+			description:   "Season pack matches season but not specific episode",
 		},
 		{
 			name:          "Wrong episode",

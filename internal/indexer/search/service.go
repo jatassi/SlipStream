@@ -190,6 +190,9 @@ func (s *Service) searchTorrentsInternal(ctx context.Context, criteria types.Sea
 		Int("indexerCount", len(indexers)).
 		Str("query", criteria.Query).
 		Str("type", criteria.Type).
+		Int("season", criteria.Season).
+		Int("episode", criteria.Episode).
+		Int("tvdbId", criteria.TvdbID).
 		Msg("Starting torrent search across indexers")
 
 	// Dispatch parallel searches

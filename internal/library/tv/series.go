@@ -145,9 +145,41 @@ type CreateEpisodeFileInput struct {
 	Path       string `json:"path"`
 	Size       int64  `json:"size"`
 	Quality    string `json:"quality,omitempty"`
+	QualityID  *int64 `json:"qualityId,omitempty"`
 	VideoCodec string `json:"videoCodec,omitempty"`
 	AudioCodec string `json:"audioCodec,omitempty"`
 	Resolution string `json:"resolution,omitempty"`
+}
+
+// MonitorType represents the type of bulk monitoring operation.
+type MonitorType string
+
+const (
+	MonitorTypeAll         MonitorType = "all"
+	MonitorTypeNone        MonitorType = "none"
+	MonitorTypeFuture      MonitorType = "future"
+	MonitorTypeFirstSeason MonitorType = "first_season"
+	MonitorTypeLatest      MonitorType = "latest_season"
+)
+
+// BulkMonitorInput contains fields for bulk monitoring operations.
+type BulkMonitorInput struct {
+	MonitorType     MonitorType `json:"monitorType"`
+	IncludeSpecials bool        `json:"includeSpecials"`
+}
+
+// BulkEpisodeMonitorInput contains fields for bulk episode monitoring.
+type BulkEpisodeMonitorInput struct {
+	EpisodeIDs []int64 `json:"episodeIds"`
+	Monitored  bool    `json:"monitored"`
+}
+
+// MonitoringStats contains monitoring statistics for a series.
+type MonitoringStats struct {
+	TotalSeasons      int64 `json:"totalSeasons"`
+	MonitoredSeasons  int64 `json:"monitoredSeasons"`
+	TotalEpisodes     int64 `json:"totalEpisodes"`
+	MonitoredEpisodes int64 `json:"monitoredEpisodes"`
 }
 
 // generateSortTitle creates a sort-friendly title by removing leading articles.

@@ -1,17 +1,55 @@
-export type HistoryEventType = 'grabbed' | 'imported' | 'deleted' | 'failed' | 'renamed'
+export type HistoryEventType =
+  | 'grabbed'
+  | 'imported'
+  | 'deleted'
+  | 'failed'
+  | 'renamed'
+  | 'autosearch_download'
+  | 'autosearch_upgrade'
+  | 'autosearch_failed'
 
 export interface HistoryEntry {
   id: number
   eventType: HistoryEventType
-  mediaType: 'movie' | 'series'
+  mediaType: 'movie' | 'episode'
   mediaId: number
   source?: string
   quality?: string
-  data?: Record<string, unknown>
+  data?: HistoryEventData
   createdAt: string
   // Expanded media info
   mediaTitle?: string
 }
+
+export interface AutoSearchDownloadData {
+  releaseName?: string
+  indexer?: string
+  clientName?: string
+  downloadId?: string
+  source?: string
+}
+
+export interface AutoSearchUpgradeData {
+  releaseName?: string
+  indexer?: string
+  clientName?: string
+  downloadId?: string
+  oldQuality?: string
+  newQuality?: string
+  source?: string
+}
+
+export interface AutoSearchFailedData {
+  error?: string
+  indexer?: string
+  source?: string
+}
+
+export type HistoryEventData =
+  | AutoSearchDownloadData
+  | AutoSearchUpgradeData
+  | AutoSearchFailedData
+  | Record<string, unknown>
 
 export interface ListHistoryOptions {
   eventType?: HistoryEventType

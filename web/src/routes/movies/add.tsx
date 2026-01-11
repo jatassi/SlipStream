@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
-import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDefault, useDebounce } from '@/hooks'
+import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDefault, useDebounce, useAddFlowPreferences } from '@/hooks'
 import { toast } from 'sonner'
 import type { MovieSearchResult, AddMovieInput } from '@/types'
 
@@ -58,13 +58,21 @@ export function AddMoviePage() {
   const [rootFolderId, setRootFolderId] = useState<string>('')
   const [qualityProfileId, setQualityProfileId] = useState<string>('')
   const [monitored, setMonitored] = useState(true)
-  const [searchOnAdd, setSearchOnAdd] = useState(true)
+  const [searchOnAdd, setSearchOnAdd] = useState<boolean | undefined>(undefined)
 
   const { data: searchResults, isLoading: searching } = useMovieSearch(debouncedSearchQuery)
   const { data: rootFolders } = useRootFoldersByType('movie')
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: defaultRootFolder } = useDefault('root_folder', 'movie')
+  const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddMovie()
+
+  // Initialize searchOnAdd from preferences
+  useEffect(() => {
+    if (addFlowPreferences && searchOnAdd === undefined) {
+      setSearchOnAdd(addFlowPreferences.movieSearchOnAdd)
+    }
+  }, [addFlowPreferences, searchOnAdd])
 
   // Pre-populate root folder with default
   useEffect(() => {
@@ -105,6 +113,7 @@ export function AddMoviePage() {
       monitored,
       posterUrl: selectedMovie.posterUrl,
       backdropUrl: selectedMovie.backdropUrl,
+      searchOnAdd: searchOnAdd ?? false,
     }
 
     try {
@@ -283,7 +292,7 @@ export function AddMoviePage() {
                     Start searching for releases immediately
                   </p>
                 </div>
-                <Switch checked={searchOnAdd} onCheckedChange={setSearchOnAdd} />
+                <Switch checked={searchOnAdd ?? false} onCheckedChange={setSearchOnAdd} />
               </div>
             </CardContent>
           </Card>

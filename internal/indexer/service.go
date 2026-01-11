@@ -122,14 +122,15 @@ func (s *Service) ListEnabledByProtocol(ctx context.Context, protocol Protocol) 
 
 // CreateIndexerInput is the input for creating a new indexer.
 type CreateIndexerInput struct {
-	Name           string          `json:"name"`
-	DefinitionID   string          `json:"definitionId"`
-	Settings       json.RawMessage `json:"settings,omitempty"`
-	Categories     []int           `json:"categories"`
-	SupportsMovies bool            `json:"supportsMovies"`
-	SupportsTV     bool            `json:"supportsTV"`
-	Priority       int             `json:"priority"`
-	Enabled        bool            `json:"enabled"`
+	Name              string          `json:"name"`
+	DefinitionID      string          `json:"definitionId"`
+	Settings          json.RawMessage `json:"settings,omitempty"`
+	Categories        []int           `json:"categories"`
+	SupportsMovies    bool            `json:"supportsMovies"`
+	SupportsTV        bool            `json:"supportsTV"`
+	Priority          int             `json:"priority"`
+	Enabled           bool            `json:"enabled"`
+	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
 }
 
 // Create creates a new indexer.
@@ -160,15 +161,22 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		settingsJSON = string(input.Settings)
 	}
 
+	// Default auto-search enabled to true if not specified
+	autoSearchEnabled := true
+	if input.AutoSearchEnabled != nil {
+		autoSearchEnabled = *input.AutoSearchEnabled
+	}
+
 	row, err := s.queries.CreateIndexer(ctx, sqlc.CreateIndexerParams{
-		Name:           input.Name,
-		DefinitionID:   input.DefinitionID,
-		Settings:       toNullString(settingsJSON),
-		Categories:     toNullString(string(categoriesJSON)),
-		SupportsMovies: boolToInt64(input.SupportsMovies),
-		SupportsTv:     boolToInt64(input.SupportsTV),
-		Priority:       int64(input.Priority),
-		Enabled:        boolToInt64(input.Enabled),
+		Name:              input.Name,
+		DefinitionID:      input.DefinitionID,
+		Settings:          toNullString(settingsJSON),
+		Categories:        toNullString(string(categoriesJSON)),
+		SupportsMovies:    boolToInt64(input.SupportsMovies),
+		SupportsTv:        boolToInt64(input.SupportsTV),
+		Priority:          int64(input.Priority),
+		Enabled:           boolToInt64(input.Enabled),
+		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create indexer: %w", err)
@@ -189,8 +197,9 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput
 		return nil, err
 	}
 
-	// Check if indexer exists
-	if _, err := s.Get(ctx, id); err != nil {
+	// Check if indexer exists and get current values
+	existing, err := s.Get(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 
@@ -211,16 +220,23 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput
 		settingsJSON = string(input.Settings)
 	}
 
+	// Preserve existing auto-search enabled if not provided in input
+	autoSearchEnabled := existing.AutoSearchEnabled
+	if input.AutoSearchEnabled != nil {
+		autoSearchEnabled = *input.AutoSearchEnabled
+	}
+
 	row, err := s.queries.UpdateIndexer(ctx, sqlc.UpdateIndexerParams{
-		ID:             id,
-		Name:           input.Name,
-		DefinitionID:   input.DefinitionID,
-		Settings:       toNullString(settingsJSON),
-		Categories:     toNullString(string(categoriesJSON)),
-		SupportsMovies: boolToInt64(input.SupportsMovies),
-		SupportsTv:     boolToInt64(input.SupportsTV),
-		Priority:       int64(input.Priority),
-		Enabled:        boolToInt64(input.Enabled),
+		ID:                id,
+		Name:              input.Name,
+		DefinitionID:      input.DefinitionID,
+		Settings:          toNullString(settingsJSON),
+		Categories:        toNullString(string(categoriesJSON)),
+		SupportsMovies:    boolToInt64(input.SupportsMovies),
+		SupportsTv:        boolToInt64(input.SupportsTV),
+		Priority:          int64(input.Priority),
+		Enabled:           boolToInt64(input.Enabled),
+		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -409,14 +425,15 @@ func (s *Service) validateInput(input CreateIndexerInput) error {
 // rowToDefinition converts a database row to an IndexerDefinition.
 func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 	def := &IndexerDefinition{
-		ID:             row.ID,
-		Name:           row.Name,
-		DefinitionID:   row.DefinitionID,
-		SupportsMovies: row.SupportsMovies == 1,
-		SupportsTV:     row.SupportsTv == 1,
-		Priority:       int(row.Priority),
-		Enabled:        row.Enabled == 1,
-		Categories:     []int{},
+		ID:                row.ID,
+		Name:              row.Name,
+		DefinitionID:      row.DefinitionID,
+		SupportsMovies:    row.SupportsMovies == 1,
+		SupportsTV:        row.SupportsTv == 1,
+		Priority:          int(row.Priority),
+		Enabled:           row.Enabled == 1,
+		AutoSearchEnabled: row.AutoSearchEnabled == 1,
+		Categories:        []int{},
 	}
 
 	// Parse settings

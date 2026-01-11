@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Film, Tv, History, Trash2, ArrowLeft } from 'lucide-react'
+import { Film, Tv, History, Trash2, ArrowLeft, Search, ArrowUp, AlertCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -29,6 +29,33 @@ const eventTypeColors: Record<HistoryEventType, 'default' | 'secondary' | 'destr
   deleted: 'destructive',
   failed: 'destructive',
   renamed: 'outline',
+  autosearch_download: 'default',
+  autosearch_upgrade: 'secondary',
+  autosearch_failed: 'destructive',
+}
+
+const eventTypeLabels: Record<HistoryEventType, string> = {
+  grabbed: 'Grabbed',
+  imported: 'Imported',
+  deleted: 'Deleted',
+  failed: 'Failed',
+  renamed: 'Renamed',
+  autosearch_download: 'Auto Download',
+  autosearch_upgrade: 'Auto Upgrade',
+  autosearch_failed: 'Auto Failed',
+}
+
+function EventIcon({ eventType }: { eventType: HistoryEventType }) {
+  switch (eventType) {
+    case 'autosearch_download':
+      return <Search className="size-3 mr-1" />
+    case 'autosearch_upgrade':
+      return <ArrowUp className="size-3 mr-1" />
+    case 'autosearch_failed':
+      return <AlertCircle className="size-3 mr-1" />
+    default:
+      return null
+  }
 }
 
 export function HistoryPage() {
@@ -110,15 +137,9 @@ export function HistoryPage() {
           value={eventType}
           onValueChange={(v) => v && setEventType(v as HistoryEventType | 'all')}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-40">
             <SelectValue>
-              {eventType === 'all' ? 'All Events' :
-               eventType === 'grabbed' ? 'Grabbed' :
-               eventType === 'imported' ? 'Imported' :
-               eventType === 'deleted' ? 'Deleted' :
-               eventType === 'failed' ? 'Failed' :
-               eventType === 'renamed' ? 'Renamed' :
-               eventType}
+              {eventType === 'all' ? 'All Events' : eventTypeLabels[eventType]}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -128,6 +149,9 @@ export function HistoryPage() {
             <SelectItem value="deleted">Deleted</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
             <SelectItem value="renamed">Renamed</SelectItem>
+            <SelectItem value="autosearch_download">Auto Download</SelectItem>
+            <SelectItem value="autosearch_upgrade">Auto Upgrade</SelectItem>
+            <SelectItem value="autosearch_failed">Auto Failed</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -167,8 +191,9 @@ export function HistoryPage() {
                       {item.mediaTitle || `${item.mediaType} #${item.mediaId}`}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={eventTypeColors[item.eventType]}>
-                        {item.eventType}
+                      <Badge variant={eventTypeColors[item.eventType]} className="flex items-center w-fit">
+                        <EventIcon eventType={item.eventType} />
+                        {eventTypeLabels[item.eventType]}
                       </Badge>
                     </TableCell>
                     <TableCell>{item.quality || '-'}</TableCell>

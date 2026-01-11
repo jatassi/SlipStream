@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queueApi } from '@/api'
+import { useDownloadingStore } from '@/stores'
 
 export const queueKeys = {
   all: ['queue'] as const,
@@ -8,11 +10,24 @@ export const queueKeys = {
 }
 
 export function useQueue() {
-  return useQuery({
+  const setQueueItems = useDownloadingStore((state) => state.setQueueItems)
+  const query = useQuery({
     queryKey: queueKeys.list(),
     queryFn: () => queueApi.list(),
     refetchInterval: 5000, // Refresh every 5 seconds
+    // Disable structural sharing to ensure store updates when items are
+    // removed directly from download client (new reference on each fetch)
+    structuralSharing: false,
   })
+
+  // Sync queue items to the downloading store (including empty arrays)
+  useEffect(() => {
+    if (query.data !== undefined) {
+      setQueueItems(query.data ?? [])
+    }
+  }, [query.data, setQueueItems])
+
+  return query
 }
 
 export function useQueueStats() {

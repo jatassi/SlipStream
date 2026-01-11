@@ -6,6 +6,7 @@ import { queueKeys } from '@/hooks/useQueue'
 import { historyKeys } from '@/hooks/useHistory'
 import { useProgressStore } from './progress'
 import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
+import { useAutoSearchStore, type AutoSearchTaskResult } from './autosearch'
 import type { Activity, ProgressEventType } from '@/types/progress'
 
 export interface WSMessage {
@@ -135,6 +136,23 @@ export function useWebSocketHandler() {
       case 'artwork:ready':
         useArtworkStore.getState().notifyReady(
           lastMessage.payload as ArtworkReadyPayload
+        )
+        break
+
+      // Autosearch task events
+      case 'autosearch:task:started':
+        useAutoSearchStore.getState().handleTaskStarted(
+          lastMessage.payload as { totalItems: number }
+        )
+        break
+      case 'autosearch:task:progress':
+        useAutoSearchStore.getState().handleTaskProgress(
+          lastMessage.payload as { currentItem: number; totalItems: number; currentTitle: string }
+        )
+        break
+      case 'autosearch:task:completed':
+        useAutoSearchStore.getState().handleTaskCompleted(
+          lastMessage.payload as AutoSearchTaskResult
         )
         break
     }

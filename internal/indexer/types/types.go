@@ -43,11 +43,12 @@ type IndexerDefinition struct {
 	SupportsTV     bool            `json:"supportsTV"`
 	SupportsSearch bool            `json:"supportsSearch"`
 	SupportsRSS    bool            `json:"supportsRss"`
-	Priority       int             `json:"priority"`
-	Enabled        bool            `json:"enabled"`
-	Settings       json.RawMessage `json:"settings,omitempty"`
-	CreatedAt      time.Time       `json:"createdAt,omitempty"`
-	UpdatedAt      time.Time       `json:"updatedAt,omitempty"`
+	Priority          int             `json:"priority"`
+	Enabled           bool            `json:"enabled"`
+	AutoSearchEnabled bool            `json:"autoSearchEnabled"`
+	Settings          json.RawMessage `json:"settings,omitempty"`
+	CreatedAt         time.Time       `json:"createdAt,omitempty"`
+	UpdatedAt         time.Time       `json:"updatedAt,omitempty"`
 }
 
 // SearchCriteria defines search parameters.

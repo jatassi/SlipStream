@@ -6,6 +6,7 @@ import {
   Download,
   Settings as SettingsIcon,
   ChevronRight,
+  Search,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +35,12 @@ const settingsLinks = [
     description: 'Set up torrent and usenet clients',
     href: '/settings/downloadclients',
     icon: Download,
+  },
+  {
+    title: 'Release Searching',
+    description: 'Automatic search schedule and behavior',
+    href: '/settings/autosearch',
+    icon: Search,
   },
   {
     title: 'General',

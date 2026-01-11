@@ -51,6 +51,7 @@ export interface CreateMovieInput {
 export interface AddMovieInput extends CreateMovieInput {
   posterUrl?: string
   backdropUrl?: string
+  searchOnAdd?: boolean
 }
 
 export interface UpdateMovieInput {

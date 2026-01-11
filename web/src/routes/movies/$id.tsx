@@ -10,7 +10,6 @@ import {
   HardDrive,
   Bookmark,
   BookmarkX,
-  Zap,
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
@@ -21,6 +20,7 @@ import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { SearchModal } from '@/components/search/SearchModal'
+import { AutoSearchButton } from '@/components/search/AutoSearchButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -37,7 +37,6 @@ import {
   useMovie,
   useUpdateMovie,
   useDeleteMovie,
-  useSearchMovie,
   useRefreshMovie,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
@@ -53,7 +52,6 @@ export function MovieDetailPage() {
   const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
-  const searchMutation = useSearchMovie()
   const refreshMutation = useRefreshMovie()
 
   const handleToggleMonitored = async () => {
@@ -66,15 +64,6 @@ export function MovieDetailPage() {
       toast.success(movie.monitored ? 'Movie unmonitored' : 'Movie monitored')
     } catch {
       toast.error('Failed to update movie')
-    }
-  }
-
-  const handleAutoSearch = async () => {
-    try {
-      await searchMutation.mutateAsync(movieId)
-      toast.success('Automatic search started')
-    } catch {
-      toast.error('Failed to start search')
     }
   }
 
@@ -174,14 +163,11 @@ export function MovieDetailPage() {
           <Search className="size-4 mr-2" />
           Search
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleAutoSearch}
-          disabled={searchMutation.isPending}
-        >
-          <Zap className="size-4 mr-2" />
-          Auto Search
-        </Button>
+        <AutoSearchButton
+          mediaType="movie"
+          movieId={movie.id}
+          title={movie.title}
+        />
         <Button
           variant="outline"
           onClick={handleRefresh}

@@ -17,6 +17,13 @@ export interface QueueItem {
   season?: number
   episode?: number
   downloadPath: string
+  // Library mapping - populated when download is initiated via auto-search
+  movieId?: number
+  seriesId?: number
+  seasonNumber?: number
+  episodeId?: number
+  isSeasonPack?: boolean
+  isCompleteSeries?: boolean
 }
 
 export interface QueueStats {
