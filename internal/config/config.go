@@ -19,6 +19,7 @@ type Config struct {
 	Metadata      MetadataConfig   `mapstructure:"metadata"`
 	Indexer       IndexerConfig    `mapstructure:"indexer"`
 	AutoSearch    AutoSearchConfig `mapstructure:"autosearch"`
+	Health        HealthConfig     `mapstructure:"health"`
 	DeveloperMode bool             `mapstructure:"developer_mode"`
 }
 
@@ -111,6 +112,15 @@ type AutoSearchConfig struct {
 	BaseDelayMs      int  `mapstructure:"base_delay_ms"`     // Default: 1000
 }
 
+// HealthConfig holds system health monitoring configuration.
+type HealthConfig struct {
+	DownloadClientCheckInterval time.Duration `mapstructure:"download_client_check_interval"` // Default: 6h
+	IndexerCheckInterval        time.Duration `mapstructure:"indexer_check_interval"`         // Default: 6h
+	StorageCheckInterval        time.Duration `mapstructure:"storage_check_interval"`         // Default: 1h
+	StorageWarningThreshold     float64       `mapstructure:"storage_warning_threshold"`      // Default: 0.20 (20%)
+	StorageErrorThreshold       float64       `mapstructure:"storage_error_threshold"`        // Default: 0.05 (5%)
+}
+
 // IntervalDuration returns the search interval as a time.Duration.
 func (c *AutoSearchConfig) IntervalDuration() time.Duration {
 	return time.Duration(c.IntervalHours) * time.Hour
@@ -198,6 +208,13 @@ func Default() *Config {
 			IntervalHours:    1,
 			BackoffThreshold: 12,
 			BaseDelayMs:      1000,
+		},
+		Health: HealthConfig{
+			DownloadClientCheckInterval: 6 * time.Hour,
+			IndexerCheckInterval:        6 * time.Hour,
+			StorageCheckInterval:        1 * time.Hour,
+			StorageWarningThreshold:     0.20,
+			StorageErrorThreshold:       0.05,
 		},
 	}
 }
@@ -312,6 +329,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("autosearch.interval_hours", 1)
 	v.SetDefault("autosearch.backoff_threshold", 12)
 	v.SetDefault("autosearch.base_delay_ms", 1000)
+
+	// Health check defaults
+	v.SetDefault("health.download_client_check_interval", 6*time.Hour)
+	v.SetDefault("health.indexer_check_interval", 6*time.Hour)
+	v.SetDefault("health.storage_check_interval", 1*time.Hour)
+	v.SetDefault("health.storage_warning_threshold", 0.20)
+	v.SetDefault("health.storage_error_threshold", 0.05)
 }
 
 // Address returns the server address string.

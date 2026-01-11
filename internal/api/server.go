@@ -21,6 +21,7 @@ import (
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/filesystem"
+	"github.com/slipstream/slipstream/internal/health"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
@@ -79,6 +80,7 @@ type Server struct {
 	scheduledSearcher     *autosearch.ScheduledSearcher
 	preferencesService    *preferences.Service
 	historyService        *history.Service
+	healthService         *health.Service
 }
 
 // NewServer creates a new API server instance.
@@ -95,6 +97,10 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		cfg:    cfg,
 	}
 
+	// Initialize health service first (no dependencies)
+	s.healthService = health.NewService(logger)
+	s.healthService.SetBroadcaster(hub)
+
 	// Initialize services
 	s.scannerService = scanner.NewService(logger)
 	s.movieService = movies.NewService(db, hub, logger)
@@ -102,9 +108,11 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.qualityService = quality.NewService(db, logger)
 	s.defaultsService = defaults.NewService(sqlc.New(db))
 	s.rootFolderService = rootfolder.NewService(db, logger, s.defaultsService)
+	s.rootFolderService.SetHealthService(s.healthService)
 
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
+	s.metadataService.SetHealthService(s.healthService)
 	s.artworkDownloader = metadata.NewArtworkDownloader(metadata.DefaultArtworkConfig(), logger)
 	s.artworkDownloader.SetBroadcaster(hub)
 
@@ -117,6 +125,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize downloader service
 	s.downloaderService = downloader.NewService(db, logger)
 	s.downloaderService.SetDeveloperMode(cfg.DeveloperMode)
+	s.downloaderService.SetHealthService(s.healthService)
 
 	// Initialize Cardigann manager for indexer definitions
 	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
@@ -127,9 +136,11 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize indexer service
 	s.indexerService = indexer.NewService(db, cardigannManager, logger)
+	s.indexerService.SetHealthService(s.healthService)
 
 	// Initialize indexer status service
 	s.statusService = status.NewService(db, logger)
+	s.statusService.SetHealthService(s.healthService)
 
 	// Initialize rate limiter
 	s.rateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
@@ -224,6 +235,20 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		if err := tasks.RegisterMetadataRefreshTask(s.scheduler, s.libraryManagerService, s.movieService, s.tvService, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register metadata refresh task")
 		}
+		// Register download client health check task
+		if err := tasks.RegisterDownloadClientHealthTask(s.scheduler, s.downloaderService, s.healthService, &cfg.Health, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register download client health task")
+		}
+		// Register indexer health check task
+		if err := tasks.RegisterIndexerHealthTask(s.scheduler, s.indexerService, s.healthService, &cfg.Health, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register indexer health task")
+		}
+		// Register storage health check task
+		storageAdapter := health.NewStorageServiceAdapter(s.storageService)
+		storageChecker := health.NewStorageChecker(s.healthService, storageAdapter, &cfg.Health, logger)
+		if err := tasks.RegisterStorageHealthTask(s.scheduler, storageChecker, &cfg.Health, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register storage health task")
+		}
 	}
 
 	// Initialize watcher service for real-time file monitoring
@@ -308,6 +333,36 @@ func (s *Server) setupRoutes() {
 
 	// System routes
 	api.GET("/status", s.getStatus)
+
+	// System health routes (under /api/v1/system/health to avoid conflict with /health endpoint)
+	healthHandlers := health.NewHandlers(s.healthService, &health.TestFunctions{
+		TestDownloadClient: func(ctx context.Context, id int64) (bool, string) {
+			result, err := s.downloaderService.Test(ctx, id)
+			if err != nil {
+				return false, err.Error()
+			}
+			return result.Success, result.Message
+		},
+		TestIndexer: func(ctx context.Context, id int64) (bool, string) {
+			result, err := s.indexerService.Test(ctx, id)
+			if err != nil {
+				return false, err.Error()
+			}
+			return result.Success, result.Message
+		},
+		GetRootFolderPath: func(ctx context.Context, id int64) (string, error) {
+			folder, err := s.rootFolderService.Get(ctx, id)
+			if err != nil {
+				return "", err
+			}
+			return folder.Path, nil
+		},
+		IsTMDBConfigured: s.metadataService.IsTMDBConfigured,
+		IsTVDBConfigured: s.metadataService.IsTVDBConfigured,
+		TestTMDB:         s.metadataService.TestTMDB,
+		TestTVDB:         s.metadataService.TestTVDB,
+	})
+	healthHandlers.RegisterRoutes(api.Group("/system/health"))
 
 	// Auth routes
 	auth := api.Group("/auth")
@@ -449,6 +504,19 @@ func (s *Server) setupRoutes() {
 // Start begins listening for HTTP requests.
 func (s *Server) Start(address string) error {
 	s.logger.Info().Str("address", address).Msg("starting HTTP server")
+
+	// Register existing items with health service
+	ctx := context.Background()
+	if err := s.downloaderService.RegisterExistingClients(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to register existing download clients with health service")
+	}
+	if err := s.indexerService.RegisterExistingIndexers(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to register existing indexers with health service")
+	}
+	if err := s.rootFolderService.RegisterExistingRootFolders(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to register existing root folders with health service")
+	}
+	s.metadataService.RegisterMetadataProviders()
 
 	// Start the file watcher service
 	if s.watcherService != nil {

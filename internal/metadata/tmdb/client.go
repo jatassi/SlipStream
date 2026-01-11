@@ -53,6 +53,25 @@ func (c *Client) IsConfigured() bool {
 	return c.config.APIKey != ""
 }
 
+// Test verifies connectivity to the TMDB API by making a configuration request.
+func (c *Client) Test(ctx context.Context) error {
+	if !c.IsConfigured() {
+		return ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/configuration", c.config.BaseURL)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var result struct {
+		Images struct {
+			BaseURL string `json:"base_url"`
+		} `json:"images"`
+	}
+
+	return c.doRequest(ctx, endpoint, params, &result)
+}
+
 // SearchMovies searches for movies by query with optional year filter.
 func (c *Client) SearchMovies(ctx context.Context, query string, year int) ([]NormalizedMovieResult, error) {
 	if !c.IsConfigured() {

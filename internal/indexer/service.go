@@ -19,11 +19,20 @@ var (
 	ErrInvalidIndexer     = errors.New("invalid indexer configuration")
 )
 
+// HealthService is the interface for central health tracking.
+type HealthService interface {
+	RegisterItemStr(category, id, name string)
+	UnregisterItemStr(category, id string)
+	SetErrorStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
+
 // Service provides indexer operations using Cardigann definitions.
 type Service struct {
-	queries *sqlc.Queries
-	manager *cardigann.Manager
-	logger  zerolog.Logger
+	queries       *sqlc.Queries
+	manager       *cardigann.Manager
+	logger        zerolog.Logger
+	healthService HealthService
 }
 
 // NewService creates a new indexer service.
@@ -33,6 +42,30 @@ func NewService(db *sql.DB, manager *cardigann.Manager, logger zerolog.Logger) *
 		manager: manager,
 		logger:  logger.With().Str("component", "indexer").Logger(),
 	}
+}
+
+// SetHealthService sets the central health service for registration tracking.
+func (s *Service) SetHealthService(hs HealthService) {
+	s.healthService = hs
+}
+
+// RegisterExistingIndexers registers all existing enabled indexers with the health service.
+func (s *Service) RegisterExistingIndexers(ctx context.Context) error {
+	if s.healthService == nil {
+		return nil
+	}
+
+	indexers, err := s.ListEnabled(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list indexers for health registration: %w", err)
+	}
+
+	for _, indexer := range indexers {
+		s.healthService.RegisterItemStr("indexers", fmt.Sprintf("%d", indexer.ID), indexer.Name)
+	}
+
+	s.logger.Info().Int("count", len(indexers)).Msg("Registered existing indexers with health service")
+	return nil
 }
 
 // Get retrieves an indexer by ID.
@@ -188,6 +221,11 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		Str("definition", input.DefinitionID).
 		Msg("Created indexer")
 
+	// Register with health service if enabled
+	if input.Enabled && s.healthService != nil {
+		s.healthService.RegisterItemStr("indexers", fmt.Sprintf("%d", row.ID), input.Name)
+	}
+
 	return s.rowToDefinition(row), nil
 }
 
@@ -248,6 +286,18 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput
 	// Remove cached client to force recreation with new settings
 	s.manager.RemoveClient(id)
 
+	// Handle health registration for enable/disable state changes
+	if s.healthService != nil {
+		idStr := fmt.Sprintf("%d", id)
+		if input.Enabled && !existing.Enabled {
+			// Indexer was enabled - register with health service
+			s.healthService.RegisterItemStr("indexers", idStr, input.Name)
+		} else if !input.Enabled && existing.Enabled {
+			// Indexer was disabled - unregister from health service
+			s.healthService.UnregisterItemStr("indexers", idStr)
+		}
+	}
+
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated indexer")
 	return s.rowToDefinition(row), nil
 }
@@ -266,6 +316,11 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 
 	// Remove cached client
 	s.manager.RemoveClient(id)
+
+	// Unregister from health service (only if it was enabled and tracked)
+	if indexer.Enabled && s.healthService != nil {
+		s.healthService.UnregisterItemStr("indexers", fmt.Sprintf("%d", id))
+	}
 
 	s.logger.Info().Int64("id", id).Str("name", indexer.Name).Msg("Deleted indexer")
 	return nil

@@ -1,53 +1,15 @@
 import { Link } from '@tanstack/react-router'
-import {
-  Film,
-  Tv,
-  Download,
-} from 'lucide-react'
+import { Film, Tv } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useStatus, useQueue, useHistory } from '@/hooks'
+import { useQueue, useHistory } from '@/hooks'
 import { useStorage } from '@/hooks/useStorage'
 import { formatRelativeTime } from '@/lib/formatters'
 import { ProgressBar } from '@/components/media/ProgressBar'
 import { StorageCard } from '@/components/dashboard/StorageCard'
-
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  description,
-  loading,
-}: {
-  title: string
-  value: string | number
-  icon: React.ElementType
-  description?: string
-  loading?: boolean
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <Icon className="size-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-20" />
-        ) : (
-          <div className="text-2xl font-bold">{value}</div>
-        )}
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+import { HealthWidget } from '@/components/health'
 
 function QueuePreview() {
   const { data: queue, isLoading } = useQueue()
@@ -173,11 +135,7 @@ function RecentActivity() {
 }
 
 export function DashboardPage() {
-  const { data: status, isLoading: statusLoading } = useStatus()
-  const { data: queue } = useQueue()
   const storage = useStorage()
-
-  const activeDownloads = queue?.filter((q) => q.status === 'downloading').length || 0
 
   return (
     <div>
@@ -187,32 +145,12 @@ export function DashboardPage() {
       />
 
       {/* Stats grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        <StatCard
-          title="Movies"
-          value={status?.movieCount ?? 0}
-          icon={Film}
-          description="In library"
-          loading={statusLoading}
-        />
-        <StatCard
-          title="Series"
-          value={status?.seriesCount ?? 0}
-          icon={Tv}
-          description={`${status?.episodeCount ?? 0} episodes`}
-          loading={statusLoading}
-        />
-        <StatCard
-          title="Downloads"
-          value={activeDownloads}
-          icon={Download}
-          description="Active"
-          loading={statusLoading}
-        />
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <StorageCard
           storage={storage?.data}
           loading={storage?.isLoading}
         />
+        <HealthWidget />
       </div>
 
       {/* Activity section */}

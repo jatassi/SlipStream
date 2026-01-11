@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Clock,
   Search,
+  HeartPulse,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -84,6 +85,7 @@ const systemGroup: CollapsibleNavGroup = {
   title: 'System',
   icon: Clock,
   items: [
+    { title: 'Health', href: '/system/health', icon: HeartPulse },
     { title: 'Scheduled Tasks', href: '/system/tasks', icon: Clock },
   ],
 }

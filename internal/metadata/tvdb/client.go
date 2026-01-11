@@ -58,6 +58,15 @@ func (c *Client) IsConfigured() bool {
 	return c.config.APIKey != ""
 }
 
+// Test verifies connectivity to the TVDB API by authenticating.
+func (c *Client) Test(ctx context.Context) error {
+	if !c.IsConfigured() {
+		return ErrAPIKeyMissing
+	}
+
+	return c.authenticate(ctx)
+}
+
 // authenticate gets or refreshes the authentication token.
 func (c *Client) authenticate(ctx context.Context) error {
 	c.mu.RLock()

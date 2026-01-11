@@ -41,12 +41,21 @@ type CreateRootFolderInput struct {
 	MediaType string `json:"mediaType"`
 }
 
+// HealthService is the interface for central health tracking.
+type HealthService interface {
+	RegisterItemStr(category, id, name string)
+	UnregisterItemStr(category, id string)
+	SetErrorStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
+
 // Service provides root folder operations.
 type Service struct {
-	db       *sql.DB
-	queries  *sqlc.Queries
-	logger   zerolog.Logger
-	defaults *defaults.Service
+	db            *sql.DB
+	queries       *sqlc.Queries
+	logger        zerolog.Logger
+	defaults      *defaults.Service
+	healthService HealthService
 }
 
 // NewService creates a new root folder service.
@@ -57,6 +66,30 @@ func NewService(db *sql.DB, logger zerolog.Logger, defaults *defaults.Service) *
 		logger:   logger.With().Str("component", "rootfolder").Logger(),
 		defaults: defaults,
 	}
+}
+
+// SetHealthService sets the central health service for registration tracking.
+func (s *Service) SetHealthService(hs HealthService) {
+	s.healthService = hs
+}
+
+// RegisterExistingRootFolders registers all existing root folders with the health service.
+func (s *Service) RegisterExistingRootFolders(ctx context.Context) error {
+	if s.healthService == nil {
+		return nil
+	}
+
+	folders, err := s.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list root folders for health registration: %w", err)
+	}
+
+	for _, folder := range folders {
+		s.healthService.RegisterItemStr("rootFolders", fmt.Sprintf("%d", folder.ID), folder.Path)
+	}
+
+	s.logger.Info().Int("count", len(folders)).Msg("Registered existing root folders with health service")
+	return nil
 }
 
 // Get retrieves a root folder by ID.
@@ -175,6 +208,11 @@ func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*Roo
 		Str("mediaType", input.MediaType).
 		Msg("Created root folder")
 
+	// Register with health service
+	if s.healthService != nil {
+		s.healthService.RegisterItemStr("rootFolders", fmt.Sprintf("%d", row.ID), absPath)
+	}
+
 	return s.rowToRootFolder(row), nil
 }
 
@@ -218,6 +256,11 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 		Int64("id", id).
 		Str("path", folder.Path).
 		Msg("Deleted root folder and associated media")
+
+	// Unregister from health service
+	if s.healthService != nil {
+		s.healthService.UnregisterItemStr("rootFolders", fmt.Sprintf("%d", id))
+	}
 
 	return nil
 }

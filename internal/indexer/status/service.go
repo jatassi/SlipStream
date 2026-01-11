@@ -16,11 +16,21 @@ var (
 	ErrStatusNotFound = errors.New("indexer status not found")
 )
 
+// HealthService is the interface for central health tracking.
+type HealthService interface {
+	RegisterItemStr(category, id, name string)
+	UnregisterItemStr(category, id string)
+	SetErrorStr(category, id, message string)
+	SetWarningStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
+
 // Service tracks indexer health and status.
 type Service struct {
-	queries *sqlc.Queries
-	config  BackoffConfig
-	logger  zerolog.Logger
+	queries       *sqlc.Queries
+	config        BackoffConfig
+	logger        zerolog.Logger
+	healthService HealthService
 }
 
 // NewService creates a new status service with default configuration.
@@ -37,9 +47,32 @@ func NewServiceWithConfig(db *sql.DB, config BackoffConfig, logger zerolog.Logge
 	}
 }
 
+// SetHealthService sets the central health service for forwarding status updates.
+func (s *Service) SetHealthService(hs HealthService) {
+	s.healthService = hs
+}
+
 // GetConfig returns the current backoff configuration.
 func (s *Service) GetConfig() BackoffConfig {
 	return s.config
+}
+
+// updateHealthStatus forwards status changes to the central health service.
+func (s *Service) updateHealthStatus(indexerID int64, indexerName string, escalationLevel int, isDisabled bool, message string) {
+	if s.healthService == nil {
+		return
+	}
+
+	idStr := fmt.Sprintf("%d", indexerID)
+	const category = "indexers"
+
+	if isDisabled {
+		s.healthService.SetErrorStr(category, idStr, message)
+	} else if escalationLevel > 0 {
+		s.healthService.SetWarningStr(category, idStr, message)
+	} else {
+		s.healthService.ClearStatusStr(category, idStr)
+	}
 }
 
 // GetStatus retrieves the current status for an indexer.
@@ -70,6 +103,9 @@ func (s *Service) RecordSuccess(ctx context.Context, indexerID int64) error {
 	s.logger.Debug().
 		Int64("indexerId", indexerID).
 		Msg("Recorded successful indexer operation")
+
+	// Forward to central health service
+	s.updateHealthStatus(indexerID, "", 0, false, "")
 
 	return nil
 }
@@ -122,6 +158,17 @@ func (s *Service) RecordFailure(ctx context.Context, indexerID int64, opError er
 		Time("disabledTill", disabledTill).
 		Err(opError).
 		Msg("Recorded indexer failure, applying backoff")
+
+	// Forward to central health service
+	// Determine if this is now disabled (backoff > 0 means it's temporarily disabled)
+	isDisabled := backoff > 0 && newLevel >= s.config.MaxEscalation
+	message := opError.Error()
+	if isDisabled {
+		message = fmt.Sprintf("Disabled due to repeated failures: %s", opError.Error())
+	} else if newLevel > 0 {
+		message = fmt.Sprintf("Experienced %d failure(s): %s", newLevel, opError.Error())
+	}
+	s.updateHealthStatus(indexerID, "", newLevel, isDisabled, message)
 
 	return nil
 }

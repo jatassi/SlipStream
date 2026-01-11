@@ -27,6 +27,7 @@ import { DownloadClientsPage } from '@/routes/settings/downloadclients'
 import { GeneralSettingsPage } from '@/routes/settings/general'
 import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
 import { TasksPage } from '@/routes/system/tasks'
+import { SystemHealthPage } from '@/routes/system/health'
 
 // Create root route with layout
 const rootRoute = createRootRoute({
@@ -172,6 +173,12 @@ const tasksRoute = createRoute({
   component: TasksPage,
 })
 
+const healthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/health',
+  component: SystemHealthPage,
+})
+
 // Build route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -194,6 +201,7 @@ const routeTree = rootRoute.addChildren([
   generalSettingsRoute,
   autosearchSettingsRoute,
   tasksRoute,
+  healthRoute,
 ])
 
 // Create router

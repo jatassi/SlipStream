@@ -222,6 +222,27 @@ func mapDownloadStatus(status types.Status) string {
 	}
 }
 
+// HasActiveDownloads checks if a specific client has any active downloads (downloading or queued).
+func (s *Service) HasActiveDownloads(ctx context.Context, clientID int64) (bool, error) {
+	client, err := s.GetClient(ctx, clientID)
+	if err != nil {
+		return false, err
+	}
+
+	downloads, err := client.List(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	for _, d := range downloads {
+		if d.Status == types.StatusDownloading || d.Status == types.StatusQueued {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // PauseDownload pauses a download.
 func (s *Service) PauseDownload(ctx context.Context, clientID int64, downloadID string) error {
 	client, err := s.GetClient(ctx, clientID)

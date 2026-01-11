@@ -71,12 +71,22 @@ type TestResult struct {
 	Message string `json:"message"`
 }
 
+// HealthService defines the interface for health tracking.
+// Uses the string-based wrapper methods to avoid importing health types.
+type HealthService interface {
+	RegisterItemStr(category, id, name string)
+	UnregisterItemStr(category, id string)
+	SetErrorStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
+
 // Service provides download client operations.
 type Service struct {
 	queries       *sqlc.Queries
 	logger        zerolog.Logger
 	developerMode bool
 	mockQueue     []MockQueueItem
+	healthService HealthService
 }
 
 // MockQueueItem represents a mock queue item for developer mode.
@@ -109,6 +119,31 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 // SetDeveloperMode sets the developer mode flag.
 func (s *Service) SetDeveloperMode(enabled bool) {
 	s.developerMode = enabled
+}
+
+// SetHealthService sets the health service for tracking client health.
+func (s *Service) SetHealthService(hs HealthService) {
+	s.healthService = hs
+}
+
+// RegisterExistingClients registers all existing download clients with the health service.
+// This should be called once during startup after setting the health service.
+func (s *Service) RegisterExistingClients(ctx context.Context) error {
+	if s.healthService == nil {
+		return nil
+	}
+
+	clients, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, client := range clients {
+		s.healthService.RegisterItemStr("downloadClients", fmt.Sprintf("%d", client.ID), client.Name)
+	}
+
+	s.logger.Info().Int("count", len(clients)).Msg("Registered existing download clients with health service")
+	return nil
 }
 
 // Get retrieves a download client by ID.
@@ -184,6 +219,12 @@ func (s *Service) Create(ctx context.Context, input CreateClientInput) (*Downloa
 	}
 
 	s.logger.Info().Int64("id", row.ID).Str("name", input.Name).Str("type", input.Type).Msg("Created download client")
+
+	// Register with health service
+	if s.healthService != nil {
+		s.healthService.RegisterItemStr("downloadClients", fmt.Sprintf("%d", row.ID), input.Name)
+	}
+
 	return s.rowToClient(row), nil
 }
 
@@ -221,6 +262,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateClientInput)
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err := s.queries.DeleteDownloadClient(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete download client: %w", err)
+	}
+
+	// Unregister from health service
+	if s.healthService != nil {
+		s.healthService.UnregisterItemStr("downloadClients", fmt.Sprintf("%d", id))
 	}
 
 	s.logger.Info().Int64("id", id).Msg("Deleted download client")

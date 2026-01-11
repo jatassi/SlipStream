@@ -4,6 +4,7 @@ import { movieKeys } from '@/hooks/useMovies'
 import { seriesKeys } from '@/hooks/useSeries'
 import { queueKeys } from '@/hooks/useQueue'
 import { historyKeys } from '@/hooks/useHistory'
+import { systemHealthKeys } from '@/hooks/useHealth'
 import { useProgressStore } from './progress'
 import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
 import { useAutoSearchStore, type AutoSearchTaskResult } from './autosearch'
@@ -154,6 +155,11 @@ export function useWebSocketHandler() {
         useAutoSearchStore.getState().handleTaskCompleted(
           lastMessage.payload as AutoSearchTaskResult
         )
+        break
+
+      // Health events
+      case 'health:updated':
+        queryClient.invalidateQueries({ queryKey: systemHealthKeys.all })
         break
     }
   }

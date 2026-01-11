@@ -17,12 +17,22 @@ var (
 	ErrNotFound              = errors.New("metadata not found")
 )
 
+// HealthService is the interface for central health tracking.
+type HealthService interface {
+	RegisterItemStr(category, id, name string)
+	UnregisterItemStr(category, id string)
+	SetErrorStr(category, id, message string)
+	SetWarningStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
+
 // Service orchestrates metadata lookups across multiple providers.
 type Service struct {
-	tmdb   *tmdb.Client
-	tvdb   *tvdb.Client
-	cache  *Cache
-	logger zerolog.Logger
+	tmdb          *tmdb.Client
+	tvdb          *tvdb.Client
+	cache         *Cache
+	logger        zerolog.Logger
+	healthService HealthService
 }
 
 // NewService creates a new metadata service.
@@ -32,6 +42,30 @@ func NewService(cfg config.MetadataConfig, logger zerolog.Logger) *Service {
 		tvdb:   tvdb.NewClient(cfg.TVDB, logger),
 		cache:  NewCache(DefaultCacheConfig()),
 		logger: logger.With().Str("component", "metadata").Logger(),
+	}
+}
+
+// SetHealthService sets the central health service for registration tracking.
+func (s *Service) SetHealthService(hs HealthService) {
+	s.healthService = hs
+}
+
+// RegisterMetadataProviders registers configured metadata providers with the health service.
+func (s *Service) RegisterMetadataProviders() {
+	if s.healthService == nil {
+		return
+	}
+
+	// Register TMDB if configured
+	if s.tmdb.IsConfigured() {
+		s.healthService.RegisterItemStr("metadata", "tmdb", "TMDB")
+		s.logger.Debug().Msg("Registered TMDB with health service")
+	}
+
+	// Register TVDB if configured
+	if s.tvdb.IsConfigured() {
+		s.healthService.RegisterItemStr("metadata", "tvdb", "TVDB")
+		s.logger.Debug().Msg("Registered TVDB with health service")
 	}
 }
 
@@ -350,6 +384,16 @@ func (s *Service) IsTMDBConfigured() bool {
 // IsTVDBConfigured returns true if TVDB is configured.
 func (s *Service) IsTVDBConfigured() bool {
 	return s.tvdb.IsConfigured()
+}
+
+// TestTMDB tests connectivity to the TMDB API.
+func (s *Service) TestTMDB(ctx context.Context) error {
+	return s.tmdb.Test(ctx)
+}
+
+// TestTVDB tests connectivity to the TVDB API.
+func (s *Service) TestTVDB(ctx context.Context) error {
+	return s.tvdb.Test(ctx)
 }
 
 // tmdbSeasonToResult converts a TMDB season result to metadata.SeasonResult.
