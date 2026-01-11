@@ -38,7 +38,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(go install:*)",
       "Bash(find:*)",
-      "Bash(go generate:*)"
+      "Bash(go generate:*)",
+      "Bash(make test:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
