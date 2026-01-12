@@ -411,6 +411,19 @@ func (s *Service) GetFiles(ctx context.Context, movieID int64) ([]MovieFile, err
 	return files, nil
 }
 
+// GetPrimaryFile returns the primary (first) file for a movie.
+// Returns nil, nil if no files exist.
+func (s *Service) GetPrimaryFile(ctx context.Context, movieID int64) (*MovieFile, error) {
+	files, err := s.GetFiles(ctx, movieID)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, nil
+	}
+	return &files[0], nil
+}
+
 // AddFile adds a file to a movie.
 func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieFileInput) (*MovieFile, error) {
 	// Verify movie exists
@@ -490,6 +503,27 @@ func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 
 	s.logger.Info().Int64("fileId", fileID).Int64("movieId", row.MovieID).Msg("Removed movie file")
 	return nil
+}
+
+// GetFileByID retrieves a movie file by its ID.
+func (s *Service) GetFileByID(ctx context.Context, fileID int64) (*MovieFile, error) {
+	row, err := s.queries.GetMovieFile(ctx, fileID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMovieFileNotFound
+		}
+		return nil, fmt.Errorf("failed to get movie file: %w", err)
+	}
+	file := s.rowToMovieFile(row)
+	return &file, nil
+}
+
+// UpdateMovieFilePath updates the path of a movie file.
+func (s *Service) UpdateMovieFilePath(ctx context.Context, fileID int64, newPath string) error {
+	return s.queries.UpdateMovieFilePath(ctx, sqlc.UpdateMovieFilePathParams{
+		Path: newPath,
+		ID:   fileID,
+	})
 }
 
 // Count returns the total number of movies.

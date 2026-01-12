@@ -187,7 +187,7 @@ export function SeriesDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await deleteMutation.mutateAsync(seriesId)
+      await deleteMutation.mutateAsync({ id: seriesId })
       toast.success('Series deleted')
       navigate({ to: '/series' })
     } catch {

@@ -228,7 +228,7 @@ func enrichWithQuality(releases []types.ReleaseInfo) {
 		parsed := scanner.ParseFilename(releases[i].Title)
 		releases[i].Quality = parsed.Quality
 		releases[i].Source = parsed.Source
-		releases[i].Resolution = parsed.Resolution
+		releases[i].Resolution = qualityToResolution(parsed.Quality)
 	}
 }
 
@@ -238,6 +238,22 @@ func enrichTorrentsWithQuality(torrents []types.TorrentInfo) {
 		parsed := scanner.ParseFilename(torrents[i].Title)
 		torrents[i].Quality = parsed.Quality
 		torrents[i].Source = parsed.Source
-		torrents[i].Resolution = parsed.Resolution
+		torrents[i].Resolution = qualityToResolution(parsed.Quality)
+	}
+}
+
+// qualityToResolution converts a quality string to a resolution integer.
+func qualityToResolution(quality string) int {
+	switch quality {
+	case "2160p":
+		return 2160
+	case "1080p":
+		return 1080
+	case "720p":
+		return 720
+	case "480p":
+		return 480
+	default:
+		return 0
 	}
 }

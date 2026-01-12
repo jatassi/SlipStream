@@ -279,3 +279,216 @@ func isWindowsSystemDir(name string) bool {
 	}
 	return systemDirs[name]
 }
+
+// BrowseForImport lists directories and video files at the given path.
+// This is used for manual import functionality.
+func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
+	if path == "" {
+		return s.browseRootForImport()
+	}
+
+	cleanPath, err := s.validatePath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(cleanPath)
+	if err != nil {
+		if os.IsPermission(err) {
+			return nil, ErrAccessDenied
+		}
+		return nil, ErrPathNotFound
+	}
+
+	var dirEntries []DirectoryEntry
+	var fileEntries []FileEntry
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		// Skip hidden on Unix
+		if runtime.GOOS != "windows" && strings.HasPrefix(name, ".") {
+			continue
+		}
+		// Skip system dirs on Windows
+		if runtime.GOOS == "windows" && isWindowsSystemDir(name) {
+			continue
+		}
+
+		if entry.IsDir() {
+			// Skip sample directories
+			if strings.EqualFold(name, "sample") || strings.EqualFold(name, "samples") {
+				continue
+			}
+			dirEntries = append(dirEntries, DirectoryEntry{
+				Name:  name,
+				Path:  filepath.Join(cleanPath, name),
+				IsDir: true,
+			})
+		} else {
+			// Check if it's a video file
+			ext := strings.ToLower(filepath.Ext(name))
+			if isVideoExtension(ext) {
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+				fileEntries = append(fileEntries, FileEntry{
+					Name:    name,
+					Path:    filepath.Join(cleanPath, name),
+					Size:    info.Size(),
+					ModTime: info.ModTime().Unix(),
+				})
+			}
+		}
+	}
+
+	// Sort directories and files alphabetically
+	sort.Slice(dirEntries, func(i, j int) bool {
+		return strings.ToLower(dirEntries[i].Name) < strings.ToLower(dirEntries[j].Name)
+	})
+	sort.Slice(fileEntries, func(i, j int) bool {
+		return strings.ToLower(fileEntries[i].Name) < strings.ToLower(fileEntries[j].Name)
+	})
+
+	parent := filepath.Dir(cleanPath)
+	if parent == cleanPath {
+		parent = ""
+	}
+
+	return &ImportBrowseResult{
+		Path:        cleanPath,
+		Parent:      parent,
+		Directories: dirEntries,
+		Files:       fileEntries,
+	}, nil
+}
+
+// browseRootForImport returns root for import browsing
+func (s *Service) browseRootForImport() (*ImportBrowseResult, error) {
+	if runtime.GOOS == "windows" {
+		drives := s.listDrives()
+		return &ImportBrowseResult{
+			Path:   "",
+			Drives: drives,
+		}, nil
+	}
+
+	result, err := s.BrowseForImport("/")
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// isVideoExtension checks if the extension is a supported video format
+func isVideoExtension(ext string) bool {
+	videoExts := map[string]bool{
+		".mkv":  true,
+		".mp4":  true,
+		".avi":  true,
+		".m4v":  true,
+		".mov":  true,
+		".wmv":  true,
+		".ts":   true,
+		".m2ts": true,
+		".webm": true,
+		".flv":  true,
+		".ogm":  true,
+		".divx": true,
+		".vob":  true,
+	}
+	return videoExts[ext]
+}
+
+// samplePatterns are used to detect sample files
+var sampleDirNames = map[string]bool{
+	"sample":  true,
+	"samples": true,
+}
+
+// isSamplePath checks if a path is a sample file based on folder or filename
+func isSamplePath(path string) bool {
+	lower := strings.ToLower(path)
+
+	// Check for sample in directory path
+	parts := strings.Split(lower, string(filepath.Separator))
+	for _, part := range parts {
+		if sampleDirNames[part] {
+			return true
+		}
+	}
+
+	// Check for sample in filename
+	base := strings.ToLower(filepath.Base(path))
+	return strings.Contains(base, "sample")
+}
+
+// ScanForMedia recursively scans a directory for video files and parses their metadata.
+// This is used for manual import functionality.
+func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*MediaScanResult, error) {
+	cleanPath, err := s.validatePath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &MediaScanResult{
+		Path:  cleanPath,
+		Files: make([]ScannedMediaFile, 0),
+	}
+
+	err = filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+
+		if info.IsDir() {
+			// Skip sample directories
+			baseName := strings.ToLower(info.Name())
+			if sampleDirNames[baseName] {
+				return filepath.SkipDir
+			}
+			// Skip hidden directories on Unix
+			if runtime.GOOS != "windows" && strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if it's a video file
+		ext := strings.ToLower(filepath.Ext(filePath))
+		if !isVideoExtension(ext) {
+			return nil
+		}
+
+		scanned := ScannedMediaFile{
+			Path:      filePath,
+			Name:      info.Name(),
+			Size:      info.Size(),
+			ModTime:   info.ModTime().Unix(),
+			Extension: ext,
+			IsSample:  isSamplePath(filePath),
+		}
+
+		// Parse metadata if parser is provided
+		if parser != nil {
+			scanned.Parsed = parser(info.Name())
+		}
+
+		result.Files = append(result.Files, scanned)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	result.TotalFiles = len(result.Files)
+
+	// Sort files by path
+	sort.Slice(result.Files, func(i, j int) bool {
+		return strings.ToLower(result.Files[i].Path) < strings.ToLower(result.Files[j].Path)
+	})
+
+	return result, nil
+}

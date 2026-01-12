@@ -5,9 +5,12 @@ import type { Series } from '@/types'
 interface SeriesGridProps {
   series: Series[]
   className?: string
+  editMode?: boolean
+  selectedIds?: Set<number>
+  onToggleSelect?: (id: number) => void
 }
 
-export function SeriesGrid({ series, className }: SeriesGridProps) {
+export function SeriesGrid({ series, className, editMode, selectedIds, onToggleSelect }: SeriesGridProps) {
   return (
     <div
       className={cn(
@@ -16,7 +19,13 @@ export function SeriesGrid({ series, className }: SeriesGridProps) {
       )}
     >
       {series.map((s) => (
-        <SeriesCard key={s.id} series={s} />
+        <SeriesCard
+          key={s.id}
+          series={s}
+          editMode={editMode}
+          selected={selectedIds?.has(s.id)}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   )

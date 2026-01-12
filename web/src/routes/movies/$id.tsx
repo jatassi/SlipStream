@@ -82,7 +82,7 @@ export function MovieDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await deleteMutation.mutateAsync(movieId)
+      await deleteMutation.mutateAsync({ id: movieId })
       toast.success('Movie deleted')
       navigate({ to: '/movies' })
     } catch {

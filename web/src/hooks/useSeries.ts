@@ -75,7 +75,20 @@ export function useUpdateSeries() {
 export function useDeleteSeries() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => seriesApi.delete(id),
+    mutationFn: ({ id, deleteFiles }: { id: number; deleteFiles?: boolean }) =>
+      seriesApi.delete(id, deleteFiles),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+    },
+  })
+}
+
+export function useBulkDeleteSeries() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, deleteFiles }: { ids: number[]; deleteFiles?: boolean }) =>
+      seriesApi.bulkDelete(ids, deleteFiles),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
       queryClient.invalidateQueries({ queryKey: calendarKeys.all })

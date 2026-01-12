@@ -39,7 +39,10 @@
       "Bash(go install:*)",
       "Bash(find:*)",
       "Bash(go generate:*)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(xargs find)",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

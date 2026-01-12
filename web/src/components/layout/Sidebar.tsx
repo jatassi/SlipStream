@@ -1,6 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
-  LayoutDashboard,
   Film,
   Tv,
   Calendar,
@@ -17,6 +16,7 @@ import {
   Clock,
   Search,
   HeartPulse,
+  FileInput,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -49,12 +49,15 @@ interface CollapsibleNavGroup {
   items: NavItem[]
 }
 
-const mainNavItems: NavItem[] = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+const libraryNavItems: NavItem[] = [
   { title: 'Movies', href: '/movies', icon: Film },
   { title: 'Series', href: '/series', icon: Tv },
+]
+
+const discoverNavItems: NavItem[] = [
   { title: 'Calendar', href: '/calendar', icon: Calendar },
   { title: 'Missing', href: '/missing', icon: Search },
+  { title: 'Manual Import', href: '/import', icon: FileInput },
 ]
 
 const activityGroup: CollapsibleNavGroup = {
@@ -319,8 +322,14 @@ export function Sidebar() {
         {/* Navigation */}
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-4">
-            {/* Main navigation */}
-            <NavSection items={mainNavItems} collapsed={sidebarCollapsed} />
+            {/* Library navigation */}
+            <NavSection items={libraryNavItems} collapsed={sidebarCollapsed} />
+
+            {/* Divider */}
+            <div className="h-px bg-border" />
+
+            {/* Discover navigation */}
+            <NavSection items={discoverNavItems} collapsed={sidebarCollapsed} />
 
             {/* Divider */}
             <div className="h-px bg-border" />

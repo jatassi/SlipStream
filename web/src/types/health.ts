@@ -2,7 +2,7 @@
 export type HealthStatus = 'ok' | 'warning' | 'error'
 
 // HealthCategory represents the category of health items
-export type HealthCategory = 'downloadClients' | 'indexers' | 'rootFolders' | 'metadata' | 'storage'
+export type HealthCategory = 'downloadClients' | 'indexers' | 'rootFolders' | 'metadata' | 'storage' | 'import'
 
 // HealthItem represents a single health-tracked item
 export interface HealthItem {
@@ -29,6 +29,7 @@ export interface HealthResponse {
   rootFolders: HealthItem[]
   metadata: HealthItem[]
   storage: HealthItem[]
+  import: HealthItem[]
 }
 
 // HealthSummary provides an overview of system health
@@ -68,6 +69,7 @@ export function getCategoryDisplayName(category: HealthCategory): string {
     rootFolders: 'Root Folders',
     metadata: 'Metadata',
     storage: 'Storage',
+    import: 'Import',
   }
   return names[category]
 }
@@ -80,6 +82,7 @@ export function getCategorySettingsPath(category: HealthCategory): string {
     rootFolders: '/settings/mediamanagement',
     metadata: '/settings/metadata',
     storage: '/settings/mediamanagement',
+    import: '/settings/import',
   }
   return paths[category]
 }
@@ -91,4 +94,5 @@ export const ALL_HEALTH_CATEGORIES: HealthCategory[] = [
   'rootFolders',
   'metadata',
   'storage',
+  'import',
 ]

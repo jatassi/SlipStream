@@ -22,47 +22,56 @@ var (
 
 // DownloadClient represents a download client configuration.
 type DownloadClient struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Type      string    `json:"type"`
-	Host      string    `json:"host"`
-	Port      int       `json:"port"`
-	Username  string    `json:"username,omitempty"`
-	Password  string    `json:"password,omitempty"`
-	UseSSL    bool      `json:"useSsl"`
-	Category  string    `json:"category,omitempty"`
-	Priority  int       `json:"priority"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID                 int64     `json:"id"`
+	Name               string    `json:"name"`
+	Type               string    `json:"type"`
+	Host               string    `json:"host"`
+	Port               int       `json:"port"`
+	Username           string    `json:"username,omitempty"`
+	Password           string    `json:"password,omitempty"`
+	UseSSL             bool      `json:"useSsl"`
+	Category           string    `json:"category,omitempty"`
+	Priority           int       `json:"priority"`
+	Enabled            bool      `json:"enabled"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+	ImportDelaySeconds int       `json:"importDelaySeconds"`
+	CleanupMode        string    `json:"cleanupMode"` // "leave", "delete_after_import", "delete_after_seed_ratio"
+	SeedRatioTarget    *float64  `json:"seedRatioTarget,omitempty"`
 }
 
 // CreateClientInput represents the input for creating a download client.
 type CreateClientInput struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	UseSSL   bool   `json:"useSsl"`
-	Category string `json:"category,omitempty"`
-	Priority int    `json:"priority"`
-	Enabled  bool   `json:"enabled"`
+	Name               string   `json:"name"`
+	Type               string   `json:"type"`
+	Host               string   `json:"host"`
+	Port               int      `json:"port"`
+	Username           string   `json:"username,omitempty"`
+	Password           string   `json:"password,omitempty"`
+	UseSSL             bool     `json:"useSsl"`
+	Category           string   `json:"category,omitempty"`
+	Priority           int      `json:"priority"`
+	Enabled            bool     `json:"enabled"`
+	ImportDelaySeconds int      `json:"importDelaySeconds"`
+	CleanupMode        string   `json:"cleanupMode"` // "leave", "delete_after_import", "delete_after_seed_ratio"
+	SeedRatioTarget    *float64 `json:"seedRatioTarget,omitempty"`
 }
 
 // UpdateClientInput represents the input for updating a download client.
 type UpdateClientInput struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	UseSSL   bool   `json:"useSsl"`
-	Category string `json:"category,omitempty"`
-	Priority int    `json:"priority"`
-	Enabled  bool   `json:"enabled"`
+	Name               string   `json:"name"`
+	Type               string   `json:"type"`
+	Host               string   `json:"host"`
+	Port               int      `json:"port"`
+	Username           string   `json:"username,omitempty"`
+	Password           string   `json:"password,omitempty"`
+	UseSSL             bool     `json:"useSsl"`
+	Category           string   `json:"category,omitempty"`
+	Priority           int      `json:"priority"`
+	Enabled            bool     `json:"enabled"`
+	ImportDelaySeconds int      `json:"importDelaySeconds"`
+	CleanupMode        string   `json:"cleanupMode"` // "leave", "delete_after_import", "delete_after_seed_ratio"
+	SeedRatioTarget    *float64 `json:"seedRatioTarget,omitempty"`
 }
 
 // TestResult represents the result of testing a download client connection.
@@ -202,17 +211,25 @@ func (s *Service) Create(ctx context.Context, input CreateClientInput) (*Downloa
 		input.Priority = 50
 	}
 
+	cleanupMode := input.CleanupMode
+	if cleanupMode == "" {
+		cleanupMode = "leave"
+	}
+
 	row, err := s.queries.CreateDownloadClient(ctx, sqlc.CreateDownloadClientParams{
-		Name:     input.Name,
-		Type:     input.Type,
-		Host:     input.Host,
-		Port:     int64(input.Port),
-		Username: toNullString(input.Username),
-		Password: toNullString(input.Password),
-		UseSsl:   boolToInt64(input.UseSSL),
-		Category: toNullString(input.Category),
-		Priority: int64(input.Priority),
-		Enabled:  boolToInt64(input.Enabled),
+		Name:               input.Name,
+		Type:               input.Type,
+		Host:               input.Host,
+		Port:               int64(input.Port),
+		Username:           toNullString(input.Username),
+		Password:           toNullString(input.Password),
+		UseSsl:             boolToInt64(input.UseSSL),
+		Category:           toNullString(input.Category),
+		Priority:           int64(input.Priority),
+		Enabled:            boolToInt64(input.Enabled),
+		ImportDelaySeconds: int64(input.ImportDelaySeconds),
+		CleanupMode:        cleanupMode,
+		SeedRatioTarget:    toNullFloat64(input.SeedRatioTarget),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create download client: %w", err)
@@ -234,18 +251,26 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateClientInput)
 		return nil, ErrInvalidClient
 	}
 
+	cleanupMode := input.CleanupMode
+	if cleanupMode == "" {
+		cleanupMode = "leave"
+	}
+
 	row, err := s.queries.UpdateDownloadClient(ctx, sqlc.UpdateDownloadClientParams{
-		ID:       id,
-		Name:     input.Name,
-		Type:     input.Type,
-		Host:     input.Host,
-		Port:     int64(input.Port),
-		Username: toNullString(input.Username),
-		Password: toNullString(input.Password),
-		UseSsl:   boolToInt64(input.UseSSL),
-		Category: toNullString(input.Category),
-		Priority: int64(input.Priority),
-		Enabled:  boolToInt64(input.Enabled),
+		ID:                 id,
+		Name:               input.Name,
+		Type:               input.Type,
+		Host:               input.Host,
+		Port:               int64(input.Port),
+		Username:           toNullString(input.Username),
+		Password:           toNullString(input.Password),
+		UseSsl:             boolToInt64(input.UseSSL),
+		Category:           toNullString(input.Category),
+		Priority:           int64(input.Priority),
+		Enabled:            boolToInt64(input.Enabled),
+		ImportDelaySeconds: int64(input.ImportDelaySeconds),
+		CleanupMode:        cleanupMode,
+		SeedRatioTarget:    toNullFloat64(input.SeedRatioTarget),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -499,14 +524,16 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 // rowToClient converts a database row to a DownloadClient.
 func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 	client := &DownloadClient{
-		ID:       row.ID,
-		Name:     row.Name,
-		Type:     row.Type,
-		Host:     row.Host,
-		Port:     int(row.Port),
-		UseSSL:   row.UseSsl == 1,
-		Priority: int(row.Priority),
-		Enabled:  row.Enabled == 1,
+		ID:                 row.ID,
+		Name:               row.Name,
+		Type:               row.Type,
+		Host:               row.Host,
+		Port:               int(row.Port),
+		UseSSL:             row.UseSsl == 1,
+		Priority:           int(row.Priority),
+		Enabled:            row.Enabled == 1,
+		ImportDelaySeconds: int(row.ImportDelaySeconds),
+		CleanupMode:        row.CleanupMode,
 	}
 
 	if row.Username.Valid {
@@ -524,6 +551,9 @@ func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 	if row.UpdatedAt.Valid {
 		client.UpdatedAt = row.UpdatedAt.Time
 	}
+	if row.SeedRatioTarget.Valid {
+		client.SeedRatioTarget = &row.SeedRatioTarget.Float64
+	}
 
 	return client
 }
@@ -540,4 +570,11 @@ func boolToInt64(b bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+func toNullFloat64(f *float64) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *f, Valid: true}
 }

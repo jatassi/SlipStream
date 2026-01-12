@@ -26,6 +26,8 @@ import { IndexersPage } from '@/routes/settings/indexers'
 import { DownloadClientsPage } from '@/routes/settings/downloadclients'
 import { GeneralSettingsPage } from '@/routes/settings/general'
 import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
+import { ImportSettingsPage } from '@/routes/settings/import'
+import { ManualImportPage } from '@/routes/import/index'
 import { TasksPage } from '@/routes/system/tasks'
 import { SystemHealthPage } from '@/routes/system/health'
 
@@ -166,6 +168,19 @@ const autosearchSettingsRoute = createRoute({
   component: AutoSearchSettingsPage,
 })
 
+const importSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/import',
+  component: ImportSettingsPage,
+})
+
+// Import routes
+const manualImportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/import',
+  component: ManualImportPage,
+})
+
 // System routes
 const tasksRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -200,6 +215,8 @@ const routeTree = rootRoute.addChildren([
   downloadclientsRoute,
   generalSettingsRoute,
   autosearchSettingsRoute,
+  importSettingsRoute,
+  manualImportRoute,
   tasksRoute,
   healthRoute,
 ])

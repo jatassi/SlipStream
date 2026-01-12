@@ -6,14 +6,18 @@ import "encoding/json"
 type EventType string
 
 const (
-	EventTypeGrabbed           EventType = "grabbed"
-	EventTypeImported          EventType = "imported"
-	EventTypeDeleted           EventType = "deleted"
-	EventTypeFailed            EventType = "failed"
-	EventTypeRenamed           EventType = "renamed"
+	EventTypeGrabbed            EventType = "grabbed"
+	EventTypeImported           EventType = "imported"
+	EventTypeDeleted            EventType = "deleted"
+	EventTypeFailed             EventType = "failed"
+	EventTypeRenamed            EventType = "renamed"
 	EventTypeAutoSearchDownload EventType = "autosearch_download"
 	EventTypeAutoSearchUpgrade  EventType = "autosearch_upgrade"
 	EventTypeAutoSearchFailed   EventType = "autosearch_failed"
+	EventTypeImportStarted      EventType = "import_started"
+	EventTypeImportCompleted    EventType = "import_completed"
+	EventTypeImportFailed       EventType = "import_failed"
+	EventTypeImportUpgrade      EventType = "import_upgrade"
 )
 
 // MediaType represents the type of media.
@@ -89,6 +93,22 @@ type AutoSearchFailedData struct {
 	Error   string `json:"error,omitempty"`
 	Indexer string `json:"indexer,omitempty"`
 	Source  string `json:"source,omitempty"`
+}
+
+// ImportEventData contains data for import-related history events.
+type ImportEventData struct {
+	SourcePath       string `json:"sourcePath,omitempty"`
+	DestinationPath  string `json:"destinationPath,omitempty"`
+	OriginalFilename string `json:"originalFilename,omitempty"`
+	FinalFilename    string `json:"finalFilename,omitempty"`
+	Quality          string `json:"quality,omitempty"`
+	Source           string `json:"source,omitempty"` // "queue", "manual", "scan"
+	Codec            string `json:"codec,omitempty"`
+	Size             int64  `json:"size,omitempty"`
+	Error            string `json:"error,omitempty"`
+	IsUpgrade        bool   `json:"isUpgrade,omitempty"`
+	PreviousFile     string `json:"previousFile,omitempty"`
+	ClientName       string `json:"clientName,omitempty"`
 }
 
 // ToJSON converts a data struct to a JSON map.

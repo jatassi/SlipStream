@@ -22,6 +22,7 @@ import (
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/filesystem"
 	"github.com/slipstream/slipstream/internal/health"
+	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
@@ -34,13 +35,14 @@ import (
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/library/organizer"
+	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
-	"github.com/slipstream/slipstream/internal/watcher"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -63,7 +65,6 @@ type Server struct {
 	filesystemService     *filesystem.Service
 	storageService        *filesystem.StorageService
 	libraryManagerService *librarymanager.Service
-	watcherService        *watcher.Service
 	progressManager       *progress.Manager
 	downloaderService     *downloader.Service
 	indexerService        *indexer.Service
@@ -81,6 +82,9 @@ type Server struct {
 	preferencesService    *preferences.Service
 	historyService        *history.Service
 	healthService         *health.Service
+	importService         *importer.Service
+	organizerService      *organizer.Service
+	mediainfoService      *mediainfo.Service
 }
 
 // NewServer creates a new API server instance.
@@ -176,6 +180,28 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Initialize history service
 	s.historyService = history.NewService(db, logger)
 
+	// Initialize organizer service (for file operations)
+	s.organizerService = organizer.NewService(organizer.DefaultNamingConfig(), logger)
+
+	// Initialize mediainfo service (for probing media files)
+	s.mediainfoService = mediainfo.NewService(mediainfo.DefaultConfig(), logger)
+
+	// Initialize import service (for processing completed downloads)
+	s.importService = importer.NewService(
+		db,
+		s.downloaderService,
+		s.movieService,
+		s.tvService,
+		s.rootFolderService,
+		s.organizerService,
+		s.mediainfoService,
+		hub,
+		importer.DefaultConfig(),
+		logger,
+	)
+	s.importService.SetHealthService(s.healthService)
+	s.importService.SetHistoryService(&importHistoryAdapter{s.historyService})
+
 	// Initialize autosearch service
 	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
 	s.autosearchService.SetBroadcaster(hub)
@@ -249,18 +275,10 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 		if err := tasks.RegisterStorageHealthTask(s.scheduler, storageChecker, &cfg.Health, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register storage health task")
 		}
-	}
-
-	// Initialize watcher service for real-time file monitoring
-	watcherSvc, err := watcher.NewService(s.rootFolderService, logger)
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to initialize watcher service")
-	} else {
-		s.watcherService = watcherSvc
-		// Set file processor to use library manager
-		s.watcherService.SetFileProcessor(func(ctx context.Context, filePath string) error {
-			return s.libraryManagerService.ScanSingleFile(ctx, filePath)
-		})
+		// Register import scan task (scans for completed downloads ready to import)
+		if err := tasks.RegisterImportScanTask(s.scheduler, s.importService, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register import scan task")
+		}
 	}
 
 	s.setupMiddleware()
@@ -423,6 +441,25 @@ func (s *Server) setupRoutes() {
 
 	// Filesystem routes (for folder browsing)
 	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystemService, s.storageService)
+	filesystemHandlers.SetMediaParser(func(filename string) *filesystem.ParsedInfo {
+		parsed := scanner.ParseFilename(filename)
+		if parsed == nil {
+			return nil
+		}
+		return &filesystem.ParsedInfo{
+			Title:            parsed.Title,
+			Year:             parsed.Year,
+			Season:           parsed.Season,
+			Episode:          parsed.Episode,
+			EndEpisode:       parsed.EndEpisode,
+			IsSeasonPack:     parsed.IsSeasonPack,
+			IsCompleteSeries: parsed.IsCompleteSeries,
+			Quality:          parsed.Quality,
+			Source:           parsed.Source,
+			Codec:            parsed.Codec,
+			IsTV:             parsed.IsTV,
+		}
+	})
 	filesystemHandlers.RegisterRoutes(api.Group("/filesystem"))
 
 	// Settings routes
@@ -491,6 +528,14 @@ func (s *Server) setupRoutes() {
 	settings.GET("/autosearch", autosearchSettings.GetSettings)
 	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
 
+	// Import routes
+	importHandlers := importer.NewHandlers(s.importService, s.db)
+	importHandlers.RegisterRoutes(api.Group("/import"))
+
+	// Import settings routes
+	importSettings := importer.NewSettingsHandlers(s.db, s.importService)
+	importSettings.RegisterSettingsRoutes(settings)
+
 	// Scheduler routes
 	if s.scheduler != nil {
 		schedulerHandler := handlers.NewSchedulerHandler(s.scheduler)
@@ -518,11 +563,9 @@ func (s *Server) Start(address string) error {
 	}
 	s.metadataService.RegisterMetadataProviders()
 
-	// Start the file watcher service
-	if s.watcherService != nil {
-		if err := s.watcherService.Start(context.Background()); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to start watcher service")
-		}
+	// Start the import service workers
+	if s.importService != nil {
+		s.importService.Start(context.Background())
 	}
 
 	// Start the scheduler
@@ -546,11 +589,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// Stop the file watcher service
-	if s.watcherService != nil {
-		if err := s.watcherService.Stop(); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to stop watcher service")
-		}
+	// Stop the import service workers
+	if s.importService != nil {
+		s.importService.Stop()
 	}
 
 	return s.echo.Shutdown(ctx)
@@ -892,4 +933,22 @@ func (s *Server) getIndexerHistory(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, history)
+}
+
+// importHistoryAdapter adapts history.Service to importer.HistoryService interface.
+type importHistoryAdapter struct {
+	svc *history.Service
+}
+
+// Create implements importer.HistoryService.
+func (a *importHistoryAdapter) Create(ctx context.Context, input importer.HistoryInput) error {
+	_, err := a.svc.Create(ctx, history.CreateInput{
+		EventType: history.EventType(input.EventType),
+		MediaType: history.MediaType(input.MediaType),
+		MediaID:   input.MediaID,
+		Source:    input.Source,
+		Quality:   input.Quality,
+		Data:      input.Data,
+	})
+	return err
 }

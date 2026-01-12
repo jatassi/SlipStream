@@ -1,15 +1,26 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Tv, RefreshCw } from 'lucide-react'
+import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { SeriesGrid } from '@/components/series/SeriesGrid'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSeries, useScanLibrary } from '@/hooks'
+import { useSeries, useBulkDeleteSeries, useScanLibrary } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
@@ -19,8 +30,13 @@ type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
 export function SeriesListPage() {
   const { seriesView, setSeriesView } = useUIStore()
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [editMode, setEditMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteFiles, setDeleteFiles] = useState(false)
 
   const { data: seriesList, isLoading, isError, refetch } = useSeries()
+  const bulkDeleteMutation = useBulkDeleteSeries()
   const scanMutation = useScanLibrary()
 
   const handleScanLibrary = async () => {
@@ -39,6 +55,46 @@ export function SeriesListPage() {
     if (statusFilter === 'ended' && s.status !== 'ended') return false
     return true
   })
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredSeries.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredSeries.map((s) => s.id)))
+    }
+  }
+
+  const handleExitEditMode = () => {
+    setEditMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await bulkDeleteMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        deleteFiles,
+      })
+      toast.success(`${selectedIds.size} series deleted`)
+      setShowDeleteDialog(false)
+      setDeleteFiles(false)
+      handleExitEditMode()
+    } catch {
+      toast.error('Failed to delete series')
+    }
+  }
 
   if (isLoading) {
     return (
@@ -68,13 +124,24 @@ export function SeriesListPage() {
             <Button
               variant="outline"
               onClick={handleScanLibrary}
-              disabled={scanMutation.isPending}
+              disabled={scanMutation.isPending || editMode}
             >
               <RefreshCw className={`size-4 mr-1 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
               {scanMutation.isPending ? 'Scanning...' : 'Refresh'}
             </Button>
+            {editMode ? (
+              <Button variant="outline" onClick={handleExitEditMode}>
+                <X className="size-4 mr-1" />
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setEditMode(true)}>
+                <Pencil className="size-4 mr-1" />
+                Edit
+              </Button>
+            )}
             <Link to="/series/add">
-              <Button>
+              <Button disabled={editMode}>
                 <Plus className="size-4 mr-1" />
                 Add Series
               </Button>
@@ -83,6 +150,32 @@ export function SeriesListPage() {
         }
       />
 
+      {/* Edit Mode Toolbar */}
+      {editMode && (
+        <div className="flex items-center gap-4 mb-4 p-3 bg-muted rounded-lg">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={selectedIds.size === filteredSeries.length && filteredSeries.length > 0}
+              onCheckedChange={handleSelectAll}
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} of {filteredSeries.length} selected
+            </span>
+          </div>
+          <div className="ml-auto">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="size-4 mr-1" />
+              Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <Select
@@ -90,7 +183,7 @@ export function SeriesListPage() {
           onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
         >
           <SelectTrigger className="w-36">
-            <SelectValue />
+            {{ all: 'All', monitored: 'Monitored', continuing: 'Continuing', ended: 'Ended' }[statusFilter]}
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -132,8 +225,45 @@ export function SeriesListPage() {
           }
         />
       ) : (
-        <SeriesGrid series={filteredSeries} />
+        <SeriesGrid
+          series={filteredSeries}
+          editMode={editMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} Series?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The selected series will be removed from your library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center gap-2 py-2">
+            <Checkbox
+              id="deleteSeriesFiles"
+              checked={deleteFiles}
+              onCheckedChange={(checked) => setDeleteFiles(checked === true)}
+            />
+            <label htmlFor="deleteSeriesFiles" className="text-sm cursor-pointer">
+              Also delete files from disk
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

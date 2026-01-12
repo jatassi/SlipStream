@@ -5,9 +5,12 @@ import type { Movie } from '@/types'
 interface MovieGridProps {
   movies: Movie[]
   className?: string
+  editMode?: boolean
+  selectedIds?: Set<number>
+  onToggleSelect?: (id: number) => void
 }
 
-export function MovieGrid({ movies, className }: MovieGridProps) {
+export function MovieGrid({ movies, className, editMode, selectedIds, onToggleSelect }: MovieGridProps) {
   return (
     <div
       className={cn(
@@ -16,7 +19,13 @@ export function MovieGrid({ movies, className }: MovieGridProps) {
       )}
     >
       {movies.map((movie) => (
-        <MovieCard key={movie.id} movie={movie} />
+        <MovieCard
+          key={movie.id}
+          movie={movie}
+          editMode={editMode}
+          selected={selectedIds?.has(movie.id)}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   )

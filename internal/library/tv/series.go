@@ -28,6 +28,7 @@ type Series struct {
 	Seasons            []Season `json:"seasons,omitempty"`
 	Released           bool     `json:"released"`           // True if all seasons are released
 	AvailabilityStatus string   `json:"availabilityStatus"` // Badge text: "Available", "Airing", "Seasons 1-2 Available", etc.
+	FormatType         string   `json:"formatType,omitempty"` // "standard", "daily", "anime" - empty means auto-detect
 }
 
 // Season represents a season of a TV series.
@@ -87,6 +88,7 @@ type CreateSeriesInput struct {
 	Monitored        bool          `json:"monitored"`
 	SeasonFolder     bool          `json:"seasonFolder"`
 	Network          string        `json:"network,omitempty"`
+	FormatType       string        `json:"formatType,omitempty"` // "standard", "daily", "anime" - empty for auto-detect
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
 }
 
@@ -121,6 +123,7 @@ type UpdateSeriesInput struct {
 	Monitored        *bool   `json:"monitored,omitempty"`
 	SeasonFolder     *bool   `json:"seasonFolder,omitempty"`
 	Status           *string `json:"status,omitempty"`
+	FormatType       *string `json:"formatType,omitempty"` // "standard", "daily", "anime", or null for auto-detect
 }
 
 // UpdateEpisodeInput contains fields for updating an episode.

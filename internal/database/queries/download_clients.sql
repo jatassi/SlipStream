@@ -9,8 +9,9 @@ SELECT * FROM download_clients WHERE enabled = 1 ORDER BY priority, name;
 
 -- name: CreateDownloadClient :one
 INSERT INTO download_clients (
-    name, type, host, port, username, password, use_ssl, category, priority, enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    name, type, host, port, username, password, use_ssl, category, priority, enabled,
+    import_delay_seconds, cleanup_mode, seed_ratio_target
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateDownloadClient :one
@@ -25,6 +26,9 @@ UPDATE download_clients SET
     category = ?,
     priority = ?,
     enabled = ?,
+    import_delay_seconds = ?,
+    cleanup_mode = ?,
+    seed_ratio_target = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;

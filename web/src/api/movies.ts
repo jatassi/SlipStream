@@ -20,8 +20,11 @@ export const moviesApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/movies/${id}`, { method: 'DELETE' }),
+  delete: (id: number, deleteFiles?: boolean) =>
+    apiFetch<void>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
+
+  bulkDelete: (ids: number[], deleteFiles?: boolean) =>
+    Promise.all(ids.map(id => apiFetch<void>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }))),
 
   scan: (id: number) =>
     apiFetch<void>(`/movies/${id}/scan`, { method: 'POST' }),

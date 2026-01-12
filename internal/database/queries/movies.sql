@@ -180,3 +180,25 @@ LIMIT 1;
 
 -- name: UpdateMovieFileQualityID :exec
 UPDATE movie_files SET quality_id = ? WHERE id = ?;
+
+-- Import-related movie file operations
+-- name: CreateMovieFileWithImportInfo :one
+INSERT INTO movie_files (
+    movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
+    original_path, original_filename, imported_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: UpdateMovieFileImportInfo :one
+UPDATE movie_files SET
+    original_path = ?,
+    original_filename = ?,
+    imported_at = ?
+WHERE id = ?
+RETURNING *;
+
+-- name: GetMovieFilesWithImportInfo :many
+SELECT * FROM movie_files WHERE movie_id = ? ORDER BY imported_at DESC;
+
+-- name: UpdateMovieFilePath :exec
+UPDATE movie_files SET path = ? WHERE id = ?;

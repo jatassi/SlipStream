@@ -178,6 +178,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		Status:           "continuing",
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 		Released:         0, // Will be calculated by availability service
+		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create series: %w", err)
@@ -306,6 +307,11 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		status = *input.Status
 	}
 
+	formatType := current.FormatType
+	if input.FormatType != nil {
+		formatType = *input.FormatType
+	}
+
 	row, err := s.queries.UpdateSeries(ctx, sqlc.UpdateSeriesParams{
 		ID:               id,
 		Title:            title,
@@ -324,6 +330,7 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		Status:           status,
 		Network:          sql.NullString{String: current.Network, Valid: current.Network != ""},
 		Released:         boolToInt(current.Released), // Preserve current value
+		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -763,6 +770,33 @@ func (s *Service) GetEpisode(ctx context.Context, id int64) (*Episode, error) {
 	return &episode, nil
 }
 
+// GetEpisodeByNumber retrieves an episode by series ID, season number, and episode number.
+func (s *Service) GetEpisodeByNumber(ctx context.Context, seriesID int64, seasonNumber, episodeNumber int) (*Episode, error) {
+	row, err := s.queries.GetEpisodeByNumber(ctx, sqlc.GetEpisodeByNumberParams{
+		SeriesID:      seriesID,
+		SeasonNumber:  int64(seasonNumber),
+		EpisodeNumber: int64(episodeNumber),
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrEpisodeNotFound
+		}
+		return nil, fmt.Errorf("failed to get episode by number: %w", err)
+	}
+
+	episode := s.rowToEpisode(row)
+
+	// Get files
+	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
+	episode.HasFile = len(files) > 0
+	if len(files) > 0 {
+		ef := s.rowToEpisodeFile(files[0])
+		episode.EpisodeFile = &ef
+	}
+
+	return &episode, nil
+}
+
 // UpdateEpisode updates an episode.
 func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpisodeInput) (*Episode, error) {
 	current, err := s.GetEpisode(ctx, id)
@@ -864,6 +898,20 @@ func (s *Service) GetEpisodeFileByPath(ctx context.Context, path string) (*Episo
 	return &file, nil
 }
 
+// GetEpisodeFile returns the primary file for an episode.
+// Returns nil, nil if no file exists.
+func (s *Service) GetEpisodeFile(ctx context.Context, episodeID int64) (*EpisodeFile, error) {
+	rows, err := s.queries.ListEpisodeFilesByEpisode(ctx, episodeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list episode files: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	file := s.rowToEpisodeFile(rows[0])
+	return &file, nil
+}
+
 // RemoveEpisodeFile removes a file from an episode.
 func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
 	_, err := s.queries.GetEpisodeFile(ctx, fileID)
@@ -880,6 +928,27 @@ func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
 
 	s.logger.Info().Int64("fileId", fileID).Msg("Removed episode file")
 	return nil
+}
+
+// GetEpisodeFileByID retrieves an episode file by its ID.
+func (s *Service) GetEpisodeFileByID(ctx context.Context, fileID int64) (*EpisodeFile, error) {
+	row, err := s.queries.GetEpisodeFile(ctx, fileID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrEpisodeFileNotFound
+		}
+		return nil, fmt.Errorf("failed to get episode file: %w", err)
+	}
+	file := s.rowToEpisodeFile(row)
+	return &file, nil
+}
+
+// UpdateEpisodeFilePath updates the path of an episode file.
+func (s *Service) UpdateEpisodeFilePath(ctx context.Context, fileID int64, newPath string) error {
+	return s.queries.UpdateEpisodeFilePath(ctx, sqlc.UpdateEpisodeFilePathParams{
+		Path: newPath,
+		ID:   fileID,
+	})
 }
 
 // Count returns the total number of series.
@@ -938,6 +1007,11 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	// Availability
 	series.Released = row.Released == 1
 	series.AvailabilityStatus = row.AvailabilityStatus
+
+	// Format type
+	if row.FormatType.Valid {
+		series.FormatType = row.FormatType.String
+	}
 
 	return series
 }

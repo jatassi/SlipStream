@@ -13,8 +13,8 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network, released
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network, released, format_type
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -35,6 +35,7 @@ UPDATE series SET
     status = ?,
     network = ?,
     released = ?,
+    format_type = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -484,3 +485,36 @@ SELECT
     (SELECT COUNT(*) FROM seasons s WHERE s.series_id = ? AND s.monitored = 1) as monitored_seasons,
     (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ?) as total_episodes,
     (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ? AND e.monitored = 1) as monitored_episodes;
+
+-- Import-related episode file operations
+-- name: CreateEpisodeFileWithImportInfo :one
+INSERT INTO episode_files (
+    episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
+    original_path, original_filename, imported_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: UpdateEpisodeFileImportInfo :one
+UPDATE episode_files SET
+    original_path = ?,
+    original_filename = ?,
+    imported_at = ?
+WHERE id = ?
+RETURNING *;
+
+-- name: GetEpisodeFilesWithImportInfo :many
+SELECT ef.*, e.series_id, e.season_number, e.episode_number
+FROM episode_files ef
+JOIN episodes e ON ef.episode_id = e.id
+WHERE e.series_id = ?
+ORDER BY ef.imported_at DESC;
+
+-- Format type override queries
+-- name: UpdateSeriesFormatType :one
+UPDATE series SET format_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *;
+
+-- name: GetSeriesFormatType :one
+SELECT format_type FROM series WHERE id = ?;
+
+-- name: UpdateEpisodeFilePath :exec
+UPDATE episode_files SET path = ? WHERE id = ?;

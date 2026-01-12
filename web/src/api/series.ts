@@ -31,8 +31,11 @@ export const seriesApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/series/${id}`, { method: 'DELETE' }),
+  delete: (id: number, deleteFiles?: boolean) =>
+    apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
+
+  bulkDelete: (ids: number[], deleteFiles?: boolean) =>
+    Promise.all(ids.map(id => apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }))),
 
   scan: (id: number) =>
     apiFetch<void>(`/series/${id}/scan`, { method: 'POST' }),

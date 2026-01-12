@@ -263,3 +263,79 @@ func (s *Service) LogAutoSearchFailed(ctx context.Context, mediaType MediaType, 
 	})
 	return err
 }
+
+// LogImportStarted logs when an import process begins.
+func (s *Service) LogImportStarted(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal import started data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeImportStarted,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    data.Source,
+		Quality:   data.Quality,
+		Data:      dataMap,
+	})
+	return err
+}
+
+// LogImportCompleted logs a successful import.
+func (s *Service) LogImportCompleted(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal import completed data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeImportCompleted,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    data.Source,
+		Quality:   data.Quality,
+		Data:      dataMap,
+	})
+	return err
+}
+
+// LogImportFailed logs a failed import.
+func (s *Service) LogImportFailed(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal import failed data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeImportFailed,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    data.Source,
+		Quality:   data.Quality,
+		Data:      dataMap,
+	})
+	return err
+}
+
+// LogImportUpgrade logs an import that upgraded an existing file.
+func (s *Service) LogImportUpgrade(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal import upgrade data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeImportUpgrade,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    data.Source,
+		Quality:   data.Quality,
+		Data:      dataMap,
+	})
+	return err
+}

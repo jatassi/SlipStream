@@ -132,6 +132,54 @@ For simple cases where you just need the trigger to be a div or the default elem
 </TooltipTrigger>
 ```
 
+### Base UI Select - Displaying Labels Instead of Values
+
+**CRITICAL**: Base UI's `SelectValue` component displays the raw `value` attribute, NOT the display label. When your Select options have different values vs labels (e.g., `value="trust_queue"` but label="Trust Queue"), you MUST manually render the label in the trigger.
+
+**WRONG - Shows raw value like "trust_queue":**
+```tsx
+const OPTIONS = [
+  { value: 'trust_queue', label: 'Trust Queue' },
+  { value: 'trust_parse', label: 'Trust Parse' },
+]
+
+<Select value={selected} onValueChange={setSelected}>
+  <SelectTrigger>
+    <SelectValue />  {/* Will show "trust_queue" NOT "Trust Queue" */}
+  </SelectTrigger>
+  <SelectContent>
+    {OPTIONS.map((opt) => (
+      <SelectItem key={opt.value} value={opt.value}>
+        {opt.label}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+```
+
+**CORRECT - Manually look up and display the label:**
+```tsx
+<Select value={selected} onValueChange={setSelected}>
+  <SelectTrigger>
+    {OPTIONS.find((o) => o.value === selected)?.label}
+  </SelectTrigger>
+  <SelectContent>
+    {OPTIONS.map((opt) => (
+      <SelectItem key={opt.value} value={opt.value}>
+        {opt.label}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+```
+
+**When this matters:**
+- Any Select where value differs from display text (snake_case values, numeric IDs, etc.)
+- Select options loaded from an API with id/name pairs
+
+**When SelectValue works fine:**
+- Simple cases where value equals the display text (e.g., `value="info"` displays as "info")
+
 ### Service Layer
 Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`) which wrap sqlc queries. Services are injected into handlers during server setup.
 

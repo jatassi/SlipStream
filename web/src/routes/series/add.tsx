@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { PosterImage } from '@/components/media/PosterImage'
 import { LoadingState } from '@/components/data/LoadingState'
@@ -262,9 +262,7 @@ export function AddSeriesPage() {
                 <Label htmlFor="rootFolder">Root Folder *</Label>
                 <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
                   <SelectTrigger>
-                    <SelectValue>
-                      {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
-                    </SelectValue>
+                    {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
                   </SelectTrigger>
                   <SelectContent>
                     {rootFolders?.map((folder) => (
@@ -280,9 +278,7 @@ export function AddSeriesPage() {
                 <Label htmlFor="qualityProfile">Quality Profile *</Label>
                 <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
                   <SelectTrigger>
-                    <SelectValue>
-                      {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
-                    </SelectValue>
+                    {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
                   </SelectTrigger>
                   <SelectContent>
                     {qualityProfiles?.map((profile) => (
@@ -298,7 +294,13 @@ export function AddSeriesPage() {
                 <Label>Monitor</Label>
                 <Select value={monitorOnAdd ?? 'future'} onValueChange={(v) => setMonitorOnAdd(v as SeriesMonitorOnAdd)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    {{
+                      all: 'All Episodes',
+                      future: 'Future Episodes Only',
+                      first_season: 'First Season Only',
+                      latest_season: 'Latest Season Only',
+                      none: 'None',
+                    }[monitorOnAdd ?? 'future']}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Episodes</SelectItem>
@@ -317,7 +319,13 @@ export function AddSeriesPage() {
                 <Label>Search on Add</Label>
                 <Select value={searchOnAdd ?? 'no'} onValueChange={(v) => setSearchOnAdd(v as SeriesSearchOnAdd)}>
                   <SelectTrigger>
-                    <SelectValue />
+                    {{
+                      no: "Don't Search",
+                      first_episode: 'First Episode Only',
+                      first_season: 'First Season Only',
+                      latest_season: 'Latest Season Only',
+                      all: 'All Monitored Episodes',
+                    }[searchOnAdd ?? 'no']}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="no">Don't Search</SelectItem>

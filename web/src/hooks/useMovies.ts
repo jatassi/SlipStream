@@ -63,7 +63,20 @@ export function useUpdateMovie() {
 export function useDeleteMovie() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => moviesApi.delete(id),
+    mutationFn: ({ id, deleteFiles }: { id: number; deleteFiles?: boolean }) =>
+      moviesApi.delete(id, deleteFiles),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+    },
+  })
+}
+
+export function useBulkDeleteMovies() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, deleteFiles }: { ids: number[]; deleteFiles?: boolean }) =>
+      moviesApi.bulkDelete(ids, deleteFiles),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
       queryClient.invalidateQueries({ queryKey: calendarKeys.all })

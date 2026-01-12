@@ -23,6 +23,7 @@ const (
 	CategoryRootFolders     HealthCategory = "rootFolders"
 	CategoryMetadata        HealthCategory = "metadata"
 	CategoryStorage         HealthCategory = "storage"
+	CategoryImport          HealthCategory = "import"
 )
 
 // AllCategories returns all health categories in display order.
@@ -33,6 +34,7 @@ func AllCategories() []HealthCategory {
 		CategoryRootFolders,
 		CategoryMetadata,
 		CategoryStorage,
+		CategoryImport,
 	}
 }
 
@@ -85,6 +87,7 @@ type HealthResponse struct {
 	RootFolders     []HealthItem `json:"rootFolders"`
 	Metadata        []HealthItem `json:"metadata"`
 	Storage         []HealthItem `json:"storage"`
+	Import          []HealthItem `json:"import"`
 }
 
 // HealthSummary provides an overview of system health.

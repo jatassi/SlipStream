@@ -102,7 +102,7 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
         </span>
       </div>
       <div className="flex items-center gap-1">
-        {category !== 'storage' && (
+        {category !== 'storage' && category !== 'import' && (
           <Button
             variant="ghost"
             size="sm"

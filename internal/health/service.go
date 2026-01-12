@@ -182,6 +182,7 @@ func (s *Service) GetAll() *HealthResponse {
 		RootFolders:     s.itemsToSlice(CategoryRootFolders),
 		Metadata:        s.itemsToSlice(CategoryMetadata),
 		Storage:         s.itemsToSlice(CategoryStorage),
+		Import:          s.itemsToSlice(CategoryImport),
 	}
 
 	return resp
@@ -320,4 +321,29 @@ func (s *Service) broadcastUpdate(item *HealthItem) {
 	if err := s.broadcaster.Broadcast("health:updated", payload); err != nil {
 		s.logger.Error().Err(err).Msg("Failed to broadcast health update")
 	}
+}
+
+// RegisterImportItem registers a new import item for health tracking.
+func (s *Service) RegisterImportItem(id, name string) {
+	s.RegisterItem(CategoryImport, id, name)
+}
+
+// SetImportError sets an import item to Error status.
+func (s *Service) SetImportError(id, message string) {
+	s.SetError(CategoryImport, id, message)
+}
+
+// SetImportWarning sets an import item to Warning status.
+func (s *Service) SetImportWarning(id, message string) {
+	s.SetWarning(CategoryImport, id, message)
+}
+
+// ClearImportStatus resets an import item to OK status.
+func (s *Service) ClearImportStatus(id string) {
+	s.ClearStatus(CategoryImport, id)
+}
+
+// UnregisterImportItem removes an import item from health tracking.
+func (s *Service) UnregisterImportItem(id string) {
+	s.UnregisterItem(CategoryImport, id)
 }

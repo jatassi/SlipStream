@@ -9,22 +9,27 @@ import (
 
 // ParsedMedia represents a media file parsed from a filename.
 type ParsedMedia struct {
-	Title            string   `json:"title"`
-	Year             int      `json:"year,omitempty"`
-	Season           int      `json:"season,omitempty"`           // 0 for movies or complete series
-	EndSeason        int      `json:"endSeason,omitempty"`        // For multi-season packs (S01-S04)
-	Episode          int      `json:"episode,omitempty"`          // 0 for movies or season packs
-	EndEpisode       int      `json:"endEpisode,omitempty"`       // For multi-episode files
-	IsSeasonPack     bool     `json:"isSeasonPack,omitempty"`     // True for season packs (S01 without episode)
-	IsCompleteSeries bool     `json:"isCompleteSeries,omitempty"` // True for complete series boxsets
-	Quality          string   `json:"quality,omitempty"`          // "720p", "1080p", "2160p"
-	Resolution       int      `json:"resolution,omitempty"`       // 720, 1080, 2160
-	Source           string   `json:"source,omitempty"`           // "BluRay", "WEB-DL", "HDTV"
-	Codec            string   `json:"codec,omitempty"`            // "x264", "x265", "HEVC"
-	Attributes       []string `json:"attributes,omitempty"`       // HDR, Atmos, REMUX, etc.
-	IsTV             bool     `json:"isTv"`
-	FilePath         string   `json:"filePath"`
-	FileSize         int64    `json:"fileSize"`
+	Title             string   `json:"title"`
+	Year              int      `json:"year,omitempty"`
+	Season            int      `json:"season,omitempty"`           // 0 for movies or complete series
+	EndSeason         int      `json:"endSeason,omitempty"`        // For multi-season packs (S01-S04)
+	Episode           int      `json:"episode,omitempty"`          // 0 for movies or season packs
+	EndEpisode        int      `json:"endEpisode,omitempty"`       // For multi-episode files
+	IsSeasonPack      bool     `json:"isSeasonPack,omitempty"`     // True for season packs (S01 without episode)
+	IsCompleteSeries  bool     `json:"isCompleteSeries,omitempty"` // True for complete series boxsets
+	Quality           string   `json:"quality,omitempty"`          // "720p", "1080p", "2160p"
+	Source            string   `json:"source,omitempty"`           // "BluRay", "WEB-DL", "HDTV"
+	Codec             string   `json:"codec,omitempty"`            // "x264", "x265", "HEVC" (video codec)
+	AudioCodecs       []string `json:"audioCodecs,omitempty"`      // "TrueHD", "DTS-HD MA", "DDP", "AAC"
+	AudioChannels     []string `json:"audioChannels,omitempty"`    // "2.0", "5.1", "7.1"
+	AudioEnhancements []string `json:"audioEnhancements,omitempty"` // "Atmos", "DTS:X"
+	Attributes        []string `json:"attributes,omitempty"`       // HDR, REMUX, etc. (video attributes)
+	ReleaseGroup      string   `json:"releaseGroup,omitempty"`     // "SPARKS", "NTb", "HONE"
+	Revision          string   `json:"revision,omitempty"`         // "Proper", "REPACK", "REAL"
+	Edition           string   `json:"edition,omitempty"`          // "Directors Cut", "Extended", "Theatrical"
+	IsTV              bool     `json:"isTv"`
+	FilePath          string   `json:"filePath"`
+	FileSize          int64    `json:"fileSize"`
 }
 
 // Regex patterns for parsing
@@ -91,17 +96,65 @@ var (
 		"HLG":    regexp.MustCompile(`(?i)hlg`),
 	}
 
-	// Audio patterns (order matters - more specific patterns first)
-	audioPatterns = map[string]*regexp.Regexp{
+	// Audio codec patterns (order matters - more specific patterns first)
+	audioCodecPatterns = map[string]*regexp.Regexp{
+		"TrueHD":    regexp.MustCompile(`(?i)true[\.\-]?hd`),
+		"DTS-HD MA": regexp.MustCompile(`(?i)dts[\.\-]?hd[\.\-]?ma`),
+		"DTS-HD":    regexp.MustCompile(`(?i)dts[\.\-]?hd`),
+		"DTS":       regexp.MustCompile(`(?i)[\.\s\-_]dts[\.\s\-_]`),
+		"DDP":       regexp.MustCompile(`(?i)([\.\s\-_]ddp[\.\s\-_\d]|dd\+|e[\.\-]?ac[\.\-]?3)`),
+		"DD":        regexp.MustCompile(`(?i)([\.\s\-_]dd[\.\s\-_\d]|[\.\s\-_]ac[\.\-]?3[\.\s\-_])`),
+		"AAC":       regexp.MustCompile(`(?i)[\.\s\-_]aac[\.\s\-_\d]`),
+		"FLAC":      regexp.MustCompile(`(?i)[\.\s\-_]flac[\.\s\-_]`),
+		"LPCM":      regexp.MustCompile(`(?i)[\.\s\-_]lpcm[\.\s\-_]`),
+		"PCM":       regexp.MustCompile(`(?i)[\.\s\-_]pcm[\.\s\-_]`),
+		"Opus":      regexp.MustCompile(`(?i)[\.\s\-_]opus[\.\s\-_]`),
+		"MP3":       regexp.MustCompile(`(?i)[\.\s\-_]mp3[\.\s\-_]`),
+	}
+
+	// Audio channel patterns
+	audioChannelPatterns = map[string]*regexp.Regexp{
+		"7.1": regexp.MustCompile(`(?i)7[\.\-]1`),
+		"5.1": regexp.MustCompile(`(?i)5[\.\-]1`),
+		"2.0": regexp.MustCompile(`(?i)2[\.\-]0`),
+		"1.0": regexp.MustCompile(`(?i)1[\.\-]0`),
+	}
+
+	// Audio enhancement patterns (object-based audio layers)
+	audioEnhancementPatterns = map[string]*regexp.Regexp{
 		"Atmos":  regexp.MustCompile(`(?i)atmos`),
-		"DTS-X":  regexp.MustCompile(`(?i)dts[\.\-]?x`),
-		"DTS-HD": regexp.MustCompile(`(?i)dts[\.\-]?hd([\.\-]?ma)?`),
-		"TrueHD": regexp.MustCompile(`(?i)truehd`),
-		"DTS":    regexp.MustCompile(`(?i)[\.\s\-]dts[\.\s\-]`),
-		"DD+":    regexp.MustCompile(`(?i)(ddp|dd\+|e[\.\-]?ac[\.\-]?3)`),
-		"DD":     regexp.MustCompile(`(?i)(dd[25]\.[01]|[\.\s\-]ac[\.\-]?3[\.\s\-])`),
-		"AAC":    regexp.MustCompile(`(?i)[\.\s\-]aac[\.\s\-]`),
-		"FLAC":   regexp.MustCompile(`(?i)[\.\s\-]flac[\.\s\-]`),
+		"DTS:X":  regexp.MustCompile(`(?i)dts[\.\-:]?x`),
+	}
+
+	// Release group pattern - typically at the end after a dash: -GroupName
+	releaseGroupPattern = regexp.MustCompile(`-([A-Za-z0-9]+)(?:\.[a-z0-9]{2,4})?$`)
+
+	// Revision patterns - PROPER, REPACK, REAL, RERIP
+	revisionPatterns = map[string]*regexp.Regexp{
+		"Proper":  regexp.MustCompile(`(?i)(^|[\.\s\-_])proper([\.\s\-_]|$)`),
+		"REPACK":  regexp.MustCompile(`(?i)(^|[\.\s\-_])repack([\.\s\-_]|$)`),
+		"REAL":    regexp.MustCompile(`(?i)(^|[\.\s\-_])real([\.\s\-_]|$)`),
+		"RERIP":   regexp.MustCompile(`(?i)(^|[\.\s\-_])rerip([\.\s\-_]|$)`),
+	}
+
+	// Edition patterns - various special editions
+	editionPatterns = map[string]*regexp.Regexp{
+		"Director's Cut":      regexp.MustCompile(`(?i)(^|[\.\s\-_])directors?[\.\s\-_]?cut([\.\s\-_]|$)`),
+		"Extended":            regexp.MustCompile(`(?i)(^|[\.\s\-_])extended([\.\s\-_]|$)`),
+		"Extended Cut":        regexp.MustCompile(`(?i)(^|[\.\s\-_])extended[\.\s\-_]?cut([\.\s\-_]|$)`),
+		"Theatrical":          regexp.MustCompile(`(?i)(^|[\.\s\-_])theatrical[\.\s\-_]?(?:cut|edition)?([\.\s\-_]|$)`),
+		"Unrated":             regexp.MustCompile(`(?i)(^|[\.\s\-_])unrated([\.\s\-_]|$)`),
+		"Uncut":               regexp.MustCompile(`(?i)(^|[\.\s\-_])uncut([\.\s\-_]|$)`),
+		"Ultimate Cut":        regexp.MustCompile(`(?i)(^|[\.\s\-_])ultimate[\.\s\-_]?cut([\.\s\-_]|$)`),
+		"Final Cut":           regexp.MustCompile(`(?i)(^|[\.\s\-_])final[\.\s\-_]?cut([\.\s\-_]|$)`),
+		"Special Edition":     regexp.MustCompile(`(?i)(^|[\.\s\-_])special[\.\s\-_]?edition([\.\s\-_]|$)`),
+		"Collector's Edition": regexp.MustCompile(`(?i)(^|[\.\s\-_])collectors?[\.\s\-_]?edition([\.\s\-_]|$)`),
+		"Anniversary Edition": regexp.MustCompile(`(?i)(^|[\.\s\-_])anniversary[\.\s\-_]?edition([\.\s\-_]|$)`),
+		"Criterion":           regexp.MustCompile(`(?i)(^|[\.\s\-_])criterion([\.\s\-_]|$)`),
+		"IMAX":                regexp.MustCompile(`(?i)(^|[\.\s\-_])imax([\.\s\-_]|$)`),
+		"3D":                  regexp.MustCompile(`(?i)(^|[\.\s\-_])3d([\.\s\-_]|$)`),
+		"Remastered":          regexp.MustCompile(`(?i)(^|[\.\s\-_])remastered([\.\s\-_]|$)`),
+		"Restored":            regexp.MustCompile(`(?i)(^|[\.\s\-_])restored([\.\s\-_]|$)`),
 	}
 
 	// Clean up patterns
@@ -236,16 +289,6 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 	for quality, pattern := range qualityPatterns {
 		if pattern.MatchString(text) {
 			parsed.Quality = quality
-			switch quality {
-			case "2160p":
-				parsed.Resolution = 2160
-			case "1080p":
-				parsed.Resolution = 1080
-			case "720p":
-				parsed.Resolution = 720
-			case "480p":
-				parsed.Resolution = 480
-			}
 			break
 		}
 	}
@@ -266,7 +309,7 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 		}
 	}
 
-	// Attributes
+	// Video attributes
 	var attributes []string
 
 	// Check for REMUX (from source)
@@ -274,26 +317,79 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 		attributes = append(attributes, "REMUX")
 	}
 
-	// HDR attributes (check in priority order)
+	// HDR attributes (collect all that match)
 	hdrOrder := []string{"DV", "HDR10+", "HDR10", "HDR", "HLG"}
 	for _, hdr := range hdrOrder {
 		if pattern, ok := hdrPatterns[hdr]; ok && pattern.MatchString(text) {
 			attributes = append(attributes, hdr)
-			break // Only add the most specific HDR type
-		}
-	}
-
-	// Audio attributes (check in priority order)
-	audioOrder := []string{"Atmos", "DTS-X", "DTS-HD", "TrueHD", "DTS", "DD+", "DD", "AAC", "FLAC"}
-	for _, audio := range audioOrder {
-		if pattern, ok := audioPatterns[audio]; ok && pattern.MatchString(text) {
-			attributes = append(attributes, audio)
-			break // Only add the most specific audio type
 		}
 	}
 
 	if len(attributes) > 0 {
 		parsed.Attributes = attributes
+	}
+
+	// Audio codecs (collect all that match, check in priority order)
+	audioCodecOrder := []string{"TrueHD", "DTS-HD MA", "DTS-HD", "DTS", "DDP", "DD", "AAC", "FLAC", "LPCM", "PCM", "Opus", "MP3"}
+	for _, codec := range audioCodecOrder {
+		if pattern, ok := audioCodecPatterns[codec]; ok && pattern.MatchString(text) {
+			parsed.AudioCodecs = append(parsed.AudioCodecs, codec)
+		}
+	}
+
+	// Audio channels (collect all that match)
+	channelOrder := []string{"7.1", "5.1", "2.0", "1.0"}
+	for _, channels := range channelOrder {
+		if pattern, ok := audioChannelPatterns[channels]; ok && pattern.MatchString(text) {
+			parsed.AudioChannels = append(parsed.AudioChannels, channels)
+		}
+	}
+
+	// Audio enhancements (collect all that match)
+	if audioEnhancementPatterns["Atmos"].MatchString(text) {
+		parsed.AudioEnhancements = append(parsed.AudioEnhancements, "Atmos")
+	}
+	if audioEnhancementPatterns["DTS:X"].MatchString(text) {
+		parsed.AudioEnhancements = append(parsed.AudioEnhancements, "DTS:X")
+	}
+
+	// Release group - typically at end after dash
+	if match := releaseGroupPattern.FindStringSubmatch(text); match != nil {
+		group := match[1]
+		// Filter out common false positives (codecs, formats, etc.)
+		lowerGroup := strings.ToLower(group)
+		falsePositives := []string{"x264", "x265", "hevc", "avc", "h264", "h265", "xvid", "divx", "av1", "vp9", "mkv", "mp4", "avi"}
+		isFalsePositive := false
+		for _, fp := range falsePositives {
+			if lowerGroup == fp {
+				isFalsePositive = true
+				break
+			}
+		}
+		if !isFalsePositive {
+			parsed.ReleaseGroup = group
+		}
+	}
+
+	// Revision (PROPER, REPACK, etc.)
+	revisionOrder := []string{"Proper", "REPACK", "REAL", "RERIP"}
+	for _, rev := range revisionOrder {
+		if pattern, ok := revisionPatterns[rev]; ok && pattern.MatchString(text) {
+			parsed.Revision = rev
+			break // Only take the first match
+		}
+	}
+
+	// Edition tags (collect all that match)
+	var editions []string
+	editionOrder := []string{"Director's Cut", "Extended Cut", "Extended", "Theatrical", "Unrated", "Uncut", "Ultimate Cut", "Final Cut", "Special Edition", "Collector's Edition", "Anniversary Edition", "Criterion", "IMAX", "3D", "Remastered", "Restored"}
+	for _, ed := range editionOrder {
+		if pattern, ok := editionPatterns[ed]; ok && pattern.MatchString(text) {
+			editions = append(editions, ed)
+		}
+	}
+	if len(editions) > 0 {
+		parsed.Edition = strings.Join(editions, " ")
 	}
 }
 

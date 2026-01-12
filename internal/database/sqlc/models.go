@@ -53,19 +53,22 @@ type Download struct {
 }
 
 type DownloadClient struct {
-	ID        int64          `json:"id"`
-	Name      string         `json:"name"`
-	Type      string         `json:"type"`
-	Host      string         `json:"host"`
-	Port      int64          `json:"port"`
-	Username  sql.NullString `json:"username"`
-	Password  sql.NullString `json:"password"`
-	UseSsl    int64          `json:"use_ssl"`
-	Category  sql.NullString `json:"category"`
-	Priority  int64          `json:"priority"`
-	Enabled   int64          `json:"enabled"`
-	CreatedAt sql.NullTime   `json:"created_at"`
-	UpdatedAt sql.NullTime   `json:"updated_at"`
+	ID                 int64           `json:"id"`
+	Name               string          `json:"name"`
+	Type               string          `json:"type"`
+	Host               string          `json:"host"`
+	Port               int64           `json:"port"`
+	Username           sql.NullString  `json:"username"`
+	Password           sql.NullString  `json:"password"`
+	UseSsl             int64           `json:"use_ssl"`
+	Category           sql.NullString  `json:"category"`
+	Priority           int64           `json:"priority"`
+	Enabled            int64           `json:"enabled"`
+	CreatedAt          sql.NullTime    `json:"created_at"`
+	UpdatedAt          sql.NullTime    `json:"updated_at"`
+	ImportDelaySeconds int64           `json:"import_delay_seconds"`
+	CleanupMode        string          `json:"cleanup_mode"`
+	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`
 }
 
 type DownloadMapping struct {
@@ -94,16 +97,19 @@ type Episode struct {
 }
 
 type EpisodeFile struct {
-	ID         int64          `json:"id"`
-	EpisodeID  int64          `json:"episode_id"`
-	Path       string         `json:"path"`
-	Size       int64          `json:"size"`
-	Quality    sql.NullString `json:"quality"`
-	VideoCodec sql.NullString `json:"video_codec"`
-	AudioCodec sql.NullString `json:"audio_codec"`
-	Resolution sql.NullString `json:"resolution"`
-	CreatedAt  sql.NullTime   `json:"created_at"`
-	QualityID  sql.NullInt64  `json:"quality_id"`
+	ID               int64          `json:"id"`
+	EpisodeID        int64          `json:"episode_id"`
+	Path             string         `json:"path"`
+	Size             int64          `json:"size"`
+	Quality          sql.NullString `json:"quality"`
+	VideoCodec       sql.NullString `json:"video_codec"`
+	AudioCodec       sql.NullString `json:"audio_codec"`
+	Resolution       sql.NullString `json:"resolution"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	QualityID        sql.NullInt64  `json:"quality_id"`
+	OriginalPath     sql.NullString `json:"original_path"`
+	OriginalFilename sql.NullString `json:"original_filename"`
+	ImportedAt       sql.NullTime   `json:"imported_at"`
 }
 
 type History struct {
@@ -115,6 +121,30 @@ type History struct {
 	Quality   sql.NullString `json:"quality"`
 	Data      sql.NullString `json:"data"`
 	CreatedAt sql.NullTime   `json:"created_at"`
+}
+
+type ImportSetting struct {
+	ID                       int64          `json:"id"`
+	ValidationLevel          string         `json:"validation_level"`
+	MinimumFileSizeMb        int64          `json:"minimum_file_size_mb"`
+	VideoExtensions          string         `json:"video_extensions"`
+	MatchConflictBehavior    string         `json:"match_conflict_behavior"`
+	UnknownMediaBehavior     string         `json:"unknown_media_behavior"`
+	RenameEpisodes           bool           `json:"rename_episodes"`
+	ReplaceIllegalCharacters bool           `json:"replace_illegal_characters"`
+	ColonReplacement         string         `json:"colon_replacement"`
+	CustomColonReplacement   sql.NullString `json:"custom_colon_replacement"`
+	StandardEpisodeFormat    string         `json:"standard_episode_format"`
+	DailyEpisodeFormat       string         `json:"daily_episode_format"`
+	AnimeEpisodeFormat       string         `json:"anime_episode_format"`
+	SeriesFolderFormat       string         `json:"series_folder_format"`
+	SeasonFolderFormat       string         `json:"season_folder_format"`
+	SpecialsFolderFormat     string         `json:"specials_folder_format"`
+	MultiEpisodeStyle        string         `json:"multi_episode_style"`
+	RenameMovies             bool           `json:"rename_movies"`
+	MovieFolderFormat        string         `json:"movie_folder_format"`
+	MovieFileFormat          string         `json:"movie_file_format"`
+	UpdatedAt                time.Time      `json:"updated_at"`
 }
 
 type Indexer struct {
@@ -190,16 +220,19 @@ type Movie struct {
 }
 
 type MovieFile struct {
-	ID         int64          `json:"id"`
-	MovieID    int64          `json:"movie_id"`
-	Path       string         `json:"path"`
-	Size       int64          `json:"size"`
-	Quality    sql.NullString `json:"quality"`
-	VideoCodec sql.NullString `json:"video_codec"`
-	AudioCodec sql.NullString `json:"audio_codec"`
-	Resolution sql.NullString `json:"resolution"`
-	CreatedAt  sql.NullTime   `json:"created_at"`
-	QualityID  sql.NullInt64  `json:"quality_id"`
+	ID               int64          `json:"id"`
+	MovieID          int64          `json:"movie_id"`
+	Path             string         `json:"path"`
+	Size             int64          `json:"size"`
+	Quality          sql.NullString `json:"quality"`
+	VideoCodec       sql.NullString `json:"video_codec"`
+	AudioCodec       sql.NullString `json:"audio_codec"`
+	Resolution       sql.NullString `json:"resolution"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	QualityID        sql.NullInt64  `json:"quality_id"`
+	OriginalPath     sql.NullString `json:"original_path"`
+	OriginalFilename sql.NullString `json:"original_filename"`
+	ImportedAt       sql.NullTime   `json:"imported_at"`
 }
 
 type QualityProfile struct {
@@ -209,6 +242,19 @@ type QualityProfile struct {
 	Items     string       `json:"items"`
 	CreatedAt sql.NullTime `json:"created_at"`
 	UpdatedAt sql.NullTime `json:"updated_at"`
+}
+
+type QueueMedium struct {
+	ID                int64          `json:"id"`
+	DownloadMappingID int64          `json:"download_mapping_id"`
+	EpisodeID         sql.NullInt64  `json:"episode_id"`
+	MovieID           sql.NullInt64  `json:"movie_id"`
+	FilePath          sql.NullString `json:"file_path"`
+	FileStatus        string         `json:"file_status"`
+	ErrorMessage      sql.NullString `json:"error_message"`
+	ImportAttempts    int64          `json:"import_attempts"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 type RootFolder struct {
@@ -251,6 +297,7 @@ type Series struct {
 	Network            sql.NullString `json:"network"`
 	Released           int64          `json:"released"`
 	AvailabilityStatus string         `json:"availability_status"`
+	FormatType         sql.NullString `json:"format_type"`
 }
 
 type Setting struct {

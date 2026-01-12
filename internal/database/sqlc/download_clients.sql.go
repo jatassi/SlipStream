@@ -23,22 +23,26 @@ func (q *Queries) CountDownloadClients(ctx context.Context) (int64, error) {
 
 const createDownloadClient = `-- name: CreateDownloadClient :one
 INSERT INTO download_clients (
-    name, type, host, port, username, password, use_ssl, category, priority, enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at
+    name, type, host, port, username, password, use_ssl, category, priority, enabled,
+    import_delay_seconds, cleanup_mode, seed_ratio_target
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
 `
 
 type CreateDownloadClientParams struct {
-	Name     string         `json:"name"`
-	Type     string         `json:"type"`
-	Host     string         `json:"host"`
-	Port     int64          `json:"port"`
-	Username sql.NullString `json:"username"`
-	Password sql.NullString `json:"password"`
-	UseSsl   int64          `json:"use_ssl"`
-	Category sql.NullString `json:"category"`
-	Priority int64          `json:"priority"`
-	Enabled  int64          `json:"enabled"`
+	Name               string          `json:"name"`
+	Type               string          `json:"type"`
+	Host               string          `json:"host"`
+	Port               int64           `json:"port"`
+	Username           sql.NullString  `json:"username"`
+	Password           sql.NullString  `json:"password"`
+	UseSsl             int64           `json:"use_ssl"`
+	Category           sql.NullString  `json:"category"`
+	Priority           int64           `json:"priority"`
+	Enabled            int64           `json:"enabled"`
+	ImportDelaySeconds int64           `json:"import_delay_seconds"`
+	CleanupMode        string          `json:"cleanup_mode"`
+	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`
 }
 
 func (q *Queries) CreateDownloadClient(ctx context.Context, arg CreateDownloadClientParams) (*DownloadClient, error) {
@@ -53,6 +57,9 @@ func (q *Queries) CreateDownloadClient(ctx context.Context, arg CreateDownloadCl
 		arg.Category,
 		arg.Priority,
 		arg.Enabled,
+		arg.ImportDelaySeconds,
+		arg.CleanupMode,
+		arg.SeedRatioTarget,
 	)
 	var i DownloadClient
 	err := row.Scan(
@@ -69,6 +76,9 @@ func (q *Queries) CreateDownloadClient(ctx context.Context, arg CreateDownloadCl
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ImportDelaySeconds,
+		&i.CleanupMode,
+		&i.SeedRatioTarget,
 	)
 	return &i, err
 }
@@ -83,7 +93,7 @@ func (q *Queries) DeleteDownloadClient(ctx context.Context, id int64) error {
 }
 
 const getDownloadClient = `-- name: GetDownloadClient :one
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at FROM download_clients WHERE id = ? LIMIT 1
+SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetDownloadClient(ctx context.Context, id int64) (*DownloadClient, error) {
@@ -103,12 +113,15 @@ func (q *Queries) GetDownloadClient(ctx context.Context, id int64) (*DownloadCli
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ImportDelaySeconds,
+		&i.CleanupMode,
+		&i.SeedRatioTarget,
 	)
 	return &i, err
 }
 
 const listDownloadClients = `-- name: ListDownloadClients :many
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at FROM download_clients ORDER BY priority, name
+SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients ORDER BY priority, name
 `
 
 func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, error) {
@@ -134,6 +147,9 @@ func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, e
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ImportDelaySeconds,
+			&i.CleanupMode,
+			&i.SeedRatioTarget,
 		); err != nil {
 			return nil, err
 		}
@@ -149,7 +165,7 @@ func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, e
 }
 
 const listEnabledDownloadClients = `-- name: ListEnabledDownloadClients :many
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at FROM download_clients WHERE enabled = 1 ORDER BY priority, name
+SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE enabled = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledDownloadClients(ctx context.Context) ([]*DownloadClient, error) {
@@ -175,6 +191,9 @@ func (q *Queries) ListEnabledDownloadClients(ctx context.Context) ([]*DownloadCl
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ImportDelaySeconds,
+			&i.CleanupMode,
+			&i.SeedRatioTarget,
 		); err != nil {
 			return nil, err
 		}
@@ -201,23 +220,29 @@ UPDATE download_clients SET
     category = ?,
     priority = ?,
     enabled = ?,
+    import_delay_seconds = ?,
+    cleanup_mode = ?,
+    seed_ratio_target = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at
+RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
 `
 
 type UpdateDownloadClientParams struct {
-	Name     string         `json:"name"`
-	Type     string         `json:"type"`
-	Host     string         `json:"host"`
-	Port     int64          `json:"port"`
-	Username sql.NullString `json:"username"`
-	Password sql.NullString `json:"password"`
-	UseSsl   int64          `json:"use_ssl"`
-	Category sql.NullString `json:"category"`
-	Priority int64          `json:"priority"`
-	Enabled  int64          `json:"enabled"`
-	ID       int64          `json:"id"`
+	Name               string          `json:"name"`
+	Type               string          `json:"type"`
+	Host               string          `json:"host"`
+	Port               int64           `json:"port"`
+	Username           sql.NullString  `json:"username"`
+	Password           sql.NullString  `json:"password"`
+	UseSsl             int64           `json:"use_ssl"`
+	Category           sql.NullString  `json:"category"`
+	Priority           int64           `json:"priority"`
+	Enabled            int64           `json:"enabled"`
+	ImportDelaySeconds int64           `json:"import_delay_seconds"`
+	CleanupMode        string          `json:"cleanup_mode"`
+	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`
+	ID                 int64           `json:"id"`
 }
 
 func (q *Queries) UpdateDownloadClient(ctx context.Context, arg UpdateDownloadClientParams) (*DownloadClient, error) {
@@ -232,6 +257,9 @@ func (q *Queries) UpdateDownloadClient(ctx context.Context, arg UpdateDownloadCl
 		arg.Category,
 		arg.Priority,
 		arg.Enabled,
+		arg.ImportDelaySeconds,
+		arg.CleanupMode,
+		arg.SeedRatioTarget,
 		arg.ID,
 	)
 	var i DownloadClient
@@ -249,6 +277,9 @@ func (q *Queries) UpdateDownloadClient(ctx context.Context, arg UpdateDownloadCl
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ImportDelaySeconds,
+		&i.CleanupMode,
+		&i.SeedRatioTarget,
 	)
 	return &i, err
 }

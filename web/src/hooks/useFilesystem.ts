@@ -4,6 +4,7 @@ import { filesystemApi } from '@/api'
 export const filesystemKeys = {
   all: ['filesystem'] as const,
   browse: (path?: string) => [...filesystemKeys.all, 'browse', path] as const,
+  browseImport: (path?: string) => [...filesystemKeys.all, 'browseImport', path] as const,
 }
 
 /**
@@ -17,5 +18,19 @@ export function useBrowseDirectory(path?: string, enabled = true) {
     queryFn: () => filesystemApi.browse(path),
     enabled,
     staleTime: 30000, // Cache for 30 seconds
+  })
+}
+
+/**
+ * Hook to browse directories and video files for import
+ * @param path - Path to browse. If empty, returns root
+ * @param enabled - Whether to enable the query
+ */
+export function useBrowseForImport(path?: string, enabled = true) {
+  return useQuery({
+    queryKey: filesystemKeys.browseImport(path),
+    queryFn: () => filesystemApi.browseForImport(path),
+    enabled,
+    staleTime: 30000,
   })
 }

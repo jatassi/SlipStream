@@ -478,52 +478,44 @@ func TestParseFilename_Movie_ParenFormat(t *testing.T) {
 
 func TestParseFilename_Quality(t *testing.T) {
 	tests := []struct {
-		name           string
-		filename       string
-		wantQuality    string
-		wantResolution int
+		name        string
+		filename    string
+		wantQuality string
 	}{
 		{
-			name:           "2160p quality",
-			filename:       "Movie.2020.2160p.BluRay.mkv",
-			wantQuality:    "2160p",
-			wantResolution: 2160,
+			name:        "2160p quality",
+			filename:    "Movie.2020.2160p.BluRay.mkv",
+			wantQuality: "2160p",
 		},
 		{
-			name:           "4K quality alias",
-			filename:       "Movie.2020.4K.BluRay.mkv",
-			wantQuality:    "2160p",
-			wantResolution: 2160,
+			name:        "4K quality alias",
+			filename:    "Movie.2020.4K.BluRay.mkv",
+			wantQuality: "2160p",
 		},
 		{
-			name:           "UHD quality alias",
-			filename:       "Movie.2020.UHD.BluRay.mkv",
-			wantQuality:    "2160p",
-			wantResolution: 2160,
+			name:        "UHD quality alias",
+			filename:    "Movie.2020.UHD.BluRay.mkv",
+			wantQuality: "2160p",
 		},
 		{
-			name:           "1080p quality",
-			filename:       "Movie.2020.1080p.WEB-DL.mkv",
-			wantQuality:    "1080p",
-			wantResolution: 1080,
+			name:        "1080p quality",
+			filename:    "Movie.2020.1080p.WEB-DL.mkv",
+			wantQuality: "1080p",
 		},
 		{
-			name:           "720p quality",
-			filename:       "Movie.2020.720p.HDTV.mkv",
-			wantQuality:    "720p",
-			wantResolution: 720,
+			name:        "720p quality",
+			filename:    "Movie.2020.720p.HDTV.mkv",
+			wantQuality: "720p",
 		},
 		{
-			name:           "480p quality",
-			filename:       "Movie.2020.480p.DVDRip.mkv",
-			wantQuality:    "480p",
-			wantResolution: 480,
+			name:        "480p quality",
+			filename:    "Movie.2020.480p.DVDRip.mkv",
+			wantQuality: "480p",
 		},
 		{
-			name:           "SD alias",
-			filename:       "Movie.2020.SD.DVDRip.mkv",
-			wantQuality:    "480p",
-			wantResolution: 480,
+			name:        "SD alias",
+			filename:    "Movie.2020.SD.DVDRip.mkv",
+			wantQuality: "480p",
 		},
 	}
 
@@ -533,9 +525,6 @@ func TestParseFilename_Quality(t *testing.T) {
 
 			if result.Quality != tt.wantQuality {
 				t.Errorf("Quality = %q, want %q", result.Quality, tt.wantQuality)
-			}
-			if result.Resolution != tt.wantResolution {
-				t.Errorf("Resolution = %d, want %d", result.Resolution, tt.wantResolution)
 			}
 		})
 	}
@@ -696,43 +685,39 @@ func TestParseFilename_Codec(t *testing.T) {
 
 func TestParseFilename_Complex(t *testing.T) {
 	tests := []struct {
-		name           string
-		filename       string
-		wantTitle      string
-		wantYear       int
-		wantQuality    string
-		wantSource     string
-		wantCodec      string
-		wantResolution int
+		name        string
+		filename    string
+		wantTitle   string
+		wantYear    int
+		wantQuality string
+		wantSource  string
+		wantCodec   string
 	}{
 		{
-			name:           "fully tagged movie",
-			filename:       "The.Dark.Knight.2008.2160p.UHD.BluRay.x265.HDR.mkv",
-			wantTitle:      "The Dark Knight",
-			wantYear:       2008,
-			wantQuality:    "2160p",
-			wantSource:     "BluRay",
-			wantCodec:      "x265",
-			wantResolution: 2160,
+			name:        "fully tagged movie",
+			filename:    "The.Dark.Knight.2008.2160p.UHD.BluRay.x265.HDR.mkv",
+			wantTitle:   "The Dark Knight",
+			wantYear:    2008,
+			wantQuality: "2160p",
+			wantSource:  "BluRay",
+			wantCodec:   "x265",
 		},
 		{
-			name:           "web release movie",
-			filename:       "Avengers.Endgame.2019.1080p.WEB-DL.H264.mkv",
-			wantTitle:      "Avengers Endgame",
-			wantYear:       2019,
-			wantQuality:    "1080p",
-			wantSource:     "WEB-DL",
-			wantCodec:      "x264",
-			wantResolution: 1080,
+			name:        "web release movie",
+			filename:    "Avengers.Endgame.2019.1080p.WEB-DL.H264.mkv",
+			wantTitle:   "Avengers Endgame",
+			wantYear:    2019,
+			wantQuality: "1080p",
+			wantSource:  "WEB-DL",
+			wantCodec:   "x264",
 		},
 		{
-			name:           "HDTV TV show",
-			filename:       "Game.of.Thrones.S08E06.720p.HDTV.x264.mkv",
-			wantTitle:      "Game of Thrones",
-			wantQuality:    "720p",
-			wantSource:     "HDTV",
-			wantCodec:      "x264",
-			wantResolution: 720,
+			name:        "HDTV TV show",
+			filename:    "Game.of.Thrones.S08E06.720p.HDTV.x264.mkv",
+			wantTitle:   "Game of Thrones",
+			wantQuality: "720p",
+			wantSource:  "HDTV",
+			wantCodec:   "x264",
 		},
 	}
 
@@ -754,9 +739,6 @@ func TestParseFilename_Complex(t *testing.T) {
 			}
 			if result.Codec != tt.wantCodec {
 				t.Errorf("Codec = %q, want %q", result.Codec, tt.wantCodec)
-			}
-			if result.Resolution != tt.wantResolution {
-				t.Errorf("Resolution = %d, want %d", result.Resolution, tt.wantResolution)
 			}
 		})
 	}

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
@@ -114,7 +114,7 @@ export function GeneralSettingsPage() {
               <Label htmlFor="logLevel">Log Level</Label>
               <Select value={logLevel} onValueChange={(v) => v && setLogLevel(v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  {{ trace: 'Trace', debug: 'Debug', info: 'Info', warn: 'Warn', error: 'Error' }[logLevel] || 'Info'}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="trace">Trace</SelectItem>

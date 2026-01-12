@@ -66,3 +66,53 @@ type BrowseResult struct {
 	Entries []DirectoryEntry `json:"entries"`
 	Drives  []DriveInfo      `json:"drives,omitempty"` // Only populated on Windows when browsing root
 }
+
+// FileEntry represents a video file in a browse result
+type FileEntry struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	ModTime int64  `json:"modTime"` // Unix timestamp
+}
+
+// ImportBrowseResult contains the result of browsing for manual import
+type ImportBrowseResult struct {
+	Path        string           `json:"path"`
+	Parent      string           `json:"parent,omitempty"`
+	Directories []DirectoryEntry `json:"directories"`
+	Files       []FileEntry      `json:"files"`
+	Drives      []DriveInfo      `json:"drives,omitempty"` // Only populated on Windows when browsing root
+}
+
+// ScannedMediaFile represents a video file with parsed metadata
+type ScannedMediaFile struct {
+	Path      string      `json:"path"`
+	Name      string      `json:"name"`
+	Size      int64       `json:"size"`
+	ModTime   int64       `json:"modTime"`
+	Parsed    *ParsedInfo `json:"parsed,omitempty"`
+	IsSample  bool        `json:"isSample,omitempty"`
+	Extension string      `json:"extension"`
+}
+
+// ParsedInfo contains metadata parsed from the filename
+type ParsedInfo struct {
+	Title            string   `json:"title"`
+	Year             int      `json:"year,omitempty"`
+	Season           int      `json:"season,omitempty"`
+	Episode          int      `json:"episode,omitempty"`
+	EndEpisode       int      `json:"endEpisode,omitempty"`
+	IsSeasonPack     bool     `json:"isSeasonPack,omitempty"`
+	IsCompleteSeries bool     `json:"isCompleteSeries,omitempty"`
+	Quality          string   `json:"quality,omitempty"`
+	Source           string   `json:"source,omitempty"`
+	Codec            string   `json:"codec,omitempty"`
+	IsTV             bool     `json:"isTv"`
+}
+
+// MediaScanResult contains the result of scanning a directory for media files
+type MediaScanResult struct {
+	Path       string             `json:"path"`
+	TotalFiles int                `json:"totalFiles"`
+	Files      []ScannedMediaFile `json:"files"`
+}

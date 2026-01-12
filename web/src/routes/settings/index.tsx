@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon,
   ChevronRight,
   Search,
+  FileInput,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,6 +42,12 @@ const settingsLinks = [
     description: 'Automatic search schedule and behavior',
     href: '/settings/autosearch',
     icon: Search,
+  },
+  {
+    title: 'Import & Naming',
+    description: 'File import validation and naming patterns',
+    href: '/settings/import',
+    icon: FileInput,
   },
   {
     title: 'General',

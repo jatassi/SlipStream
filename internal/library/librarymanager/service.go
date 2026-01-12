@@ -479,7 +479,7 @@ func (s *Service) addMovieFile(ctx context.Context, movieID int64, parsed scanne
 		Size:       parsed.FileSize,
 		Quality:    parsed.Quality,
 		VideoCodec: parsed.Codec,
-		Resolution: fmt.Sprintf("%dp", parsed.Resolution),
+		Resolution: parsed.Quality,
 	}
 
 	_, err := s.movies.AddFile(ctx, movieID, input)
@@ -578,7 +578,7 @@ func (s *Service) addEpisodeFile(ctx context.Context, seriesID int64, parsed sca
 		Size:       parsed.FileSize,
 		Quality:    parsed.Quality,
 		VideoCodec: parsed.Codec,
-		Resolution: fmt.Sprintf("%dp", parsed.Resolution),
+		Resolution: parsed.Quality,
 	}
 
 	_, err = s.tv.AddEpisodeFile(ctx, episode.ID, input)
@@ -720,12 +720,22 @@ func (s *Service) ScanSingleFile(ctx context.Context, filePath string) error {
 		return err
 	}
 
-	defaultProfile, err := s.getDefaultQualityProfile(ctx)
-	if err != nil {
-		return err
-	}
-
 	if folder.MediaType == "movie" {
+		// Check if movie file already exists in database
+		existingFile, err := s.movies.GetFileByPath(ctx, parsed.FilePath)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to check for existing movie file")
+		}
+		if existingFile != nil {
+			s.logger.Debug().Str("path", parsed.FilePath).Msg("Movie file already tracked, skipping")
+			return nil
+		}
+
+		defaultProfile, err := s.getDefaultQualityProfile(ctx)
+		if err != nil {
+			return err
+		}
+
 		movie, created, meta, err := s.matchOrCreateMovie(ctx, folder, *parsed, defaultProfile.ID)
 		if err != nil {
 			return err
@@ -744,6 +754,21 @@ func (s *Service) ScanSingleFile(ctx context.Context, filePath string) error {
 			}
 		}
 	} else {
+		// Check if episode file already exists in database
+		existingFile, err := s.tv.GetEpisodeFileByPath(ctx, parsed.FilePath)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to check for existing episode file")
+		}
+		if existingFile != nil {
+			s.logger.Debug().Str("path", parsed.FilePath).Msg("Episode file already tracked, skipping")
+			return nil
+		}
+
+		defaultProfile, err := s.getDefaultQualityProfile(ctx)
+		if err != nil {
+			return err
+		}
+
 		series, created, meta, err := s.matchOrCreateSeries(ctx, folder, *parsed, defaultProfile.ID)
 		if err != nil {
 			return err
