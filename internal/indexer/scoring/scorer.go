@@ -40,15 +40,17 @@ func (s *Scorer) ScoreTorrent(torrent *types.TorrentInfo, ctx ScoringContext) {
 	breakdown.IndexerScore = s.calculateIndexerScore(torrent, ctx)
 	breakdown.MatchScore = s.calculateMatchScore(torrent, ctx)
 	breakdown.AgeScore = s.calculateAgeScore(torrent, ctx)
+	breakdown.LanguageScore = s.calculateLanguageScore(torrent, ctx)
 
 	// Total score
 	torrent.Score = breakdown.QualityScore + breakdown.HealthScore +
-		breakdown.IndexerScore + breakdown.MatchScore + breakdown.AgeScore
+		breakdown.IndexerScore + breakdown.MatchScore + breakdown.AgeScore +
+		breakdown.LanguageScore
 
 	// Normalized score (0-100), clamped
-	// Max theoretical positive score: 100 + 50 + 20 + 30 = 200
+	// Max theoretical positive score: 100 (quality) + 65 (health: 35+15+15) + 20 (indexer) + 30 (match) = 215
 	// Normalize to 0-100 range
-	normalized := (torrent.Score / 200.0) * 100
+	normalized := (torrent.Score / 215.0) * 100
 	if normalized < 0 {
 		normalized = 0
 	} else if normalized > 100 {
@@ -227,6 +229,28 @@ func (s *Scorer) calculateAgeScore(torrent *types.TorrentInfo, ctx ScoringContex
 	}
 
 	return -penalty
+}
+
+// calculateLanguageScore calculates the language penalty component.
+// Returns 0 for matching language or releases without explicit language tags.
+// Returns a negative penalty for releases tagged with non-preferred languages.
+func (s *Scorer) calculateLanguageScore(torrent *types.TorrentInfo, ctx ScoringContext) float64 {
+	// No languages detected means we assume English (default)
+	if len(torrent.Languages) == 0 {
+		return 0
+	}
+
+	preferredLang := ctx.GetPreferredLanguage()
+
+	// Check if any detected language matches the preferred language
+	for _, lang := range torrent.Languages {
+		if lang == preferredLang {
+			return 0 // Preferred language found, no penalty
+		}
+	}
+
+	// Release has explicit non-preferred language(s) - apply penalty
+	return s.config.LanguageMismatchPenalty
 }
 
 // GetQualityForRelease returns the matched quality for a release.

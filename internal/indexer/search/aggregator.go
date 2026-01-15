@@ -260,6 +260,7 @@ func enrichWithQuality(releases []types.ReleaseInfo) {
 		releases[i].Quality = parsed.Quality
 		releases[i].Source = parsed.Source
 		releases[i].Resolution = qualityToResolution(parsed.Quality)
+		releases[i].Languages = parsed.Languages
 	}
 }
 
@@ -270,6 +271,7 @@ func enrichTorrentsWithQuality(torrents []types.TorrentInfo) {
 		torrents[i].Quality = parsed.Quality
 		torrents[i].Source = parsed.Source
 		torrents[i].Resolution = qualityToResolution(parsed.Quality)
+		torrents[i].Languages = parsed.Languages
 	}
 }
 

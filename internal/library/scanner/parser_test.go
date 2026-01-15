@@ -587,6 +587,11 @@ func TestParseFilename_Source(t *testing.T) {
 			wantSource: "Remux",
 		},
 		{
+			name:       "BluRay Remux prioritizes Remux",
+			filename:   "Dune.2021.UHD.BluRay.2160p.TrueHD.Atmos.7.1.DV.HEVC.REMUX-FraMeSToR.mkv",
+			wantSource: "Remux",
+		},
+		{
 			name:       "CAM source",
 			filename:   "Movie.2020.CAM.mkv",
 			wantSource: "CAM",
@@ -1006,6 +1011,78 @@ func TestToReleaseAttributes_ProfileMatching(t *testing.T) {
 			// Verify VideoCodec for profile matching
 			if attrs.VideoCodec != tt.wantVideoCodec {
 				t.Errorf("VideoCodec = %q, want %q", attrs.VideoCodec, tt.wantVideoCodec)
+			}
+		})
+	}
+}
+
+
+func TestParseFilename_Languages(t *testing.T) {
+	tests := []struct {
+		name          string
+		filename      string
+		wantLanguages []string
+	}{
+		{
+			name:          "German release",
+			filename:      "Dune.2021.German.DL.PROPER.UHD.BluRay.2160p.HEVC.DV.HDR.TrueHD.7.1.Atmos.DL.Remux-TvR",
+			wantLanguages: []string{"German"},
+		},
+		{
+			name:          "German DEU code",
+			filename:      "Movie.2024.DEU.1080p.BluRay.x264.mkv",
+			wantLanguages: []string{"German"},
+		},
+		{
+			name:          "French release",
+			filename:      "Film.2024.FRENCH.1080p.BluRay.x264.mkv",
+			wantLanguages: []string{"French"},
+		},
+		{
+			name:          "Spanish release",
+			filename:      "Pelicula.2024.Spanish.1080p.WEB-DL.x265.mkv",
+			wantLanguages: []string{"Spanish"},
+		},
+		{
+			name:          "Italian release",
+			filename:      "Film.2024.ITA.1080p.BluRay.x264.mkv",
+			wantLanguages: []string{"Italian"},
+		},
+		{
+			name:          "Japanese release",
+			filename:      "Movie.2024.Japanese.1080p.BluRay.x264.mkv",
+			wantLanguages: []string{"Japanese"},
+		},
+		{
+			name:          "Russian release",
+			filename:      "Movie.2024.RUS.1080p.BluRay.x264.mkv",
+			wantLanguages: []string{"Russian"},
+		},
+		{
+			name:          "English release (no language tag)",
+			filename:      "Movie.2024.1080p.BluRay.x264.mkv",
+			wantLanguages: nil,
+		},
+		{
+			name:          "English explicit tag should not match (only non-English tracked)",
+			filename:      "Movie.2024.English.1080p.BluRay.x264.mkv",
+			wantLanguages: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseFilename(tt.filename)
+
+			if len(result.Languages) != len(tt.wantLanguages) {
+				t.Errorf("Languages = %v, want %v", result.Languages, tt.wantLanguages)
+				return
+			}
+
+			for i, lang := range result.Languages {
+				if lang != tt.wantLanguages[i] {
+					t.Errorf("Languages[%d] = %q, want %q", i, lang, tt.wantLanguages[i])
+				}
 			}
 		})
 	}

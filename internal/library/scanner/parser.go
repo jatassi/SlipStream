@@ -30,6 +30,7 @@ type ParsedMedia struct {
 	ReleaseGroup      string   `json:"releaseGroup,omitempty"`     // "SPARKS", "NTb", "HONE"
 	Revision          string   `json:"revision,omitempty"`         // "Proper", "REPACK", "REAL"
 	Edition           string   `json:"edition,omitempty"`          // "Directors Cut", "Extended", "Theatrical"
+	Languages         []string `json:"languages,omitempty"`        // "German", "French", "Spanish", etc. Empty means English assumed
 	IsTV              bool     `json:"isTv"`
 	FilePath          string   `json:"filePath"`
 	FileSize          int64    `json:"fileSize"`
@@ -158,6 +159,38 @@ var (
 		"3D":                  regexp.MustCompile(`(?i)(^|[\.\s\-_])3d([\.\s\-_]|$)`),
 		"Remastered":          regexp.MustCompile(`(?i)(^|[\.\s\-_])remastered([\.\s\-_]|$)`),
 		"Restored":            regexp.MustCompile(`(?i)(^|[\.\s\-_])restored([\.\s\-_]|$)`),
+	}
+
+	// Language patterns - detect non-English releases
+	// These patterns look for language indicators in release titles
+	languagePatterns = map[string]*regexp.Regexp{
+		"German":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(german|deutsch|ger|deu)([\.\s\-_]|$)`),
+		"French":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(french|français|fra|fre)([\.\s\-_]|$)`),
+		"Spanish":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(spanish|español|spa|esp)([\.\s\-_]|$)`),
+		"Italian":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(italian|italiano|ita)([\.\s\-_]|$)`),
+		"Portuguese": regexp.MustCompile(`(?i)(^|[\.\s\-_])(portuguese|português|por|pt-br)([\.\s\-_]|$)`),
+		"Russian":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(russian|русский|rus)([\.\s\-_]|$)`),
+		"Japanese":   regexp.MustCompile(`(?i)(^|[\.\s\-_])(japanese|日本語|jpn|jap)([\.\s\-_]|$)`),
+		"Korean":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(korean|한국어|kor)([\.\s\-_]|$)`),
+		"Chinese":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(chinese|中文|chi|chs|cht|mandarin|cantonese)([\.\s\-_]|$)`),
+		"Dutch":      regexp.MustCompile(`(?i)(^|[\.\s\-_])(dutch|nederlands|nld|dut)([\.\s\-_]|$)`),
+		"Polish":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(polish|polski|pol)([\.\s\-_]|$)`),
+		"Swedish":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(swedish|svenska|swe)([\.\s\-_]|$)`),
+		"Norwegian":  regexp.MustCompile(`(?i)(^|[\.\s\-_])(norwegian|norsk|nor)([\.\s\-_]|$)`),
+		"Danish":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(danish|dansk|dan)([\.\s\-_]|$)`),
+		"Finnish":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(finnish|suomi|fin)([\.\s\-_]|$)`),
+		"Turkish":    regexp.MustCompile(`(?i)(^|[\.\s\-_])(turkish|türkçe|tur)([\.\s\-_]|$)`),
+		"Hindi":      regexp.MustCompile(`(?i)(^|[\.\s\-_])(hindi|hin)([\.\s\-_]|$)`),
+		"Arabic":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(arabic|العربية|ara)([\.\s\-_]|$)`),
+		"Hebrew":     regexp.MustCompile(`(?i)(^|[\.\s\-_])(hebrew|עברית|heb)([\.\s\-_]|$)`),
+		"Czech":      regexp.MustCompile(`(?i)(^|[\.\s\-_])(czech|čeština|cze|ces)([\.\s\-_]|$)`),
+		"Hungarian":  regexp.MustCompile(`(?i)(^|[\.\s\-_])(hungarian|magyar|hun)([\.\s\-_]|$)`),
+		"Greek":      regexp.MustCompile(`(?i)(^|[\.\s\-_])(greek|ελληνικά|gre|ell)([\.\s\-_]|$)`),
+		"Thai":       regexp.MustCompile(`(?i)(^|[\.\s\-_])(thai|ไทย|tha)([\.\s\-_]|$)`),
+		"Vietnamese": regexp.MustCompile(`(?i)(^|[\.\s\-_])(vietnamese|tiếng việt|vie)([\.\s\-_]|$)`),
+		"Indonesian": regexp.MustCompile(`(?i)(^|[\.\s\-_])(indonesian|bahasa indonesia|ind)([\.\s\-_]|$)`),
+		"Romanian":   regexp.MustCompile(`(?i)(^|[\.\s\-_])(romanian|română|ron|rum)([\.\s\-_]|$)`),
+		"Ukrainian":  regexp.MustCompile(`(?i)(^|[\.\s\-_])(ukrainian|українська|ukr)([\.\s\-_]|$)`),
 	}
 
 	// Clean up patterns
@@ -296,9 +329,10 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 		}
 	}
 
-	// Source
-	for source, pattern := range sourcePatterns {
-		if pattern.MatchString(text) {
+	// Source - check in priority order (Remux first since it's highest quality)
+	sourceOrder := []string{"Remux", "BluRay", "WEB-DL", "WEBRip", "HDTV", "DVDRip", "SDTV", "CAM"}
+	for _, source := range sourceOrder {
+		if pattern, ok := sourcePatterns[source]; ok && pattern.MatchString(text) {
 			parsed.Source = source
 			break
 		}
@@ -402,6 +436,13 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 	}
 	if len(editions) > 0 {
 		parsed.Edition = strings.Join(editions, " ")
+	}
+
+	// Languages - detect non-English releases
+	for lang, pattern := range languagePatterns {
+		if pattern.MatchString(text) {
+			parsed.Languages = append(parsed.Languages, lang)
+		}
 	}
 }
 

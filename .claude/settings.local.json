@@ -45,7 +45,9 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(go vet:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(xargs:*)",
+      "Bash(go clean:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

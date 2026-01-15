@@ -139,23 +139,23 @@ func TestScorer_HealthScore(t *testing.T) {
 			name:     "Many seeders",
 			seeders:  100,
 			leechers: 10,
-			minScore: 30, // Good seeder score + good ratio
-			maxScore: 40,
+			minScore: 45, // Good seeder score (up to 35) + good ratio (15)
+			maxScore: 55,
 		},
 		{
 			name:      "Freeleech with seeders",
 			seeders:   50,
 			leechers:  5,
 			freeleech: true,
-			minScore:  40, // Seeder score + ratio + freeleech bonus
-			maxScore:  50,
+			minScore:  55, // Seeder score + ratio + freeleech bonus (15)
+			maxScore:  65,
 		},
 		{
 			name:     "High ratio",
 			seeders:  100,
 			leechers: 1,
-			minScore: 30,
-			maxScore: 40,
+			minScore: 45, // Seeder score (up to 35) + ratio (15)
+			maxScore: 55,
 		},
 	}
 
@@ -631,5 +631,78 @@ func TestScorer_SortByScore(t *testing.T) {
 			t.Errorf("Torrents not sorted correctly: score[%d]=%f < score[%d]=%f",
 				i, torrents[i].Score, i+1, torrents[i+1].Score)
 		}
+	}
+}
+
+func TestScorer_LanguageScore(t *testing.T) {
+	scorer := NewDefaultScorer()
+
+	tests := []struct {
+		name              string
+		languages         []string
+		preferredLanguage string
+		expectedPenalty   bool
+	}{
+		{
+			name:              "No language tags (assumed English)",
+			languages:         nil,
+			preferredLanguage: "English",
+			expectedPenalty:   false,
+		},
+		{
+			name:              "Empty language tags (assumed English)",
+			languages:         []string{},
+			preferredLanguage: "English",
+			expectedPenalty:   false,
+		},
+		{
+			name:              "German release with English preference",
+			languages:         []string{"German"},
+			preferredLanguage: "English",
+			expectedPenalty:   true,
+		},
+		{
+			name:              "German release with German preference",
+			languages:         []string{"German"},
+			preferredLanguage: "German",
+			expectedPenalty:   false,
+		},
+		{
+			name:              "French release with default English preference",
+			languages:         []string{"French"},
+			preferredLanguage: "", // defaults to English
+			expectedPenalty:   true,
+		},
+		{
+			name:              "Multi-language release with one matching",
+			languages:         []string{"German", "English"},
+			preferredLanguage: "English",
+			expectedPenalty:   false, // English is one of the languages
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			torrent := &types.TorrentInfo{
+				ReleaseInfo: types.ReleaseInfo{
+					Languages: tt.languages,
+				},
+			}
+			ctx := ScoringContext{
+				PreferredLanguage: tt.preferredLanguage,
+			}
+
+			score := scorer.calculateLanguageScore(torrent, ctx)
+
+			if tt.expectedPenalty {
+				if score >= 0 {
+					t.Errorf("Expected penalty (negative score), got %f", score)
+				}
+			} else {
+				if score != 0 {
+					t.Errorf("Expected no penalty (0), got %f", score)
+				}
+			}
+		})
 	}
 }

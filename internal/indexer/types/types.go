@@ -94,20 +94,22 @@ type ReleaseInfo struct {
 	TvdbID int `json:"tvdbId,omitempty"`
 
 	// Parsed quality info (from title)
-	Quality    string `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
-	Source     string `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
-	Resolution int    `json:"resolution,omitempty"` // 720, 1080, 2160
+	Quality    string   `json:"quality,omitempty"`    // "720p", "1080p", "2160p"
+	Source     string   `json:"source,omitempty"`     // "BluRay", "WEB-DL", "HDTV"
+	Resolution int      `json:"resolution,omitempty"` // 720, 1080, 2160
+	Languages  []string `json:"languages,omitempty"`  // Detected languages (empty = English assumed)
 }
 
 // ScoreBreakdown provides detailed scoring information for a release.
 type ScoreBreakdown struct {
-	QualityScore float64 `json:"qualityScore"`
-	QualityID    int     `json:"qualityId,omitempty"`
-	QualityName  string  `json:"qualityName,omitempty"`
-	HealthScore  float64 `json:"healthScore"`
-	IndexerScore float64 `json:"indexerScore"`
-	MatchScore   float64 `json:"matchScore"`
-	AgeScore     float64 `json:"ageScore"`
+	QualityScore  float64 `json:"qualityScore"`
+	QualityID     int     `json:"qualityId,omitempty"`
+	QualityName   string  `json:"qualityName,omitempty"`
+	HealthScore   float64 `json:"healthScore"`
+	IndexerScore  float64 `json:"indexerScore"`
+	MatchScore    float64 `json:"matchScore"`
+	AgeScore      float64 `json:"ageScore"`
+	LanguageScore float64 `json:"languageScore"` // Penalty for non-preferred language
 }
 
 // TorrentInfo extends ReleaseInfo with torrent-specific fields.

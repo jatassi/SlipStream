@@ -15,7 +15,7 @@ type ScoringConfig struct {
 	DisallowedPenalty    float64 // default: -1000 (heavy penalty for disallowed quality)
 
 	// Health weights (torrents)
-	MaxSeederPoints float64 // default: 20
+	MaxSeederPoints float64 // default: 35 (increased to better differentiate high-seeder releases)
 	MaxRatioPoints  float64 // default: 15
 	FreeleechPoints float64 // default: 15
 
@@ -30,6 +30,9 @@ type ScoringConfig struct {
 	// Age penalty
 	AgePenaltyStartDays int     // default: 7 (no penalty for first 7 days)
 	MaxAgePenalty       float64 // default: 20
+
+	// Language penalty
+	LanguageMismatchPenalty float64 // default: -30 (penalty for non-preferred language)
 }
 
 // DefaultConfig returns sensible default scoring weights.
@@ -41,7 +44,7 @@ func DefaultConfig() ScoringConfig {
 		DisallowedPenalty:    -1000,
 
 		// Health weights (torrents)
-		MaxSeederPoints: 20,
+		MaxSeederPoints: 35,
 		MaxRatioPoints:  15,
 		FreeleechPoints: 15,
 
@@ -56,6 +59,9 @@ func DefaultConfig() ScoringConfig {
 		// Age penalty
 		AgePenaltyStartDays: 7,
 		MaxAgePenalty:       20,
+
+		// Language penalty
+		LanguageMismatchPenalty: -30,
 	}
 }
 
@@ -79,6 +85,10 @@ type ScoringContext struct {
 
 	// Now is the current time for age calculations. If zero, time.Now() is used.
 	Now time.Time
+
+	// PreferredLanguage is the user's preferred language (e.g., "English", "German").
+	// If empty, "English" is assumed. Releases in other languages receive a penalty.
+	PreferredLanguage string
 }
 
 // GetIndexerPriority returns the priority for an indexer, defaulting to 50.
@@ -98,4 +108,12 @@ func (ctx *ScoringContext) GetNow() time.Time {
 		return time.Now()
 	}
 	return ctx.Now
+}
+
+// GetPreferredLanguage returns the preferred language, defaulting to English.
+func (ctx *ScoringContext) GetPreferredLanguage() string {
+	if ctx.PreferredLanguage == "" {
+		return "English"
+	}
+	return ctx.PreferredLanguage
 }
