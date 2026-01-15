@@ -122,21 +122,36 @@ func (h *Handlers) GetPendingImports(c echo.Context) error {
 
 // ManualImportRequest contains the request body for manual import.
 type ManualImportRequest struct {
-	Path      string `json:"path" validate:"required"`
-	MediaType string `json:"mediaType" validate:"required,oneof=movie episode"`
-	MediaID   int64  `json:"mediaId" validate:"required"`
-	SeriesID  *int64 `json:"seriesId,omitempty"`
-	SeasonNum *int   `json:"seasonNum,omitempty"`
+	Path         string `json:"path" validate:"required"`
+	MediaType    string `json:"mediaType" validate:"required,oneof=movie episode"`
+	MediaID      int64  `json:"mediaId" validate:"required"`
+	SeriesID     *int64 `json:"seriesId,omitempty"`
+	SeasonNum    *int   `json:"seasonNum,omitempty"`
+	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
+}
+
+// ManualImportSlotAssignment represents a slot assignment option for the response.
+type ManualImportSlotAssignment struct {
+	SlotID     int64   `json:"slotId"`
+	SlotNumber int     `json:"slotNumber"`
+	SlotName   string  `json:"slotName"`
+	MatchScore float64 `json:"matchScore"`
+	IsUpgrade  bool    `json:"isUpgrade"`
+	IsNewFill  bool    `json:"isNewFill"`
 }
 
 // ManualImportResponse contains the response for a manual import.
 type ManualImportResponse struct {
-	Success         bool   `json:"success"`
-	SourcePath      string `json:"sourcePath"`
-	DestinationPath string `json:"destinationPath,omitempty"`
-	LinkMode        string `json:"linkMode,omitempty"`
-	IsUpgrade       bool   `json:"isUpgrade"`
-	Error           string `json:"error,omitempty"`
+	Success               bool                         `json:"success"`
+	SourcePath            string                       `json:"sourcePath"`
+	DestinationPath       string                       `json:"destinationPath,omitempty"`
+	LinkMode              string                       `json:"linkMode,omitempty"`
+	IsUpgrade             bool                         `json:"isUpgrade"`
+	Error                 string                       `json:"error,omitempty"`
+	RequiresSlotSelection bool                         `json:"requiresSlotSelection,omitempty"`
+	SlotAssignments       []ManualImportSlotAssignment `json:"slotAssignments,omitempty"`
+	RecommendedSlotID     *int64                       `json:"recommendedSlotId,omitempty"`
+	AssignedSlotID        *int64                       `json:"assignedSlotId,omitempty"`
 }
 
 // ManualImport imports a file manually with explicit match.
@@ -172,8 +187,9 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 		match.SeasonNum = req.SeasonNum
 	}
 
-	// Get root folder from library item
-	if err := h.service.populateRootFolder(ctx, match); err != nil {
+	// Get root folder from library item (or slot's root folder in multi-version mode)
+	// Req 22.2.1-22.2.3: In multi-version mode, use slot's root folder if specified
+	if err := h.service.populateRootFolder(ctx, match, req.TargetSlotID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to determine root folder: "+err.Error())
 	}
 
@@ -184,7 +200,7 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 	}
 
 	// Process the import synchronously
-	result, err := h.service.ProcessManualImport(ctx, req.Path, match)
+	result, err := h.service.ProcessManualImport(ctx, req.Path, match, req.TargetSlotID)
 
 	resp := ManualImportResponse{
 		SourcePath: req.Path,
@@ -200,6 +216,21 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 	resp.DestinationPath = result.DestinationPath
 	resp.LinkMode = string(result.LinkMode)
 	resp.IsUpgrade = result.IsUpgrade
+	resp.RequiresSlotSelection = result.RequiresSlotSelection
+	resp.RecommendedSlotID = result.RecommendedSlotID
+	resp.AssignedSlotID = result.AssignedSlotID
+
+	// Convert slot assignments to response format
+	for _, sa := range result.SlotAssignments {
+		resp.SlotAssignments = append(resp.SlotAssignments, ManualImportSlotAssignment{
+			SlotID:     sa.SlotID,
+			SlotNumber: sa.SlotNumber,
+			SlotName:   sa.SlotName,
+			MatchScore: sa.MatchScore,
+			IsUpgrade:  sa.IsUpgrade,
+			IsNewFill:  sa.IsNewFill,
+		})
+	}
 
 	if result.Error != nil {
 		resp.Error = result.Error.Error()

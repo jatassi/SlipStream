@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Plus, Edit, Trash2, Sliders } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -7,13 +8,28 @@ import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { QualityProfileDialog } from '@/components/qualityprofiles'
 import { useQualityProfiles, useDeleteQualityProfile } from '@/hooks'
 import { PREDEFINED_QUALITIES } from '@/types'
+import type { QualityProfile } from '@/types'
 import { toast } from 'sonner'
 
 export function QualityProfilesPage() {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<QualityProfile | null>(null)
+
   const { data: profiles, isLoading, isError, refetch } = useQualityProfiles()
   const deleteMutation = useDeleteQualityProfile()
+
+  const handleAddProfile = () => {
+    setEditingProfile(null)
+    setDialogOpen(true)
+  }
+
+  const handleEditProfile = (profile: QualityProfile) => {
+    setEditingProfile(profile)
+    setDialogOpen(true)
+  }
 
   const handleDelete = async (id: number) => {
     try {
@@ -57,7 +73,7 @@ export function QualityProfilesPage() {
           { label: 'Quality Profiles' },
         ]}
         actions={
-          <Button>
+          <Button onClick={handleAddProfile}>
             <Plus className="size-4 mr-2" />
             Add Profile
           </Button>
@@ -69,7 +85,7 @@ export function QualityProfilesPage() {
           icon={<Sliders className="size-8" />}
           title="No quality profiles"
           description="Create a quality profile to get started"
-          action={{ label: 'Add Profile', onClick: () => {} }}
+          action={{ label: 'Add Profile', onClick: handleAddProfile }}
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -88,7 +104,7 @@ export function QualityProfilesPage() {
                     </CardDescription>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" onClick={() => handleEditProfile(profile)}>
                       <Edit className="size-4" />
                     </Button>
                     <ConfirmDialog
@@ -124,6 +140,12 @@ export function QualityProfilesPage() {
           })}
         </div>
       )}
+
+      <QualityProfileDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        profile={editingProfile}
+      />
     </div>
   )
 }

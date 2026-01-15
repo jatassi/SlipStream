@@ -832,3 +832,181 @@ func TestParseFilename_Fallback(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFilename_HDRFormats(t *testing.T) {
+	tests := []struct {
+		name           string
+		filename       string
+		wantHDRFormats []string
+		wantAttributes []string
+	}{
+		{
+			name:           "Dolby Vision",
+			filename:       "Movie.2024.2160p.BluRay.DoVi.x265.mkv",
+			wantHDRFormats: []string{"DV"},
+			wantAttributes: []string{"DV"},
+		},
+		{
+			name:           "HDR10+",
+			filename:       "Movie.2024.2160p.BluRay.HDR10+.x265.mkv",
+			wantHDRFormats: []string{"HDR10+"},
+			wantAttributes: []string{"HDR10+"},
+		},
+		{
+			name:           "HDR10",
+			filename:       "Movie.2024.2160p.BluRay.HDR10.x265.mkv",
+			wantHDRFormats: []string{"HDR10"},
+			wantAttributes: []string{"HDR10"},
+		},
+		{
+			name:           "DV + HDR10 combo",
+			filename:       "Movie.2024.2160p.BluRay.DV.HDR10.x265.mkv",
+			wantHDRFormats: []string{"DV", "HDR10"},
+			wantAttributes: []string{"DV", "HDR10"},
+		},
+		{
+			name:           "Generic HDR",
+			filename:       "Movie.2024.2160p.BluRay.HDR.x265.mkv",
+			wantHDRFormats: []string{"HDR"},
+			wantAttributes: []string{"HDR"},
+		},
+		{
+			name:           "HLG",
+			filename:       "Movie.2024.2160p.BluRay.HLG.x265.mkv",
+			wantHDRFormats: []string{"HLG"},
+			wantAttributes: []string{"HLG"},
+		},
+		{
+			name:           "SDR (no HDR)",
+			filename:       "Movie.2024.1080p.BluRay.x264.mkv",
+			wantHDRFormats: []string{"SDR"},
+			wantAttributes: nil, // SDR doesn't appear in display attributes
+		},
+		{
+			name:           "Remux with HDR",
+			filename:       "Movie.2024.2160p.Remux.DV.HDR10.TrueHD.7.1.mkv",
+			wantHDRFormats: []string{"DV", "HDR10"},
+			wantAttributes: []string{"REMUX", "DV", "HDR10"},
+		},
+		{
+			name:           "Remux without HDR (SDR)",
+			filename:       "Movie.2024.1080p.Remux.TrueHD.5.1.mkv",
+			wantHDRFormats: []string{"SDR"},
+			wantAttributes: []string{"REMUX"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseFilename(tt.filename)
+
+			// Check HDRFormats
+			if len(result.HDRFormats) != len(tt.wantHDRFormats) {
+				t.Errorf("HDRFormats = %v, want %v", result.HDRFormats, tt.wantHDRFormats)
+			} else {
+				for i, hdr := range result.HDRFormats {
+					if hdr != tt.wantHDRFormats[i] {
+						t.Errorf("HDRFormats[%d] = %q, want %q", i, hdr, tt.wantHDRFormats[i])
+					}
+				}
+			}
+
+			// Check Attributes (backwards compat display field)
+			if len(result.Attributes) != len(tt.wantAttributes) {
+				t.Errorf("Attributes = %v, want %v", result.Attributes, tt.wantAttributes)
+			} else {
+				for i, attr := range result.Attributes {
+					if attr != tt.wantAttributes[i] {
+						t.Errorf("Attributes[%d] = %q, want %q", i, attr, tt.wantAttributes[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestParsedMedia_ToReleaseAttributes(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+	}{
+		{
+			name:     "Full 4K HDR release",
+			filename: "Movie.2024.2160p.BluRay.DV.HDR10.x265.TrueHD.Atmos.7.1.mkv",
+		},
+		{
+			name:     "SDR 1080p release",
+			filename: "Movie.2024.1080p.BluRay.x264.DTS.5.1.mkv",
+		},
+		{
+			name:     "Multi-audio release",
+			filename: "Movie.2024.1080p.BluRay.x265.TrueHD.DTS.AAC.5.1.mkv",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := ParseFilename(tt.filename)
+			attrs := parsed.ToReleaseAttributes()
+
+			// Verify fields are correctly mapped
+			if len(attrs.HDRFormats) != len(parsed.HDRFormats) {
+				t.Errorf("HDRFormats not mapped correctly: got %v, want %v", attrs.HDRFormats, parsed.HDRFormats)
+			}
+			if attrs.VideoCodec != parsed.Codec {
+				t.Errorf("VideoCodec = %q, want %q", attrs.VideoCodec, parsed.Codec)
+			}
+			if len(attrs.AudioCodecs) != len(parsed.AudioCodecs) {
+				t.Errorf("AudioCodecs not mapped correctly: got %v, want %v", attrs.AudioCodecs, parsed.AudioCodecs)
+			}
+			if len(attrs.AudioChannels) != len(parsed.AudioChannels) {
+				t.Errorf("AudioChannels not mapped correctly: got %v, want %v", attrs.AudioChannels, parsed.AudioChannels)
+			}
+		})
+	}
+}
+
+func TestToReleaseAttributes_ProfileMatching(t *testing.T) {
+	// Test that parsed releases can be matched against profiles
+	tests := []struct {
+		name           string
+		filename       string
+		wantHDRFormats []string
+		wantVideoCodec string
+	}{
+		{
+			name:           "4K DV release",
+			filename:       "Movie.2024.2160p.BluRay.DoVi.x265.mkv",
+			wantHDRFormats: []string{"DV"},
+			wantVideoCodec: "x265",
+		},
+		{
+			name:           "SDR x264 release",
+			filename:       "Movie.2024.1080p.BluRay.x264.mkv",
+			wantHDRFormats: []string{"SDR"},
+			wantVideoCodec: "x264",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := ParseFilename(tt.filename)
+			attrs := parsed.ToReleaseAttributes()
+
+			// Verify HDRFormats for profile matching
+			if len(attrs.HDRFormats) != len(tt.wantHDRFormats) {
+				t.Fatalf("HDRFormats length mismatch: got %d, want %d", len(attrs.HDRFormats), len(tt.wantHDRFormats))
+			}
+			for i, hdr := range attrs.HDRFormats {
+				if hdr != tt.wantHDRFormats[i] {
+					t.Errorf("HDRFormats[%d] = %q, want %q", i, hdr, tt.wantHDRFormats[i])
+				}
+			}
+
+			// Verify VideoCodec for profile matching
+			if attrs.VideoCodec != tt.wantVideoCodec {
+				t.Errorf("VideoCodec = %q, want %q", attrs.VideoCodec, tt.wantVideoCodec)
+			}
+		})
+	}
+}

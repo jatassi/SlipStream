@@ -27,7 +27,9 @@ func (h *Handlers) SetScheduledSearcher(ss *ScheduledSearcher) {
 // RegisterRoutes registers the autosearch routes.
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.POST("/movie/:id", h.SearchMovie)
+	g.POST("/movie/:id/slot/:slotId", h.SearchMovieSlot)
 	g.POST("/episode/:id", h.SearchEpisode)
+	g.POST("/episode/:id/slot/:slotId", h.SearchEpisodeSlot)
 	g.POST("/season/:seriesId/:seasonNumber", h.SearchSeason)
 	g.POST("/series/:id", h.SearchSeries)
 	g.GET("/status/:mediaType/:id", h.GetStatus)
@@ -61,6 +63,35 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// SearchMovieSlot triggers automatic search for a specific slot of a movie.
+// POST /api/v1/autosearch/movie/:id/slot/:slotId
+func (h *Handlers) SearchMovieSlot(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie id")
+	}
+
+	slotIDStr := c.Param("slotId")
+	slotID, err := strconv.ParseInt(slotIDStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid slot id")
+	}
+
+	result, err := h.service.SearchMovieSlot(c.Request().Context(), id, slotID, SearchSourceManual)
+	if err != nil {
+		if err == ErrItemNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
+		}
+		if err == ErrAlreadyInQueue {
+			return echo.NewHTTPError(http.StatusConflict, "movie already in download queue")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 // SearchEpisode triggers automatic search for an episode.
 // POST /api/v1/autosearch/episode/:id
 func (h *Handlers) SearchEpisode(c echo.Context) error {
@@ -71,6 +102,35 @@ func (h *Handlers) SearchEpisode(c echo.Context) error {
 	}
 
 	result, err := h.service.SearchEpisode(c.Request().Context(), id, SearchSourceManual)
+	if err != nil {
+		if err == ErrItemNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
+		}
+		if err == ErrAlreadyInQueue {
+			return echo.NewHTTPError(http.StatusConflict, "episode already in download queue")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// SearchEpisodeSlot triggers automatic search for a specific slot of an episode.
+// POST /api/v1/autosearch/episode/:id/slot/:slotId
+func (h *Handlers) SearchEpisodeSlot(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid episode id")
+	}
+
+	slotIDStr := c.Param("slotId")
+	slotID, err := strconv.ParseInt(slotIDStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid slot id")
+	}
+
+	result, err := h.service.SearchEpisodeSlot(c.Request().Context(), id, slotID, SearchSourceManual)
 	if err != nil {
 		if err == ErrItemNotFound {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")

@@ -27,6 +27,7 @@ import { DownloadClientsPage } from '@/routes/settings/downloadclients'
 import { GeneralSettingsPage } from '@/routes/settings/general'
 import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
 import { ImportSettingsPage } from '@/routes/settings/import'
+import { SlotsSettingsPage } from '@/routes/settings/slots'
 import { ManualImportPage } from '@/routes/import/index'
 import { TasksPage } from '@/routes/system/tasks'
 import { SystemHealthPage } from '@/routes/system/health'
@@ -174,6 +175,12 @@ const importSettingsRoute = createRoute({
   component: ImportSettingsPage,
 })
 
+const slotsSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/slots',
+  component: SlotsSettingsPage,
+})
+
 // Import routes
 const manualImportRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -216,6 +223,7 @@ const routeTree = rootRoute.addChildren([
   generalSettingsRoute,
   autosearchSettingsRoute,
   importSettingsRoute,
+  slotsSettingsRoute,
   manualImportRoute,
   tasksRoute,
   healthRoute,

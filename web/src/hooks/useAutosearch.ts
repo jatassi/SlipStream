@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { autosearchApi } from '@/api'
 import { queueKeys } from './useQueue'
-import type { AutoSearchMediaType, AutoSearchSettings, AutoSearchResult, BatchAutoSearchResult } from '@/types'
+import type { AutoSearchMediaType, AutoSearchSettings, AutoSearchResult, BatchAutoSearchResult, SlotSearchResult } from '@/types'
 
 export const autosearchKeys = {
   all: ['autosearch'] as const,
@@ -27,6 +27,32 @@ export function useAutoSearchEpisode() {
   return useMutation({
     mutationFn: (episodeId: number) => autosearchApi.searchEpisode(episodeId),
     onSuccess: (result: AutoSearchResult) => {
+      if (result.downloaded) {
+        queryClient.invalidateQueries({ queryKey: queueKeys.all })
+      }
+    },
+  })
+}
+
+export function useAutoSearchMovieSlot() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ movieId, slotId }: { movieId: number; slotId: number }) =>
+      autosearchApi.searchMovieSlot(movieId, slotId),
+    onSuccess: (result: SlotSearchResult) => {
+      if (result.downloaded) {
+        queryClient.invalidateQueries({ queryKey: queueKeys.all })
+      }
+    },
+  })
+}
+
+export function useAutoSearchEpisodeSlot() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ episodeId, slotId }: { episodeId: number; slotId: number }) =>
+      autosearchApi.searchEpisodeSlot(episodeId, slotId),
+    onSuccess: (result: SlotSearchResult) => {
       if (result.downloaded) {
         queryClient.invalidateQueries({ queryKey: queueKeys.all })
       }

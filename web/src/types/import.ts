@@ -100,6 +100,16 @@ export interface ManualImportRequest {
   mediaId: number
   seriesId?: number
   seasonNum?: number
+  targetSlotId?: number
+}
+
+export interface ImportSlotAssignment {
+  slotId: number
+  slotNumber: number
+  slotName: string
+  matchScore: number
+  isUpgrade: boolean
+  isNewFill: boolean
 }
 
 export interface ManualImportResponse {
@@ -109,6 +119,10 @@ export interface ManualImportResponse {
   linkMode?: string
   isUpgrade: boolean
   error?: string
+  requiresSlotSelection?: boolean
+  slotAssignments?: ImportSlotAssignment[]
+  recommendedSlotId?: number
+  assignedSlotId?: number
 }
 
 // Preview import types
@@ -125,6 +139,7 @@ export interface ParsedMediaInfo {
   audioChannels?: string[]
   audioEnhancements?: string[]
   attributes?: string[]
+  hdrFormats?: string[]
   isTV: boolean
   isSeasonPack?: boolean
 }

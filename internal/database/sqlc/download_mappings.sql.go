@@ -10,12 +10,28 @@ import (
 	"database/sql"
 )
 
+const clearDownloadMappingSlot = `-- name: ClearDownloadMappingSlot :exec
+UPDATE download_mappings SET target_slot_id = NULL
+WHERE client_id = ? AND download_id = ?
+`
+
+type ClearDownloadMappingSlotParams struct {
+	ClientID   int64  `json:"client_id"`
+	DownloadID string `json:"download_id"`
+}
+
+// Req 10.2.1: Clear slot when download fails or is rejected
+func (q *Queries) ClearDownloadMappingSlot(ctx context.Context, arg ClearDownloadMappingSlotParams) error {
+	_, err := q.db.ExecContext(ctx, clearDownloadMappingSlot, arg.ClientID, arg.DownloadID)
+	return err
+}
+
 const createDownloadMapping = `-- name: CreateDownloadMapping :one
 INSERT INTO download_mappings (
     client_id, download_id, movie_id, series_id, season_number,
-    episode_id, is_season_pack, is_complete_series
+    episode_id, is_season_pack, is_complete_series, target_slot_id
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (client_id, download_id) DO UPDATE SET
     movie_id = excluded.movie_id,
@@ -23,8 +39,9 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     season_number = excluded.season_number,
     episode_id = excluded.episode_id,
     is_season_pack = excluded.is_season_pack,
-    is_complete_series = excluded.is_complete_series
-RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at
+    is_complete_series = excluded.is_complete_series,
+    target_slot_id = excluded.target_slot_id
+RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id
 `
 
 type CreateDownloadMappingParams struct {
@@ -36,6 +53,7 @@ type CreateDownloadMappingParams struct {
 	EpisodeID        sql.NullInt64 `json:"episode_id"`
 	IsSeasonPack     int64         `json:"is_season_pack"`
 	IsCompleteSeries int64         `json:"is_complete_series"`
+	TargetSlotID     sql.NullInt64 `json:"target_slot_id"`
 }
 
 func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadMappingParams) (*DownloadMapping, error) {
@@ -48,6 +66,7 @@ func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadM
 		arg.EpisodeID,
 		arg.IsSeasonPack,
 		arg.IsCompleteSeries,
+		arg.TargetSlotID,
 	)
 	var i DownloadMapping
 	err := row.Scan(
@@ -61,6 +80,7 @@ func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadM
 		&i.IsSeasonPack,
 		&i.IsCompleteSeries,
 		&i.CreatedAt,
+		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -91,7 +111,7 @@ func (q *Queries) DeleteOldDownloadMappings(ctx context.Context) error {
 }
 
 const getDownloadMapping = `-- name: GetDownloadMapping :one
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
 WHERE client_id = ? AND download_id = ?
 `
 
@@ -114,12 +134,13 @@ func (q *Queries) GetDownloadMapping(ctx context.Context, arg GetDownloadMapping
 		&i.IsSeasonPack,
 		&i.IsCompleteSeries,
 		&i.CreatedAt,
+		&i.TargetSlotID,
 	)
 	return &i, err
 }
 
 const getDownloadMappingsByClientDownloadIDs = `-- name: GetDownloadMappingsByClientDownloadIDs :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
 WHERE (client_id, download_id) IN (/*SLICE:client_download_ids*//*SLICE:client_download_ids*/?)
 `
 
@@ -143,6 +164,49 @@ func (q *Queries) GetDownloadMappingsByClientDownloadIDs(ctx context.Context) ([
 			&i.IsSeasonPack,
 			&i.IsCompleteSeries,
 			&i.CreatedAt,
+			&i.TargetSlotID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDownloadMappingsBySlot = `-- name: GetDownloadMappingsBySlot :many
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
+WHERE target_slot_id = ?
+ORDER BY created_at DESC
+`
+
+// Get all mappings targeting a specific slot
+func (q *Queries) GetDownloadMappingsBySlot(ctx context.Context, targetSlotID sql.NullInt64) ([]*DownloadMapping, error) {
+	rows, err := q.db.QueryContext(ctx, getDownloadMappingsBySlot, targetSlotID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*DownloadMapping{}
+	for rows.Next() {
+		var i DownloadMapping
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClientID,
+			&i.DownloadID,
+			&i.MovieID,
+			&i.SeriesID,
+			&i.SeasonNumber,
+			&i.EpisodeID,
+			&i.IsSeasonPack,
+			&i.IsCompleteSeries,
+			&i.CreatedAt,
+			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -302,7 +366,7 @@ func (q *Queries) IsSeriesDownloading(ctx context.Context, seriesID sql.NullInt6
 }
 
 const listActiveDownloadMappings = `-- name: ListActiveDownloadMappings :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
 ORDER BY created_at DESC
 `
 
@@ -326,6 +390,7 @@ func (q *Queries) ListActiveDownloadMappings(ctx context.Context) ([]*DownloadMa
 			&i.IsSeasonPack,
 			&i.IsCompleteSeries,
 			&i.CreatedAt,
+			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}

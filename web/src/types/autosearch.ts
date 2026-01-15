@@ -14,6 +14,13 @@ export interface AutoSearchResult {
   downloadId?: string
 }
 
+export interface SlotSearchResult extends AutoSearchResult {
+  slotId: number
+  slotNumber: number
+  slotName: string
+  isSlotUpgrade: boolean
+}
+
 export interface BatchAutoSearchResult {
   totalSearched: number
   found: number

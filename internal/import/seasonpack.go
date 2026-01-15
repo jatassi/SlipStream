@@ -12,30 +12,50 @@ import (
 
 // SeasonPackFile represents a file within a season pack download.
 type SeasonPackFile struct {
-	Path         string              `json:"path"`
-	Filename     string              `json:"filename"`
-	Size         int64               `json:"size"`
+	Path         string               `json:"path"`
+	Filename     string               `json:"filename"`
+	Size         int64                `json:"size"`
 	ParsedInfo   *scanner.ParsedMedia `json:"parsedInfo,omitempty"`
-	EpisodeID    *int64              `json:"episodeId,omitempty"`
-	SeriesID     *int64              `json:"seriesId,omitempty"`
-	SeasonNumber int                 `json:"seasonNumber,omitempty"`
-	EpisodeNum   int                 `json:"episodeNumber,omitempty"`
-	EndEpisode   int                 `json:"endEpisode,omitempty"` // For multi-episode files
-	IsReady      bool                `json:"isReady"`
-	IsMatched    bool                `json:"isMatched"`
-	Error        string              `json:"error,omitempty"`
+	EpisodeID    *int64               `json:"episodeId,omitempty"`
+	SeriesID     *int64               `json:"seriesId,omitempty"`
+	SeasonNumber int                  `json:"seasonNumber,omitempty"`
+	EpisodeNum   int                  `json:"episodeNumber,omitempty"`
+	EndEpisode   int                  `json:"endEpisode,omitempty"` // For multi-episode files
+	IsReady      bool                 `json:"isReady"`
+	IsMatched    bool                 `json:"isMatched"`
+	Error        string               `json:"error,omitempty"`
+
+	// Req 16.2.1, 16.2.3: Per-episode slot evaluation
+	TargetSlotID   *int64  `json:"targetSlotId,omitempty"`
+	TargetSlotName string  `json:"targetSlotName,omitempty"`
+	SlotMatchScore float64 `json:"slotMatchScore,omitempty"`
+	IsSlotUpgrade  bool    `json:"isSlotUpgrade,omitempty"`
+	IsSlotNewFill  bool    `json:"isSlotNewFill,omitempty"`
 }
 
 // SeasonPackAnalysis contains the result of analyzing a season pack.
 type SeasonPackAnalysis struct {
-	DownloadPath   string            `json:"downloadPath"`
-	SeriesID       *int64            `json:"seriesId,omitempty"`
-	SeasonNumber   int               `json:"seasonNumber,omitempty"`
-	TotalFiles     int               `json:"totalFiles"`
-	ReadyFiles     int               `json:"readyFiles"`
-	MatchedFiles   int               `json:"matchedFiles"`
-	UnmatchedFiles int               `json:"unmatchedFiles"`
-	Files          []SeasonPackFile  `json:"files"`
+	DownloadPath   string           `json:"downloadPath"`
+	SeriesID       *int64           `json:"seriesId,omitempty"`
+	SeasonNumber   int              `json:"seasonNumber,omitempty"`
+	TotalFiles     int              `json:"totalFiles"`
+	ReadyFiles     int              `json:"readyFiles"`
+	MatchedFiles   int              `json:"matchedFiles"`
+	UnmatchedFiles int              `json:"unmatchedFiles"`
+	Files          []SeasonPackFile `json:"files"`
+
+	// Req 16.2.1, 16.2.2: Season pack slot summary
+	SlotSummary *SeasonPackSlotSummary `json:"slotSummary,omitempty"`
+}
+
+// SeasonPackSlotSummary summarizes slot assignments for a season pack.
+// Req 16.2.2: May result in mixed slots across seasons (acceptable)
+type SeasonPackSlotSummary struct {
+	PrimarySlotID   *int64         `json:"primarySlotId,omitempty"`   // Most common slot
+	PrimarySlotName string         `json:"primarySlotName,omitempty"` // Name of most common slot
+	IsMixedSlots    bool           `json:"isMixedSlots"`              // True if episodes go to different slots
+	SlotCounts      map[int64]int  `json:"slotCounts"`                // Count of episodes per slot
+	SlotNames       map[int64]string `json:"slotNames"`               // Names for display
 }
 
 // AnalyzeSeasonPack scans a download folder and identifies individual episodes.
@@ -117,6 +137,7 @@ func (s *Service) AnalyzeSeasonPack(ctx context.Context, downloadPath string, se
 }
 
 // CreateQueueMediaForSeasonPack creates queue_media entries for each file in a season pack.
+// Req 16.2.3: Each episode from pack individually assessed with its own slot assignment.
 func (s *Service) CreateQueueMediaForSeasonPack(ctx context.Context, mappingID int64, analysis *SeasonPackAnalysis) ([]*sqlc.QueueMedium, error) {
 	entries := make([]*sqlc.QueueMedium, 0, len(analysis.Files))
 
@@ -135,6 +156,7 @@ func (s *Service) CreateQueueMediaForSeasonPack(ctx context.Context, mappingID i
 			EpisodeID:         file.EpisodeID,
 			FilePath:          file.Path,
 			FileStatus:        status,
+			TargetSlotID:      file.TargetSlotID, // Req 16.2.3: Per-episode slot
 		}
 
 		entry, err := s.downloader.CreateQueueMedia(ctx, input)
@@ -204,6 +226,11 @@ func (s *Service) ProcessReadySeasonPackFiles(ctx context.Context, mappingID int
 
 		if entry.EpisodeID.Valid {
 			job.QueueMedia.EpisodeID = &entry.EpisodeID.Int64
+		}
+
+		// Req 16.2.3: Use per-episode slot from queue_media
+		if entry.TargetSlotID.Valid {
+			job.TargetSlotID = &entry.TargetSlotID.Int64
 		}
 
 		// Queue the import
@@ -349,4 +376,116 @@ func (s *Service) DetectSeasonPackFromPath(ctx context.Context, downloadPath str
 	isSeasonPack := episodeCount > 1
 
 	return isSeasonPack, len(files), nil
+}
+
+// EvaluateSeasonPackSlots evaluates slots for each file in a season pack analysis.
+// Req 16.2.1: Season pack assigned to the slot it best matches
+// Req 16.2.2: May result in mixed slots across seasons (acceptable)
+// Req 16.2.3: Each episode from pack individually assessed
+func (s *Service) EvaluateSeasonPackSlots(ctx context.Context, analysis *SeasonPackAnalysis) error {
+	if s.slots == nil {
+		return nil // Slots service not configured, skip evaluation
+	}
+
+	if !s.slots.IsMultiVersionEnabled(ctx) {
+		return nil // Multi-version not enabled, skip
+	}
+
+	slotCounts := make(map[int64]int)
+	slotNames := make(map[int64]string)
+	hasMultipleSlots := false
+	var firstSlotID *int64
+
+	for i := range analysis.Files {
+		file := &analysis.Files[i]
+
+		// Skip files without parsed info or episode ID
+		if file.ParsedInfo == nil || file.EpisodeID == nil {
+			continue
+		}
+
+		// Req 16.2.3: Individually assess each episode from the pack
+		eval, err := s.slots.EvaluateRelease(ctx, file.ParsedInfo, "episode", *file.EpisodeID)
+		if err != nil {
+			s.logger.Debug().Err(err).Str("file", file.Filename).Msg("Failed to evaluate slots for season pack file")
+			continue
+		}
+
+		if len(eval.Assignments) == 0 {
+			continue
+		}
+
+		// Use the best assignment
+		best := eval.Assignments[0]
+		file.TargetSlotID = &best.SlotID
+		file.TargetSlotName = best.SlotName
+		file.SlotMatchScore = best.MatchScore
+		file.IsSlotUpgrade = best.IsUpgrade
+		file.IsSlotNewFill = best.IsNewFill
+
+		// Track slot distribution
+		slotCounts[best.SlotID]++
+		slotNames[best.SlotID] = best.SlotName
+
+		// Check for mixed slots
+		if firstSlotID == nil {
+			firstSlotID = &best.SlotID
+		} else if *firstSlotID != best.SlotID {
+			hasMultipleSlots = true
+		}
+	}
+
+	// Build slot summary
+	if len(slotCounts) > 0 {
+		// Find primary (most common) slot
+		var primarySlotID int64
+		maxCount := 0
+		for slotID, count := range slotCounts {
+			if count > maxCount {
+				maxCount = count
+				primarySlotID = slotID
+			}
+		}
+
+		analysis.SlotSummary = &SeasonPackSlotSummary{
+			PrimarySlotID:   &primarySlotID,
+			PrimarySlotName: slotNames[primarySlotID],
+			IsMixedSlots:    hasMultipleSlots,
+			SlotCounts:      slotCounts,
+			SlotNames:       slotNames,
+		}
+	}
+
+	return nil
+}
+
+// AnalyzeSeasonPackWithSlots scans and evaluates slots in one operation.
+// This combines AnalyzeSeasonPack and EvaluateSeasonPackSlots.
+func (s *Service) AnalyzeSeasonPackWithSlots(ctx context.Context, downloadPath string, seriesID *int64) (*SeasonPackAnalysis, error) {
+	analysis, err := s.AnalyzeSeasonPack(ctx, downloadPath, seriesID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Evaluate slots for each file
+	if err := s.EvaluateSeasonPackSlots(ctx, analysis); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to evaluate slots for season pack")
+		// Don't fail the entire operation, just continue without slot info
+	}
+
+	return analysis, nil
+}
+
+// GetSeasonPackTargetSlots returns the target slot IDs for all matched files in a season pack.
+// Returns a map from episode ID to slot ID for use during import.
+func (s *Service) GetSeasonPackTargetSlots(analysis *SeasonPackAnalysis) map[int64]int64 {
+	slots := make(map[int64]int64)
+
+	for _, file := range analysis.Files {
+		if file.EpisodeID != nil && file.TargetSlotID != nil {
+			slots[*file.EpisodeID] = *file.TargetSlotID
+		}
+	}
+
+	return slots
 }

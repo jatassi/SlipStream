@@ -20,12 +20,24 @@ var (
 	ErrDuplicateTmdbID   = errors.New("movie with this TMDB ID already exists")
 )
 
+// FileDeleteHandler is called when a file is deleted to update slot assignments.
+type FileDeleteHandler interface {
+	OnFileDeleted(ctx context.Context, mediaType string, fileID int64) error
+}
+
 // Service provides movie library operations.
 type Service struct {
-	db      *sql.DB
-	queries *sqlc.Queries
-	hub     *websocket.Hub
-	logger  zerolog.Logger
+	db                *sql.DB
+	queries           *sqlc.Queries
+	hub               *websocket.Hub
+	logger            zerolog.Logger
+	fileDeleteHandler FileDeleteHandler
+}
+
+// SetFileDeleteHandler sets the handler for file deletion events.
+// Req 12.1.1: Deleting file from slot does NOT trigger automatic search
+func (s *Service) SetFileDeleteHandler(handler FileDeleteHandler) {
+	s.fileDeleteHandler = handler
 }
 
 // NewService creates a new movie service.
@@ -478,6 +490,8 @@ func (s *Service) GetFileByPath(ctx context.Context, path string) (*MovieFile, e
 }
 
 // RemoveFile removes a file from a movie.
+// Req 12.1.1: Deleting file from slot does NOT trigger automatic search
+// Req 12.1.2: Slot becomes empty; waits for next scheduled search
 func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 	// Get file first
 	row, err := s.queries.GetMovieFile(ctx, fileID)
@@ -486,6 +500,13 @@ func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 			return ErrMovieFileNotFound
 		}
 		return fmt.Errorf("failed to get movie file: %w", err)
+	}
+
+	// Clear slot assignment before deleting file (Req 12.1.1)
+	if s.fileDeleteHandler != nil {
+		if err := s.fileDeleteHandler.OnFileDeleted(ctx, "movie", fileID); err != nil {
+			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear slot assignment")
+		}
 	}
 
 	if err := s.queries.DeleteMovieFile(ctx, fileID); err != nil {
@@ -611,6 +632,10 @@ func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
 	}
 	if row.CreatedAt.Valid {
 		f.CreatedAt = row.CreatedAt.Time
+	}
+	if row.SlotID.Valid {
+		slotID := row.SlotID.Int64
+		f.SlotID = &slotID
 	}
 
 	return f

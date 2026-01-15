@@ -71,6 +71,7 @@ type EpisodeFile struct {
 	AudioCodec string    `json:"audioCodec,omitempty"`
 	Resolution string    `json:"resolution,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
+	SlotID     *int64    `json:"slotId,omitempty"`
 }
 
 // CreateSeriesInput contains fields for creating a series.

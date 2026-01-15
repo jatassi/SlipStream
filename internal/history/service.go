@@ -339,3 +339,60 @@ func (s *Service) LogImportUpgrade(ctx context.Context, mediaType MediaType, med
 	})
 	return err
 }
+
+// LogSlotAssigned logs when a file is assigned to a slot.
+// Req 17.1.1: Log all slot-related events
+func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal slot assigned data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeSlotAssigned,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    "slot",
+		Data:      dataMap,
+	})
+	return err
+}
+
+// LogSlotReassigned logs when a file is moved to a different slot.
+// Req 17.1.1: Log all slot-related events
+func (s *Service) LogSlotReassigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal slot reassigned data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeSlotReassigned,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    "slot",
+		Data:      dataMap,
+	})
+	return err
+}
+
+// LogSlotUnassigned logs when a file is removed from a slot.
+// Req 17.1.1: Log all slot-related events
+func (s *Service) LogSlotUnassigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal slot unassigned data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeSlotUnassigned,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Source:    "slot",
+		Data:      dataMap,
+	})
+	return err
+}

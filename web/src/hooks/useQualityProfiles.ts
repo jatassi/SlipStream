@@ -12,6 +12,7 @@ export const qualityProfileKeys = {
   list: () => [...qualityProfileKeys.lists()] as const,
   details: () => [...qualityProfileKeys.all, 'detail'] as const,
   detail: (id: number) => [...qualityProfileKeys.details(), id] as const,
+  attributes: () => [...qualityProfileKeys.all, 'attributes'] as const,
 }
 
 export function useQualityProfiles() {
@@ -58,5 +59,19 @@ export function useDeleteQualityProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qualityProfileKeys.all })
     },
+  })
+}
+
+export function useQualityProfileAttributes() {
+  return useQuery({
+    queryKey: qualityProfileKeys.attributes(),
+    queryFn: () => qualityProfilesApi.getAttributes(),
+    staleTime: 24 * 60 * 60 * 1000, // Cache for 24 hours (static data)
+  })
+}
+
+export function useCheckProfileExclusivity() {
+  return useMutation({
+    mutationFn: (profileIds: number[]) => qualityProfilesApi.checkExclusivity(profileIds),
   })
 }

@@ -11,11 +11,21 @@ export interface QualityItem {
   allowed: boolean
 }
 
+export type AttributeMode = 'acceptable' | 'preferred' | 'required' | 'notAllowed'
+
+export interface AttributeSettings {
+  items: Record<string, AttributeMode> // value -> mode mapping (e.g., { "DV": "required", "HDR10": "preferred" })
+}
+
 export interface QualityProfile {
   id: number
   name: string
   cutoff: number
   items: QualityItem[]
+  hdrSettings: AttributeSettings
+  videoCodecSettings: AttributeSettings
+  audioCodecSettings: AttributeSettings
+  audioChannelSettings: AttributeSettings
   createdAt: string
   updatedAt: string
 }
@@ -24,12 +34,32 @@ export interface CreateQualityProfileInput {
   name: string
   cutoff: number
   items: QualityItem[]
+  hdrSettings: AttributeSettings
+  videoCodecSettings: AttributeSettings
+  audioCodecSettings: AttributeSettings
+  audioChannelSettings: AttributeSettings
 }
 
 export interface UpdateQualityProfileInput {
   name: string
   cutoff: number
   items: QualityItem[]
+  hdrSettings: AttributeSettings
+  videoCodecSettings: AttributeSettings
+  audioCodecSettings: AttributeSettings
+  audioChannelSettings: AttributeSettings
+}
+
+export interface AttributeOptions {
+  hdrFormats: string[]
+  videoCodecs: string[]
+  audioCodecs: string[]
+  audioChannels: string[]
+  modes: AttributeMode[]
+}
+
+export const DEFAULT_ATTRIBUTE_SETTINGS: AttributeSettings = {
+  items: {},
 }
 
 export const PREDEFINED_QUALITIES: Quality[] = [
@@ -51,3 +81,32 @@ export const PREDEFINED_QUALITIES: Quality[] = [
   { id: 16, name: 'Bluray-2160p', source: 'bluray', resolution: 2160, weight: 16 },
   { id: 17, name: 'Remux-2160p', source: 'remux', resolution: 2160, weight: 17 },
 ]
+
+// Exclusivity checking types (Req 3.1.1-3.1.4)
+export interface ExclusivityDetail {
+  profileAId: number
+  profileAName: string
+  profileBId: number
+  profileBName: string
+  areExclusive: boolean
+  conflicts?: string[]
+  overlaps?: string[]
+  hints?: string[]
+}
+
+export interface SlotExclusivityError {
+  slotA: number
+  slotB: number
+  slotAName: string
+  slotBName: string
+  profileAName: string
+  profileBName: string
+  overlappingAttr?: string
+  reason: string
+}
+
+export interface CheckExclusivityResponse {
+  valid: boolean
+  errors?: SlotExclusivityError[]
+  details?: ExclusivityDetail[]
+}

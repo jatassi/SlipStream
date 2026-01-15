@@ -69,6 +69,14 @@ export interface TorrentInfo extends ReleaseInfo {
   score?: number
   normalizedScore?: number
   scoreBreakdown?: ScoreBreakdown
+  // Slot enrichment fields (populated when multi-version is enabled)
+  // Req 11.1.1: Search results indicate which slot each release would fill
+  // Req 11.1.2: Show whether grab would be upgrade vs new fill
+  targetSlotId?: number
+  targetSlotNumber?: number
+  targetSlotName?: string
+  isSlotUpgrade?: boolean
+  isSlotNewFill?: boolean
 }
 
 // Usenet-specific release info
@@ -112,6 +120,8 @@ export interface GrabRequest {
   clientId?: number
   mediaType?: 'movie' | 'episode'
   mediaId?: number
+  // Req 11.1.3: Allow user to override auto-detected slot when grabbing
+  targetSlotId?: number
 }
 
 // Result from grabbing a release

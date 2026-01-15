@@ -82,6 +82,7 @@ type DownloadMapping struct {
 	IsSeasonPack     int64         `json:"is_season_pack"`
 	IsCompleteSeries int64         `json:"is_complete_series"`
 	CreatedAt        time.Time     `json:"created_at"`
+	TargetSlotID     sql.NullInt64 `json:"target_slot_id"`
 }
 
 type Episode struct {
@@ -110,6 +111,17 @@ type EpisodeFile struct {
 	OriginalPath     sql.NullString `json:"original_path"`
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
+	SlotID           sql.NullInt64  `json:"slot_id"`
+}
+
+type EpisodeSlotAssignment struct {
+	ID        int64         `json:"id"`
+	EpisodeID int64         `json:"episode_id"`
+	SlotID    int64         `json:"slot_id"`
+	FileID    sql.NullInt64 `json:"file_id"`
+	Monitored int64         `json:"monitored"`
+	CreatedAt sql.NullTime  `json:"created_at"`
+	UpdatedAt sql.NullTime  `json:"updated_at"`
 }
 
 type History struct {
@@ -233,15 +245,39 @@ type MovieFile struct {
 	OriginalPath     sql.NullString `json:"original_path"`
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
+	SlotID           sql.NullInt64  `json:"slot_id"`
+}
+
+type MovieSlotAssignment struct {
+	ID        int64         `json:"id"`
+	MovieID   int64         `json:"movie_id"`
+	SlotID    int64         `json:"slot_id"`
+	FileID    sql.NullInt64 `json:"file_id"`
+	Monitored int64         `json:"monitored"`
+	CreatedAt sql.NullTime  `json:"created_at"`
+	UpdatedAt sql.NullTime  `json:"updated_at"`
+}
+
+type MultiVersionSetting struct {
+	ID              int64        `json:"id"`
+	Enabled         int64        `json:"enabled"`
+	DryRunCompleted int64        `json:"dry_run_completed"`
+	LastMigrationAt sql.NullTime `json:"last_migration_at"`
+	CreatedAt       sql.NullTime `json:"created_at"`
+	UpdatedAt       sql.NullTime `json:"updated_at"`
 }
 
 type QualityProfile struct {
-	ID        int64        `json:"id"`
-	Name      string       `json:"name"`
-	Cutoff    int64        `json:"cutoff"`
-	Items     string       `json:"items"`
-	CreatedAt sql.NullTime `json:"created_at"`
-	UpdatedAt sql.NullTime `json:"updated_at"`
+	ID                   int64        `json:"id"`
+	Name                 string       `json:"name"`
+	Cutoff               int64        `json:"cutoff"`
+	Items                string       `json:"items"`
+	CreatedAt            sql.NullTime `json:"created_at"`
+	UpdatedAt            sql.NullTime `json:"updated_at"`
+	HdrSettings          string       `json:"hdr_settings"`
+	VideoCodecSettings   string       `json:"video_codec_settings"`
+	AudioCodecSettings   string       `json:"audio_codec_settings"`
+	AudioChannelSettings string       `json:"audio_channel_settings"`
 }
 
 type QueueMedium struct {
@@ -255,6 +291,7 @@ type QueueMedium struct {
 	ImportAttempts    int64          `json:"import_attempts"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
+	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 }
 
 type RootFolder struct {
@@ -304,4 +341,17 @@ type Setting struct {
 	Key       string       `json:"key"`
 	Value     string       `json:"value"`
 	UpdatedAt sql.NullTime `json:"updated_at"`
+}
+
+type VersionSlot struct {
+	ID                int64         `json:"id"`
+	SlotNumber        int64         `json:"slot_number"`
+	Name              string        `json:"name"`
+	Enabled           int64         `json:"enabled"`
+	QualityProfileID  sql.NullInt64 `json:"quality_profile_id"`
+	DisplayOrder      int64         `json:"display_order"`
+	CreatedAt         sql.NullTime  `json:"created_at"`
+	UpdatedAt         sql.NullTime  `json:"updated_at"`
+	MovieRootFolderID sql.NullInt64 `json:"movie_root_folder_id"`
+	TvRootFolderID    sql.NullInt64 `json:"tv_root_folder_id"`
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/preferences"
@@ -66,6 +67,9 @@ type Service struct {
 	autosearchSvc  *autosearch.Service
 	preferencesSvc *preferences.Service
 
+	// Optional slots service for multi-version support
+	slotsSvc *slots.Service
+
 	// Track active scans by root folder ID
 	activeScans map[int64]string // maps folderID -> activityID
 	scanMu      sync.RWMutex
@@ -108,6 +112,12 @@ func (s *Service) SetAutosearchService(svc *autosearch.Service) {
 // SetPreferencesService sets the optional preferences service for add-flow defaults
 func (s *Service) SetPreferencesService(svc *preferences.Service) {
 	s.preferencesSvc = svc
+}
+
+// SetSlotsService sets the optional slots service for multi-version slot assignment.
+// Req 13.1.2: Auto-assign files to best matching slot based on quality profile matching
+func (s *Service) SetSlotsService(svc *slots.Service) {
+	s.slotsSvc = svc
 }
 
 // ScanRootFolder scans a root folder for media files and matches them to metadata.
@@ -471,7 +481,9 @@ func (s *Service) createMovieFromParsed(
 	return movie, true, nil
 }
 
-// addMovieFile adds a file to a movie.
+// addMovieFile adds a file to a movie and assigns it to a slot if multi-version is enabled.
+// Req 13.1.2: Auto-assign files to best matching slot based on quality profile matching
+// Req 13.1.3: Extra files (more than slot count) queued for user review (slot_id = NULL)
 // Callers should check if the file already exists before calling this.
 func (s *Service) addMovieFile(ctx context.Context, movieID int64, parsed scanner.ParsedMedia) error {
 	input := movies.CreateMovieFileInput{
@@ -482,8 +494,46 @@ func (s *Service) addMovieFile(ctx context.Context, movieID int64, parsed scanne
 		Resolution: parsed.Quality,
 	}
 
-	_, err := s.movies.AddFile(ctx, movieID, input)
-	return err
+	file, err := s.movies.AddFile(ctx, movieID, input)
+	if err != nil {
+		return err
+	}
+
+	// Try to assign to a slot if slots service is available and multi-version is enabled
+	if s.slotsSvc != nil && s.slotsSvc.IsMultiVersionEnabled(ctx) {
+		assignment, err := s.slotsSvc.DetermineTargetSlot(ctx, &parsed, "movie", movieID)
+		if err != nil {
+			// No matching slot or all slots filled - file will be in review queue (slot_id = NULL)
+			s.logger.Debug().
+				Err(err).
+				Int64("movieId", movieID).
+				Int64("fileId", file.ID).
+				Str("path", parsed.FilePath).
+				Msg("Could not assign file to slot, will be in review queue")
+			return nil
+		}
+
+		// Assign file to the determined slot
+		if err := s.slotsSvc.AssignFileToSlot(ctx, "movie", movieID, assignment.SlotID, file.ID); err != nil {
+			s.logger.Warn().
+				Err(err).
+				Int64("movieId", movieID).
+				Int64("fileId", file.ID).
+				Int64("slotId", assignment.SlotID).
+				Msg("Failed to assign file to slot")
+		} else {
+			s.logger.Debug().
+				Int64("movieId", movieID).
+				Int64("fileId", file.ID).
+				Int64("slotId", assignment.SlotID).
+				Str("slotName", assignment.SlotName).
+				Bool("isUpgrade", assignment.IsUpgrade).
+				Bool("isNewFill", assignment.IsNewFill).
+				Msg("Assigned movie file to slot")
+		}
+	}
+
+	return nil
 }
 
 // matchOrCreateSeries finds an existing series or creates a new one from parsed media.
@@ -566,6 +616,8 @@ func (s *Service) createSeriesFromParsed(
 }
 
 // addEpisodeFile adds a file to an episode, creating the season/episode if needed.
+// Req 13.1.2: Auto-assign files to best matching slot based on quality profile matching
+// Req 13.1.3: Extra files (more than slot count) queued for user review (slot_id = NULL)
 // Callers should check if the file already exists before calling this.
 func (s *Service) addEpisodeFile(ctx context.Context, seriesID int64, parsed scanner.ParsedMedia) error {
 	episode, err := s.getOrCreateEpisode(ctx, seriesID, parsed.Season, parsed.Episode)
@@ -581,8 +633,46 @@ func (s *Service) addEpisodeFile(ctx context.Context, seriesID int64, parsed sca
 		Resolution: parsed.Quality,
 	}
 
-	_, err = s.tv.AddEpisodeFile(ctx, episode.ID, input)
-	return err
+	file, err := s.tv.AddEpisodeFile(ctx, episode.ID, input)
+	if err != nil {
+		return err
+	}
+
+	// Try to assign to a slot if slots service is available and multi-version is enabled
+	if s.slotsSvc != nil && s.slotsSvc.IsMultiVersionEnabled(ctx) {
+		assignment, err := s.slotsSvc.DetermineTargetSlot(ctx, &parsed, "episode", episode.ID)
+		if err != nil {
+			// No matching slot or all slots filled - file will be in review queue (slot_id = NULL)
+			s.logger.Debug().
+				Err(err).
+				Int64("episodeId", episode.ID).
+				Int64("fileId", file.ID).
+				Str("path", parsed.FilePath).
+				Msg("Could not assign file to slot, will be in review queue")
+			return nil
+		}
+
+		// Assign file to the determined slot
+		if err := s.slotsSvc.AssignFileToSlot(ctx, "episode", episode.ID, assignment.SlotID, file.ID); err != nil {
+			s.logger.Warn().
+				Err(err).
+				Int64("episodeId", episode.ID).
+				Int64("fileId", file.ID).
+				Int64("slotId", assignment.SlotID).
+				Msg("Failed to assign file to slot")
+		} else {
+			s.logger.Debug().
+				Int64("episodeId", episode.ID).
+				Int64("fileId", file.ID).
+				Int64("slotId", assignment.SlotID).
+				Str("slotName", assignment.SlotName).
+				Bool("isUpgrade", assignment.IsUpgrade).
+				Bool("isNewFill", assignment.IsNewFill).
+				Msg("Assigned episode file to slot")
+		}
+	}
+
+	return nil
 }
 
 // getOrCreateEpisode gets an existing episode or creates one.

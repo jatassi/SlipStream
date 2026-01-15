@@ -126,6 +126,15 @@ type TorrentInfo struct {
 	Score           float64         `json:"score,omitempty"`
 	NormalizedScore int             `json:"normalizedScore,omitempty"` // 0-100 for UI display
 	ScoreBreakdown  *ScoreBreakdown `json:"scoreBreakdown,omitempty"`
+
+	// Slot enrichment fields (populated when multi-version is enabled)
+	// Req 11.1.1: Search results indicate which slot each release would fill
+	// Req 11.1.2: Show whether grab would be upgrade vs new fill
+	TargetSlotID     *int64 `json:"targetSlotId,omitempty"`
+	TargetSlotNumber *int   `json:"targetSlotNumber,omitempty"`
+	TargetSlotName   string `json:"targetSlotName,omitempty"`
+	IsSlotUpgrade    bool   `json:"isSlotUpgrade,omitempty"`
+	IsSlotNewFill    bool   `json:"isSlotNewFill,omitempty"`
 }
 
 // UsenetInfo extends ReleaseInfo with usenet-specific fields.

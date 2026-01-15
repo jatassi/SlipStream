@@ -3,6 +3,8 @@ import type {
   QualityProfile,
   CreateQualityProfileInput,
   UpdateQualityProfileInput,
+  AttributeOptions,
+  CheckExclusivityResponse,
 } from '@/types'
 
 export const qualityProfilesApi = {
@@ -26,4 +28,13 @@ export const qualityProfilesApi = {
 
   delete: (id: number) =>
     apiFetch<void>(`/qualityprofiles/${id}`, { method: 'DELETE' }),
+
+  getAttributes: () =>
+    apiFetch<AttributeOptions>('/qualityprofiles/attributes'),
+
+  checkExclusivity: (profileIds: number[]) =>
+    apiFetch<CheckExclusivityResponse>('/qualityprofiles/check-exclusivity', {
+      method: 'POST',
+      body: JSON.stringify({ profileIds }),
+    }),
 }

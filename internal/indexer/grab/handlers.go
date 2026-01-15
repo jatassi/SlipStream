@@ -30,10 +30,15 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 
 // GrabRequestDTO is the API request format for grabbing a release.
 type GrabRequestDTO struct {
-	Release   ReleaseDTO `json:"release"`
-	ClientID  int64      `json:"clientId,omitempty"`
-	MediaType string     `json:"mediaType,omitempty"`
-	MediaID   int64      `json:"mediaId,omitempty"`
+	Release      ReleaseDTO `json:"release"`
+	ClientID     int64      `json:"clientId,omitempty"`
+	MediaType    string     `json:"mediaType,omitempty"`
+	MediaID      int64      `json:"mediaId,omitempty"`
+	SeriesID     int64      `json:"seriesId,omitempty"`
+	SeasonNumber int        `json:"seasonNumber,omitempty"`
+	IsSeasonPack bool       `json:"isSeasonPack,omitempty"`
+	// Req 18.2.1: API grab requests accept optional target_slot parameter
+	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
 // ReleaseDTO is the API format for a release.
@@ -52,10 +57,15 @@ type ReleaseDTO struct {
 
 // BulkGrabRequestDTO is the API request format for grabbing multiple releases.
 type BulkGrabRequestDTO struct {
-	Releases  []ReleaseDTO `json:"releases"`
-	ClientID  int64        `json:"clientId,omitempty"`
-	MediaType string       `json:"mediaType,omitempty"`
-	MediaID   int64        `json:"mediaId,omitempty"`
+	Releases     []ReleaseDTO `json:"releases"`
+	ClientID     int64        `json:"clientId,omitempty"`
+	MediaType    string       `json:"mediaType,omitempty"`
+	MediaID      int64        `json:"mediaId,omitempty"`
+	SeriesID     int64        `json:"seriesId,omitempty"`
+	SeasonNumber int          `json:"seasonNumber,omitempty"`
+	IsSeasonPack bool         `json:"isSeasonPack,omitempty"`
+	// Req 18.2.1: API grab requests accept optional target_slot parameter
+	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
 // Grab handles POST /grab - grab a single release.
@@ -82,11 +92,17 @@ func (h *Handlers) Grab(c echo.Context) error {
 	// Convert DTO to internal type
 	release := h.dtoToRelease(req.Release)
 
+	// Req 18.2.1, 18.2.2: API grab requests accept optional target_slot parameter
+	// If omitted, auto-detect happens upstream in autosearch or caller provides it
 	result, err := h.service.Grab(c.Request().Context(), GrabRequest{
-		Release:   release,
-		ClientID:  req.ClientID,
-		MediaType: req.MediaType,
-		MediaID:   req.MediaID,
+		Release:      release,
+		ClientID:     req.ClientID,
+		MediaType:    req.MediaType,
+		MediaID:      req.MediaID,
+		SeriesID:     req.SeriesID,
+		SeasonNumber: req.SeasonNumber,
+		IsSeasonPack: req.IsSeasonPack,
+		TargetSlotID: req.TargetSlotID,
 	})
 
 	if err != nil {
@@ -118,11 +134,16 @@ func (h *Handlers) GrabBulk(c echo.Context) error {
 		releases = append(releases, h.dtoToRelease(dto))
 	}
 
+	// Req 18.2.1: Bulk grab also accepts optional target_slot parameter
 	result, err := h.service.GrabBulk(c.Request().Context(), BulkGrabRequest{
-		Releases:  releases,
-		ClientID:  req.ClientID,
-		MediaType: req.MediaType,
-		MediaID:   req.MediaID,
+		Releases:     releases,
+		ClientID:     req.ClientID,
+		MediaType:    req.MediaType,
+		MediaID:      req.MediaID,
+		SeriesID:     req.SeriesID,
+		SeasonNumber: req.SeasonNumber,
+		IsSeasonPack: req.IsSeasonPack,
+		TargetSlotID: req.TargetSlotID,
 	})
 
 	if err != nil {

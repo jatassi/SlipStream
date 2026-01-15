@@ -1,9 +1,10 @@
 [x] Automatic search and fetch
 [x] System Health
-[ ] Notifications
 [x] Release Importing (Episode and movie naming config)
-[ ] Enhanced Quality Profiles (default to TRaSH guides, incl. upgrades)
-[ ] Multiple Editions
+[*] Multiple Quality Versions
+[*] Enhanced Quality Profiles (default to TRaSH guides, incl. upgrades)
+[ ] Bun migration
+[ ] Notifications
 [ ] External Requests
 [ ] Web app settings (port, auth, https, etc)
 [ ] Update mechanism
@@ -20,4 +21,4 @@
 [ ] Simplification, Refactor, Enhanced Test Suite, Security Audit, Production-Readiness
 [ ] Onboarding wizard
 ======== Ready for Beta Release ========
-[ ] Script hook for import
+[ ] Transcode during import (integrate with slots - FFMPEG frontend)

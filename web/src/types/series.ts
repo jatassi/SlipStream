@@ -62,6 +62,7 @@ export interface EpisodeFile {
   audioCodec?: string
   resolution?: string
   createdAt: string
+  slotId?: number
 }
 
 export interface CreateSeriesInput {

@@ -1,0 +1,767 @@
+import { useState, useMemo } from 'react'
+import { Layers, Check, Info, X, FlaskConical, Settings, FileText, AlertTriangle, Wand2, Pencil, XCircle } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { LoadingState } from '@/components/data/LoadingState'
+import { ErrorState } from '@/components/data/ErrorState'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { SlotDebugPanel, ResolveConfigModal, ResolveNamingModal, DryRunModal } from '@/components/slots'
+import {
+  useSlots,
+  useMultiVersionSettings,
+  useUpdateMultiVersionSettings,
+  useUpdateSlot,
+  useSetSlotEnabled,
+  useSetSlotProfile,
+  useValidateSlotConfiguration,
+  useValidateNaming,
+  useQualityProfiles,
+  useDeveloperMode,
+  useImportSettings,
+  useRootFoldersByType,
+} from '@/hooks'
+import type { Slot, UpdateSlotInput, SlotNamingValidation, SlotConflict, RootFolder } from '@/types'
+import { toast } from 'sonner'
+
+export function SlotsSettingsPage() {
+  const { data: slots, isLoading: slotsLoading, isError: slotsError, refetch: refetchSlots } = useSlots()
+  const { data: settings, isLoading: settingsLoading, isError: settingsError, refetch: refetchSettings } = useMultiVersionSettings()
+  const { data: profiles } = useQualityProfiles()
+  const { data: movieRootFolders } = useRootFoldersByType('movie')
+  const { data: tvRootFolders } = useRootFoldersByType('tv')
+  const { refetch: refetchImportSettings } = useImportSettings()
+  const developerMode = useDeveloperMode()
+
+  const updateSettingsMutation = useUpdateMultiVersionSettings()
+  const updateSlotMutation = useUpdateSlot()
+  const setEnabledMutation = useSetSlotEnabled()
+  const setProfileMutation = useSetSlotProfile()
+  const validateMutation = useValidateSlotConfiguration()
+  const validateNamingMutation = useValidateNaming()
+
+  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors?: string[]; conflicts?: SlotConflict[] } | null>(null)
+  const [namingValidation, setNamingValidation] = useState<SlotNamingValidation | null>(null)
+  const [infoCardDismissed, setInfoCardDismissed] = useState(false)
+  const [resolveConfigOpen, setResolveConfigOpen] = useState(false)
+  const [resolveNamingOpen, setResolveNamingOpen] = useState(false)
+  const [dryRunOpen, setDryRunOpen] = useState(false)
+  const [migrationError, setMigrationError] = useState<string | null>(null)
+
+  const multiVersionEnabled = settings?.enabled ?? false
+
+  // Check if configuration is ready for multi-version mode
+  const configurationReady = useMemo(() => {
+    if (!slots || !profiles || !movieRootFolders || !tvRootFolders) return false
+
+    const profileIds = new Set(profiles.map(p => p.id))
+    const movieRootFolderIds = new Set(movieRootFolders.map(f => f.id))
+    const tvRootFolderIds = new Set(tvRootFolders.map(f => f.id))
+
+    // Check each enabled slot (slots 1 and 2 are always enabled, slot 3 can be toggled)
+    for (const slot of slots) {
+      const isRequired = slot.slotNumber <= 2 || slot.enabled
+
+      if (isRequired) {
+        // Must have a valid quality profile
+        if (!slot.qualityProfileId || !profileIds.has(slot.qualityProfileId)) {
+          return false
+        }
+
+        // Must have valid root folders (if set, they must exist)
+        if (slot.movieRootFolderId !== null && !movieRootFolderIds.has(slot.movieRootFolderId)) {
+          return false
+        }
+        if (slot.tvRootFolderId !== null && !tvRootFolderIds.has(slot.tvRootFolderId)) {
+          return false
+        }
+      }
+    }
+
+    return true
+  }, [slots, profiles, movieRootFolders, tvRootFolders])
+
+  const handleToggleMultiVersion = async (enabled: boolean) => {
+    try {
+      await updateSettingsMutation.mutateAsync({ enabled })
+      toast.success(enabled ? 'Multi-version enabled' : 'Multi-version disabled')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update settings'
+      toast.error(message)
+    }
+  }
+
+  const handleSlotEnabledChange = async (slot: Slot, enabled: boolean) => {
+    if (enabled) {
+      await setEnabledMutation.mutateAsync({ id: slot.id, data: { enabled } })
+    } else {
+      // When disabling, clear quality profile and root folders
+      const input: UpdateSlotInput = {
+        name: slot.name,
+        enabled: false,
+        qualityProfileId: null,
+        displayOrder: slot.displayOrder,
+        movieRootFolderId: null,
+        tvRootFolderId: null,
+      }
+      await updateSlotMutation.mutateAsync({ id: slot.id, data: input })
+    }
+  }
+
+  const handleSlotNameChange = async (slot: Slot, name: string) => {
+    if (!name.trim()) return
+    const input: UpdateSlotInput = {
+      name: name.trim(),
+      enabled: slot.enabled,
+      qualityProfileId: slot.qualityProfileId,
+      displayOrder: slot.displayOrder,
+    }
+    await updateSlotMutation.mutateAsync({ id: slot.id, data: input })
+  }
+
+  const handleSlotProfileChange = async (slot: Slot, profileId: string) => {
+    const id = profileId === 'none' ? null : parseInt(profileId, 10)
+    await setProfileMutation.mutateAsync({ id: slot.id, data: { qualityProfileId: id } })
+  }
+
+  const handleSlotRootFolderChange = async (
+    slot: Slot,
+    mediaType: 'movie' | 'tv',
+    rootFolderId: string
+  ) => {
+    const id = rootFolderId === 'none' ? null : parseInt(rootFolderId, 10)
+    const input: UpdateSlotInput = {
+      name: slot.name,
+      enabled: slot.enabled,
+      qualityProfileId: slot.qualityProfileId,
+      displayOrder: slot.displayOrder,
+      movieRootFolderId: mediaType === 'movie' ? id : slot.movieRootFolderId,
+      tvRootFolderId: mediaType === 'tv' ? id : slot.tvRootFolderId,
+    }
+    await updateSlotMutation.mutateAsync({ id: slot.id, data: input })
+  }
+
+  const handleValidate = async () => {
+    try {
+      const result = await validateMutation.mutateAsync()
+      setValidationResult(result)
+      if (result.valid) {
+        toast.success('Slot configuration is valid')
+      } else {
+        toast.error('Slot configuration has errors')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Validation failed'
+      toast.error(message)
+    }
+  }
+
+  // Req 4.1.4: Validate naming formats when checking configuration
+  const handleValidateNaming = async () => {
+    try {
+      // Refetch import settings to get the latest saved values
+      const { data: latestSettings } = await refetchImportSettings()
+
+      const result = await validateNamingMutation.mutateAsync({
+        movieFileFormat: latestSettings?.movieFileFormat || '{Movie Title} ({Year}) - {Quality Title}',
+        episodeFileFormat: latestSettings?.standardEpisodeFormat || '{Series Title} - S{season:00}E{episode:00} - {Quality Title}',
+      })
+      setNamingValidation(result)
+      if (result.canProceed) {
+        toast.success('Filename formats are valid')
+      } else {
+        toast.warning('Filename formats may cause conflicts')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Naming validation failed'
+      toast.error(message)
+    }
+  }
+
+  const isLoading = slotsLoading || settingsLoading
+  const isError = slotsError || settingsError
+
+  if (isLoading) {
+    return (
+      <div>
+        <PageHeader title="Version Slots" />
+        <LoadingState variant="list" count={3} />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <PageHeader title="Version Slots" />
+        <ErrorState onRetry={() => { refetchSlots(); refetchSettings() }} />
+      </div>
+    )
+  }
+
+  const enabledSlotCount = slots?.filter(s => s.enabled).length ?? 0
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Version Slots"
+        description="Configure multiple quality versions for your media library"
+        breadcrumbs={[
+          { label: 'Settings', href: '/settings' },
+          { label: 'Version Slots' },
+        ]}
+      />
+
+      {!infoCardDismissed && !multiVersionEnabled && (
+        <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-800">
+          <Info className="size-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="flex items-center justify-between">
+            <span>Multi-Version Feature</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 -mr-2 -mt-1"
+              onClick={() => setInfoCardDismissed(true)}
+            >
+              <X className="size-4" />
+            </Button>
+          </AlertTitle>
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <ul className="list-disc list-inside space-y-1 mt-1">
+              <li>Keep multiple quality versions of the same media (e.g., 4K HDR and 1080p SDR)</li>
+              <li>Assign a different quality profile to each slot</li>
+              <li>Files are downloaded and organized separately for each slot</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Master Toggle */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="size-5" />
+                Multi-Version Mode
+              </CardTitle>
+              <CardDescription>
+                {settings?.enabled
+                  ? `Active with ${enabledSlotCount} slot${enabledSlotCount !== 1 ? 's' : ''} enabled`
+                  : 'Use the dry run below to preview and enable multi-version mode'}
+              </CardDescription>
+            </div>
+            {/* Toggle is disabled when off - must use dry run workflow to enable */}
+            {!multiVersionEnabled ? (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Switch
+                    id="multi-version-toggle"
+                    checked={false}
+                    disabled
+                    className="scale-150 origin-right"
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>Perform a dry run first</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Switch
+                id="multi-version-toggle"
+                checked={true}
+                onCheckedChange={handleToggleMultiVersion}
+                disabled={updateSettingsMutation.isPending}
+                className="scale-150 origin-right"
+              />
+            )}
+          </div>
+        </CardHeader>
+        {/* Only render CardContent when there's something to show */}
+        {(migrationError || !settings?.enabled) && (
+        <CardContent className="space-y-3">
+          {/* Migration Error Card */}
+          {migrationError && (
+            <Alert className="border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/50">
+              <XCircle className="size-4 text-red-600 dark:text-red-400" />
+              <AlertTitle className="flex items-center justify-between">
+                <span className="text-red-800 dark:text-red-200">Failed to Enable Multi-Version Mode</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 -mr-2 -mt-1"
+                  onClick={() => setMigrationError(null)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </AlertTitle>
+              <AlertDescription className="text-red-700 dark:text-red-300">
+                <p className="mt-1">{migrationError}</p>
+                <p className="mt-2 text-sm">
+                  Try running the dry run again to review your file assignments, or check that your slot configuration is valid.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Dry Run - only show when not enabled */}
+          {!settings?.enabled && (
+            <Alert className="border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-950/50">
+              <FlaskConical className="size-4 text-purple-600 dark:text-purple-400" />
+              <div className="flex items-center justify-between flex-1">
+                <div>
+                  <AlertTitle>Dry Run</AlertTitle>
+                  <AlertDescription>
+                    See how your existing files will be organized
+                  </AlertDescription>
+                </div>
+                <Button
+                  onClick={() => setDryRunOpen(true)}
+                  disabled={!configurationReady}
+                >
+                  Begin
+                </Button>
+              </div>
+            </Alert>
+          )}
+
+          {/* Quality Profiles Validation - only show when not enabled */}
+          {!settings?.enabled && (
+            <Alert
+              className={
+                validationResult === null
+                  ? ''
+                  : validationResult.valid
+                    ? 'border-green-500 dark:border-green-600'
+                    : 'border-orange-400 dark:border-orange-500'
+              }
+            >
+              {validationResult === null ? (
+                <Settings className="size-4" />
+              ) : validationResult.valid ? (
+                <Check className="size-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <AlertTriangle className="size-4 text-orange-500 dark:text-orange-400" />
+              )}
+              <div className="flex items-center justify-between flex-1">
+                <div className="flex-1">
+                  <AlertTitle>
+                    Quality Profiles {validationResult === null ? 'Validation' : validationResult.valid ? 'Valid' : 'Not Valid'}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {validationResult === null ? (
+                      'Check that assigned Quality Profiles are mutually exclusive'
+                    ) : validationResult.valid ? (
+                      <div className="mt-2">
+                        <span>Slot profiles are mutually exclusive based on one or more of:</span>
+                        <ul className="mt-1 ml-4 space-y-0.5 text-muted-foreground text-sm">
+                          <li>• Different allowed quality tiers (e.g., 1080p vs 2160p)</li>
+                          <li>• Conflicting HDR requirements (e.g., HDR required vs SDR required)</li>
+                          <li>• Conflicting video codec requirements</li>
+                          <li>• Conflicting audio codec or channel requirements</li>
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="mt-2">
+                        {validationResult.errors &&
+                          validationResult.errors.filter((e) => !e.startsWith('Profile conflict')).length > 0 && (
+                            <ul className="list-disc list-inside">
+                              {validationResult.errors
+                                .filter((e) => !e.startsWith('Profile conflict'))
+                                .map((error, i) => (
+                                  <li key={i}>{error}</li>
+                                ))}
+                            </ul>
+                          )}
+                        {validationResult.conflicts && validationResult.conflicts.length > 0 && (
+                          <div className="space-y-3 mt-2">
+                            {validationResult.conflicts.map((conflict, i) => (
+                              <div key={i}>
+                                <p className="font-medium">
+                                  Conflict between {conflict.slotAName} and {conflict.slotBName}:
+                                </p>
+                                <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                                  {conflict.issues.map((issue, j) => (
+                                    <li key={j}>
+                                      <span className="font-medium">{issue.attribute}:</span> {issue.message}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </AlertDescription>
+                </div>
+                {validationResult !== null && !validationResult.valid ? (
+                  <Button
+                    onClick={() => setResolveConfigOpen(true)}
+                    className="shrink-0 ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Wand2 className="size-4 mr-2" />
+                    Resolve...
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleValidate}
+                    disabled={!configurationReady || validateMutation.isPending}
+                    className="shrink-0 ml-4"
+                  >
+                    {validateMutation.isPending ? 'Validating...' : 'Validate'}
+                  </Button>
+                )}
+              </div>
+            </Alert>
+          )}
+
+          {/* File Naming Validation - only show when not enabled */}
+          {!settings?.enabled && (
+            <Alert
+              className={
+                namingValidation === null
+                  ? ''
+                  : namingValidation.canProceed
+                    ? 'border-green-500 dark:border-green-600'
+                    : 'border-orange-400 dark:border-orange-500'
+              }
+            >
+              {namingValidation === null ? (
+                <FileText className="size-4" />
+              ) : namingValidation.canProceed ? (
+                <Check className="size-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <AlertTriangle className="size-4 text-orange-500 dark:text-orange-400" />
+              )}
+              <div className="flex items-center justify-between flex-1">
+                <div className="flex-1">
+                  <AlertTitle>
+                    File Naming {namingValidation === null ? 'Validation' : namingValidation.canProceed ? 'Valid' : 'Not Valid'}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {namingValidation === null ? (
+                      'Verify filename formats include required differentiator tokens'
+                    ) : namingValidation.canProceed ? (
+                      <p className="mt-2">
+                        {namingValidation.requiredAttributes.length === 0
+                          ? 'No differentiating attributes required between slot profiles'
+                          : `File name formats include tokens for differentiating attributes: ${namingValidation.requiredAttributes.join(', ')}`}
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        <p>
+                          Slots have different requirements for: <span className="font-medium">{namingValidation.requiredAttributes.join(', ')}</span>
+                        </p>
+                        {!namingValidation.movieFormatValid && namingValidation.movieValidation.missingTokens && (
+                          <div>
+                            <p className="font-medium">Movie filename format missing tokens:</p>
+                            <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                              {namingValidation.movieValidation.missingTokens.map((token, i) => (
+                                <li key={i}>
+                                  <span className="font-medium">{token.attribute}:</span> Add <code className="bg-muted px-1 rounded">{token.suggestedToken}</code>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {!namingValidation.episodeFormatValid && namingValidation.episodeValidation.missingTokens && (
+                          <div>
+                            <p className="font-medium">Episode filename format missing tokens:</p>
+                            <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                              {namingValidation.episodeValidation.missingTokens.map((token, i) => (
+                                <li key={i}>
+                                  <span className="font-medium">{token.attribute}:</span> Add <code className="bg-muted px-1 rounded">{token.suggestedToken}</code>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </AlertDescription>
+                </div>
+                {namingValidation !== null && !namingValidation.canProceed ? (
+                  <Button
+                    onClick={() => setResolveNamingOpen(true)}
+                    className="shrink-0 ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Wand2 className="size-4 mr-2" />
+                    Resolve...
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleValidateNaming}
+                    disabled={!configurationReady || validateNamingMutation.isPending}
+                    className="shrink-0 ml-4"
+                  >
+                    {validateNamingMutation.isPending ? 'Validating...' : 'Validate'}
+                  </Button>
+                )}
+              </div>
+            </Alert>
+          )}
+        </CardContent>
+        )}
+      </Card>
+
+      {/* Slot Configuration */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {slots?.map((slot) => {
+          const usedProfileIds = slots
+            .filter((s) => s.id !== slot.id && s.qualityProfileId !== null)
+            .map((s) => s.qualityProfileId!)
+          return (
+            <SlotCard
+              key={slot.id}
+              slot={slot}
+              profiles={profiles ?? []}
+              usedProfileIds={usedProfileIds}
+              movieRootFolders={movieRootFolders ?? []}
+              tvRootFolders={tvRootFolders ?? []}
+              onEnabledChange={(enabled) => handleSlotEnabledChange(slot, enabled)}
+              onNameChange={(name) => handleSlotNameChange(slot, name)}
+              onProfileChange={(profileId) => handleSlotProfileChange(slot, profileId)}
+              onRootFolderChange={(mediaType, rootFolderId) =>
+                handleSlotRootFolderChange(slot, mediaType, rootFolderId)
+              }
+              isUpdating={
+                setEnabledMutation.isPending ||
+                updateSlotMutation.isPending ||
+                setProfileMutation.isPending
+              }
+              showToggle={slot.slotNumber === 3}
+            />
+          )
+        })}
+      </div>
+
+      {/* Debug Panel - only visible in developer mode */}
+      {developerMode && <SlotDebugPanel />}
+
+      {/* Resolve Modals */}
+      <ResolveConfigModal
+        open={resolveConfigOpen}
+        onOpenChange={setResolveConfigOpen}
+        conflicts={validationResult?.conflicts || []}
+        onResolved={handleValidate}
+      />
+
+      <ResolveNamingModal
+        open={resolveNamingOpen}
+        onOpenChange={setResolveNamingOpen}
+        missingMovieTokens={namingValidation?.movieValidation?.missingTokens}
+        missingEpisodeTokens={namingValidation?.episodeValidation?.missingTokens}
+        onResolved={handleValidateNaming}
+      />
+
+      <DryRunModal
+        open={dryRunOpen}
+        onOpenChange={setDryRunOpen}
+        onMigrationComplete={() => {
+          refetchSettings()
+          refetchSlots()
+        }}
+        onMigrationFailed={(error) => setMigrationError(error)}
+      />
+    </div>
+  )
+}
+
+interface SlotCardProps {
+  slot: Slot
+  profiles: { id: number; name: string }[]
+  usedProfileIds: number[]
+  movieRootFolders: RootFolder[]
+  tvRootFolders: RootFolder[]
+  onEnabledChange: (enabled: boolean) => void
+  onNameChange: (name: string) => void
+  onProfileChange: (profileId: string) => void
+  onRootFolderChange: (mediaType: 'movie' | 'tv', rootFolderId: string) => void
+  isUpdating: boolean
+  showToggle?: boolean
+}
+
+function SlotCard({
+  slot,
+  profiles,
+  usedProfileIds,
+  movieRootFolders,
+  tvRootFolders,
+  onEnabledChange,
+  onNameChange,
+  onProfileChange,
+  onRootFolderChange,
+  isUpdating,
+  showToggle = false,
+}: SlotCardProps) {
+  const availableProfiles = profiles.filter((p) => !usedProfileIds.includes(p.id))
+  const [editingName, setEditingName] = useState(false)
+  const [tempName, setTempName] = useState(slot.name)
+
+  // Slots without toggle are always considered active
+  const isActive = showToggle ? slot.enabled : true
+
+  const handleNameSubmit = () => {
+    if (tempName.trim() && tempName !== slot.name) {
+      onNameChange(tempName.trim())
+    }
+    setEditingName(false)
+  }
+
+  return (
+    <Card className={isActive ? 'ring-primary/50 ring-2' : ''}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold">
+              {slot.slotNumber}
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div
+              className={`group relative flex items-center rounded-md border transition-colors ${
+                editingName
+                  ? 'border-primary bg-background'
+                  : 'border-transparent hover:border-muted-foreground/25 hover:bg-muted/50'
+              }`}
+            >
+              <Input
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                onFocus={() => setEditingName(true)}
+                onBlur={handleNameSubmit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleNameSubmit()
+                    e.currentTarget.blur()
+                  }
+                  if (e.key === 'Escape') {
+                    setTempName(slot.name)
+                    setEditingName(false)
+                    e.currentTarget.blur()
+                  }
+                }}
+                className="h-8 border-0 bg-transparent text-base font-semibold tracking-tight focus-visible:ring-0 focus-visible:ring-offset-0 pr-8"
+              />
+              <Pencil
+                className={`absolute right-2 size-3.5 text-muted-foreground transition-opacity ${
+                  editingName ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              />
+            </div>
+          </div>
+          {showToggle && (
+            slot.qualityProfileId === null ? (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Switch
+                    checked={slot.enabled}
+                    disabled
+                    className="shrink-0"
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>Select a quality profile first</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Switch
+                checked={slot.enabled}
+                onCheckedChange={onEnabledChange}
+                disabled={isUpdating}
+                className="shrink-0"
+              />
+            )
+          )}
+        </div>
+        <CardDescription>
+          {isActive ? 'Active' : 'Disabled'}
+          {slot.fileCount !== undefined && slot.fileCount > 0 && ` • ${slot.fileCount} files`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`slot-${slot.id}-profile`}>Quality Profile</Label>
+            <Select
+              value={slot.qualityProfileId?.toString() ?? 'none'}
+              onValueChange={(v) => v && onProfileChange(v)}
+              disabled={isUpdating}
+            >
+              <SelectTrigger id={`slot-${slot.id}-profile`}>
+                {slot.qualityProfile?.name ?? 'Select profile...'}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {availableProfiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id.toString()}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`slot-${slot.id}-movie-root`}>Movie Root Folder</Label>
+            <Select
+              value={slot.movieRootFolderId?.toString() ?? 'none'}
+              onValueChange={(v) => v && onRootFolderChange('movie', v)}
+              disabled={isUpdating}
+            >
+              <SelectTrigger id={`slot-${slot.id}-movie-root`}>
+                {movieRootFolders.find(f => f.id === slot.movieRootFolderId)?.name ?? 'Use media default'}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Use media default</SelectItem>
+                {movieRootFolders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id.toString()}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`slot-${slot.id}-tv-root`}>TV Root Folder</Label>
+            <Select
+              value={slot.tvRootFolderId?.toString() ?? 'none'}
+              onValueChange={(v) => v && onRootFolderChange('tv', v)}
+              disabled={isUpdating}
+            >
+              <SelectTrigger id={`slot-${slot.id}-tv-root`}>
+                {tvRootFolders.find(f => f.id === slot.tvRootFolderId)?.name ?? 'Use media default'}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Use media default</SelectItem>
+                {tvRootFolders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id.toString()}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

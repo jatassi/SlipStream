@@ -36,6 +36,10 @@ import {
   useUpdateEpisodeMonitored,
   useAutoSearchSeason,
   useAutoSearchEpisode,
+  useAutoSearchEpisodeSlot,
+  useMultiVersionSettings,
+  useSlots,
+  useAssignEpisodeFile,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -44,6 +48,7 @@ import type { Episode, AutoSearchResult, BatchAutoSearchResult } from '@/types'
 interface SearchContext {
   season?: number
   episode?: Episode
+  qualityProfileId?: number | null
 }
 
 export function SeriesDetailPage() {
@@ -55,6 +60,7 @@ export function SeriesDetailPage() {
   const [searchContext, setSearchContext] = useState<SearchContext>({})
   const [searchingSeasonNumber, setSearchingSeasonNumber] = useState<number | null>(null)
   const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
+  const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
   const { data: episodes } = useEpisodes(seriesId)
@@ -82,6 +88,28 @@ export function SeriesDetailPage() {
   const updateEpisodeMonitoredMutation = useUpdateEpisodeMonitored()
   const seasonAutoSearchMutation = useAutoSearchSeason()
   const episodeAutoSearchMutation = useAutoSearchEpisode()
+  const episodeSlotAutoSearchMutation = useAutoSearchEpisodeSlot()
+
+  const { data: multiVersionSettings } = useMultiVersionSettings()
+  const { data: slots } = useSlots()
+  const assignFileMutation = useAssignEpisodeFile()
+
+  const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
+  const enabledSlots = slots?.filter(s => s.enabled) ?? []
+
+  const handleAssignFileToSlot = async (fileId: number, episodeId: number, slotId: number) => {
+    try {
+      await assignFileMutation.mutateAsync({
+        episodeId,
+        slotId,
+        data: { fileId },
+      })
+      refetch()
+      toast.success('File assigned to slot')
+    } catch {
+      toast.error('Failed to assign file to slot')
+    }
+  }
 
   const handleToggleMonitored = async () => {
     if (!series) return
@@ -218,6 +246,56 @@ export function SeriesDetailPage() {
       toast.success(`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')} ${monitored ? 'monitored' : 'unmonitored'}`)
     } catch {
       toast.error('Failed to update episode')
+    }
+  }
+
+  const handleSlotManualSearch = (episodeId: number, slotId: number) => {
+    const slot = slots?.find(s => s.id === slotId)
+    const episode = episodes?.find(e => e.id === episodeId)
+    if (!slot?.qualityProfileId) {
+      toast.error('Slot has no quality profile configured')
+      return
+    }
+    if (episode) {
+      setSearchContext({
+        season: episode.seasonNumber,
+        episode,
+        qualityProfileId: slot.qualityProfileId,
+      })
+      setSearchModalOpen(true)
+    }
+  }
+
+  const handleSlotAutoSearch = async (episodeId: number, slotId: number) => {
+    const slot = slots?.find(s => s.id === slotId)
+    const episode = episodes?.find(e => e.id === episodeId)
+    if (!slot?.qualityProfileId) {
+      toast.error('Slot has no quality profile configured')
+      return
+    }
+
+    setSearchingSlotId(slotId)
+    try {
+      const result = await episodeSlotAutoSearchMutation.mutateAsync({ episodeId, slotId })
+      const epLabel = episode
+        ? `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`
+        : 'Episode'
+      if (result.downloaded) {
+        toast.success(`Release grabbed for ${slot.name} (${epLabel})`)
+        refetch()
+      } else if (result.found) {
+        toast.info(`Release found for ${slot.name} (${epLabel}) but not grabbed`)
+      } else {
+        toast.info(`No releases found for ${slot.name} (${epLabel})`)
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('409')) {
+        toast.warning('Episode is already in the download queue')
+      } else {
+        toast.error(`Auto search failed for ${slot.name}`)
+      }
+    } finally {
+      setSearchingSlotId(null)
     }
   }
 
@@ -408,8 +486,15 @@ export function SeriesDetailPage() {
                 onEpisodeSearch={handleEpisodeSearch}
                 onEpisodeAutoSearch={handleEpisodeAutoSearch}
                 onEpisodeMonitoredChange={handleEpisodeMonitoredChange}
+                onAssignFileToSlot={handleAssignFileToSlot}
+                onSlotManualSearch={handleSlotManualSearch}
+                onSlotAutoSearch={handleSlotAutoSearch}
                 searchingSeasonNumber={searchingSeasonNumber}
                 searchingEpisodeId={searchingEpisodeId}
+                searchingSlotId={searchingSlotId}
+                isMultiVersionEnabled={isMultiVersionEnabled}
+                enabledSlots={enabledSlots}
+                isAssigning={assignFileMutation.isPending}
               />
             ) : (
               <p className="text-muted-foreground">No seasons found</p>
@@ -421,8 +506,11 @@ export function SeriesDetailPage() {
       {/* Search Modal */}
       <SearchModal
         open={searchModalOpen}
-        onOpenChange={setSearchModalOpen}
-        qualityProfileId={series.qualityProfileId}
+        onOpenChange={(open) => {
+          setSearchModalOpen(open)
+          if (!open) setSearchContext({})
+        }}
+        qualityProfileId={searchContext.qualityProfileId ?? series.qualityProfileId}
         seriesId={series.id}
         seriesTitle={series.title}
         tvdbId={series.tvdbId}

@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/slipstream/slipstream/internal/library/quality"
 )
 
 // ParsedMedia represents a media file parsed from a filename.
@@ -23,7 +25,8 @@ type ParsedMedia struct {
 	AudioCodecs       []string `json:"audioCodecs,omitempty"`      // "TrueHD", "DTS-HD MA", "DDP", "AAC"
 	AudioChannels     []string `json:"audioChannels,omitempty"`    // "2.0", "5.1", "7.1"
 	AudioEnhancements []string `json:"audioEnhancements,omitempty"` // "Atmos", "DTS:X"
-	Attributes        []string `json:"attributes,omitempty"`       // HDR, REMUX, etc. (video attributes)
+	HDRFormats        []string `json:"hdrFormats,omitempty"`       // "DV", "HDR10+", "HDR10", "HDR", "HLG", or "SDR"
+	Attributes        []string `json:"attributes,omitempty"`       // HDR + REMUX combined for display (backwards compat)
 	ReleaseGroup      string   `json:"releaseGroup,omitempty"`     // "SPARKS", "NTb", "HONE"
 	Revision          string   `json:"revision,omitempty"`         // "Proper", "REPACK", "REAL"
 	Edition           string   `json:"edition,omitempty"`          // "Directors Cut", "Extended", "Theatrical"
@@ -90,8 +93,8 @@ var (
 	// HDR patterns (order matters - more specific patterns first)
 	hdrPatterns = map[string]*regexp.Regexp{
 		"DV":     regexp.MustCompile(`(?i)(dolby[\.\s]?vision|dovi|\.dv\.)`),
-		"HDR10+": regexp.MustCompile(`(?i)hdr10\+`),
-		"HDR10":  regexp.MustCompile(`(?i)hdr10`),
+		"HDR10+": regexp.MustCompile(`(?i)hdr10(\+|plus)`),
+		"HDR10":  regexp.MustCompile(`(?i)hdr10(?:[^\+p]|$)`), // HDR10 not followed by + or 'p' (plus)
 		"HDR":    regexp.MustCompile(`(?i)[\.\s\-]hdr[\.\s\-]`),
 		"HLG":    regexp.MustCompile(`(?i)hlg`),
 	}
@@ -286,9 +289,9 @@ func cleanTitle(title string) string {
 // parseQualityInfo extracts quality, source, codec, and attributes from remaining text.
 func parseQualityInfo(text string, parsed *ParsedMedia) {
 	// Quality
-	for quality, pattern := range qualityPatterns {
+	for q, pattern := range qualityPatterns {
 		if pattern.MatchString(text) {
-			parsed.Quality = quality
+			parsed.Quality = q
 			break
 		}
 	}
@@ -301,47 +304,56 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 		}
 	}
 
-	// Codec
+	// Codec - normalize using quality package
 	for codec, pattern := range codecPatterns {
 		if pattern.MatchString(text) {
-			parsed.Codec = codec
+			parsed.Codec = quality.NormalizeVideoCodec(codec)
 			break
 		}
 	}
 
-	// Video attributes
-	var attributes []string
-
-	// Check for REMUX (from source)
-	if parsed.Source == "Remux" {
-		attributes = append(attributes, "REMUX")
-	}
-
-	// HDR attributes (collect all that match)
+	// HDR formats (collect all that match) - separate from display attributes
+	var hdrFormats []string
 	hdrOrder := []string{"DV", "HDR10+", "HDR10", "HDR", "HLG"}
 	for _, hdr := range hdrOrder {
 		if pattern, ok := hdrPatterns[hdr]; ok && pattern.MatchString(text) {
-			attributes = append(attributes, hdr)
+			hdrFormats = append(hdrFormats, hdr)
 		}
 	}
 
+	// Set HDRFormats - if no HDR detected, mark as SDR
+	if len(hdrFormats) > 0 {
+		parsed.HDRFormats = hdrFormats
+	} else {
+		parsed.HDRFormats = []string{"SDR"}
+	}
+
+	// Build display attributes (backwards compat) - includes REMUX + HDR
+	var attributes []string
+	if parsed.Source == "Remux" {
+		attributes = append(attributes, "REMUX")
+	}
+	// Add HDR formats to display attributes (but not SDR - that's implicit)
+	for _, hdr := range hdrFormats {
+		attributes = append(attributes, hdr)
+	}
 	if len(attributes) > 0 {
 		parsed.Attributes = attributes
 	}
 
-	// Audio codecs (collect all that match, check in priority order)
+	// Audio codecs - normalize using quality package
 	audioCodecOrder := []string{"TrueHD", "DTS-HD MA", "DTS-HD", "DTS", "DDP", "DD", "AAC", "FLAC", "LPCM", "PCM", "Opus", "MP3"}
 	for _, codec := range audioCodecOrder {
 		if pattern, ok := audioCodecPatterns[codec]; ok && pattern.MatchString(text) {
-			parsed.AudioCodecs = append(parsed.AudioCodecs, codec)
+			parsed.AudioCodecs = append(parsed.AudioCodecs, quality.NormalizeAudioCodec(codec))
 		}
 	}
 
-	// Audio channels (collect all that match)
+	// Audio channels - normalize using quality package
 	channelOrder := []string{"7.1", "5.1", "2.0", "1.0"}
 	for _, channels := range channelOrder {
 		if pattern, ok := audioChannelPatterns[channels]; ok && pattern.MatchString(text) {
-			parsed.AudioChannels = append(parsed.AudioChannels, channels)
+			parsed.AudioChannels = append(parsed.AudioChannels, quality.NormalizeAudioChannels(channels))
 		}
 	}
 
@@ -418,4 +430,15 @@ func ParsePath(fullPath string) *ParsedMedia {
 
 	parsed.FilePath = fullPath
 	return parsed
+}
+
+// ToReleaseAttributes converts ParsedMedia to quality.ReleaseAttributes for profile matching.
+// This bridges the parser output to the quality matching system.
+func (p *ParsedMedia) ToReleaseAttributes() quality.ReleaseAttributes {
+	return quality.ReleaseAttributes{
+		HDRFormats:    p.HDRFormats,
+		VideoCodec:    p.Codec,
+		AudioCodecs:   p.AudioCodecs,
+		AudioChannels: p.AudioChannels,
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
+	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
@@ -81,6 +82,7 @@ type Service struct {
 	organizer  *organizer.Service
 	renamer    *renamer.Resolver
 	mediainfo  *mediainfo.Service
+	slots      *slots.Service
 	health     HealthService
 	history    HistoryService
 	hub        *websocket.Hub
@@ -104,6 +106,7 @@ type ImportJob struct {
 	QueueMedia      *QueueMedia      // Per-file status for season packs (nil for single files)
 	Manual          bool             // Whether this is a manual import
 	ConfirmedMatch  *LibraryMatch    // Pre-confirmed match for manual imports
+	TargetSlotID    *int64           // Req 5.2.3: User-specified target slot (nil = auto-detect)
 }
 
 // DownloadMapping represents the queue-to-library mapping.
@@ -157,6 +160,22 @@ type ImportResult struct {
 	Error           error
 	IsUpgrade       bool
 	PreviousFile    string
+
+	// Slot information (Req 5.2.1-5.2.3)
+	RequiresSlotSelection bool              // True if user must select a slot
+	SlotAssignments       []SlotAssignment  // Available slot options when selection required
+	RecommendedSlotID     *int64            // Recommended slot based on best match
+	AssignedSlotID        *int64            // Slot file was assigned to after import
+}
+
+// SlotAssignment represents a potential slot for a file.
+type SlotAssignment struct {
+	SlotID     int64   `json:"slotId"`
+	SlotNumber int     `json:"slotNumber"`
+	SlotName   string  `json:"slotName"`
+	MatchScore float64 `json:"matchScore"`
+	IsUpgrade  bool    `json:"isUpgrade"`
+	IsNewFill  bool    `json:"isNewFill"`
 }
 
 // NewService creates a new import service.
@@ -204,6 +223,11 @@ func (s *Service) SetHealthService(hs HealthService) {
 // SetHistoryService sets the history service for logging import events.
 func (s *Service) SetHistoryService(hs HistoryService) {
 	s.history = hs
+}
+
+// SetSlotsService sets the slots service for multi-version support.
+func (s *Service) SetSlotsService(ss *slots.Service) {
+	s.slots = ss
 }
 
 // UpdateRenamerSettings updates the renamer with new settings.
@@ -486,7 +510,19 @@ func (s *Service) CheckAndProcessCompletedDownloads(ctx context.Context) error {
 }
 
 // populateRootFolder determines and sets the root folder for a library match.
-func (s *Service) populateRootFolder(ctx context.Context, match *LibraryMatch) error {
+// Req 22.2.1-22.2.3: In multi-version mode, check target slot's root folder first.
+func (s *Service) populateRootFolder(ctx context.Context, match *LibraryMatch, targetSlotID *int64) error {
+	// In multi-version mode with a target slot, try slot's root folder first
+	if s.slots != nil && targetSlotID != nil && s.slots.IsMultiVersionEnabled(ctx) {
+		rootFolderPath, err := s.slots.GetRootFolderForSlot(ctx, *targetSlotID, match.MediaType)
+		if err == nil && rootFolderPath != "" {
+			match.RootFolder = rootFolderPath
+			return nil
+		}
+		// Fall through to media item root folder if slot has no root folder set
+	}
+
+	// Existing logic: get root folder from movie/series
 	var rootFolderID int64
 
 	if match.MediaType == "movie" && match.MovieID != nil {

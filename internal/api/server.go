@@ -33,6 +33,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
+	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/library/organizer"
@@ -85,6 +86,7 @@ type Server struct {
 	importService         *importer.Service
 	organizerService      *organizer.Service
 	mediainfoService      *mediainfo.Service
+	slotsService          *slots.Service
 }
 
 // NewServer creates a new API server instance.
@@ -110,9 +112,26 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.movieService = movies.NewService(db, hub, logger)
 	s.tvService = tv.NewService(db, hub, logger)
 	s.qualityService = quality.NewService(db, logger)
+	s.slotsService = slots.NewService(db, s.qualityService, logger)
+
+	// Wire up slot-related file deletion handling (Req 12.1.1, 12.1.2)
+	s.movieService.SetFileDeleteHandler(s.slotsService)
+	s.tvService.SetFileDeleteHandler(s.slotsService)
+
+	// Wire up file deleter for slot disable operations (Req 12.2.2)
+	s.slotsService.SetFileDeleter(&slotFileDeleterAdapter{
+		movieSvc: s.movieService,
+		tvSvc:    s.tvService,
+	})
+
 	s.defaultsService = defaults.NewService(sqlc.New(db))
 	s.rootFolderService = rootfolder.NewService(db, logger, s.defaultsService)
 	s.rootFolderService.SetHealthService(s.healthService)
+
+	// Wire up root folder provider for slot-level root folders (Req 22.1.1-22.1.4)
+	s.slotsService.SetRootFolderProvider(&slotRootFolderAdapter{
+		rootFolderSvc: s.rootFolderService,
+	})
 
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
@@ -201,6 +220,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	)
 	s.importService.SetHealthService(s.healthService)
 	s.importService.SetHistoryService(&importHistoryAdapter{s.historyService})
+	s.importService.SetSlotsService(s.slotsService)
 
 	// Initialize autosearch service
 	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
@@ -250,6 +270,7 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	// Wire up optional services for search-on-add functionality
 	s.libraryManagerService.SetAutosearchService(s.autosearchService)
 	s.libraryManagerService.SetPreferencesService(s.preferencesService)
+	s.libraryManagerService.SetSlotsService(s.slotsService)
 
 	// Register library-dependent scheduled tasks (after library manager is initialized)
 	if s.scheduler != nil {
@@ -411,6 +432,14 @@ func (s *Server) setupRoutes() {
 	// Quality profiles routes
 	qualityHandlers := quality.NewHandlers(s.qualityService)
 	qualityHandlers.RegisterRoutes(api.Group("/qualityprofiles"))
+
+	// Version slots routes (multi-version support)
+	slotsHandlers := slots.NewHandlers(s.slotsService)
+	slotsHandlers.RegisterRoutes(api.Group("/slots"))
+
+	// Slots debug routes (gated behind developerMode)
+	slotsDebugHandlers := slots.NewDebugHandlers(s.slotsService, s.cfg.DeveloperMode)
+	slotsDebugHandlers.RegisterDebugRoutes(api.Group("/slots/debug"))
 
 	// Root folders routes
 	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
@@ -951,4 +980,42 @@ func (a *importHistoryAdapter) Create(ctx context.Context, input importer.Histor
 		Data:      input.Data,
 	})
 	return err
+}
+
+// slotFileDeleterAdapter adapts movie and TV services to slots.FileDeleter interface.
+// Req 12.2.2: Delete files when disabling a slot with delete action.
+type slotFileDeleterAdapter struct {
+	movieSvc *movies.Service
+	tvSvc    *tv.Service
+}
+
+// DeleteFile implements slots.FileDeleter.
+func (a *slotFileDeleterAdapter) DeleteFile(ctx context.Context, mediaType string, fileID int64) error {
+	switch mediaType {
+	case "movie":
+		return a.movieSvc.RemoveFile(ctx, fileID)
+	case "episode":
+		return a.tvSvc.RemoveEpisodeFile(ctx, fileID)
+	default:
+		return nil
+	}
+}
+
+// slotRootFolderAdapter adapts rootfolder.Service to slots.RootFolderProvider.
+type slotRootFolderAdapter struct {
+	rootFolderSvc *rootfolder.Service
+}
+
+// Get implements slots.RootFolderProvider.
+func (a *slotRootFolderAdapter) Get(ctx context.Context, id int64) (*slots.RootFolder, error) {
+	rf, err := a.rootFolderSvc.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &slots.RootFolder{
+		ID:        rf.ID,
+		Path:      rf.Path,
+		Name:      rf.Name,
+		MediaType: rf.MediaType,
+	}, nil
 }

@@ -14,6 +14,7 @@ export interface QueueItem {
   source?: string
   codec?: string
   attributes: string[]
+  hdrFormats?: string[]
   season?: number
   episode?: number
   downloadPath: string

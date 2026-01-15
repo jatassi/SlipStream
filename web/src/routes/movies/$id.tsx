@@ -21,6 +21,7 @@ import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { SearchModal } from '@/components/search/SearchModal'
 import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { SlotStatusCard } from '@/components/slots'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,10 +35,22 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
   useMovie,
   useUpdateMovie,
   useDeleteMovie,
   useRefreshMovie,
+  useMultiVersionSettings,
+  useMovieSlotStatus,
+  useSetMovieSlotMonitored,
+  useSlots,
+  useAssignMovieFile,
+  useAutoSearchMovieSlot,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -48,11 +61,28 @@ export function MovieDetailPage() {
   const movieId = parseInt(id)
 
   const [searchModalOpen, setSearchModalOpen] = useState(false)
+  const [searchQualityProfileId, setSearchQualityProfileId] = useState<number | null>(null)
 
   const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
+  const { data: multiVersionSettings } = useMultiVersionSettings()
+  const { data: slotStatus, isLoading: isLoadingSlotStatus } = useMovieSlotStatus(movieId)
+  const { data: slots } = useSlots()
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
   const refreshMutation = useRefreshMovie()
+  const setSlotMonitoredMutation = useSetMovieSlotMonitored()
+  const assignFileMutation = useAssignMovieFile()
+  const autoSearchSlotMutation = useAutoSearchMovieSlot()
+
+  const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
+  const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
+  const enabledSlots = slots?.filter(s => s.enabled) ?? []
+
+  const getSlotName = (slotId: number | undefined) => {
+    if (!slotId) return null
+    const slot = slots?.find(s => s.id === slotId)
+    return slot?.name ?? null
+  }
 
   const handleToggleMonitored = async () => {
     if (!movie) return
@@ -87,6 +117,68 @@ export function MovieDetailPage() {
       navigate({ to: '/movies' })
     } catch {
       toast.error('Failed to delete movie')
+    }
+  }
+
+  const handleToggleSlotMonitored = async (slotId: number, monitored: boolean) => {
+    try {
+      await setSlotMonitoredMutation.mutateAsync({
+        movieId,
+        slotId,
+        data: { monitored },
+      })
+      toast.success(monitored ? 'Slot monitored' : 'Slot unmonitored')
+    } catch {
+      toast.error('Failed to update slot monitoring')
+    }
+  }
+
+  const handleSlotManualSearch = (slotId: number) => {
+    const slot = slots?.find(s => s.id === slotId)
+    if (slot?.qualityProfileId) {
+      setSearchQualityProfileId(slot.qualityProfileId)
+      setSearchModalOpen(true)
+    } else {
+      toast.error('Slot has no quality profile configured')
+    }
+  }
+
+  const handleSlotAutoSearch = async (slotId: number) => {
+    const slot = slots?.find(s => s.id === slotId)
+    if (!slot?.qualityProfileId) {
+      toast.error('Slot has no quality profile configured')
+      return
+    }
+
+    setSearchingSlotId(slotId)
+    try {
+      const result = await autoSearchSlotMutation.mutateAsync({ movieId, slotId })
+      if (result.downloaded) {
+        toast.success(`Release grabbed for ${slot.name}`)
+        refetch()
+      } else if (result.found) {
+        toast.info(`Release found for ${slot.name} but not grabbed`)
+      } else {
+        toast.info(`No releases found for ${slot.name}`)
+      }
+    } catch {
+      toast.error(`Auto search failed for ${slot.name}`)
+    } finally {
+      setSearchingSlotId(null)
+    }
+  }
+
+  const handleAssignFileToSlot = async (fileId: number, slotId: number) => {
+    try {
+      await assignFileMutation.mutateAsync({
+        movieId,
+        slotId,
+        data: { fileId },
+      })
+      refetch()
+      toast.success('File assigned to slot')
+    } catch {
+      toast.error('Failed to assign file to slot')
     }
   }
 
@@ -224,6 +316,19 @@ export function MovieDetailPage() {
           </Card>
         )}
 
+        {/* Multi-Version Slot Status */}
+        {isMultiVersionEnabled && (
+          <SlotStatusCard
+            status={slotStatus}
+            isLoading={isLoadingSlotStatus}
+            onToggleMonitored={handleToggleSlotMonitored}
+            onManualSearch={handleSlotManualSearch}
+            onAutoSearch={handleSlotAutoSearch}
+            isUpdating={setSlotMonitoredMutation.isPending}
+            isSearching={searchingSlotId}
+          />
+        )}
+
         {/* Details */}
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
@@ -266,6 +371,7 @@ export function MovieDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Quality</TableHead>
+                      {isMultiVersionEnabled && <TableHead>Slot</TableHead>}
                       <TableHead>Size</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -275,6 +381,35 @@ export function MovieDetailPage() {
                         <TableCell>
                           <QualityBadge quality={file.quality} />
                         </TableCell>
+                        {isMultiVersionEnabled && (
+                          <TableCell>
+                            <Select
+                              value={file.slotId?.toString() ?? 'unassigned'}
+                              onValueChange={(value) => {
+                                if (value && value !== 'unassigned') {
+                                  handleAssignFileToSlot(file.id, parseInt(value, 10))
+                                }
+                              }}
+                              disabled={assignFileMutation.isPending}
+                            >
+                              <SelectTrigger className="w-32 h-8">
+                                {getSlotName(file.slotId) ?? (
+                                  <span className="text-muted-foreground">Unassigned</span>
+                                )}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned" disabled>
+                                  Unassigned
+                                </SelectItem>
+                                {enabledSlots.map((slot) => (
+                                  <SelectItem key={slot.id} value={slot.id.toString()}>
+                                    {slot.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        )}
                         <TableCell>{formatBytes(file.size)}</TableCell>
                       </TableRow>
                     ))}
@@ -289,8 +424,11 @@ export function MovieDetailPage() {
       {/* Search Modal */}
       <SearchModal
         open={searchModalOpen}
-        onOpenChange={setSearchModalOpen}
-        qualityProfileId={movie.qualityProfileId}
+        onOpenChange={(open) => {
+          setSearchModalOpen(open)
+          if (!open) setSearchQualityProfileId(null)
+        }}
+        qualityProfileId={searchQualityProfileId ?? movie.qualityProfileId}
         movieId={movie.id}
         movieTitle={movie.title}
         tmdbId={movie.tmdbId}

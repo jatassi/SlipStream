@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Search,
   FileInput,
+  Layers,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +19,12 @@ const settingsLinks = [
     description: 'Configure quality profiles for movies and series',
     href: '/settings/profiles',
     icon: Sliders,
+  },
+  {
+    title: 'Version Slots',
+    description: 'Configure multi-version quality slots',
+    href: '/settings/slots',
+    icon: Layers,
   },
   {
     title: 'Root Folders',

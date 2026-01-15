@@ -42,6 +42,8 @@ type CreateDownloadMappingInput struct {
 	EpisodeID        *int64
 	IsSeasonPack     bool
 	IsCompleteSeries bool
+	// Req 10.1.2: Target slot for multi-version tracking
+	TargetSlotID *int64
 }
 
 // CreateDownloadMapping creates a download mapping record when a download is initiated.
@@ -65,6 +67,10 @@ func (s *Service) CreateDownloadMapping(ctx context.Context, input CreateDownloa
 	}
 	if input.EpisodeID != nil {
 		params.EpisodeID = sql.NullInt64{Int64: *input.EpisodeID, Valid: true}
+	}
+	// Req 10.1.2: Set target slot for multi-version tracking
+	if input.TargetSlotID != nil {
+		params.TargetSlotID = sql.NullInt64{Int64: *input.TargetSlotID, Valid: true}
 	}
 
 	mapping, err := s.queries.CreateDownloadMapping(ctx, params)
@@ -104,6 +110,49 @@ func (s *Service) DeleteDownloadMapping(ctx context.Context, clientID int64, dow
 	return nil
 }
 
+// ClearDownloadMappingSlot clears the target slot from a download mapping.
+// Req 10.2.1: If download fails or rejected, slot reverts to "empty" immediately
+// Req 10.2.2: No pending/retry state; waits for next search or manual action
+func (s *Service) ClearDownloadMappingSlot(ctx context.Context, clientID int64, downloadID string) error {
+	if err := s.queries.ClearDownloadMappingSlot(ctx, sqlc.ClearDownloadMappingSlotParams{
+		ClientID:   clientID,
+		DownloadID: downloadID,
+	}); err != nil {
+		return fmt.Errorf("failed to clear download mapping slot: %w", err)
+	}
+
+	s.logger.Debug().
+		Int64("clientId", clientID).
+		Str("downloadId", downloadID).
+		Msg("Cleared slot assignment from failed download mapping")
+
+	return nil
+}
+
+// HandleFailedDownload handles a failed download by clearing its slot assignment
+// and removing the mapping. Call this when a download is detected as failed or rejected.
+// Req 10.2.1: Slot reverts to "empty" immediately on failure
+func (s *Service) HandleFailedDownload(ctx context.Context, clientID int64, downloadID string) error {
+	// Get the mapping to check if it has a slot assigned
+	mapping, err := s.GetDownloadMapping(ctx, clientID, downloadID)
+	if err != nil {
+		// Mapping may not exist, that's OK
+		return nil
+	}
+
+	// If the mapping had a slot, log the failure
+	if mapping.TargetSlotID.Valid {
+		s.logger.Info().
+			Int64("clientId", clientID).
+			Str("downloadId", downloadID).
+			Int64("slotId", mapping.TargetSlotID.Int64).
+			Msg("Download failed, clearing slot assignment")
+	}
+
+	// Delete the mapping (which implicitly clears the slot)
+	return s.DeleteDownloadMapping(ctx, clientID, downloadID)
+}
+
 // CreateQueueMediaInput contains the input for creating a queue media entry.
 type CreateQueueMediaInput struct {
 	DownloadMappingID int64
@@ -111,6 +160,8 @@ type CreateQueueMediaInput struct {
 	MovieID           *int64
 	FilePath          string
 	FileStatus        QueueMediaStatus
+	// Req 16.2.3: Per-episode slot assignment for season packs
+	TargetSlotID *int64
 }
 
 // CreateQueueMedia creates a queue_media entry for tracking individual file import status.
@@ -128,6 +179,10 @@ func (s *Service) CreateQueueMedia(ctx context.Context, input CreateQueueMediaIn
 	}
 	if input.MovieID != nil {
 		params.MovieID = sql.NullInt64{Int64: *input.MovieID, Valid: true}
+	}
+	// Req 16.2.3: Per-episode slot assignment for season packs
+	if input.TargetSlotID != nil {
+		params.TargetSlotID = sql.NullInt64{Int64: *input.TargetSlotID, Valid: true}
 	}
 
 	entry, err := s.queries.CreateQueueMedia(ctx, params)

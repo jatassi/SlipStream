@@ -42,7 +42,10 @@
       "Bash(make test:*)",
       "Bash(xargs find)",
       "Bash(npx tsc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(go vet:*)",
+      "Bash(npm run lint:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

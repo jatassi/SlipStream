@@ -42,6 +42,9 @@ type QueueItem struct {
 	EpisodeID        *int64 `json:"episodeId,omitempty"`
 	IsSeasonPack     bool   `json:"isSeasonPack,omitempty"`
 	IsCompleteSeries bool   `json:"isCompleteSeries,omitempty"`
+	// Req 10.1.2: Target slot info shown inline with each queue item
+	TargetSlotID   *int64 `json:"targetSlotId,omitempty"`
+	TargetSlotName string `json:"targetSlotName,omitempty"`
 }
 
 // GetQueue returns all items from all enabled download clients.
@@ -81,6 +84,8 @@ func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
 }
 
 // enrichQueueItemsWithMappings populates library IDs on queue items from download_mappings.
+// Req 10.1.1: Queue shows raw downloads with mapped media
+// Req 10.1.2: Target slot info shown inline with each queue item
 func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []QueueItem) {
 	if len(items) == 0 {
 		return
@@ -99,6 +104,9 @@ func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []Queu
 		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
 		mappingLookup[key] = m
 	}
+
+	// Build slot lookup map: slotID -> slot name
+	slotLookup := s.buildSlotLookup(ctx)
 
 	// Enrich each item
 	for i := range items {
@@ -122,8 +130,32 @@ func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []Queu
 			}
 			items[i].IsSeasonPack = mapping.IsSeasonPack == 1
 			items[i].IsCompleteSeries = mapping.IsCompleteSeries == 1
+
+			// Req 10.1.2: Populate target slot info
+			if mapping.TargetSlotID.Valid {
+				slotID := mapping.TargetSlotID.Int64
+				items[i].TargetSlotID = &slotID
+				if slotName, ok := slotLookup[slotID]; ok {
+					items[i].TargetSlotName = slotName
+				}
+			}
 		}
 	}
+}
+
+// buildSlotLookup builds a map of slot IDs to slot names.
+func (s *Service) buildSlotLookup(ctx context.Context) map[int64]string {
+	slots, err := s.queries.ListVersionSlots(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to get version slots for queue enrichment")
+		return nil
+	}
+
+	lookup := make(map[int64]string, len(slots))
+	for _, slot := range slots {
+		lookup[slot.ID] = slot.Name
+	}
+	return lookup
 }
 
 // getClientQueue fetches queue items from any download client using the unified interface.

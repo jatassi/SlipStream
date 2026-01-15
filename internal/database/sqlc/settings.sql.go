@@ -181,19 +181,31 @@ func (q *Queries) CreateHistoryEntry(ctx context.Context, arg CreateHistoryEntry
 }
 
 const createQualityProfile = `-- name: CreateQualityProfile :one
-INSERT INTO quality_profiles (name, cutoff, items)
-VALUES (?, ?, ?)
-RETURNING id, name, cutoff, items, created_at, updated_at
+INSERT INTO quality_profiles (name, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings
 `
 
 type CreateQualityProfileParams struct {
-	Name   string `json:"name"`
-	Cutoff int64  `json:"cutoff"`
-	Items  string `json:"items"`
+	Name                 string `json:"name"`
+	Cutoff               int64  `json:"cutoff"`
+	Items                string `json:"items"`
+	HdrSettings          string `json:"hdr_settings"`
+	VideoCodecSettings   string `json:"video_codec_settings"`
+	AudioCodecSettings   string `json:"audio_codec_settings"`
+	AudioChannelSettings string `json:"audio_channel_settings"`
 }
 
 func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityProfileParams) (*QualityProfile, error) {
-	row := q.db.QueryRowContext(ctx, createQualityProfile, arg.Name, arg.Cutoff, arg.Items)
+	row := q.db.QueryRowContext(ctx, createQualityProfile,
+		arg.Name,
+		arg.Cutoff,
+		arg.Items,
+		arg.HdrSettings,
+		arg.VideoCodecSettings,
+		arg.AudioCodecSettings,
+		arg.AudioChannelSettings,
+	)
 	var i QualityProfile
 	err := row.Scan(
 		&i.ID,
@@ -202,6 +214,10 @@ func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityPro
 		&i.Items,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HdrSettings,
+		&i.VideoCodecSettings,
+		&i.AudioCodecSettings,
+		&i.AudioChannelSettings,
 	)
 	return &i, err
 }
@@ -385,7 +401,7 @@ func (q *Queries) GetDownload(ctx context.Context, id int64) (*Download, error) 
 }
 
 const getQualityProfile = `-- name: GetQualityProfile :one
-SELECT id, name, cutoff, items, created_at, updated_at FROM quality_profiles WHERE id = ? LIMIT 1
+SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings FROM quality_profiles WHERE id = ? LIMIT 1
 `
 
 // Quality Profiles
@@ -399,12 +415,16 @@ func (q *Queries) GetQualityProfile(ctx context.Context, id int64) (*QualityProf
 		&i.Items,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HdrSettings,
+		&i.VideoCodecSettings,
+		&i.AudioCodecSettings,
+		&i.AudioChannelSettings,
 	)
 	return &i, err
 }
 
 const getQualityProfileByName = `-- name: GetQualityProfileByName :one
-SELECT id, name, cutoff, items, created_at, updated_at FROM quality_profiles WHERE name = ? LIMIT 1
+SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings FROM quality_profiles WHERE name = ? LIMIT 1
 `
 
 func (q *Queries) GetQualityProfileByName(ctx context.Context, name string) (*QualityProfile, error) {
@@ -417,6 +437,10 @@ func (q *Queries) GetQualityProfileByName(ctx context.Context, name string) (*Qu
 		&i.Items,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HdrSettings,
+		&i.VideoCodecSettings,
+		&i.AudioCodecSettings,
+		&i.AudioChannelSettings,
 	)
 	return &i, err
 }
@@ -819,7 +843,7 @@ func (q *Queries) ListHistoryPaginated(ctx context.Context, arg ListHistoryPagin
 }
 
 const listQualityProfiles = `-- name: ListQualityProfiles :many
-SELECT id, name, cutoff, items, created_at, updated_at FROM quality_profiles ORDER BY name
+SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings FROM quality_profiles ORDER BY name
 `
 
 func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, error) {
@@ -838,6 +862,10 @@ func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, e
 			&i.Items,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HdrSettings,
+			&i.VideoCodecSettings,
+			&i.AudioCodecSettings,
+			&i.AudioChannelSettings,
 		); err != nil {
 			return nil, err
 		}
@@ -1070,16 +1098,24 @@ UPDATE quality_profiles SET
     name = ?,
     cutoff = ?,
     items = ?,
+    hdr_settings = ?,
+    video_codec_settings = ?,
+    audio_codec_settings = ?,
+    audio_channel_settings = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, cutoff, items, created_at, updated_at
+RETURNING id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings
 `
 
 type UpdateQualityProfileParams struct {
-	Name   string `json:"name"`
-	Cutoff int64  `json:"cutoff"`
-	Items  string `json:"items"`
-	ID     int64  `json:"id"`
+	Name                 string `json:"name"`
+	Cutoff               int64  `json:"cutoff"`
+	Items                string `json:"items"`
+	HdrSettings          string `json:"hdr_settings"`
+	VideoCodecSettings   string `json:"video_codec_settings"`
+	AudioCodecSettings   string `json:"audio_codec_settings"`
+	AudioChannelSettings string `json:"audio_channel_settings"`
+	ID                   int64  `json:"id"`
 }
 
 func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityProfileParams) (*QualityProfile, error) {
@@ -1087,6 +1123,10 @@ func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityPro
 		arg.Name,
 		arg.Cutoff,
 		arg.Items,
+		arg.HdrSettings,
+		arg.VideoCodecSettings,
+		arg.AudioCodecSettings,
+		arg.AudioChannelSettings,
 		arg.ID,
 	)
 	var i QualityProfile
@@ -1097,6 +1137,10 @@ func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityPro
 		&i.Items,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HdrSettings,
+		&i.VideoCodecSettings,
+		&i.AudioCodecSettings,
+		&i.AudioChannelSettings,
 	)
 	return &i, err
 }

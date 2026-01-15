@@ -28,6 +28,12 @@ type Profile struct {
 	Items     []QualityItem `json:"items"`  // Ordered list of qualities
 	CreatedAt time.Time     `json:"createdAt"`
 	UpdatedAt time.Time     `json:"updatedAt"`
+
+	// Req 2.1.1-2.1.4: Profile-level attribute settings
+	HDRSettings          AttributeSettings `json:"hdrSettings"`
+	VideoCodecSettings   AttributeSettings `json:"videoCodecSettings"`
+	AudioCodecSettings   AttributeSettings `json:"audioCodecSettings"`
+	AudioChannelSettings AttributeSettings `json:"audioChannelSettings"`
 }
 
 // CreateProfileInput is used when creating a new profile.
@@ -35,6 +41,12 @@ type CreateProfileInput struct {
 	Name   string        `json:"name"`
 	Cutoff int           `json:"cutoff"`
 	Items  []QualityItem `json:"items"`
+
+	// Req 2.1.1-2.1.4: Profile-level attribute settings
+	HDRSettings          AttributeSettings `json:"hdrSettings"`
+	VideoCodecSettings   AttributeSettings `json:"videoCodecSettings"`
+	AudioCodecSettings   AttributeSettings `json:"audioCodecSettings"`
+	AudioChannelSettings AttributeSettings `json:"audioChannelSettings"`
 }
 
 // UpdateProfileInput is used when updating a profile.
@@ -42,6 +54,12 @@ type UpdateProfileInput struct {
 	Name   string        `json:"name"`
 	Cutoff int           `json:"cutoff"`
 	Items  []QualityItem `json:"items"`
+
+	// Req 2.1.1-2.1.4: Profile-level attribute settings
+	HDRSettings          AttributeSettings `json:"hdrSettings"`
+	VideoCodecSettings   AttributeSettings `json:"videoCodecSettings"`
+	AudioCodecSettings   AttributeSettings `json:"audioCodecSettings"`
+	AudioChannelSettings AttributeSettings `json:"audioChannelSettings"`
 }
 
 // PredefinedQualities are the standard quality definitions.
@@ -101,9 +119,13 @@ func DefaultProfile() Profile {
 		}
 	}
 	return Profile{
-		Name:   "Any",
-		Cutoff: 11, // Bluray-1080p
-		Items:  items,
+		Name:                 "Any",
+		Cutoff:               11, // Bluray-1080p
+		Items:                items,
+		HDRSettings:          DefaultAttributeSettings(),
+		VideoCodecSettings:   DefaultAttributeSettings(),
+		AudioCodecSettings:   DefaultAttributeSettings(),
+		AudioChannelSettings: DefaultAttributeSettings(),
 	}
 }
 
@@ -117,9 +139,13 @@ func HD1080pProfile() Profile {
 		}
 	}
 	return Profile{
-		Name:   "HD-1080p",
-		Cutoff: 11, // Bluray-1080p
-		Items:  items,
+		Name:                 "HD-1080p",
+		Cutoff:               11, // Bluray-1080p
+		Items:                items,
+		HDRSettings:          DefaultAttributeSettings(),
+		VideoCodecSettings:   DefaultAttributeSettings(),
+		AudioCodecSettings:   DefaultAttributeSettings(),
+		AudioChannelSettings: DefaultAttributeSettings(),
 	}
 }
 
@@ -133,9 +159,13 @@ func Ultra4KProfile() Profile {
 		}
 	}
 	return Profile{
-		Name:   "Ultra-HD",
-		Cutoff: 16, // Bluray-2160p
-		Items:  items,
+		Name:                 "Ultra-HD",
+		Cutoff:               16, // Bluray-2160p
+		Items:                items,
+		HDRSettings:          DefaultAttributeSettings(),
+		VideoCodecSettings:   DefaultAttributeSettings(),
+		AudioCodecSettings:   DefaultAttributeSettings(),
+		AudioChannelSettings: DefaultAttributeSettings(),
 	}
 }
 

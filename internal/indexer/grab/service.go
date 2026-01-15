@@ -83,13 +83,14 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 // GrabRequest represents a request to grab a release.
 type GrabRequest struct {
 	Release          *types.ReleaseInfo `json:"release"`
-	ClientID         int64              `json:"clientId,omitempty"`  // Optional: specific client
-	MediaType        string             `json:"mediaType,omitempty"` // movie, episode, season
-	MediaID          int64              `json:"mediaId,omitempty"`   // movie_id, episode_id, or series_id (for season packs)
-	SeriesID         int64              `json:"seriesId,omitempty"`  // For episodes
+	ClientID         int64              `json:"clientId,omitempty"`      // Optional: specific client
+	MediaType        string             `json:"mediaType,omitempty"`     // movie, episode, season
+	MediaID          int64              `json:"mediaId,omitempty"`       // movie_id, episode_id, or series_id (for season packs)
+	SeriesID         int64              `json:"seriesId,omitempty"`      // For episodes
 	SeasonNumber     int                `json:"seasonNumber,omitempty"`
 	IsSeasonPack     bool               `json:"isSeasonPack,omitempty"`
 	IsCompleteSeries bool               `json:"isCompleteSeries,omitempty"`
+	TargetSlotID     *int64             `json:"targetSlotId,omitempty"`  // Target slot for multi-version mode
 }
 
 // GrabResult contains the result of a grab operation.
@@ -103,10 +104,15 @@ type GrabResult struct {
 
 // BulkGrabRequest represents a request to grab multiple releases.
 type BulkGrabRequest struct {
-	Releases  []*types.ReleaseInfo `json:"releases"`
-	ClientID  int64                `json:"clientId,omitempty"`
-	MediaType string               `json:"mediaType,omitempty"`
-	MediaID   int64                `json:"mediaId,omitempty"`
+	Releases     []*types.ReleaseInfo `json:"releases"`
+	ClientID     int64                `json:"clientId,omitempty"`
+	MediaType    string               `json:"mediaType,omitempty"`
+	MediaID      int64                `json:"mediaId,omitempty"`
+	SeriesID     int64                `json:"seriesId,omitempty"`
+	SeasonNumber int                  `json:"seasonNumber,omitempty"`
+	IsSeasonPack bool                 `json:"isSeasonPack,omitempty"`
+	// Req 18.2.1: Target slot for multi-version mode
+	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
 // BulkGrabResult contains results from grabbing multiple releases.
@@ -270,11 +276,16 @@ func (s *Service) GrabBulk(ctx context.Context, req BulkGrabRequest) (*BulkGrabR
 	}
 
 	for _, release := range req.Releases {
+		// Req 18.2.1: Pass target slot through to individual grabs
 		grabResult, _ := s.Grab(ctx, GrabRequest{
-			Release:   release,
-			ClientID:  req.ClientID,
-			MediaType: req.MediaType,
-			MediaID:   req.MediaID,
+			Release:      release,
+			ClientID:     req.ClientID,
+			MediaType:    req.MediaType,
+			MediaID:      req.MediaID,
+			SeriesID:     req.SeriesID,
+			SeasonNumber: req.SeasonNumber,
+			IsSeasonPack: req.IsSeasonPack,
+			TargetSlotID: req.TargetSlotID,
 		})
 
 		result.Results = append(result.Results, grabResult)
@@ -459,6 +470,11 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 	params := sqlc.CreateDownloadMappingParams{
 		ClientID:   clientID,
 		DownloadID: downloadID,
+	}
+
+	// Set target slot ID if provided (for multi-version mode)
+	if req.TargetSlotID != nil {
+		params.TargetSlotID = sql.NullInt64{Int64: *req.TargetSlotID, Valid: true}
 	}
 
 	switch req.MediaType {

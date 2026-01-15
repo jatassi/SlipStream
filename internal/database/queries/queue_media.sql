@@ -1,7 +1,7 @@
 -- name: CreateQueueMedia :one
 INSERT INTO queue_media (
-    download_mapping_id, episode_id, movie_id, file_path, file_status
-) VALUES (?, ?, ?, ?, ?)
+    download_mapping_id, episode_id, movie_id, file_path, file_status, target_slot_id
+) VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetQueueMedia :one
@@ -103,3 +103,11 @@ ORDER BY qm.created_at;
 SELECT * FROM queue_media
 WHERE file_status IN ('pending', 'ready', 'importing', 'failed')
 ORDER BY created_at DESC;
+
+-- name: UpdateQueueMediaSlot :one
+-- Req 16.2.3: Per-episode slot assignment for season packs
+UPDATE queue_media SET
+    target_slot_id = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;

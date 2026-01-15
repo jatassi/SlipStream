@@ -23,6 +23,8 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.List)
 	g.POST("", h.Create)
 	g.GET("/qualities", h.ListQualities)
+	g.GET("/attributes", h.ListAttributes)
+	g.POST("/check-exclusivity", h.CheckExclusivity)
 	g.GET("/:id", h.Get)
 	g.PUT("/:id", h.Update)
 	g.DELETE("/:id", h.Delete)
@@ -124,4 +126,116 @@ func (h *Handlers) Delete(c echo.Context) error {
 // GET /api/v1/qualityprofiles/qualities
 func (h *Handlers) ListQualities(c echo.Context) error {
 	return c.JSON(http.StatusOK, h.service.GetQualities())
+}
+
+// ListAttributes returns the supported attribute values for quality profiles.
+// GET /api/v1/qualityprofiles/attributes
+func (h *Handlers) ListAttributes(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"hdrFormats":    HDRFormats,
+		"videoCodecs":   VideoCodecs,
+		"audioCodecs":   AudioCodecs,
+		"audioChannels": AudioChannels,
+		"modes":         []AttributeMode{AttributeModeAcceptable, AttributeModePreferred, AttributeModeRequired},
+	})
+}
+
+// CheckExclusivityInput is the request body for exclusivity checking.
+type CheckExclusivityInput struct {
+	ProfileIDs []int64 `json:"profileIds"`
+}
+
+// CheckExclusivityResponse is the response for exclusivity checking.
+type CheckExclusivityResponse struct {
+	Valid   bool                   `json:"valid"`
+	Errors  []SlotExclusivityError `json:"errors,omitempty"`
+	Details []ExclusivityDetail    `json:"details,omitempty"`
+}
+
+// ExclusivityDetail provides detail about a specific profile pair check.
+type ExclusivityDetail struct {
+	ProfileAID   int64    `json:"profileAId"`
+	ProfileAName string   `json:"profileAName"`
+	ProfileBID   int64    `json:"profileBId"`
+	ProfileBName string   `json:"profileBName"`
+	AreExclusive bool     `json:"areExclusive"`
+	Conflicts    []string `json:"conflicts,omitempty"`
+	Overlaps     []string `json:"overlaps,omitempty"`
+	Hints        []string `json:"hints,omitempty"`
+}
+
+// CheckExclusivity checks if the given profiles are mutually exclusive.
+// POST /api/v1/qualityprofiles/check-exclusivity
+func (h *Handlers) CheckExclusivity(c echo.Context) error {
+	var input CheckExclusivityInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if len(input.ProfileIDs) < 2 {
+		return echo.NewHTTPError(http.StatusBadRequest, "at least 2 profile IDs are required")
+	}
+
+	ctx := c.Request().Context()
+	profiles := make([]*Profile, 0, len(input.ProfileIDs))
+	for _, id := range input.ProfileIDs {
+		profile, err := h.service.Get(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrProfileNotFound) {
+				return echo.NewHTTPError(http.StatusNotFound, "profile not found: "+strconv.FormatInt(id, 10))
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		profiles = append(profiles, profile)
+	}
+
+	var details []ExclusivityDetail
+	allExclusive := true
+
+	for i := 0; i < len(profiles); i++ {
+		for j := i + 1; j < len(profiles); j++ {
+			profileA := profiles[i]
+			profileB := profiles[j]
+
+			result := CheckMutualExclusivity(profileA, profileB)
+			hints := GetProfileExclusivityHints(profileA, profileB)
+
+			detail := ExclusivityDetail{
+				ProfileAID:   profileA.ID,
+				ProfileAName: profileA.Name,
+				ProfileBID:   profileB.ID,
+				ProfileBName: profileB.Name,
+				AreExclusive: result.AreExclusive,
+				Conflicts:    result.ConflictingAttrs,
+				Overlaps:     result.OverlappingAttrs,
+				Hints:        hints,
+			}
+			details = append(details, detail)
+
+			if !result.AreExclusive {
+				allExclusive = false
+			}
+		}
+	}
+
+	response := CheckExclusivityResponse{
+		Valid:   allExclusive,
+		Details: details,
+	}
+
+	if !allExclusive {
+		slots := make([]SlotConfig, len(profiles))
+		for i, p := range profiles {
+			slots[i] = SlotConfig{
+				SlotNumber: i + 1,
+				SlotName:   "Slot " + strconv.Itoa(i+1),
+				Enabled:    true,
+				Profile:    p,
+			}
+		}
+		errs, _ := ValidateSlotExclusivity(slots)
+		response.Errors = errs
+	}
+
+	return c.JSON(http.StatusOK, response)
 }

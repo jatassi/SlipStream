@@ -74,11 +74,12 @@ func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *Downloa
 }
 
 // ProcessManualImport processes a manual import with a confirmed match.
-func (s *Service) ProcessManualImport(ctx context.Context, sourcePath string, match *LibraryMatch) (*ImportResult, error) {
+func (s *Service) ProcessManualImport(ctx context.Context, sourcePath string, match *LibraryMatch, targetSlotID *int64) (*ImportResult, error) {
 	job := ImportJob{
 		SourcePath:     sourcePath,
 		Manual:         true,
 		ConfirmedMatch: match,
+		TargetSlotID:   targetSlotID,
 	}
 
 	// Process synchronously for manual imports
@@ -202,7 +203,8 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 
 	// Ensure root folder path is properly set from the library item's root folder
-	if err := s.populateRootFolder(ctx, match); err != nil {
+	// Req 22.2.1-22.2.3: In multi-version mode, use slot's root folder if specified
+	if err := s.populateRootFolder(ctx, match, job.TargetSlotID); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to populate root folder, using match root folder")
 	}
 	result.Match = match
@@ -228,6 +230,32 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 	result.DestinationPath = destPath
 
+	// Step 4.5: Slot evaluation for multi-version support (Req 5.1.1-5.2.3)
+	var targetSlotID *int64
+	if s.slots != nil && s.slots.IsMultiVersionEnabled(ctx) {
+		slotResult, slotErr := s.evaluateSlotAssignment(ctx, job, match)
+		if slotErr != nil {
+			s.logger.Warn().Err(slotErr).Msg("Slot evaluation failed, continuing without slot assignment")
+		} else if slotResult != nil {
+			result.SlotAssignments = slotResult.Assignments
+			result.RecommendedSlotID = slotResult.RecommendedSlotID
+
+			// Req 5.2.1: If manual import and multiple slots match without override, require selection
+			if slotResult.RequiresSelection && job.TargetSlotID == nil && job.Manual {
+				result.RequiresSlotSelection = true
+				return result, nil // Return early for slot selection
+			}
+
+			// Determine target slot
+			if job.TargetSlotID != nil {
+				// Req 5.2.3: User override
+				targetSlotID = job.TargetSlotID
+			} else if slotResult.RecommendedSlotID != nil {
+				targetSlotID = slotResult.RecommendedSlotID
+			}
+		}
+	}
+
 	// Step 5: Check for existing file (upgrade scenario)
 	if match.ExistingFile != "" {
 		result.IsUpgrade = true
@@ -243,9 +271,23 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	result.LinkMode = linkMode
 
 	// Step 7: Update library records
-	if err := s.updateLibrary(ctx, match, destPath, mediaInfo); err != nil {
+	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, mediaInfo)
+	if updateErr != nil {
 		// Import succeeded but library update failed - log warning but don't fail
-		s.logger.Warn().Err(err).Msg("Failed to update library records")
+		s.logger.Warn().Err(updateErr).Msg("Failed to update library records")
+	}
+
+	// Step 7.5: Assign file to slot (if multi-version enabled)
+	if targetSlotID != nil && fileID != nil && s.slots != nil {
+		mediaID := s.getMediaIDFromMatch(match)
+		if mediaID != nil {
+			if err := s.slots.AssignFileToSlot(ctx, match.MediaType, *mediaID, *targetSlotID, *fileID); err != nil {
+				s.logger.Warn().Err(err).Int64("slotId", *targetSlotID).Msg("Failed to assign file to slot")
+			} else {
+				result.AssignedSlotID = targetSlotID
+				s.logger.Info().Int64("slotId", *targetSlotID).Int64("fileId", *fileID).Msg("File assigned to slot")
+			}
+		}
 	}
 
 	// Step 8: Handle upgrade cleanup
@@ -634,5 +676,118 @@ func (s *Service) applyImportDelay(ctx context.Context, clientID int64) error {
 		}
 	}
 
+	return nil
+}
+
+// slotEvaluationResult holds the result of slot evaluation.
+type slotEvaluationResult struct {
+	Assignments       []SlotAssignment
+	RecommendedSlotID *int64
+	RequiresSelection bool
+}
+
+// evaluateSlotAssignment evaluates which slot a file should be assigned to.
+// Req 5.1.1-5.1.5: Evaluate release against slot profiles and determine target.
+func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, match *LibraryMatch) (*slotEvaluationResult, error) {
+	if s.slots == nil {
+		return nil, nil
+	}
+
+	// Parse the filename to get release attributes
+	filename := filepath.Base(job.SourcePath)
+	parsed := scanner.ParseFilename(filename)
+
+	// Get media ID for slot evaluation
+	var mediaType string
+	var mediaID int64
+	if match.MediaType == "movie" && match.MovieID != nil {
+		mediaType = "movie"
+		mediaID = *match.MovieID
+	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+		mediaType = "episode"
+		mediaID = *match.EpisodeID
+	} else {
+		return nil, nil
+	}
+
+	// Evaluate release against all slots
+	eval, err := s.slots.EvaluateRelease(ctx, parsed, mediaType, mediaID)
+	if err != nil {
+		return nil, err
+	}
+
+	if eval == nil || len(eval.Assignments) == 0 {
+		return nil, nil
+	}
+
+	// Convert to import-level type
+	result := &slotEvaluationResult{
+		Assignments:       make([]SlotAssignment, 0, len(eval.Assignments)),
+		RequiresSelection: eval.RequiresSelection,
+	}
+
+	for _, a := range eval.Assignments {
+		result.Assignments = append(result.Assignments, SlotAssignment{
+			SlotID:     a.SlotID,
+			SlotNumber: a.SlotNumber,
+			SlotName:   a.SlotName,
+			MatchScore: a.MatchScore,
+			IsUpgrade:  a.IsUpgrade,
+			IsNewFill:  a.IsNewFill,
+		})
+	}
+
+	if eval.RecommendedSlotID != 0 {
+		result.RecommendedSlotID = &eval.RecommendedSlotID
+	}
+
+	return result, nil
+}
+
+// updateLibraryWithID updates the library and returns the created file ID.
+func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
+	stat, err := os.Stat(destPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat destination file: %w", err)
+	}
+
+	if match.MediaType == "movie" && match.MovieID != nil {
+		file, err := s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
+			Path:       destPath,
+			Size:       stat.Size(),
+			Quality:    "",
+			VideoCodec: mediaInfo.VideoCodec,
+			AudioCodec: mediaInfo.AudioCodec,
+			Resolution: mediaInfo.VideoResolution,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &file.ID, nil
+	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+		file, err := s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
+			Path:       destPath,
+			Size:       stat.Size(),
+			Quality:    "",
+			VideoCodec: mediaInfo.VideoCodec,
+			AudioCodec: mediaInfo.AudioCodec,
+			Resolution: mediaInfo.VideoResolution,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &file.ID, nil
+	}
+
+	return nil, nil
+}
+
+// getMediaIDFromMatch extracts the media ID from a library match.
+func (s *Service) getMediaIDFromMatch(match *LibraryMatch) *int64 {
+	if match.MediaType == "movie" && match.MovieID != nil {
+		return match.MovieID
+	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+		return match.EpisodeID
+	}
 	return nil
 }

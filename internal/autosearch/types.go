@@ -67,6 +67,9 @@ type SearchableItem struct {
 	// Current file info for upgrades
 	HasFile          bool `json:"hasFile"`
 	CurrentQualityID int  `json:"currentQualityId,omitempty"`
+
+	// Slot targeting (for multi-version mode)
+	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
 // BatchSearchResult contains results from searching multiple items.

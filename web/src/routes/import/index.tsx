@@ -43,8 +43,9 @@ import {
   useRetryImport,
 } from '@/hooks/useImport'
 import { useMovies, useSeries, useEpisodes } from '@/hooks'
+import { useSlots, useMultiVersionSettings } from '@/hooks/useSlots'
 import { toast } from 'sonner'
-import type { ScannedFile } from '@/types'
+import type { ScannedFile, Slot } from '@/types'
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -265,10 +266,12 @@ function EditMatchDialog({
   file: ScannedFile | null
   open: boolean
   onClose: () => void
-  onConfirm: (file: ScannedFile, match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number }) => void
+  onConfirm: (file: ScannedFile, match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number; targetSlotId?: number }) => void
 }) {
   const { data: movies } = useMovies()
   const { data: allSeries } = useSeries()
+  const { data: multiVersionSettings } = useMultiVersionSettings()
+  const { data: slots } = useSlots()
 
   const initialType = file?.suggestedMatch?.mediaType === 'movie' ? 'movie' : file?.parsedInfo?.isTV ? 'episode' : 'movie'
   const [selectedType, setSelectedType] = useState<'movie' | 'episode'>(initialType as 'movie' | 'episode')
@@ -281,9 +284,13 @@ function EditMatchDialog({
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>(
     file?.suggestedMatch?.mediaType === 'episode' ? String(file.suggestedMatch.mediaId) : ''
   )
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('')
 
   const seriesIdNum = selectedSeriesId ? parseInt(selectedSeriesId) : 0
   const { data: episodes } = useEpisodes(seriesIdNum)
+
+  const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
+  const enabledSlots = slots?.filter((s: Slot) => s.enabled) ?? []
 
   if (!file) return null
 
@@ -298,6 +305,7 @@ function EditMatchDialog({
       onConfirm(file, {
         mediaType: 'movie',
         mediaId: parseInt(selectedMovieId),
+        targetSlotId: selectedSlotId ? parseInt(selectedSlotId) : undefined,
       })
     } else {
       if (!selectedEpisodeId) {
@@ -309,6 +317,7 @@ function EditMatchDialog({
         mediaId: parseInt(selectedEpisodeId),
         seriesId: selectedSeriesId ? parseInt(selectedSeriesId) : undefined,
         seasonNum: parsed?.season,
+        targetSlotId: selectedSlotId ? parseInt(selectedSlotId) : undefined,
       })
     }
   }
@@ -484,6 +493,30 @@ function EditMatchDialog({
                   </div>
                 )}
               </>
+            )}
+
+            {isMultiVersionEnabled && enabledSlots.length > 0 && (
+              <div className="space-y-2 border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium">Version Slot (Multi-Version)</h4>
+                <p className="text-xs text-muted-foreground">
+                  Optionally assign this file to a specific version slot. Leave blank for automatic assignment.
+                </p>
+                <Select value={selectedSlotId} onValueChange={(v) => setSelectedSlotId(v || '')}>
+                  <SelectTrigger>
+                    {selectedSlotId
+                      ? enabledSlots.find((s: Slot) => s.id.toString() === selectedSlotId)?.name || 'Select a slot'
+                      : 'Auto-assign (recommended)'}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Auto-assign (recommended)</SelectItem>
+                    {enabledSlots.map((slot: Slot) => (
+                      <SelectItem key={slot.id} value={slot.id.toString()}>
+                        {slot.name} {slot.qualityProfile ? `(${slot.qualityProfile.name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
         </div>
@@ -780,7 +813,7 @@ export function ManualImportPage() {
 
   const handleConfirmImport = async (
     file: ScannedFile,
-    match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number }
+    match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number; targetSlotId?: number }
   ) => {
     try {
       const result = await importMutation.mutateAsync({
@@ -789,6 +822,7 @@ export function ManualImportPage() {
         mediaId: match.mediaId,
         seriesId: match.seriesId,
         seasonNum: match.seasonNum,
+        targetSlotId: match.targetSlotId,
       })
 
       if (result.success) {

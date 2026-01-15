@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { AutoSearchResult, BatchAutoSearchResult, AutoSearchStatus, AutoSearchMediaType, AutoSearchSettings } from '@/types'
+import type { AutoSearchResult, BatchAutoSearchResult, AutoSearchStatus, AutoSearchMediaType, AutoSearchSettings, SlotSearchResult } from '@/types'
 
 export interface BulkSearchStartedResponse {
   message: string
@@ -9,8 +9,14 @@ export const autosearchApi = {
   searchMovie: (movieId: number) =>
     apiFetch<AutoSearchResult>(`/autosearch/movie/${movieId}`, { method: 'POST' }),
 
+  searchMovieSlot: (movieId: number, slotId: number) =>
+    apiFetch<SlotSearchResult>(`/autosearch/movie/${movieId}/slot/${slotId}`, { method: 'POST' }),
+
   searchEpisode: (episodeId: number) =>
     apiFetch<AutoSearchResult>(`/autosearch/episode/${episodeId}`, { method: 'POST' }),
+
+  searchEpisodeSlot: (episodeId: number, slotId: number) =>
+    apiFetch<SlotSearchResult>(`/autosearch/episode/${episodeId}/slot/${slotId}`, { method: 'POST' }),
 
   searchSeason: (seriesId: number, seasonNumber: number) =>
     apiFetch<BatchAutoSearchResult>(`/autosearch/season/${seriesId}/${seasonNumber}`, { method: 'POST' }),

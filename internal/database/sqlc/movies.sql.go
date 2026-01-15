@@ -149,7 +149,7 @@ func (q *Queries) CreateMovie(ctx context.Context, arg CreateMovieParams) (*Movi
 const createMovieFile = `-- name: CreateMovieFile :one
 INSERT INTO movie_files (movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type CreateMovieFileParams struct {
@@ -189,6 +189,7 @@ func (q *Queries) CreateMovieFile(ctx context.Context, arg CreateMovieFileParams
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
@@ -198,7 +199,7 @@ INSERT INTO movie_files (
     movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
     original_path, original_filename, imported_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type CreateMovieFileWithImportInfoParams struct {
@@ -245,6 +246,7 @@ func (q *Queries) CreateMovieFileWithImportInfo(ctx context.Context, arg CreateM
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
@@ -382,7 +384,7 @@ func (q *Queries) GetMovieByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (*
 }
 
 const getMovieFile = `-- name: GetMovieFile :one
-SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM movie_files WHERE id = ? LIMIT 1
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE id = ? LIMIT 1
 `
 
 // Movie Files
@@ -403,12 +405,13 @@ func (q *Queries) GetMovieFile(ctx context.Context, id int64) (*MovieFile, error
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
 
 const getMovieFileByPath = `-- name: GetMovieFileByPath :one
-SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM movie_files WHERE path = ? LIMIT 1
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetMovieFileByPath(ctx context.Context, path string) (*MovieFile, error) {
@@ -428,12 +431,13 @@ func (q *Queries) GetMovieFileByPath(ctx context.Context, path string) (*MovieFi
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
 
 const getMovieFilesWithImportInfo = `-- name: GetMovieFilesWithImportInfo :many
-SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM movie_files WHERE movie_id = ? ORDER BY imported_at DESC
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE movie_id = ? ORDER BY imported_at DESC
 `
 
 func (q *Queries) GetMovieFilesWithImportInfo(ctx context.Context, movieID int64) ([]*MovieFile, error) {
@@ -459,6 +463,7 @@ func (q *Queries) GetMovieFilesWithImportInfo(ctx context.Context, movieID int64
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -755,7 +760,7 @@ func (q *Queries) ListMonitoredMovies(ctx context.Context) ([]*Movie, error) {
 }
 
 const listMovieFiles = `-- name: ListMovieFiles :many
-SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM movie_files WHERE movie_id = ? ORDER BY path
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE movie_id = ? ORDER BY path
 `
 
 func (q *Queries) ListMovieFiles(ctx context.Context, movieID int64) ([]*MovieFile, error) {
@@ -781,6 +786,7 @@ func (q *Queries) ListMovieFiles(ctx context.Context, movieID int64) ([]*MovieFi
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1265,7 +1271,7 @@ UPDATE movie_files SET
     original_filename = ?,
     imported_at = ?
 WHERE id = ?
-RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type UpdateMovieFileImportInfoParams struct {
@@ -1297,6 +1303,7 @@ func (q *Queries) UpdateMovieFileImportInfo(ctx context.Context, arg UpdateMovie
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }

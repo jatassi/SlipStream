@@ -85,10 +85,34 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		return nil, fmt.Errorf("failed to serialize items: %w", err)
 	}
 
+	hdrJSON, err := SerializeAttributeSettings(input.HDRSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize HDR settings: %w", err)
+	}
+
+	videoCodecJSON, err := SerializeAttributeSettings(input.VideoCodecSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize video codec settings: %w", err)
+	}
+
+	audioCodecJSON, err := SerializeAttributeSettings(input.AudioCodecSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio codec settings: %w", err)
+	}
+
+	audioChannelJSON, err := SerializeAttributeSettings(input.AudioChannelSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
+	}
+
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
-		Name:   input.Name,
-		Cutoff: int64(input.Cutoff),
-		Items:  itemsJSON,
+		Name:                 input.Name,
+		Cutoff:               int64(input.Cutoff),
+		Items:                itemsJSON,
+		HdrSettings:          hdrJSON,
+		VideoCodecSettings:   videoCodecJSON,
+		AudioCodecSettings:   audioCodecJSON,
+		AudioChannelSettings: audioChannelJSON,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -109,11 +133,35 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		return nil, fmt.Errorf("failed to serialize items: %w", err)
 	}
 
+	hdrJSON, err := SerializeAttributeSettings(input.HDRSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize HDR settings: %w", err)
+	}
+
+	videoCodecJSON, err := SerializeAttributeSettings(input.VideoCodecSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize video codec settings: %w", err)
+	}
+
+	audioCodecJSON, err := SerializeAttributeSettings(input.AudioCodecSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio codec settings: %w", err)
+	}
+
+	audioChannelJSON, err := SerializeAttributeSettings(input.AudioChannelSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
+	}
+
 	row, err := s.queries.UpdateQualityProfile(ctx, sqlc.UpdateQualityProfileParams{
-		ID:     id,
-		Name:   input.Name,
-		Cutoff: int64(input.Cutoff),
-		Items:  itemsJSON,
+		ID:                   id,
+		Name:                 input.Name,
+		Cutoff:               int64(input.Cutoff),
+		Items:                itemsJSON,
+		HdrSettings:          hdrJSON,
+		VideoCodecSettings:   videoCodecJSON,
+		AudioCodecSettings:   audioCodecJSON,
+		AudioChannelSettings: audioChannelJSON,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -198,11 +246,39 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		return nil, fmt.Errorf("failed to deserialize items: %w", err)
 	}
 
+	hdrSettings, err := DeserializeAttributeSettings(row.HdrSettings)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize HDR settings, using defaults")
+		hdrSettings = DefaultAttributeSettings()
+	}
+
+	videoCodecSettings, err := DeserializeAttributeSettings(row.VideoCodecSettings)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize video codec settings, using defaults")
+		videoCodecSettings = DefaultAttributeSettings()
+	}
+
+	audioCodecSettings, err := DeserializeAttributeSettings(row.AudioCodecSettings)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize audio codec settings, using defaults")
+		audioCodecSettings = DefaultAttributeSettings()
+	}
+
+	audioChannelSettings, err := DeserializeAttributeSettings(row.AudioChannelSettings)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize audio channel settings, using defaults")
+		audioChannelSettings = DefaultAttributeSettings()
+	}
+
 	p := &Profile{
-		ID:     row.ID,
-		Name:   row.Name,
-		Cutoff: int(row.Cutoff),
-		Items:  items,
+		ID:                   row.ID,
+		Name:                 row.Name,
+		Cutoff:               int(row.Cutoff),
+		Items:                items,
+		HDRSettings:          hdrSettings,
+		VideoCodecSettings:   videoCodecSettings,
+		AudioCodecSettings:   audioCodecSettings,
+		AudioChannelSettings: audioChannelSettings,
 	}
 
 	if row.CreatedAt.Valid {

@@ -18,6 +18,10 @@ const (
 	EventTypeImportCompleted    EventType = "import_completed"
 	EventTypeImportFailed       EventType = "import_failed"
 	EventTypeImportUpgrade      EventType = "import_upgrade"
+	// Req 17.1.1: Slot-related event types for multi-version tracking
+	EventTypeSlotAssigned   EventType = "slot_assigned"
+	EventTypeSlotReassigned EventType = "slot_reassigned"
+	EventTypeSlotUnassigned EventType = "slot_unassigned"
 )
 
 // MediaType represents the type of media.
@@ -75,17 +79,23 @@ type AutoSearchDownloadData struct {
 	ClientName  string `json:"clientName,omitempty"`
 	DownloadID  string `json:"downloadId,omitempty"`
 	Source      string `json:"source,omitempty"` // "manual", "scheduled", "add"
+	// Req 17.1.2: Slot information in history entries
+	SlotID   *int64 `json:"slotId,omitempty"`
+	SlotName string `json:"slotName,omitempty"`
 }
 
 // AutoSearchUpgradeData contains data for autosearch upgrade events.
 type AutoSearchUpgradeData struct {
-	ReleaseName    string `json:"releaseName,omitempty"`
-	Indexer        string `json:"indexer,omitempty"`
-	ClientName     string `json:"clientName,omitempty"`
-	DownloadID     string `json:"downloadId,omitempty"`
-	OldQuality     string `json:"oldQuality,omitempty"`
-	NewQuality     string `json:"newQuality,omitempty"`
-	Source         string `json:"source,omitempty"`
+	ReleaseName string `json:"releaseName,omitempty"`
+	Indexer     string `json:"indexer,omitempty"`
+	ClientName  string `json:"clientName,omitempty"`
+	DownloadID  string `json:"downloadId,omitempty"`
+	OldQuality  string `json:"oldQuality,omitempty"`
+	NewQuality  string `json:"newQuality,omitempty"`
+	Source      string `json:"source,omitempty"`
+	// Req 17.1.2: Slot information in history entries
+	SlotID   *int64 `json:"slotId,omitempty"`
+	SlotName string `json:"slotName,omitempty"`
 }
 
 // AutoSearchFailedData contains data for autosearch failure events.
@@ -109,6 +119,20 @@ type ImportEventData struct {
 	IsUpgrade        bool   `json:"isUpgrade,omitempty"`
 	PreviousFile     string `json:"previousFile,omitempty"`
 	ClientName       string `json:"clientName,omitempty"`
+	// Req 17.1.2: Slot information in history entries
+	SlotID   *int64 `json:"slotId,omitempty"`
+	SlotName string `json:"slotName,omitempty"`
+}
+
+// SlotEventData contains data for slot-specific history events (assign/reassign/unassign).
+// Req 17.1.1: Log all slot-related events
+type SlotEventData struct {
+	SlotID       int64  `json:"slotId"`
+	SlotName     string `json:"slotName"`
+	FileID       int64  `json:"fileId,omitempty"`
+	FilePath     string `json:"filePath,omitempty"`
+	PreviousSlot *int64 `json:"previousSlotId,omitempty"`
+	Reason       string `json:"reason,omitempty"`
 }
 
 // ToJSON converts a data struct to a JSON map.

@@ -17,6 +17,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/library/slots"
 )
 
 var (
@@ -39,6 +40,7 @@ type Service struct {
 	grabService    *grab.Service
 	qualityService *quality.Service
 	historyService *history.Service
+	slotsService   *slots.Service
 	broadcaster    Broadcaster
 	logger         zerolog.Logger
 
@@ -369,6 +371,7 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		MediaID:      item.MediaID,
 		SeriesID:     item.SeriesID,
 		SeasonNumber: item.SeasonNumber,
+		TargetSlotID: item.TargetSlotID,
 	}
 	if item.MediaType == MediaTypeSeason {
 		grabReq.IsSeasonPack = true

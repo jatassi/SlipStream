@@ -1,9 +1,9 @@
 -- name: CreateDownloadMapping :one
 INSERT INTO download_mappings (
     client_id, download_id, movie_id, series_id, season_number,
-    episode_id, is_season_pack, is_complete_series
+    episode_id, is_season_pack, is_complete_series, target_slot_id
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (client_id, download_id) DO UPDATE SET
     movie_id = excluded.movie_id,
@@ -11,7 +11,8 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     season_number = excluded.season_number,
     episode_id = excluded.episode_id,
     is_season_pack = excluded.is_season_pack,
-    is_complete_series = excluded.is_complete_series
+    is_complete_series = excluded.is_complete_series,
+    target_slot_id = excluded.target_slot_id
 RETURNING *;
 
 -- name: GetDownloadMapping :one
@@ -66,3 +67,14 @@ SELECT EXISTS(
        OR (series_id = ? AND season_number = ? AND (is_season_pack = 1 OR is_complete_series = 1))
        OR (series_id = ? AND is_complete_series = 1)
 ) AS downloading;
+
+-- name: ClearDownloadMappingSlot :exec
+-- Req 10.2.1: Clear slot when download fails or is rejected
+UPDATE download_mappings SET target_slot_id = NULL
+WHERE client_id = ? AND download_id = ?;
+
+-- name: GetDownloadMappingsBySlot :many
+-- Get all mappings targeting a specific slot
+SELECT * FROM download_mappings
+WHERE target_slot_id = ?
+ORDER BY created_at DESC;

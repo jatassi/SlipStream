@@ -33,6 +33,7 @@ export interface MovieFile {
   audioCodec?: string
   resolution?: string
   createdAt: string
+  slotId?: number
 }
 
 export interface CreateMovieInput {

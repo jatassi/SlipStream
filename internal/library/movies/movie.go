@@ -43,6 +43,7 @@ type MovieFile struct {
 	AudioCodec string    `json:"audioCodec,omitempty"`
 	Resolution string    `json:"resolution,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
+	SlotID     *int64    `json:"slotId,omitempty"`
 }
 
 // CreateMovieInput contains fields for creating a movie.

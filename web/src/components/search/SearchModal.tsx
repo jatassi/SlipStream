@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Download, Loader2, ExternalLink, AlertCircle, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Search, Download, Loader2, ExternalLink, AlertCircle, ArrowUp, ArrowDown, ArrowUpDown, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -20,6 +20,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useIndexerMovieSearch, useIndexerTVSearch, useGrab } from '@/hooks'
 import { formatBytes, formatRelativeTime } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -44,7 +50,7 @@ interface SearchModalProps {
   episode?: number
 }
 
-type SortColumn = 'score' | 'title' | 'quality' | 'indexer' | 'size' | 'age' | 'peers'
+type SortColumn = 'score' | 'title' | 'quality' | 'slot' | 'indexer' | 'size' | 'age' | 'peers'
 type SortDirection = 'asc' | 'desc'
 
 // Resolution order for quality sorting (higher = better)
@@ -136,6 +142,7 @@ export function SearchModal({
         },
         mediaType: isMovie ? 'movie' : 'episode',
         mediaId: mediaId,
+        targetSlotId: release.targetSlotId,
       })
 
       if (result.success) {
@@ -152,6 +159,8 @@ export function SearchModal({
   const errors = data?.errors || []
   // All results now include torrent info (seeders/leechers)
   const hasTorrents = rawReleases.length > 0
+  // Check if any releases have slot info (multi-version mode)
+  const hasSlotInfo = rawReleases.some(r => r.targetSlotId !== undefined)
 
   // Toggle sort or change column
   const handleSort = (column: SortColumn) => {
@@ -180,6 +189,9 @@ export function SearchModal({
           const aRes = RESOLUTION_ORDER[a.quality || ''] ?? -1
           const bRes = RESOLUTION_ORDER[b.quality || ''] ?? -1
           comparison = aRes - bRes
+          break
+        case 'slot':
+          comparison = (a.targetSlotNumber ?? 99) - (b.targetSlotNumber ?? 99)
           break
         case 'indexer':
           comparison = a.indexer.localeCompare(b.indexer)
@@ -310,6 +322,17 @@ export function SearchModal({
                       <SortIcon column="quality" />
                     </button>
                   </TableHead>
+                  {hasSlotInfo && (
+                    <TableHead className="w-[120px]">
+                      <button
+                        className="flex items-center hover:text-foreground transition-colors"
+                        onClick={() => handleSort('slot')}
+                      >
+                        Slot
+                        <SortIcon column="slot" />
+                      </button>
+                    </TableHead>
+                  )}
                   <TableHead className="w-[100px]">
                     <button
                       className="flex items-center hover:text-foreground transition-colors"
@@ -381,6 +404,39 @@ export function SearchModal({
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
+                    {hasSlotInfo && (
+                      <TableCell>
+                        {release.targetSlotName ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <div className="flex items-center gap-1">
+                                  <Layers className="size-3" />
+                                  <span className="text-sm">{release.targetSlotName}</span>
+                                  {release.isSlotUpgrade && (
+                                    <Badge variant="secondary" className="text-xs px-1">
+                                      <ArrowUp className="size-3" />
+                                    </Badge>
+                                  )}
+                                  {release.isSlotNewFill && (
+                                    <Badge variant="outline" className="text-xs px-1 text-green-500 border-green-500">
+                                      New
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {release.isSlotUpgrade && 'Will upgrade existing file in this slot'}
+                                {release.isSlotNewFill && 'Will fill empty slot'}
+                                {!release.isSlotUpgrade && !release.isSlotNewFill && `Target: ${release.targetSlotName}`}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Badge variant="outline">{release.indexer}</Badge>
                     </TableCell>

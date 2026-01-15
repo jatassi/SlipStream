@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { SeasonAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { EpisodeTable } from './EpisodeTable'
 import { useDownloadingStore } from '@/stores'
-import type { Season, Episode } from '@/types'
+import type { Season, Episode, Slot } from '@/types'
 
 interface SeasonListProps {
   seriesId: number
@@ -24,8 +24,15 @@ interface SeasonListProps {
   onEpisodeSearch?: (episode: Episode) => void
   onEpisodeAutoSearch?: (episode: Episode) => void
   onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
+  onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
+  onSlotManualSearch?: (episodeId: number, slotId: number) => void
+  onSlotAutoSearch?: (episodeId: number, slotId: number) => void
   searchingSeasonNumber?: number | null
   searchingEpisodeId?: number | null
+  searchingSlotId?: number | null
+  isMultiVersionEnabled?: boolean
+  enabledSlots?: Slot[]
+  isAssigning?: boolean
   className?: string
 }
 
@@ -39,8 +46,15 @@ export function SeasonList({
   onEpisodeSearch,
   onEpisodeAutoSearch,
   onEpisodeMonitoredChange,
+  onAssignFileToSlot,
+  onSlotManualSearch,
+  onSlotAutoSearch,
   searchingSeasonNumber,
   searchingEpisodeId,
+  searchingSlotId,
+  isMultiVersionEnabled = false,
+  enabledSlots = [],
+  isAssigning = false,
   className,
 }: SeasonListProps) {
   // Select queueItems directly so component re-renders when it changes
@@ -159,7 +173,14 @@ export function SeasonList({
                   onManualSearch={onEpisodeSearch}
                   onAutoSearch={onEpisodeAutoSearch}
                   onMonitoredChange={onEpisodeMonitoredChange}
+                  onAssignFileToSlot={onAssignFileToSlot}
+                  onSlotManualSearch={onSlotManualSearch}
+                  onSlotAutoSearch={onSlotAutoSearch}
                   searchingEpisodeId={searchingEpisodeId}
+                  searchingSlotId={searchingSlotId}
+                  isMultiVersionEnabled={isMultiVersionEnabled}
+                  enabledSlots={enabledSlots}
+                  isAssigning={isAssigning}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground py-2">

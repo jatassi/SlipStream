@@ -194,7 +194,7 @@ func (q *Queries) CreateEpisode(ctx context.Context, arg CreateEpisodeParams) (*
 const createEpisodeFile = `-- name: CreateEpisodeFile :one
 INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type CreateEpisodeFileParams struct {
@@ -234,6 +234,7 @@ func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFilePa
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
@@ -243,7 +244,7 @@ INSERT INTO episode_files (
     episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
     original_path, original_filename, imported_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type CreateEpisodeFileWithImportInfoParams struct {
@@ -290,6 +291,7 @@ func (q *Queries) CreateEpisodeFileWithImportInfo(ctx context.Context, arg Creat
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
@@ -517,7 +519,7 @@ func (q *Queries) GetEpisodeByNumber(ctx context.Context, arg GetEpisodeByNumber
 }
 
 const getEpisodeFile = `-- name: GetEpisodeFile :one
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM episode_files WHERE id = ? LIMIT 1
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE id = ? LIMIT 1
 `
 
 // Episode Files
@@ -538,12 +540,13 @@ func (q *Queries) GetEpisodeFile(ctx context.Context, id int64) (*EpisodeFile, e
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
 
 const getEpisodeFileByPath = `-- name: GetEpisodeFileByPath :one
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM episode_files WHERE path = ? LIMIT 1
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetEpisodeFileByPath(ctx context.Context, path string) (*EpisodeFile, error) {
@@ -563,12 +566,13 @@ func (q *Queries) GetEpisodeFileByPath(ctx context.Context, path string) (*Episo
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
 
 const getEpisodeFilesWithImportInfo = `-- name: GetEpisodeFilesWithImportInfo :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, e.series_id, e.season_number, e.episode_number
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, e.series_id, e.season_number, e.episode_number
 FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ?
@@ -589,6 +593,7 @@ type GetEpisodeFilesWithImportInfoRow struct {
 	OriginalPath     sql.NullString `json:"original_path"`
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
+	SlotID           sql.NullInt64  `json:"slot_id"`
 	SeriesID         int64          `json:"series_id"`
 	SeasonNumber     int64          `json:"season_number"`
 	EpisodeNumber    int64          `json:"episode_number"`
@@ -617,6 +622,7 @@ func (q *Queries) GetEpisodeFilesWithImportInfo(ctx context.Context, seriesID in
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 			&i.SeriesID,
 			&i.SeasonNumber,
 			&i.EpisodeNumber,
@@ -1137,7 +1143,7 @@ func (q *Queries) ListAllSeriesForAvailability(ctx context.Context) ([]*ListAllS
 }
 
 const listEpisodeFilesByEpisode = `-- name: ListEpisodeFilesByEpisode :many
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at FROM episode_files WHERE episode_id = ? ORDER BY path
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE episode_id = ? ORDER BY path
 `
 
 func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64) ([]*EpisodeFile, error) {
@@ -1163,6 +1169,7 @@ func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1178,7 +1185,7 @@ func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64
 }
 
 const listEpisodeFilesBySeason = `-- name: ListEpisodeFilesBySeason :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at FROM episode_files ef
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ? AND e.season_number = ?
 ORDER BY e.episode_number
@@ -1212,6 +1219,7 @@ func (q *Queries) ListEpisodeFilesBySeason(ctx context.Context, arg ListEpisodeF
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -1227,7 +1235,7 @@ func (q *Queries) ListEpisodeFilesBySeason(ctx context.Context, arg ListEpisodeF
 }
 
 const listEpisodeFilesBySeries = `-- name: ListEpisodeFilesBySeries :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at FROM episode_files ef
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ?
 ORDER BY e.season_number, e.episode_number
@@ -1256,6 +1264,7 @@ func (q *Queries) ListEpisodeFilesBySeries(ctx context.Context, seriesID int64) 
 			&i.OriginalPath,
 			&i.OriginalFilename,
 			&i.ImportedAt,
+			&i.SlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -2086,7 +2095,7 @@ UPDATE episode_files SET
     original_filename = ?,
     imported_at = ?
 WHERE id = ?
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
 
 type UpdateEpisodeFileImportInfoParams struct {
@@ -2118,6 +2127,7 @@ func (q *Queries) UpdateEpisodeFileImportInfo(ctx context.Context, arg UpdateEpi
 		&i.OriginalPath,
 		&i.OriginalFilename,
 		&i.ImportedAt,
+		&i.SlotID,
 	)
 	return &i, err
 }
