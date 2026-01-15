@@ -399,7 +399,7 @@ func (s *Service) dispatchTorrentSearches(ctx context.Context, indexers []*types
 		close(resultsChan)
 	}()
 
-	return s.aggregateTorrentResults(resultsChan)
+	return s.aggregateTorrentResults(resultsChan, &criteria)
 }
 
 // searchIndexer performs a search on a single indexer.

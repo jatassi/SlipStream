@@ -27,13 +27,20 @@ func main() {
 	}
 
 	// Initialize logger
+	// Use debug level when developer mode is enabled
+	logLevel := cfg.Logging.Level
+	if cfg.DeveloperMode && logLevel != "trace" {
+		logLevel = "debug"
+	}
 	log := logger.New(logger.Config{
-		Level:  cfg.Logging.Level,
+		Level:  logLevel,
 		Format: cfg.Logging.Format,
 	})
 
 	log.Info().
 		Str("version", "0.0.1-dev").
+		Bool("developerMode", cfg.DeveloperMode).
+		Str("logLevel", logLevel).
 		Msg("starting SlipStream")
 
 	// Initialize database

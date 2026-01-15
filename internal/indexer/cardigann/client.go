@@ -153,6 +153,15 @@ func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 	// Convert criteria to search query
 	query := c.buildSearchQuery(criteria)
 
+	c.logger.Info().
+		Str("originalQuery", criteria.Query).
+		Str("enhancedQuery", query.Query).
+		Str("type", criteria.Type).
+		Int("season", criteria.Season).
+		Int("episode", criteria.Episode).
+		Int("year", criteria.Year).
+		Msg("Executing search with enhanced query")
+
 	// Execute search
 	results, err := c.searchEngine.Search(ctx, query, c.settings)
 	if err != nil {
@@ -166,10 +175,10 @@ func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 		torrents = append(torrents, torrent)
 	}
 
-	c.logger.Debug().
-		Int("results", len(torrents)).
-		Str("query", criteria.Query).
-		Msg("Torrent search completed")
+	c.logger.Info().
+		Int("rawResults", len(torrents)).
+		Str("enhancedQuery", query.Query).
+		Msg("Indexer returned raw results")
 
 	return torrents, nil
 }
@@ -310,7 +319,7 @@ func (c *Client) ensureAuthenticated(ctx context.Context) error {
 // buildSearchQuery converts SearchCriteria to a cardigann SearchQuery.
 func (c *Client) buildSearchQuery(criteria types.SearchCriteria) SearchQuery {
 	query := SearchQuery{
-		Query:   criteria.Query,
+		Query:   buildEnhancedQueryKeywords(criteria),
 		Type:    criteria.Type,
 		Year:    criteria.Year,
 		Season:  criteria.Season,
@@ -331,6 +340,30 @@ func (c *Client) buildSearchQuery(criteria types.SearchCriteria) SearchQuery {
 	}
 
 	return query
+}
+
+// buildEnhancedQueryKeywords enhances the search query with season/episode for TV
+// or year for movies to improve indexer-side filtering.
+func buildEnhancedQueryKeywords(criteria types.SearchCriteria) string {
+	if criteria.Query == "" {
+		return ""
+	}
+
+	switch criteria.Type {
+	case "tvsearch":
+		if criteria.Season > 0 {
+			if criteria.Episode > 0 {
+				return fmt.Sprintf("%s S%02dE%02d", criteria.Query, criteria.Season, criteria.Episode)
+			}
+			return fmt.Sprintf("%s S%02d", criteria.Query, criteria.Season)
+		}
+	case "movie":
+		if criteria.Year > 0 {
+			return fmt.Sprintf("%s %d", criteria.Query, criteria.Year)
+		}
+	}
+
+	return criteria.Query
 }
 
 // mapCategoryToString maps a numeric category ID to the indexer's category string.
