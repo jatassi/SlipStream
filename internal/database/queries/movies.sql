@@ -160,6 +160,7 @@ WHERE m.monitored = 1
   AND m.released = 1
   AND mf.quality_id IS NOT NULL
   AND mf.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY m.release_date DESC;
 
 -- name: CountMovieUpgradeCandidates :one
@@ -169,7 +170,8 @@ JOIN quality_profiles qp ON m.quality_profile_id = qp.id
 WHERE m.monitored = 1
   AND m.released = 1
   AND mf.quality_id IS NOT NULL
-  AND mf.quality_id < qp.cutoff;
+  AND mf.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1;
 
 -- name: GetMovieWithFileQuality :one
 SELECT m.*, mf.id as file_id, mf.quality_id as current_quality_id

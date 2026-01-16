@@ -640,6 +640,64 @@ func (s *Service) movieToSearchableItem(movie *sqlc.Movie) SearchableItem {
 	return item
 }
 
+// movieUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
+func (s *Service) movieUpgradeCandidateToSearchableItem(row *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
+	item := SearchableItem{
+		MediaType:        MediaTypeMovie,
+		MediaID:          row.ID,
+		Title:            row.Title,
+		HasFile:          true,
+		CurrentQualityID: int(row.CurrentQualityID.Int64),
+	}
+
+	if row.Year.Valid {
+		item.Year = int(row.Year.Int64)
+	}
+	if row.ImdbID.Valid {
+		item.ImdbID = row.ImdbID.String
+	}
+	if row.TmdbID.Valid {
+		item.TmdbID = int(row.TmdbID.Int64)
+	}
+	if row.QualityProfileID.Valid {
+		item.QualityProfileID = row.QualityProfileID.Int64
+	}
+
+	return item
+}
+
+// episodeUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
+func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeUpgradeCandidatesRow) SearchableItem {
+	item := SearchableItem{
+		MediaType:        MediaTypeEpisode,
+		MediaID:          row.ID,
+		SeriesID:         row.SeriesID,
+		Title:            row.SeriesTitle,
+		SeasonNumber:     int(row.SeasonNumber),
+		EpisodeNumber:    int(row.EpisodeNumber),
+		HasFile:          true,
+		CurrentQualityID: int(row.CurrentQualityID.Int64),
+	}
+
+	if row.SeriesYear.Valid {
+		item.Year = int(row.SeriesYear.Int64)
+	}
+	if row.SeriesTvdbID.Valid {
+		item.TvdbID = int(row.SeriesTvdbID.Int64)
+	}
+	if row.SeriesTmdbID.Valid {
+		item.TmdbID = int(row.SeriesTmdbID.Int64)
+	}
+	if row.SeriesImdbID.Valid {
+		item.ImdbID = row.SeriesImdbID.String
+	}
+	if row.SeriesQualityProfileID.Valid {
+		item.QualityProfileID = row.SeriesQualityProfileID.Int64
+	}
+
+	return item
+}
+
 // episodeToSearchableItem converts an episode and series to a SearchableItem.
 func (s *Service) episodeToSearchableItem(episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
 	item := SearchableItem{

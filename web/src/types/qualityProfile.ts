@@ -21,6 +21,7 @@ export interface QualityProfile {
   id: number
   name: string
   cutoff: number
+  upgradesEnabled: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings
   videoCodecSettings: AttributeSettings
@@ -33,6 +34,7 @@ export interface QualityProfile {
 export interface CreateQualityProfileInput {
   name: string
   cutoff: number
+  upgradesEnabled: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings
   videoCodecSettings: AttributeSettings
@@ -43,6 +45,7 @@ export interface CreateQualityProfileInput {
 export interface UpdateQualityProfileInput {
   name: string
   cutoff: number
+  upgradesEnabled: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings
   videoCodecSettings: AttributeSettings

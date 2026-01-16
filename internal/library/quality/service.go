@@ -105,6 +105,12 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
 	}
 
+	// Default to true if not specified
+	upgradesEnabled := int64(1)
+	if input.UpgradesEnabled != nil && !*input.UpgradesEnabled {
+		upgradesEnabled = 0
+	}
+
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
 		Name:                 input.Name,
 		Cutoff:               int64(input.Cutoff),
@@ -113,6 +119,7 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		VideoCodecSettings:   videoCodecJSON,
 		AudioCodecSettings:   audioCodecJSON,
 		AudioChannelSettings: audioChannelJSON,
+		UpgradesEnabled:      upgradesEnabled,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -153,6 +160,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
 	}
 
+	upgradesEnabled := int64(0)
+	if input.UpgradesEnabled {
+		upgradesEnabled = 1
+	}
+
 	row, err := s.queries.UpdateQualityProfile(ctx, sqlc.UpdateQualityProfileParams{
 		ID:                   id,
 		Name:                 input.Name,
@@ -162,6 +174,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		VideoCodecSettings:   videoCodecJSON,
 		AudioCodecSettings:   audioCodecJSON,
 		AudioChannelSettings: audioChannelJSON,
+		UpgradesEnabled:      upgradesEnabled,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -225,10 +238,12 @@ func (s *Service) EnsureDefaults(ctx context.Context) error {
 	}
 
 	for _, p := range defaults {
+		upgradesEnabled := p.UpgradesEnabled
 		_, err := s.Create(ctx, CreateProfileInput{
-			Name:   p.Name,
-			Cutoff: p.Cutoff,
-			Items:  p.Items,
+			Name:            p.Name,
+			Cutoff:          p.Cutoff,
+			UpgradesEnabled: &upgradesEnabled,
+			Items:           p.Items,
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Str("name", p.Name).Msg("Failed to create default profile")
@@ -274,6 +289,7 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		ID:                   row.ID,
 		Name:                 row.Name,
 		Cutoff:               int(row.Cutoff),
+		UpgradesEnabled:      row.UpgradesEnabled == 1,
 		Items:                items,
 		HDRSettings:          hdrSettings,
 		VideoCodecSettings:   videoCodecSettings,

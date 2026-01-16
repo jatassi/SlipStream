@@ -53,6 +53,7 @@ WHERE m.monitored = 1
   AND m.released = 1
   AND mf.quality_id IS NOT NULL
   AND mf.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 `
 
 func (q *Queries) CountMovieUpgradeCandidates(ctx context.Context) (int64, error) {
@@ -810,6 +811,7 @@ WHERE m.monitored = 1
   AND m.released = 1
   AND mf.quality_id IS NOT NULL
   AND mf.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY m.release_date DESC
 `
 

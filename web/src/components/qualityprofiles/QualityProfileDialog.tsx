@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -67,6 +68,7 @@ const defaultItems: QualityItem[] = PREDEFINED_QUALITIES.map((q) => ({
 const defaultFormData: CreateQualityProfileInput = {
   name: '',
   cutoff: 10,
+  upgradesEnabled: true,
   items: defaultItems,
   hdrSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
   videoCodecSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -93,6 +95,7 @@ export function QualityProfileDialog({
         setFormData({
           name: profile.name,
           cutoff: profile.cutoff,
+          upgradesEnabled: profile.upgradesEnabled ?? true,
           items: profile.items,
           hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
           videoCodecSettings: profile.videoCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -305,14 +308,33 @@ export function QualityProfileDialog({
             </div>
           </div>
 
-          {/* Cutoff - Now AFTER Qualities */}
+          {/* Upgrades Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label>Upgrades</Label>
+              <p className="text-xs text-muted-foreground">
+                Search for better quality when file exists
+              </p>
+            </div>
+            <Switch
+              checked={formData.upgradesEnabled}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, upgradesEnabled: checked }))
+              }
+            />
+          </div>
+
+          {/* Cutoff - disabled when upgrades off */}
           <div className="space-y-2">
-            <Label htmlFor="cutoff">Cutoff</Label>
+            <Label htmlFor="cutoff" className={!formData.upgradesEnabled ? 'text-muted-foreground' : ''}>
+              Cutoff
+            </Label>
             <Select
               value={formData.cutoff.toString()}
               onValueChange={(v) => v && setFormData((prev) => ({ ...prev, cutoff: parseInt(v) }))}
+              disabled={!formData.upgradesEnabled}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className={`w-full ${!formData.upgradesEnabled ? 'opacity-50' : ''}`}>
                 {cutoffOptions.find((i) => i.quality.id === formData.cutoff)?.quality.name || 'Select cutoff'}
               </SelectTrigger>
               <SelectContent>
@@ -323,7 +345,7 @@ export function QualityProfileDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
+            <p className={`text-xs ${!formData.upgradesEnabled ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
               Stop upgrading once this quality is reached
             </p>
           </div>

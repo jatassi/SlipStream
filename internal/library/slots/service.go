@@ -157,9 +157,10 @@ func (s *Service) List(ctx context.Context) ([]*Slot, error) {
 			profile, err := s.qualityService.Get(ctx, row.QualityProfileID.Int64)
 			if err == nil {
 				slot.QualityProfile = &SlotProfile{
-					ID:     profile.ID,
-					Name:   profile.Name,
-					Cutoff: profile.Cutoff,
+					ID:              profile.ID,
+					Name:            profile.Name,
+					Cutoff:          profile.Cutoff,
+					UpgradesEnabled: profile.UpgradesEnabled,
 				}
 			}
 		}
@@ -182,9 +183,10 @@ func (s *Service) ListEnabled(ctx context.Context) ([]*Slot, error) {
 			profile, err := s.qualityService.Get(ctx, row.QualityProfileID.Int64)
 			if err == nil {
 				slot.QualityProfile = &SlotProfile{
-					ID:     profile.ID,
-					Name:   profile.Name,
-					Cutoff: profile.Cutoff,
+					ID:              profile.ID,
+					Name:            profile.Name,
+					Cutoff:          profile.Cutoff,
+					UpgradesEnabled: profile.UpgradesEnabled,
 				}
 			}
 		}

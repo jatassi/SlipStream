@@ -35,9 +35,10 @@ type Slot struct {
 
 // SlotProfile is a simplified profile for slot display.
 type SlotProfile struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Cutoff int    `json:"cutoff"`
+	ID              int64  `json:"id"`
+	Name            string `json:"name"`
+	Cutoff          int    `json:"cutoff"`
+	UpgradesEnabled bool   `json:"upgradesEnabled"`
 }
 
 // SlotRootFolder is a simplified root folder for slot display.

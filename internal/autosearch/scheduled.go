@@ -232,7 +232,7 @@ type searchableItemWithPriority struct {
 	isSeasonPack bool
 }
 
-// collectSearchableItems gathers all missing movies and episodes, ordered by release date.
+// collectSearchableItems gathers all missing and upgrade-eligible movies and episodes, ordered by release date.
 func (s *ScheduledSearcher) collectSearchableItems(ctx context.Context) ([]SearchableItem, error) {
 	var items []searchableItemWithPriority
 
@@ -243,12 +243,26 @@ func (s *ScheduledSearcher) collectSearchableItems(ctx context.Context) ([]Searc
 	}
 	items = append(items, movies...)
 
+	// Get upgrade candidate movies (files below quality cutoff)
+	upgradeMovies, err := s.collectUpgradeMovies(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, upgradeMovies...)
+
 	// Get missing episodes (with boxset prioritization)
 	episodes, err := s.collectMissingEpisodes(ctx)
 	if err != nil {
 		return nil, err
 	}
 	items = append(items, episodes...)
+
+	// Get upgrade candidate episodes (files below quality cutoff)
+	upgradeEpisodes, err := s.collectUpgradeEpisodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, upgradeEpisodes...)
 
 	// Sort by release date (newest first)
 	sort.Slice(items, func(i, j int) bool {
@@ -416,6 +430,74 @@ func (s *ScheduledSearcher) collectMissingEpisodes(ctx context.Context) ([]searc
 				})
 			}
 		}
+	}
+
+	return items, nil
+}
+
+// collectUpgradeMovies collects movies with files below quality cutoff.
+func (s *ScheduledSearcher) collectUpgradeMovies(ctx context.Context) ([]searchableItemWithPriority, error) {
+	rows, err := s.service.queries.ListMovieUpgradeCandidates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]searchableItemWithPriority, 0, len(rows))
+	for _, row := range rows {
+		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to check backoff status")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		item := s.service.movieUpgradeCandidateToSearchableItem(row)
+
+		var releaseDate time.Time
+		if row.PhysicalReleaseDate.Valid {
+			releaseDate = row.PhysicalReleaseDate.Time
+		} else if row.ReleaseDate.Valid {
+			releaseDate = row.ReleaseDate.Time
+		}
+
+		items = append(items, searchableItemWithPriority{
+			item:        item,
+			releaseDate: releaseDate,
+		})
+	}
+
+	return items, nil
+}
+
+// collectUpgradeEpisodes collects episodes with files below quality cutoff.
+func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searchableItemWithPriority, error) {
+	rows, err := s.service.queries.ListEpisodeUpgradeCandidates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]searchableItemWithPriority, 0, len(rows))
+	for _, row := range rows {
+		shouldSkip, err := s.shouldSkipItem(ctx, "episode", row.ID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to check backoff status")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		item := s.service.episodeUpgradeCandidateToSearchableItem(row)
+
+		var airDate time.Time
+		if row.AirDate.Valid {
+			airDate = row.AirDate.Time
+		}
+
+		items = append(items, searchableItemWithPriority{
+			item:        item,
+			releaseDate: airDate,
+		})
 	}
 
 	return items, nil

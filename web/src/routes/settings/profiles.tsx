@@ -100,7 +100,11 @@ export function QualityProfilesPage() {
                   <div>
                     <CardTitle className="text-lg">{profile.name}</CardTitle>
                     <CardDescription>
-                      Cutoff: {getCutoffName(profile.cutoff)}
+                      {profile.upgradesEnabled ? (
+                        <>Cutoff: {getCutoffName(profile.cutoff)}</>
+                      ) : (
+                        <span className="text-muted-foreground/70">Upgrades disabled</span>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex gap-1">

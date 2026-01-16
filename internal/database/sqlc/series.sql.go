@@ -63,6 +63,7 @@ WHERE e.monitored = 1
   AND s.monitored = 1
   AND ef.quality_id IS NOT NULL
   AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 `
 
 func (q *Queries) CountEpisodeUpgradeCandidates(ctx context.Context) (int64, error) {
@@ -1300,6 +1301,7 @@ WHERE e.monitored = 1
   AND s.monitored = 1
   AND ef.quality_id IS NOT NULL
   AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY e.air_date DESC
 `
 
@@ -1382,6 +1384,7 @@ WHERE e.series_id = ?
   AND e.released = 1
   AND ef.quality_id IS NOT NULL
   AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY e.season_number, e.episode_number
 `
 

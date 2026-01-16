@@ -392,6 +392,7 @@ WHERE e.monitored = 1
   AND s.monitored = 1
   AND ef.quality_id IS NOT NULL
   AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY e.air_date DESC;
 
 -- name: CountEpisodeUpgradeCandidates :one
@@ -403,7 +404,8 @@ WHERE e.monitored = 1
   AND e.released = 1
   AND s.monitored = 1
   AND ef.quality_id IS NOT NULL
-  AND ef.quality_id < qp.cutoff;
+  AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1;
 
 -- name: ListEpisodeUpgradeCandidatesBySeries :many
 SELECT
@@ -420,6 +422,7 @@ WHERE e.series_id = ?
   AND e.released = 1
   AND ef.quality_id IS NOT NULL
   AND ef.quality_id < qp.cutoff
+  AND qp.upgrades_enabled = 1
 ORDER BY e.season_number, e.episode_number;
 
 -- name: GetEpisodeWithFileQuality :one

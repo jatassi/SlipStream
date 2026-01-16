@@ -278,6 +278,7 @@ type QualityProfile struct {
 	VideoCodecSettings   string       `json:"video_codec_settings"`
 	AudioCodecSettings   string       `json:"audio_codec_settings"`
 	AudioChannelSettings string       `json:"audio_channel_settings"`
+	UpgradesEnabled      int64        `json:"upgrades_enabled"`
 }
 
 type QueueMedium struct {

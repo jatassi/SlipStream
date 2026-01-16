@@ -99,10 +99,12 @@ func (s *Service) GetMovieStatus(ctx context.Context, movieID int64) (*MediaStat
 				if fileQuality != nil {
 					slotStatus.CurrentQuality = fileQuality.Quality
 					slotStatus.CurrentQualityID = &fileQuality.QualityID
-					// Req 6.2.2: Check if below cutoff
-					slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
-					if slotStatus.NeedsUpgrade {
-						status.NeedsUpgrade = true
+					// Req 6.2.2: Check if below cutoff (only if upgrades enabled)
+					if slot.QualityProfile != nil && slot.QualityProfile.UpgradesEnabled {
+						slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
+						if slotStatus.NeedsUpgrade {
+							status.NeedsUpgrade = true
+						}
 					}
 				}
 			} else {
@@ -183,9 +185,12 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 				if fileQuality != nil {
 					slotStatus.CurrentQuality = fileQuality.Quality
 					slotStatus.CurrentQualityID = &fileQuality.QualityID
-					slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
-					if slotStatus.NeedsUpgrade {
-						status.NeedsUpgrade = true
+					// Check if below cutoff (only if upgrades enabled)
+					if slot.QualityProfile != nil && slot.QualityProfile.UpgradesEnabled {
+						slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
+						if slotStatus.NeedsUpgrade {
+							status.NeedsUpgrade = true
+						}
 					}
 				}
 			} else {
