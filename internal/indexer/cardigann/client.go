@@ -13,6 +13,16 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
 
+// CookieStore provides persistent cookie storage for indexer sessions.
+type CookieStore interface {
+	// GetCookies retrieves cached cookies for an indexer. Returns nil if none exist or expired.
+	GetCookies(ctx context.Context, indexerID int64) (cookies string, err error)
+	// SaveCookies stores cookies for an indexer with the given expiration.
+	SaveCookies(ctx context.Context, indexerID int64, cookies string, expiresAt time.Time) error
+	// ClearCookies removes cached cookies for an indexer.
+	ClearCookies(ctx context.Context, indexerID int64) error
+}
+
 // Client implements the indexer.Indexer interface using a Cardigann definition.
 type Client struct {
 	def            *Definition
@@ -22,16 +32,18 @@ type Client struct {
 	searchEngine   *SearchEngine
 	httpClient     *http.Client
 	logger         zerolog.Logger
+	cookieStore    CookieStore
 	authenticated  bool
 	lastLogin      time.Time
 }
 
 // ClientConfig contains configuration options for creating a new Client.
 type ClientConfig struct {
-	Definition   *Definition
-	IndexerDef   *types.IndexerDefinition
-	Settings     map[string]string
-	Logger       zerolog.Logger
+	Definition  *Definition
+	IndexerDef  *types.IndexerDefinition
+	Settings    map[string]string
+	Logger      zerolog.Logger
+	CookieStore CookieStore // Optional: provides persistent cookie storage
 }
 
 // NewClient creates a new Cardigann client.
@@ -67,6 +79,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		searchEngine: searchEngine,
 		httpClient:   loginHandler.GetHTTPClient(),
 		logger:       logger,
+		cookieStore:  cfg.CookieStore,
 	}, nil
 }
 
@@ -303,17 +316,88 @@ func (c *Client) ensureAuthenticated(ctx context.Context) error {
 		return nil
 	}
 
-	// Perform authentication
-	if err := c.loginHandler.Authenticate(ctx, c.def.Login, c.settings); err != nil {
+	// Try to use cached cookies first
+	if c.tryUseCachedCookies(ctx) {
+		return nil
+	}
+
+	// Perform fresh authentication
+	// Pass search headers as fallback for login methods that need them (e.g., "get" method with API key auth)
+	var searchHeaders map[string]StringOrArray
+	if c.def.Search.Headers != nil {
+		searchHeaders = c.def.Search.Headers
+	}
+	if err := c.loginHandler.Authenticate(ctx, c.def.Login, c.settings, searchHeaders); err != nil {
 		return err
 	}
 
 	c.authenticated = true
 	c.lastLogin = time.Now()
 
+	// Save cookies for future use
+	c.saveCookiesToStore(ctx)
+
 	c.logger.Debug().Msg("Authentication successful")
 
 	return nil
+}
+
+// tryUseCachedCookies attempts to restore and validate cached session cookies.
+// Returns true if cached cookies are valid and can be used.
+func (c *Client) tryUseCachedCookies(ctx context.Context) bool {
+	if c.cookieStore == nil || c.indexerDef == nil {
+		return false
+	}
+
+	// Try to load cached cookies
+	cookies, err := c.cookieStore.GetCookies(ctx, c.indexerDef.ID)
+	if err != nil {
+		c.logger.Debug().Err(err).Msg("Failed to load cached cookies")
+		return false
+	}
+
+	if cookies == "" {
+		return false
+	}
+
+	// Import the cached cookies into the login handler
+	c.loginHandler.ImportCookies(cookies)
+
+	// Test if cookies are still valid
+	if err := c.loginHandler.Test(ctx, c.def.Login); err != nil {
+		c.logger.Debug().Err(err).Msg("Cached cookies are invalid, will re-authenticate")
+		// Clear invalid cookies
+		_ = c.cookieStore.ClearCookies(ctx, c.indexerDef.ID)
+		return false
+	}
+
+	c.authenticated = true
+	c.lastLogin = time.Now()
+
+	c.logger.Info().Msg("Using cached session cookies")
+
+	return true
+}
+
+// saveCookiesToStore persists current session cookies.
+func (c *Client) saveCookiesToStore(ctx context.Context) {
+	if c.cookieStore == nil || c.indexerDef == nil {
+		return
+	}
+
+	cookies := c.loginHandler.ExportCookies()
+	if cookies == "" {
+		return
+	}
+
+	// Set expiration to 30 days from now (similar to Prowlarr)
+	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+
+	if err := c.cookieStore.SaveCookies(ctx, c.indexerDef.ID, cookies, expiresAt); err != nil {
+		c.logger.Warn().Err(err).Msg("Failed to save session cookies")
+	} else {
+		c.logger.Debug().Msg("Saved session cookies for future use")
+	}
 }
 
 // buildSearchQuery converts SearchCriteria to a cardigann SearchQuery.

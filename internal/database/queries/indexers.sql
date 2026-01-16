@@ -173,3 +173,18 @@ SELECT * FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 ORDER BY pr
 
 -- name: UpdateIndexerAutoSearchEnabled :exec
 UPDATE indexers SET auto_search_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- Cookie management queries
+
+-- name: GetIndexerCookies :one
+SELECT cookies, cookies_expiration FROM indexer_status WHERE indexer_id = ? LIMIT 1;
+
+-- name: UpdateIndexerCookies :exec
+INSERT INTO indexer_status (indexer_id, cookies, cookies_expiration)
+VALUES (?, ?, ?)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    cookies = excluded.cookies,
+    cookies_expiration = excluded.cookies_expiration;
+
+-- name: ClearIndexerCookies :exec
+UPDATE indexer_status SET cookies = NULL, cookies_expiration = NULL WHERE indexer_id = ?;

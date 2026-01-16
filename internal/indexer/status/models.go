@@ -109,3 +109,9 @@ type StatusStats struct {
 	WarningIndexers  int `json:"warningIndexers"`
 	DisabledIndexers int `json:"disabledIndexers"`
 }
+
+// CookieData contains cached session cookies for an indexer.
+type CookieData struct {
+	Cookies   string     // Serialized cookie string (name=value; name2=value2)
+	ExpiresAt *time.Time // When the cookies expire
+}

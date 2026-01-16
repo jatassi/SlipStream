@@ -58,7 +58,8 @@ func NewLoginHandler(baseURL string, logger zerolog.Logger) (*LoginHandler, erro
 }
 
 // Authenticate performs authentication based on the login block configuration.
-func (h *LoginHandler) Authenticate(ctx context.Context, login *LoginBlock, settings map[string]string) error {
+// searchHeaders is an optional fallback for headers if the login block doesn't define them.
+func (h *LoginHandler) Authenticate(ctx context.Context, login *LoginBlock, settings map[string]string, searchHeaders map[string]StringOrArray) error {
 	if login == nil {
 		return nil // No authentication required
 	}
@@ -72,6 +73,8 @@ func (h *LoginHandler) Authenticate(ctx context.Context, login *LoginBlock, sett
 		return h.loginCookie(ctx, login, settings)
 	case "oneurl":
 		return h.loginOneURL(ctx, login, settings)
+	case "get":
+		return h.loginGET(ctx, login, settings, searchHeaders)
 	case "":
 		// No login method specified, assume no auth needed
 		return nil
@@ -171,6 +174,11 @@ func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, setting
 
 	body, _ := io.ReadAll(resp.Body)
 
+	h.logger.Debug().
+		Int("status", resp.StatusCode).
+		Int("bodyLength", len(body)).
+		Msg("Login page response received")
+
 	// Parse the page
 	htmlSel, err := NewHTMLSelector(body)
 	if err != nil {
@@ -185,6 +193,27 @@ func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, setting
 
 	formSel := htmlSel.Select(formSelector)
 	if formSel.Length() == 0 {
+		// Log diagnostic info to help identify the issue
+		pageTitle := htmlSel.FindText("title")
+		hasCloudflare := strings.Contains(string(body), "cloudflare") ||
+			strings.Contains(string(body), "cf-browser-verification") ||
+			strings.Contains(string(body), "cf_clearance") ||
+			strings.Contains(string(body), "Just a moment")
+		hasCaptcha := strings.Contains(string(body), "captcha") ||
+			strings.Contains(string(body), "g-recaptcha")
+		formCount := htmlSel.Select("form").Length()
+
+		h.logger.Error().
+			Str("formSelector", formSelector).
+			Str("pageTitle", pageTitle).
+			Bool("cloudflareDetected", hasCloudflare).
+			Bool("captchaDetected", hasCaptcha).
+			Int("formsOnPage", formCount).
+			Msg("Login form not found - page analysis")
+
+		if hasCloudflare {
+			return fmt.Errorf("login form not found: %s (Cloudflare protection detected - FlareSolverr may be required)", formSelector)
+		}
 		return fmt.Errorf("login form not found: %s", formSelector)
 	}
 
@@ -308,6 +337,91 @@ func (h *LoginHandler) loginOneURL(ctx context.Context, login *LoginBlock, setti
 	return nil
 }
 
+// loginGET performs GET-based authentication (used by API key auth like UNIT3D trackers).
+func (h *LoginHandler) loginGET(ctx context.Context, login *LoginBlock, settings map[string]string, searchHeaders map[string]StringOrArray) error {
+	engine := NewTemplateEngine()
+	tmplCtx := NewTemplateContext()
+	tmplCtx.Config = settings
+
+	// Build query parameters from login inputs
+	queryParams := url.Values{}
+	for key, tmpl := range login.Inputs {
+		val, err := engine.Evaluate(tmpl, tmplCtx)
+		if err != nil {
+			return fmt.Errorf("failed to evaluate input %s: %w", key, err)
+		}
+		if val != "" {
+			queryParams.Set(key, val)
+		}
+	}
+
+	// Build the login URL
+	loginURL := joinURL(h.baseURL, login.Path)
+	if len(queryParams) > 0 {
+		loginURL += "?" + queryParams.Encode()
+	}
+
+	h.logger.Debug().Str("url", loginURL).Msg("Performing GET login")
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, "GET", loginURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create login request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", h.userAgent)
+
+	// Use login headers first, fall back to search headers
+	headers := login.Headers
+	if headers == nil || len(headers) == 0 {
+		headers = searchHeaders
+	}
+
+	// Add custom headers (evaluate templates)
+	for key, val := range headers {
+		evaluated, _ := engine.Evaluate(string(val), tmplCtx)
+		req.Header.Set(key, evaluated)
+	}
+
+	// Execute request
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("login request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check for HTTP 401 Unauthorized
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("authentication failed: unauthorized (HTTP 401)")
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+
+	// Check for error selectors
+	if len(login.Error) > 0 {
+		htmlSel, err := NewHTMLSelector(body)
+		if err == nil {
+			for _, errSel := range login.Error {
+				if htmlSel.Exists(errSel.Selector) {
+					errMsg := "Login failed"
+					if errSel.Message != nil {
+						if errSel.Message.Text != "" {
+							errMsg = errSel.Message.Text
+						} else if errSel.Message.Selector != "" {
+							errMsg = htmlSel.FindText(errSel.Message.Selector)
+						}
+					}
+					return fmt.Errorf("login error: %s", errMsg)
+				}
+			}
+		}
+	}
+
+	h.logger.Debug().Int("status", resp.StatusCode).Msg("GET login completed")
+
+	return nil
+}
+
 // Test verifies that authentication was successful.
 func (h *LoginHandler) Test(ctx context.Context, login *LoginBlock) error {
 	if login == nil || login.Test.Path == "" {
@@ -399,4 +513,35 @@ func parseCookieString(cookieStr string) []*http.Cookie {
 	}
 
 	return cookies
+}
+
+// ExportCookies returns all current cookies as a serialized string.
+func (h *LoginHandler) ExportCookies() string {
+	cookies := h.GetCookies()
+	if len(cookies) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for _, c := range cookies {
+		parts = append(parts, c.Name+"="+c.Value)
+	}
+	return strings.Join(parts, "; ")
+}
+
+// ImportCookies sets cookies from a serialized cookie string.
+func (h *LoginHandler) ImportCookies(cookieStr string) {
+	if cookieStr == "" {
+		return
+	}
+
+	baseURL, err := url.Parse(h.baseURL)
+	if err != nil {
+		return
+	}
+
+	cookies := parseCookieString(cookieStr)
+	h.jar.SetCookies(baseURL, cookies)
+
+	h.logger.Debug().Int("cookies", len(cookies)).Msg("Imported cached cookies")
 }

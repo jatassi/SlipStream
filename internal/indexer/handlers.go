@@ -81,6 +81,13 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	// Debug: Log received settings
+	h.service.logger.Debug().
+		Str("name", input.Name).
+		Str("definitionId", input.DefinitionID).
+		RawJSON("settings", input.Settings).
+		Msg("Create indexer request received")
+
 	indexer, err := h.service.Create(c.Request().Context(), input)
 	if err != nil {
 		if errors.Is(err, ErrInvalidIndexer) || errors.Is(err, ErrDefinitionNotFound) {
@@ -100,7 +107,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
-	var input CreateIndexerInput
+	var input UpdateIndexerInput
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

@@ -166,6 +166,19 @@ type CreateIndexerInput struct {
 	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
 }
 
+// UpdateIndexerInput is the input for updating an indexer (all fields optional for partial updates).
+type UpdateIndexerInput struct {
+	Name              *string         `json:"name,omitempty"`
+	DefinitionID      *string         `json:"definitionId,omitempty"`
+	Settings          json.RawMessage `json:"settings,omitempty"`
+	Categories        []int           `json:"categories,omitempty"`
+	SupportsMovies    *bool           `json:"supportsMovies,omitempty"`
+	SupportsTV        *bool           `json:"supportsTV,omitempty"`
+	Priority          *int            `json:"priority,omitempty"`
+	Enabled           *bool           `json:"enabled,omitempty"`
+	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
+}
+
 // Create creates a new indexer.
 func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*IndexerDefinition, error) {
 	if err := s.validateInput(input); err != nil {
@@ -192,6 +205,9 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 	settingsJSON := "{}"
 	if input.Settings != nil {
 		settingsJSON = string(input.Settings)
+		s.logger.Debug().RawJSON("settings", input.Settings).Msg("Creating indexer with settings")
+	} else {
+		s.logger.Warn().Msg("Creating indexer with nil settings")
 	}
 
 	// Default auto-search enabled to true if not specified
@@ -229,36 +245,77 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 	return s.rowToDefinition(row), nil
 }
 
-// Update updates an existing indexer.
-func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput) (*IndexerDefinition, error) {
-	if err := s.validateInput(input); err != nil {
-		return nil, err
-	}
-
-	// Check if indexer exists and get current values
+// Update updates an existing indexer with partial update support.
+func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput) (*IndexerDefinition, error) {
+	// Get existing indexer first
 	existing, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Verify definition exists
-	if _, err := s.manager.GetDefinition(input.DefinitionID); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, input.DefinitionID)
+	// Merge input with existing values
+	name := existing.Name
+	if input.Name != nil {
+		name = *input.Name
 	}
 
-	// Serialize categories to JSON
-	categoriesJSON, err := json.Marshal(input.Categories)
+	definitionID := existing.DefinitionID
+	if input.DefinitionID != nil {
+		definitionID = *input.DefinitionID
+	}
+
+	// Validate merged values
+	if name == "" {
+		return nil, fmt.Errorf("%w: name is required", ErrInvalidIndexer)
+	}
+	if definitionID == "" {
+		return nil, fmt.Errorf("%w: definition ID is required", ErrInvalidIndexer)
+	}
+
+	// Verify definition exists
+	if _, err := s.manager.GetDefinition(definitionID); err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
+	}
+
+	// Merge categories
+	categories := existing.Categories
+	if input.Categories != nil {
+		categories = input.Categories
+	}
+	categoriesJSON, err := json.Marshal(categories)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize categories: %w", err)
 	}
 
-	// Serialize settings
+	// Merge settings
 	settingsJSON := "{}"
 	if input.Settings != nil {
 		settingsJSON = string(input.Settings)
+	} else if existing.Settings != nil {
+		settingsJSON = string(existing.Settings)
 	}
 
-	// Preserve existing auto-search enabled if not provided in input
+	// Merge boolean and numeric fields
+	supportsMovies := existing.SupportsMovies
+	if input.SupportsMovies != nil {
+		supportsMovies = *input.SupportsMovies
+	}
+
+	supportsTV := existing.SupportsTV
+	if input.SupportsTV != nil {
+		supportsTV = *input.SupportsTV
+	}
+
+	priority := existing.Priority
+	if input.Priority != nil {
+		priority = *input.Priority
+	}
+
+	enabled := existing.Enabled
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+
 	autoSearchEnabled := existing.AutoSearchEnabled
 	if input.AutoSearchEnabled != nil {
 		autoSearchEnabled = *input.AutoSearchEnabled
@@ -266,14 +323,14 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput
 
 	row, err := s.queries.UpdateIndexer(ctx, sqlc.UpdateIndexerParams{
 		ID:                id,
-		Name:              input.Name,
-		DefinitionID:      input.DefinitionID,
+		Name:              name,
+		DefinitionID:      definitionID,
 		Settings:          toNullString(settingsJSON),
 		Categories:        toNullString(string(categoriesJSON)),
-		SupportsMovies:    boolToInt64(input.SupportsMovies),
-		SupportsTv:        boolToInt64(input.SupportsTV),
-		Priority:          int64(input.Priority),
-		Enabled:           boolToInt64(input.Enabled),
+		SupportsMovies:    boolToInt64(supportsMovies),
+		SupportsTv:        boolToInt64(supportsTV),
+		Priority:          int64(priority),
+		Enabled:           boolToInt64(enabled),
 		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
 	})
 	if err != nil {
@@ -289,16 +346,16 @@ func (s *Service) Update(ctx context.Context, id int64, input CreateIndexerInput
 	// Handle health registration for enable/disable state changes
 	if s.healthService != nil {
 		idStr := fmt.Sprintf("%d", id)
-		if input.Enabled && !existing.Enabled {
+		if enabled && !existing.Enabled {
 			// Indexer was enabled - register with health service
-			s.healthService.RegisterItemStr("indexers", idStr, input.Name)
-		} else if !input.Enabled && existing.Enabled {
+			s.healthService.RegisterItemStr("indexers", idStr, name)
+		} else if !enabled && existing.Enabled {
 			// Indexer was disabled - unregister from health service
 			s.healthService.UnregisterItemStr("indexers", idStr)
 		}
 	}
 
-	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated indexer")
+	s.logger.Info().Int64("id", id).Str("name", name).Msg("Updated indexer")
 	return s.rowToDefinition(row), nil
 }
 
@@ -400,9 +457,15 @@ func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestR
 
 // GetClient creates or retrieves an indexer client for the given indexer ID.
 func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
-	// Check if we already have a cached client
+	// Check if we already have a cached client with valid settings
 	if client, ok := s.manager.GetClient(id); ok {
-		return client, nil
+		// Verify the cached client has settings - if empty, recreate it
+		if len(client.GetSettings()) > 0 {
+			s.logger.Debug().Int64("id", id).Int("settingsCount", len(client.GetSettings())).Msg("Returning cached client with settings")
+			return client, nil
+		}
+		s.logger.Debug().Int64("id", id).Msg("Cached client has empty settings, recreating")
+		s.manager.RemoveClient(id)
 	}
 
 	// Get the indexer definition
@@ -414,9 +477,13 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 	// Parse settings
 	settings := make(map[string]string)
 	if indexer.Settings != nil {
+		s.logger.Debug().Int64("id", id).RawJSON("rawSettings", indexer.Settings).Msg("Parsing indexer settings")
 		if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
 			return nil, fmt.Errorf("failed to parse settings: %w", err)
 		}
+		s.logger.Debug().Int64("id", id).Int("settingsCount", len(settings)).Msg("Parsed indexer settings")
+	} else {
+		s.logger.Warn().Int64("id", id).Msg("Indexer has nil settings")
 	}
 
 	// Create the client

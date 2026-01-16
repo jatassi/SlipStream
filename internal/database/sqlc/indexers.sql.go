@@ -19,6 +19,15 @@ func (q *Queries) ClearDefinitionMetadata(ctx context.Context) error {
 	return err
 }
 
+const clearIndexerCookies = `-- name: ClearIndexerCookies :exec
+UPDATE indexer_status SET cookies = NULL, cookies_expiration = NULL WHERE indexer_id = ?
+`
+
+func (q *Queries) ClearIndexerCookies(ctx context.Context, indexerID int64) error {
+	_, err := q.db.ExecContext(ctx, clearIndexerCookies, indexerID)
+	return err
+}
+
 const clearIndexerFailure = `-- name: ClearIndexerFailure :exec
 UPDATE indexer_status SET
     initial_failure = NULL,
@@ -290,6 +299,24 @@ func (q *Queries) GetIndexerByDefinitionID(ctx context.Context, definitionID str
 		&i.UpdatedAt,
 		&i.AutoSearchEnabled,
 	)
+	return &i, err
+}
+
+const getIndexerCookies = `-- name: GetIndexerCookies :one
+
+SELECT cookies, cookies_expiration FROM indexer_status WHERE indexer_id = ? LIMIT 1
+`
+
+type GetIndexerCookiesRow struct {
+	Cookies           sql.NullString `json:"cookies"`
+	CookiesExpiration sql.NullTime   `json:"cookies_expiration"`
+}
+
+// Cookie management queries
+func (q *Queries) GetIndexerCookies(ctx context.Context, indexerID int64) (*GetIndexerCookiesRow, error) {
+	row := q.db.QueryRowContext(ctx, getIndexerCookies, indexerID)
+	var i GetIndexerCookiesRow
+	err := row.Scan(&i.Cookies, &i.CookiesExpiration)
 	return &i, err
 }
 
@@ -1000,6 +1027,25 @@ type UpdateIndexerAutoSearchEnabledParams struct {
 
 func (q *Queries) UpdateIndexerAutoSearchEnabled(ctx context.Context, arg UpdateIndexerAutoSearchEnabledParams) error {
 	_, err := q.db.ExecContext(ctx, updateIndexerAutoSearchEnabled, arg.AutoSearchEnabled, arg.ID)
+	return err
+}
+
+const updateIndexerCookies = `-- name: UpdateIndexerCookies :exec
+INSERT INTO indexer_status (indexer_id, cookies, cookies_expiration)
+VALUES (?, ?, ?)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    cookies = excluded.cookies,
+    cookies_expiration = excluded.cookies_expiration
+`
+
+type UpdateIndexerCookiesParams struct {
+	IndexerID         int64          `json:"indexer_id"`
+	Cookies           sql.NullString `json:"cookies"`
+	CookiesExpiration sql.NullTime   `json:"cookies_expiration"`
+}
+
+func (q *Queries) UpdateIndexerCookies(ctx context.Context, arg UpdateIndexerCookiesParams) error {
+	_, err := q.db.ExecContext(ctx, updateIndexerCookies, arg.IndexerID, arg.Cookies, arg.CookiesExpiration)
 	return err
 }
 

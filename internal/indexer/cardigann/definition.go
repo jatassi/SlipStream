@@ -158,8 +158,9 @@ type ResponseConfig struct {
 // RowSelector defines how to find result rows in the response.
 type RowSelector struct {
 	Selector    string       `yaml:"selector"`
-	After       int          `yaml:"after"` // Skip N rows (e.g., header row)
-	Remove      string       `yaml:"remove"` // Remove elements matching this selector
+	Attribute   string       `yaml:"attribute"` // For JSON: extract this nested object from each row
+	After       int          `yaml:"after"`     // Skip N rows (e.g., header row)
+	Remove      string       `yaml:"remove"`    // Remove elements matching this selector
 	Multiple    bool         `yaml:"multiple"`
 	DateHeaders *DateHeaders `yaml:"dateheaders"`
 	Count       *CountBlock  `yaml:"count"`

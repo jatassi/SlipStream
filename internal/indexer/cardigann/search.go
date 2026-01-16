@@ -65,12 +65,28 @@ func (e *SearchEngine) Search(ctx context.Context, query SearchQuery, settings m
 	// Merge definition defaults with user settings
 	mergedSettings := e.mergeSettingsWithDefaults(settings)
 
+	// Debug log to see what settings are available
+	e.logger.Debug().Int("inputSettings", len(settings)).Int("mergedSettings", len(mergedSettings)).Msg("Search settings")
+	if apikey, ok := mergedSettings["apikey"]; ok {
+		e.logger.Debug().Str("apikey", apikey[:min(10, len(apikey))]+"...").Msg("API key found in merged settings")
+	} else {
+		e.logger.Warn().Msg("API key NOT found in merged settings")
+	}
+
 	// Build template context
 	tmplCtx := e.buildTemplateContext(query, mergedSettings)
 
-	// Process keywords through filters (with template support for filter args)
+	// For ID-based searches (TMDB/IMDB), don't include text query in keywords
+	// This matches Prowlarr behavior - when IDs are available, only use IDs for filtering
 	keywords := query.Query
-	if len(e.def.Search.KeywordsFilters) > 0 {
+	if query.Type == "movie" && query.TMDBID > 0 {
+		keywords = "" // Clear keywords for TMDB-based movie search
+		e.logger.Debug().Int("tmdbId", query.TMDBID).Msg("Clearing keywords for TMDB-based movie search")
+	} else if query.Type == "movie" && query.IMDBID != "" {
+		keywords = "" // Clear keywords for IMDB-based movie search
+		e.logger.Debug().Str("imdbId", query.IMDBID).Msg("Clearing keywords for IMDB-based movie search")
+	} else if len(e.def.Search.KeywordsFilters) > 0 {
+		// Process keywords through filters (with template support for filter args)
 		filtered, err := ApplyFiltersWithContext(keywords, e.def.Search.KeywordsFilters, e.templateEngine, tmplCtx)
 		if err != nil {
 			e.logger.Warn().Err(err).Msg("Failed to apply keyword filters")
@@ -314,7 +330,11 @@ func (e *SearchEngine) executeSearchPath(ctx context.Context, path SearchPath, t
 
 	// Add custom headers
 	for key, val := range e.def.Search.Headers {
-		evaluated, _ := e.templateEngine.Evaluate(string(val), tmplCtx)
+		evaluated, err := e.templateEngine.Evaluate(string(val), tmplCtx)
+		if err != nil {
+			e.logger.Warn().Err(err).Str("header", key).Str("template", string(val)).Msg("Failed to evaluate header template")
+		}
+		e.logger.Debug().Str("header", key).Str("template", string(val)).Str("evaluated", evaluated).Msg("Setting search header")
 		req.Header.Set(key, evaluated)
 	}
 
@@ -379,18 +399,32 @@ func (e *SearchEngine) buildSearchURL(path SearchPath, tmplCtx *TemplateContext)
 		allInputs[k] = v
 	}
 
+	var rawQuery string
 	for key, tmpl := range allInputs {
 		val, err := e.templateEngine.Evaluate(tmpl, tmplCtx)
 		if err != nil {
 			continue
 		}
-		// Only add non-empty values
-		if val != "" {
-			q.Set(key, val)
+
+		// Handle $raw input specially - append directly to query string
+		if key == "$raw" {
+			rawQuery = val
+			continue
 		}
+
+		// Only add non-empty values (skip "0" for numeric fields that shouldn't be sent when unset)
+		if val == "" || val == "0" {
+			continue
+		}
+		q.Set(key, val)
 	}
 
 	u.RawQuery = q.Encode()
+
+	// Append raw query string if present (for categories[], etc.)
+	if rawQuery != "" {
+		u.RawQuery += rawQuery
+	}
 
 	return u.String(), nil
 }
@@ -467,7 +501,21 @@ func (e *SearchEngine) parseJSONResponse(body []byte, tmplCtx *TemplateContext) 
 			continue
 		}
 
-		result, err := e.extractResultFromJSON(rowData, tmplCtx)
+		// If rows.attribute is set, extract that nested object from each row
+		// This is used by UNIT3D APIs where each row has an "attributes" object
+		actualRowData := rowData
+		if e.def.Search.Rows.Attribute != "" {
+			if rowMap, ok := rowData.(map[string]interface{}); ok {
+				if attrData, ok := rowMap[e.def.Search.Rows.Attribute]; ok {
+					actualRowData = attrData
+				} else {
+					e.logger.Debug().Str("attribute", e.def.Search.Rows.Attribute).Msg("Row missing attribute field")
+					continue
+				}
+			}
+		}
+
+		result, err := e.extractResultFromJSON(actualRowData, tmplCtx)
 		if err != nil {
 			e.logger.Debug().Err(err).Msg("Failed to extract result from JSON row")
 			continue

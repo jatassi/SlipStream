@@ -14,15 +14,16 @@ import (
 
 // Manager manages Cardigann definitions and indexer clients.
 type Manager struct {
-	repo          *Repository
-	cache         *Cache
-	clients       map[int64]*Client
-	clientsMu     sync.RWMutex
-	logger        zerolog.Logger
-	lastUpdate    time.Time
-	updateMu      sync.Mutex
-	autoUpdate    bool
+	repo           *Repository
+	cache          *Cache
+	clients        map[int64]*Client
+	clientsMu      sync.RWMutex
+	logger         zerolog.Logger
+	lastUpdate     time.Time
+	updateMu       sync.Mutex
+	autoUpdate     bool
 	updateInterval time.Duration
+	cookieStore    CookieStore
 }
 
 // ManagerConfig contains configuration for the definition manager.
@@ -59,6 +60,11 @@ func NewManager(cfg ManagerConfig, logger zerolog.Logger) (*Manager, error) {
 		autoUpdate:     cfg.AutoUpdate,
 		updateInterval: cfg.UpdateInterval,
 	}, nil
+}
+
+// SetCookieStore sets the cookie store for persistent session cookies.
+func (m *Manager) SetCookieStore(store CookieStore) {
+	m.cookieStore = store
 }
 
 // Initialize loads definitions and optionally updates from remote.
@@ -232,10 +238,11 @@ func (m *Manager) CreateClientFromDefinition(defID string, indexerID int64, name
 	}
 
 	client, err := NewClient(ClientConfig{
-		Definition: def,
-		IndexerDef: indexerDef,
-		Settings:   settings,
-		Logger:     m.logger,
+		Definition:  def,
+		IndexerDef:  indexerDef,
+		Settings:    settings,
+		Logger:      m.logger,
+		CookieStore: m.cookieStore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)

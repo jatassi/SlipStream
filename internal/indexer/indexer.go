@@ -10,6 +10,9 @@ type Indexer interface {
 	Name() string
 	Definition() *IndexerDefinition
 
+	// Configuration
+	GetSettings() map[string]string
+
 	// Operations
 	Test(ctx context.Context) error
 	Search(ctx context.Context, criteria SearchCriteria) ([]ReleaseInfo, error)

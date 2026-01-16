@@ -330,7 +330,80 @@ func (s *Service) calculateBackoffDuration(level int) time.Duration {
 	return backoff
 }
 
+// GetCookies retrieves cached session cookies for an indexer.
+func (s *Service) GetCookies(ctx context.Context, indexerID int64) (*CookieData, error) {
+	row, err := s.queries.GetIndexerCookies(ctx, indexerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No cookies cached
+		}
+		return nil, fmt.Errorf("failed to get cookies: %w", err)
+	}
+
+	// Check if cookies exist and are valid
+	if !row.Cookies.Valid || row.Cookies.String == "" {
+		return nil, nil
+	}
+
+	// Check expiration
+	if row.CookiesExpiration.Valid && time.Now().After(row.CookiesExpiration.Time) {
+		s.logger.Debug().Int64("indexerId", indexerID).Msg("Cached cookies have expired")
+		return nil, nil
+	}
+
+	data := &CookieData{
+		Cookies: row.Cookies.String,
+	}
+	if row.CookiesExpiration.Valid {
+		data.ExpiresAt = &row.CookiesExpiration.Time
+	}
+
+	s.logger.Debug().
+		Int64("indexerId", indexerID).
+		Msg("Retrieved cached cookies")
+
+	return data, nil
+}
+
+// SaveCookies stores session cookies for an indexer.
+func (s *Service) SaveCookies(ctx context.Context, indexerID int64, cookies string, expiresAt *time.Time) error {
+	err := s.queries.UpdateIndexerCookies(ctx, sqlc.UpdateIndexerCookiesParams{
+		IndexerID:         indexerID,
+		Cookies:           toNullString(cookies),
+		CookiesExpiration: toNullTime(expiresAt),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to save cookies: %w", err)
+	}
+
+	s.logger.Debug().
+		Int64("indexerId", indexerID).
+		Msg("Saved session cookies")
+
+	return nil
+}
+
+// ClearCookies removes cached cookies for an indexer.
+func (s *Service) ClearCookies(ctx context.Context, indexerID int64) error {
+	if err := s.queries.ClearIndexerCookies(ctx, indexerID); err != nil {
+		return fmt.Errorf("failed to clear cookies: %w", err)
+	}
+
+	s.logger.Debug().
+		Int64("indexerId", indexerID).
+		Msg("Cleared session cookies")
+
+	return nil
+}
+
 // Helper functions
+
+func toNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
 
 func toNullTime(t *time.Time) sql.NullTime {
 	if t == nil {

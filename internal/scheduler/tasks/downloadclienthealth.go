@@ -114,7 +114,7 @@ func RegisterDownloadClientHealthTask(
 		Name:        "Download Client Health Check",
 		Description: "Tests connectivity to all download clients",
 		Cron:        cronExpr,
-		RunOnStart:  false,
+		RunOnStart:  true,
 		Func:        task.Run,
 	})
 }

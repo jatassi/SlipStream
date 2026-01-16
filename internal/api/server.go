@@ -165,6 +165,10 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.statusService = status.NewService(db, logger)
 	s.statusService.SetHealthService(s.healthService)
 
+	// Set up cookie store for persistent indexer sessions
+	cookieStore := indexer.NewCookieStore(s.statusService)
+	cardigannManager.SetCookieStore(cookieStore)
+
 	// Initialize rate limiter
 	s.rateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
 

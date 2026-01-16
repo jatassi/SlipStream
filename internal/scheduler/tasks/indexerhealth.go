@@ -97,7 +97,7 @@ func RegisterIndexerHealthTask(
 		Name:        "Indexer Health Check",
 		Description: "Tests connectivity to all enabled indexers",
 		Cron:        cronExpr,
-		RunOnStart:  false,
+		RunOnStart:  true,
 		Func:        task.Run,
 	})
 }
