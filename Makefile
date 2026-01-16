@@ -11,7 +11,7 @@ dev-backend: ## Run Go backend in development mode
 
 dev-frontend: ## Run Vite frontend in development mode
 	@echo "Starting frontend on :3000..."
-	@cd web && npm run dev
+	@cd web && bun run dev
 
 # Build
 build: build-backend build-frontend ## Build both backend and frontend
@@ -22,14 +22,14 @@ build-backend: ## Build Go backend
 
 build-frontend: ## Build frontend for production
 	@echo "Building frontend..."
-	@cd web && npm run build
+	@cd web && bun run build
 
 # Install dependencies
 install: ## Install all dependencies
 	@echo "Installing Go dependencies..."
 	@go mod download
 	@echo "Installing frontend dependencies..."
-	@cd web && npm install
+	@cd web && bun install
 
 # Clean
 clean: ## Clean build artifacts

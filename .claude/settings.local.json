@@ -47,7 +47,10 @@
       "Bash(go vet:*)",
       "Bash(npm run lint:*)",
       "Bash(xargs:*)",
-      "Bash(go clean:*)"
+      "Bash(go clean:*)",
+      "Bash(bun install)",
+      "Bash(~/.bun/bin/bun:*)",
+      "Bash(/usr/local/bin/bun:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

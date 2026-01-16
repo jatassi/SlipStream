@@ -34,7 +34,7 @@ Important: Do not attempt to start either frontend or backend servers. Assume se
 
 # Or manually in separate terminals:
 go run ./cmd/slipstream        # Backend only
-cd web && npm run dev          # Frontend only
+cd web && bun run dev          # Frontend only
 ```
 
 **Unix/Mac (with Make):**
@@ -65,9 +65,9 @@ go test -v -run TestFunctionName ./internal/package/...
 
 ### Dependencies
 ```bash
-make install          # Install Go and npm dependencies
+make install          # Install Go and bun dependencies
 go mod download       # Go dependencies only
-cd web && npm install # Frontend dependencies only
+cd web && bun install # Frontend dependencies only
 ```
 
 ### Database
@@ -80,9 +80,9 @@ After modifying `internal/database/queries/*.sql`, run the sqlc generate command
 ### Frontend
 ```bash
 cd web
-npm run dev           # Start dev server
-npm run build         # Production build (runs tsc first)
-npm run lint          # ESLint
+bun run dev           # Start dev server
+bun run build         # Production build (runs tsc first)
+bun run lint          # ESLint
 ```
 
 ## Key Patterns
@@ -223,5 +223,5 @@ function MyComponent() {
 
 When running bash commands on Windows, use forward slashes for paths:
 ```bash
-cd c:/Git/SlipStream/web && npm run build 2>&1
+cd c:/Git/SlipStream/web && bun run build 2>&1
 ```
