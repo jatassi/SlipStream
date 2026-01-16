@@ -59,6 +59,49 @@ type HistoryInput struct {
 	Data      map[string]any
 }
 
+// NotificationDispatcher defines the interface for import notifications.
+type NotificationDispatcher interface {
+	DispatchDownload(ctx context.Context, event DownloadNotificationEvent)
+	DispatchUpgrade(ctx context.Context, event UpgradeNotificationEvent)
+}
+
+// DownloadNotificationEvent contains download event data for notifications.
+type DownloadNotificationEvent struct {
+	MediaType       string // "movie" or "episode"
+	MovieID         *int64
+	MovieTitle      string
+	MovieYear       int
+	SeriesID        *int64
+	SeriesTitle     string
+	EpisodeID       *int64
+	SeasonNumber    int
+	EpisodeNumber   int
+	EpisodeTitle    string
+	Quality         string
+	SourcePath      string
+	DestinationPath string
+	ReleaseName     string
+}
+
+// UpgradeNotificationEvent contains upgrade event data for notifications.
+type UpgradeNotificationEvent struct {
+	MediaType       string // "movie" or "episode"
+	MovieID         *int64
+	MovieTitle      string
+	MovieYear       int
+	SeriesID        *int64
+	SeriesTitle     string
+	EpisodeID       *int64
+	SeasonNumber    int
+	EpisodeNumber   int
+	EpisodeTitle    string
+	OldQuality      string
+	NewQuality      string
+	OldPath         string
+	NewPath         string
+	ReleaseName     string
+}
+
 // Config holds import service configuration.
 type Config struct {
 	WorkerCount int // Number of concurrent import workers (default: 1)
@@ -85,6 +128,7 @@ type Service struct {
 	slots      *slots.Service
 	health     HealthService
 	history    HistoryService
+	notifier   NotificationDispatcher
 	hub        *websocket.Hub
 	logger     zerolog.Logger
 	config     Config
@@ -230,6 +274,11 @@ func (s *Service) SetSlotsService(ss *slots.Service) {
 	s.slots = ss
 }
 
+// SetNotificationDispatcher sets the notification dispatcher for import events.
+func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
+	s.notifier = n
+}
+
 // UpdateRenamerSettings updates the renamer with new settings.
 func (s *Service) UpdateRenamerSettings(settings renamer.Settings) {
 	s.renamer = renamer.NewResolver(settings)
@@ -337,6 +386,9 @@ func (s *Service) processJob(ctx context.Context, job ImportJob) {
 				"isUpgrade":   result.IsUpgrade,
 			})
 		}
+
+		// Dispatch notification
+		s.dispatchImportNotification(ctx, result)
 	} else {
 		s.logger.Error().
 			Err(result.Error).
@@ -571,4 +623,84 @@ func (s *Service) checkForExistingFile(ctx context.Context, match *LibraryMatch)
 		}
 	}
 	return nil
+}
+
+// dispatchImportNotification sends a download or upgrade notification after successful import.
+func (s *Service) dispatchImportNotification(ctx context.Context, result *ImportResult) {
+	if s.notifier == nil || result.Match == nil {
+		return
+	}
+
+	quality := ""
+	if result.MediaInfo != nil {
+		quality = result.MediaInfo.VideoResolution
+	}
+
+	if result.IsUpgrade {
+		event := UpgradeNotificationEvent{
+			MediaType:   result.Match.MediaType,
+			OldPath:     result.PreviousFile,
+			NewPath:     result.DestinationPath,
+			NewQuality:  quality,
+			ReleaseName: filepath.Base(result.SourcePath),
+		}
+
+		if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
+			event.MovieID = result.Match.MovieID
+			if movie, err := s.movies.Get(ctx, *result.Match.MovieID); err == nil {
+				event.MovieTitle = movie.Title
+				event.MovieYear = movie.Year
+			}
+		} else if result.Match.MediaType == "episode" && result.Match.EpisodeID != nil {
+			event.EpisodeID = result.Match.EpisodeID
+			event.SeriesID = result.Match.SeriesID
+			if result.Match.SeasonNum != nil {
+				event.SeasonNumber = *result.Match.SeasonNum
+			}
+			if episode, err := s.tv.GetEpisode(ctx, *result.Match.EpisodeID); err == nil {
+				event.EpisodeNumber = episode.EpisodeNumber
+				event.EpisodeTitle = episode.Title
+			}
+			if result.Match.SeriesID != nil {
+				if series, err := s.tv.GetSeries(ctx, *result.Match.SeriesID); err == nil {
+					event.SeriesTitle = series.Title
+				}
+			}
+		}
+
+		s.notifier.DispatchUpgrade(ctx, event)
+	} else {
+		event := DownloadNotificationEvent{
+			MediaType:       result.Match.MediaType,
+			Quality:         quality,
+			SourcePath:      result.SourcePath,
+			DestinationPath: result.DestinationPath,
+			ReleaseName:     filepath.Base(result.SourcePath),
+		}
+
+		if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
+			event.MovieID = result.Match.MovieID
+			if movie, err := s.movies.Get(ctx, *result.Match.MovieID); err == nil {
+				event.MovieTitle = movie.Title
+				event.MovieYear = movie.Year
+			}
+		} else if result.Match.MediaType == "episode" && result.Match.EpisodeID != nil {
+			event.EpisodeID = result.Match.EpisodeID
+			event.SeriesID = result.Match.SeriesID
+			if result.Match.SeasonNum != nil {
+				event.SeasonNumber = *result.Match.SeasonNum
+			}
+			if episode, err := s.tv.GetEpisode(ctx, *result.Match.EpisodeID); err == nil {
+				event.EpisodeNumber = episode.EpisodeNumber
+				event.EpisodeTitle = episode.Title
+			}
+			if result.Match.SeriesID != nil {
+				if series, err := s.tv.GetSeries(ctx, *result.Match.SeriesID); err == nil {
+					event.SeriesTitle = series.Title
+				}
+			}
+		}
+
+		s.notifier.DispatchDownload(ctx, event)
+	}
 }

@@ -3,8 +3,8 @@
 [x] Release Importing (Episode and movie naming config)
 [x] Multiple Quality Versions
 [x] Upgrades
-[ ] Bun migration
-[ ] Notifications
+[x] Bun migration
+[x] Notifications
 [ ] External Requests
 [ ] Web app settings (port, auth, https, etc)
 [ ] Update mechanism

@@ -267,6 +267,36 @@ type MultiVersionSetting struct {
 	UpdatedAt       sql.NullTime `json:"updated_at"`
 }
 
+type Notification struct {
+	ID                    int64     `json:"id"`
+	Name                  string    `json:"name"`
+	Type                  string    `json:"type"`
+	Enabled               int64     `json:"enabled"`
+	Settings              string    `json:"settings"`
+	OnGrab                int64     `json:"on_grab"`
+	OnDownload            int64     `json:"on_download"`
+	OnUpgrade             int64     `json:"on_upgrade"`
+	OnMovieAdded          int64     `json:"on_movie_added"`
+	OnMovieDeleted        int64     `json:"on_movie_deleted"`
+	OnSeriesAdded         int64     `json:"on_series_added"`
+	OnSeriesDeleted       int64     `json:"on_series_deleted"`
+	OnHealthIssue         int64     `json:"on_health_issue"`
+	OnHealthRestored      int64     `json:"on_health_restored"`
+	OnAppUpdate           int64     `json:"on_app_update"`
+	IncludeHealthWarnings int64     `json:"include_health_warnings"`
+	Tags                  string    `json:"tags"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+type NotificationStatus struct {
+	NotificationID    int64        `json:"notification_id"`
+	InitialFailure    sql.NullTime `json:"initial_failure"`
+	MostRecentFailure sql.NullTime `json:"most_recent_failure"`
+	EscalationLevel   int64        `json:"escalation_level"`
+	DisabledTill      sql.NullTime `json:"disabled_till"`
+}
+
 type QualityProfile struct {
 	ID                   int64        `json:"id"`
 	Name                 string       `json:"name"`

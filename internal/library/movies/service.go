@@ -13,6 +13,23 @@ import (
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
+// NotificationDispatcher defines the interface for movie notifications.
+type NotificationDispatcher interface {
+	DispatchMovieAdded(ctx context.Context, movie MovieNotificationInfo, addedAt time.Time)
+	DispatchMovieDeleted(ctx context.Context, movie MovieNotificationInfo, deletedFiles bool, deletedAt time.Time)
+}
+
+// MovieNotificationInfo contains movie info for notifications.
+type MovieNotificationInfo struct {
+	ID        int64
+	Title     string
+	Year      int
+	TmdbID    int
+	ImdbID    string
+	Overview  string
+	PosterURL string
+}
+
 var (
 	ErrMovieNotFound     = errors.New("movie not found")
 	ErrMovieFileNotFound = errors.New("movie file not found")
@@ -32,6 +49,12 @@ type Service struct {
 	hub               *websocket.Hub
 	logger            zerolog.Logger
 	fileDeleteHandler FileDeleteHandler
+	notifier          NotificationDispatcher
+}
+
+// SetNotificationDispatcher sets the notification dispatcher for movie events.
+func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
+	s.notifier = n
 }
 
 // SetFileDeleteHandler sets the handler for file deletion events.
@@ -227,6 +250,18 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		s.hub.Broadcast("movie:added", movie)
 	}
 
+	// Dispatch notification
+	if s.notifier != nil {
+		s.notifier.DispatchMovieAdded(ctx, MovieNotificationInfo{
+			ID:       movie.ID,
+			Title:    movie.Title,
+			Year:     movie.Year,
+			TmdbID:   movie.TmdbID,
+			ImdbID:   movie.ImdbID,
+			Overview: movie.Overview,
+		}, time.Now())
+	}
+
 	return movie, nil
 }
 
@@ -404,6 +439,18 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	// Broadcast event
 	if s.hub != nil {
 		s.hub.Broadcast("movie:deleted", map[string]int64{"id": id})
+	}
+
+	// Dispatch notification
+	if s.notifier != nil {
+		s.notifier.DispatchMovieDeleted(ctx, MovieNotificationInfo{
+			ID:       movie.ID,
+			Title:    movie.Title,
+			Year:     movie.Year,
+			TmdbID:   movie.TmdbID,
+			ImdbID:   movie.ImdbID,
+			Overview: movie.Overview,
+		}, deleteFiles, time.Now())
 	}
 
 	return nil

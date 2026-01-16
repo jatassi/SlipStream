@@ -13,6 +13,24 @@ import (
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
+// NotificationDispatcher defines the interface for series notifications.
+type NotificationDispatcher interface {
+	DispatchSeriesAdded(ctx context.Context, series SeriesNotificationInfo, addedAt time.Time)
+	DispatchSeriesDeleted(ctx context.Context, series SeriesNotificationInfo, deletedFiles bool, deletedAt time.Time)
+}
+
+// SeriesNotificationInfo contains series info for notifications.
+type SeriesNotificationInfo struct {
+	ID        int64
+	Title     string
+	Year      int
+	TvdbID    int
+	TmdbID    int
+	ImdbID    string
+	Overview  string
+	PosterURL string
+}
+
 var (
 	ErrSeriesNotFound      = errors.New("series not found")
 	ErrSeasonNotFound      = errors.New("season not found")
@@ -34,6 +52,12 @@ type Service struct {
 	hub               *websocket.Hub
 	logger            zerolog.Logger
 	fileDeleteHandler FileDeleteHandler
+	notifier          NotificationDispatcher
+}
+
+// SetNotificationDispatcher sets the notification dispatcher for series events.
+func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
+	s.notifier = n
 }
 
 // SetFileDeleteHandler sets the handler for file deletion events.
@@ -242,6 +266,19 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		s.hub.Broadcast("series:added", series)
 	}
 
+	// Dispatch notification
+	if s.notifier != nil {
+		s.notifier.DispatchSeriesAdded(ctx, SeriesNotificationInfo{
+			ID:       series.ID,
+			Title:    series.Title,
+			Year:     series.Year,
+			TvdbID:   series.TvdbID,
+			TmdbID:   series.TmdbID,
+			ImdbID:   series.ImdbID,
+			Overview: series.Overview,
+		}, time.Now())
+	}
+
 	return series, nil
 }
 
@@ -401,6 +438,19 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 
 	if s.hub != nil {
 		s.hub.Broadcast("series:deleted", map[string]int64{"id": id})
+	}
+
+	// Dispatch notification
+	if s.notifier != nil {
+		s.notifier.DispatchSeriesDeleted(ctx, SeriesNotificationInfo{
+			ID:       series.ID,
+			Title:    series.Title,
+			Year:     series.Year,
+			TvdbID:   series.TvdbID,
+			TmdbID:   series.TmdbID,
+			ImdbID:   series.ImdbID,
+			Overview: series.Overview,
+		}, deleteFiles, time.Now())
 	}
 
 	return nil

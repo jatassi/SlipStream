@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -12,13 +13,20 @@ type Broadcaster interface {
 	Broadcast(msgType string, payload interface{}) error
 }
 
+// NotificationDispatcher defines the interface for sending health notifications.
+type NotificationDispatcher interface {
+	DispatchHealthIssue(ctx context.Context, source, healthType, message string)
+	DispatchHealthRestored(ctx context.Context, source, healthType, message string)
+}
+
 // Service manages the health state of all tracked items.
 // All state is in-memory and resets on application restart.
 type Service struct {
-	items       map[HealthCategory]map[string]*HealthItem
-	mu          sync.RWMutex
-	broadcaster Broadcaster
-	logger      zerolog.Logger
+	items        map[HealthCategory]map[string]*HealthItem
+	mu           sync.RWMutex
+	broadcaster  Broadcaster
+	notifier     NotificationDispatcher
+	logger       zerolog.Logger
 }
 
 // NewService creates a new health service.
@@ -39,6 +47,11 @@ func NewService(logger zerolog.Logger) *Service {
 // SetBroadcaster sets the WebSocket broadcaster for real-time updates.
 func (s *Service) SetBroadcaster(b Broadcaster) {
 	s.broadcaster = b
+}
+
+// SetNotifier sets the notification dispatcher for health alerts.
+func (s *Service) SetNotifier(n NotificationDispatcher) {
+	s.notifier = n
 }
 
 // RegisterItemStr is a string-based wrapper for RegisterItem.
@@ -131,10 +144,10 @@ func (s *Service) ClearStatus(category HealthCategory, id string) {
 // setStatus updates the status of an item.
 func (s *Service) setStatus(category HealthCategory, id string, status HealthStatus, message string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	item, exists := s.items[category][id]
 	if !exists {
+		s.mu.Unlock()
 		s.logger.Warn().
 			Str("category", string(category)).
 			Str("id", id).
@@ -144,12 +157,14 @@ func (s *Service) setStatus(category HealthCategory, id string, status HealthSta
 
 	// Only update if status changed
 	if item.Status == status && item.Message == message {
+		s.mu.Unlock()
 		return
 	}
 
 	oldStatus := item.Status
 	item.Status = status
 	item.Message = message
+	itemName := item.Name
 
 	// Set timestamp for non-OK statuses
 	if status != StatusOK {
@@ -162,13 +177,33 @@ func (s *Service) setStatus(category HealthCategory, id string, status HealthSta
 	s.logger.Info().
 		Str("category", string(category)).
 		Str("id", id).
-		Str("name", item.Name).
+		Str("name", itemName).
 		Str("oldStatus", string(oldStatus)).
 		Str("newStatus", string(status)).
 		Str("message", message).
 		Msg("Health status changed")
 
 	s.broadcastUpdate(item)
+	s.mu.Unlock()
+
+	// Dispatch health notifications (outside lock to avoid blocking)
+	if s.notifier != nil {
+		source := string(category) + ": " + itemName
+		healthType := "error"
+		if status == StatusWarning {
+			healthType = "warning"
+		}
+
+		// Status transition: OK -> Error/Warning = issue detected
+		if oldStatus == StatusOK && (status == StatusError || status == StatusWarning) {
+			s.notifier.DispatchHealthIssue(context.Background(), source, healthType, message)
+		}
+
+		// Status transition: Error/Warning -> OK = issue resolved
+		if (oldStatus == StatusError || oldStatus == StatusWarning) && status == StatusOK {
+			s.notifier.DispatchHealthRestored(context.Background(), source, healthType, "Issue resolved")
+		}
+	}
 }
 
 // GetAll returns all health items grouped by category.

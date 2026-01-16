@@ -9,6 +9,7 @@ import {
   Search,
   FileInput,
   Layers,
+  Bell,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,6 +44,12 @@ const settingsLinks = [
     description: 'Set up torrent and usenet clients',
     href: '/settings/downloadclients',
     icon: Download,
+  },
+  {
+    title: 'Notifications',
+    description: 'Configure notification channels for events',
+    href: '/settings/notifications',
+    icon: Bell,
   },
   {
     title: 'Release Searching',

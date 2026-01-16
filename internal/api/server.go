@@ -29,6 +29,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
 	"github.com/slipstream/slipstream/internal/indexer/search"
 	"github.com/slipstream/slipstream/internal/indexer/status"
+	indexerTypes "github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
@@ -40,6 +41,7 @@ import (
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
@@ -87,6 +89,7 @@ type Server struct {
 	organizerService      *organizer.Service
 	mediainfoService      *mediainfo.Service
 	slotsService          *slots.Service
+	notificationService   *notification.Service
 }
 
 // NewServer creates a new API server instance.
@@ -225,6 +228,24 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 	s.importService.SetHealthService(s.healthService)
 	s.importService.SetHistoryService(&importHistoryAdapter{s.historyService})
 	s.importService.SetSlotsService(s.slotsService)
+
+	// Initialize notification service
+	s.notificationService = notification.NewService(db, logger)
+
+	// Wire up notification service to health service for health alerts
+	s.healthService.SetNotifier(s.notificationService)
+
+	// Wire up notification service to grab service
+	s.grabService.SetNotificationService(&grabNotificationAdapter{s.notificationService})
+
+	// Wire up notification service to movies service
+	s.movieService.SetNotificationDispatcher(&movieNotificationAdapter{s.notificationService})
+
+	// Wire up notification service to TV service
+	s.tvService.SetNotificationDispatcher(&tvNotificationAdapter{s.notificationService})
+
+	// Wire up notification service to import service
+	s.importService.SetNotificationDispatcher(&importNotificationAdapter{s.notificationService})
 
 	// Initialize autosearch service
 	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
@@ -568,6 +589,10 @@ func (s *Server) setupRoutes() {
 	// Import settings routes
 	importSettings := importer.NewSettingsHandlers(s.db, s.importService)
 	importSettings.RegisterSettingsRoutes(settings)
+
+	// Notifications routes
+	notificationHandlers := notification.NewHandlers(s.notificationService)
+	notificationHandlers.RegisterRoutes(api.Group("/notifications"))
 
 	// Scheduler routes
 	if s.scheduler != nil {
@@ -1022,4 +1047,181 @@ func (a *slotRootFolderAdapter) Get(ctx context.Context, id int64) (*slots.RootF
 		Name:      rf.Name,
 		MediaType: rf.MediaType,
 	}, nil
+}
+
+// grabNotificationAdapter adapts notification.Service to grab.NotificationService interface.
+type grabNotificationAdapter struct {
+	svc *notification.Service
+}
+
+// OnGrab implements grab.NotificationService.
+func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTypes.ReleaseInfo, clientName string, clientID int64, downloadID string) {
+	event := notification.GrabEvent{
+		Release: notification.ReleaseInfo{
+			ReleaseName: release.Title,
+			Quality:     release.Quality,
+			Size:        release.Size,
+			Indexer:     release.IndexerName,
+		},
+		DownloadClient: notification.DownloadClientInfo{
+			ID:         clientID,
+			Name:       clientName,
+			DownloadID: downloadID,
+		},
+		GrabbedAt: time.Now(),
+	}
+
+	// TODO: Add movie/episode info from release if available
+
+	a.svc.Dispatch(ctx, notification.EventGrab, event)
+}
+
+// movieNotificationAdapter adapts the notification service for movies.
+type movieNotificationAdapter struct {
+	svc *notification.Service
+}
+
+// DispatchMovieAdded implements movies.NotificationDispatcher.
+func (a *movieNotificationAdapter) DispatchMovieAdded(ctx context.Context, movie movies.MovieNotificationInfo, addedAt time.Time) {
+	event := notification.MovieAddedEvent{
+		Movie: notification.MediaInfo{
+			ID:       movie.ID,
+			Title:    movie.Title,
+			Year:     movie.Year,
+			TMDbID:   int64(movie.TmdbID),
+			IMDbID:   movie.ImdbID,
+			Overview: movie.Overview,
+		},
+		AddedAt: addedAt,
+	}
+	a.svc.DispatchMovieAdded(ctx, event)
+}
+
+// DispatchMovieDeleted implements movies.NotificationDispatcher.
+func (a *movieNotificationAdapter) DispatchMovieDeleted(ctx context.Context, movie movies.MovieNotificationInfo, deletedFiles bool, deletedAt time.Time) {
+	event := notification.MovieDeletedEvent{
+		Movie: notification.MediaInfo{
+			ID:       movie.ID,
+			Title:    movie.Title,
+			Year:     movie.Year,
+			TMDbID:   int64(movie.TmdbID),
+			IMDbID:   movie.ImdbID,
+			Overview: movie.Overview,
+		},
+		DeletedFiles: deletedFiles,
+		DeletedAt:    deletedAt,
+	}
+	a.svc.DispatchMovieDeleted(ctx, event)
+}
+
+// tvNotificationAdapter adapts the notification service for TV series.
+type tvNotificationAdapter struct {
+	svc *notification.Service
+}
+
+// DispatchSeriesAdded implements tv.NotificationDispatcher.
+func (a *tvNotificationAdapter) DispatchSeriesAdded(ctx context.Context, series tv.SeriesNotificationInfo, addedAt time.Time) {
+	event := notification.SeriesAddedEvent{
+		Series: notification.SeriesInfo{
+			MediaInfo: notification.MediaInfo{
+				ID:       series.ID,
+				Title:    series.Title,
+				Year:     series.Year,
+				TMDbID:   int64(series.TmdbID),
+				IMDbID:   series.ImdbID,
+				Overview: series.Overview,
+			},
+			TVDbID: int64(series.TvdbID),
+		},
+		AddedAt: addedAt,
+	}
+	a.svc.DispatchSeriesAdded(ctx, event)
+}
+
+// DispatchSeriesDeleted implements tv.NotificationDispatcher.
+func (a *tvNotificationAdapter) DispatchSeriesDeleted(ctx context.Context, series tv.SeriesNotificationInfo, deletedFiles bool, deletedAt time.Time) {
+	event := notification.SeriesDeletedEvent{
+		Series: notification.SeriesInfo{
+			MediaInfo: notification.MediaInfo{
+				ID:       series.ID,
+				Title:    series.Title,
+				Year:     series.Year,
+				TMDbID:   int64(series.TmdbID),
+				IMDbID:   series.ImdbID,
+				Overview: series.Overview,
+			},
+			TVDbID: int64(series.TvdbID),
+		},
+		DeletedFiles: deletedFiles,
+		DeletedAt:    deletedAt,
+	}
+	a.svc.DispatchSeriesDeleted(ctx, event)
+}
+
+// importNotificationAdapter adapts the notification service for imports.
+type importNotificationAdapter struct {
+	svc *notification.Service
+}
+
+// DispatchDownload implements importer.NotificationDispatcher.
+func (a *importNotificationAdapter) DispatchDownload(ctx context.Context, event importer.DownloadNotificationEvent) {
+	notifEvent := notification.DownloadEvent{
+		Quality:         event.Quality,
+		SourcePath:      event.SourcePath,
+		DestinationPath: event.DestinationPath,
+		ReleaseName:     event.ReleaseName,
+		ImportedAt:      time.Now(),
+	}
+
+	if event.MediaType == "movie" && event.MovieID != nil {
+		notifEvent.Movie = &notification.MediaInfo{
+			ID:    *event.MovieID,
+			Title: event.MovieTitle,
+			Year:  event.MovieYear,
+		}
+	} else if event.MediaType == "episode" {
+		notifEvent.Episode = &notification.EpisodeInfo{
+			SeriesTitle:   event.SeriesTitle,
+			SeasonNumber:  event.SeasonNumber,
+			EpisodeNumber: event.EpisodeNumber,
+			EpisodeTitle:  event.EpisodeTitle,
+		}
+		if event.SeriesID != nil {
+			notifEvent.Episode.SeriesID = *event.SeriesID
+		}
+	}
+
+	a.svc.DispatchDownload(ctx, notifEvent)
+}
+
+// DispatchUpgrade implements importer.NotificationDispatcher.
+func (a *importNotificationAdapter) DispatchUpgrade(ctx context.Context, event importer.UpgradeNotificationEvent) {
+	notifEvent := notification.UpgradeEvent{
+		OldQuality:  event.OldQuality,
+		NewQuality:  event.NewQuality,
+		OldPath:     event.OldPath,
+		NewPath:     event.NewPath,
+		ReleaseName: event.ReleaseName,
+		UpgradedAt:  time.Now(),
+	}
+
+	if event.MediaType == "movie" && event.MovieID != nil {
+		notifEvent.Movie = &notification.MediaInfo{
+			ID:    *event.MovieID,
+			Title: event.MovieTitle,
+			Year:  event.MovieYear,
+		}
+	} else if event.MediaType == "episode" {
+		notifEvent.Episode = &notification.EpisodeInfo{
+			SeriesTitle:   event.SeriesTitle,
+			SeasonNumber:  event.SeasonNumber,
+			EpisodeNumber: event.EpisodeNumber,
+			EpisodeTitle:  event.EpisodeTitle,
+		}
+		if event.SeriesID != nil {
+			notifEvent.Episode.SeriesID = *event.SeriesID
+		}
+	}
+
+	a.svc.DispatchUpgrade(ctx, notifEvent)
 }

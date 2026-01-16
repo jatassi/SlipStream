@@ -31,15 +31,21 @@ type Broadcaster interface {
 	Broadcast(msgType string, payload interface{}) error
 }
 
+// NotificationService interface for sending external notifications.
+type NotificationService interface {
+	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string)
+}
+
 // Service handles grabbing releases and sending them to download clients.
 type Service struct {
-	queries           *sqlc.Queries
-	downloaderService *downloader.Service
-	indexerService    IndexerClientProvider
-	statusService     *status.Service
-	rateLimiter       *ratelimit.Limiter
-	broadcaster       Broadcaster
-	logger            zerolog.Logger
+	queries             *sqlc.Queries
+	downloaderService   *downloader.Service
+	indexerService      IndexerClientProvider
+	statusService       *status.Service
+	rateLimiter         *ratelimit.Limiter
+	broadcaster         Broadcaster
+	notificationService NotificationService
+	logger              zerolog.Logger
 }
 
 // IndexerClientProvider provides access to indexer clients for downloading torrents.
@@ -78,6 +84,11 @@ func (s *Service) SetRateLimiter(limiter *ratelimit.Limiter) {
 // SetBroadcaster sets the WebSocket broadcaster for real-time events.
 func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 	s.broadcaster = broadcaster
+}
+
+// SetNotificationService sets the notification service for external notifications.
+func (s *Service) SetNotificationService(notificationService NotificationService) {
+	s.notificationService = notificationService
 }
 
 // GrabRequest represents a request to grab a release.
@@ -220,6 +231,11 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 
 	// Broadcast queue updated so frontends refresh their download status
 	s.broadcastQueueUpdated()
+
+	// Send external notifications
+	if s.notificationService != nil {
+		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID)
+	}
 
 	s.logger.Info().
 		Str("title", req.Release.Title).
