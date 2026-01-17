@@ -626,6 +626,9 @@ func (s *Server) setupRoutes() {
 
 	// Autosearch settings routes
 	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.AutoSearch)
+	if s.scheduler != nil {
+		autosearchSettings.SetScheduler(s.scheduler, s.scheduledSearcher, tasks.UpdateAutoSearchTask)
+	}
 	settings.GET("/autosearch", autosearchSettings.GetSettings)
 	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
 

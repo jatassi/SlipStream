@@ -249,3 +249,34 @@ func (s *Scheduler) GetTask(taskID string) (*TaskInfo, error) {
 
 	return info, nil
 }
+
+// UnregisterTask removes a task from the scheduler.
+func (s *Scheduler) UnregisterTask(taskID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, exists := s.tasks[taskID]
+	if !exists {
+		return nil // Task doesn't exist, nothing to do
+	}
+
+	if err := s.gocron.RemoveJob(entry.job.ID()); err != nil {
+		return fmt.Errorf("failed to remove job for task %q: %w", taskID, err)
+	}
+
+	delete(s.tasks, taskID)
+
+	s.logger.Info().
+		Str("id", taskID).
+		Msg("Unregistered task")
+
+	return nil
+}
+
+// HasTask returns true if a task with the given ID is registered.
+func (s *Scheduler) HasTask(taskID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.tasks[taskID]
+	return exists
+}

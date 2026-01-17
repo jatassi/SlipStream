@@ -9,6 +9,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/scheduler"
 )
 
 const settingsKey = "autosearch_settings"
@@ -20,10 +21,16 @@ type Settings struct {
 	BackoffThreshold int  `json:"backoffThreshold"`
 }
 
+// ScheduleUpdater is a function that updates the autosearch task schedule.
+type ScheduleUpdater func(sched *scheduler.Scheduler, searcher *ScheduledSearcher, cfg *config.AutoSearchConfig) error
+
 // SettingsHandler provides HTTP handlers for autosearch settings.
 type SettingsHandler struct {
-	queries *sqlc.Queries
-	config  *config.AutoSearchConfig
+	queries         *sqlc.Queries
+	config          *config.AutoSearchConfig
+	scheduler       *scheduler.Scheduler
+	searcher        *ScheduledSearcher
+	scheduleUpdater ScheduleUpdater
 }
 
 // NewSettingsHandler creates a new settings handler.
@@ -32,6 +39,13 @@ func NewSettingsHandler(queries *sqlc.Queries, cfg *config.AutoSearchConfig) *Se
 		queries: queries,
 		config:  cfg,
 	}
+}
+
+// SetScheduler sets the scheduler and searcher for dynamic task updates.
+func (h *SettingsHandler) SetScheduler(sched *scheduler.Scheduler, searcher *ScheduledSearcher, updater ScheduleUpdater) {
+	h.scheduler = sched
+	h.searcher = searcher
+	h.scheduleUpdater = updater
 }
 
 // GetSettings returns current autosearch settings.
@@ -76,6 +90,13 @@ func (h *SettingsHandler) UpdateSettings(c echo.Context) error {
 	h.config.Enabled = input.Enabled
 	h.config.IntervalHours = input.IntervalHours
 	h.config.BackoffThreshold = input.BackoffThreshold
+
+	// Update the scheduler task dynamically
+	if h.scheduler != nil && h.scheduleUpdater != nil {
+		if err := h.scheduleUpdater(h.scheduler, h.searcher, h.config); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to update schedule: "+err.Error())
+		}
+	}
 
 	return c.JSON(http.StatusOK, input)
 }

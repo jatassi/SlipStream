@@ -35,7 +35,7 @@ export function AutoSearchSettingsPage() {
         intervalHours,
         backoffThreshold,
       })
-      toast.success('Settings saved. Restart the server for schedule changes to take effect.')
+      toast.success('Settings saved')
     } catch {
       toast.error('Failed to save settings')
     }
