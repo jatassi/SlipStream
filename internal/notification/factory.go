@@ -10,6 +10,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/notification/discord"
 	"github.com/slipstream/slipstream/internal/notification/email"
+	"github.com/slipstream/slipstream/internal/notification/mock"
 	"github.com/slipstream/slipstream/internal/notification/pushover"
 	"github.com/slipstream/slipstream/internal/notification/slack"
 	"github.com/slipstream/slipstream/internal/notification/telegram"
@@ -47,6 +48,8 @@ func (f *Factory) Create(cfg Config) (Notifier, error) {
 		return f.createSlack(cfg)
 	case NotifierPushover:
 		return f.createPushover(cfg)
+	case NotifierMock:
+		return f.createMock(cfg), nil
 	default:
 		return nil, fmt.Errorf("unsupported notifier type: %s", cfg.Type)
 	}
@@ -98,4 +101,8 @@ func (f *Factory) createPushover(cfg Config) (Notifier, error) {
 		return nil, fmt.Errorf("invalid pushover settings: %w", err)
 	}
 	return pushover.New(cfg.Name, settings, f.httpClient, f.logger), nil
+}
+
+func (f *Factory) createMock(cfg Config) Notifier {
+	return mock.New(cfg.Name, f.logger)
 }

@@ -12,15 +12,14 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Server        ServerConfig     `mapstructure:"server"`
-	Database      DatabaseConfig   `mapstructure:"database"`
-	Logging       LoggingConfig    `mapstructure:"logging"`
-	Auth          AuthConfig       `mapstructure:"auth"`
-	Metadata      MetadataConfig   `mapstructure:"metadata"`
-	Indexer       IndexerConfig    `mapstructure:"indexer"`
-	AutoSearch    AutoSearchConfig `mapstructure:"autosearch"`
-	Health        HealthConfig     `mapstructure:"health"`
-	DeveloperMode bool             `mapstructure:"developer_mode"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Logging    LoggingConfig    `mapstructure:"logging"`
+	Auth       AuthConfig       `mapstructure:"auth"`
+	Metadata   MetadataConfig   `mapstructure:"metadata"`
+	Indexer    IndexerConfig    `mapstructure:"indexer"`
+	AutoSearch AutoSearchConfig `mapstructure:"autosearch"`
+	Health     HealthConfig     `mapstructure:"health"`
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -265,11 +264,6 @@ func Load(configPath string) (*Config, error) {
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
-	}
-
-	// Check DEVELOPER_MODE env var (not prefixed, for convenience)
-	if devMode := os.Getenv("DEVELOPER_MODE"); devMode != "" {
-		cfg.DeveloperMode = strings.EqualFold(devMode, "true") || devMode == "1"
 	}
 
 	return cfg, nil

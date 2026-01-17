@@ -33,12 +33,13 @@ const (
 	ClientTypeRTorrent     ClientType = "rtorrent"
 	ClientTypeSABnzbd      ClientType = "sabnzbd"
 	ClientTypeNZBGet       ClientType = "nzbget"
+	ClientTypeMock         ClientType = "mock" // Mock client for developer mode
 )
 
 // ProtocolForClient returns the protocol for a given client type.
 func ProtocolForClient(clientType ClientType) Protocol {
 	switch clientType {
-	case ClientTypeTransmission, ClientTypeQBittorrent, ClientTypeDeluge, ClientTypeRTorrent:
+	case ClientTypeTransmission, ClientTypeQBittorrent, ClientTypeDeluge, ClientTypeRTorrent, ClientTypeMock:
 		return ProtocolTorrent
 	case ClientTypeSABnzbd, ClientTypeNZBGet:
 		return ProtocolUsenet
@@ -106,6 +107,9 @@ type AddOptions struct {
 	// URL or file path/content for the download
 	URL         string // URL to torrent/nzb file or magnet link
 	FileContent []byte // Raw torrent/nzb file content
+
+	// Metadata
+	Name string // Display name for the download (used by mock client)
 
 	// Destination
 	DownloadDir string // Override default download directory

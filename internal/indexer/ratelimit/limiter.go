@@ -64,6 +64,11 @@ func NewLimiter(db *sql.DB, config Config, logger zerolog.Logger) *Limiter {
 	}
 }
 
+// SetDB updates the database connection used by this limiter.
+func (l *Limiter) SetDB(db *sql.DB) {
+	l.queries = sqlc.New(db)
+}
+
 // CheckQueryLimit returns whether the indexer has reached its query limit.
 func (l *Limiter) CheckQueryLimit(ctx context.Context, indexerID int64) (bool, error) {
 	l.mu.Lock()

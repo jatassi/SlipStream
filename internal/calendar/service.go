@@ -52,6 +52,12 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // streamingServicesWithEarlyRelease lists networks that typically release content
 // the night before the stated air date.
 var streamingServicesWithEarlyRelease = map[string]bool{

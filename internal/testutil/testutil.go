@@ -14,10 +14,11 @@ import (
 
 // TestDB wraps a test database connection.
 type TestDB struct {
-	DB     *database.DB
-	Conn   *sql.DB
-	Path   string
-	Logger zerolog.Logger
+	DB      *database.DB
+	Manager *database.Manager
+	Conn    *sql.DB
+	Path    string
+	Logger  zerolog.Logger
 }
 
 // NewTestDB creates a new test database in a temp directory.
@@ -33,35 +34,38 @@ func NewTestDB(t *testing.T) *TestDB {
 	}
 
 	dbPath := filepath.Join(tmpDir, "test.db")
-
-	// Create database
-	db, err := database.New(dbPath)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create database: %v", err)
-	}
-
-	// Run migrations
-	if err := db.Migrate(); err != nil {
-		db.Close()
-		os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to run migrations: %v", err)
-	}
+	devDBPath := filepath.Join(tmpDir, "test_dev.db")
 
 	// Create a test logger
 	logger := zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.DebugLevel)
 
+	// Create database manager
+	manager, err := database.NewManager(dbPath, devDBPath, logger)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to create database manager: %v", err)
+	}
+
+	// Run migrations
+	if err := manager.Migrate(); err != nil {
+		manager.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
+
 	return &TestDB{
-		DB:     db,
-		Conn:   db.Conn(),
-		Path:   tmpDir,
-		Logger: logger,
+		Manager: manager,
+		Conn:    manager.Conn(),
+		Path:    tmpDir,
+		Logger:  logger,
 	}
 }
 
 // Close closes the database and removes the temp directory.
 func (tdb *TestDB) Close() {
-	if tdb.DB != nil {
+	if tdb.Manager != nil {
+		tdb.Manager.Close()
+	} else if tdb.DB != nil {
 		tdb.DB.Close()
 	}
 	if tdb.Path != "" {

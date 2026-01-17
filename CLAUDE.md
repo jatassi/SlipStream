@@ -101,6 +101,9 @@ Priority: environment variables > `.env` file > config.yaml > defaults
 - Env file: `configs/.env` or project root `.env`
 - Env vars: `SERVER_PORT`, `METADATA_TMDB_API_KEY`, etc.
 
+### Logging
+When running via `go run` (development), the log level is automatically set to `debug` regardless of configuration. This is detected by checking if the executable path contains "go-build". Production builds use the configured log level (default: `info`).
+
 ### Frontend-Backend Communication
 - HTTP API: Vite dev server proxies `/api` to backend
 - WebSocket: `/ws` endpoint for real-time library/progress updates
@@ -189,20 +192,43 @@ Unit tests are in `*_test.go` files alongside source. Integration tests may use 
 
 ## Developer Mode
 
-SlipStream supports a developer mode for testing and debugging features. When enabled:
+SlipStream supports a runtime-toggleable developer mode for testing and debugging features. When enabled:
 - Debug buttons are visible in the UI (e.g., download client dialogs)
-- Mock download queue items can be created based on library content
+- Mock metadata providers, indexer, download client, notification, and root folders are automatically created
+- Virtual filesystem with pre-populated library content (no actual disk I/O)
+- The application uses a separate development database (`slipstream_dev.db`)
 - The `/api/v1/status` endpoint includes `developerMode: true`
-
-### Best Practices
-
-- Always check `developerMode` before exposing debug/testing features
-- Mock data should use realistic values from the actual library
-- Debug endpoints should return 403 Forbidden when not in developer mode
 
 ### Enabling Developer Mode
 
-Set `DEVELOPER_MODE=true` in your `.env` file
+Click the hammer icon in the header to toggle developer mode on/off. The toggle:
+- Switches between production and development databases
+- Creates mock services (indexer, download client, notification, metadata providers)
+- Creates mock root folders (`/mock/movies`, `/mock/tv`) with virtual filesystem
+- Broadcasts state changes via WebSocket to all connected clients
+
+### Virtual Filesystem
+
+Developer mode includes a virtual filesystem for testing without actual disk I/O:
+- **Path prefix**: All virtual paths start with `/mock/`
+- **Pre-populated content**: Movies and TV shows aligned with mock metadata/indexer
+- **Testing vectors**: Mix of available files (for upgrade testing) and missing files (for search/download testing)
+
+Available virtual content:
+- Movies with files: The Matrix, Inception, Dune (1080p - upgradable)
+- Movies without files: Oppenheimer, Barbie, Dune Part Two (for search testing)
+- TV complete: Breaking Bad, Game of Thrones S1-3 (1080p - upgradable)
+- TV partial: Stranger Things S4 (5 of 9 eps), Mandalorian S3 missing
+- TV missing: The Boys, The Simpsons (for search testing)
+
+### Backend Check
+
+Use `dbManager.IsDevMode()` to check developer mode status:
+```go
+if s.dbManager.IsDevMode() {
+    // Developer mode is enabled
+}
+```
 
 ### Frontend Hook
 
@@ -218,6 +244,12 @@ function MyComponent() {
   }
 }
 ```
+
+### Best Practices
+
+- Always check developer mode before exposing debug/testing features
+- Mock data should use realistic values from actual media content
+- Debug endpoints should return 403 Forbidden when not in developer mode
 
 ## Windows-Specific Notes
 

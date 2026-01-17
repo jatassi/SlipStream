@@ -17,6 +17,12 @@ func NewService(queries *sqlc.Queries) *Service {
 	return &Service{queries: queries}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
+}
+
 // GetAddFlowPreferences returns all add-flow related preferences
 func (s *Service) GetAddFlowPreferences(ctx context.Context) (*AddFlowPreferences, error) {
 	prefs := DefaultPreferences()

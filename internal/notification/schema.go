@@ -208,6 +208,12 @@ var SchemaRegistry = map[NotifierType]NotifierSchema{
 			{Name: "arguments", Label: "Arguments", Type: FieldTypeText, HelpText: "Additional arguments to pass to the script", Advanced: true},
 		},
 	},
+	NotifierMock: {
+		Type:        NotifierMock,
+		Name:        "Mock (Dev Mode)",
+		Description: "Development mock notifier - logs notifications to console and broadcasts via WebSocket",
+		Fields:      []SettingsField{},
+	},
 }
 
 // GetSchema returns the schema for a notifier type

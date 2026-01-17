@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
-	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
@@ -33,7 +31,7 @@ func setupTestServer(t *testing.T) (*Server, func()) {
 		},
 	}
 
-	server := NewServer(tdb.Conn, nil, cfg, tdb.Logger)
+	server := NewServer(tdb.Manager, nil, cfg, tdb.Logger)
 
 	cleanup := func() {
 		tdb.Close()
@@ -521,29 +519,18 @@ func TestMoviesAPI_CreateEmptyTitle(t *testing.T) {
 }
 
 func TestTMDBSearchOrdering(t *testing.T) {
-	e := echo.New()
-	server := &Server{
-		cfg: &config.Config{
-			DeveloperMode: true,
-			Metadata: config.MetadataConfig{
-				TMDB: config.TMDBConfig{
-					DisableSearchOrdering: false,
-				},
-			},
-		},
-		logger: zerolog.Nop(),
-	}
+	server, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	// Enable developer mode for test
+	server.dbManager.SetDevMode(true)
 
 	// Test enabling search ordering
 	req := httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": true}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
 
-	err := server.updateTMDBSearchOrdering(c)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
+	server.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
@@ -554,18 +541,14 @@ func TestTMDBSearchOrdering(t *testing.T) {
 	}
 
 	// Test with developer mode disabled
-	server.cfg.DeveloperMode = false
+	server.dbManager.SetDevMode(false)
 	req = httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": false}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec)
 
-	err = server.updateTMDBSearchOrdering(c)
-	if err == nil {
-		t.Fatal("Expected error when developer mode is disabled")
-	}
+	server.echo.ServeHTTP(rec, req)
 
-	if !strings.Contains(err.Error(), "debug features require developer mode") {
-		t.Errorf("Expected error to mention developer mode, got: %v", err)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("Expected status %d when developer mode is disabled, got %d", http.StatusForbidden, rec.Code)
 	}
 }

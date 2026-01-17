@@ -81,6 +81,8 @@ type DownloadNotificationEvent struct {
 	SourcePath      string
 	DestinationPath string
 	ReleaseName     string
+	SlotID          *int64
+	SlotName        string
 }
 
 // UpgradeNotificationEvent contains upgrade event data for notifications.
@@ -100,6 +102,8 @@ type UpgradeNotificationEvent struct {
 	OldPath         string
 	NewPath         string
 	ReleaseName     string
+	SlotID          *int64
+	SlotName        string
 }
 
 // Config holds import service configuration.
@@ -158,11 +162,14 @@ type DownloadMapping struct {
 	ID               int64
 	DownloadClientID int64
 	DownloadID       string
-	MediaType        string // "movie" or "episode"
+	MediaType        string // "movie", "episode", "season", or "series"
 	MovieID          *int64
 	SeriesID         *int64
 	SeasonNumber     *int
 	EpisodeID        *int64
+	IsSeasonPack     bool
+	IsCompleteSeries bool
+	TargetSlotID     *int64
 }
 
 // QueueMedia represents per-file status within a download.
@@ -277,6 +284,13 @@ func (s *Service) SetSlotsService(ss *slots.Service) {
 // SetNotificationDispatcher sets the notification dispatcher for import events.
 func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 	s.notifier = n
+}
+
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
 }
 
 // UpdateRenamerSettings updates the renamer with new settings.
@@ -509,8 +523,11 @@ func (s *Service) GetProcessingCount() int {
 func (s *Service) CheckAndProcessCompletedDownloads(ctx context.Context) error {
 	completed, err := s.downloader.CheckForCompletedDownloads(ctx)
 	if err != nil {
+		s.logger.Debug().Err(err).Msg("CheckForCompletedDownloads returned error")
 		return err
 	}
+
+	s.logger.Debug().Int("count", len(completed)).Msg("CheckForCompletedDownloads found downloads")
 
 	for _, cd := range completed {
 		// Emit download:completed event
@@ -539,14 +556,21 @@ func (s *Service) CheckAndProcessCompletedDownloads(ctx context.Context) error {
 			MovieID:          cd.MovieID,
 			SeriesID:         cd.SeriesID,
 			EpisodeID:        cd.EpisodeID,
+			SeasonNumber:     cd.SeasonNumber,
+			IsSeasonPack:     cd.IsSeasonPack,
+			IsCompleteSeries: cd.IsCompleteSeries,
+			TargetSlotID:     cd.TargetSlotID,
 		}
-		if cd.SeriesID != nil {
-			mapping.MediaType = "episode"
-		} else {
+
+		// Determine media type
+		if cd.MovieID != nil {
 			mapping.MediaType = "movie"
-		}
-		if cd.SeasonNumber != nil {
-			mapping.SeasonNumber = cd.SeasonNumber
+		} else if cd.IsCompleteSeries {
+			mapping.MediaType = "series"
+		} else if cd.IsSeasonPack || (cd.SeasonNumber != nil && cd.EpisodeID == nil) {
+			mapping.MediaType = "season"
+		} else if cd.SeriesID != nil {
+			mapping.MediaType = "episode"
 		}
 
 		// Process the completed download

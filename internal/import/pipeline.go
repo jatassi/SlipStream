@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
@@ -22,6 +23,11 @@ func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *Downloa
 		Int64("mappingId", mapping.ID).
 		Str("mediaType", mapping.MediaType).
 		Msg("Processing completed download")
+
+	// Check if this is a mock download (for developer mode)
+	if strings.HasPrefix(mapping.DownloadID, "mock-") {
+		return s.processMockImport(ctx, mapping)
+	}
 
 	// Get the download path from the download client
 	client, err := s.downloader.GetClient(ctx, mapping.DownloadClientID)
@@ -789,5 +795,405 @@ func (s *Service) getMediaIDFromMatch(match *LibraryMatch) *int64 {
 	} else if match.MediaType == "episode" && match.EpisodeID != nil {
 		return match.EpisodeID
 	}
+	return nil
+}
+
+// processMockImport handles imports for mock downloads in developer mode.
+// Creates file entries in the database and virtual filesystem without actual file operations.
+func (s *Service) processMockImport(ctx context.Context, mapping *DownloadMapping) error {
+	s.logger.Info().
+		Str("downloadId", mapping.DownloadID).
+		Str("mediaType", mapping.MediaType).
+		Msg("Processing mock import (dev mode)")
+
+	vfs := fsmock.GetInstance()
+
+	switch mapping.MediaType {
+	case "movie":
+		if mapping.MovieID != nil {
+			if err := s.processMockMovieImport(ctx, mapping, vfs); err != nil {
+				return err
+			}
+		}
+	case "episode", "season":
+		if mapping.SeriesID != nil {
+			if err := s.processMockTVImport(ctx, mapping, vfs); err != nil {
+				return err
+			}
+		}
+	case "series":
+		if mapping.SeriesID != nil {
+			if err := s.processMockCompleteSeriesImport(ctx, mapping, vfs); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Clean up: delete the download mapping so this doesn't trigger again
+	if err := s.downloader.DeleteDownloadMapping(ctx, mapping.DownloadClientID, mapping.DownloadID); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to delete download mapping after mock import")
+	}
+
+	// Clean up: remove the mock download from the client
+	client, err := s.downloader.GetClient(ctx, mapping.DownloadClientID)
+	if err == nil {
+		if err := client.Remove(ctx, mapping.DownloadID, false); err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to remove mock download after import")
+		}
+	}
+
+	// Broadcast queue update so UI refreshes
+	if s.hub != nil {
+		s.hub.Broadcast("queue:updated", nil)
+	}
+
+	return nil
+}
+
+// processMockMovieImport handles mock import for movies.
+func (s *Service) processMockMovieImport(ctx context.Context, mapping *DownloadMapping, vfs *fsmock.VirtualFS) error {
+	movie, err := s.movies.Get(ctx, *mapping.MovieID)
+	if err != nil {
+		return fmt.Errorf("failed to get movie for mock import: %w", err)
+	}
+
+	// Use the movie's configured path or create one
+	basePath := movie.Path
+	if basePath == "" {
+		basePath = fmt.Sprintf("%s/%s (%d)", fsmock.MockMoviesPath, movie.Title, movie.Year)
+	}
+
+	// Create file path
+	mockFilePath := fmt.Sprintf("%s/%s (%d).mkv", basePath, movie.Title, movie.Year)
+	fileSize := int64(10 * 1024 * 1024 * 1024) // 10 GB
+
+	// Add file to virtual filesystem
+	vfs.AddFile(mockFilePath, fileSize)
+
+	// Add file record to database
+	file, err := s.movies.AddFile(ctx, *mapping.MovieID, movies.CreateMovieFileInput{
+		Path:       mockFilePath,
+		Size:       fileSize,
+		Quality:    "1080p",
+		VideoCodec: "x265",
+		Resolution: "1920x1080",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add movie file for mock import: %w", err)
+	}
+
+	// Assign to slot if multi-version mode and target slot specified
+	if mapping.TargetSlotID != nil && s.slots != nil {
+		if err := s.slots.AssignFileToSlot(ctx, "movie", *mapping.MovieID, *mapping.TargetSlotID, file.ID); err != nil {
+			s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Msg("Failed to assign movie file to slot")
+		} else {
+			s.logger.Debug().Int64("slotId", *mapping.TargetSlotID).Int64("fileId", file.ID).Msg("Assigned movie file to slot")
+		}
+	}
+
+	s.logger.Info().
+		Int64("movieId", *mapping.MovieID).
+		Str("title", movie.Title).
+		Str("mockPath", mockFilePath).
+		Msg("Mock movie import completed")
+
+	// Broadcast import event
+	if s.hub != nil {
+		s.hub.Broadcast("import:completed", map[string]any{
+			"mediaType":       "movie",
+			"movieId":         mapping.MovieID,
+			"title":           movie.Title,
+			"destinationPath": mockFilePath,
+			"isMock":          true,
+		})
+		// Also broadcast movie update so detail page refreshes
+		s.hub.Broadcast("movie:updated", map[string]any{
+			"movieId": mapping.MovieID,
+		})
+	}
+
+	return nil
+}
+
+// processMockTVImport handles mock import for TV episodes and season packs.
+func (s *Service) processMockTVImport(ctx context.Context, mapping *DownloadMapping, vfs *fsmock.VirtualFS) error {
+	series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
+	if err != nil {
+		return fmt.Errorf("failed to get series for mock import: %w", err)
+	}
+
+	// Use the series' configured path or create one
+	basePath := series.Path
+	if basePath == "" {
+		basePath = fmt.Sprintf("%s/%s", fsmock.MockTVPath, series.Title)
+	}
+
+	// Determine if this is a season pack or single episode
+	isSeasonPack := mapping.MediaType == "season" || (mapping.SeasonNumber != nil && mapping.EpisodeID == nil)
+
+	if isSeasonPack && mapping.SeasonNumber != nil {
+		// Season pack: create files for all episodes in the season
+		return s.processMockSeasonPackImport(ctx, mapping, series, basePath, vfs)
+	} else if mapping.EpisodeID != nil {
+		// Single episode
+		return s.processMockSingleEpisodeImport(ctx, mapping, series, basePath, vfs)
+	}
+
+	s.logger.Warn().
+		Str("downloadId", mapping.DownloadID).
+		Msg("Mock TV import: no episode ID or season number specified")
+	return nil
+}
+
+// processMockSeasonPackImport creates files for all episodes in a season.
+func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *DownloadMapping, series *tv.Series, basePath string, vfs *fsmock.VirtualFS) error {
+	seasonNum := *mapping.SeasonNumber
+
+	// Get all episodes in the season
+	episodes, err := s.tv.ListEpisodes(ctx, *mapping.SeriesID, &seasonNum)
+	if err != nil {
+		return fmt.Errorf("failed to list episodes for season %d: %w", seasonNum, err)
+	}
+
+	if len(episodes) == 0 {
+		s.logger.Warn().
+			Int64("seriesId", *mapping.SeriesID).
+			Int("season", seasonNum).
+			Msg("No episodes found for season pack import")
+		return nil
+	}
+
+	seasonPath := fmt.Sprintf("%s/Season %02d", basePath, seasonNum)
+	vfs.AddDirectory(seasonPath)
+
+	fileSize := int64(2 * 1024 * 1024 * 1024) // 2 GB per episode
+	importedCount := 0
+
+	for _, ep := range episodes {
+		mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
+			seasonPath, series.Title, seasonNum, ep.EpisodeNumber)
+
+		// Add file to virtual filesystem
+		vfs.AddFile(mockFilePath, fileSize)
+
+		// Add file record to database
+		file, err := s.tv.AddEpisodeFile(ctx, ep.ID, tv.CreateEpisodeFileInput{
+			Path:       mockFilePath,
+			Size:       fileSize,
+			Quality:    "1080p",
+			VideoCodec: "x265",
+			Resolution: "1920x1080",
+		})
+		if err != nil {
+			s.logger.Warn().Err(err).
+				Int64("episodeId", ep.ID).
+				Int("episode", ep.EpisodeNumber).
+				Msg("Failed to add episode file")
+			continue
+		}
+
+		// Assign to slot if multi-version mode and target slot specified
+		if mapping.TargetSlotID != nil && s.slots != nil {
+			if err := s.slots.AssignFileToSlot(ctx, "episode", ep.ID, *mapping.TargetSlotID, file.ID); err != nil {
+				s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", ep.ID).Msg("Failed to assign episode file to slot")
+			}
+		}
+
+		importedCount++
+	}
+
+	s.logger.Info().
+		Int64("seriesId", *mapping.SeriesID).
+		Str("title", series.Title).
+		Int("season", seasonNum).
+		Int("episodesImported", importedCount).
+		Msg("Mock season pack import completed")
+
+	// Broadcast import event
+	if s.hub != nil {
+		s.hub.Broadcast("import:completed", map[string]any{
+			"mediaType":        "season",
+			"seriesId":         mapping.SeriesID,
+			"seriesTitle":      series.Title,
+			"seasonNumber":     seasonNum,
+			"episodesImported": importedCount,
+			"isMock":           true,
+		})
+		// Also broadcast series update so detail page refreshes
+		s.hub.Broadcast("series:updated", map[string]any{
+			"seriesId": mapping.SeriesID,
+		})
+	}
+
+	return nil
+}
+
+// processMockSingleEpisodeImport creates a file for a single episode.
+func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *DownloadMapping, series *tv.Series, basePath string, vfs *fsmock.VirtualFS) error {
+	episode, err := s.tv.GetEpisode(ctx, *mapping.EpisodeID)
+	if err != nil {
+		return fmt.Errorf("failed to get episode for mock import: %w", err)
+	}
+
+	seasonPath := fmt.Sprintf("%s/Season %02d", basePath, episode.SeasonNumber)
+	vfs.AddDirectory(seasonPath)
+
+	mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
+		seasonPath, series.Title, episode.SeasonNumber, episode.EpisodeNumber)
+	fileSize := int64(2 * 1024 * 1024 * 1024) // 2 GB
+
+	// Add file to virtual filesystem
+	vfs.AddFile(mockFilePath, fileSize)
+
+	// Add file record to database
+	file, err := s.tv.AddEpisodeFile(ctx, *mapping.EpisodeID, tv.CreateEpisodeFileInput{
+		Path:       mockFilePath,
+		Size:       fileSize,
+		Quality:    "1080p",
+		VideoCodec: "x265",
+		Resolution: "1920x1080",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add episode file for mock import: %w", err)
+	}
+
+	// Assign to slot if multi-version mode and target slot specified
+	if mapping.TargetSlotID != nil && s.slots != nil {
+		if err := s.slots.AssignFileToSlot(ctx, "episode", *mapping.EpisodeID, *mapping.TargetSlotID, file.ID); err != nil {
+			s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Msg("Failed to assign episode file to slot")
+		} else {
+			s.logger.Debug().Int64("slotId", *mapping.TargetSlotID).Int64("fileId", file.ID).Msg("Assigned episode file to slot")
+		}
+	}
+
+	s.logger.Info().
+		Int64("seriesId", *mapping.SeriesID).
+		Str("title", series.Title).
+		Int("season", episode.SeasonNumber).
+		Int("episode", episode.EpisodeNumber).
+		Str("mockPath", mockFilePath).
+		Msg("Mock episode import completed")
+
+	// Broadcast import event
+	if s.hub != nil {
+		s.hub.Broadcast("import:completed", map[string]any{
+			"mediaType":       "episode",
+			"seriesId":        mapping.SeriesID,
+			"seriesTitle":     series.Title,
+			"episodeId":       mapping.EpisodeID,
+			"episodeTitle":    episode.Title,
+			"seasonNumber":    episode.SeasonNumber,
+			"episodeNumber":   episode.EpisodeNumber,
+			"destinationPath": mockFilePath,
+			"isMock":          true,
+		})
+		// Also broadcast series update so detail page refreshes
+		s.hub.Broadcast("series:updated", map[string]any{
+			"seriesId": mapping.SeriesID,
+		})
+	}
+
+	return nil
+}
+
+// processMockCompleteSeriesImport creates files for all episodes in all seasons of a series.
+func (s *Service) processMockCompleteSeriesImport(ctx context.Context, mapping *DownloadMapping, vfs *fsmock.VirtualFS) error {
+	series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
+	if err != nil {
+		return fmt.Errorf("failed to get series for mock import: %w", err)
+	}
+
+	// Use the series' configured path or create one
+	basePath := series.Path
+	if basePath == "" {
+		basePath = fmt.Sprintf("%s/%s", fsmock.MockTVPath, series.Title)
+	}
+
+	// Get all seasons for this series
+	seasons, err := s.tv.ListSeasons(ctx, *mapping.SeriesID)
+	if err != nil {
+		return fmt.Errorf("failed to list seasons for series: %w", err)
+	}
+
+	if len(seasons) == 0 {
+		s.logger.Warn().
+			Int64("seriesId", *mapping.SeriesID).
+			Msg("No seasons found for complete series import")
+		return nil
+	}
+
+	fileSize := int64(2 * 1024 * 1024 * 1024) // 2 GB per episode
+	totalImported := 0
+
+	for _, season := range seasons {
+		seasonNum := season.SeasonNumber
+		seasonPath := fmt.Sprintf("%s/Season %02d", basePath, seasonNum)
+		vfs.AddDirectory(seasonPath)
+
+		// Get all episodes in the season
+		episodes, err := s.tv.ListEpisodes(ctx, *mapping.SeriesID, &seasonNum)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("season", seasonNum).Msg("Failed to list episodes for season")
+			continue
+		}
+
+		for _, ep := range episodes {
+			mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
+				seasonPath, series.Title, seasonNum, ep.EpisodeNumber)
+
+			// Add file to virtual filesystem
+			vfs.AddFile(mockFilePath, fileSize)
+
+			// Add file record to database
+			file, err := s.tv.AddEpisodeFile(ctx, ep.ID, tv.CreateEpisodeFileInput{
+				Path:       mockFilePath,
+				Size:       fileSize,
+				Quality:    "1080p",
+				VideoCodec: "x265",
+				Resolution: "1920x1080",
+			})
+			if err != nil {
+				s.logger.Warn().Err(err).
+					Int64("episodeId", ep.ID).
+					Int("season", seasonNum).
+					Int("episode", ep.EpisodeNumber).
+					Msg("Failed to add episode file")
+				continue
+			}
+
+			// Assign to slot if multi-version mode and target slot specified
+			if mapping.TargetSlotID != nil && s.slots != nil {
+				if err := s.slots.AssignFileToSlot(ctx, "episode", ep.ID, *mapping.TargetSlotID, file.ID); err != nil {
+					s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", ep.ID).Msg("Failed to assign episode file to slot")
+				}
+			}
+
+			totalImported++
+		}
+	}
+
+	s.logger.Info().
+		Int64("seriesId", *mapping.SeriesID).
+		Str("title", series.Title).
+		Int("seasons", len(seasons)).
+		Int("episodesImported", totalImported).
+		Msg("Mock complete series import completed")
+
+	// Broadcast import event
+	if s.hub != nil {
+		s.hub.Broadcast("import:completed", map[string]any{
+			"mediaType":        "series",
+			"seriesId":         mapping.SeriesID,
+			"seriesTitle":      series.Title,
+			"seasonsImported":  len(seasons),
+			"episodesImported": totalImported,
+			"isMock":           true,
+		})
+		// Also broadcast series update so detail page refreshes
+		s.hub.Broadcast("series:updated", map[string]any{
+			"seriesId": mapping.SeriesID,
+		})
+	}
+
 	return nil
 }

@@ -26,6 +26,13 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // Create creates a new history entry.
 func (s *Service) Create(ctx context.Context, input CreateInput) (*Entry, error) {
 	var dataJSON sql.NullString

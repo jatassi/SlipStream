@@ -27,6 +27,12 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // RefreshAll updates availability for all media types.
 // Order matters: episodes -> seasons -> series, and movies independently.
 func (s *Service) RefreshAll(ctx context.Context) error {

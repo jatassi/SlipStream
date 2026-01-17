@@ -8,18 +8,21 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
+// DevModeChecker is a function that returns whether developer mode is enabled.
+type DevModeChecker func() bool
+
 // DebugHandlers provides HTTP handlers for debug/testing operations.
 // Req 20.2.5: All debug features gated behind developerMode
 type DebugHandlers struct {
-	service       *Service
-	developerMode bool
+	service        *Service
+	isDevModeFunc  DevModeChecker
 }
 
 // NewDebugHandlers creates new debug handlers.
-func NewDebugHandlers(service *Service, developerMode bool) *DebugHandlers {
+func NewDebugHandlers(service *Service, isDevModeFunc DevModeChecker) *DebugHandlers {
 	return &DebugHandlers{
 		service:       service,
-		developerMode: developerMode,
+		isDevModeFunc: isDevModeFunc,
 	}
 }
 
@@ -34,7 +37,7 @@ func (h *DebugHandlers) RegisterDebugRoutes(g *echo.Group) {
 
 // requireDeveloperMode checks if developer mode is enabled.
 func (h *DebugHandlers) requireDeveloperMode(c echo.Context) error {
-	if !h.developerMode {
+	if h.isDevModeFunc == nil || !h.isDevModeFunc() {
 		return echo.NewHTTPError(http.StatusForbidden, "debug features require developer mode")
 	}
 	return nil

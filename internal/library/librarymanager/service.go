@@ -104,6 +104,13 @@ func NewService(
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // SetAutosearchService sets the optional autosearch service for search-on-add functionality
 func (s *Service) SetAutosearchService(svc *autosearch.Service) {
 	s.autosearchSvc = svc

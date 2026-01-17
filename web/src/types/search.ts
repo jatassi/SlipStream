@@ -118,8 +118,12 @@ export interface GrabRequest {
     tvdbId?: number
   }
   clientId?: number
-  mediaType?: 'movie' | 'episode'
+  mediaType?: 'movie' | 'episode' | 'season'
   mediaId?: number
+  seriesId?: number
+  seasonNumber?: number
+  isSeasonPack?: boolean
+  isCompleteSeries?: boolean
   // Req 11.1.3: Allow user to override auto-detected slot when grabbing
   targetSlotId?: number
 }

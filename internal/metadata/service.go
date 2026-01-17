@@ -28,14 +28,14 @@ type HealthService interface {
 
 // Service orchestrates metadata lookups across multiple providers.
 type Service struct {
-	tmdb          *tmdb.Client
-	tvdb          *tvdb.Client
+	tmdb          TMDBClient
+	tvdb          TVDBClient
 	cache         *Cache
 	logger        zerolog.Logger
 	healthService HealthService
 }
 
-// NewService creates a new metadata service.
+// NewService creates a new metadata service with real API clients.
 func NewService(cfg config.MetadataConfig, logger zerolog.Logger) *Service {
 	return &Service{
 		tmdb:   tmdb.NewClient(cfg.TMDB, logger),
@@ -43,6 +43,23 @@ func NewService(cfg config.MetadataConfig, logger zerolog.Logger) *Service {
 		cache:  NewCache(DefaultCacheConfig()),
 		logger: logger.With().Str("component", "metadata").Logger(),
 	}
+}
+
+// NewServiceWithClients creates a new metadata service with custom clients (for testing/mocking).
+func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, logger zerolog.Logger) *Service {
+	return &Service{
+		tmdb:   tmdbClient,
+		tvdb:   tvdbClient,
+		cache:  NewCache(DefaultCacheConfig()),
+		logger: logger.With().Str("component", "metadata").Logger(),
+	}
+}
+
+// SetClients replaces the TMDB and TVDB clients (for dev mode switching).
+func (s *Service) SetClients(tmdbClient TMDBClient, tvdbClient TVDBClient) {
+	s.tmdb = tmdbClient
+	s.tvdb = tvdbClient
+	s.cache.Clear()
 }
 
 // SetHealthService sets the central health service for registration tracking.

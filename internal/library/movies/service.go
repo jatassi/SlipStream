@@ -73,6 +73,13 @@ func NewService(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Service 
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // Get retrieves a movie by ID.
 func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
 	row, err := s.queries.GetMovie(ctx, id)

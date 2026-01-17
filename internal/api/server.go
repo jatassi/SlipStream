@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -16,12 +17,15 @@ import (
 	"github.com/slipstream/slipstream/internal/availability"
 	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/config"
-	"github.com/slipstream/slipstream/internal/history"
+	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
+	downloadermock "github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/filesystem"
+	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/health"
+	"github.com/slipstream/slipstream/internal/history"
 	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
@@ -32,14 +36,17 @@ import (
 	indexerTypes "github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
-	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
-	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/metadata/mock"
+	"github.com/slipstream/slipstream/internal/metadata/tmdb"
+	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/preferences"
@@ -51,11 +58,19 @@ import (
 
 // Server handles HTTP requests for the SlipStream API.
 type Server struct {
-	echo   *echo.Echo
-	db     *sql.DB
-	hub    *websocket.Hub
-	logger zerolog.Logger
-	cfg    *config.Config
+	echo      *echo.Echo
+	dbManager *database.Manager
+	hub       *websocket.Hub
+	logger    zerolog.Logger
+	cfg       *config.Config
+
+	// startupDB is the database connection captured at startup time.
+	// Used for handlers that need a *sql.DB reference.
+	startupDB *sql.DB
+
+	// Real metadata clients (stored for switching back from mock)
+	realTMDBClient metadata.TMDBClient
+	realTVDBClient metadata.TVDBClient
 
 	// Services
 	scannerService        *scanner.Service
@@ -84,26 +99,60 @@ type Server struct {
 	scheduledSearcher     *autosearch.ScheduledSearcher
 	preferencesService    *preferences.Service
 	historyService        *history.Service
-	healthService         *health.Service
-	importService         *importer.Service
-	organizerService      *organizer.Service
-	mediainfoService      *mediainfo.Service
-	slotsService          *slots.Service
-	notificationService   *notification.Service
+	healthService       *health.Service
+	importService       *importer.Service
+	organizerService    *organizer.Service
+	mediainfoService    *mediainfo.Service
+	slotsService        *slots.Service
+	notificationService *notification.Service
 }
 
 // NewServer creates a new API server instance.
-func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger) *Server {
+func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 
+	db := dbManager.Conn()
+
 	s := &Server{
-		echo:   e,
-		db:     db,
-		hub:    hub,
-		logger: logger,
-		cfg:    cfg,
+		echo:      e,
+		dbManager: dbManager,
+		hub:       hub,
+		logger:    logger,
+		cfg:       cfg,
+		startupDB: db,
+	}
+
+	// Store real metadata clients for later switching
+	s.realTMDBClient = tmdb.NewClient(cfg.Metadata.TMDB, logger)
+	s.realTVDBClient = tvdb.NewClient(cfg.Metadata.TVDB, logger)
+
+	// Register WebSocket handler for dev mode toggle
+	if hub != nil {
+		hub.SetDevModeHandler(func(enabled bool) error {
+			if err := dbManager.SetDevMode(enabled); err != nil {
+				return err
+			}
+			// Update all services to use the new database connection
+			s.updateServicesDB()
+			// Switch metadata clients based on dev mode
+			s.switchMetadataClients(enabled)
+			// Create/clear mock indexer based on dev mode
+			s.switchIndexer(enabled)
+			// Create/clear mock download client based on dev mode
+			s.switchDownloadClient(enabled)
+			// Create mock notification based on dev mode
+			s.switchNotification(enabled)
+			// Create mock root folders based on dev mode
+			s.switchRootFolders(enabled)
+			// Copy quality profiles and populate mock media
+			if enabled {
+				s.copyQualityProfilesToDevDB()
+				s.populateMockMedia()
+			}
+			return nil
+		})
 	}
 
 	// Initialize health service first (no dependencies)
@@ -150,7 +199,6 @@ func NewServer(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger zerolo
 
 	// Initialize downloader service
 	s.downloaderService = downloader.NewService(db, logger)
-	s.downloaderService.SetDeveloperMode(cfg.DeveloperMode)
 	s.downloaderService.SetHealthService(s.healthService)
 
 	// Initialize Cardigann manager for indexer definitions
@@ -463,7 +511,7 @@ func (s *Server) setupRoutes() {
 	slotsHandlers.RegisterRoutes(api.Group("/slots"))
 
 	// Slots debug routes (gated behind developerMode)
-	slotsDebugHandlers := slots.NewDebugHandlers(s.slotsService, s.cfg.DeveloperMode)
+	slotsDebugHandlers := slots.NewDebugHandlers(s.slotsService, s.dbManager.IsDevMode)
 	slotsDebugHandlers.RegisterDebugRoutes(api.Group("/slots/debug"))
 
 	// Root folders routes
@@ -535,7 +583,6 @@ func (s *Server) setupRoutes() {
 	clients.PUT("/:id", s.updateDownloadClient)
 	clients.DELETE("/:id", s.deleteDownloadClient)
 	clients.POST("/:id/test", s.testDownloadClient)
-	clients.POST("/:id/debug/addtorrent", s.debugAddTorrent)
 
 	// Queue/Downloads routes
 	api.GET("/queue", s.getQueue)
@@ -578,16 +625,16 @@ func (s *Server) setupRoutes() {
 	autosearchHandlers.RegisterRoutes(api.Group("/autosearch"))
 
 	// Autosearch settings routes
-	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.db), &s.cfg.AutoSearch)
+	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.AutoSearch)
 	settings.GET("/autosearch", autosearchSettings.GetSettings)
 	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
 
 	// Import routes
-	importHandlers := importer.NewHandlers(s.importService, s.db)
+	importHandlers := importer.NewHandlers(s.importService, s.startupDB)
 	importHandlers.RegisterRoutes(api.Group("/import"))
 
 	// Import settings routes
-	importSettings := importer.NewSettingsHandlers(s.db, s.importService)
+	importSettings := importer.NewSettingsHandlers(s.startupDB, s.importService)
 	importSettings.RegisterSettingsRoutes(settings)
 
 	// Notifications routes
@@ -682,7 +729,7 @@ func (s *Server) getStatus(c echo.Context) error {
 		"startTime":     time.Now().Format(time.RFC3339),
 		"movieCount":    movieCount,
 		"seriesCount":   seriesCount,
-		"developerMode": s.cfg.DeveloperMode,
+		"developerMode": s.dbManager.IsDevMode(),
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},
@@ -692,7 +739,7 @@ func (s *Server) getStatus(c echo.Context) error {
 // UpdateTMDBSearchOrdering toggles search ordering for TMDB.
 // POST /api/v1/metadata/tmdb/search-ordering
 func (s *Server) updateTMDBSearchOrdering(c echo.Context) error {
-	if !s.cfg.DeveloperMode {
+	if !s.dbManager.IsDevMode() {
 		return echo.NewHTTPError(http.StatusForbidden, "debug features require developer mode")
 	}
 
@@ -862,38 +909,6 @@ func (s *Server) testNewDownloadClient(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-func (s *Server) debugAddTorrent(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
-	}
-
-	// Only allow in developer mode
-	if !s.cfg.DeveloperMode {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "debug features only available in developer mode"})
-	}
-
-	// Get client name for the mock items
-	client, err := s.downloaderService.Get(ctx, id)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
-	}
-
-	// Add mock downloads using library content
-	mockIDs, err := s.downloaderService.AddMockDownloads(ctx, id, client.Name)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to add mock downloads: " + err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"mockIds": mockIDs,
-		"message": "Mock downloads added based on library content",
-	})
-}
-
 // Queue handlers
 func (s *Server) getQueue(c echo.Context) error {
 	ctx := c.Request().Context()
@@ -901,6 +916,24 @@ func (s *Server) getQueue(c echo.Context) error {
 	items, err := s.downloaderService.GetQueue(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Check if any items are completed/seeding - if so, trigger import processing
+	// This provides faster import triggering than waiting for the scheduled task
+	for _, item := range items {
+		if item.Status == "completed" || item.Status == "seeding" {
+			s.logger.Debug().
+				Str("downloadId", item.ID).
+				Str("status", item.Status).
+				Msg("Detected completed download, triggering import check")
+			// Trigger import check asynchronously to not block the response
+			go func() {
+				if err := s.importService.CheckAndProcessCompletedDownloads(context.Background()); err != nil {
+					s.logger.Warn().Err(err).Msg("Failed to process completed downloads")
+				}
+			}()
+			break // Only need to trigger once
+		}
 	}
 
 	return c.JSON(http.StatusOK, items)
@@ -1055,7 +1088,7 @@ type grabNotificationAdapter struct {
 }
 
 // OnGrab implements grab.NotificationService.
-func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTypes.ReleaseInfo, clientName string, clientID int64, downloadID string) {
+func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTypes.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string) {
 	event := notification.GrabEvent{
 		Release: notification.ReleaseInfo{
 			ReleaseName: release.Title,
@@ -1069,6 +1102,14 @@ func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTy
 			DownloadID: downloadID,
 		},
 		GrabbedAt: time.Now(),
+	}
+
+	// Add slot info if provided
+	if slotID != nil {
+		event.Slot = &notification.SlotInfo{
+			ID:   *slotID,
+			Name: slotName,
+		}
 	}
 
 	// TODO: Add movie/episode info from release if available
@@ -1191,6 +1232,13 @@ func (a *importNotificationAdapter) DispatchDownload(ctx context.Context, event 
 		}
 	}
 
+	if event.SlotID != nil {
+		notifEvent.Slot = &notification.SlotInfo{
+			ID:   *event.SlotID,
+			Name: event.SlotName,
+		}
+	}
+
 	a.svc.DispatchDownload(ctx, notifEvent)
 }
 
@@ -1223,5 +1271,629 @@ func (a *importNotificationAdapter) DispatchUpgrade(ctx context.Context, event i
 		}
 	}
 
+	if event.SlotID != nil {
+		notifEvent.Slot = &notification.SlotInfo{
+			ID:   *event.SlotID,
+			Name: event.SlotName,
+		}
+	}
+
 	a.svc.DispatchUpgrade(ctx, notifEvent)
+}
+
+// switchMetadataClients switches between real and mock metadata clients based on dev mode.
+func (s *Server) switchMetadataClients(devMode bool) {
+	if devMode {
+		s.logger.Info().Msg("Switching to mock metadata providers")
+		s.metadataService.SetClients(mock.NewTMDBClient(), mock.NewTVDBClient())
+	} else {
+		s.logger.Info().Msg("Switching to real metadata providers")
+		s.metadataService.SetClients(s.realTMDBClient, s.realTVDBClient)
+	}
+}
+
+// switchIndexer creates or removes the mock indexer based on dev mode.
+func (s *Server) switchIndexer(devMode bool) {
+	ctx := context.Background()
+
+	if devMode {
+		// Check if mock indexer already exists
+		indexers, err := s.indexerService.List(ctx)
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to list indexers for dev mode")
+			return
+		}
+
+		// Look for existing mock indexer
+		for _, idx := range indexers {
+			if idx.DefinitionID == indexer.MockDefinitionID {
+				s.logger.Info().Int64("id", idx.ID).Msg("Mock indexer already exists")
+				return
+			}
+		}
+
+		// Create mock indexer
+		_, err = s.indexerService.Create(ctx, indexer.CreateIndexerInput{
+			Name:           "Mock Indexer",
+			DefinitionID:   indexer.MockDefinitionID,
+			SupportsMovies: true,
+			SupportsTV:     true,
+			Enabled:        true,
+			Priority:       1,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to create mock indexer")
+			return
+		}
+		s.logger.Info().Msg("Created mock indexer for dev mode")
+	} else {
+		s.logger.Info().Msg("Dev mode disabled - mock indexer will remain until manually deleted")
+	}
+}
+
+// updateServicesDB updates all services to use the current database connection.
+// This must be called after switching databases (e.g., when toggling dev mode).
+func (s *Server) updateServicesDB() {
+	db := s.dbManager.Conn()
+	s.downloaderService.SetDB(db)
+	s.notificationService.SetDB(db)
+	s.indexerService.SetDB(db)
+	s.grabService.SetDB(db)
+	s.rateLimiter.SetDB(db)
+	s.rootFolderService.SetDB(db)
+	s.movieService.SetDB(db)
+	s.tvService.SetDB(db)
+	s.qualityService.SetDB(db)
+	s.libraryManagerService.SetDB(db)
+	s.historyService.SetDB(db)
+	s.slotsService.SetDB(db)
+	s.autosearchService.SetDB(db)
+	s.importService.SetDB(db)
+	s.defaultsService.SetDB(db)
+	s.preferencesService.SetDB(db)
+	s.calendarService.SetDB(db)
+	s.availabilityService.SetDB(db)
+	s.missingService.SetDB(db)
+	s.statusService.SetDB(db)
+	s.logger.Info().Msg("Updated all services with new database connection")
+}
+
+// switchDownloadClient creates or removes the mock download client based on dev mode.
+func (s *Server) switchDownloadClient(devMode bool) {
+	ctx := context.Background()
+
+	if devMode {
+		// Check if mock client already exists
+		clients, err := s.downloaderService.List(ctx)
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to list download clients for dev mode")
+			return
+		}
+
+		// Look for existing mock client
+		for _, c := range clients {
+			if c.Type == "mock" {
+				s.logger.Info().Int64("id", c.ID).Msg("Mock download client already exists")
+				return
+			}
+		}
+
+		// Create mock download client
+		_, err = s.downloaderService.Create(ctx, downloader.CreateClientInput{
+			Name:     "Mock Download Client",
+			Type:     "mock",
+			Host:     "localhost",
+			Port:     9999,
+			Enabled:  true,
+			Priority: 1,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to create mock download client")
+			return
+		}
+		s.logger.Info().Msg("Created mock download client for dev mode")
+	} else {
+		// Clear mock downloads when disabling dev mode
+		downloadermock.GetInstance().Clear()
+		s.logger.Info().Msg("Cleared mock downloads")
+	}
+}
+
+// switchNotification creates mock notification based on dev mode.
+func (s *Server) switchNotification(devMode bool) {
+	ctx := context.Background()
+
+	if devMode {
+		// Check if mock notification already exists
+		notifications, err := s.notificationService.List(ctx)
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to list notifications for dev mode")
+			return
+		}
+
+		// Look for existing mock notification
+		for _, n := range notifications {
+			if n.Type == notification.NotifierMock {
+				s.logger.Info().Int64("id", n.ID).Msg("Mock notification already exists")
+				return
+			}
+		}
+
+		// Create mock notification (subscribed to all events)
+		_, err = s.notificationService.Create(ctx, notification.CreateInput{
+			Name:             "Mock Notification",
+			Type:             notification.NotifierMock,
+			Enabled:          true,
+			OnGrab:           true,
+			OnDownload:       true,
+			OnUpgrade:        true,
+			OnMovieAdded:     true,
+			OnMovieDeleted:   true,
+			OnSeriesAdded:    true,
+			OnSeriesDeleted:  true,
+			OnHealthIssue:    true,
+			OnHealthRestored: true,
+			OnAppUpdate:      true,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to create mock notification")
+			return
+		}
+		s.logger.Info().Msg("Created mock notification for dev mode")
+	} else {
+		s.logger.Info().Msg("Dev mode disabled - mock notification will remain until manually deleted")
+	}
+}
+
+// switchRootFolders creates mock root folders based on dev mode.
+func (s *Server) switchRootFolders(devMode bool) {
+	ctx := context.Background()
+
+	if devMode {
+		// Reset virtual filesystem to initial state
+		fsmock.ResetInstance()
+
+		// Check if mock root folders already exist
+		folders, err := s.rootFolderService.List(ctx)
+		if err != nil {
+			s.logger.Error().Err(err).Msg("Failed to list root folders for dev mode")
+			return
+		}
+
+		hasMovieRoot := false
+		hasTVRoot := false
+		for _, f := range folders {
+			if f.Path == fsmock.MockMoviesPath {
+				hasMovieRoot = true
+			}
+			if f.Path == fsmock.MockTVPath {
+				hasTVRoot = true
+			}
+		}
+
+		// Create mock movie root folder
+		if !hasMovieRoot {
+			_, err = s.rootFolderService.Create(ctx, rootfolder.CreateRootFolderInput{
+				Path:      fsmock.MockMoviesPath,
+				Name:      "Mock Movies",
+				MediaType: "movie",
+			})
+			if err != nil {
+				s.logger.Error().Err(err).Msg("Failed to create mock movies root folder")
+			} else {
+				s.logger.Info().Str("path", fsmock.MockMoviesPath).Msg("Created mock movies root folder")
+			}
+		}
+
+		// Create mock TV root folder
+		if !hasTVRoot {
+			_, err = s.rootFolderService.Create(ctx, rootfolder.CreateRootFolderInput{
+				Path:      fsmock.MockTVPath,
+				Name:      "Mock TV",
+				MediaType: "tv",
+			})
+			if err != nil {
+				s.logger.Error().Err(err).Msg("Failed to create mock TV root folder")
+			} else {
+				s.logger.Info().Str("path", fsmock.MockTVPath).Msg("Created mock TV root folder")
+			}
+		}
+	} else {
+		s.logger.Info().Msg("Dev mode disabled - mock root folders will remain until manually deleted")
+	}
+}
+
+// copyQualityProfilesToDevDB copies quality profiles from production to dev database.
+func (s *Server) copyQualityProfilesToDevDB() {
+	ctx := context.Background()
+
+	// Check if dev database already has profiles
+	devProfiles, err := s.qualityService.List(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list dev quality profiles")
+		return
+	}
+	if len(devProfiles) > 0 {
+		s.logger.Info().Int("count", len(devProfiles)).Msg("Dev database already has quality profiles")
+		return
+	}
+
+	// Get profiles from production database
+	prodQueries := sqlc.New(s.dbManager.ProdConn())
+	prodRows, err := prodQueries.ListQualityProfiles(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list production quality profiles")
+		return
+	}
+
+	if len(prodRows) == 0 {
+		s.logger.Warn().Msg("No quality profiles in production database to copy")
+		// Create default profiles in dev database
+		if err := s.qualityService.EnsureDefaults(ctx); err != nil {
+			s.logger.Error().Err(err).Msg("Failed to create default quality profiles")
+		}
+		return
+	}
+
+	// Copy each profile to dev database
+	devQueries := sqlc.New(s.dbManager.Conn())
+	for _, row := range prodRows {
+		_, err := devQueries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
+			Name:                 row.Name,
+			Cutoff:               row.Cutoff,
+			Items:                row.Items,
+			HdrSettings:          row.HdrSettings,
+			VideoCodecSettings:   row.VideoCodecSettings,
+			AudioCodecSettings:   row.AudioCodecSettings,
+			AudioChannelSettings: row.AudioChannelSettings,
+			UpgradesEnabled:      row.UpgradesEnabled,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Str("name", row.Name).Msg("Failed to copy quality profile")
+			continue
+		}
+		s.logger.Debug().Str("name", row.Name).Msg("Copied quality profile to dev database")
+	}
+
+	s.logger.Info().Int("count", len(prodRows)).Msg("Copied quality profiles to dev database")
+}
+
+// populateMockMedia creates mock movies and series in the dev database.
+func (s *Server) populateMockMedia() {
+	ctx := context.Background()
+
+	// Get the mock root folders
+	folders, err := s.rootFolderService.List(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list root folders for mock media")
+		return
+	}
+
+	var movieRootID, tvRootID int64
+	for _, f := range folders {
+		if f.Path == fsmock.MockMoviesPath {
+			movieRootID = f.ID
+		}
+		if f.Path == fsmock.MockTVPath {
+			tvRootID = f.ID
+		}
+	}
+
+	if movieRootID == 0 || tvRootID == 0 {
+		s.logger.Warn().Msg("Mock root folders not found, skipping media population")
+		return
+	}
+
+	// Get a default quality profile
+	profiles, err := s.qualityService.List(ctx)
+	if err != nil || len(profiles) == 0 {
+		s.logger.Warn().Msg("No quality profiles available for mock media")
+		return
+	}
+	defaultProfileID := profiles[0].ID
+
+	// Check if we already have mock movies
+	existingMovies, _ := s.movieService.List(ctx, movies.ListMoviesOptions{PageSize: 1})
+	if len(existingMovies) > 0 {
+		s.logger.Info().Int("count", len(existingMovies)).Msg("Dev database already has movies")
+		return
+	}
+
+	s.populateMockMovies(ctx, movieRootID, defaultProfileID)
+	s.populateMockSeries(ctx, tvRootID, defaultProfileID)
+}
+
+func (s *Server) populateMockMovies(ctx context.Context, rootFolderID, qualityProfileID int64) {
+	// Mock movies with TMDB IDs - metadata will be fetched from mock provider
+	mockMovieIDs := []struct {
+		tmdbID   int
+		hasFiles bool
+	}{
+		{603, true},      // The Matrix
+		{27205, true},    // Inception
+		{438631, true},   // Dune
+		{680, true},      // Pulp Fiction
+		{550, true},      // Fight Club
+		{693134, false},  // Dune: Part Two
+		{872585, false},  // Oppenheimer
+		{346698, false},  // Barbie
+	}
+
+	for _, m := range mockMovieIDs {
+		// Fetch full metadata from mock provider
+		movieMeta, err := s.metadataService.GetMovie(ctx, m.tmdbID)
+		if err != nil {
+			s.logger.Error().Err(err).Int("tmdbID", m.tmdbID).Msg("Failed to fetch mock movie metadata")
+			continue
+		}
+
+		path := fsmock.MockMoviesPath + "/" + movieMeta.Title + " (" + itoa(movieMeta.Year) + ")"
+
+		input := movies.CreateMovieInput{
+			Title:            movieMeta.Title,
+			Year:             movieMeta.Year,
+			TmdbID:           movieMeta.ID, // ID is the TMDB ID
+			ImdbID:           movieMeta.ImdbID,
+			Overview:         movieMeta.Overview,
+			Runtime:          movieMeta.Runtime,
+			RootFolderID:     rootFolderID,
+			QualityProfileID: qualityProfileID,
+			Path:             path,
+			Monitored:        true,
+		}
+
+		movie, err := s.movieService.Create(ctx, input)
+		if err != nil {
+			s.logger.Error().Err(err).Str("title", movieMeta.Title).Msg("Failed to create mock movie")
+			continue
+		}
+
+		// Download artwork from mock metadata URLs
+		go s.artworkDownloader.DownloadMovieArtwork(ctx, movieMeta)
+
+		// If the movie has files in the VFS, create file entries
+		if m.hasFiles {
+			s.createMockMovieFiles(ctx, movie.ID, path)
+		}
+
+		s.logger.Debug().Str("title", movieMeta.Title).Bool("hasFiles", m.hasFiles).Msg("Created mock movie")
+	}
+
+	s.logger.Info().Int("count", len(mockMovieIDs)).Msg("Populated mock movies")
+}
+
+func (s *Server) createMockMovieFiles(ctx context.Context, movieID int64, moviePath string) {
+	vfs := fsmock.GetInstance()
+	files, err := vfs.ListDirectory(moviePath)
+	if err != nil {
+		return
+	}
+
+	for _, f := range files {
+		if f.Type != fsmock.FileTypeVideo {
+			continue
+		}
+
+		// Parse quality info from filename
+		quality := parseQualityFromFilename(f.Name)
+
+		_, err := s.movieService.AddFile(ctx, movieID, movies.CreateMovieFileInput{
+			Path:    f.Path,
+			Size:    f.Size,
+			Quality: quality,
+		})
+		if err != nil {
+			s.logger.Debug().Err(err).Str("path", f.Path).Msg("Failed to create movie file")
+		}
+	}
+}
+
+func (s *Server) populateMockSeries(ctx context.Context, rootFolderID, qualityProfileID int64) {
+	// Mock series with TVDB IDs - metadata will be fetched from mock provider
+	mockSeriesIDs := []struct {
+		tvdbID   int
+		hasFiles bool
+	}{
+		{81189, true},   // Breaking Bad
+		{121361, true},  // Game of Thrones
+		{305288, true},  // Stranger Things
+		{361753, true},  // The Mandalorian
+		{355567, false}, // The Boys
+	}
+
+	for _, s2 := range mockSeriesIDs {
+		// Fetch full series metadata from mock provider
+		seriesMeta, err := s.metadataService.GetSeriesByTVDB(ctx, s2.tvdbID)
+		if err != nil {
+			s.logger.Error().Err(err).Int("tvdbID", s2.tvdbID).Msg("Failed to fetch mock series metadata")
+			continue
+		}
+
+		// Fetch seasons and episodes from mock provider
+		seasonsMeta, err := s.metadataService.GetSeriesSeasons(ctx, seriesMeta.TmdbID, seriesMeta.TvdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("title", seriesMeta.Title).Msg("Failed to fetch seasons, using empty")
+			seasonsMeta = nil
+		}
+
+		path := fsmock.MockTVPath + "/" + seriesMeta.Title
+
+		// Convert season metadata to SeasonInput
+		var seasons []tv.SeasonInput
+		for _, sm := range seasonsMeta {
+			var episodes []tv.EpisodeInput
+			for _, ep := range sm.Episodes {
+				var airDate *time.Time
+				if ep.AirDate != "" {
+					if t, err := time.Parse("2006-01-02", ep.AirDate); err == nil {
+						airDate = &t
+					}
+				}
+				episodes = append(episodes, tv.EpisodeInput{
+					EpisodeNumber: ep.EpisodeNumber,
+					Title:         ep.Title,
+					Overview:      ep.Overview,
+					AirDate:       airDate,
+					Monitored:     true,
+				})
+			}
+			seasons = append(seasons, tv.SeasonInput{
+				SeasonNumber: sm.SeasonNumber,
+				Monitored:    true,
+				Episodes:     episodes,
+			})
+		}
+
+		input := tv.CreateSeriesInput{
+			Title:            seriesMeta.Title,
+			Year:             seriesMeta.Year,
+			TvdbID:           seriesMeta.TvdbID,
+			TmdbID:           seriesMeta.TmdbID,
+			ImdbID:           seriesMeta.ImdbID,
+			Overview:         seriesMeta.Overview,
+			Runtime:          seriesMeta.Runtime,
+			RootFolderID:     rootFolderID,
+			QualityProfileID: qualityProfileID,
+			Path:             path,
+			Monitored:        true,
+			SeasonFolder:     true,
+			Seasons:          seasons,
+		}
+
+		series, err := s.tvService.CreateSeries(ctx, input)
+		if err != nil {
+			s.logger.Error().Err(err).Str("title", seriesMeta.Title).Msg("Failed to create mock series")
+			continue
+		}
+
+		// Download artwork from mock metadata URLs
+		go s.artworkDownloader.DownloadSeriesArtwork(ctx, seriesMeta)
+
+		// Create episode files if the series has files in VFS
+		if s2.hasFiles {
+			s.createMockEpisodeFiles(ctx, series.ID, path)
+		}
+
+		s.logger.Debug().Str("title", seriesMeta.Title).Bool("hasFiles", s2.hasFiles).Int("seasons", len(seasons)).Msg("Created mock series")
+	}
+
+	s.logger.Info().Int("count", len(mockSeriesIDs)).Msg("Populated mock series")
+}
+
+func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string) {
+	vfs := fsmock.GetInstance()
+	seasonDirs, err := vfs.ListDirectory(seriesPath)
+	if err != nil {
+		return
+	}
+
+	// Get all episodes for this series
+	episodes, err := s.tvService.ListEpisodes(ctx, seriesID, nil)
+	if err != nil {
+		return
+	}
+
+	// Create a map of season:episode -> episodeID
+	episodeMap := make(map[string]int64)
+	for _, ep := range episodes {
+		key := itoa(ep.SeasonNumber) + ":" + itoa(ep.EpisodeNumber)
+		episodeMap[key] = ep.ID
+	}
+
+	for _, seasonDir := range seasonDirs {
+		if seasonDir.Type != fsmock.FileTypeDirectory {
+			continue
+		}
+
+		seasonNum := parseSeasonNumber(seasonDir.Name)
+		if seasonNum == 0 {
+			continue
+		}
+
+		episodeFiles, err := vfs.ListDirectory(seasonDir.Path)
+		if err != nil {
+			continue
+		}
+
+		for _, f := range episodeFiles {
+			if f.Type != fsmock.FileTypeVideo {
+				continue
+			}
+
+			epNum := parseEpisodeNumber(f.Name)
+			if epNum == 0 {
+				continue
+			}
+
+			key := itoa(seasonNum) + ":" + itoa(epNum)
+			episodeID, ok := episodeMap[key]
+			if !ok {
+				continue
+			}
+
+			quality := parseQualityFromFilename(f.Name)
+			_, _ = s.tvService.AddEpisodeFile(ctx, episodeID, tv.CreateEpisodeFileInput{
+				Path:    f.Path,
+				Size:    f.Size,
+				Quality: quality,
+			})
+		}
+	}
+}
+
+func parseQualityFromFilename(filename string) string {
+	filename = strings.ToLower(filename)
+	if strings.Contains(filename, "2160p") {
+		if strings.Contains(filename, "remux") {
+			return "Remux-2160p"
+		}
+		return "Bluray-2160p"
+	}
+	if strings.Contains(filename, "1080p") {
+		if strings.Contains(filename, "web") {
+			return "WEBDL-1080p"
+		}
+		return "Bluray-1080p"
+	}
+	if strings.Contains(filename, "720p") {
+		if strings.Contains(filename, "web") {
+			return "WEBDL-720p"
+		}
+		return "Bluray-720p"
+	}
+	return "Unknown"
+}
+
+func parseSeasonNumber(name string) int {
+	// Handle "Season 01", "Season 1", "S01", etc.
+	name = strings.ToLower(name)
+	name = strings.TrimPrefix(name, "season ")
+	name = strings.TrimPrefix(name, "s")
+	name = strings.TrimSpace(name)
+	num, _ := strconv.Atoi(name)
+	return num
+}
+
+func parseEpisodeNumber(filename string) int {
+	// Find SxxExx pattern
+	filename = strings.ToLower(filename)
+	idx := strings.Index(filename, "e")
+	if idx == -1 {
+		return 0
+	}
+	// Extract number after 'e'
+	numStr := ""
+	for i := idx + 1; i < len(filename) && i < idx+4; i++ {
+		if filename[i] >= '0' && filename[i] <= '9' {
+			numStr += string(filename[i])
+		} else {
+			break
+		}
+	}
+	num, _ := strconv.Atoi(numStr)
+	return num
+}
+
+func itoa(n int) string {
+	return strconv.Itoa(n)
 }

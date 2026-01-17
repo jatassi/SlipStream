@@ -34,6 +34,7 @@ const (
 	ClientTypeRTorrent     = types.ClientTypeRTorrent
 	ClientTypeSABnzbd      = types.ClientTypeSABnzbd
 	ClientTypeNZBGet       = types.ClientTypeNZBGet
+	ClientTypeMock         = types.ClientTypeMock
 
 	StatusQueued      = types.StatusQueued
 	StatusDownloading = types.StatusDownloading

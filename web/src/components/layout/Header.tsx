@@ -1,4 +1,4 @@
-import { Bell, Loader2 } from 'lucide-react'
+import { Bell, Hammer, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,17 +11,30 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useUIStore } from '@/stores'
+import { Toggle } from '@/components/ui/toggle'
+import { useUIStore, useDevModeStore, useWebSocketStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/SearchBar'
 import { useScheduledTasks } from '@/hooks'
+import { cn } from '@/lib/utils'
 
 export function Header() {
   const { notifications, dismissNotification } = useUIStore()
+  const { enabled: devModeEnabled, switching: devModeSwitching, setEnabled, setSwitching } = useDevModeStore()
+  const { send } = useWebSocketStore()
   const { data: tasks } = useScheduledTasks()
 
   const runningTasks = tasks?.filter(t => t.running) || []
   const hasRunningTasks = runningTasks.length > 0
+
+  const handleDevModeToggle = (pressed: boolean) => {
+    setSwitching(true)
+    setEnabled(pressed)
+    send({
+      type: 'devmode:set',
+      payload: { enabled: pressed }
+    })
+  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-6">
@@ -56,6 +69,34 @@ export function Header() {
             </Tooltip>
           </TooltipProvider>
         )}
+
+        {/* Developer Mode Toggle */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Toggle
+                  pressed={devModeEnabled}
+                  onPressedChange={handleDevModeToggle}
+                  disabled={devModeSwitching}
+                  size="sm"
+                  className={cn(
+                    devModeEnabled && 'bg-amber-600/20 text-amber-500 hover:bg-amber-600/30 hover:text-amber-400'
+                  )}
+                />
+              }
+            >
+              {devModeSwitching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Hammer className="size-4" />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              {devModeEnabled ? 'Developer mode enabled' : 'Developer mode disabled'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Notifications */}
         <DropdownMenu>

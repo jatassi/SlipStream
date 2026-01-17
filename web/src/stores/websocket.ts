@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { useQueryClient } from '@tanstack/react-query'
 import { movieKeys } from '@/hooks/useMovies'
@@ -8,6 +9,7 @@ import { systemHealthKeys } from '@/hooks/useHealth'
 import { useProgressStore } from './progress'
 import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
 import { useAutoSearchStore, type AutoSearchTaskResult } from './autosearch'
+import { useDevModeStore } from './devmode'
 import type { Activity, ProgressEventType } from '@/types/progress'
 
 export interface WSMessage {
@@ -97,9 +99,18 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 export function useWebSocketHandler() {
   const queryClient = useQueryClient()
   const lastMessage = useWebSocketStore((state) => state.lastMessage)
+  const processedRef = useRef<string | null>(null)
 
   // Handle message types and invalidate appropriate queries
-  if (lastMessage) {
+  // IMPORTANT: This must be in a useEffect to avoid state updates during render
+  useEffect(() => {
+    if (!lastMessage) return
+
+    // Avoid processing the same message twice
+    const messageKey = `${lastMessage.type}-${lastMessage.timestamp}`
+    if (processedRef.current === messageKey) return
+    processedRef.current = messageKey
+
     switch (lastMessage.type) {
       case 'movie:added':
       case 'movie:updated':
@@ -161,8 +172,26 @@ export function useWebSocketHandler() {
       case 'health:updated':
         queryClient.invalidateQueries({ queryKey: systemHealthKeys.all })
         break
+
+      // Developer mode events
+      case 'devmode:changed':
+        useDevModeStore.getState().setEnabled(
+          (lastMessage.payload as { enabled: boolean }).enabled
+        )
+        useDevModeStore.getState().setSwitching(false)
+        // Invalidate all queries to refresh with potentially different database
+        queryClient.invalidateQueries()
+        break
+
+      case 'devmode:error':
+        useDevModeStore.getState().setSwitching(false)
+        // Revert to the opposite of what was requested
+        useDevModeStore.getState().setEnabled(
+          (lastMessage.payload as { enabled: boolean }).enabled
+        )
+        break
     }
-  }
+  }, [lastMessage, queryClient])
 
   return lastMessage
 }

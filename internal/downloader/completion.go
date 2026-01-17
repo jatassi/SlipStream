@@ -24,6 +24,7 @@ type CompletedDownload struct {
 	EpisodeID        *int64
 	IsSeasonPack     bool
 	IsCompleteSeries bool
+	TargetSlotID     *int64
 
 	// Internal mapping reference
 	MappingID int64
@@ -37,23 +38,29 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 		return nil, fmt.Errorf("failed to list clients: %w", err)
 	}
 
+	s.logger.Debug().Int("clientCount", len(clients)).Msg("CheckForCompletedDownloads: found clients")
+
 	// Get all active download mappings
 	mappings, err := s.queries.ListActiveDownloadMappings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mappings: %w", err)
 	}
 
+	s.logger.Debug().Int("mappingCount", len(mappings)).Msg("CheckForCompletedDownloads: found mappings")
+
 	// Build lookup map: clientID:downloadID -> mapping
 	mappingLookup := make(map[string]*sqlc.DownloadMapping)
 	for _, m := range mappings {
 		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
 		mappingLookup[key] = m
+		s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: mapping key")
 	}
 
 	var completed []CompletedDownload
 
 	for _, dbClient := range clients {
 		if !IsClientTypeImplemented(dbClient.Type) {
+			s.logger.Debug().Str("type", dbClient.Type).Msg("CheckForCompletedDownloads: skipping unimplemented client type")
 			continue
 		}
 
@@ -69,7 +76,14 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 			continue
 		}
 
+		s.logger.Debug().Int64("clientId", dbClient.ID).Int("downloadCount", len(downloads)).Msg("CheckForCompletedDownloads: got downloads from client")
+
 		for _, d := range downloads {
+			s.logger.Debug().
+				Str("downloadId", d.ID).
+				Str("status", string(d.Status)).
+				Msg("CheckForCompletedDownloads: checking download")
+
 			// Check if download is complete (completed or seeding)
 			if d.Status != types.StatusCompleted && d.Status != types.StatusSeeding {
 				continue
@@ -80,8 +94,11 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 			mapping, hasMapping := mappingLookup[key]
 			if !hasMapping {
 				// No mapping = untracked download, skip
+				s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: no mapping found for completed download")
 				continue
 			}
+
+			s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: found mapping for completed download")
 
 			cd := CompletedDownload{
 				DownloadID:   d.ID,
@@ -111,6 +128,10 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 			}
 			cd.IsSeasonPack = mapping.IsSeasonPack == 1
 			cd.IsCompleteSeries = mapping.IsCompleteSeries == 1
+			if mapping.TargetSlotID.Valid {
+				id := mapping.TargetSlotID.Int64
+				cd.TargetSlotID = &id
+			}
 
 			completed = append(completed, cd)
 		}
@@ -184,11 +205,6 @@ func (s *Service) IsDownloadStalled(ctx context.Context, clientID int64, downloa
 // GetQueueItemCount returns the number of items in the queue across all clients.
 func (s *Service) GetQueueItemCount(ctx context.Context) (int, error) {
 	count := 0
-
-	// Count mock items
-	if s.developerMode {
-		count += len(s.mockQueue)
-	}
 
 	// Get all enabled clients
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)

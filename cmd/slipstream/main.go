@@ -27,32 +27,29 @@ func main() {
 	}
 
 	// Initialize logger
-	// Use debug level when developer mode is enabled
-	logLevel := cfg.Logging.Level
-	if cfg.DeveloperMode && logLevel != "trace" {
-		logLevel = "debug"
-	}
 	log := logger.New(logger.Config{
-		Level:  logLevel,
+		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
 	})
 
 	log.Info().
 		Str("version", "0.0.1-dev").
-		Bool("developerMode", cfg.DeveloperMode).
-		Str("logLevel", logLevel).
+		Str("logLevel", cfg.Logging.Level).
 		Msg("starting SlipStream")
 
-	// Initialize database
-	db, err := database.New(cfg.Database.Path)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize database")
-	}
-	defer db.Close()
+	// Derive dev database path from production path
+	devDBPath := cfg.Database.Path[:len(cfg.Database.Path)-3] + "_dev.db"
 
-	// Run migrations
+	// Initialize database manager
+	dbManager, err := database.NewManager(cfg.Database.Path, devDBPath, log.Logger)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize database manager")
+	}
+	defer dbManager.Close()
+
+	// Run migrations on production database
 	log.Info().Msg("running database migrations")
-	if err := db.Migrate(); err != nil {
+	if err := dbManager.Migrate(); err != nil {
 		log.Fatal().Err(err).Msg("failed to run migrations")
 	}
 
@@ -61,7 +58,7 @@ func main() {
 	go hub.Run()
 
 	// Initialize API server
-	server := api.NewServer(db.Conn(), hub, cfg, log.Logger)
+	server := api.NewServer(dbManager, hub, cfg, log.Logger)
 
 	// Ensure default data exists (like quality profiles)
 	if err := server.EnsureDefaults(context.Background()); err != nil {

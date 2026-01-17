@@ -308,7 +308,7 @@ func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url
 		mediaType = "series"
 	}
 
-	torrentID, err := s.AddTorrent(ctx, clientID, url, mediaType)
+	torrentID, err := s.AddTorrent(ctx, clientID, url, mediaType, "")
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to add torrent: %w", err)
 	}
@@ -335,7 +335,7 @@ func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int
 		mediaType = "series"
 	}
 
-	torrentID, err := s.AddTorrentWithContent(ctx, clientID, content, mediaType)
+	torrentID, err := s.AddTorrentWithContent(ctx, clientID, content, mediaType, "")
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to add torrent: %w", err)
 	}

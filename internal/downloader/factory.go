@@ -3,6 +3,7 @@ package downloader
 import (
 	"fmt"
 
+	"github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/downloader/qbittorrent"
 	"github.com/slipstream/slipstream/internal/downloader/sabnzbd"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
@@ -19,6 +20,8 @@ func NewClient(clientType ClientType, config ClientConfig) (Client, error) {
 		return qbittorrent.NewFromConfig(config), nil
 	case ClientTypeSABnzbd:
 		return sabnzbd.NewFromConfig(config), nil
+	case ClientTypeMock:
+		return mock.NewFromConfig(config), nil
 	case ClientTypeDeluge, ClientTypeRTorrent, ClientTypeNZBGet:
 		return nil, fmt.Errorf("%w: %s client not yet implemented", ErrUnsupportedClient, clientType)
 	default:
@@ -38,6 +41,8 @@ func NewTorrentClient(clientType ClientType, config ClientConfig) (TorrentClient
 		return transmission.NewFromConfig(config), nil
 	case ClientTypeQBittorrent:
 		return qbittorrent.NewFromConfig(config), nil
+	case ClientTypeMock:
+		return mock.NewFromConfig(config), nil
 	case ClientTypeDeluge, ClientTypeRTorrent:
 		return nil, fmt.Errorf("%w: %s client not yet implemented", ErrUnsupportedClient, clientType)
 	default:
@@ -106,6 +111,7 @@ func SupportedClientTypes() []ClientType {
 func ImplementedClientTypes() []ClientType {
 	return []ClientType{
 		ClientTypeTransmission,
+		ClientTypeMock,
 	}
 }
 

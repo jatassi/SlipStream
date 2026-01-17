@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/filesystem/mock"
 )
 
 // Service provides filesystem browsing capabilities
@@ -28,6 +30,11 @@ func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
 	// Handle empty path - return root
 	if path == "" {
 		return s.browseRoot()
+	}
+
+	// Handle mock virtual filesystem paths
+	if mock.IsMockPath(path) {
+		return s.browseMockDirectory(path)
 	}
 
 	// Validate and clean the path
@@ -80,6 +87,39 @@ func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
 
 	return &BrowseResult{
 		Path:    cleanPath,
+		Parent:  parent,
+		Entries: dirEntries,
+	}, nil
+}
+
+func (s *Service) browseMockDirectory(path string) (*BrowseResult, error) {
+	vfs := mock.GetInstance()
+
+	if !vfs.IsDirectory(path) {
+		return nil, ErrPathNotFound
+	}
+
+	files, err := vfs.ListDirectory(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var dirEntries []DirectoryEntry
+	for _, f := range files {
+		dirEntries = append(dirEntries, DirectoryEntry{
+			Name:  f.Name,
+			Path:  f.Path,
+			IsDir: f.Type == mock.FileTypeDirectory,
+		})
+	}
+
+	parent := filepath.Dir(path)
+	if parent == path || parent == "/" {
+		parent = ""
+	}
+
+	return &BrowseResult{
+		Path:    path,
 		Parent:  parent,
 		Entries: dirEntries,
 	}, nil
@@ -287,6 +327,11 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 		return s.browseRootForImport()
 	}
 
+	// Handle mock virtual filesystem paths
+	if mock.IsMockPath(path) {
+		return s.browseMockForImport(path)
+	}
+
 	cleanPath, err := s.validatePath(path)
 	if err != nil {
 		return nil, err
@@ -364,6 +409,60 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 	}, nil
 }
 
+func (s *Service) browseMockForImport(path string) (*ImportBrowseResult, error) {
+	vfs := mock.GetInstance()
+
+	if !vfs.IsDirectory(path) {
+		return nil, ErrPathNotFound
+	}
+
+	files, err := vfs.ListDirectory(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var dirEntries []DirectoryEntry
+	var fileEntries []FileEntry
+
+	for _, f := range files {
+		name := f.Name
+
+		// Skip sample directories
+		if f.Type == mock.FileTypeDirectory {
+			if strings.EqualFold(name, "sample") || strings.EqualFold(name, "samples") {
+				continue
+			}
+			dirEntries = append(dirEntries, DirectoryEntry{
+				Name:  name,
+				Path:  f.Path,
+				IsDir: true,
+			})
+		} else {
+			ext := strings.ToLower(filepath.Ext(name))
+			if isVideoExtension(ext) {
+				fileEntries = append(fileEntries, FileEntry{
+					Name:    name,
+					Path:    f.Path,
+					Size:    f.Size,
+					ModTime: f.ModTime.Unix(),
+				})
+			}
+		}
+	}
+
+	parent := filepath.Dir(path)
+	if parent == path || parent == "/" {
+		parent = ""
+	}
+
+	return &ImportBrowseResult{
+		Path:        path,
+		Parent:      parent,
+		Directories: dirEntries,
+		Files:       fileEntries,
+	}, nil
+}
+
 // browseRootForImport returns root for import browsing
 func (s *Service) browseRootForImport() (*ImportBrowseResult, error) {
 	if runtime.GOOS == "windows" {
@@ -427,6 +526,11 @@ func isSamplePath(path string) bool {
 // ScanForMedia recursively scans a directory for video files and parses their metadata.
 // This is used for manual import functionality.
 func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*MediaScanResult, error) {
+	// Handle mock virtual filesystem paths
+	if mock.IsMockPath(path) {
+		return s.scanMockForMedia(path, parser)
+	}
+
 	cleanPath, err := s.validatePath(path)
 	if err != nil {
 		return nil, err
@@ -486,6 +590,62 @@ func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*M
 	result.TotalFiles = len(result.Files)
 
 	// Sort files by path
+	sort.Slice(result.Files, func(i, j int) bool {
+		return strings.ToLower(result.Files[i].Path) < strings.ToLower(result.Files[j].Path)
+	})
+
+	return result, nil
+}
+
+func (s *Service) scanMockForMedia(path string, parser func(string) *ParsedInfo) (*MediaScanResult, error) {
+	vfs := mock.GetInstance()
+
+	if !vfs.IsDirectory(path) {
+		return nil, ErrPathNotFound
+	}
+
+	result := &MediaScanResult{
+		Path:  path,
+		Files: make([]ScannedMediaFile, 0),
+	}
+
+	err := vfs.WalkDir(path, func(filePath string, file *mock.VirtualFile) error {
+		if file.Type == mock.FileTypeDirectory {
+			baseName := strings.ToLower(file.Name)
+			if sampleDirNames[baseName] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		ext := strings.ToLower(filepath.Ext(filePath))
+		if !isVideoExtension(ext) {
+			return nil
+		}
+
+		scanned := ScannedMediaFile{
+			Path:      filePath,
+			Name:      file.Name,
+			Size:      file.Size,
+			ModTime:   file.ModTime.Unix(),
+			Extension: ext,
+			IsSample:  isSamplePath(filePath),
+		}
+
+		if parser != nil {
+			scanned.Parsed = parser(file.Name)
+		}
+
+		result.Files = append(result.Files, scanned)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	result.TotalFiles = len(result.Files)
+
 	sort.Slice(result.Files, func(i, j int) bool {
 		return strings.ToLower(result.Files[i].Path) < strings.ToLower(result.Files[j].Path)
 	})

@@ -43,6 +43,15 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // List returns all configured notifications
 func (s *Service) List(ctx context.Context) ([]Config, error) {
 	rows, err := s.queries.ListNotifications(ctx)

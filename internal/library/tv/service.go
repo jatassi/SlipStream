@@ -76,6 +76,13 @@ func NewService(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Service 
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // GetSeries retrieves a series by ID.
 func (s *Service) GetSeries(ctx context.Context, id int64) (*Series, error) {
 	row, err := s.queries.GetSeries(ctx, id)
@@ -260,6 +267,13 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 	}
 
 	series := s.rowToSeries(row)
+
+	// Get episode counts for the newly created series
+	episodeCount, _ := s.queries.CountEpisodesBySeries(ctx, series.ID)
+	fileCount, _ := s.queries.CountEpisodeFilesBySeries(ctx, series.ID)
+	series.EpisodeCount = int(episodeCount)
+	series.EpisodeFileCount = int(fileCount)
+
 	s.logger.Info().Int64("id", series.ID).Str("title", series.Title).Msg("Created series")
 
 	if s.hub != nil {

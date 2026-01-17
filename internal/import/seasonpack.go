@@ -313,6 +313,14 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 		ID:               m.ID,
 		DownloadClientID: m.ClientID,
 		DownloadID:       m.DownloadID,
+		IsSeasonPack:     m.IsSeasonPack == 1,
+		IsCompleteSeries: m.IsCompleteSeries == 1,
+	}
+
+	// Copy TargetSlotID if present
+	if m.TargetSlotID.Valid {
+		id := m.TargetSlotID.Int64
+		mapping.TargetSlotID = &id
 	}
 
 	if m.MovieID.Valid {
@@ -322,7 +330,6 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 
 	if m.SeriesID.Valid {
 		mapping.SeriesID = &m.SeriesID.Int64
-		mapping.MediaType = "episode"
 	}
 
 	if m.SeasonNumber.Valid {
@@ -334,14 +341,28 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 		mapping.EpisodeID = &m.EpisodeID.Int64
 	}
 
+	// Determine MediaType based on flags and fields
+	if mapping.MovieID != nil {
+		mapping.MediaType = "movie"
+	} else if mapping.IsCompleteSeries {
+		mapping.MediaType = "series"
+	} else if mapping.IsSeasonPack || (mapping.SeasonNumber != nil && mapping.EpisodeID == nil) {
+		mapping.MediaType = "season"
+	} else if mapping.SeriesID != nil {
+		mapping.MediaType = "episode"
+	}
+
 	return mapping
 }
 
 // IsSeasonPack determines if a download is a season pack.
 func (s *Service) IsSeasonPack(mapping *DownloadMapping) bool {
 	// A download is a season pack if:
-	// 1. It's marked as a season pack in the mapping
+	// 1. It's explicitly marked as a season pack in the mapping
 	// 2. Or it has a series ID and season number but no specific episode ID
+	if mapping.IsSeasonPack {
+		return true
+	}
 	if mapping.SeriesID != nil && mapping.SeasonNumber != nil && mapping.EpisodeID == nil {
 		return true
 	}

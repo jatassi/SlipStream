@@ -3,6 +3,7 @@ package logger
 import (
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -19,7 +20,20 @@ type Config struct {
 	Format string // "console" or "json"
 }
 
+// IsDevBuild returns true if running via "go run" (development mode).
+// This is detected by checking if the executable path contains "go-build",
+// which is where Go compiles temporary binaries during "go run".
+func IsDevBuild() bool {
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(exe, "go-build")
+}
+
 // New creates a new logger instance.
+// When running via "go run" (dev build), automatically uses debug level
+// unless a more verbose level (trace) is explicitly configured.
 func New(cfg Config) *Logger {
 	var output io.Writer
 
@@ -35,6 +49,11 @@ func New(cfg Config) *Logger {
 
 	level := parseLevel(cfg.Level)
 
+	// Auto-enable debug logging for dev builds (go run)
+	if IsDevBuild() && level > zerolog.DebugLevel {
+		level = zerolog.DebugLevel
+	}
+
 	logger := zerolog.New(output).
 		Level(level).
 		With().
@@ -47,6 +66,8 @@ func New(cfg Config) *Logger {
 // parseLevel converts string level to zerolog.Level
 func parseLevel(level string) zerolog.Level {
 	switch level {
+	case "trace":
+		return zerolog.TraceLevel
 	case "debug":
 		return zerolog.DebugLevel
 	case "info":

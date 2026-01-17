@@ -12,22 +12,23 @@ type (
 	NotifierType = types.NotifierType
 	Notifier     = types.Notifier
 
-	MediaInfo           = types.MediaInfo
-	SeriesInfo          = types.SeriesInfo
-	EpisodeInfo         = types.EpisodeInfo
-	ReleaseInfo         = types.ReleaseInfo
-	DownloadClientInfo  = types.DownloadClientInfo
-	CustomFormat        = types.CustomFormat
-	MediaFileInfo       = types.MediaFileInfo
-	GrabEvent           = types.GrabEvent
-	DownloadEvent       = types.DownloadEvent
-	UpgradeEvent        = types.UpgradeEvent
-	MovieAddedEvent     = types.MovieAddedEvent
-	MovieDeletedEvent   = types.MovieDeletedEvent
-	SeriesAddedEvent    = types.SeriesAddedEvent
-	SeriesDeletedEvent  = types.SeriesDeletedEvent
-	HealthEvent         = types.HealthEvent
-	AppUpdateEvent      = types.AppUpdateEvent
+	MediaInfo          = types.MediaInfo
+	SeriesInfo         = types.SeriesInfo
+	EpisodeInfo        = types.EpisodeInfo
+	ReleaseInfo        = types.ReleaseInfo
+	DownloadClientInfo = types.DownloadClientInfo
+	CustomFormat       = types.CustomFormat
+	MediaFileInfo      = types.MediaFileInfo
+	SlotInfo           = types.SlotInfo
+	GrabEvent          = types.GrabEvent
+	DownloadEvent      = types.DownloadEvent
+	UpgradeEvent       = types.UpgradeEvent
+	MovieAddedEvent    = types.MovieAddedEvent
+	MovieDeletedEvent  = types.MovieDeletedEvent
+	SeriesAddedEvent   = types.SeriesAddedEvent
+	SeriesDeletedEvent = types.SeriesDeletedEvent
+	HealthEvent        = types.HealthEvent
+	AppUpdateEvent     = types.AppUpdateEvent
 )
 
 // Re-export constants
@@ -47,6 +48,7 @@ const (
 	NotifierSimplepush   = types.NotifierSimplepush
 	NotifierSignal       = types.NotifierSignal
 	NotifierCustomScript = types.NotifierCustomScript
+	NotifierMock         = types.NotifierMock
 )
 
 // Config represents a notification configuration stored in the database

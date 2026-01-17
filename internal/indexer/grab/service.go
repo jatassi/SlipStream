@@ -33,7 +33,7 @@ type Broadcaster interface {
 
 // NotificationService interface for sending external notifications.
 type NotificationService interface {
-	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string)
+	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string)
 }
 
 // Service handles grabbing releases and sending them to download clients.
@@ -91,6 +91,12 @@ func (s *Service) SetNotificationService(notificationService NotificationService
 	s.notificationService = notificationService
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
+}
+
 // GrabRequest represents a request to grab a release.
 type GrabRequest struct {
 	Release          *types.ReleaseInfo `json:"release"`
@@ -115,13 +121,14 @@ type GrabResult struct {
 
 // BulkGrabRequest represents a request to grab multiple releases.
 type BulkGrabRequest struct {
-	Releases     []*types.ReleaseInfo `json:"releases"`
-	ClientID     int64                `json:"clientId,omitempty"`
-	MediaType    string               `json:"mediaType,omitempty"`
-	MediaID      int64                `json:"mediaId,omitempty"`
-	SeriesID     int64                `json:"seriesId,omitempty"`
-	SeasonNumber int                  `json:"seasonNumber,omitempty"`
-	IsSeasonPack bool                 `json:"isSeasonPack,omitempty"`
+	Releases         []*types.ReleaseInfo `json:"releases"`
+	ClientID         int64                `json:"clientId,omitempty"`
+	MediaType        string               `json:"mediaType,omitempty"`
+	MediaID          int64                `json:"mediaId,omitempty"`
+	SeriesID         int64                `json:"seriesId,omitempty"`
+	SeasonNumber     int                  `json:"seasonNumber,omitempty"`
+	IsSeasonPack     bool                 `json:"isSeasonPack,omitempty"`
+	IsCompleteSeries bool                 `json:"isCompleteSeries,omitempty"`
 	// Req 18.2.1: Target slot for multi-version mode
 	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
@@ -234,7 +241,7 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 
 	// Send external notifications
 	if s.notificationService != nil {
-		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID)
+		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID, req.TargetSlotID, "")
 	}
 
 	s.logger.Info().
@@ -294,14 +301,15 @@ func (s *Service) GrabBulk(ctx context.Context, req BulkGrabRequest) (*BulkGrabR
 	for _, release := range req.Releases {
 		// Req 18.2.1: Pass target slot through to individual grabs
 		grabResult, _ := s.Grab(ctx, GrabRequest{
-			Release:      release,
-			ClientID:     req.ClientID,
-			MediaType:    req.MediaType,
-			MediaID:      req.MediaID,
-			SeriesID:     req.SeriesID,
-			SeasonNumber: req.SeasonNumber,
-			IsSeasonPack: req.IsSeasonPack,
-			TargetSlotID: req.TargetSlotID,
+			Release:          release,
+			ClientID:         req.ClientID,
+			MediaType:        req.MediaType,
+			MediaID:          req.MediaID,
+			SeriesID:         req.SeriesID,
+			SeasonNumber:     req.SeasonNumber,
+			IsSeasonPack:     req.IsSeasonPack,
+			IsCompleteSeries: req.IsCompleteSeries,
+			TargetSlotID:     req.TargetSlotID,
 		})
 
 		result.Results = append(result.Results, grabResult)
@@ -351,7 +359,7 @@ func (s *Service) selectDownloadClient(ctx context.Context, protocol types.Proto
 func (s *Service) clientSupportsProtocol(client *downloader.DownloadClient, protocol types.Protocol) bool {
 	switch protocol {
 	case types.ProtocolTorrent:
-		return client.Type == "transmission" || client.Type == "qbittorrent" || client.Type == "deluge" || client.Type == "rtorrent"
+		return client.Type == "transmission" || client.Type == "qbittorrent" || client.Type == "deluge" || client.Type == "rtorrent" || client.Type == "mock"
 	case types.ProtocolUsenet:
 		return client.Type == "sabnzbd" || client.Type == "nzbget"
 	default:
@@ -379,7 +387,7 @@ func (s *Service) sendToClient(ctx context.Context, client *downloader.DownloadC
 					Str("url", release.DownloadURL).
 					Msg("Failed to download torrent via indexer, falling back to direct URL")
 			} else {
-				downloadID, err := s.downloaderService.AddTorrentWithContent(ctx, client.ID, torrentData, mediaType)
+				downloadID, err := s.downloaderService.AddTorrentWithContent(ctx, client.ID, torrentData, mediaType, release.Title)
 				if err != nil {
 					return "", fmt.Errorf("failed to add download: %w", err)
 				}
@@ -389,7 +397,7 @@ func (s *Service) sendToClient(ctx context.Context, client *downloader.DownloadC
 	}
 
 	// Fallback: Use direct URL (works for public trackers or magnet links)
-	downloadID, err := s.downloaderService.AddTorrent(ctx, client.ID, release.DownloadURL, mediaType)
+	downloadID, err := s.downloaderService.AddTorrent(ctx, client.ID, release.DownloadURL, mediaType, release.Title)
 	if err != nil {
 		return "", fmt.Errorf("failed to add download: %w", err)
 	}

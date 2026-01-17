@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
+	"github.com/slipstream/slipstream/internal/filesystem/mock"
 )
 
 var (
@@ -71,6 +73,13 @@ func NewService(db *sql.DB, logger zerolog.Logger, defaults *defaults.Service) *
 // SetHealthService sets the central health service for registration tracking.
 func (s *Service) SetHealthService(hs HealthService) {
 	s.healthService = hs
+}
+
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
 }
 
 // RegisterExistingRootFolders registers all existing root folders with the health service.
@@ -156,35 +165,49 @@ func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*Roo
 		return nil, ErrInvalidMediaType
 	}
 
-	// Get absolute path
-	absPath, err := filepath.Abs(input.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
-	}
+	var absPath string
+	var freeSpace int64
 
-	// Verify path exists and is a directory
-	info, err := os.Stat(absPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	// Handle mock virtual filesystem paths
+	if mock.IsMockPath(input.Path) {
+		absPath = strings.TrimSuffix(input.Path, "/")
+		vfs := mock.GetInstance()
+		if !vfs.IsDirectory(absPath) {
 			return nil, ErrPathNotFound
 		}
-		return nil, fmt.Errorf("failed to check path: %w", err)
-	}
-	if !info.IsDir() {
-		return nil, ErrPathNotDirectory
+		freeSpace = 1000 * 1024 * 1024 * 1024 // 1TB mock free space
+	} else {
+		// Get absolute path
+		var err error
+		absPath, err = filepath.Abs(input.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+
+		// Verify path exists and is a directory
+		info, err := os.Stat(absPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, ErrPathNotFound
+			}
+			return nil, fmt.Errorf("failed to check path: %w", err)
+		}
+		if !info.IsDir() {
+			return nil, ErrPathNotDirectory
+		}
+
+		// Get free space
+		freeSpace = s.getFreeSpace(absPath)
 	}
 
 	// Check if path already exists
-	_, err = s.queries.GetRootFolderByPath(ctx, absPath)
+	_, err := s.queries.GetRootFolderByPath(ctx, absPath)
 	if err == nil {
 		return nil, ErrPathAlreadyExists
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to check existing path: %w", err)
 	}
-
-	// Get free space
-	freeSpace := s.getFreeSpace(absPath)
 
 	// Determine name
 	name := input.Name

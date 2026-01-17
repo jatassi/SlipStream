@@ -127,6 +127,26 @@ export function SearchModal({
 
   const handleGrab = async (release: TorrentInfo) => {
     try {
+      // Determine media type and flags based on search context
+      let mediaType: 'movie' | 'episode' | 'season' = 'episode'
+      let isSeasonPack = false
+      let isCompleteSeries = false
+
+      if (isMovie) {
+        mediaType = 'movie'
+      } else if (seriesId) {
+        if (season !== undefined && episode === undefined) {
+          // Season search without specific episode = season pack
+          mediaType = 'season'
+          isSeasonPack = true
+        } else if (season === undefined && episode === undefined) {
+          // Series search without season or episode = complete series
+          mediaType = 'season'
+          isCompleteSeries = true
+        }
+        // Otherwise it's a specific episode search, mediaType stays 'episode'
+      }
+
       const result = await grabMutation.mutateAsync({
         release: {
           guid: release.guid,
@@ -140,8 +160,12 @@ export function SearchModal({
           tvdbId: release.tvdbId,
           imdbId: release.imdbId,
         },
-        mediaType: isMovie ? 'movie' : 'episode',
+        mediaType,
         mediaId: mediaId,
+        seriesId: seriesId,
+        seasonNumber: season,
+        isSeasonPack,
+        isCompleteSeries,
         targetSlotId: release.targetSlotId,
       })
 

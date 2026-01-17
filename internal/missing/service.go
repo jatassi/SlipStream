@@ -27,6 +27,12 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // MissingMovie represents a movie that is released but has no file.
 type MissingMovie struct {
 	ID                  int64      `json:"id"`

@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Toaster } from '@/components/ui/sonner'
-import { useWebSocketStore, useWebSocketHandler, useUIStore } from '@/stores'
-import { useQueue } from '@/hooks'
+import { useWebSocketStore, useWebSocketHandler, useUIStore, useDevModeStore } from '@/stores'
+import { useQueue, useStatus } from '@/hooks'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -24,12 +24,23 @@ interface RootLayoutProps {
 function LayoutContent({ children }: RootLayoutProps) {
   const { connect, disconnect } = useWebSocketStore()
   const { theme } = useUIStore()
+  const { setEnabled: setDevModeEnabled, setSwitching: setDevModeSwitching } = useDevModeStore()
+  const { data: status } = useStatus()
 
   // Process WebSocket messages (handles progress events, query invalidation, etc.)
   useWebSocketHandler()
 
   // Keep downloading store synced globally (polls queue and syncs to store)
   useQueue()
+
+  // Sync developer mode state from backend on initial load and after switches
+  // Also clears switching state in case WebSocket message was lost during reconnection
+  useEffect(() => {
+    if (status?.developerMode !== undefined) {
+      setDevModeEnabled(status.developerMode)
+      setDevModeSwitching(false)
+    }
+  }, [status?.developerMode, setDevModeEnabled, setDevModeSwitching])
 
   // Apply theme
   useEffect(() => {

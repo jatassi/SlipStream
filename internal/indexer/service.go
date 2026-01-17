@@ -11,7 +11,11 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
+	indexermock "github.com/slipstream/slipstream/internal/indexer/mock"
 )
+
+// MockDefinitionID is the special definition ID for mock indexers.
+const MockDefinitionID = "mock"
 
 var (
 	ErrIndexerNotFound    = errors.New("indexer not found")
@@ -47,6 +51,12 @@ func NewService(db *sql.DB, manager *cardigann.Manager, logger zerolog.Logger) *
 // SetHealthService sets the central health service for registration tracking.
 func (s *Service) SetHealthService(hs HealthService) {
 	s.healthService = hs
+}
+
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
 }
 
 // RegisterExistingIndexers registers all existing enabled indexers with the health service.
@@ -185,9 +195,11 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		return nil, err
 	}
 
-	// Verify definition exists
-	if _, err := s.manager.GetDefinition(input.DefinitionID); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, input.DefinitionID)
+	// Skip definition validation for mock indexers
+	if input.DefinitionID != MockDefinitionID {
+		if _, err := s.manager.GetDefinition(input.DefinitionID); err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, input.DefinitionID)
+		}
 	}
 
 	// Default priority
@@ -272,9 +284,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput
 		return nil, fmt.Errorf("%w: definition ID is required", ErrInvalidIndexer)
 	}
 
-	// Verify definition exists
-	if _, err := s.manager.GetDefinition(definitionID); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
+	// Skip definition validation for mock indexers
+	if definitionID != MockDefinitionID {
+		if _, err := s.manager.GetDefinition(definitionID); err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
+		}
 	}
 
 	// Merge categories
@@ -420,6 +434,15 @@ type TestConfigInput struct {
 
 // TestConfig tests an indexer configuration without saving.
 func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestResult, error) {
+	// Mock indexers always pass the test
+	if input.DefinitionID == MockDefinitionID {
+		return &TestResult{
+			Success:      true,
+			Message:      "Mock indexer connection successful",
+			Capabilities: indexermock.NewClient(nil).Capabilities(),
+		}, nil
+	}
+
 	// Parse settings
 	settings := make(map[string]string)
 	if input.Settings != nil {
@@ -457,7 +480,18 @@ func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestR
 
 // GetClient creates or retrieves an indexer client for the given indexer ID.
 func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
-	// Check if we already have a cached client with valid settings
+	// Get the indexer definition first to check if it's a mock
+	indexer, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return mock client for mock indexers
+	if indexer.DefinitionID == MockDefinitionID {
+		return indexermock.NewClient(indexer), nil
+	}
+
+	// Check if we already have a cached Cardigann client with valid settings
 	if client, ok := s.manager.GetClient(id); ok {
 		// Verify the cached client has settings - if empty, recreate it
 		if len(client.GetSettings()) > 0 {
@@ -466,12 +500,6 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 		}
 		s.logger.Debug().Int64("id", id).Msg("Cached client has empty settings, recreating")
 		s.manager.RemoveClient(id)
-	}
-
-	// Get the indexer definition
-	indexer, err := s.Get(ctx, id)
-	if err != nil {
-		return nil, err
 	}
 
 	// Parse settings
@@ -486,7 +514,7 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 		s.logger.Warn().Int64("id", id).Msg("Indexer has nil settings")
 	}
 
-	// Create the client
+	// Create the Cardigann client
 	client, err := s.manager.CreateClientFromDefinition(
 		indexer.DefinitionID,
 		indexer.ID,
@@ -571,8 +599,13 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		}
 	}
 
-	// Get protocol and privacy from the Cardigann definition
-	if cardDef, err := s.manager.GetDefinition(row.DefinitionID); err == nil {
+	// Get protocol and privacy from the Cardigann definition (skip for mock)
+	if row.DefinitionID == MockDefinitionID {
+		def.Protocol = ProtocolTorrent
+		def.Privacy = PrivacyPrivate
+		def.SupportsSearch = true
+		def.SupportsRSS = true
+	} else if cardDef, err := s.manager.GetDefinition(row.DefinitionID); err == nil {
 		def.Protocol = Protocol(cardDef.GetProtocol())
 		def.Privacy = Privacy(cardDef.GetPrivacy())
 		def.SupportsSearch = cardDef.SupportsSearch("search")

@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -42,6 +43,12 @@ type Service struct {
 // NewService creates a new defaults service
 func NewService(queries *sqlc.Queries) *Service {
 	return &Service{queries: queries}
+}
+
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
 }
 
 // GetDefault returns the default entity for the given entity type and media type

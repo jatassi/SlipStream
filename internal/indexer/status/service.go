@@ -52,6 +52,11 @@ func (s *Service) SetHealthService(hs HealthService) {
 	s.healthService = hs
 }
 
+// SetDB updates the database connection used by this service.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
+}
+
 // GetConfig returns the current backoff configuration.
 func (s *Service) GetConfig() BackoffConfig {
 	return s.config

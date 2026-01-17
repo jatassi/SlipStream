@@ -18,7 +18,7 @@ export function useQueue() {
     // WebSocket handles immediate updates for grab/pause/resume/remove
     refetchInterval: (query) => {
       const hasActiveDownloads = (query.state.data?.length ?? 0) > 0
-      return hasActiveDownloads ? 15000 : 60000 // 15s when active, 60s when idle
+      return hasActiveDownloads ? 2000 : 60000 // 2s when active, 60s when idle
     },
     // Disable structural sharing to ensure store updates when items are
     // removed directly from download client (new reference on each fetch)
@@ -42,7 +42,7 @@ export function useQueueStats() {
     // Stats polling follows same pattern as queue list
     refetchInterval: (query) => {
       const hasActiveDownloads = (query.state.data?.totalCount ?? 0) > 0
-      return hasActiveDownloads ? 15000 : 60000
+      return hasActiveDownloads ? 2000 : 60000
     },
   })
 }

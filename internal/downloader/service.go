@@ -93,46 +93,26 @@ type HealthService interface {
 type Service struct {
 	queries       *sqlc.Queries
 	logger        zerolog.Logger
-	developerMode bool
-	mockQueue     []MockQueueItem
 	healthService HealthService
-}
-
-// MockQueueItem represents a mock queue item for developer mode.
-type MockQueueItem struct {
-	ID         string
-	ClientID   int64
-	ClientName string
-	Title      string
-	MediaType  string
-	Quality    string
-	Source     string
-	Codec      string
-	Attributes []string
-	Season     int
-	Episode    int
-	Size       int64
-	Progress   float64
-	Status     string
 }
 
 // NewService creates a new download client service.
 func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	return &Service{
-		queries:   sqlc.New(db),
-		logger:    logger.With().Str("component", "downloader").Logger(),
-		mockQueue: make([]MockQueueItem, 0),
+		queries: sqlc.New(db),
+		logger:  logger.With().Str("component", "downloader").Logger(),
 	}
-}
-
-// SetDeveloperMode sets the developer mode flag.
-func (s *Service) SetDeveloperMode(enabled bool) {
-	s.developerMode = enabled
 }
 
 // SetHealthService sets the health service for tracking client health.
 func (s *Service) SetHealthService(hs HealthService) {
 	s.healthService = hs
+}
+
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
 }
 
 // RegisterExistingClients registers all existing download clients with the health service.
@@ -194,7 +174,7 @@ func (s *Service) Create(ctx context.Context, input CreateClientInput) (*Downloa
 	}
 
 	// Validate client type
-	validTypes := []string{"qbittorrent", "transmission", "deluge", "rtorrent", "sabnzbd", "nzbget"}
+	validTypes := []string{"qbittorrent", "transmission", "deluge", "rtorrent", "sabnzbd", "nzbget", "mock"}
 	isValid := false
 	for _, t := range validTypes {
 		if input.Type == t {
@@ -411,7 +391,8 @@ func (s *Service) GetTorrentClient(ctx context.Context, id int64) (TorrentClient
 
 // AddTorrent adds a torrent from a URL to a specific client.
 // mediaType should be "movie" or "series" to determine the download subdirectory.
-func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, mediaType string) (string, error) {
+// name is an optional display name (used by mock client; real clients get name from torrent file).
+func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, mediaType string, name string) (string, error) {
 	cfg, err := s.Get(ctx, clientID)
 	if err != nil {
 		return "", err
@@ -449,6 +430,7 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 	// Add the torrent
 	torrentID, err := client.Add(ctx, types.AddOptions{
 		URL:         url,
+		Name:        name,
 		DownloadDir: downloadDir,
 	})
 	if err != nil {
@@ -468,7 +450,8 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 // This is used when the torrent file has been pre-downloaded (e.g., from a private tracker
 // that requires authentication cookies to download the torrent file).
 // mediaType should be "movie" or "series" to determine the download subdirectory.
-func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, content []byte, mediaType string) (string, error) {
+// name is an optional display name (used by mock client; real clients get name from torrent file).
+func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, content []byte, mediaType string, name string) (string, error) {
 	cfg, err := s.Get(ctx, clientID)
 	if err != nil {
 		return "", err
@@ -506,6 +489,7 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 	// Add the torrent using file content
 	torrentID, err := client.Add(ctx, types.AddOptions{
 		FileContent: content,
+		Name:        name,
 		DownloadDir: downloadDir,
 	})
 	if err != nil {

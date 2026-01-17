@@ -25,6 +25,7 @@ const (
 	NotifierSimplepush   NotifierType = "simplepush"
 	NotifierSignal       NotifierType = "signal"
 	NotifierCustomScript NotifierType = "custom_script"
+	NotifierMock         NotifierType = "mock"
 )
 
 // Notifier is the interface all notification providers must implement
@@ -127,17 +128,23 @@ type DownloadClientInfo struct {
 
 // MediaFileInfo contains detailed media file information
 type MediaFileInfo struct {
-	VideoCodec      string   `json:"videoCodec,omitempty"`
-	VideoBitrate    int64    `json:"videoBitrate,omitempty"`
-	VideoResolution string   `json:"videoResolution,omitempty"`
-	VideoDynamicRange string `json:"videoDynamicRange,omitempty"`
-	AudioCodec      string   `json:"audioCodec,omitempty"`
-	AudioBitrate    int64    `json:"audioBitrate,omitempty"`
-	AudioChannels   string   `json:"audioChannels,omitempty"`
-	AudioLanguages  []string `json:"audioLanguages,omitempty"`
-	Subtitles       []string `json:"subtitles,omitempty"`
-	Runtime         int      `json:"runtime,omitempty"`
-	ScanType        string   `json:"scanType,omitempty"`
+	VideoCodec        string   `json:"videoCodec,omitempty"`
+	VideoBitrate      int64    `json:"videoBitrate,omitempty"`
+	VideoResolution   string   `json:"videoResolution,omitempty"`
+	VideoDynamicRange string   `json:"videoDynamicRange,omitempty"`
+	AudioCodec        string   `json:"audioCodec,omitempty"`
+	AudioBitrate      int64    `json:"audioBitrate,omitempty"`
+	AudioChannels     string   `json:"audioChannels,omitempty"`
+	AudioLanguages    []string `json:"audioLanguages,omitempty"`
+	Subtitles         []string `json:"subtitles,omitempty"`
+	Runtime           int      `json:"runtime,omitempty"`
+	ScanType          string   `json:"scanType,omitempty"`
+}
+
+// SlotInfo contains multi-version slot context for events
+type SlotInfo struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // GrabEvent is triggered when a release is grabbed from an indexer
@@ -147,43 +154,46 @@ type GrabEvent struct {
 	Release        ReleaseInfo        `json:"release"`
 	DownloadClient DownloadClientInfo `json:"downloadClient"`
 	DownloadID     string             `json:"downloadId,omitempty"`
+	Slot           *SlotInfo          `json:"slot,omitempty"`
 	GrabbedAt      time.Time          `json:"grabbedAt"`
 }
 
 // DownloadEvent is triggered when a file is imported
 type DownloadEvent struct {
-	Movie             *MediaInfo      `json:"movie,omitempty"`
-	Episode           *EpisodeInfo    `json:"episode,omitempty"`
-	Quality           string          `json:"quality"`
-	SourcePath        string          `json:"sourcePath"`
-	DestinationPath   string          `json:"destinationPath"`
-	ReleaseName       string          `json:"releaseName,omitempty"`
-	ReleaseGroup      string          `json:"releaseGroup,omitempty"`
-	SceneName         string          `json:"sceneName,omitempty"`
-	DownloadID        string          `json:"downloadId,omitempty"`
-	DownloadClient    string          `json:"downloadClient,omitempty"`
-	CustomFormats     []CustomFormat  `json:"customFormats,omitempty"`
-	CustomFormatScore int             `json:"customFormatScore,omitempty"`
-	Languages         []string        `json:"languages,omitempty"`
-	MediaInfo         *MediaFileInfo  `json:"mediaInfo,omitempty"`
-	ImportedAt        time.Time       `json:"importedAt"`
+	Movie             *MediaInfo     `json:"movie,omitempty"`
+	Episode           *EpisodeInfo   `json:"episode,omitempty"`
+	Quality           string         `json:"quality"`
+	SourcePath        string         `json:"sourcePath"`
+	DestinationPath   string         `json:"destinationPath"`
+	ReleaseName       string         `json:"releaseName,omitempty"`
+	ReleaseGroup      string         `json:"releaseGroup,omitempty"`
+	SceneName         string         `json:"sceneName,omitempty"`
+	DownloadID        string         `json:"downloadId,omitempty"`
+	DownloadClient    string         `json:"downloadClient,omitempty"`
+	CustomFormats     []CustomFormat `json:"customFormats,omitempty"`
+	CustomFormatScore int            `json:"customFormatScore,omitempty"`
+	Languages         []string       `json:"languages,omitempty"`
+	MediaInfo         *MediaFileInfo `json:"mediaInfo,omitempty"`
+	Slot              *SlotInfo      `json:"slot,omitempty"`
+	ImportedAt        time.Time      `json:"importedAt"`
 }
 
 // UpgradeEvent is triggered when a file is upgraded
 type UpgradeEvent struct {
-	Movie             *MediaInfo      `json:"movie,omitempty"`
-	Episode           *EpisodeInfo    `json:"episode,omitempty"`
-	OldQuality        string          `json:"oldQuality"`
-	NewQuality        string          `json:"newQuality"`
-	OldPath           string          `json:"oldPath"`
-	NewPath           string          `json:"newPath"`
-	ReleaseName       string          `json:"releaseName,omitempty"`
-	ReleaseGroup      string          `json:"releaseGroup,omitempty"`
-	CustomFormats     []CustomFormat  `json:"customFormats,omitempty"`
-	CustomFormatScore int             `json:"customFormatScore,omitempty"`
-	Languages         []string        `json:"languages,omitempty"`
-	MediaInfo         *MediaFileInfo  `json:"mediaInfo,omitempty"`
-	UpgradedAt        time.Time       `json:"upgradedAt"`
+	Movie             *MediaInfo     `json:"movie,omitempty"`
+	Episode           *EpisodeInfo   `json:"episode,omitempty"`
+	OldQuality        string         `json:"oldQuality"`
+	NewQuality        string         `json:"newQuality"`
+	OldPath           string         `json:"oldPath"`
+	NewPath           string         `json:"newPath"`
+	ReleaseName       string         `json:"releaseName,omitempty"`
+	ReleaseGroup      string         `json:"releaseGroup,omitempty"`
+	CustomFormats     []CustomFormat `json:"customFormats,omitempty"`
+	CustomFormatScore int            `json:"customFormatScore,omitempty"`
+	Languages         []string       `json:"languages,omitempty"`
+	MediaInfo         *MediaFileInfo `json:"mediaInfo,omitempty"`
+	Slot              *SlotInfo      `json:"slot,omitempty"`
+	UpgradedAt        time.Time      `json:"upgradedAt"`
 }
 
 // MovieAddedEvent is triggered when a movie is added to the library

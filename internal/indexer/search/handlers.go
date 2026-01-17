@@ -19,12 +19,12 @@ type QualityService interface {
 
 // Handlers provides HTTP handlers for search operations.
 type Handlers struct {
-	service        *Service
+	service        SearchService
 	qualityService QualityService
 }
 
 // NewHandlers creates new search handlers.
-func NewHandlers(service *Service, qualityService QualityService) *Handlers {
+func NewHandlers(service SearchService, qualityService QualityService) *Handlers {
 	return &Handlers{
 		service:        service,
 		qualityService: qualityService,

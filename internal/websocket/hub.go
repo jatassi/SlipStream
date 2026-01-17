@@ -32,13 +32,26 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// incomingMessage wraps a message from a client.
+type incomingMessage struct {
+	client  *Client
+	message []byte
+}
+
+// DevModePayload is the payload for devmode:set messages.
+type DevModePayload struct {
+	Enabled bool `json:"enabled"`
+}
+
 // Hub manages WebSocket connections and broadcasts.
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	mu         sync.RWMutex
+	clients        map[*Client]bool
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	incoming       chan incomingMessage
+	mu             sync.RWMutex
+	onDevModeSet   func(enabled bool) error
 }
 
 // Client represents a WebSocket connection.
@@ -61,7 +74,13 @@ func NewHub() *Hub {
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		incoming:   make(chan incomingMessage, 256),
 	}
+}
+
+// SetDevModeHandler registers a handler for dev mode toggle messages.
+func (h *Hub) SetDevModeHandler(handler func(enabled bool) error) {
+	h.onDevModeSet = handler
 }
 
 // Run starts the hub's main loop.
@@ -92,7 +111,47 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mu.RUnlock()
+
+		case incoming := <-h.incoming:
+			h.handleIncoming(incoming)
 		}
+	}
+}
+
+// handleIncoming processes messages received from clients.
+func (h *Hub) handleIncoming(incoming incomingMessage) {
+	var msg Message
+	if err := json.Unmarshal(incoming.message, &msg); err != nil {
+		return
+	}
+
+	switch msg.Type {
+	case "devmode:set":
+		if h.onDevModeSet == nil {
+			return
+		}
+
+		payloadBytes, err := json.Marshal(msg.Payload)
+		if err != nil {
+			return
+		}
+
+		var payload DevModePayload
+		if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+			return
+		}
+
+		if err := h.onDevModeSet(payload.Enabled); err != nil {
+			h.Broadcast("devmode:error", map[string]interface{}{
+				"error":   err.Error(),
+				"enabled": !payload.Enabled,
+			})
+			return
+		}
+
+		h.Broadcast("devmode:changed", map[string]interface{}{
+			"enabled": payload.Enabled,
+		})
 	}
 }
 
@@ -154,14 +213,19 @@ func (c *Client) readPump() {
 	})
 
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				// Log error if needed
 			}
 			break
 		}
-		// We don't expect client messages, just keep the connection alive
+
+		// Forward message to hub for processing
+		c.hub.incoming <- incomingMessage{
+			client:  c,
+			message: message,
+		}
 	}
 }
 

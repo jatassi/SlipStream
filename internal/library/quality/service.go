@@ -31,6 +31,12 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
+}
+
 // Get retrieves a quality profile by ID.
 func (s *Service) Get(ctx context.Context, id int64) (*Profile, error) {
 	row, err := s.queries.GetQualityProfile(ctx, id)

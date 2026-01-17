@@ -70,6 +70,12 @@ func NewService(db *sql.DB, qualityService *quality.Service, logger zerolog.Logg
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.queries = sqlc.New(db)
+}
+
 // GetSettings retrieves the multi-version settings.
 func (s *Service) GetSettings(ctx context.Context) (*MultiVersionSettings, error) {
 	row, err := s.queries.GetMultiVersionSettings(ctx)

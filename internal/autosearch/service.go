@@ -68,6 +68,13 @@ func NewService(
 	}
 }
 
+// SetDB updates the database connection used by this service.
+// This is called when switching between production and development databases.
+func (s *Service) SetDB(db *sql.DB) {
+	s.db = db
+	s.queries = sqlc.New(db)
+}
+
 // SetBroadcaster sets the WebSocket broadcaster for real-time events.
 func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 	s.broadcaster = broadcaster
