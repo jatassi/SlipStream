@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { MediaInfoModal } from './MediaInfoModal'
 import type { SeriesSearchResult } from '@/types'
 
 interface ExternalSeriesCardProps {
@@ -14,6 +16,7 @@ interface ExternalSeriesCardProps {
 
 export function ExternalSeriesCard({ series, inLibrary, className }: ExternalSeriesCardProps) {
   const navigate = useNavigate()
+  const [infoOpen, setInfoOpen] = useState(false)
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -27,7 +30,10 @@ export function ExternalSeriesCard({ series, inLibrary, className }: ExternalSer
         className
       )}
     >
-      <div className="relative aspect-[2/3]">
+      <div
+        className="relative aspect-[2/3] cursor-pointer"
+        onClick={() => setInfoOpen(true)}
+      >
         <PosterImage
           url={series.posterUrl}
           alt={series.title}
@@ -42,8 +48,9 @@ export function ExternalSeriesCard({ series, inLibrary, className }: ExternalSer
             </Badge>
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-          <h3 className="font-semibold text-white truncate">{series.title}</h3>
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+          <h3 className="font-semibold text-white line-clamp-3">{series.title}</h3>
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <span>{series.year || 'Unknown year'}</span>
             {series.network && (
@@ -67,6 +74,14 @@ export function ExternalSeriesCard({ series, inLibrary, className }: ExternalSer
           </Button>
         )}
       </div>
+
+      <MediaInfoModal
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        media={series}
+        mediaType="series"
+        inLibrary={inLibrary}
+      />
     </div>
   )
 }

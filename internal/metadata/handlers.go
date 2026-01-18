@@ -27,6 +27,7 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	// Movie metadata
 	g.GET("/movie/search", h.SearchMovies)
 	g.GET("/movie/:id", h.GetMovie)
+	g.GET("/movie/:id/extended", h.GetExtendedMovie)
 	g.POST("/movie/:id/artwork", h.DownloadMovieArtwork)
 
 	// Series metadata
@@ -34,6 +35,7 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/series/tmdb/:id", h.GetSeriesByTMDB)
 	g.GET("/series/tvdb/:id", h.GetSeriesByTVDB)
 	g.GET("/series/:id", h.GetSeries)
+	g.GET("/series/:id/extended", h.GetExtendedSeries)
 	g.POST("/series/:id/artwork", h.DownloadSeriesArtwork)
 
 	// Artwork serving
@@ -82,6 +84,28 @@ func (h *Handlers) GetMovie(c echo.Context) error {
 	}
 
 	result, err := h.service.GetMovie(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// GetExtendedMovie gets extended movie info including credits, ratings, and content rating.
+// GET /api/v1/metadata/movie/:id/extended
+func (h *Handlers) GetExtendedMovie(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	result, err := h.service.GetExtendedMovie(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrNoProvidersConfigured) {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
@@ -158,6 +182,28 @@ func (h *Handlers) GetSeries(c echo.Context) error {
 
 	// Default to TMDB as that's what search results return
 	result, err := h.service.GetSeriesByTMDB(c.Request().Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNoProvidersConfigured) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "series not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// GetExtendedSeries gets extended series info including credits, ratings, seasons, and content rating.
+// GET /api/v1/metadata/series/:id/extended
+func (h *Handlers) GetExtendedSeries(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+	}
+
+	result, err := h.service.GetExtendedSeries(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrNoProvidersConfigured) {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")

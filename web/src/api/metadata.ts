@@ -1,5 +1,11 @@
 import { apiFetch } from './client'
-import type { MovieSearchResult, SeriesSearchResult, MetadataImages } from '@/types'
+import type {
+  MovieSearchResult,
+  SeriesSearchResult,
+  MetadataImages,
+  ExtendedMovieResult,
+  ExtendedSeriesResult,
+} from '@/types'
 
 // Backend response types (before transformation)
 interface BackendMovieResult {
@@ -71,4 +77,10 @@ export const metadataApi = {
 
   getSeriesImages: (tmdbId: number) =>
     apiFetch<MetadataImages>(`/metadata/series/${tmdbId}/images`),
+
+  getExtendedMovie: (tmdbId: number) =>
+    apiFetch<ExtendedMovieResult>(`/metadata/movie/${tmdbId}/extended`),
+
+  getExtendedSeries: (tmdbId: number) =>
+    apiFetch<ExtendedSeriesResult>(`/metadata/series/${tmdbId}/extended`),
 }

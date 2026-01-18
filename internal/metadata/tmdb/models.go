@@ -26,26 +26,27 @@ type MovieResult struct {
 
 // MovieDetails is the detailed movie info from TMDB.
 type MovieDetails struct {
-	ID               int     `json:"id"`
-	Title            string  `json:"title"`
-	OriginalTitle    string  `json:"original_title"`
-	Overview         string  `json:"overview"`
-	ReleaseDate      string  `json:"release_date"`
-	PosterPath       *string `json:"poster_path"`
-	BackdropPath     *string `json:"backdrop_path"`
-	VoteAverage      float64 `json:"vote_average"`
-	VoteCount        int     `json:"vote_count"`
-	Popularity       float64 `json:"popularity"`
-	Adult            bool    `json:"adult"`
-	Runtime          int     `json:"runtime"`
-	Budget           int64   `json:"budget"`
-	Revenue          int64   `json:"revenue"`
-	Status           string  `json:"status"`
-	Tagline          string  `json:"tagline"`
-	ImdbID           string  `json:"imdb_id"`
-	OriginalLanguage string  `json:"original_language"`
-	Genres           []Genre `json:"genres"`
-	ExternalIDs      *ExternalIDs `json:"external_ids,omitempty"`
+	ID                  int                 `json:"id"`
+	Title               string              `json:"title"`
+	OriginalTitle       string              `json:"original_title"`
+	Overview            string              `json:"overview"`
+	ReleaseDate         string              `json:"release_date"`
+	PosterPath          *string             `json:"poster_path"`
+	BackdropPath        *string             `json:"backdrop_path"`
+	VoteAverage         float64             `json:"vote_average"`
+	VoteCount           int                 `json:"vote_count"`
+	Popularity          float64             `json:"popularity"`
+	Adult               bool                `json:"adult"`
+	Runtime             int                 `json:"runtime"`
+	Budget              int64               `json:"budget"`
+	Revenue             int64               `json:"revenue"`
+	Status              string              `json:"status"`
+	Tagline             string              `json:"tagline"`
+	ImdbID              string              `json:"imdb_id"`
+	OriginalLanguage    string              `json:"original_language"`
+	Genres              []Genre             `json:"genres"`
+	ExternalIDs         *ExternalIDs        `json:"external_ids,omitempty"`
+	ProductionCompanies []ProductionCompany `json:"production_companies,omitempty"`
 }
 
 // SearchTVResponse is the response from TMDB TV search.
@@ -75,28 +76,29 @@ type TVResult struct {
 
 // TVDetails is the detailed TV series info from TMDB.
 type TVDetails struct {
-	ID               int       `json:"id"`
-	Name             string    `json:"name"`
-	OriginalName     string    `json:"original_name"`
-	Overview         string    `json:"overview"`
-	FirstAirDate     string    `json:"first_air_date"`
-	LastAirDate      string    `json:"last_air_date"`
-	PosterPath       *string   `json:"poster_path"`
-	BackdropPath     *string   `json:"backdrop_path"`
-	VoteAverage      float64   `json:"vote_average"`
-	VoteCount        int       `json:"vote_count"`
-	Popularity       float64   `json:"popularity"`
-	Status           string    `json:"status"`
-	Type             string    `json:"type"`
-	Tagline          string    `json:"tagline"`
-	OriginalLanguage string    `json:"original_language"`
-	Genres           []Genre   `json:"genres"`
-	Networks         []Network `json:"networks"`
-	NumberOfSeasons  int       `json:"number_of_seasons"`
-	NumberOfEpisodes int       `json:"number_of_episodes"`
-	EpisodeRunTime   []int     `json:"episode_run_time"`
-	Seasons          []Season  `json:"seasons"`
+	ID               int          `json:"id"`
+	Name             string       `json:"name"`
+	OriginalName     string       `json:"original_name"`
+	Overview         string       `json:"overview"`
+	FirstAirDate     string       `json:"first_air_date"`
+	LastAirDate      string       `json:"last_air_date"`
+	PosterPath       *string      `json:"poster_path"`
+	BackdropPath     *string      `json:"backdrop_path"`
+	VoteAverage      float64      `json:"vote_average"`
+	VoteCount        int          `json:"vote_count"`
+	Popularity       float64      `json:"popularity"`
+	Status           string       `json:"status"`
+	Type             string       `json:"type"`
+	Tagline          string       `json:"tagline"`
+	OriginalLanguage string       `json:"original_language"`
+	Genres           []Genre      `json:"genres"`
+	Networks         []Network    `json:"networks"`
+	NumberOfSeasons  int          `json:"number_of_seasons"`
+	NumberOfEpisodes int          `json:"number_of_episodes"`
+	EpisodeRunTime   []int        `json:"episode_run_time"`
+	Seasons          []Season     `json:"seasons"`
 	ExternalIDs      *ExternalIDs `json:"external_ids,omitempty"`
+	CreatedBy        []TVCreator  `json:"created_by,omitempty"`
 }
 
 // Genre represents a genre from TMDB.
@@ -249,3 +251,68 @@ const (
 	ReleaseDateTypePhysical          = 5
 	ReleaseDateTypeTV                = 6
 )
+
+// CreditsResponse is the response from TMDB credits endpoint.
+type CreditsResponse struct {
+	ID   int          `json:"id"`
+	Cast []CastMember `json:"cast"`
+	Crew []CrewMember `json:"crew"`
+}
+
+// CastMember represents a cast member from TMDB credits.
+type CastMember struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Character   string  `json:"character"`
+	Order       int     `json:"order"`
+	ProfilePath *string `json:"profile_path"`
+}
+
+// CrewMember represents a crew member from TMDB credits.
+type CrewMember struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Job         string  `json:"job"`
+	Department  string  `json:"department"`
+	ProfilePath *string `json:"profile_path"`
+}
+
+// NormalizedCredits is the normalized credits output.
+type NormalizedCredits struct {
+	Directors []NormalizedPerson `json:"directors,omitempty"`
+	Writers   []NormalizedPerson `json:"writers,omitempty"`
+	Creators  []NormalizedPerson `json:"creators,omitempty"`
+	Cast      []NormalizedPerson `json:"cast"`
+}
+
+// NormalizedPerson represents a person with optional role and photo.
+type NormalizedPerson struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Role     string `json:"role,omitempty"`
+	PhotoURL string `json:"photoUrl,omitempty"`
+}
+
+// ContentRatingsResponse is the response from TMDB TV content ratings endpoint.
+type ContentRatingsResponse struct {
+	Results []ContentRating `json:"results"`
+}
+
+// ContentRating represents a content rating from TMDB.
+type ContentRating struct {
+	ISO3166_1 string `json:"iso_3166_1"`
+	Rating    string `json:"rating"`
+}
+
+// TVCreator represents a series creator from TMDB TV details.
+type TVCreator struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	ProfilePath *string `json:"profile_path"`
+}
+
+// ProductionCompany represents a production company from TMDB.
+type ProductionCompany struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}

@@ -121,6 +121,150 @@ func (c *TMDBClient) GetAllSeasons(ctx context.Context, seriesID int) ([]tmdb.No
 	return defaultSeasons, nil
 }
 
+func (c *TMDBClient) GetMovieCredits(ctx context.Context, id int) (*tmdb.NormalizedCredits, error) {
+	credits, ok := mockMovieCredits[id]
+	if ok {
+		return &credits, nil
+	}
+	return &defaultMovieCredits, nil
+}
+
+func (c *TMDBClient) GetSeriesCredits(ctx context.Context, id int) (*tmdb.NormalizedCredits, error) {
+	credits, ok := mockSeriesCredits[id]
+	if ok {
+		return &credits, nil
+	}
+	return &defaultSeriesCredits, nil
+}
+
+func (c *TMDBClient) GetMovieContentRating(ctx context.Context, id int) (string, error) {
+	rating, ok := mockMovieRatings[id]
+	if ok {
+		return rating, nil
+	}
+	return "PG-13", nil
+}
+
+func (c *TMDBClient) GetSeriesContentRating(ctx context.Context, id int) (string, error) {
+	rating, ok := mockSeriesRatings[id]
+	if ok {
+		return rating, nil
+	}
+	return "TV-MA", nil
+}
+
+func (c *TMDBClient) GetMovieStudio(ctx context.Context, id int) (string, error) {
+	studio, ok := mockMovieStudios[id]
+	if ok {
+		return studio, nil
+	}
+	return "Warner Bros. Pictures", nil
+}
+
+var defaultMovieCredits = tmdb.NormalizedCredits{
+	Directors: []tmdb.NormalizedPerson{{ID: 1, Name: "Christopher Nolan", PhotoURL: "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg"}},
+	Writers:   []tmdb.NormalizedPerson{{ID: 2, Name: "Jonathan Nolan", Role: "Screenplay", PhotoURL: "https://image.tmdb.org/t/p/w185/dummy.jpg"}},
+	Cast: []tmdb.NormalizedPerson{
+		{ID: 3, Name: "Leonardo DiCaprio", Role: "Dom Cobb", PhotoURL: "https://image.tmdb.org/t/p/w185/wo2hJpn04vbtmh0B9utCFdsQhxM.jpg"},
+		{ID: 4, Name: "Joseph Gordon-Levitt", Role: "Arthur", PhotoURL: "https://image.tmdb.org/t/p/w185/zvwJpU44vs1FfkBpCf5chCRfJo8.jpg"},
+		{ID: 5, Name: "Elliot Page", Role: "Ariadne", PhotoURL: "https://image.tmdb.org/t/p/w185/dummy.jpg"},
+	},
+}
+
+var defaultSeriesCredits = tmdb.NormalizedCredits{
+	Creators: []tmdb.NormalizedPerson{{ID: 1, Name: "Vince Gilligan", PhotoURL: "https://image.tmdb.org/t/p/w185/wSTvJGz7QbJf1HK2Mv1Cev6W9TV.jpg"}},
+	Cast: []tmdb.NormalizedPerson{
+		{ID: 2, Name: "Bryan Cranston", Role: "Walter White", PhotoURL: "https://image.tmdb.org/t/p/w185/7Jahy5LZX2Fo8fGJltMreAI49hC.jpg"},
+		{ID: 3, Name: "Aaron Paul", Role: "Jesse Pinkman", PhotoURL: "https://image.tmdb.org/t/p/w185/8Kce1FGpuSqnYasp5ahXVYFqGPn.jpg"},
+		{ID: 4, Name: "Anna Gunn", Role: "Skyler White", PhotoURL: "https://image.tmdb.org/t/p/w185/dummy.jpg"},
+	},
+}
+
+var mockMovieCredits = map[int]tmdb.NormalizedCredits{
+	603: { // The Matrix
+		Directors: []tmdb.NormalizedPerson{{ID: 9340, Name: "Lana Wachowski"}, {ID: 9339, Name: "Lilly Wachowski"}},
+		Writers:   []tmdb.NormalizedPerson{{ID: 9340, Name: "Lana Wachowski", Role: "Screenplay"}, {ID: 9339, Name: "Lilly Wachowski", Role: "Screenplay"}},
+		Cast: []tmdb.NormalizedPerson{
+			{ID: 6384, Name: "Keanu Reeves", Role: "Neo", PhotoURL: "https://image.tmdb.org/t/p/w185/4D0PpNI0kmP58hgrwGC3wCjxhnm.jpg"},
+			{ID: 2975, Name: "Laurence Fishburne", Role: "Morpheus", PhotoURL: "https://image.tmdb.org/t/p/w185/8suOhUmPbfKqDQ17jQ1Gy0mI3P4.jpg"},
+			{ID: 530, Name: "Carrie-Anne Moss", Role: "Trinity", PhotoURL: "https://image.tmdb.org/t/p/w185/xD4jTA3KmVp5Rq3aHcymL9DwWl7.jpg"},
+		},
+	},
+	27205: { // Inception
+		Directors: []tmdb.NormalizedPerson{{ID: 525, Name: "Christopher Nolan", PhotoURL: "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg"}},
+		Writers:   []tmdb.NormalizedPerson{{ID: 525, Name: "Christopher Nolan", Role: "Writer"}},
+		Cast: []tmdb.NormalizedPerson{
+			{ID: 6193, Name: "Leonardo DiCaprio", Role: "Dom Cobb", PhotoURL: "https://image.tmdb.org/t/p/w185/wo2hJpn04vbtmh0B9utCFdsQhxM.jpg"},
+			{ID: 24045, Name: "Joseph Gordon-Levitt", Role: "Arthur", PhotoURL: "https://image.tmdb.org/t/p/w185/zvwJpU44vs1FfkBpCf5chCRfJo8.jpg"},
+			{ID: 27578, Name: "Elliot Page", Role: "Ariadne", PhotoURL: "https://image.tmdb.org/t/p/w185/cJACXMKx7IKfDy4gfVKBfYxHvD.jpg"},
+			{ID: 2524, Name: "Tom Hardy", Role: "Eames", PhotoURL: "https://image.tmdb.org/t/p/w185/sGMA6pA2D6X0gun49igJT3piHs3.jpg"},
+		},
+	},
+}
+
+var mockSeriesCredits = map[int]tmdb.NormalizedCredits{
+	1396: { // Breaking Bad
+		Creators: []tmdb.NormalizedPerson{{ID: 17419, Name: "Vince Gilligan", PhotoURL: "https://image.tmdb.org/t/p/w185/wSTvJGz7QbJf1HK2Mv1Cev6W9TV.jpg"}},
+		Cast: []tmdb.NormalizedPerson{
+			{ID: 17419, Name: "Bryan Cranston", Role: "Walter White", PhotoURL: "https://image.tmdb.org/t/p/w185/7Jahy5LZX2Fo8fGJltMreAI49hC.jpg"},
+			{ID: 84497, Name: "Aaron Paul", Role: "Jesse Pinkman", PhotoURL: "https://image.tmdb.org/t/p/w185/8Kce1FGpuSqnYasp5ahXVYFqGPn.jpg"},
+			{ID: 134531, Name: "Anna Gunn", Role: "Skyler White", PhotoURL: "https://image.tmdb.org/t/p/w185/lKlGjfmu8M8jPGp1wT2BWsSwXhk.jpg"},
+		},
+	},
+	1399: { // Game of Thrones
+		Creators: []tmdb.NormalizedPerson{
+			{ID: 9813, Name: "David Benioff"},
+			{ID: 228068, Name: "D. B. Weiss"},
+		},
+		Cast: []tmdb.NormalizedPerson{
+			{ID: 239019, Name: "Kit Harington", Role: "Jon Snow", PhotoURL: "https://image.tmdb.org/t/p/w185/4MqUjb1SYrzHmFSyGiXnlZWG3X0.jpg"},
+			{ID: 1223786, Name: "Emilia Clarke", Role: "Daenerys Targaryen", PhotoURL: "https://image.tmdb.org/t/p/w185/j7d083zIMhwnKro3tQqDz3XKZWJ.jpg"},
+			{ID: 22970, Name: "Peter Dinklage", Role: "Tyrion Lannister", PhotoURL: "https://image.tmdb.org/t/p/w185/9CAd9YV9I1Qfpyhjfo1khtiJGqK.jpg"},
+		},
+	},
+}
+
+var mockMovieRatings = map[int]string{
+	603:    "R",     // The Matrix
+	550:    "R",     // Fight Club
+	680:    "R",     // Pulp Fiction
+	155:    "PG-13", // The Dark Knight
+	278:    "R",     // The Shawshank Redemption
+	238:    "R",     // The Godfather
+	27205:  "PG-13", // Inception
+	157336: "PG-13", // Interstellar
+	438631: "PG-13", // Dune
+	693134: "PG-13", // Dune: Part Two
+	346698: "PG-13", // Barbie
+	872585: "R",     // Oppenheimer
+}
+
+var mockSeriesRatings = map[int]string{
+	1399:   "TV-MA", // Game of Thrones
+	1396:   "TV-MA", // Breaking Bad
+	66732:  "TV-14", // Stranger Things
+	94997:  "TV-MA", // House of the Dragon
+	76479:  "TV-MA", // The Boys
+	93405:  "TV-MA", // Squid Game
+	100088: "TV-MA", // The Last of Us
+	82856:  "TV-PG", // The Mandalorian
+}
+
+var mockMovieStudios = map[int]string{
+	603:    "Warner Bros. Pictures",   // The Matrix
+	550:    "Fox 2000 Pictures",       // Fight Club
+	680:    "Miramax",                 // Pulp Fiction
+	155:    "Warner Bros. Pictures",   // The Dark Knight
+	278:    "Castle Rock Entertainment", // The Shawshank Redemption
+	238:    "Paramount Pictures",      // The Godfather
+	27205:  "Warner Bros. Pictures",   // Inception
+	157336: "Paramount Pictures",      // Interstellar
+	438631: "Legendary Pictures",      // Dune
+	693134: "Legendary Pictures",      // Dune: Part Two
+	346698: "Warner Bros. Pictures",   // Barbie
+	872585: "Universal Pictures",      // Oppenheimer
+}
+
 type mockSeriesWithSeasons struct {
 	SeriesID int
 	Seasons  []tmdb.NormalizedSeasonResult

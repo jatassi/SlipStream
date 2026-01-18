@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Search, Loader2 } from 'lucide-react'
+import { Search, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 export function SearchBar() {
@@ -31,6 +31,16 @@ export function SearchBar() {
     }
   }, [searchQuery, navigate])
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current)
+      }
+      navigate({ to: '/search', search: { q: searchQuery.trim() } })
+      setIsSearching(false)
+    }
+  }
+
   return (
     <div className="relative">
       {isSearching ? (
@@ -39,12 +49,22 @@ export function SearchBar() {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       )}
       <Input
-        type="search"
+        type="text"
         placeholder="Search for and add movies, series..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="pl-9"
+        onKeyDown={handleKeyDown}
+        className="pl-9 pr-8 border-white/50 focus-visible:border-white"
       />
+      {searchQuery && (
+        <button
+          type="button"
+          onClick={() => setSearchQuery('')}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+        >
+          <X className="size-4" />
+        </button>
+      )}
     </div>
   )
 }

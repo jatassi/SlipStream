@@ -44,3 +44,58 @@ export interface ImageInfo {
   height: number
   voteAverage?: number
 }
+
+export interface Person {
+  id: number
+  name: string
+  role?: string
+  photoUrl?: string
+}
+
+export interface Credits {
+  directors?: Person[]
+  writers?: Person[]
+  creators?: Person[]
+  cast: Person[]
+}
+
+export interface ExternalRatings {
+  imdbRating?: number
+  imdbVotes?: number
+  rottenTomatoes?: number
+  rottenAudience?: number
+  metacritic?: number
+  awards?: string
+}
+
+export interface SeasonResult {
+  seasonNumber: number
+  name: string
+  overview?: string
+  posterUrl?: string
+  airDate?: string
+  episodes?: EpisodeResult[]
+}
+
+export interface EpisodeResult {
+  episodeNumber: number
+  seasonNumber: number
+  title: string
+  overview?: string
+  airDate?: string
+  runtime?: number
+}
+
+export interface ExtendedMovieResult extends MovieSearchResult {
+  credits?: Credits
+  contentRating?: string
+  studio?: string
+  ratings?: ExternalRatings
+}
+
+export interface ExtendedSeriesResult extends SeriesSearchResult {
+  credits?: Credits
+  contentRating?: string
+  ratings?: ExternalRatings
+  seasons?: SeasonResult[]
+}

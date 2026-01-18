@@ -45,3 +45,14 @@ metadata:
     base_url: "https://api4.thetvdb.com/v4"
     # Request timeout in seconds
     timeout_seconds: 30
+
+  # OMDb (Open Movie Database) - https://www.omdbapi.com/
+  # Used for Rotten Tomatoes scores, IMDB ratings, and awards
+  omdb:
+    # API key from OMDb (optional, enables additional ratings)
+    # Get one at: https://www.omdbapi.com/apikey.aspx
+    api_key: ""
+    # Base URL for API (default: https://www.omdbapi.com)
+    base_url: "https://www.omdbapi.com"
+    # Request timeout in seconds
+    timeout_seconds: 15

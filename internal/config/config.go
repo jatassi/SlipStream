@@ -48,6 +48,7 @@ type AuthConfig struct {
 type MetadataConfig struct {
 	TMDB TMDBConfig `mapstructure:"tmdb"`
 	TVDB TVDBConfig `mapstructure:"tvdb"`
+	OMDB OMDBConfig `mapstructure:"omdb"`
 }
 
 // TMDBConfig holds TMDB API configuration.
@@ -61,6 +62,13 @@ type TMDBConfig struct {
 
 // TVDBConfig holds TVDB API configuration.
 type TVDBConfig struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+	Timeout int    `mapstructure:"timeout_seconds"`
+}
+
+// OMDBConfig holds OMDb API configuration.
+type OMDBConfig struct {
 	APIKey  string `mapstructure:"api_key"`
 	BaseURL string `mapstructure:"base_url"`
 	Timeout int    `mapstructure:"timeout_seconds"`
@@ -177,6 +185,10 @@ func Default() *Config {
 			TVDB: TVDBConfig{
 				BaseURL: "https://api4.thetvdb.com/v4",
 				Timeout: 30,
+			},
+			OMDB: OMDBConfig{
+				BaseURL: "https://www.omdbapi.com",
+				Timeout: 15,
 			},
 		},
 		Indexer: IndexerConfig{
@@ -295,6 +307,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metadata.tvdb.api_key", "")
 	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
 	v.SetDefault("metadata.tvdb.timeout_seconds", 30)
+	v.SetDefault("metadata.omdb.api_key", "")
+	v.SetDefault("metadata.omdb.base_url", "https://www.omdbapi.com")
+	v.SetDefault("metadata.omdb.timeout_seconds", 15)
 
 	// Indexer defaults
 	// Cardigann definition system

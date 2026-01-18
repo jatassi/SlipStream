@@ -45,6 +45,7 @@ import (
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/metadata/mock"
+	"github.com/slipstream/slipstream/internal/metadata/omdb"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
@@ -71,6 +72,7 @@ type Server struct {
 	// Real metadata clients (stored for switching back from mock)
 	realTMDBClient metadata.TMDBClient
 	realTVDBClient metadata.TVDBClient
+	realOMDBClient metadata.OMDBClient
 
 	// Services
 	scannerService        *scanner.Service
@@ -127,6 +129,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Store real metadata clients for later switching
 	s.realTMDBClient = tmdb.NewClient(cfg.Metadata.TMDB, logger)
 	s.realTVDBClient = tvdb.NewClient(cfg.Metadata.TVDB, logger)
+	s.realOMDBClient = omdb.NewClient(cfg.Metadata.OMDB, logger)
 
 	// Register WebSocket handler for dev mode toggle
 	if hub != nil {
@@ -1288,10 +1291,10 @@ func (a *importNotificationAdapter) DispatchUpgrade(ctx context.Context, event i
 func (s *Server) switchMetadataClients(devMode bool) {
 	if devMode {
 		s.logger.Info().Msg("Switching to mock metadata providers")
-		s.metadataService.SetClients(mock.NewTMDBClient(), mock.NewTVDBClient())
+		s.metadataService.SetClients(mock.NewTMDBClient(), mock.NewTVDBClient(), mock.NewOMDBClient())
 	} else {
 		s.logger.Info().Msg("Switching to real metadata providers")
-		s.metadataService.SetClients(s.realTMDBClient, s.realTVDBClient)
+		s.metadataService.SetClients(s.realTMDBClient, s.realTVDBClient, s.realOMDBClient)
 	}
 }
 

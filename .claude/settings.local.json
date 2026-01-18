@@ -51,7 +51,8 @@
       "Bash(bun install)",
       "Bash(~/.bun/bin/bun:*)",
       "Bash(/usr/local/bin/bun:*)",
-      "Bash(bun run build:*)"
+      "Bash(bun run build:*)",
+      "Bash(npx eslint:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

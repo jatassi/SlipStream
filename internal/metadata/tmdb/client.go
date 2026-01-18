@@ -743,3 +743,200 @@ func (c *Client) calculateSeriesScore(series TVResult, maxVoteCount int, current
 
 	return score
 }
+
+// GetMovieCredits fetches credits for a movie by TMDB ID.
+func (c *Client) GetMovieCredits(ctx context.Context, id int) (*NormalizedCredits, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d/credits", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response CreditsResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return nil, err
+	}
+
+	return c.normalizeCredits(response, nil), nil
+}
+
+// GetSeriesCredits fetches credits for a TV series by TMDB ID.
+func (c *Client) GetSeriesCredits(ctx context.Context, id int) (*NormalizedCredits, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	// First get series details to get creators
+	endpoint := fmt.Sprintf("%s/tv/%d", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var details TVDetails
+	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		return nil, err
+	}
+
+	// Then get credits
+	creditsEndpoint := fmt.Sprintf("%s/tv/%d/credits", c.config.BaseURL, id)
+	creditsParams := url.Values{}
+	creditsParams.Set("api_key", c.config.APIKey)
+
+	var creditsResponse CreditsResponse
+	if err := c.doRequest(ctx, creditsEndpoint, creditsParams, &creditsResponse); err != nil {
+		return nil, err
+	}
+
+	return c.normalizeCredits(creditsResponse, details.CreatedBy), nil
+}
+
+// GetMovieContentRating fetches the US content rating for a movie.
+func (c *Client) GetMovieContentRating(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d/release_dates", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response ReleaseDatesResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return "", err
+	}
+
+	// Look for US rating first
+	for _, region := range response.Results {
+		if region.ISO3166_1 == "US" {
+			for _, rd := range region.ReleaseDates {
+				if rd.Certification != "" {
+					return rd.Certification, nil
+				}
+			}
+		}
+	}
+
+	// Fallback to first available certification
+	for _, region := range response.Results {
+		for _, rd := range region.ReleaseDates {
+			if rd.Certification != "" {
+				return rd.Certification, nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
+// GetSeriesContentRating fetches the US content rating for a TV series.
+func (c *Client) GetSeriesContentRating(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/tv/%d/content_ratings", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response ContentRatingsResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return "", err
+	}
+
+	// Look for US rating first
+	for _, rating := range response.Results {
+		if rating.ISO3166_1 == "US" && rating.Rating != "" {
+			return rating.Rating, nil
+		}
+	}
+
+	// Fallback to first available rating
+	for _, rating := range response.Results {
+		if rating.Rating != "" {
+			return rating.Rating, nil
+		}
+	}
+
+	return "", nil
+}
+
+// normalizeCredits converts TMDB credits response to normalized format.
+func (c *Client) normalizeCredits(credits CreditsResponse, creators []TVCreator) *NormalizedCredits {
+	result := &NormalizedCredits{
+		Cast: make([]NormalizedPerson, 0),
+	}
+
+	// Process directors and writers from crew
+	for _, crew := range credits.Crew {
+		person := NormalizedPerson{
+			ID:   crew.ID,
+			Name: crew.Name,
+		}
+		if crew.ProfilePath != nil {
+			person.PhotoURL = c.GetImageURL(*crew.ProfilePath, "w185")
+		}
+
+		switch crew.Job {
+		case "Director":
+			result.Directors = append(result.Directors, person)
+		case "Writer", "Screenplay", "Story":
+			person.Role = crew.Job
+			result.Writers = append(result.Writers, person)
+		}
+	}
+
+	// Process creators for TV series
+	for _, creator := range creators {
+		person := NormalizedPerson{
+			ID:   creator.ID,
+			Name: creator.Name,
+		}
+		if creator.ProfilePath != nil {
+			person.PhotoURL = c.GetImageURL(*creator.ProfilePath, "w185")
+		}
+		result.Creators = append(result.Creators, person)
+	}
+
+	// Process cast (limit to top 20)
+	limit := 20
+	if len(credits.Cast) < limit {
+		limit = len(credits.Cast)
+	}
+	for i := 0; i < limit; i++ {
+		cast := credits.Cast[i]
+		person := NormalizedPerson{
+			ID:   cast.ID,
+			Name: cast.Name,
+			Role: cast.Character,
+		}
+		if cast.ProfilePath != nil {
+			person.PhotoURL = c.GetImageURL(*cast.ProfilePath, "w185")
+		}
+		result.Cast = append(result.Cast, person)
+	}
+
+	return result
+}
+
+// GetMovieStudio returns the primary production company for a movie.
+func (c *Client) GetMovieStudio(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var details MovieDetails
+	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		return "", err
+	}
+
+	if len(details.ProductionCompanies) > 0 {
+		return details.ProductionCompanies[0].Name, nil
+	}
+
+	return "", nil
+}

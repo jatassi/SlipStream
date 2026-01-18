@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/metadata/omdb"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 )
@@ -30,6 +31,7 @@ type HealthService interface {
 type Service struct {
 	tmdb          TMDBClient
 	tvdb          TVDBClient
+	omdb          OMDBClient
 	cache         *Cache
 	logger        zerolog.Logger
 	healthService HealthService
@@ -40,26 +42,34 @@ func NewService(cfg config.MetadataConfig, logger zerolog.Logger) *Service {
 	return &Service{
 		tmdb:   tmdb.NewClient(cfg.TMDB, logger),
 		tvdb:   tvdb.NewClient(cfg.TVDB, logger),
+		omdb:   omdb.NewClient(cfg.OMDB, logger),
 		cache:  NewCache(DefaultCacheConfig()),
 		logger: logger.With().Str("component", "metadata").Logger(),
 	}
 }
 
 // NewServiceWithClients creates a new metadata service with custom clients (for testing/mocking).
-func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, logger zerolog.Logger) *Service {
+func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient, logger zerolog.Logger) *Service {
 	return &Service{
 		tmdb:   tmdbClient,
 		tvdb:   tvdbClient,
+		omdb:   omdbClient,
 		cache:  NewCache(DefaultCacheConfig()),
 		logger: logger.With().Str("component", "metadata").Logger(),
 	}
 }
 
-// SetClients replaces the TMDB and TVDB clients (for dev mode switching).
-func (s *Service) SetClients(tmdbClient TMDBClient, tvdbClient TVDBClient) {
+// SetClients replaces the TMDB, TVDB, and OMDb clients (for dev mode switching).
+func (s *Service) SetClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient) {
 	s.tmdb = tmdbClient
 	s.tvdb = tvdbClient
+	s.omdb = omdbClient
 	s.cache.Clear()
+}
+
+// SetOMDBClient sets the OMDb client.
+func (s *Service) SetOMDBClient(client OMDBClient) {
+	s.omdb = client
 }
 
 // SetHealthService sets the central health service for registration tracking.
@@ -83,6 +93,12 @@ func (s *Service) RegisterMetadataProviders() {
 	if s.tvdb.IsConfigured() {
 		s.healthService.RegisterItemStr("metadata", "tvdb", "TVDB")
 		s.logger.Debug().Msg("Registered TVDB with health service")
+	}
+
+	// Register OMDb if configured
+	if s.omdb != nil && s.omdb.IsConfigured() {
+		s.healthService.RegisterItemStr("metadata", "omdb", "OMDb")
+		s.logger.Debug().Msg("Registered OMDb with health service")
 	}
 }
 
@@ -413,6 +429,27 @@ func (s *Service) TestTVDB(ctx context.Context) error {
 	return s.tvdb.Test(ctx)
 }
 
+// IsOMDBConfigured returns true if OMDb is configured.
+func (s *Service) IsOMDBConfigured() bool {
+	return s.omdb != nil && s.omdb.IsConfigured()
+}
+
+// TestOMDB tests connectivity to the OMDb API.
+func (s *Service) TestOMDB(ctx context.Context) error {
+	if s.omdb == nil {
+		return ErrNoProvidersConfigured
+	}
+	return s.omdb.Test(ctx)
+}
+
+// GetOMDBRatings gets ratings from OMDb by IMDb ID.
+func (s *Service) GetOMDBRatings(ctx context.Context, imdbID string) (*omdb.NormalizedRatings, error) {
+	if s.omdb == nil || !s.omdb.IsConfigured() {
+		return nil, ErrNoProvidersConfigured
+	}
+	return s.omdb.GetByIMDbID(ctx, imdbID)
+}
+
 // tmdbSeasonToResult converts a TMDB season result to metadata.SeasonResult.
 func tmdbSeasonToResult(s tmdb.NormalizedSeasonResult) SeasonResult {
 	episodes := make([]EpisodeResult, len(s.Episodes))
@@ -530,4 +567,185 @@ func (s *Service) GetSeriesSeasons(ctx context.Context, tmdbID, tvdbID int) ([]S
 		Msg("Got series seasons")
 
 	return results, nil
+}
+
+// GetExtendedMovie gets extended movie metadata including credits, ratings, and content rating.
+func (s *Service) GetExtendedMovie(ctx context.Context, tmdbID int) (*ExtendedMovieResult, error) {
+	if !s.HasMovieProvider() {
+		return nil, ErrNoProvidersConfigured
+	}
+
+	// Get base movie details
+	movie, err := s.GetMovie(ctx, tmdbID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ExtendedMovieResult{
+		MovieResult: *movie,
+	}
+
+	// Fetch credits
+	credits, err := s.tmdb.GetMovieCredits(ctx, tmdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie credits")
+	} else {
+		result.Credits = tmdbCreditsToCredits(credits)
+	}
+
+	// Fetch content rating
+	contentRating, err := s.tmdb.GetMovieContentRating(ctx, tmdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie content rating")
+	} else {
+		result.ContentRating = contentRating
+	}
+
+	// Fetch studio
+	studio, err := s.tmdb.GetMovieStudio(ctx, tmdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie studio")
+	} else {
+		result.Studio = studio
+	}
+
+	// Fetch OMDb ratings if configured and IMDB ID is available
+	if movie.ImdbID != "" && s.omdb != nil && s.omdb.IsConfigured() {
+		omdbRatings, err := s.omdb.GetByIMDbID(ctx, movie.ImdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("imdbId", movie.ImdbID).Msg("Failed to get OMDb ratings")
+		} else {
+			result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
+		}
+	}
+
+	s.logger.Info().
+		Int("tmdbId", tmdbID).
+		Str("title", movie.Title).
+		Msg("Got extended movie metadata")
+
+	return result, nil
+}
+
+// GetExtendedSeries gets extended series metadata including credits, ratings, seasons, and content rating.
+func (s *Service) GetExtendedSeries(ctx context.Context, tmdbID int) (*ExtendedSeriesResult, error) {
+	if !s.HasSeriesProvider() {
+		return nil, ErrNoProvidersConfigured
+	}
+
+	// Get base series details
+	series, err := s.GetSeriesByTMDB(ctx, tmdbID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ExtendedSeriesResult{
+		SeriesResult: *series,
+	}
+
+	// Fetch credits
+	credits, err := s.tmdb.GetSeriesCredits(ctx, tmdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series credits")
+	} else {
+		result.Credits = tmdbCreditsToCredits(credits)
+	}
+
+	// Fetch content rating
+	contentRating, err := s.tmdb.GetSeriesContentRating(ctx, tmdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series content rating")
+	} else {
+		result.ContentRating = contentRating
+	}
+
+	// Fetch seasons
+	seasons, err := s.GetSeriesSeasons(ctx, tmdbID, series.TvdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series seasons")
+	} else {
+		result.Seasons = seasons
+	}
+
+	// Fetch OMDb ratings if configured and IMDB ID is available
+	if series.ImdbID != "" && s.omdb != nil && s.omdb.IsConfigured() {
+		omdbRatings, err := s.omdb.GetByIMDbID(ctx, series.ImdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("imdbId", series.ImdbID).Msg("Failed to get OMDb ratings")
+		} else {
+			result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
+		}
+	}
+
+	s.logger.Info().
+		Int("tmdbId", tmdbID).
+		Str("title", series.Title).
+		Msg("Got extended series metadata")
+
+	return result, nil
+}
+
+// tmdbCreditsToCredits converts TMDB credits to metadata.Credits.
+func tmdbCreditsToCredits(c *tmdb.NormalizedCredits) *Credits {
+	if c == nil {
+		return nil
+	}
+
+	result := &Credits{
+		Cast: make([]Person, len(c.Cast)),
+	}
+
+	for _, p := range c.Directors {
+		result.Directors = append(result.Directors, Person{
+			ID:       p.ID,
+			Name:     p.Name,
+			Role:     p.Role,
+			PhotoURL: p.PhotoURL,
+		})
+	}
+
+	for _, p := range c.Writers {
+		result.Writers = append(result.Writers, Person{
+			ID:       p.ID,
+			Name:     p.Name,
+			Role:     p.Role,
+			PhotoURL: p.PhotoURL,
+		})
+	}
+
+	for _, p := range c.Creators {
+		result.Creators = append(result.Creators, Person{
+			ID:       p.ID,
+			Name:     p.Name,
+			Role:     p.Role,
+			PhotoURL: p.PhotoURL,
+		})
+	}
+
+	for i, p := range c.Cast {
+		result.Cast[i] = Person{
+			ID:       p.ID,
+			Name:     p.Name,
+			Role:     p.Role,
+			PhotoURL: p.PhotoURL,
+		}
+	}
+
+	return result
+}
+
+// omdbRatingsToExternalRatings converts OMDb ratings to metadata.ExternalRatings.
+func omdbRatingsToExternalRatings(r *omdb.NormalizedRatings) *ExternalRatings {
+	if r == nil {
+		return nil
+	}
+
+	return &ExternalRatings{
+		ImdbRating:     r.ImdbRating,
+		ImdbVotes:      r.ImdbVotes,
+		RottenTomatoes: r.RottenTomatoes,
+		RottenAudience: r.RottenAudience,
+		Metacritic:     r.Metacritic,
+		Awards:         r.Awards,
+	}
 }
