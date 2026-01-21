@@ -11,12 +11,14 @@ import (
 )
 
 const (
+	SettingPortalEnabled         = "requests_portal_enabled"
 	SettingDefaultRootFolderID   = "requests_default_root_folder_id"
 	SettingAdminNotifyNewRequest = "requests_admin_notify_new"
 	SettingSearchRateLimit       = "requests_search_rate_limit"
 )
 
 type RequestSettings struct {
+	Enabled             bool   `json:"enabled"`
 	DefaultMovieQuota   int64  `json:"defaultMovieQuota"`
 	DefaultSeasonQuota  int64  `json:"defaultSeasonQuota"`
 	DefaultEpisodeQuota int64  `json:"defaultEpisodeQuota"`
@@ -26,6 +28,7 @@ type RequestSettings struct {
 }
 
 type UpdateSettingsRequest struct {
+	Enabled             *bool  `json:"enabled"`
 	DefaultMovieQuota   *int64 `json:"defaultMovieQuota"`
 	DefaultSeasonQuota  *int64 `json:"defaultSeasonQuota"`
 	DefaultEpisodeQuota *int64 `json:"defaultEpisodeQuota"`
@@ -65,10 +68,15 @@ func (h *SettingsHandlers) Get(c echo.Context) error {
 	}
 
 	settings := RequestSettings{
+		Enabled:             true, // Default to enabled
 		DefaultMovieQuota:   *quotaDefaults.MoviesLimit,
 		DefaultSeasonQuota:  *quotaDefaults.SeasonsLimit,
 		DefaultEpisodeQuota: *quotaDefaults.EpisodesLimit,
 		SearchRateLimit:     60, // Default 60 requests per minute
+	}
+
+	if setting, err := h.queries.GetSetting(ctx, SettingPortalEnabled); err == nil {
+		settings.Enabled = setting.Value != "0" && setting.Value != "false"
 	}
 
 	if setting, err := h.queries.GetSetting(ctx, SettingDefaultRootFolderID); err == nil && setting.Value != "" {
@@ -98,6 +106,19 @@ func (h *SettingsHandlers) Update(c echo.Context) error {
 	var req UpdateSettingsRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	if req.Enabled != nil {
+		value := "1"
+		if !*req.Enabled {
+			value = "0"
+		}
+		if _, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   SettingPortalEnabled,
+			Value: value,
+		}); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 
 	if req.DefaultMovieQuota != nil || req.DefaultSeasonQuota != nil || req.DefaultEpisodeQuota != nil {

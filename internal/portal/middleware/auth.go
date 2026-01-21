@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,10 @@ const (
 	PortalUserKey = "portalUser"
 )
 
+type PortalEnabledChecker interface {
+	IsPortalEnabled(ctx context.Context) bool
+}
+
 type TokenValidator interface {
 	ValidateToken(tokenString string) (*portal.Claims, error)
 	ValidatePortalToken(tokenString string) (*portal.Claims, error)
@@ -19,12 +24,28 @@ type TokenValidator interface {
 }
 
 type AuthMiddleware struct {
-	validator TokenValidator
+	validator      TokenValidator
+	enabledChecker PortalEnabledChecker
 }
 
 func NewAuthMiddleware(validator TokenValidator) *AuthMiddleware {
 	return &AuthMiddleware{
 		validator: validator,
+	}
+}
+
+func (m *AuthMiddleware) SetEnabledChecker(checker PortalEnabledChecker) {
+	m.enabledChecker = checker
+}
+
+func (m *AuthMiddleware) PortalEnabled() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if m.enabledChecker != nil && !m.enabledChecker.IsPortalEnabled(c.Request().Context()) {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "external requests portal is disabled")
+			}
+			return next(c)
+		}
 	}
 }
 

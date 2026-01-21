@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { PosterImage } from '@/components/media/PosterImage'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { RequestsNav } from './RequestsNav'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -51,7 +52,10 @@ import {
   useQualityProfiles,
   useAutoSearchMovie,
   useAutoSearchSeason,
+  usePortalEnabled,
 } from '@/hooks'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Request, RequestStatus, AddMovieInput, AddSeriesInput, SeasonInput } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
@@ -95,6 +99,7 @@ export function RequestQueuePage() {
   const { data: requestSettings } = useRequestSettings()
   const { data: qualityProfiles } = useQualityProfiles()
   const developerMode = useDeveloperMode()
+  const portalEnabled = usePortalEnabled()
 
   const approveMutation = useApproveRequest()
   const denyMutation = useDenyRequest()
@@ -412,14 +417,13 @@ export function RequestQueuePage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Request Queue"
-        description="Review and manage content requests"
+        title="External Requests"
+        description="Manage portal users and content requests"
         breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'External Requests', href: '/settings/requests' },
-          { label: 'Queue' },
+          { label: 'Settings', href: '/settings/media' },
+          { label: 'External Requests' },
         ]}
         actions={
           developerMode && (
@@ -435,6 +439,18 @@ export function RequestQueuePage() {
           )
         }
       />
+
+      <RequestsNav />
+
+      {!portalEnabled && (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            The external requests portal is currently disabled. Portal users cannot submit new requests or access the portal.
+            You can re-enable it in the <a href="/settings/requests/settings" className="underline font-medium">Settings</a> tab.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setSelectedIds(new Set()) }}>
         <div className="flex items-center justify-between mb-4">

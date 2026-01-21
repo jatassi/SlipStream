@@ -230,6 +230,7 @@ export interface SeasonInfo {
 
 // Request settings
 export interface RequestSettings {
+  enabled: boolean
   defaultMovieQuota: number
   defaultSeasonQuota: number
   defaultEpisodeQuota: number

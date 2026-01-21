@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Loader2, Trash2, User, KeyRound } from 'lucide-react'
+import { Loader2, Trash2, User, KeyRound, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import { usePortalLogin, useAuthStatus } from '@/hooks'
+import { usePortalLogin, useAuthStatus, usePortalEnabled } from '@/hooks'
 import { usePasskeySupport, usePasskeyLogin } from '@/hooks/portal'
 import { usePortalAuthStore } from '@/stores'
 import { deleteAdmin } from '@/api/auth'
@@ -19,6 +19,7 @@ export function LoginPage() {
   const passkeyLoginMutation = usePasskeyLogin()
   const { data: authStatus, refetch: refetchAuthStatus } = useAuthStatus()
   const { isSupported: passkeySupported, isLoading: passkeyLoading } = usePasskeySupport()
+  const portalEnabled = usePortalEnabled()
 
   const rememberedUsername = localStorage.getItem('slipstream_last_username') || ''
   const [username, setUsername] = useState(rememberedUsername)
@@ -88,6 +89,24 @@ export function LoginPage() {
         navigate({ to: redirect })
       },
     })
+  }
+
+  if (!portalEnabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <Ban className="size-12 mx-auto text-muted-foreground" />
+              <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
+              <p className="text-muted-foreground">
+                The external requests portal is currently disabled. Please contact your server administrator.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

@@ -407,6 +407,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	}
 	s.portalAuthService = authSvc
 	s.portalAuthMiddleware = portalmw.NewAuthMiddleware(authSvc)
+	s.portalAuthMiddleware.SetEnabledChecker(&portalEnabledChecker{queries: queries})
 
 	passkeySvc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
 		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
@@ -820,8 +821,9 @@ func (s *Server) setupRoutes() {
 
 // setupPortalRoutes configures External Requests portal routes.
 func (s *Server) setupPortalRoutes(api *echo.Group) {
-	// Portal auth routes (login, signup, profile)
+	// Portal auth routes (login, signup, profile) - require portal to be enabled
 	authGroup := api.Group("/requests/auth")
+	authGroup.Use(s.portalAuthMiddleware.PortalEnabled())
 	portalAuthHandlers := auth.NewHandlers(
 		s.portalAuthService,
 		s.portalUsersService,
@@ -837,8 +839,9 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	)
 	passkeyHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
 
-	// Portal user routes (authenticated portal users)
+	// Portal user routes (authenticated portal users) - require portal to be enabled
 	requestsGroup := api.Group("/requests")
+	requestsGroup.Use(s.portalAuthMiddleware.PortalEnabled())
 
 	// Portal search with rate limiting
 	searchHandlers := portalsearch.NewHandlers(
@@ -1101,6 +1104,19 @@ func (a *portalMediaLookupAdapter) GetSeriesTvdbID(ctx context.Context, seriesID
 	return nil, nil
 }
 
+// portalEnabledChecker checks if the external requests portal is enabled.
+type portalEnabledChecker struct {
+	queries *sqlc.Queries
+}
+
+func (c *portalEnabledChecker) IsPortalEnabled(ctx context.Context) bool {
+	setting, err := c.queries.GetSetting(ctx, "requests_portal_enabled")
+	if err != nil {
+		return true // Default to enabled if setting not found
+	}
+	return setting.Value != "0" && setting.Value != "false"
+}
+
 // Start begins listening for HTTP requests.
 func (s *Server) Start(address string) error {
 	s.logger.Info().Str("address", address).Msg("starting HTTP server")
@@ -1186,12 +1202,20 @@ func (s *Server) getStatus(c echo.Context) error {
 
 	adminExists, _ := s.portalUsersService.AdminExists(ctx)
 
+	// Check if portal is enabled (defaults to true if not set)
+	portalEnabled := true
+	queries := sqlc.New(s.startupDB)
+	if setting, err := queries.GetSetting(ctx, "requests_portal_enabled"); err == nil {
+		portalEnabled = setting.Value != "0" && setting.Value != "false"
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"version":       "0.0.1-dev",
 		"startTime":     time.Now().Format(time.RFC3339),
 		"movieCount":    movieCount,
 		"seriesCount":   seriesCount,
 		"developerMode": s.dbManager.IsDevMode(),
+		"portalEnabled": portalEnabled,
 		"requiresSetup": !adminExists,
 		"requiresAuth":  true,
 		"tmdb": map[string]interface{}{

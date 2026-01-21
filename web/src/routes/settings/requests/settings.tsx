@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Save, Loader2, Plus, Edit, Trash2, Bell, TestTube } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { RequestsNav } from './RequestsNav'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -27,17 +28,21 @@ import {
   useTestNotification,
   useUpdateNotification,
   useNotificationSchemas,
+  systemKeys,
 } from '@/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { RequestSettings, Notification } from '@/types'
 
 export function RequestSettingsPage() {
+  const queryClient = useQueryClient()
   const { data: settings, isLoading, isError, refetch } = useRequestSettings()
   const { data: rootFolders } = useRootFolders()
   const updateMutation = useUpdateRequestSettings()
 
   const [formData, setFormData] = useState<Partial<RequestSettings>>({})
   const [hasChanges, setHasChanges] = useState(false)
+  const portalEnabled = formData.enabled ?? settings?.enabled ?? true
 
   // Notification state
   const [showNotificationDialog, setShowNotificationDialog] = useState(false)
@@ -97,6 +102,7 @@ export function RequestSettingsPage() {
   useEffect(() => {
     if (settings) {
       setFormData({
+        enabled: settings.enabled,
         defaultMovieQuota: settings.defaultMovieQuota,
         defaultSeasonQuota: settings.defaultSeasonQuota,
         defaultEpisodeQuota: settings.defaultEpisodeQuota,
@@ -116,6 +122,8 @@ export function RequestSettingsPage() {
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync(formData)
+      // Invalidate status query to update portalEnabled globally
+      queryClient.invalidateQueries({ queryKey: systemKeys.status() })
       toast.success('Settings saved')
       setHasChanges(false)
     } catch {
@@ -142,14 +150,13 @@ export function RequestSettingsPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Request Settings"
-        description="Configure global settings for the request portal"
+        title="External Requests"
+        description="Manage portal users and content requests"
         breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'External Requests', href: '/settings/requests' },
-          { label: 'Settings' },
+          { label: 'Settings', href: '/settings/media' },
+          { label: 'External Requests' },
         ]}
         actions={
           <Button onClick={handleSave} disabled={!hasChanges || updateMutation.isPending}>
@@ -163,10 +170,37 @@ export function RequestSettingsPage() {
         }
       />
 
-      <div className="max-w-6xl mx-auto pt-6 px-6 space-y-6">
+      <RequestsNav />
+
+      <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Default Quotas</CardTitle>
+            <CardTitle>Portal Access</CardTitle>
+            <CardDescription>
+              Enable or disable the external requests portal for all users.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Enable External Requests Portal</Label>
+                <p className="text-sm text-muted-foreground">
+                  When disabled, portal users cannot access the request system. Existing users and data are preserved.
+                </p>
+              </div>
+              <Switch
+                checked={formData.enabled ?? true}
+                onCheckedChange={(checked) => handleChange('enabled', checked)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {portalEnabled && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Quotas</CardTitle>
             <CardDescription>
               Set the default weekly quota limits for new users. Users can have individual overrides.
             </CardDescription>
@@ -379,6 +413,8 @@ export function RequestSettingsPage() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
 
       <NotificationDialog

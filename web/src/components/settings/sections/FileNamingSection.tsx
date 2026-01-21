@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Save, Plus, X, Code2, Pencil } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -175,11 +174,9 @@ function TokenBuilderDialog({
     const newValue = localValue.slice(0, start) + token + localValue.slice(start)
     setLocalValue(newValue)
 
-    // Update cursor position to after the inserted token
     const newPosition = start + token.length
     setCursorPosition(newPosition)
 
-    // Focus and set selection after state update
     setTimeout(() => {
       textarea.focus()
       textarea.setSelectionRange(newPosition, newPosition)
@@ -497,7 +494,7 @@ function FilenameTester({
   )
 }
 
-export function ImportSettingsPage() {
+export function FileNamingSection() {
   const { data: settings, isLoading, isError, refetch } = useImportSettings()
   const updateMutation = useUpdateImportSettings()
 
@@ -530,50 +527,31 @@ export function ImportSettingsPage() {
   const hasChanges = form && settings && JSON.stringify(form) !== JSON.stringify(settings)
 
   if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Import & Naming" />
-        <LoadingState variant="list" count={3} />
-      </div>
-    )
+    return <LoadingState variant="list" count={3} />
   }
 
   if (isError || !form) {
-    return (
-      <div>
-        <PageHeader title="Import & Naming" />
-        <ErrorState onRetry={refetch} />
-      </div>
-    )
+    return <ErrorState onRetry={refetch} />
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Import & Naming"
-        description="Configure file import validation and naming patterns"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'Import & Naming' },
-        ]}
-        actions={
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="validation">Validation</TabsTrigger>
+            <TabsTrigger value="matching">Matching</TabsTrigger>
+            <TabsTrigger value="tv-naming">TV Naming</TabsTrigger>
+            <TabsTrigger value="movie-naming">Movie Naming</TabsTrigger>
+            <TabsTrigger value="tokens">Token Reference</TabsTrigger>
+          </TabsList>
           <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
             <Save className="size-4 mr-2" />
             Save Changes
           </Button>
-        }
-      />
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="validation">Validation</TabsTrigger>
-          <TabsTrigger value="matching">Matching</TabsTrigger>
-          <TabsTrigger value="tv-naming">TV Naming</TabsTrigger>
-          <TabsTrigger value="movie-naming">Movie Naming</TabsTrigger>
-          <TabsTrigger value="tokens">Token Reference</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="validation" className="space-y-6 max-w-2xl">
+        <TabsContent value="validation" className="space-y-6 max-w-2xl mt-6">
           <Card>
             <CardHeader>
               <CardTitle>File Validation</CardTitle>
@@ -631,7 +609,7 @@ export function ImportSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="matching" className="space-y-6 max-w-2xl">
+        <TabsContent value="matching" className="space-y-6 max-w-2xl mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Match Behavior</CardTitle>
@@ -687,7 +665,7 @@ export function ImportSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tv-naming" className="space-y-6 max-w-3xl">
+        <TabsContent value="tv-naming" className="space-y-6 max-w-3xl mt-6">
           <FilenameTester mediaType="tv" />
 
           <Card>
@@ -852,7 +830,7 @@ export function ImportSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="movie-naming" className="space-y-6 max-w-3xl">
+        <TabsContent value="movie-naming" className="space-y-6 max-w-3xl mt-6">
           <FilenameTester mediaType="movie" />
 
           <Card>
@@ -897,7 +875,7 @@ export function ImportSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tokens" className="space-y-6 max-w-4xl">
+        <TabsContent value="tokens" className="space-y-6 max-w-4xl mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Token Reference</CardTitle>

@@ -122,7 +122,15 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
     )
   }
 
-  const displayedIndexers = showOnlyEnabled ? indexers?.filter((i) => i.enable) : indexers
+  const filteredIndexers = showOnlyEnabled ? indexers?.filter((i) => i.enable) : indexers
+  const displayedIndexers = filteredIndexers?.slice().sort((a, b) => {
+    // Sort by enabled state first (enabled at top)
+    if (a.enable !== b.enable) return a.enable ? -1 : 1
+    // Then by priority (lower numbers first)
+    const priorityA = a.settings?.priority ?? 25
+    const priorityB = b.settings?.priority ?? 25
+    return priorityA - priorityB
+  })
 
   if (!displayedIndexers?.length) {
     return (

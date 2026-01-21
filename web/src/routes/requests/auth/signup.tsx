@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2, AlertCircle, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import { useValidateInvitation, usePortalSignup } from '@/hooks'
+import { useValidateInvitation, usePortalSignup, usePortalEnabled } from '@/hooks'
 import { toast } from 'sonner'
 
 interface SignupSearchParams {
@@ -20,6 +20,7 @@ export function SignupPage() {
 
   const { data: invitation, isLoading: validating, error: validationError } = useValidateInvitation(token)
   const signupMutation = usePortalSignup()
+  const portalEnabled = usePortalEnabled()
 
   const [pin, setPin] = useState('')
 
@@ -53,6 +54,24 @@ export function SignupPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     performSignup()
+  }
+
+  if (!portalEnabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <Ban className="size-12 mx-auto text-muted-foreground" />
+              <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
+              <p className="text-muted-foreground">
+                The external requests portal is currently disabled. Please contact your server administrator.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!token) {

@@ -1,14 +1,13 @@
 import { useState } from 'react'
-import { Plus, Edit, Trash2, Rss, TestTube, Globe, Lock, Unlock } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { Edit, Trash2, Rss, TestTube, Globe, Lock, Unlock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { LoadingState } from '@/components/data/LoadingState'
-import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { AddPlaceholderCard } from '@/components/settings/AddPlaceholderCard'
 import {
   IndexerDialog,
   IndexerModeToggle,
@@ -42,7 +41,7 @@ const protocolColors: Record<Protocol, string> = {
   usenet: 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20',
 }
 
-export function IndexersPage() {
+export function IndexersSection() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingIndexer, setEditingIndexer] = useState<Indexer | null>(null)
 
@@ -96,53 +95,29 @@ export function IndexersPage() {
   }
 
   if (modeLoading) {
-    return (
-      <div>
-        <PageHeader title="Indexers" />
-        <LoadingState variant="list" count={3} />
-      </div>
-    )
+    return <LoadingState variant="list" count={3} />
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Indexers"
-        description="Configure search providers for finding releases"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'Indexers' },
-        ]}
-        actions={
-          !isProwlarrMode && (
-            <Button onClick={handleAdd}>
-              <Plus className="size-4 mr-2" />
-              Add Indexer
-            </Button>
-          )
-        }
-      />
+    <div className="space-y-6">
+      <IndexerModeToggle />
 
-      <div className="space-y-6">
-        <IndexerModeToggle />
-
-        {isProwlarrMode ? (
-          <ProwlarrModeContent />
-        ) : (
-          <SlipStreamModeContent
-            indexers={indexers}
-            isLoading={isLoading}
-            isError={isError}
-            refetch={refetch}
-            handleAdd={handleAdd}
-            handleEdit={handleEdit}
-            handleTest={handleTest}
-            handleDelete={handleDelete}
-            handleToggleEnabled={handleToggleEnabled}
-            testMutation={testMutation}
-          />
-        )}
-      </div>
+      {isProwlarrMode ? (
+        <ProwlarrModeContent />
+      ) : (
+        <SlipStreamModeContent
+          indexers={indexers}
+          isLoading={isLoading}
+          isError={isError}
+          refetch={refetch}
+          handleAdd={handleAdd}
+          handleEdit={handleEdit}
+          handleTest={handleTest}
+          handleDelete={handleDelete}
+          handleToggleEnabled={handleToggleEnabled}
+          testMutation={testMutation}
+        />
+      )}
 
       <IndexerDialog
         open={dialogOpen}
@@ -197,11 +172,9 @@ function SlipStreamModeContent({
 
   if (!indexers?.length) {
     return (
-      <EmptyState
-        icon={<Rss className="size-8" />}
-        title="No indexers configured"
-        description="Add an indexer to search for releases"
-        action={{ label: 'Add Indexer', onClick: handleAdd }}
+      <AddPlaceholderCard
+        label="Add Indexer"
+        onClick={handleAdd}
       />
     )
   }
@@ -278,6 +251,10 @@ function SlipStreamModeContent({
           </CardHeader>
         </Card>
       ))}
+      <AddPlaceholderCard
+        label="Add Indexer"
+        onClick={handleAdd}
+      />
     </div>
   )
 }

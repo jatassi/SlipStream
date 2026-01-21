@@ -2,6 +2,7 @@ import {
   createRouter,
   createRoute,
   createRootRoute,
+  redirect,
   Outlet,
 } from '@tanstack/react-router'
 import { RootLayout } from '@/components/layout/RootLayout'
@@ -20,15 +21,19 @@ import { CalendarPage } from '@/routes/calendar/index'
 import { MissingPage } from '@/routes/missing/index'
 import { ActivityPage } from '@/routes/activity/index'
 import { HistoryPage } from '@/routes/activity/history'
-import { SettingsPage } from '@/routes/settings/index'
-import { QualityProfilesPage } from '@/routes/settings/profiles'
-import { RootFoldersPage } from '@/routes/settings/rootfolders'
-import { IndexersPage } from '@/routes/settings/indexers'
-import { DownloadClientsPage } from '@/routes/settings/downloadclients'
-import { GeneralSettingsPage } from '@/routes/settings/general'
-import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
-import { ImportSettingsPage } from '@/routes/settings/import'
-import { SlotsSettingsPage } from '@/routes/settings/slots'
+// Media settings pages
+import { RootFoldersPage } from '@/routes/settings/media/root-folders'
+import { QualityProfilesPage } from '@/routes/settings/media/quality-profiles'
+import { VersionSlotsPage } from '@/routes/settings/media/version-slots'
+import { FileNamingPage } from '@/routes/settings/media/file-naming'
+// Downloads settings pages
+import { IndexersPage } from '@/routes/settings/downloads/indexers'
+import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
+import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
+// System settings pages
+import { ServerPage } from '@/routes/settings/system/server'
+import { AuthenticationPage } from '@/routes/settings/system/authentication'
+// Other settings pages
 import { NotificationsPage } from '@/routes/settings/notifications'
 import { RequestQueuePage } from '@/routes/settings/requests/index'
 import { RequestUsersPage } from '@/routes/settings/requests/users'
@@ -153,55 +158,90 @@ const historyRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
-  component: SettingsPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/media/root-folders' })
+  },
 })
 
-const profilesRoute = createRoute({
+// Media settings routes
+const mediaSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/profiles',
+  path: '/settings/media',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/media/root-folders' })
+  },
+})
+
+const rootFoldersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/media/root-folders',
+  component: RootFoldersPage,
+})
+
+const qualityProfilesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/media/quality-profiles',
   component: QualityProfilesPage,
 })
 
-const rootfoldersRoute = createRoute({
+const versionSlotsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/rootfolders',
-  component: RootFoldersPage,
+  path: '/settings/media/version-slots',
+  component: VersionSlotsPage,
+})
+
+const fileNamingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/media/file-naming',
+  component: FileNamingPage,
+})
+
+// Downloads settings routes
+const downloadsSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/downloads',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/downloads/indexers' })
+  },
 })
 
 const indexersRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/indexers',
+  path: '/settings/downloads/indexers',
   component: IndexersPage,
 })
 
-const downloadclientsRoute = createRoute({
+const downloadClientsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/downloadclients',
+  path: '/settings/downloads/clients',
   component: DownloadClientsPage,
 })
 
-const generalSettingsRoute = createRoute({
+const autoSearchRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/general',
-  component: GeneralSettingsPage,
+  path: '/settings/downloads/auto-search',
+  component: AutoSearchPage,
 })
 
-const autosearchSettingsRoute = createRoute({
+// System settings routes
+const systemSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/autosearch',
-  component: AutoSearchSettingsPage,
+  path: '/settings/system',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/system/server' })
+  },
 })
 
-const importSettingsRoute = createRoute({
+const serverRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/import',
-  component: ImportSettingsPage,
+  path: '/settings/system/server',
+  component: ServerPage,
 })
 
-const slotsSettingsRoute = createRoute({
+const authenticationRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings/slots',
-  component: SlotsSettingsPage,
+  path: '/settings/system/authentication',
+  component: AuthenticationPage,
 })
 
 const notificationsRoute = createRoute({
@@ -324,14 +364,22 @@ const routeTree = rootRoute.addChildren([
   activityRoute,
   historyRoute,
   settingsRoute,
-  profilesRoute,
-  rootfoldersRoute,
+  // Media settings
+  mediaSettingsRoute,
+  rootFoldersRoute,
+  qualityProfilesRoute,
+  versionSlotsRoute,
+  fileNamingRoute,
+  // Downloads settings
+  downloadsSettingsRoute,
   indexersRoute,
-  downloadclientsRoute,
-  generalSettingsRoute,
-  autosearchSettingsRoute,
-  importSettingsRoute,
-  slotsSettingsRoute,
+  downloadClientsRoute,
+  autoSearchRoute,
+  // System settings
+  systemSettingsRoute,
+  serverRoute,
+  authenticationRoute,
+  // Other settings
   notificationsRoute,
   requestQueueRoute,
   requestUsersRoute,

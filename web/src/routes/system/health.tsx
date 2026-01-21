@@ -246,7 +246,7 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
             />
             Test All
           </Button>
-          <Link to="/settings/indexers">
+          <Link to="/settings/downloads">
             <Button variant="ghost" size="sm" title="Settings">
               <Settings className="size-4 mr-1" />
               Settings
@@ -259,7 +259,7 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
           <div className="text-sm text-muted-foreground text-center py-4">
             Prowlarr not configured.{' '}
             <Link
-              to="/settings/indexers"
+              to="/settings/downloads"
               className="text-primary hover:underline inline-flex items-center gap-1"
             >
               Configure <ExternalLink className="size-3" />

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Plus, Check, User, Download, Clock, CheckCircle } from 'lucide-react'
+import { Plus, Check, User, Download, Clock } from 'lucide-react'
 import { useExtendedMovieMetadata, useExtendedSeriesMetadata } from '@/hooks/useMetadata'
 import { usePortalDownloads } from '@/hooks'
 import {
@@ -53,7 +53,6 @@ export function MediaInfoModal({
   onAction,
   actionLabel = 'Add to Library',
   actionIcon = <Plus className="size-4 mr-2" />,
-  disabledLabel = 'Already in Library',
 }: MediaInfoModalProps) {
   const navigate = useNavigate()
   const { data: downloads, requests } = usePortalDownloads()

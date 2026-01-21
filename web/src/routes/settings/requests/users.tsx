@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Edit, Trash2, Users, UserPlus, Copy, Check, RefreshCw, Loader2 } from 'lucide-react'
+import { Edit, Trash2, Users, UserPlus, Copy, Check, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { RequestsNav } from './RequestsNav'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,9 @@ import {
   useAdminResendInvitation,
   getInvitationLink,
   useQualityProfiles,
+  usePortalEnabled,
 } from '@/hooks'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import type { PortalUserWithQuota, Invitation, AdminUpdateUserInput } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
@@ -55,6 +58,7 @@ export function RequestUsersPage() {
   const { data: users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useAdminUsers()
   const { data: invitations, isLoading: invitationsLoading, isError: invitationsError, refetch: refetchInvitations } = useAdminInvitations()
   const { data: qualityProfiles } = useQualityProfiles()
+  const portalEnabled = usePortalEnabled()
 
   const enableMutation = useEnableUser()
   const disableMutation = useDisableUser()
@@ -195,14 +199,13 @@ export function RequestUsersPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Portal Users"
-        description="Manage portal users and invitations"
+        title="External Requests"
+        description="Manage portal users and content requests"
         breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'External Requests', href: '/settings/requests' },
-          { label: 'Users' },
+          { label: 'Settings', href: '/settings/media' },
+          { label: 'External Requests' },
         ]}
         actions={
           <Button onClick={handleOpenInvite}>
@@ -211,6 +214,18 @@ export function RequestUsersPage() {
           </Button>
         }
       />
+
+      <RequestsNav />
+
+      {!portalEnabled && (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            The external requests portal is currently disabled. Portal users cannot submit new requests or access the portal.
+            You can re-enable it in the <a href="/settings/requests/settings" className="underline font-medium">Settings</a> tab.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

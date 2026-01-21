@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Plus, Edit, Trash2, Bell, TestTube } from 'lucide-react'
+import { Edit, Trash2, Bell, TestTube } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { LoadingState } from '@/components/data/LoadingState'
-import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { NotificationDialog } from '@/components/notifications/NotificationDialog'
+import { AddPlaceholderCard } from '@/components/settings'
 import {
   useNotifications,
   useDeleteNotification,
@@ -116,24 +116,10 @@ export function NotificationsPage() {
           { label: 'Settings', href: '/settings' },
           { label: 'Notifications' },
         ]}
-        actions={
-          <Button onClick={handleOpenAdd}>
-            <Plus className="size-4 mr-2" />
-            Add Notification
-          </Button>
-        }
       />
 
-      {!notifications?.length ? (
-        <EmptyState
-          icon={<Bell className="size-8" />}
-          title="No notifications configured"
-          description="Add a notification channel to receive alerts"
-          action={{ label: 'Add Notification', onClick: handleOpenAdd }}
-        />
-      ) : (
-        <div className="space-y-4">
-          {notifications.map((notification) => (
+      <div className="space-y-4">
+        {notifications?.map((notification) => (
             <Card key={notification.id}>
               <CardHeader className="flex flex-row items-center justify-between py-4">
                 <div className="flex items-center gap-4">
@@ -185,8 +171,11 @@ export function NotificationsPage() {
               </CardHeader>
             </Card>
           ))}
-        </div>
-      )}
+        <AddPlaceholderCard
+          label="Add Notification Channel"
+          onClick={handleOpenAdd}
+        />
+      </div>
 
       <NotificationDialog
         open={showDialog}

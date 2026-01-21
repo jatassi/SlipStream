@@ -146,11 +146,11 @@ export function NotificationDialog({
         if (eventTriggers) {
           // Disable all admin triggers first
           adminEventTriggers.forEach(t => {
-            (resetData as Record<string, unknown>)[t.key] = false
+            (resetData as unknown as Record<string, unknown>)[t.key] = false
           })
           // Enable only the provided triggers
           eventTriggers.forEach(t => {
-            (resetData as Record<string, unknown>)[t.key] = true
+            (resetData as unknown as Record<string, unknown>)[t.key] = true
           })
         }
         setFormData(resetData)
@@ -451,7 +451,7 @@ export function NotificationDialog({
                     </Label>
                     <Switch
                       id={key}
-                      checked={Boolean((formData as Record<string, unknown>)[key])}
+                      checked={Boolean((formData as unknown as Record<string, unknown>)[key])}
                       onCheckedChange={(checked) =>
                         setFormData((prev) => ({ ...prev, [key]: checked }))
                       }

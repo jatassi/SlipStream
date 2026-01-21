@@ -137,7 +137,6 @@ export function RequestDetailPage() {
   const statusConfig = STATUS_CONFIG[request.status]
   const isOwner = request.userId === user?.id
   const canCancel = isOwner && request.status === 'pending'
-  const isWatching = isOwner || request.isWatching
 
   return (
     <div className="max-w-4xl mx-auto pt-6 px-6 space-y-6">

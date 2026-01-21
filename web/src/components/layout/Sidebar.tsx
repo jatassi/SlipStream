@@ -7,8 +7,6 @@ import {
   History,
   Settings,
   FolderOpen,
-  Sliders,
-  Rss,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -17,6 +15,9 @@ import {
   Search,
   HeartPulse,
   FileInput,
+  Bell,
+  Cog,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -75,11 +76,11 @@ const settingsGroup: CollapsibleNavGroup = {
   title: 'Settings',
   icon: Settings,
   items: [
-    { title: 'General', href: '/settings', icon: Settings },
-    { title: 'Quality Profiles', href: '/settings/profiles', icon: Sliders },
-    { title: 'Root Folders', href: '/settings/rootfolders', icon: FolderOpen },
-    { title: 'Indexers', href: '/settings/indexers', icon: Rss },
-    { title: 'Download Clients', href: '/settings/downloadclients', icon: Download },
+    { title: 'Media', href: '/settings/media', icon: FolderOpen },
+    { title: 'Downloads', href: '/settings/downloads', icon: Download },
+    { title: 'Notifications', href: '/settings/notifications', icon: Bell },
+    { title: 'Requests', href: '/settings/requests', icon: Users },
+    { title: 'System', href: '/settings/system', icon: Cog },
   ],
 }
 

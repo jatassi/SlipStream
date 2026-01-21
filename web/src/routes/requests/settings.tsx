@@ -12,7 +12,6 @@ import {
   LogOut,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,7 +29,7 @@ import {
   useDeleteUserNotification,
   useTestUserNotification,
 } from '@/hooks'
-import type { UserNotification, CreateNotificationInput, Notification } from '@/types'
+import type { UserNotification, CreateNotificationInput, Notification, NotifierType } from '@/types'
 import { toast } from 'sonner'
 
 const portalEventTriggers = [
@@ -177,30 +176,30 @@ function NotificationsSection() {
   }
 
   const handleCreateNotification = async (data: CreateNotificationInput) => {
-    const eventData = data as Record<string, unknown>
+    const eventData = data as unknown as Record<string, unknown>
     await createMutation.mutateAsync({
       type: data.type,
       name: data.name,
       settings: data.settings,
-      onAvailable: eventData.onAvailable as boolean ?? true,
-      onApproved: eventData.onApproved as boolean ?? true,
-      onDenied: eventData.onDenied as boolean ?? true,
-      enabled: data.enabled,
+      onAvailable: (eventData.onAvailable as boolean | undefined) ?? true,
+      onApproved: (eventData.onApproved as boolean | undefined) ?? true,
+      onDenied: (eventData.onDenied as boolean | undefined) ?? true,
+      enabled: data.enabled ?? true,
     })
   }
 
   const handleUpdateNotification = async (id: number, data: CreateNotificationInput) => {
-    const eventData = data as Record<string, unknown>
+    const eventData = data as unknown as Record<string, unknown>
     await updateMutation.mutateAsync({
       id,
       data: {
         type: data.type,
         name: data.name,
         settings: data.settings,
-        onAvailable: eventData.onAvailable as boolean ?? true,
-        onApproved: eventData.onApproved as boolean ?? true,
-        onDenied: eventData.onDenied as boolean ?? true,
-        enabled: data.enabled,
+        onAvailable: (eventData.onAvailable as boolean | undefined) ?? true,
+        onApproved: (eventData.onApproved as boolean | undefined) ?? true,
+        onDenied: (eventData.onDenied as boolean | undefined) ?? true,
+        enabled: data.enabled ?? true,
       },
     })
   }
@@ -210,7 +209,7 @@ function NotificationsSection() {
     ? {
         id: editingNotification.id,
         name: editingNotification.name,
-        type: editingNotification.type,
+        type: editingNotification.type as NotifierType,
         enabled: editingNotification.enabled,
         settings: editingNotification.settings,
         onGrab: false,

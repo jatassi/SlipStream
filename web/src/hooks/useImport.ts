@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
 import type {
   ImportSettings,
   UpdateImportSettingsRequest,
@@ -17,17 +18,11 @@ import type {
   ParseFilenameResponse,
 } from '@/types'
 
-const API_BASE = '/api/v1'
-
 // Settings hooks
 export function useImportSettings() {
   return useQuery<ImportSettings>({
     queryKey: ['importSettings'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/settings/import`)
-      if (!res.ok) throw new Error('Failed to fetch import settings')
-      return res.json()
-    },
+    queryFn: () => apiFetch<ImportSettings>('/settings/import'),
   })
 }
 
@@ -35,15 +30,11 @@ export function useUpdateImportSettings() {
   const queryClient = useQueryClient()
 
   return useMutation<ImportSettings, Error, UpdateImportSettingsRequest>({
-    mutationFn: async (settings) => {
-      const res = await fetch(`${API_BASE}/settings/import`, {
+    mutationFn: (settings) =>
+      apiFetch<ImportSettings>('/settings/import', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
-      })
-      if (!res.ok) throw new Error('Failed to update import settings')
-      return res.json()
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['importSettings'] })
     },
@@ -53,29 +44,21 @@ export function useUpdateImportSettings() {
 // Pattern preview hooks
 export function usePreviewNamingPattern() {
   return useMutation<PatternPreviewResponse, Error, PatternPreviewRequest>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/settings/import/naming/preview`, {
+    mutationFn: (req) =>
+      apiFetch<PatternPreviewResponse>('/settings/import/naming/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to preview pattern')
-      return res.json()
-    },
+      }),
   })
 }
 
 export function useValidateNamingPattern() {
   return useMutation<PatternValidateResponse, Error, { pattern: string }>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/settings/import/naming/validate`, {
+    mutationFn: (req) =>
+      apiFetch<PatternValidateResponse>('/settings/import/naming/validate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to validate pattern')
-      return res.json()
-    },
+      }),
   })
 }
 
@@ -83,11 +66,7 @@ export function useValidateNamingPattern() {
 export function useImportStatus() {
   return useQuery<ImportStatus>({
     queryKey: ['importStatus'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/import/status`)
-      if (!res.ok) throw new Error('Failed to fetch import status')
-      return res.json()
-    },
+    queryFn: () => apiFetch<ImportStatus>('/import/status'),
     refetchInterval: 5000,
   })
 }
@@ -95,11 +74,7 @@ export function useImportStatus() {
 export function usePendingImports() {
   return useQuery<PendingImport[]>({
     queryKey: ['pendingImports'],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/import/pending`)
-      if (!res.ok) throw new Error('Failed to fetch pending imports')
-      return res.json()
-    },
+    queryFn: () => apiFetch<PendingImport[]>('/import/pending'),
     refetchInterval: 5000,
   })
 }
@@ -109,15 +84,11 @@ export function useManualImport() {
   const queryClient = useQueryClient()
 
   return useMutation<ManualImportResponse, Error, ManualImportRequest>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/import/manual`, {
+    mutationFn: (req) =>
+      apiFetch<ManualImportResponse>('/import/manual', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to execute manual import')
-      return res.json()
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pendingImports'] })
       queryClient.invalidateQueries({ queryKey: ['importStatus'] })
@@ -127,15 +98,11 @@ export function useManualImport() {
 
 export function usePreviewManualImport() {
   return useMutation<PreviewImportResponse, Error, { path: string }>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/import/manual/preview`, {
+    mutationFn: (req) =>
+      apiFetch<PreviewImportResponse>('/import/manual/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to preview import')
-      return res.json()
-    },
+      }),
   })
 }
 
@@ -144,13 +111,10 @@ export function useRetryImport() {
   const queryClient = useQueryClient()
 
   return useMutation<{ success: boolean; message: string }, Error, number>({
-    mutationFn: async (id) => {
-      const res = await fetch(`${API_BASE}/import/${id}/retry`, {
+    mutationFn: (id) =>
+      apiFetch<{ success: boolean; message: string }>(`/import/${id}/retry`, {
         method: 'POST',
-      })
-      if (!res.ok) throw new Error('Failed to retry import')
-      return res.json()
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pendingImports'] })
       queryClient.invalidateQueries({ queryKey: ['importStatus'] })
@@ -161,15 +125,11 @@ export function useRetryImport() {
 // Scan directory
 export function useScanDirectory() {
   return useMutation<ScanDirectoryResponse, Error, { path: string }>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/import/scan`, {
+    mutationFn: (req) =>
+      apiFetch<ScanDirectoryResponse>('/import/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to scan directory')
-      return res.json()
-    },
+      }),
   })
 }
 
@@ -181,11 +141,7 @@ export function useRenamePreview(mediaType: 'series' | 'movie', mediaId?: number
 
   return useQuery<RenamePreviewResponse>({
     queryKey: ['renamePreview', mediaType, mediaId, needsRename],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE}/import/rename/preview?${params}`)
-      if (!res.ok) throw new Error('Failed to fetch rename preview')
-      return res.json()
-    },
+    queryFn: () => apiFetch<RenamePreviewResponse>(`/import/rename/preview?${params}`),
     enabled: false,
   })
 }
@@ -194,15 +150,11 @@ export function useExecuteRename() {
   const queryClient = useQueryClient()
 
   return useMutation<ExecuteRenameResponse, Error, ExecuteRenameRequest>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/import/rename/execute`, {
+    mutationFn: (req) =>
+      apiFetch<ExecuteRenameResponse>('/import/rename/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to execute rename')
-      return res.json()
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['renamePreview'] })
       queryClient.invalidateQueries({ queryKey: ['movies'] })
@@ -214,14 +166,10 @@ export function useExecuteRename() {
 // Parse filename hook
 export function useParseFilename() {
   return useMutation<ParseFilenameResponse, Error, { filename: string }>({
-    mutationFn: async (req) => {
-      const res = await fetch(`${API_BASE}/settings/import/naming/parse`, {
+    mutationFn: (req) =>
+      apiFetch<ParseFilenameResponse>('/settings/import/naming/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
-      })
-      if (!res.ok) throw new Error('Failed to parse filename')
-      return res.json()
-    },
+      }),
   })
 }

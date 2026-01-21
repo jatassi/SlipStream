@@ -57,6 +57,11 @@ export function useDeveloperMode() {
   return data?.developerMode ?? false
 }
 
+export function usePortalEnabled() {
+  const { data } = useStatus()
+  return data?.portalEnabled ?? true
+}
+
 export function useTMDBSearchOrdering() {
   const { data } = useStatus()
   return data?.tmdb?.disableSearchOrdering ?? false

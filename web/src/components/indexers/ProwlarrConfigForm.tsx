@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, TestTube, Save, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react'
+import { Loader2, TestTube, Save, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, ChevronDown } from 'lucide-react'
 import {
   useProwlarrConfig,
   useUpdateProwlarrConfig,
@@ -65,6 +66,7 @@ export function ProwlarrConfigForm() {
   const [tvCategories, setTvCategories] = useState<number[]>(DEFAULT_TV_CATEGORIES)
   const [showApiKey, setShowApiKey] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     if (config) {
@@ -171,33 +173,38 @@ export function ProwlarrConfigForm() {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Prowlarr Configuration</CardTitle>
-            <CardDescription>
-              Connect to your Prowlarr instance for centralized indexer management
-            </CardDescription>
-          </div>
-          {status && (
-            <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
-              {status.connected ? (
-                <>
-                  <CheckCircle2 className="size-3" />
-                  Connected {status.version && `(v${status.version})`}
-                </>
-              ) : (
-                <>
-                  <XCircle className="size-3" />
-                  Disconnected
-                </>
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CardHeader>
+          <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
+            <div>
+              <CardTitle className="text-base">Prowlarr Configuration</CardTitle>
+              <CardDescription>
+                Connect to your Prowlarr instance for centralized indexer management
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              {status && (
+                <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
+                  {status.connected ? (
+                    <>
+                      <CheckCircle2 className="size-3" />
+                      Connected {status.version && `(v${status.version})`}
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="size-3" />
+                      Disconnected
+                    </>
+                  )}
+                </Badge>
               )}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid gap-4">
+              <ChevronDown className={`size-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+            </div>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
+            <div className="grid gap-4">
           <div className="grid gap-2">
             <Label>Host</Label>
             <div className="flex gap-0">
@@ -335,7 +342,10 @@ export function ProwlarrConfigForm() {
             </div>
           </div>
         </div>
-
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+      <CardContent className="pt-0">
         <div className="flex items-center gap-2 pt-4 border-t">
           <Button
             onClick={handleTest}
@@ -347,7 +357,7 @@ export function ProwlarrConfigForm() {
             ) : (
               <TestTube className="size-4 mr-2" />
             )}
-            Test Connection
+            Test
           </Button>
           <Button
             onClick={handleRefresh}
@@ -359,7 +369,7 @@ export function ProwlarrConfigForm() {
             ) : (
               <RefreshCw className="size-4 mr-2" />
             )}
-            Refresh Data
+            Refresh
           </Button>
           <Button
             onClick={handleSave}
@@ -370,7 +380,7 @@ export function ProwlarrConfigForm() {
             ) : (
               <Save className="size-4 mr-2" />
             )}
-            Save Configuration
+            Save
           </Button>
         </div>
       </CardContent>
