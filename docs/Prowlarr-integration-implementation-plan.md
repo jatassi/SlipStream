@@ -724,3 +724,221 @@ Phase 11 (Integration & Testing) ───────────────�
 ```
 
 Phases 1-3 must be sequential. Phases 4-6 can be parallelized after Phase 3. Phase 9 can start after Phase 7. Phase 10 requires Phase 9. Phase 11 is final integration.
+
+---
+
+## Progress Tracking
+
+| Phase | Status | Completed Date | Notes |
+|-------|--------|----------------|-------|
+| Phase 1: Database & Core Types | **COMPLETE** | 2026-01-20 | Migration 042, SQLC queries, Go types |
+| Phase 2: Prowlarr Client | **COMPLETE** | 2026-01-20 | HTTP client, capabilities, search, download, rate limiting |
+| Phase 3: Service Layer | **COMPLETE** | 2026-01-20 | Service, mode management, autosearch integration |
+| Phase 4: Search Integration | **COMPLETE** | 2026-01-20 | Search router with mode-aware routing, scoring integration |
+| Phase 5: Grab Integration | **COMPLETE** | 2026-01-20 | Grab provider with Prowlarr client wrapper |
+| Phase 6: Health & Monitoring | **COMPLETE** | 2026-01-20 | Health category, scheduler task |
+| Phase 7: API Endpoints | **COMPLETE** | 2026-01-20 | Handlers and routes registered |
+| Phase 8: Error Handling & Logging | **COMPLETE** | 2026-01-20 | Consolidated errors.go with helper functions |
+| Phase 9: Frontend - Types & API | **COMPLETE** | 2026-01-20 | TypeScript types, API client, React Query hooks |
+| Phase 10: Frontend - UI Components | **COMPLETE** | 2026-01-20 | Mode toggle, config form, indexer list, page integration |
+| Phase 11: Integration & Testing | Not Started | | |
+
+### Phase 1 Deliverables
+
+- `internal/database/migrations/042_prowlarr_config.sql` - Database migration with singleton pattern
+- `internal/database/queries/prowlarr_config.sql` - SQLC queries for CRUD operations
+- `internal/database/sqlc/prowlarr_config.sql.go` - Generated Go code
+- `internal/prowlarr/types.go` - Core types including:
+  - `Config` - Prowlarr connection configuration
+  - `Indexer`, `IndexerStatus`, `IndexerCaps` - Prowlarr indexer representation
+  - `Capabilities`, `Category` - Prowlarr capabilities
+  - `TorznabFeed`, `TorznabItem`, `TorznabAttribute` - Torznab XML parsing
+  - `SearchRequest`, `SearchResponse` - Search operation types
+  - Conversion methods: `ToReleaseInfo()`, `ToTorrentInfo()`
+
+### Phase 2 Deliverables
+
+- `internal/prowlarr/client.go` - HTTP client with:
+  - Configurable timeout and SSL verification
+  - API key header injection
+  - JSON and XML response parsing
+  - Connection test, capabilities fetch, indexer list, search, download
+- `internal/prowlarr/ratelimit.go` - Adaptive rate limiter:
+  - No initial rate limiting
+  - Backs off on 429 responses
+  - Gradually recovers after successful requests
+
+### Phase 3 Deliverables
+
+- `internal/prowlarr/service.go` - Main service with:
+  - Config management (load/save from database)
+  - 5-minute search result caching
+  - Client lifecycle management
+  - Search and download coordination
+- `internal/prowlarr/mode.go` - Mode management with:
+  - Developer mode override (forces SlipStream mode)
+  - Effective vs configured mode tracking
+- `internal/prowlarr/adapter.go` - Search adapter for router integration
+- `internal/autosearch/service.go` - Updated to use SearchService interface
+
+### Phase 4 Deliverables
+
+- `internal/indexer/search/router.go` - Search router with:
+  - Mode-aware routing (SlipStream vs Prowlarr)
+  - Quality enrichment for Prowlarr results
+  - Scoring integration for all search results
+  - Filter by criteria (title, season, episode, year)
+
+### Phase 5 Deliverables
+
+- `internal/prowlarr/grabprovider.go` - Grab provider with:
+  - Mode-aware client routing (IndexerID 0 = Prowlarr)
+  - GrabClient implementing indexer.Indexer interface
+  - Download through Prowlarr service
+
+### Phase 6 Deliverables
+
+- `internal/health/types.go` - Added CategoryProwlarr health category
+- `internal/health/service.go` - Updated GetAll() to include Prowlarr
+- `internal/scheduler/tasks/prowlarrhealth.go` - Prowlarr health task with:
+  - 15-minute check interval
+  - Connection status verification
+  - Capabilities and indexer refresh on success
+  - Registers/unregisters based on mode
+
+### Phase 7 Deliverables
+
+- `internal/prowlarr/handlers.go` - HTTP handlers for:
+  - `GET/PUT /api/v1/indexers/prowlarr` - Config management
+  - `POST /api/v1/indexers/prowlarr/test` - Connection testing
+  - `GET /api/v1/indexers/prowlarr/indexers` - Indexer list
+  - `GET /api/v1/indexers/prowlarr/status` - Connection status
+  - `POST /api/v1/indexers/prowlarr/refresh` - Refresh cached data
+  - `GET /api/v1/indexers/prowlarr/capabilities` - Capabilities
+  - `GET/PUT /api/v1/indexers/mode` - Mode management
+- `internal/api/server.go` - Route registration and service initialization
+
+### Phase 8 Deliverables
+
+- `internal/prowlarr/errors.go` - Consolidated error definitions:
+  - Configuration errors (ErrNotConfigured, ErrInvalidURL, etc.)
+  - Connection errors (ErrConnectionFailed, ErrConnectionTimeout, etc.)
+  - Search errors (ErrSearchFailed, ErrSearchTimeout, etc.)
+  - Download errors (ErrDownloadFailed, ErrDownloadNotFound)
+  - Rate limiting errors (ErrRateLimited)
+  - ProwlarrError wrapper type with operation context
+  - Helper functions (IsNotConfigured, IsConnectionError, etc.)
+
+### Phase 9 Deliverables
+
+- `web/src/types/prowlarr.ts` - TypeScript types:
+  - `IndexerMode`, `ProwlarrConfig`, `ProwlarrConfigInput`
+  - `ProwlarrIndexer`, `ProwlarrIndexerStatus`, `ProwlarrIndexerCapabilities`
+  - `ProwlarrCapabilities`, `ProwlarrCategory`, `ProwlarrConnectionStatus`
+  - `ModeInfo`, `SetModeInput`, `RefreshResult`
+  - Default category constants and helper functions
+- `web/src/api/prowlarr.ts` - API client:
+  - Config management (getConfig, updateConfig)
+  - Connection testing (testConnection)
+  - Indexer operations (getIndexers, refresh)
+  - Mode management (getMode, setMode)
+  - Status and capabilities endpoints
+- `web/src/hooks/useProwlarr.ts` - React Query hooks:
+  - `useProwlarrConfig`, `useUpdateProwlarrConfig`
+  - `useTestProwlarrConnection`
+  - `useProwlarrIndexers`, `useProwlarrCapabilities`, `useProwlarrStatus`
+  - `useRefreshProwlarr`
+  - `useIndexerMode`, `useSetIndexerMode`
+- `web/src/types/health.ts` - Added 'prowlarr' to HealthCategory type
+
+### Phase 10 Deliverables
+
+- `web/src/components/indexers/IndexerModeToggle.tsx` - Mode toggle component:
+  - Radio button selection between SlipStream and Prowlarr modes
+  - "Experimental" badge on SlipStream option
+  - Dev mode override warning display
+- `web/src/components/indexers/ProwlarrConfigForm.tsx` - Configuration form:
+  - URL and API key inputs with visibility toggle
+  - Timeout and SSL skip options
+  - Movie/TV category selectors with badge toggles
+  - Test connection, refresh data, and save buttons
+  - Connection status indicator
+- `web/src/components/indexers/ProwlarrIndexerList.tsx` - Read-only indexer list:
+  - Displays indexers from Prowlarr with status icons
+  - Protocol and privacy badges
+  - Capabilities display (movies/TV support)
+  - Enabled/disabled filtering
+- `web/src/components/indexers/index.ts` - Component exports
+- `web/src/routes/settings/indexers.tsx` - Modified to:
+  - Show mode toggle at top of page
+  - Conditionally render SlipStream or Prowlarr content
+  - Hide "Add Indexer" button in Prowlarr mode
+
+---
+
+## Phase 12: Per-Indexer Settings Enhancement
+
+**Dependencies:** Phase 10
+**Status:** COMPLETE
+**Completed Date:** 2026-01-20
+
+This phase adds per-indexer settings to provide more granular control over Prowlarr indexers, addressing gaps identified in the Radarr integration comparison audit.
+
+### Features Implemented
+
+1. **Per-Indexer Priority (1-50)**: Lower priority indexers are preferred during result deduplication
+2. **Content Type Filtering**: Indexers can be restricted to movies-only, series-only, or both
+3. **Per-Indexer Categories**: Custom movie/TV categories per indexer (supplements global defaults)
+4. **Failure Tracking**: Success/failure counts per indexer with last failure reason
+
+### Deliverables
+
+#### Backend
+
+- `internal/database/migrations/043_prowlarr_indexer_settings.sql` - Database migration:
+  - `prowlarr_indexer_settings` table with priority, content_type, categories, and failure tracking
+- `internal/database/queries/prowlarr_indexer_settings.sql` - SQLC queries:
+  - CRUD operations for indexer settings
+  - Success/failure recording
+  - Stats reset
+- `internal/prowlarr/types.go` - Added types:
+  - `ContentType` enum (movies, series, both)
+  - `IndexerSettings` struct with all settings and stats
+  - `IndexerSettingsInput` for create/update
+  - `IndexerWithSettings` combining indexer data with settings
+- `internal/prowlarr/service.go` - Extended with:
+  - `GetIndexerSettings`, `GetAllIndexerSettings`
+  - `UpdateIndexerSettings`, `DeleteIndexerSettings`
+  - `GetIndexersWithSettings` - combined view
+  - `RecordIndexerSuccess`, `RecordIndexerFailure`
+  - `ResetIndexerStats`
+  - Modified `Search()` to filter by content type and apply priorities
+  - Results sorted by priority for dedup preference
+- `internal/prowlarr/handlers.go` - Added endpoints:
+  - `GET /api/v1/indexers/prowlarr/indexers/settings` - All settings
+  - `GET /api/v1/indexers/prowlarr/indexers/:id/settings` - Single indexer
+  - `PUT /api/v1/indexers/prowlarr/indexers/:id/settings` - Update settings
+  - `DELETE /api/v1/indexers/prowlarr/indexers/:id/settings` - Remove settings
+  - `POST /api/v1/indexers/prowlarr/indexers/:id/reset-stats` - Reset stats
+- `internal/indexer/types/types.go` - Added `IndexerPriority` field to `ReleaseInfo`
+
+#### Frontend
+
+- `web/src/types/prowlarr.ts` - Added types:
+  - `ContentType`, `ProwlarrIndexerSettings`, `ProwlarrIndexerSettingsInput`
+  - `ProwlarrIndexerWithSettings`, `ContentTypeLabels`
+- `web/src/api/prowlarr.ts` - Added API functions:
+  - `getIndexersWithSettings`, `getIndexerSettings`
+  - `updateIndexerSettings`, `deleteIndexerSettings`
+  - `resetIndexerStats`
+- `web/src/hooks/useProwlarr.ts` - Added hooks:
+  - `useProwlarrIndexersWithSettings`
+  - `useProwlarrIndexerSettings`
+  - `useUpdateProwlarrIndexerSettings`
+  - `useDeleteProwlarrIndexerSettings`
+  - `useResetProwlarrIndexerStats`
+- `web/src/components/indexers/ProwlarrIndexerList.tsx` - Redesigned to:
+  - Show priority and content type badges per indexer
+  - Display success/failure statistics when available
+  - Settings dialog for editing priority and content type
+  - Reset stats button in dialog

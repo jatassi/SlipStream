@@ -214,6 +214,7 @@ func (s *Service) GetAll() *HealthResponse {
 	resp := &HealthResponse{
 		DownloadClients: s.itemsToSlice(CategoryDownloadClients),
 		Indexers:        s.itemsToSlice(CategoryIndexers),
+		Prowlarr:        s.itemsToSlice(CategoryProwlarr),
 		RootFolders:     s.itemsToSlice(CategoryRootFolders),
 		Metadata:        s.itemsToSlice(CategoryMetadata),
 		Storage:         s.itemsToSlice(CategoryStorage),

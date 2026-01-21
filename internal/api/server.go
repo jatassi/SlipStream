@@ -55,6 +55,7 @@ import (
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/notification"
+	"github.com/slipstream/slipstream/internal/prowlarr"
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/portal/admin"
 	"github.com/slipstream/slipstream/internal/portal/autoapprove"
@@ -124,6 +125,11 @@ type Server struct {
 	slotsService        *slots.Service
 	notificationService *notification.Service
 	queueBroadcaster    *downloader.QueueBroadcaster
+	prowlarrService       *prowlarr.Service
+	prowlarrModeManager   *prowlarr.ModeManager
+	prowlarrSearchAdapter *prowlarr.SearchAdapter
+	prowlarrGrabProvider  *prowlarr.GrabProvider
+	searchRouter          *search.Router
 
 	// Portal services
 	portalUsersService         *users.Service
@@ -272,15 +278,34 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize rate limiter
 	s.rateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
 
+	// Initialize Prowlarr service
+	s.prowlarrService = prowlarr.NewService(db, logger)
+	s.prowlarrModeManager = prowlarr.NewModeManager(s.prowlarrService, dbManager.IsDevMode)
+
 	// Initialize search service with status, rate limiting, and WebSocket events
 	s.searchService = search.NewService(s.indexerService, logger)
 	s.searchService.SetStatusService(s.statusService)
 	s.searchService.SetRateLimiter(s.rateLimiter)
 	s.searchService.SetBroadcaster(hub)
 
+	// Initialize Prowlarr search adapter and grab provider for mode-aware routing
+	s.prowlarrSearchAdapter = prowlarr.NewSearchAdapter(s.prowlarrService)
+	s.prowlarrGrabProvider = prowlarr.NewGrabProvider(
+		s.prowlarrService,
+		s.prowlarrModeManager,
+		s.indexerService,
+		logger,
+	)
+
+	// Initialize search router for mode-aware search routing
+	s.searchRouter = search.NewRouter(s.searchService, logger)
+	s.searchRouter.SetProwlarrSearcher(s.prowlarrSearchAdapter)
+	s.searchRouter.SetModeProvider(s.prowlarrModeManager)
+
 	// Initialize grab service with status, rate limiting, and WebSocket events
+	// Uses prowlarrGrabProvider for mode-aware routing (Prowlarr vs internal indexers)
 	s.grabService = grab.NewService(db, s.downloaderService, logger)
-	s.grabService.SetIndexerService(s.indexerService)
+	s.grabService.SetIndexerService(s.prowlarrGrabProvider)
 	s.grabService.SetStatusService(s.statusService)
 	s.grabService.SetRateLimiter(s.rateLimiter)
 	s.grabService.SetBroadcaster(hub)
@@ -403,8 +428,8 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	})
 	s.portalSearchLimiter.StartCleanup(5 * time.Minute)
 
-	// Initialize autosearch service
-	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
+	// Initialize autosearch service (uses search router for mode-aware search routing)
+	s.autosearchService = autosearch.NewService(db, s.searchRouter, s.grabService, s.qualityService, logger)
 	s.autosearchService.SetBroadcaster(hub)
 	s.autosearchService.SetHistoryService(s.historyService)
 
@@ -468,8 +493,12 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 			logger.Error().Err(err).Msg("Failed to register download client health task")
 		}
 		// Register indexer health check task
-		if err := tasks.RegisterIndexerHealthTask(s.scheduler, s.indexerService, s.healthService, &cfg.Health, logger); err != nil {
+		if err := tasks.RegisterIndexerHealthTask(s.scheduler, s.indexerService, s.prowlarrService, s.prowlarrModeManager, s.healthService, &cfg.Health, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register indexer health task")
+		}
+		// Register Prowlarr health check task
+		if err := tasks.RegisterProwlarrHealthTask(s.scheduler, s.prowlarrService, s.prowlarrModeManager, s.healthService, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register Prowlarr health task")
 		}
 		// Register storage health check task
 		storageAdapter := health.NewStorageServiceAdapter(s.storageService)
@@ -691,9 +720,14 @@ func (s *Server) setupRoutes() {
 	settings.POST("/apikey", s.regenerateApiKey)
 
 	// Indexers routes
+	indexersGroup := protected.Group("/indexers")
 	indexerHandlers := indexer.NewHandlers(s.indexerService)
 	indexerHandlers.SetStatusService(s.statusService)
-	indexerHandlers.RegisterRoutes(protected.Group("/indexers"))
+	indexerHandlers.RegisterRoutes(indexersGroup)
+
+	// Prowlarr routes (under /indexers/prowlarr and /indexers/mode)
+	prowlarrHandlers := prowlarr.NewHandlers(s.prowlarrService, s.prowlarrModeManager)
+	prowlarrHandlers.RegisterRoutes(indexersGroup)
 
 	// Download clients routes
 	clients := protected.Group("/downloadclients")
@@ -717,8 +751,8 @@ func (s *Server) setupRoutes() {
 	historyHandlers.RegisterRoutes(protected.Group("/history"))
 	protected.GET("/history/indexer", s.getIndexerHistory)
 
-	// Search routes (with quality service for scored search endpoints)
-	searchHandlers := search.NewHandlers(s.searchService, s.qualityService)
+	// Search routes (with search router for mode-aware search routing)
+	searchHandlers := search.NewHandlers(s.searchRouter, s.qualityService)
 	searchHandlers.RegisterRoutes(protected.Group("/search"))
 
 	// Grab routes (under /search for grabbing search results)
@@ -1882,6 +1916,7 @@ func (s *Server) updateServicesDB() {
 	s.availabilityService.SetDB(db)
 	s.missingService.SetDB(db)
 	s.statusService.SetDB(db)
+	s.prowlarrService.SetDB(db)
 
 	// Update portal services
 	queries := sqlc.New(db)

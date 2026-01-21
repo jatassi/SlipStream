@@ -20,6 +20,7 @@ export { autosearchApi } from './autosearch'
 export { healthApi } from './health'
 export { slotsApi } from './slots'
 export { notificationsApi } from './notifications'
+export { prowlarrApi } from './prowlarr'
 
 // Portal APIs
 export * from './portal'

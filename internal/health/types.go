@@ -20,6 +20,7 @@ type HealthCategory string
 const (
 	CategoryDownloadClients HealthCategory = "downloadClients"
 	CategoryIndexers        HealthCategory = "indexers"
+	CategoryProwlarr        HealthCategory = "prowlarr"
 	CategoryRootFolders     HealthCategory = "rootFolders"
 	CategoryMetadata        HealthCategory = "metadata"
 	CategoryStorage         HealthCategory = "storage"
@@ -31,6 +32,7 @@ func AllCategories() []HealthCategory {
 	return []HealthCategory{
 		CategoryDownloadClients,
 		CategoryIndexers,
+		CategoryProwlarr,
 		CategoryRootFolders,
 		CategoryMetadata,
 		CategoryStorage,
@@ -84,6 +86,7 @@ func (c CategorySummary) HasIssues() bool {
 type HealthResponse struct {
 	DownloadClients []HealthItem `json:"downloadClients"`
 	Indexers        []HealthItem `json:"indexers"`
+	Prowlarr        []HealthItem `json:"prowlarr"`
 	RootFolders     []HealthItem `json:"rootFolders"`
 	Metadata        []HealthItem `json:"metadata"`
 	Storage         []HealthItem `json:"storage"`

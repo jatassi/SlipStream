@@ -40,7 +40,7 @@ type IndexerDefinition struct {
 	Protocol       Protocol        `json:"protocol"`
 	Privacy        Privacy         `json:"privacy"`
 	SupportsMovies bool            `json:"supportsMovies"`
-	SupportsTV     bool            `json:"supportsTV"`
+	SupportsTV     bool            `json:"supportsTv"`
 	SupportsSearch bool            `json:"supportsSearch"`
 	SupportsRSS    bool            `json:"supportsRss"`
 	Priority          int             `json:"priority"`
@@ -84,9 +84,10 @@ type ReleaseInfo struct {
 	Categories  []int     `json:"categories"`
 
 	// Indexer info
-	IndexerID   int64    `json:"indexerId"`
-	IndexerName string   `json:"indexer"`
-	Protocol    Protocol `json:"protocol"`
+	IndexerID       int64    `json:"indexerId"`
+	IndexerName     string   `json:"indexer"`
+	IndexerPriority int      `json:"indexerPriority,omitempty"` // 1-50, lower = preferred (for dedup)
+	Protocol        Protocol `json:"protocol"`
 
 	// External IDs
 	ImdbID int `json:"imdbId,omitempty"`
@@ -151,7 +152,7 @@ type UsenetInfo struct {
 // Capabilities describes what an indexer supports.
 type Capabilities struct {
 	SupportsMovies      bool              `json:"supportsMovies"`
-	SupportsTV          bool              `json:"supportsTV"`
+	SupportsTV          bool              `json:"supportsTv"`
 	SupportsSearch      bool              `json:"supportsSearch"`
 	SupportsRSS         bool              `json:"supportsRss"`
 	SearchParams        []string          `json:"searchParams"`

@@ -347,6 +347,35 @@ type PortalUser struct {
 	IsAdmin          int64          `json:"is_admin"`
 }
 
+type ProwlarrConfig struct {
+	ID                    int64          `json:"id"`
+	Enabled               int64          `json:"enabled"`
+	Url                   string         `json:"url"`
+	ApiKey                string         `json:"api_key"`
+	MovieCategories       string         `json:"movie_categories"`
+	TvCategories          string         `json:"tv_categories"`
+	Timeout               int64          `json:"timeout"`
+	SkipSslVerify         int64          `json:"skip_ssl_verify"`
+	Capabilities          sql.NullString `json:"capabilities"`
+	CapabilitiesUpdatedAt sql.NullTime   `json:"capabilities_updated_at"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+}
+
+type ProwlarrIndexerSetting struct {
+	ProwlarrIndexerID int64          `json:"prowlarr_indexer_id"`
+	Priority          int64          `json:"priority"`
+	ContentType       string         `json:"content_type"`
+	MovieCategories   sql.NullString `json:"movie_categories"`
+	TvCategories      sql.NullString `json:"tv_categories"`
+	SuccessCount      int64          `json:"success_count"`
+	FailureCount      int64          `json:"failure_count"`
+	LastFailureAt     sql.NullTime   `json:"last_failure_at"`
+	LastFailureReason sql.NullString `json:"last_failure_reason"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
 type QualityProfile struct {
 	ID                   int64        `json:"id"`
 	Name                 string       `json:"name"`

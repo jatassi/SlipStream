@@ -22,6 +22,7 @@ export * from './useHealth'
 export * from './useImport'
 export * from './useSlots'
 export * from './useNotifications'
+export * from './useProwlarr'
 
 // Portal hooks
 export * from './portal'

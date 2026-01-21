@@ -6,11 +6,12 @@
 [x] Bun migration
 [x] Notifications
 [x] Developer mode (simulate external boundaries)
-[ ] Prowlarr Integration
+[x] Prowlarr Integration
 [x] Update Search Results Page
 [x] External Requests
 [x] Passkeys
 [x] Web app settings (port, auth, https, etc)
+[ ] Settings re-org
 [ ] Update mechanism, Production-Readiness
 ======== Ready for Dogfooding ========
 [ ] Logo and color palette

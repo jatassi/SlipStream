@@ -36,7 +36,7 @@ type Broadcaster interface {
 type Service struct {
 	db             *sql.DB
 	queries        *sqlc.Queries
-	searchService  *search.Service
+	searchService  search.SearchService
 	grabService    *grab.Service
 	qualityService *quality.Service
 	historyService *history.Service
@@ -52,7 +52,7 @@ type Service struct {
 // NewService creates a new automatic search service.
 func NewService(
 	db *sql.DB,
-	searchService *search.Service,
+	searchService search.SearchService,
 	grabService *grab.Service,
 	qualityService *quality.Service,
 	logger zerolog.Logger,

@@ -59,7 +59,9 @@
       "mcp__shadcn__get_item_examples_from_registries",
       "Bash(bun run tsc:*)",
       "Bash(sqlite3:*)",
-      "Bash(go doc:*)"
+      "Bash(go doc:*)",
+      "Bash(sort:*)",
+      "Bash(bun run lint:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -2,7 +2,7 @@
 export type HealthStatus = 'ok' | 'warning' | 'error'
 
 // HealthCategory represents the category of health items
-export type HealthCategory = 'downloadClients' | 'indexers' | 'rootFolders' | 'metadata' | 'storage' | 'import'
+export type HealthCategory = 'downloadClients' | 'indexers' | 'prowlarr' | 'rootFolders' | 'metadata' | 'storage' | 'import'
 
 // HealthItem represents a single health-tracked item
 export interface HealthItem {
@@ -26,6 +26,7 @@ export interface CategorySummary {
 export interface HealthResponse {
   downloadClients: HealthItem[]
   indexers: HealthItem[]
+  prowlarr: HealthItem[]
   rootFolders: HealthItem[]
   metadata: HealthItem[]
   storage: HealthItem[]
@@ -66,6 +67,7 @@ export function getCategoryDisplayName(category: HealthCategory): string {
   const names: Record<HealthCategory, string> = {
     downloadClients: 'Download Clients',
     indexers: 'Indexers',
+    prowlarr: 'Prowlarr',
     rootFolders: 'Root Folders',
     metadata: 'Metadata',
     storage: 'Storage',
@@ -79,6 +81,7 @@ export function getCategorySettingsPath(category: HealthCategory): string {
   const paths: Record<HealthCategory, string> = {
     downloadClients: '/settings/downloadclients',
     indexers: '/settings/indexers',
+    prowlarr: '/settings/indexers',
     rootFolders: '/settings/mediamanagement',
     metadata: '/settings/metadata',
     storage: '/settings/mediamanagement',
@@ -91,6 +94,7 @@ export function getCategorySettingsPath(category: HealthCategory): string {
 export const ALL_HEALTH_CATEGORIES: HealthCategory[] = [
   'downloadClients',
   'indexers',
+  'prowlarr',
   'rootFolders',
   'metadata',
   'storage',

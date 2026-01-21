@@ -170,7 +170,7 @@ type CreateIndexerInput struct {
 	Settings          json.RawMessage `json:"settings,omitempty"`
 	Categories        []int           `json:"categories"`
 	SupportsMovies    bool            `json:"supportsMovies"`
-	SupportsTV        bool            `json:"supportsTV"`
+	SupportsTV        bool            `json:"supportsTv"`
 	Priority          int             `json:"priority"`
 	Enabled           bool            `json:"enabled"`
 	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
@@ -183,7 +183,7 @@ type UpdateIndexerInput struct {
 	Settings          json.RawMessage `json:"settings,omitempty"`
 	Categories        []int           `json:"categories,omitempty"`
 	SupportsMovies    *bool           `json:"supportsMovies,omitempty"`
-	SupportsTV        *bool           `json:"supportsTV,omitempty"`
+	SupportsTV        *bool           `json:"supportsTv,omitempty"`
 	Priority          *int            `json:"priority,omitempty"`
 	Enabled           *bool           `json:"enabled,omitempty"`
 	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
