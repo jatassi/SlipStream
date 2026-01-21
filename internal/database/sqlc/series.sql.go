@@ -119,6 +119,42 @@ func (q *Queries) CountMissingEpisodes(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countMissingEpisodesBySeasons = `-- name: CountMissingEpisodesBySeasons :one
+SELECT COUNT(*) FROM episodes e
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ?
+  AND e.season_number IN (/*SLICE:seasonNumbers*/?)
+  AND e.released = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL
+`
+
+type CountMissingEpisodesBySeasonsParams struct {
+	SeriesID      int64   `json:"series_id"`
+	SeasonNumbers []int64 `json:"seasonNumbers"`
+}
+
+// Counts missing episodes (released, monitored, no file) in the specified seasons
+func (q *Queries) CountMissingEpisodesBySeasons(ctx context.Context, arg CountMissingEpisodesBySeasonsParams) (int64, error) {
+	query := countMissingEpisodesBySeasons
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.SeriesID)
+	if len(arg.SeasonNumbers) > 0 {
+		for _, v := range arg.SeasonNumbers {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:seasonNumbers*/?", strings.Repeat(",?", len(arg.SeasonNumbers))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:seasonNumbers*/?", "NULL", 1)
+	}
+	row := q.db.QueryRowContext(ctx, query, queryParams...)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMissingEpisodesBySeries = `-- name: CountMissingEpisodesBySeries :one
 SELECT COUNT(*) FROM episodes e
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number

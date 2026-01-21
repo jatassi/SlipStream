@@ -2,6 +2,7 @@ export interface QueueItem {
   id: string
   clientId: number
   clientName: string
+  clientType: string
   title: string
   mediaType: 'movie' | 'series' | 'unknown'
   status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed'

@@ -20,6 +20,20 @@ type Config struct {
 	Indexer    IndexerConfig    `mapstructure:"indexer"`
 	AutoSearch AutoSearchConfig `mapstructure:"autosearch"`
 	Health     HealthConfig     `mapstructure:"health"`
+	Portal     PortalConfig     `mapstructure:"portal"`
+}
+
+// PortalConfig holds external requests portal configuration.
+type PortalConfig struct {
+	JWTSecret string         `mapstructure:"jwt_secret"`
+	WebAuthn  WebAuthnConfig `mapstructure:"webauthn"`
+}
+
+// WebAuthnConfig holds WebAuthn/Passkey configuration.
+type WebAuthnConfig struct {
+	RPDisplayName string   `mapstructure:"rp_display_name"`
+	RPID          string   `mapstructure:"rp_id"`
+	RPOrigins     []string `mapstructure:"rp_origins"`
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -37,6 +51,7 @@ type DatabaseConfig struct {
 type LoggingConfig struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
+	Path   string `mapstructure:"path"`
 }
 
 // AuthConfig holds authentication configuration.
@@ -171,6 +186,7 @@ func Default() *Config {
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "console",
+			Path:   "./data/logs",
 		},
 		Auth: AuthConfig{
 			JWTSecret: "", // Will be generated if empty
@@ -226,6 +242,14 @@ func Default() *Config {
 			StorageCheckInterval:        1 * time.Hour,
 			StorageWarningThreshold:     0.20,
 			StorageErrorThreshold:       0.05,
+		},
+		Portal: PortalConfig{
+			JWTSecret: "",
+			WebAuthn: WebAuthnConfig{
+				RPDisplayName: "SlipStream",
+				RPID:          "localhost",
+				RPOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
+			},
 		},
 	}
 }
@@ -293,6 +317,7 @@ func setDefaults(v *viper.Viper) {
 	// Logging defaults
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "console")
+	v.SetDefault("logging.path", "./data/logs")
 
 	// Auth defaults
 	v.SetDefault("auth.jwt_secret", "")
@@ -345,6 +370,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("health.storage_check_interval", 1*time.Hour)
 	v.SetDefault("health.storage_warning_threshold", 0.20)
 	v.SetDefault("health.storage_error_threshold", 0.05)
+
+	// Portal defaults
+	v.SetDefault("portal.jwt_secret", "")
+	v.SetDefault("portal.webauthn.rp_display_name", "SlipStream")
+	v.SetDefault("portal.webauthn.rp_id", "localhost")
+	v.SetDefault("portal.webauthn.rp_origins", []string{"http://localhost:3000", "http://localhost:8080"})
 }
 
 // Address returns the server address string.

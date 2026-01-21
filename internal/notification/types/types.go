@@ -44,6 +44,7 @@ type Notifier interface {
 	OnHealthIssue(ctx context.Context, event HealthEvent) error
 	OnHealthRestored(ctx context.Context, event HealthEvent) error
 	OnApplicationUpdate(ctx context.Context, event AppUpdateEvent) error
+	SendMessage(ctx context.Context, event MessageEvent) error
 }
 
 // EventType identifies the type of notification event
@@ -236,4 +237,11 @@ type AppUpdateEvent struct {
 	PreviousVersion string    `json:"previousVersion"`
 	NewVersion      string    `json:"newVersion"`
 	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+// MessageEvent is a generic message event for custom notifications
+type MessageEvent struct {
+	Title   string    `json:"title"`
+	Message string    `json:"message"`
+	SentAt  time.Time `json:"sentAt"`
 }

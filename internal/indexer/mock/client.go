@@ -2,7 +2,6 @@ package mock
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -11,7 +10,9 @@ import (
 
 // Client implements the indexer.Indexer interface for mock testing.
 type Client struct {
-	indexerDef *types.IndexerDefinition
+	indexerDef    *types.IndexerDefinition
+	movieReleases map[int][]types.ReleaseInfo
+	tvReleases    map[int][]types.ReleaseInfo
 }
 
 // Ensure Client implements the Indexer interfaces.
@@ -31,7 +32,9 @@ var _ interface {
 // NewClient creates a new mock indexer client.
 func NewClient(indexerDef *types.IndexerDefinition) *Client {
 	return &Client{
-		indexerDef: indexerDef,
+		indexerDef:    indexerDef,
+		movieReleases: buildMovieReleasesMap(),
+		tvReleases:    buildTVReleasesMap(),
 	}
 }
 
@@ -69,14 +72,14 @@ func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 
 	// Try to find results by ID
 	if criteria.TmdbID > 0 {
-		if jsonStr, ok := movieResultsJSON[criteria.TmdbID]; ok {
-			json.Unmarshal([]byte(jsonStr), &releases)
+		if r, ok := c.movieReleases[criteria.TmdbID]; ok {
+			releases = append(releases, r...)
 		}
 	}
 
 	if criteria.TvdbID > 0 {
-		if jsonStr, ok := tvResultsJSON[criteria.TvdbID]; ok {
-			json.Unmarshal([]byte(jsonStr), &releases)
+		if r, ok := c.tvReleases[criteria.TvdbID]; ok {
+			releases = append(releases, r...)
 		}
 	}
 
@@ -111,9 +114,7 @@ func (c *Client) searchByQuery(query string) []types.ReleaseInfo {
 	var results []types.ReleaseInfo
 
 	// Search through all movie results
-	for _, jsonStr := range movieResultsJSON {
-		var releases []types.ReleaseInfo
-		json.Unmarshal([]byte(jsonStr), &releases)
+	for _, releases := range c.movieReleases {
 		for _, r := range releases {
 			if strings.Contains(strings.ToLower(r.Title), query) {
 				results = append(results, r)
@@ -122,9 +123,7 @@ func (c *Client) searchByQuery(query string) []types.ReleaseInfo {
 	}
 
 	// Search through all TV results
-	for _, jsonStr := range tvResultsJSON {
-		var releases []types.ReleaseInfo
-		json.Unmarshal([]byte(jsonStr), &releases)
+	for _, releases := range c.tvReleases {
 		for _, r := range releases {
 			if strings.Contains(strings.ToLower(r.Title), query) {
 				results = append(results, r)

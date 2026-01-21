@@ -210,6 +210,10 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.sendMessage(ctx, title, message, "")
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	return n.sendMessage(ctx, event.Title, event.Message, "")
+}
+
 func (n *Notifier) sendMessage(ctx context.Context, title, message, urlStr string) error {
 	form := url.Values{}
 	form.Set("token", n.settings.APIToken)

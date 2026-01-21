@@ -574,6 +574,17 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.send(ctx, payload)
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	payload := n.buildPayload(Embed{
+		Title:       event.Title,
+		Description: event.Message,
+		Color:       ColorInfo,
+		Timestamp:   event.SentAt.UTC().Format(time.RFC3339),
+	})
+
+	return n.send(ctx, payload)
+}
+
 func (n *Notifier) buildPayload(embed Embed) WebhookPayload {
 	authorName := "SlipStream"
 	if n.settings.Author != "" {

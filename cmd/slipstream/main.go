@@ -5,12 +5,14 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/slipstream/slipstream/internal/api"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database"
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -30,7 +32,9 @@ func main() {
 	log := logger.New(logger.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
+		Path:   cfg.Logging.Path,
 	})
+	defer log.Close()
 
 	log.Info().
 		Str("version", "0.0.1-dev").
@@ -51,6 +55,19 @@ func main() {
 	log.Info().Msg("running database migrations")
 	if err := dbManager.Migrate(); err != nil {
 		log.Fatal().Err(err).Msg("failed to run migrations")
+	}
+
+	// Load settings from database and override config
+	queries := sqlc.New(dbManager.Conn())
+	if setting, err := queries.GetSetting(context.Background(), "server_port"); err == nil {
+		if port, err := strconv.Atoi(setting.Value); err == nil {
+			cfg.Server.Port = port
+			log.Info().Int("port", port).Msg("loaded server port from database")
+		}
+	}
+	if setting, err := queries.GetSetting(context.Background(), "log_level"); err == nil && setting.Value != "" {
+		cfg.Logging.Level = setting.Value
+		log.Info().Str("level", setting.Value).Msg("loaded log level from database")
 	}
 
 	// Initialize WebSocket hub

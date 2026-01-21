@@ -31,6 +31,11 @@ type Broadcaster interface {
 	Broadcast(msgType string, payload interface{}) error
 }
 
+// QueueTrigger interface for triggering immediate queue broadcasts.
+type QueueTrigger interface {
+	Trigger()
+}
+
 // NotificationService interface for sending external notifications.
 type NotificationService interface {
 	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string)
@@ -44,6 +49,7 @@ type Service struct {
 	statusService       *status.Service
 	rateLimiter         *ratelimit.Limiter
 	broadcaster         Broadcaster
+	queueTrigger        QueueTrigger
 	notificationService NotificationService
 	logger              zerolog.Logger
 }
@@ -89,6 +95,11 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 // SetNotificationService sets the notification service for external notifications.
 func (s *Service) SetNotificationService(notificationService NotificationService) {
 	s.notificationService = notificationService
+}
+
+// SetQueueTrigger sets the queue trigger for immediate queue broadcasts when downloads are added.
+func (s *Service) SetQueueTrigger(trigger QueueTrigger) {
+	s.queueTrigger = trigger
 }
 
 // SetDB updates the database connection used by this service.
@@ -285,10 +296,13 @@ func (s *Service) broadcastGrabCompleted(release *types.ReleaseInfo, result *Gra
 
 // broadcastQueueUpdated notifies frontends that the queue has changed.
 func (s *Service) broadcastQueueUpdated() {
-	if s.broadcaster == nil {
-		return
+	if s.broadcaster != nil {
+		s.broadcaster.Broadcast("queue:updated", nil)
 	}
-	s.broadcaster.Broadcast("queue:updated", nil)
+	// Trigger immediate queue broadcast and switch to fast polling
+	if s.queueTrigger != nil {
+		s.queueTrigger.Trigger()
+	}
 }
 
 // GrabBulk grabs multiple releases.

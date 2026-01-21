@@ -13,7 +13,7 @@ import (
 
 const (
 	// DownloadDuration is how long a mock download takes to complete (seconds)
-	DownloadDuration = 15.0
+	DownloadDuration = 300.0
 	// QueueDelay is how long items stay queued before starting (seconds)
 	QueueDelay = 2.0
 	// MockDownloadDir is the simulated download directory
@@ -213,6 +213,26 @@ func (c *Client) Resume(_ context.Context, id string) error {
 		d.Status = types.StatusDownloading
 	}
 
+	return nil
+}
+
+// FastForward instantly completes a mock download.
+func (c *Client) FastForward(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	d, ok := c.downloads[id]
+	if !ok {
+		return types.ErrNotFound
+	}
+
+	if d.Completed {
+		return nil
+	}
+
+	d.Completed = true
+	d.Status = types.StatusSeeding
+	d.PausedAt = time.Time{}
 	return nil
 }
 

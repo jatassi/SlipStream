@@ -2,8 +2,13 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -50,6 +55,17 @@ import (
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/notification"
+	"github.com/slipstream/slipstream/internal/auth"
+	"github.com/slipstream/slipstream/internal/portal/admin"
+	"github.com/slipstream/slipstream/internal/portal/autoapprove"
+	"github.com/slipstream/slipstream/internal/portal/invitations"
+	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
+	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
+	"github.com/slipstream/slipstream/internal/portal/quota"
+	portalratelimit "github.com/slipstream/slipstream/internal/portal/ratelimit"
+	"github.com/slipstream/slipstream/internal/portal/requests"
+	portalsearch "github.com/slipstream/slipstream/internal/portal/search"
+	"github.com/slipstream/slipstream/internal/portal/users"
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
@@ -107,6 +123,24 @@ type Server struct {
 	mediainfoService    *mediainfo.Service
 	slotsService        *slots.Service
 	notificationService *notification.Service
+	queueBroadcaster    *downloader.QueueBroadcaster
+
+	// Portal services
+	portalUsersService         *users.Service
+	portalInvitationsService   *invitations.Service
+	portalRequestsService      *requests.Service
+	portalQuotaService         *quota.Service
+	portalNotificationsService *portalnotifs.Service
+	portalAutoApproveService   *autoapprove.Service
+	portalAuthService          *auth.Service
+	portalPasskeyService       *auth.PasskeyService
+	portalAuthMiddleware       *portalmw.AuthMiddleware
+	portalSearchLimiter        *portalratelimit.SearchLimiter
+	portalRequestSearcher      *requests.RequestSearcher
+	portalMediaProvisioner     *portalMediaProvisionerAdapter
+	portalWatchersService      *requests.WatchersService
+	portalStatusTracker        *requests.StatusTracker
+	portalLibraryChecker       *requests.LibraryChecker
 }
 
 // NewServer creates a new API server instance.
@@ -137,6 +171,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 			if err := dbManager.SetDevMode(enabled); err != nil {
 				return err
 			}
+			// Copy settings to dev database before updating services
+			if enabled {
+				s.copyJWTSecretToDevDB()
+				s.copySettingsToDevDB()
+			}
 			// Update all services to use the new database connection
 			s.updateServicesDB()
 			// Switch metadata clients based on dev mode
@@ -149,9 +188,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 			s.switchNotification(enabled)
 			// Create mock root folders based on dev mode
 			s.switchRootFolders(enabled)
-			// Copy quality profiles and populate mock media
+			// Copy data and populate mock media
 			if enabled {
-				s.copyQualityProfilesToDevDB()
+				profileIDMapping := s.copyQualityProfilesToDevDB()
+				s.copyPortalUsersToDevDB(profileIDMapping)
+				s.copyPortalUserNotificationsToDevDB()
 				s.populateMockMedia()
 			}
 			return nil
@@ -204,6 +245,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.downloaderService = downloader.NewService(db, logger)
 	s.downloaderService.SetHealthService(s.healthService)
 
+	// Initialize queue broadcaster for real-time download progress updates
+	if hub != nil {
+		s.queueBroadcaster = downloader.NewQueueBroadcaster(s.downloaderService, hub, logger)
+	}
+
 	// Initialize Cardigann manager for indexer definitions
 	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
 	cardigannManager, err := cardigann.NewManager(cardigann.DefaultManagerConfig(), logger)
@@ -238,6 +284,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.grabService.SetStatusService(s.statusService)
 	s.grabService.SetRateLimiter(s.rateLimiter)
 	s.grabService.SetBroadcaster(hub)
+	if s.queueBroadcaster != nil {
+		s.grabService.SetQueueTrigger(s.queueBroadcaster)
+	}
 
 	// Initialize defaults service
 	s.defaultsService = defaults.NewService(sqlc.New(db))
@@ -297,6 +346,62 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Wire up notification service to import service
 	s.importService.SetNotificationDispatcher(&importNotificationAdapter{s.notificationService})
+
+	// Initialize portal services
+	queries := sqlc.New(db)
+	s.portalUsersService = users.NewService(queries, logger)
+	s.portalInvitationsService = invitations.NewService(queries, logger)
+	s.portalQuotaService = quota.NewService(queries, logger)
+	s.portalRequestsService = requests.NewService(queries, logger)
+	s.portalRequestsService.SetBroadcaster(requests.NewEventBroadcaster(hub))
+	s.portalNotificationsService = portalnotifs.NewService(queries, s.notificationService, hub, logger)
+	s.portalWatchersService = requests.NewWatchersService(queries, logger)
+	s.portalRequestsService.SetNotificationDispatcher(s.portalNotificationsService)
+	s.portalRequestsService.SetWatchersService(s.portalWatchersService)
+	s.portalAutoApproveService = autoapprove.NewService(
+		queries,
+		s.portalUsersService,
+		s.qualityService,
+		s.portalQuotaService,
+		s.portalRequestsService,
+		logger,
+	)
+
+	// Initialize status tracker for portal request status updates
+	s.portalStatusTracker = requests.NewStatusTracker(queries, s.portalRequestsService, s.portalWatchersService, logger)
+	s.portalStatusTracker.SetMovieLookup(&statusTrackerMovieLookup{movieSvc: s.movieService})
+	s.portalStatusTracker.SetEpisodeLookup(&statusTrackerEpisodeLookup{tvSvc: s.tvService})
+	s.portalStatusTracker.SetSeriesLookup(&statusTrackerSeriesLookup{tvSvc: s.tvService})
+	s.portalStatusTracker.SetNotificationDispatcher(s.portalNotificationsService)
+	s.portalLibraryChecker = requests.NewLibraryChecker(queries, logger)
+	s.importService.SetStatusTracker(s.portalStatusTracker)
+
+	authSvc, err := auth.NewService(queries, cfg.Portal.JWTSecret)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize portal auth service")
+	}
+	s.portalAuthService = authSvc
+	s.portalAuthMiddleware = portalmw.NewAuthMiddleware(authSvc)
+
+	passkeySvc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
+		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
+		RPID:          cfg.Portal.WebAuthn.RPID,
+		RPOrigins:     cfg.Portal.WebAuthn.RPOrigins,
+	})
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize passkey service")
+	}
+	s.portalPasskeyService = passkeySvc
+
+	s.portalSearchLimiter = portalratelimit.NewSearchLimiter(func() int64 {
+		if setting, err := queries.GetSetting(context.Background(), admin.SettingSearchRateLimit); err == nil && setting.Value != "" {
+			if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
+				return v
+			}
+		}
+		return portalratelimit.DefaultRequestsPerMinute
+	})
+	s.portalSearchLimiter.StartCleanup(5 * time.Minute)
 
 	// Initialize autosearch service
 	s.autosearchService = autosearch.NewService(db, s.searchService, s.grabService, s.qualityService, logger)
@@ -446,8 +551,18 @@ func (s *Server) setupRoutes() {
 	// API v1 group
 	api := s.echo.Group("/api/v1")
 
-	// System routes
+	// Public routes (no auth required)
 	api.GET("/status", s.getStatus)
+
+	// Auth routes (public, no auth required)
+	authGroup := api.Group("/auth")
+	authGroup.GET("/status", s.getAuthStatus)
+	authGroup.POST("/setup", s.adminSetup)
+	authGroup.DELETE("/admin", s.deleteAdmin)
+
+	// Protected routes (admin auth required)
+	protected := api.Group("")
+	protected.Use(s.adminAuthMiddleware())
 
 	// System health routes (under /api/v1/system/health to avoid conflict with /health endpoint)
 	healthHandlers := health.NewHandlers(s.healthService, &health.TestFunctions{
@@ -477,49 +592,43 @@ func (s *Server) setupRoutes() {
 		TestTMDB:         s.metadataService.TestTMDB,
 		TestTVDB:         s.metadataService.TestTVDB,
 	})
-	healthHandlers.RegisterRoutes(api.Group("/system/health"))
-
-	// Auth routes
-	auth := api.Group("/auth")
-	auth.POST("/login", s.login)
-	auth.POST("/logout", s.logout)
-	auth.GET("/status", s.authStatus)
+	healthHandlers.RegisterRoutes(protected.Group("/system/health"))
 
 	// Movies routes - use new handlers
 	movieHandlers := movies.NewHandlers(s.movieService)
-	movieHandlers.RegisterRoutes(api.Group("/movies"))
+	movieHandlers.RegisterRoutes(protected.Group("/movies"))
 
 	// Series routes - use new handlers
 	tvHandlers := tv.NewHandlers(s.tvService)
-	tvHandlers.RegisterRoutes(api.Group("/series"))
+	tvHandlers.RegisterRoutes(protected.Group("/series"))
 
 	// Library manager routes (scanning and refresh) - initialized here for refresh endpoints
 	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
 
 	// Refresh metadata endpoints (need to be on the movies/series groups)
-	api.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
-	api.POST("/series/:id/refresh", libraryManagerHandlers.RefreshSeries)
+	protected.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
+	protected.POST("/series/:id/refresh", libraryManagerHandlers.RefreshSeries)
 
 	// Library add endpoints (creates item + downloads artwork)
-	libraryGroup := api.Group("/library")
+	libraryGroup := protected.Group("/library")
 	libraryGroup.POST("/movies", libraryManagerHandlers.AddMovie)
 	libraryGroup.POST("/series", libraryManagerHandlers.AddSeries)
 
 	// Quality profiles routes
 	qualityHandlers := quality.NewHandlers(s.qualityService)
-	qualityHandlers.RegisterRoutes(api.Group("/qualityprofiles"))
+	qualityHandlers.RegisterRoutes(protected.Group("/qualityprofiles"))
 
 	// Version slots routes (multi-version support)
 	slotsHandlers := slots.NewHandlers(s.slotsService)
-	slotsHandlers.RegisterRoutes(api.Group("/slots"))
+	slotsHandlers.RegisterRoutes(protected.Group("/slots"))
 
 	// Slots debug routes (gated behind developerMode)
 	slotsDebugHandlers := slots.NewDebugHandlers(s.slotsService, s.dbManager.IsDevMode)
-	slotsDebugHandlers.RegisterDebugRoutes(api.Group("/slots/debug"))
+	slotsDebugHandlers.RegisterDebugRoutes(protected.Group("/slots/debug"))
 
 	// Root folders routes
 	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
-	rootFolderHandlers.RegisterRoutes(api.Group("/rootfolders"))
+	rootFolderHandlers.RegisterRoutes(protected.Group("/rootfolders"))
 
 	// Wire up auto-scan when root folder is created
 	rootFolderHandlers.SetOnFolderCreated(func(folderID int64) {
@@ -530,19 +639,27 @@ func (s *Server) setupRoutes() {
 		}
 	})
 
-	rootFoldersGroup := api.Group("/rootfolders")
+	rootFoldersGroup := protected.Group("/rootfolders")
 	rootFoldersGroup.POST("/:id/scan", libraryManagerHandlers.ScanRootFolder)
 	rootFoldersGroup.GET("/:id/scan", libraryManagerHandlers.GetScanStatus)
 	rootFoldersGroup.DELETE("/:id/scan", libraryManagerHandlers.CancelScan)
-	api.GET("/scans", libraryManagerHandlers.GetAllScanStatuses)
-	api.POST("/scans", libraryManagerHandlers.ScanAllRootFolders)
+	protected.GET("/scans", libraryManagerHandlers.GetAllScanStatuses)
+	protected.POST("/scans", libraryManagerHandlers.ScanAllRootFolders)
 
-	// Metadata routes
+	// Metadata handlers
 	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
-	metadataHandlers.RegisterRoutes(api.Group("/metadata"))
 
-	// TMDB configuration endpoints
-	api.POST("/metadata/tmdb/search-ordering", s.updateTMDBSearchOrdering)
+	// Artwork serving (public - no auth required, images loaded via <img> tags)
+	// Must be registered before protected routes so it takes precedence
+	metadataHandlers.RegisterArtworkRoutes(api.Group("/metadata"))
+
+	// Other metadata routes (accessible to both admin and portal users)
+	metadataGroup := api.Group("/metadata")
+	metadataGroup.Use(s.portalAuthMiddleware.AnyAuth())
+	metadataHandlers.RegisterRoutes(metadataGroup)
+
+	// TMDB configuration endpoints (admin only)
+	protected.POST("/metadata/tmdb/search-ordering", s.updateTMDBSearchOrdering)
 
 	// Filesystem routes (for folder browsing)
 	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystemService, s.storageService)
@@ -565,20 +682,21 @@ func (s *Server) setupRoutes() {
 			IsTV:             parsed.IsTV,
 		}
 	})
-	filesystemHandlers.RegisterRoutes(api.Group("/filesystem"))
+	filesystemHandlers.RegisterRoutes(protected.Group("/filesystem"))
 
 	// Settings routes
-	settings := api.Group("/settings")
+	settings := protected.Group("/settings")
 	settings.GET("", s.getSettings)
 	settings.PUT("", s.updateSettings)
+	settings.POST("/apikey", s.regenerateApiKey)
 
 	// Indexers routes
 	indexerHandlers := indexer.NewHandlers(s.indexerService)
 	indexerHandlers.SetStatusService(s.statusService)
-	indexerHandlers.RegisterRoutes(api.Group("/indexers"))
+	indexerHandlers.RegisterRoutes(protected.Group("/indexers"))
 
 	// Download clients routes
-	clients := api.Group("/downloadclients")
+	clients := protected.Group("/downloadclients")
 	clients.GET("", s.listDownloadClients)
 	clients.POST("", s.addDownloadClient)
 	clients.POST("/test", s.testNewDownloadClient)
@@ -588,44 +706,45 @@ func (s *Server) setupRoutes() {
 	clients.POST("/:id/test", s.testDownloadClient)
 
 	// Queue/Downloads routes
-	api.GET("/queue", s.getQueue)
-	api.POST("/queue/:id/pause", s.pauseDownload)
-	api.POST("/queue/:id/resume", s.resumeDownload)
-	api.DELETE("/queue/:id", s.removeFromQueue)
+	protected.GET("/queue", s.getQueue)
+	protected.POST("/queue/:id/pause", s.pauseDownload)
+	protected.POST("/queue/:id/resume", s.resumeDownload)
+	protected.POST("/queue/:id/fastforward", s.fastForwardDownload)
+	protected.DELETE("/queue/:id", s.removeFromQueue)
 
 	// History routes
 	historyHandlers := history.NewHandlers(s.historyService)
-	historyHandlers.RegisterRoutes(api.Group("/history"))
-	api.GET("/history/indexer", s.getIndexerHistory)
+	historyHandlers.RegisterRoutes(protected.Group("/history"))
+	protected.GET("/history/indexer", s.getIndexerHistory)
 
 	// Search routes (with quality service for scored search endpoints)
 	searchHandlers := search.NewHandlers(s.searchService, s.qualityService)
-	searchHandlers.RegisterRoutes(api.Group("/search"))
+	searchHandlers.RegisterRoutes(protected.Group("/search"))
 
 	// Grab routes (under /search for grabbing search results)
 	grabHandlers := grab.NewHandlers(s.grabService)
-	grabHandlers.RegisterRoutes(api.Group("/search"))
+	grabHandlers.RegisterRoutes(protected.Group("/search"))
 
 	// Defaults routes
 	defaultsHandlers := defaults.NewHandlers(s.defaultsService)
-	defaultsHandlers.RegisterRoutes(api.Group("/defaults"))
+	defaultsHandlers.RegisterRoutes(protected.Group("/defaults"))
 
 	// Preferences routes
 	preferencesHandlers := preferences.NewHandlers(s.preferencesService)
-	preferencesHandlers.RegisterRoutes(api.Group("/preferences"))
+	preferencesHandlers.RegisterRoutes(protected.Group("/preferences"))
 
 	// Calendar routes
 	calendarHandlers := calendar.NewHandlers(s.calendarService)
-	calendarHandlers.RegisterRoutes(api.Group("/calendar"))
+	calendarHandlers.RegisterRoutes(protected.Group("/calendar"))
 
 	// Missing routes
 	missingHandlers := missing.NewHandlers(s.missingService)
-	missingHandlers.RegisterRoutes(api.Group("/missing"))
+	missingHandlers.RegisterRoutes(protected.Group("/missing"))
 
 	// Autosearch routes
 	autosearchHandlers := autosearch.NewHandlers(s.autosearchService)
 	autosearchHandlers.SetScheduledSearcher(s.scheduledSearcher)
-	autosearchHandlers.RegisterRoutes(api.Group("/autosearch"))
+	autosearchHandlers.RegisterRoutes(protected.Group("/autosearch"))
 
 	// Autosearch settings routes
 	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.AutoSearch)
@@ -637,24 +756,315 @@ func (s *Server) setupRoutes() {
 
 	// Import routes
 	importHandlers := importer.NewHandlers(s.importService, s.startupDB)
-	importHandlers.RegisterRoutes(api.Group("/import"))
+	importHandlers.RegisterRoutes(protected.Group("/import"))
 
 	// Import settings routes
 	importSettings := importer.NewSettingsHandlers(s.startupDB, s.importService)
 	importSettings.RegisterSettingsRoutes(settings)
 
-	// Notifications routes
+	// Notifications routes (admin-only for CRUD)
 	notificationHandlers := notification.NewHandlers(s.notificationService)
-	notificationHandlers.RegisterRoutes(api.Group("/notifications"))
+	notificationHandlers.RegisterRoutes(protected.Group("/notifications"))
+
+	// Notifications shared routes (schema and test - accessible to both admin and portal users)
+	notificationsShared := api.Group("/notifications")
+	notificationsShared.Use(s.portalAuthMiddleware.AnyAuth())
+	notificationHandlers.RegisterSharedRoutes(notificationsShared)
 
 	// Scheduler routes
 	if s.scheduler != nil {
 		schedulerHandler := handlers.NewSchedulerHandler(s.scheduler)
-		schedulerGroup := api.Group("/scheduler")
+		schedulerGroup := protected.Group("/scheduler")
 		schedulerGroup.GET("/tasks", schedulerHandler.ListTasks)
 		schedulerGroup.GET("/tasks/:id", schedulerHandler.GetTask)
 		schedulerGroup.POST("/tasks/:id/run", schedulerHandler.RunTask)
 	}
+
+	// Portal routes (External Requests feature) - has its own auth middleware
+	s.setupPortalRoutes(api)
+}
+
+// setupPortalRoutes configures External Requests portal routes.
+func (s *Server) setupPortalRoutes(api *echo.Group) {
+	// Portal auth routes (login, signup, profile)
+	authGroup := api.Group("/requests/auth")
+	portalAuthHandlers := auth.NewHandlers(
+		s.portalAuthService,
+		s.portalUsersService,
+		s.portalInvitationsService,
+	)
+	portalAuthHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
+
+	// Passkey routes
+	passkeyHandlers := auth.NewPasskeyHandlers(
+		s.portalPasskeyService,
+		s.portalAuthService,
+		s.portalUsersService,
+	)
+	passkeyHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
+
+	// Portal user routes (authenticated portal users)
+	requestsGroup := api.Group("/requests")
+
+	// Portal search with rate limiting
+	searchHandlers := portalsearch.NewHandlers(
+		s.metadataService,
+		s.portalLibraryChecker,
+		s.portalUsersService,
+	)
+	searchGroup := requestsGroup.Group("/search")
+	searchGroup.Use(s.portalAuthMiddleware.AnyAuth())
+	searchGroup.Use(s.portalSearchLimiter.Middleware())
+	searchHandlers.RegisterRoutes(searchGroup, s.portalAuthMiddleware)
+
+	// Portal request handlers
+	requestHandlers := requests.NewHandlers(
+		s.portalRequestsService,
+		requests.NewWatchersService(sqlc.New(s.startupDB), s.logger),
+		s.portalUsersService,
+		&portalAutoApproveAdapter{svc: s.portalAutoApproveService},
+		&portalQueueGetterAdapter{downloaderSvc: s.downloaderService},
+		&portalMediaLookupAdapter{queries: sqlc.New(s.startupDB)},
+		s.logger,
+	)
+	requestHandlers.RegisterRoutes(requestsGroup, s.portalAuthMiddleware)
+
+	// Portal user notifications
+	portalNotifHandlers := portalnotifs.NewHandlers(s.portalNotificationsService)
+	portalNotifHandlers.RegisterRoutes(requestsGroup.Group("/notifications"), s.portalAuthMiddleware)
+
+	// Portal notification inbox (in-app notifications)
+	portalInboxHandlers := portalnotifs.NewInboxHandlers(s.portalNotificationsService)
+	portalInboxHandlers.RegisterRoutes(requestsGroup.Group("/inbox"), s.portalAuthMiddleware)
+
+	// Admin routes (admin users only)
+	adminGroup := api.Group("/admin/requests")
+
+	// Admin user management
+	adminUserHandlers := admin.NewUsersHandlers(s.portalUsersService, s.portalQuotaService)
+	adminUserHandlers.RegisterRoutes(adminGroup.Group("/users"), s.portalAuthMiddleware)
+
+	// Admin invitations
+	adminInvitationHandlers := admin.NewInvitationsHandlers(s.portalInvitationsService)
+	adminInvitationHandlers.RegisterRoutes(adminGroup.Group("/invitations"), s.portalAuthMiddleware)
+
+	// Admin request management
+	s.portalMediaProvisioner = &portalMediaProvisionerAdapter{
+		queries:        sqlc.New(s.startupDB),
+		movieService:   s.movieService,
+		tvService:      s.tvService,
+		libraryManager: s.libraryManagerService,
+		logger:         s.logger,
+	}
+	s.portalRequestSearcher = requests.NewRequestSearcher(
+		sqlc.New(s.startupDB),
+		s.portalRequestsService,
+		s.autosearchService,
+		s.portalMediaProvisioner,
+		s.logger,
+	)
+	s.portalAutoApproveService.SetRequestSearcher(s.portalRequestSearcher)
+	adminRequestHandlers := admin.NewRequestsHandlers(
+		s.portalRequestsService,
+		&portalRequestSearcherAdapter{searcher: s.portalRequestSearcher},
+	)
+	adminRequestHandlers.RegisterRoutes(adminGroup, s.portalAuthMiddleware)
+
+	// Admin settings
+	adminSettingsHandlers := admin.NewSettingsHandlers(s.portalQuotaService, sqlc.New(s.startupDB))
+	adminSettingsHandlers.RegisterRoutes(adminGroup.Group("/settings"), s.portalAuthMiddleware)
+}
+
+// portalAutoApproveAdapter adapts autoapprove.Service to requests.AutoApproveProcessor interface.
+type portalAutoApproveAdapter struct {
+	svc *autoapprove.Service
+}
+
+func (a *portalAutoApproveAdapter) ProcessAutoApprove(req *requests.Request, user *users.User) error {
+	ctx := context.Background()
+	_, err := a.svc.ProcessAutoApprove(ctx, req)
+	return err
+}
+
+// portalRequestSearcherAdapter adapts requests.RequestSearcher to admin.RequestSearcher interface.
+type portalRequestSearcherAdapter struct {
+	searcher *requests.RequestSearcher
+}
+
+func (a *portalRequestSearcherAdapter) SearchForRequestAsync(requestID int64) {
+	a.searcher.SearchForRequestAsync(context.Background(), requestID)
+}
+
+// portalMediaProvisionerAdapter implements requests.MediaProvisioner to find or create media in library.
+type portalMediaProvisionerAdapter struct {
+	queries        *sqlc.Queries
+	movieService   *movies.Service
+	tvService      *tv.Service
+	libraryManager *librarymanager.Service
+	logger         zerolog.Logger
+}
+
+func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context, input requests.MediaProvisionInput) (int64, error) {
+	// First, try to find existing movie by TMDB ID
+	existing, err := a.movieService.GetByTmdbID(ctx, int(input.TmdbID))
+	if err == nil && existing != nil {
+		a.logger.Debug().Int64("tmdbID", input.TmdbID).Int64("movieID", existing.ID).Msg("found existing movie in library")
+		return existing.ID, nil
+	}
+
+	// Movie not in library - get default settings and create it
+	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get default settings: %w", err)
+	}
+
+	movie, err := a.movieService.Create(ctx, movies.CreateMovieInput{
+		Title:            input.Title,
+		Year:             input.Year,
+		TmdbID:           int(input.TmdbID),
+		RootFolderID:     rootFolderID,
+		QualityProfileID: qualityProfileID,
+		Monitored:        true,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to create movie: %w", err)
+	}
+
+	a.logger.Info().Int64("tmdbID", input.TmdbID).Int64("movieID", movie.ID).Str("title", input.Title).Msg("created movie in library from request")
+	return movie.ID, nil
+}
+
+func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Context, input requests.MediaProvisionInput) (int64, error) {
+	// First, try to find existing series by TVDB ID
+	existing, err := a.tvService.GetSeriesByTvdbID(ctx, int(input.TvdbID))
+	if err == nil && existing != nil {
+		a.logger.Debug().Int64("tvdbID", input.TvdbID).Int64("seriesID", existing.ID).Msg("found existing series in library")
+		return existing.ID, nil
+	}
+
+	// Series not in library - get default settings and create it
+	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get default settings: %w", err)
+	}
+
+	series, err := a.tvService.CreateSeries(ctx, tv.CreateSeriesInput{
+		Title:            input.Title,
+		TvdbID:           int(input.TvdbID),
+		RootFolderID:     rootFolderID,
+		QualityProfileID: qualityProfileID,
+		Monitored:        true,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to create series: %w", err)
+	}
+
+	a.logger.Info().Int64("tvdbID", input.TvdbID).Int64("seriesID", series.ID).Str("title", input.Title).Msg("created series in library from request")
+
+	// Fetch metadata including seasons and episodes
+	if a.libraryManager != nil {
+		if _, err := a.libraryManager.RefreshSeriesMetadata(ctx, series.ID); err != nil {
+			a.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to refresh series metadata, series created without episodes")
+		} else {
+			a.logger.Info().Int64("seriesID", series.ID).Msg("fetched series metadata with seasons and episodes")
+		}
+	}
+
+	return series.ID, nil
+}
+
+func (a *portalMediaProvisionerAdapter) getDefaultSettings(ctx context.Context) (rootFolderID, qualityProfileID int64, err error) {
+	// Get default root folder from settings
+	if setting, err := a.queries.GetSetting(ctx, "requests_default_root_folder_id"); err == nil && setting.Value != "" {
+		if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
+			rootFolderID = v
+		}
+	}
+
+	// If no default root folder set, try to get the first available one
+	if rootFolderID == 0 {
+		rootFolders, err := a.queries.ListRootFolders(ctx)
+		if err != nil || len(rootFolders) == 0 {
+			return 0, 0, errors.New("no root folder configured - please set a default root folder in request settings")
+		}
+		rootFolderID = rootFolders[0].ID
+	}
+
+	// Get first quality profile as default
+	profiles, err := a.queries.ListQualityProfiles(ctx)
+	if err != nil || len(profiles) == 0 {
+		return 0, 0, errors.New("no quality profile configured")
+	}
+	qualityProfileID = profiles[0].ID
+
+	return rootFolderID, qualityProfileID, nil
+}
+
+func (a *portalMediaProvisionerAdapter) SetDB(db *sql.DB) {
+	a.queries = sqlc.New(db)
+}
+
+// portalQueueGetterAdapter adapts downloader.Service to requests.QueueGetter interface.
+type portalQueueGetterAdapter struct {
+	downloaderSvc *downloader.Service
+}
+
+func (a *portalQueueGetterAdapter) GetQueue(ctx context.Context) ([]requests.QueueItem, error) {
+	queue, err := a.downloaderSvc.GetQueue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]requests.QueueItem, len(queue))
+	for i, item := range queue {
+		result[i] = requests.QueueItem{
+			ID:             item.ID,
+			ClientID:       item.ClientID,
+			ClientName:     item.ClientName,
+			Title:          item.Title,
+			MediaType:      item.MediaType,
+			Status:         item.Status,
+			Progress:       item.Progress,
+			Size:           item.Size,
+			DownloadedSize: item.DownloadedSize,
+			DownloadSpeed:  item.DownloadSpeed,
+			ETA:            item.ETA,
+			Season:         item.Season,
+			Episode:        item.Episode,
+			MovieID:        item.MovieID,
+			SeriesID:       item.SeriesID,
+			SeasonNumber:   item.SeasonNumber,
+			IsSeasonPack:   item.IsSeasonPack,
+		}
+	}
+	return result, nil
+}
+
+// portalMediaLookupAdapter adapts sqlc.Queries to requests.MediaLookup interface.
+type portalMediaLookupAdapter struct {
+	queries *sqlc.Queries
+}
+
+func (a *portalMediaLookupAdapter) GetMovieTmdbID(ctx context.Context, movieID int64) (*int64, error) {
+	movie, err := a.queries.GetMovie(ctx, movieID)
+	if err != nil {
+		return nil, err
+	}
+	if movie.TmdbID.Valid {
+		return &movie.TmdbID.Int64, nil
+	}
+	return nil, nil
+}
+
+func (a *portalMediaLookupAdapter) GetSeriesTvdbID(ctx context.Context, seriesID int64) (*int64, error) {
+	series, err := a.queries.GetSeries(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	if series.TvdbID.Valid {
+		return &series.TvdbID.Int64, nil
+	}
+	return nil, nil
 }
 
 // Start begins listening for HTTP requests.
@@ -674,6 +1084,11 @@ func (s *Server) Start(address string) error {
 	}
 	s.metadataService.RegisterMetadataProviders()
 
+	// Start queue broadcaster for real-time download progress
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Start()
+	}
+
 	// Start the import service workers
 	if s.importService != nil {
 		s.importService.Start(context.Background())
@@ -692,6 +1107,11 @@ func (s *Server) Start(address string) error {
 // Shutdown gracefully stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("shutting down HTTP server")
+
+	// Stop the queue broadcaster
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Stop()
+	}
 
 	// Stop the scheduler
 	if s.scheduler != nil {
@@ -730,12 +1150,16 @@ func (s *Server) getStatus(c echo.Context) error {
 	movieCount, _ := s.movieService.Count(ctx)
 	seriesCount, _ := s.tvService.Count(ctx)
 
+	adminExists, _ := s.portalUsersService.AdminExists(ctx)
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"version":       "0.0.1-dev",
 		"startTime":     time.Now().Format(time.RFC3339),
 		"movieCount":    movieCount,
 		"seriesCount":   seriesCount,
 		"developerMode": s.dbManager.IsDevMode(),
+		"requiresSetup": !adminExists,
+		"requiresAuth":  true,
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},
@@ -769,29 +1193,97 @@ func (s *Server) updateTMDBSearchOrdering(c echo.Context) error {
 	})
 }
 
-// Auth handlers (placeholders)
-func (s *Server) login(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
+func (s *Server) getSettings(c echo.Context) error {
+	ctx := c.Request().Context()
+	queries := sqlc.New(s.dbManager.Conn())
 
-func (s *Server) logout(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
-}
+	serverPort := s.cfg.Server.Port
+	if setting, err := queries.GetSetting(ctx, "server_port"); err == nil {
+		if port, err := strconv.Atoi(setting.Value); err == nil {
+			serverPort = port
+		}
+	}
 
-func (s *Server) authStatus(c echo.Context) error {
+	logLevel := s.cfg.Logging.Level
+	if setting, err := queries.GetSetting(ctx, "log_level"); err == nil {
+		logLevel = setting.Value
+	}
+
+	apiKey := ""
+	if setting, err := queries.GetSetting(ctx, "api_key"); err == nil {
+		apiKey = setting.Value
+	}
+
+	logPath := s.cfg.Logging.Path
+	if logPath != "" {
+		if absPath, err := filepath.Abs(logPath); err == nil {
+			logPath = absPath
+		}
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"authenticated": false,
-		"requiresAuth":  false,
+		"serverPort": serverPort,
+		"logLevel":   logLevel,
+		"apiKey":     apiKey,
+		"logPath":    logPath,
 	})
 }
 
-// Settings handlers (placeholders)
-func (s *Server) getSettings(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]interface{}{})
+func (s *Server) updateSettings(c echo.Context) error {
+	ctx := c.Request().Context()
+	queries := sqlc.New(s.dbManager.Conn())
+
+	var input struct {
+		ServerPort *int    `json:"serverPort"`
+		LogLevel   *string `json:"logLevel"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if input.ServerPort != nil {
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "server_port",
+			Value: strconv.Itoa(*input.ServerPort),
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.LogLevel != nil {
+		validLevels := map[string]bool{"trace": true, "debug": true, "info": true, "warn": true, "error": true}
+		if !validLevels[*input.LogLevel] {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid log level"})
+		}
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "log_level",
+			Value: *input.LogLevel,
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	return s.getSettings(c)
 }
 
-func (s *Server) updateSettings(c echo.Context) error {
-	return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not implemented"})
+func (s *Server) regenerateApiKey(c echo.Context) error {
+	ctx := c.Request().Context()
+	queries := sqlc.New(s.dbManager.Conn())
+
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate API key"})
+	}
+	apiKey := hex.EncodeToString(bytes)
+
+	if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   "api_key",
+		Value: apiKey,
+	}); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"apiKey": apiKey})
 }
 
 // Download client handlers
@@ -960,8 +1452,10 @@ func (s *Server) pauseDownload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Broadcast queue update so UI refreshes immediately
-	s.hub.Broadcast("queue:updated", nil)
+	// Trigger immediate broadcast of queue state
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Trigger()
+	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "paused"})
 }
@@ -981,10 +1475,35 @@ func (s *Server) resumeDownload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Broadcast queue update so UI refreshes immediately
-	s.hub.Broadcast("queue:updated", nil)
+	// Trigger fast polling and immediate broadcast
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Trigger()
+	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "resumed"})
+}
+
+func (s *Server) fastForwardDownload(c echo.Context) error {
+	ctx := c.Request().Context()
+	downloadID := c.Param("id")
+
+	var body struct {
+		ClientID int64 `json:"clientId"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	}
+
+	if err := s.downloaderService.FastForwardMockDownload(ctx, body.ClientID, downloadID); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	// Trigger immediate broadcast of queue state
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Trigger()
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "completed"})
 }
 
 func (s *Server) removeFromQueue(c echo.Context) error {
@@ -1002,8 +1521,10 @@ func (s *Server) removeFromQueue(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Broadcast queue update so UI refreshes immediately
-	s.hub.Broadcast("queue:updated", nil)
+	// Trigger immediate broadcast of queue state
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.Trigger()
+	}
 
 	return c.NoContent(http.StatusNoContent)
 }
@@ -1361,6 +1882,25 @@ func (s *Server) updateServicesDB() {
 	s.availabilityService.SetDB(db)
 	s.missingService.SetDB(db)
 	s.statusService.SetDB(db)
+
+	// Update portal services
+	queries := sqlc.New(db)
+	s.portalUsersService.SetDB(queries)
+	s.portalInvitationsService.SetDB(queries)
+	s.portalQuotaService.SetDB(queries)
+	s.portalNotificationsService.SetDB(queries)
+	s.portalAutoApproveService.SetDB(queries)
+	s.portalRequestsService.SetDB(queries)
+	s.portalAuthService.SetDB(queries)
+	if s.portalPasskeyService != nil {
+		s.portalPasskeyService.SetDB(queries)
+	}
+	s.portalMediaProvisioner.SetDB(db)
+	s.portalRequestSearcher.SetDB(db)
+	s.portalWatchersService.SetDB(db)
+	s.portalStatusTracker.SetDB(db)
+	s.portalLibraryChecker.SetDB(db)
+
 	s.logger.Info().Msg("Updated all services with new database connection")
 }
 
@@ -1509,19 +2049,193 @@ func (s *Server) switchRootFolders(devMode bool) {
 	}
 }
 
-// copyQualityProfilesToDevDB copies quality profiles from production to dev database.
-func (s *Server) copyQualityProfilesToDevDB() {
+// copyJWTSecretToDevDB copies the JWT secret from production to dev database.
+// This ensures tokens issued in production mode remain valid in dev mode.
+func (s *Server) copyJWTSecretToDevDB() {
 	ctx := context.Background()
+
+	// Get JWT secret from production database
+	prodQueries := sqlc.New(s.dbManager.ProdConn())
+	setting, err := prodQueries.GetSetting(ctx, "portal_jwt_secret")
+	if err != nil {
+		s.logger.Debug().Err(err).Msg("No JWT secret in production database to copy")
+		return
+	}
+
+	if setting.Value == "" {
+		s.logger.Debug().Msg("Production JWT secret is empty, nothing to copy")
+		return
+	}
+
+	// Copy to dev database
+	devQueries := sqlc.New(s.dbManager.Conn())
+	_, err = devQueries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   "portal_jwt_secret",
+		Value: setting.Value,
+	})
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to copy JWT secret to dev database")
+		return
+	}
+
+	s.logger.Info().Msg("Copied JWT secret from production to dev database")
+}
+
+// copySettingsToDevDB copies application settings from production to dev database.
+func (s *Server) copySettingsToDevDB() {
+	ctx := context.Background()
+
+	prodQueries := sqlc.New(s.dbManager.ProdConn())
+	devQueries := sqlc.New(s.dbManager.Conn())
+
+	settingKeys := []string{"server_port", "log_level", "api_key"}
+	copied := 0
+
+	for _, key := range settingKeys {
+		setting, err := prodQueries.GetSetting(ctx, key)
+		if err != nil {
+			continue
+		}
+
+		if setting.Value == "" {
+			continue
+		}
+
+		_, err = devQueries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   key,
+			Value: setting.Value,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Str("key", key).Msg("Failed to copy setting to dev database")
+			continue
+		}
+		copied++
+	}
+
+	if copied > 0 {
+		s.logger.Info().Int("count", copied).Msg("Copied settings to dev database")
+	}
+}
+
+// copyPortalUsersToDevDB copies portal users from production to dev database.
+// This preserves user IDs so that JWTs issued against prod DB work in dev mode.
+// profileIDMapping maps production quality profile IDs to dev database IDs.
+func (s *Server) copyPortalUsersToDevDB(profileIDMapping map[int64]int64) {
+	ctx := context.Background()
+
+	// Get users from production database
+	prodQueries := sqlc.New(s.dbManager.ProdConn())
+	prodUsers, err := prodQueries.ListPortalUsers(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list production portal users")
+		return
+	}
+
+	if len(prodUsers) == 0 {
+		s.logger.Debug().Msg("No portal users in production database to copy")
+		return
+	}
+
+	// Copy each user to dev database (skip if already exists)
+	devQueries := sqlc.New(s.dbManager.Conn())
+	copied := 0
+	for _, user := range prodUsers {
+		// Check if user already exists in dev DB
+		_, err := devQueries.GetPortalUser(ctx, user.ID)
+		if err == nil {
+			continue // User already exists
+		}
+
+		// Map quality profile ID using the provided mapping
+		var qualityProfileID sql.NullInt64
+		if user.QualityProfileID.Valid {
+			if newID, ok := profileIDMapping[user.QualityProfileID.Int64]; ok {
+				qualityProfileID = sql.NullInt64{Int64: newID, Valid: true}
+			}
+		}
+
+		_, err = devQueries.CreatePortalUserWithID(ctx, sqlc.CreatePortalUserWithIDParams{
+			ID:               user.ID,
+			Username:         user.Username,
+			PasswordHash:     user.PasswordHash,
+			DisplayName:      user.DisplayName,
+			QualityProfileID: qualityProfileID,
+			AutoApprove:      user.AutoApprove,
+			Enabled:          user.Enabled,
+			IsAdmin:          user.IsAdmin,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Str("username", user.Username).Msg("Failed to copy portal user")
+			continue
+		}
+		copied++
+	}
+
+	if copied > 0 {
+		s.logger.Info().Int("count", copied).Msg("Copied portal users to dev database")
+	}
+}
+
+// copyPortalUserNotificationsToDevDB copies portal user notification channels from production to dev database.
+func (s *Server) copyPortalUserNotificationsToDevDB() {
+	ctx := context.Background()
+
+	prodQueries := sqlc.New(s.dbManager.ProdConn())
+	devQueries := sqlc.New(s.dbManager.Conn())
+
+	prodUsers, err := prodQueries.ListPortalUsers(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list production portal users for notification copy")
+		return
+	}
+
+	copied := 0
+	for _, user := range prodUsers {
+		notifs, err := prodQueries.ListUserNotifications(ctx, user.ID)
+		if err != nil {
+			s.logger.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to list user notifications")
+			continue
+		}
+
+		for _, n := range notifs {
+			_, err := devQueries.CreateUserNotification(ctx, sqlc.CreateUserNotificationParams{
+				UserID:      n.UserID,
+				Type:        n.Type,
+				Name:        n.Name,
+				Settings:    n.Settings,
+				OnAvailable: n.OnAvailable,
+				OnApproved:  n.OnApproved,
+				OnDenied:    n.OnDenied,
+				Enabled:     n.Enabled,
+			})
+			if err != nil {
+				s.logger.Error().Err(err).Str("name", n.Name).Msg("Failed to copy user notification")
+				continue
+			}
+			copied++
+		}
+	}
+
+	if copied > 0 {
+		s.logger.Info().Int("count", copied).Msg("Copied portal user notifications to dev database")
+	}
+}
+
+// copyQualityProfilesToDevDB copies quality profiles from production to dev database.
+// Returns a mapping of production profile IDs to dev profile IDs.
+func (s *Server) copyQualityProfilesToDevDB() map[int64]int64 {
+	ctx := context.Background()
+	idMapping := make(map[int64]int64)
 
 	// Check if dev database already has profiles
 	devProfiles, err := s.qualityService.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list dev quality profiles")
-		return
+		return idMapping
 	}
 	if len(devProfiles) > 0 {
 		s.logger.Info().Int("count", len(devProfiles)).Msg("Dev database already has quality profiles")
-		return
+		return idMapping
 	}
 
 	// Get profiles from production database
@@ -1529,7 +2243,7 @@ func (s *Server) copyQualityProfilesToDevDB() {
 	prodRows, err := prodQueries.ListQualityProfiles(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list production quality profiles")
-		return
+		return idMapping
 	}
 
 	if len(prodRows) == 0 {
@@ -1538,13 +2252,13 @@ func (s *Server) copyQualityProfilesToDevDB() {
 		if err := s.qualityService.EnsureDefaults(ctx); err != nil {
 			s.logger.Error().Err(err).Msg("Failed to create default quality profiles")
 		}
-		return
+		return idMapping
 	}
 
-	// Copy each profile to dev database
+	// Copy each profile to dev database and track ID mapping
 	devQueries := sqlc.New(s.dbManager.Conn())
 	for _, row := range prodRows {
-		_, err := devQueries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
+		newProfile, err := devQueries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
 			Name:                 row.Name,
 			Cutoff:               row.Cutoff,
 			Items:                row.Items,
@@ -1553,15 +2267,18 @@ func (s *Server) copyQualityProfilesToDevDB() {
 			AudioCodecSettings:   row.AudioCodecSettings,
 			AudioChannelSettings: row.AudioChannelSettings,
 			UpgradesEnabled:      row.UpgradesEnabled,
+			AllowAutoApprove:     row.AllowAutoApprove,
 		})
 		if err != nil {
 			s.logger.Error().Err(err).Str("name", row.Name).Msg("Failed to copy quality profile")
 			continue
 		}
-		s.logger.Debug().Str("name", row.Name).Msg("Copied quality profile to dev database")
+		idMapping[row.ID] = newProfile.ID
+		s.logger.Debug().Str("name", row.Name).Int64("prodID", row.ID).Int64("devID", newProfile.ID).Msg("Copied quality profile to dev database")
 	}
 
 	s.logger.Info().Int("count", len(prodRows)).Msg("Copied quality profiles to dev database")
+	return idMapping
 }
 
 // populateMockMedia creates mock movies and series in the dev database.
@@ -1902,4 +2619,49 @@ func parseEpisodeNumber(filename string) int {
 
 func itoa(n int) string {
 	return strconv.Itoa(n)
+}
+
+// statusTrackerMovieLookup implements requests.MovieLookup
+type statusTrackerMovieLookup struct {
+	movieSvc *movies.Service
+}
+
+func (l *statusTrackerMovieLookup) GetTmdbIDByMovieID(ctx context.Context, movieID int64) (int64, error) {
+	movie, err := l.movieSvc.Get(ctx, movieID)
+	if err != nil {
+		return 0, err
+	}
+	return int64(movie.TmdbID), nil
+}
+
+// statusTrackerEpisodeLookup implements requests.EpisodeLookup
+type statusTrackerEpisodeLookup struct {
+	tvSvc *tv.Service
+}
+
+func (l *statusTrackerEpisodeLookup) GetEpisodeInfo(ctx context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error) {
+	episode, err := l.tvSvc.GetEpisode(ctx, episodeID)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	series, err := l.tvSvc.GetSeries(ctx, episode.SeriesID)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return int64(series.TvdbID), episode.SeasonNumber, episode.EpisodeNumber, nil
+}
+
+// statusTrackerSeriesLookup implements requests.SeriesLookup
+type statusTrackerSeriesLookup struct {
+	tvSvc *tv.Service
+}
+
+func (l *statusTrackerSeriesLookup) GetSeriesIDByTvdbID(ctx context.Context, tvdbID int64) (int64, error) {
+	return l.tvSvc.GetSeriesIDByTvdbID(ctx, tvdbID)
+}
+
+func (l *statusTrackerSeriesLookup) AreSeasonsComplete(ctx context.Context, seriesID int64, seasonNumbers []int64) (bool, error) {
+	return l.tvSvc.AreSeasonsComplete(ctx, seriesID, seasonNumbers)
 }

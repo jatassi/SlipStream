@@ -64,8 +64,8 @@ type DownloadClient struct {
 	Category           sql.NullString  `json:"category"`
 	Priority           int64           `json:"priority"`
 	Enabled            int64           `json:"enabled"`
-	CreatedAt          sql.NullTime    `json:"created_at"`
-	UpdatedAt          sql.NullTime    `json:"updated_at"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
 	CleanupMode        string          `json:"cleanup_mode"`
 	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`
@@ -297,6 +297,56 @@ type NotificationStatus struct {
 	DisabledTill      sql.NullTime `json:"disabled_till"`
 }
 
+type PasskeyCredential struct {
+	ID                  string         `json:"id"`
+	UserID              int64          `json:"user_id"`
+	CredentialID        []byte         `json:"credential_id"`
+	PublicKey           []byte         `json:"public_key"`
+	AttestationType     string         `json:"attestation_type"`
+	Transport           sql.NullString `json:"transport"`
+	FlagsUserPresent    bool           `json:"flags_user_present"`
+	FlagsUserVerified   bool           `json:"flags_user_verified"`
+	FlagsBackupEligible bool           `json:"flags_backup_eligible"`
+	FlagsBackupState    bool           `json:"flags_backup_state"`
+	SignCount           int64          `json:"sign_count"`
+	Name                string         `json:"name"`
+	CreatedAt           time.Time      `json:"created_at"`
+	LastUsedAt          sql.NullTime   `json:"last_used_at"`
+}
+
+type PortalInvitation struct {
+	ID        int64        `json:"id"`
+	Username  string       `json:"username"`
+	Token     string       `json:"token"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	UsedAt    sql.NullTime `json:"used_at"`
+	CreatedAt time.Time    `json:"created_at"`
+}
+
+type PortalNotification struct {
+	ID        int64         `json:"id"`
+	UserID    int64         `json:"user_id"`
+	RequestID sql.NullInt64 `json:"request_id"`
+	Type      string        `json:"type"`
+	Title     string        `json:"title"`
+	Message   string        `json:"message"`
+	Read      int64         `json:"read"`
+	CreatedAt time.Time     `json:"created_at"`
+}
+
+type PortalUser struct {
+	ID               int64          `json:"id"`
+	Username         string         `json:"username"`
+	PasswordHash     string         `json:"password_hash"`
+	DisplayName      sql.NullString `json:"display_name"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
+	AutoApprove      int64          `json:"auto_approve"`
+	Enabled          int64          `json:"enabled"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	IsAdmin          int64          `json:"is_admin"`
+}
+
 type QualityProfile struct {
 	ID                   int64        `json:"id"`
 	Name                 string       `json:"name"`
@@ -309,6 +359,7 @@ type QualityProfile struct {
 	AudioCodecSettings   string       `json:"audio_codec_settings"`
 	AudioChannelSettings string       `json:"audio_channel_settings"`
 	UpgradesEnabled      int64        `json:"upgrades_enabled"`
+	AllowAutoApprove     int64        `json:"allow_auto_approve"`
 }
 
 type QueueMedium struct {
@@ -323,6 +374,35 @@ type QueueMedium struct {
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
+}
+
+type Request struct {
+	ID               int64          `json:"id"`
+	UserID           int64          `json:"user_id"`
+	MediaType        string         `json:"media_type"`
+	TmdbID           sql.NullInt64  `json:"tmdb_id"`
+	TvdbID           sql.NullInt64  `json:"tvdb_id"`
+	Title            string         `json:"title"`
+	Year             sql.NullInt64  `json:"year"`
+	SeasonNumber     sql.NullInt64  `json:"season_number"`
+	EpisodeNumber    sql.NullInt64  `json:"episode_number"`
+	Status           string         `json:"status"`
+	MonitorType      sql.NullString `json:"monitor_type"`
+	DeniedReason     sql.NullString `json:"denied_reason"`
+	ApprovedAt       sql.NullTime   `json:"approved_at"`
+	ApprovedBy       sql.NullInt64  `json:"approved_by"`
+	MediaID          sql.NullInt64  `json:"media_id"`
+	TargetSlotID     sql.NullInt64  `json:"target_slot_id"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	PosterUrl        sql.NullString `json:"poster_url"`
+	RequestedSeasons sql.NullString `json:"requested_seasons"`
+}
+
+type RequestWatcher struct {
+	RequestID int64     `json:"request_id"`
+	UserID    int64     `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type RootFolder struct {
@@ -372,6 +452,32 @@ type Setting struct {
 	Key       string       `json:"key"`
 	Value     string       `json:"value"`
 	UpdatedAt sql.NullTime `json:"updated_at"`
+}
+
+type UserNotification struct {
+	ID          int64     `json:"id"`
+	UserID      int64     `json:"user_id"`
+	Type        string    `json:"type"`
+	Name        string    `json:"name"`
+	Settings    string    `json:"settings"`
+	OnAvailable int64     `json:"on_available"`
+	Enabled     int64     `json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	OnApproved  int64     `json:"on_approved"`
+	OnDenied    int64     `json:"on_denied"`
+}
+
+type UserQuota struct {
+	UserID        int64         `json:"user_id"`
+	MoviesLimit   sql.NullInt64 `json:"movies_limit"`
+	SeasonsLimit  sql.NullInt64 `json:"seasons_limit"`
+	EpisodesLimit sql.NullInt64 `json:"episodes_limit"`
+	MoviesUsed    int64         `json:"movies_used"`
+	SeasonsUsed   int64         `json:"seasons_used"`
+	EpisodesUsed  int64         `json:"episodes_used"`
+	PeriodStart   time.Time     `json:"period_start"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
 type VersionSlot struct {

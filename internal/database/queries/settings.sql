@@ -23,8 +23,8 @@ SELECT * FROM quality_profiles WHERE id = ? LIMIT 1;
 SELECT * FROM quality_profiles ORDER BY name;
 
 -- name: CreateQualityProfile :one
-INSERT INTO quality_profiles (name, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO quality_profiles (name, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateQualityProfile :one
@@ -37,6 +37,7 @@ UPDATE quality_profiles SET
     audio_codec_settings = ?,
     audio_channel_settings = ?,
     upgrades_enabled = ?,
+    allow_auto_approve = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;

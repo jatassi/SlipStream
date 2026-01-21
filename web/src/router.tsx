@@ -5,6 +5,7 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { RootLayout } from '@/components/layout/RootLayout'
+import { PortalLayout, PortalAuthGuard } from '@/components/portal'
 
 // Pages
 import { DashboardPage } from '@/routes/index'
@@ -29,17 +30,38 @@ import { AutoSearchSettingsPage } from '@/routes/settings/autosearch'
 import { ImportSettingsPage } from '@/routes/settings/import'
 import { SlotsSettingsPage } from '@/routes/settings/slots'
 import { NotificationsPage } from '@/routes/settings/notifications'
+import { RequestQueuePage } from '@/routes/settings/requests/index'
+import { RequestUsersPage } from '@/routes/settings/requests/users'
+import { RequestSettingsPage } from '@/routes/settings/requests/settings'
 import { ManualImportPage } from '@/routes/import/index'
 import { TasksPage } from '@/routes/system/tasks'
 import { SystemHealthPage } from '@/routes/system/health'
 
-// Create root route with layout
+// Auth Pages
+import { SetupPage } from '@/routes/auth/setup'
+
+// Portal Pages
+import { LoginPage } from '@/routes/requests/auth/login'
+import { SignupPage } from '@/routes/requests/auth/signup'
+import { RequestsListPage } from '@/routes/requests/index'
+import { PortalSearchPageWrapper } from '@/routes/requests/search'
+import { RequestDetailPage } from '@/routes/requests/$id'
+import { PortalSettingsPage } from '@/routes/requests/settings'
+
+// Create root route with layout (auth is handled by RootLayout)
 const rootRoute = createRootRoute({
   component: () => (
     <RootLayout>
       <Outlet />
     </RootLayout>
   ),
+})
+
+// Auth setup route (public, no auth required)
+const authSetupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/setup',
+  component: SetupPage,
 })
 
 // Dashboard
@@ -188,6 +210,25 @@ const notificationsRoute = createRoute({
   component: NotificationsPage,
 })
 
+// Admin request settings routes
+const requestQueueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/requests',
+  component: RequestQueuePage,
+})
+
+const requestUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/requests/users',
+  component: RequestUsersPage,
+})
+
+const requestSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/requests/settings',
+  component: RequestSettingsPage,
+})
+
 // Import routes
 const manualImportRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -208,8 +249,68 @@ const healthRoute = createRoute({
   component: SystemHealthPage,
 })
 
+// Portal auth routes (no layout)
+const portalLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/requests/auth/login',
+  component: LoginPage,
+})
+
+const portalSignupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/requests/auth/signup',
+  component: SignupPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: (search.token as string) || '',
+  }),
+})
+
+// Portal layout route (protected)
+const portalLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'portal-layout',
+  component: () => (
+    <PortalAuthGuard>
+      <PortalLayout>
+        <Outlet />
+      </PortalLayout>
+    </PortalAuthGuard>
+  ),
+})
+
+// Portal routes (protected, with layout)
+const requestsListRoute = createRoute({
+  getParentRoute: () => portalLayoutRoute,
+  path: '/requests',
+  component: RequestsListPage,
+})
+
+const portalSearchRoute = createRoute({
+  getParentRoute: () => portalLayoutRoute,
+  path: '/requests/search',
+  component: PortalSearchPageWrapper,
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: (search.q as string) || '',
+  }),
+})
+
+const requestDetailRoute = createRoute({
+  getParentRoute: () => portalLayoutRoute,
+  path: '/requests/$id',
+  component: RequestDetailPage,
+})
+
+const portalSettingsRoute = createRoute({
+  getParentRoute: () => portalLayoutRoute,
+  path: '/requests/settings',
+  component: PortalSettingsPage,
+})
+
 // Build route tree
 const routeTree = rootRoute.addChildren([
+  // Public auth routes
+  authSetupRoute,
+  // Main app routes (auth handled by RootLayout)
   indexRoute,
   searchRoute,
   moviesRoute,
@@ -232,9 +333,22 @@ const routeTree = rootRoute.addChildren([
   importSettingsRoute,
   slotsSettingsRoute,
   notificationsRoute,
+  requestQueueRoute,
+  requestUsersRoute,
+  requestSettingsRoute,
   manualImportRoute,
   tasksRoute,
   healthRoute,
+  // Portal auth routes (public)
+  portalLoginRoute,
+  portalSignupRoute,
+  // Portal routes (with PortalAuthGuard)
+  portalLayoutRoute.addChildren([
+    requestsListRoute,
+    portalSearchRoute,
+    requestDetailRoute,
+    portalSettingsRoute,
+  ]),
 ])
 
 // Create router

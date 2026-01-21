@@ -65,6 +65,12 @@ type NotificationDispatcher interface {
 	DispatchUpgrade(ctx context.Context, event UpgradeNotificationEvent)
 }
 
+// StatusTrackerService defines the interface for request status tracking.
+type StatusTrackerService interface {
+	OnMovieAvailable(ctx context.Context, movieID int64) error
+	OnEpisodeAvailable(ctx context.Context, episodeID int64) error
+}
+
 // DownloadNotificationEvent contains download event data for notifications.
 type DownloadNotificationEvent struct {
 	MediaType       string // "movie" or "episode"
@@ -129,11 +135,12 @@ type Service struct {
 	organizer  *organizer.Service
 	renamer    *renamer.Resolver
 	mediainfo  *mediainfo.Service
-	slots      *slots.Service
-	health     HealthService
-	history    HistoryService
-	notifier   NotificationDispatcher
-	hub        *websocket.Hub
+	slots         *slots.Service
+	health        HealthService
+	history       HistoryService
+	notifier      NotificationDispatcher
+	statusTracker StatusTrackerService
+	hub           *websocket.Hub
 	logger     zerolog.Logger
 	config     Config
 
@@ -286,6 +293,11 @@ func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 	s.notifier = n
 }
 
+// SetStatusTracker sets the status tracker for portal request updates.
+func (s *Service) SetStatusTracker(st StatusTrackerService) {
+	s.statusTracker = st
+}
+
 // SetDB updates the database connection used by this service.
 // This is called when switching between production and development databases.
 func (s *Service) SetDB(db *sql.DB) {
@@ -390,6 +402,19 @@ func (s *Service) processJob(ctx context.Context, job ImportJob) {
 			Str("linkMode", string(result.LinkMode)).
 			Bool("upgrade", result.IsUpgrade).
 			Msg("Import completed successfully")
+
+		// Update portal request status to available
+		if s.statusTracker != nil && result.Match != nil {
+			if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
+				if err := s.statusTracker.OnMovieAvailable(ctx, *result.Match.MovieID); err != nil {
+					s.logger.Warn().Err(err).Int64("movieId", *result.Match.MovieID).Msg("Failed to update request status")
+				}
+			} else if result.Match.MediaType == "episode" && result.Match.EpisodeID != nil {
+				if err := s.statusTracker.OnEpisodeAvailable(ctx, *result.Match.EpisodeID); err != nil {
+					s.logger.Warn().Err(err).Int64("episodeId", *result.Match.EpisodeID).Msg("Failed to update request status")
+				}
+			}
+		}
 
 		// Broadcast success event
 		if s.hub != nil {

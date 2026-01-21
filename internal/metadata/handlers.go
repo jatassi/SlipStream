@@ -38,14 +38,20 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/series/:id/extended", h.GetExtendedSeries)
 	g.POST("/series/:id/artwork", h.DownloadSeriesArtwork)
 
-	// Artwork serving
-	g.GET("/artwork/:type/:id/:artworkType", h.GetArtwork)
+	// Note: Artwork serving route is registered separately via RegisterArtworkRoutes
+	// to allow public access (images loaded via <img> tags don't include auth headers)
 
 	// Cache management
 	g.DELETE("/cache", h.ClearCache)
 
 	// Provider status
 	g.GET("/status", h.GetStatus)
+}
+
+// RegisterArtworkRoutes registers artwork routes separately (public, no auth required).
+// This is needed because images loaded via <img> tags don't include Authorization headers.
+func (h *Handlers) RegisterArtworkRoutes(g *echo.Group) {
+	g.GET("/artwork/:type/:id/:artworkType", h.GetArtwork)
 }
 
 // SearchMovies searches for movies by query.

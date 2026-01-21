@@ -17,15 +17,19 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
-// RegisterRoutes registers notification routes on the provided group
+// RegisterRoutes registers admin-only notification routes on the provided group
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.List)
 	g.POST("", h.Create)
-	g.GET("/schema", h.GetSchemas)
 	g.GET("/:id", h.Get)
 	g.PUT("/:id", h.Update)
 	g.DELETE("/:id", h.Delete)
 	g.POST("/:id/test", h.Test)
+}
+
+// RegisterSharedRoutes registers notification routes accessible to both admin and portal users
+func (h *Handlers) RegisterSharedRoutes(g *echo.Group) {
+	g.GET("/schema", h.GetSchemas)
 	g.POST("/test", h.TestNew)
 }
 

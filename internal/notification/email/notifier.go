@@ -208,6 +208,11 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.sendEmail(ctx, subject, body)
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	subject := "[SlipStream] " + event.Title
+	return n.sendEmail(ctx, subject, event.Message)
+}
+
 func (n *Notifier) toHTML(plainText string) string {
 	escaped := strings.ReplaceAll(plainText, "&", "&amp;")
 	escaped = strings.ReplaceAll(escaped, "<", "&lt;")

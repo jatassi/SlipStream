@@ -52,7 +52,14 @@
       "Bash(~/.bun/bin/bun:*)",
       "Bash(/usr/local/bin/bun:*)",
       "Bash(bun run build:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "mcp__shadcn__search_items_in_registries",
+      "mcp__shadcn__view_items_in_registries",
+      "mcp__shadcn__get_add_command_for_items",
+      "mcp__shadcn__get_item_examples_from_registries",
+      "Bash(bun run tsc:*)",
+      "Bash(sqlite3:*)",
+      "Bash(go doc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

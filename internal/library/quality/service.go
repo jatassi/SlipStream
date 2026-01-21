@@ -117,6 +117,11 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		upgradesEnabled = 0
 	}
 
+	allowAutoApprove := int64(0)
+	if input.AllowAutoApprove {
+		allowAutoApprove = 1
+	}
+
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
 		Name:                 input.Name,
 		Cutoff:               int64(input.Cutoff),
@@ -126,6 +131,7 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		AudioCodecSettings:   audioCodecJSON,
 		AudioChannelSettings: audioChannelJSON,
 		UpgradesEnabled:      upgradesEnabled,
+		AllowAutoApprove:     allowAutoApprove,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -171,6 +177,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		upgradesEnabled = 1
 	}
 
+	allowAutoApprove := int64(0)
+	if input.AllowAutoApprove {
+		allowAutoApprove = 1
+	}
+
 	row, err := s.queries.UpdateQualityProfile(ctx, sqlc.UpdateQualityProfileParams{
 		ID:                   id,
 		Name:                 input.Name,
@@ -181,6 +192,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		AudioCodecSettings:   audioCodecJSON,
 		AudioChannelSettings: audioChannelJSON,
 		UpgradesEnabled:      upgradesEnabled,
+		AllowAutoApprove:     allowAutoApprove,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -296,6 +308,7 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		Name:                 row.Name,
 		Cutoff:               int(row.Cutoff),
 		UpgradesEnabled:      row.UpgradesEnabled == 1,
+		AllowAutoApprove:     row.AllowAutoApprove == 1,
 		Items:                items,
 		HDRSettings:          hdrSettings,
 		VideoCodecSettings:   videoCodecSettings,

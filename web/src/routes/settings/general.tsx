@@ -1,56 +1,57 @@
-import { useState } from 'react'
-import { Save, RefreshCw, Copy } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save, Lock, Copy, Check } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { useSettings, useUpdateSettings, useRegenerateApiKey } from '@/hooks'
+import { PasskeyManager, ChangePinDialog } from '@/components/portal'
+import { useSettings, useUpdateSettings } from '@/hooks'
 import { toast } from 'sonner'
 
 export function GeneralSettingsPage() {
   const { data: settings, isLoading, isError, refetch } = useSettings()
   const updateMutation = useUpdateSettings()
-  const regenerateMutation = useRegenerateApiKey()
 
-  const [port, setPort] = useState(settings?.serverPort?.toString() || '8080')
-  const [logLevel, setLogLevel] = useState(settings?.logLevel || 'info')
-  const [authEnabled, setAuthEnabled] = useState(settings?.authEnabled || false)
-  const [password, setPassword] = useState('')
+  const [port, setPort] = useState('')
+  const [logLevel, setLogLevel] = useState('')
+  const [pinDialogOpen, setPinDialogOpen] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
+
+  useEffect(() => {
+    if (settings) {
+      setPort(settings.serverPort?.toString() || '8080')
+      setLogLevel(settings.logLevel || 'info')
+    }
+  }, [settings])
 
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync({
         serverPort: parseInt(port),
         logLevel,
-        authEnabled,
-        password: password || undefined,
       })
       toast.success('Settings saved')
-      setPassword('')
     } catch {
       toast.error('Failed to save settings')
     }
   }
 
-  const handleRegenerateApiKey = async () => {
-    try {
-      await regenerateMutation.mutateAsync()
-      toast.success('API key regenerated')
-    } catch {
-      toast.error('Failed to regenerate API key')
-    }
-  }
-
-  const handleCopyApiKey = () => {
-    if (settings?.apiKey) {
-      navigator.clipboard.writeText(settings.apiKey)
-      toast.success('API key copied to clipboard')
+  const handleCopyLogPath = () => {
+    if (settings?.logPath) {
+      navigator.clipboard.writeText(settings.logPath)
+      setIsCopied(true)
+      toast.success('Log path copied to clipboard')
+      setTimeout(() => setIsCopied(false), 2000)
     }
   }
 
@@ -125,6 +126,30 @@ export function GeneralSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label>Log Files</Label>
+              <InputGroup>
+                <InputGroupInput
+                  value={settings?.logPath || ''}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    aria-label="Copy"
+                    title="Copy path"
+                    size="icon-xs"
+                    onClick={handleCopyLogPath}
+                  >
+                    {isCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <p className="text-sm text-muted-foreground">
+                Location where log files are stored
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -136,72 +161,25 @@ export function GeneralSettingsPage() {
               Secure access to the web interface
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Enable Authentication</Label>
-                <p className="text-sm text-muted-foreground">
-                  Require a password to access the web interface
-                </p>
-              </div>
-              <Switch
-                checked={authEnabled}
-                onCheckedChange={setAuthEnabled}
-              />
-            </div>
-
-            {authEnabled && (
-              <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to keep current password
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* API Key */}
-        <Card>
-          <CardHeader>
-            <CardTitle>API Key</CardTitle>
-            <CardDescription>
-              Used for external API access
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={settings?.apiKey || ''}
-                readOnly
-                className="font-mono text-sm"
-              />
-              <Button variant="outline" size="icon" onClick={handleCopyApiKey}>
-                <Copy className="size-4" />
+          <CardContent className="space-y-6">
+            <div>
+              <Label className="text-base">PIN</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Update your account PIN
+              </p>
+              <Button onClick={() => setPinDialogOpen(true)}>
+                <Lock className="size-4 mr-2" />
+                Change PIN...
               </Button>
             </div>
 
-            <ConfirmDialog
-              trigger={
-                <Button variant="outline">
-                  <RefreshCw className="size-4 mr-2" />
-                  Regenerate API Key
-                </Button>
-              }
-              title="Regenerate API Key"
-              description="Are you sure you want to regenerate the API key? Any applications using the current key will need to be updated."
-              confirmLabel="Regenerate"
-              onConfirm={handleRegenerateApiKey}
-            />
+            <div className="border-t pt-6">
+              <PasskeyManager />
+            </div>
           </CardContent>
         </Card>
+
+        <ChangePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} />
       </div>
     </div>
   )

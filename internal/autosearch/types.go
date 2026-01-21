@@ -22,6 +22,7 @@ const (
 	SearchSourceManual    SearchSource = "manual"    // User clicked button
 	SearchSourceScheduled SearchSource = "scheduled" // Background task
 	SearchSourceAdd       SearchSource = "add"       // Adding to library
+	SearchSourceRequest   SearchSource = "request"   // External request approved
 )
 
 // SearchRequest contains parameters for an automatic search operation.

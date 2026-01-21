@@ -10,6 +10,10 @@ import {
   FileInput,
   Layers,
   Bell,
+  Users,
+  ListTodo,
+  Settings2,
+  ExternalLink,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,9 +75,30 @@ const settingsLinks = [
   },
 ]
 
+const requestsLinks = [
+  {
+    title: 'Request Queue',
+    description: 'Review and approve content requests',
+    href: '/settings/requests',
+    icon: ListTodo,
+  },
+  {
+    title: 'Portal Users',
+    description: 'Manage portal users and invitations',
+    href: '/settings/requests/users',
+    icon: Users,
+  },
+  {
+    title: 'Request Settings',
+    description: 'Configure quotas, notifications, and rate limits',
+    href: '/settings/requests/settings',
+    icon: Settings2,
+  },
+]
+
 export function SettingsPage() {
   return (
-    <div>
+    <div className="space-y-8">
       <PageHeader
         title="Settings"
         description="Configure SlipStream"
@@ -96,6 +121,42 @@ export function SettingsPage() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-4">External Requests</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {requestsLinks.map((link) => (
+            <Link key={link.href} to={link.href}>
+              <Card className="hover:border-primary transition-colors cursor-pointer">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
+                    <link.icon className="size-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{link.title}</CardTitle>
+                    <CardDescription>{link.description}</CardDescription>
+                  </div>
+                  <ChevronRight className="size-5 text-muted-foreground" />
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
+          <a href="/requests" target="_blank" rel="noopener noreferrer">
+            <Card className="hover:border-primary transition-colors cursor-pointer">
+              <CardHeader className="flex flex-row items-center gap-4">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
+                  <ExternalLink className="size-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-base">Open Portal</CardTitle>
+                  <CardDescription>Open the request portal in a new tab</CardDescription>
+                </div>
+                <ExternalLink className="size-5 text-muted-foreground" />
+              </CardHeader>
+            </Card>
+          </a>
+        </div>
       </div>
     </div>
   )

@@ -1041,6 +1041,32 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 	return s.queries.CountSeries(ctx)
 }
 
+// GetSeriesIDByTvdbID returns the internal series ID for a given TVDB ID.
+func (s *Service) GetSeriesIDByTvdbID(ctx context.Context, tvdbID int64) (int64, error) {
+	series, err := s.GetSeriesByTvdbID(ctx, int(tvdbID))
+	if err != nil {
+		return 0, err
+	}
+	return series.ID, nil
+}
+
+// AreSeasonsComplete checks if all monitored, released episodes in the specified seasons have files.
+func (s *Service) AreSeasonsComplete(ctx context.Context, seriesID int64, seasonNumbers []int64) (bool, error) {
+	if len(seasonNumbers) == 0 {
+		return true, nil
+	}
+
+	count, err := s.queries.CountMissingEpisodesBySeasons(ctx, sqlc.CountMissingEpisodesBySeasonsParams{
+		SeriesID:      seriesID,
+		SeasonNumbers: seasonNumbers,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to count missing episodes: %w", err)
+	}
+
+	return count == 0, nil
+}
+
 // rowToSeries converts a database row to a Series.
 func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	series := &Series{

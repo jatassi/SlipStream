@@ -897,6 +897,13 @@ func (s *Service) processMockMovieImport(ctx context.Context, mapping *DownloadM
 		Str("mockPath", mockFilePath).
 		Msg("Mock movie import completed")
 
+	// Update portal request status to available
+	if s.statusTracker != nil {
+		if err := s.statusTracker.OnMovieAvailable(ctx, *mapping.MovieID); err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", *mapping.MovieID).Msg("Failed to update request status")
+		}
+	}
+
 	// Broadcast import event
 	if s.hub != nil {
 		s.hub.Broadcast("import:completed", map[string]any{
@@ -999,6 +1006,13 @@ func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *Down
 			}
 		}
 
+		// Update portal request status to available for this episode
+		if s.statusTracker != nil {
+			if err := s.statusTracker.OnEpisodeAvailable(ctx, ep.ID); err != nil {
+				s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to update request status")
+			}
+		}
+
 		importedCount++
 	}
 
@@ -1073,6 +1087,13 @@ func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *D
 		Int("episode", episode.EpisodeNumber).
 		Str("mockPath", mockFilePath).
 		Msg("Mock episode import completed")
+
+	// Update portal request status to available
+	if s.statusTracker != nil {
+		if err := s.statusTracker.OnEpisodeAvailable(ctx, *mapping.EpisodeID); err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", *mapping.EpisodeID).Msg("Failed to update request status")
+		}
+	}
 
 	// Broadcast import event
 	if s.hub != nil {
@@ -1165,6 +1186,13 @@ func (s *Service) processMockCompleteSeriesImport(ctx context.Context, mapping *
 			if mapping.TargetSlotID != nil && s.slots != nil {
 				if err := s.slots.AssignFileToSlot(ctx, "episode", ep.ID, *mapping.TargetSlotID, file.ID); err != nil {
 					s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", ep.ID).Msg("Failed to assign episode file to slot")
+				}
+			}
+
+			// Update portal request status to available for this episode
+			if s.statusTracker != nil {
+				if err := s.statusTracker.OnEpisodeAvailable(ctx, ep.ID); err != nil {
+					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to update request status")
 				}
 			}
 

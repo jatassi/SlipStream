@@ -521,3 +521,15 @@ SELECT format_type FROM series WHERE id = ?;
 
 -- name: UpdateEpisodeFilePath :exec
 UPDATE episode_files SET path = ? WHERE id = ?;
+
+-- name: CountMissingEpisodesBySeasons :one
+-- Counts missing episodes (released, monitored, no file) in the specified seasons
+SELECT COUNT(*) FROM episodes e
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+LEFT JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.series_id = ?
+  AND e.season_number IN (sqlc.slice('seasonNumbers'))
+  AND e.released = 1
+  AND sea.monitored = 1
+  AND e.monitored = 1
+  AND ef.id IS NULL;

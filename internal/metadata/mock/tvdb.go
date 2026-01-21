@@ -135,6 +135,13 @@ var tvdbMockSeriesSeasons = []tvdbMockSeriesWithSeasons{
 			{SeasonNumber: 3, Name: "Season 3", Overview: "The Mandalorian seeks to atone for his transgressions.", AirDate: "2023-03-01", Episodes: tvdbGenerateEpisodes(3, 8)},
 		},
 	},
+	{
+		SeriesID: 362472, // Loki
+		Seasons: []tvdb.NormalizedSeasonResult{
+			{SeasonNumber: 1, Name: "Season 1", Overview: "Loki finds himself at the TVA after stealing the Tesseract.", AirDate: "2021-06-09", Episodes: tvdbGenerateEpisodes(1, 6)},
+			{SeasonNumber: 2, Name: "Season 2", Overview: "Loki and Mobius hunt down Sylvie and prevent the multiversal war.", AirDate: "2023-10-05", Episodes: tvdbGenerateEpisodes(2, 6)},
+		},
+	},
 }
 
 var tvdbDefaultSeasons = []tvdb.NormalizedSeasonResult{
@@ -159,4 +166,5 @@ var tvdbMockSeries = []tvdb.NormalizedSeriesResult{
 	{ID: 327417, TvdbID: 327417, TmdbID: 71446, Title: "La casa de papel", Year: 2017, Overview: "Un golpe maestro ideado y perfeccionado durante años, planificado durante meses y ejecutado en pocos minutos para que el elegido grupo de ladrones...", PosterURL: "https://artworks.thetvdb.com/banners/posters/5d30cc0b4a75d.jpg", BackdropURL: "https://artworks.thetvdb.com/banners/series/327417/backgrounds/5e75f224ac334.jpg", ImdbID: "tt6468322", Genres: []string{"Drama", "Crime", "Action", "Thriller", "Mystery"}, Status: "ended", Runtime: 57},
 	{ID: 355567, TvdbID: 355567, TmdbID: 76479, Title: "The Boys", Year: 2019, Overview: "In a world where superheroes embrace the darker side of their massive celebrity and fame, a group of vigilantes known informally as \"The Boys\" set ...", PosterURL: "https://artworks.thetvdb.com/banners/posters/5c5c402b075cc.jpg", BackdropURL: "https://artworks.thetvdb.com/banners/fanart/original/5d120186c0c5f.jpg", ImdbID: "tt1190634", Genres: []string{"Science Fiction", "Fantasy", "Drama", "Crime", "Comedy", "Action"}, Status: "continuing", Runtime: 63},
 	{ID: 361753, TvdbID: 361753, TmdbID: 82856, Title: "The Mandalorian", Year: 2019, Overview: "After the fall of the Galactic Empire, lawlessness has spread throughout the galaxy. A lone gunfighter makes his way through the outer reaches, earning his keep as a bounty hunter.", PosterURL: "https://artworks.thetvdb.com/banners/v4/series/361753/posters/5d6d8722680d0.jpg", BackdropURL: "https://artworks.thetvdb.com/banners/v4/series/361753/backgrounds/5e5d4c0c9f0f5.jpg", ImdbID: "tt8111088", Genres: []string{"Science Fiction", "Adventure", "Action", "Western"}, Status: "continuing", Runtime: 40},
+	{ID: 362472, TvdbID: 362472, TmdbID: 84958, Title: "Loki", Year: 2021, Overview: "After stealing the Tesseract in Avengers: Endgame, Loki lands before the Time Variance Authority and is forced to fix the timeline.", PosterURL: "https://artworks.thetvdb.com/banners/v4/series/362472/posters/60fd7ef29e24e.jpg", BackdropURL: "https://artworks.thetvdb.com/banners/v4/series/362472/backgrounds/60c87ef5e2dd6.jpg", ImdbID: "tt9140554", Genres: []string{"Science Fiction", "Fantasy", "Drama", "Adventure", "Action"}, Status: "ended", Runtime: 50},
 }

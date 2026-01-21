@@ -88,7 +88,7 @@ bun run lint          # ESLint
 ## Key Patterns
 
 ### API Routes
-All API endpoints are under `/api/v1`. Route groups: `/auth`, `/movies`, `/series`, `/qualityprofiles`, `/rootfolders`, `/metadata`, `/indexers`, `/downloadclients`, `/queue`, `/history`, `/search`.
+All API endpoints are under `/api/v1`. Route groups: `/auth`, `/movies`, `/series`, `/qualityprofiles`, `/rootfolders`, `/metadata`, `/indexers`, `/downloadclients`, `/queue`, `/history`, `/search`, `/portal`, `/admin`.
 
 ### Database
 - SQLite with WAL mode
@@ -250,6 +250,50 @@ function MyComponent() {
 - Always check developer mode before exposing debug/testing features
 - Mock data should use realistic values from actual media content
 - Debug endpoints should return 403 Forbidden when not in developer mode
+
+## External Requests Portal
+
+SlipStream includes an external request portal that allows invited users (friends/family) to request content without having full admin access.
+
+### Architecture
+
+The portal uses a separate authentication system from the main admin interface:
+- **Admin auth**: Session-based, stored in cookies, for admin users managing the server
+- **Portal auth**: JWT-based, stored in localStorage, for portal users making requests
+
+### API Routes
+
+- `/api/v1/portal/*` - Portal user endpoints (JWT auth required)
+  - Authentication: `/login`, `/register`, `/logout`, `/refresh`
+  - Requests: `/requests` (CRUD), `/search` (metadata search)
+  - Profile: `/profile`, `/notifications`
+- `/api/v1/admin/*` - Admin management endpoints (session auth required)
+  - Users: `/users` (list, update, enable/disable, delete)
+  - Invitations: `/invitations` (create, list, resend, delete)
+  - Requests: `/requests` (approve, deny, batch operations)
+  - Settings: `/requests/settings` (quotas, rate limits)
+
+### Frontend Routes
+
+Portal and admin interfaces are separate:
+- `/portal/*` - Portal user interface (login, search, requests, profile)
+- `/settings/requests/*` - Admin interface (queue, users, settings)
+
+### Key Concepts
+
+- **Invitations**: Admins create invitation tokens; users register via `/portal/signup?token=xxx`
+- **Quotas**: Per-user limits on movies/seasons/episodes per week (configurable per user or global defaults)
+- **Auto-Approve**: Quality profiles can be marked as "Allow Auto-Approve". Portal users assigned such a profile will have their requests auto-approved
+- **Request Lifecycle**: `pending` → `approved` → `downloading` → `available` (or `denied`/`cancelled`)
+
+### Quality Profile Auto-Approve
+
+Quality profiles have an `allowAutoApprove` field. When a portal user has a quality profile with this enabled:
+1. Their requests skip the approval queue
+2. Requests go directly to "approved" status
+3. Auto-search begins immediately (based on request settings)
+
+This is useful for trusted users who should have immediate access without admin review.
 
 ## Windows-Specific Notes
 

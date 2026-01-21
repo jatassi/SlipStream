@@ -29,6 +29,7 @@ type (
 	SeriesDeletedEvent = types.SeriesDeletedEvent
 	HealthEvent        = types.HealthEvent
 	AppUpdateEvent     = types.AppUpdateEvent
+	MessageEvent       = types.MessageEvent
 )
 
 // Re-export constants

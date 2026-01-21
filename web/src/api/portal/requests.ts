@@ -1,0 +1,36 @@
+import { portalFetch, buildQueryString } from './client'
+import type {
+  Request,
+  CreateRequestInput,
+  RequestListFilters,
+  PortalDownload,
+} from '@/types'
+
+export const portalRequestsApi = {
+  list: (filters?: RequestListFilters) =>
+    portalFetch<Request[]>(`${buildQueryString(filters || {})}`),
+
+  get: (id: number) =>
+    portalFetch<Request>(`/${id}`),
+
+  create: (data: CreateRequestInput) =>
+    portalFetch<Request>('', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  cancel: (id: number) =>
+    portalFetch<void>(`/${id}`, { method: 'DELETE' }),
+
+  watch: (id: number) =>
+    portalFetch<void>(`/${id}/watch`, { method: 'POST' }),
+
+  unwatch: (id: number) =>
+    portalFetch<void>(`/${id}/watch`, { method: 'DELETE' }),
+
+  getWatchers: (id: number) =>
+    portalFetch<number[]>(`/${id}/watchers`),
+
+  downloads: () =>
+    portalFetch<PortalDownload[]>('/downloads'),
+}

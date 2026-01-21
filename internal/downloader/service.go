@@ -529,12 +529,8 @@ func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 	if row.Category.Valid {
 		client.Category = row.Category.String
 	}
-	if row.CreatedAt.Valid {
-		client.CreatedAt = row.CreatedAt.Time
-	}
-	if row.UpdatedAt.Valid {
-		client.UpdatedAt = row.UpdatedAt.Time
-	}
+	client.CreatedAt = row.CreatedAt
+	client.UpdatedAt = row.UpdatedAt
 	if row.SeedRatioTarget.Valid {
 		client.SeedRatioTarget = &row.SeedRatioTarget.Float64
 	}

@@ -69,6 +69,7 @@ const defaultFormData: CreateQualityProfileInput = {
   name: '',
   cutoff: 10,
   upgradesEnabled: true,
+  allowAutoApprove: false,
   items: defaultItems,
   hdrSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
   videoCodecSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -96,6 +97,7 @@ export function QualityProfileDialog({
           name: profile.name,
           cutoff: profile.cutoff,
           upgradesEnabled: profile.upgradesEnabled ?? true,
+          allowAutoApprove: profile.allowAutoApprove ?? false,
           items: profile.items,
           hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
           videoCodecSettings: profile.videoCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -320,6 +322,22 @@ export function QualityProfileDialog({
               checked={formData.upgradesEnabled}
               onCheckedChange={(checked) =>
                 setFormData((prev) => ({ ...prev, upgradesEnabled: checked }))
+              }
+            />
+          </div>
+
+          {/* Allow Auto-Approve Toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label>Allow Auto-Approve</Label>
+              <p className="text-xs text-muted-foreground">
+                Requests using this profile can be auto-approved
+              </p>
+            </div>
+            <Switch
+              checked={formData.allowAutoApprove}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, allowAutoApprove: checked }))
               }
             />
           </div>

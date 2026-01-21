@@ -3,6 +3,7 @@ package logger
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,12 +13,14 @@ import (
 // Logger wraps zerolog for application logging.
 type Logger struct {
 	zerolog.Logger
+	logFile *os.File
 }
 
 // Config holds logger configuration.
 type Config struct {
 	Level  string
 	Format string // "console" or "json"
+	Path   string // directory for log files
 }
 
 // IsDevBuild returns true if running via "go run" (development mode).
@@ -35,13 +38,12 @@ func IsDevBuild() bool {
 // When running via "go run" (dev build), automatically uses debug level
 // unless a more verbose level (trace) is explicitly configured.
 func New(cfg Config) *Logger {
-	var output io.Writer
+	var consoleOutput io.Writer
 
 	if cfg.Format == "json" {
-		output = os.Stdout
+		consoleOutput = os.Stdout
 	} else {
-		// Console format with colors
-		output = zerolog.ConsoleWriter{
+		consoleOutput = zerolog.ConsoleWriter{
 			Out:        os.Stdout,
 			TimeFormat: time.RFC3339,
 		}
@@ -54,13 +56,35 @@ func New(cfg Config) *Logger {
 		level = zerolog.DebugLevel
 	}
 
+	var output io.Writer = consoleOutput
+	var logFile *os.File
+
+	if cfg.Path != "" {
+		if err := os.MkdirAll(cfg.Path, 0755); err == nil {
+			logPath := filepath.Join(cfg.Path, "slipstream.log")
+			f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err == nil {
+				logFile = f
+				output = io.MultiWriter(consoleOutput, f)
+			}
+		}
+	}
+
 	logger := zerolog.New(output).
 		Level(level).
 		With().
 		Timestamp().
 		Logger()
 
-	return &Logger{Logger: logger}
+	return &Logger{Logger: logger, logFile: logFile}
+}
+
+// Close closes the log file if one is open.
+func (l *Logger) Close() error {
+	if l.logFile != nil {
+		return l.logFile.Close()
+	}
+	return nil
 }
 
 // parseLevel converts string level to zerolog.Level

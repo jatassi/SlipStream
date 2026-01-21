@@ -135,7 +135,30 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 	// Get missing episodes in this season
 	episodes, err := s.getMissingEpisodesForSeason(ctx, seriesID, seasonNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get missing episodes: %w", err)
+		// If season doesn't exist yet (e.g., series just added from portal request),
+		// try a direct season pack search anyway
+		s.logger.Debug().
+			Err(err).
+			Int64("seriesId", seriesID).
+			Int("seasonNumber", seasonNumber).
+			Msg("Failed to get missing episodes, attempting direct season pack search")
+
+		packResult, searchErr := s.searchSeasonPack(ctx, series, seasonNumber, source)
+		result := &BatchSearchResult{
+			TotalSearched: 1,
+			Results:       []*SearchResult{packResult},
+		}
+		if searchErr != nil {
+			result.Failed = 1
+			return result, nil
+		}
+		if packResult.Found {
+			result.Found = 1
+		}
+		if packResult.Downloaded {
+			result.Downloaded = 1
+		}
+		return result, nil
 	}
 
 	// Check if this season is eligible for season pack search
@@ -165,6 +188,19 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 			result.Downloaded = 1
 		}
 		return result, nil
+	}
+
+	// If no missing episodes found but season exists (all episodes have files),
+	// there's nothing to search for
+	if len(episodes) == 0 {
+		s.logger.Debug().
+			Int64("seriesId", seriesID).
+			Int("seasonNumber", seasonNumber).
+			Msg("No missing episodes found for season")
+		return &BatchSearchResult{
+			TotalSearched: 0,
+			Results:       []*SearchResult{},
+		}, nil
 	}
 
 	// Use individual episode searches

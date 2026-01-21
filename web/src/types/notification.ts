@@ -32,9 +32,13 @@ export interface Notification {
   onHealthRestored: boolean
   onAppUpdate: boolean
   includeHealthWarnings: boolean
+  // Portal-specific event triggers
+  onAvailable?: boolean
+  onApproved?: boolean
+  onDenied?: boolean
   tags: number[]
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface CreateNotificationInput {
@@ -106,3 +110,5 @@ export interface NotifierSchema {
   infoUrl?: string
   fields: SettingsField[]
 }
+
+export type NotificationProviderSchema = NotifierSchema

@@ -22,13 +22,14 @@ type QualityItem struct {
 
 // Profile represents a quality profile.
 type Profile struct {
-	ID              int64         `json:"id"`
-	Name            string        `json:"name"`
-	Cutoff          int           `json:"cutoff"`          // Quality ID at which upgrades stop
-	UpgradesEnabled bool          `json:"upgradesEnabled"` // Whether upgrades are enabled for this profile
-	Items           []QualityItem `json:"items"`           // Ordered list of qualities
-	CreatedAt       time.Time     `json:"createdAt"`
-	UpdatedAt       time.Time     `json:"updatedAt"`
+	ID               int64         `json:"id"`
+	Name             string        `json:"name"`
+	Cutoff           int           `json:"cutoff"`           // Quality ID at which upgrades stop
+	UpgradesEnabled  bool          `json:"upgradesEnabled"`  // Whether upgrades are enabled for this profile
+	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
+	Items            []QualityItem `json:"items"`            // Ordered list of qualities
+	CreatedAt        time.Time     `json:"createdAt"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -39,10 +40,11 @@ type Profile struct {
 
 // CreateProfileInput is used when creating a new profile.
 type CreateProfileInput struct {
-	Name            string        `json:"name"`
-	Cutoff          int           `json:"cutoff"`
-	UpgradesEnabled *bool         `json:"upgradesEnabled"` // Pointer to distinguish unset from false
-	Items           []QualityItem `json:"items"`
+	Name             string        `json:"name"`
+	Cutoff           int           `json:"cutoff"`
+	UpgradesEnabled  *bool         `json:"upgradesEnabled"`  // Pointer to distinguish unset from false
+	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
+	Items            []QualityItem `json:"items"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -53,10 +55,11 @@ type CreateProfileInput struct {
 
 // UpdateProfileInput is used when updating a profile.
 type UpdateProfileInput struct {
-	Name            string        `json:"name"`
-	Cutoff          int           `json:"cutoff"`
-	UpgradesEnabled bool          `json:"upgradesEnabled"`
-	Items           []QualityItem `json:"items"`
+	Name             string        `json:"name"`
+	Cutoff           int           `json:"cutoff"`
+	UpgradesEnabled  bool          `json:"upgradesEnabled"`
+	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
+	Items            []QualityItem `json:"items"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`

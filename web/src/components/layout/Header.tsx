@@ -1,8 +1,10 @@
-import { Bell, Hammer, Loader2 } from 'lucide-react'
+import { Bell, Hammer, Loader2, LogOut, User } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -12,16 +14,19 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Toggle } from '@/components/ui/toggle'
-import { useUIStore, useDevModeStore, useWebSocketStore } from '@/stores'
+import { Button } from '@/components/ui/button'
+import { useUIStore, useDevModeStore, useWebSocketStore, usePortalAuthStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/SearchBar'
 import { useScheduledTasks } from '@/hooks'
 import { cn } from '@/lib/utils'
 
 export function Header() {
+  const navigate = useNavigate()
   const { notifications, dismissNotification } = useUIStore()
   const { enabled: devModeEnabled, switching: devModeSwitching, setEnabled, setSwitching } = useDevModeStore()
   const { send } = useWebSocketStore()
+  const { user, logout } = usePortalAuthStore()
   const { data: tasks } = useScheduledTasks()
 
   const runningTasks = tasks?.filter(t => t.running) || []
@@ -34,6 +39,11 @@ export function Header() {
       type: 'devmode:set',
       payload: { enabled: pressed }
     })
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate({ to: '/requests/auth/login' })
   }
 
   return (
@@ -132,6 +142,24 @@ export function Header() {
                 </DropdownMenuItem>
               ))
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* User Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-2" />}>
+            <User className="size-4" />
+            <span className="hidden sm:inline">{user?.displayName || user?.username || 'Administrator'}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{user?.displayName || user?.username || 'Administrator'}</span>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 size-4" />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,12 @@ import (
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
-func setupTestServer(t *testing.T) (*Server, func()) {
+type testServer struct {
+	*Server
+	adminToken string
+}
+
+func setupTestServer(t *testing.T) (*testServer, func()) {
 	t.Helper()
 
 	tdb := testutil.NewTestDB(t)
@@ -33,21 +39,39 @@ func setupTestServer(t *testing.T) (*Server, func()) {
 
 	server := NewServer(tdb.Manager, nil, cfg, tdb.Logger)
 
+	// Create admin user for tests
+	ctx := context.Background()
+	_, err := server.portalUsersService.CreateAdmin(ctx, "testpassword123")
+	if err != nil {
+		t.Fatalf("Failed to create test admin: %v", err)
+	}
+
+	// Generate admin token
+	adminToken, err := server.portalAuthService.GenerateAdminToken(1, "Administrator")
+	if err != nil {
+		t.Fatalf("Failed to generate admin token: %v", err)
+	}
+
 	cleanup := func() {
 		tdb.Close()
 	}
 
-	return server, cleanup
+	return &testServer{Server: server, adminToken: adminToken}, cleanup
+}
+
+func (ts *testServer) authRequest(req *http.Request) *http.Request {
+	req.Header.Set("Authorization", "Bearer "+ts.adminToken)
+	return req
 }
 
 func TestHealthCheck(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("HealthCheck status = %d, want %d", rec.Code, http.StatusOK)
@@ -64,13 +88,13 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestGetStatus(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("GetStatus status = %d, want %d", rec.Code, http.StatusOK)
@@ -93,13 +117,13 @@ func TestGetStatus(t *testing.T) {
 }
 
 func TestAuthStatus(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/status", nil)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("AuthStatus status = %d, want %d", rec.Code, http.StatusOK)
@@ -108,23 +132,28 @@ func TestAuthStatus(t *testing.T) {
 	var response map[string]interface{}
 	json.Unmarshal(rec.Body.Bytes(), &response)
 
-	if response["requiresAuth"] != false {
-		t.Error("AuthStatus requiresAuth should be false by default")
+	// Admin was created in setup, so requiresSetup should be false
+	if response["requiresSetup"] != false {
+		t.Error("AuthStatus requiresSetup should be false after admin is created")
+	}
+	if response["requiresAuth"] != true {
+		t.Error("AuthStatus requiresAuth should be true")
 	}
 }
 
 // Movies API Tests
 
 func TestMoviesAPI_Create(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	body := `{"title": "The Matrix", "year": 1999, "tmdbId": 603, "monitored": true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
 		t.Errorf("Create movie status = %d, want %d. Body: %s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -144,7 +173,7 @@ func TestMoviesAPI_Create(t *testing.T) {
 }
 
 func TestMoviesAPI_List(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create some movies first
@@ -156,15 +185,17 @@ func TestMoviesAPI_List(t *testing.T) {
 	for _, body := range movies {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		ts.authRequest(req)
 		rec := httptest.NewRecorder()
-		server.echo.ServeHTTP(rec, req)
+		ts.echo.ServeHTTP(rec, req)
 	}
 
 	// List movies
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/movies", nil)
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("List movies status = %d, want %d", rec.Code, http.StatusOK)
@@ -181,25 +212,26 @@ func TestMoviesAPI_List(t *testing.T) {
 }
 
 func TestMoviesAPI_Get(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create a movie
 	body := `{"title": "Test Movie", "year": 2020}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	var created map[string]interface{}
 	json.Unmarshal(rec.Body.Bytes(), &created)
 	id := int(created["id"].(float64))
 
 	// Get the movie
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/movies/"+strings.TrimSpace(rec.Body.String()[:10]), nil)
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/movies/1", nil)
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Get movie status = %d, want %d. Body: %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -214,13 +246,14 @@ func TestMoviesAPI_Get(t *testing.T) {
 }
 
 func TestMoviesAPI_Get_NotFound(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/movies/99999", nil)
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("Get non-existent movie status = %d, want %d", rec.Code, http.StatusNotFound)
@@ -228,22 +261,24 @@ func TestMoviesAPI_Get_NotFound(t *testing.T) {
 }
 
 func TestMoviesAPI_Update(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create a movie
 	createBody := `{"title": "Original", "year": 2020}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	// Update the movie
 	updateBody := `{"title": "Updated"}`
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/movies/1", strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Update movie status = %d, want %d. Body: %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -258,20 +293,22 @@ func TestMoviesAPI_Update(t *testing.T) {
 }
 
 func TestMoviesAPI_Delete(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create a movie
 	createBody := `{"title": "To Delete"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	// Delete the movie
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/movies/1", nil)
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
 		t.Errorf("Delete movie status = %d, want %d", rec.Code, http.StatusNoContent)
@@ -279,8 +316,9 @@ func TestMoviesAPI_Delete(t *testing.T) {
 
 	// Verify it's gone
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/movies/1", nil)
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("Get deleted movie status = %d, want %d", rec.Code, http.StatusNotFound)
@@ -290,15 +328,16 @@ func TestMoviesAPI_Delete(t *testing.T) {
 // Series API Tests
 
 func TestSeriesAPI_Create(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	body := `{"title": "Breaking Bad", "year": 2008, "tvdbId": 81189, "monitored": true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
 		t.Errorf("Create series status = %d, want %d. Body: %s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -313,7 +352,7 @@ func TestSeriesAPI_Create(t *testing.T) {
 }
 
 func TestSeriesAPI_List(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create some series
@@ -325,15 +364,17 @@ func TestSeriesAPI_List(t *testing.T) {
 	for _, body := range series {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		ts.authRequest(req)
 		rec := httptest.NewRecorder()
-		server.echo.ServeHTTP(rec, req)
+		ts.echo.ServeHTTP(rec, req)
 	}
 
 	// List series
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/series", nil)
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("List series status = %d, want %d", rec.Code, http.StatusOK)
@@ -348,20 +389,22 @@ func TestSeriesAPI_List(t *testing.T) {
 }
 
 func TestSeriesAPI_Get(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create a series
 	body := `{"title": "Test Series"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	// Get the series
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/series/1", nil)
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Get series status = %d, want %d", rec.Code, http.StatusOK)
@@ -369,20 +412,22 @@ func TestSeriesAPI_Get(t *testing.T) {
 }
 
 func TestSeriesAPI_Delete(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Create a series
 	body := `{"title": "To Delete"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	// Delete the series
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/series/1", nil)
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
 		t.Errorf("Delete series status = %d, want %d", rec.Code, http.StatusNoContent)
@@ -392,13 +437,14 @@ func TestSeriesAPI_Delete(t *testing.T) {
 // Quality Profiles API Tests
 
 func TestQualityProfilesAPI_List(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/qualityprofiles", nil)
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("List quality profiles status = %d, want %d", rec.Code, http.StatusOK)
@@ -406,15 +452,16 @@ func TestQualityProfilesAPI_List(t *testing.T) {
 }
 
 func TestQualityProfilesAPI_Create(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	body := `{"name": "HD-1080p", "cutoff": 11, "items": []}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/qualityprofiles", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
 		t.Errorf("Create quality profile status = %d, want %d. Body: %s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -424,13 +471,14 @@ func TestQualityProfilesAPI_Create(t *testing.T) {
 // Root Folders API Tests
 
 func TestRootFoldersAPI_List(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rootfolders", nil)
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("List root folders status = %d, want %d", rec.Code, http.StatusOK)
@@ -440,7 +488,7 @@ func TestRootFoldersAPI_List(t *testing.T) {
 // Placeholder endpoints tests
 
 func TestPlaceholderEndpoints(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	tests := []struct {
@@ -459,8 +507,9 @@ func TestPlaceholderEndpoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
+			ts.authRequest(req)
 			rec := httptest.NewRecorder()
-			server.echo.ServeHTTP(rec, req)
+			ts.echo.ServeHTTP(rec, req)
 
 			if rec.Code != tt.status {
 				t.Errorf("%s %s status = %d, want %d", tt.method, tt.path, rec.Code, tt.status)
@@ -470,7 +519,7 @@ func TestPlaceholderEndpoints(t *testing.T) {
 }
 
 func TestCORS(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodOptions, "/api/v1/movies", nil)
@@ -478,7 +527,7 @@ func TestCORS(t *testing.T) {
 	req.Header.Set("Access-Control-Request-Method", "POST")
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	// Should have CORS headers
 	if rec.Header().Get("Access-Control-Allow-Origin") == "" {
@@ -487,15 +536,16 @@ func TestCORS(t *testing.T) {
 }
 
 func TestInvalidJSON(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	body := `{invalid json}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Invalid JSON status = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -503,15 +553,16 @@ func TestInvalidJSON(t *testing.T) {
 }
 
 func TestMoviesAPI_CreateEmptyTitle(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	body := `{"title": ""}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Create movie with empty title status = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -519,34 +570,36 @@ func TestMoviesAPI_CreateEmptyTitle(t *testing.T) {
 }
 
 func TestTMDBSearchOrdering(t *testing.T) {
-	server, cleanup := setupTestServer(t)
+	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	// Enable developer mode for test
-	server.dbManager.SetDevMode(true)
+	ts.dbManager.SetDevMode(true)
 
 	// Test enabling search ordering
 	req := httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": true}`))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 
-	if !server.cfg.Metadata.TMDB.DisableSearchOrdering {
+	if !ts.cfg.Metadata.TMDB.DisableSearchOrdering {
 		t.Error("Expected DisableSearchOrdering to be true")
 	}
 
 	// Test with developer mode disabled
-	server.dbManager.SetDevMode(false)
+	ts.dbManager.SetDevMode(false)
 	req = httptest.NewRequest("POST", "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": false}`))
 	req.Header.Set("Content-Type", "application/json")
+	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 
-	server.echo.ServeHTTP(rec, req)
+	ts.echo.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("Expected status %d when developer mode is disabled, got %d", http.StatusForbidden, rec.Code)

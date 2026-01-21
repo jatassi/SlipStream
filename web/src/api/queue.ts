@@ -17,6 +17,12 @@ export const queueApi = {
       body: JSON.stringify({ clientId }),
     }),
 
+  fastForward: (clientId: number, id: string) =>
+    apiFetch<{ status: string }>(`/queue/${id}/fastforward`, {
+      method: 'POST',
+      body: JSON.stringify({ clientId }),
+    }),
+
   remove: (clientId: number, id: string, deleteFiles = false) =>
     apiFetch<void>(`/queue/${id}?clientId=${clientId}&deleteFiles=${deleteFiles}`, {
       method: 'DELETE',

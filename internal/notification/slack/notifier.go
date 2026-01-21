@@ -295,6 +295,17 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.send(ctx, payload)
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	payload := n.buildPayload(Attachment{
+		Color: ColorGood,
+		Title: event.Title,
+		Text:  event.Message,
+		Ts:    event.SentAt.Unix(),
+	})
+
+	return n.send(ctx, payload)
+}
+
 func (n *Notifier) buildPayload(attachment Attachment) Payload {
 	attachment.Footer = "SlipStream"
 	attachment.FooterIcon = "https://raw.githubusercontent.com/slipstream/slipstream/main/web/public/logo.png"

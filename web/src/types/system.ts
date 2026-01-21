@@ -29,6 +29,7 @@ export interface Settings {
   logLevel: string
   authEnabled: boolean
   apiKey: string
+  logPath: string
 }
 
 export interface UpdateSettingsInput {

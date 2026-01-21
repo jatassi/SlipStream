@@ -8,8 +8,9 @@
 [x] Developer mode (simulate external boundaries)
 [ ] Prowlarr Integration
 [x] Update Search Results Page
-[ ] External Requests
-[ ] Web app settings (port, auth, https, etc)
+[x] External Requests
+[x] Passkeys
+[x] Web app settings (port, auth, https, etc)
 [ ] Update mechanism, Production-Readiness
 ======== Ready for Dogfooding ========
 [ ] Logo and color palette

@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Plus, Check, User } from 'lucide-react'
+import { Plus, Check, User, Download, Clock, CheckCircle } from 'lucide-react'
 import { useExtendedMovieMetadata, useExtendedSeriesMetadata } from '@/hooks/useMetadata'
+import { usePortalDownloads } from '@/hooks'
 import {
   Dialog,
   DialogContent,
@@ -10,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Progress } from '@/components/ui/progress'
 import {
   Accordion,
   AccordionContent,
@@ -17,6 +20,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { PosterImage } from '@/components/media/PosterImage'
+import { formatEta } from '@/lib/formatters'
 import type {
   MovieSearchResult,
   SeriesSearchResult,
@@ -25,6 +29,7 @@ import type {
   Person,
   ExternalRatings,
   SeasonResult,
+  Request,
 } from '@/types'
 
 interface MediaInfoModalProps {
@@ -33,6 +38,10 @@ interface MediaInfoModalProps {
   media: MovieSearchResult | SeriesSearchResult
   mediaType: 'movie' | 'series'
   inLibrary?: boolean
+  onAction?: () => void
+  actionLabel?: string
+  actionIcon?: React.ReactNode
+  disabledLabel?: string
 }
 
 export function MediaInfoModal({
@@ -41,8 +50,13 @@ export function MediaInfoModal({
   media,
   mediaType,
   inLibrary,
+  onAction,
+  actionLabel = 'Add to Library',
+  actionIcon = <Plus className="size-4 mr-2" />,
+  disabledLabel = 'Already in Library',
 }: MediaInfoModalProps) {
   const navigate = useNavigate()
+  const { data: downloads, requests } = usePortalDownloads()
 
   const movieQuery = useExtendedMovieMetadata(
     mediaType === 'movie' && open ? media.tmdbId : 0
@@ -54,7 +68,63 @@ export function MediaInfoModal({
   const query = mediaType === 'movie' ? movieQuery : seriesQuery
   const extendedData = query.data as ExtendedMovieResult | ExtendedSeriesResult | undefined
 
+  const tmdbId = media.tmdbId
+
+  // Find ALL requests for this media (by TMDB ID)
+  // For series, this includes both 'series' and 'season' type requests
+  const matchingRequests = useMemo((): Request[] => {
+    if (!requests || !tmdbId) return []
+    return requests.filter((r) => {
+      if (r.tmdbId !== tmdbId) return false
+      if (mediaType === 'movie') return r.mediaType === 'movie'
+      return r.mediaType === 'series' || r.mediaType === 'season'
+    })
+  }, [requests, tmdbId, mediaType])
+
+  // Determine aggregate status across all requests
+  const aggregateStatus = useMemo(() => {
+    if (matchingRequests.length === 0) return null
+    // If ALL requests are 'available', the item is fully in library
+    if (matchingRequests.every((r) => r.status === 'available')) return 'available'
+    // If ANY request is still pending, show pending
+    if (matchingRequests.some((r) => r.status === 'pending')) return 'pending'
+    // If ANY request is approved (but not available), show approved
+    if (matchingRequests.some((r) => r.status === 'approved')) return 'approved'
+    return matchingRequests[0].status
+  }, [matchingRequests])
+
+  // Find active download for this media
+  const activeDownload = useMemo(() => {
+    if (!downloads || !tmdbId) return undefined
+    const requestIds = new Set(matchingRequests.map((r) => r.id))
+    return downloads.find((d) => {
+      if (d.tmdbId != null && d.tmdbId === tmdbId) return true
+      if (requestIds.has(d.requestId)) return true
+      return false
+    })
+  }, [downloads, tmdbId, matchingRequests])
+
+  const hasActiveDownload = !!activeDownload
+  const requestStatus = aggregateStatus
+  const isApproved = requestStatus === 'approved'
+  const isAvailable = requestStatus === 'available'
+  const isPending = requestStatus === 'pending'
+  const allRequestsHaveMediaId = matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId != null)
+  const isInLibrary = inLibrary || (isAvailable && allRequestsHaveMediaId)
+
+  // Download progress stats
+  const progress = activeDownload ? activeDownload.progress : 0
+  const downloadSpeed = activeDownload?.downloadSpeed ?? 0
+  const eta = activeDownload?.eta ?? 0
+  const isDownloading = activeDownload?.status === 'downloading'
+  const isPaused = activeDownload?.status === 'paused'
+
   const handleAdd = () => {
+    if (onAction) {
+      onAction()
+      onOpenChange(false)
+      return
+    }
     if (mediaType === 'movie') {
       navigate({ to: '/movies/add', search: { tmdbId: media.tmdbId } })
     } else {
@@ -141,17 +211,46 @@ export function MediaInfoModal({
                   </div>
                 )}
 
-                {inLibrary ? (
+                {hasActiveDownload ? (
+                  <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-purple-400 flex items-center gap-2">
+                        <Download className="size-4" />
+                        Downloading
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {isPaused ? 'Paused' : isDownloading ? formatEta(eta) : 'Queued'}
+                      </span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{Math.round(progress)}%</span>
+                      {isDownloading && downloadSpeed > 0 && (
+                        <span>{(downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
+                      )}
+                    </div>
+                  </div>
+                ) : isInLibrary || isAvailable ? (
                   <Button variant="secondary" size="sm" disabled>
                     <Check className="size-4 mr-2" />
-                    Already in Library
+                    In Library
                   </Button>
-                ) : (
+                ) : isApproved ? (
+                  <Button variant="secondary" size="sm" disabled>
+                    <Check className="size-4 mr-2" />
+                    Approved
+                  </Button>
+                ) : isPending ? (
+                  <Button variant="secondary" size="sm" disabled>
+                    <Clock className="size-4 mr-2" />
+                    Requested
+                  </Button>
+                ) : onAction ? (
                   <Button variant="default" size="sm" onClick={handleAdd}>
-                    <Plus className="size-4 mr-2" />
-                    Add to Library
+                    {actionIcon}
+                    {actionLabel}
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
 

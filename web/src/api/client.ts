@@ -1,20 +1,47 @@
 import { ApiError } from '@/types'
+import { getPortalAuthToken } from './portal/client'
 
 const API_BASE = '/api/v1'
+
+let adminAuthToken: string | null = null
+
+export function setAdminAuthToken(token: string | null): void {
+  adminAuthToken = token
+}
+
+export function getAdminAuthToken(): string | null {
+  return adminAuthToken
+}
 
 export async function apiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  // Use admin token if available, otherwise fall back to portal token
+  const token = adminAuthToken || getPortalAuthToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...headers,
       ...options?.headers,
     },
   })
 
   if (!res.ok) {
+    // Handle 401 - clear auth and redirect to login
+    if (res.status === 401 && adminAuthToken) {
+      adminAuthToken = null
+      // Trigger redirect via event - handled by components
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+    }
     let errorData = null
     try {
       errorData = await res.json()

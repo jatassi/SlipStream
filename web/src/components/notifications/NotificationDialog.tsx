@@ -30,12 +30,29 @@ import type {
   NotifierType,
   CreateNotificationInput,
   SettingsField,
+  NotifierSchema,
 } from '@/types'
+
+interface EventTrigger {
+  key: string
+  label: string
+  description?: string
+}
 
 interface NotificationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   notification?: Notification | null
+  /** Custom event triggers to display. If not provided, uses default admin triggers */
+  eventTriggers?: EventTrigger[]
+  /** Custom schemas. If not provided, fetches from API */
+  schemas?: NotifierSchema[]
+  /** Custom create handler. If not provided, uses admin API */
+  onCreate?: (data: CreateNotificationInput) => Promise<void>
+  /** Custom update handler. If not provided, uses admin API */
+  onUpdate?: (id: number, data: CreateNotificationInput) => Promise<void>
+  /** Custom test handler. If not provided, uses admin API */
+  onTest?: (data: CreateNotificationInput) => Promise<{ success: boolean; message?: string }>
 }
 
 const defaultFormData: CreateNotificationInput = {
@@ -57,7 +74,7 @@ const defaultFormData: CreateNotificationInput = {
   tags: [],
 }
 
-const eventTriggers = [
+const adminEventTriggers: EventTrigger[] = [
   { key: 'onGrab', label: 'On Grab', description: 'When a release is grabbed' },
   { key: 'onDownload', label: 'On Download', description: 'When a download completes' },
   { key: 'onUpgrade', label: 'On Upgrade', description: 'When a quality upgrade is imported' },
@@ -68,22 +85,30 @@ const eventTriggers = [
   { key: 'onHealthIssue', label: 'On Health Issue', description: 'When a health check fails' },
   { key: 'onHealthRestored', label: 'On Health Restored', description: 'When a health issue is resolved' },
   { key: 'onAppUpdate', label: 'On App Update', description: 'When the application is updated' },
-] as const
+]
 
 export function NotificationDialog({
   open,
   onOpenChange,
   notification,
+  eventTriggers,
+  schemas: customSchemas,
+  onCreate,
+  onUpdate,
+  onTest,
 }: NotificationDialogProps) {
   const [formData, setFormData] = useState<CreateNotificationInput>(defaultFormData)
   const [isTesting, setIsTesting] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isPending, setIsPending] = useState(false)
 
-  const { data: schemas } = useNotificationSchemas()
+  const { data: fetchedSchemas } = useNotificationSchemas()
   const createMutation = useCreateNotification()
   const updateMutation = useUpdateNotification()
   const testNewMutation = useTestNewNotification()
 
+  const schemas = customSchemas ?? fetchedSchemas
+  const triggers = eventTriggers ?? adminEventTriggers
   const isEditing = !!notification
 
   const currentSchema = useMemo(() => {
@@ -116,11 +141,23 @@ export function NotificationDialog({
           tags: notification.tags || [],
         })
       } else {
-        setFormData(defaultFormData)
+        // Reset to defaults, enabling provided event triggers by default
+        const resetData = { ...defaultFormData }
+        if (eventTriggers) {
+          // Disable all admin triggers first
+          adminEventTriggers.forEach(t => {
+            (resetData as Record<string, unknown>)[t.key] = false
+          })
+          // Enable only the provided triggers
+          eventTriggers.forEach(t => {
+            (resetData as Record<string, unknown>)[t.key] = true
+          })
+        }
+        setFormData(resetData)
       }
       setShowAdvanced(false)
     }
-  }, [open, notification])
+  }, [open, notification, eventTriggers])
 
   const handleTypeChange = (type: NotifierType) => {
     const schema = schemas?.find((s) => s.type === type)
@@ -152,11 +189,20 @@ export function NotificationDialog({
   const handleTest = async () => {
     setIsTesting(true)
     try {
-      const result = await testNewMutation.mutateAsync(formData)
-      if (result.success) {
-        toast.success(result.message || 'Notification test successful')
+      if (onTest) {
+        const result = await onTest(formData)
+        if (result.success) {
+          toast.success(result.message || 'Notification test successful')
+        } else {
+          toast.error(result.message || 'Notification test failed')
+        }
       } else {
-        toast.error(result.message || 'Notification test failed')
+        const result = await testNewMutation.mutateAsync(formData)
+        if (result.success) {
+          toast.success(result.message || 'Notification test successful')
+        } else {
+          toast.error(result.message || 'Notification test failed')
+        }
       }
     } catch {
       toast.error('Failed to test notification')
@@ -180,20 +226,28 @@ export function NotificationDialog({
       }
     }
 
+    setIsPending(true)
     try {
       if (isEditing && notification) {
-        await updateMutation.mutateAsync({
-          id: notification.id,
-          data: formData,
-        })
+        if (onUpdate) {
+          await onUpdate(notification.id, formData)
+        } else {
+          await updateMutation.mutateAsync({ id: notification.id, data: formData })
+        }
         toast.success('Notification updated')
       } else {
-        await createMutation.mutateAsync(formData)
+        if (onCreate) {
+          await onCreate(formData)
+        } else {
+          await createMutation.mutateAsync(formData)
+        }
         toast.success('Notification created')
       }
       onOpenChange(false)
     } catch {
       toast.error(isEditing ? 'Failed to update notification' : 'Failed to create notification')
+    } finally {
+      setIsPending(false)
     }
   }
 
@@ -267,8 +321,6 @@ export function NotificationDialog({
         return null
     }
   }
-
-  const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -388,25 +440,27 @@ export function NotificationDialog({
               ))}
 
           {/* Event Triggers */}
-          <div className="space-y-3">
-            <Label>Event Triggers</Label>
-            <div className="space-y-2 border rounded-lg p-3">
-              {eventTriggers.map(({ key, label }) => (
-                <div key={key} className="flex items-center justify-between">
-                  <Label htmlFor={key} className="font-normal cursor-pointer">
-                    {label}
-                  </Label>
-                  <Switch
-                    id={key}
-                    checked={Boolean(formData[key as keyof CreateNotificationInput])}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, [key]: checked }))
-                    }
-                  />
-                </div>
-              ))}
+          {triggers.length > 0 && (
+            <div className="space-y-3">
+              <Label>Event Triggers</Label>
+              <div className="space-y-2 border rounded-lg p-3">
+                {triggers.map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <Label htmlFor={key} className="font-normal cursor-pointer">
+                      {label}
+                    </Label>
+                    <Switch
+                      id={key}
+                      checked={Boolean((formData as Record<string, unknown>)[key])}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, [key]: checked }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Enabled Toggle */}
           <div className="flex items-center justify-between">

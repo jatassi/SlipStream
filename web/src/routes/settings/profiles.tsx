@@ -98,7 +98,12 @@ export function QualityProfilesPage() {
               <Card key={profile.id}>
                 <CardHeader className="flex flex-row items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{profile.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{profile.name}</CardTitle>
+                      {profile.allowAutoApprove && (
+                        <Badge variant="outline" className="text-xs">Auto-Approve</Badge>
+                      )}
+                    </div>
                     <CardDescription>
                       {profile.upgradesEnabled ? (
                         <>Cutoff: {getCutoffName(profile.cutoff)}</>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Pause, Play, Trash2, Film, Tv, Download } from 'lucide-react'
+import { Pause, Play, Trash2, Film, Tv, Download, FastForward } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +25,7 @@ import {
   useRemoveFromQueue,
   usePauseQueueItem,
   useResumeQueueItem,
+  useFastForwardQueueItem,
 } from '@/hooks'
 import { formatBytes, formatSpeed, formatEta, formatSeriesTitle } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -36,6 +37,7 @@ function DownloadRow({ item }: { item: QueueItem }) {
   const removeMutation = useRemoveFromQueue()
   const pauseMutation = usePauseQueueItem()
   const resumeMutation = useResumeQueueItem()
+  const fastForwardMutation = useFastForwardQueueItem()
 
   const handlePause = async () => {
     try {
@@ -52,6 +54,15 @@ function DownloadRow({ item }: { item: QueueItem }) {
       toast.success('Download resumed')
     } catch {
       toast.error('Failed to resume download')
+    }
+  }
+
+  const handleFastForward = async () => {
+    try {
+      await fastForwardMutation.mutateAsync({ clientId: item.clientId, id: item.id })
+      toast.success('Download completed')
+    } catch {
+      toast.error('Failed to fast forward download')
     }
   }
 
@@ -152,6 +163,17 @@ function DownloadRow({ item }: { item: QueueItem }) {
               <Play className="size-4" />
             </Button>
           )}
+          {item.clientType === 'mock' && item.status !== 'completed' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFastForward}
+              disabled={fastForwardMutation.isPending}
+              title="Fast Forward"
+            >
+              <FastForward className="size-4" />
+            </Button>
+          )}
           <ConfirmDialog
             trigger={
               <Button variant="ghost" size="icon" title="Remove">
@@ -208,13 +230,13 @@ export function ActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
   const { data: queue, isLoading, isError, refetch } = useQueue()
 
-  // Filter items by media type
-  const filteredItems = queue?.filter((item) => {
+  // Filter items by media type and sort by title
+  const filteredItems = (queue?.filter((item) => {
     if (filter === 'all') return true
     if (filter === 'movies') return item.mediaType === 'movie'
     if (filter === 'series') return item.mediaType === 'series'
     return true
-  }) || []
+  }) || []).sort((a, b) => a.title.localeCompare(b.title))
 
   // Count items by media type
   const movieCount = queue?.filter((q) => q.mediaType === 'movie').length || 0

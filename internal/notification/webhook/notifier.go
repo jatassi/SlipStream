@@ -212,6 +212,17 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.send(ctx, payload)
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	payload := Payload{
+		EventType:      "message",
+		InstanceName:   "SlipStream",
+		ApplicationURL: n.settings.ApplicationURL,
+		Timestamp:      event.SentAt,
+		Message:        event.Title + ": " + event.Message,
+	}
+	return n.send(ctx, payload)
+}
+
 func (n *Notifier) send(ctx context.Context, payload Payload) error {
 	body, err := json.Marshal(payload)
 	if err != nil {

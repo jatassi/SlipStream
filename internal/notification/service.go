@@ -559,3 +559,49 @@ func (s *Service) DispatchSeriesAdded(ctx context.Context, event SeriesAddedEven
 func (s *Service) DispatchSeriesDeleted(ctx context.Context, event SeriesDeletedEvent) {
 	s.Dispatch(ctx, EventSeriesDeleted, event)
 }
+
+// CreateNotifierFromConfig creates a notifier from type, name, and settings.
+// This is used by portal notifications to create notifiers for user-configured channels.
+func (s *Service) CreateNotifierFromConfig(notifType, name string, settings string) (Notifier, error) {
+	cfg := Config{
+		Type:     NotifierType(notifType),
+		Name:     name,
+		Settings: json.RawMessage(settings),
+	}
+	return s.factory.Create(cfg)
+}
+
+// DispatchGenericMessage sends a generic text message to all enabled notifications.
+// This is used for admin notifications that don't fit a specific event type.
+func (s *Service) DispatchGenericMessage(ctx context.Context, message string) {
+	configs, err := s.List(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("failed to list notifications for generic message")
+		return
+	}
+
+	for _, cfg := range configs {
+		if !cfg.Enabled {
+			continue
+		}
+
+		go func(cfg Config) {
+			notifier, err := s.factory.Create(cfg)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("name", cfg.Name).Msg("failed to create notifier for generic message")
+				return
+			}
+
+			// Use OnHealthIssue as a generic message channel since it's commonly enabled
+			event := HealthEvent{
+				Source:    "SlipStream",
+				Type:      "info",
+				Message:   message,
+				OccuredAt: time.Now(),
+			}
+			if err := notifier.OnHealthIssue(ctx, event); err != nil {
+				s.logger.Warn().Err(err).Str("name", cfg.Name).Msg("failed to send generic message")
+			}
+		}(cfg)
+	}
+}

@@ -182,6 +182,11 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return nil
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	n.recordNotification("message", event.Title, event.Message, event)
+	return nil
+}
+
 // GetRecords returns all stored notification records
 func (n *Notifier) GetRecords() []NotificationRecord {
 	n.mu.RLock()

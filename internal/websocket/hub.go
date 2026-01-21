@@ -63,8 +63,9 @@ type Client struct {
 
 // Message represents a WebSocket message.
 type Message struct {
-	Type    string      `json:"type"`
-	Payload interface{} `json:"payload"`
+	Type      string      `json:"type"`
+	Payload   interface{} `json:"payload"`
+	Timestamp string      `json:"timestamp"`
 }
 
 // NewHub creates a new WebSocket hub.
@@ -158,8 +159,9 @@ func (h *Hub) handleIncoming(incoming incomingMessage) {
 // Broadcast sends a message to all connected clients.
 func (h *Hub) Broadcast(msgType string, payload interface{}) error {
 	msg := Message{
-		Type:    msgType,
-		Payload: payload,
+		Type:      msgType,
+		Payload:   payload,
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {

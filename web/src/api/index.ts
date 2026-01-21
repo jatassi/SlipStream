@@ -20,3 +20,12 @@ export { autosearchApi } from './autosearch'
 export { healthApi } from './health'
 export { slotsApi } from './slots'
 export { notificationsApi } from './notifications'
+
+// Portal APIs
+export * from './portal'
+
+// Admin APIs
+export * as adminApi from './admin'
+
+// Auth APIs
+export * as authApi from './auth'

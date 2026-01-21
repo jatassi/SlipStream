@@ -109,6 +109,7 @@ export function ResolveConfigModal({
           cutoff: profile.cutoff,
           items: profile.items,
           upgradesEnabled: profile.upgradesEnabled ?? true,
+          allowAutoApprove: profile.allowAutoApprove ?? false,
           hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
           videoCodecSettings: profile.videoCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
           audioCodecSettings: profile.audioCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },

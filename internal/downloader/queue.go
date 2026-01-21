@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
@@ -15,6 +16,7 @@ type QueueItem struct {
 	ID             string   `json:"id"`
 	ClientID       int64    `json:"clientId"`
 	ClientName     string   `json:"clientName"`
+	ClientType     string   `json:"clientType"`
 	Title          string   `json:"title"`
 	MediaType      string   `json:"mediaType"` // "movie" or "series"
 	Status         string   `json:"status"`
@@ -58,7 +60,7 @@ func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
 			continue
 		}
 
-		clientItems, err := s.getClientQueue(ctx, dbClient.ID, dbClient.Name)
+		clientItems, err := s.getClientQueue(ctx, dbClient.ID, dbClient.Name, dbClient.Type)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Str("name", dbClient.Name).Msg("Failed to get queue from client")
 			continue
@@ -104,10 +106,12 @@ func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []Queu
 			if mapping.MovieID.Valid {
 				movieID := mapping.MovieID.Int64
 				items[i].MovieID = &movieID
+				items[i].MediaType = "movie"
 			}
 			if mapping.SeriesID.Valid {
 				seriesID := mapping.SeriesID.Int64
 				items[i].SeriesID = &seriesID
+				items[i].MediaType = "series"
 			}
 			if mapping.SeasonNumber.Valid {
 				seasonNum := int(mapping.SeasonNumber.Int64)
@@ -148,7 +152,7 @@ func (s *Service) buildSlotLookup(ctx context.Context) map[int64]string {
 }
 
 // getClientQueue fetches queue items from any download client using the unified interface.
-func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName string) ([]QueueItem, error) {
+func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName, clientType string) ([]QueueItem, error) {
 	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
 		return nil, err
@@ -161,7 +165,7 @@ func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName
 
 	items := make([]QueueItem, 0, len(downloads))
 	for _, d := range downloads {
-		item := s.downloadItemToQueueItem(d, clientID, clientName)
+		item := s.downloadItemToQueueItem(d, clientID, clientName, clientType)
 		items = append(items, item)
 	}
 
@@ -169,7 +173,7 @@ func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName
 }
 
 // downloadItemToQueueItem converts a DownloadItem to a QueueItem.
-func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, clientName string) QueueItem {
+func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, clientName, clientType string) QueueItem {
 	// Parse the download name to extract metadata
 	parsed := scanner.ParseFilename(d.Name)
 
@@ -195,6 +199,7 @@ func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, 
 		ID:             d.ID,
 		ClientID:       clientID,
 		ClientName:     clientName,
+		ClientType:     clientType,
 		Title:          title,
 		MediaType:      mediaType,
 		Status:         status,
@@ -292,4 +297,20 @@ func (s *Service) RemoveDownload(ctx context.Context, clientID int64, downloadID
 	}
 
 	return client.Remove(ctx, downloadID, deleteFiles)
+}
+
+// FastForwardMockDownload instantly completes a mock download.
+// Returns an error if the client is not a mock client.
+func (s *Service) FastForwardMockDownload(ctx context.Context, clientID int64, downloadID string) error {
+	cfg, err := s.Get(ctx, clientID)
+	if err != nil {
+		return err
+	}
+
+	if cfg.Type != "mock" {
+		return fmt.Errorf("fast forward is only available for mock download clients")
+	}
+
+	mockClient := mock.GetInstance()
+	return mockClient.FastForward(downloadID)
 }

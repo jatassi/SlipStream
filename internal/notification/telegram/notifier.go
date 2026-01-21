@@ -257,6 +257,14 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.sendMessage(ctx, sb.String())
 }
 
+func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>%s</b>\n\n", html.EscapeString(event.Title)))
+	sb.WriteString(html.EscapeString(event.Message))
+
+	return n.sendMessage(ctx, sb.String())
+}
+
 func (n *Notifier) hasLink(link MetadataLink) bool {
 	for _, l := range n.settings.MetadataLinks {
 		if l == link {
