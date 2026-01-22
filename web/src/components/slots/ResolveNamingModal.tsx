@@ -315,13 +315,18 @@ function TokenBuilderDialogCompact({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [localValue, setLocalValue] = useState(value)
   const [cursorPosition, setCursorPosition] = useState<number | null>(null)
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevValue, setPrevValue] = useState(value)
 
-  useEffect(() => {
+  // Reset state when dialog opens or value changes (React-recommended pattern)
+  if (open !== prevOpen || value !== prevValue) {
+    setPrevOpen(open)
+    setPrevValue(value)
     if (open) {
       setLocalValue(value)
       setCursorPosition(null)
     }
-  }, [open, value])
+  }
 
   const handleInsertToken = (token: string) => {
     const textarea = textareaRef.current

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,12 +20,15 @@ import type { AssignModalProps } from './types'
 
 export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign }: AssignModalProps) {
   const [selectedSlotId, setSelectedSlotId] = useState<string>('')
+  const [prevOpen, setPrevOpen] = useState(open)
 
-  useEffect(() => {
+  // Reset state when modal closes (React-recommended pattern)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) {
       setSelectedSlotId('')
     }
-  }, [open])
+  }
 
   const handleAssign = () => {
     if (!selectedSlotId) return

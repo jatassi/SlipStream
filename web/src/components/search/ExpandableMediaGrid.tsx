@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useSyncExternalStore, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ChevronRight, ChevronDown, Film, Tv } from 'lucide-react'
 
 const BREAKPOINTS = [
@@ -47,18 +47,18 @@ export function ExpandableMediaGrid<T>({
   collapsible = true,
 }: ExpandableMediaGridProps<T>) {
   const [expanded, setExpanded] = useState(false)
-  const prevItemsLengthRef = useRef(items.length)
+  const [prevItemsLength, setPrevItemsLength] = useState(items.length)
   const columns = useGridColumns()
   // Show all items if they fit in one row, otherwise leave room for "Show more" card
   const initialCount = items.length <= columns ? items.length : columns - 1
 
-  // Reset expansion when items change significantly
-  useEffect(() => {
-    if (Math.abs(prevItemsLengthRef.current - items.length) > 2) {
-      setExpanded(false)
-    }
-    prevItemsLengthRef.current = items.length
-  }, [items.length])
+  // Reset expansion when items change significantly (React-recommended pattern)
+  if (Math.abs(prevItemsLength - items.length) > 2) {
+    setExpanded(false)
+  }
+  if (items.length !== prevItemsLength) {
+    setPrevItemsLength(items.length)
+  }
 
   if (items.length === 0) return null
 

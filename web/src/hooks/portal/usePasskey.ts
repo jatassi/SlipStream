@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { passkeyApi } from '@/api/portal/passkey'
 import { usePortalAuthStore } from '@/stores/portalAuth'
@@ -10,13 +9,9 @@ export const passkeyKeys = {
 }
 
 export function usePasskeySupport() {
-  const [isSupported, setIsSupported] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    setIsSupported(passkeyApi.isSupported())
-  }, [])
-
-  return { isSupported, isLoading: isSupported === null }
+  // Check support synchronously - this is a sync browser API check
+  const isSupported = passkeyApi.isSupported()
+  return { isSupported, isLoading: false }
 }
 
 export function usePasskeyCredentials() {

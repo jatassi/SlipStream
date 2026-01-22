@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Save, Loader2, Plus, Edit, Trash2, Bell, TestTube } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RequestsNav } from './RequestsNav'
@@ -99,7 +99,12 @@ export function RequestSettingsPage() {
     }
   }
 
-  useEffect(() => {
+  // Track previous settings for render-time state sync
+  const [prevSettings, setPrevSettings] = useState(settings)
+
+  // Sync form state when settings change (React-recommended pattern)
+  if (settings !== prevSettings) {
+    setPrevSettings(settings)
     if (settings) {
       setFormData({
         enabled: settings.enabled,
@@ -112,7 +117,7 @@ export function RequestSettingsPage() {
       })
       setHasChanges(false)
     }
-  }, [settings])
+  }
 
   const handleChange = <K extends keyof RequestSettings>(key: K, value: RequestSettings[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }))

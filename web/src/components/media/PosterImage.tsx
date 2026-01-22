@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Film, Tv } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { POSTER_SIZES, getLocalArtworkUrl } from '@/lib/constants'
@@ -28,6 +28,7 @@ export function PosterImage({
 }: PosterImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [prevImageUrl, setPrevImageUrl] = useState<string | null>(null)
 
   // Subscribe to artwork version changes for this specific artwork
   const artworkVersion = useArtworkStore((state) =>
@@ -49,19 +50,12 @@ export function PosterImage({
     imageUrl = `${POSTER_SIZES[size]}${path}`
   }
 
-  // Reset error state when artwork version changes (new artwork available)
-  useEffect(() => {
-    if (artworkVersion > 0) {
-      setError(false)
-      setLoading(true)
-    }
-  }, [artworkVersion])
-
-  // Reset state when tmdbId changes
-  useEffect(() => {
+  // Reset state when imageUrl changes (React-recommended pattern)
+  if (imageUrl !== prevImageUrl) {
+    setPrevImageUrl(imageUrl)
     setError(false)
     setLoading(true)
-  }, [tmdbId])
+  }
 
   if (!imageUrl || error) {
     return (

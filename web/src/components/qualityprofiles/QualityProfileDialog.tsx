@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -83,6 +83,8 @@ export function QualityProfileDialog({
   profile,
 }: QualityProfileDialogProps) {
   const [formData, setFormData] = useState<CreateQualityProfileInput>(defaultFormData)
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevProfile, setPrevProfile] = useState(profile)
 
   const createMutation = useCreateQualityProfile()
   const updateMutation = useUpdateQualityProfile()
@@ -90,7 +92,10 @@ export function QualityProfileDialog({
 
   const isEditing = !!profile
 
-  useEffect(() => {
+  // Reset form when dialog opens or profile changes (React-recommended pattern)
+  if (open !== prevOpen || profile !== prevProfile) {
+    setPrevOpen(open)
+    setPrevProfile(profile)
     if (open) {
       if (profile) {
         setFormData({
@@ -115,7 +120,7 @@ export function QualityProfileDialog({
         })
       }
     }
-  }, [open, profile])
+  }
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {

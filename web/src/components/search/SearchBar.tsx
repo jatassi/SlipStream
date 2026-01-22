@@ -9,27 +9,31 @@ export function SearchBar() {
   const [isSearching, setIsSearching] = useState(false)
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current)
     }
 
-    if (searchQuery.trim()) {
+    if (value.trim()) {
       setIsSearching(true)
       debounceTimeoutRef.current = setTimeout(() => {
-        navigate({ to: '/search', search: { q: searchQuery.trim() } })
+        navigate({ to: '/search', search: { q: value.trim() } })
         setIsSearching(false)
       }, 500)
     } else {
       setIsSearching(false)
     }
+  }
 
+  useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [searchQuery, navigate])
+  }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
@@ -52,7 +56,7 @@ export function SearchBar() {
         type="text"
         placeholder="Search for and add movies, series..."
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        onChange={(e) => handleSearchChange(e.target.value)}
         onKeyDown={handleKeyDown}
         className="pl-9 pr-8 border-white/50 focus-visible:border-white"
       />

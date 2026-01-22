@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { Button } from '@/components/ui/button'
@@ -67,8 +67,11 @@ export function ProwlarrConfigForm() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [prevConfig, setPrevConfig] = useState(config)
 
-  useEffect(() => {
+  // Reset form when config changes (React-recommended pattern)
+  if (config !== prevConfig) {
+    setPrevConfig(config)
     if (config) {
       const parsed = parseUrl(config.url || '')
       setHostname(parsed.hostname)
@@ -81,7 +84,7 @@ export function ProwlarrConfigForm() {
       setTvCategories(config.tvCategories?.length ? config.tvCategories : DEFAULT_TV_CATEGORIES)
       setIsDirty(false)
     }
-  }, [config])
+  }
 
   const handleFieldChange = () => {
     setIsDirty(true)

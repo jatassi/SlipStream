@@ -147,7 +147,7 @@ export function DownloadClientDialog({
       } else {
         toast.error(result.message || 'Connection failed')
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to test connection')
     } finally {
       setIsTesting(false)
@@ -165,7 +165,7 @@ export function DownloadClientDialog({
       } else {
         toast.error('Failed to add debug torrent')
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to add debug torrent')
     } finally {
       setIsAddingDebugTorrent(false)
@@ -194,7 +194,7 @@ export function DownloadClientDialog({
         toast.success('Client added')
       }
       onOpenChange(false)
-    } catch (err) {
+    } catch {
       toast.error(isEditing ? 'Failed to update client' : 'Failed to add client')
     }
   }

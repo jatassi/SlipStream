@@ -155,13 +155,18 @@ function TokenBuilderDialog({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [localValue, setLocalValue] = useState(value)
   const [cursorPosition, setCursorPosition] = useState<number | null>(null)
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevValue, setPrevValue] = useState(value)
 
-  useEffect(() => {
+  // Reset state when dialog opens or value changes (React-recommended pattern)
+  if (open !== prevOpen || value !== prevValue) {
+    setPrevOpen(open)
+    setPrevValue(value)
     if (open) {
       setLocalValue(value)
       setCursorPosition(null)
     }
-  }, [open, value])
+  }
 
   const handleInsertToken = (token: string) => {
     const textarea = textareaRef.current
@@ -500,12 +505,15 @@ export function FileNamingSection() {
 
   const [form, setForm] = useState<ImportSettings | null>(null)
   const [activeTab, setActiveTab] = useState('validation')
+  const [prevSettings, setPrevSettings] = useState(settings)
 
-  useEffect(() => {
+  // Sync form state when settings change (React-recommended pattern)
+  if (settings !== prevSettings) {
+    setPrevSettings(settings)
     if (settings) {
       setForm({ ...settings })
     }
-  }, [settings])
+  }
 
   const updateField = useCallback(<K extends keyof ImportSettings>(
     field: K,

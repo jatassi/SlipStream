@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -18,14 +18,17 @@ export function AutoSearchSection() {
   const [enabled, setEnabled] = useState(true)
   const [intervalHours, setIntervalHours] = useState(1)
   const [backoffThreshold, setBackoffThreshold] = useState(12)
+  const [prevSettings, setPrevSettings] = useState(settings)
 
-  useEffect(() => {
+  // Sync form state when settings change (React-recommended pattern)
+  if (settings !== prevSettings) {
+    setPrevSettings(settings)
     if (settings) {
       setEnabled(settings.enabled)
       setIntervalHours(settings.intervalHours)
       setBackoffThreshold(settings.backoffThreshold)
     }
-  }, [settings])
+  }
 
   const handleSave = async () => {
     try {

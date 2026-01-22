@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   usePasskeySupport,
   usePasskeyCredentials,
@@ -19,6 +19,7 @@ export function PasskeyManager() {
   const [isRegistering, setIsRegistering] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  const isSubmittingRef = useRef(false)
 
   const { isSupported, isLoading: isSupportLoading } = usePasskeySupport()
   const { data: credentials, isLoading } = usePasskeyCredentials()
@@ -26,24 +27,28 @@ export function PasskeyManager() {
   const deletePasskey = useDeletePasskey()
   const updateName = useUpdatePasskeyName()
 
-  const handleRegister = useCallback(async () => {
-    if (!newPasskeyName.trim() || pin.length !== 4 || registerPasskey.isPending) return
+  const handleRegister = useCallback(async (pinValue: string, nameValue: string) => {
+    if (!nameValue.trim() || pinValue.length !== 4 || registerPasskey.isPending || isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
     try {
-      await registerPasskey.mutateAsync({ pin, name: newPasskeyName })
+      await registerPasskey.mutateAsync({ pin: pinValue, name: nameValue })
       setNewPasskeyName('')
       setPin('')
       setIsRegistering(false)
     } catch {
       setPin('')
+    } finally {
+      isSubmittingRef.current = false
     }
-  }, [newPasskeyName, pin, registerPasskey])
+  }, [registerPasskey])
 
-  useEffect(() => {
-    if (pin.length === 4 && newPasskeyName.trim()) {
-      handleRegister()
+  const handlePinChange = (value: string) => {
+    setPin(value)
+    if (value.length === 4 && newPasskeyName.trim()) {
+      handleRegister(value, newPasskeyName)
     }
-  }, [pin, newPasskeyName, handleRegister])
+  }
 
   if (isSupportLoading) {
     return (
@@ -119,7 +124,7 @@ export function PasskeyManager() {
                 <InputOTP
                   maxLength={4}
                   value={pin}
-                  onChange={setPin}
+                  onChange={handlePinChange}
                   disabled={!newPasskeyName.trim()}
                 >
                   <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">

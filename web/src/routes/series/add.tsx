@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -34,28 +34,30 @@ export function AddSeriesPage() {
   // Fetch series metadata if tmdbId is provided
   const { data: seriesMetadata, isLoading: loadingMetadata } = useSeriesMetadata(tmdbId || 0)
 
-  // Auto-select series when metadata is loaded
-  useEffect(() => {
-    if (tmdbId && seriesMetadata && !selectedSeries) {
-      setSelectedSeries({
-        id: seriesMetadata.id,
-        tmdbId: seriesMetadata.tmdbId,
-        tvdbId: seriesMetadata.tvdbId,
-        imdbId: seriesMetadata.imdbId,
-        title: seriesMetadata.title,
-        originalTitle: seriesMetadata.originalTitle,
-        year: seriesMetadata.year,
-        overview: seriesMetadata.overview,
-        posterUrl: seriesMetadata.posterUrl,
-        backdropUrl: seriesMetadata.backdropUrl,
-        runtime: seriesMetadata.runtime,
-        genres: seriesMetadata.genres,
-        status: seriesMetadata.status,
-        network: seriesMetadata.network,
-      })
-      setStep('configure')
-    }
-  }, [tmdbId, seriesMetadata, selectedSeries])
+  // Track previous values for render-time state sync
+  const [prevSeriesMetadata, setPrevSeriesMetadata] = useState(seriesMetadata)
+
+  // Auto-select series when metadata is loaded (React-recommended pattern)
+  if (tmdbId && seriesMetadata && seriesMetadata !== prevSeriesMetadata && !selectedSeries) {
+    setPrevSeriesMetadata(seriesMetadata)
+    setSelectedSeries({
+      id: seriesMetadata.id,
+      tmdbId: seriesMetadata.tmdbId,
+      tvdbId: seriesMetadata.tvdbId,
+      imdbId: seriesMetadata.imdbId,
+      title: seriesMetadata.title,
+      originalTitle: seriesMetadata.originalTitle,
+      year: seriesMetadata.year,
+      overview: seriesMetadata.overview,
+      posterUrl: seriesMetadata.posterUrl,
+      backdropUrl: seriesMetadata.backdropUrl,
+      runtime: seriesMetadata.runtime,
+      genres: seriesMetadata.genres,
+      status: seriesMetadata.status,
+      network: seriesMetadata.network,
+    })
+    setStep('configure')
+  }
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -72,27 +74,31 @@ export function AddSeriesPage() {
   const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddSeries()
 
-  // Initialize from preferences
-  useEffect(() => {
-    if (addFlowPreferences) {
-      if (monitorOnAdd === undefined) {
-        setMonitorOnAdd(addFlowPreferences.seriesMonitorOnAdd)
-      }
-      if (searchOnAdd === undefined) {
-        setSearchOnAdd(addFlowPreferences.seriesSearchOnAdd)
-      }
-      if (includeSpecials === undefined) {
-        setIncludeSpecials(addFlowPreferences.seriesIncludeSpecials)
-      }
-    }
-  }, [addFlowPreferences, monitorOnAdd, searchOnAdd, includeSpecials])
+  // Track previous values for render-time state sync
+  const [prevAddFlowPreferences, setPrevAddFlowPreferences] = useState(addFlowPreferences)
+  const [prevDefaultRootFolder, setPrevDefaultRootFolder] = useState(defaultRootFolder)
 
-  // Pre-populate root folder with default
-  useEffect(() => {
+  // Initialize from preferences (React-recommended pattern)
+  if (addFlowPreferences && addFlowPreferences !== prevAddFlowPreferences) {
+    setPrevAddFlowPreferences(addFlowPreferences)
+    if (monitorOnAdd === undefined) {
+      setMonitorOnAdd(addFlowPreferences.seriesMonitorOnAdd)
+    }
+    if (searchOnAdd === undefined) {
+      setSearchOnAdd(addFlowPreferences.seriesSearchOnAdd)
+    }
+    if (includeSpecials === undefined) {
+      setIncludeSpecials(addFlowPreferences.seriesIncludeSpecials)
+    }
+  }
+
+  // Pre-populate root folder with default (React-recommended pattern)
+  if (defaultRootFolder !== prevDefaultRootFolder) {
+    setPrevDefaultRootFolder(defaultRootFolder)
     if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !rootFolderId) {
       setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
     }
-  }, [defaultRootFolder, rootFolderId])
+  }
 
   const handleSelectSeries = (series: SeriesSearchResult) => {
     setSelectedSeries(series)
