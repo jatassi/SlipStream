@@ -53,7 +53,7 @@ This document tracks all work required to prepare SlipStream for production beta
 ### Runtime Behavior
 
 - [ ] **Standard data paths** - Use `%APPDATA%\SlipStream` for config/database/logs
-- [ ] **Port conflict handling** - Auto-find next available port if 8080 is in use, notify user of actual port
+- [ ] **Port conflict handling** - Auto-find next available port if 8888 is in use, notify user of actual port
 - [ ] **Network binding** - Bind to localhost (127.0.0.1) by default
 - [ ] **Boot timing** - Retry network-dependent features with exponential backoff if network unavailable
 - [ ] **Log rotation** - Built-in rotation (e.g., 5 x 10MB files, delete oldest)
