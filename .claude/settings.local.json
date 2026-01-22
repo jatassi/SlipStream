@@ -68,5 +68,8 @@
   "enabledMcpjsonServers": [
     "shadcn"
   ],
-  "outputStyle": "default"
+  "outputStyle": "default",
+  "remote": {
+    "defaultEnvironmentId": "env_013CYEh3R42fRvH5nc1i2oZj"
+  }
 }

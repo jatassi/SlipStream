@@ -11,7 +11,7 @@
 [x] External Requests
 [x] Passkeys
 [x] Web app settings (port, auth, https, etc)
-[ ] Settings re-org
+[x] Settings re-org
 [ ] Update mechanism, Production-Readiness
 ======== Ready for Dogfooding ========
 [ ] Logo and color palette
