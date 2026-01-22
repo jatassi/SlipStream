@@ -323,13 +323,15 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.jwt_secret", "")
 
 	// Metadata provider defaults
-	// Note: api_key defaults are empty but must be registered for env var binding to work
-	v.SetDefault("metadata.tmdb.api_key", "")
+	// Use embedded keys if available, otherwise empty (can be set via env var or config file)
+	tmdbKey := EmbeddedTMDBKey
+	tvdbKey := EmbeddedTVDBKey
+	v.SetDefault("metadata.tmdb.api_key", tmdbKey)
 	v.SetDefault("metadata.tmdb.base_url", "https://api.themoviedb.org/3")
 	v.SetDefault("metadata.tmdb.image_base_url", "https://image.tmdb.org/t/p")
 	v.SetDefault("metadata.tmdb.timeout_seconds", 30)
 	v.SetDefault("metadata.tmdb.disable_search_ordering", false)
-	v.SetDefault("metadata.tvdb.api_key", "")
+	v.SetDefault("metadata.tvdb.api_key", tvdbKey)
 	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
 	v.SetDefault("metadata.tvdb.timeout_seconds", 30)
 	v.SetDefault("metadata.omdb.api_key", "")
