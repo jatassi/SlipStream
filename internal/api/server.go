@@ -542,12 +542,8 @@ func (s *Server) setupMiddleware() {
 	// Request body size limit (2MB)
 	s.echo.Use(middleware.BodyLimit("2M"))
 
-	// CORS - restrict to same-origin in production, allow localhost for development
-	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080", "http://127.0.0.1:8080"},
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-	}))
+	// CORS - allow same-origin only (origin hostname must match request hostname)
+	s.echo.Use(apimw.SameOriginCORS())
 
 	// Request logging
 	s.echo.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{

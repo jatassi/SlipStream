@@ -75,7 +75,7 @@ This document tracks all work required to prepare SlipStream for production beta
 - [x] **Account lockout** - Progressive lockout after 5 failed login attempts (15min → 30min → 1hr)
 - [x] **Security headers** - X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP frame-ancestors
 - [x] **Request body size limit** - 2MB limit to prevent memory exhaustion
-- [x] **CORS restrictions** - Restricted to localhost origins (development)
+- [x] **CORS restrictions** - Same-origin only (origin hostname must match request hostname)
 - [x] **Embedded API keys** - TMDB/TVDB keys embedded at build time via ldflags
 - [ ] **Credential encryption** - Encryption package ready (`internal/crypto/secrets.go`), service integration deferred
 
