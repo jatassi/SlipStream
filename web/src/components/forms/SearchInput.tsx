@@ -22,13 +22,13 @@ export function SearchInput({
   autoFocus = false,
 }: SearchInputProps) {
   const [internalValue, setInternalValue] = useState(controlledValue || '')
+  const [prevControlledValue, setPrevControlledValue] = useState(controlledValue)
 
-  // Sync with controlled value
-  useEffect(() => {
-    if (controlledValue !== undefined) {
-      setInternalValue(controlledValue)
-    }
-  }, [controlledValue])
+  // Sync with controlled value during render (React-recommended pattern)
+  if (controlledValue !== undefined && controlledValue !== prevControlledValue) {
+    setPrevControlledValue(controlledValue)
+    setInternalValue(controlledValue)
+  }
 
   // Debounce the onChange callback
   useEffect(() => {

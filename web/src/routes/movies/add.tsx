@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -34,25 +34,27 @@ export function AddMoviePage() {
   // Fetch movie metadata if tmdbId is provided
   const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId || 0)
 
-  // Auto-select movie when metadata is loaded
-  useEffect(() => {
-    if (tmdbId && movieMetadata && !selectedMovie) {
-      setSelectedMovie({
-        id: movieMetadata.id,
-        tmdbId: movieMetadata.tmdbId,
-        imdbId: movieMetadata.imdbId,
-        title: movieMetadata.title,
-        originalTitle: movieMetadata.originalTitle,
-        year: movieMetadata.year,
-        overview: movieMetadata.overview,
-        posterUrl: movieMetadata.posterUrl,
-        backdropUrl: movieMetadata.backdropUrl,
-        runtime: movieMetadata.runtime,
-        genres: movieMetadata.genres,
-      })
-      setStep('configure')
-    }
-  }, [tmdbId, movieMetadata, selectedMovie])
+  // Track previous values for render-time state sync
+  const [prevMovieMetadata, setPrevMovieMetadata] = useState(movieMetadata)
+
+  // Auto-select movie when metadata is loaded (React-recommended pattern)
+  if (tmdbId && movieMetadata && movieMetadata !== prevMovieMetadata && !selectedMovie) {
+    setPrevMovieMetadata(movieMetadata)
+    setSelectedMovie({
+      id: movieMetadata.id,
+      tmdbId: movieMetadata.tmdbId,
+      imdbId: movieMetadata.imdbId,
+      title: movieMetadata.title,
+      originalTitle: movieMetadata.originalTitle,
+      year: movieMetadata.year,
+      overview: movieMetadata.overview,
+      posterUrl: movieMetadata.posterUrl,
+      backdropUrl: movieMetadata.backdropUrl,
+      runtime: movieMetadata.runtime,
+      genres: movieMetadata.genres,
+    })
+    setStep('configure')
+  }
 
   // Form state
   const [rootFolderId, setRootFolderId] = useState<string>('')
@@ -67,19 +69,23 @@ export function AddMoviePage() {
   const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddMovie()
 
-  // Initialize searchOnAdd from preferences
-  useEffect(() => {
-    if (addFlowPreferences && searchOnAdd === undefined) {
-      setSearchOnAdd(addFlowPreferences.movieSearchOnAdd)
-    }
-  }, [addFlowPreferences, searchOnAdd])
+  // Track previous values for render-time state sync
+  const [prevAddFlowPreferences, setPrevAddFlowPreferences] = useState(addFlowPreferences)
+  const [prevDefaultRootFolder, setPrevDefaultRootFolder] = useState(defaultRootFolder)
 
-  // Pre-populate root folder with default
-  useEffect(() => {
+  // Initialize searchOnAdd from preferences (React-recommended pattern)
+  if (addFlowPreferences && addFlowPreferences !== prevAddFlowPreferences && searchOnAdd === undefined) {
+    setPrevAddFlowPreferences(addFlowPreferences)
+    setSearchOnAdd(addFlowPreferences.movieSearchOnAdd)
+  }
+
+  // Pre-populate root folder with default (React-recommended pattern)
+  if (defaultRootFolder !== prevDefaultRootFolder) {
+    setPrevDefaultRootFolder(defaultRootFolder)
     if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !rootFolderId) {
       setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
     }
-  }, [defaultRootFolder, rootFolderId])
+  }
 
   const handleSelectMovie = (movie: MovieSearchResult) => {
     setSelectedMovie(movie)

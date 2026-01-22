@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, Download, Loader2, ExternalLink, AlertCircle, ArrowUp, ArrowDown, ArrowUpDown, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,6 +62,15 @@ const RESOLUTION_ORDER: Record<string, number> = {
   'SD': 0,
 }
 
+function SortIcon({ column, sortColumn, sortDirection }: { column: SortColumn; sortColumn: SortColumn; sortDirection: SortDirection }) {
+  if (sortColumn !== column) {
+    return <ArrowUpDown className="ml-1 size-3 text-muted-foreground" />
+  }
+  return sortDirection === 'asc'
+    ? <ArrowUp className="ml-1 size-3" />
+    : <ArrowDown className="ml-1 size-3" />
+}
+
 export function SearchModal({
   open,
   onOpenChange,
@@ -107,9 +116,11 @@ export function SearchModal({
   const { data, isLoading, isError, error, refetch } = searchResult
 
   const grabMutation = useGrab()
+  const [prevOpen, setPrevOpen] = useState(open)
 
-  // Reset state when modal opens
-  useEffect(() => {
+  // Reset state when modal opens (React-recommended pattern)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) {
       setQuery('')
       setSearchEnabled(true)
@@ -118,7 +129,7 @@ export function SearchModal({
     } else {
       setSearchEnabled(false)
     }
-  }, [open])
+  }
 
   const handleSearch = () => {
     setSearchEnabled(true)
@@ -209,11 +220,12 @@ export function SearchModal({
         case 'title':
           comparison = a.title.localeCompare(b.title)
           break
-        case 'quality':
+        case 'quality': {
           const aRes = RESOLUTION_ORDER[a.quality || ''] ?? -1
           const bRes = RESOLUTION_ORDER[b.quality || ''] ?? -1
           comparison = aRes - bRes
           break
+        }
         case 'slot':
           comparison = (a.targetSlotNumber ?? 99) - (b.targetSlotNumber ?? 99)
           break
@@ -223,11 +235,12 @@ export function SearchModal({
         case 'size':
           comparison = a.size - b.size
           break
-        case 'age':
+        case 'age': {
           const aDate = a.publishDate ? new Date(a.publishDate).getTime() : 0
           const bDate = b.publishDate ? new Date(b.publishDate).getTime() : 0
           comparison = aDate - bDate
           break
+        }
         case 'peers':
           comparison = (a.seeders ?? 0) - (b.seeders ?? 0)
           break
@@ -236,16 +249,6 @@ export function SearchModal({
     })
     return sorted
   }, [rawReleases, sortColumn, sortDirection])
-
-  // Sort icon helper
-  const SortIcon = ({ column }: { column: SortColumn }) => {
-    if (sortColumn !== column) {
-      return <ArrowUpDown className="ml-1 size-3 text-muted-foreground" />
-    }
-    return sortDirection === 'asc'
-      ? <ArrowUp className="ml-1 size-3" />
-      : <ArrowDown className="ml-1 size-3" />
-  }
 
   // Build title
   let title = 'Search Releases'
@@ -325,7 +328,7 @@ export function SearchModal({
                       onClick={() => handleSort('title')}
                     >
                       Title
-                      <SortIcon column="title" />
+                      <SortIcon column="title" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   <TableHead className="w-[70px]">
@@ -334,7 +337,7 @@ export function SearchModal({
                       onClick={() => handleSort('score')}
                     >
                       Score
-                      <SortIcon column="score" />
+                      <SortIcon column="score" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   <TableHead className="w-[100px]">
@@ -343,7 +346,7 @@ export function SearchModal({
                       onClick={() => handleSort('quality')}
                     >
                       Quality
-                      <SortIcon column="quality" />
+                      <SortIcon column="quality" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   {hasSlotInfo && (
@@ -353,7 +356,7 @@ export function SearchModal({
                         onClick={() => handleSort('slot')}
                       >
                         Slot
-                        <SortIcon column="slot" />
+                        <SortIcon column="slot" sortColumn={sortColumn} sortDirection={sortDirection} />
                       </button>
                     </TableHead>
                   )}
@@ -363,7 +366,7 @@ export function SearchModal({
                       onClick={() => handleSort('indexer')}
                     >
                       Indexer
-                      <SortIcon column="indexer" />
+                      <SortIcon column="indexer" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   <TableHead className="w-[80px]">
@@ -372,7 +375,7 @@ export function SearchModal({
                       onClick={() => handleSort('size')}
                     >
                       Size
-                      <SortIcon column="size" />
+                      <SortIcon column="size" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   <TableHead className="w-[100px]">
@@ -381,7 +384,7 @@ export function SearchModal({
                       onClick={() => handleSort('age')}
                     >
                       Age
-                      <SortIcon column="age" />
+                      <SortIcon column="age" sortColumn={sortColumn} sortDirection={sortDirection} />
                     </button>
                   </TableHead>
                   {hasTorrents && (
@@ -391,7 +394,7 @@ export function SearchModal({
                         onClick={() => handleSort('peers')}
                       >
                         Peers
-                        <SortIcon column="peers" />
+                        <SortIcon column="peers" sortColumn={sortColumn} sortDirection={sortDirection} />
                       </button>
                     </TableHead>
                   )}

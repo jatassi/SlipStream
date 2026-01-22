@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { Download } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { usePortalDownloads } from '@/hooks'
@@ -45,7 +45,7 @@ function DownloadRow({ download }: { download: PortalDownload }) {
 }
 
 export function PortalDownloads() {
-  const seenOrderRef = useRef<string[]>([])
+  const [seenOrder, setSeenOrder] = useState<string[]>([])
 
   const { data: downloads } = usePortalDownloads()
 
@@ -56,20 +56,25 @@ export function PortalDownloads() {
   // Maintain stable order: keep items in the order they were first seen
   const activeKeys = new Set(activeDownloads.map(d => `${d.clientId}-${d.id}`))
 
-  // Remove keys that are no longer active
-  seenOrderRef.current = seenOrderRef.current.filter(key => activeKeys.has(key))
+  // Compute the new order based on current active keys
+  const newOrder = useMemo(() => {
+    // Keep existing keys that are still active
+    const kept = seenOrder.filter(key => activeKeys.has(key))
+    // Add new keys at the end
+    const newKeys = activeDownloads
+      .map(d => `${d.clientId}-${d.id}`)
+      .filter(key => !kept.includes(key))
+    return [...kept, ...newKeys]
+  }, [seenOrder, activeKeys, activeDownloads])
 
-  // Add new keys at the end
-  for (const d of activeDownloads) {
-    const key = `${d.clientId}-${d.id}`
-    if (!seenOrderRef.current.includes(key)) {
-      seenOrderRef.current.push(key)
-    }
+  // Update state if order changed (React-recommended render-time adjustment pattern)
+  if (newOrder.length !== seenOrder.length || newOrder.some((key, i) => key !== seenOrder[i])) {
+    setSeenOrder(newOrder)
   }
 
   // Sort by insertion order
   const downloadMap = new Map(activeDownloads.map(d => [`${d.clientId}-${d.id}`, d]))
-  const sortedDownloads = seenOrderRef.current
+  const sortedDownloads = newOrder
     .map(key => downloadMap.get(key))
     .filter((d): d is PortalDownload => d !== undefined)
 

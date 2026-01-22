@@ -183,6 +183,70 @@ const OPTIONS = [
 **When SelectValue works fine:**
 - Simple cases where value equals the display text (e.g., `value="info"` displays as "info")
 
+### React State Synchronization (Avoiding useEffect for State Sync)
+
+**IMPORTANT**: Do NOT use `useEffect` to synchronize state when props change. This triggers the `react-hooks/set-state-in-effect` lint error and causes unnecessary re-renders. Instead, use the React-recommended "render-time state adjustment" pattern.
+
+**WRONG - Using useEffect to sync state:**
+```tsx
+function MyComponent({ data }) {
+  const [formData, setFormData] = useState(null)
+
+  // ❌ BAD: Causes cascading renders and lint errors
+  useEffect(() => {
+    if (data) {
+      setFormData(data)
+    }
+  }, [data])
+}
+```
+
+**CORRECT - Render-time state adjustment:**
+```tsx
+function MyComponent({ data }) {
+  const [formData, setFormData] = useState(null)
+  const [prevData, setPrevData] = useState(data)
+
+  // ✅ GOOD: Sync state during render when prop changes
+  if (data !== prevData) {
+    setPrevData(data)
+    if (data) {
+      setFormData(data)
+    }
+  }
+}
+```
+
+**Common use cases for this pattern:**
+- Form initialization from async-loaded data
+- Resetting dialog/modal state when opened/closed
+- Syncing controlled component values with internal state
+- Auto-selecting items when data loads
+
+**For media queries and browser APIs, use `useSyncExternalStore`:**
+```tsx
+function useIsMobile() {
+  return useSyncExternalStore(
+    (callback) => {
+      const mql = window.matchMedia('(max-width: 767px)')
+      mql.addEventListener('change', callback)
+      return () => mql.removeEventListener('change', callback)
+    },
+    () => window.innerWidth < 768,
+    () => false // SSR fallback
+  )
+}
+```
+
+**For synchronous browser API checks (e.g., feature detection), compute directly:**
+```tsx
+function usePasskeySupport() {
+  // ✅ Sync check - no state needed
+  const isSupported = passkeyApi.isSupported()
+  return { isSupported, isLoading: false }
+}
+```
+
 ### Service Layer
 Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`) which wrap sqlc queries. Services are injected into handlers during server setup.
 
