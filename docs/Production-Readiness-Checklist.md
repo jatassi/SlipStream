@@ -69,6 +69,23 @@ This document tracks all work required to prepare SlipStream for production beta
 - [ ] **Pre-update backup** - Automatically backup database before applying update
 - [ ] **Recovery strategy** - On failed update, user downloads fresh installer (simple approach)
 
+### Security
+
+- [x] **API rate limiting** - IP-based rate limiting on auth endpoints (10 req/min)
+- [x] **Account lockout** - Progressive lockout after 5 failed login attempts (15min → 30min → 1hr)
+- [x] **Security headers** - X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP frame-ancestors
+- [x] **Request body size limit** - 2MB limit to prevent memory exhaustion
+- [x] **CORS restrictions** - Restricted to localhost origins (development)
+- [x] **Embedded API keys** - TMDB/TVDB keys embedded at build time via ldflags
+- [ ] **Credential encryption** - Encryption package ready (`internal/crypto/secrets.go`), service integration deferred
+
+#### Secrets Storage (Following Sonarr/Radarr Pattern)
+
+User-specific credentials (download client passwords, indexer API keys) are stored in plaintext in the SQLite database, following the same pattern as Sonarr/Radarr. This is acceptable for self-hosted applications where:
+- The database file is on the user's own machine
+- File system permissions (600) restrict access
+- Credentials are never exposed via API responses
+
 ---
 
 ## Phase 2: Multi-Platform Expansion (Post-Beta)
@@ -142,6 +159,9 @@ This document tracks all work required to prepare SlipStream for production beta
 | Uninstall | Remove everything | Clean slate for reinstalls |
 | Versioning | Conventional commits → semver | Automated, consistent releases |
 | Release trigger | Every push to main | Fast iteration during beta |
+| Auth rate limiting | IP + account lockout | Prevents brute force attacks |
+| Secrets storage | Plaintext (like Sonarr/Radarr) | Standard for self-hosted apps, rely on file permissions |
+| API keys | Embedded at build time | Zero-config for users, ldflags injection |
 
 ---
 

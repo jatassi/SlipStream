@@ -18,6 +18,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/api/handlers"
+	apimw "github.com/slipstream/slipstream/internal/api/middleware"
+	"github.com/slipstream/slipstream/internal/api/ratelimit"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
 	"github.com/slipstream/slipstream/internal/calendar"
@@ -147,6 +149,9 @@ type Server struct {
 	portalWatchersService      *requests.WatchersService
 	portalStatusTracker        *requests.StatusTracker
 	portalLibraryChecker       *requests.LibraryChecker
+
+	// Security
+	authLimiter *ratelimit.AuthLimiter
 }
 
 // NewServer creates a new API server instance.
@@ -429,6 +434,10 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	})
 	s.portalSearchLimiter.StartCleanup(5 * time.Minute)
 
+	// Initialize auth rate limiter (IP-based + account lockout)
+	s.authLimiter = ratelimit.NewAuthLimiter()
+	s.authLimiter.StartCleanup(5 * time.Minute)
+
 	// Initialize autosearch service (uses search router for mode-aware search routing)
 	s.autosearchService = autosearch.NewService(db, s.searchRouter, s.grabService, s.qualityService, logger)
 	s.autosearchService.SetBroadcaster(hub)
@@ -527,9 +536,15 @@ func (s *Server) setupMiddleware() {
 	// Request ID
 	s.echo.Use(middleware.RequestID())
 
-	// CORS
+	// Security headers
+	s.echo.Use(apimw.SecurityHeaders())
+
+	// Request body size limit (2MB)
+	s.echo.Use(middleware.BodyLimit("2M"))
+
+	// CORS - restrict to same-origin in production, allow localhost for development
 	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: []string{"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080", "http://127.0.0.1:8080"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
@@ -584,8 +599,9 @@ func (s *Server) setupRoutes() {
 	// Public routes (no auth required)
 	api.GET("/status", s.getStatus)
 
-	// Auth routes (public, no auth required)
+	// Auth routes (public, no auth required) with rate limiting
 	authGroup := api.Group("/auth")
+	authGroup.Use(s.authLimiter.Middleware())
 	authGroup.GET("/status", s.getAuthStatus)
 	authGroup.POST("/setup", s.adminSetup)
 	authGroup.DELETE("/admin", s.deleteAdmin)
@@ -824,11 +840,13 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	// Portal auth routes (login, signup, profile) - require portal to be enabled
 	authGroup := api.Group("/requests/auth")
 	authGroup.Use(s.portalAuthMiddleware.PortalEnabled())
+	authGroup.Use(s.authLimiter.Middleware()) // Rate limit auth endpoints
 	portalAuthHandlers := auth.NewHandlers(
 		s.portalAuthService,
 		s.portalUsersService,
 		s.portalInvitationsService,
 	)
+	portalAuthHandlers.SetLockoutChecker(s.authLimiter)
 	portalAuthHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
 
 	// Passkey routes

@@ -2,13 +2,23 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 	"github.com/slipstream/slipstream/internal/portal/users"
 )
+
+// AccountLockoutChecker provides account lockout functionality.
+type AccountLockoutChecker interface {
+	IsAccountLocked(username string) bool
+	GetLockoutRemaining(username string) time.Duration
+	RecordFailedAttempt(username string)
+	RecordSuccessfulLogin(username string)
+}
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -60,6 +70,7 @@ type Handlers struct {
 	authService        *Service
 	usersService       *users.Service
 	invitationsService *invitations.Service
+	lockoutChecker     AccountLockoutChecker
 }
 
 func NewHandlers(authService *Service, usersService *users.Service, invitationsService *invitations.Service) *Handlers {
@@ -68,6 +79,10 @@ func NewHandlers(authService *Service, usersService *users.Service, invitationsS
 		usersService:       usersService,
 		invitationsService: invitationsService,
 	}
+}
+
+func (h *Handlers) SetLockoutChecker(checker AccountLockoutChecker) {
+	h.lockoutChecker = checker
 }
 
 func (h *Handlers) RegisterRoutes(g *echo.Group, authMiddleware *portalmw.AuthMiddleware) {
@@ -95,6 +110,14 @@ func (h *Handlers) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
 	}
 
+	// Check account lockout
+	if h.lockoutChecker != nil && h.lockoutChecker.IsAccountLocked(req.Username) {
+		remaining := h.lockoutChecker.GetLockoutRemaining(req.Username)
+		minutes := int(remaining.Minutes()) + 1
+		return echo.NewHTTPError(http.StatusTooManyRequests,
+			fmt.Sprintf("account temporarily locked due to too many failed attempts, try again in %d minute(s)", minutes))
+	}
+
 	// Check if this is an admin login (username is "Administrator")
 	if req.Username == "Administrator" {
 		return h.handleAdminLogin(c, req.Password)
@@ -103,12 +126,20 @@ func (h *Handlers) Login(c echo.Context) error {
 	dbUser, err := h.usersService.ValidateCredentials(c.Request().Context(), req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
+			if h.lockoutChecker != nil {
+				h.lockoutChecker.RecordFailedAttempt(req.Username)
+			}
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 		}
 		if errors.Is(err, ErrUserDisabled) {
 			return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
+	}
+
+	// Clear lockout on successful login
+	if h.lockoutChecker != nil {
+		h.lockoutChecker.RecordSuccessfulLogin(req.Username)
 	}
 
 	token, err := h.authService.GeneratePortalToken(dbUser)
@@ -130,21 +161,33 @@ func (h *Handlers) Login(c echo.Context) error {
 
 func (h *Handlers) handleAdminLogin(c echo.Context, password string) error {
 	ctx := c.Request().Context()
+	username := "Administrator"
 
 	dbAdmin, err := h.usersService.GetDBAdmin(ctx)
 	if err != nil {
 		if errors.Is(err, users.ErrUserNotFound) {
+			if h.lockoutChecker != nil {
+				h.lockoutChecker.RecordFailedAttempt(username)
+			}
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
 	}
 
 	if err := ValidatePassword(dbAdmin.PasswordHash, password); err != nil {
+		if h.lockoutChecker != nil {
+			h.lockoutChecker.RecordFailedAttempt(username)
+		}
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 	}
 
 	if dbAdmin.Enabled == 0 {
 		return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
+	}
+
+	// Clear lockout on successful login
+	if h.lockoutChecker != nil {
+		h.lockoutChecker.RecordSuccessfulLogin(username)
 	}
 
 	token, err := h.authService.GenerateAdminToken(dbAdmin.ID, dbAdmin.Username)
