@@ -36,7 +36,7 @@ func (a *windowsApp) Run() error {
 		return err
 	}
 
-	a.notifyIcon, err = walk.NewNotifyIcon(a.mainWindow)
+	a.notifyIcon, err = walk.NewNotifyIcon()
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (a *windowsApp) Run() error {
 	a.running = true
 	a.mu.Unlock()
 
-	a.mainWindow.Run()
+	walk.App().Run()
 	return nil
 }
 
