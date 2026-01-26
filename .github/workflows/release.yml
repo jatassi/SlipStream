@@ -211,13 +211,13 @@ jobs:
           path: dist/*.dmg
           retention-days: 1
 
-  # Linux AppImage
+  # Linux AppImage (amd64 only - arm64 requires native runner)
   linux-appimage:
     needs: goreleaser
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     steps:
       - uses: actions/checkout@v4
 
@@ -301,7 +301,6 @@ jobs:
           cp artifacts/macos-dmg-amd64/*.dmg release/ 2>/dev/null || true
           cp artifacts/macos-dmg-arm64/*.dmg release/ 2>/dev/null || true
           cp artifacts/linux-appimage-amd64/*.AppImage release/ 2>/dev/null || true
-          cp artifacts/linux-appimage-arm64/*.AppImage release/ 2>/dev/null || true
           ls -la release/
 
       - name: Create GitHub Release

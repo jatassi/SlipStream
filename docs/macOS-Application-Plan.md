@@ -16,18 +16,17 @@ Implement macOS-specific features for SlipStream including menu bar integration,
 
 ## Implementation Approach
 
-### Key Decision: Pure Go Implementation (No CGO)
+### Key Decision: Use `progrium/macdriver` for Native Cocoa Integration
 
-All menu bar and macOS API functionality will be implemented using pure Go to maintain the current `CGO_ENABLED=0` build configuration.
+Use `github.com/progrium/macdriver` for full native macOS menu bar support via Cocoa bindings.
 
-**Challenge:** Unlike Windows, macOS menu bar apps typically require Objective-C/Cocoa frameworks. Pure Go options are limited.
+**Why macdriver:**
+- Direct access to NSStatusBar, NSMenu, NSMenuItem
+- Native macOS look and feel
+- Full feature parity with Windows tray
+- CGO required but only links system frameworks (no runtime dependencies for users)
 
-**Options:**
-1. **Use `os/exec` to call AppleScript** - Simple but limited functionality
-2. **Embed a minimal Swift helper** - More capable but adds build complexity
-3. **Accept headless mode** - No menu bar, just launch agent + browser access
-
-**Recommended:** Start with option 1 (AppleScript) for basic menu bar, can enhance later.
+**Build requirement:** macOS runner with Xcode Command Line Tools (GitHub Actions `macos-latest` has this)
 
 ## Phase 1: Platform Package Extension
 
@@ -37,27 +36,63 @@ Extend existing `internal/platform/` package:
 internal/
   platform/
     app.go              # Cross-platform interface (exists)
-    app_windows.go      # Windows implementation (exists)
-    app_darwin.go       # macOS implementation (NEW)
-    app_other.go        # Linux stub (rename from app_other.go)
+    app_windows.go      # Windows implementation (pure Go syscalls)
+    app_darwin.go       # macOS implementation (macdriver/Cocoa)
+    app_linux.go        # Linux stub
 ```
 
 ### `app_darwin.go` - macOS Implementation
 
-**Menu Bar (via AppleScript/osascript):**
-- Display status item in menu bar
-- Click shows menu: "Open SlipStream" / "Quit"
-- Uses `osascript` to create native dialogs
+**Menu Bar (via macdriver):**
+```go
+import (
+    "github.com/progrium/macdriver/macos/appkit"
+    "github.com/progrium/macdriver/macos/foundation"
+    "github.com/progrium/macdriver/objc"
+)
 
-**Alternative (simpler initial approach):**
-- No persistent menu bar icon
-- Just launch agent + first-run browser open
-- Users access via browser bookmark
+type macApp struct {
+    config     AppConfig
+    statusItem appkit.StatusItem
+    done       chan struct{}
+}
+
+func (a *macApp) Run() error {
+    // Create status bar item
+    a.statusItem = appkit.StatusBar_SystemStatusBar().StatusItemWithLength(appkit.VariableStatusItemLength)
+    a.statusItem.Button().SetTitle("SlipStream")
+    // Or set icon: a.statusItem.Button().SetImage(icon)
+
+    // Create menu
+    menu := appkit.NewMenu()
+
+    openItem := appkit.NewMenuItem()
+    openItem.SetTitle("Open SlipStream")
+    openItem.SetAction(objc.Sel("openBrowser:"))
+    menu.AddItem(openItem)
+
+    menu.AddItem(appkit.MenuItem_SeparatorItem())
+
+    quitItem := appkit.NewMenuItem()
+    quitItem.SetTitle("Quit")
+    quitItem.SetAction(objc.Sel("quit:"))
+    menu.AddItem(quitItem)
+
+    a.statusItem.SetMenu(menu)
+
+    // Run the app
+    app := appkit.Application_SharedApplication()
+    app.Run()
+    return nil
+}
+```
 
 **Browser Launch:**
 ```go
-func OpenBrowser(url string) error {
-    return exec.Command("open", url).Start()
+func (a *macApp) OpenBrowser() error {
+    url := foundation.URL_URLWithString(a.config.ServerURL)
+    appkit.Workspace_SharedWorkspace().OpenURL(url)
+    return nil
 }
 ```
 
@@ -186,7 +221,7 @@ SlipStream.app/
 ## Files to Create/Modify
 
 ### Create
-- `internal/platform/app_darwin.go` - macOS menu bar/startup implementation
+- `internal/platform/app_darwin.go` - macOS menu bar/startup via macdriver
 - `scripts/macos/com.slipstream.slipstream.plist` - Launch agent template
 - `assets/icons/slipstream.icns` - macOS app icon
 
@@ -194,27 +229,71 @@ SlipStream.app/
 - `internal/platform/app_other.go` → rename to `app_linux.go` (Linux-only stub)
 - `scripts/macos/create-dmg.sh` - Add launch agent to bundle
 - `internal/config/config.go` - Add macOS default paths
+- `go.mod` - Add `github.com/progrium/macdriver` dependency
+- `.goreleaser.yaml` - Enable CGO for darwin builds
+
+## Build Configuration
+
+### GoReleaser Changes
+
+```yaml
+builds:
+  - id: slipstream-darwin
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    env:
+      - CGO_ENABLED=1
+    # ... other settings
+
+  - id: slipstream-windows
+    goos: [windows]
+    goarch: [amd64]
+    env:
+      - CGO_ENABLED=0  # Keep pure Go for Windows
+    # ... other settings
+
+  - id: slipstream-linux
+    goos: [linux]
+    goarch: [amd64, arm64]
+    env:
+      - CGO_ENABLED=0  # Keep pure Go for Linux
+    # ... other settings
+```
+
+### CI/CD Pipeline
+
+macOS builds must run on macOS runner (not cross-compile):
+```yaml
+macos-build:
+  runs-on: macos-latest  # Has Xcode pre-installed
+  steps:
+    - run: CGO_ENABLED=1 go build -o slipstream ./cmd/slipstream
+```
 
 ## Implementation Order
 
-1. Create `app_darwin.go` with browser launch and startup functions
-2. Create launch agent plist template
-3. Update config.go for macOS paths
-4. Update create-dmg.sh to include launch agent
-5. Test on macOS (Intel and Apple Silicon)
-6. Create .icns icon file
+1. Add `github.com/progrium/macdriver` to go.mod
+2. Create `app_darwin.go` with menu bar and startup functions
+3. Create launch agent plist template
+4. Update config.go for macOS paths
+5. Update .goreleaser.yaml for CGO on darwin
+6. Update CI/CD for native macOS builds
+7. Test on macOS (Intel and Apple Silicon)
+8. Create .icns icon file
 
 ## Verification
 
-1. **Build test:** `GOOS=darwin GOARCH=arm64 go build ./cmd/slipstream`
-2. **Browser test:** Run app, verify browser opens on first run
-3. **Startup test:** Enable launch agent, reboot, verify app starts
-4. **DMG test:** Create DMG, install, verify app bundle works
-5. **Data path test:** Verify config/db created in correct location
+1. **Build test:** `CGO_ENABLED=1 go build ./cmd/slipstream` (on macOS)
+2. **Menu bar test:** Run app, verify icon appears in menu bar
+3. **Click test:** Click icon shows menu, "Open SlipStream" opens browser
+4. **Quit test:** "Quit" menu item stops the application
+5. **Startup test:** Enable launch agent, reboot, verify app starts
+6. **DMG test:** Create DMG, install, verify app bundle works
+7. **Data path test:** Verify config/db created in correct location
 
 ## Notes
 
-- Menu bar icon deferred to Phase 2 (requires more complex Cocoa integration)
+- CGO links against system Cocoa frameworks (no runtime dependencies for users)
 - Code signing deferred until Apple Developer account available
-- Universal binary (arm64 + amd64) possible but increases build complexity
-- macOS Catalina (10.15) minimum for modern Swift/security features
+- Separate builds for arm64 and amd64 (not universal binary initially)
+- macOS Catalina (10.15) minimum for macdriver compatibility
