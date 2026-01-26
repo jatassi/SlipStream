@@ -69,7 +69,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --skip=before
+          args: release --clean --skip=before --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
@@ -234,20 +234,49 @@ jobs:
           path: dist/*.AppImage
           retention-days: 1
 
-  # Collect all artifacts and upload to release
+  # Collect all artifacts and create GitHub Release
   upload-release:
     needs: [goreleaser, windows-installer, macos-dmg-amd64, macos-dmg-arm64, linux-appimage]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: false
 
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "is_dispatch=true" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "is_dispatch=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create tag for dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
+
       - name: Collect release files
         run: |
           mkdir -p release
+          # Copy GoReleaser artifacts (archives, checksums, packages)
+          cp artifacts/goreleaser-dist/*.tar.gz release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/*.zip release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/*.deb release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/*.rpm release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/checksums.txt release/ 2>/dev/null || true
           # Copy installers
           cp artifacts/windows-installer/*.exe release/ 2>/dev/null || true
           cp artifacts/macos-dmg-amd64/*.dmg release/ 2>/dev/null || true
@@ -256,9 +285,12 @@ jobs:
           cp artifacts/linux-appimage-arm64/*.AppImage release/ 2>/dev/null || true
           ls -la release/
 
-      - name: Upload to GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "SlipStream ${{ steps.version.outputs.version }}"
+          generate_release_notes: true
           files: release/*
           fail_on_unmatched_files: false
         env:

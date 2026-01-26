@@ -24,11 +24,14 @@ This document tracks all work required to prepare SlipStream for production beta
 
 ### CI/CD Pipeline
 
-- [ ] **Self-hosted GitHub Actions runner** - Set up on Windows home server
 - [ ] **Release workflow** - Trigger on every push to main
 - [ ] **Build artifacts**:
   - [ ] Windows x64 NSIS/Inno Setup installer (.exe)
   - [ ] Windows x64 portable ZIP
+  - [ ] MacOS DMG Installer
+  - [ ] `.deb` package (Debian/Ubuntu)
+  - [ ] `.rpm` package (Fedora/RHEL)
+  - [ ] AppImage (universal)
 - [ ] **Changelog** - Manual changelog in release notes (markdown format)
 
 ### Windows Application
