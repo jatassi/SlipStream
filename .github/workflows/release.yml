@@ -289,8 +289,11 @@ jobs:
 
       - name: Install nfpm
         run: |
-          curl -sfL https://install.goreleaser.com/github.com/goreleaser/nfpm.sh | sh -s -- -b /tmp
+          NFPM_VERSION="2.44.1"
+          curl -sL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" -o /tmp/nfpm.tar.gz
+          tar -xzf /tmp/nfpm.tar.gz -C /tmp
           sudo mv /tmp/nfpm /usr/local/bin/
+          nfpm --version
 
       - name: Create deb/rpm packages
         run: |
