@@ -8,7 +8,8 @@ package config
 //
 //	go build -ldflags "-X 'github.com/slipstream/slipstream/internal/config.Version=1.2.3' \
 //	                   -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=xxx' \
-//	                   -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=yyy'"
+//	                   -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=yyy' \
+//	                   -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=zzz'"
 var (
 	// Version is the application version, injected at build time.
 	// Defaults to "dev" if not set.
@@ -16,4 +17,5 @@ var (
 
 	EmbeddedTMDBKey string
 	EmbeddedTVDBKey string
+	EmbeddedOMDBKey string
 )

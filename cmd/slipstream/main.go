@@ -4,19 +4,24 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/slipstream/slipstream/internal/api"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
 	"github.com/slipstream/slipstream/internal/websocket"
+	"github.com/slipstream/slipstream/web"
 )
 
 func main() {
@@ -90,6 +95,11 @@ func main() {
 	// Register WebSocket endpoint
 	server.Echo().GET("/ws", hub.HandleWebSocket)
 
+	// Serve embedded frontend (production builds only)
+	if distFS, err := web.DistFS(); err == nil {
+		registerFrontendHandler(server.Echo(), distFS)
+	}
+
 	// Start server in goroutine
 	go func() {
 		addr := cfg.Server.Address()
@@ -139,4 +149,40 @@ func spawnNewProcess() error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Start()
+}
+
+func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
+	fileServer := http.FileServer(http.FS(distFS))
+
+	e.GET("/*", func(c echo.Context) error {
+		path := c.Request().URL.Path
+
+		// Skip API and WebSocket routes
+		if strings.HasPrefix(path, "/api/") || path == "/ws" {
+			return echo.ErrNotFound
+		}
+
+		// Try to serve the exact file
+		if path != "/" {
+			cleanPath := strings.TrimPrefix(path, "/")
+			if file, err := distFS.Open(cleanPath); err == nil {
+				file.Close()
+				fileServer.ServeHTTP(c.Response(), c.Request())
+				return nil
+			}
+		}
+
+		// Fall back to index.html for SPA routing
+		indexFile, err := distFS.Open("index.html")
+		if err != nil {
+			return echo.ErrNotFound
+		}
+		defer indexFile.Close()
+
+		if _, err := indexFile.Stat(); err != nil {
+			return echo.ErrNotFound
+		}
+
+		return c.Stream(http.StatusOK, "text/html; charset=utf-8", indexFile)
+	})
 }

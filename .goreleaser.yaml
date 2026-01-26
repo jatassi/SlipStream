@@ -1,0 +1,80 @@
+version: 2
+
+project_name: slipstream
+
+before:
+  hooks:
+    - go mod tidy
+    - bun install --cwd web
+    - bun run --cwd web build
+
+builds:
+  - id: slipstream
+    main: ./cmd/slipstream
+    binary: slipstream
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X 'github.com/slipstream/slipstream/internal/config.Version={{.Version}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey={{.Env.TMDB_API_KEY}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey={{.Env.TVDB_API_KEY}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey={{.Env.OMDB_API_KEY}}'
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README*
+      - CHANGELOG*
+
+nfpms:
+  - id: packages
+    package_name: slipstream
+    vendor: SlipStream
+    homepage: https://github.com/jatassi/SlipStream
+    maintainer: SlipStream <noreply@slipstream.local>
+    description: Unified media management system
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    scripts:
+      postinstall: "scripts/linux/postinstall.sh"
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: jatassi
+    name: SlipStream
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"

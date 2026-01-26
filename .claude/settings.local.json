@@ -61,7 +61,8 @@
       "Bash(sqlite3:*)",
       "Bash(go doc:*)",
       "Bash(sort:*)",
-      "Bash(bun run lint:*)"
+      "Bash(bun run lint:*)",
+      "Bash(gh repo view:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
