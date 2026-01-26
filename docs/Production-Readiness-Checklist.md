@@ -18,7 +18,7 @@ This document tracks all work required to prepare SlipStream for production beta
 
 ### Build System
 
-- [ ] **Switch to pure Go SQLite** - Replace `mattn/go-sqlite3` with `modernc.org/sqlite` to eliminate CGO dependency
+- [x] **Switch to pure Go SQLite** - Using `modernc.org/sqlite` (pure Go, no CGO dependency)
 - [x] **Build-time versioning** - Version injected via Makefile `VERSION` parameter (ldflags)
 - [ ] **Static binary** - Ensure fully self-contained executable with no external dependencies
 
@@ -29,8 +29,7 @@ This document tracks all work required to prepare SlipStream for production beta
 - [ ] **Build artifacts**:
   - [ ] Windows x64 NSIS/Inno Setup installer (.exe)
   - [ ] Windows x64 portable ZIP
-- [ ] **Changelog** - Manual changelog in release notes
-- [ ] **Private GitHub releases** - Gated download access for beta testers
+- [ ] **Changelog** - Manual changelog in release notes (markdown format)
 
 ### Windows Application
 
@@ -59,13 +58,12 @@ This document tracks all work required to prepare SlipStream for production beta
 
 ### Auto-Update System
 
-- [ ] **Update check** - On startup + periodic (every 24 hours)
+- [ ] **Update check and auto install** - On startup + periodic (every 24 hours) -> use task system
+- [ ] **Auto-install toggle** - add toggle on update page - on/off enables/disables auto update task - default on - part of config (persists across restart)
 - [ ] **GitHub Releases integration** - Check for new releases via GitHub API
-- [ ] **Auto-download** - Download update in background when available
-- [ ] **Prompt to install** - Notify user, let them choose when to restart
 - [ ] **Always latest** - No version skipping, updates always go to newest
-- [ ] **Offline handling** - Silent failure if GitHub unreachable, log warning, retry later
-- [ ] **Pre-update backup** - Automatically backup database before applying update
+- [ ] **Offline handling** - use update page update error state
+- [ ] **Pre-update backup** - Automatically backup database before applying update -> placeholder only, need to build out backup system
 - [ ] **Recovery strategy** - On failed update, user downloads fresh installer (simple approach)
 
 ### Security
