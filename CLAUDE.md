@@ -51,6 +51,40 @@ make build-backend    # Build Go binary to bin/slipstream
 make build-frontend   # Build frontend to web/dist/
 ```
 
+### Releasing
+
+The release pipeline is triggered via GitHub Actions and produces platform-specific installers.
+
+**Option 1: Tag-based release (recommended for production)**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+**Option 2: Manual workflow dispatch (for testing)**
+```bash
+gh workflow run release.yml -f version=1.0.0
+```
+
+**Monitor release progress:**
+```bash
+gh run watch                    # Watch current run
+gh run list --workflow=release.yml --limit=3  # List recent runs
+```
+
+**Release artifacts produced:**
+- Windows: `.exe` installer, `.zip` portable
+- macOS: `.dmg` (amd64 and arm64)
+- Linux: `.AppImage` (amd64), `.deb` (amd64/arm64), `.rpm` (amd64/arm64)
+
+**Re-releasing a version:**
+```bash
+gh release delete v1.0.0 --yes
+git push --delete origin v1.0.0
+git tag -d v1.0.0
+# Then trigger release again
+```
+
 ### Testing
 ```bash
 make test             # Run all Go tests
