@@ -295,17 +295,16 @@ jobs:
       - name: Collect release files
         run: |
           mkdir -p release
-          # Copy GoReleaser artifacts (archives, checksums, packages)
-          cp artifacts/goreleaser-dist/*.tar.gz release/ 2>/dev/null || true
+          # Windows: portable ZIP + installer
           cp artifacts/goreleaser-dist/*.zip release/ 2>/dev/null || true
-          cp artifacts/goreleaser-dist/*.deb release/ 2>/dev/null || true
-          cp artifacts/goreleaser-dist/*.rpm release/ 2>/dev/null || true
-          cp artifacts/goreleaser-dist/checksums.txt release/ 2>/dev/null || true
-          # Copy installers
           cp artifacts/windows-installer/*.exe release/ 2>/dev/null || true
+          # macOS: DMG only
           cp artifacts/macos-dmg-amd64/*.dmg release/ 2>/dev/null || true
           cp artifacts/macos-dmg-arm64/*.dmg release/ 2>/dev/null || true
+          # Linux: AppImage + deb + rpm
           cp artifacts/linux-appimage-amd64/*.AppImage release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/*.deb release/ 2>/dev/null || true
+          cp artifacts/goreleaser-dist/*.rpm release/ 2>/dev/null || true
           ls -la release/
 
       - name: Create GitHub Release

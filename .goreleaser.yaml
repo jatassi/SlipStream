@@ -32,15 +32,17 @@ builds:
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey={{.Env.OMDB_API_KEY}}'
 
 archives:
-  - id: default
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
+  # Windows portable ZIP only
+  - id: windows-zip
+    format: zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - slipstream
     files:
       - README*
-      - CHANGELOG*
+    wrap_in_directory: false
+    filters:
+      - goos: windows
 
 nfpms:
   - id: packages
