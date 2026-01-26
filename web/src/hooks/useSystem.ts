@@ -83,3 +83,9 @@ export function useUpdateTMDBSearchOrdering() {
     }
   })
 }
+
+export function useRestart() {
+  return useMutation({
+    mutationFn: () => systemApi.restart(),
+  })
+}

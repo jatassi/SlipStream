@@ -49,6 +49,11 @@ func NewSettingsHandlers(quotaService *quota.Service, queries *sqlc.Queries) *Se
 	}
 }
 
+// SetDB updates the database queries used by the handlers.
+func (h *SettingsHandlers) SetDB(queries *sqlc.Queries) {
+	h.queries = queries
+}
+
 func (h *SettingsHandlers) RegisterRoutes(g *echo.Group, authMiddleware *portalmw.AuthMiddleware) {
 	protected := g.Group("")
 	protected.Use(authMiddleware.AdminAuth())

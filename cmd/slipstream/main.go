@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -74,8 +76,11 @@ func main() {
 	hub := websocket.NewHub()
 	go hub.Run()
 
+	// Create restart channel
+	restartChan := make(chan struct{}, 1)
+
 	// Initialize API server
-	server := api.NewServer(dbManager, hub, cfg, log.Logger)
+	server := api.NewServer(dbManager, hub, cfg, log.Logger, restartChan)
 
 	// Ensure default data exists (like quality profiles)
 	if err := server.EnsureDefaults(context.Background()); err != nil {
@@ -94,12 +99,18 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal
+	// Wait for interrupt signal or restart request
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	log.Info().Msg("shutting down server...")
+	var shouldRestart bool
+	select {
+	case <-quit:
+		log.Info().Msg("shutting down server...")
+	case <-restartChan:
+		log.Info().Msg("restarting server...")
+		shouldRestart = true
+	}
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -109,5 +120,23 @@ func main() {
 		log.Error().Err(err).Msg("server shutdown error")
 	}
 
+	if shouldRestart {
+		if err := spawnNewProcess(); err != nil {
+			log.Error().Err(err).Msg("failed to spawn new process")
+		}
+	}
+
 	log.Info().Msg("server stopped")
+}
+
+func spawnNewProcess() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Start()
 }

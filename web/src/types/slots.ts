@@ -269,6 +269,8 @@ export interface SlotNamingValidation {
   requiredAttributes: DifferentiatorAttribute[]
   canProceed: boolean
   warnings: string[]
+  qualityTierExclusive?: boolean  // Profiles are exclusive via quality tiers only
+  noEnabledSlots?: boolean        // No enabled slots with profiles found
 }
 
 // Migration/Dry Run Types (Req 14.1.1-14.2.3)

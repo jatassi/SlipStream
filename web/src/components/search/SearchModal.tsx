@@ -116,6 +116,7 @@ export function SearchModal({
   const { data, isLoading, isError, error, refetch } = searchResult
 
   const grabMutation = useGrab()
+  const [grabbingGuid, setGrabbingGuid] = useState<string | null>(null)
   const [prevOpen, setPrevOpen] = useState(open)
 
   // Reset state when modal opens (React-recommended pattern)
@@ -126,6 +127,7 @@ export function SearchModal({
       setSearchEnabled(true)
       setSortColumn('score')
       setSortDirection('desc')
+      setGrabbingGuid(null)
     } else {
       setSearchEnabled(false)
     }
@@ -137,6 +139,7 @@ export function SearchModal({
   }
 
   const handleGrab = async (release: TorrentInfo) => {
+    setGrabbingGuid(release.guid)
     try {
       // Determine media type and flags based on search context
       let mediaType: 'movie' | 'episode' | 'season' = 'episode'
@@ -187,6 +190,8 @@ export function SearchModal({
       }
     } catch {
       toast.error('Failed to grab release')
+    } finally {
+      setGrabbingGuid(null)
     }
   }
 
@@ -496,9 +501,9 @@ export function SearchModal({
                           variant="ghost"
                           size="icon"
                           onClick={() => handleGrab(release)}
-                          disabled={grabMutation.isPending}
+                          disabled={grabbingGuid === release.guid}
                         >
-                          {grabMutation.isPending ? (
+                          {grabbingGuid === release.guid ? (
                             <Loader2 className="size-4 animate-spin" />
                           ) : (
                             <Download className="size-4" />

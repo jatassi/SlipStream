@@ -19,7 +19,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/api/handlers"
 	apimw "github.com/slipstream/slipstream/internal/api/middleware"
-	"github.com/slipstream/slipstream/internal/api/ratelimit"
+	authratelimit "github.com/slipstream/slipstream/internal/api/ratelimit"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
 	"github.com/slipstream/slipstream/internal/calendar"
@@ -120,9 +120,10 @@ type Server struct {
 	scheduledSearcher     *autosearch.ScheduledSearcher
 	preferencesService    *preferences.Service
 	historyService        *history.Service
-	healthService       *health.Service
-	importService       *importer.Service
-	organizerService    *organizer.Service
+	healthService            *health.Service
+	importService            *importer.Service
+	importSettingsHandlers   *importer.SettingsHandlers
+	organizerService         *organizer.Service
 	mediainfoService    *mediainfo.Service
 	slotsService        *slots.Service
 	notificationService *notification.Service
@@ -149,13 +150,17 @@ type Server struct {
 	portalWatchersService      *requests.WatchersService
 	portalStatusTracker        *requests.StatusTracker
 	portalLibraryChecker       *requests.LibraryChecker
+	adminSettingsHandlers      *admin.SettingsHandlers
 
 	// Security
-	authLimiter *ratelimit.AuthLimiter
+	authLimiter *authratelimit.AuthLimiter
+
+	// Restart channel for triggering server restart
+	restartChan chan<- struct{}
 }
 
 // NewServer creates a new API server instance.
-func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger) *Server {
+func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger, restartChan chan<- struct{}) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -163,12 +168,13 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	db := dbManager.Conn()
 
 	s := &Server{
-		echo:      e,
-		dbManager: dbManager,
-		hub:       hub,
-		logger:    logger,
-		cfg:       cfg,
-		startupDB: db,
+		echo:        e,
+		dbManager:   dbManager,
+		hub:         hub,
+		logger:      logger,
+		cfg:         cfg,
+		startupDB:   db,
+		restartChan: restartChan,
 	}
 
 	// Store real metadata clients for later switching
@@ -204,6 +210,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 				profileIDMapping := s.copyQualityProfilesToDevDB()
 				s.copyPortalUsersToDevDB(profileIDMapping)
 				s.copyPortalUserNotificationsToDevDB()
+				s.setupDevModeSlots()
 				s.populateMockMedia()
 			}
 			return nil
@@ -435,7 +442,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.portalSearchLimiter.StartCleanup(5 * time.Minute)
 
 	// Initialize auth rate limiter (IP-based + account lockout)
-	s.authLimiter = ratelimit.NewAuthLimiter()
+	s.authLimiter = authratelimit.NewAuthLimiter()
 	s.authLimiter.StartCleanup(5 * time.Minute)
 
 	// Initialize autosearch service (uses search router for mode-aware search routing)
@@ -732,6 +739,9 @@ func (s *Server) setupRoutes() {
 	settings.PUT("", s.updateSettings)
 	settings.POST("/apikey", s.regenerateApiKey)
 
+	// System routes
+	protected.POST("/system/restart", s.restart)
+
 	// Indexers routes
 	indexersGroup := protected.Group("/indexers")
 	indexerHandlers := indexer.NewHandlers(s.indexerService)
@@ -806,8 +816,8 @@ func (s *Server) setupRoutes() {
 	importHandlers.RegisterRoutes(protected.Group("/import"))
 
 	// Import settings routes
-	importSettings := importer.NewSettingsHandlers(s.startupDB, s.importService)
-	importSettings.RegisterSettingsRoutes(settings)
+	s.importSettingsHandlers = importer.NewSettingsHandlers(s.startupDB, s.importService)
+	s.importSettingsHandlers.RegisterSettingsRoutes(settings)
 
 	// Notifications routes (admin-only for CRUD)
 	notificationHandlers := notification.NewHandlers(s.notificationService)
@@ -922,8 +932,8 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	adminRequestHandlers.RegisterRoutes(adminGroup, s.portalAuthMiddleware)
 
 	// Admin settings
-	adminSettingsHandlers := admin.NewSettingsHandlers(s.portalQuotaService, sqlc.New(s.startupDB))
-	adminSettingsHandlers.RegisterRoutes(adminGroup.Group("/settings"), s.portalAuthMiddleware)
+	s.adminSettingsHandlers = admin.NewSettingsHandlers(s.portalQuotaService, sqlc.New(s.startupDB))
+	s.adminSettingsHandlers.RegisterRoutes(adminGroup.Group("/settings"), s.portalAuthMiddleware)
 }
 
 // portalAutoApproveAdapter adapts autoapprove.Service to requests.AutoApproveProcessor interface.
@@ -1356,6 +1366,19 @@ func (s *Server) regenerateApiKey(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"apiKey": apiKey})
+}
+
+func (s *Server) restart(c echo.Context) error {
+	s.logger.Info().Msg("Restart requested via API")
+
+	select {
+	case s.restartChan <- struct{}{}:
+		return c.JSON(http.StatusOK, map[string]string{
+			"message": "Restart initiated",
+		})
+	default:
+		return echo.NewHTTPError(http.StatusConflict, "Restart already in progress")
+	}
 }
 
 // Download client handlers
@@ -1948,6 +1971,7 @@ func (s *Server) updateServicesDB() {
 	s.slotsService.SetDB(db)
 	s.autosearchService.SetDB(db)
 	s.importService.SetDB(db)
+	s.importSettingsHandlers.SetDB(db)
 	s.defaultsService.SetDB(db)
 	s.preferencesService.SetDB(db)
 	s.calendarService.SetDB(db)
@@ -1973,6 +1997,7 @@ func (s *Server) updateServicesDB() {
 	s.portalWatchersService.SetDB(db)
 	s.portalStatusTracker.SetDB(db)
 	s.portalLibraryChecker.SetDB(db)
+	s.adminSettingsHandlers.SetDB(queries)
 
 	s.logger.Info().Msg("Updated all services with new database connection")
 }
@@ -2352,6 +2377,54 @@ func (s *Server) copyQualityProfilesToDevDB() map[int64]int64 {
 
 	s.logger.Info().Int("count", len(prodRows)).Msg("Copied quality profiles to dev database")
 	return idMapping
+}
+
+// setupDevModeSlots configures version slots for developer mode testing.
+// Assigns quality profiles to slots and enables them so the dry run feature works.
+func (s *Server) setupDevModeSlots() {
+	ctx := context.Background()
+
+	// Get all slots
+	slotList, err := s.slotsService.List(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list slots for dev mode setup")
+		return
+	}
+
+	// Get all quality profiles
+	profiles, err := s.qualityService.List(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to list quality profiles for dev mode setup")
+		return
+	}
+
+	if len(profiles) == 0 {
+		s.logger.Warn().Msg("No quality profiles available for dev mode slot setup")
+		return
+	}
+
+	// Assign profiles to slots and enable them
+	// Use different profiles for each slot if available
+	for i, slot := range slotList {
+		profileIdx := i % len(profiles)
+		profileID := profiles[profileIdx].ID
+
+		input := slots.UpdateSlotInput{
+			Name:         slot.Name,
+			Enabled:      true,
+			DisplayOrder: slot.DisplayOrder,
+		}
+		input.QualityProfileID = &profileID
+
+		_, err := s.slotsService.Update(ctx, slot.ID, input)
+		if err != nil {
+			s.logger.Error().Err(err).Int64("slotId", slot.ID).Msg("Failed to update slot for dev mode")
+			continue
+		}
+		s.logger.Debug().Int64("slotId", slot.ID).Int64("profileId", profileID).Msg("Configured slot for dev mode")
+	}
+
+	s.logger.Info().Int("count", len(slotList)).Msg("Configured slots for dev mode")
 }
 
 // populateMockMedia creates mock movies and series in the dev database.

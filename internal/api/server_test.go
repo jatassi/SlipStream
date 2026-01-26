@@ -37,7 +37,8 @@ func setupTestServer(t *testing.T) (*testServer, func()) {
 		},
 	}
 
-	server := NewServer(tdb.Manager, nil, cfg, tdb.Logger)
+	restartChan := make(chan struct{}, 1)
+	server := NewServer(tdb.Manager, nil, cfg, tdb.Logger, restartChan)
 
 	// Create admin user for tests
 	ctx := context.Background()

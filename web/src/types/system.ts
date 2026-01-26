@@ -8,6 +8,7 @@ export interface SystemStatus {
   episodeCount: number
   queueCount: number
   developerMode: boolean
+  portalEnabled: boolean
   tmdb?: {
     disableSearchOrdering: boolean
   }

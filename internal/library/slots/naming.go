@@ -84,7 +84,7 @@ type MissingTokenInfo struct {
 // GetConflictingAttributes identifies attributes that differ between slot profiles.
 // Req 4.1.2: Only conflicting differentiators are required (attributes where profiles have opposing requirements)
 func GetConflictingAttributes(slots []quality.SlotConfig) []DifferentiatorAttribute {
-	var conflicts []DifferentiatorAttribute
+	conflicts := make([]DifferentiatorAttribute, 0)
 
 	for i := 0; i < len(slots); i++ {
 		slotA := slots[i]
@@ -99,16 +99,17 @@ func GetConflictingAttributes(slots []quality.SlotConfig) []DifferentiatorAttrib
 			}
 
 			// Check each attribute for conflicts between the two profiles
-			if hasRequiredDifference(slotA.Profile.HDRSettings, slotB.Profile.HDRSettings) {
+			// Use the same logic as mutual exclusivity check: required vs notAllowed conflicts
+			if quality.HasAttributeConflict(slotA.Profile.HDRSettings, slotB.Profile.HDRSettings) {
 				conflicts = appendIfMissing(conflicts, DifferentiatorHDR)
 			}
-			if hasRequiredDifference(slotA.Profile.VideoCodecSettings, slotB.Profile.VideoCodecSettings) {
+			if quality.HasAttributeConflict(slotA.Profile.VideoCodecSettings, slotB.Profile.VideoCodecSettings) {
 				conflicts = appendIfMissing(conflicts, DifferentiatorVideoCodec)
 			}
-			if hasRequiredDifference(slotA.Profile.AudioCodecSettings, slotB.Profile.AudioCodecSettings) {
+			if quality.HasAttributeConflict(slotA.Profile.AudioCodecSettings, slotB.Profile.AudioCodecSettings) {
 				conflicts = appendIfMissing(conflicts, DifferentiatorAudioCodec)
 			}
-			if hasRequiredDifference(slotA.Profile.AudioChannelSettings, slotB.Profile.AudioChannelSettings) {
+			if quality.HasAttributeConflict(slotA.Profile.AudioChannelSettings, slotB.Profile.AudioChannelSettings) {
 				conflicts = appendIfMissing(conflicts, DifferentiatorAudioChannels)
 			}
 		}
@@ -117,30 +118,27 @@ func GetConflictingAttributes(slots []quality.SlotConfig) []DifferentiatorAttrib
 	return conflicts
 }
 
-// hasRequiredDifference checks if two attribute settings have different required values.
-// Req 4.1.1: Filename format must include tokens for attributes that differ between assigned slot profiles
-func hasRequiredDifference(settingsA, settingsB quality.AttributeSettings) bool {
-	// Get required values from each settings using the per-item mode system
-	requiredA := settingsA.GetRequired()
-	requiredB := settingsB.GetRequired()
+// checkQualityTierExclusivity checks if slot profiles have non-overlapping quality tiers.
+// This means profiles are distinguished by quality (e.g., 1080p vs 4K) and don't need
+// special filename tokens beyond {Quality Title}.
+func checkQualityTierExclusivity(slots []quality.SlotConfig) bool {
+	for i := 0; i < len(slots); i++ {
+		slotA := slots[i]
+		if !slotA.Enabled || slotA.Profile == nil {
+			continue
+		}
 
-	// Both must have required values to create a meaningful difference
-	if len(requiredA) == 0 || len(requiredB) == 0 {
-		return false
-	}
-	// Values must not overlap (i.e., they require different things)
-	return !hasOverlap(requiredA, requiredB)
-}
+		for j := i + 1; j < len(slots); j++ {
+			slotB := slots[j]
+			if !slotB.Enabled || slotB.Profile == nil {
+				continue
+			}
 
-// hasOverlap checks if two string slices share any common elements
-func hasOverlap(a, b []string) bool {
-	setA := make(map[string]bool, len(a))
-	for _, v := range a {
-		setA[v] = true
-	}
-	for _, v := range b {
-		if setA[v] {
-			return true
+			// Use the quality package's exclusivity check for quality tiers
+			exclusivity := quality.CheckMutualExclusivity(slotA.Profile, slotB.Profile)
+			if exclusivity.AreExclusive && exclusivity.Reason == "profiles have different allowed quality tiers" {
+				return true
+			}
 		}
 	}
 	return false
@@ -235,31 +233,55 @@ func getSuggestedToken(attr DifferentiatorAttribute) string {
 	}
 }
 
-// ValidateSlotNaming performs full naming validation for slot configuration.
+// SlotNamingValidation performs full naming validation for slot configuration.
 // Returns validation results for both movie and episode filename formats.
 type SlotNamingValidation struct {
-	MovieFormatValid   bool                    `json:"movieFormatValid"`
-	EpisodeFormatValid bool                    `json:"episodeFormatValid"`
-	MovieValidation    NamingValidationResult  `json:"movieValidation"`
-	EpisodeValidation  NamingValidationResult  `json:"episodeValidation"`
-	RequiredAttributes []DifferentiatorAttribute `json:"requiredAttributes"`
-	CanProceed         bool                    `json:"canProceed"` // True if validation passes or user acknowledged
+	MovieFormatValid        bool                      `json:"movieFormatValid"`
+	EpisodeFormatValid      bool                      `json:"episodeFormatValid"`
+	MovieValidation         NamingValidationResult    `json:"movieValidation"`
+	EpisodeValidation       NamingValidationResult    `json:"episodeValidation"`
+	RequiredAttributes      []DifferentiatorAttribute `json:"requiredAttributes"`
+	CanProceed              bool                      `json:"canProceed"`              // True if validation passes or user acknowledged
+	QualityTierExclusive    bool                      `json:"qualityTierExclusive"`    // Profiles are exclusive via quality tiers only
+	NoEnabledSlots          bool                      `json:"noEnabledSlots"`          // No enabled slots with profiles found
 }
 
 // ValidateSlotNaming validates naming formats against slot configuration
 func ValidateSlotNaming(slots []quality.SlotConfig, movieFormat, episodeFormat string) SlotNamingValidation {
-	conflictingAttrs := GetConflictingAttributes(slots)
-
 	result := SlotNamingValidation{
-		RequiredAttributes: conflictingAttrs,
+		RequiredAttributes: make([]DifferentiatorAttribute, 0),
 		CanProceed:         true,
 	}
 
+	// Count enabled slots with profiles
+	enabledCount := 0
+	for _, slot := range slots {
+		if slot.Enabled && slot.Profile != nil {
+			enabledCount++
+		}
+	}
+
+	if enabledCount < 2 {
+		// Need at least 2 slots to check for conflicts
+		result.NoEnabledSlots = true
+		result.MovieFormatValid = false
+		result.EpisodeFormatValid = false
+		result.CanProceed = false
+		result.MovieValidation = NamingValidationResult{Valid: false, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
+		result.EpisodeValidation = NamingValidationResult{Valid: false, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
+		return result
+	}
+
+	conflictingAttrs := GetConflictingAttributes(slots)
+	result.RequiredAttributes = conflictingAttrs
+
 	if len(conflictingAttrs) == 0 {
+		// No attribute conflicts - check if profiles are exclusive via quality tiers
+		result.QualityTierExclusive = checkQualityTierExclusivity(slots)
 		result.MovieFormatValid = true
 		result.EpisodeFormatValid = true
-		result.MovieValidation = NamingValidationResult{Valid: true}
-		result.EpisodeValidation = NamingValidationResult{Valid: true}
+		result.MovieValidation = NamingValidationResult{Valid: true, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
+		result.EpisodeValidation = NamingValidationResult{Valid: true, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
 		return result
 	}
 

@@ -25,4 +25,7 @@ export const systemApi = {
       method: 'POST',
       body: JSON.stringify({ disableSearchOrdering }),
     }),
+
+  restart: () =>
+    apiFetch<{ message: string }>('/system/restart', { method: 'POST' }),
 }

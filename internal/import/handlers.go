@@ -707,6 +707,11 @@ func NewSettingsHandlers(db *sql.DB, service *Service) *SettingsHandlers {
 	}
 }
 
+// SetDB updates the database connection used by the handlers.
+func (h *SettingsHandlers) SetDB(db *sql.DB) {
+	h.queries = sqlc.New(db)
+}
+
 // RegisterSettingsRoutes registers import settings routes on an Echo group.
 func (h *SettingsHandlers) RegisterSettingsRoutes(g *echo.Group) {
 	g.GET("/import", h.GetSettings)

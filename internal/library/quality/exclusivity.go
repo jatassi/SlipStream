@@ -94,16 +94,16 @@ func getAllowedQualityIDs(profile *Profile) map[int]bool {
 func findConflictingRequiredAttributes(a, b *Profile) []string {
 	var conflicts []string
 
-	if hasAttributeConflict(a.HDRSettings, b.HDRSettings) {
+	if HasAttributeConflict(a.HDRSettings, b.HDRSettings) {
 		conflicts = append(conflicts, "HDR")
 	}
-	if hasAttributeConflict(a.VideoCodecSettings, b.VideoCodecSettings) {
+	if HasAttributeConflict(a.VideoCodecSettings, b.VideoCodecSettings) {
 		conflicts = append(conflicts, "Video Codec")
 	}
-	if hasAttributeConflict(a.AudioCodecSettings, b.AudioCodecSettings) {
+	if HasAttributeConflict(a.AudioCodecSettings, b.AudioCodecSettings) {
 		conflicts = append(conflicts, "Audio Codec")
 	}
-	if hasAttributeConflict(a.AudioChannelSettings, b.AudioChannelSettings) {
+	if HasAttributeConflict(a.AudioChannelSettings, b.AudioChannelSettings) {
 		conflicts = append(conflicts, "Audio Channels")
 	}
 
@@ -114,7 +114,10 @@ func findConflictingRequiredAttributes(a, b *Profile) []string {
 // Conflict occurs when:
 // - Profile A requires X and Profile B has X as notAllowed (or vice versa)
 // - Both profiles have required values with no overlap
-func hasAttributeConflict(settingsA, settingsB AttributeSettings) bool {
+// HasAttributeConflict checks if two attribute settings have conflicting requirements.
+// Returns true if one profile requires a value that the other has as notAllowed,
+// or if both have required values with no overlap.
+func HasAttributeConflict(settingsA, settingsB AttributeSettings) bool {
 	// Check for required vs notAllowed conflicts
 	requiredA := settingsA.GetRequired()
 	requiredB := settingsB.GetRequired()

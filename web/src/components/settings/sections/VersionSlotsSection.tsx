@@ -403,13 +403,17 @@ export function VersionSlotsSection() {
                 className={
                   namingValidation === null
                     ? ''
-                    : namingValidation.canProceed
-                      ? 'border-green-500 dark:border-green-600'
-                      : 'border-orange-400 dark:border-orange-500'
+                    : namingValidation.noEnabledSlots
+                      ? 'border-orange-400 dark:border-orange-500'
+                      : namingValidation.canProceed
+                        ? 'border-green-500 dark:border-green-600'
+                        : 'border-orange-400 dark:border-orange-500'
                 }
               >
                 {namingValidation === null ? (
                   <FileText className="size-4" />
+                ) : namingValidation.noEnabledSlots ? (
+                  <AlertTriangle className="size-4 text-orange-500 dark:text-orange-400" />
                 ) : namingValidation.canProceed ? (
                   <Check className="size-4 text-green-600 dark:text-green-400" />
                 ) : (
@@ -418,21 +422,27 @@ export function VersionSlotsSection() {
                 <div className="flex items-center justify-between flex-1">
                   <div className="flex-1">
                     <AlertTitle>
-                      File Naming {namingValidation === null ? 'Validation' : namingValidation.canProceed ? 'Valid' : 'Not Valid'}
+                      File Naming {namingValidation === null ? 'Validation' : namingValidation.noEnabledSlots ? 'Blocked' : namingValidation.canProceed ? 'Valid' : 'Not Valid'}
                     </AlertTitle>
                     <AlertDescription>
                       {namingValidation === null ? (
                         'Verify filename formats include required differentiator tokens'
+                      ) : namingValidation.noEnabledSlots ? (
+                        <p className="mt-2 text-orange-700 dark:text-orange-300">
+                          Complete Quality Profile validation first to ensure slot profiles are mutually exclusive.
+                        </p>
                       ) : namingValidation.canProceed ? (
                         <p className="mt-2">
-                          {namingValidation.requiredAttributes.length === 0
-                            ? 'No differentiating attributes required between slot profiles'
+                          {(namingValidation.requiredAttributes?.length ?? 0) === 0
+                            ? namingValidation.qualityTierExclusive
+                              ? 'Profiles are distinguished by quality tier - no additional filename tokens required'
+                              : 'Complete Quality Profile validation first'
                             : `File name formats include tokens for differentiating attributes: ${namingValidation.requiredAttributes.join(', ')}`}
                         </p>
                       ) : (
                         <div className="mt-2 space-y-3">
                           <p>
-                            Slots have different requirements for: <span className="font-medium">{namingValidation.requiredAttributes.join(', ')}</span>
+                            Slots have different requirements for: <span className="font-medium">{namingValidation.requiredAttributes?.join(', ') ?? ''}</span>
                           </p>
                           {!namingValidation.movieFormatValid && namingValidation.movieValidation.missingTokens && (
                             <div>

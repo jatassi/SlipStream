@@ -1,10 +1,37 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSyncExternalStore } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Search, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
+type Breakpoint = 'sm' | 'md' | 'lg'
+
+function getBreakpoint(): Breakpoint {
+  if (typeof window === 'undefined') return 'lg'
+  const width = window.innerWidth
+  if (width < 640) return 'sm'
+  if (width < 1024) return 'md'
+  return 'lg'
+}
+
+function subscribeToResize(callback: () => void): () => void {
+  window.addEventListener('resize', callback)
+  return () => window.removeEventListener('resize', callback)
+}
+
+function useBreakpoint(): Breakpoint {
+  return useSyncExternalStore(subscribeToResize, getBreakpoint, () => 'lg')
+}
+
+const PLACEHOLDER_TEXT: Record<Breakpoint, string> = {
+  sm: 'Search...',
+  md: 'Search movies, series...',
+  lg: 'Search for and add movies, series...',
+}
+
 export function SearchBar() {
   const navigate = useNavigate()
+  const breakpoint = useBreakpoint()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -54,7 +81,7 @@ export function SearchBar() {
       )}
       <Input
         type="text"
-        placeholder="Search for and add movies, series..."
+        placeholder={PLACEHOLDER_TEXT[breakpoint]}
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         onKeyDown={handleKeyDown}
