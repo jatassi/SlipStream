@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -51,9 +52,13 @@ type DatabaseConfig struct {
 
 // LoggingConfig holds logging configuration.
 type LoggingConfig struct {
-	Level  string `mapstructure:"level"`
-	Format string `mapstructure:"format"`
-	Path   string `mapstructure:"path"`
+	Level      string `mapstructure:"level"`
+	Format     string `mapstructure:"format"`
+	Path       string `mapstructure:"path"`
+	MaxSizeMB  int    `mapstructure:"max_size_mb"`  // Max size in MB before rotation (default: 10)
+	MaxBackups int    `mapstructure:"max_backups"`  // Max number of old log files to keep (default: 5)
+	MaxAgeDays int    `mapstructure:"max_age_days"` // Max age in days to keep old files (default: 30)
+	Compress   bool   `mapstructure:"compress"`     // Compress rotated files (default: true)
 }
 
 // AuthConfig holds authentication configuration.
@@ -182,7 +187,7 @@ func Default() *Config {
 
 	return &Config{
 		Server: ServerConfig{
-			Host: "0.0.0.0",
+			Host: "127.0.0.1",
 			Port: 8080,
 		},
 		Database: DatabaseConfig{
@@ -287,6 +292,10 @@ func Load(configPath string) (*Config, error) {
 		v.AddConfigPath("./configs")
 		// Add platform-specific config paths
 		switch runtime.GOOS {
+		case "windows":
+			if appData := os.Getenv("APPDATA"); appData != "" {
+				v.AddConfigPath(filepath.Join(appData, "SlipStream"))
+			}
 		case "darwin":
 			if home, err := os.UserHomeDir(); err == nil {
 				v.AddConfigPath(filepath.Join(home, "Library", "Application Support", "SlipStream"))
@@ -333,7 +342,7 @@ func setDefaults(v *viper.Viper) {
 	logDir := getLogDir()
 
 	// Server defaults
-	v.SetDefault("server.host", "0.0.0.0")
+	v.SetDefault("server.host", "127.0.0.1")
 	v.SetDefault("server.port", 8080)
 
 	// Database defaults
@@ -412,11 +421,16 @@ func (c *ServerConfig) Address() string {
 }
 
 // getDataDir returns the platform-specific data directory.
+// Windows: %APPDATA%\SlipStream
 // macOS: ~/Library/Application Support/SlipStream
 // Linux: XDG_CONFIG_HOME/slipstream or ~/.config/slipstream
 // Others: ./data
 func getDataDir() string {
 	switch runtime.GOOS {
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "SlipStream")
+		}
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Application Support", "SlipStream")
@@ -436,11 +450,16 @@ func getDataDir() string {
 }
 
 // getLogDir returns the platform-specific log directory.
+// Windows: %APPDATA%\SlipStream\logs
 // macOS: ~/Library/Logs/SlipStream
 // Linux: XDG_CONFIG_HOME/slipstream/logs or ~/.config/slipstream/logs
 // Others: ./data/logs
 func getLogDir() string {
 	switch runtime.GOOS {
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "SlipStream", "logs")
+		}
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Logs", "SlipStream")
@@ -479,4 +498,20 @@ func (ic *IndexerConfig) ToManagerConfigValues() (
 	autoUpdate = c.AutoUpdate
 	updateInterval = c.UpdateIntervalDuration()
 	return
+}
+
+// FindAvailablePort finds an available port starting from preferredPort.
+// It will try maxAttempts consecutive ports before returning an error.
+// Returns the actual available port.
+func FindAvailablePort(preferredPort, maxAttempts int) (int, error) {
+	for i := 0; i < maxAttempts; i++ {
+		port := preferredPort + i
+		addr := fmt.Sprintf(":%d", port)
+		listener, err := net.Listen("tcp", addr)
+		if err == nil {
+			listener.Close()
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no available port found in range %d-%d", preferredPort, preferredPort+maxAttempts-1)
 }

@@ -53,21 +53,23 @@ This document tracks all work required to prepare SlipStream for production beta
 
 ### Runtime Behavior
 
-- [ ] **Standard data paths** - Use `%APPDATA%\SlipStream` for config/database/logs
-- [ ] **Port conflict handling** - Auto-find next available port if 8888 is in use, notify user of actual port
-- [ ] **Network binding** - Bind to localhost (127.0.0.1) by default
-- [ ] **Boot timing** - Retry network-dependent features with exponential backoff if network unavailable
-- [ ] **Log rotation** - Built-in rotation (e.g., 5 x 10MB files, delete oldest)
+- [x] **Standard data paths** - Use OS-typical paths (e.g., `%APPDATA%\SlipStream` for Windows) for config/database/logs
+- [x] **Port conflict handling** - Auto-find next available port if 8888 is in use, notify user of actual port
+- [x] **Network binding** - Bind to localhost (127.0.0.1) by default - add toggle in /settings/system (server tab) to enable external access which then allows accessing via machine IP:port from connected devices
+- [x] **Boot timing** - Retry network-dependent features with exponential backoff if network unavailable
+- [x] **Log rotation** - Built-in rotation (e.g., 5 x 10MB files, delete oldest)
 
 ### Auto-Update System
 
+- [ ] **Frontend States** - ensure backend will provide states defined in web/src/routes/system/update.tsx
 - [ ] **Update check and auto install** - On startup + periodic (every 24 hours) -> use task system
 - [ ] **Auto-install toggle** - add toggle on update page - on/off enables/disables auto update task - default on - part of config (persists across restart)
-- [ ] **GitHub Releases integration** - Check for new releases via GitHub API
+- [ ] **GitHub Releases integration** - Check for new releases via GitHub
 - [ ] **Always latest** - No version skipping, updates always go to newest
 - [ ] **Offline handling** - use update page update error state
 - [ ] **Pre-update backup** - Automatically backup database before applying update -> placeholder only, need to build out backup system
 - [ ] **Recovery strategy** - On failed update, user downloads fresh installer (simple approach)
+- [ ] **Frontend Integration** - wire up to web/src/routes/system/update.tsx
 
 ### Security
 

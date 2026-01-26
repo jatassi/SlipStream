@@ -22,6 +22,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
 	"github.com/slipstream/slipstream/internal/platform"
+	"github.com/slipstream/slipstream/internal/startup"
 	"github.com/slipstream/slipstream/internal/websocket"
 	"github.com/slipstream/slipstream/web"
 )
@@ -37,9 +38,13 @@ func main() {
 	}
 
 	log := logger.New(logger.Config{
-		Level:  cfg.Logging.Level,
-		Format: cfg.Logging.Format,
-		Path:   cfg.Logging.Path,
+		Level:      cfg.Logging.Level,
+		Format:     cfg.Logging.Format,
+		Path:       cfg.Logging.Path,
+		MaxSizeMB:  cfg.Logging.MaxSizeMB,
+		MaxBackups: cfg.Logging.MaxBackups,
+		MaxAgeDays: cfg.Logging.MaxAgeDays,
+		Compress:   cfg.Logging.Compress,
 	})
 	defer log.Close()
 
@@ -74,6 +79,23 @@ func main() {
 		cfg.Logging.Level = setting.Value
 		log.Info().Str("level", setting.Value).Msg("loaded log level from database")
 	}
+	if setting, err := queries.GetSetting(context.Background(), "external_access_enabled"); err == nil && setting.Value == "true" {
+		cfg.Server.Host = "0.0.0.0"
+		log.Info().Msg("external access enabled, binding to all interfaces")
+	}
+
+	configuredPort := cfg.Server.Port
+	actualPort, err := config.FindAvailablePort(cfg.Server.Port, 10)
+	if err != nil {
+		log.Fatal().Err(err).Int("configuredPort", cfg.Server.Port).Msg("failed to find available port")
+	}
+	if actualPort != configuredPort {
+		log.Warn().
+			Int("configuredPort", configuredPort).
+			Int("actualPort", actualPort).
+			Msg("configured port in use, using alternative port")
+		cfg.Server.Port = actualPort
+	}
 
 	hub := websocket.NewHub()
 	go hub.Run()
@@ -83,9 +105,24 @@ func main() {
 	var shouldRestart bool
 
 	server := api.NewServer(dbManager, hub, cfg, log.Logger, restartChan)
+	server.SetConfiguredPort(configuredPort)
 
 	if err := server.EnsureDefaults(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure defaults")
+	}
+
+	retryCfg := startup.DefaultRetryConfig()
+	err = startup.WithRetry(
+		context.Background(),
+		"network services initialization",
+		retryCfg,
+		func() error {
+			return server.InitializeNetworkServices(context.Background())
+		},
+		log.Logger,
+	)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to initialize network services, some features may be unavailable until network is restored")
 	}
 
 	server.Echo().GET("/ws", hub.HandleWebSocket)

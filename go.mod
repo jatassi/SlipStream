@@ -17,6 +17,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/tailscale/walk v0.0.0-20251016200523-963e260a8227
 	golang.org/x/crypto v0.46.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 )

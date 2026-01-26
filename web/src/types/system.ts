@@ -9,6 +9,8 @@ export interface SystemStatus {
   queueCount: number
   developerMode: boolean
   portalEnabled: boolean
+  actualPort?: number
+  configuredPort?: number
   tmdb?: {
     disableSearchOrdering: boolean
   }
@@ -31,6 +33,11 @@ export interface Settings {
   authEnabled: boolean
   apiKey: string
   logPath: string
+  logMaxSizeMB: number
+  logMaxBackups: number
+  logMaxAgeDays: number
+  logCompress: boolean
+  externalAccessEnabled: boolean
 }
 
 export interface UpdateSettingsInput {
@@ -38,4 +45,9 @@ export interface UpdateSettingsInput {
   logLevel?: string
   authEnabled?: boolean
   password?: string
+  logMaxSizeMB?: number
+  logMaxBackups?: number
+  logMaxAgeDays?: number
+  logCompress?: boolean
+  externalAccessEnabled?: boolean
 }

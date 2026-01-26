@@ -59,6 +59,15 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
+// InitializeDefinitions fetches the latest indexer definitions from the remote repository.
+// This is called during startup with network retry logic.
+func (s *Service) InitializeDefinitions(ctx context.Context) error {
+	if s.manager == nil {
+		return nil
+	}
+	return s.manager.Initialize(ctx)
+}
+
 // RegisterExistingIndexers registers all existing enabled indexers with the health service.
 func (s *Service) RegisterExistingIndexers(ctx context.Context) error {
 	if s.healthService == nil {

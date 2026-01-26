@@ -8,19 +8,24 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Logger wraps zerolog for application logging.
 type Logger struct {
 	zerolog.Logger
-	logFile *os.File
+	rotator *lumberjack.Logger
 }
 
 // Config holds logger configuration.
 type Config struct {
-	Level  string
-	Format string // "console" or "json"
-	Path   string // directory for log files
+	Level      string
+	Format     string // "console" or "json"
+	Path       string // directory for log files
+	MaxSizeMB  int    // max size in MB before rotation (default: 10)
+	MaxBackups int    // max number of old log files to keep (default: 5)
+	MaxAgeDays int    // max age in days to keep old files (default: 30)
+	Compress   bool   // compress rotated files (default: true)
 }
 
 // IsDevBuild returns true if running via "go run" (development mode).
@@ -57,16 +62,36 @@ func New(cfg Config) *Logger {
 	}
 
 	var output io.Writer = consoleOutput
-	var logFile *os.File
+	var rotator *lumberjack.Logger
 
 	if cfg.Path != "" {
 		if err := os.MkdirAll(cfg.Path, 0755); err == nil {
 			logPath := filepath.Join(cfg.Path, "slipstream.log")
-			f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err == nil {
-				logFile = f
-				output = io.MultiWriter(consoleOutput, f)
+
+			maxSize := cfg.MaxSizeMB
+			if maxSize <= 0 {
+				maxSize = 10
 			}
+			maxBackups := cfg.MaxBackups
+			if maxBackups <= 0 {
+				maxBackups = 5
+			}
+			maxAge := cfg.MaxAgeDays
+			if maxAge <= 0 {
+				maxAge = 30
+			}
+			compress := cfg.Compress
+
+			rotator = &lumberjack.Logger{
+				Filename:   logPath,
+				MaxSize:    maxSize,
+				MaxBackups: maxBackups,
+				MaxAge:     maxAge,
+				Compress:   compress,
+				LocalTime:  true,
+			}
+
+			output = io.MultiWriter(consoleOutput, rotator)
 		}
 	}
 
@@ -76,13 +101,13 @@ func New(cfg Config) *Logger {
 		Timestamp().
 		Logger()
 
-	return &Logger{Logger: logger, logFile: logFile}
+	return &Logger{Logger: logger, rotator: rotator}
 }
 
 // Close closes the log file if one is open.
 func (l *Logger) Close() error {
-	if l.logFile != nil {
-		return l.logFile.Close()
+	if l.rotator != nil {
+		return l.rotator.Close()
 	}
 	return nil
 }

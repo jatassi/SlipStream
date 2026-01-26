@@ -157,6 +157,14 @@ type Server struct {
 
 	// Restart channel for triggering server restart
 	restartChan chan<- struct{}
+
+	// Port tracking (configured vs actual after conflict resolution)
+	configuredPort int
+}
+
+// SetConfiguredPort sets the original configured port before any conflict resolution.
+func (s *Server) SetConfiguredPort(port int) {
+	s.configuredPort = port
 }
 
 // NewServer creates a new API server instance.
@@ -1212,6 +1220,12 @@ func (s *Server) EnsureDefaults(ctx context.Context) error {
 	return s.qualityService.EnsureDefaults(ctx)
 }
 
+// InitializeNetworkServices initializes services that require network connectivity.
+// This should be called with retry logic to handle network unavailability at startup.
+func (s *Server) InitializeNetworkServices(ctx context.Context) error {
+	return s.indexerService.InitializeDefinitions(ctx)
+}
+
 // --- Handler implementations ---
 
 func (s *Server) healthCheck(c echo.Context) error {
@@ -1233,7 +1247,7 @@ func (s *Server) getStatus(c echo.Context) error {
 		portalEnabled = setting.Value != "0" && setting.Value != "false"
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	response := map[string]interface{}{
 		"version":       config.Version,
 		"startTime":     time.Now().Format(time.RFC3339),
 		"movieCount":    movieCount,
@@ -1242,10 +1256,15 @@ func (s *Server) getStatus(c echo.Context) error {
 		"portalEnabled": portalEnabled,
 		"requiresSetup": !adminExists,
 		"requiresAuth":  true,
+		"actualPort":    s.cfg.Server.Port,
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},
-	})
+	}
+	if s.configuredPort > 0 && s.configuredPort != s.cfg.Server.Port {
+		response["configuredPort"] = s.configuredPort
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 // UpdateTMDBSearchOrdering toggles search ordering for TMDB.
@@ -1303,11 +1322,56 @@ func (s *Server) getSettings(c echo.Context) error {
 		}
 	}
 
+	logMaxSizeMB := s.cfg.Logging.MaxSizeMB
+	if logMaxSizeMB <= 0 {
+		logMaxSizeMB = 10
+	}
+	if setting, err := queries.GetSetting(ctx, "log_max_size_mb"); err == nil {
+		if v, err := strconv.Atoi(setting.Value); err == nil {
+			logMaxSizeMB = v
+		}
+	}
+
+	logMaxBackups := s.cfg.Logging.MaxBackups
+	if logMaxBackups <= 0 {
+		logMaxBackups = 5
+	}
+	if setting, err := queries.GetSetting(ctx, "log_max_backups"); err == nil {
+		if v, err := strconv.Atoi(setting.Value); err == nil {
+			logMaxBackups = v
+		}
+	}
+
+	logMaxAgeDays := s.cfg.Logging.MaxAgeDays
+	if logMaxAgeDays <= 0 {
+		logMaxAgeDays = 30
+	}
+	if setting, err := queries.GetSetting(ctx, "log_max_age_days"); err == nil {
+		if v, err := strconv.Atoi(setting.Value); err == nil {
+			logMaxAgeDays = v
+		}
+	}
+
+	logCompress := s.cfg.Logging.Compress
+	if setting, err := queries.GetSetting(ctx, "log_compress"); err == nil {
+		logCompress = setting.Value == "true"
+	}
+
+	externalAccessEnabled := false
+	if setting, err := queries.GetSetting(ctx, "external_access_enabled"); err == nil {
+		externalAccessEnabled = setting.Value == "true"
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"serverPort": serverPort,
-		"logLevel":   logLevel,
-		"apiKey":     apiKey,
-		"logPath":    logPath,
+		"serverPort":            serverPort,
+		"logLevel":              logLevel,
+		"apiKey":                apiKey,
+		"logPath":               logPath,
+		"logMaxSizeMB":          logMaxSizeMB,
+		"logMaxBackups":         logMaxBackups,
+		"logMaxAgeDays":         logMaxAgeDays,
+		"logCompress":           logCompress,
+		"externalAccessEnabled": externalAccessEnabled,
 	})
 }
 
@@ -1316,8 +1380,13 @@ func (s *Server) updateSettings(c echo.Context) error {
 	queries := sqlc.New(s.dbManager.Conn())
 
 	var input struct {
-		ServerPort *int    `json:"serverPort"`
-		LogLevel   *string `json:"logLevel"`
+		ServerPort            *int    `json:"serverPort"`
+		LogLevel              *string `json:"logLevel"`
+		LogMaxSizeMB          *int    `json:"logMaxSizeMB"`
+		LogMaxBackups         *int    `json:"logMaxBackups"`
+		LogMaxAgeDays         *int    `json:"logMaxAgeDays"`
+		LogCompress           *bool   `json:"logCompress"`
+		ExternalAccessEnabled *bool   `json:"externalAccessEnabled"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -1340,6 +1409,60 @@ func (s *Server) updateSettings(c echo.Context) error {
 		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
 			Key:   "log_level",
 			Value: *input.LogLevel,
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.LogMaxSizeMB != nil {
+		if *input.LogMaxSizeMB < 1 || *input.LogMaxSizeMB > 100 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "log max size must be between 1 and 100 MB"})
+		}
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "log_max_size_mb",
+			Value: strconv.Itoa(*input.LogMaxSizeMB),
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.LogMaxBackups != nil {
+		if *input.LogMaxBackups < 1 || *input.LogMaxBackups > 20 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "log max backups must be between 1 and 20"})
+		}
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "log_max_backups",
+			Value: strconv.Itoa(*input.LogMaxBackups),
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.LogMaxAgeDays != nil {
+		if *input.LogMaxAgeDays < 1 || *input.LogMaxAgeDays > 365 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "log max age must be between 1 and 365 days"})
+		}
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "log_max_age_days",
+			Value: strconv.Itoa(*input.LogMaxAgeDays),
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.LogCompress != nil {
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "log_compress",
+			Value: strconv.FormatBool(*input.LogCompress),
+		}); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	if input.ExternalAccessEnabled != nil {
+		if _, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+			Key:   "external_access_enabled",
+			Value: strconv.FormatBool(*input.ExternalAccessEnabled),
 		}); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
