@@ -12,6 +12,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.14.0
 	github.com/pressly/goose/v3 v3.26.0
+	github.com/progrium/darwinkit v0.5.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.21.0
 	github.com/tailscale/walk v0.0.0-20251016200523-963e260a8227

@@ -1,10 +1,9 @@
-//go:build !windows
+//go:build linux
 
 package platform
 
 import (
 	"os/exec"
-	"runtime"
 )
 
 type app struct {
@@ -25,14 +24,7 @@ func (a *app) Run() error {
 }
 
 func (a *app) OpenBrowser(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	return cmd.Start()
+	return exec.Command("xdg-open", url).Start()
 }
 
 func (a *app) Stop() {

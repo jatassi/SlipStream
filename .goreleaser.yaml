@@ -28,13 +28,12 @@ builds:
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey={{.Env.TVDB_API_KEY}}'
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey={{.Env.OMDB_API_KEY}}'
 
-  # Linux/macOS builds without CGO (no tray support)
-  - id: slipstream-unix
+  # Linux builds without CGO
+  - id: slipstream-linux
     main: ./cmd/slipstream
     binary: slipstream
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
       - arm64
@@ -46,6 +45,8 @@ builds:
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey={{.Env.TMDB_API_KEY}}'
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey={{.Env.TVDB_API_KEY}}'
       - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey={{.Env.OMDB_API_KEY}}'
+
+  # macOS builds are done natively in CI/CD with CGO for menu bar support
 
 archives:
   # Windows portable ZIP only
@@ -73,7 +74,7 @@ nfpms:
     scripts:
       postinstall: "scripts/linux/postinstall.sh"
     builds:
-      - slipstream-unix
+      - slipstream-linux
 
 checksum:
   name_template: 'checksums.txt'

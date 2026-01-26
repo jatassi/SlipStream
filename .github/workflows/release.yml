@@ -146,18 +146,23 @@ jobs:
           path: dist/*.exe
           retention-days: 1
 
-  # macOS DMG (Intel)
+  # macOS build and DMG (Intel) - native build with CGO for menu bar support
   macos-dmg-amd64:
-    needs: goreleaser
-    runs-on: macos-latest
+    needs: build-frontend
+    runs-on: macos-13  # Intel runner for amd64 native build
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download GoReleaser artifacts
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: goreleaser-dist
-          path: dist
+          name: frontend-dist
+          path: web/dist
 
       - name: Get version
         id: version
@@ -167,6 +172,23 @@ jobs:
           else
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build macOS binary (amd64)
+        env:
+          CGO_ENABLED: 1
+          GOOS: darwin
+          GOARCH: amd64
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: |
+          mkdir -p dist/slipstream_darwin_amd64
+          go build -ldflags "-s -w \
+            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
+            -o dist/slipstream_darwin_amd64/slipstream ./cmd/slipstream
 
       - name: Create DMG
         run: |
@@ -180,18 +202,23 @@ jobs:
           path: dist/*.dmg
           retention-days: 1
 
-  # macOS DMG (Apple Silicon)
+  # macOS build and DMG (Apple Silicon) - native build with CGO for menu bar support
   macos-dmg-arm64:
-    needs: goreleaser
-    runs-on: macos-latest
+    needs: build-frontend
+    runs-on: macos-latest  # Apple Silicon runner for arm64 native build
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download GoReleaser artifacts
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: goreleaser-dist
-          path: dist
+          name: frontend-dist
+          path: web/dist
 
       - name: Get version
         id: version
@@ -201,6 +228,23 @@ jobs:
           else
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build macOS binary (arm64)
+        env:
+          CGO_ENABLED: 1
+          GOOS: darwin
+          GOARCH: arm64
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: |
+          mkdir -p dist/slipstream_darwin_arm64
+          go build -ldflags "-s -w \
+            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
+            -o dist/slipstream_darwin_arm64/slipstream ./cmd/slipstream
 
       - name: Create DMG
         run: |

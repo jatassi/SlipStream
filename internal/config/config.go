@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -175,18 +177,21 @@ func (c *CardigannConfig) RequestTimeoutDuration() time.Duration {
 
 // Default returns a Config with default values.
 func Default() *Config {
+	dataDir := getDataDir()
+	logDir := getLogDir()
+
 	return &Config{
 		Server: ServerConfig{
 			Host: "0.0.0.0",
 			Port: 8080,
 		},
 		Database: DatabaseConfig{
-			Path: "./data/slipstream.db",
+			Path: filepath.Join(dataDir, "slipstream.db"),
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "console",
-			Path:   "./data/logs",
+			Path:   logDir,
 		},
 		Auth: AuthConfig{
 			JWTSecret: "", // Will be generated if empty
@@ -212,8 +217,8 @@ func Default() *Config {
 				RepositoryURL:  "https://indexers.prowlarr.com",
 				Branch:         "master",
 				Version:        "v10",
-				DefinitionsDir: "./data/definitions",
-				CustomDir:      "./data/definitions/custom",
+				DefinitionsDir: filepath.Join(dataDir, "definitions"),
+				CustomDir:      filepath.Join(dataDir, "definitions", "custom"),
 				AutoUpdate:     true,
 				UpdateInterval: 24,
 				RequestTimeout: 60,
@@ -280,6 +285,12 @@ func Load(configPath string) (*Config, error) {
 		v.SetConfigType("yaml")
 		v.AddConfigPath(".")
 		v.AddConfigPath("./configs")
+		// Add macOS-specific config path
+		if runtime.GOOS == "darwin" {
+			if home, err := os.UserHomeDir(); err == nil {
+				v.AddConfigPath(filepath.Join(home, "Library", "Application Support", "SlipStream"))
+			}
+		}
 		v.AddConfigPath("$HOME/.slipstream")
 	}
 
@@ -307,17 +318,20 @@ func Load(configPath string) (*Config, error) {
 
 // setDefaults sets default values in viper
 func setDefaults(v *viper.Viper) {
+	dataDir := getDataDir()
+	logDir := getLogDir()
+
 	// Server defaults
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
 
 	// Database defaults
-	v.SetDefault("database.path", "./data/slipstream.db")
+	v.SetDefault("database.path", filepath.Join(dataDir, "slipstream.db"))
 
 	// Logging defaults
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "console")
-	v.SetDefault("logging.path", "./data/logs")
+	v.SetDefault("logging.path", logDir)
 
 	// Auth defaults
 	v.SetDefault("auth.jwt_secret", "")
@@ -344,8 +358,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("indexer.cardigann.repository_url", "https://indexers.prowlarr.com")
 	v.SetDefault("indexer.cardigann.branch", "master")
 	v.SetDefault("indexer.cardigann.version", "v10")
-	v.SetDefault("indexer.cardigann.definitions_dir", "./data/definitions")
-	v.SetDefault("indexer.cardigann.custom_dir", "./data/definitions/custom")
+	v.SetDefault("indexer.cardigann.definitions_dir", filepath.Join(dataDir, "definitions"))
+	v.SetDefault("indexer.cardigann.custom_dir", filepath.Join(dataDir, "definitions", "custom"))
 	v.SetDefault("indexer.cardigann.auto_update", true)
 	v.SetDefault("indexer.cardigann.update_interval", 24)
 	v.SetDefault("indexer.cardigann.request_timeout", 60)
@@ -384,6 +398,30 @@ func setDefaults(v *viper.Viper) {
 // Address returns the server address string.
 func (c *ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+// getDataDir returns the platform-specific data directory.
+// macOS: ~/Library/Application Support/SlipStream
+// Others: ./data
+func getDataDir() string {
+	if runtime.GOOS == "darwin" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, "Library", "Application Support", "SlipStream")
+		}
+	}
+	return "./data"
+}
+
+// getLogDir returns the platform-specific log directory.
+// macOS: ~/Library/Logs/SlipStream
+// Others: ./data/logs
+func getLogDir() string {
+	if runtime.GOOS == "darwin" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, "Library", "Logs", "SlipStream")
+		}
+	}
+	return "./data/logs"
 }
 
 // ToManagerConfig converts IndexerConfig to cardigann.ManagerConfig compatible values.

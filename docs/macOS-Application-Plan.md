@@ -1,5 +1,9 @@
 # macOS Application Features Implementation Plan
 
+## Status: IMPLEMENTED
+
+Implementation completed on 2026-01-26.
+
 ## Overview
 
 Implement macOS-specific features for SlipStream including menu bar integration, launch agent for startup, and DMG installer improvements.
@@ -16,9 +20,9 @@ Implement macOS-specific features for SlipStream including menu bar integration,
 
 ## Implementation Approach
 
-### Key Decision: Use `progrium/macdriver` for Native Cocoa Integration
+### Key Decision: Use `progrium/darwinkit` for Native Cocoa Integration
 
-Use `github.com/progrium/macdriver` for full native macOS menu bar support via Cocoa bindings.
+Use `github.com/progrium/darwinkit` (formerly macdriver) for full native macOS menu bar support via Cocoa bindings.
 
 **Why macdriver:**
 - Direct access to NSStatusBar, NSMenu, NSMenuItem

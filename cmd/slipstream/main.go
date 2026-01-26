@@ -108,7 +108,7 @@ func main() {
 		ServerURL: serverURL,
 		DataPath:  cfg.Database.Path,
 		Port:      cfg.Server.Port,
-		NoTray:    *noTray || runtime.GOOS != "windows",
+		NoTray:    *noTray || runtime.GOOS == "linux",
 		OnQuit: func() {
 			close(quitChan)
 		},
