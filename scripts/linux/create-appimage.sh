@@ -82,7 +82,8 @@ fi
 
 # Create AppImage
 echo "Creating AppImage..."
-ARCH="$APPIMAGE_ARCH" "$APPIMAGETOOL" "$APP_DIR" "$PROJECT_ROOT/dist/$APPIMAGE_NAME"
+export ARCH="$APPIMAGE_ARCH"
+"$APPIMAGETOOL" "$APP_DIR" "$PROJECT_ROOT/dist/$APPIMAGE_NAME"
 
 # Clean up
 rm -rf "$BUILD_DIR"
