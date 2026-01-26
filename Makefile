@@ -1,7 +1,11 @@
 .PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose
 
-# Build flags for embedding API keys (set via environment variables)
+# Build flags for embedding values at build time (set via environment variables or make arguments)
+# Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy
 LDFLAGS := -s -w
+ifdef VERSION
+	LDFLAGS += -X 'github.com/slipstream/slipstream/internal/config.Version=$(VERSION)'
+endif
 ifdef TMDB_API_KEY
 	LDFLAGS += -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=$(TMDB_API_KEY)'
 endif
@@ -25,7 +29,7 @@ dev-frontend: ## Run Vite frontend in development mode
 # Build
 build: build-backend build-frontend ## Build both backend and frontend
 
-build-backend: ## Build Go backend (use TMDB_API_KEY and TVDB_API_KEY env vars to embed keys)
+build-backend: ## Build Go backend (use VERSION, TMDB_API_KEY, TVDB_API_KEY to embed values)
 	@echo "Building backend..."
 	@go build -ldflags "$(LDFLAGS)" -o bin/slipstream ./cmd/slipstream
 

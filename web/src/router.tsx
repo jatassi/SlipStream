@@ -33,6 +33,7 @@ import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
 // System settings pages
 import { ServerPage } from '@/routes/settings/system/server'
 import { AuthenticationPage } from '@/routes/settings/system/authentication'
+import { UpdatePage } from '@/routes/system/update'
 // Other settings pages
 import { NotificationsPage } from '@/routes/settings/notifications'
 import { RequestQueuePage } from '@/routes/settings/requests/index'
@@ -244,6 +245,12 @@ const authenticationRoute = createRoute({
   component: AuthenticationPage,
 })
 
+const updateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/update',
+  component: UpdatePage,
+})
+
 const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/notifications',
@@ -387,6 +394,7 @@ const routeTree = rootRoute.addChildren([
   manualImportRoute,
   tasksRoute,
   healthRoute,
+  updateRoute,
   // Portal auth routes (public)
   portalLoginRoute,
   portalSignupRoute,

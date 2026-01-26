@@ -1234,7 +1234,7 @@ func (s *Server) getStatus(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"version":       "0.0.1-dev",
+		"version":       config.Version,
 		"startTime":     time.Now().Format(time.RFC3339),
 		"movieCount":    movieCount,
 		"seriesCount":   seriesCount,

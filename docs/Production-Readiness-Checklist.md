@@ -19,8 +19,7 @@ This document tracks all work required to prepare SlipStream for production beta
 ### Build System
 
 - [ ] **Switch to pure Go SQLite** - Replace `mattn/go-sqlite3` with `modernc.org/sqlite` to eliminate CGO dependency
-- [ ] **Conventional commits** - Enforce commit message format for auto-versioning (feat:/fix:/breaking:)
-- [ ] **Auto-versioning** - Implement semantic version bumping from commit history
+- [x] **Build-time versioning** - Version injected via Makefile `VERSION` parameter (ldflags)
 - [ ] **Static binary** - Ensure fully self-contained executable with no external dependencies
 
 ### CI/CD Pipeline
@@ -30,7 +29,7 @@ This document tracks all work required to prepare SlipStream for production beta
 - [ ] **Build artifacts**:
   - [ ] Windows x64 NSIS/Inno Setup installer (.exe)
   - [ ] Windows x64 portable ZIP
-- [ ] **Changelog generation** - Auto-generate from commits, allow manual editing before publish
+- [ ] **Changelog** - Manual changelog in release notes
 - [ ] **Private GitHub releases** - Gated download access for beta testers
 
 ### Windows Application
@@ -157,7 +156,7 @@ User-specific credentials (download client passwords, indexer API keys) are stor
 | Telemetry | None | Privacy-focused |
 | Network binding | Localhost only by default | Security-first, user enables remote access |
 | Uninstall | Remove everything | Clean slate for reinstalls |
-| Versioning | Conventional commits → semver | Automated, consistent releases |
+| Versioning | Build script parameter (ldflags) | Explicit control over version numbers |
 | Release trigger | Every push to main | Fast iteration during beta |
 | Auth rate limiting | IP + account lockout | Prevents brute force attacks |
 | Secrets storage | Plaintext (like Sonarr/Radarr) | Standard for self-hosted apps, rely on file permissions |
@@ -177,14 +176,13 @@ User-specific credentials (download client passwords, indexer API keys) are stor
 │              Self-hosted Windows Runner                      │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  1. Checkout code                                    │    │
-│  │  2. Calculate version from commits                   │    │
+│  │  2. Set version (from workflow input or tag)         │    │
 │  │  3. Build frontend (bun)                             │    │
-│  │  4. Build backend (go build)                         │    │
+│  │  4. Build backend (go build with VERSION=x.y.z)      │    │
 │  │  5. Create NSIS installer                            │    │
 │  │  6. Create portable ZIP                              │    │
-│  │  7. Generate changelog from commits                  │    │
-│  │  8. Create draft GitHub Release                      │    │
-│  │  9. Upload artifacts                                 │    │
+│  │  7. Create draft GitHub Release                      │    │
+│  │  8. Upload artifacts                                 │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                               │

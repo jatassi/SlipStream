@@ -39,7 +39,7 @@ func main() {
 	defer log.Close()
 
 	log.Info().
-		Str("version", "0.0.1-dev").
+		Str("version", config.Version).
 		Str("logLevel", cfg.Logging.Level).
 		Msg("starting SlipStream")
 
