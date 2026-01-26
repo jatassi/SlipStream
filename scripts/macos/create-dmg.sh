@@ -9,7 +9,7 @@ VERSION="${1:-dev}"
 ARCH="${2:-arm64}"
 APP_NAME="SlipStream"
 DMG_NAME="slipstream_${VERSION}_darwin_${ARCH}.dmg"
-BINARY_PATH="dist/slipstream_darwin_${ARCH}_v1/slipstream"
+BINARY_PATH="dist/slipstream_darwin_${ARCH}/slipstream"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

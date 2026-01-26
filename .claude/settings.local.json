@@ -62,7 +62,9 @@
       "Bash(go doc:*)",
       "Bash(sort:*)",
       "Bash(bun run lint:*)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

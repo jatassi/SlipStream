@@ -40,7 +40,7 @@ Section "Install"
     SetOutPath "$INSTDIR"
 
     ; Copy files
-    File "..\..\dist\slipstream_windows_amd64_v1\slipstream.exe"
+    File "..\..\dist\slipstream_windows_amd64\slipstream.exe"
 
     ; Create data directory
     CreateDirectory "$LOCALAPPDATA\SlipStream"
