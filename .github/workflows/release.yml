@@ -125,7 +125,7 @@ jobs:
   # macOS Intel (amd64) - native build with CGO for menu bar
   build-macos-amd64:
     needs: build-frontend
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
