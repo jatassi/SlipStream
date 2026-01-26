@@ -76,6 +76,23 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
+      - name: Normalize binary paths
+        run: |
+          # GoReleaser snapshot creates dirs like slipstream_linux_amd64_v1 or with snapshot suffix
+          # Normalize to consistent names for downstream jobs
+          cd dist
+          for dir in slipstream_*; do
+            if [ -d "$dir" ]; then
+              # Extract os and arch from directory name (e.g., slipstream_linux_amd64_v1 -> linux_amd64)
+              normalized=$(echo "$dir" | sed -E 's/slipstream_([^_]+_[^_]+).*/slipstream_\1/')
+              if [ "$dir" != "$normalized" ] && [ ! -d "$normalized" ]; then
+                cp -r "$dir" "$normalized"
+                echo "Copied $dir -> $normalized"
+              fi
+            fi
+          done
+          ls -la
+
       - name: Upload GoReleaser artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -110,7 +127,9 @@ jobs:
         run: choco install nsis -y
 
       - name: Create NSIS installer
-        run: makensis /DVERSION=${{ steps.version.outputs.version }} scripts\windows\installer.nsi
+        run: |
+          $env:PATH = "C:\Program Files (x86)\NSIS;$env:PATH"
+          makensis /DVERSION=${{ steps.version.outputs.version }} scripts\windows\installer.nsi
 
       - name: Move installer to dist
         shell: bash
