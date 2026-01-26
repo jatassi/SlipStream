@@ -16,11 +16,13 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.24'
   BUN_VERSION: 'latest'
 
 jobs:
-  # Build frontend once and share across jobs
+  # ===========================================
+  # Stage 1: Build frontend (shared by all platforms)
+  # ===========================================
   build-frontend:
     runs-on: ubuntu-latest
     steps:
@@ -44,77 +46,27 @@ jobs:
           path: web/dist
           retention-days: 1
 
-  # GoReleaser builds archives and Linux packages
-  goreleaser:
+  # ===========================================
+  # Stage 2: Platform builds (run in parallel)
+  # ===========================================
+
+  # Windows: Native build + NSIS installer + portable ZIP
+  build-windows:
     needs: build-frontend
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install MinGW for Windows cross-compilation
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
-
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: web/dist
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean --skip=before --skip=publish --snapshot
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
-          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
-
-      - name: Normalize binary paths
-        run: |
-          # GoReleaser snapshot creates dirs like slipstream_linux_amd64_v1 or with snapshot suffix
-          # Normalize to consistent names for downstream jobs
-          cd dist
-          for dir in slipstream_*; do
-            if [ -d "$dir" ]; then
-              # Extract os and arch from directory name (e.g., slipstream_linux_amd64_v1 -> linux_amd64)
-              normalized=$(echo "$dir" | sed -E 's/slipstream_([^_]+_[^_]+).*/slipstream_\1/')
-              if [ "$dir" != "$normalized" ] && [ ! -d "$normalized" ]; then
-                cp -r "$dir" "$normalized"
-                echo "Copied $dir -> $normalized"
-              fi
-            fi
-          done
-          ls -la
-
-      - name: Upload GoReleaser artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: goreleaser-dist
-          path: dist/
-          retention-days: 1
-
-  # Windows NSIS installer
-  windows-installer:
-    needs: goreleaser
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download GoReleaser artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: goreleaser-dist
-          path: dist
 
       - name: Get version
         id: version
@@ -126,6 +78,29 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Build Windows binary
+        shell: bash
+        env:
+          CGO_ENABLED: 1
+          GOOS: windows
+          GOARCH: amd64
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: |
+          mkdir -p dist
+          go build -ldflags "-s -w -H windowsgui \
+            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
+            -o dist/slipstream.exe ./cmd/slipstream
+
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/slipstream.exe, README.md -DestinationPath "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.zip"
+
       - name: Install NSIS
         run: choco install nsis -y
 
@@ -136,20 +111,21 @@ jobs:
 
       - name: Move installer to dist
         shell: bash
-        run: |
-          mv scripts/windows/*.exe dist/ || true
+        run: mv scripts/windows/*.exe dist/ || true
 
-      - name: Upload Windows installer
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: dist/*.exe
+          name: windows-artifacts
+          path: |
+            dist/*.zip
+            dist/*.exe
           retention-days: 1
 
-  # macOS build and DMG (Intel) - native build with CGO for menu bar support
-  macos-dmg-amd64:
+  # macOS Intel (amd64) - native build with CGO for menu bar
+  build-macos-amd64:
     needs: build-frontend
-    runs-on: macos-13  # Intel runner for amd64 native build
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
 
@@ -195,17 +171,17 @@ jobs:
           chmod +x scripts/macos/create-dmg.sh
           ./scripts/macos/create-dmg.sh ${{ steps.version.outputs.version }} amd64
 
-      - name: Upload macOS DMG
+      - name: Upload macOS amd64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg-amd64
+          name: macos-amd64-artifacts
           path: dist/*.dmg
           retention-days: 1
 
-  # macOS build and DMG (Apple Silicon) - native build with CGO for menu bar support
-  macos-dmg-arm64:
+  # macOS Apple Silicon (arm64) - native build with CGO for menu bar
+  build-macos-arm64:
     needs: build-frontend
-    runs-on: macos-latest  # Apple Silicon runner for arm64 native build
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -251,28 +227,30 @@ jobs:
           chmod +x scripts/macos/create-dmg.sh
           ./scripts/macos/create-dmg.sh ${{ steps.version.outputs.version }} arm64
 
-      - name: Upload macOS DMG
+      - name: Upload macOS arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg-arm64
+          name: macos-arm64-artifacts
           path: dist/*.dmg
           retention-days: 1
 
-  # Linux AppImage (amd64 only - arm64 requires native runner)
-  linux-appimage:
-    needs: goreleaser
+  # Linux: Build binaries + deb/rpm packages + AppImage
+  build-linux:
+    needs: build-frontend
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download GoReleaser artifacts
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: goreleaser-dist
-          path: dist
+          name: frontend-dist
+          path: web/dist
 
       - name: Get version
         id: version
@@ -283,6 +261,95 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Build Linux binaries
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: |
+          mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
+
+          # Build amd64
+          GOARCH=amd64 go build -ldflags "-s -w \
+            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
+            -o dist/slipstream_linux_amd64/slipstream ./cmd/slipstream
+
+          # Build arm64
+          GOARCH=arm64 go build -ldflags "-s -w \
+            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
+            -o dist/slipstream_linux_arm64/slipstream ./cmd/slipstream
+
+      - name: Install nfpm
+        run: |
+          curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_linux_amd64.tar.gz | tar -xz -C /tmp
+          sudo mv /tmp/nfpm /usr/local/bin/
+
+      - name: Create deb/rpm packages
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Create nfpm config for amd64
+          cat > nfpm-amd64.yaml << EOF
+          name: slipstream
+          arch: amd64
+          platform: linux
+          version: ${VERSION}
+          maintainer: SlipStream <noreply@slipstream.local>
+          description: Unified media management system
+          vendor: SlipStream
+          homepage: https://github.com/jatassi/SlipStream
+          license: MIT
+          contents:
+            - src: dist/slipstream_linux_amd64/slipstream
+              dst: /usr/bin/slipstream
+            - src: scripts/linux/slipstream.service
+              dst: /usr/share/doc/slipstream/slipstream.service
+              type: config
+            - src: scripts/linux/slipstream.desktop
+              dst: /usr/share/applications/slipstream.desktop
+              type: config
+          scripts:
+            postinstall: scripts/linux/postinstall.sh
+          EOF
+
+          # Create nfpm config for arm64
+          cat > nfpm-arm64.yaml << EOF
+          name: slipstream
+          arch: arm64
+          platform: linux
+          version: ${VERSION}
+          maintainer: SlipStream <noreply@slipstream.local>
+          description: Unified media management system
+          vendor: SlipStream
+          homepage: https://github.com/jatassi/SlipStream
+          license: MIT
+          contents:
+            - src: dist/slipstream_linux_arm64/slipstream
+              dst: /usr/bin/slipstream
+            - src: scripts/linux/slipstream.service
+              dst: /usr/share/doc/slipstream/slipstream.service
+              type: config
+            - src: scripts/linux/slipstream.desktop
+              dst: /usr/share/applications/slipstream.desktop
+              type: config
+          scripts:
+            postinstall: scripts/linux/postinstall.sh
+          EOF
+
+          # Build packages
+          nfpm package -p deb -f nfpm-amd64.yaml -t dist/
+          nfpm package -p deb -f nfpm-arm64.yaml -t dist/
+          nfpm package -p rpm -f nfpm-amd64.yaml -t dist/
+          nfpm package -p rpm -f nfpm-arm64.yaml -t dist/
+
       - name: Install FUSE (required for AppImage)
         run: |
           sudo apt-get update
@@ -291,18 +358,23 @@ jobs:
       - name: Create AppImage
         run: |
           chmod +x scripts/linux/create-appimage.sh
-          ./scripts/linux/create-appimage.sh ${{ steps.version.outputs.version }} ${{ matrix.arch }}
+          ./scripts/linux/create-appimage.sh ${{ steps.version.outputs.version }} amd64
 
-      - name: Upload AppImage
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-appimage-${{ matrix.arch }}
-          path: dist/*.AppImage
+          name: linux-artifacts
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
           retention-days: 1
 
-  # Collect all artifacts and create GitHub Release
+  # ===========================================
+  # Stage 3: Collect artifacts and create release
+  # ===========================================
   upload-release:
-    needs: [goreleaser, windows-installer, macos-dmg-amd64, macos-dmg-arm64, linux-appimage]
+    needs: [build-windows, build-macos-amd64, build-macos-arm64, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -331,7 +403,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Check if tag exists
           if git rev-parse ${{ steps.version.outputs.version }} >/dev/null 2>&1; then
             echo "Tag ${{ steps.version.outputs.version }} already exists, skipping creation"
           else
@@ -342,16 +413,22 @@ jobs:
       - name: Collect release files
         run: |
           mkdir -p release
-          # Windows: portable ZIP + installer
-          cp artifacts/goreleaser-dist/*.zip release/ 2>/dev/null || true
-          cp artifacts/windows-installer/*.exe release/ 2>/dev/null || true
-          # macOS: DMG only
-          cp artifacts/macos-dmg-amd64/*.dmg release/ 2>/dev/null || true
-          cp artifacts/macos-dmg-arm64/*.dmg release/ 2>/dev/null || true
-          # Linux: AppImage + deb + rpm
-          cp artifacts/linux-appimage-amd64/*.AppImage release/ 2>/dev/null || true
-          cp artifacts/goreleaser-dist/*.deb release/ 2>/dev/null || true
-          cp artifacts/goreleaser-dist/*.rpm release/ 2>/dev/null || true
+          ls -la artifacts/
+
+          # Windows
+          cp artifacts/windows-artifacts/*.zip release/ 2>/dev/null || true
+          cp artifacts/windows-artifacts/*.exe release/ 2>/dev/null || true
+
+          # macOS
+          cp artifacts/macos-amd64-artifacts/*.dmg release/ 2>/dev/null || true
+          cp artifacts/macos-arm64-artifacts/*.dmg release/ 2>/dev/null || true
+
+          # Linux
+          cp artifacts/linux-artifacts/*.deb release/ 2>/dev/null || true
+          cp artifacts/linux-artifacts/*.rpm release/ 2>/dev/null || true
+          cp artifacts/linux-artifacts/*.AppImage release/ 2>/dev/null || true
+
+          echo "Release files:"
           ls -la release/
 
       - name: Create GitHub Release
