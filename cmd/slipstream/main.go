@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,22 +21,21 @@ import (
 	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
+	"github.com/slipstream/slipstream/internal/platform"
 	"github.com/slipstream/slipstream/internal/websocket"
 	"github.com/slipstream/slipstream/web"
 )
 
 func main() {
-	// Parse command line flags
 	configPath := flag.String("config", "", "Path to config file")
+	noTray := flag.Bool("no-tray", false, "Run without system tray (console mode)")
 	flag.Parse()
 
-	// Load configuration
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		panic("failed to load config: " + err.Error())
 	}
 
-	// Initialize logger
 	log := logger.New(logger.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
@@ -48,23 +48,21 @@ func main() {
 		Str("logLevel", cfg.Logging.Level).
 		Msg("starting SlipStream")
 
-	// Derive dev database path from production path
+	isFirstRun := platform.IsFirstRun(cfg.Database.Path)
+
 	devDBPath := cfg.Database.Path[:len(cfg.Database.Path)-3] + "_dev.db"
 
-	// Initialize database manager
 	dbManager, err := database.NewManager(cfg.Database.Path, devDBPath, log.Logger)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to initialize database manager")
 	}
 	defer dbManager.Close()
 
-	// Run migrations on production database
 	log.Info().Msg("running database migrations")
 	if err := dbManager.Migrate(); err != nil {
 		log.Fatal().Err(err).Msg("failed to run migrations")
 	}
 
-	// Load settings from database and override config
 	queries := sqlc.New(dbManager.Conn())
 	if setting, err := queries.GetSetting(context.Background(), "server_port"); err == nil {
 		if port, err := strconv.Atoi(setting.Value); err == nil {
@@ -77,30 +75,25 @@ func main() {
 		log.Info().Str("level", setting.Value).Msg("loaded log level from database")
 	}
 
-	// Initialize WebSocket hub
 	hub := websocket.NewHub()
 	go hub.Run()
 
-	// Create restart channel
 	restartChan := make(chan struct{}, 1)
+	quitChan := make(chan struct{}, 1)
+	var shouldRestart bool
 
-	// Initialize API server
 	server := api.NewServer(dbManager, hub, cfg, log.Logger, restartChan)
 
-	// Ensure default data exists (like quality profiles)
 	if err := server.EnsureDefaults(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure defaults")
 	}
 
-	// Register WebSocket endpoint
 	server.Echo().GET("/ws", hub.HandleWebSocket)
 
-	// Serve embedded frontend (production builds only)
 	if distFS, err := web.DistFS(); err == nil {
 		registerFrontendHandler(server.Echo(), distFS)
 	}
 
-	// Start server in goroutine
 	go func() {
 		addr := cfg.Server.Address()
 		log.Info().Str("address", addr).Msg("HTTP server listening")
@@ -109,20 +102,47 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal or restart request
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	serverURL := fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
 
-	var shouldRestart bool
-	select {
-	case <-quit:
-		log.Info().Msg("shutting down server...")
-	case <-restartChan:
-		log.Info().Msg("restarting server...")
-		shouldRestart = true
+	app := platform.NewApp(platform.AppConfig{
+		ServerURL: serverURL,
+		DataPath:  cfg.Database.Path,
+		Port:      cfg.Server.Port,
+		NoTray:    *noTray || runtime.GOOS != "windows",
+		OnQuit: func() {
+			close(quitChan)
+		},
+	})
+
+	if isFirstRun {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			if err := app.OpenBrowser(serverURL); err != nil {
+				log.Warn().Err(err).Msg("failed to open browser on first run")
+			}
+		}()
 	}
 
-	// Graceful shutdown with timeout
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+		select {
+		case <-sigChan:
+			log.Info().Msg("received shutdown signal")
+			app.Stop()
+		case <-restartChan:
+			log.Info().Msg("restarting server...")
+			shouldRestart = true
+			app.Stop()
+		case <-quitChan:
+		}
+	}()
+
+	if err := app.Run(); err != nil {
+		log.Error().Err(err).Msg("platform app error")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -157,12 +177,10 @@ func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 	e.GET("/*", func(c echo.Context) error {
 		path := c.Request().URL.Path
 
-		// Skip API and WebSocket routes
 		if strings.HasPrefix(path, "/api/") || path == "/ws" {
 			return echo.ErrNotFound
 		}
 
-		// Try to serve the exact file
 		if path != "/" {
 			cleanPath := strings.TrimPrefix(path, "/")
 			if file, err := distFS.Open(cleanPath); err == nil {
@@ -172,7 +190,6 @@ func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 			}
 		}
 
-		// Fall back to index.html for SPA routing
 		indexFile, err := distFS.Open("index.html")
 		if err != nil {
 			return echo.ErrNotFound

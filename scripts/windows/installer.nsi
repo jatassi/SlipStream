@@ -3,6 +3,7 @@
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "Sections.nsh"
 
 ; Basic Info
 Name "SlipStream"
@@ -21,11 +22,11 @@ VIAddVersionKey "LegalCopyright" "SlipStream"
 
 ; Modern UI Settings
 !define MUI_ABORTWARNING
-; Icons are optional - NSIS will use default if not present
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -35,8 +36,13 @@ VIAddVersionKey "LegalCopyright" "SlipStream"
 ; Language
 !insertmacro MUI_LANGUAGE "English"
 
-; Installer Section
-Section "Install"
+; Component descriptions
+LangString DESC_SecMain ${LANG_ENGLISH} "Install SlipStream application files."
+LangString DESC_SecStartup ${LANG_ENGLISH} "Start SlipStream automatically when Windows starts."
+
+; Main Install Section (required)
+Section "SlipStream (required)" SEC_MAIN
+    SectionIn RO
     SetOutPath "$INSTDIR"
 
     ; Copy files
@@ -51,13 +57,19 @@ Section "Install"
     FileOpen $0 "$LOCALAPPDATA\SlipStream\config.yaml" w
     FileClose $0
 
-    ; Create Start Menu shortcuts
+    ; Create Start Menu shortcuts with working directory set to data folder
     CreateDirectory "$SMPROGRAMS\SlipStream"
+    CreateShortcut "$SMPROGRAMS\SlipStream\SlipStream.lnk" "$INSTDIR\slipstream.exe" "" "$INSTDIR\slipstream.exe" 0 SW_SHOWNORMAL "" "SlipStream Media Management"
+    ; Set working directory for Start Menu shortcut
+    SetOutPath "$LOCALAPPDATA\SlipStream"
     CreateShortcut "$SMPROGRAMS\SlipStream\SlipStream.lnk" "$INSTDIR\slipstream.exe"
+    SetOutPath "$INSTDIR"
     CreateShortcut "$SMPROGRAMS\SlipStream\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
-    ; Create Desktop shortcut
+    ; Create Desktop shortcut with working directory
+    SetOutPath "$LOCALAPPDATA\SlipStream"
     CreateShortcut "$DESKTOP\SlipStream.lnk" "$INSTDIR\slipstream.exe"
+    SetOutPath "$INSTDIR"
 
     ; Write registry keys
     WriteRegStr HKLM "Software\SlipStream" "InstallDir" "$INSTDIR"
@@ -77,12 +89,24 @@ Section "Install"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
+; Optional: Start with Windows
+Section "Start with Windows" SEC_STARTUP
+    SetOutPath "$LOCALAPPDATA\SlipStream"
+    CreateShortcut "$SMSTARTUP\SlipStream.lnk" "$INSTDIR\slipstream.exe"
+SectionEnd
+
+; Component descriptions
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MAIN} $(DESC_SecMain)
+    !insertmacro MUI_DESCRIPTION_TEXT ${SEC_STARTUP} $(DESC_SecStartup)
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
 ; Uninstaller Section
 Section "Uninstall"
-    ; Stop service if running (future: when service support added)
-    ; nsExec::ExecToLog 'sc stop SlipStream'
+    ; Remove startup shortcut if it exists
+    Delete "$SMSTARTUP\SlipStream.lnk"
 
-    ; Remove files (keep user data in $LOCALAPPDATA\SlipStream)
+    ; Remove files
     Delete "$INSTDIR\slipstream.exe"
     Delete "$INSTDIR\uninstall.exe"
 
@@ -99,5 +123,8 @@ Section "Uninstall"
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SlipStream"
     DeleteRegKey HKLM "Software\SlipStream"
 
-    ; Note: Don't remove user data in $LOCALAPPDATA\SlipStream
+    ; Ask user if they want to remove data
+    MessageBox MB_YESNO "Remove SlipStream data (database, logs, config)?$\n$\nLocation: $LOCALAPPDATA\SlipStream" IDNO skip_data
+        RMDir /r "$LOCALAPPDATA\SlipStream"
+    skip_data:
 SectionEnd

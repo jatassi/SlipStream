@@ -14,6 +14,7 @@ require (
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.21.0
+	github.com/tailscale/walk v0.0.0-20251016200523-963e260a8227
 	golang.org/x/crypto v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
@@ -21,6 +22,7 @@ require (
 
 require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
+	github.com/dblohm7/wingoes v0.0.0-20231019175336-f6e33aa7cc34 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
@@ -43,6 +45,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/tailscale/win v0.0.0-20250213223159-5992cb43ca35 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -54,6 +57,7 @@ require (
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
+	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

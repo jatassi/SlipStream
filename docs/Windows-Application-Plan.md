@@ -1,5 +1,7 @@
 # Windows Application Features Implementation Plan
 
+**Status: IMPLEMENTED** (2026-01-26)
+
 ## Overview
 
 Implement Windows-specific features for SlipStream including system tray integration, startup registration, first-run behavior, and installer improvements.
@@ -14,30 +16,57 @@ Implement Windows-specific features for SlipStream including system tray integra
 
 ## Implementation Approach
 
-### Key Decision: Pure Go Implementation (No CGO)
+### Key Decision: CGO with `tailscale/walk` for Native Windows Integration
 
-All system tray and Windows API functionality will be implemented using pure Go syscalls to maintain the current `CGO_ENABLED=0` build configuration. This avoids MinGW/GCC dependencies.
+Use `github.com/tailscale/walk` for native Windows system tray support. This is a maintained fork of `lxn/walk` used by Tailscale for their Windows tray application.
+
+**Why walk:**
+- Clean, idiomatic Go API (no manual syscall wrangling)
+- Native Windows look and feel
+- Robust message pump handling
+- Easy context menu creation with Action objects
+- Proper event handling
+- Battle-tested in production (Tailscale)
+
+**Build requirement:** MinGW-w64 GCC toolchain for CGO compilation
+
+**Note:** Previous implementation used pure Go syscalls. This refactor provides cleaner code and better maintainability.
+
+## Phase 0: Remove Existing Syscall Implementation
+
+Before implementing the walk-based solution, completely remove the existing pure Go syscall implementation from `internal/platform/app_windows.go`:
+
+**Remove all of the following:**
+- All `syscall.NewLazyDLL` and `NewProc` declarations (user32, shell32, kernel32)
+- All Windows API constant definitions (WM_*, NIM_*, NIF_*, etc.)
+- All manual struct definitions (`wndClassExW`, `msg`, `point`, `notifyIconDataW`)
+- The `wndProc` callback function
+- All direct syscall invocations (`pShellNotifyIconW.Call`, `pCreateWindowExW.Call`, etc.)
+
+**Start fresh** with a clean `app_windows.go` that only imports `github.com/tailscale/walk` and standard library packages. Do not attempt to preserve or adapt any of the syscall-based code - the walk API is fundamentally different and mixing approaches will create maintenance burden.
 
 ## Phase 1: Platform Package Structure
 
-Create new files in `internal/platform/`:
+Files in `internal/platform/`:
 
 ```
 internal/
   platform/
     app.go              # Cross-platform interface
-    app_windows.go      # Windows implementation (tray, startup, browser)
-    app_other.go        # Unix/macOS stub (no-op)
+    app_windows.go      # Windows implementation (walk/CGO)
+    app_darwin.go       # macOS implementation (macdriver/CGO)
+    app_linux.go        # Linux stub (no-op)
+    util.go             # Shared utilities
 ```
 
 ### `app.go` - Interface Definition
 ```go
 type AppConfig struct {
-    ServerAddress string
-    DataPath      string
-    Port          int
-    NoTray        bool
-    OnQuit        func()
+    ServerURL string
+    DataPath  string
+    Port      int
+    NoTray    bool
+    OnQuit    func()
 }
 
 type App interface {
@@ -47,13 +76,116 @@ type App interface {
 }
 ```
 
-### `app_windows.go` - Windows Implementation
-- System tray using `Shell_NotifyIconW` via syscall
-- Invisible message window to receive tray callbacks
-- Context menu with "Open SlipStream" and "Quit"
-- Left-click and double-click open browser
-- Startup folder shortcut management (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`)
-- Browser launch via `cmd /c start`
+### `app_windows.go` - Windows Implementation (walk)
+
+```go
+//go:build windows
+
+package platform
+
+import (
+    "os/exec"
+    "sync"
+
+    "github.com/tailscale/walk"
+)
+
+type windowsApp struct {
+    config     AppConfig
+    mainWindow *walk.MainWindow
+    notifyIcon *walk.NotifyIcon
+    running    bool
+    mu         sync.Mutex
+    stopOnce   sync.Once
+}
+
+func NewApp(cfg AppConfig) App {
+    return &windowsApp{config: cfg}
+}
+
+func (a *windowsApp) Run() error {
+    if a.config.NoTray {
+        a.mu.Lock()
+        a.running = true
+        a.mu.Unlock()
+        select {} // Block forever in no-tray mode
+    }
+
+    var err error
+    a.mainWindow, err = walk.NewMainWindow()
+    if err != nil {
+        return err
+    }
+
+    a.notifyIcon, err = walk.NewNotifyIcon(a.mainWindow)
+    if err != nil {
+        return err
+    }
+
+    a.notifyIcon.SetToolTip("SlipStream - Media Management")
+    a.notifyIcon.SetVisible(true)
+
+    // Load icon from executable
+    if icon, err := walk.Resources.Icon("1"); err == nil {
+        a.notifyIcon.SetIcon(icon)
+    }
+
+    // Left-click opens browser
+    a.notifyIcon.MouseUp().Attach(func(x, y int, button walk.MouseButton) {
+        if button == walk.LeftButton {
+            a.OpenBrowser(a.config.ServerURL)
+        }
+    })
+
+    // Context menu
+    openAction := walk.NewAction()
+    openAction.SetText("Open SlipStream")
+    openAction.Triggered().Attach(func() {
+        a.OpenBrowser(a.config.ServerURL)
+    })
+
+    quitAction := walk.NewAction()
+    quitAction.SetText("Quit")
+    quitAction.Triggered().Attach(func() {
+        a.Stop()
+    })
+
+    a.notifyIcon.ContextMenu().Actions().Add(openAction)
+    a.notifyIcon.ContextMenu().Actions().Add(walk.NewSeparatorAction())
+    a.notifyIcon.ContextMenu().Actions().Add(quitAction)
+
+    a.mu.Lock()
+    a.running = true
+    a.mu.Unlock()
+
+    a.mainWindow.Run()
+    return nil
+}
+
+func (a *windowsApp) OpenBrowser(url string) error {
+    cmd := exec.Command("cmd", "/c", "start", "", url)
+    return cmd.Start()
+}
+
+func (a *windowsApp) Stop() {
+    a.stopOnce.Do(func() {
+        a.mu.Lock()
+        if a.running {
+            if a.notifyIcon != nil {
+                a.notifyIcon.Dispose()
+            }
+            if a.mainWindow != nil {
+                a.mainWindow.Close()
+            }
+        }
+        a.mu.Unlock()
+
+        if a.config.OnQuit != nil {
+            a.config.OnQuit()
+        }
+    })
+}
+```
 
 ## Phase 2: Windows Console Hiding
 
@@ -61,7 +193,7 @@ type App interface {
 
 ## Phase 3: First-Run Detection
 
-In `internal/platform/firstrun.go`:
+In `internal/platform/util.go`:
 ```go
 func IsFirstRun(dbPath string) bool {
     _, err := os.Stat(dbPath)
@@ -106,43 +238,128 @@ Update `scripts/windows/installer.nsi`:
 Create Windows icon file:
 - Location: `assets/icons/slipstream.ico`
 - Sizes: 16x16, 32x32, 48x48, 256x256
-- Embed in binary or load from install directory
+- Embed in binary via `rsrc` or `goversioninfo` for walk to access
+
+## Build Configuration
+
+### Dependencies
+
+Add to `go.mod`:
+```
+github.com/tailscale/walk v0.0.0-latest
+```
+
+### Windows Build Requirements
+
+**Local development:**
+- Install MinGW-w64: `choco install mingw` or download from [mingw-w64.org](https://www.mingw-w64.org/)
+- Ensure `gcc` is in PATH
+- Build: `CGO_ENABLED=1 go build ./cmd/slipstream`
+
+**Cross-compilation (from Linux/macOS):**
+```bash
+# Install mingw-w64 cross-compiler
+# Ubuntu: apt install mingw-w64
+# macOS: brew install mingw-w64
+
+CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go build ./cmd/slipstream
+```
+
+### GoReleaser Configuration
+
+```yaml
+builds:
+  - id: slipstream-windows
+    goos: [windows]
+    goarch: [amd64]
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+    ldflags:
+      - -s -w
+      - -H windowsgui  # Hide console in production
+    # ... other settings
+
+  - id: slipstream-darwin
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    env:
+      - CGO_ENABLED=1
+    # ... other settings
+
+  - id: slipstream-linux
+    goos: [linux]
+    goarch: [amd64, arm64]
+    env:
+      - CGO_ENABLED=0  # Keep pure Go for Linux (no tray)
+    # ... other settings
+```
+
+### CI/CD Pipeline
+
+Windows builds can cross-compile from Linux with mingw-w64:
+```yaml
+windows-build:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Install MinGW
+      run: sudo apt-get install -y mingw-w64
+
+    - name: Build Windows binary
+      run: |
+        CGO_ENABLED=1 \
+        CC=x86_64-w64-mingw32-gcc \
+        GOOS=windows \
+        GOARCH=amd64 \
+        go build -ldflags="-H windowsgui" -o slipstream.exe ./cmd/slipstream
+```
+
+Or native Windows build:
+```yaml
+windows-build:
+  runs-on: windows-latest
+  steps:
+    - name: Install MinGW
+      run: choco install mingw -y
+
+    - name: Build
+      run: |
+        $env:CGO_ENABLED=1
+        go build -ldflags="-H windowsgui" -o slipstream.exe ./cmd/slipstream
+```
 
 ## Files to Create/Modify
 
 ### Create
-- `internal/platform/app.go` - Interface definition
-- `internal/platform/app_windows.go` - Windows tray/startup implementation
-- `internal/platform/app_other.go` - Unix stub
-- `assets/icons/slipstream.ico` - Windows icon (placeholder needed)
+- `assets/icons/slipstream.ico` - Windows icon (for tray and installer)
 
 ### Modify
-- `cmd/slipstream/main.go` - Integrate platform app
-- `scripts/windows/installer.nsi` - Startup and uninstall options
-- `.goreleaser.yaml` - Add `-H windowsgui` for Windows builds (optional)
+- `internal/platform/app_windows.go` - **Complete rewrite**: delete all syscall code, replace with walk implementation
+- `go.mod` - Add `github.com/tailscale/walk` dependency
+- `.goreleaser.yaml` - Enable CGO for Windows builds, add `-H windowsgui`
+- `.github/workflows/release.yml` - Add MinGW installation step
 
 ## Implementation Order
 
-1. Create `internal/platform/` package with interface and stubs
-2. Implement Windows tray basics (icon, click handlers)
-3. Add context menu (Open/Quit)
-4. Implement startup registration
-5. Add first-run detection and browser launch
-6. Integrate with main.go
-7. Update NSIS installer
-8. Create icon assets
-9. Test on Windows
+1. **Remove existing syscall implementation** - Delete all syscall-based code from `app_windows.go` (see Phase 0)
+2. Add `github.com/tailscale/walk` to go.mod
+3. Implement fresh `app_windows.go` using walk API
+4. Update .goreleaser.yaml for CGO on Windows
+5. Update CI/CD for MinGW installation
+6. Test on Windows
+7. Create .ico icon file (optional, can use exe embedded icon)
 
 ## Verification
 
-1. **Build test:** `go build ./cmd/slipstream` on Windows
-2. **Tray test:** Run app, verify tray icon appears
-3. **Click test:** Left-click opens browser, right-click shows menu
-4. **Quit test:** "Quit" menu item stops the application
-5. **Startup test:** Enable startup, reboot, verify app starts
-6. **First-run test:** Delete database, run app, verify browser opens
-7. **Installer test:** Fresh install, verify shortcuts work with correct working directory
-8. **Uninstall test:** Verify startup entry removed, optional data removal works
+1. **Build test:** `CGO_ENABLED=1 go build ./cmd/slipstream` (on Windows with MinGW)
+2. **Cross-compile test:** Build from Linux with mingw-w64
+3. **Tray test:** Run app, verify tray icon appears
+4. **Click test:** Left-click opens browser, right-click shows menu
+5. **Quit test:** "Quit" menu item stops the application
+6. **Startup test:** Enable startup, reboot, verify app starts
+7. **First-run test:** Delete database, run app, verify browser opens
+8. **Installer test:** Fresh install, verify shortcuts work with correct working directory
+9. **Uninstall test:** Verify startup entry removed, optional data removal works
 
 ## Notes
 
@@ -150,3 +367,22 @@ Create Windows icon file:
 - Tray tooltip shows "SlipStream - Media Management"
 - Console mode (`--no-tray`) available for debugging/service usage
 - Startup uses Startup folder shortcut (user-visible, easy to manage via Task Manager > Startup)
+- CGO links against Windows system DLLs (no runtime dependencies for users)
+- walk uses standard Windows APIs under the hood, just provides cleaner Go interface
+
+## Implementation Summary
+
+**Implemented on:** 2026-01-26
+
+### Files Modified
+- `internal/platform/app_windows.go` - Complete rewrite using tailscale/walk for tray support
+- `internal/platform/app.go` - Added `Port` field to `AppConfig`
+- `cmd/slipstream/main.go` - Added `--no-tray` flag, platform App integration, first-run browser open
+- `scripts/windows/installer.nsi` - Added startup registration (optional section), data removal prompt on uninstall
+- `.goreleaser.yaml` - Split builds: Windows with CGO+walk, Linux/macOS without CGO
+- `.github/workflows/release.yml` - Added mingw-w64 installation for Windows cross-compilation
+- `go.mod` - Added `github.com/tailscale/walk` dependency
+
+### Deferred Items
+- Phase 2 (Console hiding) - Using `-H windowsgui` ldflags for production; console visible in development
+- Phase 6 (Icon assets) - Using exe embedded icon; custom .ico file creation deferred

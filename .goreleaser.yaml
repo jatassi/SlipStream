@@ -9,21 +9,37 @@ before:
     - bun run --cwd web build
 
 builds:
-  - id: slipstream
+  # Windows build with CGO (for walk/systray)
+  - id: slipstream-windows
     main: ./cmd/slipstream
     binary: slipstream
+    goos:
+      - windows
+    goarch:
+      - amd64
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+    ldflags:
+      - -s -w
+      - -H windowsgui
+      - -X 'github.com/slipstream/slipstream/internal/config.Version={{.Version}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey={{.Env.TMDB_API_KEY}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey={{.Env.TVDB_API_KEY}}'
+      - -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey={{.Env.OMDB_API_KEY}}'
+
+  # Linux/macOS builds without CGO (no tray support)
+  - id: slipstream-unix
+    main: ./cmd/slipstream
+    binary: slipstream
     goos:
       - linux
-      - windows
       - darwin
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: windows
-        goarch: arm64
+    env:
+      - CGO_ENABLED=0
     ldflags:
       - -s -w
       - -X 'github.com/slipstream/slipstream/internal/config.Version={{.Version}}'
@@ -37,12 +53,10 @@ archives:
     format: zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
-      - slipstream
+      - slipstream-windows
     files:
       - README*
     wrap_in_directory: false
-    filters:
-      - goos: windows
 
 nfpms:
   - id: packages
@@ -58,6 +72,8 @@ nfpms:
     bindir: /usr/bin
     scripts:
       postinstall: "scripts/linux/postinstall.sh"
+    builds:
+      - slipstream-unix
 
 checksum:
   name_template: 'checksums.txt'
