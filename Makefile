@@ -1,7 +1,7 @@
 .PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose
 
 # Build flags for embedding values at build time (set via environment variables or make arguments)
-# Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy
+# Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
 LDFLAGS := -s -w
 ifdef VERSION
 	LDFLAGS += -X 'github.com/slipstream/slipstream/internal/config.Version=$(VERSION)'
@@ -11,6 +11,9 @@ ifdef TMDB_API_KEY
 endif
 ifdef TVDB_API_KEY
 	LDFLAGS += -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=$(TVDB_API_KEY)'
+endif
+ifdef OMDB_API_KEY
+	LDFLAGS += -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=$(OMDB_API_KEY)'
 endif
 
 # Development

@@ -1,0 +1,264 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: '1.25'
+  BUN_VERSION: 'latest'
+
+jobs:
+  # Build frontend once and share across jobs
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install frontend dependencies
+        run: bun install --cwd web
+
+      - name: Build frontend
+        run: bun run --cwd web build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+          retention-days: 1
+
+  # GoReleaser builds archives and Linux packages
+  goreleaser:
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --skip=before
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+
+      - name: Upload GoReleaser artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist/
+          retention-days: 1
+
+  # Windows NSIS installer
+  windows-installer:
+    needs: goreleaser
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GoReleaser artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create NSIS installer
+        uses: joncloud/makensis-action@v4
+        with:
+          script-file: scripts/windows/installer.nsi
+          arguments: /DVERSION=${{ steps.version.outputs.version }}
+
+      - name: Move installer to dist
+        shell: bash
+        run: |
+          mv scripts/windows/*.exe dist/ || true
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          retention-days: 1
+
+  # macOS DMG (Intel)
+  macos-dmg-amd64:
+    needs: goreleaser
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GoReleaser artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create DMG
+        run: |
+          chmod +x scripts/macos/create-dmg.sh
+          ./scripts/macos/create-dmg.sh ${{ steps.version.outputs.version }} amd64
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-amd64
+          path: dist/*.dmg
+          retention-days: 1
+
+  # macOS DMG (Apple Silicon)
+  macos-dmg-arm64:
+    needs: goreleaser
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GoReleaser artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create DMG
+        run: |
+          chmod +x scripts/macos/create-dmg.sh
+          ./scripts/macos/create-dmg.sh ${{ steps.version.outputs.version }} arm64
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-arm64
+          path: dist/*.dmg
+          retention-days: 1
+
+  # Linux AppImage
+  linux-appimage:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GoReleaser artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install FUSE (required for AppImage)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fuse libfuse2
+
+      - name: Create AppImage
+        run: |
+          chmod +x scripts/linux/create-appimage.sh
+          ./scripts/linux/create-appimage.sh ${{ steps.version.outputs.version }} ${{ matrix.arch }}
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage-${{ matrix.arch }}
+          path: dist/*.AppImage
+          retention-days: 1
+
+  # Collect all artifacts and upload to release
+  upload-release:
+    needs: [goreleaser, windows-installer, macos-dmg-amd64, macos-dmg-arm64, linux-appimage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect release files
+        run: |
+          mkdir -p release
+          # Copy installers
+          cp artifacts/windows-installer/*.exe release/ 2>/dev/null || true
+          cp artifacts/macos-dmg-amd64/*.dmg release/ 2>/dev/null || true
+          cp artifacts/macos-dmg-arm64/*.dmg release/ 2>/dev/null || true
+          cp artifacts/linux-appimage-amd64/*.AppImage release/ 2>/dev/null || true
+          cp artifacts/linux-appimage-arm64/*.AppImage release/ 2>/dev/null || true
+          ls -la release/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

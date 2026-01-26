@@ -334,7 +334,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metadata.tvdb.api_key", tvdbKey)
 	v.SetDefault("metadata.tvdb.base_url", "https://api4.thetvdb.com/v4")
 	v.SetDefault("metadata.tvdb.timeout_seconds", 30)
-	v.SetDefault("metadata.omdb.api_key", "")
+	omdbKey := EmbeddedOMDBKey
+	v.SetDefault("metadata.omdb.api_key", omdbKey)
 	v.SetDefault("metadata.omdb.base_url", "https://www.omdbapi.com")
 	v.SetDefault("metadata.omdb.timeout_seconds", 15)
 
