@@ -270,3 +270,24 @@ func (c *Client) writePump() {
 		}
 	}
 }
+
+// UpdateStatus represents the current state of the auto-update system.
+type UpdateStatus struct {
+	State          string  `json:"state"`
+	CurrentVersion string  `json:"currentVersion"`
+	LatestVersion  string  `json:"latestVersion,omitempty"`
+	Progress       float64 `json:"progress"`
+	DownloadedMB   float64 `json:"downloadedMB,omitempty"`
+	TotalMB        float64 `json:"totalMB,omitempty"`
+	Error          string  `json:"error,omitempty"`
+}
+
+// UpdateStatusProvider is implemented by services that can provide update status.
+type UpdateStatusProvider interface {
+	GetUpdateStatus() *UpdateStatus
+}
+
+// BroadcastUpdateStatus sends an update status message to all connected clients.
+func (h *Hub) BroadcastUpdateStatus(status interface{}) {
+	h.Broadcast("update:status", status)
+}

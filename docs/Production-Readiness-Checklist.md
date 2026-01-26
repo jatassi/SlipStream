@@ -61,15 +61,15 @@ This document tracks all work required to prepare SlipStream for production beta
 
 ### Auto-Update System
 
-- [ ] **Frontend States** - ensure backend will provide states defined in web/src/routes/system/update.tsx
-- [ ] **Update check and auto install** - On startup + periodic (every 24 hours) -> use task system
-- [ ] **Auto-install toggle** - add toggle on update page - on/off enables/disables auto update task - default on - part of config (persists across restart)
-- [ ] **GitHub Releases integration** - Check for new releases via GitHub
-- [ ] **Always latest** - No version skipping, updates always go to newest
-- [ ] **Offline handling** - use update page update error state
-- [ ] **Pre-update backup** - Automatically backup database before applying update -> placeholder only, need to build out backup system
-- [ ] **Recovery strategy** - On failed update, user downloads fresh installer (simple approach)
-- [ ] **Frontend Integration** - wire up to web/src/routes/system/update.tsx
+- [x] **Frontend States** - backend provides states defined in web/src/routes/system/update.tsx via `internal/update/service.go`
+- [x] **Update check and auto install** - Scheduled task runs on startup + daily at midnight (`internal/scheduler/tasks/update.go`)
+- [ ] **Auto-install toggle** - API exists (`GET/PUT /api/v1/update/settings`), UI toggle on update page still needed
+- [x] **GitHub Releases integration** - Checks github.com/slipstream/slipstream/releases/latest
+- [x] **Always latest** - No version skipping, always updates to newest release
+- [x] **Offline handling** - Error state displayed when update server unreachable
+- [x] **Pre-update backup** - Placeholder implemented (logs message, actual backup system TBD)
+- [x] **Recovery strategy** - On failed update, user downloads fresh installer manually
+- [x] **Frontend Integration** - `web/src/routes/system/update.tsx` wired to real API via hooks
 
 ### Security
 

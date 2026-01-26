@@ -73,6 +73,7 @@ import (
 	"github.com/slipstream/slipstream/internal/progress"
 	"github.com/slipstream/slipstream/internal/scheduler"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
+	"github.com/slipstream/slipstream/internal/update"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -133,6 +134,7 @@ type Server struct {
 	prowlarrSearchAdapter *prowlarr.SearchAdapter
 	prowlarrGrabProvider  *prowlarr.GrabProvider
 	searchRouter          *search.Router
+	updateService         *update.Service
 
 	// Portal services
 	portalUsersService         *users.Service
@@ -537,6 +539,17 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		}
 	}
 
+	// Initialize update service (after scheduler so we can register the task)
+	s.updateService = update.NewService(db, logger, restartChan)
+	s.updateService.SetBroadcaster(hub)
+
+	// Register update check task
+	if s.scheduler != nil {
+		if err := tasks.RegisterUpdateCheckTask(s.scheduler, s.updateService, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register update check task")
+		}
+	}
+
 	s.setupMiddleware()
 	s.setupRoutes()
 
@@ -844,6 +857,10 @@ func (s *Server) setupRoutes() {
 		schedulerGroup.GET("/tasks/:id", schedulerHandler.GetTask)
 		schedulerGroup.POST("/tasks/:id/run", schedulerHandler.RunTask)
 	}
+
+	// Update routes
+	updateHandlers := update.NewHandlers(s.updateService)
+	updateHandlers.RegisterRoutes(protected.Group("/update"))
 
 	// Portal routes (External Requests feature) - has its own auth middleware
 	s.setupPortalRoutes(api)

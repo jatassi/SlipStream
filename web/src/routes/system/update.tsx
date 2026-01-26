@@ -17,20 +17,9 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { useStatus, useDeveloperMode } from '@/hooks'
+import { useDeveloperMode, useUpdateStatus, useCheckForUpdate, useInstallUpdate } from '@/hooks'
 import { cn } from '@/lib/utils'
-
-type UpdateState =
-  | 'idle'
-  | 'checking'
-  | 'up-to-date'
-  | 'update-available'
-  | 'error'
-  | 'downloading'
-  | 'installing'
-  | 'restarting'
-  | 'complete'
-  | 'failed'
+import type { UpdateState } from '@/types/update'
 
 const UPDATE_STATES: UpdateState[] = [
   'idle',
@@ -44,8 +33,6 @@ const UPDATE_STATES: UpdateState[] = [
   'complete',
   'failed',
 ]
-
-const MOCK_UPDATE_SIZE_MB = 85
 
 const DEBUG_STATE_CONFIG: Record<UpdateState, {
   error?: string
@@ -66,16 +53,7 @@ const DEBUG_STATE_CONFIG: Record<UpdateState, {
   'failed': { error: 'Installation failed: EACCES permission denied. Unable to write to /usr/local/bin/slipstream. Please run with elevated privileges or update manually.' },
 }
 
-interface ReleaseInfo {
-  version: string
-  releaseDate: string
-  releaseNotes: string
-}
-
-const MOCK_RELEASE: ReleaseInfo = {
-  version: '2.0.0',
-  releaseDate: '2025-01-20',
-  releaseNotes: `## What's New in SlipStream 2.0.0
+const MOCK_RELEASE_NOTES = `## What's New in SlipStream 2.0.0
 
 ### Features
 - **Enhanced Search**: Completely redesigned search with improved accuracy and speed
@@ -97,8 +75,7 @@ const MOCK_RELEASE: ReleaseInfo = {
 
 ### Breaking Changes
 - Minimum required Go version is now 1.21
-- Database migration required (automatic on first launch)`,
-}
+- Database migration required (automatic on first launch)`
 
 function ReleaseNotes({ notes }: { notes: string }) {
   const [expanded, setExpanded] = useState(false)
@@ -206,6 +183,8 @@ function UpdateStateDisplay({
   onRetry,
   downloadedMB,
   totalMB,
+  isChecking,
+  isInstalling,
 }: {
   state: UpdateState
   currentVersion: string
@@ -217,6 +196,8 @@ function UpdateStateDisplay({
   onRetry: () => void
   downloadedMB?: number
   totalMB?: number
+  isChecking?: boolean
+  isInstalling?: boolean
 }) {
   switch (state) {
     case 'idle':
@@ -230,8 +211,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button onClick={onCheckForUpdate}>
-              <RefreshCw className="size-4 mr-2" />
+            <Button onClick={onCheckForUpdate} disabled={isChecking}>
+              {isChecking ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4 mr-2" />
+              )}
               Check for Updates
             </Button>
           </div>
@@ -271,8 +256,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button variant="ghost" onClick={onCheckForUpdate}>
-              <RefreshCw className="size-4 mr-2" />
+            <Button variant="ghost" onClick={onCheckForUpdate} disabled={isChecking}>
+              {isChecking ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4 mr-2" />
+              )}
               Check Again
             </Button>
           </div>
@@ -298,8 +287,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button onClick={onDownloadUpdate}>
-              <Download className="size-4 mr-2" />
+            <Button onClick={onDownloadUpdate} disabled={isInstalling}>
+              {isInstalling ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="size-4 mr-2" />
+              )}
               Install Update
             </Button>
           </div>
@@ -322,8 +315,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button variant="outline" onClick={onRetry}>
-              <RefreshCw className="size-4 mr-2" />
+            <Button variant="outline" onClick={onRetry} disabled={isChecking}>
+              {isChecking ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4 mr-2" />
+              )}
               Try Again
             </Button>
           </div>
@@ -338,7 +335,7 @@ function UpdateStateDisplay({
 
       if (state === 'downloading') {
         visualProgress = (progress ?? 0) * 0.8
-        statusText = `${downloadedMB ?? 0}MB / ${totalMB ?? 0}MB`
+        statusText = `${Math.round(downloadedMB ?? 0)}MB / ${Math.round(totalMB ?? 0)}MB`
       } else if (state === 'installing') {
         visualProgress = 80 + ((progress ?? 0) - 80) * 0.2 / 0.2
         statusText = 'Installing...'
@@ -385,8 +382,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button variant="ghost" onClick={onCheckForUpdate}>
-              <RefreshCw className="size-4 mr-2" />
+            <Button variant="ghost" onClick={onCheckForUpdate} disabled={isChecking}>
+              {isChecking ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4 mr-2" />
+              )}
               Check for More Updates
             </Button>
           </div>
@@ -409,8 +410,12 @@ function UpdateStateDisplay({
             </div>
           </div>
           <div className="flex justify-center">
-            <Button variant="outline" onClick={onRetry}>
-              <RotateCcw className="size-4 mr-2" />
+            <Button variant="outline" onClick={onRetry} disabled={isInstalling}>
+              {isInstalling ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <RotateCcw className="size-4 mr-2" />
+              )}
               Retry Update
             </Button>
           </div>
@@ -423,104 +428,95 @@ function UpdateStateDisplay({
 }
 
 export function UpdatePage() {
-  const { data: status } = useStatus()
   const developerMode = useDeveloperMode()
-  const currentVersion = status?.version ?? '1.0.0'
+  const { data: updateStatus } = useUpdateStatus()
+  const checkForUpdate = useCheckForUpdate()
+  const installUpdate = useInstallUpdate()
 
-  const [updateState, setUpdateState] = useState<UpdateState>('idle')
-  const [progress, setProgress] = useState(0)
-  const [error, setError] = useState<string>()
-  const [countdown, setCountdown] = useState<number>(5)
-  const [showReleaseNotes, setShowReleaseNotes] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
-  const [downloadedMB, setDownloadedMB] = useState(0)
+  const [debugState, setDebugState] = useState<UpdateState>('idle')
+  const [debugConfig, setDebugConfig] = useState(DEBUG_STATE_CONFIG['idle'])
+  const [countdown, setCountdown] = useState<number>(5)
+
+  const currentVersion = updateStatus?.currentVersion ?? 'dev'
+  const state = debugMode ? debugState : (updateStatus?.state ?? 'idle') as UpdateState
+  const latestRelease = updateStatus?.latestRelease
+  const newVersion = debugMode ? '2.0.0' : latestRelease?.version
+  const releaseNotes = debugMode ? MOCK_RELEASE_NOTES : latestRelease?.releaseNotes
+  const progress = debugMode ? debugConfig.progress ?? 0 : updateStatus?.progress ?? 0
+  const error = debugMode ? debugConfig.error : updateStatus?.error
+  const downloadedMB = debugMode ? debugConfig.downloadedMB ?? 0 : updateStatus?.downloadedMB ?? 0
+  const totalMB = debugMode ? 85 : updateStatus?.totalMB ?? 0
 
   useEffect(() => {
     if (debugMode) return
-    if (updateState !== 'restarting') return
+    if (state !== 'restarting') return
     if (countdown === 0) {
       window.location.reload()
       return
     }
     const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
     return () => clearTimeout(timer)
-  }, [updateState, countdown, debugMode])
+  }, [state, countdown, debugMode])
 
   const cycleDebugState = () => {
     setDebugMode(true)
-    const currentIndex = UPDATE_STATES.indexOf(updateState)
+    const currentIndex = UPDATE_STATES.indexOf(debugState)
     const nextIndex = (currentIndex + 1) % UPDATE_STATES.length
     const nextState = UPDATE_STATES[nextIndex]
     const config = DEBUG_STATE_CONFIG[nextState]
 
-    setUpdateState(nextState)
-    setError(config.error)
-    setProgress(config.progress ?? 0)
+    setDebugState(nextState)
+    setDebugConfig(config)
     setCountdown(config.countdown ?? 5)
-    setShowReleaseNotes(config.showReleaseNotes ?? false)
-    setDownloadedMB(config.downloadedMB ?? 0)
   }
 
-  const simulateCheckForUpdate = () => {
-    setUpdateState('checking')
-    setError(undefined)
-    setTimeout(() => {
-      const hasUpdate = Math.random() > 0.3
-      const hasError = Math.random() < 0.1
-
-      if (hasError) {
-        setUpdateState('error')
-        setError('Failed to connect to update server')
-      } else if (hasUpdate) {
-        setUpdateState('update-available')
-        setShowReleaseNotes(true)
-      } else {
-        setUpdateState('up-to-date')
-        setShowReleaseNotes(false)
-      }
-    }, 2000)
+  const handleCheckForUpdate = () => {
+    if (debugMode) {
+      setDebugState('checking')
+      setTimeout(() => {
+        setDebugState('update-available')
+        setDebugConfig(DEBUG_STATE_CONFIG['update-available'])
+      }, 2000)
+    } else {
+      checkForUpdate.mutate()
+    }
   }
 
-  const simulateDownload = () => {
-    setUpdateState('downloading')
-    setProgress(0)
-    setDownloadedMB(0)
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
+  const handleDownloadUpdate = () => {
+    if (debugMode) {
+      setDebugState('downloading')
+      setDebugConfig({ progress: 0, downloadedMB: 0 })
+      let p = 0
+      const interval = setInterval(() => {
+        p += Math.random() * 15
+        if (p >= 100) {
           clearInterval(interval)
-          setUpdateState('installing')
-          simulateInstall()
-          return 100
+          setDebugState('installing')
+          setDebugConfig(DEBUG_STATE_CONFIG['installing'])
+          setTimeout(() => {
+            setDebugState('restarting')
+            setDebugConfig(DEBUG_STATE_CONFIG['restarting'])
+            setCountdown(5)
+          }, 3000)
+        } else {
+          setDebugConfig({ progress: p, downloadedMB: Math.round((p / 100) * 85) })
         }
-        const newProgress = prev + Math.random() * 15
-        setDownloadedMB(Math.round((newProgress / 100) * MOCK_UPDATE_SIZE_MB))
-        return newProgress
-      })
-    }, 300)
-  }
-
-  const simulateInstall = () => {
-    setTimeout(() => {
-      const failed = Math.random() < 0.15
-      if (failed) {
-        setUpdateState('failed')
-        setError('Installation failed due to insufficient permissions')
-      } else {
-        setUpdateState('restarting')
-        setCountdown(5)
-      }
-    }, 3000)
+      }, 300)
+    } else {
+      installUpdate.mutate()
+    }
   }
 
   const handleRetry = () => {
-    if (updateState === 'error') {
-      simulateCheckForUpdate()
-    } else if (updateState === 'failed') {
-      simulateDownload()
+    if (state === 'error') {
+      handleCheckForUpdate()
+    } else if (state === 'failed') {
+      handleDownloadUpdate()
     }
   }
+
+  const showReleaseNotes = state === 'update-available' && releaseNotes
 
   return (
     <div>
@@ -533,10 +529,10 @@ export function UpdatePage() {
               variant="outline"
               size="sm"
               onClick={cycleDebugState}
-              title={`Current: ${updateState}`}
+              title={`Current: ${state}`}
             >
               <Bug className="size-4 mr-2" />
-              Debug: {updateState}
+              Debug: {state}
             </Button>
           )
         }
@@ -546,24 +542,26 @@ export function UpdatePage() {
         <Card>
           <CardContent className="py-1">
               <UpdateStateDisplay
-                state={updateState}
+                state={state}
                 currentVersion={currentVersion}
-                newVersion={MOCK_RELEASE.version}
+                newVersion={newVersion}
                 progress={Math.min(Math.round(progress), 100)}
                 error={error}
-                onCheckForUpdate={simulateCheckForUpdate}
-                onDownloadUpdate={simulateDownload}
+                onCheckForUpdate={handleCheckForUpdate}
+                onDownloadUpdate={handleDownloadUpdate}
                 onRetry={handleRetry}
                 downloadedMB={downloadedMB}
-                totalMB={MOCK_UPDATE_SIZE_MB}
+                totalMB={totalMB}
+                isChecking={checkForUpdate.isPending}
+                isInstalling={installUpdate.isPending}
               />
           </CardContent>
         </Card>
 
-        {showReleaseNotes && updateState === 'update-available' && (
+        {showReleaseNotes && (
           <Card className="mt-4">
             <CardContent className="py-1">
-              <ReleaseNotes notes={MOCK_RELEASE.releaseNotes} />
+              <ReleaseNotes notes={releaseNotes} />
             </CardContent>
           </Card>
         )}

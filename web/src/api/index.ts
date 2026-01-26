@@ -21,6 +21,7 @@ export { healthApi } from './health'
 export { slotsApi } from './slots'
 export { notificationsApi } from './notifications'
 export { prowlarrApi } from './prowlarr'
+export { updateApi } from './update'
 
 // Portal APIs
 export * from './portal'
