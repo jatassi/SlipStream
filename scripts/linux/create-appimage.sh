@@ -17,7 +17,7 @@ case "$ARCH" in
 esac
 
 APPIMAGE_NAME="slipstream_${VERSION}_linux_${ARCH}.AppImage"
-BINARY_PATH="dist/slipstream_linux_${ARCH}_v1/slipstream"
+BINARY_PATH="dist/slipstream_linux_${ARCH}/slipstream"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
