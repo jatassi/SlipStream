@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SlipStream
+Comment=Media Management System
+Exec=xdg-open http://localhost:8080
+Icon=slipstream
+Categories=AudioVideo;Network;
+Terminal=false
+StartupNotify=false

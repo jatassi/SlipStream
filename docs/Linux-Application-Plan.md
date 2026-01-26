@@ -348,12 +348,12 @@ nfpms:
 
 ## Implementation Order
 
-1. Create `app_linux.go` with signal handling and xdg-open
-2. Create systemd service unit file
-3. Update config.go for XDG paths
-4. Create desktop entry file
-5. Update create-appimage.sh to include service file
-6. Add nfpms config to .goreleaser.yaml for deb/rpm
+1. ~~Create `app_linux.go` with signal handling and xdg-open~~ **DONE**
+2. ~~Create systemd service unit file~~ **DONE**
+3. ~~Update config.go for XDG paths~~ **DONE**
+4. ~~Create desktop entry file~~ **DONE**
+5. ~~Update create-appimage.sh to include service file~~ **DONE**
+6. ~~Add nfpms config to .goreleaser.yaml for deb/rpm~~ **DONE**
 7. Test on Ubuntu and Fedora
 
 ## Verification

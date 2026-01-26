@@ -285,10 +285,21 @@ func Load(configPath string) (*Config, error) {
 		v.SetConfigType("yaml")
 		v.AddConfigPath(".")
 		v.AddConfigPath("./configs")
-		// Add macOS-specific config path
-		if runtime.GOOS == "darwin" {
+		// Add platform-specific config paths
+		switch runtime.GOOS {
+		case "darwin":
 			if home, err := os.UserHomeDir(); err == nil {
 				v.AddConfigPath(filepath.Join(home, "Library", "Application Support", "SlipStream"))
+			}
+		case "linux":
+			configHome := os.Getenv("XDG_CONFIG_HOME")
+			if configHome == "" {
+				if home, err := os.UserHomeDir(); err == nil {
+					configHome = filepath.Join(home, ".config")
+				}
+			}
+			if configHome != "" {
+				v.AddConfigPath(filepath.Join(configHome, "slipstream"))
 			}
 		}
 		v.AddConfigPath("$HOME/.slipstream")
@@ -402,11 +413,23 @@ func (c *ServerConfig) Address() string {
 
 // getDataDir returns the platform-specific data directory.
 // macOS: ~/Library/Application Support/SlipStream
+// Linux: XDG_CONFIG_HOME/slipstream or ~/.config/slipstream
 // Others: ./data
 func getDataDir() string {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Application Support", "SlipStream")
+		}
+	case "linux":
+		configHome := os.Getenv("XDG_CONFIG_HOME")
+		if configHome == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				configHome = filepath.Join(home, ".config")
+			}
+		}
+		if configHome != "" {
+			return filepath.Join(configHome, "slipstream")
 		}
 	}
 	return "./data"
@@ -414,11 +437,23 @@ func getDataDir() string {
 
 // getLogDir returns the platform-specific log directory.
 // macOS: ~/Library/Logs/SlipStream
+// Linux: XDG_CONFIG_HOME/slipstream/logs or ~/.config/slipstream/logs
 // Others: ./data/logs
 func getLogDir() string {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Logs", "SlipStream")
+		}
+	case "linux":
+		configHome := os.Getenv("XDG_CONFIG_HOME")
+		if configHome == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				configHome = filepath.Join(home, ".config")
+			}
+		}
+		if configHome != "" {
+			return filepath.Join(configHome, "slipstream", "logs")
 		}
 	}
 	return "./data/logs"

@@ -73,6 +73,13 @@ nfpms:
     bindir: /usr/bin
     scripts:
       postinstall: "scripts/linux/postinstall.sh"
+    contents:
+      - src: scripts/linux/slipstream.service
+        dst: /usr/share/doc/slipstream/slipstream.service
+        type: config
+      - src: scripts/linux/slipstream.desktop
+        dst: /usr/share/applications/slipstream.desktop
+        type: config
     builds:
       - slipstream-linux
 

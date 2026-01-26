@@ -32,25 +32,20 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$APP_DIR/usr/bin"
 mkdir -p "$APP_DIR/usr/share/applications"
 mkdir -p "$APP_DIR/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "$APP_DIR/usr/share/doc/slipstream"
 
 # Copy binary
 cp "$PROJECT_ROOT/$BINARY_PATH" "$APP_DIR/usr/bin/slipstream"
 chmod +x "$APP_DIR/usr/bin/slipstream"
 
-# Create desktop file
-cat > "$APP_DIR/usr/share/applications/slipstream.desktop" << EOF
-[Desktop Entry]
-Name=SlipStream
-Comment=Unified media management system
-Exec=slipstream
-Icon=slipstream
-Type=Application
-Categories=AudioVideo;Network;
-Terminal=false
-EOF
+# Copy desktop file
+cp "$SCRIPT_DIR/slipstream.desktop" "$APP_DIR/usr/share/applications/slipstream.desktop"
 
 # Copy desktop file to AppDir root (required by AppImage)
 cp "$APP_DIR/usr/share/applications/slipstream.desktop" "$APP_DIR/"
+
+# Copy systemd service file for user reference
+cp "$SCRIPT_DIR/slipstream.service" "$APP_DIR/usr/share/doc/slipstream/slipstream.service"
 
 # Copy icon if exists, otherwise create placeholder
 if [ -f "$PROJECT_ROOT/scripts/linux/slipstream.png" ]; then
