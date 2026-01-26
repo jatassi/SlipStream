@@ -69,7 +69,8 @@
       "Bash(git merge:*)",
       "Bash(gh workflow run:*)",
       "Bash(gh run list:*)",
-      "Bash(gh run view:*)"
+      "Bash(gh run view:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

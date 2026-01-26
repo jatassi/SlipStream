@@ -88,18 +88,18 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
-          mkdir -p dist
+          mkdir -p dist/slipstream_windows_amd64
           go build -ldflags "-s -w -H windowsgui \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
-            -o dist/slipstream.exe ./cmd/slipstream
+            -o dist/slipstream_windows_amd64/slipstream.exe ./cmd/slipstream
 
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/slipstream.exe -DestinationPath "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.zip"
+          Compress-Archive -Path dist/slipstream_windows_amd64/slipstream.exe -DestinationPath "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.zip"
 
       - name: Install NSIS
         run: choco install nsis -y
@@ -289,7 +289,8 @@ jobs:
 
       - name: Install nfpm
         run: |
-          curl -sL https://github.com/goreleaser/nfpm/releases/latest/download/nfpm_linux_amd64.tar.gz -o /tmp/nfpm.tar.gz
+          NFPM_VERSION=$(curl -s https://api.github.com/repos/goreleaser/nfpm/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          curl -sL "https://github.com/goreleaser/nfpm/releases/download/${NFPM_VERSION}/nfpm_linux_amd64.tar.gz" -o /tmp/nfpm.tar.gz
           tar -xzf /tmp/nfpm.tar.gz -C /tmp
           sudo mv /tmp/nfpm /usr/local/bin/
 
