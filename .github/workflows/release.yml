@@ -284,8 +284,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
-          git push origin ${{ steps.version.outputs.version }}
+          # Check if tag exists
+          if git rev-parse ${{ steps.version.outputs.version }} >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.version }} already exists, skipping creation"
+          else
+            git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+            git push origin ${{ steps.version.outputs.version }}
+          fi
 
       - name: Collect release files
         run: |
