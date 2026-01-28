@@ -48,6 +48,7 @@ func classifyError(err error) RetryPolicy {
 		ErrNoMatch,
 		ErrMatchConflict,
 		ErrPathTooLong,
+		ErrFileAlreadyInLibrary,
 	}
 
 	for _, permErr := range permanentErrors {

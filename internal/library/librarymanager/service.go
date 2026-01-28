@@ -414,21 +414,25 @@ func (s *Service) matchOrCreateMovie(
 	// Find best match - prefer exact title match with year match
 	var bestMatch *metadata.MovieResult
 	if len(results) > 0 {
-		parsedTitleLower := strings.ToLower(parsed.Title)
+		parsedTitleNorm := normalizeTitle(parsed.Title)
 
-		// First pass: look for exact title match with year match
+		// First pass: look for exact normalized title match with year match
 		for i := range results {
-			if results[i].Year == parsed.Year && strings.ToLower(results[i].Title) == parsedTitleLower {
+			if results[i].Year == parsed.Year && normalizeTitle(results[i].Title) == parsedTitleNorm {
 				bestMatch = &results[i]
-				s.logger.Debug().Str("title", results[i].Title).Int("year", results[i].Year).Msg("Found exact title and year match")
+				s.logger.Debug().Str("title", results[i].Title).Int("year", results[i].Year).Msg("Found exact normalized title and year match")
 				break
 			}
 		}
 
 		// Second pass: look for title that starts with the parsed title (handles "Spirited" vs "Spirited Away")
+		// Only match if the result title is shorter or equal length (to avoid matching "Top Gun Maverick" to "Top Gun Maverick Documentary")
 		if bestMatch == nil {
 			for i := range results {
-				if results[i].Year == parsed.Year && strings.HasPrefix(strings.ToLower(results[i].Title), parsedTitleLower) {
+				resultTitleNorm := normalizeTitle(results[i].Title)
+				if results[i].Year == parsed.Year &&
+					strings.HasPrefix(resultTitleNorm, parsedTitleNorm) &&
+					len(resultTitleNorm) <= len(parsedTitleNorm)+5 { // Allow small suffix like "3D" or "IMAX"
 					bestMatch = &results[i]
 					s.logger.Debug().Str("title", results[i].Title).Int("year", results[i].Year).Msg("Found title prefix and year match")
 					break
@@ -436,7 +440,23 @@ func (s *Service) matchOrCreateMovie(
 			}
 		}
 
-		// Third pass: any year match (original logic)
+		// Third pass: any year match with high title similarity
+		if bestMatch == nil {
+			for i := range results {
+				if results[i].Year == parsed.Year {
+					resultTitleNorm := normalizeTitle(results[i].Title)
+					// Check if titles are very similar (one contains the other and lengths are close)
+					if strings.Contains(resultTitleNorm, parsedTitleNorm) || strings.Contains(parsedTitleNorm, resultTitleNorm) {
+						if len(resultTitleNorm) <= len(parsedTitleNorm)+10 && len(parsedTitleNorm) <= len(resultTitleNorm)+10 {
+							bestMatch = &results[i]
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Fourth pass: exact year match with first result
 		if bestMatch == nil {
 			for i := range results {
 				if results[i].Year == parsed.Year {
@@ -1888,6 +1908,37 @@ func (s *Service) applyMonitoringOnAdd(ctx context.Context, seriesID int64, moni
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// normalizeTitle removes punctuation and extra whitespace from a title for comparison.
+// This helps match "Top Gun: Maverick" to "Top Gun Maverick".
+func normalizeTitle(title string) string {
+	// Convert to lowercase
+	result := strings.ToLower(title)
+
+	// Replace common punctuation with space
+	replacer := strings.NewReplacer(
+		":", " ",
+		"-", " ",
+		"'", "",
+		"'", "",
+		",", "",
+		".", "",
+		"!", "",
+		"?", "",
+		"&", "and",
+	)
+	result = replacer.Replace(result)
+
+	// Collapse multiple spaces to single space
+	for strings.Contains(result, "  ") {
+		result = strings.ReplaceAll(result, "  ", " ")
+	}
+
+	// Trim whitespace
+	result = strings.TrimSpace(result)
+
+	return result
 }
 
 // AddSeries creates a new series, fetches metadata, and downloads artwork in the background.

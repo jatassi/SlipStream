@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
@@ -178,19 +179,78 @@ func (s *Service) isFileAlreadyImported(ctx context.Context, path string) bool {
 	// Convert path to sql.NullString
 	nullPath := toNullString(path)
 
-	// Check if it was imported as a movie file
+	// Check if it was imported as a movie file (via original_path)
 	movieImported, err := s.queries.IsOriginalPathImportedMovie(ctx, nullPath)
 	if err == nil && movieImported != 0 {
 		return true
 	}
 
-	// Check if it was imported as an episode file
+	// Check if it was imported as an episode file (via original_path)
 	episodeImported, err := s.queries.IsOriginalPathImportedEpisode(ctx, nullPath)
 	if err == nil && episodeImported != 0 {
 		return true
 	}
 
+	// Check if this file is a hardlink to an existing library file
+	// This catches cases where original_path was lost (e.g., movie deleted and re-added via library scan)
+	if s.isHardlinkToLibraryFile(ctx, path) {
+		return true
+	}
+
 	return false
+}
+
+// isHardlinkToLibraryFile checks if the given path is a hardlink to any existing library file.
+// This is used to prevent re-importing files when the original_path tracking was lost.
+func (s *Service) isHardlinkToLibraryFile(ctx context.Context, sourcePath string) bool {
+	sourceStat, err := os.Stat(sourcePath)
+	if err != nil {
+		return false
+	}
+
+	// Parse the filename to narrow down which library items to check
+	filename := filepath.Base(sourcePath)
+	parsed := scanner.ParseFilename(filename)
+
+	// Try to find matching movies by title/year
+	if parsed.Title != "" && parsed.Year > 0 {
+		// Search for movies with similar title/year
+		movies, err := s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
+			Title:     "%" + parsed.Title + "%",
+			SortTitle: "%" + parsed.Title + "%",
+			Limit:     10,
+			Offset:    0,
+		})
+		if err == nil {
+			for _, movie := range movies {
+				// Check if any file of this movie is a hardlink to the source
+				files, err := s.queries.ListMovieFiles(ctx, movie.ID)
+				if err != nil {
+					continue
+				}
+				for _, file := range files {
+					if s.isSameFileFromStat(sourceStat, file.Path) {
+						s.logger.Debug().
+							Str("source", sourcePath).
+							Str("libraryFile", file.Path).
+							Msg("Source file is hardlink to existing library file")
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// isSameFileFromStat checks if path2 points to the same file as the given stat info.
+func (s *Service) isSameFileFromStat(stat1 os.FileInfo, path2 string) bool {
+	stat2, err := os.Stat(path2)
+	if err != nil {
+		return false
+	}
+	return os.SameFile(stat1, stat2)
 }
 
 // toNullString converts a string to sql.NullString, treating empty strings as null.
@@ -304,7 +364,7 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 			Str("source", job.SourcePath).
 			Str("dest", destPath).
 			Msg("Source and destination are the same file, skipping import")
-		result.Error = fmt.Errorf("file already exists in library")
+		result.Error = ErrFileAlreadyInLibrary
 		return result, result.Error
 	}
 

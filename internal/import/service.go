@@ -23,16 +23,17 @@ import (
 )
 
 var (
-	ErrNoProbeToolAvailable = errors.New("no media probe tool available")
-	ErrFileNotFound         = errors.New("file not found")
-	ErrFileTooSmall         = errors.New("file too small")
-	ErrInvalidExtension     = errors.New("invalid file extension")
-	ErrSampleFile           = errors.New("file appears to be a sample")
-	ErrNoMatch              = errors.New("could not match file to library")
-	ErrMatchConflict        = errors.New("match conflict between queue and parse")
-	ErrAlreadyImporting     = errors.New("file is already being imported")
-	ErrImportFailed         = errors.New("import failed after retries")
-	ErrPathTooLong          = errors.New("destination path exceeds maximum length")
+	ErrNoProbeToolAvailable  = errors.New("no media probe tool available")
+	ErrFileNotFound          = errors.New("file not found")
+	ErrFileTooSmall          = errors.New("file too small")
+	ErrInvalidExtension      = errors.New("invalid file extension")
+	ErrSampleFile            = errors.New("file appears to be a sample")
+	ErrNoMatch               = errors.New("could not match file to library")
+	ErrMatchConflict         = errors.New("match conflict between queue and parse")
+	ErrAlreadyImporting      = errors.New("file is already being imported")
+	ErrImportFailed          = errors.New("import failed after retries")
+	ErrPathTooLong           = errors.New("destination path exceeds maximum length")
+	ErrFileAlreadyInLibrary  = errors.New("file already exists in library")
 )
 
 // HealthService defines the interface for health tracking.
