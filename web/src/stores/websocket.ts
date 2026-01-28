@@ -13,8 +13,10 @@ import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
 import { useAutoSearchStore, type AutoSearchTaskResult } from './autosearch'
 import { useDevModeStore } from './devmode'
 import { usePortalDownloadsStore } from './portalDownloads'
+import { useLogsStore } from './logs'
 import type { Activity, ProgressEventType } from '@/types/progress'
 import type { QueueItem } from '@/types/queue'
+import type { LogEntry } from '@/types/logs'
 
 export interface WSMessage {
   type: string
@@ -272,6 +274,11 @@ export function useWebSocketHandler() {
       // Portal inbox notification events
       case 'portal:inbox:created':
         queryClient.invalidateQueries({ queryKey: inboxKeys.all })
+        break
+
+      // Log streaming events
+      case 'logs:entry':
+        useLogsStore.getState().addEntry(lastMessage.payload as LogEntry)
         break
     }
   }, [lastMessage, queryClient])

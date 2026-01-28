@@ -15,18 +15,21 @@ import (
 // Logger wraps zerolog for application logging.
 type Logger struct {
 	zerolog.Logger
-	rotator *lumberjack.Logger
+	rotator     *lumberjack.Logger
+	broadcaster *LogBroadcaster
 }
 
 // Config holds logger configuration.
 type Config struct {
-	Level      string
-	Format     string // "console" or "json"
-	Path       string // directory for log files
-	MaxSizeMB  int    // max size in MB before rotation (default: 10)
-	MaxBackups int    // max number of old log files to keep (default: 5)
-	MaxAgeDays int    // max age in days to keep old files (default: 30)
-	Compress   bool   // compress rotated files (default: true)
+	Level           string
+	Format          string // "console" or "json"
+	Path            string // directory for log files
+	MaxSizeMB       int    // max size in MB before rotation (default: 10)
+	MaxBackups      int    // max number of old log files to keep (default: 5)
+	MaxAgeDays      int    // max age in days to keep old files (default: 30)
+	Compress        bool   // compress rotated files (default: true)
+	EnableStreaming bool   // enable log streaming with ring buffer
+	BufferSize      int    // ring buffer size for recent logs (default: 1000)
 }
 
 // IsDevBuild returns true if running via "go run" (development mode).
@@ -64,6 +67,7 @@ func New(cfg Config) *Logger {
 
 	var output io.Writer = consoleOutput
 	var rotator *lumberjack.Logger
+	var logBroadcaster *LogBroadcaster
 
 	if cfg.Path != "" {
 		if err := os.MkdirAll(cfg.Path, 0755); err != nil {
@@ -95,14 +99,28 @@ func New(cfg Config) *Logger {
 				LocalTime:  true,
 			}
 
+			// Wrap rotator with ConsoleWriter for human-readable file output (no colors)
+			fileWriter := zerolog.ConsoleWriter{
+				Out:        rotator,
+				TimeFormat: time.RFC3339,
+				NoColor:    true,
+			}
+
 			// For Windows GUI apps (non-console), only write to file since stdout doesn't exist
 			// Check if stdout is a valid file descriptor
 			if isValidStdout() {
-				output = io.MultiWriter(consoleOutput, rotator)
+				output = io.MultiWriter(consoleOutput, fileWriter)
 			} else {
-				output = rotator
+				output = fileWriter
 			}
 		}
+	}
+
+	// Add broadcaster if streaming is enabled (receives JSON for parsing, then broadcasts structured data)
+	// The hub can be set later via SetBroadcastHub
+	if cfg.EnableStreaming {
+		logBroadcaster = NewLogBroadcaster(nil, cfg.BufferSize)
+		output = io.MultiWriter(output, logBroadcaster)
 	}
 
 	logger := zerolog.New(output).
@@ -111,7 +129,7 @@ func New(cfg Config) *Logger {
 		Timestamp().
 		Logger()
 
-	return &Logger{Logger: logger, rotator: rotator}
+	return &Logger{Logger: logger, rotator: rotator, broadcaster: logBroadcaster}
 }
 
 // Close closes the log file if one is open.
@@ -120,6 +138,30 @@ func (l *Logger) Close() error {
 		return l.rotator.Close()
 	}
 	return nil
+}
+
+// GetRecentLogs returns buffered log entries from the broadcaster.
+func (l *Logger) GetRecentLogs() []LogEntry {
+	if l.broadcaster == nil {
+		return nil
+	}
+	return l.broadcaster.GetRecentLogs()
+}
+
+// GetLogFilePath returns the path to the current log file, if any.
+func (l *Logger) GetLogFilePath() string {
+	if l.rotator == nil {
+		return ""
+	}
+	return l.rotator.Filename
+}
+
+// SetBroadcastHub sets the hub for broadcasting log entries via WebSocket.
+// This should be called after the hub is created to enable real-time streaming.
+func (l *Logger) SetBroadcastHub(hub Broadcaster) {
+	if l.broadcaster != nil {
+		l.broadcaster.SetHub(hub)
+	}
 }
 
 // parseLevel converts string level to zerolog.Level

@@ -24,6 +24,7 @@ import {
   Loader2,
   LogOut,
   ArrowUpCircle,
+  ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -123,6 +124,7 @@ const systemGroup: CollapsibleNavGroup = {
     { title: 'Health', href: '/system/health', icon: HeartPulse },
     { title: 'Scheduled Tasks', href: '/system/tasks', icon: Clock },
     { title: 'Update', href: '/system/update', icon: ArrowUpCircle },
+    { title: 'Logs', href: '/system/logs', icon: ScrollText },
     { title: 'Logout', icon: LogOut, action: 'logout', variant: 'warning' },
     { title: 'Restart', icon: RotateCcw, action: 'restart', variant: 'destructive' },
   ],

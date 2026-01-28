@@ -22,6 +22,7 @@ export { slotsApi } from './slots'
 export { notificationsApi } from './notifications'
 export { prowlarrApi } from './prowlarr'
 export { updateApi } from './update'
+export { logsApi } from './logs'
 
 // Portal APIs
 export * from './portal'

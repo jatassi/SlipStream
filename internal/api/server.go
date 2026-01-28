@@ -139,6 +139,7 @@ type Server struct {
 	searchRouter          *search.Router
 	updateService         *update.Service
 	firewallChecker       *firewall.Checker
+	logsProvider          LogsProvider
 
 	// Portal services
 	portalUsersService         *users.Service
@@ -171,6 +172,18 @@ type Server struct {
 // SetConfiguredPort sets the original configured port before any conflict resolution.
 func (s *Server) SetConfiguredPort(port int) {
 	s.configuredPort = port
+}
+
+// SetLogsProvider sets the provider for log streaming and retrieval.
+// This must be called after NewServer to register the logs routes.
+func (s *Server) SetLogsProvider(provider LogsProvider) {
+	s.logsProvider = provider
+
+	// Register logs routes (called after NewServer, so we register here)
+	logsGroup := s.echo.Group("/api/v1/system/logs")
+	logsGroup.Use(s.adminAuthMiddleware())
+	logsHandlers := NewLogsHandlers(provider)
+	logsHandlers.RegisterRoutes(logsGroup)
 }
 
 // serverDebugLog writes debug messages to the bootstrap log during server initialization.
@@ -753,6 +766,9 @@ func (s *Server) setupRoutes() {
 		TestTVDB:         s.metadataService.TestTVDB,
 	})
 	healthHandlers.RegisterRoutes(protected.Group("/system/health"))
+
+	// Note: System logs routes are registered in SetLogsProvider() since the
+	// logs provider is set after NewServer() returns
 
 	// Movies routes - use new handlers
 	movieHandlers := movies.NewHandlers(s.movieService)

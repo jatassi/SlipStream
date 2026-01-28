@@ -42,6 +42,7 @@ import { RequestSettingsPage } from '@/routes/settings/requests/settings'
 import { ManualImportPage } from '@/routes/import/index'
 import { TasksPage } from '@/routes/system/tasks'
 import { SystemHealthPage } from '@/routes/system/health'
+import { LogsPage } from '@/routes/system/logs'
 
 // Auth Pages
 import { SetupPage } from '@/routes/auth/setup'
@@ -296,6 +297,12 @@ const healthRoute = createRoute({
   component: SystemHealthPage,
 })
 
+const logsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/logs',
+  component: LogsPage,
+})
+
 // Portal auth routes (no layout)
 const portalLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -394,6 +401,7 @@ const routeTree = rootRoute.addChildren([
   manualImportRoute,
   tasksRoute,
   healthRoute,
+  logsRoute,
   updateRoute,
   // Portal auth routes (public)
   portalLoginRoute,

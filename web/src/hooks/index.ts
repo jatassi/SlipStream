@@ -24,6 +24,7 @@ export * from './useSlots'
 export * from './useNotifications'
 export * from './useProwlarr'
 export * from './useUpdate'
+export * from './useLogs'
 
 // Portal hooks
 export * from './portal'

@@ -90,13 +90,15 @@ func main() {
 
 	bootstrapLog("Initializing logger...")
 	log := logger.New(logger.Config{
-		Level:      cfg.Logging.Level,
-		Format:     cfg.Logging.Format,
-		Path:       cfg.Logging.Path,
-		MaxSizeMB:  cfg.Logging.MaxSizeMB,
-		MaxBackups: cfg.Logging.MaxBackups,
-		MaxAgeDays: cfg.Logging.MaxAgeDays,
-		Compress:   cfg.Logging.Compress,
+		Level:           cfg.Logging.Level,
+		Format:          cfg.Logging.Format,
+		Path:            cfg.Logging.Path,
+		MaxSizeMB:       cfg.Logging.MaxSizeMB,
+		MaxBackups:      cfg.Logging.MaxBackups,
+		MaxAgeDays:      cfg.Logging.MaxAgeDays,
+		Compress:        cfg.Logging.Compress,
+		EnableStreaming: true,
+		BufferSize:      1000,
 	})
 	defer log.Close()
 	bootstrapLog("Logger initialized")
@@ -163,6 +165,9 @@ func main() {
 	hub := websocket.NewHub()
 	go hub.Run()
 
+	// Enable log streaming via WebSocket now that hub is available
+	log.SetBroadcastHub(hub)
+
 	restartChan := make(chan struct{}, 1)
 	quitChan := make(chan struct{}, 1)
 	var shouldRestart bool
@@ -170,6 +175,7 @@ func main() {
 	bootstrapLog("Creating API server...")
 	server := api.NewServer(dbManager, hub, cfg, log.Logger, restartChan)
 	server.SetConfiguredPort(configuredPort)
+	server.SetLogsProvider(log)
 
 	if err := server.EnsureDefaults(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure defaults")
