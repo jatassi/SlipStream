@@ -215,17 +215,9 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 	result.Match = match
 
-	// Step 3: Extract MediaInfo
-	var mediaInfo *mediainfo.MediaInfo
-	if s.mediainfo != nil && s.mediainfo.IsAvailable() {
-		mediaInfo, err = s.mediainfo.Probe(ctx, job.SourcePath)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("path", job.SourcePath).Msg("MediaInfo probe failed, using fallback")
-		}
-	}
-	if mediaInfo == nil {
-		mediaInfo = &mediainfo.MediaInfo{}
-	}
+	// Step 3: Use empty MediaInfo initially - probe will happen after hardlink
+	// This allows the import to complete quickly using filename-parsed data
+	mediaInfo := &mediainfo.MediaInfo{}
 	result.MediaInfo = mediaInfo
 
 	// Step 4: Compute destination path
@@ -275,6 +267,33 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 		return result, err
 	}
 	result.LinkMode = linkMode
+
+	// Step 6.5: Queue async MediaInfo probe (non-blocking)
+	// Import completes immediately; MediaInfo updates DB in background
+	if s.mediainfo != nil && s.mediainfo.IsAvailable() {
+		go func(path string, m *LibraryMatch) {
+			probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			probedInfo, probeErr := s.mediainfo.Probe(probeCtx, path)
+			if probeErr != nil {
+				s.logger.Warn().Err(probeErr).Str("path", path).Msg("Background MediaInfo probe failed")
+				return
+			}
+			if probedInfo == nil {
+				return
+			}
+			// Update the database record with MediaInfo
+			if m.MediaType == "movie" && m.MovieID != nil {
+				if err := s.movies.UpdateFileMediaInfo(probeCtx, *m.MovieID, probedInfo); err != nil {
+					s.logger.Warn().Err(err).Int64("movieId", *m.MovieID).Msg("Failed to update movie file MediaInfo")
+				}
+			} else if m.MediaType == "episode" && m.EpisodeID != nil {
+				if err := s.tv.UpdateEpisodeFileMediaInfo(probeCtx, *m.EpisodeID, probedInfo); err != nil {
+					s.logger.Warn().Err(err).Int64("episodeId", *m.EpisodeID).Msg("Failed to update episode file MediaInfo")
+				}
+			}
+		}(destPath, match)
+	}
 
 	// Step 7: Update library records
 	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, mediaInfo)
@@ -842,10 +861,9 @@ func (s *Service) processMockImport(ctx context.Context, mapping *DownloadMappin
 		}
 	}
 
-	// Broadcast queue update so UI refreshes
-	if s.hub != nil {
-		s.hub.Broadcast("queue:updated", nil)
-	}
+	// Note: No need to broadcast queue:updated here - the QueueBroadcaster
+	// sends queue:state every 2 seconds which will update the UI.
+	// Broadcasting here caused a refetch loop via getQueue triggering more imports.
 
 	return nil
 }

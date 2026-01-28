@@ -522,6 +522,13 @@ SELECT format_type FROM series WHERE id = ?;
 -- name: UpdateEpisodeFilePath :exec
 UPDATE episode_files SET path = ? WHERE id = ?;
 
+-- name: UpdateEpisodeFileMediaInfo :exec
+UPDATE episode_files SET
+    video_codec = ?,
+    audio_codec = ?,
+    resolution = ?
+WHERE episode_id = ?;
+
 -- name: CountMissingEpisodesBySeasons :one
 -- Counts missing episodes (released, monitored, no file) in the specified seasons
 SELECT COUNT(*) FROM episodes e

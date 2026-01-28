@@ -95,13 +95,16 @@ func (s *Service) LinkOrCopy(source, dest string) (LinkMode, error) {
 	if err == nil {
 		return LinkModeHardlink, nil
 	}
-	s.logger.Debug().Err(err).Msg("Hardlink failed, trying symlink")
 
-	// Try symlink
-	if err := s.CreateSymlink(source, dest); err == nil {
-		return LinkModeSymlink, nil
-	} else {
+	// If cross-device, try symlink
+	if errors.Is(err, ErrCrossDevice) {
+		s.logger.Debug().Msg("Hardlink failed (cross-device), trying symlink")
+		if err := s.CreateSymlink(source, dest); err == nil {
+			return LinkModeSymlink, nil
+		}
 		s.logger.Debug().Err(err).Msg("Symlink failed, falling back to copy")
+	} else {
+		s.logger.Debug().Err(err).Msg("Hardlink failed, falling back to copy")
 	}
 
 	// Fall back to copy

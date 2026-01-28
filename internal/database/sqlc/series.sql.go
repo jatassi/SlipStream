@@ -2171,6 +2171,31 @@ func (q *Queries) UpdateEpisodeFileImportInfo(ctx context.Context, arg UpdateEpi
 	return &i, err
 }
 
+const updateEpisodeFileMediaInfo = `-- name: UpdateEpisodeFileMediaInfo :exec
+UPDATE episode_files SET
+    video_codec = ?,
+    audio_codec = ?,
+    resolution = ?
+WHERE episode_id = ?
+`
+
+type UpdateEpisodeFileMediaInfoParams struct {
+	VideoCodec sql.NullString `json:"video_codec"`
+	AudioCodec sql.NullString `json:"audio_codec"`
+	Resolution sql.NullString `json:"resolution"`
+	EpisodeID  int64          `json:"episode_id"`
+}
+
+func (q *Queries) UpdateEpisodeFileMediaInfo(ctx context.Context, arg UpdateEpisodeFileMediaInfoParams) error {
+	_, err := q.db.ExecContext(ctx, updateEpisodeFileMediaInfo,
+		arg.VideoCodec,
+		arg.AudioCodec,
+		arg.Resolution,
+		arg.EpisodeID,
+	)
+	return err
+}
+
 const updateEpisodeFilePath = `-- name: UpdateEpisodeFilePath :exec
 UPDATE episode_files SET path = ? WHERE id = ?
 `

@@ -71,7 +71,8 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(curl:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(lsof:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -598,6 +599,16 @@ func (s *Service) UpdateMovieFilePath(ctx context.Context, fileID int64, newPath
 	return s.queries.UpdateMovieFilePath(ctx, sqlc.UpdateMovieFilePathParams{
 		Path: newPath,
 		ID:   fileID,
+	})
+}
+
+// UpdateFileMediaInfo updates the MediaInfo fields of a movie's primary file.
+func (s *Service) UpdateFileMediaInfo(ctx context.Context, movieID int64, info *mediainfo.MediaInfo) error {
+	return s.queries.UpdateMovieFileMediaInfo(ctx, sqlc.UpdateMovieFileMediaInfoParams{
+		VideoCodec: sql.NullString{String: info.VideoCodec, Valid: info.VideoCodec != ""},
+		AudioCodec: sql.NullString{String: info.AudioCodec, Valid: info.AudioCodec != ""},
+		Resolution: sql.NullString{String: info.VideoResolution, Valid: info.VideoResolution != ""},
+		MovieID:    movieID,
 	})
 }
 

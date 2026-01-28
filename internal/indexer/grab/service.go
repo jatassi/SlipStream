@@ -294,12 +294,10 @@ func (s *Service) broadcastGrabCompleted(release *types.ReleaseInfo, result *Gra
 	s.broadcaster.Broadcast(indexer.EventGrabCompleted, payload)
 }
 
-// broadcastQueueUpdated notifies frontends that the queue has changed.
+// broadcastQueueUpdated triggers an immediate queue state broadcast.
+// The QueueBroadcaster will send queue:state which directly updates
+// frontend state without triggering an API refetch.
 func (s *Service) broadcastQueueUpdated() {
-	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("queue:updated", nil)
-	}
-	// Trigger immediate queue broadcast and switch to fast polling
 	if s.queueTrigger != nil {
 		s.queueTrigger.Trigger()
 	}

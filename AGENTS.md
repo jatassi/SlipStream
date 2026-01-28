@@ -20,6 +20,7 @@ Various documents detailing specific aspects of the application may be available
 - Deviation from the plan or the spec requires pausing to ask the user's approval. If approved, update the plan/spec before making code changes
 - When a tool use of a frequently used operation fails, think carefully about the root cause, find the issue, and improve the common commands sections of AGENTS.md and CLAUDE.md to avoid the failure in the future
 - When completing a major unit of work, check for and remove legacy codepaths that have been replaced by your changes
+- **Do NOT commit, tag, or release unless explicitly instructed by the user**
 
 ## Common Commands
 

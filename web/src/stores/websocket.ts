@@ -179,11 +179,9 @@ export function useWebSocketHandler() {
         queryClient.refetchQueries({ queryKey: queueKeys.all })
         break
       case 'queue:state':
-        // Real-time queue state pushed from backend
+        // Real-time queue state pushed from backend - update stores directly (no API call)
         usePortalDownloadsStore.getState().setQueue(lastMessage.payload as QueueItem[])
-        // Update the main queue cache and invalidate stats
         queryClient.setQueryData(queueKeys.list(), lastMessage.payload as QueueItem[])
-        queryClient.invalidateQueries({ queryKey: queueKeys.stats() })
         break
       case 'download:completed':
         queryClient.invalidateQueries({ queryKey: queueKeys.all })

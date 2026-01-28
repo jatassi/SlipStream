@@ -204,3 +204,10 @@ SELECT * FROM movie_files WHERE movie_id = ? ORDER BY imported_at DESC;
 
 -- name: UpdateMovieFilePath :exec
 UPDATE movie_files SET path = ? WHERE id = ?;
+
+-- name: UpdateMovieFileMediaInfo :exec
+UPDATE movie_files SET
+    video_codec = ?,
+    audio_codec = ?,
+    resolution = ?
+WHERE movie_id = ?;

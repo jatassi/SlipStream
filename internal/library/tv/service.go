@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -1033,6 +1034,16 @@ func (s *Service) UpdateEpisodeFilePath(ctx context.Context, fileID int64, newPa
 	return s.queries.UpdateEpisodeFilePath(ctx, sqlc.UpdateEpisodeFilePathParams{
 		Path: newPath,
 		ID:   fileID,
+	})
+}
+
+// UpdateEpisodeFileMediaInfo updates the MediaInfo fields of an episode file.
+func (s *Service) UpdateEpisodeFileMediaInfo(ctx context.Context, episodeID int64, info *mediainfo.MediaInfo) error {
+	return s.queries.UpdateEpisodeFileMediaInfo(ctx, sqlc.UpdateEpisodeFileMediaInfoParams{
+		VideoCodec: sql.NullString{String: info.VideoCodec, Valid: info.VideoCodec != ""},
+		AudioCodec: sql.NullString{String: info.AudioCodec, Valid: info.AudioCodec != ""},
+		Resolution: sql.NullString{String: info.VideoResolution, Valid: info.VideoResolution != ""},
+		EpisodeID:  episodeID,
 	})
 }
 
