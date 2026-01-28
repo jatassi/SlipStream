@@ -129,12 +129,12 @@ function DownloadRow({ item }: { item: QueueItem }) {
       </TableCell>
 
       {/* Time Left */}
-      <TableCell className="text-muted-foreground">
+      <TableCell className="text-muted-foreground w-[100px]">
         {item.status === 'downloading' ? formatEta(item.eta) : '--'}
       </TableCell>
 
       {/* Speed */}
-      <TableCell className="text-muted-foreground">
+      <TableCell className="text-muted-foreground w-[100px]">
         {item.status === 'downloading' ? formatSpeed(item.downloadSpeed) : '--'}
       </TableCell>
 
@@ -212,8 +212,8 @@ function DownloadsTable({ items }: { items: QueueItem[] }) {
           <TableHead>Quality</TableHead>
           <TableHead>Attributes</TableHead>
           <TableHead>Progress</TableHead>
-          <TableHead>Time Left</TableHead>
-          <TableHead>Speed</TableHead>
+          <TableHead className="w-[100px]">Time Left</TableHead>
+          <TableHead className="w-[100px]">Speed</TableHead>
           <TableHead className="w-[100px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
