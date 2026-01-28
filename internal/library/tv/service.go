@@ -434,6 +434,11 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 		return err
 	}
 
+	// Clean up download mappings for this series to prevent seeding torrents from re-triggering imports
+	if err := s.queries.DeleteDownloadMappingsBySeriesID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete download mappings for series")
+	}
+
 	// Delete all episode files, episodes, seasons
 	// TODO: If deleteFiles is true, delete actual files from disk
 

@@ -411,15 +411,42 @@ func (s *Service) matchOrCreateMovie(
 		return movie, created, nil, err
 	}
 
-	// Find best match - prefer exact year match
+	// Find best match - prefer exact title match with year match
 	var bestMatch *metadata.MovieResult
 	if len(results) > 0 {
+		parsedTitleLower := strings.ToLower(parsed.Title)
+
+		// First pass: look for exact title match with year match
 		for i := range results {
-			if results[i].Year == parsed.Year {
+			if results[i].Year == parsed.Year && strings.ToLower(results[i].Title) == parsedTitleLower {
 				bestMatch = &results[i]
+				s.logger.Debug().Str("title", results[i].Title).Int("year", results[i].Year).Msg("Found exact title and year match")
 				break
 			}
 		}
+
+		// Second pass: look for title that starts with the parsed title (handles "Spirited" vs "Spirited Away")
+		if bestMatch == nil {
+			for i := range results {
+				if results[i].Year == parsed.Year && strings.HasPrefix(strings.ToLower(results[i].Title), parsedTitleLower) {
+					bestMatch = &results[i]
+					s.logger.Debug().Str("title", results[i].Title).Int("year", results[i].Year).Msg("Found title prefix and year match")
+					break
+				}
+			}
+		}
+
+		// Third pass: any year match (original logic)
+		if bestMatch == nil {
+			for i := range results {
+				if results[i].Year == parsed.Year {
+					bestMatch = &results[i]
+					break
+				}
+			}
+		}
+
+		// Fallback: first result
 		if bestMatch == nil {
 			bestMatch = &results[0]
 		}
@@ -665,6 +692,12 @@ func (s *Service) createSeriesFromParsed(
 					Int("seasons", len(seasonMeta)).
 					Int("episodes", totalEpisodes).
 					Msg("Updated seasons and episodes from metadata during scan")
+
+				// Re-fetch series to get updated availability status
+				updatedSeries, err := s.tv.GetSeries(ctx, series.ID)
+				if err == nil {
+					series = updatedSeries
+				}
 			}
 		}
 	}
@@ -1084,15 +1117,42 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 			Msg("[REFRESH] Search result")
 	}
 
-	// Find best match
+	// Find best match - prefer exact title match with year match
 	var bestMatch *metadata.MovieResult
+	movieTitleLower := strings.ToLower(movie.Title)
+
+	// First pass: exact title match with year match
 	for i := range results {
-		if results[i].Year == movie.Year {
+		if results[i].Year == movie.Year && strings.ToLower(results[i].Title) == movieTitleLower {
 			bestMatch = &results[i]
-			s.logger.Debug().Int("index", i).Msg("[REFRESH] Found year match")
+			s.logger.Debug().Int("index", i).Msg("[REFRESH] Found exact title and year match")
 			break
 		}
 	}
+
+	// Second pass: title prefix match with year match
+	if bestMatch == nil {
+		for i := range results {
+			if results[i].Year == movie.Year && strings.HasPrefix(strings.ToLower(results[i].Title), movieTitleLower) {
+				bestMatch = &results[i]
+				s.logger.Debug().Int("index", i).Msg("[REFRESH] Found title prefix and year match")
+				break
+			}
+		}
+	}
+
+	// Third pass: any year match
+	if bestMatch == nil {
+		for i := range results {
+			if results[i].Year == movie.Year {
+				bestMatch = &results[i]
+				s.logger.Debug().Int("index", i).Msg("[REFRESH] Found year match")
+				break
+			}
+		}
+	}
+
+	// Fallback: first result
 	if bestMatch == nil {
 		bestMatch = &results[0]
 		s.logger.Debug().Msg("[REFRESH] No year match, using first result")
@@ -1382,14 +1442,39 @@ func (s *Service) matchUnmatchedMovies(
 			continue
 		}
 
-		// Find best match - prefer exact year match
+		// Find best match - prefer exact title match with year match
 		var bestMatch *metadata.MovieResult
+		movieTitleLower := strings.ToLower(movie.Title)
+
+		// First pass: exact title match with year match
 		for i := range results {
-			if results[i].Year == movie.Year {
+			if results[i].Year == movie.Year && strings.ToLower(results[i].Title) == movieTitleLower {
 				bestMatch = &results[i]
 				break
 			}
 		}
+
+		// Second pass: title prefix match with year match
+		if bestMatch == nil {
+			for i := range results {
+				if results[i].Year == movie.Year && strings.HasPrefix(strings.ToLower(results[i].Title), movieTitleLower) {
+					bestMatch = &results[i]
+					break
+				}
+			}
+		}
+
+		// Third pass: any year match
+		if bestMatch == nil {
+			for i := range results {
+				if results[i].Year == movie.Year {
+					bestMatch = &results[i]
+					break
+				}
+			}
+		}
+
+		// Fallback: first result
 		if bestMatch == nil {
 			bestMatch = &results[0]
 		}

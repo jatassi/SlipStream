@@ -48,6 +48,29 @@ UPDATE movies SET
 WHERE id = ?
 RETURNING *;
 
+-- name: UpdateMovieWithAvailability :one
+UPDATE movies SET
+    title = ?,
+    sort_title = ?,
+    year = ?,
+    tmdb_id = ?,
+    imdb_id = ?,
+    overview = ?,
+    runtime = ?,
+    path = ?,
+    root_folder_id = ?,
+    quality_profile_id = ?,
+    monitored = ?,
+    status = ?,
+    release_date = ?,
+    digital_release_date = ?,
+    physical_release_date = ?,
+    released = ?,
+    availability_status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;
+
 -- name: DeleteMovie :exec
 DELETE FROM movies WHERE id = ?;
 

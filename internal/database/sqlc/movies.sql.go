@@ -1529,6 +1529,98 @@ func (q *Queries) UpdateMovieStatus(ctx context.Context, arg UpdateMovieStatusPa
 	return err
 }
 
+const updateMovieWithAvailability = `-- name: UpdateMovieWithAvailability :one
+UPDATE movies SET
+    title = ?,
+    sort_title = ?,
+    year = ?,
+    tmdb_id = ?,
+    imdb_id = ?,
+    overview = ?,
+    runtime = ?,
+    path = ?,
+    root_folder_id = ?,
+    quality_profile_id = ?,
+    monitored = ?,
+    status = ?,
+    release_date = ?,
+    digital_release_date = ?,
+    physical_release_date = ?,
+    released = ?,
+    availability_status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status
+`
+
+type UpdateMovieWithAvailabilityParams struct {
+	Title               string         `json:"title"`
+	SortTitle           string         `json:"sort_title"`
+	Year                sql.NullInt64  `json:"year"`
+	TmdbID              sql.NullInt64  `json:"tmdb_id"`
+	ImdbID              sql.NullString `json:"imdb_id"`
+	Overview            sql.NullString `json:"overview"`
+	Runtime             sql.NullInt64  `json:"runtime"`
+	Path                sql.NullString `json:"path"`
+	RootFolderID        sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID    sql.NullInt64  `json:"quality_profile_id"`
+	Monitored           int64          `json:"monitored"`
+	Status              string         `json:"status"`
+	ReleaseDate         sql.NullTime   `json:"release_date"`
+	DigitalReleaseDate  sql.NullTime   `json:"digital_release_date"`
+	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
+	Released            int64          `json:"released"`
+	AvailabilityStatus  string         `json:"availability_status"`
+	ID                  int64          `json:"id"`
+}
+
+func (q *Queries) UpdateMovieWithAvailability(ctx context.Context, arg UpdateMovieWithAvailabilityParams) (*Movie, error) {
+	row := q.db.QueryRowContext(ctx, updateMovieWithAvailability,
+		arg.Title,
+		arg.SortTitle,
+		arg.Year,
+		arg.TmdbID,
+		arg.ImdbID,
+		arg.Overview,
+		arg.Runtime,
+		arg.Path,
+		arg.RootFolderID,
+		arg.QualityProfileID,
+		arg.Monitored,
+		arg.Status,
+		arg.ReleaseDate,
+		arg.DigitalReleaseDate,
+		arg.PhysicalReleaseDate,
+		arg.Released,
+		arg.AvailabilityStatus,
+		arg.ID,
+	)
+	var i Movie
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.SortTitle,
+		&i.Year,
+		&i.TmdbID,
+		&i.ImdbID,
+		&i.Overview,
+		&i.Runtime,
+		&i.Path,
+		&i.RootFolderID,
+		&i.QualityProfileID,
+		&i.Monitored,
+		&i.Status,
+		&i.AddedAt,
+		&i.UpdatedAt,
+		&i.ReleaseDate,
+		&i.DigitalReleaseDate,
+		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
+	)
+	return &i, err
+}
+
 const updateMoviesReleasedByDate = `-- name: UpdateMoviesReleasedByDate :execresult
 UPDATE movies SET released = 1, updated_at = CURRENT_TIMESTAMP
 WHERE released = 0 AND release_date IS NOT NULL AND release_date <= date('now')

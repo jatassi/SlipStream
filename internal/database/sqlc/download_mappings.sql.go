@@ -100,6 +100,26 @@ func (q *Queries) DeleteDownloadMapping(ctx context.Context, arg DeleteDownloadM
 	return err
 }
 
+const deleteDownloadMappingsByMovieID = `-- name: DeleteDownloadMappingsByMovieID :exec
+DELETE FROM download_mappings WHERE movie_id = ?
+`
+
+// Clean up download mappings when a movie is deleted
+func (q *Queries) DeleteDownloadMappingsByMovieID(ctx context.Context, movieID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteDownloadMappingsByMovieID, movieID)
+	return err
+}
+
+const deleteDownloadMappingsBySeriesID = `-- name: DeleteDownloadMappingsBySeriesID :exec
+DELETE FROM download_mappings WHERE series_id = ?
+`
+
+// Clean up download mappings when a series is deleted
+func (q *Queries) DeleteDownloadMappingsBySeriesID(ctx context.Context, seriesID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteDownloadMappingsBySeriesID, seriesID)
+	return err
+}
+
 const deleteOldDownloadMappings = `-- name: DeleteOldDownloadMappings :exec
 DELETE FROM download_mappings
 WHERE created_at < datetime('now', '-7 days')

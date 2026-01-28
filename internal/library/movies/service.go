@@ -381,13 +381,15 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		physicalReleaseDate = sql.NullTime{Time: *current.PhysicalReleaseDate, Valid: true}
 	}
 
-	// Calculate released status based on release date
+	// Calculate released status and availability_status based on release date
 	released := int64(0)
+	availabilityStatus := "Unreleased"
 	if releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
 		released = 1
+		availabilityStatus = "Available"
 	}
 
-	row, err := s.queries.UpdateMovie(ctx, sqlc.UpdateMovieParams{
+	row, err := s.queries.UpdateMovieWithAvailability(ctx, sqlc.UpdateMovieWithAvailabilityParams{
 		ID:                  id,
 		Title:               title,
 		SortTitle:           sortTitle,
@@ -405,6 +407,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		DigitalReleaseDate:  sql.NullTime{}, // Deprecated
 		PhysicalReleaseDate: physicalReleaseDate,
 		Released:            released,
+		AvailabilityStatus:  availabilityStatus,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
@@ -432,6 +435,11 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	movie, err := s.Get(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	// Clean up download mappings for this movie to prevent seeding torrents from re-triggering imports
+	if err := s.queries.DeleteDownloadMappingsByMovieID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete download mappings for movie")
 	}
 
 	// Delete movie files from database

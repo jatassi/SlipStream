@@ -78,3 +78,11 @@ WHERE client_id = ? AND download_id = ?;
 SELECT * FROM download_mappings
 WHERE target_slot_id = ?
 ORDER BY created_at DESC;
+
+-- name: DeleteDownloadMappingsByMovieID :exec
+-- Clean up download mappings when a movie is deleted
+DELETE FROM download_mappings WHERE movie_id = ?;
+
+-- name: DeleteDownloadMappingsBySeriesID :exec
+-- Clean up download mappings when a series is deleted
+DELETE FROM download_mappings WHERE series_id = ?;

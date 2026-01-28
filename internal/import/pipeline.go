@@ -201,6 +201,19 @@ func toNullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: true}
 }
 
+// isSameFile checks if two paths point to the same file (e.g., hardlinks).
+// This prevents re-importing files that are already in the library.
+func (s *Service) isSameFile(path1, path2 string) bool {
+	stat1, err1 := os.Stat(path1)
+	stat2, err2 := os.Stat(path2)
+
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	return os.SameFile(stat1, stat2)
+}
+
 // processImport handles the actual import of a single file.
 func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResult, error) {
 	result := &ImportResult{
@@ -266,6 +279,11 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 	result.Match = match
 
+	// Step 2b: Check for existing file to detect upgrade scenario
+	if err := s.checkForExistingFile(ctx, match); err != nil {
+		s.logger.Debug().Err(err).Msg("No existing file found")
+	}
+
 	// Step 3: Use empty MediaInfo initially - probe will happen after hardlink
 	// This allows the import to complete quickly using filename-parsed data
 	mediaInfo := &mediainfo.MediaInfo{}
@@ -278,6 +296,17 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 		return result, err
 	}
 	result.DestinationPath = destPath
+
+	// Step 4a: Check if source and destination are the same file (hardlink)
+	// This prevents re-importing files that are already in the library
+	if s.isSameFile(job.SourcePath, destPath) {
+		s.logger.Debug().
+			Str("source", job.SourcePath).
+			Str("dest", destPath).
+			Msg("Source and destination are the same file, skipping import")
+		result.Error = fmt.Errorf("file already exists in library")
+		return result, result.Error
+	}
 
 	// Step 4.5: Slot evaluation for multi-version support (Req 5.1.1-5.2.3)
 	var targetSlotID *int64
