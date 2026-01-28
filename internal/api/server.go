@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -169,14 +171,49 @@ func (s *Server) SetConfiguredPort(port int) {
 	s.configuredPort = port
 }
 
+// serverDebugLog writes debug messages to the bootstrap log during server initialization.
+func serverDebugLog(msg string) {
+	var logDir string
+	switch runtime.GOOS {
+	case "windows":
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			logDir = filepath.Join(localAppData, "SlipStream", "logs")
+		}
+	case "darwin":
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, "Library", "Logs", "SlipStream")
+		}
+	default:
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, ".config", "slipstream", "logs")
+		}
+	}
+	if logDir == "" {
+		logDir = "./logs"
+	}
+
+	logFile := filepath.Join(logDir, "bootstrap.log")
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Fprintf(f, "[%s] [NewServer] %s\n", timestamp, msg)
+}
+
 // NewServer creates a new API server instance.
 func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger, restartChan chan<- struct{}) *Server {
+	serverDebugLog("Creating Echo instance...")
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	serverDebugLog("Echo instance created")
 
 	db := dbManager.Conn()
 
+	serverDebugLog("Creating Server struct...")
 	s := &Server{
 		echo:        e,
 		dbManager:   dbManager,
@@ -186,11 +223,14 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		startupDB:   db,
 		restartChan: restartChan,
 	}
+	serverDebugLog("Server struct created")
 
 	// Store real metadata clients for later switching
+	serverDebugLog("Creating metadata clients...")
 	s.realTMDBClient = tmdb.NewClient(cfg.Metadata.TMDB, logger)
 	s.realTVDBClient = tvdb.NewClient(cfg.Metadata.TVDB, logger)
 	s.realOMDBClient = omdb.NewClient(cfg.Metadata.OMDB, logger)
+	serverDebugLog("Metadata clients created")
 
 	// Register WebSocket handler for dev mode toggle
 	if hub != nil {
@@ -228,15 +268,18 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	}
 
 	// Initialize health service first (no dependencies)
+	serverDebugLog("Initializing health service...")
 	s.healthService = health.NewService(logger)
 	s.healthService.SetBroadcaster(hub)
 
 	// Initialize services
+	serverDebugLog("Initializing core services (scanner, movie, tv, quality, slots)...")
 	s.scannerService = scanner.NewService(logger)
 	s.movieService = movies.NewService(db, hub, logger)
 	s.tvService = tv.NewService(db, hub, logger)
 	s.qualityService = quality.NewService(db, logger)
 	s.slotsService = slots.NewService(db, s.qualityService, logger)
+	serverDebugLog("Core services initialized")
 
 	// Wire up slot-related file deletion handling (Req 12.1.1, 12.1.2)
 	s.movieService.SetFileDeleteHandler(s.slotsService)
@@ -280,14 +323,19 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Initialize Cardigann manager for indexer definitions
 	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
+	serverDebugLog("Initializing Cardigann manager...")
 	cardigannManager, err := cardigann.NewManager(cardigann.DefaultManagerConfig(), logger)
 	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize Cardigann manager: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize Cardigann manager")
 	}
+	serverDebugLog("Cardigann manager initialized")
 
 	// Initialize indexer service
+	serverDebugLog("Initializing indexer service...")
 	s.indexerService = indexer.NewService(db, cardigannManager, logger)
 	s.indexerService.SetHealthService(s.healthService)
+	serverDebugLog("Indexer service initialized")
 
 	// Initialize indexer status service
 	s.statusService = status.NewService(db, logger)
@@ -395,6 +443,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.importService.SetNotificationDispatcher(&importNotificationAdapter{s.notificationService})
 
 	// Initialize portal services
+	serverDebugLog("Initializing portal services...")
 	queries := sqlc.New(db)
 	s.portalUsersService = users.NewService(queries, logger)
 	s.portalInvitationsService = invitations.NewService(queries, logger)
@@ -413,6 +462,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		s.portalRequestsService,
 		logger,
 	)
+	serverDebugLog("Portal services initialized")
 
 	// Initialize status tracker for portal request status updates
 	s.portalStatusTracker = requests.NewStatusTracker(queries, s.portalRequestsService, s.portalWatchersService, logger)
@@ -423,23 +473,29 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.portalLibraryChecker = requests.NewLibraryChecker(queries, logger)
 	s.importService.SetStatusTracker(s.portalStatusTracker)
 
+	serverDebugLog("Initializing portal auth service...")
 	authSvc, err := auth.NewService(queries, cfg.Portal.JWTSecret)
 	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize portal auth service: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize portal auth service")
 	}
 	s.portalAuthService = authSvc
 	s.portalAuthMiddleware = portalmw.NewAuthMiddleware(authSvc)
 	s.portalAuthMiddleware.SetEnabledChecker(&portalEnabledChecker{queries: queries})
+	serverDebugLog("Portal auth service initialized")
 
+	serverDebugLog("Initializing passkey service...")
 	passkeySvc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
 		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
 		RPID:          cfg.Portal.WebAuthn.RPID,
 		RPOrigins:     cfg.Portal.WebAuthn.RPOrigins,
 	})
 	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize passkey service: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize passkey service")
 	}
 	s.portalPasskeyService = passkeySvc
+	serverDebugLog("Passkey service initialized")
 
 	s.portalSearchLimiter = portalratelimit.NewSearchLimiter(func() int64 {
 		if setting, err := queries.GetSetting(context.Background(), admin.SettingSearchRateLimit); err == nil && setting.Value != "" {
@@ -469,10 +525,13 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.scheduledSearcher = autosearch.NewScheduledSearcher(s.autosearchService, &cfg.AutoSearch, logger)
 
 	// Initialize scheduler
+	serverDebugLog("Initializing scheduler...")
 	sched, err := scheduler.New(logger)
 	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize scheduler: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize scheduler")
 	} else {
+		serverDebugLog("Scheduler initialized, registering tasks...")
 		s.scheduler = sched
 		// Register availability refresh task
 		if err := tasks.RegisterAvailabilityTask(s.scheduler, s.availabilityService); err != nil {
@@ -482,6 +541,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		if err := tasks.RegisterAutoSearchTask(s.scheduler, s.scheduledSearcher, &cfg.AutoSearch); err != nil {
 			logger.Error().Err(err).Msg("Failed to register autosearch task")
 		}
+		serverDebugLog("Scheduler tasks registered")
 	}
 
 	// Initialize progress manager for tracking activities
@@ -550,8 +610,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		}
 	}
 
+	serverDebugLog("Setting up middleware...")
 	s.setupMiddleware()
+	serverDebugLog("Setting up routes...")
 	s.setupRoutes()
+	serverDebugLog("NewServer complete")
 
 	return s
 }
