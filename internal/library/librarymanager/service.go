@@ -620,6 +620,20 @@ func (s *Service) matchOrCreateSeries(
 				return existing, false, nil, nil
 			}
 		}
+
+		// Fetch full series details only if status is missing (TMDB search doesn't return status)
+		// TVDB search returns status, so this is only needed for TMDB fallback results
+		if bestMatch.Status == "" {
+			if bestMatch.TmdbID > 0 {
+				if fullDetails, err := s.metadata.GetSeriesByTMDB(ctx, bestMatch.TmdbID); err == nil {
+					bestMatch = fullDetails
+				}
+			} else if bestMatch.TvdbID > 0 {
+				if fullDetails, err := s.metadata.GetSeriesByTVDB(ctx, bestMatch.TvdbID); err == nil {
+					bestMatch = fullDetails
+				}
+			}
+		}
 	}
 
 	series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)

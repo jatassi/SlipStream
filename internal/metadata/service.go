@@ -249,33 +249,33 @@ func (s *Service) SearchSeries(ctx context.Context, query string) ([]SeriesResul
 		return results, nil
 	}
 
-	// Try TMDB first (more comprehensive data)
+	// Try TVDB first (search returns status, and episodes endpoint is more efficient)
 	var results []SeriesResult
 	var err error
 
-	if s.tmdb.IsConfigured() {
-		tmdbResults, tmdbErr := s.tmdb.SearchSeries(ctx, query)
-		if tmdbErr != nil {
-			s.logger.Warn().Err(tmdbErr).Str("query", query).Msg("TMDB series search failed, trying TVDB")
-			err = tmdbErr
+	if s.tvdb.IsConfigured() {
+		tvdbResults, tvdbErr := s.tvdb.SearchSeries(ctx, query)
+		if tvdbErr != nil {
+			s.logger.Warn().Err(tvdbErr).Str("query", query).Msg("TVDB series search failed, trying TMDB")
+			err = tvdbErr
 		} else {
-			results = make([]SeriesResult, len(tmdbResults))
-			for i, r := range tmdbResults {
-				results[i] = tmdbSeriesToResult(r)
+			results = make([]SeriesResult, len(tvdbResults))
+			for i, r := range tvdbResults {
+				results[i] = tvdbSeriesToResult(r)
 			}
 		}
 	}
 
-	// Fall back to TVDB if TMDB failed or not configured
-	if len(results) == 0 && s.tvdb.IsConfigured() {
-		tvdbResults, tvdbErr := s.tvdb.SearchSeries(ctx, query)
-		if tvdbErr != nil {
-			s.logger.Error().Err(tvdbErr).Str("query", query).Msg("TVDB series search failed")
-			return nil, fmt.Errorf("series search failed: %w", tvdbErr)
+	// Fall back to TMDB if TVDB failed or not configured
+	if len(results) == 0 && s.tmdb.IsConfigured() {
+		tmdbResults, tmdbErr := s.tmdb.SearchSeries(ctx, query)
+		if tmdbErr != nil {
+			s.logger.Error().Err(tmdbErr).Str("query", query).Msg("TMDB series search failed")
+			return nil, fmt.Errorf("series search failed: %w", tmdbErr)
 		}
-		results = make([]SeriesResult, len(tvdbResults))
-		for i, r := range tvdbResults {
-			results[i] = tvdbSeriesToResult(r)
+		results = make([]SeriesResult, len(tmdbResults))
+		for i, r := range tmdbResults {
+			results[i] = tmdbSeriesToResult(r)
 		}
 		err = nil
 	}
@@ -513,33 +513,33 @@ func (s *Service) GetSeriesSeasons(ctx context.Context, tmdbID, tvdbID int) ([]S
 	var results []SeasonResult
 	var err error
 
-	// Try TMDB first (more comprehensive data)
-	if tmdbID > 0 && s.tmdb.IsConfigured() {
-		tmdbResults, tmdbErr := s.tmdb.GetAllSeasons(ctx, tmdbID)
-		if tmdbErr != nil {
-			s.logger.Warn().Err(tmdbErr).Int("tmdbId", tmdbID).Msg("TMDB get seasons failed, trying TVDB")
-			err = tmdbErr
+	// Try TVDB first (single API call for all episodes)
+	if tvdbID > 0 && s.tvdb.IsConfigured() {
+		tvdbResults, tvdbErr := s.tvdb.GetSeriesEpisodes(ctx, tvdbID)
+		if tvdbErr != nil {
+			s.logger.Warn().Err(tvdbErr).Int("tvdbId", tvdbID).Msg("TVDB get episodes failed, trying TMDB")
+			err = tvdbErr
 		} else {
-			results = make([]SeasonResult, len(tmdbResults))
-			for i, r := range tmdbResults {
-				results[i] = tmdbSeasonToResult(r)
+			results = make([]SeasonResult, len(tvdbResults))
+			for i, r := range tvdbResults {
+				results[i] = tvdbSeasonToResult(r)
 			}
 		}
 	}
 
-	// Fall back to TVDB if TMDB failed or not configured
-	if len(results) == 0 && tvdbID > 0 && s.tvdb.IsConfigured() {
-		tvdbResults, tvdbErr := s.tvdb.GetSeriesEpisodes(ctx, tvdbID)
-		if tvdbErr != nil {
-			s.logger.Error().Err(tvdbErr).Int("tvdbId", tvdbID).Msg("TVDB get episodes failed")
+	// Fall back to TMDB if TVDB failed or not configured
+	if len(results) == 0 && tmdbID > 0 && s.tmdb.IsConfigured() {
+		tmdbResults, tmdbErr := s.tmdb.GetAllSeasons(ctx, tmdbID)
+		if tmdbErr != nil {
+			s.logger.Error().Err(tmdbErr).Int("tmdbId", tmdbID).Msg("TMDB get seasons failed")
 			if err != nil {
 				return nil, fmt.Errorf("get series seasons failed: %w", err)
 			}
-			return nil, fmt.Errorf("get series seasons failed: %w", tvdbErr)
+			return nil, fmt.Errorf("get series seasons failed: %w", tmdbErr)
 		}
-		results = make([]SeasonResult, len(tvdbResults))
-		for i, r := range tvdbResults {
-			results[i] = tvdbSeasonToResult(r)
+		results = make([]SeasonResult, len(tmdbResults))
+		for i, r := range tmdbResults {
+			results[i] = tmdbSeasonToResult(r)
 		}
 		err = nil
 	}
