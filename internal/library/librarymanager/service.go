@@ -654,6 +654,7 @@ func (s *Service) createSeriesFromParsed(
 		input.ImdbID = meta.ImdbID
 		input.Overview = meta.Overview
 		input.Runtime = meta.Runtime
+		input.Status = meta.Status
 		input.Path = tv.GenerateSeriesPath(folder.Path, meta.Title)
 		tmdbID = meta.TmdbID
 		tvdbID = meta.TvdbID
@@ -1313,6 +1314,7 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 	imdbID := bestMatch.ImdbID
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
+	status := bestMatch.Status
 
 	_, err = s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
 		Title:    &title,
@@ -1322,6 +1324,7 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 		ImdbID:   &imdbID,
 		Overview: &overview,
 		Runtime:  &runtime,
+		Status:   &status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -1744,6 +1747,7 @@ type AddSeriesInput struct {
 	ImdbID           string           `json:"imdbId,omitempty"`
 	Overview         string           `json:"overview,omitempty"`
 	Runtime          int              `json:"runtime,omitempty"`
+	Status           string           `json:"status,omitempty"` // "continuing", "ended", "upcoming"
 	Path             string           `json:"path,omitempty"`
 	RootFolderID     int64            `json:"rootFolderId"`
 	QualityProfileID int64            `json:"qualityProfileId"`
@@ -1952,6 +1956,7 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		ImdbID:           input.ImdbID,
 		Overview:         input.Overview,
 		Runtime:          input.Runtime,
+		Status:           input.Status,
 		Path:             input.Path,
 		RootFolderID:     input.RootFolderID,
 		QualityProfileID: input.QualityProfileID,

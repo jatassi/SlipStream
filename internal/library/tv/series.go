@@ -90,6 +90,7 @@ type CreateSeriesInput struct {
 	SeasonFolder     bool          `json:"seasonFolder"`
 	Network          string        `json:"network,omitempty"`
 	FormatType       string        `json:"formatType,omitempty"` // "standard", "daily", "anime" - empty for auto-detect
+	Status           string        `json:"status,omitempty"`     // "continuing", "ended", "upcoming" - defaults to "continuing"
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
 }
 

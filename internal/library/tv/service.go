@@ -205,6 +205,12 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 
 	sortTitle := generateSortTitle(input.Title)
 
+	// Default status to "continuing" if not provided
+	status := input.Status
+	if status == "" {
+		status = "continuing"
+	}
+
 	row, err := s.queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
 		Title:            input.Title,
 		SortTitle:        sortTitle,
@@ -219,7 +225,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		QualityProfileID: sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
 		Monitored:        boolToInt(input.Monitored),
 		SeasonFolder:     boolToInt(input.SeasonFolder),
-		Status:           "continuing",
+		Status:           status,
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 		Released:         0, // Will be calculated by availability service
 		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
