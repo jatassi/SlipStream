@@ -604,6 +604,21 @@ func (s *Service) CheckAndProcessCompletedDownloads(ctx context.Context) error {
 				Int64("clientId", cd.ClientID).
 				Str("downloadId", cd.DownloadID).
 				Msg("Failed to process completed download")
+			continue
+		}
+
+		// Delete the mapping after processing to prevent duplicate imports
+		// The mapping info has already been copied to the queued jobs
+		if err := s.downloader.DeleteDownloadMapping(ctx, cd.ClientID, cd.DownloadID); err != nil {
+			s.logger.Warn().Err(err).
+				Int64("clientId", cd.ClientID).
+				Str("downloadId", cd.DownloadID).
+				Msg("Failed to delete download mapping after processing")
+		} else {
+			s.logger.Debug().
+				Int64("clientId", cd.ClientID).
+				Str("downloadId", cd.DownloadID).
+				Msg("Deleted download mapping after processing completed download")
 		}
 	}
 

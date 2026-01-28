@@ -230,21 +230,18 @@ export function ActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
   const { data: queue, isLoading, isError, refetch } = useQueue()
 
-  // Filter out fully downloaded items (progress = 100%) and filter by media type, then sort by title
+  // Filter by media type and sort by title (completed downloads are already filtered by backend)
   const filteredItems = (queue?.filter((item) => {
-    // Exclude items that have finished downloading (100% progress)
-    if (item.progress >= 100) return false
     if (filter === 'all') return true
     if (filter === 'movies') return item.mediaType === 'movie'
     if (filter === 'series') return item.mediaType === 'series'
     return true
   }) || []).sort((a, b) => a.title.localeCompare(b.title))
 
-  // Count items by media type (excluding fully downloaded)
-  const activeQueue = queue?.filter((q) => q.progress < 100) || []
-  const movieCount = activeQueue.filter((q) => q.mediaType === 'movie').length
-  const seriesCount = activeQueue.filter((q) => q.mediaType === 'series').length
-  const totalCount = activeQueue.length
+  // Count items by media type
+  const movieCount = queue?.filter((q) => q.mediaType === 'movie').length ?? 0
+  const seriesCount = queue?.filter((q) => q.mediaType === 'series').length ?? 0
+  const totalCount = queue?.length ?? 0
 
   if (isLoading) {
     return (

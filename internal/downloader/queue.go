@@ -152,6 +152,7 @@ func (s *Service) buildSlotLookup(ctx context.Context) map[int64]string {
 }
 
 // getClientQueue fetches queue items from any download client using the unified interface.
+// Completed/seeding downloads are filtered out - use CheckForCompletedDownloads for import processing.
 func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName, clientType string) ([]QueueItem, error) {
 	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
@@ -165,6 +166,10 @@ func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName
 
 	items := make([]QueueItem, 0, len(downloads))
 	for _, d := range downloads {
+		// Filter out completed/seeding downloads - they should not appear in the queue
+		if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+			continue
+		}
 		item := s.downloadItemToQueueItem(d, clientID, clientName, clientType)
 		items = append(items, item)
 	}

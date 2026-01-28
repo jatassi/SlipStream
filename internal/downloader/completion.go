@@ -202,7 +202,8 @@ func (s *Service) IsDownloadStalled(ctx context.Context, clientID int64, downloa
 	return status == types.StatusPaused || status == types.StatusError, nil
 }
 
-// GetQueueItemCount returns the number of items in the queue across all clients.
+// GetQueueItemCount returns the number of active items in the queue across all clients.
+// Completed/seeding downloads are excluded from the count.
 func (s *Service) GetQueueItemCount(ctx context.Context) (int, error) {
 	count := 0
 
@@ -227,7 +228,11 @@ func (s *Service) GetQueueItemCount(ctx context.Context) (int, error) {
 			continue
 		}
 
-		count += len(downloads)
+		for _, d := range downloads {
+			if d.Status != types.StatusCompleted && d.Status != types.StatusSeeding {
+				count++
+			}
+		}
 	}
 
 	return count, nil

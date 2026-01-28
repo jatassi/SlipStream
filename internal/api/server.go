@@ -1762,23 +1762,13 @@ func (s *Server) getQueue(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Check if any items are completed/seeding - if so, trigger import processing
-	// This provides faster import triggering than waiting for the scheduled task
-	for _, item := range items {
-		if item.Status == "completed" || item.Status == "seeding" {
-			s.logger.Debug().
-				Str("downloadId", item.ID).
-				Str("status", item.Status).
-				Msg("Detected completed download, triggering import check")
-			// Trigger import check asynchronously to not block the response
-			go func() {
-				if err := s.importService.CheckAndProcessCompletedDownloads(context.Background()); err != nil {
-					s.logger.Warn().Err(err).Msg("Failed to process completed downloads")
-				}
-			}()
-			break // Only need to trigger once
+	// Trigger import check asynchronously - provides faster import triggering than scheduled task
+	// The import service is efficient and only processes newly completed downloads
+	go func() {
+		if err := s.importService.CheckAndProcessCompletedDownloads(context.Background()); err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to process completed downloads")
 		}
-	}
+	}()
 
 	return c.JSON(http.StatusOK, items)
 }
