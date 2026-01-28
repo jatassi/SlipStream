@@ -324,7 +324,23 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize Cardigann manager for indexer definitions
 	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
 	serverDebugLog("Initializing Cardigann manager...")
-	cardigannManager, err := cardigann.NewManager(cardigann.DefaultManagerConfig(), logger)
+	serverDebugLog(fmt.Sprintf("Cardigann definitions dir: %s", cfg.Indexer.Cardigann.DefinitionsDir))
+	cardigannCfg := cardigann.ManagerConfig{
+		Repository: cardigann.RepositoryConfig{
+			BaseURL:        cfg.Indexer.Cardigann.RepositoryURL,
+			Branch:         cfg.Indexer.Cardigann.Branch,
+			Version:        cfg.Indexer.Cardigann.Version,
+			RequestTimeout: cfg.Indexer.Cardigann.RequestTimeoutDuration(),
+			UserAgent:      "SlipStream/1.0",
+		},
+		Cache: cardigann.CacheConfig{
+			DefinitionsDir: cfg.Indexer.Cardigann.DefinitionsDir,
+			CustomDir:      cfg.Indexer.Cardigann.CustomDir,
+		},
+		AutoUpdate:     cfg.Indexer.Cardigann.AutoUpdate,
+		UpdateInterval: cfg.Indexer.Cardigann.UpdateIntervalDuration(),
+	}
+	cardigannManager, err := cardigann.NewManager(cardigannCfg, logger)
 	if err != nil {
 		serverDebugLog(fmt.Sprintf("Failed to initialize Cardigann manager: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize Cardigann manager")
