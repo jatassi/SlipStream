@@ -66,7 +66,7 @@ export function ProwlarrConfigForm() {
   const [tvCategories, setTvCategories] = useState<number[]>(DEFAULT_TV_CATEGORIES)
   const [showApiKey, setShowApiKey] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true)
   const [prevConfig, setPrevConfig] = useState(config)
 
   // Reset form when config changes (React-recommended pattern)

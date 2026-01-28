@@ -51,3 +51,13 @@ export interface UpdateSettingsInput {
   logCompress?: boolean
   externalAccessEnabled?: boolean
 }
+
+export interface FirewallStatus {
+  port: number
+  isListening: boolean
+  firewallAllows: boolean
+  firewallName?: string
+  firewallEnabled: boolean
+  message?: string
+  checkedAt: string
+}

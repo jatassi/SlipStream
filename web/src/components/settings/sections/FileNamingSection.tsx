@@ -522,17 +522,27 @@ export function FileNamingSection() {
     setForm((prev) => prev ? { ...prev, [field]: value } : null)
   }, [])
 
-  const handleSave = async () => {
-    if (!form) return
-    try {
-      await updateMutation.mutateAsync(form)
-      toast.success('Import settings saved')
-    } catch {
-      toast.error('Failed to save settings')
-    }
-  }
-
   const hasChanges = form && settings && JSON.stringify(form) !== JSON.stringify(settings)
+
+  // Auto-save with debounce
+  const debouncedForm = useDebounce(form, 1000)
+  const lastSavedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!debouncedForm || !settings) return
+    const formJson = JSON.stringify(debouncedForm)
+    const settingsJson = JSON.stringify(settings)
+    // Only save if form has changed from settings AND we haven't already saved this exact form
+    if (formJson !== settingsJson && formJson !== lastSavedRef.current) {
+      lastSavedRef.current = formJson
+      updateMutation.mutate(debouncedForm, {
+        onError: () => {
+          toast.error('Failed to auto-save settings')
+          lastSavedRef.current = null
+        }
+      })
+    }
+  }, [debouncedForm, settings, updateMutation])
 
   if (isLoading) {
     return <LoadingState variant="list" count={3} />
@@ -553,10 +563,22 @@ export function FileNamingSection() {
             <TabsTrigger value="movie-naming">Movie Naming</TabsTrigger>
             <TabsTrigger value="tokens">Token Reference</TabsTrigger>
           </TabsList>
-          <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
-            <Save className="size-4 mr-2" />
-            Save Changes
-          </Button>
+          {updateMutation.isPending ? (
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Save className="size-4 animate-pulse" />
+              Saving...
+            </span>
+          ) : hasChanges ? (
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Save className="size-4" />
+              Unsaved changes
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Save className="size-4" />
+              All changes saved
+            </span>
+          )}
         </div>
 
         <TabsContent value="validation" className="space-y-6 max-w-2xl mt-6">

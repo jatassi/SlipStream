@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { SystemStatus, HealthCheck, Settings, UpdateSettingsInput } from '@/types'
+import type { SystemStatus, HealthCheck, Settings, UpdateSettingsInput, FirewallStatus } from '@/types'
 
 export const systemApi = {
   status: () =>
@@ -28,4 +28,7 @@ export const systemApi = {
 
   restart: () =>
     apiFetch<{ message: string }>('/system/restart', { method: 'POST' }),
+
+  checkFirewall: () =>
+    apiFetch<FirewallStatus>('/system/firewall'),
 }

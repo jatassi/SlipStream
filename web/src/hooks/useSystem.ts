@@ -7,6 +7,7 @@ export const systemKeys = {
   status: () => [...systemKeys.all, 'status'] as const,
   health: () => [...systemKeys.all, 'health'] as const,
   settings: () => [...systemKeys.all, 'settings'] as const,
+  firewall: () => [...systemKeys.all, 'firewall'] as const,
 }
 
 export function useStatus() {
@@ -87,5 +88,23 @@ export function useUpdateTMDBSearchOrdering() {
 export function useRestart() {
   return useMutation({
     mutationFn: () => systemApi.restart(),
+  })
+}
+
+export function useFirewallStatus() {
+  return useQuery({
+    queryKey: systemKeys.firewall(),
+    queryFn: () => systemApi.checkFirewall(),
+    staleTime: 60000, // Consider fresh for 1 minute
+  })
+}
+
+export function useCheckFirewall() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => systemApi.checkFirewall(),
+    onSuccess: (data) => {
+      queryClient.setQueryData(systemKeys.firewall(), data)
+    },
   })
 }

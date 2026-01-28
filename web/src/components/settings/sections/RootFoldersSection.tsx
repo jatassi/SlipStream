@@ -183,7 +183,7 @@ export function RootFoldersSection() {
       />
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Root Folder</DialogTitle>
           </DialogHeader>

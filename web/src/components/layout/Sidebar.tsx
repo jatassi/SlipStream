@@ -54,7 +54,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ProgressContainer } from '@/components/progress'
 
 interface NavItem {
   title: string
@@ -471,12 +470,6 @@ export function Sidebar() {
             />
           </nav>
         </ScrollArea>
-
-        {/* Progress indicators */}
-        <ProgressContainer
-          collapsed={sidebarCollapsed}
-          className="border-t border-border"
-        />
 
         {/* Collapse toggle */}
         <div className="border-t border-border p-3">

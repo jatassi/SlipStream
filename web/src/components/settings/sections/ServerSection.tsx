@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, RefreshCw, CheckCircle2, XCircle, AlertCircle, Loader2, Shield } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   InputGroup,
@@ -10,9 +10,11 @@ import {
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSettings, useStatus } from '@/hooks'
+import { useSettings, useStatus, useFirewallStatus, useCheckFirewall } from '@/hooks'
 import { toast } from 'sonner'
 
 const LOG_LEVELS = [
@@ -53,6 +55,8 @@ export function ServerSection({
 }: ServerSectionProps) {
   const { data: settings, isLoading, isError, refetch } = useSettings()
   const { data: status } = useStatus()
+  const { data: firewallStatus, isLoading: firewallLoading } = useFirewallStatus()
+  const checkFirewallMutation = useCheckFirewall()
   const [isCopied, setIsCopied] = useState(false)
 
   const portConflict = status?.configuredPort && status.actualPort !== status.configuredPort
@@ -131,6 +135,83 @@ export function ServerSection({
           </p>
         )}
       </div>
+
+      {externalAccessEnabled && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Firewall Status</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => checkFirewallMutation.mutate()}
+              disabled={checkFirewallMutation.isPending}
+            >
+              {checkFirewallMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              <span className="ml-1">Check</span>
+            </Button>
+          </div>
+          {firewallLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Checking firewall status...
+            </div>
+          ) : firewallStatus ? (
+            <div className="rounded-lg border p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Shield className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">
+                  {firewallStatus.firewallName || 'Firewall'}
+                </span>
+                {firewallStatus.firewallEnabled ? (
+                  <Badge variant="secondary" className="text-xs">Enabled</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">Disabled</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {firewallStatus.isListening && firewallStatus.firewallAllows ? (
+                  <>
+                    <CheckCircle2 className="size-4 text-green-500" />
+                    <span className="text-sm text-green-600 dark:text-green-400">
+                      Port {firewallStatus.port} is open for external access
+                    </span>
+                  </>
+                ) : !firewallStatus.isListening ? (
+                  <>
+                    <XCircle className="size-4 text-red-500" />
+                    <span className="text-sm text-red-600 dark:text-red-400">
+                      Port {firewallStatus.port} is not listening
+                    </span>
+                  </>
+                ) : !firewallStatus.firewallEnabled ? (
+                  <>
+                    <AlertCircle className="size-4 text-amber-500" />
+                    <span className="text-sm text-amber-600 dark:text-amber-400">
+                      No firewall detected - port should be accessible
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="size-4 text-red-500" />
+                    <span className="text-sm text-red-600 dark:text-red-400">
+                      Port {firewallStatus.port} may be blocked by firewall
+                    </span>
+                  </>
+                )}
+              </div>
+              {firewallStatus.message && firewallStatus.firewallEnabled && !firewallStatus.firewallAllows && (
+                <p className="text-xs text-muted-foreground">
+                  You may need to add a firewall rule to allow incoming connections on port {firewallStatus.port}.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="logLevel">Log Level</Label>

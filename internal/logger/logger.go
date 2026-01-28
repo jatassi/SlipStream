@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -65,7 +66,10 @@ func New(cfg Config) *Logger {
 	var rotator *lumberjack.Logger
 
 	if cfg.Path != "" {
-		if err := os.MkdirAll(cfg.Path, 0755); err == nil {
+		if err := os.MkdirAll(cfg.Path, 0755); err != nil {
+			// Log to bootstrap log if directory creation fails
+			bootstrapLogError("Failed to create log directory", cfg.Path, err)
+		} else {
 			logPath := filepath.Join(cfg.Path, "slipstream.log")
 
 			maxSize := cfg.MaxSizeMB
@@ -91,7 +95,13 @@ func New(cfg Config) *Logger {
 				LocalTime:  true,
 			}
 
-			output = io.MultiWriter(consoleOutput, rotator)
+			// For Windows GUI apps (non-console), only write to file since stdout doesn't exist
+			// Check if stdout is a valid file descriptor
+			if isValidStdout() {
+				output = io.MultiWriter(consoleOutput, rotator)
+			} else {
+				output = rotator
+			}
 		}
 	}
 
@@ -142,4 +152,29 @@ func (l *Logger) WithComponent(component string) *Logger {
 	return &Logger{
 		Logger: l.Logger.With().Str("component", component).Logger(),
 	}
+}
+
+// bootstrapLogError writes an error to a temporary log file for early diagnostics
+func bootstrapLogError(msg, path string, err error) {
+	// Try to write to a fallback location for diagnostics
+	var logPath string
+	if home, homeErr := os.UserHomeDir(); homeErr == nil {
+		logPath = filepath.Join(home, "slipstream_bootstrap_error.log")
+	} else {
+		logPath = "slipstream_bootstrap_error.log"
+	}
+	f, openErr := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if openErr != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "[%s] %s: path=%s error=%v\n", time.Now().Format(time.RFC3339), msg, path, err)
+}
+
+// isValidStdout checks if stdout is a valid file descriptor
+// On Windows GUI apps (non-console), stdout may not be valid
+func isValidStdout() bool {
+	// Try to get file info for stdout
+	_, err := os.Stdout.Stat()
+	return err == nil
 }

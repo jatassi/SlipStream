@@ -31,6 +31,7 @@ import (
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
 	downloadermock "github.com/slipstream/slipstream/internal/downloader/mock"
+	"github.com/slipstream/slipstream/internal/firewall"
 	"github.com/slipstream/slipstream/internal/filesystem"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/health"
@@ -137,6 +138,7 @@ type Server struct {
 	prowlarrGrabProvider  *prowlarr.GrabProvider
 	searchRouter          *search.Router
 	updateService         *update.Service
+	firewallChecker       *firewall.Checker
 
 	// Portal services
 	portalUsersService         *users.Service
@@ -303,7 +305,13 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
 	s.metadataService.SetHealthService(s.healthService)
-	s.artworkDownloader = metadata.NewArtworkDownloader(metadata.DefaultArtworkConfig(), logger)
+	// Derive artwork directory from database path (uses same data directory)
+	dataDir := filepath.Dir(cfg.Database.Path)
+	artworkCfg := metadata.ArtworkConfig{
+		BaseDir: filepath.Join(dataDir, "artwork"),
+		Timeout: 30 * time.Second,
+	}
+	s.artworkDownloader = metadata.NewArtworkDownloader(artworkCfg, logger)
 	s.artworkDownloader.SetBroadcaster(hub)
 
 	// Initialize filesystem service
@@ -619,6 +627,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.updateService = update.NewService(db, logger, restartChan)
 	s.updateService.SetBroadcaster(hub)
 
+	// Initialize firewall checker
+	s.firewallChecker = firewall.NewChecker()
+
 	// Register update check task
 	if s.scheduler != nil {
 		if err := tasks.RegisterUpdateCheckTask(s.scheduler, s.updateService, logger); err != nil {
@@ -841,6 +852,7 @@ func (s *Server) setupRoutes() {
 
 	// System routes
 	protected.POST("/system/restart", s.restart)
+	protected.GET("/system/firewall", s.checkFirewall)
 
 	// Indexers routes
 	indexersGroup := protected.Group("/indexers")
@@ -1598,6 +1610,26 @@ func (s *Server) restart(c echo.Context) error {
 	default:
 		return echo.NewHTTPError(http.StatusConflict, "Restart already in progress")
 	}
+}
+
+func (s *Server) checkFirewall(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	// Get the configured server port
+	port := s.cfg.Server.Port
+	queries := sqlc.New(s.dbManager.Conn())
+	if setting, err := queries.GetSetting(ctx, "server_port"); err == nil {
+		if p, err := strconv.Atoi(setting.Value); err == nil {
+			port = p
+		}
+	}
+
+	status, err := s.firewallChecker.CheckPort(ctx, port)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("port", port).Msg("Failed to check firewall status")
+	}
+
+	return c.JSON(http.StatusOK, status)
 }
 
 // Download client handlers

@@ -11,21 +11,32 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import { Toggle } from '@/components/ui/toggle'
-import { useUIStore, useDevModeStore, useWebSocketStore } from '@/stores'
+import { useUIStore, useDevModeStore, useWebSocketStore, useProgressStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/SearchBar'
 import { useScheduledTasks } from '@/hooks'
 import { cn } from '@/lib/utils'
+import { ProgressItem } from '@/components/progress/ProgressItem'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function Header() {
   const { notifications, dismissNotification } = useUIStore()
   const { enabled: devModeEnabled, switching: devModeSwitching, setEnabled, setSwitching } = useDevModeStore()
   const { send } = useWebSocketStore()
   const { data: tasks } = useScheduledTasks()
+  const activities = useProgressStore((state) => state.visibleActivities)
+  const activeCount = useProgressStore((state) => state.activeCount)
+  const dismissActivity = useProgressStore((state) => state.dismissActivity)
 
   const runningTasks = tasks?.filter(t => t.running) || []
   const hasRunningTasks = runningTasks.length > 0
+  const hasActiveActivities = activeCount > 0
 
   const handleDevModeToggle = (pressed: boolean) => {
     setSwitching(true)
@@ -68,6 +79,50 @@ export function Header() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        )}
+
+        {/* Activity Indicator */}
+        {activities.length > 0 && (
+          <HoverCard>
+            <HoverCardTrigger>
+              <div className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md cursor-default",
+                hasActiveActivities ? "bg-blue-600/10 text-blue-600" : "bg-muted text-muted-foreground"
+              )}>
+                <Loader2 className={cn("size-4", hasActiveActivities && "animate-spin")} />
+                <span className="text-sm font-medium">
+                  {activeCount > 0
+                    ? activeCount === 1
+                      ? activities.find(a => a.status === 'in_progress' || a.status === 'pending')?.title || '1 activity'
+                      : `${activeCount} activities`
+                    : `${activities.length} recent`}
+                </span>
+              </div>
+            </HoverCardTrigger>
+            <HoverCardContent align="end" className="w-80 p-0">
+              <div className="px-3 py-2 border-b border-border">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Activity
+                  {activeCount > 0 && (
+                    <span className="ml-1.5 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                      {activeCount}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <ScrollArea className="max-h-64">
+                <div className="space-y-2 p-3">
+                  {activities.map((activity) => (
+                    <ProgressItem
+                      key={activity.id}
+                      activity={activity}
+                      onDismiss={() => dismissActivity(activity.id)}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+            </HoverCardContent>
+          </HoverCard>
         )}
 
         {/* Developer Mode Toggle */}
