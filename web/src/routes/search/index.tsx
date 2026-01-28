@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { EmptyState } from '@/components/data/EmptyState'
 import { MovieCard } from '@/components/movies/MovieCard'
@@ -16,6 +16,7 @@ import {
   useMovieSearch,
   useSeriesSearch,
 } from '@/hooks'
+import { useAdminRequests } from '@/hooks/admin/useAdminRequests'
 
 interface SearchPageProps {
   q: string
@@ -60,6 +61,34 @@ export function SearchPage({ q }: SearchPageProps) {
   // Get library TMDB IDs to detect "in library" state for external results
   const libraryMovieTmdbIds = new Set(libraryMovies.map((m) => m.tmdbId))
   const librarySeriesTmdbIds = new Set(librarySeries.map((s) => s.tmdbId))
+
+  // Fetch portal requests to show request status on external search results
+  const { data: requests = [] } = useAdminRequests()
+
+  // Build lookup maps for requests by TMDB ID
+  const movieRequestsByTmdbId = useMemo(() => {
+    const map = new Map<number, { id: number; status: string }>()
+    for (const req of requests) {
+      if (req.mediaType === 'movie' && req.tmdbId != null) {
+        map.set(req.tmdbId, { id: req.id, status: req.status })
+      }
+    }
+    return map
+  }, [requests])
+
+  const seriesRequestsByTmdbId = useMemo(() => {
+    const map = new Map<number, { id: number; status: string }>()
+    for (const req of requests) {
+      if ((req.mediaType === 'series' || req.mediaType === 'season') && req.tmdbId != null) {
+        // Keep the most relevant request (prefer non-available over available for badge display)
+        const existing = map.get(req.tmdbId)
+        if (!existing || (existing.status === 'available' && req.status !== 'available')) {
+          map.set(req.tmdbId, { id: req.id, status: req.status })
+        }
+      }
+    }
+    return map
+  }, [requests])
 
   if (!query) {
     return (
@@ -116,6 +145,7 @@ export function SearchPage({ q }: SearchPageProps) {
               <ExternalMovieCard
                 movie={movie}
                 inLibrary={libraryMovieTmdbIds.has(movie.tmdbId)}
+                requestInfo={movieRequestsByTmdbId.get(movie.tmdbId) as { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined}
               />
             )}
           />
@@ -129,6 +159,7 @@ export function SearchPage({ q }: SearchPageProps) {
               <ExternalSeriesCard
                 series={series}
                 inLibrary={librarySeriesTmdbIds.has(series.tmdbId)}
+                requestInfo={seriesRequestsByTmdbId.get(series.tmdbId) as { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined}
               />
             )}
           />

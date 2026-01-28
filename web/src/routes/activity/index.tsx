@@ -230,18 +230,21 @@ export function ActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
   const { data: queue, isLoading, isError, refetch } = useQueue()
 
-  // Filter items by media type and sort by title
+  // Filter out completed/seeding torrents and filter by media type, then sort by title
   const filteredItems = (queue?.filter((item) => {
+    // Exclude completed items (includes seeding torrents)
+    if (item.status === 'completed') return false
     if (filter === 'all') return true
     if (filter === 'movies') return item.mediaType === 'movie'
     if (filter === 'series') return item.mediaType === 'series'
     return true
   }) || []).sort((a, b) => a.title.localeCompare(b.title))
 
-  // Count items by media type
-  const movieCount = queue?.filter((q) => q.mediaType === 'movie').length || 0
-  const seriesCount = queue?.filter((q) => q.mediaType === 'series').length || 0
-  const totalCount = queue?.length || 0
+  // Count items by media type (excluding completed/seeding)
+  const activeQueue = queue?.filter((q) => q.status !== 'completed') || []
+  const movieCount = activeQueue.filter((q) => q.mediaType === 'movie').length
+  const seriesCount = activeQueue.filter((q) => q.mediaType === 'series').length
+  const totalCount = activeQueue.length
 
   if (isLoading) {
     return (

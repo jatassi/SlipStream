@@ -219,7 +219,12 @@ func (h *Handlers) Create(c echo.Context) error {
 	if h.autoApprove != nil {
 		user, err := h.usersService.Get(c.Request().Context(), claims.UserID)
 		if err == nil && user != nil {
-			_ = h.autoApprove.ProcessAutoApprove(request, user)
+			if err := h.autoApprove.ProcessAutoApprove(request, user); err == nil {
+				// Re-fetch request to get updated status after auto-approve
+				if updated, err := h.service.Get(c.Request().Context(), request.ID); err == nil {
+					request = updated
+				}
+			}
 		}
 	}
 
