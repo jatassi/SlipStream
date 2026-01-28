@@ -20,6 +20,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
     <div className="relative aspect-[2/3]">
       <PosterImage
         tmdbId={series.tmdbId}
+        tvdbId={series.tvdbId}
         alt={series.title}
         type="series"
         className="absolute inset-0"

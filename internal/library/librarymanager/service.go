@@ -580,6 +580,7 @@ func (s *Service) matchOrCreateSeries(
 }
 
 // createSeriesFromParsed creates a new series from parsed media and optional metadata.
+// Also fetches seasons and episodes from metadata providers to ensure complete data.
 func (s *Service) createSeriesFromParsed(
 	ctx context.Context,
 	folder *rootfolder.RootFolder,
@@ -597,6 +598,7 @@ func (s *Service) createSeriesFromParsed(
 
 	input.Path = tv.GenerateSeriesPath(folder.Path, parsed.Title)
 
+	var tmdbID, tvdbID int
 	if meta != nil {
 		input.Title = meta.Title
 		input.Year = meta.Year
@@ -606,6 +608,8 @@ func (s *Service) createSeriesFromParsed(
 		input.Overview = meta.Overview
 		input.Runtime = meta.Runtime
 		input.Path = tv.GenerateSeriesPath(folder.Path, meta.Title)
+		tmdbID = meta.TmdbID
+		tvdbID = meta.TvdbID
 	}
 
 	series, err := s.tv.CreateSeries(ctx, input)
@@ -617,6 +621,52 @@ func (s *Service) createSeriesFromParsed(
 			}
 		}
 		return nil, false, err
+	}
+
+	// Fetch and update seasons/episodes metadata (same as AddSeries)
+	if tmdbID > 0 || tvdbID > 0 {
+		seasonResults, err := s.metadata.GetSeriesSeasons(ctx, tmdbID, tvdbID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Int("tvdbId", tvdbID).Msg("Failed to fetch season metadata during scan")
+		} else {
+			// Convert metadata.SeasonResult to tv.SeasonMetadata
+			seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
+			for i, sr := range seasonResults {
+				episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
+				for j, ep := range sr.Episodes {
+					episodes[j] = tv.EpisodeMetadata{
+						EpisodeNumber: ep.EpisodeNumber,
+						SeasonNumber:  ep.SeasonNumber,
+						Title:         ep.Title,
+						Overview:      ep.Overview,
+						AirDate:       ep.AirDate,
+						Runtime:       ep.Runtime,
+					}
+				}
+				seasonMeta[i] = tv.SeasonMetadata{
+					SeasonNumber: sr.SeasonNumber,
+					Name:         sr.Name,
+					Overview:     sr.Overview,
+					PosterURL:    sr.PosterURL,
+					AirDate:      sr.AirDate,
+					Episodes:     episodes,
+				}
+			}
+
+			if err := s.tv.UpdateSeasonsFromMetadata(ctx, series.ID, seasonMeta); err != nil {
+				s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to update seasons from metadata during scan")
+			} else {
+				totalEpisodes := 0
+				for _, sm := range seasonMeta {
+					totalEpisodes += len(sm.Episodes)
+				}
+				s.logger.Info().
+					Int64("seriesId", series.ID).
+					Int("seasons", len(seasonMeta)).
+					Int("episodes", totalEpisodes).
+					Msg("Updated seasons and episodes from metadata during scan")
+			}
+		}
 	}
 
 	return series, true, nil

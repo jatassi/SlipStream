@@ -6,8 +6,10 @@ import { useArtworkStore } from '@/stores/artwork'
 interface BackdropImageProps {
   // For TMDB paths (search results) - e.g., "/abc123.jpg"
   path?: string | null
-  // For local artwork (library items) - the TMDB ID
+  // For local artwork (library items) - the TMDB ID (primary)
   tmdbId?: number | null
+  // For local artwork (library items) - the TVDB ID (fallback when tmdbId is 0)
+  tvdbId?: number | null
   // Media type for local artwork lookup
   type?: 'movie' | 'series'
   alt: string
@@ -19,6 +21,7 @@ interface BackdropImageProps {
 export function BackdropImage({
   path,
   tmdbId,
+  tvdbId,
   type = 'movie',
   alt,
   size = 'w1280',
@@ -29,19 +32,22 @@ export function BackdropImage({
   const [loading, setLoading] = useState(true)
   const [prevImageUrl, setPrevImageUrl] = useState<string | null>(null)
 
+  // Use TMDB ID if available, otherwise fall back to TVDB ID for artwork lookup
+  const artworkId = tmdbId && tmdbId > 0 ? tmdbId : tvdbId && tvdbId > 0 ? tvdbId : null
+
   // Subscribe to artwork version changes for this specific artwork
   const artworkVersion = useArtworkStore((state) =>
-    tmdbId ? state.getVersion(type, tmdbId, 'backdrop') : 0
+    artworkId ? state.getVersion(type, artworkId, 'backdrop') : 0
   )
 
   // Determine if this is a local artwork request
-  const isLocalArtwork = !!(tmdbId && tmdbId > 0)
+  const isLocalArtwork = !!(artworkId && artworkId > 0)
 
-  // Prefer local artwork if tmdbId is provided, otherwise use TMDB path
+  // Prefer local artwork if tmdbId/tvdbId is provided, otherwise use TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
     // Add cache-busting param when artwork version changes
-    const baseUrl = getLocalArtworkUrl(type, tmdbId, 'backdrop')
+    const baseUrl = getLocalArtworkUrl(type, artworkId!, 'backdrop')
     imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
   } else if (path) {
     imageUrl = `${BACKDROP_SIZES[size]}${path}`

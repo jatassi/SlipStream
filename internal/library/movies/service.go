@@ -222,13 +222,15 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		}
 	}
 
-	// Calculate released status based on release date
+	// Calculate released status and availability_status based on release date
 	released := int64(0)
+	availabilityStatus := "Unreleased"
 	if releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
 		released = 1
+		availabilityStatus = "Available"
 	}
 
-	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
+	row, err := s.queries.CreateMovieWithAvailability(ctx, sqlc.CreateMovieWithAvailabilityParams{
 		Title:               input.Title,
 		SortTitle:           sortTitle,
 		Year:                sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
@@ -245,6 +247,7 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		DigitalReleaseDate:  sql.NullTime{}, // Deprecated, use ReleaseDate for digital
 		PhysicalReleaseDate: physicalReleaseDate,
 		Released:            released,
+		AvailabilityStatus:  availabilityStatus,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)

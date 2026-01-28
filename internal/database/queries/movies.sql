@@ -18,6 +18,14 @@ INSERT INTO movies (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
+-- name: CreateMovieWithAvailability :one
+INSERT INTO movies (
+    title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
+    path, root_folder_id, quality_profile_id, monitored, status,
+    release_date, digital_release_date, physical_release_date, released, availability_status
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
 -- name: UpdateMovie :one
 UPDATE movies SET
     title = ?,

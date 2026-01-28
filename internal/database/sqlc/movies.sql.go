@@ -252,6 +252,81 @@ func (q *Queries) CreateMovieFileWithImportInfo(ctx context.Context, arg CreateM
 	return &i, err
 }
 
+const createMovieWithAvailability = `-- name: CreateMovieWithAvailability :one
+INSERT INTO movies (
+    title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
+    path, root_folder_id, quality_profile_id, monitored, status,
+    release_date, digital_release_date, physical_release_date, released, availability_status
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, added_at, updated_at, release_date, digital_release_date, physical_release_date, released, availability_status
+`
+
+type CreateMovieWithAvailabilityParams struct {
+	Title               string         `json:"title"`
+	SortTitle           string         `json:"sort_title"`
+	Year                sql.NullInt64  `json:"year"`
+	TmdbID              sql.NullInt64  `json:"tmdb_id"`
+	ImdbID              sql.NullString `json:"imdb_id"`
+	Overview            sql.NullString `json:"overview"`
+	Runtime             sql.NullInt64  `json:"runtime"`
+	Path                sql.NullString `json:"path"`
+	RootFolderID        sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID    sql.NullInt64  `json:"quality_profile_id"`
+	Monitored           int64          `json:"monitored"`
+	Status              string         `json:"status"`
+	ReleaseDate         sql.NullTime   `json:"release_date"`
+	DigitalReleaseDate  sql.NullTime   `json:"digital_release_date"`
+	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
+	Released            int64          `json:"released"`
+	AvailabilityStatus  string         `json:"availability_status"`
+}
+
+func (q *Queries) CreateMovieWithAvailability(ctx context.Context, arg CreateMovieWithAvailabilityParams) (*Movie, error) {
+	row := q.db.QueryRowContext(ctx, createMovieWithAvailability,
+		arg.Title,
+		arg.SortTitle,
+		arg.Year,
+		arg.TmdbID,
+		arg.ImdbID,
+		arg.Overview,
+		arg.Runtime,
+		arg.Path,
+		arg.RootFolderID,
+		arg.QualityProfileID,
+		arg.Monitored,
+		arg.Status,
+		arg.ReleaseDate,
+		arg.DigitalReleaseDate,
+		arg.PhysicalReleaseDate,
+		arg.Released,
+		arg.AvailabilityStatus,
+	)
+	var i Movie
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.SortTitle,
+		&i.Year,
+		&i.TmdbID,
+		&i.ImdbID,
+		&i.Overview,
+		&i.Runtime,
+		&i.Path,
+		&i.RootFolderID,
+		&i.QualityProfileID,
+		&i.Monitored,
+		&i.Status,
+		&i.AddedAt,
+		&i.UpdatedAt,
+		&i.ReleaseDate,
+		&i.DigitalReleaseDate,
+		&i.PhysicalReleaseDate,
+		&i.Released,
+		&i.AvailabilityStatus,
+	)
+	return &i, err
+}
+
 const deleteMovie = `-- name: DeleteMovie :exec
 DELETE FROM movies WHERE id = ?
 `

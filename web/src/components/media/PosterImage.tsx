@@ -9,8 +9,10 @@ interface PosterImageProps {
   path?: string | null
   // For full URLs from search results - e.g., "https://image.tmdb.org/t/p/w500/abc123.jpg"
   url?: string | null
-  // For local artwork (library items) - the TMDB ID
+  // For local artwork (library items) - the TMDB ID (primary)
   tmdbId?: number | null
+  // For local artwork (library items) - the TVDB ID (fallback when tmdbId is 0)
+  tvdbId?: number | null
   alt: string
   size?: keyof typeof POSTER_SIZES
   type?: 'movie' | 'series'
@@ -21,6 +23,7 @@ export function PosterImage({
   path,
   url,
   tmdbId,
+  tvdbId,
   alt,
   size = 'w342',
   type = 'movie',
@@ -30,19 +33,22 @@ export function PosterImage({
   const [loading, setLoading] = useState(true)
   const [prevImageUrl, setPrevImageUrl] = useState<string | null>(null)
 
+  // Use TMDB ID if available, otherwise fall back to TVDB ID for artwork lookup
+  const artworkId = tmdbId && tmdbId > 0 ? tmdbId : tvdbId && tvdbId > 0 ? tvdbId : null
+
   // Subscribe to artwork version changes for this specific artwork
   const artworkVersion = useArtworkStore((state) =>
-    tmdbId ? state.getVersion(type, tmdbId, 'poster') : 0
+    artworkId ? state.getVersion(type, artworkId, 'poster') : 0
   )
 
   // Determine if this is a local artwork request
-  const isLocalArtwork = !!(tmdbId && tmdbId > 0)
+  const isLocalArtwork = !!(artworkId && artworkId > 0)
 
-  // Priority: local artwork (tmdbId) > full URL > TMDB path
+  // Priority: local artwork (tmdbId or tvdbId) > full URL > TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
     // Add cache-busting param when artwork version changes
-    const baseUrl = getLocalArtworkUrl(type, tmdbId, 'poster')
+    const baseUrl = getLocalArtworkUrl(type, artworkId!, 'poster')
     imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
   } else if (url) {
     imageUrl = url

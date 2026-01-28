@@ -313,6 +313,7 @@ export function SeriesDetailPage() {
       <div className="relative h-64 md:h-80">
         <BackdropImage
           tmdbId={series.tmdbId}
+          tvdbId={series.tvdbId}
           type="series"
           alt={series.title}
           className="absolute inset-0"
@@ -323,6 +324,7 @@ export function SeriesDetailPage() {
             <div className="hidden md:block shrink-0">
               <PosterImage
                 tmdbId={series.tmdbId}
+                tvdbId={series.tvdbId}
                 alt={series.title}
                 type="series"
                 className="w-40 h-60 rounded-lg shadow-lg"

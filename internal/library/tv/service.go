@@ -1349,5 +1349,100 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		Int("seasons", len(seasons)).
 		Msg("Updated seasons from metadata")
 
+	// Recalculate season and series availability after updating all episodes
+	if err := s.recalculateSeriesAvailability(ctx, seriesID); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to recalculate series availability")
+	}
+
 	return nil
+}
+
+// recalculateSeriesAvailability recalculates availability for all levels of a series.
+// This updates seasons from episodes, then series from seasons, then calculates availability_status.
+func (s *Service) recalculateSeriesAvailability(ctx context.Context, seriesID int64) error {
+	// Get all seasons for this series
+	seasons, err := s.queries.GetSeasonsBySeriesID(ctx, seriesID)
+	if err != nil {
+		return err
+	}
+
+	// Update each season's released flag based on its episodes
+	for _, season := range seasons {
+		if err := s.queries.UpdateSeasonReleasedFromEpisodes(ctx, season.ID); err != nil {
+			s.logger.Warn().Err(err).Int64("seasonID", season.ID).Msg("Failed to update season released status")
+		}
+	}
+
+	// Update the series released flag based on its seasons
+	if err := s.queries.UpdateSeriesReleasedFromSeasons(ctx, seriesID); err != nil {
+		return err
+	}
+
+	// Update the series availability_status text
+	return s.updateSeriesAvailabilityStatus(ctx, seriesID)
+}
+
+// updateSeriesAvailabilityStatus calculates and updates the availability_status for a series.
+func (s *Service) updateSeriesAvailabilityStatus(ctx context.Context, seriesID int64) error {
+	data, err := s.queries.GetSeriesAvailabilityData(ctx, seriesID)
+	if err != nil {
+		return err
+	}
+
+	status := s.calculateSeriesAvailabilityStatus(data)
+	return s.queries.UpdateSeriesAvailabilityStatus(ctx, sqlc.UpdateSeriesAvailabilityStatusParams{
+		AvailabilityStatus: status,
+		ID:                 seriesID,
+	})
+}
+
+// calculateSeriesAvailabilityStatus determines the badge text for a series.
+func (s *Service) calculateSeriesAvailabilityStatus(data *sqlc.GetSeriesAvailabilityDataRow) string {
+	// If fully released
+	if data.Released == 1 {
+		return "Available"
+	}
+
+	totalSeasons := data.TotalSeasons
+	releasedSeasons := data.ReleasedSeasons
+
+	// No seasons yet
+	if totalSeasons == 0 {
+		return "Unreleased"
+	}
+
+	// No seasons released
+	if releasedSeasons == 0 {
+		// Check if any episodes have aired in unreleased seasons (currently airing)
+		if data.AiredEpsInUnreleasedSeasons > 0 {
+			// Get the first unreleased season number
+			if data.FirstUnreleasedSeason != nil {
+				if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
+					return fmt.Sprintf("Season %d Airing", seasonNum)
+				}
+			}
+			return "Season 1 Airing"
+		}
+		return "Unreleased"
+	}
+
+	// Some seasons released, check if currently airing
+	if data.AiredEpsInUnreleasedSeasons > 0 {
+		if data.FirstUnreleasedSeason != nil {
+			if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
+				return fmt.Sprintf("Season %d Airing", seasonNum)
+			}
+		}
+	}
+
+	// Partial availability (some complete seasons but not all)
+	if releasedSeasons < totalSeasons {
+		if releasedSeasons == 1 {
+			return "Season 1 Available"
+		}
+		return fmt.Sprintf("Seasons 1-%d Available", releasedSeasons)
+	}
+
+	// All seasons released (shouldn't reach here if data.Released is correct)
+	return "Available"
 }
