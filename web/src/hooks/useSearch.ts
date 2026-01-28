@@ -30,10 +30,21 @@ export function useSearch(criteria: SearchCriteria, options?: { enabled?: boolea
 
 // Movie search hook with scoring (searches indexers for movie releases)
 export function useIndexerMovieSearch(criteria: ScoredSearchCriteria, options?: { enabled?: boolean }) {
+  const defaultEnabled = !!criteria.qualityProfileId && (!!criteria.query || !!criteria.tmdbId || !!criteria.imdbId)
+  const finalEnabled = options?.enabled ?? defaultEnabled
+
+  console.log('[useIndexerMovieSearch] criteria:', criteria,
+    'options.enabled:', options?.enabled,
+    'defaultEnabled:', defaultEnabled,
+    'finalEnabled:', finalEnabled)
+
   return useQuery({
     queryKey: searchKeys.movieResults(criteria),
-    queryFn: () => searchApi.searchMovie(criteria),
-    enabled: options?.enabled ?? (!!criteria.qualityProfileId && (!!criteria.query || !!criteria.tmdbId || !!criteria.imdbId)),
+    queryFn: () => {
+      console.log('[useIndexerMovieSearch] queryFn executing!')
+      return searchApi.searchMovie(criteria)
+    },
+    enabled: finalEnabled,
     staleTime: 30000,
   })
 }

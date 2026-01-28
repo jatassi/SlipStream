@@ -141,9 +141,13 @@ func (a *macApp) Stop() {
 		a.mu.Unlock()
 
 		if wasRunning {
+			// Dispatch terminate to the main thread via performSelectorOnMainThread
+			// This is required because NSApplication.terminate: must be called from the main thread
 			objc.WithAutoreleasePool(func() {
 				app := appkit.Application_SharedApplication()
-				app.Terminate(nil)
+				// Use stop instead of terminate to cleanly exit the run loop
+				// This will cause app.Run() to return
+				app.Stop(nil)
 			})
 		}
 

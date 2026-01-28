@@ -58,17 +58,17 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 // SearchResult contains aggregated search results.
 type SearchResult struct {
 	Releases      []types.ReleaseInfo  `json:"releases"`
-	TotalResults  int                  `json:"totalResults"`
-	IndexersUsed  int                  `json:"indexersUsed"`
-	IndexerErrors []SearchIndexerError `json:"indexerErrors,omitempty"`
+	TotalResults  int                  `json:"total"`
+	IndexersUsed  int                  `json:"indexersSearched"`
+	IndexerErrors []SearchIndexerError `json:"errors,omitempty"`
 }
 
 // TorrentSearchResult contains aggregated torrent search results.
 type TorrentSearchResult struct {
 	Releases      []types.TorrentInfo  `json:"releases"`
-	TotalResults  int                  `json:"totalResults"`
-	IndexersUsed  int                  `json:"indexersUsed"`
-	IndexerErrors []SearchIndexerError `json:"indexerErrors,omitempty"`
+	TotalResults  int                  `json:"total"`
+	IndexersUsed  int                  `json:"indexersSearched"`
+	IndexerErrors []SearchIndexerError `json:"errors,omitempty"`
 }
 
 // SearchIndexerError represents an error from a specific indexer during search.

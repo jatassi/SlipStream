@@ -72,6 +72,13 @@ func (r *Router) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 		isProwlarr = false
 	}
 
+	r.logger.Info().
+		Bool("isProwlarrMode", isProwlarr).
+		Bool("hasProwlarrSearcher", r.prowlarrSearcher != nil).
+		Str("query", criteria.Query).
+		Str("type", criteria.Type).
+		Msg("SearchTorrents routing decision")
+
 	if isProwlarr && r.prowlarrSearcher != nil {
 		return r.searchTorrentsViaProwlarr(ctx, criteria, params)
 	}
@@ -155,7 +162,7 @@ func (r *Router) searchViaProwlarr(ctx context.Context, criteria types.SearchCri
 
 // searchTorrentsViaProwlarr executes a torrent search through Prowlarr with scoring.
 func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria types.SearchCriteria, params ScoredSearchParams) (*TorrentSearchResult, error) {
-	r.logger.Debug().
+	r.logger.Info().
 		Str("query", criteria.Query).
 		Str("type", criteria.Type).
 		Int("season", criteria.Season).
@@ -164,6 +171,7 @@ func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria types.S
 
 	torrents, err := r.prowlarrSearcher.Search(ctx, criteria)
 	if err != nil {
+		r.logger.Error().Err(err).Msg("Prowlarr search failed")
 		return &TorrentSearchResult{
 			Releases:     []types.TorrentInfo{},
 			TotalResults: 0,
@@ -175,6 +183,8 @@ func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria types.S
 			}},
 		}, nil
 	}
+
+	r.logger.Info().Int("rawResults", len(torrents)).Msg("Prowlarr returned results")
 
 	if len(torrents) == 0 {
 		return &TorrentSearchResult{
@@ -188,14 +198,20 @@ func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria types.S
 	r.enrichTorrentsWithQuality(torrents)
 
 	// Filter by search criteria
+	preFilterCount := len(torrents)
 	torrents = r.filterByCriteria(torrents, criteria)
+
+	r.logger.Info().
+		Int("preFilter", preFilterCount).
+		Int("postFilter", len(torrents)).
+		Msg("Filtered Prowlarr results by criteria")
 
 	// Score torrents using SlipStream's scoring algorithm
 	r.scoreTorrents(torrents, params)
 
-	r.logger.Debug().
+	r.logger.Info().
 		Int("results", len(torrents)).
-		Msg("Prowlarr search completed")
+		Msg("Prowlarr torrent search completed")
 
 	return &TorrentSearchResult{
 		Releases:     torrents,

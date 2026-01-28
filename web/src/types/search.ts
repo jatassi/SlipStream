@@ -87,12 +87,19 @@ export interface UsenetInfo extends ReleaseInfo {
   group?: string
 }
 
+// Error from a specific indexer during search
+export interface SearchIndexerError {
+  indexerId: number
+  indexerName: string
+  error: string
+}
+
 // Search result from API
 export interface SearchResult {
   releases: ReleaseInfo[]
   total: number
   indexersSearched: number
-  errors?: string[]
+  errors?: SearchIndexerError[]
 }
 
 // Torrent search result
@@ -100,7 +107,7 @@ export interface TorrentSearchResult {
   releases: TorrentInfo[]
   total: number
   indexersSearched: number
-  errors?: string[]
+  errors?: SearchIndexerError[]
 }
 
 // Grab request to send release to download client

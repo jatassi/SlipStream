@@ -64,6 +64,11 @@ func bootstrapLog(msg string) {
 }
 
 func main() {
+	// Lock the main goroutine to the main OS thread.
+	// This is required for macOS where UI elements (NSWindow, NSApplication)
+	// must be created and manipulated on the main thread.
+	runtime.LockOSThread()
+
 	bootstrapLog("=== SlipStream starting ===")
 	bootstrapLog(fmt.Sprintf("OS: %s, Arch: %s", runtime.GOOS, runtime.GOARCH))
 	bootstrapLog(fmt.Sprintf("Executable: %s", os.Args[0]))

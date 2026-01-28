@@ -191,15 +191,49 @@ func (c *Client) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-// GetCapabilities fetches the Torznab capabilities from Prowlarr's aggregated endpoint.
+// GetCapabilities returns Prowlarr capabilities based on available indexers.
+// Since Prowlarr's REST API doesn't have an aggregated caps endpoint,
+// we construct capabilities from the system status and indexer list.
 func (c *Client) GetCapabilities(ctx context.Context) (*Capabilities, error) {
-	var caps TorznabCaps
-
-	if err := c.doXML(ctx, http.MethodGet, "/api?t=caps", nil, &caps); err != nil {
+	// Get system status for version info
+	var status struct {
+		Version string `json:"version"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/system/status", nil, &status); err != nil {
 		return nil, fmt.Errorf("failed to fetch capabilities: %w", err)
 	}
 
-	return c.convertCapabilities(&caps), nil
+	// Build capabilities from known Prowlarr features
+	caps := &Capabilities{
+		Server: ServerInfo{
+			Title:   "Prowlarr",
+			Version: status.Version,
+		},
+		Limits: LimitsInfo{
+			Max:     100,
+			Default: 100,
+		},
+		Searching: SearchingInfo{
+			Search: SearchTypeInfo{
+				Available:       true,
+				SupportedParams: []string{"q"},
+			},
+			TVSearch: SearchTypeInfo{
+				Available:       true,
+				SupportedParams: []string{"q", "season", "ep", "tvdbid"},
+			},
+			MovieSearch: SearchTypeInfo{
+				Available:       true,
+				SupportedParams: []string{"q", "imdbid", "tmdbid"},
+			},
+		},
+		Categories: []Category{
+			{ID: 2000, Name: "Movies"},
+			{ID: 5000, Name: "TV"},
+		},
+	}
+
+	return caps, nil
 }
 
 // convertCapabilities transforms Torznab XML capabilities to our internal format.
@@ -336,48 +370,57 @@ func (c *Client) convertIndexer(idx prowlarrIndexerResponse) Indexer {
 	}
 }
 
-// Search executes a search query through Prowlarr's aggregated endpoint.
+// ProwlarrSearchResult represents a single result from Prowlarr's REST API search.
+type ProwlarrSearchResult struct {
+	GUID                 string  `json:"guid"`
+	Age                  int     `json:"age"`
+	AgeHours             float64 `json:"ageHours"`
+	AgeMinutes           float64 `json:"ageMinutes"`
+	Size                 int64   `json:"size"`
+	Grabs                int     `json:"grabs"`
+	IndexerID            int     `json:"indexerId"`
+	Indexer              string  `json:"indexer"`
+	Title                string  `json:"title"`
+	SortTitle            string  `json:"sortTitle"`
+	ImdbID               int     `json:"imdbId"`
+	TmdbID               int     `json:"tmdbId"`
+	TvdbID               int     `json:"tvdbId"`
+	PublishDate          string  `json:"publishDate"`
+	DownloadURL          string  `json:"downloadUrl"`
+	InfoURL              string  `json:"infoUrl"`
+	Seeders              int     `json:"seeders"`
+	Leechers             int     `json:"leechers"`
+	Protocol             string  `json:"protocol"`
+	Categories           []struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	} `json:"categories"`
+	DownloadVolumeFactor float64 `json:"downloadVolumeFactor"`
+	UploadVolumeFactor   float64 `json:"uploadVolumeFactor"`
+	InfoHash             string  `json:"infoHash"`
+}
+
+// Search executes a search query through Prowlarr's REST API.
 func (c *Client) Search(ctx context.Context, req SearchRequest) (*TorznabFeed, error) {
 	params := url.Values{}
-	params.Set("extended", "1") // Always request extended attributes
-
-	switch req.Type {
-	case "movie":
-		params.Set("t", "movie")
-		if req.ImdbID != "" {
-			params.Set("imdbid", req.ImdbID)
-		}
-		if req.TmdbID > 0 {
-			params.Set("tmdbid", strconv.Itoa(req.TmdbID))
-		}
-	case "tvsearch":
-		params.Set("t", "tvsearch")
-		if req.TvdbID > 0 {
-			params.Set("tvdbid", strconv.Itoa(req.TvdbID))
-		}
-		if req.TmdbID > 0 {
-			params.Set("tmdbid", strconv.Itoa(req.TmdbID))
-		}
-		if req.Season > 0 {
-			params.Set("season", strconv.Itoa(req.Season))
-		}
-		if req.Episode > 0 {
-			params.Set("ep", strconv.Itoa(req.Episode))
-		}
-	default:
-		params.Set("t", "search")
-	}
 
 	if req.Query != "" {
-		params.Set("q", req.Query)
+		params.Set("query", req.Query)
 	}
 
-	if len(req.Categories) > 0 {
-		catStrs := make([]string, len(req.Categories))
-		for i, cat := range req.Categories {
-			catStrs[i] = strconv.Itoa(cat)
-		}
-		params.Set("cat", strings.Join(catStrs, ","))
+	// Set search type
+	switch req.Type {
+	case "movie":
+		params.Set("type", "movie")
+	case "tvsearch":
+		params.Set("type", "tv")
+	default:
+		params.Set("type", "search")
+	}
+
+	// Add categories
+	for _, cat := range req.Categories {
+		params.Add("categories", strconv.Itoa(cat))
 	}
 
 	if req.Limit > 0 {
@@ -387,24 +430,63 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (*TorznabFeed, e
 		params.Set("offset", strconv.Itoa(req.Offset))
 	}
 
-	path := "/api?" + params.Encode()
+	path := "/api/v1/search?" + params.Encode()
 
-	c.logger.Debug().
+	c.logger.Info().
 		Str("type", req.Type).
 		Str("query", req.Query).
 		Ints("categories", req.Categories).
-		Msg("executing search")
+		Str("path", path).
+		Msg("executing Prowlarr search request")
 
-	var feed TorznabFeed
-	if err := c.doXML(ctx, http.MethodGet, path, nil, &feed); err != nil {
+	var results []ProwlarrSearchResult
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &results); err != nil {
+		c.logger.Error().Err(err).Str("path", path).Msg("Prowlarr search request failed")
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
-	c.logger.Debug().
-		Int("results", len(feed.Channel.Items)).
-		Msg("search completed")
+	c.logger.Info().
+		Int("results", len(results)).
+		Msg("Prowlarr search completed")
 
-	return &feed, nil
+	// Convert to TorznabFeed format for compatibility with existing code
+	feed := &TorznabFeed{}
+	feed.Channel.Items = make([]TorznabItem, 0, len(results))
+
+	for _, r := range results {
+		item := TorznabItem{
+			Title:       r.Title,
+			GUID:        r.GUID,
+			Link:        r.DownloadURL,
+			Size:        r.Size,
+			PubDate:     r.PublishDate,
+			Description: r.Title,
+		}
+
+		// Add attributes that the service layer expects
+		item.Attributes = append(item.Attributes,
+			TorznabAttribute{Name: "indexer", Value: r.Indexer},
+			TorznabAttribute{Name: "seeders", Value: strconv.Itoa(r.Seeders)},
+			TorznabAttribute{Name: "peers", Value: strconv.Itoa(r.Seeders + r.Leechers)},
+			TorznabAttribute{Name: "grabs", Value: strconv.Itoa(r.Grabs)},
+			TorznabAttribute{Name: "downloadvolumefactor", Value: strconv.FormatFloat(r.DownloadVolumeFactor, 'f', -1, 64)},
+			TorznabAttribute{Name: "uploadvolumefactor", Value: strconv.FormatFloat(r.UploadVolumeFactor, 'f', -1, 64)},
+		)
+
+		if r.InfoURL != "" {
+			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "comments", Value: r.InfoURL})
+		}
+		if r.InfoHash != "" {
+			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "infohash", Value: r.InfoHash})
+		}
+		if r.ImdbID > 0 {
+			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "imdb", Value: fmt.Sprintf("tt%07d", r.ImdbID)})
+		}
+
+		feed.Channel.Items = append(feed.Channel.Items, item)
+	}
+
+	return feed, nil
 }
 
 // Download retrieves the torrent/NZB file from Prowlarr.

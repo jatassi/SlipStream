@@ -336,19 +336,28 @@ func (s *Service) GetConnectionStatus(ctx context.Context) (*ConnectionStatus, e
 
 // Search executes a search through Prowlarr.
 func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+	s.logger.Info().
+		Str("type", criteria.Type).
+		Str("query", criteria.Query).
+		Int("tmdbId", criteria.TmdbID).
+		Int("tvdbId", criteria.TvdbID).
+		Msg("Prowlarr search starting")
+
 	config, err := s.GetConfig(ctx)
 	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to get Prowlarr config")
 		return nil, err
 	}
 
 	if !config.Enabled {
+		s.logger.Warn().Msg("Prowlarr not enabled, returning error")
 		return nil, ErrNotConfigured
 	}
 
 	// Check cache
 	cacheKey := s.searchCacheKey(criteria)
 	if cached := s.getFromSearchCache(cacheKey); cached != nil {
-		s.logger.Debug().
+		s.logger.Info().
 			Str("cacheKey", cacheKey).
 			Int("results", len(cached)).
 			Msg("returning cached search results")
@@ -357,6 +366,7 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]
 
 	client, err := s.GetClient(ctx)
 	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to get Prowlarr client")
 		return nil, err
 	}
 
@@ -449,11 +459,12 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]
 	// Cache results
 	s.setSearchCache(cacheKey, results)
 
-	s.logger.Debug().
+	s.logger.Info().
 		Str("type", criteria.Type).
 		Str("query", criteria.Query).
-		Int("results", len(results)).
-		Msg("search completed")
+		Int("feedItems", len(feed.Channel.Items)).
+		Int("filteredResults", len(results)).
+		Msg("Prowlarr search completed")
 
 	return results, nil
 }

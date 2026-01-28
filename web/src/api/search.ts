@@ -45,12 +45,30 @@ export const searchApi = {
     apiFetch<SearchResult>(`/search?${buildSearchQuery(criteria)}`),
 
   // Movie-specific search with scoring (returns scored TorrentInfo)
-  searchMovie: (criteria: ScoredSearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/movie?${buildScoredSearchQuery(criteria)}`),
+  searchMovie: (criteria: ScoredSearchCriteria) => {
+    const url = `/search/movie?${buildScoredSearchQuery(criteria)}`
+    console.log('[searchApi.searchMovie] Making request to:', url, 'criteria:', criteria)
+    return apiFetch<TorrentSearchResult>(url).then(result => {
+      console.log('[searchApi.searchMovie] Response JSON:', JSON.stringify(result, null, 2))
+      return result
+    }).catch(err => {
+      console.error('[searchApi.searchMovie] Error:', err)
+      throw err
+    })
+  },
 
   // TV-specific search with scoring (returns scored TorrentInfo)
-  searchTV: (criteria: ScoredSearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/tv?${buildScoredSearchQuery(criteria)}`),
+  searchTV: (criteria: ScoredSearchCriteria) => {
+    const url = `/search/tv?${buildScoredSearchQuery(criteria)}`
+    console.log('[searchApi.searchTV] Making request to:', url, 'criteria:', criteria)
+    return apiFetch<TorrentSearchResult>(url).then(result => {
+      console.log('[searchApi.searchTV] Response:', result)
+      return result
+    }).catch(err => {
+      console.error('[searchApi.searchTV] Error:', err)
+      throw err
+    })
+  },
 
   // Torrent search with scoring (returns scored TorrentInfo)
   searchTorrents: (criteria: ScoredSearchCriteria) =>

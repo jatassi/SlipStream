@@ -109,11 +109,20 @@ export function SearchModal({
   }), [query, mediaTitle, qualityProfileId, tmdbId, imdbId, tvdbId, season, episode, year])
 
   // Use appropriate search hook
-  const movieSearch = useIndexerMovieSearch(criteria, { enabled: searchEnabled && isMovie })
-  const tvSearch = useIndexerTVSearch(criteria, { enabled: searchEnabled && !isMovie })
+  const movieSearchEnabled = searchEnabled && isMovie
+  const tvSearchEnabled = searchEnabled && !isMovie
+
+  console.log('[SearchModal] searchEnabled:', searchEnabled, 'isMovie:', isMovie,
+    'movieSearchEnabled:', movieSearchEnabled, 'tvSearchEnabled:', tvSearchEnabled,
+    'criteria:', criteria)
+
+  const movieSearch = useIndexerMovieSearch(criteria, { enabled: movieSearchEnabled })
+  const tvSearch = useIndexerTVSearch(criteria, { enabled: tvSearchEnabled })
 
   const searchResult = isMovie ? movieSearch : tvSearch
   const { data, isLoading, isError, error, refetch } = searchResult
+
+  console.log('[SearchModal] isLoading:', isLoading, 'isError:', isError, 'data:', data, 'error:', error)
 
   const grabMutation = useGrab()
   const [grabbingGuid, setGrabbingGuid] = useState<string | null>(null)

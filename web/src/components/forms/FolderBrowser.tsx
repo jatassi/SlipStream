@@ -84,7 +84,7 @@ export function FolderBrowser({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Browse Folders</DialogTitle>
         </DialogHeader>
