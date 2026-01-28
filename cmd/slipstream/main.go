@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -27,16 +28,62 @@ import (
 	"github.com/slipstream/slipstream/web"
 )
 
+// bootstrapLog writes early diagnostic messages to a file before the main logger is initialized.
+// This helps diagnose startup failures on Windows where GUI apps have no console output.
+func bootstrapLog(msg string) {
+	var logDir string
+	switch runtime.GOOS {
+	case "windows":
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			logDir = filepath.Join(localAppData, "SlipStream", "logs")
+		}
+	case "darwin":
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, "Library", "Logs", "SlipStream")
+		}
+	default:
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, ".config", "slipstream", "logs")
+		}
+	}
+	if logDir == "" {
+		logDir = "./logs"
+	}
+
+	_ = os.MkdirAll(logDir, 0755)
+	logFile := filepath.Join(logDir, "bootstrap.log")
+
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Fprintf(f, "[%s] %s\n", timestamp, msg)
+}
+
 func main() {
+	bootstrapLog("=== SlipStream starting ===")
+	bootstrapLog(fmt.Sprintf("OS: %s, Arch: %s", runtime.GOOS, runtime.GOARCH))
+	bootstrapLog(fmt.Sprintf("Executable: %s", os.Args[0]))
+	bootstrapLog(fmt.Sprintf("Working directory: %s", func() string { wd, _ := os.Getwd(); return wd }()))
+
 	configPath := flag.String("config", "", "Path to config file")
 	noTray := flag.Bool("no-tray", false, "Run without system tray (console mode)")
 	flag.Parse()
 
+	bootstrapLog(fmt.Sprintf("Flags parsed: config=%q, no-tray=%v", *configPath, *noTray))
+	bootstrapLog("Loading configuration...")
+
 	cfg, err := config.Load(*configPath)
 	if err != nil {
+		bootstrapLog(fmt.Sprintf("FATAL: failed to load config: %v", err))
 		panic("failed to load config: " + err.Error())
 	}
+	bootstrapLog(fmt.Sprintf("Config loaded: port=%d, db=%s, logPath=%s", cfg.Server.Port, cfg.Database.Path, cfg.Logging.Path))
 
+	bootstrapLog("Initializing logger...")
 	log := logger.New(logger.Config{
 		Level:      cfg.Logging.Level,
 		Format:     cfg.Logging.Format,
@@ -47,6 +94,7 @@ func main() {
 		Compress:   cfg.Logging.Compress,
 	})
 	defer log.Close()
+	bootstrapLog("Logger initialized")
 
 	log.Info().
 		Str("version", config.Version).
@@ -54,19 +102,26 @@ func main() {
 		Msg("starting SlipStream")
 
 	isFirstRun := platform.IsFirstRun(cfg.Database.Path)
+	bootstrapLog(fmt.Sprintf("First run: %v", isFirstRun))
 
 	devDBPath := cfg.Database.Path[:len(cfg.Database.Path)-3] + "_dev.db"
 
+	bootstrapLog("Initializing database manager...")
 	dbManager, err := database.NewManager(cfg.Database.Path, devDBPath, log.Logger)
 	if err != nil {
+		bootstrapLog(fmt.Sprintf("FATAL: failed to initialize database manager: %v", err))
 		log.Fatal().Err(err).Msg("failed to initialize database manager")
 	}
 	defer dbManager.Close()
+	bootstrapLog("Database manager initialized")
 
+	bootstrapLog("Running database migrations...")
 	log.Info().Msg("running database migrations")
 	if err := dbManager.Migrate(); err != nil {
+		bootstrapLog(fmt.Sprintf("FATAL: failed to run migrations: %v", err))
 		log.Fatal().Err(err).Msg("failed to run migrations")
 	}
+	bootstrapLog("Database migrations complete")
 
 	queries := sqlc.New(dbManager.Conn())
 	if setting, err := queries.GetSetting(context.Background(), "server_port"); err == nil {
@@ -84,9 +139,11 @@ func main() {
 		log.Info().Msg("external access enabled, binding to all interfaces")
 	}
 
+	bootstrapLog(fmt.Sprintf("Finding available port starting from %d...", cfg.Server.Port))
 	configuredPort := cfg.Server.Port
 	actualPort, err := config.FindAvailablePort(cfg.Server.Port, 10)
 	if err != nil {
+		bootstrapLog(fmt.Sprintf("FATAL: failed to find available port: %v", err))
 		log.Fatal().Err(err).Int("configuredPort", cfg.Server.Port).Msg("failed to find available port")
 	}
 	if actualPort != configuredPort {
@@ -96,6 +153,7 @@ func main() {
 			Msg("configured port in use, using alternative port")
 		cfg.Server.Port = actualPort
 	}
+	bootstrapLog(fmt.Sprintf("Using port %d", cfg.Server.Port))
 
 	hub := websocket.NewHub()
 	go hub.Run()
@@ -104,13 +162,16 @@ func main() {
 	quitChan := make(chan struct{}, 1)
 	var shouldRestart bool
 
+	bootstrapLog("Creating API server...")
 	server := api.NewServer(dbManager, hub, cfg, log.Logger, restartChan)
 	server.SetConfiguredPort(configuredPort)
 
 	if err := server.EnsureDefaults(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure defaults")
 	}
+	bootstrapLog("API server created")
 
+	bootstrapLog("Initializing network services...")
 	retryCfg := startup.DefaultRetryConfig()
 	err = startup.WithRetry(
 		context.Background(),
@@ -122,25 +183,36 @@ func main() {
 		log.Logger,
 	)
 	if err != nil {
+		bootstrapLog(fmt.Sprintf("Warning: network services initialization failed: %v", err))
 		log.Warn().Err(err).Msg("failed to initialize network services, some features may be unavailable until network is restored")
+	} else {
+		bootstrapLog("Network services initialized")
 	}
 
 	server.Echo().GET("/ws", hub.HandleWebSocket)
 
 	if distFS, err := web.DistFS(); err == nil {
 		registerFrontendHandler(server.Echo(), distFS)
+		bootstrapLog("Frontend handler registered")
+	} else {
+		bootstrapLog(fmt.Sprintf("Warning: failed to get frontend dist FS: %v", err))
 	}
 
+	bootstrapLog("Starting HTTP server...")
 	go func() {
 		addr := cfg.Server.Address()
+		bootstrapLog(fmt.Sprintf("HTTP server listening on %s", addr))
 		log.Info().Str("address", addr).Msg("HTTP server listening")
 		if err := server.Start(addr); err != nil {
+			bootstrapLog(fmt.Sprintf("HTTP server stopped: %v", err))
 			log.Info().Msg("server stopped")
 		}
 	}()
 
 	serverURL := fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
+	bootstrapLog(fmt.Sprintf("Server URL: %s", serverURL))
 
+	bootstrapLog("Creating platform app...")
 	app := platform.NewApp(platform.AppConfig{
 		ServerURL: serverURL,
 		DataPath:  cfg.Database.Path,
@@ -150,6 +222,7 @@ func main() {
 			close(quitChan)
 		},
 	})
+	bootstrapLog(fmt.Sprintf("Platform app created (NoTray=%v)", *noTray || runtime.GOOS == "linux"))
 
 	if isFirstRun {
 		go func() {
@@ -166,19 +239,25 @@ func main() {
 
 		select {
 		case <-sigChan:
+			bootstrapLog("Received shutdown signal")
 			log.Info().Msg("received shutdown signal")
 			app.Stop()
 		case <-restartChan:
+			bootstrapLog("Restart requested")
 			log.Info().Msg("restarting server...")
 			shouldRestart = true
 			app.Stop()
 		case <-quitChan:
+			bootstrapLog("Quit channel closed")
 		}
 	}()
 
+	bootstrapLog("Calling app.Run() - entering main loop...")
 	if err := app.Run(); err != nil {
+		bootstrapLog(fmt.Sprintf("Platform app error: %v", err))
 		log.Error().Err(err).Msg("platform app error")
 	}
+	bootstrapLog("app.Run() returned, shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

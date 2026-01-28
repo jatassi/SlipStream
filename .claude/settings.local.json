@@ -70,7 +70,8 @@
       "Bash(gh workflow run:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(head:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

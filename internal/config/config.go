@@ -293,8 +293,8 @@ func Load(configPath string) (*Config, error) {
 		// Add platform-specific config paths
 		switch runtime.GOOS {
 		case "windows":
-			if appData := os.Getenv("APPDATA"); appData != "" {
-				v.AddConfigPath(filepath.Join(appData, "SlipStream"))
+			if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+				v.AddConfigPath(filepath.Join(localAppData, "SlipStream"))
 			}
 		case "darwin":
 			if home, err := os.UserHomeDir(); err == nil {
@@ -421,15 +421,15 @@ func (c *ServerConfig) Address() string {
 }
 
 // getDataDir returns the platform-specific data directory.
-// Windows: %APPDATA%\SlipStream
+// Windows: %LOCALAPPDATA%\SlipStream
 // macOS: ~/Library/Application Support/SlipStream
 // Linux: XDG_CONFIG_HOME/slipstream or ~/.config/slipstream
 // Others: ./data
 func getDataDir() string {
 	switch runtime.GOOS {
 	case "windows":
-		if appData := os.Getenv("APPDATA"); appData != "" {
-			return filepath.Join(appData, "SlipStream")
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			return filepath.Join(localAppData, "SlipStream")
 		}
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {
@@ -450,15 +450,15 @@ func getDataDir() string {
 }
 
 // getLogDir returns the platform-specific log directory.
-// Windows: %APPDATA%\SlipStream\logs
+// Windows: %LOCALAPPDATA%\SlipStream\logs
 // macOS: ~/Library/Logs/SlipStream
 // Linux: XDG_CONFIG_HOME/slipstream/logs or ~/.config/slipstream/logs
 // Others: ./data/logs
 func getLogDir() string {
 	switch runtime.GOOS {
 	case "windows":
-		if appData := os.Getenv("APPDATA"); appData != "" {
-			return filepath.Join(appData, "SlipStream", "logs")
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			return filepath.Join(localAppData, "SlipStream", "logs")
 		}
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil {

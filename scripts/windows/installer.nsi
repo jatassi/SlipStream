@@ -23,6 +23,12 @@ VIAddVersionKey "LegalCopyright" "SlipStream"
 ; Modern UI Settings
 !define MUI_ABORTWARNING
 
+; Finish Page Settings
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_TEXT "Start SlipStream"
+!define MUI_FINISHPAGE_RUN_NOTCHECKED
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchSlipStream
+
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -35,6 +41,12 @@ VIAddVersionKey "LegalCopyright" "SlipStream"
 
 ; Language
 !insertmacro MUI_LANGUAGE "English"
+
+; Function to launch SlipStream with correct working directory
+Function LaunchSlipStream
+    SetOutPath "$LOCALAPPDATA\SlipStream"
+    Exec "$INSTDIR\slipstream.exe"
+FunctionEnd
 
 ; Component descriptions
 LangString DESC_SecMain ${LANG_ENGLISH} "Install SlipStream application files."
