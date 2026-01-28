@@ -411,6 +411,32 @@ func (q *Queries) GetMovieFile(ctx context.Context, id int64) (*MovieFile, error
 	return &i, err
 }
 
+const getMovieFileByOriginalPath = `-- name: GetMovieFileByOriginalPath :one
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE original_path = ? LIMIT 1
+`
+
+func (q *Queries) GetMovieFileByOriginalPath(ctx context.Context, originalPath sql.NullString) (*MovieFile, error) {
+	row := q.db.QueryRowContext(ctx, getMovieFileByOriginalPath, originalPath)
+	var i MovieFile
+	err := row.Scan(
+		&i.ID,
+		&i.MovieID,
+		&i.Path,
+		&i.Size,
+		&i.Quality,
+		&i.VideoCodec,
+		&i.AudioCodec,
+		&i.Resolution,
+		&i.CreatedAt,
+		&i.QualityID,
+		&i.OriginalPath,
+		&i.OriginalFilename,
+		&i.ImportedAt,
+		&i.SlotID,
+	)
+	return &i, err
+}
+
 const getMovieFileByPath = `-- name: GetMovieFileByPath :one
 SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM movie_files WHERE path = ? LIMIT 1
 `
@@ -658,6 +684,17 @@ func (q *Queries) GetUnreleasedMoviesWithPastDate(ctx context.Context) ([]*Movie
 		return nil, err
 	}
 	return items, nil
+}
+
+const isOriginalPathImportedMovie = `-- name: IsOriginalPathImportedMovie :one
+SELECT EXISTS(SELECT 1 FROM movie_files WHERE original_path = ?) AS imported
+`
+
+func (q *Queries) IsOriginalPathImportedMovie(ctx context.Context, originalPath sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isOriginalPathImportedMovie, originalPath)
+	var imported int64
+	err := row.Scan(&imported)
+	return imported, err
 }
 
 const listMissingMovies = `-- name: ListMissingMovies :many

@@ -211,3 +211,9 @@ UPDATE movie_files SET
     audio_codec = ?,
     resolution = ?
 WHERE movie_id = ?;
+
+-- name: GetMovieFileByOriginalPath :one
+SELECT * FROM movie_files WHERE original_path = ? LIMIT 1;
+
+-- name: IsOriginalPathImportedMovie :one
+SELECT EXISTS(SELECT 1 FROM movie_files WHERE original_path = ?) AS imported;

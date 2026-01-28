@@ -72,7 +72,9 @@
       "Bash(gh run view:*)",
       "Bash(curl:*)",
       "Bash(head:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(gh release view:*)",
+      "Bash(bunx eslint:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

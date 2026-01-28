@@ -529,6 +529,12 @@ UPDATE episode_files SET
     resolution = ?
 WHERE episode_id = ?;
 
+-- name: GetEpisodeFileByOriginalPath :one
+SELECT * FROM episode_files WHERE original_path = ? LIMIT 1;
+
+-- name: IsOriginalPathImportedEpisode :one
+SELECT EXISTS(SELECT 1 FROM episode_files WHERE original_path = ?) AS imported;
+
 -- name: CountMissingEpisodesBySeasons :one
 -- Counts missing episodes (released, monitored, no file) in the specified seasons
 SELECT COUNT(*) FROM episodes e

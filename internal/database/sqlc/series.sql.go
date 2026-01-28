@@ -582,6 +582,32 @@ func (q *Queries) GetEpisodeFile(ctx context.Context, id int64) (*EpisodeFile, e
 	return &i, err
 }
 
+const getEpisodeFileByOriginalPath = `-- name: GetEpisodeFileByOriginalPath :one
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE original_path = ? LIMIT 1
+`
+
+func (q *Queries) GetEpisodeFileByOriginalPath(ctx context.Context, originalPath sql.NullString) (*EpisodeFile, error) {
+	row := q.db.QueryRowContext(ctx, getEpisodeFileByOriginalPath, originalPath)
+	var i EpisodeFile
+	err := row.Scan(
+		&i.ID,
+		&i.EpisodeID,
+		&i.Path,
+		&i.Size,
+		&i.Quality,
+		&i.VideoCodec,
+		&i.AudioCodec,
+		&i.Resolution,
+		&i.CreatedAt,
+		&i.QualityID,
+		&i.OriginalPath,
+		&i.OriginalFilename,
+		&i.ImportedAt,
+		&i.SlotID,
+	)
+	return &i, err
+}
+
 const getEpisodeFileByPath = `-- name: GetEpisodeFileByPath :one
 SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE path = ? LIMIT 1
 `
@@ -1122,6 +1148,17 @@ func (q *Queries) GetSeriesMonitoringStats(ctx context.Context, arg GetSeriesMon
 		&i.MonitoredEpisodes,
 	)
 	return &i, err
+}
+
+const isOriginalPathImportedEpisode = `-- name: IsOriginalPathImportedEpisode :one
+SELECT EXISTS(SELECT 1 FROM episode_files WHERE original_path = ?) AS imported
+`
+
+func (q *Queries) IsOriginalPathImportedEpisode(ctx context.Context, originalPath sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isOriginalPathImportedEpisode, originalPath)
+	var imported int64
+	err := row.Scan(&imported)
+	return imported, err
 }
 
 const listAllSeriesForAvailability = `-- name: ListAllSeriesForAvailability :many

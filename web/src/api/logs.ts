@@ -1,11 +1,11 @@
-import { apiFetch } from './client'
+import { apiFetch, getAdminAuthToken } from './client'
 import type { LogEntry } from '@/types/logs'
 
 export const logsApi = {
   getRecent: () => apiFetch<LogEntry[]>('/system/logs'),
 
   downloadLogFile: () => {
-    const token = localStorage.getItem('admin_token')
+    const token = getAdminAuthToken()
     const headers: Record<string, string> = {}
     if (token) {
       headers['Authorization'] = `Bearer ${token}`

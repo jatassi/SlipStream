@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,7 +93,12 @@ func (s *Service) ProcessManualImport(ctx context.Context, sourcePath string, ma
 	return s.processImport(ctx, job)
 }
 
+// SlipStreamSubdirs are the subdirectories where SlipStream places downloads.
+// Only files in these directories should be scanned for import.
+var SlipStreamSubdirs = []string{"SlipStream/Movies", "SlipStream/Series", "SlipStream"}
+
 // ScanForPendingImports scans download folders for files ready to import.
+// Only scans the SlipStream subdirectories to avoid importing downloads from other applications.
 func (s *Service) ScanForPendingImports(ctx context.Context) error {
 	s.logger.Info().Msg("Scanning for pending imports")
 
@@ -114,40 +120,85 @@ func (s *Service) ScanForPendingImports(ctx context.Context) error {
 			continue
 		}
 
-		// Get download directory
-		downloadDir, err := dlClient.GetDownloadDir(ctx)
+		// Get base download directory
+		baseDir, err := dlClient.GetDownloadDir(ctx)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("client", client.Name).Msg("Failed to get download dir")
 			continue
 		}
 
-		// Scan for video files
-		files, err := s.findVideoFiles(downloadDir)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("path", downloadDir).Msg("Failed to scan for files")
-			continue
-		}
+		// Only scan SlipStream subdirectories, not the entire download folder
+		// This prevents importing downloads from other applications (e.g., radarr, sonarr)
+		for _, subDir := range SlipStreamSubdirs {
+			slipstreamDir := filepath.Join(baseDir, subDir)
 
-		for _, file := range files {
-			// Skip files already being processed
-			if s.IsProcessing(file) {
+			// Check if directory exists
+			if _, err := os.Stat(slipstreamDir); os.IsNotExist(err) {
 				continue
 			}
 
-			// Try to find a matching queue item
-			// For now, queue without mapping - matching will happen during processing
-			job := ImportJob{
-				SourcePath: file,
-				Manual:     false,
+			// Scan for video files in this SlipStream subdirectory
+			files, err := s.findVideoFiles(slipstreamDir)
+			if err != nil {
+				s.logger.Warn().Err(err).Str("path", slipstreamDir).Msg("Failed to scan for files")
+				continue
 			}
 
-			if err := s.QueueImport(job); err != nil {
-				s.logger.Debug().Err(err).Str("file", file).Msg("Failed to queue file")
+			for _, file := range files {
+				// Skip files already being processed
+				if s.IsProcessing(file) {
+					continue
+				}
+
+				// Skip files that have already been imported
+				if s.isFileAlreadyImported(ctx, file) {
+					continue
+				}
+
+				// Try to find a matching queue item
+				// For now, queue without mapping - matching will happen during processing
+				job := ImportJob{
+					SourcePath: file,
+					Manual:     false,
+				}
+
+				if err := s.QueueImport(job); err != nil {
+					s.logger.Debug().Err(err).Str("file", file).Msg("Failed to queue file")
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// isFileAlreadyImported checks if a file has already been imported to the library.
+// This prevents re-importing files that remain in the download folder after import (e.g., hardlink mode).
+func (s *Service) isFileAlreadyImported(ctx context.Context, path string) bool {
+	// Convert path to sql.NullString
+	nullPath := toNullString(path)
+
+	// Check if it was imported as a movie file
+	movieImported, err := s.queries.IsOriginalPathImportedMovie(ctx, nullPath)
+	if err == nil && movieImported != 0 {
+		return true
+	}
+
+	// Check if it was imported as an episode file
+	episodeImported, err := s.queries.IsOriginalPathImportedEpisode(ctx, nullPath)
+	if err == nil && episodeImported != 0 {
+		return true
+	}
+
+	return false
+}
+
+// toNullString converts a string to sql.NullString, treating empty strings as null.
+func toNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
 }
 
 // processImport handles the actual import of a single file.
