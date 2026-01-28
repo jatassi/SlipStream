@@ -347,7 +347,7 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 
 	// Step 7: Update library records
-	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, mediaInfo)
+	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, job.SourcePath, mediaInfo)
 	if updateErr != nil {
 		// Import succeeded but library update failed - log warning but don't fail
 		s.logger.Warn().Err(updateErr).Msg("Failed to update library records")
@@ -821,7 +821,8 @@ func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, mat
 }
 
 // updateLibraryWithID updates the library and returns the created file ID.
-func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
+// sourcePath is the original file path before import (for duplicate detection).
+func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath string, sourcePath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
 	stat, err := os.Stat(destPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat destination file: %w", err)
@@ -829,12 +830,14 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 
 	if match.MediaType == "movie" && match.MovieID != nil {
 		file, err := s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
-			Path:       destPath,
-			Size:       stat.Size(),
-			Quality:    "",
-			VideoCodec: mediaInfo.VideoCodec,
-			AudioCodec: mediaInfo.AudioCodec,
-			Resolution: mediaInfo.VideoResolution,
+			Path:             destPath,
+			Size:             stat.Size(),
+			Quality:          "",
+			VideoCodec:       mediaInfo.VideoCodec,
+			AudioCodec:       mediaInfo.AudioCodec,
+			Resolution:       mediaInfo.VideoResolution,
+			OriginalPath:     sourcePath,
+			OriginalFilename: filepath.Base(sourcePath),
 		})
 		if err != nil {
 			return nil, err
@@ -842,12 +845,14 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 		return &file.ID, nil
 	} else if match.MediaType == "episode" && match.EpisodeID != nil {
 		file, err := s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
-			Path:       destPath,
-			Size:       stat.Size(),
-			Quality:    "",
-			VideoCodec: mediaInfo.VideoCodec,
-			AudioCodec: mediaInfo.AudioCodec,
-			Resolution: mediaInfo.VideoResolution,
+			Path:             destPath,
+			Size:             stat.Size(),
+			Quality:          "",
+			VideoCodec:       mediaInfo.VideoCodec,
+			AudioCodec:       mediaInfo.AudioCodec,
+			Resolution:       mediaInfo.VideoResolution,
+			OriginalPath:     sourcePath,
+			OriginalFilename: filepath.Base(sourcePath),
 		})
 		if err != nil {
 			return nil, err

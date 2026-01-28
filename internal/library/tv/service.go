@@ -941,16 +941,35 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
 	}
 
-	row, err := s.queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
-		EpisodeID:  episodeID,
-		Path:       input.Path,
-		Size:       input.Size,
-		Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-		QualityID:  qualityID,
-		VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-		AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-		Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
-	})
+	var row *sqlc.EpisodeFile
+
+	// Use CreateEpisodeFileWithImportInfo when original path is provided (for import tracking)
+	if input.OriginalPath != "" {
+		row, err = s.queries.CreateEpisodeFileWithImportInfo(ctx, sqlc.CreateEpisodeFileWithImportInfoParams{
+			EpisodeID:        episodeID,
+			Path:             input.Path,
+			Size:             input.Size,
+			Quality:          sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:        qualityID,
+			VideoCodec:       sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec:       sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			Resolution:       sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+			OriginalPath:     sql.NullString{String: input.OriginalPath, Valid: true},
+			OriginalFilename: sql.NullString{String: input.OriginalFilename, Valid: input.OriginalFilename != ""},
+			ImportedAt:       sql.NullTime{Time: time.Now(), Valid: true},
+		})
+	} else {
+		row, err = s.queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
+			EpisodeID:  episodeID,
+			Path:       input.Path,
+			Size:       input.Size,
+			Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:  qualityID,
+			VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create episode file: %w", err)
 	}

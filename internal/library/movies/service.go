@@ -504,16 +504,35 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
 	}
 
-	row, err := s.queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
-		MovieID:    movieID,
-		Path:       input.Path,
-		Size:       input.Size,
-		Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-		QualityID:  qualityID,
-		VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-		AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-		Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
-	})
+	var row *sqlc.MovieFile
+
+	// Use CreateMovieFileWithImportInfo when original path is provided (for import tracking)
+	if input.OriginalPath != "" {
+		row, err = s.queries.CreateMovieFileWithImportInfo(ctx, sqlc.CreateMovieFileWithImportInfoParams{
+			MovieID:          movieID,
+			Path:             input.Path,
+			Size:             input.Size,
+			Quality:          sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:        qualityID,
+			VideoCodec:       sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec:       sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			Resolution:       sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+			OriginalPath:     sql.NullString{String: input.OriginalPath, Valid: true},
+			OriginalFilename: sql.NullString{String: input.OriginalFilename, Valid: input.OriginalFilename != ""},
+			ImportedAt:       sql.NullTime{Time: time.Now(), Valid: true},
+		})
+	} else {
+		row, err = s.queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
+			MovieID:    movieID,
+			Path:       input.Path,
+			Size:       input.Size,
+			Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:  qualityID,
+			VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie file: %w", err)
 	}

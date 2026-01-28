@@ -93,13 +93,15 @@ type ListMoviesOptions struct {
 
 // CreateMovieFileInput contains fields for creating a movie file.
 type CreateMovieFileInput struct {
-	Path       string `json:"path"`
-	Size       int64  `json:"size"`
-	Quality    string `json:"quality,omitempty"`
-	QualityID  *int64 `json:"qualityId,omitempty"`
-	VideoCodec string `json:"videoCodec,omitempty"`
-	AudioCodec string `json:"audioCodec,omitempty"`
-	Resolution string `json:"resolution,omitempty"`
+	Path             string `json:"path"`
+	Size             int64  `json:"size"`
+	Quality          string `json:"quality,omitempty"`
+	QualityID        *int64 `json:"qualityId,omitempty"`
+	VideoCodec       string `json:"videoCodec,omitempty"`
+	AudioCodec       string `json:"audioCodec,omitempty"`
+	Resolution       string `json:"resolution,omitempty"`
+	OriginalPath     string `json:"originalPath,omitempty"`     // Source path before import
+	OriginalFilename string `json:"originalFilename,omitempty"` // Original filename before rename
 }
 
 // generateSortTitle creates a sort-friendly title by removing leading articles.
