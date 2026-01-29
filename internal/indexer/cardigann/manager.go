@@ -3,6 +3,8 @@ package cardigann
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -20,10 +22,12 @@ type Manager struct {
 	clientsMu      sync.RWMutex
 	logger         zerolog.Logger
 	lastUpdate     time.Time
+	lastAttempt    time.Time // Tracks last update attempt (even if failed)
 	updateMu       sync.Mutex
 	autoUpdate     bool
 	updateInterval time.Duration
 	cookieStore    CookieStore
+	modeCheckFunc  func() bool // Returns true if SlipStream mode (definitions should be used)
 }
 
 // ManagerConfig contains configuration for the definition manager.
@@ -67,13 +71,33 @@ func (m *Manager) SetCookieStore(store CookieStore) {
 	m.cookieStore = store
 }
 
+// SetModeCheckFunc sets a function that returns true when SlipStream mode is active.
+// When in Prowlarr mode, definition updates are skipped.
+func (m *Manager) SetModeCheckFunc(fn func() bool) {
+	m.modeCheckFunc = fn
+}
+
+// isSlipStreamMode returns true if we should use SlipStream definitions.
+// Defaults to true if no mode check function is set.
+func (m *Manager) isSlipStreamMode() bool {
+	if m.modeCheckFunc == nil {
+		return true
+	}
+	return m.modeCheckFunc()
+}
+
 // Initialize loads definitions and optionally updates from remote.
 func (m *Manager) Initialize(ctx context.Context) error {
-	// Try to update from remote
-	if m.autoUpdate {
+	// Load last update time from disk
+	m.loadLastUpdateTime()
+
+	// Try to update from remote if in SlipStream mode
+	if m.autoUpdate && m.isSlipStreamMode() {
 		if err := m.UpdateDefinitions(ctx); err != nil {
 			m.logger.Warn().Err(err).Msg("Failed to update definitions from remote, using cached versions")
 		}
+	} else if !m.isSlipStreamMode() {
+		m.logger.Debug().Msg("Skipping definition update: Prowlarr mode is active")
 	}
 
 	// Load definitions from cache
@@ -91,12 +115,30 @@ func (m *Manager) UpdateDefinitions(ctx context.Context) error {
 	m.updateMu.Lock()
 	defer m.updateMu.Unlock()
 
-	// Check if we've updated recently
-	if time.Since(m.lastUpdate) < time.Minute {
-		m.logger.Debug().Msg("Skipping update, updated recently")
+	// Skip if not in SlipStream mode
+	if !m.isSlipStreamMode() {
+		m.logger.Debug().Msg("Skipping definition update: Prowlarr mode is active")
 		return nil
 	}
 
+	// Check if we've updated successfully within the configured interval (default 24h)
+	if time.Since(m.lastUpdate) < m.updateInterval {
+		m.logger.Debug().
+			Time("lastUpdate", m.lastUpdate).
+			Dur("interval", m.updateInterval).
+			Msg("Skipping update, updated within interval")
+		return nil
+	}
+
+	// Also throttle attempts (even failed ones) to once per day
+	if time.Since(m.lastAttempt) < m.updateInterval {
+		m.logger.Debug().
+			Time("lastAttempt", m.lastAttempt).
+			Msg("Skipping update, attempted recently")
+		return nil
+	}
+
+	m.lastAttempt = time.Now()
 	m.logger.Info().Msg("Updating definitions from remote repository")
 
 	// Fetch the package
@@ -111,6 +153,7 @@ func (m *Manager) UpdateDefinitions(ctx context.Context) error {
 	}
 
 	m.lastUpdate = time.Now()
+	m.saveLastUpdateTime()
 	m.logger.Info().Int("count", len(definitions)).Msg("Updated definitions from remote")
 
 	return nil
@@ -331,4 +374,35 @@ func (m *Manager) Close() error {
 	m.clients = make(map[int64]*Client)
 	m.clientsMu.Unlock()
 	return nil
+}
+
+// lastUpdateFileName is the name of the file storing the last update timestamp.
+const lastUpdateFileName = ".last_update"
+
+// loadLastUpdateTime loads the last update time from disk.
+func (m *Manager) loadLastUpdateTime() {
+	filePath := filepath.Join(m.cache.GetDefinitionsDir(), lastUpdateFileName)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		// File doesn't exist or can't be read, use zero time
+		return
+	}
+
+	t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data)))
+	if err != nil {
+		m.logger.Warn().Err(err).Msg("Failed to parse last update time")
+		return
+	}
+
+	m.lastUpdate = t
+	m.logger.Debug().Time("lastUpdate", t).Msg("Loaded last update time from disk")
+}
+
+// saveLastUpdateTime saves the last update time to disk.
+func (m *Manager) saveLastUpdateTime() {
+	filePath := filepath.Join(m.cache.GetDefinitionsDir(), lastUpdateFileName)
+	data := m.lastUpdate.Format(time.RFC3339)
+	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
+		m.logger.Warn().Err(err).Msg("Failed to save last update time")
+	}
 }

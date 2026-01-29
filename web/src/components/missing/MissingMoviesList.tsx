@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Search, Zap, Film, Loader2, Download } from 'lucide-react'
+import { Search, Zap, Film, Loader2, Download, BookmarkX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -13,7 +13,7 @@ import {
 import { SearchModal } from '@/components/search/SearchModal'
 import { EmptyState } from '@/components/data/EmptyState'
 import { formatDate } from '@/lib/formatters'
-import { useAutoSearchMovie } from '@/hooks'
+import { useAutoSearchMovie, useUpdateMovie } from '@/hooks'
 import { useDownloadingStore } from '@/stores'
 import { toast } from 'sonner'
 import type { MissingMovie } from '@/types/missing'
@@ -28,8 +28,10 @@ export function MissingMoviesList({ movies, isSearchingAll = false }: MissingMov
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [selectedMovie, setSelectedMovie] = useState<MissingMovie | null>(null)
   const [searchingMovieId, setSearchingMovieId] = useState<number | null>(null)
+  const [unmonitoringMovieId, setUnmonitoringMovieId] = useState<number | null>(null)
 
   const autoSearchMutation = useAutoSearchMovie()
+  const updateMovieMutation = useUpdateMovie()
 
   // Select queueItems directly so component re-renders when it changes
   const queueItems = useDownloadingStore((state) => state.queueItems)
@@ -79,6 +81,21 @@ export function MissingMoviesList({ movies, isSearchingAll = false }: MissingMov
       }
     } finally {
       setSearchingMovieId(null)
+    }
+  }
+
+  const handleUnmonitor = async (movie: MissingMovie) => {
+    setUnmonitoringMovieId(movie.id)
+    try {
+      await updateMovieMutation.mutateAsync({
+        id: movie.id,
+        data: { monitored: false },
+      })
+      toast.success(`"${movie.title}" unmonitored`)
+    } catch {
+      toast.error(`Failed to unmonitor "${movie.title}"`)
+    } finally {
+      setUnmonitoringMovieId(null)
     }
   }
 
@@ -155,6 +172,19 @@ export function MissingMoviesList({ movies, isSearchingAll = false }: MissingMov
                     title="Manual Search"
                   >
                     <Search className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleUnmonitor(movie)}
+                    disabled={unmonitoringMovieId === movie.id}
+                    title="Unmonitor"
+                  >
+                    {unmonitoringMovieId === movie.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <BookmarkX className="size-4" />
+                    )}
                   </Button>
                 </div>
               </TableCell>

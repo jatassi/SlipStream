@@ -18,7 +18,8 @@ type QueueItem struct {
 	ClientName     string   `json:"clientName"`
 	ClientType     string   `json:"clientType"`
 	Title          string   `json:"title"`
-	MediaType      string   `json:"mediaType"` // "movie" or "series"
+	ReleaseName    string   `json:"releaseName"` // Original release name from download client
+	MediaType      string   `json:"mediaType"`   // "movie" or "series"
 	Status         string   `json:"status"`
 	Progress       float64  `json:"progress"`       // 0-100
 	Size           int64    `json:"size"`           // bytes
@@ -206,6 +207,7 @@ func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, 
 		ClientName:     clientName,
 		ClientType:     clientType,
 		Title:          title,
+		ReleaseName:    d.Name,
 		MediaType:      mediaType,
 		Status:         status,
 		Progress:       d.Progress,

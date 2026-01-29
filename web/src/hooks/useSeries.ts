@@ -11,6 +11,7 @@ import type {
   BulkEpisodeMonitorInput,
 } from '@/types'
 import { calendarKeys } from './useCalendar'
+import { missingKeys } from './useMissing'
 
 export const seriesKeys = {
   all: ['series'] as const,
@@ -67,6 +68,7 @@ export function useUpdateSeries() {
       seriesApi.update(id, data),
     onSuccess: (series: Series) => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
       queryClient.setQueryData(seriesKeys.detail(series.id), series)
     },
   })
@@ -158,6 +160,7 @@ export function useUpdateSeasonMonitored() {
     }) => seriesApi.updateSeasonMonitored(seriesId, seasonNumber, monitored),
     onSuccess: (_, { seriesId }) => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.detail(seriesId) })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
     },
   })
 }
@@ -197,6 +200,7 @@ export function useUpdateEpisodeMonitored() {
     onSuccess: (_, { seriesId }) => {
       queryClient.invalidateQueries({ queryKey: seriesKeys.detail(seriesId) })
       queryClient.invalidateQueries({ queryKey: [...seriesKeys.detail(seriesId), 'episodes'] })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
     },
   })
 }

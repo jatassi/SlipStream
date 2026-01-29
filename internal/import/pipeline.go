@@ -46,7 +46,11 @@ func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *Downloa
 	var downloadPath string
 	for _, item := range items {
 		if item.ID == mapping.DownloadID {
-			downloadPath = item.DownloadDir
+			// Compute the actual content path by joining DownloadDir with the torrent/download name
+			// DownloadDir is the save location (e.g., D:\Downloads\Movies)
+			// Name is the torrent name (e.g., "Movie.2024.1080p" for folders, or "Movie.2024.1080p.mkv" for single files)
+			// This prevents scanning the entire category folder and importing unrelated files
+			downloadPath = filepath.Join(item.DownloadDir, item.Name)
 			break
 		}
 	}

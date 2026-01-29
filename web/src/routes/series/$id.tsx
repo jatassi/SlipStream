@@ -17,6 +17,7 @@ import { PosterImage } from '@/components/media/PosterImage'
 import { StatusBadge } from '@/components/media/StatusBadge'
 import { SeriesAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { SeasonList } from '@/components/series/SeasonList'
+import { SeriesEditDialog } from '@/components/series/SeriesEditDialog'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
@@ -61,6 +62,7 @@ export function SeriesDetailPage() {
   const [searchingSeasonNumber, setSearchingSeasonNumber] = useState<number | null>(null)
   const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
   const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
   const { data: episodes } = useEpisodes(seriesId)
@@ -409,7 +411,7 @@ export function SeriesDetailPage() {
           )}
         </Button>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
             <Edit className="size-4 mr-2" />
             Edit
           </Button>
@@ -518,6 +520,13 @@ export function SeriesDetailPage() {
         tvdbId={series.tvdbId}
         season={searchContext.season}
         episode={searchContext.episode?.episodeNumber}
+      />
+
+      {/* Edit Dialog */}
+      <SeriesEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        series={series}
       />
     </div>
   )

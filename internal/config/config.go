@@ -107,7 +107,7 @@ type IndexerConfig struct {
 type CardigannConfig struct {
 	RepositoryURL  string `mapstructure:"repository_url"`  // Default: "https://indexers.prowlarr.com"
 	Branch         string `mapstructure:"branch"`          // Default: "master"
-	Version        string `mapstructure:"version"`         // Default: "v10"
+	Version        string `mapstructure:"version"`         // Default: "11"
 	DefinitionsDir string `mapstructure:"definitions_dir"` // Default: "./data/definitions"
 	CustomDir      string `mapstructure:"custom_dir"`      // Default: "./data/definitions/custom"
 	AutoUpdate     bool   `mapstructure:"auto_update"`     // Default: true
@@ -221,7 +221,7 @@ func Default() *Config {
 			Cardigann: CardigannConfig{
 				RepositoryURL:  "https://indexers.prowlarr.com",
 				Branch:         "master",
-				Version:        "v10",
+				Version:        "11",
 				DefinitionsDir: filepath.Join(dataDir, "definitions"),
 				CustomDir:      filepath.Join(dataDir, "definitions", "custom"),
 				AutoUpdate:     true,
@@ -377,7 +377,7 @@ func setDefaults(v *viper.Viper) {
 	// Cardigann definition system
 	v.SetDefault("indexer.cardigann.repository_url", "https://indexers.prowlarr.com")
 	v.SetDefault("indexer.cardigann.branch", "master")
-	v.SetDefault("indexer.cardigann.version", "v10")
+	v.SetDefault("indexer.cardigann.version", "11")
 	v.SetDefault("indexer.cardigann.definitions_dir", filepath.Join(dataDir, "definitions"))
 	v.SetDefault("indexer.cardigann.custom_dir", filepath.Join(dataDir, "definitions", "custom"))
 	v.SetDefault("indexer.cardigann.auto_update", true)

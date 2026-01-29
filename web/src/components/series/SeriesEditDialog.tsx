@@ -1,0 +1,89 @@
+import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { toast } from 'sonner'
+import { useUpdateSeries } from '@/hooks'
+import type { Series } from '@/types'
+
+interface SeriesEditDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  series: Series
+}
+
+export function SeriesEditDialog({ open, onOpenChange, series }: SeriesEditDialogProps) {
+  const [monitored, setMonitored] = useState(series.monitored)
+  const [prevSeries, setPrevSeries] = useState(series)
+
+  if (series.id !== prevSeries.id) {
+    setPrevSeries(series)
+    setMonitored(series.monitored)
+  }
+
+  const updateMutation = useUpdateSeries()
+
+  const handleSubmit = async () => {
+    if (monitored === series.monitored) {
+      onOpenChange(false)
+      return
+    }
+
+    try {
+      await updateMutation.mutateAsync({
+        id: series.id,
+        data: { monitored },
+      })
+      toast.success(monitored ? 'Series monitored' : 'Series unmonitored')
+      onOpenChange(false)
+    } catch {
+      toast.error('Failed to update series')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Series</DialogTitle>
+          <DialogDescription>{series.title}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="monitored">Monitored</Label>
+              <p className="text-sm text-muted-foreground">
+                Search for releases and upgrade quality for all monitored episodes
+              </p>
+            </div>
+            <Switch
+              id="monitored"
+              checked={monitored}
+              onCheckedChange={setMonitored}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={updateMutation.isPending}>
+            {updateMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

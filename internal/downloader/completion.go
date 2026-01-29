@@ -3,6 +3,7 @@ package downloader
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/types"
@@ -100,11 +101,17 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 
 			s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: found mapping for completed download")
 
+			// Compute the actual content path by joining DownloadDir with the torrent/download name
+			// DownloadDir is the save location (e.g., D:\Downloads\Movies)
+			// Name is the torrent name (e.g., "Movie.2024.1080p" for folders, or "Movie.2024.1080p.mkv" for single files)
+			// The content path is where we should look for video files to import
+			contentPath := filepath.Join(d.DownloadDir, d.Name)
+
 			cd := CompletedDownload{
 				DownloadID:   d.ID,
 				ClientID:     dbClient.ID,
 				ClientName:   dbClient.Name,
-				DownloadPath: d.DownloadDir,
+				DownloadPath: contentPath,
 				MediaType:    detectMediaType(d.DownloadDir),
 				Size:         d.Size,
 				MappingID:    mapping.ID,

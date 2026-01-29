@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Search, Zap, Tv, ChevronDown, ChevronRight, Loader2, Download } from 'lucide-react'
+import { Search, Zap, Tv, ChevronDown, ChevronRight, Loader2, Download, BookmarkX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -11,7 +11,7 @@ import { SearchModal } from '@/components/search/SearchModal'
 import { EmptyState } from '@/components/data/EmptyState'
 import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { useAutoSearchSeries, useAutoSearchSeason, useAutoSearchEpisode } from '@/hooks'
+import { useAutoSearchSeries, useAutoSearchSeason, useAutoSearchEpisode, useUpdateSeries } from '@/hooks'
 import { useDownloadingStore } from '@/stores'
 import { toast } from 'sonner'
 import type { MissingSeries, MissingSeason, MissingEpisode } from '@/types/missing'
@@ -41,10 +41,12 @@ export function MissingSeriesList({ series, isSearchingAll = false }: MissingSer
   const [searchingSeriesId, setSearchingSeriesId] = useState<number | null>(null)
   const [searchingSeasonKey, setSearchingSeasonKey] = useState<string | null>(null)
   const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
+  const [unmonitoringSeriesId, setUnmonitoringSeriesId] = useState<number | null>(null)
 
   const seriesAutoSearchMutation = useAutoSearchSeries()
   const seasonAutoSearchMutation = useAutoSearchSeason()
   const episodeAutoSearchMutation = useAutoSearchEpisode()
+  const updateSeriesMutation = useUpdateSeries()
 
   // Select queueItems directly so component re-renders when it changes
   const queueItems = useDownloadingStore((state) => state.queueItems)
@@ -225,6 +227,21 @@ export function MissingSeriesList({ series, isSearchingAll = false }: MissingSer
     }
   }
 
+  const handleUnmonitorSeries = async (s: MissingSeries) => {
+    setUnmonitoringSeriesId(s.id)
+    try {
+      await updateSeriesMutation.mutateAsync({
+        id: s.id,
+        data: { monitored: false },
+      })
+      toast.success(`"${s.title}" unmonitored`)
+    } catch {
+      toast.error(`Failed to unmonitor "${s.title}"`)
+    } finally {
+      setUnmonitoringSeriesId(null)
+    }
+  }
+
   const getSeasonSummary = (seasons: MissingSeason[]): string => {
     if (seasons.length === 1) {
       return `Season ${seasons[0].seasonNumber}`
@@ -317,6 +334,19 @@ export function MissingSeriesList({ series, isSearchingAll = false }: MissingSer
                       title="Manual Search (All Missing)"
                     >
                       <Search className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleUnmonitorSeries(s)}
+                      disabled={unmonitoringSeriesId === s.id}
+                      title="Unmonitor Series"
+                    >
+                      {unmonitoringSeriesId === s.id ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <BookmarkX className="size-4" />
+                      )}
                     </Button>
                   </div>
                 </div>

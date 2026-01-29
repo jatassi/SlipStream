@@ -34,6 +34,7 @@ import type { QueueItem } from '@/types'
 type MediaFilter = 'all' | 'movies' | 'series'
 
 function DownloadRow({ item }: { item: QueueItem }) {
+  const [showReleaseName, setShowReleaseName] = useState(false)
   const removeMutation = useRemoveFromQueue()
   const pauseMutation = usePauseQueueItem()
   const resumeMutation = useResumeQueueItem()
@@ -80,10 +81,13 @@ function DownloadRow({ item }: { item: QueueItem }) {
   }
 
   // Format title for display
-  const displayTitle =
+  const normalizedTitle =
     item.mediaType === 'series'
       ? formatSeriesTitle(item.title, item.season, item.episode)
       : item.title
+
+  const displayTitle = showReleaseName ? item.releaseName : normalizedTitle
+  const tooltipTitle = showReleaseName ? normalizedTitle : item.releaseName
 
   // Format progress text
   const progressText = `${formatBytes(item.downloadedSize)} / ${formatBytes(item.size)}`
@@ -100,7 +104,11 @@ function DownloadRow({ item }: { item: QueueItem }) {
               <Tv className="size-4" />
             )}
           </div>
-          <span className="font-medium truncate max-w-[300px]" title={displayTitle}>
+          <span
+            className="font-medium truncate max-w-[300px] cursor-pointer hover:text-primary transition-colors"
+            title={tooltipTitle}
+            onClick={() => setShowReleaseName(!showReleaseName)}
+          >
             {displayTitle}
           </span>
         </div>

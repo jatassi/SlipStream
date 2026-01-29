@@ -18,7 +18,7 @@ func NewInboxHandlers(service *Service) *InboxHandlers {
 
 func (h *InboxHandlers) RegisterRoutes(g *echo.Group, authMiddleware *portalmw.AuthMiddleware) {
 	protected := g.Group("")
-	protected.Use(authMiddleware.PortalAuth())
+	protected.Use(authMiddleware.AnyAuth())
 
 	protected.GET("", h.List)
 	protected.GET("/count", h.UnreadCount)

@@ -173,7 +173,7 @@ export function HistoryPage() {
                   <TableHead className="w-12"></TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead>Event</TableHead>
-                  <TableHead>Quality</TableHead>
+                  <TableHead>Release</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -196,7 +196,9 @@ export function HistoryPage() {
                         {eventTypeLabels[item.eventType]}
                       </Badge>
                     </TableCell>
-                    <TableCell>{item.quality || '-'}</TableCell>
+                    <TableCell className="max-w-md truncate" title={item.source || '-'}>
+                      {item.source || '-'}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatRelativeTime(item.createdAt)}
                     </TableCell>

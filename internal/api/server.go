@@ -389,6 +389,20 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.prowlarrService = prowlarr.NewService(db, logger)
 	s.prowlarrModeManager = prowlarr.NewModeManager(s.prowlarrService, dbManager.IsDevMode)
 
+	// Wire up mode check for Cardigann definition updates
+	// Definitions should only be updated when in SlipStream mode
+	if manager := s.indexerService.GetManager(); manager != nil {
+		modeManager := s.prowlarrModeManager
+		manager.SetModeCheckFunc(func() bool {
+			isSlipStream, err := modeManager.IsSlipStreamMode(context.Background())
+			if err != nil {
+				// Default to SlipStream mode on error
+				return true
+			}
+			return isSlipStream
+		})
+	}
+
 	// Initialize search service with status, rate limiting, and WebSocket events
 	s.searchService = search.NewService(s.indexerService, logger)
 	s.searchService.SetStatusService(s.statusService)

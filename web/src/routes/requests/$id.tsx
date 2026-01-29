@@ -209,7 +209,7 @@ export function RequestDetailPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {hasActiveDownload && (
-            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 space-y-3">
+            <div className="px-2 py-3 rounded-lg bg-purple-500/10 border border-purple-500/20 space-y-2">
               <div className="flex items-center justify-between text-xs md:text-sm">
                 <span className="font-medium text-purple-400 flex items-center gap-1 md:gap-2">
                   <Download className="size-3 md:size-4" />

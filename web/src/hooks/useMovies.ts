@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { moviesApi, libraryApi } from '@/api'
 import type { Movie, CreateMovieInput, AddMovieInput, UpdateMovieInput, ListMoviesOptions } from '@/types'
 import { calendarKeys } from './useCalendar'
+import { missingKeys } from './useMissing'
 
 export const movieKeys = {
   all: ['movies'] as const,
@@ -55,6 +56,7 @@ export function useUpdateMovie() {
       moviesApi.update(id, data),
     onSuccess: (movie: Movie) => {
       queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
       queryClient.setQueryData(movieKeys.detail(movie.id), movie)
     },
   })

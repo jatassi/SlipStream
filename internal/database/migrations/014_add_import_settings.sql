@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS import_settings (
     video_extensions TEXT NOT NULL DEFAULT '.mkv,.mp4,.avi,.m4v,.mov,.wmv,.ts,.m2ts,.webm',
 
     -- Matching settings
-    match_conflict_behavior TEXT NOT NULL DEFAULT 'trust_queue'
+    match_conflict_behavior TEXT NOT NULL DEFAULT 'fail'
         CHECK(match_conflict_behavior IN ('trust_queue', 'trust_parse', 'fail')),
     unknown_media_behavior TEXT NOT NULL DEFAULT 'ignore'
         CHECK(unknown_media_behavior IN ('ignore', 'auto_add')),

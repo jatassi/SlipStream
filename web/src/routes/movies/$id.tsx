@@ -22,6 +22,7 @@ import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { SearchModal } from '@/components/search/SearchModal'
 import { AutoSearchButton } from '@/components/search/AutoSearchButton'
 import { SlotStatusCard } from '@/components/slots'
+import { MovieEditDialog } from '@/components/movies/MovieEditDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +63,7 @@ export function MovieDetailPage() {
 
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [searchQualityProfileId, setSearchQualityProfileId] = useState<number | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
   const { data: multiVersionSettings } = useMultiVersionSettings()
@@ -282,7 +284,7 @@ export function MovieDetailPage() {
           )}
         </Button>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
             <Edit className="size-4 mr-2" />
             Edit
           </Button>
@@ -434,6 +436,13 @@ export function MovieDetailPage() {
         tmdbId={movie.tmdbId}
         imdbId={movie.imdbId}
         year={movie.year}
+      />
+
+      {/* Edit Dialog */}
+      <MovieEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        movie={movie}
       />
     </div>
   )

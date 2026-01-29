@@ -74,7 +74,9 @@
       "Bash(head:*)",
       "Bash(lsof:*)",
       "Bash(gh release view:*)",
-      "Bash(bunx eslint:*)"
+      "Bash(bunx eslint:*)",
+      "WebFetch(domain:api.themoviedb.org)",
+      "WebFetch(domain:developer.themoviedb.org)"
     ]
   },
   "enableAllProjectMcpServers": true,

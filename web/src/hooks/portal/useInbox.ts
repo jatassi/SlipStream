@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalInboxApi } from '@/api/portal'
+import { usePortalAuthStore } from '@/stores/portalAuth'
 
 export const inboxKeys = {
   all: ['portalInbox'] as const,
@@ -8,16 +9,22 @@ export const inboxKeys = {
 }
 
 export function useInbox(limit = 50, offset = 0) {
+  const { isAuthenticated } = usePortalAuthStore()
+
   return useQuery({
     queryKey: [...inboxKeys.list(), limit, offset],
     queryFn: () => portalInboxApi.list(limit, offset),
+    enabled: isAuthenticated,
   })
 }
 
 export function useUnreadCount() {
+  const { isAuthenticated } = usePortalAuthStore()
+
   return useQuery({
     queryKey: inboxKeys.count(),
     queryFn: () => portalInboxApi.unreadCount(),
+    enabled: isAuthenticated,
   })
 }
 
