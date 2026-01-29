@@ -90,11 +90,12 @@ type Broadcaster interface {
 }
 
 type Service struct {
-	db          *sql.DB
-	logger      zerolog.Logger
-	hub         Broadcaster
-	httpClient  *http.Client
-	restartChan chan<- struct{}
+	db             *sql.DB
+	logger         zerolog.Logger
+	hub            Broadcaster
+	httpClient     *http.Client
+	downloadClient *http.Client
+	restartChan    chan<- struct{}
 
 	mu            sync.RWMutex
 	status        Status
@@ -108,6 +109,9 @@ func NewService(db *sql.DB, logger zerolog.Logger, restartChan chan<- struct{}) 
 		logger: logger.With().Str("service", "update").Logger(),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+		downloadClient: &http.Client{
+			Timeout: 0, // No timeout for large file downloads; cancellation is handled via context
 		},
 		restartChan: restartChan,
 		status: Status{
@@ -368,7 +372,7 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 		return "", fmt.Errorf("failed to create download request: %w", err)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.downloadClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download update: %w", err)
 	}
