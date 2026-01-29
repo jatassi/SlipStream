@@ -4,13 +4,8 @@
       "0409": "slipstream.manifest"
     }
   },
-  "RT_ICON": {
-    "#1": {
-      "0409": "../../resources/SlipStream.ico"
-    }
-  },
   "RT_GROUP_ICON": {
-    "#1": {
+    "APP": {
       "0409": "../../resources/SlipStream.ico"
     }
   }
