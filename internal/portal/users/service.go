@@ -34,9 +34,11 @@ type User struct {
 }
 
 type CreateInput struct {
-	Username    string
-	Password    string
-	DisplayName string
+	Username         string
+	Password         string
+	DisplayName      string
+	QualityProfileID *int64
+	AutoApprove      bool
 }
 
 type CreateUserInput = CreateInput
@@ -86,12 +88,23 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 		displayName = input.Username
 	}
 
+	var autoApprove int64
+	if input.AutoApprove {
+		autoApprove = 1
+	}
+
+	var qualityProfileID sql.NullInt64
+	if input.QualityProfileID != nil {
+		qualityProfileID = sql.NullInt64{Int64: *input.QualityProfileID, Valid: true}
+	}
+
 	user, err := s.queries.CreatePortalUser(ctx, sqlc.CreatePortalUserParams{
-		Username:     input.Username,
-		PasswordHash: hash,
-		DisplayName:  sql.NullString{String: displayName, Valid: true},
-		AutoApprove:  0,
-		Enabled:      1,
+		Username:         input.Username,
+		PasswordHash:     hash,
+		DisplayName:      sql.NullString{String: displayName, Valid: true},
+		AutoApprove:      autoApprove,
+		QualityProfileID: qualityProfileID,
+		Enabled:          1,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create user")

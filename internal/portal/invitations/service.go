@@ -25,13 +25,21 @@ var (
 )
 
 type Invitation struct {
-	ID        int64      `json:"id"`
-	Username  string     `json:"username"`
-	Token     string     `json:"token"`
-	ExpiresAt time.Time  `json:"expiresAt"`
-	UsedAt    *time.Time `json:"usedAt"`
-	CreatedAt time.Time  `json:"createdAt"`
-	Status    string     `json:"status"`
+	ID               int64      `json:"id"`
+	Username         string     `json:"username"`
+	Token            string     `json:"token"`
+	ExpiresAt        time.Time  `json:"expiresAt"`
+	UsedAt           *time.Time `json:"usedAt"`
+	CreatedAt        time.Time  `json:"createdAt"`
+	Status           string     `json:"status"`
+	QualityProfileID *int64     `json:"qualityProfileId"`
+	AutoApprove      bool       `json:"autoApprove"`
+}
+
+type CreateInput struct {
+	Username         string
+	QualityProfileID *int64
+	AutoApprove      bool
 }
 
 type Service struct {
@@ -50,8 +58,8 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
 }
 
-func (s *Service) Create(ctx context.Context, username string) (*Invitation, error) {
-	if username == "" {
+func (s *Service) Create(ctx context.Context, input CreateInput) (*Invitation, error) {
+	if input.Username == "" {
 		return nil, ErrInvalidUsername
 	}
 
@@ -62,13 +70,20 @@ func (s *Service) Create(ctx context.Context, username string) (*Invitation, err
 
 	expiresAt := time.Now().Add(DefaultExpiryDuration)
 
+	var qualityProfileID sql.NullInt64
+	if input.QualityProfileID != nil {
+		qualityProfileID = sql.NullInt64{Int64: *input.QualityProfileID, Valid: true}
+	}
+
 	inv, err := s.queries.CreatePortalInvitation(ctx, sqlc.CreatePortalInvitationParams{
-		Username:  username,
-		Token:     token,
-		ExpiresAt: expiresAt,
+		Username:         input.Username,
+		Token:            token,
+		ExpiresAt:        expiresAt,
+		QualityProfileID: qualityProfileID,
+		AutoApprove:      boolToInt(input.AutoApprove),
 	})
 	if err != nil {
-		s.logger.Error().Err(err).Str("username", username).Msg("failed to create invitation")
+		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create invitation")
 		return nil, err
 	}
 
@@ -212,13 +227,27 @@ func toInvitation(inv *sqlc.PortalInvitation) *Invitation {
 		status = "expired"
 	}
 
-	return &Invitation{
-		ID:        inv.ID,
-		Username:  inv.Username,
-		Token:     inv.Token,
-		ExpiresAt: inv.ExpiresAt,
-		UsedAt:    usedAt,
-		CreatedAt: inv.CreatedAt,
-		Status:    status,
+	var qualityProfileID *int64
+	if inv.QualityProfileID.Valid {
+		qualityProfileID = &inv.QualityProfileID.Int64
 	}
+
+	return &Invitation{
+		ID:               inv.ID,
+		Username:         inv.Username,
+		Token:            inv.Token,
+		ExpiresAt:        inv.ExpiresAt,
+		UsedAt:           usedAt,
+		CreatedAt:        inv.CreatedAt,
+		Status:           status,
+		QualityProfileID: qualityProfileID,
+		AutoApprove:      inv.AutoApprove != 0,
+	}
+}
+
+func boolToInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }

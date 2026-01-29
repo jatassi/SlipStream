@@ -52,10 +52,14 @@ export interface Invitation {
   expiresAt: string
   usedAt: string | null
   createdAt: string
+  qualityProfileId: number | null
+  autoApprove: boolean
 }
 
 export interface CreateInvitationRequest {
   username: string
+  qualityProfileId?: number | null
+  autoApprove?: boolean
 }
 
 export interface ValidateInvitationResponse {

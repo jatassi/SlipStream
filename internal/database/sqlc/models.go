@@ -315,12 +315,14 @@ type PasskeyCredential struct {
 }
 
 type PortalInvitation struct {
-	ID        int64        `json:"id"`
-	Username  string       `json:"username"`
-	Token     string       `json:"token"`
-	ExpiresAt time.Time    `json:"expires_at"`
-	UsedAt    sql.NullTime `json:"used_at"`
-	CreatedAt time.Time    `json:"created_at"`
+	ID               int64         `json:"id"`
+	Username         string        `json:"username"`
+	Token            string        `json:"token"`
+	ExpiresAt        time.Time     `json:"expires_at"`
+	UsedAt           sql.NullTime  `json:"used_at"`
+	CreatedAt        time.Time     `json:"created_at"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	AutoApprove      int64         `json:"auto_approve"`
 }
 
 type PortalNotification struct {

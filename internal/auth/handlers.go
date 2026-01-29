@@ -236,9 +236,11 @@ func (h *Handlers) Signup(c echo.Context) error {
 	}
 
 	user, err := h.usersService.Create(c.Request().Context(), users.CreateInput{
-		Username:    inv.Username,
-		Password:    req.Password,
-		DisplayName: req.DisplayName,
+		Username:         inv.Username,
+		Password:         req.Password,
+		DisplayName:      req.DisplayName,
+		QualityProfileID: inv.QualityProfileID,
+		AutoApprove:      inv.AutoApprove,
 	})
 	if err != nil {
 		if errors.Is(err, users.ErrUsernameExists) {

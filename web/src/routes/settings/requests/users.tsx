@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Edit, Trash2, Users, UserPlus, Copy, Check, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
+import { Edit, Trash2, Users, UserPlus, Copy, Check, RefreshCw, Loader2, AlertCircle, Link, ChevronUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RequestsNav } from './RequestsNav'
 import { Button } from '@/components/ui/button'
@@ -53,7 +53,10 @@ export function RequestUsersPage() {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<PortalUserWithQuota | null>(null)
   const [inviteName, setInviteName] = useState('')
+  const [inviteQualityProfileId, setInviteQualityProfileId] = useState<number | null>(null)
+  const [inviteAutoApprove, setInviteAutoApprove] = useState(false)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [expandedLinkToken, setExpandedLinkToken] = useState<string | null>(null)
 
   const { data: users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useAdminUsers()
   const { data: invitations, isLoading: invitationsLoading, isError: invitationsError, refetch: refetchInvitations } = useAdminInvitations()
@@ -97,6 +100,8 @@ export function RequestUsersPage() {
 
   const handleOpenInvite = () => {
     setInviteName('')
+    setInviteQualityProfileId(null)
+    setInviteAutoApprove(false)
     setShowInviteDialog(true)
   }
 
@@ -106,10 +111,16 @@ export function RequestUsersPage() {
       return
     }
     try {
-      const invitation = await createInvitationMutation.mutateAsync({ username: inviteName })
+      const invitation = await createInvitationMutation.mutateAsync({
+        username: inviteName,
+        qualityProfileId: inviteQualityProfileId,
+        autoApprove: inviteAutoApprove,
+      })
       toast.success('Invitation created')
       setShowInviteDialog(false)
       setInviteName('')
+      setInviteQualityProfileId(null)
+      setInviteAutoApprove(false)
       void handleCopyLink(invitation.token)
     } catch (error) {
       toast.error('Failed to create invitation', {
@@ -145,12 +156,18 @@ export function RequestUsersPage() {
         setCopiedToken(token)
         toast.success('Invitation link copied to clipboard')
         setTimeout(() => setCopiedToken(null), 3000)
+        return
       } catch {
-        toast.info('Invitation created - copy the link manually from the table')
+        // Fall through to show link
       }
-    } else {
-      toast.info('Invitation created - copy the link manually from the table')
     }
+    // Clipboard not available - show the link for manual copying
+    setExpandedLinkToken(token)
+    toast.info('Select and copy the link below')
+  }
+
+  const toggleLinkVisibility = (token: string) => {
+    setExpandedLinkToken(expandedLinkToken === token ? null : token)
   }
 
   const getInvitationStatus = (invitation: Invitation): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {
@@ -316,6 +333,7 @@ export function RequestUsersPage() {
             <div className="space-y-4">
               {invitations.map((invitation) => {
                 const status = getInvitationStatus(invitation)
+                const isLinkExpanded = expandedLinkToken === invitation.token
                 return (
                   <Card key={invitation.id}>
                     <CardHeader className="flex flex-row items-center justify-between py-4">
@@ -352,6 +370,18 @@ export function RequestUsersPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => toggleLinkVisibility(invitation.token)}
+                            >
+                              {isLinkExpanded ? (
+                                <ChevronUp className="size-4 mr-1" />
+                              ) : (
+                                <Link className="size-4 mr-1" />
+                              )}
+                              {isLinkExpanded ? 'Hide' : 'Show'} Link
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleResendInvitation(invitation.id)}
                               disabled={resendInvitationMutation.isPending}
                             >
@@ -374,6 +404,21 @@ export function RequestUsersPage() {
                         />
                       </div>
                     </CardHeader>
+                    {isLinkExpanded && !invitation.usedAt && (
+                      <div className="px-6 pb-4">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={getInvitationLink(invitation.token)}
+                            className="font-mono text-xs"
+                            onFocus={(e) => e.target.select()}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Select the link above and copy it manually
+                        </p>
+                      </div>
+                    )}
                   </Card>
                 )
               })}
@@ -400,6 +445,38 @@ export function RequestUsersPage() {
                 value={inviteName}
                 onChange={(e) => setInviteName(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quality Profile</Label>
+              <Select
+                value={inviteQualityProfileId?.toString() || ''}
+                onValueChange={(value) => setInviteQualityProfileId(value ? parseInt(value, 10) : null)}
+              >
+                <SelectTrigger>
+                  {inviteQualityProfileId
+                    ? qualityProfiles?.find((p) => p.id === inviteQualityProfileId)?.name || 'Select profile'
+                    : 'Default (use global)'
+                  }
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Default (use global)</SelectItem>
+                  {qualityProfiles?.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id.toString()}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="inviteAutoApprove"
+                checked={inviteAutoApprove}
+                onCheckedChange={(checked) => setInviteAutoApprove(checked === true)}
+              />
+              <Label htmlFor="inviteAutoApprove">Auto-approve requests</Label>
             </div>
           </div>
           <DialogFooter>

@@ -24,7 +24,7 @@ function DownloadRow({ download }: { download: PortalDownload }) {
         {season && <span className="text-muted-foreground font-normal"> {season}</span>}
       </span>
       <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-        <Progress value={download.progress} className="w-8 md:w-10 sm:w-24 h-1 md:h-1.5" />
+        <Progress value={download.progress} className="w-16 md:w-20 sm:w-48 h-1 md:h-1.5" />
         <span className="text-[10px] md:text-xs text-muted-foreground w-7 md:w-8 sm:w-10 text-right">
           {Math.round(download.progress)}%
         </span>

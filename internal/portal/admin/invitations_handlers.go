@@ -11,7 +11,9 @@ import (
 )
 
 type CreateInvitationRequest struct {
-	Username string `json:"username"`
+	Username         string `json:"username"`
+	QualityProfileID *int64 `json:"qualityProfileId"`
+	AutoApprove      bool   `json:"autoApprove"`
 }
 
 type InvitationsHandlers struct {
@@ -77,7 +79,11 @@ func (h *InvitationsHandlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username is required")
 	}
 
-	invitation, err := h.invitationsService.Create(c.Request().Context(), req.Username)
+	invitation, err := h.invitationsService.Create(c.Request().Context(), invitations.CreateInput{
+		Username:         req.Username,
+		QualityProfileID: req.QualityProfileID,
+		AutoApprove:      req.AutoApprove,
+	})
 	if err != nil {
 		if errors.Is(err, invitations.ErrInvalidUsername) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
