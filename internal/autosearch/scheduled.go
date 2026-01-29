@@ -16,6 +16,13 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
+// SeriesRefresher defines the interface for refreshing series metadata.
+type SeriesRefresher interface {
+	// RefreshMonitoredSeriesMetadata refreshes metadata for all monitored series.
+	// Returns the number of series refreshed and any error encountered.
+	RefreshMonitoredSeriesMetadata(ctx context.Context) (int, error)
+}
+
 // ScheduledSearcher handles scheduled automatic searches for missing items.
 type ScheduledSearcher struct {
 	service *Service
@@ -24,6 +31,9 @@ type ScheduledSearcher struct {
 
 	// Rate limiting
 	rateLimiter *RateLimiter
+
+	// Optional series refresher for pre-search metadata updates
+	seriesRefresher SeriesRefresher
 
 	// Task state
 	mu      sync.Mutex
@@ -40,6 +50,11 @@ func NewScheduledSearcher(service *Service, cfg *config.AutoSearchConfig, logger
 			baseDelayMs: cfg.BaseDelayMs,
 		},
 	}
+}
+
+// SetSeriesRefresher sets the series refresher for pre-search metadata updates.
+func (s *ScheduledSearcher) SetSeriesRefresher(refresher SeriesRefresher) {
+	s.seriesRefresher = refresher
 }
 
 // IsRunning returns true if the scheduled search is currently running.
@@ -69,6 +84,17 @@ func (s *ScheduledSearcher) Run(ctx context.Context) error {
 
 	startTime := time.Now()
 	s.logger.Info().Msg("Starting scheduled search task")
+
+	// Refresh series metadata before searching to get latest episode lists
+	if s.seriesRefresher != nil {
+		s.logger.Info().Msg("Refreshing monitored series metadata before search")
+		refreshed, err := s.seriesRefresher.RefreshMonitoredSeriesMetadata(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to refresh series metadata, continuing with search")
+		} else {
+			s.logger.Info().Int("refreshed", refreshed).Msg("Series metadata refresh completed")
+		}
+	}
 
 	// Collect all searchable items
 	items, err := s.collectSearchableItems(ctx)

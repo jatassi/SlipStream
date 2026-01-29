@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -238,104 +241,99 @@ func (s *Service) UpdateMovieAvailabilityStatus(ctx context.Context, movieID int
 	})
 }
 
-// calculateSeriesAvailabilityStatus determines the badge text for a series.
+// calculateSeriesAvailabilityStatus determines the badge text for a series based on downloaded seasons.
 func (s *Service) calculateSeriesAvailabilityStatus(data *sqlc.ListAllSeriesForAvailabilityRow) string {
-	// If fully released
-	if data.Released == 1 {
-		return "Available"
-	}
-
-	totalSeasons := data.TotalSeasons
-	releasedSeasons := data.ReleasedSeasons
-
-	// No seasons yet
-	if totalSeasons == 0 {
-		return "Unreleased"
-	}
-
-	// No seasons released
-	if releasedSeasons == 0 {
-		// Check if any episodes have aired in unreleased seasons (currently airing)
-		if data.AiredEpsInUnreleasedSeasons > 0 {
-			// Get the first unreleased season number
-			if data.FirstUnreleasedSeason != nil {
-				if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-					return fmt.Sprintf("Season %d Airing", seasonNum)
-				}
-			}
-			return "Season 1 Airing"
-		}
-		return "Unreleased"
-	}
-
-	// Some seasons released, check if currently airing
-	if data.AiredEpsInUnreleasedSeasons > 0 {
-		if data.FirstUnreleasedSeason != nil {
-			if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-				return fmt.Sprintf("Season %d Airing", seasonNum)
-			}
-		}
-	}
-
-	// Partial availability (some complete seasons but not all)
-	if releasedSeasons < totalSeasons {
-		if releasedSeasons == 1 {
-			return "Season 1 Available"
-		}
-		return fmt.Sprintf("Seasons 1-%d Available", releasedSeasons)
-	}
-
-	// All seasons released (shouldn't reach here if data.Released is correct)
-	return "Available"
+	return formatSeriesAvailability(data.TotalSeasons, data.AvailableSeasons)
 }
 
 // calculateSeriesAvailabilityStatusFromGetRow is same logic but for GetSeriesAvailabilityData result.
 func (s *Service) calculateSeriesAvailabilityStatusFromGetRow(data *sqlc.GetSeriesAvailabilityDataRow) string {
-	// If fully released
-	if data.Released == 1 {
+	return formatSeriesAvailability(data.TotalSeasons, data.AvailableSeasons)
+}
+
+// formatSeriesAvailability formats the availability status based on total and available seasons.
+func formatSeriesAvailability(totalSeasons int64, availableSeasons string) string {
+	if totalSeasons == 0 {
+		return "Unavailable"
+	}
+
+	if availableSeasons == "" {
+		return "Unavailable"
+	}
+
+	seasons := parseSeasonNumbers(availableSeasons)
+	if len(seasons) == 0 {
+		return "Unavailable"
+	}
+
+	if int64(len(seasons)) == totalSeasons {
 		return "Available"
 	}
 
-	totalSeasons := data.TotalSeasons
-	releasedSeasons := data.ReleasedSeasons
+	return formatSeasonRanges(seasons)
+}
 
-	// No seasons yet
-	if totalSeasons == 0 {
-		return "Unreleased"
+// parseSeasonNumbers parses a comma-separated string of season numbers into a sorted slice.
+func parseSeasonNumbers(s string) []int {
+	if s == "" {
+		return nil
 	}
-
-	// No seasons released
-	if releasedSeasons == 0 {
-		// Check if any episodes have aired in unreleased seasons (currently airing)
-		if data.AiredEpsInUnreleasedSeasons > 0 {
-			// Get the first unreleased season number
-			if data.FirstUnreleasedSeason != nil {
-				if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-					return fmt.Sprintf("Season %d Airing", seasonNum)
-				}
-			}
-			return "Season 1 Airing"
-		}
-		return "Unreleased"
-	}
-
-	// Some seasons released, check if currently airing
-	if data.AiredEpsInUnreleasedSeasons > 0 {
-		if data.FirstUnreleasedSeason != nil {
-			if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-				return fmt.Sprintf("Season %d Airing", seasonNum)
-			}
+	parts := strings.Split(s, ",")
+	seasons := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			seasons = append(seasons, n)
 		}
 	}
+	sort.Ints(seasons)
+	return seasons
+}
 
-	// Partial availability (some complete seasons but not all)
-	if releasedSeasons < totalSeasons {
-		if releasedSeasons == 1 {
-			return "Season 1 Available"
-		}
-		return fmt.Sprintf("Seasons 1-%d Available", releasedSeasons)
+// formatSeasonRanges formats a sorted slice of season numbers into a readable string.
+// Examples:
+//   - [3] → "Season 3 Available"
+//   - [1,2,3] → "Seasons 1-3 Available"
+//   - [1,2,3,5] → "Seasons 1-3, 5 Available"
+//   - [1,2,4,5] → "Seasons 1-2, 4-5 Available"
+//   - [1,3,5] → "Seasons 1, 3, 5 Available"
+func formatSeasonRanges(seasons []int) string {
+	if len(seasons) == 0 {
+		return "Unavailable"
 	}
 
-	// All seasons released (shouldn't reach here if data.Released is correct)
-	return "Available"
+	if len(seasons) == 1 {
+		return fmt.Sprintf("Season %d Available", seasons[0])
+	}
+
+	// Build ranges
+	type seasonRange struct {
+		start, end int
+	}
+	var ranges []seasonRange
+	start := seasons[0]
+	end := seasons[0]
+
+	for i := 1; i < len(seasons); i++ {
+		if seasons[i] == end+1 {
+			end = seasons[i]
+		} else {
+			ranges = append(ranges, seasonRange{start, end})
+			start = seasons[i]
+			end = seasons[i]
+		}
+	}
+	ranges = append(ranges, seasonRange{start, end})
+
+	// Format ranges
+	var parts []string
+	for _, r := range ranges {
+		if r.start == r.end {
+			parts = append(parts, strconv.Itoa(r.start))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d-%d", r.start, r.end))
+		}
+	}
+
+	return fmt.Sprintf("Seasons %s Available", strings.Join(parts, ", "))
 }

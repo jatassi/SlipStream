@@ -78,8 +78,12 @@ export function SeasonList({
     episodesBySeason[ep.seasonNumber].push(ep)
   })
 
-  // Sort seasons by number
-  const sortedSeasons = [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)
+  // Sort seasons by number, with specials (season 0) at the bottom
+  const sortedSeasons = [...seasons].sort((a, b) => {
+    if (a.seasonNumber === 0) return 1
+    if (b.seasonNumber === 0) return -1
+    return a.seasonNumber - b.seasonNumber
+  })
 
   return (
     <Accordion className={cn('space-y-2', className)}>

@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -939,6 +942,54 @@ func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpiso
 	return &episode, nil
 }
 
+// CreateEpisode creates a new episode in the database.
+// This is used during season pack imports when episodes don't exist in metadata.
+func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumber, episodeNumber int, title string) (*Episode, error) {
+	// Check if season exists, create if not
+	_, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
+		SeriesID:     seriesID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Create the season first
+			_, err = s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
+				SeriesID:     seriesID,
+				SeasonNumber: int64(seasonNumber),
+				Monitored:    1,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create season: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to check season: %w", err)
+		}
+	}
+
+	// Create the episode with released=1 since we have a file for it
+	row, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+		SeriesID:      seriesID,
+		SeasonNumber:  int64(seasonNumber),
+		EpisodeNumber: int64(episodeNumber),
+		Title:         sql.NullString{String: title, Valid: title != ""},
+		Monitored:     1,
+		Released:      1, // Mark as released since we have a file
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create episode: %w", err)
+	}
+
+	s.logger.Info().
+		Int64("seriesId", seriesID).
+		Int("season", seasonNumber).
+		Int("episode", episodeNumber).
+		Str("title", title).
+		Msg("Created episode from season pack import")
+
+	episode := s.rowToEpisode(row)
+	return &episode, nil
+}
+
 // AddEpisodeFile adds a file to an episode.
 func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input CreateEpisodeFileInput) (*EpisodeFile, error) {
 	// Verify episode exists
@@ -1407,53 +1458,89 @@ func (s *Service) updateSeriesAvailabilityStatus(ctx context.Context, seriesID i
 	})
 }
 
-// calculateSeriesAvailabilityStatus determines the badge text for a series.
+// calculateSeriesAvailabilityStatus determines the badge text for a series based on downloaded seasons.
 func (s *Service) calculateSeriesAvailabilityStatus(data *sqlc.GetSeriesAvailabilityDataRow) string {
-	// If fully released
-	if data.Released == 1 {
+	if data.TotalSeasons == 0 {
+		return "Unavailable"
+	}
+
+	if data.AvailableSeasons == "" {
+		return "Unavailable"
+	}
+
+	seasons := parseSeasonNumbers(data.AvailableSeasons)
+	if len(seasons) == 0 {
+		return "Unavailable"
+	}
+
+	if int64(len(seasons)) == data.TotalSeasons {
 		return "Available"
 	}
 
-	totalSeasons := data.TotalSeasons
-	releasedSeasons := data.ReleasedSeasons
+	return formatSeasonRanges(seasons)
+}
 
-	// No seasons yet
-	if totalSeasons == 0 {
-		return "Unreleased"
+// parseSeasonNumbers parses a comma-separated string of season numbers into a sorted slice.
+func parseSeasonNumbers(s string) []int {
+	if s == "" {
+		return nil
 	}
-
-	// No seasons released
-	if releasedSeasons == 0 {
-		// Check if any episodes have aired in unreleased seasons (currently airing)
-		if data.AiredEpsInUnreleasedSeasons > 0 {
-			// Get the first unreleased season number
-			if data.FirstUnreleasedSeason != nil {
-				if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-					return fmt.Sprintf("Season %d Airing", seasonNum)
-				}
-			}
-			return "Season 1 Airing"
-		}
-		return "Unreleased"
-	}
-
-	// Some seasons released, check if currently airing
-	if data.AiredEpsInUnreleasedSeasons > 0 {
-		if data.FirstUnreleasedSeason != nil {
-			if seasonNum, ok := data.FirstUnreleasedSeason.(int64); ok {
-				return fmt.Sprintf("Season %d Airing", seasonNum)
-			}
+	parts := strings.Split(s, ",")
+	seasons := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			seasons = append(seasons, n)
 		}
 	}
+	sort.Ints(seasons)
+	return seasons
+}
 
-	// Partial availability (some complete seasons but not all)
-	if releasedSeasons < totalSeasons {
-		if releasedSeasons == 1 {
-			return "Season 1 Available"
-		}
-		return fmt.Sprintf("Seasons 1-%d Available", releasedSeasons)
+// formatSeasonRanges formats a sorted slice of season numbers into a readable string.
+// Examples:
+//   - [3] → "Season 3 Available"
+//   - [1,2,3] → "Seasons 1-3 Available"
+//   - [1,2,3,5] → "Seasons 1-3, 5 Available"
+//   - [1,2,4,5] → "Seasons 1-2, 4-5 Available"
+//   - [1,3,5] → "Seasons 1, 3, 5 Available"
+func formatSeasonRanges(seasons []int) string {
+	if len(seasons) == 0 {
+		return "Unavailable"
 	}
 
-	// All seasons released (shouldn't reach here if data.Released is correct)
-	return "Available"
+	if len(seasons) == 1 {
+		return fmt.Sprintf("Season %d Available", seasons[0])
+	}
+
+	// Build ranges
+	type seasonRange struct {
+		start, end int
+	}
+	var ranges []seasonRange
+	start := seasons[0]
+	end := seasons[0]
+
+	for i := 1; i < len(seasons); i++ {
+		if seasons[i] == end+1 {
+			end = seasons[i]
+		} else {
+			ranges = append(ranges, seasonRange{start, end})
+			start = seasons[i]
+			end = seasons[i]
+		}
+	}
+	ranges = append(ranges, seasonRange{start, end})
+
+	// Format ranges
+	var parts []string
+	for _, r := range ranges {
+		if r.start == r.end {
+			parts = append(parts, strconv.Itoa(r.start))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d-%d", r.start, r.end))
+		}
+	}
+
+	return fmt.Sprintf("Seasons %s Available", strings.Join(parts, ", "))
 }

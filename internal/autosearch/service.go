@@ -101,6 +101,8 @@ func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchS
 }
 
 // SearchEpisode searches for an episode and grabs the best release.
+// For first episodes of a season (E01), if the individual episode search fails,
+// it will also try a season pack search as a fallback.
 func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source SearchSource) (*SearchResult, error) {
 	// Get episode details with series info
 	episode, err := s.queries.GetEpisode(ctx, episodeID)
@@ -118,7 +120,31 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 	}
 
 	item := s.episodeToSearchableItem(episode, series)
-	return s.searchAndGrab(ctx, item, source)
+	result, err := s.searchAndGrab(ctx, item, source)
+	if err != nil {
+		return result, err
+	}
+
+	// For first episodes of a season, try season pack search as fallback
+	// This handles Netflix-style shows where the full season releases at once
+	// but metadata providers may only have a placeholder E01 entry
+	if episode.EpisodeNumber == 1 && !result.Downloaded {
+		s.logger.Debug().
+			Int64("seriesId", episode.SeriesID).
+			Int64("seasonNumber", episode.SeasonNumber).
+			Msg("Episode 1 search didn't grab, trying season pack fallback")
+
+		packResult, packErr := s.searchSeasonPack(ctx, series, int(episode.SeasonNumber), source)
+		if packErr == nil && packResult.Downloaded {
+			s.logger.Info().
+				Int64("seriesId", episode.SeriesID).
+				Int64("seasonNumber", episode.SeasonNumber).
+				Msg("Season pack fallback succeeded for first episode")
+			return packResult, nil
+		}
+	}
+
+	return result, nil
 }
 
 // SearchSeason searches for all missing episodes in a season with boxset prioritization.

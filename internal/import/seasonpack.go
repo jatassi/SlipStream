@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -123,6 +124,36 @@ func (s *Service) AnalyzeSeasonPack(ctx context.Context, downloadPath string, se
 				packFile.SeriesID = seriesID
 				packFile.IsMatched = true
 				result.MatchedFiles++
+			} else {
+				// Episode doesn't exist in database - create it from the parsed filename
+				// This handles Netflix-style releases where metadata providers only have placeholders
+				title := ""
+				if parsed.Title != "" {
+					title = parsed.Title
+				} else {
+					title = fmt.Sprintf("Episode %d", packFile.EpisodeNum)
+				}
+
+				newEpisode, createErr := s.tv.CreateEpisode(ctx, *seriesID, packFile.SeasonNumber, packFile.EpisodeNum, title)
+				if createErr == nil && newEpisode != nil {
+					packFile.EpisodeID = &newEpisode.ID
+					packFile.SeriesID = seriesID
+					packFile.IsMatched = true
+					result.MatchedFiles++
+					s.logger.Info().
+						Int64("seriesId", *seriesID).
+						Int("season", packFile.SeasonNumber).
+						Int("episode", packFile.EpisodeNum).
+						Str("filename", packFile.Filename).
+						Msg("Created missing episode from season pack file")
+				} else {
+					s.logger.Warn().
+						Err(createErr).
+						Int64("seriesId", *seriesID).
+						Int("season", packFile.SeasonNumber).
+						Int("episode", packFile.EpisodeNum).
+						Msg("Failed to create missing episode")
+				}
 			}
 		}
 

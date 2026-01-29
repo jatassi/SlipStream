@@ -602,15 +602,14 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.libraryManagerService.SetPreferencesService(s.preferencesService)
 	s.libraryManagerService.SetSlotsService(s.slotsService)
 
+	// Wire up series refresher for pre-search metadata updates
+	s.scheduledSearcher.SetSeriesRefresher(s.libraryManagerService)
+
 	// Register library-dependent scheduled tasks (after library manager is initialized)
 	if s.scheduler != nil {
 		// Register library scan task (runs daily at 11:30 PM)
 		if err := tasks.RegisterLibraryScanTask(s.scheduler, s.libraryManagerService, s.rootFolderService, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register library scan task")
-		}
-		// Register metadata refresh task (runs daily at 11:30 PM)
-		if err := tasks.RegisterMetadataRefreshTask(s.scheduler, s.libraryManagerService, s.movieService, s.tvService, logger); err != nil {
-			logger.Error().Err(err).Msg("Failed to register metadata refresh task")
 		}
 		// Register download client health check task
 		if err := tasks.RegisterDownloadClientHealthTask(s.scheduler, s.downloaderService, s.healthService, &cfg.Health, logger); err != nil {
@@ -1056,6 +1055,7 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 		s.portalMediaProvisioner,
 		s.logger,
 	)
+	s.portalRequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portalUsersService})
 	s.portalAutoApproveService.SetRequestSearcher(s.portalRequestSearcher)
 	adminRequestHandlers := admin.NewRequestsHandlers(
 		s.portalRequestsService,
@@ -1111,6 +1111,12 @@ func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context
 		return 0, fmt.Errorf("failed to get default settings: %w", err)
 	}
 
+	// Use user's quality profile if provided
+	if input.QualityProfileID != nil {
+		qualityProfileID = *input.QualityProfileID
+		a.logger.Debug().Int64("qualityProfileID", qualityProfileID).Msg("using user's assigned quality profile for movie")
+	}
+
 	movie, err := a.movieService.Create(ctx, movies.CreateMovieInput{
 		Title:            input.Title,
 		Year:             input.Year,
@@ -1139,6 +1145,12 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get default settings: %w", err)
+	}
+
+	// Use user's quality profile if provided
+	if input.QualityProfileID != nil {
+		qualityProfileID = *input.QualityProfileID
+		a.logger.Debug().Int64("qualityProfileID", qualityProfileID).Msg("using user's assigned quality profile for series")
 	}
 
 	series, err := a.tvService.CreateSeries(ctx, tv.CreateSeriesInput{
@@ -1195,6 +1207,19 @@ func (a *portalMediaProvisionerAdapter) getDefaultSettings(ctx context.Context) 
 
 func (a *portalMediaProvisionerAdapter) SetDB(db *sql.DB) {
 	a.queries = sqlc.New(db)
+}
+
+// portalUserQualityProfileAdapter implements requests.UserQualityProfileGetter
+type portalUserQualityProfileAdapter struct {
+	usersSvc *users.Service
+}
+
+func (a *portalUserQualityProfileAdapter) GetQualityProfileID(ctx context.Context, userID int64) (*int64, error) {
+	user, err := a.usersSvc.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return user.QualityProfileID, nil
 }
 
 // portalQueueGetterAdapter adapts downloader.Service to requests.QueueGetter interface.

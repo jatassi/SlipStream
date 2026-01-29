@@ -23,10 +23,11 @@ type SearchForRequestResult struct {
 }
 
 type MediaProvisionInput struct {
-	TmdbID int64
-	TvdbID int64
-	Title  string
-	Year   int
+	TmdbID           int64
+	TvdbID           int64
+	Title            string
+	Year             int
+	QualityProfileID *int64 // Optional: user's assigned quality profile
 }
 
 type MediaProvisioner interface {
@@ -34,11 +35,16 @@ type MediaProvisioner interface {
 	EnsureSeriesInLibrary(ctx context.Context, input MediaProvisionInput) (int64, error)
 }
 
+type UserQualityProfileGetter interface {
+	GetQualityProfileID(ctx context.Context, userID int64) (*int64, error)
+}
+
 type RequestSearcher struct {
 	queries          *sqlc.Queries
 	requestsService  *Service
 	autosearchSvc    *autosearch.Service
 	mediaProvisioner MediaProvisioner
+	userGetter       UserQualityProfileGetter
 	logger           zerolog.Logger
 }
 
@@ -60,6 +66,10 @@ func NewRequestSearcher(
 
 func (s *RequestSearcher) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
+}
+
+func (s *RequestSearcher) SetUserGetter(getter UserQualityProfileGetter) {
+	s.userGetter = getter
 }
 
 func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64) (*SearchForRequestResult, error) {
@@ -207,6 +217,17 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 	input := MediaProvisionInput{
 		Title: request.Title,
 		Year:  year,
+	}
+
+	// Get user's assigned quality profile
+	if s.userGetter != nil {
+		qpID, err := s.userGetter.GetQualityProfileID(ctx, request.UserID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("userID", request.UserID).Msg("failed to get user's quality profile, using default")
+		} else if qpID != nil {
+			input.QualityProfileID = qpID
+			s.logger.Debug().Int64("userID", request.UserID).Int64("qualityProfileID", *qpID).Msg("using user's assigned quality profile")
+		}
 	}
 
 	switch request.MediaType {

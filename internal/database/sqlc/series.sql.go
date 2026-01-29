@@ -43,7 +43,7 @@ func (q *Queries) CountEpisodeFilesBySeason(ctx context.Context, arg CountEpisod
 const countEpisodeFilesBySeries = `-- name: CountEpisodeFilesBySeries :one
 SELECT COUNT(*) FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
-WHERE e.series_id = ?
+WHERE e.series_id = ? AND e.season_number > 0
 `
 
 func (q *Queries) CountEpisodeFilesBySeries(ctx context.Context, seriesID int64) (int64, error) {
@@ -90,7 +90,7 @@ func (q *Queries) CountEpisodesBySeason(ctx context.Context, arg CountEpisodesBy
 }
 
 const countEpisodesBySeries = `-- name: CountEpisodesBySeries :one
-SELECT COUNT(*) FROM episodes WHERE series_id = ?
+SELECT COUNT(*) FROM episodes WHERE series_id = ? AND season_number > 0
 `
 
 func (q *Queries) CountEpisodesBySeries(ctx context.Context, seriesID int64) (int64, error) {
@@ -997,25 +997,25 @@ const getSeriesAvailabilityData = `-- name: GetSeriesAvailabilityData :one
 SELECT
     s.id,
     s.status,
-    s.released,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
-    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
-    (SELECT COUNT(*) FROM episodes e
-     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+    (SELECT GROUP_CONCAT(season_number) FROM (
+        SELECT sea.season_number
+        FROM seasons sea
+        WHERE sea.series_id = s.id AND sea.season_number > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
+            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
+        ORDER BY sea.season_number
+    )) as available_seasons
 FROM series s
 WHERE s.id = ?
 `
 
 type GetSeriesAvailabilityDataRow struct {
-	ID                          int64       `json:"id"`
-	Status                      string      `json:"status"`
-	Released                    int64       `json:"released"`
-	TotalSeasons                int64       `json:"total_seasons"`
-	ReleasedSeasons             int64       `json:"released_seasons"`
-	FirstUnreleasedSeason       interface{} `json:"first_unreleased_season"`
-	AiredEpsInUnreleasedSeasons int64       `json:"aired_eps_in_unreleased_seasons"`
+	ID               int64  `json:"id"`
+	Status           string `json:"status"`
+	TotalSeasons     int64  `json:"total_seasons"`
+	AvailableSeasons string `json:"available_seasons"`
 }
 
 func (q *Queries) GetSeriesAvailabilityData(ctx context.Context, id int64) (*GetSeriesAvailabilityDataRow, error) {
@@ -1024,11 +1024,8 @@ func (q *Queries) GetSeriesAvailabilityData(ctx context.Context, id int64) (*Get
 	err := row.Scan(
 		&i.ID,
 		&i.Status,
-		&i.Released,
 		&i.TotalSeasons,
-		&i.ReleasedSeasons,
-		&i.FirstUnreleasedSeason,
-		&i.AiredEpsInUnreleasedSeasons,
+		&i.AvailableSeasons,
 	)
 	return &i, err
 }
@@ -1165,24 +1162,24 @@ const listAllSeriesForAvailability = `-- name: ListAllSeriesForAvailability :man
 SELECT
     s.id,
     s.status,
-    s.released,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
-    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
-    (SELECT COUNT(*) FROM episodes e
-     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+    (SELECT GROUP_CONCAT(season_number) FROM (
+        SELECT sea.season_number
+        FROM seasons sea
+        WHERE sea.series_id = s.id AND sea.season_number > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
+            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
+        ORDER BY sea.season_number
+    )) as available_seasons
 FROM series s
 `
 
 type ListAllSeriesForAvailabilityRow struct {
-	ID                          int64       `json:"id"`
-	Status                      string      `json:"status"`
-	Released                    int64       `json:"released"`
-	TotalSeasons                int64       `json:"total_seasons"`
-	ReleasedSeasons             int64       `json:"released_seasons"`
-	FirstUnreleasedSeason       interface{} `json:"first_unreleased_season"`
-	AiredEpsInUnreleasedSeasons int64       `json:"aired_eps_in_unreleased_seasons"`
+	ID               int64  `json:"id"`
+	Status           string `json:"status"`
+	TotalSeasons     int64  `json:"total_seasons"`
+	AvailableSeasons string `json:"available_seasons"`
 }
 
 func (q *Queries) ListAllSeriesForAvailability(ctx context.Context) ([]*ListAllSeriesForAvailabilityRow, error) {
@@ -1197,11 +1194,8 @@ func (q *Queries) ListAllSeriesForAvailability(ctx context.Context) ([]*ListAllS
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
-			&i.Released,
 			&i.TotalSeasons,
-			&i.ReleasedSeasons,
-			&i.FirstUnreleasedSeason,
-			&i.AiredEpsInUnreleasedSeasons,
+			&i.AvailableSeasons,
 		); err != nil {
 			return nil, err
 		}

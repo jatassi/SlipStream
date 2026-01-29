@@ -1409,6 +1409,45 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 	return s.tv.GetSeries(ctx, seriesID)
 }
 
+// RefreshMonitoredSeriesMetadata refreshes metadata for all monitored series.
+// This is called before auto-search to ensure we have the latest episode lists.
+func (s *Service) RefreshMonitoredSeriesMetadata(ctx context.Context) (int, error) {
+	// Get all monitored series
+	monitored := true
+	seriesList, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{Monitored: &monitored})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list monitored series: %w", err)
+	}
+
+	if len(seriesList) == 0 {
+		return 0, nil
+	}
+
+	s.logger.Info().Int("count", len(seriesList)).Msg("Refreshing metadata for monitored series")
+
+	refreshed := 0
+	for _, series := range seriesList {
+		select {
+		case <-ctx.Done():
+			return refreshed, ctx.Err()
+		default:
+		}
+
+		_, err := s.RefreshSeriesMetadata(ctx, series.ID)
+		if err != nil {
+			if err == ErrNoMetadataProvider {
+				s.logger.Warn().Msg("No metadata provider configured, stopping series refresh")
+				return refreshed, nil
+			}
+			s.logger.Debug().Err(err).Int64("seriesId", series.ID).Str("title", series.Title).Msg("Failed to refresh series metadata")
+			continue
+		}
+		refreshed++
+	}
+
+	return refreshed, nil
+}
+
 // buildScanSummary creates a human-readable summary of scan results.
 func (s *Service) buildScanSummary(result *ScanResult) string {
 	var parts []string

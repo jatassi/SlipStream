@@ -128,7 +128,7 @@ WHERE series_id = ? AND season_number = ? AND episode_number = ?
 LIMIT 1;
 
 -- name: CountEpisodesBySeries :one
-SELECT COUNT(*) FROM episodes WHERE series_id = ?;
+SELECT COUNT(*) FROM episodes WHERE series_id = ? AND season_number > 0;
 
 -- name: CountEpisodesBySeason :one
 SELECT COUNT(*) FROM episodes WHERE series_id = ? AND season_number = ?;
@@ -172,7 +172,7 @@ SELECT COUNT(*) FROM episode_files WHERE episode_id = ?;
 -- name: CountEpisodeFilesBySeries :one
 SELECT COUNT(*) FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
-WHERE e.series_id = ?;
+WHERE e.series_id = ? AND e.season_number > 0;
 
 -- name: CountEpisodeFilesBySeason :one
 SELECT COUNT(*) FROM episode_files ef
@@ -282,13 +282,16 @@ UPDATE series SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE 
 SELECT
     s.id,
     s.status,
-    s.released,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
-    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
-    (SELECT COUNT(*) FROM episodes e
-     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+    (SELECT GROUP_CONCAT(season_number) FROM (
+        SELECT sea.season_number
+        FROM seasons sea
+        WHERE sea.series_id = s.id AND sea.season_number > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
+            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
+        ORDER BY sea.season_number
+    )) as available_seasons
 FROM series s
 WHERE s.id = ?;
 
@@ -296,13 +299,16 @@ WHERE s.id = ?;
 SELECT
     s.id,
     s.status,
-    s.released,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 1) as released_seasons,
-    (SELECT MIN(season_number) FROM seasons WHERE series_id = s.id AND season_number > 0 AND released = 0) as first_unreleased_season,
-    (SELECT COUNT(*) FROM episodes e
-     JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-     WHERE sea.series_id = s.id AND sea.released = 0 AND e.released = 1) as aired_eps_in_unreleased_seasons
+    (SELECT GROUP_CONCAT(season_number) FROM (
+        SELECT sea.season_number
+        FROM seasons sea
+        WHERE sea.series_id = s.id AND sea.season_number > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
+        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
+            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
+        ORDER BY sea.season_number
+    )) as available_seasons
 FROM series s;
 
 -- Missing episodes queries (respects cascading monitoring: series -> season -> episode)
