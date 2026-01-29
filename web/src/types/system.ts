@@ -9,6 +9,7 @@ export interface SystemStatus {
   queueCount: number
   developerMode: boolean
   portalEnabled: boolean
+  mediainfoAvailable: boolean
   actualPort?: number
   configuredPort?: number
   tmdb?: {

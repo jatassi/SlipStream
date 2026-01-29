@@ -1411,15 +1411,16 @@ func (s *Server) getStatus(c echo.Context) error {
 	}
 
 	response := map[string]interface{}{
-		"version":       config.Version,
-		"startTime":     time.Now().Format(time.RFC3339),
-		"movieCount":    movieCount,
-		"seriesCount":   seriesCount,
-		"developerMode": s.dbManager.IsDevMode(),
-		"portalEnabled": portalEnabled,
-		"requiresSetup": !adminExists,
-		"requiresAuth":  true,
-		"actualPort":    s.cfg.Server.Port,
+		"version":            config.Version,
+		"startTime":          time.Now().Format(time.RFC3339),
+		"movieCount":         movieCount,
+		"seriesCount":        seriesCount,
+		"developerMode":      s.dbManager.IsDevMode(),
+		"portalEnabled":      portalEnabled,
+		"requiresSetup":      !adminExists,
+		"requiresAuth":       true,
+		"actualPort":         s.cfg.Server.Port,
+		"mediainfoAvailable": s.mediainfoService.IsAvailable(),
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},

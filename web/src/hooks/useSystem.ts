@@ -68,6 +68,11 @@ export function useTMDBSearchOrdering() {
   return data?.tmdb?.disableSearchOrdering ?? false
 }
 
+export function useMediainfoAvailable() {
+  const { data } = useStatus()
+  return data?.mediainfoAvailable ?? false
+}
+
 export function useUpdateTMDBSearchOrdering() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -110,7 +110,7 @@ export function RequestUsersPage() {
       toast.success('Invitation created')
       setShowInviteDialog(false)
       setInviteName('')
-      handleCopyLink(invitation.token)
+      void handleCopyLink(invitation.token)
     } catch (error) {
       toast.error('Failed to create invitation', {
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -131,18 +131,26 @@ export function RequestUsersPage() {
     try {
       const invitation = await resendInvitationMutation.mutateAsync(id)
       toast.success('Invitation resent')
-      handleCopyLink(invitation.token)
+      void handleCopyLink(invitation.token)
     } catch {
       toast.error('Failed to resend invitation')
     }
   }
 
-  const handleCopyLink = (token: string) => {
+  const handleCopyLink = async (token: string) => {
     const link = getInvitationLink(token)
-    navigator.clipboard.writeText(link)
-    setCopiedToken(token)
-    toast.success('Invitation link copied to clipboard')
-    setTimeout(() => setCopiedToken(null), 3000)
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(link)
+        setCopiedToken(token)
+        toast.success('Invitation link copied to clipboard')
+        setTimeout(() => setCopiedToken(null), 3000)
+      } catch {
+        toast.info('Invitation created - copy the link manually from the table')
+      }
+    } else {
+      toast.info('Invitation created - copy the link manually from the table')
+    }
   }
 
   const getInvitationStatus = (invitation: Invitation): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {

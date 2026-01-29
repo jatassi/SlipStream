@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Save, Plus, X, Code2, Pencil } from 'lucide-react'
+import { Save, Plus, X, Code2, Pencil, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useImportSettings, useUpdateImportSettings, usePreviewNamingPattern, useParseFilename } from '@/hooks'
+import { useImportSettings, useUpdateImportSettings, usePreviewNamingPattern, useParseFilename, useMediainfoAvailable } from '@/hooks'
 import { useDebounce } from '@/hooks/useDebounce'
 import { toast } from 'sonner'
 import type { ImportSettings, TokenBreakdown, ParsedTokenDetail } from '@/types'
@@ -499,6 +499,37 @@ function FilenameTester({
   )
 }
 
+function MediaInfoStatus() {
+  const isAvailable = useMediainfoAvailable()
+
+  if (isAvailable) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-500/10 border-green-500/20">
+        <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+        <span className="text-sm">MediaInfo is installed and available for file probing</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-amber-500/10 border-amber-500/20">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+        <span className="text-sm">MediaInfo not found - file probing will use filename parsing only</span>
+      </div>
+      <a
+        href="https://mediaarea.net/en/MediaInfo/Download"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shrink-0"
+      >
+        Download
+        <ExternalLink className="size-3" />
+      </a>
+    </div>
+  )
+}
+
 export function FileNamingSection() {
   const { data: settings, isLoading, isError, refetch } = useImportSettings()
   const updateMutation = useUpdateImportSettings()
@@ -582,6 +613,8 @@ export function FileNamingSection() {
         </div>
 
         <TabsContent value="validation" className="space-y-6 max-w-2xl mt-6">
+          <MediaInfoStatus />
+
           <Card>
             <CardHeader>
               <CardTitle>File Validation</CardTitle>

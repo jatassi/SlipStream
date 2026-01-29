@@ -75,12 +75,16 @@ export function ServerSection({
     }
   }, [settings, onPortChange, onLogLevelChange, onLogRotationChange, onExternalAccessChange])
 
-  const handleCopyLogPath = () => {
-    if (settings?.logPath) {
-      navigator.clipboard.writeText(settings.logPath)
-      setIsCopied(true)
-      toast.success('Log path copied to clipboard')
-      setTimeout(() => setIsCopied(false), 2000)
+  const handleCopyLogPath = async () => {
+    if (settings?.logPath && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(settings.logPath)
+        setIsCopied(true)
+        toast.success('Log path copied to clipboard')
+        setTimeout(() => setIsCopied(false), 2000)
+      } catch {
+        toast.error('Failed to copy to clipboard')
+      }
     }
   }
 
