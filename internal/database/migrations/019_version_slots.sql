@@ -33,9 +33,10 @@ CREATE TABLE IF NOT EXISTS version_slots (
 );
 
 -- Insert 3 default slots (Req 1.1.1)
+-- Slots 1 and 2 are always enabled (no toggle in UI), slot 3 is optional
 INSERT INTO version_slots (slot_number, name, enabled, display_order) VALUES
-    (1, 'Primary', 0, 1),
-    (2, 'Secondary', 0, 2),
+    (1, 'Primary', 1, 1),
+    (2, 'Secondary', 1, 2),
     (3, 'Tertiary', 0, 3);
 
 -- Add slot_id to file tables for tracking which slot a file belongs to

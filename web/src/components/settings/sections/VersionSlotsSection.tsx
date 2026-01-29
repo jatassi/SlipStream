@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Layers, Check, Info, X, FlaskConical, Settings, FileText, AlertTriangle, Wand2, Pencil, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -52,6 +52,18 @@ export function VersionSlotsSection() {
   const setProfileMutation = useSetSlotProfile()
   const validateMutation = useValidateSlotConfiguration()
   const validateNamingMutation = useValidateNaming()
+
+  // Auto-enable slots 1 and 2 if they're not already enabled
+  const autoEnableInitiated = useRef(false)
+  if (slots && !autoEnableInitiated.current) {
+    const slotsToEnable = slots.filter(s => s.slotNumber <= 2 && !s.enabled)
+    if (slotsToEnable.length > 0) {
+      autoEnableInitiated.current = true
+      for (const slot of slotsToEnable) {
+        setEnabledMutation.mutate({ id: slot.id, data: { enabled: true } })
+      }
+    }
+  }
 
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors?: string[]; conflicts?: SlotConflict[] } | null>(null)
   const [namingValidation, setNamingValidation] = useState<SlotNamingValidation | null>(null)
@@ -589,7 +601,7 @@ function SlotCard({
   const [editingName, setEditingName] = useState(false)
   const [tempName, setTempName] = useState(slot.name)
 
-  const isActive = showToggle ? slot.enabled : true
+  const isActive = slot.enabled
 
   const handleNameSubmit = () => {
     if (tempName.trim() && tempName !== slot.name) {
