@@ -1,0 +1,17 @@
+{
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": "slipstream.manifest"
+    }
+  },
+  "RT_ICON": {
+    "#1": {
+      "0409": "../../resources/SlipStream.ico"
+    }
+  },
+  "RT_GROUP_ICON": {
+    "#1": {
+      "0409": "../../resources/SlipStream.ico"
+    }
+  }
+}
