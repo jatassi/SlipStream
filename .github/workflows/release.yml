@@ -84,7 +84,7 @@ jobs:
           # Install go-winres to embed manifest and icon
           go install github.com/tc-hib/go-winres@latest
           # Generate .syso file in cmd/slipstream (Go will automatically link it)
-          cd scripts/windows && go-winres make --out ../../cmd/slipstream/rsrc_windows_amd64.syso
+          go-winres make --in scripts/windows/winres.json --out cmd/slipstream/rsrc_windows_amd64.syso
 
       - name: Build Windows binary
         shell: bash
