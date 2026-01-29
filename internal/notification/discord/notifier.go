@@ -265,7 +265,7 @@ func (n *Notifier) formatMediaInfo(mi *types.MediaFileInfo) string {
 	return joinStrings(parts, " / ")
 }
 
-func (n *Notifier) OnDownload(ctx context.Context, event types.DownloadEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
 	var title string
 	var thumbnail, image *EmbedImage
 	fields := n.settings.ImportFields

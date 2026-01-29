@@ -213,7 +213,7 @@ function NotificationsSection() {
         enabled: editingNotification.enabled,
         settings: editingNotification.settings,
         onGrab: false,
-        onDownload: false,
+        onImport: false,
         onUpgrade: false,
         onMovieAdded: false,
         onMovieDeleted: false,

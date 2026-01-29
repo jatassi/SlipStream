@@ -415,8 +415,8 @@ func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 	}
 }
 
-func TestNotifier_OnDownload_MovieMessage(t *testing.T) {
-	event := types.DownloadEvent{
+func TestNotifier_OnImport_MovieMessage(t *testing.T) {
+	event := types.ImportEvent{
 		Movie:      newTestMovie(),
 		Quality:    "Bluray-2160p",
 		ImportedAt: time.Now(),

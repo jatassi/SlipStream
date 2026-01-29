@@ -301,7 +301,7 @@ func TestNotifier_OnGrab_Episode(t *testing.T) {
 	}
 }
 
-func TestNotifier_OnDownload_Movie(t *testing.T) {
+func TestNotifier_OnImport_Movie(t *testing.T) {
 	var captured capturedRequest
 	server := setupTestServer(t, &captured)
 	defer server.Close()
@@ -311,7 +311,7 @@ func TestNotifier_OnDownload_Movie(t *testing.T) {
 		ImportFields: []FieldType{FieldQuality, FieldReleaseGroup, FieldCustomFormats, FieldLanguages, FieldMediaInfo, FieldLinks, FieldPoster},
 	}, http.DefaultClient, zerolog.Nop())
 
-	event := types.DownloadEvent{
+	event := types.ImportEvent{
 		Movie:             newTestMovie(),
 		Quality:           "Bluray-2160p",
 		SourcePath:        "/downloads/movie.mkv",
@@ -327,8 +327,8 @@ func TestNotifier_OnDownload_Movie(t *testing.T) {
 		ImportedAt:        time.Now(),
 	}
 
-	if err := n.OnDownload(context.Background(), event); err != nil {
-		t.Fatalf("OnDownload() error = %v", err)
+	if err := n.OnImport(context.Background(), event); err != nil {
+		t.Fatalf("OnImport() error = %v", err)
 	}
 
 	embed := captured.Payload.Embeds[0]
@@ -355,21 +355,21 @@ func TestNotifier_OnDownload_Movie(t *testing.T) {
 	}
 }
 
-func TestNotifier_OnDownload_Episode(t *testing.T) {
+func TestNotifier_OnImport_Episode(t *testing.T) {
 	var captured capturedRequest
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
 	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
 
-	event := types.DownloadEvent{
+	event := types.ImportEvent{
 		Episode:    newTestEpisode(),
 		Quality:    "HDTV-1080p",
 		ImportedAt: time.Now(),
 	}
 
-	if err := n.OnDownload(context.Background(), event); err != nil {
-		t.Fatalf("OnDownload() error = %v", err)
+	if err := n.OnImport(context.Background(), event); err != nil {
+		t.Fatalf("OnImport() error = %v", err)
 	}
 
 	embed := captured.Payload.Embeds[0]

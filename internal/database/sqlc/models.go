@@ -274,7 +274,7 @@ type Notification struct {
 	Enabled               int64     `json:"enabled"`
 	Settings              string    `json:"settings"`
 	OnGrab                int64     `json:"on_grab"`
-	OnDownload            int64     `json:"on_download"`
+	OnImport              int64     `json:"on_import"`
 	OnUpgrade             int64     `json:"on_upgrade"`
 	OnMovieAdded          int64     `json:"on_movie_added"`
 	OnMovieDeleted        int64     `json:"on_movie_deleted"`
@@ -312,6 +312,15 @@ type PasskeyCredential struct {
 	Name                string         `json:"name"`
 	CreatedAt           time.Time      `json:"created_at"`
 	LastUsedAt          sql.NullTime   `json:"last_used_at"`
+}
+
+type PlexRefreshQueue struct {
+	ID             int64          `json:"id"`
+	NotificationID int64          `json:"notification_id"`
+	ServerID       string         `json:"server_id"`
+	SectionKey     int64          `json:"section_key"`
+	Path           sql.NullString `json:"path"`
+	QueuedAt       time.Time      `json:"queued_at"`
 }
 
 type PortalInvitation struct {

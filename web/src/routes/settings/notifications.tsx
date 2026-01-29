@@ -37,7 +37,7 @@ export function NotificationsPage() {
   const getActiveEvents = (notification: Notification) => {
     const events = []
     if (notification.onGrab) events.push('Grab')
-    if (notification.onDownload) events.push('Download')
+    if (notification.onImport) events.push('Import')
     if (notification.onUpgrade) events.push('Upgrade')
     if (notification.onMovieAdded) events.push('Movie Added')
     if (notification.onMovieDeleted) events.push('Movie Deleted')

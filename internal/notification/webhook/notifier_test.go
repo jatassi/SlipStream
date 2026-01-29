@@ -372,7 +372,7 @@ func TestNotifier_OnGrab_Episode(t *testing.T) {
 	}
 }
 
-func TestNotifier_OnDownload_Movie(t *testing.T) {
+func TestNotifier_OnImport_Movie(t *testing.T) {
 	var captured capturedRequest
 	server := setupTestServer(t, &captured)
 	defer server.Close()
@@ -382,7 +382,7 @@ func TestNotifier_OnDownload_Movie(t *testing.T) {
 		ApplicationURL: "http://localhost:8080",
 	}, http.DefaultClient, zerolog.Nop())
 
-	event := types.DownloadEvent{
+	event := types.ImportEvent{
 		Movie:             newTestMovie(),
 		Quality:           "Bluray-2160p",
 		SourcePath:        "/downloads/movie.mkv",
@@ -398,8 +398,8 @@ func TestNotifier_OnDownload_Movie(t *testing.T) {
 		ImportedAt:        time.Now(),
 	}
 
-	if err := n.OnDownload(context.Background(), event); err != nil {
-		t.Fatalf("OnDownload() error = %v", err)
+	if err := n.OnImport(context.Background(), event); err != nil {
+		t.Fatalf("OnImport() error = %v", err)
 	}
 
 	if captured.Payload.EventType != "download" {

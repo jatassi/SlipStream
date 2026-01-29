@@ -235,9 +235,9 @@ func TestNotifier_OnGrab_Subject_Episode(t *testing.T) {
 	}
 }
 
-func TestNotifier_OnDownload_Subject_Movie(t *testing.T) {
+func TestNotifier_OnImport_Subject_Movie(t *testing.T) {
 	movie := newTestMovie()
-	event := types.DownloadEvent{
+	event := types.ImportEvent{
 		Movie:      &movie,
 		Quality:    "Bluray-2160p",
 		ImportedAt: time.Now(),
@@ -408,7 +408,7 @@ func TestNotifier_GrabBody_Movie(t *testing.T) {
 
 func TestNotifier_DownloadBody_Movie(t *testing.T) {
 	movie := newTestMovie()
-	event := types.DownloadEvent{
+	event := types.ImportEvent{
 		Movie:           &movie,
 		Quality:         "Bluray-2160p",
 		DestinationPath: "/movies/The Matrix (1999)/movie.mkv",
@@ -542,7 +542,7 @@ func buildGrabSubject(event types.GrabEvent) string {
 	return ""
 }
 
-func buildDownloadSubject(event types.DownloadEvent) string {
+func buildDownloadSubject(event types.ImportEvent) string {
 	if event.Movie != nil {
 		if event.Movie.Year > 0 {
 			return "[SlipStream] Movie Downloaded - " + event.Movie.Title + " (" + itoa(event.Movie.Year) + ")"
@@ -594,7 +594,7 @@ func buildGrabBody(event types.GrabEvent) string {
 	return ""
 }
 
-func buildDownloadBody(event types.DownloadEvent) string {
+func buildDownloadBody(event types.ImportEvent) string {
 	if event.Movie != nil {
 		return "Movie: " + event.Movie.Title + "\nQuality: " + event.Quality + "\n\nPath: " + event.DestinationPath
 	}

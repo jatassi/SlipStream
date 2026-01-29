@@ -94,7 +94,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return n.sendEmail(ctx, subject, body)
 }
 
-func (n *Notifier) OnDownload(ctx context.Context, event types.DownloadEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
 	var subject, body string
 
 	if event.Movie != nil {

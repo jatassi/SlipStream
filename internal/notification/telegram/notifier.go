@@ -100,7 +100,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnDownload(ctx context.Context, event types.DownloadEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Download Complete</b>\n\n")
 

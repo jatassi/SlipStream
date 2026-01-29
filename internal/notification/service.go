@@ -35,10 +35,13 @@ type Service struct {
 
 // NewService creates a new notification service
 func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+	queries := sqlc.New(db)
+	factory := NewFactory(logger)
+	factory.SetQueries(queries)
 	return &Service{
 		db:      db,
-		queries: sqlc.New(db),
-		factory: NewFactory(logger),
+		queries: queries,
+		factory: factory,
 		logger:  logger.With().Str("component", "notification").Logger(),
 	}
 }
@@ -50,6 +53,7 @@ func (s *Service) SetDB(db *sql.DB) {
 	defer s.mu.Unlock()
 	s.db = db
 	s.queries = sqlc.New(db)
+	s.factory.SetQueries(s.queries)
 }
 
 // List returns all configured notifications
@@ -93,7 +97,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Config, error
 		Enabled:               boolToInt(input.Enabled),
 		Settings:              string(settings),
 		OnGrab:                boolToInt(input.OnGrab),
-		OnDownload:            boolToInt(input.OnDownload),
+		OnImport:            boolToInt(input.OnImport),
 		OnUpgrade:             boolToInt(input.OnUpgrade),
 		OnMovieAdded:          boolToInt(input.OnMovieAdded),
 		OnMovieDeleted:        boolToInt(input.OnMovieDeleted),
@@ -145,9 +149,9 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Con
 		onGrab = *input.OnGrab
 	}
 
-	onDownload := existing.OnDownload
-	if input.OnDownload != nil {
-		onDownload = *input.OnDownload
+	onImport := existing.OnImport
+	if input.OnImport != nil {
+		onImport = *input.OnImport
 	}
 
 	onUpgrade := existing.OnUpgrade
@@ -208,7 +212,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Con
 		Enabled:               boolToInt(enabled),
 		Settings:              string(settings),
 		OnGrab:                boolToInt(onGrab),
-		OnDownload:            boolToInt(onDownload),
+		OnImport:            boolToInt(onImport),
 		OnUpgrade:             boolToInt(onUpgrade),
 		OnMovieAdded:          boolToInt(onMovieAdded),
 		OnMovieDeleted:        boolToInt(onMovieDeleted),
@@ -308,9 +312,9 @@ func (s *Service) sendNotification(ctx context.Context, cfg Config, eventType Ev
 		if e, ok := event.(GrabEvent); ok {
 			sendErr = notifier.OnGrab(ctx, e)
 		}
-	case EventDownload:
-		if e, ok := event.(DownloadEvent); ok {
-			sendErr = notifier.OnDownload(ctx, e)
+	case EventImport:
+		if e, ok := event.(ImportEvent); ok {
+			sendErr = notifier.OnImport(ctx, e)
 		}
 	case EventUpgrade:
 		if e, ok := event.(UpgradeEvent); ok {
@@ -391,8 +395,8 @@ func (s *Service) configSubscribesToEvent(cfg Config, eventType EventType) bool 
 	switch eventType {
 	case EventGrab:
 		return cfg.OnGrab
-	case EventDownload:
-		return cfg.OnDownload
+	case EventImport:
+		return cfg.OnImport
 	case EventUpgrade:
 		return cfg.OnUpgrade
 	case EventMovieAdded:
@@ -475,7 +479,7 @@ func (s *Service) rowToConfig(row *sqlc.Notification) Config {
 		Enabled:               row.Enabled == 1,
 		Settings:              json.RawMessage(row.Settings),
 		OnGrab:                row.OnGrab == 1,
-		OnDownload:            row.OnDownload == 1,
+		OnImport:            row.OnImport == 1,
 		OnUpgrade:             row.OnUpgrade == 1,
 		OnMovieAdded:          row.OnMovieAdded == 1,
 		OnMovieDeleted:        row.OnMovieDeleted == 1,
@@ -531,8 +535,8 @@ func (s *Service) DispatchHealthRestored(ctx context.Context, source, healthType
 }
 
 // DispatchDownload dispatches a download completed notification.
-func (s *Service) DispatchDownload(ctx context.Context, event DownloadEvent) {
-	s.Dispatch(ctx, EventDownload, event)
+func (s *Service) DispatchDownload(ctx context.Context, event ImportEvent) {
+	s.Dispatch(ctx, EventImport, event)
 }
 
 // DispatchUpgrade dispatches an upgrade notification.

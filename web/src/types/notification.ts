@@ -14,6 +14,7 @@ export type NotifierType =
   | 'simplepush'
   | 'signal'
   | 'custom_script'
+  | 'plex'
 
 export interface Notification {
   id: number
@@ -22,7 +23,7 @@ export interface Notification {
   enabled: boolean
   settings: Record<string, unknown>
   onGrab: boolean
-  onDownload: boolean
+  onImport: boolean
   onUpgrade: boolean
   onMovieAdded: boolean
   onMovieDeleted: boolean
@@ -47,7 +48,7 @@ export interface CreateNotificationInput {
   enabled?: boolean
   settings: Record<string, unknown>
   onGrab?: boolean
-  onDownload?: boolean
+  onImport?: boolean
   onUpgrade?: boolean
   onMovieAdded?: boolean
   onMovieDeleted?: boolean
@@ -66,7 +67,7 @@ export interface UpdateNotificationInput {
   enabled?: boolean
   settings?: Record<string, unknown>
   onGrab?: boolean
-  onDownload?: boolean
+  onImport?: boolean
   onUpgrade?: boolean
   onMovieAdded?: boolean
   onMovieDeleted?: boolean
@@ -84,7 +85,7 @@ export interface NotificationTestResult {
   message: string
 }
 
-export type FieldType = 'text' | 'password' | 'number' | 'bool' | 'select' | 'url'
+export type FieldType = 'text' | 'password' | 'number' | 'bool' | 'select' | 'url' | 'action'
 
 export interface SelectOption {
   value: string
@@ -101,6 +102,9 @@ export interface SettingsField {
   default?: unknown
   options?: SelectOption[]
   advanced?: boolean
+  actionEndpoint?: string
+  actionLabel?: string
+  actionType?: string
 }
 
 export interface NotifierSchema {

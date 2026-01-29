@@ -103,7 +103,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) OnDownload(ctx context.Context, event types.DownloadEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
 	var title string
 	if event.Movie != nil {
 		title = fmt.Sprintf("Movie Downloaded - %s", event.Movie.Title)

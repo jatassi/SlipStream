@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Loader2, TestTube, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Loader2, TestTube, ExternalLink, ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +25,7 @@ import {
   useTestNewNotification,
   useNotificationSchemas,
 } from '@/hooks'
+import { apiFetch } from '@/api/client'
 import type {
   Notification,
   NotifierType,
@@ -55,13 +56,26 @@ interface NotificationDialogProps {
   onTest?: (data: CreateNotificationInput) => Promise<{ success: boolean; message?: string }>
 }
 
+interface PlexServer {
+  id: string
+  name: string
+  owned: boolean
+  address?: string
+}
+
+interface PlexSection {
+  key: number
+  title: string
+  type: string
+}
+
 const defaultFormData: CreateNotificationInput = {
   name: '',
   type: 'discord',
   enabled: true,
   settings: {},
   onGrab: true,
-  onDownload: true,
+  onImport: true,
   onUpgrade: true,
   onMovieAdded: false,
   onMovieDeleted: false,
@@ -76,7 +90,7 @@ const defaultFormData: CreateNotificationInput = {
 
 const adminEventTriggers: EventTrigger[] = [
   { key: 'onGrab', label: 'On Grab', description: 'When a release is grabbed' },
-  { key: 'onDownload', label: 'On Download', description: 'When a download completes' },
+  { key: 'onImport', label: 'On Import', description: 'When a file is imported to the library' },
   { key: 'onUpgrade', label: 'On Upgrade', description: 'When a quality upgrade is imported' },
   { key: 'onMovieAdded', label: 'On Movie Added', description: 'When a movie is added' },
   { key: 'onMovieDeleted', label: 'On Movie Deleted', description: 'When a movie is removed' },
@@ -102,6 +116,15 @@ export function NotificationDialog({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isPending, setIsPending] = useState(false)
 
+  // Plex OAuth state
+  const [, setPlexPinId] = useState<number | null>(null)
+  const [isPlexConnecting, setIsPlexConnecting] = useState(false)
+  const [plexServers, setPlexServers] = useState<PlexServer[]>([])
+  const [plexSections, setPlexSections] = useState<PlexSection[]>([])
+  const [isLoadingServers, setIsLoadingServers] = useState(false)
+  const [isLoadingSections, setIsLoadingSections] = useState(false)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const { data: fetchedSchemas } = useNotificationSchemas()
   const createMutation = useCreateNotification()
   const updateMutation = useUpdateNotification()
@@ -119,6 +142,18 @@ export function NotificationDialog({
     return currentSchema?.fields.some((f) => f.advanced) ?? false
   }, [currentSchema])
 
+  const isPlex = formData.type === 'plex'
+  const hasPlexToken = !!(formData.settings.authToken as string)
+
+  const cleanupPlexPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    setPlexPinId(null)
+    setIsPlexConnecting(false)
+  }, [])
+
   useEffect(() => {
     if (open) {
       if (notification) {
@@ -128,7 +163,7 @@ export function NotificationDialog({
           enabled: notification.enabled,
           settings: notification.settings || {},
           onGrab: notification.onGrab,
-          onDownload: notification.onDownload,
+          onImport: notification.onImport,
           onUpgrade: notification.onUpgrade,
           onMovieAdded: notification.onMovieAdded,
           onMovieDeleted: notification.onMovieDeleted,
@@ -140,15 +175,16 @@ export function NotificationDialog({
           includeHealthWarnings: notification.includeHealthWarnings,
           tags: notification.tags || [],
         })
+        // If editing Plex with existing token, load servers
+        if (notification.type === 'plex' && notification.settings.authToken) {
+          fetchPlexServers(notification.settings.authToken as string)
+        }
       } else {
-        // Reset to defaults, enabling provided event triggers by default
         const resetData = { ...defaultFormData }
         if (eventTriggers) {
-          // Disable all admin triggers first
           adminEventTriggers.forEach(t => {
             (resetData as unknown as Record<string, unknown>)[t.key] = false
           })
-          // Enable only the provided triggers
           eventTriggers.forEach(t => {
             (resetData as unknown as Record<string, unknown>)[t.key] = true
           })
@@ -156,8 +192,93 @@ export function NotificationDialog({
         setFormData(resetData)
       }
       setShowAdvanced(false)
+      setPlexServers([])
+      setPlexSections([])
+    } else {
+      cleanupPlexPolling()
     }
-  }, [open, notification, eventTriggers])
+  }, [open, notification, eventTriggers, cleanupPlexPolling])
+
+  // Load sections when server changes
+  useEffect(() => {
+    const serverId = formData.settings.serverId as string
+    const token = formData.settings.authToken as string
+    if (isPlex && serverId && token) {
+      fetchPlexSections(serverId, token)
+    }
+  }, [isPlex, formData.settings.serverId, formData.settings.authToken])
+
+  const fetchPlexServers = async (token: string) => {
+    setIsLoadingServers(true)
+    try {
+      const servers = await apiFetch<PlexServer[]>('/notifications/plex/servers', {
+        headers: { 'X-Plex-Token': token },
+      })
+      setPlexServers(servers)
+    } catch (err) {
+      console.error('Failed to fetch Plex servers:', err)
+    } finally {
+      setIsLoadingServers(false)
+    }
+  }
+
+  const fetchPlexSections = async (serverId: string, token: string) => {
+    setIsLoadingSections(true)
+    try {
+      const sections = await apiFetch<PlexSection[]>(`/notifications/plex/servers/${serverId}/sections`, {
+        headers: { 'X-Plex-Token': token },
+      })
+      setPlexSections(sections)
+    } catch (err) {
+      console.error('Failed to fetch Plex sections:', err)
+    } finally {
+      setIsLoadingSections(false)
+    }
+  }
+
+  const handlePlexOAuth = async () => {
+    setIsPlexConnecting(true)
+    try {
+      const { pinId, authUrl } = await apiFetch<{ pinId: number; authUrl: string }>('/notifications/plex/auth/start', {
+        method: 'POST',
+      })
+      setPlexPinId(pinId)
+
+      // Open auth URL in new window
+      window.open(authUrl, '_blank', 'width=800,height=600')
+
+      // Poll for completion
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const status = await apiFetch<{ complete: boolean; authToken?: string }>(`/notifications/plex/auth/status/${pinId}`)
+          if (status.complete && status.authToken) {
+            cleanupPlexPolling()
+            handleSettingChange('authToken', status.authToken)
+            toast.success('Connected to Plex!')
+            fetchPlexServers(status.authToken)
+          }
+        } catch (err) {
+          // Check if it's a 410 Gone (expired)
+          if (err && typeof err === 'object' && 'status' in err && err.status === 410) {
+            cleanupPlexPolling()
+            toast.error('Plex authentication expired. Please try again.')
+          }
+          // Ignore other polling errors
+        }
+      }, 2000)
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (pollIntervalRef.current) {
+          cleanupPlexPolling()
+          toast.error('Plex authentication timed out. Please try again.')
+        }
+      }, 5 * 60 * 1000)
+    } catch {
+      setIsPlexConnecting(false)
+      toast.error('Failed to start Plex authentication')
+    }
+  }
 
   const handleTypeChange = (type: NotifierType) => {
     const schema = schemas?.find((s) => s.type === type)
@@ -174,6 +295,11 @@ export function NotificationDialog({
       type,
       settings: newSettings,
     }))
+
+    // Reset Plex state when switching types
+    setPlexServers([])
+    setPlexSections([])
+    cleanupPlexPolling()
   }
 
   const handleSettingChange = (name: string, value: unknown) => {
@@ -219,6 +345,7 @@ export function NotificationDialog({
 
     const requiredFields = currentSchema?.fields.filter((f) => f.required) || []
     for (const field of requiredFields) {
+      if (field.type === 'action') continue // Skip action fields in validation
       const value = formData.settings[field.name]
       if (!value || (typeof value === 'string' && !value.trim())) {
         toast.error(`${field.label} is required`)
@@ -299,6 +426,35 @@ export function NotificationDialog({
         )
 
       case 'select':
+        // Special handling for Plex server select
+        if (isPlex && field.name === 'serverId') {
+          return (
+            <Select
+              value={(value as string) || ''}
+              onValueChange={(v) => handleSettingChange(field.name, v)}
+              disabled={!hasPlexToken || isLoadingServers}
+            >
+              <SelectTrigger>
+                {isLoadingServers ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading servers...
+                  </span>
+                ) : (
+                  plexServers.find((s) => s.id === value)?.name || 'Select server...'
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {plexServers.map((server) => (
+                  <SelectItem key={server.id} value={server.id}>
+                    {server.name} {server.owned && '(owned)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
+
         return (
           <Select
             value={(value as string) || field.default as string || ''}
@@ -317,9 +473,94 @@ export function NotificationDialog({
           </Select>
         )
 
+      case 'action':
+        if (field.actionType === 'oauth' && isPlex) {
+          return (
+            <div className="flex items-center gap-2">
+              {hasPlexToken ? (
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <Check className="size-4" />
+                  Connected
+                </div>
+              ) : isPlexConnecting ? (
+                <Button variant="outline" disabled>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Waiting for approval...
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handlePlexOAuth}>
+                  {field.actionLabel || 'Connect'}
+                </Button>
+              )}
+              {hasPlexToken && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    handleSettingChange('authToken', '')
+                    handleSettingChange('serverId', '')
+                    handleSettingChange('sectionIds', [])
+                    setPlexServers([])
+                    setPlexSections([])
+                  }}
+                >
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
+          )
+        }
+        return (
+          <Button variant="outline" onClick={() => field.actionEndpoint && fetch(field.actionEndpoint)}>
+            {field.actionLabel || 'Action'}
+          </Button>
+        )
+
       default:
         return null
     }
+  }
+
+  // Render Plex sections selector (custom field not in schema)
+  const renderPlexSections = () => {
+    if (!isPlex || !hasPlexToken || !formData.settings.serverId) return null
+
+    const currentSectionIds = (formData.settings.sectionIds as number[]) || []
+
+    return (
+      <div className="space-y-2">
+        <Label>Library Sections</Label>
+        <p className="text-xs text-muted-foreground">Select which library sections to refresh</p>
+        {isLoadingSections ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Loading sections...
+          </div>
+        ) : plexSections.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No movie or TV sections found</p>
+        ) : (
+          <div className="space-y-2 border rounded-lg p-3">
+            {plexSections.map((section) => (
+              <div key={section.key} className="flex items-center justify-between">
+                <Label htmlFor={`section-${section.key}`} className="font-normal cursor-pointer">
+                  {section.title} ({section.type})
+                </Label>
+                <Switch
+                  id={`section-${section.key}`}
+                  checked={currentSectionIds.includes(section.key)}
+                  onCheckedChange={(checked) => {
+                    const newIds = checked
+                      ? [...currentSectionIds, section.key]
+                      : currentSectionIds.filter((id) => id !== section.key)
+                    handleSettingChange('sectionIds', newIds)
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -383,7 +624,7 @@ export function NotificationDialog({
                 <div>
                   <Label htmlFor={field.name}>
                     {field.label}
-                    {!field.required && field.type !== 'bool' && (
+                    {!field.required && field.type !== 'bool' && field.type !== 'action' && (
                       <span className="text-muted-foreground text-xs ml-1">(optional)</span>
                     )}
                   </Label>
@@ -394,6 +635,9 @@ export function NotificationDialog({
                 {renderField(field)}
               </div>
             ))}
+
+          {/* Plex Library Sections (custom rendering) */}
+          {renderPlexSections()}
 
           {/* Advanced Settings Toggle */}
           {hasAdvancedFields && (

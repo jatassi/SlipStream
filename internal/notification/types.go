@@ -20,9 +20,9 @@ type (
 	CustomFormat       = types.CustomFormat
 	MediaFileInfo      = types.MediaFileInfo
 	SlotInfo           = types.SlotInfo
-	GrabEvent          = types.GrabEvent
-	DownloadEvent      = types.DownloadEvent
-	UpgradeEvent       = types.UpgradeEvent
+	GrabEvent    = types.GrabEvent
+	ImportEvent  = types.ImportEvent
+	UpgradeEvent = types.UpgradeEvent
 	MovieAddedEvent    = types.MovieAddedEvent
 	MovieDeletedEvent  = types.MovieDeletedEvent
 	SeriesAddedEvent   = types.SeriesAddedEvent
@@ -50,6 +50,7 @@ const (
 	NotifierSignal       = types.NotifierSignal
 	NotifierCustomScript = types.NotifierCustomScript
 	NotifierMock         = types.NotifierMock
+	NotifierPlex         = types.NotifierPlex
 )
 
 // Config represents a notification configuration stored in the database
@@ -61,7 +62,7 @@ type Config struct {
 	Settings json.RawMessage `json:"settings"`
 
 	OnGrab          bool `json:"onGrab"`
-	OnDownload      bool `json:"onDownload"`
+	OnImport      bool `json:"onImport"`
 	OnUpgrade       bool `json:"onUpgrade"`
 	OnMovieAdded    bool `json:"onMovieAdded"`
 	OnMovieDeleted  bool `json:"onMovieDeleted"`
@@ -86,7 +87,7 @@ type CreateInput struct {
 	Settings json.RawMessage `json:"settings"`
 
 	OnGrab           bool `json:"onGrab"`
-	OnDownload       bool `json:"onDownload"`
+	OnImport       bool `json:"onImport"`
 	OnUpgrade        bool `json:"onUpgrade"`
 	OnMovieAdded     bool `json:"onMovieAdded"`
 	OnMovieDeleted   bool `json:"onMovieDeleted"`
@@ -108,7 +109,7 @@ type UpdateInput struct {
 	Settings *json.RawMessage `json:"settings,omitempty"`
 
 	OnGrab           *bool `json:"onGrab,omitempty"`
-	OnDownload       *bool `json:"onDownload,omitempty"`
+	OnImport       *bool `json:"onImport,omitempty"`
 	OnUpgrade        *bool `json:"onUpgrade,omitempty"`
 	OnMovieAdded     *bool `json:"onMovieAdded,omitempty"`
 	OnMovieDeleted   *bool `json:"onMovieDeleted,omitempty"`

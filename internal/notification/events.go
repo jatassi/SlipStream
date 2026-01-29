@@ -5,7 +5,7 @@ type EventType string
 
 const (
 	EventGrab           EventType = "grab"
-	EventDownload       EventType = "download"
+	EventImport       EventType = "download"
 	EventUpgrade        EventType = "upgrade"
 	EventMovieAdded     EventType = "movie_added"
 	EventMovieDeleted   EventType = "movie_deleted"

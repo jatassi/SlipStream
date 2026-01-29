@@ -86,7 +86,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnDownload(ctx context.Context, event types.DownloadEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
 	title := "Download Imported"
 	var message string
 	if event.Movie != nil {

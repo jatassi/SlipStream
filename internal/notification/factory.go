@@ -8,9 +8,11 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/notification/discord"
 	"github.com/slipstream/slipstream/internal/notification/email"
 	"github.com/slipstream/slipstream/internal/notification/mock"
+	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/notification/pushover"
 	"github.com/slipstream/slipstream/internal/notification/slack"
 	"github.com/slipstream/slipstream/internal/notification/telegram"
@@ -19,8 +21,11 @@ import (
 
 // Factory creates Notifier instances from Config
 type Factory struct {
-	httpClient *http.Client
-	logger     zerolog.Logger
+	httpClient  *http.Client
+	logger      zerolog.Logger
+	queries     *sqlc.Queries
+	plexClient  *plex.Client
+	version     string
 }
 
 // NewFactory creates a new notification factory
@@ -31,6 +36,21 @@ func NewFactory(logger zerolog.Logger) *Factory {
 		},
 		logger: logger.With().Str("component", "notification-factory").Logger(),
 	}
+}
+
+// SetQueries sets the database queries for notifiers that need database access
+func (f *Factory) SetQueries(queries *sqlc.Queries) {
+	f.queries = queries
+}
+
+// SetPlexClient sets the Plex client for Plex notifiers
+func (f *Factory) SetPlexClient(client *plex.Client) {
+	f.plexClient = client
+}
+
+// SetVersion sets the application version for notifiers that need it
+func (f *Factory) SetVersion(version string) {
+	f.version = version
 }
 
 // Create creates a Notifier instance from a Config
@@ -48,6 +68,8 @@ func (f *Factory) Create(cfg Config) (Notifier, error) {
 		return f.createSlack(cfg)
 	case NotifierPushover:
 		return f.createPushover(cfg)
+	case NotifierPlex:
+		return f.createPlex(cfg)
 	case NotifierMock:
 		return f.createMock(cfg), nil
 	default:
@@ -105,4 +127,21 @@ func (f *Factory) createPushover(cfg Config) (Notifier, error) {
 
 func (f *Factory) createMock(cfg Config) Notifier {
 	return mock.New(cfg.Name, f.logger)
+}
+
+func (f *Factory) createPlex(cfg Config) (Notifier, error) {
+	var settings plex.Settings
+	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
+		return nil, fmt.Errorf("invalid plex settings: %w", err)
+	}
+
+	if f.plexClient == nil {
+		f.plexClient = plex.NewClient(f.httpClient, f.logger, f.version)
+	}
+
+	if f.queries == nil {
+		return nil, fmt.Errorf("database queries not configured for Plex notifier")
+	}
+
+	return plex.New(cfg.Name, cfg.ID, settings, f.plexClient, f.queries, f.logger), nil
 }

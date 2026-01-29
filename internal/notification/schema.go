@@ -10,6 +10,7 @@ const (
 	FieldTypeBool     FieldType = "bool"
 	FieldTypeSelect   FieldType = "select"
 	FieldTypeURL      FieldType = "url"
+	FieldTypeAction   FieldType = "action"
 )
 
 // SelectOption represents an option for select fields
@@ -20,15 +21,18 @@ type SelectOption struct {
 
 // SettingsField describes a single configuration field
 type SettingsField struct {
-	Name        string         `json:"name"`
-	Label       string         `json:"label"`
-	Type        FieldType      `json:"type"`
-	Required    bool           `json:"required,omitempty"`
-	Placeholder string         `json:"placeholder,omitempty"`
-	HelpText    string         `json:"helpText,omitempty"`
-	Default     any            `json:"default,omitempty"`
-	Options     []SelectOption `json:"options,omitempty"`
-	Advanced    bool           `json:"advanced,omitempty"`
+	Name           string         `json:"name"`
+	Label          string         `json:"label"`
+	Type           FieldType      `json:"type"`
+	Required       bool           `json:"required,omitempty"`
+	Placeholder    string         `json:"placeholder,omitempty"`
+	HelpText       string         `json:"helpText,omitempty"`
+	Default        any            `json:"default,omitempty"`
+	Options        []SelectOption `json:"options,omitempty"`
+	Advanced       bool           `json:"advanced,omitempty"`
+	ActionEndpoint string         `json:"actionEndpoint,omitempty"`
+	ActionLabel    string         `json:"actionLabel,omitempty"`
+	ActionType     string         `json:"actionType,omitempty"`
 }
 
 // NotifierSchema describes a notification provider's capabilities
@@ -213,6 +217,65 @@ var SchemaRegistry = map[NotifierType]NotifierSchema{
 		Name:        "Mock (Dev Mode)",
 		Description: "Development mock notifier - logs notifications to console and broadcasts via WebSocket",
 		Fields:      []SettingsField{},
+	},
+	NotifierPlex: {
+		Type:        NotifierPlex,
+		Name:        "Plex",
+		Description: "Trigger Plex library refresh after media imports",
+		InfoURL:     "https://support.plex.tv/articles/201638786-plex-media-server-url-commands/",
+		Fields: []SettingsField{
+			{
+				Name:           "authAction",
+				Label:          "Plex Account",
+				Type:           FieldTypeAction,
+				ActionEndpoint: "/api/v1/notifications/plex/auth/start",
+				ActionLabel:    "Connect to Plex",
+				ActionType:     "oauth",
+				HelpText:       "Sign in with your Plex account to authorize SlipStream",
+			},
+			{
+				Name:     "authToken",
+				Label:    "Auth Token",
+				Type:     FieldTypePassword,
+				Advanced: true,
+				HelpText: "Plex authentication token (set automatically after connecting)",
+			},
+			{
+				Name:     "serverId",
+				Label:    "Server",
+				Type:     FieldTypeSelect,
+				Required: true,
+				HelpText: "Select the Plex server to update",
+			},
+			{
+				Name:     "sectionIds",
+				Label:    "Library Sections",
+				Type:     FieldTypeText,
+				Required: true,
+				HelpText: "Comma-separated library section IDs to refresh (e.g., 1,2)",
+			},
+			{
+				Name:     "pathMappings",
+				Label:    "Path Mappings",
+				Type:     FieldTypeText,
+				Advanced: true,
+				HelpText: "JSON array of path mappings: [{\"from\":\"/local/path\",\"to\":\"/plex/path\"}]",
+			},
+			{
+				Name:     "updateLibrary",
+				Label:    "Update Library",
+				Type:     FieldTypeBool,
+				Default:  true,
+				HelpText: "Trigger library refresh on download/upgrade events",
+			},
+			{
+				Name:     "usePartialRefresh",
+				Label:    "Use Partial Refresh",
+				Type:     FieldTypeBool,
+				Default:  true,
+				HelpText: "Refresh only the specific path instead of the entire library section",
+			},
+		},
 	},
 }
 

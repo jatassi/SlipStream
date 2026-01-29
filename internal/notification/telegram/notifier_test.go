@@ -306,8 +306,8 @@ func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 	_ = expectedEpisode
 }
 
-func TestNotifier_OnDownload_Movie(t *testing.T) {
-	event := types.DownloadEvent{
+func TestNotifier_OnImport_Movie(t *testing.T) {
+	event := types.ImportEvent{
 		Movie:        newTestMovie(),
 		Quality:      "Bluray-2160p",
 		ReleaseGroup: "GROUP",

@@ -60,6 +60,7 @@ import (
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/notification"
+	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/prowlarr"
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/portal/admin"
@@ -131,6 +132,8 @@ type Server struct {
 	mediainfoService    *mediainfo.Service
 	slotsService        *slots.Service
 	notificationService *notification.Service
+	plexHandlers        *plex.Handlers
+	plexClient          *plex.Client
 	queueBroadcaster    *downloader.QueueBroadcaster
 	prowlarrService       *prowlarr.Service
 	prowlarrModeManager   *prowlarr.ModeManager
@@ -478,6 +481,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize notification service
 	s.notificationService = notification.NewService(db, logger)
 
+	// Initialize Plex client and handlers for OAuth/discovery endpoints
+	plexHTTPClient := &http.Client{Timeout: 30 * time.Second}
+	s.plexClient = plex.NewClient(plexHTTPClient, logger, config.Version)
+	s.plexHandlers = plex.NewHandlers(s.plexClient, logger)
+
 	// Wire up notification service to health service for health alerts
 	s.healthService.SetNotifier(s.notificationService)
 
@@ -661,6 +669,10 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	if s.scheduler != nil {
 		if err := tasks.RegisterUpdateCheckTask(s.scheduler, s.updateService, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register update check task")
+		}
+		// Register Plex library refresh task
+		if err := tasks.RegisterPlexRefreshTask(s.scheduler, queries, s.notificationService, s.plexClient, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register Plex refresh task")
 		}
 	}
 
@@ -964,6 +976,9 @@ func (s *Server) setupRoutes() {
 	// Notifications routes (admin-only for CRUD)
 	notificationHandlers := notification.NewHandlers(s.notificationService)
 	notificationHandlers.RegisterRoutes(protected.Group("/notifications"))
+
+	// Plex OAuth and discovery routes (admin-only)
+	s.plexHandlers.RegisterRoutes(protected.Group("/notifications/plex"))
 
 	// Notifications shared routes (schema and test - accessible to both admin and portal users)
 	notificationsShared := api.Group("/notifications")
@@ -2124,9 +2139,9 @@ type importNotificationAdapter struct {
 	svc *notification.Service
 }
 
-// DispatchDownload implements importer.NotificationDispatcher.
-func (a *importNotificationAdapter) DispatchDownload(ctx context.Context, event importer.DownloadNotificationEvent) {
-	notifEvent := notification.DownloadEvent{
+// DispatchImport implements importer.NotificationDispatcher.
+func (a *importNotificationAdapter) DispatchImport(ctx context.Context, event importer.ImportNotificationEvent) {
+	notifEvent := notification.ImportEvent{
 		Quality:         event.Quality,
 		SourcePath:      event.SourcePath,
 		DestinationPath: event.DestinationPath,
@@ -2367,7 +2382,7 @@ func (s *Server) switchNotification(devMode bool) {
 			Type:             notification.NotifierMock,
 			Enabled:          true,
 			OnGrab:           true,
-			OnDownload:       true,
+			OnImport:         true,
 			OnUpgrade:        true,
 			OnMovieAdded:     true,
 			OnMovieDeleted:   true,

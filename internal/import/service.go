@@ -62,7 +62,7 @@ type HistoryInput struct {
 
 // NotificationDispatcher defines the interface for import notifications.
 type NotificationDispatcher interface {
-	DispatchDownload(ctx context.Context, event DownloadNotificationEvent)
+	DispatchImport(ctx context.Context, event ImportNotificationEvent)
 	DispatchUpgrade(ctx context.Context, event UpgradeNotificationEvent)
 }
 
@@ -72,8 +72,8 @@ type StatusTrackerService interface {
 	OnEpisodeAvailable(ctx context.Context, episodeID int64) error
 }
 
-// DownloadNotificationEvent contains download event data for notifications.
-type DownloadNotificationEvent struct {
+// ImportNotificationEvent contains import event data for notifications.
+type ImportNotificationEvent struct {
 	MediaType       string // "movie" or "episode"
 	MovieID         *int64
 	MovieTitle      string
@@ -735,7 +735,7 @@ func (s *Service) dispatchImportNotification(ctx context.Context, result *Import
 
 		s.notifier.DispatchUpgrade(ctx, event)
 	} else {
-		event := DownloadNotificationEvent{
+		event := ImportNotificationEvent{
 			MediaType:       result.Match.MediaType,
 			Quality:         quality,
 			SourcePath:      result.SourcePath,
@@ -766,6 +766,6 @@ func (s *Service) dispatchImportNotification(ctx context.Context, result *Import
 			}
 		}
 
-		s.notifier.DispatchDownload(ctx, event)
+		s.notifier.DispatchImport(ctx, event)
 	}
 }

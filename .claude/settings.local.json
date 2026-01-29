@@ -78,7 +78,9 @@
       "WebFetch(domain:api.themoviedb.org)",
       "WebFetch(domain:developer.themoviedb.org)",
       "Bash(git tag:*)",
-      "Bash(go list:*)"
+      "Bash(go list:*)",
+      "Bash(bun run dev)",
+      "Bash(pgrep:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -17,7 +17,7 @@ ORDER BY name;
 -- name: CreateNotification :one
 INSERT INTO notifications (
     name, type, enabled, settings,
-    on_grab, on_download, on_upgrade,
+    on_grab, on_import, on_upgrade,
     on_movie_added, on_movie_deleted,
     on_series_added, on_series_deleted,
     on_health_issue, on_health_restored, on_app_update,
@@ -32,7 +32,7 @@ UPDATE notifications SET
     enabled = ?,
     settings = ?,
     on_grab = ?,
-    on_download = ?,
+    on_import = ?,
     on_upgrade = ?,
     on_movie_added = ?,
     on_movie_deleted = ?,

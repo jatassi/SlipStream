@@ -26,6 +26,7 @@ const (
 	NotifierSignal       NotifierType = "signal"
 	NotifierCustomScript NotifierType = "custom_script"
 	NotifierMock         NotifierType = "mock"
+	NotifierPlex         NotifierType = "plex"
 )
 
 // Notifier is the interface all notification providers must implement
@@ -35,7 +36,7 @@ type Notifier interface {
 	Test(ctx context.Context) error
 
 	OnGrab(ctx context.Context, event GrabEvent) error
-	OnDownload(ctx context.Context, event DownloadEvent) error
+	OnImport(ctx context.Context, event ImportEvent) error
 	OnUpgrade(ctx context.Context, event UpgradeEvent) error
 	OnMovieAdded(ctx context.Context, event MovieAddedEvent) error
 	OnMovieDeleted(ctx context.Context, event MovieDeletedEvent) error
@@ -52,7 +53,7 @@ type EventType string
 
 const (
 	EventGrab           EventType = "grab"
-	EventDownload       EventType = "download"
+	EventImport         EventType = "import"
 	EventUpgrade        EventType = "upgrade"
 	EventMovieAdded     EventType = "movie_added"
 	EventMovieDeleted   EventType = "movie_deleted"
@@ -159,8 +160,8 @@ type GrabEvent struct {
 	GrabbedAt      time.Time          `json:"grabbedAt"`
 }
 
-// DownloadEvent is triggered when a file is imported
-type DownloadEvent struct {
+// ImportEvent is triggered when a file is imported into the library
+type ImportEvent struct {
 	Movie             *MediaInfo     `json:"movie,omitempty"`
 	Episode           *EpisodeInfo   `json:"episode,omitempty"`
 	Quality           string         `json:"quality"`
