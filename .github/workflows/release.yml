@@ -271,7 +271,7 @@ jobs:
         run: |
           mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
 
-          # Build amd64
+          # Build main binary (amd64)
           GOARCH=amd64 go build -ldflags "-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
@@ -279,13 +279,24 @@ jobs:
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
             -o dist/slipstream_linux_amd64/slipstream ./cmd/slipstream
 
-          # Build arm64
+          # Build main binary (arm64)
           GOARCH=arm64 go build -ldflags "-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
             -o dist/slipstream_linux_arm64/slipstream ./cmd/slipstream
+
+          # Build stub launcher (small binary that bootstraps real binary to user dir)
+          GOARCH=amd64 go build -ldflags "-s -w" -o dist/slipstream_linux_amd64/slipstream-stub ./cmd/stub
+          GOARCH=arm64 go build -ldflags "-s -w" -o dist/slipstream_linux_arm64/slipstream-stub ./cmd/stub
+
+      - name: Create portable tarballs
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          # Create tarballs with just the binary (for auto-updates)
+          tar -czvf "dist/slipstream_${VERSION}_linux_amd64.tar.gz" -C dist/slipstream_linux_amd64 slipstream
+          tar -czvf "dist/slipstream_${VERSION}_linux_arm64.tar.gz" -C dist/slipstream_linux_arm64 slipstream
 
       - name: Install nfpm
         run: |
@@ -300,6 +311,8 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
 
           # Create nfpm config for amd64
+          # Uses stub launcher pattern: stub in /usr/bin, real binary in /usr/share
+          # This enables auto-updates without sudo
           cat > nfpm-amd64.yaml << EOF
           name: slipstream
           arch: amd64
@@ -311,8 +324,10 @@ jobs:
           homepage: https://github.com/jatassi/SlipStream
           license: MIT
           contents:
-            - src: dist/slipstream_linux_amd64/slipstream
+            - src: dist/slipstream_linux_amd64/slipstream-stub
               dst: /usr/bin/slipstream
+            - src: dist/slipstream_linux_amd64/slipstream
+              dst: /usr/share/slipstream/slipstream
             - src: scripts/linux/slipstream.service
               dst: /usr/share/doc/slipstream/slipstream.service
               type: config
@@ -335,8 +350,10 @@ jobs:
           homepage: https://github.com/jatassi/SlipStream
           license: MIT
           contents:
-            - src: dist/slipstream_linux_arm64/slipstream
+            - src: dist/slipstream_linux_arm64/slipstream-stub
               dst: /usr/bin/slipstream
+            - src: dist/slipstream_linux_arm64/slipstream
+              dst: /usr/share/slipstream/slipstream
             - src: scripts/linux/slipstream.service
               dst: /usr/share/doc/slipstream/slipstream.service
               type: config
@@ -371,6 +388,7 @@ jobs:
             dist/*.deb
             dist/*.rpm
             dist/*.AppImage
+            dist/*.tar.gz
           retention-days: 1
 
   # ===========================================

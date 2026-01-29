@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -64,6 +66,16 @@ func bootstrapLog(msg string) {
 }
 
 func main() {
+	// Handle --complete-update before anything else (used by self-updater on all platforms)
+	if len(os.Args) >= 4 && os.Args[1] == "--complete-update" {
+		port := 0
+		if p, err := strconv.Atoi(os.Args[3]); err == nil {
+			port = p
+		}
+		completeUpdate(os.Args[2], port)
+		return
+	}
+
 	// Lock the main goroutine to the main OS thread.
 	// This is required for macOS where UI elements (NSWindow, NSApplication)
 	// must be created and manipulated on the main thread.
@@ -296,6 +308,172 @@ func spawnNewProcess() error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Start()
+}
+
+func completeUpdate(targetPath string, port int) {
+	bootstrapLog("=== Update completion starting ===")
+	bootstrapLog(fmt.Sprintf("Target path: %s", targetPath))
+	bootstrapLog(fmt.Sprintf("Port to wait for: %d", port))
+
+	currentExe, err := os.Executable()
+	if err != nil {
+		bootstrapLog(fmt.Sprintf("Failed to get current executable: %v", err))
+		os.Exit(1)
+	}
+	currentExe, _ = filepath.EvalSymlinks(currentExe)
+	bootstrapLog(fmt.Sprintf("Current executable: %s", currentExe))
+
+	// Wait for the old process to exit by polling the port
+	bootstrapLog("Waiting for old process to release port...")
+	if !waitForPortFree(port, 60*time.Second) {
+		bootstrapLog("Warning: Timed out waiting for port to be free, proceeding anyway")
+	} else {
+		bootstrapLog("Port is free, old process has exited")
+	}
+
+	// Determine if we're updating an app bundle (macOS) or a single file (Windows/Linux)
+	isAppBundle := strings.HasSuffix(targetPath, ".app")
+
+	if isAppBundle {
+		// macOS: Copy the entire app bundle
+		bootstrapLog("Copying new app bundle to target location...")
+
+		// Find the .app bundle containing the current executable
+		currentAppBundle := currentExe
+		for !strings.HasSuffix(currentAppBundle, ".app") && currentAppBundle != "/" {
+			currentAppBundle = filepath.Dir(currentAppBundle)
+		}
+		if !strings.HasSuffix(currentAppBundle, ".app") {
+			bootstrapLog(fmt.Sprintf("Failed to find app bundle for: %s", currentExe))
+			os.Exit(1)
+		}
+
+		// Remove old app bundle and copy new one
+		if err := os.RemoveAll(targetPath); err != nil {
+			bootstrapLog(fmt.Sprintf("Failed to remove old app bundle: %v", err))
+			os.Exit(1)
+		}
+
+		cmd := exec.Command("cp", "-R", currentAppBundle, targetPath)
+		if err := cmd.Run(); err != nil {
+			bootstrapLog(fmt.Sprintf("Failed to copy app bundle: %v", err))
+			os.Exit(1)
+		}
+		bootstrapLog("App bundle copied successfully")
+
+		// Launch the updated application
+		newExePath := filepath.Join(targetPath, "Contents", "MacOS", "slipstream")
+		bootstrapLog(fmt.Sprintf("Launching updated application: %s", newExePath))
+		cmd = exec.Command(newExePath)
+		cmd.Dir = filepath.Dir(targetPath)
+		if err := cmd.Start(); err != nil {
+			bootstrapLog(fmt.Sprintf("Failed to launch updated application: %v", err))
+			os.Exit(1)
+		}
+		bootstrapLog(fmt.Sprintf("Updated application launched (PID: %d)", cmd.Process.Pid))
+	} else {
+		// Windows/Linux: Copy single executable
+		bootstrapLog("Copying new executable to target location...")
+
+		// On Windows, try to rename the old file first (will fail if still locked)
+		if runtime.GOOS == "windows" {
+			oldExePath := targetPath + ".old"
+			if err := os.Rename(targetPath, oldExePath); err == nil {
+				bootstrapLog("Old executable renamed successfully")
+				os.Remove(oldExePath)
+			}
+		} else {
+			// On Linux, just remove the old file
+			os.Remove(targetPath)
+		}
+
+		if err := copyFile(currentExe, targetPath); err != nil {
+			bootstrapLog(fmt.Sprintf("Failed to copy executable: %v", err))
+			os.Exit(1)
+		}
+		bootstrapLog("Executable copied successfully")
+
+		// Launch the updated application
+		bootstrapLog("Launching updated application...")
+		cmd := exec.Command(targetPath)
+		cmd.Dir = filepath.Dir(targetPath)
+		if err := cmd.Start(); err != nil {
+			bootstrapLog(fmt.Sprintf("Failed to launch updated application: %v", err))
+			os.Exit(1)
+		}
+		bootstrapLog(fmt.Sprintf("Updated application launched (PID: %d)", cmd.Process.Pid))
+	}
+
+	// Clean up temp files
+	scheduleCleanup(currentExe)
+
+	bootstrapLog("Update complete, exiting updater")
+	os.Exit(0)
+}
+
+func waitForPortFree(port int, timeout time.Duration) bool {
+	if port <= 0 {
+		return true
+	}
+	deadline := time.Now().Add(timeout)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+		if err != nil {
+			// Connection refused = port is free
+			return true
+		}
+		conn.Close()
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
+func scheduleCleanup(currentExe string) {
+	tempDir := filepath.Dir(currentExe)
+
+	// Only clean up if we're in a temp/update directory
+	if !strings.Contains(tempDir, "slipstream-update") {
+		return
+	}
+
+	bootstrapLog(fmt.Sprintf("Scheduling cleanup of temp directory: %s", tempDir))
+
+	switch runtime.GOOS {
+	case "windows":
+		// On Windows, use cmd /c with a delay to delete after this process exits
+		cleanupCmd := exec.Command("cmd", "/c", "timeout", "/t", "5", "/nobreak", ">nul", "&&", "rd", "/s", "/q", tempDir)
+		cleanupCmd.Start()
+	case "darwin", "linux":
+		// On Unix, we can delete the directory in a background process
+		cleanupCmd := exec.Command("sh", "-c", fmt.Sprintf("sleep 5 && rm -rf '%s'", tempDir))
+		cleanupCmd.Start()
+	}
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open source: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("create destination: %w", err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, sourceFile); err != nil {
+		return fmt.Errorf("copy data: %w", err)
+	}
+
+	// Preserve executable permissions
+	sourceInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stat source: %w", err)
+	}
+	return os.Chmod(dst, sourceInfo.Mode())
 }
 
 func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {

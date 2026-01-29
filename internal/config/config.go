@@ -423,7 +423,8 @@ func (c *ServerConfig) Address() string {
 // getDataDir returns the platform-specific data directory.
 // Windows: %LOCALAPPDATA%\SlipStream
 // macOS: ~/Library/Application Support/SlipStream
-// Linux: XDG_CONFIG_HOME/slipstream or ~/.config/slipstream
+// Linux (deb/rpm stub pattern): ~/.local/share/slipstream (binary and data together)
+// Linux (AppImage/other): XDG_CONFIG_HOME/slipstream or ~/.config/slipstream
 // Others: ./data
 func getDataDir() string {
 	switch runtime.GOOS {
@@ -436,6 +437,12 @@ func getDataDir() string {
 			return filepath.Join(home, "Library", "Application Support", "SlipStream")
 		}
 	case "linux":
+		// Check if running from stub-launched pattern (~/.local/share/slipstream/bin/)
+		// If so, use that directory for data (binary and data live together)
+		if dataDir := getLinuxStubDataDir(); dataDir != "" {
+			return dataDir
+		}
+		// Fall back to XDG config for AppImage and other installs
 		configHome := os.Getenv("XDG_CONFIG_HOME")
 		if configHome == "" {
 			if home, err := os.UserHomeDir(); err == nil {
@@ -449,10 +456,38 @@ func getDataDir() string {
 	return "./data"
 }
 
+// getLinuxStubDataDir checks if running from the deb/rpm stub pattern
+// and returns the data directory if so, or empty string otherwise.
+func getLinuxStubDataDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return ""
+	}
+
+	// Check if binary is in ~/.local/share/slipstream/bin/
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	expectedBinDir := filepath.Join(home, ".local", "share", "slipstream", "bin")
+	if filepath.Dir(exe) == expectedBinDir {
+		// Running from stub pattern, data dir is parent of bin/
+		return filepath.Join(home, ".local", "share", "slipstream")
+	}
+
+	return ""
+}
+
 // getLogDir returns the platform-specific log directory.
 // Windows: %LOCALAPPDATA%\SlipStream\logs
 // macOS: ~/Library/Logs/SlipStream
-// Linux: XDG_CONFIG_HOME/slipstream/logs or ~/.config/slipstream/logs
+// Linux (deb/rpm stub pattern): ~/.local/share/slipstream/logs
+// Linux (AppImage/other): XDG_CONFIG_HOME/slipstream/logs or ~/.config/slipstream/logs
 // Others: ./data/logs
 func getLogDir() string {
 	switch runtime.GOOS {
@@ -465,6 +500,11 @@ func getLogDir() string {
 			return filepath.Join(home, "Library", "Logs", "SlipStream")
 		}
 	case "linux":
+		// Check if running from stub-launched pattern
+		if dataDir := getLinuxStubDataDir(); dataDir != "" {
+			return filepath.Join(dataDir, "logs")
+		}
+		// Fall back to XDG config for AppImage and other installs
 		configHome := os.Getenv("XDG_CONFIG_HOME")
 		if configHome == "" {
 			if home, err := os.UserHomeDir(); err == nil {

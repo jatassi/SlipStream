@@ -652,6 +652,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize update service (after scheduler so we can register the task)
 	s.updateService = update.NewService(db, logger, restartChan)
 	s.updateService.SetBroadcaster(hub)
+	s.updateService.SetPort(cfg.Server.Port)
 
 	// Initialize firewall checker
 	s.firewallChecker = firewall.NewChecker()

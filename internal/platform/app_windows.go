@@ -3,11 +3,17 @@
 package platform
 
 import (
+	"embed"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"github.com/tailscale/walk"
 )
+
+//go:embed resources/SlipStream.ico
+var iconFS embed.FS
 
 type windowsApp struct {
 	config     AppConfig
@@ -44,7 +50,7 @@ func (a *windowsApp) Run() error {
 	a.notifyIcon.SetToolTip("SlipStream - Media Management")
 	a.notifyIcon.SetVisible(true)
 
-	if icon, err := walk.Resources.Icon("1"); err == nil {
+	if icon := loadEmbeddedIcon(); icon != nil {
 		a.notifyIcon.SetIcon(icon)
 	}
 
@@ -100,4 +106,25 @@ func (a *windowsApp) Stop() {
 			a.config.OnQuit()
 		}
 	})
+}
+
+func loadEmbeddedIcon() *walk.Icon {
+	iconData, err := iconFS.ReadFile("resources/SlipStream.ico")
+	if err != nil {
+		return nil
+	}
+
+	tmpDir := os.TempDir()
+	iconPath := filepath.Join(tmpDir, "slipstream-icon.ico")
+
+	if err := os.WriteFile(iconPath, iconData, 0644); err != nil {
+		return nil
+	}
+
+	icon, err := walk.NewIconFromFile(iconPath)
+	if err != nil {
+		return nil
+	}
+
+	return icon
 }

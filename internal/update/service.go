@@ -1,6 +1,9 @@
 package update
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -96,6 +99,7 @@ type Service struct {
 	httpClient     *http.Client
 	downloadClient *http.Client
 	restartChan    chan<- struct{}
+	port           int
 
 	mu            sync.RWMutex
 	status        Status
@@ -123,6 +127,10 @@ func NewService(db *sql.DB, logger zerolog.Logger, restartChan chan<- struct{}) 
 
 func (s *Service) SetBroadcaster(hub Broadcaster) {
 	s.hub = hub
+}
+
+func (s *Service) SetPort(port int) {
+	s.port = port
 }
 
 func (s *Service) GetStatus() Status {
@@ -293,8 +301,8 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 	var patterns []string
 	switch goos {
 	case "windows":
+		// Prefer portable ZIP for in-app updates (no elevation required)
 		patterns = []string{
-			fmt.Sprintf("_windows_%s_setup.exe", goarch),
 			fmt.Sprintf("_windows_%s.zip", goarch),
 		}
 	case "darwin":
@@ -302,10 +310,16 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 			fmt.Sprintf("_darwin_%s.dmg", goarch),
 		}
 	case "linux":
-		patterns = []string{
-			fmt.Sprintf("_linux_%s.AppImage", goarch),
-			fmt.Sprintf("_%s.deb", goarch),
-			fmt.Sprintf("_%s.rpm", goarch),
+		if isLinuxStubPattern() {
+			// For deb/rpm stub pattern, prefer tarball (direct binary, user-writable)
+			patterns = []string{
+				fmt.Sprintf("_linux_%s.tar.gz", goarch),
+			}
+		} else {
+			// For AppImage installs, prefer AppImage
+			patterns = []string{
+				fmt.Sprintf("_linux_%s.AppImage", goarch),
+			}
 		}
 	}
 
@@ -318,6 +332,31 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 	}
 
 	return nil
+}
+
+// isLinuxStubPattern checks if running from the deb/rpm stub launcher pattern
+// where the binary lives in ~/.local/share/slipstream/bin/
+func isLinuxStubPattern() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return false
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	expectedBinDir := filepath.Join(home, ".local", "share", "slipstream", "bin")
+	return filepath.Dir(exe) == expectedBinDir
 }
 
 func (s *Service) DownloadAndInstall(ctx context.Context) error {
@@ -550,23 +589,98 @@ func (s *Service) installUpdate(ctx context.Context, downloadPath string) error 
 }
 
 func (s *Service) installWindows(ctx context.Context, downloadPath string) error {
-	if strings.HasSuffix(downloadPath, ".exe") {
-		s.logger.Info().Str("installer", downloadPath).Msg("Launching Windows installer with /S /CLOSEAPPLICATIONS flags")
-		cmd := exec.CommandContext(ctx, downloadPath, "/S", "/CLOSEAPPLICATIONS")
-		if err := cmd.Start(); err != nil {
-			s.logger.Error().Err(err).Str("installer", downloadPath).Msg("Failed to start Windows installer")
-			return err
-		}
-		s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Windows installer process started")
-		return nil
+	if !strings.HasSuffix(downloadPath, ".zip") {
+		s.logger.Error().Str("ext", filepath.Ext(downloadPath)).Msg("Unsupported Windows update format")
+		return fmt.Errorf("unsupported Windows update format: %s", filepath.Ext(downloadPath))
 	}
-	s.logger.Error().Str("ext", filepath.Ext(downloadPath)).Msg("Unsupported Windows update format")
-	return fmt.Errorf("unsupported Windows update format: %s", filepath.Ext(downloadPath))
+
+	s.logger.Info().Str("zipPath", downloadPath).Msg("Extracting portable ZIP update")
+
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get current executable path: %w", err)
+	}
+	currentExe, err = filepath.EvalSymlinks(currentExe)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+
+	extractDir := filepath.Dir(downloadPath)
+	newExePath := filepath.Join(extractDir, "slipstream.exe")
+
+	zipReader, err := zip.OpenReader(downloadPath)
+	if err != nil {
+		return fmt.Errorf("failed to open ZIP file: %w", err)
+	}
+	defer zipReader.Close()
+
+	for _, f := range zipReader.File {
+		if strings.HasSuffix(f.Name, "slipstream.exe") {
+			rc, err := f.Open()
+			if err != nil {
+				return fmt.Errorf("failed to open file in ZIP: %w", err)
+			}
+			defer rc.Close()
+
+			outFile, err := os.Create(newExePath)
+			if err != nil {
+				return fmt.Errorf("failed to create extracted file: %w", err)
+			}
+			defer outFile.Close()
+
+			if _, err := io.Copy(outFile, rc); err != nil {
+				return fmt.Errorf("failed to extract file: %w", err)
+			}
+
+			s.logger.Info().Str("extractedTo", newExePath).Msg("Extracted new executable")
+			break
+		}
+	}
+
+	if _, err := os.Stat(newExePath); os.IsNotExist(err) {
+		return fmt.Errorf("slipstream.exe not found in ZIP archive")
+	}
+
+	// On Windows, we can't replace a running executable directly.
+	// Launch the new exe with special args to complete the update.
+	s.logger.Info().
+		Str("newExe", newExePath).
+		Str("currentExe", currentExe).
+		Int("port", s.port).
+		Msg("Launching updater to replace executable")
+
+	cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+	cmd.Dir = filepath.Dir(newExePath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch updater: %w", err)
+	}
+
+	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
+	return nil
 }
 
 func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
 	if !strings.HasSuffix(downloadPath, ".dmg") {
 		return fmt.Errorf("unsupported macOS update format: %s", filepath.Ext(downloadPath))
+	}
+
+	// Get current app bundle path
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get current executable path: %w", err)
+	}
+	currentExe, err = filepath.EvalSymlinks(currentExe)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+	// currentExe is like /Applications/SlipStream.app/Contents/MacOS/slipstream
+	// We need the .app bundle path
+	currentAppBundle := currentExe
+	for !strings.HasSuffix(currentAppBundle, ".app") && currentAppBundle != "/" {
+		currentAppBundle = filepath.Dir(currentAppBundle)
+	}
+	if !strings.HasSuffix(currentAppBundle, ".app") {
+		return fmt.Errorf("could not determine app bundle path from: %s", currentExe)
 	}
 
 	mountPoint := "/Volumes/SlipStream-Update"
@@ -580,15 +694,33 @@ func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
 		exec.Command("hdiutil", "detach", mountPoint, "-quiet").Run()
 	}()
 
-	appPath := filepath.Join(mountPoint, "SlipStream.app")
-	destPath := "/Applications/SlipStream.app"
+	srcAppPath := filepath.Join(mountPoint, "SlipStream.app")
 
-	os.RemoveAll(destPath)
-	cmd = exec.CommandContext(ctx, "cp", "-R", appPath, destPath)
+	// Copy new app bundle to temp location
+	tempDir := filepath.Dir(downloadPath)
+	tempAppPath := filepath.Join(tempDir, "SlipStream.app")
+	os.RemoveAll(tempAppPath)
+
+	cmd = exec.CommandContext(ctx, "cp", "-R", srcAppPath, tempAppPath)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to copy application: %w", err)
+		return fmt.Errorf("failed to copy app to temp: %w", err)
 	}
 
+	// Launch the new app with --complete-update to finish the update
+	newExePath := filepath.Join(tempAppPath, "Contents", "MacOS", "slipstream")
+	s.logger.Info().
+		Str("newExe", newExePath).
+		Str("currentAppBundle", currentAppBundle).
+		Int("port", s.port).
+		Msg("Launching updater to replace app bundle")
+
+	cmd = exec.Command(newExePath, "--complete-update", currentAppBundle, fmt.Sprintf("%d", s.port))
+	cmd.Dir = tempDir
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch updater: %w", err)
+	}
+
+	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
 	return nil
 }
 
@@ -596,31 +728,141 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 	ext := filepath.Ext(downloadPath)
 
 	switch ext {
+	case ".gz":
+		// Tarball for stub pattern - extract and update user binary directly
+		return s.installLinuxTarball(ctx, downloadPath)
+
 	case ".AppImage":
-		execPath, err := os.Executable()
+		currentExe, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("failed to get executable path: %w", err)
 		}
-		if err := os.Rename(downloadPath, execPath); err != nil {
-			cmd := exec.CommandContext(ctx, "cp", downloadPath, execPath)
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to replace AppImage: %w", err)
-			}
+		currentExe, err = filepath.EvalSymlinks(currentExe)
+		if err != nil {
+			return fmt.Errorf("failed to resolve executable path: %w", err)
 		}
-		os.Chmod(execPath, 0755)
+
+		// Make the new AppImage executable
+		if err := os.Chmod(downloadPath, 0755); err != nil {
+			return fmt.Errorf("failed to make AppImage executable: %w", err)
+		}
+
+		// Launch the new AppImage with --complete-update to finish the update
+		s.logger.Info().
+			Str("newExe", downloadPath).
+			Str("currentExe", currentExe).
+			Int("port", s.port).
+			Msg("Launching updater to replace AppImage")
+
+		cmd := exec.Command(downloadPath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+		cmd.Dir = filepath.Dir(downloadPath)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to launch updater: %w", err)
+		}
+
+		s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
 		return nil
 
-	case ".deb":
-		cmd := exec.CommandContext(ctx, "sudo", "dpkg", "-i", downloadPath)
-		return cmd.Run()
-
-	case ".rpm":
-		cmd := exec.CommandContext(ctx, "sudo", "rpm", "-U", downloadPath)
-		return cmd.Run()
+	case ".deb", ".rpm":
+		// deb/rpm packages require root privileges and should be updated via package manager
+		return fmt.Errorf("automatic updates for %s packages require root privileges; please update manually using your package manager", ext)
 
 	default:
 		return fmt.Errorf("unsupported Linux update format: %s", ext)
 	}
+}
+
+func (s *Service) installLinuxTarball(ctx context.Context, downloadPath string) error {
+	s.logger.Info().Str("tarball", downloadPath).Msg("Extracting tarball for stub pattern update")
+
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+	currentExe, err = filepath.EvalSymlinks(currentExe)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+
+	// Extract binary from tarball to temp location
+	extractDir := filepath.Dir(downloadPath)
+	newExePath := filepath.Join(extractDir, "slipstream")
+
+	if err := extractTarGz(downloadPath, extractDir); err != nil {
+		return fmt.Errorf("failed to extract tarball: %w", err)
+	}
+
+	if _, err := os.Stat(newExePath); os.IsNotExist(err) {
+		return fmt.Errorf("slipstream binary not found in tarball")
+	}
+
+	// Make executable
+	if err := os.Chmod(newExePath, 0755); err != nil {
+		return fmt.Errorf("failed to make binary executable: %w", err)
+	}
+
+	// Launch the new binary with --complete-update to finish the update
+	s.logger.Info().
+		Str("newExe", newExePath).
+		Str("currentExe", currentExe).
+		Int("port", s.port).
+		Msg("Launching updater to replace binary")
+
+	cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+	cmd.Dir = extractDir
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch updater: %w", err)
+	}
+
+	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
+	return nil
+}
+
+func extractTarGz(tarGzPath, destDir string) error {
+	file, err := os.Open(tarGzPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer gzReader.Close()
+
+	tarReader := tar.NewReader(gzReader)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		targetPath := filepath.Join(destDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			outFile, err := os.Create(targetPath)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
+				return err
+			}
+			outFile.Close()
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) Cancel() error {

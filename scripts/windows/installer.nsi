@@ -99,6 +99,10 @@ Section "SlipStream (required)" SEC_MAIN
 
     ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
+
+    ; Grant current user write access to install directory for seamless auto-updates
+    ; This allows the app to update itself without requiring elevation
+    nsExec::ExecToLog 'icacls "$INSTDIR" /grant "$USERNAME:(OI)(CI)F" /T'
 SectionEnd
 
 ; Optional: Start with Windows
