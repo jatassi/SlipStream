@@ -123,9 +123,12 @@ func (h *Handlers) List(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "not authenticated")
 	}
 
-	filters := ListFilters{
-		// Always filter by the authenticated user - portal users should only see their own requests
-		UserID: &claims.UserID,
+	filters := ListFilters{}
+
+	// Check scope parameter - "all" returns all users' requests, "mine" (default) returns only the authenticated user's
+	scope := c.QueryParam("scope")
+	if scope != "all" {
+		filters.UserID = &claims.UserID
 	}
 
 	if status := c.QueryParam("status"); status != "" {

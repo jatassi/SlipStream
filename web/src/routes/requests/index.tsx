@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRequests, usePortalDownloads } from '@/hooks'
-import { usePortalAuthStore } from '@/stores'
 import { Progress } from '@/components/ui/progress'
 import { formatEta } from '@/lib/formatters'
 import type { Request, RequestStatus } from '@/types'
@@ -33,15 +32,13 @@ const STATUS_CONFIG: Record<RequestStatus, { label: string; icon: React.ReactNod
 
 export function RequestsListPage() {
   const navigate = useNavigate()
-  const { user } = usePortalAuthStore()
-  const { data: requests = [], isLoading } = useRequests()
-
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'mine' | 'all'>('mine')
+  const { data: requests = [], isLoading } = useRequests({ scope: filter })
 
-  const filteredRequests = filter === 'mine'
-    ? requests.filter((r) => r.userId === user?.id)
-    : [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const sortedRequests = [...requests].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +92,7 @@ export function RequestsListPage() {
                 </TabsList>
               </Tabs>
             </div>
-            <Badge variant="secondary">{filteredRequests.length} total</Badge>
+            <Badge variant="secondary">{sortedRequests.length} total</Badge>
           </div>
         </div>
 
@@ -105,7 +102,7 @@ export function RequestsListPage() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="size-8 animate-spin text-muted-foreground" />
               </div>
-            ) : filteredRequests.length === 0 ? (
+            ) : sortedRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Clock className="size-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground">No requests yet</p>
@@ -113,7 +110,7 @@ export function RequestsListPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredRequests.map((request) => (
+                {sortedRequests.map((request) => (
                   <RequestCard
                     key={request.id}
                     request={request}

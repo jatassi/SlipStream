@@ -118,6 +118,7 @@ export interface RequestListFilters {
   status?: RequestStatus
   mediaType?: PortalMediaType
   userId?: number
+  scope?: 'mine' | 'all'
 }
 
 export interface ApproveRequestInput {
