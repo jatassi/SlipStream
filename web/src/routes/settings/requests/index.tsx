@@ -66,8 +66,10 @@ interface SearchModalState {
   mediaId: number
   mediaTitle: string
   tmdbId?: number
+  imdbId?: string
   tvdbId?: number
   qualityProfileId: number
+  year?: number
   season?: number
   pendingSeasons?: number[]
 }
@@ -209,7 +211,14 @@ export function RequestQueuePage() {
         searchOnAdd: false,
       }
       const movie = await addMovieMutation.mutateAsync(input)
-      return { mediaId: movie.id, qualityProfileId: movie.qualityProfileId }
+      // Return movie data including tmdbId/imdbId from metadata fetch
+      return {
+        mediaId: movie.id,
+        qualityProfileId: movie.qualityProfileId,
+        tmdbId: movie.tmdbId,
+        imdbId: movie.imdbId,
+        year: movie.year,
+      }
     } else {
       const seasons: SeasonInput[] = []
       if (request.requestedSeasons && request.requestedSeasons.length > 0) {
@@ -236,7 +245,13 @@ export function RequestQueuePage() {
         seasons: seasons.length > 0 ? seasons : undefined,
       }
       const series = await addSeriesMutation.mutateAsync(input)
-      return { mediaId: series.id, qualityProfileId: series.qualityProfileId }
+      // Return series data including tvdbId from metadata fetch
+      return {
+        mediaId: series.id,
+        qualityProfileId: series.qualityProfileId,
+        tvdbId: series.tvdbId,
+        year: series.year,
+      }
     }
   }
 
@@ -265,16 +280,29 @@ export function RequestQueuePage() {
         id: request.id,
         input: { action: 'manual_search' },
       })
-      const { mediaId, qualityProfileId } = await addToLibrary(request)
+      const libraryMedia = await addToLibrary(request)
 
-      if (request.mediaType === 'movie') {
+      console.log('[RequestQueue] Opening search modal:', {
+        mediaId: libraryMedia.mediaId,
+        qualityProfileId: libraryMedia.qualityProfileId,
+        title: request.title,
+        tmdbId: libraryMedia.tmdbId,
+        imdbId: 'imdbId' in libraryMedia ? libraryMedia.imdbId : undefined,
+        tvdbId: 'tvdbId' in libraryMedia ? libraryMedia.tvdbId : undefined,
+        year: libraryMedia.year,
+        mediaType: request.mediaType,
+      })
+
+      if (request.mediaType === 'movie' && 'imdbId' in libraryMedia) {
         setSearchModal({
           open: true,
           mediaType: 'movie',
-          mediaId,
+          mediaId: libraryMedia.mediaId,
           mediaTitle: request.title,
-          tmdbId: request.tmdbId || undefined,
-          qualityProfileId,
+          tmdbId: libraryMedia.tmdbId,
+          imdbId: libraryMedia.imdbId,
+          qualityProfileId: libraryMedia.qualityProfileId,
+          year: libraryMedia.year,
         })
       } else {
         const seasonsToSearch = request.requestedSeasons && request.requestedSeasons.length > 0
@@ -285,11 +313,10 @@ export function RequestQueuePage() {
         setSearchModal({
           open: true,
           mediaType: 'series',
-          mediaId,
+          mediaId: libraryMedia.mediaId,
           mediaTitle: request.title,
-          tmdbId: request.tmdbId || undefined,
-          tvdbId: request.tvdbId || undefined,
-          qualityProfileId,
+          tvdbId: 'tvdbId' in libraryMedia ? libraryMedia.tvdbId : undefined,
+          qualityProfileId: libraryMedia.qualityProfileId,
           season: seasonsToSearch[0],
           pendingSeasons: seasonsToSearch.slice(1),
         })
@@ -621,6 +648,8 @@ export function RequestQueuePage() {
           movieId={searchModal.mediaType === 'movie' ? searchModal.mediaId : undefined}
           movieTitle={searchModal.mediaType === 'movie' ? searchModal.mediaTitle : undefined}
           tmdbId={searchModal.tmdbId}
+          imdbId={searchModal.imdbId}
+          year={searchModal.year}
           seriesId={searchModal.mediaType === 'series' ? searchModal.mediaId : undefined}
           seriesTitle={searchModal.mediaType === 'series' ? searchModal.mediaTitle : undefined}
           tvdbId={searchModal.tvdbId}

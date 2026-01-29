@@ -84,11 +84,12 @@ func (s *Service) CheckQuota(ctx context.Context, userID int64, mediaType string
 
 	switch mediaType {
 	case "movie":
-		return status.MoviesUsed < status.MoviesLimit, nil
+		// 0 means unlimited
+		return status.MoviesLimit == 0 || status.MoviesUsed < status.MoviesLimit, nil
 	case "season":
-		return status.SeasonsUsed < status.SeasonsLimit, nil
+		return status.SeasonsLimit == 0 || status.SeasonsUsed < status.SeasonsLimit, nil
 	case "episode":
-		return status.EpisodesUsed < status.EpisodesLimit, nil
+		return status.EpisodesLimit == 0 || status.EpisodesUsed < status.EpisodesLimit, nil
 	}
 
 	return true, nil
