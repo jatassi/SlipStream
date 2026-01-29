@@ -26,6 +26,9 @@ export const moviesApi = {
   bulkDelete: (ids: number[], deleteFiles?: boolean) =>
     Promise.all(ids.map(id => apiFetch<void>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }))),
 
+  bulkUpdate: (ids: number[], data: UpdateMovieInput) =>
+    Promise.all(ids.map(id => apiFetch<Movie>(`/movies/${id}`, { method: 'PUT', body: JSON.stringify(data) }))),
+
   scan: (id: number) =>
     apiFetch<void>(`/movies/${id}/scan`, { method: 'POST' }),
 

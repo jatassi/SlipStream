@@ -86,6 +86,18 @@ export function useBulkDeleteMovies() {
   })
 }
 
+export function useBulkUpdateMovies() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, data }: { ids: number[]; data: UpdateMovieInput }) =>
+      moviesApi.bulkUpdate(ids, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
+    },
+  })
+}
+
 export function useScanMovie() {
   const queryClient = useQueryClient()
   return useMutation({

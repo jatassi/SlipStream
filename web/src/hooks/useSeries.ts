@@ -98,6 +98,18 @@ export function useBulkDeleteSeries() {
   })
 }
 
+export function useBulkUpdateSeries() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, data }: { ids: number[]; data: UpdateSeriesInput }) =>
+      seriesApi.bulkUpdate(ids, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      queryClient.invalidateQueries({ queryKey: missingKeys.all })
+    },
+  })
+}
+
 export function useScanSeries() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -41,6 +41,7 @@ import {
   useMultiVersionSettings,
   useSlots,
   useAssignEpisodeFile,
+  useQualityProfiles,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -65,6 +66,7 @@ export function SeriesDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
+  const { data: qualityProfiles } = useQualityProfiles()
   const { data: episodes } = useEpisodes(seriesId)
 
   // Get the first episode's air date (S01E01, or earliest by air date)
@@ -335,13 +337,18 @@ export function SeriesDetailPage() {
 
             {/* Info */}
             <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={series.status} />
                 <SeriesAvailabilityBadge series={series} />
                 {series.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (
                   <Badge variant="secondary">Unmonitored</Badge>
+                )}
+                {qualityProfiles?.find((p) => p.id === series.qualityProfileId)?.name && (
+                  <Badge variant="secondary">
+                    {qualityProfiles.find((p) => p.id === series.qualityProfileId)?.name}
+                  </Badge>
                 )}
               </div>
               <h1 className="text-3xl font-bold text-white">{series.title}</h1>

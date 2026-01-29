@@ -37,6 +37,9 @@ export const seriesApi = {
   bulkDelete: (ids: number[], deleteFiles?: boolean) =>
     Promise.all(ids.map(id => apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }))),
 
+  bulkUpdate: (ids: number[], data: UpdateSeriesInput) =>
+    Promise.all(ids.map(id => apiFetch<Series>(`/series/${id}`, { method: 'PUT', body: JSON.stringify(data) }))),
+
   scan: (id: number) =>
     apiFetch<void>(`/series/${id}/scan`, { method: 'POST' }),
 

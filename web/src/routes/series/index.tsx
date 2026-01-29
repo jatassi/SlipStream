@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -20,7 +20,7 @@ import { SeriesGrid } from '@/components/series/SeriesGrid'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSeries, useBulkDeleteSeries, useScanLibrary } from '@/hooks'
+import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useScanLibrary, useQualityProfiles } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
@@ -36,7 +36,9 @@ export function SeriesListPage() {
   const [deleteFiles, setDeleteFiles] = useState(false)
 
   const { data: seriesList, isLoading, isError, refetch } = useSeries()
+  const { data: qualityProfiles } = useQualityProfiles()
   const bulkDeleteMutation = useBulkDeleteSeries()
+  const bulkUpdateMutation = useBulkUpdateSeries()
   const scanMutation = useScanLibrary()
 
   const handleScanLibrary = async () => {
@@ -93,6 +95,33 @@ export function SeriesListPage() {
       handleExitEditMode()
     } catch {
       toast.error('Failed to delete series')
+    }
+  }
+
+  const handleBulkMonitor = async (monitored: boolean) => {
+    try {
+      await bulkUpdateMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        data: { monitored },
+      })
+      toast.success(`${selectedIds.size} series ${monitored ? 'monitored' : 'unmonitored'}`)
+      handleExitEditMode()
+    } catch {
+      toast.error(`Failed to ${monitored ? 'monitor' : 'unmonitor'} series`)
+    }
+  }
+
+  const handleBulkChangeQualityProfile = async (qualityProfileId: number) => {
+    try {
+      await bulkUpdateMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        data: { qualityProfileId },
+      })
+      const profile = qualityProfiles?.find((p) => p.id === qualityProfileId)
+      toast.success(`${selectedIds.size} series set to "${profile?.name || 'Unknown'}" profile`)
+      handleExitEditMode()
+    } catch {
+      toast.error('Failed to change quality profile')
     }
   }
 
@@ -162,7 +191,41 @@ export function SeriesListPage() {
               {selectedIds.size} of {filteredSeries.length} selected
             </span>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
+              onClick={() => handleBulkMonitor(true)}
+            >
+              <Eye className="size-4 mr-1" />
+              Monitor
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
+              onClick={() => handleBulkMonitor(false)}
+            >
+              <EyeOff className="size-4 mr-1" />
+              Unmonitor
+            </Button>
+            <Select
+              value=""
+              onValueChange={(v) => v && handleBulkChangeQualityProfile(Number(v))}
+              disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
+            >
+              <SelectTrigger className="w-40 h-8 text-sm">
+                Set Quality Profile
+              </SelectTrigger>
+              <SelectContent>
+                {qualityProfiles?.map((profile) => (
+                  <SelectItem key={profile.id} value={String(profile.id)}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="destructive"
               size="sm"
@@ -170,7 +233,7 @@ export function SeriesListPage() {
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="size-4 mr-1" />
-              Delete Selected
+              Delete
             </Button>
           </div>
         </div>

@@ -52,6 +52,7 @@ import {
   useSlots,
   useAssignMovieFile,
   useAutoSearchMovieSlot,
+  useQualityProfiles,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -66,6 +67,7 @@ export function MovieDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
+  const { data: qualityProfiles } = useQualityProfiles()
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slotStatus, isLoading: isLoadingSlotStatus } = useMovieSlotStatus(movieId)
   const { data: slots } = useSlots()
@@ -216,13 +218,18 @@ export function MovieDetailPage() {
 
             {/* Info */}
             <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={movie.status} />
                 <MovieAvailabilityBadge movie={movie} />
                 {movie.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (
                   <Badge variant="secondary">Unmonitored</Badge>
+                )}
+                {qualityProfiles?.find((p) => p.id === movie.qualityProfileId)?.name && (
+                  <Badge variant="secondary">
+                    {qualityProfiles.find((p) => p.id === movie.qualityProfileId)?.name}
+                  </Badge>
                 )}
               </div>
               <h1 className="text-3xl font-bold text-white">{movie.title}</h1>
