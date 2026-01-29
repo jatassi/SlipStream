@@ -321,20 +321,32 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 }
 
 func (s *Service) DownloadAndInstall(ctx context.Context) error {
+	s.logger.Info().Msg("DownloadAndInstall called")
+
 	s.mu.RLock()
 	release := s.status.LatestRelease
 	s.mu.RUnlock()
 
 	if release == nil || release.DownloadURL == "" {
+		s.logger.Error().Msg("No update available to download")
 		return fmt.Errorf("no update available to download")
 	}
+
+	s.logger.Info().
+		Str("version", release.Version).
+		Str("url", release.DownloadURL).
+		Int64("sizeBytes", release.AssetSize).
+		Msg("Release info validated")
 
 	ctx, cancel := context.WithCancel(ctx)
 	s.mu.Lock()
 	s.cancelFunc = cancel
 	s.mu.Unlock()
 
+	s.logger.Info().Msg("Created cancellable context for download")
+
 	defer func() {
+		s.logger.Info().Msg("Cleaning up download context")
 		s.mu.Lock()
 		s.cancelFunc = nil
 		s.mu.Unlock()
@@ -344,9 +356,12 @@ func (s *Service) DownloadAndInstall(ctx context.Context) error {
 
 	downloadPath, err := s.downloadUpdate(ctx, release)
 	if err != nil {
+		s.logger.Error().Err(err).Bool("contextCanceled", ctx.Err() != nil).Msg("Download failed")
 		s.setState(StateFailed, err)
 		return err
 	}
+
+	s.logger.Info().Str("downloadPath", downloadPath).Msg("Download completed, proceeding to install")
 
 	s.mu.Lock()
 	s.downloadPath = downloadPath
@@ -366,30 +381,54 @@ func (s *Service) DownloadAndInstall(ctx context.Context) error {
 
 func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (string, error) {
 	s.setState(StateDownloading, nil)
+	s.logger.Info().Str("url", release.DownloadURL).Msg("Creating HTTP request for download")
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, release.DownloadURL, nil)
 	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to create download request")
 		return "", fmt.Errorf("failed to create download request: %w", err)
 	}
 
+	s.logger.Info().Msg("Executing HTTP request to download update")
+	startTime := time.Now()
+
 	resp, err := s.downloadClient.Do(req)
 	if err != nil {
+		s.logger.Error().
+			Err(err).
+			Dur("elapsed", time.Since(startTime)).
+			Bool("contextCanceled", ctx.Err() != nil).
+			Msg("HTTP request failed")
+		if ctx.Err() != nil {
+			s.logger.Error().Err(ctx.Err()).Msg("Context error details")
+		}
 		return "", fmt.Errorf("failed to download update: %w", err)
 	}
 	defer resp.Body.Close()
 
+	s.logger.Info().
+		Int("statusCode", resp.StatusCode).
+		Int64("contentLength", resp.ContentLength).
+		Dur("responseTime", time.Since(startTime)).
+		Msg("Received HTTP response")
+
 	if resp.StatusCode != http.StatusOK {
+		s.logger.Error().Int("statusCode", resp.StatusCode).Msg("Download returned non-200 status")
 		return "", fmt.Errorf("download returned status %d", resp.StatusCode)
 	}
 
 	tmpDir := os.TempDir()
 	downloadPath := filepath.Join(tmpDir, "slipstream-update", release.AssetName)
+	s.logger.Info().Str("path", downloadPath).Msg("Creating download file")
+
 	if err := os.MkdirAll(filepath.Dir(downloadPath), 0755); err != nil {
+		s.logger.Error().Err(err).Str("dir", filepath.Dir(downloadPath)).Msg("Failed to create download directory")
 		return "", fmt.Errorf("failed to create download directory: %w", err)
 	}
 
 	file, err := os.Create(downloadPath)
 	if err != nil {
+		s.logger.Error().Err(err).Str("path", downloadPath).Msg("Failed to create download file")
 		return "", fmt.Errorf("failed to create download file: %w", err)
 	}
 	defer file.Close()
@@ -400,10 +439,18 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 
 	buf := make([]byte, 32*1024)
 	lastUpdate := time.Now()
+	lastLogTime := time.Now()
+
+	s.logger.Info().Float64("totalMB", totalMB).Msg("Starting download loop")
 
 	for {
 		select {
 		case <-ctx.Done():
+			s.logger.Warn().
+				Err(ctx.Err()).
+				Int64("downloadedBytes", downloaded).
+				Float64("percentComplete", float64(downloaded)/totalSize*100).
+				Msg("Download cancelled via context")
 			os.Remove(downloadPath)
 			return "", ctx.Err()
 		default:
@@ -412,6 +459,7 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, writeErr := file.Write(buf[:n]); writeErr != nil {
+				s.logger.Error().Err(writeErr).Int64("downloadedBytes", downloaded).Msg("Failed to write to download file")
 				os.Remove(downloadPath)
 				return "", fmt.Errorf("failed to write download: %w", writeErr)
 			}
@@ -423,19 +471,34 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 				s.setProgress(progress, downloadedMB, totalMB)
 				lastUpdate = time.Now()
 			}
+
+			if time.Since(lastLogTime) > 5*time.Second {
+				s.logger.Info().
+					Int64("downloadedBytes", downloaded).
+					Float64("percentComplete", float64(downloaded)/totalSize*100).
+					Msg("Download progress")
+				lastLogTime = time.Now()
+			}
 		}
 
 		if err == io.EOF {
+			s.logger.Info().Int64("totalBytes", downloaded).Msg("Download complete (EOF reached)")
 			break
 		}
 		if err != nil {
+			s.logger.Error().
+				Err(err).
+				Int64("downloadedBytes", downloaded).
+				Float64("percentComplete", float64(downloaded)/totalSize*100).
+				Bool("contextCanceled", ctx.Err() != nil).
+				Msg("Error reading from response body")
 			os.Remove(downloadPath)
 			return "", fmt.Errorf("download read error: %w", err)
 		}
 	}
 
 	s.setProgress(100, totalMB, totalMB)
-	s.logger.Info().Str("path", downloadPath).Int64("size", downloaded).Msg("Update downloaded")
+	s.logger.Info().Str("path", downloadPath).Int64("size", downloaded).Dur("totalTime", time.Since(startTime)).Msg("Update downloaded successfully")
 
 	return downloadPath, nil
 }
@@ -449,22 +512,27 @@ func (s *Service) backupDatabase(ctx context.Context) error {
 
 func (s *Service) installUpdate(ctx context.Context, downloadPath string) error {
 	s.setState(StateInstalling, nil)
+	s.logger.Info().Str("path", downloadPath).Str("platform", runtime.GOOS).Msg("Starting installation")
 
 	goos := runtime.GOOS
 	var err error
 
 	switch goos {
 	case "windows":
+		s.logger.Info().Msg("Installing Windows update")
 		err = s.installWindows(ctx, downloadPath)
 	case "darwin":
+		s.logger.Info().Msg("Installing macOS update")
 		err = s.installMacOS(ctx, downloadPath)
 	case "linux":
+		s.logger.Info().Msg("Installing Linux update")
 		err = s.installLinux(ctx, downloadPath)
 	default:
 		err = fmt.Errorf("unsupported platform: %s", goos)
 	}
 
 	if err != nil {
+		s.logger.Error().Err(err).Str("platform", goos).Msg("Installation failed")
 		return err
 	}
 
@@ -483,9 +551,16 @@ func (s *Service) installUpdate(ctx context.Context, downloadPath string) error 
 
 func (s *Service) installWindows(ctx context.Context, downloadPath string) error {
 	if strings.HasSuffix(downloadPath, ".exe") {
+		s.logger.Info().Str("installer", downloadPath).Msg("Launching Windows installer with /S /CLOSEAPPLICATIONS flags")
 		cmd := exec.CommandContext(ctx, downloadPath, "/S", "/CLOSEAPPLICATIONS")
-		return cmd.Start()
+		if err := cmd.Start(); err != nil {
+			s.logger.Error().Err(err).Str("installer", downloadPath).Msg("Failed to start Windows installer")
+			return err
+		}
+		s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Windows installer process started")
+		return nil
 	}
+	s.logger.Error().Str("ext", filepath.Ext(downloadPath)).Msg("Unsupported Windows update format")
 	return fmt.Errorf("unsupported Windows update format: %s", filepath.Ext(downloadPath))
 }
 
@@ -549,22 +624,33 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 }
 
 func (s *Service) Cancel() error {
+	s.logger.Info().Msg("Cancel called - attempting to cancel update")
+
 	s.mu.Lock()
 	cancel := s.cancelFunc
+	downloadPath := s.downloadPath
 	s.mu.Unlock()
 
+	s.logger.Info().
+		Bool("hasCancelFunc", cancel != nil).
+		Str("downloadPath", downloadPath).
+		Msg("Cancel state")
+
 	if cancel != nil {
+		s.logger.Info().Msg("Invoking cancel function")
 		cancel()
 	}
 
 	s.mu.Lock()
 	if s.downloadPath != "" {
+		s.logger.Info().Str("path", s.downloadPath).Msg("Removing partial download file")
 		os.Remove(s.downloadPath)
 		s.downloadPath = ""
 	}
 	s.mu.Unlock()
 
 	s.setState(StateIdle, nil)
+	s.logger.Info().Msg("Update cancelled successfully")
 	return nil
 }
 

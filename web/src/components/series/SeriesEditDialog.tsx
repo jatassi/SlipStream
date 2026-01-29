@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -12,7 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { useUpdateSeries } from '@/hooks'
+import { useUpdateSeries, useQualityProfiles } from '@/hooks'
 import type { Series } from '@/types'
 
 interface SeriesEditDialogProps {
@@ -23,17 +29,22 @@ interface SeriesEditDialogProps {
 
 export function SeriesEditDialog({ open, onOpenChange, series }: SeriesEditDialogProps) {
   const [monitored, setMonitored] = useState(series.monitored)
+  const [qualityProfileId, setQualityProfileId] = useState(series.qualityProfileId)
   const [prevSeries, setPrevSeries] = useState(series)
 
   if (series.id !== prevSeries.id) {
     setPrevSeries(series)
     setMonitored(series.monitored)
+    setQualityProfileId(series.qualityProfileId)
   }
 
   const updateMutation = useUpdateSeries()
+  const { data: profiles } = useQualityProfiles()
+
+  const hasChanges = monitored !== series.monitored || qualityProfileId !== series.qualityProfileId
 
   const handleSubmit = async () => {
-    if (monitored === series.monitored) {
+    if (!hasChanges) {
       onOpenChange(false)
       return
     }
@@ -41,9 +52,9 @@ export function SeriesEditDialog({ open, onOpenChange, series }: SeriesEditDialo
     try {
       await updateMutation.mutateAsync({
         id: series.id,
-        data: { monitored },
+        data: { monitored, qualityProfileId },
       })
-      toast.success(monitored ? 'Series monitored' : 'Series unmonitored')
+      toast.success('Series updated')
       onOpenChange(false)
     } catch {
       toast.error('Failed to update series')
@@ -59,6 +70,25 @@ export function SeriesEditDialog({ open, onOpenChange, series }: SeriesEditDialo
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="quality-profile">Quality Profile</Label>
+            <Select
+              value={qualityProfileId?.toString() ?? ''}
+              onValueChange={(v) => v && setQualityProfileId(parseInt(v, 10))}
+            >
+              <SelectTrigger id="quality-profile">
+                {profiles?.find((p) => p.id === qualityProfileId)?.name ?? 'Select profile...'}
+              </SelectTrigger>
+              <SelectContent>
+                {profiles?.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id.toString()}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="monitored">Monitored</Label>

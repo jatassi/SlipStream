@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -12,7 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { useUpdateMovie } from '@/hooks'
+import { useUpdateMovie, useQualityProfiles } from '@/hooks'
 import type { Movie } from '@/types'
 
 interface MovieEditDialogProps {
@@ -23,17 +29,22 @@ interface MovieEditDialogProps {
 
 export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogProps) {
   const [monitored, setMonitored] = useState(movie.monitored)
+  const [qualityProfileId, setQualityProfileId] = useState(movie.qualityProfileId)
   const [prevMovie, setPrevMovie] = useState(movie)
 
   if (movie.id !== prevMovie.id) {
     setPrevMovie(movie)
     setMonitored(movie.monitored)
+    setQualityProfileId(movie.qualityProfileId)
   }
 
   const updateMutation = useUpdateMovie()
+  const { data: profiles } = useQualityProfiles()
+
+  const hasChanges = monitored !== movie.monitored || qualityProfileId !== movie.qualityProfileId
 
   const handleSubmit = async () => {
-    if (monitored === movie.monitored) {
+    if (!hasChanges) {
       onOpenChange(false)
       return
     }
@@ -41,9 +52,9 @@ export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogPr
     try {
       await updateMutation.mutateAsync({
         id: movie.id,
-        data: { monitored },
+        data: { monitored, qualityProfileId },
       })
-      toast.success(monitored ? 'Movie monitored' : 'Movie unmonitored')
+      toast.success('Movie updated')
       onOpenChange(false)
     } catch {
       toast.error('Failed to update movie')
@@ -59,6 +70,25 @@ export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogPr
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="quality-profile">Quality Profile</Label>
+            <Select
+              value={qualityProfileId?.toString() ?? ''}
+              onValueChange={(v) => v && setQualityProfileId(parseInt(v, 10))}
+            >
+              <SelectTrigger id="quality-profile">
+                {profiles?.find((p) => p.id === qualityProfileId)?.name ?? 'Select profile...'}
+              </SelectTrigger>
+              <SelectContent>
+                {profiles?.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id.toString()}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="monitored">Monitored</Label>

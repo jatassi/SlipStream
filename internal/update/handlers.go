@@ -1,6 +1,7 @@
 package update
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -56,11 +57,16 @@ func (h *Handlers) CheckForUpdate(c echo.Context) error {
 // Install starts the download and installation process.
 // POST /api/v1/update/install
 func (h *Handlers) Install(c echo.Context) error {
-	ctx := c.Request().Context()
+	h.service.logger.Info().Msg("Install endpoint called - starting update goroutine")
 
 	go func() {
-		if err := h.service.DownloadAndInstall(ctx); err != nil {
+		h.service.logger.Info().Msg("Update goroutine started with background context")
+		// Use Background context since this runs after the HTTP response is sent.
+		// The service manages its own cancellation via Cancel().
+		if err := h.service.DownloadAndInstall(context.Background()); err != nil {
 			h.service.logger.Error().Err(err).Msg("Update installation failed")
+		} else {
+			h.service.logger.Info().Msg("Update installation completed successfully")
 		}
 	}()
 
@@ -72,7 +78,10 @@ func (h *Handlers) Install(c echo.Context) error {
 // Cancel stops an in-progress update.
 // POST /api/v1/update/cancel
 func (h *Handlers) Cancel(c echo.Context) error {
+	h.service.logger.Info().Msg("Cancel endpoint called")
+
 	if err := h.service.Cancel(); err != nil {
+		h.service.logger.Error().Err(err).Msg("Cancel endpoint failed")
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
 		})
