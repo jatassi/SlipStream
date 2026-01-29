@@ -17,7 +17,7 @@ var iconFS embed.FS
 
 type windowsApp struct {
 	config     AppConfig
-	mainWindow *walk.MainWindow
+	app        *walk.Application
 	notifyIcon *walk.NotifyIcon
 	running    bool
 	mu         sync.Mutex
@@ -37,24 +37,31 @@ func (a *windowsApp) Run() error {
 	}
 
 	var err error
-	a.mainWindow, err = walk.NewMainWindow()
+
+	// Initialize Walk application - must be called before any other Walk functions
+	a.app, err = walk.InitApp()
 	if err != nil {
 		return err
 	}
 
+	walk.App().SetOrganizationName("SlipStream")
+	walk.App().SetProductName("SlipStream")
+
+	// Create notify icon (no parent window required)
 	a.notifyIcon, err = walk.NewNotifyIcon()
 	if err != nil {
 		return err
 	}
 
-	a.notifyIcon.SetToolTip("SlipStream - Media Management")
-	a.notifyIcon.SetVisible(true)
+	if err := a.notifyIcon.SetToolTip("SlipStream - Media Management"); err != nil {
+		return err
+	}
 
 	if icon := loadEmbeddedIcon(); icon != nil {
 		a.notifyIcon.SetIcon(icon)
 	}
 
-	a.notifyIcon.MouseUp().Attach(func(x, y int, button walk.MouseButton) {
+	a.notifyIcon.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 		if button == walk.LeftButton {
 			a.OpenBrowser(a.config.ServerURL)
 		}
@@ -76,11 +83,15 @@ func (a *windowsApp) Run() error {
 	a.notifyIcon.ContextMenu().Actions().Add(walk.NewSeparatorAction())
 	a.notifyIcon.ContextMenu().Actions().Add(quitAction)
 
+	if err := a.notifyIcon.SetVisible(true); err != nil {
+		return err
+	}
+
 	a.mu.Lock()
 	a.running = true
 	a.mu.Unlock()
 
-	walk.App().Run()
+	a.app.Run()
 	return nil
 }
 
@@ -96,8 +107,8 @@ func (a *windowsApp) Stop() {
 			if a.notifyIcon != nil {
 				a.notifyIcon.Dispose()
 			}
-			if a.mainWindow != nil {
-				a.mainWindow.Close()
+			if a.app != nil {
+				a.app.Exit(0)
 			}
 		}
 		a.mu.Unlock()

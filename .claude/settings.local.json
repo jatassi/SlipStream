@@ -77,7 +77,8 @@
       "Bash(bunx eslint:*)",
       "WebFetch(domain:api.themoviedb.org)",
       "WebFetch(domain:developer.themoviedb.org)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(go list:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
