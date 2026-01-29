@@ -59,6 +59,8 @@ Section "SlipStream (required)" SEC_MAIN
 
     ; Copy files
     File "..\..\dist\slipstream_windows_amd64\slipstream.exe"
+    File "slipstream.manifest"
+    Rename "$INSTDIR\slipstream.manifest" "$INSTDIR\slipstream.exe.manifest"
 
     ; Create data directory
     CreateDirectory "$LOCALAPPDATA\SlipStream"
@@ -124,6 +126,7 @@ Section "Uninstall"
 
     ; Remove files
     Delete "$INSTDIR\slipstream.exe"
+    Delete "$INSTDIR\slipstream.exe.manifest"
     Delete "$INSTDIR\uninstall.exe"
 
     ; Remove shortcuts
