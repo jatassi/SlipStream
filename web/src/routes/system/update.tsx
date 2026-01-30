@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   CheckCircle2,
   Download,
@@ -447,6 +447,18 @@ export function UpdatePage() {
   const error = debugMode ? debugConfig.error : updateStatus?.error
   const downloadedMB = debugMode ? debugConfig.downloadedMB ?? 0 : updateStatus?.downloadedMB ?? 0
   const totalMB = debugMode ? 85 : updateStatus?.totalMB ?? 0
+
+  const hasAutoChecked = useRef(false)
+
+  useEffect(() => {
+    if (hasAutoChecked.current) return
+    if (debugMode) return
+    if (!updateStatus) return
+    if (updateStatus.state !== 'idle') return
+
+    hasAutoChecked.current = true
+    checkForUpdate.mutate()
+  }, [debugMode, updateStatus, checkForUpdate])
 
   useEffect(() => {
     if (debugMode) return

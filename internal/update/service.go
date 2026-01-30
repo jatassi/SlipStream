@@ -660,10 +660,30 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 		Int("port", s.port).
 		Msg("Launching updater to replace executable")
 
-	cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
-	cmd.Dir = filepath.Dir(newExePath)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to launch updater: %w", err)
+	// On Windows, antivirus software (like Windows Defender) may scan newly extracted
+	// executables, temporarily locking them. Retry with delays to wait for the scan.
+	var cmd *exec.Cmd
+	var startErr error
+	maxRetries := 10
+	retryDelay := 500 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		cmd = exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+		cmd.Dir = filepath.Dir(newExePath)
+		startErr = cmd.Start()
+		if startErr == nil {
+			break
+		}
+		s.logger.Warn().
+			Err(startErr).
+			Int("attempt", i+1).
+			Int("maxRetries", maxRetries).
+			Msg("Failed to launch updater, retrying (file may be locked by antivirus)")
+		time.Sleep(retryDelay)
+	}
+
+	if startErr != nil {
+		return fmt.Errorf("failed to launch updater after %d attempts: %w", maxRetries, startErr)
 	}
 
 	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
