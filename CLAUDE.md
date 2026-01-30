@@ -144,6 +144,101 @@ When running via `go run` (development), the log level is automatically set to `
 - WebSocket: `/ws` endpoint for real-time library/progress updates
 - State: TanStack Query for data fetching, Zustand for local state
 
+### Design System - Media Type Theming
+
+SlipStream uses distinct color palettes to visually differentiate movies (orange) from TV shows (blue). All colors use OKLCH color space for perceptual consistency.
+
+#### Color Palettes
+
+CSS variables are defined in `web/src/index.css` with 11 shades each (50-950):
+
+| Type | Color | Primary Shade | Light Accent |
+|------|-------|---------------|--------------|
+| Movies | Orange | `--movie-500` | `--movie-400` |
+| TV Shows | Blue | `--tv-500` | `--tv-400` |
+
+Use via Tailwind: `text-movie-500`, `bg-tv-400`, `border-movie-600`, etc.
+
+#### When to Use Each Color
+
+**Movie-specific elements:**
+```tsx
+// Cards, buttons, badges for movie content
+className="border-movie-500 text-movie-400 bg-movie-500/10 hover:glow-movie"
+```
+
+**TV-specific elements:**
+```tsx
+// Cards, buttons, badges for TV/series content
+className="border-tv-500 text-tv-400 bg-tv-500/10 hover:glow-tv"
+```
+
+**Mixed/generic media content:**
+```tsx
+// Homepage, search results with both types, generic actions
+className="bg-media-gradient text-media-gradient glow-media"
+```
+
+#### Glow Effects
+
+Glow utilities create visual emphasis on interactive elements:
+
+| Class | Description |
+|-------|-------------|
+| `glow-movie` / `glow-tv` | Standard 15px blur glow |
+| `glow-movie-sm` / `glow-tv-sm` | Subtle 8px blur |
+| `glow-movie-lg` / `glow-tv-lg` | Intense layered glow |
+| `glow-movie-border` / `glow-tv-border` | Border + glow combo |
+| `glow-movie-pulse` / `glow-tv-pulse` | Animated pulsing glow |
+| `hover:glow-movie` / `hover:glow-tv` | Glow on hover |
+| `glow-media` | Dual-color gradient glow |
+| `icon-glow-movie` / `icon-glow-tv` | Drop shadow for SVG icons |
+
+#### Gradient Utilities
+
+For sections featuring both media types:
+
+| Class | Description |
+|-------|-------------|
+| `bg-media-gradient` | Orange-to-blue background gradient |
+| `bg-media-gradient-vibrant` | Brighter variant (400 shades) |
+| `bg-media-gradient-muted` | Subdued variant (700 shades) |
+| `text-media-gradient` | Gradient text effect |
+
+#### Component Patterns
+
+**Cards (MovieCard, SeriesCard):**
+- Default: `border-border` (neutral)
+- Hover: `hover:border-movie-500/50 hover:glow-movie-sm` or `hover:border-tv-500/50 hover:glow-tv-sm`
+- Selected (edit mode): `border-movie-500 glow-movie` or `border-tv-500 glow-tv`
+
+**Navigation items with theme:**
+```tsx
+const navItem = { title: 'Movies', href: '/movies', icon: Film, theme: 'movie' }
+// Then conditionally apply:
+item.theme === 'movie' && 'text-movie-500 hover:bg-movie-500/10'
+item.theme === 'tv' && 'text-tv-500 hover:bg-tv-500/10'
+```
+
+**Progress bars:**
+```tsx
+<ProgressBar variant="movie" value={progress} />  // Orange
+<ProgressBar variant="tv" value={progress} />     // Blue
+<ProgressBar value={progress} />                   // Default (primary)
+```
+
+#### Best Practices
+
+1. **Consistency**: Always use movie colors for movie content, TV colors for TV content
+2. **Opacity for backgrounds**: Use `/10` or `/15` opacity for subtle backgrounds (e.g., `bg-movie-500/10`)
+3. **400 vs 500**: Use 400 shades for text on dark backgrounds, 500 for borders/accents
+4. **Gradients for mixed**: Use `media-gradient` utilities when content includes both types
+5. **Glows for interaction**: Add glow effects to indicate interactivity and selection states
+
+#### Reference
+
+A live color palette preview is available at `/dev/colors` when developer mode is enabled.
+
 ### UI Components (Base UI, NOT Radix)
 This project uses **Base UI** (`@base-ui/react`) for shadcn/ui components, NOT Radix UI. This affects how you customize trigger elements:
 

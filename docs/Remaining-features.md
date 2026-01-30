@@ -17,7 +17,7 @@
 [ ] Logo and color palette
 [ ] Update dashboard
 [ ] Update history page
-[ ] Update active task UI
+[x] Update active task UI
 [ ] Update movies/series list pages
 [ ] Update detail pages
 [ ] Update missing page

@@ -4,7 +4,6 @@ import {
   Film,
   Tv,
   Calendar,
-  Activity,
   History,
   Settings,
   FolderOpen,
@@ -13,7 +12,7 @@ import {
   ChevronRight,
   ChevronDown,
   Clock,
-  Search,
+  Binoculars,
   HeartPulse,
   Server,
   FileInput,
@@ -28,7 +27,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useUIStore, useDownloadingStore, usePortalAuthStore } from '@/stores'
+import { useUIStore, usePortalAuthStore } from '@/stores'
+import { DownloadsNavLink } from './DownloadsNavLink'
 import { useMissingCounts, useRestart } from '@/hooks'
 import {
   Dialog,
@@ -60,6 +60,7 @@ interface NavItem {
   title: string
   href: string
   icon: React.ElementType
+  theme?: 'movie' | 'tv'
 }
 
 interface ActionItem {
@@ -83,25 +84,16 @@ interface CollapsibleNavGroup {
 }
 
 const libraryNavItems: NavItem[] = [
-  { title: 'Movies', href: '/movies', icon: Film },
-  { title: 'Series', href: '/series', icon: Tv },
+  { title: 'Movies', href: '/movies', icon: Film, theme: 'movie' },
+  { title: 'Series', href: '/series', icon: Tv, theme: 'tv' },
 ]
 
 const discoverNavItems: NavItem[] = [
   { title: 'Calendar', href: '/calendar', icon: Calendar },
-  { title: 'Missing', href: '/missing', icon: Search },
+  { title: 'Missing', href: '/missing', icon: Binoculars },
   { title: 'Manual Import', href: '/import', icon: FileInput },
+  { title: 'History', href: '/activity/history', icon: History },
 ]
-
-const activityGroup: CollapsibleNavGroup = {
-  id: 'activity',
-  title: 'Activity',
-  icon: Activity,
-  items: [
-    { title: 'Downloads', href: '/activity', icon: Download },
-    { title: 'History', href: '/activity/history', icon: History },
-  ],
-}
 
 const settingsGroup: CollapsibleNavGroup = {
   id: 'settings',
@@ -142,11 +134,20 @@ function NavLink({
   badge?: React.ReactNode
 }) {
   const router = useRouterState()
-  const isActive = router.location.pathname === item.href
+  const isActive = router.location.pathname === item.href ||
+    router.location.pathname.startsWith(item.href + '/')
+
+  const iconClassName = cn(
+    'size-4 shrink-0 transition-colors',
+    item.theme === 'movie' && 'text-movie-500',
+    item.theme === 'tv' && 'text-tv-500',
+    isActive && item.theme === 'movie' && 'text-movie-400',
+    isActive && item.theme === 'tv' && 'text-tv-400'
+  )
 
   const linkContent = (
     <>
-      <item.icon className="size-4 shrink-0" />
+      <item.icon className={iconClassName} />
       {!collapsed && (
         <>
           <span className="flex-1">{item.title}</span>
@@ -157,11 +158,18 @@ function NavLink({
   )
 
   const linkClassName = cn(
-    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-    'hover:bg-accent hover:text-accent-foreground',
-    isActive && 'bg-accent text-accent-foreground',
-    collapsed && 'justify-center px-2',
-    indented && !collapsed && 'ml-4 border-l border-border pl-4'
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all border-l-2 border-transparent',
+    collapsed && 'justify-center px-2 border-l-0',
+    indented && !collapsed && 'ml-4 border-l border-border pl-4',
+    // Default (no theme)
+    !item.theme && 'hover:bg-accent hover:text-accent-foreground',
+    !item.theme && isActive && 'bg-accent text-accent-foreground',
+    // Movie theme
+    item.theme === 'movie' && 'hover:bg-movie-500/10 hover:text-foreground',
+    item.theme === 'movie' && isActive && 'bg-movie-500/15 text-foreground border-l-movie-500',
+    // TV theme
+    item.theme === 'tv' && 'hover:bg-tv-500/10 hover:text-foreground',
+    item.theme === 'tv' && isActive && 'bg-tv-500/15 text-foreground border-l-tv-500'
   )
 
   if (collapsed) {
@@ -197,48 +205,34 @@ function MissingBadge() {
   }
 
   return (
-    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+    <span className="flex items-center text-xs">
       {counts.movies > 0 && (
-        <span className="flex items-center gap-0.5">
-          <Film className="size-3" />
-          {counts.movies}
-        </span>
+        <span className="text-movie-500">{counts.movies}</span>
+      )}
+      {counts.movies > 0 && counts.episodes > 0 && (
+        <span className="px-1 text-muted-foreground">|</span>
       )}
       {counts.episodes > 0 && (
-        <span className="flex items-center gap-0.5">
-          <Tv className="size-3" />
-          {counts.episodes}
-        </span>
+        <span className="text-tv-500">{counts.episodes}</span>
       )}
     </span>
   )
 }
 
-function DownloadsBadge() {
-  const queueItems = useDownloadingStore((state) => state.queueItems)
-  const count = queueItems.length
-
-  if (count === 0) {
-    return null
-  }
-
-  return (
-    <span className="text-xs text-muted-foreground">
-      {count}
-    </span>
-  )
-}
-
-function NavSection({ items, collapsed }: { items: NavItem[]; collapsed: boolean }) {
+function NavSection({ items, collapsed, includeDownloads = false }: { items: NavItem[]; collapsed: boolean; includeDownloads?: boolean }) {
   return (
     <div className="space-y-1">
       {items.map((item) => (
-        <NavLink
-          key={item.href}
-          item={item}
-          collapsed={collapsed}
-          badge={item.href === '/missing' ? <MissingBadge /> : undefined}
-        />
+        <div key={item.href}>
+          {includeDownloads && item.href === '/import' && (
+            <DownloadsNavLink collapsed={collapsed} />
+          )}
+          <NavLink
+            item={item}
+            collapsed={collapsed}
+            badge={item.href === '/missing' ? <MissingBadge /> : undefined}
+          />
+        </div>
       ))}
     </div>
   )
@@ -312,7 +306,6 @@ function CollapsibleNavSection({
               >
                 <item.icon className="size-4" />
                 <span className="flex-1">{item.title}</span>
-                {item.href === '/activity' && <DownloadsBadge />}
               </Link>
             )
           )}
@@ -365,7 +358,6 @@ function CollapsibleNavSection({
                 item={item}
                 collapsed={false}
                 indented
-                badge={item.href === '/activity' ? <DownloadsBadge /> : undefined}
               />
             )
           )}
@@ -428,18 +420,18 @@ export function Sidebar() {
           )}
         >
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <div className="flex size-8 items-center justify-center rounded-md bg-media-gradient text-white glow-media-sm">
               <Film className="size-5" />
             </div>
             {!sidebarCollapsed && (
-              <span className="text-lg font-semibold">SlipStream</span>
+              <span className="text-lg font-semibold text-media-gradient">SlipStream</span>
             )}
           </Link>
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-4">
+        <ScrollArea className="flex-1">
+          <nav className="space-y-4 px-3 py-4">
             {/* Library navigation */}
             <NavSection items={libraryNavItems} collapsed={sidebarCollapsed} />
 
@@ -447,16 +439,10 @@ export function Sidebar() {
             <div className="h-px bg-border" />
 
             {/* Discover navigation */}
-            <NavSection items={discoverNavItems} collapsed={sidebarCollapsed} />
+            <NavSection items={discoverNavItems} collapsed={sidebarCollapsed} includeDownloads />
 
             {/* Divider */}
             <div className="h-px bg-border" />
-
-            {/* Activity collapsible menu */}
-            <CollapsibleNavSection
-              group={activityGroup}
-              collapsed={sidebarCollapsed}
-            />
 
             {/* Settings collapsible menu */}
             <CollapsibleNavSection

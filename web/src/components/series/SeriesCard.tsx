@@ -36,7 +36,10 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         >
           <Checkbox
             checked={selected}
-            className="size-5 bg-background/80 border-2"
+            className={cn(
+              'size-5 bg-background/80 border-2',
+              selected && 'border-tv-500 data-[checked]:bg-tv-500'
+            )}
           />
         </div>
       )}
@@ -61,7 +64,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
       <div
         className={cn(
           'group block rounded-lg overflow-hidden bg-card border-2 transition-all cursor-pointer',
-          selected ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50',
+          selected ? 'border-tv-500 glow-tv' : 'border-border hover:border-tv-500/50 hover:glow-tv-sm',
           className
         )}
         onClick={() => onToggleSelect?.(series.id)}
@@ -76,7 +79,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
       to="/series/$id"
       params={{ id: String(series.id) }}
       className={cn(
-        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-primary/50 hover:shadow-lg',
+        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-tv-500/50 hover:glow-tv',
         className
       )}
     >

@@ -1,44 +1,81 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Pause, Play, Trash2, Film, Tv, Download, FastForward } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProgressBar } from '@/components/media/ProgressBar'
-import { QualityBadge } from '@/components/media/QualityBadge'
-import { FormatBadges } from '@/components/media/FormatBadges'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { PosterImage } from '@/components/media/PosterImage'
 import {
   useQueue,
   useRemoveFromQueue,
   usePauseQueueItem,
   useResumeQueueItem,
   useFastForwardQueueItem,
+  useMovie,
+  useSeriesDetail,
 } from '@/hooks'
-import { formatBytes, formatSpeed, formatEta, formatSeriesTitle } from '@/lib/formatters'
+import { formatBytes, formatSpeed, formatEta } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { QueueItem } from '@/types'
 
 type MediaFilter = 'all' | 'movies' | 'series'
 
+// Context to share title column width across all rows
+interface TitleWidthContextType {
+  registerWidth: (id: string, width: number) => void
+  unregisterWidth: (id: string) => void
+  maxWidth: number
+}
+
+const TitleWidthContext = createContext<TitleWidthContextType>({
+  registerWidth: () => {},
+  unregisterWidth: () => {},
+  maxWidth: 0,
+})
+
 function DownloadRow({ item }: { item: QueueItem }) {
   const [showReleaseName, setShowReleaseName] = useState(false)
+  const titleRef = useRef<HTMLDivElement>(null)
+  const { registerWidth, unregisterWidth, maxWidth } = useContext(TitleWidthContext)
+  const rowId = `${item.clientId}-${item.id}`
+
+  // Measure and report title width
+  useEffect(() => {
+    const measure = () => {
+      if (titleRef.current) {
+        registerWidth(rowId, titleRef.current.scrollWidth)
+      }
+    }
+    measure()
+    // Re-measure when release name visibility changes
+    const timer = setTimeout(measure, 0)
+    return () => {
+      clearTimeout(timer)
+      unregisterWidth(rowId)
+    }
+  }, [rowId, showReleaseName, registerWidth, unregisterWidth])
+
   const removeMutation = useRemoveFromQueue()
   const pauseMutation = usePauseQueueItem()
   const resumeMutation = useResumeQueueItem()
   const fastForwardMutation = useFastForwardQueueItem()
+
+  // Fetch media data for poster and year
+  const { data: movie } = useMovie(item.mediaType === 'movie' && item.movieId ? item.movieId : 0)
+  const { data: series } = useSeriesDetail(item.mediaType === 'series' && item.seriesId ? item.seriesId : 0)
+
+  // Get tmdbId/tvdbId for poster lookup
+  const tmdbId = item.mediaType === 'movie' ? movie?.tmdbId : series?.tmdbId
+  const tvdbId = item.mediaType === 'series' ? series?.tvdbId : undefined
+
+  const isMovie = item.mediaType === 'movie'
 
   const handlePause = async () => {
     try {
@@ -80,127 +117,208 @@ function DownloadRow({ item }: { item: QueueItem }) {
     }
   }
 
-  // Format title for display
-  const normalizedTitle =
-    item.mediaType === 'series'
-      ? formatSeriesTitle(item.title, item.season, item.episode)
-      : item.title
+  // Format title suffix (year for movies, episode/season identifier for series)
+  const getTitleSuffix = () => {
+    if (isMovie) {
+      return movie?.year ? `(${movie.year})` : ''
+    }
+    // Series: show episode or season identifier
+    if (item.episode && item.season) {
+      return `S${String(item.season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
+    }
+    if (item.isSeasonPack && item.season) {
+      return `S${String(item.season).padStart(2, '0')}`
+    }
+    if (item.isCompleteSeries) {
+      return 'Complete Series'
+    }
+    return ''
+  }
 
-  const displayTitle = showReleaseName ? item.releaseName : normalizedTitle
-  const tooltipTitle = showReleaseName ? normalizedTitle : item.releaseName
+  // Format progress text (condensed)
+  const downloadedFormatted = formatBytes(item.downloadedSize)
+  const totalFormatted = formatBytes(item.size)
+  // Extract just the number from total and keep units from total
+  const totalParts = totalFormatted.match(/^([\d.]+)\s*(.+)$/)
+  const downloadedParts = downloadedFormatted.match(/^([\d.]+)\s*(.+)$/)
 
-  // Format progress text
-  const progressText = `${formatBytes(item.downloadedSize)} / ${formatBytes(item.size)}`
+  let progressText: string
+  if (totalParts && downloadedParts && totalParts[2] === downloadedParts[2]) {
+    // Same units, show condensed format
+    progressText = `${downloadedParts[1]}/${totalParts[1]} ${totalParts[2]}`
+  } else {
+    progressText = `${downloadedFormatted}/${totalFormatted}`
+  }
+
+  // Icon class with themed glow on hover
+  const actionIconClass = cn(
+    'size-4 transition-all',
+    isMovie ? 'group-hover/btn:icon-glow-movie' : 'group-hover/btn:icon-glow-tv'
+  )
+
+  const titleSuffix = getTitleSuffix()
 
   return (
-    <TableRow>
-      {/* Title */}
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded bg-muted shrink-0">
-            {item.mediaType === 'movie' ? (
-              <Film className="size-4" />
+    <div
+      className={cn(
+        'flex items-center gap-4 px-4 py-3 transition-colors',
+        isMovie
+          ? 'hover:bg-movie-500/5'
+          : 'hover:bg-tv-500/5'
+      )}
+    >
+      {/* Poster */}
+      <div className="shrink-0 self-center">
+        {tmdbId || tvdbId ? (
+          <div className="size-10 rounded overflow-hidden">
+            <PosterImage
+              tmdbId={tmdbId}
+              tvdbId={tvdbId}
+              alt={item.title}
+              type={isMovie ? 'movie' : 'series'}
+              className="size-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className={cn(
+            'flex size-10 items-center justify-center rounded',
+            isMovie ? 'bg-movie-500/20 text-movie-500' : 'bg-tv-500/20 text-tv-500'
+          )}>
+            {isMovie ? (
+              <Film className="size-5" />
             ) : (
-              <Tv className="size-4" />
+              <Tv className="size-5" />
             )}
           </div>
-          <span
-            className="font-medium truncate max-w-[300px] cursor-pointer hover:text-primary transition-colors"
-            title={tooltipTitle}
-            onClick={() => setShowReleaseName(!showReleaseName)}
-          >
-            {displayTitle}
-          </span>
+        )}
+      </div>
+
+      {/* Title + Progress - wraps when space is limited */}
+      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-4 gap-y-0.5">
+        {/* Title - width synced across all rows via context */}
+        <div
+          className="shrink-0 self-center transition-[width] duration-150 ease-out overflow-hidden"
+          style={{ width: maxWidth > 0 ? maxWidth : 'auto' }}
+        >
+          <div ref={titleRef} className="inline-block">
+            <div
+              className={cn(
+                'font-medium cursor-pointer transition-colors whitespace-nowrap',
+                isMovie ? 'hover:text-movie-500' : 'hover:text-tv-500'
+              )}
+              title={item.releaseName}
+              onClick={() => setShowReleaseName(!showReleaseName)}
+            >
+              {item.title}
+              {titleSuffix && (
+                <span className="text-muted-foreground ml-1.5">{titleSuffix}</span>
+              )}
+            </div>
+            {showReleaseName && (
+              <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap animate-[slide-down-fade_150ms_ease-out]">
+                {item.releaseName}
+              </div>
+            )}
+          </div>
         </div>
-      </TableCell>
 
-      {/* Quality */}
-      <TableCell>
-        {item.quality && <QualityBadge quality={item.quality} />}
-      </TableCell>
-
-      {/* Attributes */}
-      <TableCell>
-        <FormatBadges
-          source={item.source}
-          codec={item.codec}
-          attributes={item.attributes}
-        />
-      </TableCell>
-
-      {/* Progress */}
-      <TableCell className="min-w-[180px]">
-        <div className="space-y-1">
-          <ProgressBar value={item.progress} size="sm" />
-          <div className="text-xs text-muted-foreground">{progressText}</div>
+        {/* Progress - fills remaining space, wraps under title when needed */}
+        <div className="flex-1 basis-56 min-w-[200px] self-center">
+          <div className="relative py-2">
+            <ProgressBar
+              value={item.progress}
+              size="sm"
+              variant={isMovie ? 'movie' : 'tv'}
+            />
+            <div className="absolute left-0 right-0 mt-1 flex items-center text-xs text-muted-foreground">
+              <span>{progressText}</span>
+              <span className="mx-auto">
+                {item.status === 'downloading' ? formatSpeed(item.downloadSpeed) : ''}
+              </span>
+              <span>
+                {item.status === 'downloading' ? formatEta(item.eta) : ''}
+              </span>
+            </div>
+          </div>
         </div>
-      </TableCell>
-
-      {/* Time Left */}
-      <TableCell className="text-muted-foreground w-[100px]">
-        {item.status === 'downloading' ? formatEta(item.eta) : '--'}
-      </TableCell>
-
-      {/* Speed */}
-      <TableCell className="text-muted-foreground w-[100px]">
-        {item.status === 'downloading' ? formatSpeed(item.downloadSpeed) : '--'}
-      </TableCell>
+      </div>
 
       {/* Actions */}
-      <TableCell>
-        <div className="flex gap-1">
-          {item.status === 'downloading' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePause}
-              disabled={pauseMutation.isPending}
-              title="Pause"
-            >
-              <Pause className="size-4" />
+      <div className="flex gap-1 shrink-0 self-center">
+        {item.status === 'downloading' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handlePause}
+            disabled={pauseMutation.isPending}
+            title="Pause"
+            className="group/btn"
+          >
+            <Pause className={actionIconClass} />
+          </Button>
+        )}
+        {item.status === 'paused' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleResume}
+            disabled={resumeMutation.isPending}
+            title="Resume"
+            className="group/btn"
+          >
+            <Play className={actionIconClass} />
+          </Button>
+        )}
+        {item.clientType === 'mock' && item.status !== 'completed' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleFastForward}
+            disabled={fastForwardMutation.isPending}
+            title="Fast Forward"
+            className="group/btn"
+          >
+            <FastForward className={actionIconClass} />
+          </Button>
+        )}
+        <ConfirmDialog
+          trigger={
+            <Button variant="ghost" size="icon" title="Remove" className="group/btn">
+              <Trash2 className={actionIconClass} />
             </Button>
-          )}
-          {item.status === 'paused' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleResume}
-              disabled={resumeMutation.isPending}
-              title="Resume"
-            >
-              <Play className="size-4" />
-            </Button>
-          )}
-          {item.clientType === 'mock' && item.status !== 'completed' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleFastForward}
-              disabled={fastForwardMutation.isPending}
-              title="Fast Forward"
-            >
-              <FastForward className="size-4" />
-            </Button>
-          )}
-          <ConfirmDialog
-            trigger={
-              <Button variant="ghost" size="icon" title="Remove">
-                <Trash2 className="size-4" />
-              </Button>
-            }
-            title="Remove download"
-            description={`Are you sure you want to remove "${displayTitle}" from the queue?`}
-            confirmLabel="Remove"
-            variant="destructive"
-            onConfirm={() => handleRemove(false)}
-          />
-        </div>
-      </TableCell>
-    </TableRow>
+          }
+          title="Remove download"
+          description={`Are you sure you want to remove "${item.title}" from the queue?`}
+          confirmLabel="Remove"
+          variant="destructive"
+          onConfirm={() => handleRemove(false)}
+        />
+      </div>
+    </div>
   )
 }
 
 function DownloadsTable({ items }: { items: QueueItem[] }) {
+  const [widths, setWidths] = useState<Map<string, number>>(new Map())
+
+  const registerWidth = useCallback((id: string, width: number) => {
+    setWidths((prev) => {
+      const next = new Map(prev)
+      next.set(id, width)
+      return next
+    })
+  }, [])
+
+  const unregisterWidth = useCallback((id: string) => {
+    setWidths((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
+
+  const maxWidth = Math.max(0, ...widths.values())
+
   if (items.length === 0) {
     return (
       <EmptyState
@@ -213,24 +331,13 @@ function DownloadsTable({ items }: { items: QueueItem[] }) {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Title</TableHead>
-          <TableHead>Quality</TableHead>
-          <TableHead>Attributes</TableHead>
-          <TableHead>Progress</TableHead>
-          <TableHead className="w-[100px]">Time Left</TableHead>
-          <TableHead className="w-[100px]">Speed</TableHead>
-          <TableHead className="w-[100px]">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <TitleWidthContext.Provider value={{ registerWidth, unregisterWidth, maxWidth }}>
+      <div className="divide-y divide-border">
         {items.map((item) => (
           <DownloadRow key={`${item.clientId}-${item.id}`} item={item} />
         ))}
-      </TableBody>
-    </Table>
+      </div>
+    </TitleWidthContext.Provider>
   )
 }
 
@@ -283,19 +390,30 @@ export function ActivityPage() {
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as MediaFilter)} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="all">
+          <TabsTrigger
+            value="all"
+            className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
+          >
             All
             {totalCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
+              <span className="ml-2 text-xs data-active:text-black/60">({totalCount})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="movies">
+          <TabsTrigger
+            value="movies"
+            className="data-active:bg-white data-active:text-black data-active:glow-movie"
+          >
+            <Film className="size-4 mr-1.5" />
             Movies
             {movieCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">({movieCount})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="series">
+          <TabsTrigger
+            value="series"
+            className="data-active:bg-white data-active:text-black data-active:glow-tv"
+          >
+            <Tv className="size-4 mr-1.5" />
             Series
             {seriesCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">({seriesCount})</span>

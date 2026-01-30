@@ -34,7 +34,10 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
         >
           <Checkbox
             checked={selected}
-            className="size-5 bg-background/80 border-2"
+            className={cn(
+              'size-5 bg-background/80 border-2',
+              selected && 'border-movie-500 data-[checked]:bg-movie-500'
+            )}
           />
         </div>
       )}
@@ -54,7 +57,7 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
       <div
         className={cn(
           'group block rounded-lg overflow-hidden bg-card border-2 transition-all cursor-pointer',
-          selected ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50',
+          selected ? 'border-movie-500 glow-movie' : 'border-border hover:border-movie-500/50 hover:glow-movie-sm',
           className
         )}
         onClick={() => onToggleSelect?.(movie.id)}
@@ -69,7 +72,7 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
       to="/movies/$id"
       params={{ id: String(movie.id) }}
       className={cn(
-        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-primary/50 hover:shadow-lg',
+        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-movie-500/50 hover:glow-movie',
         className
       )}
     >

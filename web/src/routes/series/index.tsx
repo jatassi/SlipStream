@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +29,7 @@ import type { Series } from '@/types'
 type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
 
 export function SeriesListPage() {
-  const { seriesView, setSeriesView } = useUIStore()
+  const { seriesView, setSeriesView, posterSize, setPosterSize } = useUIStore()
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
   const [editMode, setEditMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -170,7 +171,7 @@ export function SeriesListPage() {
               </Button>
             )}
             <Link to="/series/add">
-              <Button disabled={editMode}>
+              <Button disabled={editMode} className="bg-tv-500 hover:bg-tv-400 border-tv-500">
                 <Plus className="size-4 mr-1" />
                 Add Series
               </Button>
@@ -181,7 +182,7 @@ export function SeriesListPage() {
 
       {/* Edit Mode Toolbar */}
       {editMode && (
-        <div className="flex items-center gap-4 mb-4 p-3 bg-muted rounded-lg">
+        <div className="flex items-center gap-4 mb-4 p-3 bg-tv-500/10 border border-tv-500/20 rounded-lg">
           <div className="flex items-center gap-2">
             <Checkbox
               checked={selectedIds.size === filteredSeries.length && filteredSeries.length > 0}
@@ -256,7 +257,20 @@ export function SeriesListPage() {
           </SelectContent>
         </Select>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-4">
+          {seriesView === 'grid' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Size</span>
+              <Slider
+                value={[posterSize]}
+                onValueChange={(v) => setPosterSize(Array.isArray(v) ? v[0] : v)}
+                min={100}
+                max={250}
+                step={10}
+                className="w-24"
+              />
+            </div>
+          )}
           <ToggleGroup
             value={[seriesView]}
             onValueChange={(v) => v.length > 0 && setSeriesView(v[0] as 'grid' | 'table')}
@@ -274,7 +288,7 @@ export function SeriesListPage() {
       {/* Content */}
       {filteredSeries.length === 0 ? (
         <EmptyState
-          icon={<Tv className="size-8" />}
+          icon={<Tv className="size-8 text-tv-500" />}
           title="No series found"
           description={
             statusFilter !== 'all'
@@ -290,6 +304,7 @@ export function SeriesListPage() {
       ) : (
         <SeriesGrid
           series={filteredSeries}
+          posterSize={posterSize}
           editMode={editMode}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}

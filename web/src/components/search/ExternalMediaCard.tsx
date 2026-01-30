@@ -138,7 +138,10 @@ export function ExternalMediaCard({
   return (
     <div
       className={cn(
-        'group rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-primary/50 hover:shadow-lg',
+        'group rounded-lg overflow-hidden bg-card border border-border transition-all',
+        mediaType === 'movie'
+          ? 'hover:border-movie-500/50 hover:glow-movie'
+          : 'hover:border-tv-500/50 hover:glow-tv',
         className
       )}
     >

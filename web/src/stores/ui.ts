@@ -27,8 +27,10 @@ interface UIState {
   // View preferences
   moviesView: 'grid' | 'table'
   seriesView: 'grid' | 'table'
+  posterSize: number // 100-250, represents min-width in pixels
   setMoviesView: (view: 'grid' | 'table') => void
   setSeriesView: (view: 'grid' | 'table') => void
+  setPosterSize: (size: number) => void
 
   // Notifications
   notifications: Notification[]
@@ -70,8 +72,10 @@ export const useUIStore = create<UIState>()(
       // View preferences
       moviesView: 'grid',
       seriesView: 'grid',
+      posterSize: 150,
       setMoviesView: (view) => set({ moviesView: view }),
       setSeriesView: (view) => set({ seriesView: view }),
+      setPosterSize: (size) => set({ posterSize: size }),
 
       // Notifications
       notifications: [],
@@ -96,6 +100,7 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         moviesView: state.moviesView,
         seriesView: state.seriesView,
+        posterSize: state.posterSize,
       }),
     }
   )

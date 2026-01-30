@@ -1,11 +1,12 @@
 import { cn } from '@/lib/utils'
-import { Progress } from '@/components/ui/progress'
+import { Progress as ProgressPrimitive } from '@base-ui/react/progress'
 
 interface ProgressBarProps {
   value: number
   max?: number
   showLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
+  variant?: 'default' | 'movie' | 'tv'
   className?: string
 }
 
@@ -14,6 +15,7 @@ export function ProgressBar({
   max = 100,
   showLabel = false,
   size = 'md',
+  variant = 'default',
   className,
 }: ProgressBarProps) {
   const percentage = Math.min((value / max) * 100, 100)
@@ -24,12 +26,29 @@ export function ProgressBar({
     lg: 'h-3',
   }
 
+  const indicatorClasses = {
+    default: 'bg-primary',
+    movie: 'bg-movie-500',
+    tv: 'bg-tv-500',
+  }
+
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <Progress
+      <ProgressPrimitive.Root
         value={percentage}
-        className={cn(sizeClasses[size], 'flex-1')}
-      />
+        className="flex flex-wrap gap-3 flex-1"
+      >
+        <ProgressPrimitive.Track
+          className={cn(
+            'bg-muted rounded-full relative flex w-full items-center overflow-x-hidden',
+            sizeClasses[size]
+          )}
+        >
+          <ProgressPrimitive.Indicator
+            className={cn('h-full transition-all rounded-full', indicatorClasses[variant])}
+          />
+        </ProgressPrimitive.Track>
+      </ProgressPrimitive.Root>
       {showLabel && (
         <span className="text-xs text-muted-foreground tabular-nums">
           {percentage.toFixed(1)}%

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Search, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 type Breakpoint = 'sm' | 'md' | 'lg'
 
@@ -34,6 +35,7 @@ export function SearchBar() {
   const breakpoint = useBreakpoint()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleSearchChange = (value: string) => {
@@ -73,11 +75,17 @@ export function SearchBar() {
   }
 
   return (
-    <div className="relative">
+    <div
+      className={cn(
+        'relative rounded-md transition-shadow duration-300',
+        isSearching && 'glow-media-pulse',
+        isFocused && !isSearching && 'glow-media-sm'
+      )}
+    >
       {isSearching ? (
-        <Loader2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-foreground" />
+        <Loader2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-foreground z-10" />
       ) : (
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
       )}
       <Input
         type="text"
@@ -85,13 +93,15 @@ export function SearchBar() {
         value={searchQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         className="pl-9 pr-8 border-white/50 focus-visible:border-white"
       />
       {searchQuery && (
         <button
           type="button"
           onClick={() => setSearchQuery('')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white z-10"
         >
           <X className="size-4" />
         </button>

@@ -35,7 +35,7 @@ export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: 
   return (
     <div
       className={cn(
-        'group rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-primary/50 hover:shadow-lg',
+        'group rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-movie-500/50 hover:glow-movie',
         className
       )}
     >

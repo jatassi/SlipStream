@@ -612,29 +612,40 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 	if err != nil {
 		return fmt.Errorf("failed to open ZIP file: %w", err)
 	}
-	defer zipReader.Close()
 
+	var extractErr error
 	for _, f := range zipReader.File {
 		if strings.HasSuffix(f.Name, "slipstream.exe") {
 			rc, err := f.Open()
 			if err != nil {
-				return fmt.Errorf("failed to open file in ZIP: %w", err)
+				extractErr = fmt.Errorf("failed to open file in ZIP: %w", err)
+				break
 			}
-			defer rc.Close()
 
 			outFile, err := os.Create(newExePath)
 			if err != nil {
-				return fmt.Errorf("failed to create extracted file: %w", err)
+				rc.Close()
+				extractErr = fmt.Errorf("failed to create extracted file: %w", err)
+				break
 			}
-			defer outFile.Close()
 
-			if _, err := io.Copy(outFile, rc); err != nil {
-				return fmt.Errorf("failed to extract file: %w", err)
+			_, copyErr := io.Copy(outFile, rc)
+			outFile.Close()
+			rc.Close()
+
+			if copyErr != nil {
+				extractErr = fmt.Errorf("failed to extract file: %w", copyErr)
+				break
 			}
 
 			s.logger.Info().Str("extractedTo", newExePath).Msg("Extracted new executable")
 			break
 		}
+	}
+	zipReader.Close()
+
+	if extractErr != nil {
+		return extractErr
 	}
 
 	if _, err := os.Stat(newExePath); os.IsNotExist(err) {

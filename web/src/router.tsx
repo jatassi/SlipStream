@@ -47,6 +47,9 @@ import { LogsPage } from '@/routes/system/logs'
 // Auth Pages
 import { SetupPage } from '@/routes/auth/setup'
 
+// Dev Pages
+import { ColorPreviewPage } from '@/routes/dev/colors'
+
 // Portal Pages
 import { LoginPage } from '@/routes/requests/auth/login'
 import { SignupPage } from '@/routes/requests/auth/signup'
@@ -303,6 +306,13 @@ const logsRoute = createRoute({
   component: LogsPage,
 })
 
+// Dev routes
+const devColorsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/colors',
+  component: ColorPreviewPage,
+})
+
 // Portal auth routes (no layout)
 const portalLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -403,6 +413,8 @@ const routeTree = rootRoute.addChildren([
   healthRoute,
   logsRoute,
   updateRoute,
+  // Dev routes
+  devColorsRoute,
   // Portal auth routes (public)
   portalLoginRoute,
   portalSignupRoute,

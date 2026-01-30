@@ -4,6 +4,7 @@
 @import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant data-active (&[data-active]);
 
 :root {
     --background: oklch(1 0 0);
@@ -72,6 +73,32 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* Movie (orange) palette */
+    --movie-50: oklch(98.2% 0.013 81);
+    --movie-100: oklch(95.6% 0.033 82);
+    --movie-200: oklch(90.6% 0.067 78);
+    --movie-300: oklch(84.7% 0.106 74);
+    --movie-400: oklch(76.8% 0.142 64);
+    --movie-500: oklch(72% 0.16 55);
+    --movie-600: oklch(65.1% 0.164 47);
+    --movie-700: oklch(55.4% 0.145 43);
+    --movie-800: oklch(47.1% 0.117 41);
+    --movie-900: oklch(40.9% 0.093 42);
+    --movie-950: oklch(26.9% 0.061 40);
+
+    /* TV (blue) palette */
+    --tv-50: oklch(97.6% 0.013 242);
+    --tv-100: oklch(94.8% 0.026 242);
+    --tv-200: oklch(89.8% 0.056 237);
+    --tv-300: oklch(82.5% 0.106 236);
+    --tv-400: oklch(74% 0.155 238);
+    --tv-500: oklch(67.5% 0.17 243);
+    --tv-600: oklch(58.1% 0.165 247);
+    --tv-700: oklch(49.8% 0.145 248);
+    --tv-800: oklch(44% 0.119 247);
+    --tv-900: oklch(38.9% 0.095 247);
+    --tv-950: oklch(29.1% 0.067 249);
 }
 
 @theme inline {
@@ -114,6 +141,32 @@
     --radius-2xl: calc(var(--radius) + 8px);
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
+
+    /* Movie (orange) color scale */
+    --color-movie-50: var(--movie-50);
+    --color-movie-100: var(--movie-100);
+    --color-movie-200: var(--movie-200);
+    --color-movie-300: var(--movie-300);
+    --color-movie-400: var(--movie-400);
+    --color-movie-500: var(--movie-500);
+    --color-movie-600: var(--movie-600);
+    --color-movie-700: var(--movie-700);
+    --color-movie-800: var(--movie-800);
+    --color-movie-900: var(--movie-900);
+    --color-movie-950: var(--movie-950);
+
+    /* TV (blue) color scale */
+    --color-tv-50: var(--tv-50);
+    --color-tv-100: var(--tv-100);
+    --color-tv-200: var(--tv-200);
+    --color-tv-300: var(--tv-300);
+    --color-tv-400: var(--tv-400);
+    --color-tv-500: var(--tv-500);
+    --color-tv-600: var(--tv-600);
+    --color-tv-700: var(--tv-700);
+    --color-tv-800: var(--tv-800);
+    --color-tv-900: var(--tv-900);
+    --color-tv-950: var(--tv-950);
 }
 
 @layer base {
@@ -125,6 +178,309 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Media gradient utilities (movie → tv, orange → blue) */
+@layer utilities {
+  .bg-media-gradient {
+    background: linear-gradient(to right, var(--movie-500), var(--tv-500));
+  }
+  .bg-media-gradient-vibrant {
+    background: linear-gradient(to right, var(--movie-400), var(--tv-400));
+  }
+  .bg-media-gradient-muted {
+    background: linear-gradient(to right, var(--movie-700), var(--tv-700));
+  }
+  .text-media-gradient {
+    background: linear-gradient(to right, var(--movie-500), var(--tv-500));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .border-media-gradient {
+    border-image: linear-gradient(to right, var(--movie-500), var(--tv-500)) 1;
+  }
+
+  /* Movie glow effects */
+  .glow-movie-sm {
+    box-shadow: 0 0 8px var(--movie-500);
+  }
+  .glow-movie {
+    box-shadow: 0 0 15px var(--movie-500);
+  }
+  .glow-movie-lg {
+    box-shadow: 0 0 25px var(--movie-500), 0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
+  }
+  .glow-movie-border {
+    box-shadow: 0 0 0 1px var(--movie-500), 0 0 15px var(--movie-500);
+  }
+  .glow-movie-ring {
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--movie-500) 30%, transparent), 0 0 15px var(--movie-500);
+  }
+
+  /* TV glow effects */
+  .glow-tv-sm {
+    box-shadow: 0 0 8px var(--tv-500);
+  }
+  .glow-tv {
+    box-shadow: 0 0 15px var(--tv-500);
+  }
+  .glow-tv-lg {
+    box-shadow: 0 0 25px var(--tv-500), 0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+  .glow-tv-border {
+    box-shadow: 0 0 0 1px var(--tv-500), 0 0 15px var(--tv-500);
+  }
+  .glow-tv-ring {
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--tv-500) 30%, transparent), 0 0 15px var(--tv-500);
+  }
+
+  /* Media gradient glow (combines both colors) */
+  .glow-media-sm {
+    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+  .glow-media {
+    box-shadow: -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent), 12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+  }
+  .glow-media-lg {
+    box-shadow: -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent), 15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
+  }
+
+  /* Animated pulse glows */
+  .glow-movie-pulse {
+    animation: glow-movie-pulse 2s ease-in-out infinite;
+  }
+  .glow-tv-pulse {
+    animation: glow-tv-pulse 2s ease-in-out infinite;
+  }
+  .glow-media-pulse {
+    animation: glow-media-pulse 2s ease-in-out infinite;
+  }
+
+  /* Hover variants for glows */
+  .hover\:glow-movie-sm:hover {
+    box-shadow: 0 0 8px var(--movie-500);
+  }
+  .hover\:glow-movie:hover {
+    box-shadow: 0 0 15px var(--movie-500);
+  }
+  .hover\:glow-movie-lg:hover {
+    box-shadow: 0 0 25px var(--movie-500), 0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
+  }
+  .hover\:glow-tv-sm:hover {
+    box-shadow: 0 0 8px var(--tv-500);
+  }
+  .hover\:glow-tv:hover {
+    box-shadow: 0 0 15px var(--tv-500);
+  }
+  .hover\:glow-tv-lg:hover {
+    box-shadow: 0 0 25px var(--tv-500), 0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+  .hover\:glow-media-sm:hover {
+    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+  .hover\:glow-media:hover {
+    box-shadow: -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent), 12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+  }
+
+  /* Icon glow effects (using drop-shadow for SVG icons) */
+  .icon-glow-movie {
+    filter: drop-shadow(0 0 4px var(--movie-500));
+  }
+  .icon-glow-tv {
+    filter: drop-shadow(0 0 4px var(--tv-500));
+  }
+  .icon-glow-movie-lg {
+    filter: drop-shadow(0 0 6px var(--movie-500)) drop-shadow(0 0 10px var(--movie-500));
+  }
+  .icon-glow-tv-lg {
+    filter: drop-shadow(0 0 6px var(--tv-500)) drop-shadow(0 0 10px var(--tv-500));
+  }
+
+  /* Hover variants for icon glows */
+  .group:hover .group-hover\:icon-glow-movie,
+  .group\/btn:hover .group-hover\/btn\:icon-glow-movie {
+    filter: drop-shadow(0 0 4px var(--movie-500));
+  }
+  .group:hover .group-hover\:icon-glow-tv,
+  .group\/btn:hover .group-hover\/btn\:icon-glow-tv {
+    filter: drop-shadow(0 0 4px var(--tv-500));
+  }
+  .hover\:icon-glow-movie:hover {
+    filter: drop-shadow(0 0 4px var(--movie-500));
+  }
+  .hover\:icon-glow-tv:hover {
+    filter: drop-shadow(0 0 4px var(--tv-500));
+  }
+
+}
+
+/* Data-active variants for tabs (outside @layer to prevent tree-shaking) */
+.data-active\:bg-white[data-active] {
+  background-color: white;
+}
+.data-active\:text-black[data-active] {
+  color: black;
+}
+.data-active\:glow-movie[data-active] {
+  box-shadow: 0 0 15px var(--movie-500);
+}
+.data-active\:glow-tv[data-active] {
+  box-shadow: 0 0 15px var(--tv-500);
+}
+.data-active\:glow-media-sm[data-active] {
+  box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+}
+
+/* Glow animations */
+@keyframes glow-movie-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px color-mix(in oklch, var(--movie-500) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--movie-500), 0 0 40px color-mix(in oklch, var(--movie-500) 50%, transparent);
+  }
+}
+
+@keyframes glow-tv-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--tv-500), 0 0 40px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  }
+}
+
+@keyframes glow-media-pulse {
+  0%, 100% {
+    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 30%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 30%, transparent);
+  }
+  50% {
+    box-shadow: -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent), 15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
+  }
+}
+
+/* Download completion flash animation */
+@keyframes download-complete-flash {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes download-complete-flash-movie {
+  0% {
+    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+  }
+  15% {
+    box-shadow: inset 0 0 30px var(--movie-500), 0 0 20px var(--movie-500);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+  }
+}
+
+@keyframes download-complete-flash-tv {
+  0% {
+    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+  }
+  15% {
+    box-shadow: inset 0 0 30px var(--tv-500), 0 0 20px var(--tv-500);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+  }
+}
+
+@keyframes download-complete-flash-media {
+  0% {
+    box-shadow: inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
+                inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
+                0 0 0 transparent;
+  }
+  15% {
+    box-shadow: inset -20px 0 30px var(--movie-500),
+                inset 20px 0 30px var(--tv-500),
+                -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+                10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+  }
+  100% {
+    box-shadow: inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
+                inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
+                0 0 0 transparent;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-200%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@keyframes progress-glow-movie {
+  0%, 100% {
+    box-shadow: 0 0 8px color-mix(in oklch, var(--movie-500) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 16px var(--movie-500);
+  }
+}
+
+@keyframes progress-glow-tv {
+  0%, 100% {
+    box-shadow: 0 0 8px color-mix(in oklch, var(--tv-500) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 16px var(--tv-500);
+  }
+}
+
+@keyframes progress-glow-media {
+  0%, 100% {
+    box-shadow: -6px 0 12px color-mix(in oklch, var(--movie-500) 30%, transparent),
+                6px 0 12px color-mix(in oklch, var(--tv-500) 30%, transparent);
+  }
+  50% {
+    box-shadow: -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+                10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+  }
+}
+
+@keyframes inset-glow-pulse-movie {
+  0%, 100% {
+    box-shadow: inset 0 0 8px color-mix(in oklch, var(--movie-500) 10%, transparent);
+  }
+  50% {
+    box-shadow: inset 0 0 20px color-mix(in oklch, var(--movie-500) 25%, transparent);
+  }
+}
+
+@keyframes inset-glow-pulse-tv {
+  0%, 100% {
+    box-shadow: inset 0 0 8px color-mix(in oklch, var(--tv-500) 10%, transparent);
+  }
+  50% {
+    box-shadow: inset 0 0 20px color-mix(in oklch, var(--tv-500) 25%, transparent);
+  }
+}
+
+@keyframes inset-glow-pulse-media {
+  0%, 100% {
+    box-shadow: inset -6px 0 10px color-mix(in oklch, var(--movie-500) 8%, transparent),
+                inset 6px 0 10px color-mix(in oklch, var(--tv-500) 8%, transparent);
+  }
+  50% {
+    box-shadow: inset -12px 0 20px color-mix(in oklch, var(--movie-500) 18%, transparent),
+                inset 12px 0 20px color-mix(in oklch, var(--tv-500) 18%, transparent);
   }
 }
 
@@ -148,6 +504,17 @@
   to {
     height: 0;
     opacity: 0;
+  }
+}
+
+@keyframes slide-down-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
