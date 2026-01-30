@@ -44,7 +44,7 @@ function ColorSwatch({ bg, shade, label }: { bg: string; shade: string; label: s
   )
 }
 
-function PaletteRow({ shades, label }: { shades: typeof MOVIE_SHADES; label: string }) {
+function PaletteRow({ shades, label }: { shades: ReadonlyArray<{ shade: string; bg: string }>; label: string }) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-foreground">{label}</h3>
