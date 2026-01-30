@@ -25,18 +25,26 @@ type QueueTrigger interface {
 	Trigger()
 }
 
+// CompletionHandler is called when downloads transition to completed state.
+type CompletionHandler interface {
+	CheckAndProcessCompletedDownloads(ctx context.Context) error
+}
+
 // QueueBroadcaster periodically polls the download queue and broadcasts updates via WebSocket.
 // Uses adaptive polling: fast when downloads are active, slow when idle.
+// When downloads complete, it triggers the completion handler for immediate import processing.
 type QueueBroadcaster struct {
-	service    *Service
-	hub        Broadcaster
-	logger     zerolog.Logger
-	stopCh     chan struct{}
-	stoppedCh  chan struct{}
-	triggerCh  chan struct{}
-	mu         sync.Mutex
-	running    bool
-	activeMode bool // true when polling at activeInterval
+	service           *Service
+	hub               Broadcaster
+	completionHandler CompletionHandler
+	logger            zerolog.Logger
+	stopCh            chan struct{}
+	stoppedCh         chan struct{}
+	triggerCh         chan struct{}
+	mu                sync.Mutex
+	running           bool
+	activeMode        bool // true when polling at activeInterval
+	processingImports bool // true when import processing is in progress
 }
 
 // NewQueueBroadcaster creates a new queue broadcaster.
@@ -46,6 +54,14 @@ func NewQueueBroadcaster(service *Service, hub Broadcaster, logger zerolog.Logge
 		hub:     hub,
 		logger:  logger.With().Str("component", "queue-broadcaster").Logger(),
 	}
+}
+
+// SetCompletionHandler sets the handler to be called when downloads complete.
+// This enables immediate import triggering when downloads transition to completed state.
+func (b *QueueBroadcaster) SetCompletionHandler(handler CompletionHandler) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.completionHandler = handler
 }
 
 // Start begins the periodic queue broadcasting.
@@ -167,6 +183,9 @@ func (b *QueueBroadcaster) broadcast() bool {
 		b.logger.Warn().Err(err).Msg("Failed to broadcast queue state")
 	}
 
+	// Check for completed downloads and trigger import processing
+	b.checkForCompletions(ctx)
+
 	// Check if any downloads are actively progressing
 	for _, item := range queue {
 		if item.Status == "downloading" || item.Status == "queued" {
@@ -174,4 +193,58 @@ func (b *QueueBroadcaster) broadcast() bool {
 		}
 	}
 	return false
+}
+
+// checkForCompletions checks for completed downloads and triggers import processing.
+// This enables immediate import when downloads complete, rather than waiting for the
+// scheduled import scan (which runs every 5 minutes).
+func (b *QueueBroadcaster) checkForCompletions(ctx context.Context) {
+	b.mu.Lock()
+	handler := b.completionHandler
+	alreadyProcessing := b.processingImports
+	b.mu.Unlock()
+
+	if handler == nil {
+		return
+	}
+
+	// Skip if we're already processing imports from a previous poll cycle
+	// This prevents spawning multiple goroutines for the same completed downloads
+	if alreadyProcessing {
+		return
+	}
+
+	// Check for completed downloads using the downloader service
+	completed, err := b.service.CheckForCompletedDownloads(ctx)
+	if err != nil {
+		b.logger.Debug().Err(err).Msg("Failed to check for completed downloads")
+		return
+	}
+
+	if len(completed) == 0 {
+		return
+	}
+
+	// Mark that we're processing imports
+	b.mu.Lock()
+	b.processingImports = true
+	b.mu.Unlock()
+
+	b.logger.Info().Int("count", len(completed)).Msg("Detected completed downloads, triggering import")
+
+	// Trigger import processing asynchronously to not block the broadcast loop
+	go func() {
+		defer func() {
+			b.mu.Lock()
+			b.processingImports = false
+			b.mu.Unlock()
+		}()
+
+		importCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := handler.CheckAndProcessCompletedDownloads(importCtx); err != nil {
+			b.logger.Warn().Err(err).Msg("Failed to process completed downloads")
+		}
+	}()
 }

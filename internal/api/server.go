@@ -501,6 +501,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Wire up notification service to import service
 	s.importService.SetNotificationDispatcher(&importNotificationAdapter{s.notificationService})
 
+	// Wire up import service to queue broadcaster for immediate import triggering
+	if s.queueBroadcaster != nil {
+		s.queueBroadcaster.SetCompletionHandler(s.importService)
+	}
+
 	// Initialize portal services
 	serverDebugLog("Initializing portal services...")
 	queries := sqlc.New(db)
