@@ -324,11 +324,14 @@ func completeUpdate(targetPath string, port int) {
 	bootstrapLog(fmt.Sprintf("Current executable: %s", currentExe))
 
 	// Wait for the old process to exit by polling the port
+	// Check multiple ports since the app may have fallen back to a different port
 	bootstrapLog("Waiting for old process to release port...")
-	if !waitForPortFree(port, 60*time.Second) {
-		bootstrapLog("Warning: Timed out waiting for port to be free, proceeding anyway")
+	portsToCheck := []int{port, port + 1, port + 2, port + 3, port + 4}
+	allPortsFree := waitForAllPortsFree(portsToCheck, 60*time.Second)
+	if !allPortsFree {
+		bootstrapLog("Warning: Timed out waiting for all ports to be free, proceeding anyway")
 	} else {
-		bootstrapLog("Port is free, old process has exited")
+		bootstrapLog("All ports are free, old process has exited")
 	}
 
 	// Determine if we're updating an app bundle (macOS) or a single file (Windows/Linux)
@@ -375,20 +378,40 @@ func completeUpdate(targetPath string, port int) {
 		// Windows/Linux: Copy single executable
 		bootstrapLog("Copying new executable to target location...")
 
-		// On Windows, try to rename the old file first (will fail if still locked)
-		if runtime.GOOS == "windows" {
-			oldExePath := targetPath + ".old"
-			if err := os.Rename(targetPath, oldExePath); err == nil {
-				bootstrapLog("Old executable renamed successfully")
-				os.Remove(oldExePath)
+		// On Windows, the file might still be locked briefly after process exit
+		// Retry the copy operation with exponential backoff
+		maxRetries := 10
+		var copyErr error
+
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			// Try to rename the old file first (will fail if still locked)
+			if runtime.GOOS == "windows" {
+				oldExePath := targetPath + ".old"
+				if err := os.Rename(targetPath, oldExePath); err == nil {
+					bootstrapLog("Old executable renamed successfully")
+					os.Remove(oldExePath)
+				} else if attempt == 1 {
+					bootstrapLog(fmt.Sprintf("Could not rename old executable: %v", err))
+				}
+			} else {
+				// On Linux, just remove the old file
+				os.Remove(targetPath)
 			}
-		} else {
-			// On Linux, just remove the old file
-			os.Remove(targetPath)
+
+			copyErr = copyFile(currentExe, targetPath)
+			if copyErr == nil {
+				break
+			}
+
+			if attempt < maxRetries {
+				delay := time.Duration(attempt) * 500 * time.Millisecond
+				bootstrapLog(fmt.Sprintf("Copy attempt %d failed: %v, retrying in %v...", attempt, copyErr, delay))
+				time.Sleep(delay)
+			}
 		}
 
-		if err := copyFile(currentExe, targetPath); err != nil {
-			bootstrapLog(fmt.Sprintf("Failed to copy executable: %v", err))
+		if copyErr != nil {
+			bootstrapLog(fmt.Sprintf("Failed to copy executable after %d attempts: %v", maxRetries, copyErr))
 			os.Exit(1)
 		}
 		bootstrapLog("Executable copied successfully")
@@ -424,6 +447,28 @@ func waitForPortFree(port int, timeout time.Duration) bool {
 			return true
 		}
 		conn.Close()
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
+func waitForAllPortsFree(ports []int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		allFree := true
+		for _, port := range ports {
+			addr := fmt.Sprintf("127.0.0.1:%d", port)
+			conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
+			if err == nil {
+				conn.Close()
+				allFree = false
+				bootstrapLog(fmt.Sprintf("Port %d still in use", port))
+				break
+			}
+		}
+		if allFree {
+			return true
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
 	return false
