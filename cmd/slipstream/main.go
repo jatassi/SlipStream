@@ -180,7 +180,7 @@ func main() {
 	// Enable log streaming via WebSocket now that hub is available
 	log.SetBroadcastHub(hub)
 
-	restartChan := make(chan struct{}, 1)
+	restartChan := make(chan bool, 1)
 	quitChan := make(chan struct{}, 1)
 	var shouldRestart bool
 
@@ -265,10 +265,10 @@ func main() {
 			bootstrapLog("Received shutdown signal")
 			log.Info().Msg("received shutdown signal")
 			app.Stop()
-		case <-restartChan:
+		case spawnNew := <-restartChan:
 			bootstrapLog("Restart requested")
 			log.Info().Msg("restarting server...")
-			shouldRestart = true
+			shouldRestart = spawnNew // Only spawn new process if not an update
 			app.Stop()
 		case <-quitChan:
 			bootstrapLog("Quit channel closed")

@@ -165,8 +165,8 @@ type Server struct {
 	// Security
 	authLimiter *authratelimit.AuthLimiter
 
-	// Restart channel for triggering server restart
-	restartChan chan<- struct{}
+	// Restart channel for triggering server restart (bool = spawn new process after shutdown)
+	restartChan chan<- bool
 
 	// Port tracking (configured vs actual after conflict resolution)
 	configuredPort int
@@ -222,7 +222,7 @@ func serverDebugLog(msg string) {
 }
 
 // NewServer creates a new API server instance.
-func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger, restartChan chan<- struct{}) *Server {
+func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Config, logger zerolog.Logger, restartChan chan<- bool) *Server {
 	serverDebugLog("Creating Echo instance...")
 	e := echo.New()
 	e.HideBanner = true
@@ -1750,7 +1750,7 @@ func (s *Server) restart(c echo.Context) error {
 	s.logger.Info().Msg("Restart requested via API")
 
 	select {
-	case s.restartChan <- struct{}{}:
+	case s.restartChan <- true: // true = spawn new process after shutdown
 		return c.JSON(http.StatusOK, map[string]string{
 			"message": "Restart initiated",
 		})

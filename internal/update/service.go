@@ -98,7 +98,7 @@ type Service struct {
 	hub            Broadcaster
 	httpClient     *http.Client
 	downloadClient *http.Client
-	restartChan    chan<- struct{}
+	restartChan    chan<- bool
 	port           int
 
 	mu            sync.RWMutex
@@ -107,7 +107,7 @@ type Service struct {
 	downloadPath  string
 }
 
-func NewService(db *sql.DB, logger zerolog.Logger, restartChan chan<- struct{}) *Service {
+func NewService(db *sql.DB, logger zerolog.Logger, restartChan chan<- bool) *Service {
 	return &Service{
 		db:     db,
 		logger: logger.With().Str("service", "update").Logger(),
@@ -581,7 +581,7 @@ func (s *Service) installUpdate(ctx context.Context, downloadPath string) error 
 	go func() {
 		time.Sleep(2 * time.Second)
 		if s.restartChan != nil {
-			s.restartChan <- struct{}{}
+			s.restartChan <- false // false = don't spawn new process, updater handles it
 		}
 	}()
 
