@@ -1141,7 +1141,7 @@ func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context
 	}
 
 	// Movie not in library - get default settings and create it
-	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx)
+	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx, "movie")
 	if err != nil {
 		return 0, fmt.Errorf("failed to get default settings: %w", err)
 	}
@@ -1177,7 +1177,7 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 	}
 
 	// Series not in library - get default settings and create it
-	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx)
+	rootFolderID, qualityProfileID, err := a.getDefaultSettings(ctx, "tv")
 	if err != nil {
 		return 0, fmt.Errorf("failed to get default settings: %w", err)
 	}
@@ -1210,22 +1210,92 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 		}
 	}
 
+	// Apply requested seasons monitoring if specific seasons were requested
+	if len(input.RequestedSeasons) > 0 {
+		if err := a.applyRequestedSeasonsMonitoring(ctx, series.ID, input.RequestedSeasons); err != nil {
+			a.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to apply requested seasons monitoring")
+		}
+	}
+
 	return series.ID, nil
 }
 
-func (a *portalMediaProvisionerAdapter) getDefaultSettings(ctx context.Context) (rootFolderID, qualityProfileID int64, err error) {
-	// Get default root folder from settings
-	if setting, err := a.queries.GetSetting(ctx, "requests_default_root_folder_id"); err == nil && setting.Value != "" {
+// applyRequestedSeasonsMonitoring unmonitors all seasons except the requested ones.
+func (a *portalMediaProvisionerAdapter) applyRequestedSeasonsMonitoring(ctx context.Context, seriesID int64, requestedSeasons []int64) error {
+	// Get all seasons for the series
+	seasons, err := a.tvService.ListSeasons(ctx, seriesID)
+	if err != nil {
+		return fmt.Errorf("failed to get seasons: %w", err)
+	}
+
+	// Build a set of requested season numbers for quick lookup
+	requestedSet := make(map[int64]bool)
+	for _, sn := range requestedSeasons {
+		requestedSet[sn] = true
+	}
+
+	// Update monitoring for each season
+	for _, season := range seasons {
+		shouldMonitor := requestedSet[int64(season.SeasonNumber)]
+
+		if season.Monitored != shouldMonitor {
+			if _, err := a.tvService.UpdateSeasonMonitored(ctx, seriesID, season.SeasonNumber, shouldMonitor); err != nil {
+				a.logger.Warn().
+					Err(err).
+					Int64("seriesID", seriesID).
+					Int("seasonNumber", season.SeasonNumber).
+					Bool("monitored", shouldMonitor).
+					Msg("failed to update season monitoring")
+			} else {
+				a.logger.Debug().
+					Int64("seriesID", seriesID).
+					Int("seasonNumber", season.SeasonNumber).
+					Bool("monitored", shouldMonitor).
+					Msg("updated season monitoring")
+			}
+		}
+	}
+
+	a.logger.Info().
+		Int64("seriesID", seriesID).
+		Interface("requestedSeasons", requestedSeasons).
+		Msg("applied requested seasons monitoring")
+
+	return nil
+}
+
+func (a *portalMediaProvisionerAdapter) getDefaultSettings(ctx context.Context, mediaType string) (rootFolderID, qualityProfileID int64, err error) {
+	// Get default root folder from settings (media type specific)
+	settingKey := "requests_default_root_folder_id"
+	if mediaType == "tv" {
+		settingKey = "requests_default_tv_root_folder_id"
+	} else if mediaType == "movie" {
+		settingKey = "requests_default_movie_root_folder_id"
+	}
+
+	if setting, err := a.queries.GetSetting(ctx, settingKey); err == nil && setting.Value != "" {
 		if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
 			rootFolderID = v
 		}
 	}
 
-	// If no default root folder set, try to get the first available one
+	// Fall back to generic default if media-type specific not set
 	if rootFolderID == 0 {
-		rootFolders, err := a.queries.ListRootFolders(ctx)
+		if setting, err := a.queries.GetSetting(ctx, "requests_default_root_folder_id"); err == nil && setting.Value != "" {
+			if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
+				// Verify this root folder is for the correct media type
+				if rf, rfErr := a.queries.GetRootFolder(ctx, v); rfErr == nil && rf.MediaType == mediaType {
+					rootFolderID = v
+				}
+			}
+		}
+	}
+
+	// If no default root folder set, try to get the first available one for this media type
+	if rootFolderID == 0 {
+		rootFolders, err := a.queries.ListRootFoldersByMediaType(ctx, mediaType)
 		if err != nil || len(rootFolders) == 0 {
-			return 0, 0, errors.New("no root folder configured - please set a default root folder in request settings")
+			return 0, 0, fmt.Errorf("no %s root folder configured - please configure a root folder for %s content", mediaType, mediaType)
 		}
 		rootFolderID = rootFolders[0].ID
 	}

@@ -100,6 +100,13 @@ func (s *Service) GetStatus(ctx context.Context, indexerID int64) (*IndexerStatu
 
 // RecordSuccess records a successful operation and clears any failure state.
 func (s *Service) RecordSuccess(ctx context.Context, indexerID int64) error {
+	// Check if indexer exists locally before recording status.
+	// In Prowlarr mode, indexer IDs come from Prowlarr and don't exist in the local database.
+	if !s.indexerExists(ctx, indexerID) {
+		s.logger.Debug().Int64("indexerId", indexerID).Msg("Skipping status update - indexer not in local database")
+		return nil
+	}
+
 	// Clear any existing failure state
 	if err := s.queries.ClearIndexerFailure(ctx, indexerID); err != nil {
 		return fmt.Errorf("failed to clear failure state: %w", err)
@@ -115,8 +122,21 @@ func (s *Service) RecordSuccess(ctx context.Context, indexerID int64) error {
 	return nil
 }
 
+// indexerExists checks if an indexer exists in the local database.
+func (s *Service) indexerExists(ctx context.Context, indexerID int64) bool {
+	_, err := s.queries.GetIndexer(ctx, indexerID)
+	return err == nil
+}
+
 // RecordFailure records a failed operation with escalating backoff.
 func (s *Service) RecordFailure(ctx context.Context, indexerID int64, opError error) error {
+	// Check if indexer exists locally before recording status.
+	// In Prowlarr mode, indexer IDs come from Prowlarr and don't exist in the local database.
+	if !s.indexerExists(ctx, indexerID) {
+		s.logger.Debug().Int64("indexerId", indexerID).Msg("Skipping failure recording - indexer not in local database")
+		return nil
+	}
+
 	now := time.Now()
 
 	// Get current status

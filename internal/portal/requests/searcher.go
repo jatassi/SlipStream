@@ -27,7 +27,8 @@ type MediaProvisionInput struct {
 	TvdbID           int64
 	Title            string
 	Year             int
-	QualityProfileID *int64 // Optional: user's assigned quality profile
+	QualityProfileID *int64  // Optional: user's assigned quality profile
+	RequestedSeasons []int64 // Optional: specific seasons to monitor (empty = all seasons)
 }
 
 type MediaProvisioner interface {
@@ -243,6 +244,7 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 			return 0, errors.New("series request missing tvdbID")
 		}
 		input.TvdbID = *request.TvdbID
+		input.RequestedSeasons = request.RequestedSeasons
 		return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, input)
 
 	default:

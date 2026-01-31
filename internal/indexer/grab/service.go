@@ -439,6 +439,13 @@ func (s *Service) recordFailure(ctx context.Context, indexerID int64, opError er
 
 // recordGrabHistory records the grab in indexer history.
 func (s *Service) recordGrabHistory(ctx context.Context, req GrabRequest, client *downloader.DownloadClient, downloadID string) {
+	// Check if the indexer exists locally before recording history.
+	// In Prowlarr mode, indexer IDs come from Prowlarr and don't exist in the local database.
+	if _, err := s.queries.GetIndexer(ctx, req.Release.IndexerID); err != nil {
+		s.logger.Debug().Int64("indexerId", req.Release.IndexerID).Msg("Skipping grab history - indexer not in local database (likely Prowlarr mode)")
+		return
+	}
+
 	_, err := s.queries.CreateIndexerHistoryEvent(ctx, sqlc.CreateIndexerHistoryEventParams{
 		IndexerID:    req.Release.IndexerID,
 		EventType:    "grab",

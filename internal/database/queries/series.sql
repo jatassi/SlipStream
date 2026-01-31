@@ -283,7 +283,7 @@ SELECT
     s.id,
     s.status,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT GROUP_CONCAT(season_number) FROM (
+    CAST(COALESCE((SELECT GROUP_CONCAT(season_number) FROM (
         SELECT sea.season_number
         FROM seasons sea
         WHERE sea.series_id = s.id AND sea.season_number > 0
@@ -291,7 +291,7 @@ SELECT
         AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
             = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
         ORDER BY sea.season_number
-    )) as available_seasons
+    )), '') AS TEXT) as available_seasons
 FROM series s
 WHERE s.id = ?;
 
@@ -300,7 +300,7 @@ SELECT
     s.id,
     s.status,
     (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    (SELECT GROUP_CONCAT(season_number) FROM (
+    CAST(COALESCE((SELECT GROUP_CONCAT(season_number) FROM (
         SELECT sea.season_number
         FROM seasons sea
         WHERE sea.series_id = s.id AND sea.season_number > 0
@@ -308,7 +308,7 @@ SELECT
         AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
             = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
         ORDER BY sea.season_number
-    )) as available_seasons
+    )), '') AS TEXT) as available_seasons
 FROM series s;
 
 -- Missing episodes queries (respects cascading monitoring: series -> season -> episode)

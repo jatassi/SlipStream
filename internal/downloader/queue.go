@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/mock"
@@ -78,10 +79,16 @@ func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
 // enrichQueueItemsWithMappings populates library IDs on queue items from download_mappings.
 // Req 10.1.1: Queue shows raw downloads with mapped media
 // Req 10.1.2: Target slot info shown inline with each queue item
-func (s *Service) enrichQueueItemsWithMappings(ctx context.Context, items []QueueItem) {
+func (s *Service) enrichQueueItemsWithMappings(_ context.Context, items []QueueItem) {
 	if len(items) == 0 {
 		return
 	}
+
+	// Use a fresh context with its own timeout for the database queries.
+	// The parent context may be nearly exhausted from slow download client responses,
+	// but this enrichment is non-critical and shouldn't fail the entire queue fetch.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	// Get all active download mappings
 	mappings, err := s.queries.ListActiveDownloadMappings(ctx)
