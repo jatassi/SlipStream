@@ -42,6 +42,9 @@ var (
 	tvPatternSE = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss](\d{1,2})[Ee](\d{1,2})(?:[Ee](\d{1,2}))?[\.\s_-]*(.*)$`)
 	tvPatternX  = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+(\d{1,2})[xX](\d{1,2})[\.\s_-]*(.*)$`)
 
+	// TV pattern with spelled out Season and Episode: Show.Season.1.Episode.01
+	tvPatternSeasonEpisodeSpelled = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss]eason[\.\s_-]+(\d{1,2})[\.\s_-]+[Ee]pisode[\.\s_-]+(\d{1,2})[\.\s_-]*(.*)$`)
+
 	// TV season pack pattern: Show.S01 (no episode number - for season packs/boxsets)
 	tvPatternSeasonPack = regexp.MustCompile(`(?i)^(.+?)[\.\s_-]+[Ss](\d{1,2})(?:[\.\s_-]|$)(.*)$`)
 
@@ -221,6 +224,16 @@ func ParseFilename(filename string) *ParsedMedia {
 	}
 
 	if match := tvPatternX.FindStringSubmatch(name); match != nil {
+		parsed.IsTV = true
+		parsed.Title = cleanTitle(match[1])
+		parsed.Season, _ = strconv.Atoi(match[2])
+		parsed.Episode, _ = strconv.Atoi(match[3])
+		parseQualityInfo(match[4], parsed)
+		return parsed
+	}
+
+	// Try spelled out Season and Episode pattern: Show.Season.1.Episode.01
+	if match := tvPatternSeasonEpisodeSpelled.FindStringSubmatch(name); match != nil {
 		parsed.IsTV = true
 		parsed.Title = cleanTitle(match[1])
 		parsed.Season, _ = strconv.Atoi(match[2])

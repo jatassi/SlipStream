@@ -63,6 +63,14 @@ func TestParseFilename_TVShow_SEFormat(t *testing.T) {
 			wantEp:     9,
 			wantIsTV:   true,
 		},
+		{
+			name:       "spelled out Season and Episode",
+			filename:   "Breaking.Bad.Season.1.Episode.01.Pilot.2160P.BluRay.mkv",
+			wantTitle:  "Breaking Bad",
+			wantSeason: 1,
+			wantEp:     1,
+			wantIsTV:   true,
+		},
 	}
 
 	for _, tt := range tests {
