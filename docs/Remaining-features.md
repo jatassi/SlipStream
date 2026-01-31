@@ -12,9 +12,9 @@
 [x] Passkeys
 [x] Web app settings (port, auth, https, etc)
 [x] Settings re-org
-[ ] Update mechanism, Production-Readiness
+[x] Update mechanism, Production-Readiness
 ======== Ready for Dogfooding ========
-[ ] Logo and color palette
+[*] Logo and color palette
 [ ] Update dashboard
 [ ] Update history page
 [x] Update active task UI
@@ -24,7 +24,7 @@
 [ ] Support for more download clients and indexers (directly refer to *arr codebases)
 [ ] Config backup & restore
 [ ] Simplification, Refactor, Enhanced Test Suite, Security Audit
-[ ] Onboarding wizard
+[ ] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========
 [ ] Transcode during import (integrate with slots - FFMPEG frontend)
 [ ] TRaSH Guides import support (maybe load as default?)

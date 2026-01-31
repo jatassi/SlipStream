@@ -45,16 +45,31 @@ func NewGrabProvider(
 // For Prowlarr mode with ID 0 (or when mode check indicates Prowlarr), returns a Prowlarr client wrapper.
 // Otherwise, delegates to the internal indexer provider.
 func (p *GrabProvider) GetClient(ctx context.Context, id int64) (indexer.Indexer, error) {
-	// Check if this is a Prowlarr release (ID 0) or if we're in Prowlarr mode
-	isProwlarrRelease := id == ProwlarrIndexerID
-
-	if isProwlarrRelease {
+	// Check if this is explicitly a Prowlarr release (ID 0)
+	if id == ProwlarrIndexerID {
 		p.logger.Debug().Int64("indexerId", id).Msg("Returning Prowlarr client for grab")
 		return NewGrabClient(p.prowlarrService, p.logger), nil
 	}
 
-	// For non-Prowlarr releases, use the internal provider
-	return p.internalProvider.GetClient(ctx, id)
+	// Try the internal provider first
+	client, err := p.internalProvider.GetClient(ctx, id)
+	if err == nil {
+		return client, nil
+	}
+
+	// Internal provider failed - check if Prowlarr mode is enabled
+	// If so, the release likely came from a Prowlarr indexer (where IndexerID is the Prowlarr indexer ID)
+	isProwlarrEnabled, modeErr := p.modeManager.IsProwlarrMode(ctx)
+	if modeErr == nil && isProwlarrEnabled {
+		p.logger.Debug().
+			Int64("indexerId", id).
+			Err(err).
+			Msg("Internal indexer not found, using Prowlarr client for grab")
+		return NewGrabClient(p.prowlarrService, p.logger), nil
+	}
+
+	// Not in Prowlarr mode, return the original error
+	return nil, err
 }
 
 // GrabClient wraps the Prowlarr service to implement the indexer.Indexer interface

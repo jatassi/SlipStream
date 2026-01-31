@@ -276,6 +276,10 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 
 	var details TVDetails
 	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		// Convert generic "movie not found" to "series not found" for TV endpoints
+		if errors.Is(err, ErrMovieNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 
@@ -394,6 +398,9 @@ func (c *Client) GetSeasonDetails(ctx context.Context, seriesID, seasonNumber in
 
 	var details SeasonDetails
 	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 
@@ -421,6 +428,9 @@ func (c *Client) GetAllSeasons(ctx context.Context, seriesID int) ([]NormalizedS
 
 	var details TVDetails
 	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 
@@ -804,6 +814,9 @@ func (c *Client) GetSeriesCredits(ctx context.Context, id int) (*NormalizedCredi
 
 	var details TVDetails
 	if err := c.doRequest(ctx, endpoint, params, &details); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 
@@ -814,6 +827,9 @@ func (c *Client) GetSeriesCredits(ctx context.Context, id int) (*NormalizedCredi
 
 	var creditsResponse CreditsResponse
 	if err := c.doRequest(ctx, creditsEndpoint, creditsParams, &creditsResponse); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 
@@ -870,6 +886,9 @@ func (c *Client) GetSeriesContentRating(ctx context.Context, id int) (string, er
 
 	var response ContentRatingsResponse
 	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return "", ErrSeriesNotFound
+		}
 		return "", err
 	}
 

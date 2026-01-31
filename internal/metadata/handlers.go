@@ -178,7 +178,8 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 	return c.JSON(http.StatusOK, results)
 }
 
-// GetSeries gets series details by ID (defaults to TMDB).
+// GetSeries gets series details by ID.
+// Tries TMDB first, then falls back to TVDB if the ID might be a TVDB ID.
 // GET /api/v1/metadata/series/:id
 func (h *Handlers) GetSeries(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -186,19 +187,31 @@ func (h *Handlers) GetSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
-	// Default to TMDB as that's what search results return
-	result, err := h.service.GetSeriesByTMDB(c.Request().Context(), id)
-	if err != nil {
-		if errors.Is(err, ErrNoProvidersConfigured) {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
-		}
-		if errors.Is(err, ErrNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "series not found")
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	ctx := c.Request().Context()
+
+	// Try TMDB first
+	result, err := h.service.GetSeriesByTMDB(ctx, id)
+	if err == nil {
+		return c.JSON(http.StatusOK, result)
 	}
 
-	return c.JSON(http.StatusOK, result)
+	// If TMDB failed (likely 404), try TVDB as the ID might be a TVDB ID
+	// This happens when search results come from TVDB
+	if h.service.IsTVDBConfigured() {
+		tvdbResult, tvdbErr := h.service.GetSeriesByTVDB(ctx, id)
+		if tvdbErr == nil {
+			return c.JSON(http.StatusOK, tvdbResult)
+		}
+	}
+
+	// Both failed, return appropriate error
+	if errors.Is(err, ErrNoProvidersConfigured) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata providers configured")
+	}
+	if errors.Is(err, ErrNotFound) {
+		return echo.NewHTTPError(http.StatusNotFound, "series not found")
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }
 
 // GetExtendedSeries gets extended series info including credits, ratings, seasons, and content rating.

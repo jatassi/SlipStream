@@ -66,6 +66,22 @@ func (s *Service) matchToLibraryWithSettings(ctx context.Context, path string, m
 					Msg("Queue mapping doesn't match parsed info, failing import")
 				return nil, ErrMatchConflict
 			}
+		} else {
+			// Matches are compatible - enrich queue match with episode info from parsed match
+			// This is important for season packs where the mapping has SeriesID but not EpisodeID
+			if queueMatch.MediaType == "episode" && queueMatch.EpisodeID == nil && parsedMatch.EpisodeID != nil {
+				queueMatch.EpisodeID = parsedMatch.EpisodeID
+				queueMatch.EpisodeIDs = parsedMatch.EpisodeIDs
+				if parsedMatch.SeasonNum != nil {
+					queueMatch.SeasonNum = parsedMatch.SeasonNum
+				}
+				// Also copy upgrade info if available from parsed match
+				if parsedMatch.IsUpgrade {
+					queueMatch.IsUpgrade = parsedMatch.IsUpgrade
+					queueMatch.ExistingFile = parsedMatch.ExistingFile
+					queueMatch.ExistingFileID = parsedMatch.ExistingFileID
+				}
+			}
 		}
 	}
 
@@ -111,6 +127,18 @@ func (s *Service) matchFromMapping(ctx context.Context, mapping *DownloadMapping
 		if mapping.EpisodeID != nil {
 			match.EpisodeID = mapping.EpisodeID
 		}
+
+		// Get series to find root folder
+		series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
+		if err == nil && series.Path != "" {
+			match.RootFolder = series.Path
+		}
+	} else if (mapping.MediaType == "season" || mapping.MediaType == "series") && mapping.SeriesID != nil {
+		// Season packs and complete series: treat each file as an episode import
+		// The episode ID will be determined by parsing the filename and matching to the series
+		match.MediaType = "episode"
+		match.SeriesID = mapping.SeriesID
+		match.SeasonNum = mapping.SeasonNumber
 
 		// Get series to find root folder
 		series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
