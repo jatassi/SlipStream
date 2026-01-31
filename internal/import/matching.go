@@ -174,6 +174,9 @@ var (
 	tvPattern1 = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss](\d{1,2})[Ee](\d{1,2})`)
 	tvPattern2 = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+(\d{1,2})x(\d{1,2})`)
 
+	// Spelled out: Show.Season.1.Episode.01
+	tvPatternSpelled = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss]eason[.\s_-]+(\d{1,2})[.\s_-]+[Ee]pisode[.\s_-]+(\d{1,2})`)
+
 	// Multi-episode: S01E01-E03, S01E01E02E03
 	multiEpPattern = regexp.MustCompile(`(?i)[Ss](\d{1,2})[Ee](\d{1,2})(?:[Ee-](\d{1,2}))+`)
 
@@ -194,6 +197,11 @@ func (s *Service) matchTVFromParse(ctx context.Context, filename string) *Librar
 		season, _ = strconv.Atoi(matches[2])
 		episode, _ = strconv.Atoi(matches[3])
 	} else if matches := tvPattern2.FindStringSubmatch(filename); len(matches) >= 4 {
+		seriesTitle = cleanTitle(matches[1])
+		season, _ = strconv.Atoi(matches[2])
+		episode, _ = strconv.Atoi(matches[3])
+	} else if matches := tvPatternSpelled.FindStringSubmatch(filename); len(matches) >= 4 {
+		// Spelled out: Show.Season.1.Episode.01
 		seriesTitle = cleanTitle(matches[1])
 		season, _ = strconv.Atoi(matches[2])
 		episode, _ = strconv.Atoi(matches[3])
