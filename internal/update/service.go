@@ -660,10 +660,6 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 		Int("port", s.port).
 		Msg("Launching updater to replace executable")
 
-	// Check if target is in a protected location requiring elevation
-	needsElevation := requiresElevation(currentExe)
-	s.logger.Info().Bool("needsElevation", needsElevation).Msg("Checked elevation requirement")
-
 	// On Windows, antivirus software (like Windows Defender) may scan newly extracted
 	// executables, temporarily locking them. Retry with delays to wait for the scan.
 	var cmd *exec.Cmd
@@ -672,17 +668,7 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 	retryDelay := 500 * time.Millisecond
 
 	for i := 0; i < maxRetries; i++ {
-		if needsElevation {
-			// Use PowerShell to launch with elevation (triggers UAC prompt)
-			// The -Wait flag ensures PowerShell waits, but we use Start() so we don't block
-			psArgs := fmt.Sprintf(
-				"Start-Process -FilePath '%s' -ArgumentList '--complete-update','\"%s\"','%d' -Verb RunAs",
-				newExePath, currentExe, s.port,
-			)
-			cmd = exec.Command("powershell", "-Command", psArgs)
-		} else {
-			cmd = exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
-		}
+		cmd = exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
 		cmd.Dir = filepath.Dir(newExePath)
 		startErr = cmd.Start()
 		if startErr == nil {
@@ -702,38 +688,6 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 
 	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
 	return nil
-}
-
-// requiresElevation checks if the target path is in a protected Windows location
-func requiresElevation(targetPath string) bool {
-	// Normalize path for comparison
-	targetPath = strings.ToLower(filepath.Clean(targetPath))
-
-	// Common protected locations on Windows
-	protectedPrefixes := []string{
-		`c:\program files\`,
-		`c:\program files (x86)\`,
-		`c:\windows\`,
-	}
-
-	// Also check via environment variables for localized Windows installs
-	if programFiles := os.Getenv("ProgramFiles"); programFiles != "" {
-		protectedPrefixes = append(protectedPrefixes, strings.ToLower(programFiles)+`\`)
-	}
-	if programFilesX86 := os.Getenv("ProgramFiles(x86)"); programFilesX86 != "" {
-		protectedPrefixes = append(protectedPrefixes, strings.ToLower(programFilesX86)+`\`)
-	}
-	if winDir := os.Getenv("WINDIR"); winDir != "" {
-		protectedPrefixes = append(protectedPrefixes, strings.ToLower(winDir)+`\`)
-	}
-
-	for _, prefix := range protectedPrefixes {
-		if strings.HasPrefix(targetPath, prefix) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
