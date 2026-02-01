@@ -15,6 +15,7 @@ export function PortalHeader() {
   const searchParams = new URLSearchParams(location.search)
   const currentQuery = searchParams.get('q') || ''
   const [searchInput, setSearchInput] = useState(currentQuery)
+  const [searchFocused, setSearchFocused] = useState(false)
 
   // Keep search input in sync with URL query
   useEffect(() => {
@@ -31,26 +32,28 @@ export function PortalHeader() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
       <Link to="/requests" className="flex items-center gap-1.5 md:gap-2 font-semibold text-base md:text-lg shrink-0">
-        <div className="size-7 md:size-8 rounded bg-primary/20 flex items-center justify-center text-primary font-bold text-xs md:text-sm">
+        <div className="size-7 md:size-8 rounded bg-media-gradient flex items-center justify-center text-white font-bold text-xs md:text-sm glow-media-sm">
           SS
         </div>
-        <span className={isSearchPage ? 'hidden sm:inline' : ''}>SlipStream</span>
+        <span className={`text-media-gradient ${isSearchPage ? 'hidden sm:inline' : ''}`}>SlipStream</span>
       </Link>
 
       {isSearchPage && (
         <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-2 sm:mx-8">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className={`relative rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}>
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
             <Input
               type="text"
               placeholder="Search movies and series..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               className="pl-10 pr-10"
             />
             <button
               type="submit"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
             >
               <ArrowRight className="size-4" />
             </button>

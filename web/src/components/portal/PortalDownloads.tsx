@@ -9,6 +9,7 @@ function DownloadRow({ download }: { download: PortalDownload }) {
   const isActive = download.status === 'downloading'
   const isPaused = download.status === 'paused'
   const isComplete = Math.round(download.progress) >= 100
+  const isMovie = download.mediaType === 'movie'
 
   const title = download.requestTitle || download.title
   const season = download.mediaType === 'series' && download.seasonNumber != null
@@ -17,14 +18,16 @@ function DownloadRow({ download }: { download: PortalDownload }) {
   const fullTitle = season ? `${title} ${season}` : title
 
   return (
-    <div className="flex items-center gap-1.5 md:gap-2 sm:gap-3 px-2 md:px-3 sm:px-4 py-1.5 md:py-2 border-b border-border last:border-b-0 bg-card/50">
-      <Download className="size-3 md:size-4 text-primary shrink-0" />
+    <div className={`flex items-center gap-1.5 md:gap-2 sm:gap-3 px-2 md:px-3 sm:px-4 py-1.5 md:py-2 border-b last:border-b-0 ${
+      isMovie ? 'border-movie-500/20 bg-movie-500/5' : 'border-tv-500/20 bg-tv-500/5'
+    }`}>
+      <Download className={`size-3 md:size-4 shrink-0 ${isMovie ? 'text-movie-400' : 'text-tv-400'}`} />
       <span className="text-xs md:text-sm font-medium truncate min-w-0 flex-1" title={fullTitle}>
         {title}
         {season && <span className="text-muted-foreground font-normal"> {season}</span>}
       </span>
       <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-        <Progress value={download.progress} className="w-16 md:w-20 sm:w-48 h-1 md:h-1.5" />
+        <Progress value={download.progress} variant={isMovie ? 'movie' : 'tv'} className="w-16 md:w-20 sm:w-48 h-1 md:h-1.5" />
         <span className="text-[10px] md:text-xs text-muted-foreground w-7 md:w-8 sm:w-10 text-right">
           {Math.round(download.progress)}%
         </span>

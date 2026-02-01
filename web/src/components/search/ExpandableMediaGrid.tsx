@@ -65,13 +65,14 @@ export function ExpandableMediaGrid<T>({
   const visibleItems = expanded ? items : items.slice(0, initialCount)
   const hasMore = items.length > initialCount
   const Icon = icon === 'movie' ? Film : icon === 'series' ? Tv : null
+  const themeColor = icon === 'movie' ? 'text-movie-400' : icon === 'series' ? 'text-tv-400' : ''
 
   return (
     <div className="space-y-3">
       {showHeader && (
         <div
-          className={`flex items-center gap-2 text-sm text-muted-foreground ${
-            collapsible && hasMore ? 'cursor-pointer hover:text-foreground' : ''
+          className={`flex items-center gap-2 text-sm ${themeColor || 'text-muted-foreground'} ${
+            collapsible && hasMore ? 'cursor-pointer hover:brightness-125' : ''
           } transition-all duration-200`}
           onClick={collapsible && hasMore ? () => setExpanded(!expanded) : undefined}
         >
@@ -80,7 +81,7 @@ export function ExpandableMediaGrid<T>({
               className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
             />
           ) : Icon ? (
-            <Icon className="size-4" />
+            <Icon className={`size-4 ${icon === 'movie' ? 'icon-glow-movie' : icon === 'series' ? 'icon-glow-tv' : ''}`} />
           ) : null}
           <span>
             {label} ({items.length})

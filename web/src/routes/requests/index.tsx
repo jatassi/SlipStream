@@ -33,6 +33,7 @@ const STATUS_CONFIG: Record<RequestStatus, { label: string; icon: React.ReactNod
 export function RequestsListPage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [filter, setFilter] = useState<'mine' | 'all'>('mine')
   const { data: requests = [], isLoading } = useRequests({ scope: filter })
 
@@ -54,21 +55,23 @@ export function RequestsListPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Search Section */}
-      <section className="flex flex-col items-center justify-center py-8 border-b border-border bg-gradient-to-b from-primary/5 to-transparent">
+      <section className="flex flex-col items-center justify-center py-8 border-b border-border bg-gradient-to-b from-movie-500/5 via-transparent to-tv-500/5">
         <div className="w-full max-w-2xl px-6 space-y-4">
           <div className="text-center space-y-1">
-            <Search className="size-10 mx-auto text-primary/60" />
+            <Search className="size-10 mx-auto text-media-gradient" />
             <h2 className="text-xl font-semibold">Search for Content</h2>
             <p className="text-sm text-muted-foreground">Find movies and TV series to request</p>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className={`relative flex-1 rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}>
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
               <Input
                 type="text"
                 placeholder="Search movies and series..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 className="pl-10 h-11"
               />
             </div>
@@ -157,10 +160,16 @@ function RequestCard({ request, showUser, onClick }: RequestCardProps) {
   const isPaused = matchingDownloads.length > 0 && matchingDownloads.every(d => d.status === 'paused')
   const isComplete = Math.round(progress) >= 100
 
+  const isMovie = request.mediaType === 'movie'
+
   return (
     <button
       onClick={onClick}
-      className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors w-full text-left"
+      className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-card transition-all w-full text-left ${
+        isMovie
+          ? 'border-movie-500/20 hover:border-movie-500/50 hover:glow-movie-sm'
+          : 'border-tv-500/20 hover:border-tv-500/50 hover:glow-tv-sm'
+      }`}
     >
       <div className="flex-shrink-0 w-12 h-18 rounded overflow-hidden">
         <PosterImage
@@ -189,7 +198,12 @@ function RequestCard({ request, showUser, onClick }: RequestCardProps) {
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap mt-0.5">
-          <Badge variant="outline" className="text-xs capitalize">
+          <Badge
+            variant="outline"
+            className={`text-xs capitalize ${
+              isMovie ? 'border-movie-500/50 text-movie-400' : 'border-tv-500/50 text-tv-400'
+            }`}
+          >
             {request.mediaType}
           </Badge>
           {request.mediaType === 'series' && (
@@ -219,7 +233,7 @@ function RequestCard({ request, showUser, onClick }: RequestCardProps) {
         </div>
         {hasActiveDownload && (
           <div className="mt-2 max-w-48">
-            <Progress value={progress} className="h-1.5" />
+            <Progress value={progress} variant={isMovie ? 'movie' : 'tv'} className="h-1.5" />
             <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
               <span>{Math.round(progress)}%</span>
               <span>{isComplete ? 'Importing' : isPaused ? 'Paused' : isActive ? formatEta(eta) : 'Queued'}</span>

@@ -111,9 +111,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-t-2 border-t-transparent" style={{ borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }}>
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl text-media-gradient">Welcome Back</CardTitle>
           <CardDescription>Sign in to your SlipStream account</CardDescription>
         </CardHeader>
         <CardContent>

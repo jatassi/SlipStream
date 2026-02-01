@@ -128,9 +128,9 @@ export function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-t-2 border-t-transparent" style={{ borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }}>
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome, {invitation.username}!</CardTitle>
+          <CardTitle className="text-2xl text-media-gradient">Welcome, {invitation.username}!</CardTitle>
           <CardDescription>Create a 4-digit PIN to secure your account</CardDescription>
         </CardHeader>
         <CardContent>

@@ -137,6 +137,7 @@ export function RequestDetailPage() {
   const statusConfig = STATUS_CONFIG[request.status]
   const isOwner = request.userId === user?.id
   const canCancel = isOwner && request.status === 'pending'
+  const isMovie = request.mediaType === 'movie'
 
   return (
     <div className="max-w-4xl mx-auto pt-6 px-6 space-y-6">
@@ -168,11 +169,11 @@ export function RequestDetailPage() {
         )}
       </div>
 
-      <Card>
+      <Card className={isMovie ? 'border-movie-500/30' : 'border-tv-500/30'}>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
+              <div className={`w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 ${isMovie ? 'glow-movie-sm' : 'glow-tv-sm'}`}>
                 <PosterImage
                   url={request.posterUrl}
                   alt={request.title}
@@ -186,7 +187,7 @@ export function RequestDetailPage() {
                   {request.year && <span className="text-muted-foreground ml-2">({request.year})</span>}
                 </CardTitle>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="outline" className="capitalize">{request.mediaType}</Badge>
+                  <Badge variant="outline" className={`capitalize ${isMovie ? 'border-movie-500/50 text-movie-400' : 'border-tv-500/50 text-tv-400'}`}>{request.mediaType}</Badge>
                   {request.seasonNumber && (
                     <Badge variant="outline">Season {request.seasonNumber}</Badge>
                   )}
@@ -209,9 +210,9 @@ export function RequestDetailPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {hasActiveDownload && (
-            <div className="px-2 py-3 rounded-lg bg-purple-500/10 border border-purple-500/20 space-y-2">
+            <div className={`px-2 py-3 rounded-lg space-y-2 ${isMovie ? 'bg-movie-500/10 border border-movie-500/20' : 'bg-tv-500/10 border border-tv-500/20'}`}>
               <div className="flex items-center justify-between text-xs md:text-sm">
-                <span className="font-medium text-purple-400 flex items-center gap-1 md:gap-2">
+                <span className={`font-medium flex items-center gap-1 md:gap-2 ${isMovie ? 'text-movie-400' : 'text-tv-400'}`}>
                   <Download className="size-3 md:size-4" />
                   Download Progress
                 </span>
@@ -219,7 +220,7 @@ export function RequestDetailPage() {
                   {isComplete ? 'Importing' : isPaused ? 'Paused' : isActive ? formatEta(eta) : 'Queued'}
                 </span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} variant={isMovie ? 'movie' : 'tv'} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{Math.round(progress)}%</span>
                 {isComplete ? (

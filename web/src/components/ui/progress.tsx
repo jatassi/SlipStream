@@ -2,12 +2,26 @@ import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 
 import { cn } from "@/lib/utils"
 
+type ProgressVariant = "default" | "movie" | "tv" | "media"
+
+const indicatorVariants: Record<ProgressVariant, string> = {
+  default: "bg-primary",
+  movie: "bg-movie-500",
+  tv: "bg-tv-500",
+  media: "bg-media-gradient",
+}
+
+interface ProgressProps extends ProgressPrimitive.Root.Props {
+  variant?: ProgressVariant
+}
+
 function Progress({
   className,
   children,
   value,
+  variant = "default",
   ...props
-}: ProgressPrimitive.Root.Props) {
+}: ProgressProps) {
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -17,7 +31,7 @@ function Progress({
     >
       {children}
       <ProgressTrack>
-        <ProgressIndicator />
+        <ProgressIndicator className={indicatorVariants[variant]} />
       </ProgressTrack>
     </ProgressPrimitive.Root>
   )
