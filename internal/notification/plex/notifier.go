@@ -57,11 +57,11 @@ func (n *Notifier) Test(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
 
-	if err := n.client.TestConnection(ctx, serverURL, n.settings.AuthToken); err != nil {
+	if err := n.client.TestConnectionWithClientID(ctx, serverURL, n.settings.AuthToken, n.settings.ClientID); err != nil {
 		return fmt.Errorf("failed to connect to Plex server: %w", err)
 	}
 
-	sections, err := n.client.GetLibrarySections(ctx, serverURL, n.settings.AuthToken)
+	sections, err := n.client.GetLibrarySectionsWithClientID(ctx, serverURL, n.settings.AuthToken, n.settings.ClientID)
 	if err != nil {
 		return fmt.Errorf("failed to get library sections: %w", err)
 	}
@@ -109,7 +109,7 @@ func (n *Notifier) getServerURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("server %s not found", n.settings.ServerID)
 	}
 
-	url, err := n.client.FindServerURL(ctx, *targetServer, n.settings.AuthToken)
+	url, err := n.client.FindServerURLWithClientID(ctx, *targetServer, n.settings.AuthToken, n.settings.ClientID)
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +128,7 @@ func (n *Notifier) getSections(ctx context.Context) ([]LibrarySection, error) {
 		return nil, err
 	}
 
-	sections, err := n.client.GetLibrarySections(ctx, serverURL, n.settings.AuthToken)
+	sections, err := n.client.GetLibrarySectionsWithClientID(ctx, serverURL, n.settings.AuthToken, n.settings.ClientID)
 	if err != nil {
 		return nil, err
 	}

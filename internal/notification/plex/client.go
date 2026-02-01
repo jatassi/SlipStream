@@ -41,13 +41,22 @@ func NewClient(httpClient *http.Client, logger zerolog.Logger, version string) *
 	}
 }
 
+// ClientID returns the client's identifier
+func (c *Client) ClientID() string {
+	return c.clientID
+}
+
 func generateClientID() string {
 	return uuid.New().String()
 }
 
-func (c *Client) getHeaders(token string) map[string]string {
+func (c *Client) getHeaders(token string, clientIDOverride string) map[string]string {
+	clientID := c.clientID
+	if clientIDOverride != "" {
+		clientID = clientIDOverride
+	}
 	headers := map[string]string{
-		"X-Plex-Client-Identifier": c.clientID,
+		"X-Plex-Client-Identifier": clientID,
 		"X-Plex-Product":           product,
 		"X-Plex-Version":           c.version,
 		"X-Plex-Platform":          runtime.GOOS,
@@ -64,12 +73,16 @@ func (c *Client) getHeaders(token string) map[string]string {
 }
 
 func (c *Client) doRequest(ctx context.Context, method, url string, token string, body io.Reader) (*http.Response, error) {
+	return c.doRequestWithClientID(ctx, method, url, token, "", body)
+}
+
+func (c *Client) doRequestWithClientID(ctx context.Context, method, url string, token string, clientID string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	for key, value := range c.getHeaders(token) {
+	for key, value := range c.getHeaders(token, clientID) {
 		req.Header.Set(key, value)
 	}
 
@@ -200,9 +213,14 @@ func (c *Client) GetResources(ctx context.Context, token string) ([]PlexServer, 
 
 // GetLibrarySections returns the library sections for a server
 func (c *Client) GetLibrarySections(ctx context.Context, serverURL, token string) ([]LibrarySection, error) {
+	return c.GetLibrarySectionsWithClientID(ctx, serverURL, token, "")
+}
+
+// GetLibrarySectionsWithClientID returns the library sections for a server using a specific client ID
+func (c *Client) GetLibrarySectionsWithClientID(ctx context.Context, serverURL, token, clientID string) ([]LibrarySection, error) {
 	url := fmt.Sprintf("%s/library/sections", serverURL)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, token, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get library sections: %w", err)
 	}
@@ -259,9 +277,14 @@ func (c *Client) GetLibrarySections(ctx context.Context, serverURL, token string
 
 // RefreshSection triggers a full refresh of a library section
 func (c *Client) RefreshSection(ctx context.Context, serverURL string, sectionKey int, token string) error {
+	return c.RefreshSectionWithClientID(ctx, serverURL, sectionKey, token, "")
+}
+
+// RefreshSectionWithClientID triggers a full refresh of a library section using a specific client ID
+func (c *Client) RefreshSectionWithClientID(ctx context.Context, serverURL string, sectionKey int, token, clientID string) error {
 	url := fmt.Sprintf("%s/library/sections/%d/refresh", serverURL, sectionKey)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, token, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to refresh section: %w", err)
 	}
@@ -277,9 +300,14 @@ func (c *Client) RefreshSection(ctx context.Context, serverURL string, sectionKe
 
 // RefreshPath triggers a partial refresh of a specific path in a library section
 func (c *Client) RefreshPath(ctx context.Context, serverURL string, sectionKey int, path, token string) error {
+	return c.RefreshPathWithClientID(ctx, serverURL, sectionKey, path, token, "")
+}
+
+// RefreshPathWithClientID triggers a partial refresh of a specific path using a specific client ID
+func (c *Client) RefreshPathWithClientID(ctx context.Context, serverURL string, sectionKey int, path, token, clientID string) error {
 	reqURL := fmt.Sprintf("%s/library/sections/%d/refresh?path=%s", serverURL, sectionKey, url.QueryEscape(path))
 
-	resp, err := c.doRequest(ctx, http.MethodGet, reqURL, token, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, reqURL, token, clientID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to refresh path: %w", err)
 	}
@@ -295,12 +323,17 @@ func (c *Client) RefreshPath(ctx context.Context, serverURL string, sectionKey i
 
 // TestConnection tests the connection to a Plex server
 func (c *Client) TestConnection(ctx context.Context, serverURL, token string) error {
+	return c.TestConnectionWithClientID(ctx, serverURL, token, "")
+}
+
+// TestConnectionWithClientID tests the connection to a Plex server using a specific client ID
+func (c *Client) TestConnectionWithClientID(ctx context.Context, serverURL, token, clientID string) error {
 	url := fmt.Sprintf("%s/identity", serverURL)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, token, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
@@ -316,13 +349,18 @@ func (c *Client) TestConnection(ctx context.Context, serverURL, token string) er
 
 // FindServerURL attempts to find a working URL for a server
 func (c *Client) FindServerURL(ctx context.Context, server PlexServer, token string) (string, error) {
+	return c.FindServerURLWithClientID(ctx, server, token, "")
+}
+
+// FindServerURLWithClientID attempts to find a working URL for a server using a specific client ID
+func (c *Client) FindServerURLWithClientID(ctx context.Context, server PlexServer, token, clientID string) (string, error) {
 	for _, conn := range server.Connections {
 		if conn.Relay {
 			continue
 		}
 
 		testCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := c.TestConnection(testCtx, conn.URI, token)
+		err := c.TestConnectionWithClientID(testCtx, conn.URI, token, clientID)
 		cancel()
 
 		if err == nil {
@@ -337,7 +375,7 @@ func (c *Client) FindServerURL(ctx context.Context, server PlexServer, token str
 		}
 
 		testCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := c.TestConnection(testCtx, conn.URI, token)
+		err := c.TestConnectionWithClientID(testCtx, conn.URI, token, clientID)
 		cancel()
 
 		if err == nil {

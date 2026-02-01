@@ -5,6 +5,7 @@ import "time"
 // Settings contains the configuration for a Plex notification
 type Settings struct {
 	AuthToken         string        `json:"authToken"`
+	ClientID          string        `json:"clientId"`
 	ServerID          string        `json:"serverId"`
 	SectionIDs        []int         `json:"sectionIds"`
 	PathMappings      []PathMapping `json:"pathMappings,omitempty"`

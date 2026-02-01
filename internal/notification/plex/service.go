@@ -85,13 +85,13 @@ func (s *RefreshService) ProcessQueue(ctx context.Context, getSettings func(noti
 		}
 
 		if count.Count > maxPathsBeforeFullRefresh || !settings.UsePartialRefresh {
-			if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
+			if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
 				s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh failed")
 			}
 		} else {
-			if err := s.doPartialRefreshes(ctx, count.NotificationID, count.ServerID, int(count.SectionKey), serverURL, settings.AuthToken); err != nil {
+			if err := s.doPartialRefreshes(ctx, count.NotificationID, count.ServerID, int(count.SectionKey), serverURL, settings.AuthToken, settings.ClientID); err != nil {
 				s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Partial refresh failed, attempting full refresh")
-				if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
+				if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
 					s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh also failed")
 				}
 			}
@@ -111,12 +111,12 @@ func (s *RefreshService) ProcessQueue(ctx context.Context, getSettings func(noti
 	return nil
 }
 
-func (s *RefreshService) doFullRefresh(ctx context.Context, serverURL string, sectionKey int, token string) error {
+func (s *RefreshService) doFullRefresh(ctx context.Context, serverURL string, sectionKey int, token, clientID string) error {
 	s.logger.Info().Int("sectionKey", sectionKey).Msg("Performing full section refresh")
-	return s.client.RefreshSection(ctx, serverURL, sectionKey, token)
+	return s.client.RefreshSectionWithClientID(ctx, serverURL, sectionKey, token, clientID)
 }
 
-func (s *RefreshService) doPartialRefreshes(ctx context.Context, notificationID int64, serverID string, sectionKey int, serverURL, token string) error {
+func (s *RefreshService) doPartialRefreshes(ctx context.Context, notificationID int64, serverID string, sectionKey int, serverURL, token, clientID string) error {
 	items, err := s.queries.GetPendingPlexRefreshesBySection(ctx, sqlc.GetPendingPlexRefreshesBySectionParams{
 		NotificationID: notificationID,
 		ServerID:       serverID,
@@ -136,7 +136,7 @@ func (s *RefreshService) doPartialRefreshes(ctx context.Context, notificationID 
 			Str("path", item.Path.String).
 			Msg("Performing partial path refresh")
 
-		if err := s.client.RefreshPath(ctx, serverURL, sectionKey, item.Path.String, token); err != nil {
+		if err := s.client.RefreshPathWithClientID(ctx, serverURL, sectionKey, item.Path.String, token, clientID); err != nil {
 			return err
 		}
 

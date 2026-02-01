@@ -186,10 +186,10 @@ export function DownloadsNavLink({ collapsed, indented = false, popover = false 
             <div className="absolute inset-0 overflow-hidden">
               <div
                 className={cn(
-                  'absolute inset-y-0 w-1/3 animate-[shimmer_2.5s_linear_infinite]',
-                  theme === 'movie' && 'bg-gradient-to-r from-transparent via-movie-400/20 to-transparent',
-                  theme === 'tv' && 'bg-gradient-to-r from-transparent via-tv-400/20 to-transparent',
-                  theme === 'both' && 'bg-gradient-to-r from-transparent via-white/10 to-transparent'
+                  'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
+                  theme === 'movie' && 'bg-gradient-to-r from-transparent via-movie-400/25 to-transparent',
+                  theme === 'tv' && 'bg-gradient-to-r from-transparent via-tv-400/25 to-transparent',
+                  theme === 'both' && 'bg-gradient-to-r from-transparent via-white/15 to-transparent'
                 )}
               />
             </div>

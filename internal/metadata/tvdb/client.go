@@ -328,12 +328,15 @@ func (c *Client) searchResultToSeries(item SearchResult) NormalizedSeriesResult 
 		}
 	}
 
-	// Extract IMDB ID from remote IDs
+	// Extract IMDB and TMDB IDs from remote IDs
 	imdbID := ""
+	tmdbID := 0
 	for _, rid := range item.RemoteIDs {
-		if rid.SourceName == "IMDB" {
+		switch rid.SourceName {
+		case "IMDB":
 			imdbID = rid.ID
-			break
+		case "TheMovieDB.com":
+			tmdbID, _ = strconv.Atoi(rid.ID)
 		}
 	}
 
@@ -349,6 +352,7 @@ func (c *Client) searchResultToSeries(item SearchResult) NormalizedSeriesResult 
 	return NormalizedSeriesResult{
 		ID:        tvdbID,
 		TvdbID:    tvdbID,
+		TmdbID:    tmdbID,
 		Title:     item.Name,
 		Year:      year,
 		Overview:  overview,

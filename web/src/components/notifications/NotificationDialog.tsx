@@ -239,10 +239,13 @@ export function NotificationDialog({
   const handlePlexOAuth = async () => {
     setIsPlexConnecting(true)
     try {
-      const { pinId, authUrl } = await apiFetch<{ pinId: number; authUrl: string }>('/notifications/plex/auth/start', {
+      const { pinId, authUrl, clientId } = await apiFetch<{ pinId: number; authUrl: string; clientId: string }>('/notifications/plex/auth/start', {
         method: 'POST',
       })
       setPlexPinId(pinId)
+
+      // Store the client ID immediately - this ensures consistent device identification
+      handleSettingChange('clientId', clientId)
 
       // Open auth URL in new window
       window.open(authUrl, '_blank', 'width=800,height=600')
@@ -498,6 +501,7 @@ export function NotificationDialog({
                   size="sm"
                   onClick={() => {
                     handleSettingChange('authToken', '')
+                    handleSettingChange('clientId', '')
                     handleSettingChange('serverId', '')
                     handleSettingChange('sectionIds', [])
                     setPlexServers([])

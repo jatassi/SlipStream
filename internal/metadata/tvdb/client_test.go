@@ -77,6 +77,7 @@ func TestClient_SearchSeries(t *testing.T) {
 					ImageURL: "https://artworks.thetvdb.com/poster.jpg",
 					RemoteIDs: []RemoteID{
 						{ID: "tt0903747", SourceName: "IMDB"},
+						{ID: "1396", SourceName: "TheMovieDB.com"},
 					},
 				},
 			},
@@ -109,6 +110,9 @@ func TestClient_SearchSeries(t *testing.T) {
 	}
 	if results[0].ImdbID != "tt0903747" {
 		t.Errorf("results[0].ImdbID = %q, want %q", results[0].ImdbID, "tt0903747")
+	}
+	if results[0].TmdbID != 1396 {
+		t.Errorf("results[0].TmdbID = %d, want %d", results[0].TmdbID, 1396)
 	}
 }
 

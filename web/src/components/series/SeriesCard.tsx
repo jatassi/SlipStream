@@ -47,9 +47,11 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         <StatusBadge status={series.status} />
         <SeriesAvailabilityBadge series={series} />
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-        <h3 className="font-semibold text-white truncate">{series.title}</h3>
-        <div className="flex items-center gap-2 text-sm text-gray-300">
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
+        <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+          {series.title}
+        </h3>
+        <div className="flex items-center gap-2 text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
           <span>{series.year || 'Unknown year'}</span>
           <Badge variant="secondary" className="text-xs">
             {series.episodeFileCount}/{series.episodeCount} eps

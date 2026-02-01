@@ -34,8 +34,9 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 
 // StartAuthResponse is the response from starting OAuth
 type StartAuthResponse struct {
-	PinID   int    `json:"pinId"`
-	AuthURL string `json:"authUrl"`
+	PinID    int    `json:"pinId"`
+	AuthURL  string `json:"authUrl"`
+	ClientID string `json:"clientId"`
 }
 
 // StartAuth initiates the Plex OAuth flow
@@ -50,8 +51,9 @@ func (h *Handlers) StartAuth(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, StartAuthResponse{
-		PinID:   result.PinID,
-		AuthURL: result.AuthURL,
+		PinID:    result.PinID,
+		AuthURL:  result.AuthURL,
+		ClientID: h.client.ClientID(),
 	})
 }
 

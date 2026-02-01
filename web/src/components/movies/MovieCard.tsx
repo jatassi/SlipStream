@@ -45,9 +45,13 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
         <StatusBadge status={movie.status} />
         <MovieAvailabilityBadge movie={movie} />
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-        <h3 className="font-semibold text-white truncate">{movie.title}</h3>
-        <p className="text-sm text-gray-300">{movie.year || 'Unknown year'}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
+        <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+          {movie.title}
+        </h3>
+        <p className="text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+          {movie.year || 'Unknown year'}
+        </p>
       </div>
     </div>
   )
