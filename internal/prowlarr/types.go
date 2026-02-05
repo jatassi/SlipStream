@@ -279,9 +279,18 @@ func (item *TorznabItem) GetFloatAttribute(name string, defaultVal float64) floa
 
 // ToReleaseInfo converts a TorznabItem to a standard ReleaseInfo.
 func (item *TorznabItem) ToReleaseInfo(indexerName string) types.ReleaseInfo {
-	pubDate, _ := time.Parse(time.RFC1123Z, item.PubDate)
-	if pubDate.IsZero() {
-		pubDate, _ = time.Parse(time.RFC1123, item.PubDate)
+	var pubDate time.Time
+	for _, layout := range []string{
+		time.RFC1123Z,
+		time.RFC1123,
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05",
+	} {
+		if parsed, err := time.Parse(layout, item.PubDate); err == nil {
+			pubDate = parsed
+			break
+		}
 	}
 
 	downloadURL := item.Link

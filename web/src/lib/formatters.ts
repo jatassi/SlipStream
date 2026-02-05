@@ -31,6 +31,7 @@ export function formatRuntime(minutes: number): string {
 export function formatRelativeTime(date: string | Date): string {
   const now = new Date()
   const then = new Date(date)
+  if (isNaN(then.getTime()) || then.getFullYear() < 1970) return '-'
   const diff = now.getTime() - then.getTime()
 
   const seconds = Math.floor(diff / 1000)

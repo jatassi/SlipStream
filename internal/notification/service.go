@@ -289,7 +289,7 @@ func (s *Service) Dispatch(ctx context.Context, eventType EventType, event any) 
 		return
 	}
 
-	s.logger.Debug().
+	s.logger.Info().
 		Str("event", string(eventType)).
 		Int("count", len(configs)).
 		Msg("Dispatching notification event")
@@ -359,8 +359,9 @@ func (s *Service) sendNotification(ctx context.Context, cfg Config, eventType Ev
 			Msg("Notification failed")
 		s.recordFailure(ctx, cfg.ID)
 	} else {
-		s.logger.Debug().
+		s.logger.Info().
 			Str("name", cfg.Name).
+			Str("type", string(cfg.Type)).
 			Str("event", string(eventType)).
 			Msg("Notification sent successfully")
 		s.clearFailure(ctx, cfg.ID)
@@ -605,6 +606,8 @@ func (s *Service) DispatchGenericMessage(ctx context.Context, message string) {
 			}
 			if err := notifier.OnHealthIssue(ctx, event); err != nil {
 				s.logger.Warn().Err(err).Str("name", cfg.Name).Msg("failed to send generic message")
+			} else {
+				s.logger.Info().Str("name", cfg.Name).Str("type", string(cfg.Type)).Msg("sent generic message")
 			}
 		}(cfg)
 	}

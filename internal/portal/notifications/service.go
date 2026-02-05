@@ -198,6 +198,12 @@ func (s *Service) sendApprovedNotification(ctx context.Context, userID int64, ev
 					Str("channelType", ch.Type).
 					Str("channelName", ch.Name).
 					Msg("failed to send approved notification")
+			} else {
+				s.logger.Info().
+					Int64("userID", userID).
+					Str("channelType", ch.Type).
+					Str("channelName", ch.Name).
+					Msg("sent approved notification")
 			}
 		}(channel)
 	}
@@ -218,6 +224,12 @@ func (s *Service) sendDeniedNotification(ctx context.Context, userID int64, even
 					Str("channelType", ch.Type).
 					Str("channelName", ch.Name).
 					Msg("failed to send denied notification")
+			} else {
+				s.logger.Info().
+					Int64("userID", userID).
+					Str("channelType", ch.Type).
+					Str("channelName", ch.Name).
+					Msg("sent denied notification")
 			}
 		}(channel)
 	}
@@ -258,7 +270,13 @@ func (s *Service) sendAvailableNotification(ctx context.Context, userID int64, e
 					Int64("userID", userID).
 					Str("channelType", ch.Type).
 					Str("channelName", ch.Name).
-					Msg("failed to send notification")
+					Msg("failed to send available notification")
+			} else {
+				s.logger.Info().
+					Int64("userID", userID).
+					Str("channelType", ch.Type).
+					Str("channelName", ch.Name).
+					Msg("sent available notification")
 			}
 		}(channel)
 	}

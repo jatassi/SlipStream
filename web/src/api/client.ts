@@ -3,7 +3,22 @@ import { getPortalAuthToken } from './portal/client'
 
 const API_BASE = '/api/v1'
 
-let adminAuthToken: string | null = null
+function getInitialAdminToken(): string | null {
+  try {
+    const stored = localStorage.getItem('slipstream-portal-auth')
+    if (stored) {
+      const { state } = JSON.parse(stored)
+      if (state?.user?.isAdmin && state?.token) {
+        return state.token
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null
+}
+
+let adminAuthToken: string | null = getInitialAdminToken()
 
 export function setAdminAuthToken(token: string | null): void {
   adminAuthToken = token
@@ -37,10 +52,12 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     // Handle 401 - clear auth and redirect to login
-    if (res.status === 401 && adminAuthToken) {
+    if (res.status === 401) {
+      const hadToken = !!(adminAuthToken || getPortalAuthToken())
       adminAuthToken = null
-      // Trigger redirect via event - handled by components
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      if (hadToken) {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      }
     }
     let errorData = null
     try {
