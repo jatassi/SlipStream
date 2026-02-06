@@ -126,6 +126,7 @@ jobs:
 
   # macOS Intel (amd64) - native build with CGO for menu bar
   build-macos-amd64:
+    if: false # Temporarily disabled - re-enable when ready
     needs: build-frontend
     runs-on: macos-15-intel
     steps:
@@ -182,6 +183,7 @@ jobs:
 
   # macOS Apple Silicon (arm64) - native build with CGO for menu bar
   build-macos-arm64:
+    if: false # Temporarily disabled - re-enable when ready
     needs: build-frontend
     runs-on: macos-latest
     steps:
@@ -238,6 +240,7 @@ jobs:
 
   # Linux: Build binaries + deb/rpm packages + AppImage
   build-linux:
+    if: false # Temporarily disabled - re-enable when ready
     needs: build-frontend
     runs-on: ubuntu-latest
     steps:
@@ -397,7 +400,7 @@ jobs:
   # Stage 3: Collect artifacts and create release
   # ===========================================
   upload-release:
-    needs: [build-windows, build-macos-amd64, build-macos-arm64, build-linux]
+    needs: [build-windows] # Other platforms disabled: build-macos-amd64, build-macos-arm64, build-linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

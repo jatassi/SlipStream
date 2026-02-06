@@ -246,6 +246,7 @@ export interface RequestSettings {
 
 // Admin user management
 export interface AdminUpdateUserInput {
+  username?: string
   qualityProfileId?: number | null
   autoApprove?: boolean
   quotaOverride?: QuotaLimits

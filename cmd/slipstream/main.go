@@ -521,6 +521,37 @@ func copyFile(src, dst string) error {
 	return os.Chmod(dst, sourceInfo.Mode())
 }
 
+// frontendRoutePrefixes lists the valid top-level path segments that the React
+// SPA handles via client-side routing. Requests outside these prefixes that
+// don't map to an embedded static asset will receive a 404 instead of the SPA
+// shell, preventing bots from getting 200 OK for arbitrary probe paths.
+var frontendRoutePrefixes = []string{
+	"/search",
+	"/movies",
+	"/series",
+	"/calendar",
+	"/missing",
+	"/activity",
+	"/settings",
+	"/system",
+	"/import",
+	"/auth",
+	"/dev",
+	"/requests",
+}
+
+func isValidFrontendRoute(path string) bool {
+	if path == "/" {
+		return true
+	}
+	for _, prefix := range frontendRoutePrefixes {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 	fileServer := http.FileServer(http.FS(distFS))
 
@@ -531,6 +562,7 @@ func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 			return echo.ErrNotFound
 		}
 
+		// Serve actual static files (JS, CSS, images, etc.)
 		if path != "/" {
 			cleanPath := strings.TrimPrefix(path, "/")
 			if file, err := distFS.Open(cleanPath); err == nil {
@@ -540,15 +572,16 @@ func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 			}
 		}
 
+		// Only serve the SPA shell for known frontend routes
+		if !isValidFrontendRoute(path) {
+			return echo.ErrNotFound
+		}
+
 		indexFile, err := distFS.Open("index.html")
 		if err != nil {
 			return echo.ErrNotFound
 		}
 		defer indexFile.Close()
-
-		if _, err := indexFile.Stat(); err != nil {
-			return echo.ErrNotFound
-		}
 
 		return c.Stream(http.StatusOK, "text/html; charset=utf-8", indexFile)
 	})

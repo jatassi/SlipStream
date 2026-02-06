@@ -513,6 +513,7 @@ interface UserEditDialogProps {
 function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditDialogProps) {
   const updateMutation = useUpdateAdminUser()
 
+  const [username, setUsername] = useState(user.username)
   const [qualityProfileId, setQualityProfileId] = useState<number | null>(user.qualityProfileId)
   const [autoApprove, setAutoApprove] = useState(user.autoApprove)
   const [useQuotaOverride, setUseQuotaOverride] = useState(
@@ -525,6 +526,7 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
   const handleSave = async () => {
     try {
       const input: AdminUpdateUserInput = {
+        username: username !== user.username ? username : undefined,
         qualityProfileId,
         autoApprove,
       }
@@ -561,6 +563,16 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>Quality Profile</Label>
             <Select

@@ -17,8 +17,9 @@ type UserWithQuota struct {
 }
 
 type UpdateUserRequest struct {
-	QualityProfileID *int64 `json:"qualityProfileId"`
-	AutoApprove      *bool  `json:"autoApprove"`
+	Username         *string `json:"username"`
+	QualityProfileID *int64  `json:"qualityProfileId"`
+	AutoApprove      *bool   `json:"autoApprove"`
 }
 
 type UpdateQuotaRequest struct {
@@ -113,6 +114,24 @@ func (h *UsersHandlers) Update(c echo.Context) error {
 	}
 
 	var user *users.User
+
+	if req.Username != nil {
+		user, err = h.usersService.Update(c.Request().Context(), id, users.UpdateInput{
+			Username: req.Username,
+		})
+		if err != nil {
+			if errors.Is(err, users.ErrUserNotFound) {
+				return echo.NewHTTPError(http.StatusNotFound, err.Error())
+			}
+			if errors.Is(err, users.ErrUsernameExists) {
+				return echo.NewHTTPError(http.StatusConflict, err.Error())
+			}
+			if errors.Is(err, users.ErrInvalidUsername) {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
 
 	if req.QualityProfileID != nil {
 		user, err = h.usersService.SetQualityProfile(c.Request().Context(), id, req.QualityProfileID)
