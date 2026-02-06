@@ -70,13 +70,13 @@ func (c *TMDBClient) GetMovie(ctx context.Context, id int) (*tmdb.NormalizedMovi
 	return nil, tmdb.ErrMovieNotFound
 }
 
-func (c *TMDBClient) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical string, err error) {
+func (c *TMDBClient) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical, theatrical string, err error) {
 	for _, movie := range mockMovies {
 		if movie.ID == id {
-			return movie.DigitalReleaseDate, movie.PhysicalReleaseDate, nil
+			return movie.DigitalReleaseDate, movie.PhysicalReleaseDate, movie.ReleaseDate, nil
 		}
 	}
-	return "2024-06-15", "2024-08-20", nil
+	return "2024-06-15", "2024-08-20", "2024-03-01", nil
 }
 
 func (c *TMDBClient) SearchSeries(ctx context.Context, query string) ([]tmdb.NormalizedSeriesResult, error) {

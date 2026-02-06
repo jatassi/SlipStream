@@ -15,7 +15,7 @@ type TMDBClient interface {
 	Test(ctx context.Context) error
 	SearchMovies(ctx context.Context, query string, year int) ([]tmdb.NormalizedMovieResult, error)
 	GetMovie(ctx context.Context, id int) (*tmdb.NormalizedMovieResult, error)
-	GetMovieReleaseDates(ctx context.Context, id int) (digital, physical string, err error)
+	GetMovieReleaseDates(ctx context.Context, id int) (digital, physical, theatrical string, err error)
 	SearchSeries(ctx context.Context, query string) ([]tmdb.NormalizedSeriesResult, error)
 	GetSeries(ctx context.Context, id int) (*tmdb.NormalizedSeriesResult, error)
 	GetAllSeasons(ctx context.Context, seriesID int) ([]tmdb.NormalizedSeasonResult, error)

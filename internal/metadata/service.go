@@ -395,10 +395,10 @@ func (s *Service) ClearCache() {
 }
 
 // GetMovieReleaseDates fetches release dates for a movie by TMDB ID.
-// Returns digital (streaming/VOD) and physical (Bluray) release dates.
-func (s *Service) GetMovieReleaseDates(ctx context.Context, tmdbID int) (digital, physical string, err error) {
+// Returns digital (streaming/VOD), physical (Bluray), and theatrical release dates.
+func (s *Service) GetMovieReleaseDates(ctx context.Context, tmdbID int) (digital, physical, theatrical string, err error) {
 	if !s.tmdb.IsConfigured() {
-		return "", "", ErrNoProvidersConfigured
+		return "", "", "", ErrNoProvidersConfigured
 	}
 
 	return s.tmdb.GetMovieReleaseDates(ctx, tmdbID)

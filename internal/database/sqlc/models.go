@@ -215,25 +215,26 @@ type Job struct {
 }
 
 type Movie struct {
-	ID                  int64          `json:"id"`
-	Title               string         `json:"title"`
-	SortTitle           string         `json:"sort_title"`
-	Year                sql.NullInt64  `json:"year"`
-	TmdbID              sql.NullInt64  `json:"tmdb_id"`
-	ImdbID              sql.NullString `json:"imdb_id"`
-	Overview            sql.NullString `json:"overview"`
-	Runtime             sql.NullInt64  `json:"runtime"`
-	Path                sql.NullString `json:"path"`
-	RootFolderID        sql.NullInt64  `json:"root_folder_id"`
-	QualityProfileID    sql.NullInt64  `json:"quality_profile_id"`
-	Monitored           int64          `json:"monitored"`
-	Status              string         `json:"status"`
-	ActiveDownloadID    sql.NullString `json:"active_download_id"`
-	StatusMessage       sql.NullString `json:"status_message"`
-	ReleaseDate         sql.NullTime   `json:"release_date"`
-	PhysicalReleaseDate sql.NullTime   `json:"physical_release_date"`
-	AddedAt             sql.NullTime   `json:"added_at"`
-	UpdatedAt           sql.NullTime   `json:"updated_at"`
+	ID                    int64          `json:"id"`
+	Title                 string         `json:"title"`
+	SortTitle             string         `json:"sort_title"`
+	Year                  sql.NullInt64  `json:"year"`
+	TmdbID                sql.NullInt64  `json:"tmdb_id"`
+	ImdbID                sql.NullString `json:"imdb_id"`
+	Overview              sql.NullString `json:"overview"`
+	Runtime               sql.NullInt64  `json:"runtime"`
+	Path                  sql.NullString `json:"path"`
+	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
+	Monitored             int64          `json:"monitored"`
+	Status                string         `json:"status"`
+	ActiveDownloadID      sql.NullString `json:"active_download_id"`
+	StatusMessage         sql.NullString `json:"status_message"`
+	ReleaseDate           sql.NullTime   `json:"release_date"`
+	PhysicalReleaseDate   sql.NullTime   `json:"physical_release_date"`
+	AddedAt               sql.NullTime   `json:"added_at"`
+	UpdatedAt             sql.NullTime   `json:"updated_at"`
+	TheatricalReleaseDate sql.NullTime   `json:"theatrical_release_date"`
 }
 
 type MovieFile struct {

@@ -82,6 +82,22 @@ func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
 	s.statusChangeLogger = logger
 }
 
+// isMovieReleased determines if a movie should be considered released based on
+// the priority chain: digital → physical → theatrical + 90 days.
+func isMovieReleased(digital, physical, theatrical sql.NullTime) bool {
+	now := time.Now()
+	if digital.Valid && !digital.Time.After(now) {
+		return true
+	}
+	if physical.Valid && !physical.Time.After(now) {
+		return true
+	}
+	if theatrical.Valid && !theatrical.Time.AddDate(0, 0, 90).After(now) {
+		return true
+	}
+	return false
+}
+
 // NewService creates a new movie service.
 func NewService(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Service {
 	return &Service{
@@ -222,9 +238,7 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 	}
 
 	// Parse release dates
-	// ReleaseDate stores the digital/streaming release date
-	// PhysicalReleaseDate stores the Bluray release date
-	var releaseDate, physicalReleaseDate sql.NullTime
+	var releaseDate, physicalReleaseDate, theatricalReleaseDate sql.NullTime
 	if input.ReleaseDate != "" {
 		if t, err := time.Parse("2006-01-02", input.ReleaseDate); err == nil {
 			releaseDate = sql.NullTime{Time: t, Valid: true}
@@ -235,28 +249,33 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 			physicalReleaseDate = sql.NullTime{Time: t, Valid: true}
 		}
 	}
+	if input.TheatricalReleaseDate != "" {
+		if t, err := time.Parse("2006-01-02", input.TheatricalReleaseDate); err == nil {
+			theatricalReleaseDate = sql.NullTime{Time: t, Valid: true}
+		}
+	}
 
-	// Determine initial status based on release date
-	status := "missing"
-	if !releaseDate.Valid || releaseDate.Time.After(time.Now()) {
-		status = "unreleased"
+	status := "unreleased"
+	if isMovieReleased(releaseDate, physicalReleaseDate, theatricalReleaseDate) {
+		status = "missing"
 	}
 
 	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
-		Title:               input.Title,
-		SortTitle:           sortTitle,
-		Year:                sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
-		TmdbID:              sql.NullInt64{Int64: int64(input.TmdbID), Valid: input.TmdbID > 0},
-		ImdbID:              sql.NullString{String: input.ImdbID, Valid: input.ImdbID != ""},
-		Overview:            sql.NullString{String: input.Overview, Valid: input.Overview != ""},
-		Runtime:             sql.NullInt64{Int64: int64(input.Runtime), Valid: input.Runtime > 0},
-		Path:                sql.NullString{String: path, Valid: path != ""},
-		RootFolderID:        sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
-		QualityProfileID:    sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
-		Monitored:           boolToInt(input.Monitored),
-		Status:              status,
-		ReleaseDate:         releaseDate,
-		PhysicalReleaseDate: physicalReleaseDate,
+		Title:                 input.Title,
+		SortTitle:             sortTitle,
+		Year:                  sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
+		TmdbID:                sql.NullInt64{Int64: int64(input.TmdbID), Valid: input.TmdbID > 0},
+		ImdbID:                sql.NullString{String: input.ImdbID, Valid: input.ImdbID != ""},
+		Overview:              sql.NullString{String: input.Overview, Valid: input.Overview != ""},
+		Runtime:               sql.NullInt64{Int64: int64(input.Runtime), Valid: input.Runtime > 0},
+		Path:                  sql.NullString{String: path, Valid: path != ""},
+		RootFolderID:          sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
+		QualityProfileID:      sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
+		Monitored:             boolToInt(input.Monitored),
+		Status:                status,
+		ReleaseDate:           releaseDate,
+		PhysicalReleaseDate:   physicalReleaseDate,
+		TheatricalReleaseDate: theatricalReleaseDate,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -370,7 +389,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		Msg("[UPDATE] Final values to be saved")
 
 	// Handle release date updates
-	var releaseDate, physicalReleaseDate sql.NullTime
+	var releaseDate, physicalReleaseDate, theatricalReleaseDate sql.NullTime
 	if input.ReleaseDate != nil {
 		if *input.ReleaseDate != "" {
 			if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
@@ -389,31 +408,42 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 	} else if current.PhysicalReleaseDate != nil {
 		physicalReleaseDate = sql.NullTime{Time: *current.PhysicalReleaseDate, Valid: true}
 	}
+	if input.TheatricalReleaseDate != nil {
+		if *input.TheatricalReleaseDate != "" {
+			if t, err := time.Parse("2006-01-02", *input.TheatricalReleaseDate); err == nil {
+				theatricalReleaseDate = sql.NullTime{Time: t, Valid: true}
+			}
+		}
+	} else if current.TheatricalReleaseDate != nil {
+		theatricalReleaseDate = sql.NullTime{Time: *current.TheatricalReleaseDate, Valid: true}
+	}
 
-	// Recalculate status if release date changed and current status is unreleased/missing
+	// Recalculate status if release dates changed and current status is unreleased/missing
 	status := current.Status
-	if status == "unreleased" && releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
+	released := isMovieReleased(releaseDate, physicalReleaseDate, theatricalReleaseDate)
+	if status == "unreleased" && released {
 		status = "missing"
-	} else if status == "missing" && (!releaseDate.Valid || releaseDate.Time.After(time.Now())) {
+	} else if status == "missing" && !released {
 		status = "unreleased"
 	}
 
 	row, err := s.queries.UpdateMovie(ctx, sqlc.UpdateMovieParams{
-		ID:                  id,
-		Title:               title,
-		SortTitle:           sortTitle,
-		Year:                sql.NullInt64{Int64: int64(year), Valid: year > 0},
-		TmdbID:              sql.NullInt64{Int64: int64(tmdbID), Valid: tmdbID > 0},
-		ImdbID:              sql.NullString{String: imdbID, Valid: imdbID != ""},
-		Overview:            sql.NullString{String: overview, Valid: overview != ""},
-		Runtime:             sql.NullInt64{Int64: int64(runtime), Valid: runtime > 0},
-		Path:                sql.NullString{String: path, Valid: path != ""},
-		RootFolderID:        sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
-		QualityProfileID:    sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
-		Monitored:           boolToInt(monitored),
-		Status:              status,
-		ReleaseDate:         releaseDate,
-		PhysicalReleaseDate: physicalReleaseDate,
+		ID:                    id,
+		Title:                 title,
+		SortTitle:             sortTitle,
+		Year:                  sql.NullInt64{Int64: int64(year), Valid: year > 0},
+		TmdbID:                sql.NullInt64{Int64: int64(tmdbID), Valid: tmdbID > 0},
+		ImdbID:                sql.NullString{String: imdbID, Valid: imdbID != ""},
+		Overview:              sql.NullString{String: overview, Valid: overview != ""},
+		Runtime:               sql.NullInt64{Int64: int64(runtime), Valid: runtime > 0},
+		Path:                  sql.NullString{String: path, Valid: path != ""},
+		RootFolderID:          sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
+		QualityProfileID:      sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
+		Monitored:             boolToInt(monitored),
+		Status:                status,
+		ReleaseDate:           releaseDate,
+		PhysicalReleaseDate:   physicalReleaseDate,
+		TheatricalReleaseDate: theatricalReleaseDate,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
@@ -718,6 +748,9 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 	}
 	if row.PhysicalReleaseDate.Valid {
 		m.PhysicalReleaseDate = &row.PhysicalReleaseDate.Time
+	}
+	if row.TheatricalReleaseDate.Valid {
+		m.TheatricalReleaseDate = &row.TheatricalReleaseDate.Time
 	}
 	if row.StatusMessage.Valid {
 		m.StatusMessage = &row.StatusMessage.String

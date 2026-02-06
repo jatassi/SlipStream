@@ -294,11 +294,11 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 }
 
 // GetMovieReleaseDates fetches release dates for a movie by TMDB ID.
-// Returns digital (streaming/VOD) and physical (Bluray) release dates.
+// Returns digital (streaming/VOD), physical (Bluray), and theatrical release dates.
 // US release dates are preferred, with fallback to other regions.
-func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical string, err error) {
+func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical, theatrical string, err error) {
 	if !c.IsConfigured() {
-		return "", "", ErrAPIKeyMissing
+		return "", "", "", ErrAPIKeyMissing
 	}
 
 	endpoint := fmt.Sprintf("%s/movie/%d/release_dates", c.config.BaseURL, id)
@@ -307,7 +307,7 @@ func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, phy
 
 	var response ReleaseDatesResponse
 	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Find US region first, fallback to first available
@@ -323,13 +323,10 @@ func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, phy
 	}
 
 	if regionData == nil {
-		return "", "", nil
+		return "", "", "", nil
 	}
 
-	// Extract release dates by type
-	// Priority for "digital" (streaming availability): Digital > Theatrical > Theatrical Limited > Premiere
-	// Physical stays as-is for Bluray tracking
-	var theatrical, theatricalLimited, premiere string
+	var theatricalDate, theatricalLimited, premiere string
 
 	for _, rd := range regionData.ReleaseDates {
 		dateStr := ""
@@ -350,8 +347,8 @@ func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, phy
 				physical = dateStr
 			}
 		case ReleaseDateTypeTheatrical:
-			if theatrical == "" {
-				theatrical = dateStr
+			if theatricalDate == "" {
+				theatricalDate = dateStr
 			}
 		case ReleaseDateTypeTheatricalLimited:
 			if theatricalLimited == "" {
@@ -364,16 +361,13 @@ func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, phy
 		}
 	}
 
-	// For older movies without digital release dates, fall back to theatrical
-	// This ensures movies like The Terminator (1984) get a valid release date
-	if digital == "" {
-		if theatrical != "" {
-			digital = theatrical
-		} else if theatricalLimited != "" {
-			digital = theatricalLimited
-		} else if premiere != "" {
-			digital = premiere
-		}
+	// Pick earliest theatrical-type date
+	if theatricalDate != "" {
+		theatrical = theatricalDate
+	} else if theatricalLimited != "" {
+		theatrical = theatricalLimited
+	} else if premiere != "" {
+		theatrical = premiere
 	}
 
 	c.logger.Debug().
@@ -383,7 +377,7 @@ func (c *Client) GetMovieReleaseDates(ctx context.Context, id int) (digital, phy
 		Str("theatrical", theatrical).
 		Msg("Got movie release dates")
 
-	return digital, physical, nil
+	return digital, physical, theatrical, nil
 }
 
 // GetSeasonDetails gets detailed info for a specific season including all episodes.

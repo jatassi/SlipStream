@@ -24,8 +24,9 @@ type Movie struct {
 	SizeOnDisk       int64      `json:"sizeOnDisk,omitempty"`
 	MovieFiles       []MovieFile `json:"movieFiles,omitempty"`
 
-	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`
-	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"`
+	ReleaseDate            *time.Time `json:"releaseDate,omitempty"`
+	PhysicalReleaseDate    *time.Time `json:"physicalReleaseDate,omitempty"`
+	TheatricalReleaseDate  *time.Time `json:"theatricalReleaseDate,omitempty"`
 }
 
 // MovieFile represents a movie file on disk.
@@ -56,8 +57,9 @@ type CreateMovieInput struct {
 	Monitored        bool   `json:"monitored"`
 
 	// Release dates (YYYY-MM-DD strings)
-	ReleaseDate         string `json:"releaseDate,omitempty"`         // Digital/streaming release date
-	PhysicalReleaseDate string `json:"physicalReleaseDate,omitempty"` // Bluray release date
+	ReleaseDate           string `json:"releaseDate,omitempty"`           // Digital/streaming release date
+	PhysicalReleaseDate   string `json:"physicalReleaseDate,omitempty"`   // Bluray release date
+	TheatricalReleaseDate string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
 }
 
 // UpdateMovieInput contains fields for updating a movie.
@@ -74,8 +76,9 @@ type UpdateMovieInput struct {
 	Monitored        *bool   `json:"monitored,omitempty"`
 
 	// Release dates (YYYY-MM-DD strings)
-	ReleaseDate         *string `json:"releaseDate,omitempty"`         // Digital/streaming release date
-	PhysicalReleaseDate *string `json:"physicalReleaseDate,omitempty"` // Bluray release date
+	ReleaseDate           *string `json:"releaseDate,omitempty"`           // Digital/streaming release date
+	PhysicalReleaseDate   *string `json:"physicalReleaseDate,omitempty"`   // Bluray release date
+	TheatricalReleaseDate *string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
 }
 
 // ListMoviesOptions contains options for listing movies.

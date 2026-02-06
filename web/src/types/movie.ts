@@ -20,6 +20,7 @@ export interface Movie {
   movieFiles?: MovieFile[]
   releaseDate?: string
   physicalReleaseDate?: string
+  theatricalReleaseDate?: string
 }
 
 export interface MovieFile {

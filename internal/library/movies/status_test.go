@@ -712,3 +712,176 @@ func TestMovieStatus_RemovedFields(t *testing.T) {
 		}
 	}
 }
+
+// Theatrical release date tests: verify the priority chain digital → physical → theatrical+90
+
+func TestMovieStatus_TheatricalOnly_RecentPast_Unreleased(t *testing.T) {
+	// Movie with only a theatrical date 30 days ago → still unreleased (within 90-day window)
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title:                 "Recent Theatrical Movie",
+		TheatricalReleaseDate: theatricalDate,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if movie.Status != "unreleased" {
+		t.Errorf("Movie with theatrical 30 days ago (no digital): status = %q, want unreleased", movie.Status)
+	}
+}
+
+func TestMovieStatus_TheatricalOnly_Over90Days_Missing(t *testing.T) {
+	// Movie with theatrical date > 90 days ago → missing
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	theatricalDate := time.Now().AddDate(0, 0, -91).Format("2006-01-02")
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title:                 "Old Theatrical Movie",
+		TheatricalReleaseDate: theatricalDate,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if movie.Status != "missing" {
+		t.Errorf("Movie with theatrical 91 days ago: status = %q, want missing", movie.Status)
+	}
+}
+
+func TestMovieStatus_DigitalPast_OverridesTheatrical(t *testing.T) {
+	// Movie with digital date in past → missing, regardless of theatrical
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	digitalDate := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
+	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title:                 "Digital Released Movie",
+		ReleaseDate:           digitalDate,
+		TheatricalReleaseDate: theatricalDate,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if movie.Status != "missing" {
+		t.Errorf("Movie with past digital date: status = %q, want missing", movie.Status)
+	}
+}
+
+func TestMovieStatus_PhysicalPast_OverridesTheatrical(t *testing.T) {
+	// Movie with physical date in past → missing, regardless of theatrical window
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	physicalDate := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
+	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title:                 "Physical Released Movie",
+		PhysicalReleaseDate:   physicalDate,
+		TheatricalReleaseDate: theatricalDate,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if movie.Status != "missing" {
+		t.Errorf("Movie with past physical date: status = %q, want missing", movie.Status)
+	}
+}
+
+func TestMovieStatus_NoDates_Unreleased(t *testing.T) {
+	// Movie with no dates at all → unreleased
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title: "No Date Movie",
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if movie.Status != "unreleased" {
+		t.Errorf("Movie with no dates: status = %q, want unreleased", movie.Status)
+	}
+}
+
+func TestMovieStatus_TheatricalDateParsing(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	movie, err := service.Create(ctx, CreateMovieInput{
+		Title:                 "Test Movie",
+		ReleaseDate:           "2020-07-16",
+		PhysicalReleaseDate:   "2020-12-07",
+		TheatricalReleaseDate: "2020-03-15",
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	fetched, _ := service.Get(ctx, movie.ID)
+	if fetched.TheatricalReleaseDate == nil {
+		t.Fatal("TheatricalReleaseDate should not be nil")
+	}
+	if fetched.TheatricalReleaseDate.Format("2006-01-02") != "2020-03-15" {
+		t.Errorf("TheatricalReleaseDate = %s, want 2020-03-15", fetched.TheatricalReleaseDate.Format("2006-01-02"))
+	}
+}
+
+func TestMovieStatus_UpdateTheatricalDateRecalculates(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, tdb.Logger)
+	ctx := context.Background()
+
+	// Create movie with no dates (unreleased)
+	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test Movie"})
+	if movie.Status != "unreleased" {
+		t.Fatalf("Pre-condition: status = %q, want unreleased", movie.Status)
+	}
+
+	// Set theatrical date to >90 days ago → should become missing
+	oldTheatrical := time.Now().AddDate(0, 0, -91).Format("2006-01-02")
+	updated, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+		TheatricalReleaseDate: &oldTheatrical,
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated.Status != "missing" {
+		t.Errorf("After setting old theatrical date: status = %q, want missing", updated.Status)
+	}
+
+	// Set theatrical date to recent (within 90 days) → should become unreleased
+	recentTheatrical := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	updated2, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+		TheatricalReleaseDate: &recentTheatrical,
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated2.Status != "unreleased" {
+		t.Errorf("After setting recent theatrical: status = %q, want unreleased", updated2.Status)
+	}
+}

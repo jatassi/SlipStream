@@ -14,8 +14,8 @@ SELECT * FROM movies WHERE monitored = 1 ORDER BY sort_title;
 INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, status,
-    release_date, physical_release_date
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    release_date, physical_release_date, theatrical_release_date
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovie :one
@@ -34,6 +34,7 @@ UPDATE movies SET
     status = ?,
     release_date = ?,
     physical_release_date = ?,
+    theatrical_release_date = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -116,27 +117,40 @@ ORDER BY sort_title;
 SELECT * FROM movies
 WHERE (release_date BETWEEN ? AND ?)
    OR (physical_release_date BETWEEN ? AND ?)
-ORDER BY COALESCE(release_date, physical_release_date);
+   OR (theatrical_release_date BETWEEN ? AND ?)
+ORDER BY COALESCE(release_date, physical_release_date, theatrical_release_date);
 
 -- name: UpdateMovieReleaseDates :exec
 UPDATE movies SET
     release_date = ?,
     physical_release_date = ?,
+    theatrical_release_date = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
 
 -- Status refresh queries
 -- name: UpdateUnreleasedMoviesToMissing :execresult
 UPDATE movies SET status = 'missing', updated_at = CURRENT_TIMESTAMP
-WHERE status = 'unreleased' AND release_date IS NOT NULL AND release_date <= date('now');
+WHERE status = 'unreleased' AND (
+    (release_date IS NOT NULL AND release_date <= date('now'))
+    OR (physical_release_date IS NOT NULL AND physical_release_date <= date('now'))
+    OR (theatrical_release_date IS NOT NULL AND date(theatrical_release_date, '+90 days') <= date('now'))
+);
 
 -- name: GetUnreleasedMoviesWithPastDate :many
 SELECT * FROM movies
-WHERE status = 'unreleased' AND release_date IS NOT NULL AND release_date <= date('now');
+WHERE status = 'unreleased' AND (
+    (release_date IS NOT NULL AND release_date <= date('now'))
+    OR (physical_release_date IS NOT NULL AND physical_release_date <= date('now'))
+    OR (theatrical_release_date IS NOT NULL AND date(theatrical_release_date, '+90 days') <= date('now'))
+);
 
 -- name: UpdateMoviesToUnreleased :execresult
 UPDATE movies SET status = 'unreleased', updated_at = CURRENT_TIMESTAMP
-WHERE status = 'missing' AND (release_date IS NULL OR release_date > date('now'));
+WHERE status = 'missing'
+    AND (release_date IS NULL OR release_date > date('now'))
+    AND (physical_release_date IS NULL OR physical_release_date > date('now'))
+    AND (theatrical_release_date IS NULL OR date(theatrical_release_date, '+90 days') > date('now'));
 
 -- Missing movies queries (status-based)
 -- name: ListMissingMovies :many

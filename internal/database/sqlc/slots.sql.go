@@ -1646,7 +1646,7 @@ func (q *Queries) ListMovieSlotsNeedingSearch(ctx context.Context, movieID int64
 
 const listMoviesMissingInMonitoredSlots = `-- name: ListMoviesMissingInMonitoredSlots :many
 
-SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at
+SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date
 FROM movies m
 CROSS JOIN version_slots vs
 LEFT JOIN movie_slot_assignments msa ON m.id = msa.movie_id AND vs.id = msa.slot_id
@@ -1688,6 +1688,7 @@ func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Mov
 			&i.PhysicalReleaseDate,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.TheatricalReleaseDate,
 		); err != nil {
 			return nil, err
 		}

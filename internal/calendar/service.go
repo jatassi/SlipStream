@@ -101,10 +101,12 @@ func (s *Service) getMovieEvents(ctx context.Context, start, end time.Time) ([]C
 	endStr := end.Format("2006-01-02")
 
 	rows, err := s.queries.GetMoviesInDateRange(ctx, sqlc.GetMoviesInDateRangeParams{
-		FromReleaseDate:         sql.NullTime{Time: start, Valid: true},
-		ToReleaseDate:           sql.NullTime{Time: end, Valid: true},
-		FromPhysicalReleaseDate: sql.NullTime{Time: start, Valid: true},
-		ToPhysicalReleaseDate:   sql.NullTime{Time: end, Valid: true},
+		FromReleaseDate:           sql.NullTime{Time: start, Valid: true},
+		ToReleaseDate:             sql.NullTime{Time: end, Valid: true},
+		FromPhysicalReleaseDate:   sql.NullTime{Time: start, Valid: true},
+		ToPhysicalReleaseDate:     sql.NullTime{Time: end, Valid: true},
+		FromTheatricalReleaseDate: sql.NullTime{Time: start, Valid: true},
+		ToTheatricalReleaseDate:   sql.NullTime{Time: end, Valid: true},
 	})
 	if err != nil {
 		return nil, err

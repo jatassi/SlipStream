@@ -108,7 +108,7 @@ func fetchTMDBData(ctx context.Context, cfg config.TMDBConfig, logger zerolog.Lo
 		}
 
 		// Fetch release dates
-		digital, physical, _ := client.GetMovieReleaseDates(ctx, id)
+		digital, physical, _, _ := client.GetMovieReleaseDates(ctx, id)
 
 		genres := formatStringSlice(movie.Genres)
 		fmt.Printf("\t{ID: %d, Title: %q, Year: %d, Overview: %q, PosterURL: %q, BackdropURL: %q, ImdbID: %q, Genres: %s, Runtime: %d, ReleaseDate: %q, DigitalReleaseDate: %q, PhysicalReleaseDate: %q},\n",
