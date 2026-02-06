@@ -147,12 +147,19 @@ func (s *Service) setStatus(category HealthCategory, id string, status HealthSta
 
 	item, exists := s.items[category][id]
 	if !exists {
-		s.mu.Unlock()
-		s.logger.Warn().
-			Str("category", string(category)).
-			Str("id", id).
-			Msg("Attempted to update status for unregistered item")
-		return
+		// Clearing status for an unregistered item is a no-op
+		if status == StatusOK {
+			s.mu.Unlock()
+			return
+		}
+		// Auto-register the item for error/warning statuses
+		item = &HealthItem{
+			ID:       id,
+			Category: category,
+			Name:     id,
+			Status:   StatusOK,
+		}
+		s.items[category][id] = item
 	}
 
 	// Only update if status changed
