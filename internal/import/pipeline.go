@@ -364,8 +364,9 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	result.DestinationPath = destPath
 
 	// Step 4a: Check if source and destination are the same file (hardlink)
-	// This prevents re-importing files that are already in the library
-	if s.isSameFile(job.SourcePath, destPath) {
+	// This prevents re-importing files that are already in the library via auto-scan.
+	// Manual imports skip this check since the user explicitly chose to import the file.
+	if !job.Manual && s.isSameFile(job.SourcePath, destPath) {
 		s.logger.Debug().
 			Str("source", job.SourcePath).
 			Str("dest", destPath).

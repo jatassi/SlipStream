@@ -770,6 +770,7 @@ export function ManualImportPage() {
 
     let successCount = 0
     let failCount = 0
+    let lastError = ''
 
     for (const file of filesToImport) {
       const match = file.suggestedMatch!
@@ -792,6 +793,7 @@ export function ManualImportPage() {
           })
         } else {
           failCount++
+          if (result.error) lastError = result.error
         }
       } catch {
         failCount++
@@ -803,7 +805,7 @@ export function ManualImportPage() {
     } else if (successCount > 0 && failCount > 0) {
       toast.warning(`Imported ${successCount}, failed ${failCount}`)
     } else {
-      toast.error('Failed to import files')
+      toast.error(lastError || 'Failed to import files')
     }
   }
 
