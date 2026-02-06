@@ -823,6 +823,10 @@ func (s *Server) setupRoutes() {
 	// Library manager routes (scanning and refresh) - initialized here for refresh endpoints
 	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
 
+	// Bulk refresh endpoints (must be registered before parameterized :id routes)
+	protected.POST("/movies/refresh", libraryManagerHandlers.RefreshAllMovies)
+	protected.POST("/series/refresh", libraryManagerHandlers.RefreshAllSeries)
+
 	// Refresh metadata endpoints (need to be on the movies/series groups)
 	protected.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
 	protected.POST("/series/:id/refresh", libraryManagerHandlers.RefreshSeries)

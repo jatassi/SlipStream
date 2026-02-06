@@ -22,7 +22,7 @@ import { MovieTable } from '@/components/movies/MovieTable'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useScanLibrary, useQualityProfiles } from '@/hooks'
+import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Movie } from '@/types'
@@ -43,14 +43,14 @@ export function MoviesPage() {
   const deleteMutation = useDeleteMovie()
   const bulkDeleteMutation = useBulkDeleteMovies()
   const bulkUpdateMutation = useBulkUpdateMovies()
-  const scanMutation = useScanLibrary()
+  const refreshAllMutation = useRefreshAllMovies()
 
-  const handleScanLibrary = async () => {
+  const handleRefreshAll = async () => {
     try {
-      await scanMutation.mutateAsync()
-      toast.success('Library scan started')
+      await refreshAllMutation.mutateAsync()
+      toast.success('Refresh started for all movies')
     } catch {
-      toast.error('Failed to start library scan')
+      toast.error('Failed to start refresh')
     }
   }
 
@@ -174,11 +174,11 @@ export function MoviesPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={handleScanLibrary}
-              disabled={scanMutation.isPending || editMode}
+              onClick={handleRefreshAll}
+              disabled={refreshAllMutation.isPending || editMode}
             >
-              <RefreshCw className={`size-4 mr-1 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
-              {scanMutation.isPending ? 'Scanning...' : 'Refresh'}
+              <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
+              {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
             </Button>
             {editMode ? (
               <Button variant="outline" onClick={handleExitEditMode}>

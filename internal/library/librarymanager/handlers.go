@@ -187,6 +187,36 @@ func (h *Handlers) RefreshSeries(c echo.Context) error {
 	return c.JSON(http.StatusOK, series)
 }
 
+// RefreshAllMovies handles POST /api/v1/movies/refresh
+// Scans all movie root folders and refreshes metadata for all movies.
+func (h *Handlers) RefreshAllMovies(c echo.Context) error {
+	go func() {
+		ctx := context.Background()
+		if err := h.service.RefreshAllMovies(ctx); err != nil {
+			h.service.logger.Error().Err(err).Msg("Refresh all movies failed")
+		}
+	}()
+
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"message": "Refresh started for all movies",
+	})
+}
+
+// RefreshAllSeries handles POST /api/v1/series/refresh
+// Scans all TV root folders and refreshes metadata for all series.
+func (h *Handlers) RefreshAllSeries(c echo.Context) error {
+	go func() {
+		ctx := context.Background()
+		if err := h.service.RefreshAllSeries(ctx); err != nil {
+			h.service.logger.Error().Err(err).Msg("Refresh all series failed")
+		}
+	}()
+
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"message": "Refresh started for all series",
+	})
+}
+
 // AddMovie handles POST /api/v1/library/movies
 // Creates a new movie and downloads artwork in the background.
 func (h *Handlers) AddMovie(c echo.Context) error {

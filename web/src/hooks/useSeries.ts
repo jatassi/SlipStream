@@ -142,6 +142,16 @@ export function useRefreshSeries() {
   })
 }
 
+export function useRefreshAllSeries() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => seriesApi.refreshAll(),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+    },
+  })
+}
+
 export function useSeasons(seriesId: number) {
   return useQuery({
     queryKey: seriesKeys.seasons(seriesId),

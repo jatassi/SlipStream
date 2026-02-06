@@ -21,7 +21,7 @@ import { SeriesGrid } from '@/components/series/SeriesGrid'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useScanLibrary, useQualityProfiles } from '@/hooks'
+import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
@@ -40,14 +40,14 @@ export function SeriesListPage() {
   const { data: qualityProfiles } = useQualityProfiles()
   const bulkDeleteMutation = useBulkDeleteSeries()
   const bulkUpdateMutation = useBulkUpdateSeries()
-  const scanMutation = useScanLibrary()
+  const refreshAllMutation = useRefreshAllSeries()
 
-  const handleScanLibrary = async () => {
+  const handleRefreshAll = async () => {
     try {
-      await scanMutation.mutateAsync()
-      toast.success('Library scan started')
+      await refreshAllMutation.mutateAsync()
+      toast.success('Refresh started for all series')
     } catch {
-      toast.error('Failed to start library scan')
+      toast.error('Failed to start refresh')
     }
   }
 
@@ -153,11 +153,11 @@ export function SeriesListPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={handleScanLibrary}
-              disabled={scanMutation.isPending || editMode}
+              onClick={handleRefreshAll}
+              disabled={refreshAllMutation.isPending || editMode}
             >
-              <RefreshCw className={`size-4 mr-1 ${scanMutation.isPending ? 'animate-spin' : ''}`} />
-              {scanMutation.isPending ? 'Scanning...' : 'Refresh'}
+              <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
+              {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
             </Button>
             {editMode ? (
               <Button variant="outline" onClick={handleExitEditMode}>

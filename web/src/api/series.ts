@@ -49,6 +49,9 @@ export const seriesApi = {
   refresh: (id: number) =>
     apiFetch<Series>(`/series/${id}/refresh`, { method: 'POST' }),
 
+  refreshAll: () =>
+    apiFetch<{ message: string }>('/series/refresh', { method: 'POST' }),
+
   // Season operations
   getSeasons: (seriesId: number) =>
     apiFetch<Season[]>(`/series/${seriesId}/seasons`),

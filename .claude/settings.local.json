@@ -80,7 +80,8 @@
       "Bash(git tag:*)",
       "Bash(go list:*)",
       "Bash(bun run dev)",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(make build-backend:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

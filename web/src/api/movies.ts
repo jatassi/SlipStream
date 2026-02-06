@@ -37,4 +37,7 @@ export const moviesApi = {
 
   refresh: (id: number) =>
     apiFetch<Movie>(`/movies/${id}/refresh`, { method: 'POST' }),
+
+  refreshAll: () =>
+    apiFetch<{ message: string }>('/movies/refresh', { method: 'POST' }),
 }

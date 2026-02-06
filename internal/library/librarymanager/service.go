@@ -1116,6 +1116,104 @@ func (s *Service) downloadPendingArtwork(
 		Msg("Artwork download complete")
 }
 
+// scanMovieFolder scans a movie's folder for new files and verifies existing files.
+func (s *Service) scanMovieFolder(ctx context.Context, movie *movies.Movie) {
+	if movie.Path == "" {
+		return
+	}
+	// Skip virtual paths (developer mode)
+	if strings.HasPrefix(movie.Path, "/mock/") {
+		return
+	}
+
+	// Scan the folder for media files
+	scanResult, err := s.scanner.ScanFolder(ctx, movie.Path, "movie", nil)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("path", movie.Path).Int64("movieId", movie.ID).Msg("Failed to scan movie folder")
+		return
+	}
+
+	// Link any new files found
+	for _, parsed := range scanResult.Movies {
+		existing, err := s.movies.GetFileByPath(ctx, parsed.FilePath)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to check existing movie file")
+			continue
+		}
+		if existing != nil {
+			continue
+		}
+		if err := s.addMovieFile(ctx, movie.ID, parsed); err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to add movie file during refresh")
+		}
+	}
+
+	// Verify existing files still exist on disk
+	files, err := s.movies.GetFiles(ctx, movie.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Failed to list movie files for verification")
+		return
+	}
+	for _, f := range files {
+		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
+			s.logger.Warn().Str("path", f.Path).Int64("movieId", movie.ID).Msg("Movie file disappeared during refresh")
+			_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+				Status: "missing",
+				ID:     movie.ID,
+			})
+		}
+	}
+}
+
+// scanSeriesFolder scans a series folder for new episode files and verifies existing files.
+func (s *Service) scanSeriesFolder(ctx context.Context, series *tv.Series) {
+	if series.Path == "" {
+		return
+	}
+	// Skip virtual paths (developer mode)
+	if strings.HasPrefix(series.Path, "/mock/") {
+		return
+	}
+
+	// Scan the folder for media files
+	scanResult, err := s.scanner.ScanFolder(ctx, series.Path, "tv", nil)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("path", series.Path).Int64("seriesId", series.ID).Msg("Failed to scan series folder")
+		return
+	}
+
+	// Link any new episode files found
+	for _, parsed := range scanResult.Episodes {
+		existing, err := s.tv.GetEpisodeFileByPath(ctx, parsed.FilePath)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to check existing episode file")
+			continue
+		}
+		if existing != nil {
+			continue
+		}
+		if err := s.addEpisodeFile(ctx, series.ID, parsed); err != nil {
+			s.logger.Warn().Err(err).Str("path", parsed.FilePath).Msg("Failed to add episode file during refresh")
+		}
+	}
+
+	// Verify existing files still exist on disk
+	episodeFiles, err := s.queries.ListEpisodeFilesBySeries(ctx, series.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to list episode files for verification")
+		return
+	}
+	for _, ef := range episodeFiles {
+		if _, err := os.Stat(ef.Path); os.IsNotExist(err) {
+			s.logger.Warn().Str("path", ef.Path).Int64("episodeId", ef.EpisodeID).Msg("Episode file disappeared during refresh")
+			_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+				Status: "missing",
+				ID:     ef.EpisodeID,
+			})
+		}
+	}
+}
+
 // RefreshMovieMetadata fetches metadata for a single movie and downloads artwork.
 func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*movies.Movie, error) {
 	s.logger.Debug().Int64("movieId", movieID).Msg("[REFRESH] Starting movie metadata refresh")
@@ -1310,6 +1408,9 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 		Int("tmdbId", bestMatch.ID).
 		Msg("[REFRESH] Movie metadata refresh completed")
 
+	// Scan movie folder for new/disappeared files
+	s.scanMovieFolder(ctx, updatedMovie)
+
 	return updatedMovie, nil
 }
 
@@ -1424,7 +1525,15 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 		Msg("Refreshed series metadata")
 
 	// Re-fetch series to include updated seasons
-	return s.tv.GetSeries(ctx, seriesID)
+	refreshedSeries, err := s.tv.GetSeries(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Scan series folder for new/disappeared files
+	s.scanSeriesFolder(ctx, refreshedSeries)
+
+	return refreshedSeries, nil
 }
 
 // RefreshMonitoredSeriesMetadata refreshes metadata for all monitored series.
@@ -1464,6 +1573,164 @@ func (s *Service) RefreshMonitoredSeriesMetadata(ctx context.Context) (int, erro
 	}
 
 	return refreshed, nil
+}
+
+// RefreshAllMovies scans all movie root folders and refreshes metadata for all movies.
+func (s *Service) RefreshAllMovies(ctx context.Context) error {
+	activityID := fmt.Sprintf("refresh-movies-%d", time.Now().UnixNano())
+	var activity *progress.ActivityBuilder
+	if s.progress != nil {
+		activity = s.progress.NewActivityBuilder(activityID, progress.ActivityTypeScan, "Refreshing all movies")
+	}
+
+	// Phase 1: Scan all movie root folders
+	if activity != nil {
+		activity.Update("Scanning movie folders...", -1)
+	}
+	movieFolders, err := s.rootfolders.ListByType(ctx, "movie")
+	if err != nil {
+		if activity != nil {
+			activity.Fail(err.Error())
+		}
+		return fmt.Errorf("failed to list movie root folders: %w", err)
+	}
+	for _, folder := range movieFolders {
+		select {
+		case <-ctx.Done():
+			if activity != nil {
+				activity.Fail("cancelled")
+			}
+			return ctx.Err()
+		default:
+		}
+		if _, err := s.ScanRootFolder(ctx, folder.ID); err != nil {
+			s.logger.Warn().Err(err).Int64("rootFolderId", folder.ID).Msg("Failed to scan movie root folder during refresh all")
+		}
+	}
+
+	// Phase 2: Refresh metadata for all movies
+	if activity != nil {
+		activity.Update("Refreshing movie metadata...", -1)
+	}
+	allMovies, err := s.movies.List(ctx, movies.ListMoviesOptions{PageSize: 10000})
+	if err != nil {
+		if activity != nil {
+			activity.Fail(err.Error())
+		}
+		return fmt.Errorf("failed to list movies: %w", err)
+	}
+
+	total := len(allMovies)
+	refreshed := 0
+	for i, movie := range allMovies {
+		select {
+		case <-ctx.Done():
+			if activity != nil {
+				activity.Fail("cancelled")
+			}
+			return ctx.Err()
+		default:
+		}
+
+		if activity != nil {
+			pct := (i + 1) * 100 / total
+			activity.Update(fmt.Sprintf("Refreshing: %s", movie.Title), pct)
+		}
+
+		if _, err := s.RefreshMovieMetadata(ctx, movie.ID); err != nil {
+			if err == ErrNoMetadataProvider {
+				break
+			}
+			s.logger.Debug().Err(err).Int64("movieId", movie.ID).Str("title", movie.Title).Msg("Failed to refresh movie metadata")
+			continue
+		}
+		refreshed++
+	}
+
+	if activity != nil {
+		activity.Complete(fmt.Sprintf("Refreshed %d of %d movies", refreshed, total))
+	}
+	s.logger.Info().Int("refreshed", refreshed).Int("total", total).Msg("Completed refresh all movies")
+	return nil
+}
+
+// RefreshAllSeries scans all TV root folders and refreshes metadata for all series.
+func (s *Service) RefreshAllSeries(ctx context.Context) error {
+	activityID := fmt.Sprintf("refresh-series-%d", time.Now().UnixNano())
+	var activity *progress.ActivityBuilder
+	if s.progress != nil {
+		activity = s.progress.NewActivityBuilder(activityID, progress.ActivityTypeScan, "Refreshing all series")
+	}
+
+	// Phase 1: Scan all TV root folders
+	if activity != nil {
+		activity.Update("Scanning TV folders...", -1)
+	}
+	tvFolders, err := s.rootfolders.ListByType(ctx, "tv")
+	if err != nil {
+		if activity != nil {
+			activity.Fail(err.Error())
+		}
+		return fmt.Errorf("failed to list TV root folders: %w", err)
+	}
+	for _, folder := range tvFolders {
+		select {
+		case <-ctx.Done():
+			if activity != nil {
+				activity.Fail("cancelled")
+			}
+			return ctx.Err()
+		default:
+		}
+		if _, err := s.ScanRootFolder(ctx, folder.ID); err != nil {
+			s.logger.Warn().Err(err).Int64("rootFolderId", folder.ID).Msg("Failed to scan TV root folder during refresh all")
+		}
+	}
+
+	// Phase 2: Refresh metadata for all series
+	if activity != nil {
+		activity.Update("Refreshing series metadata...", -1)
+	}
+	allSeries, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{PageSize: 10000})
+	if err != nil {
+		if activity != nil {
+			activity.Fail(err.Error())
+		}
+		return fmt.Errorf("failed to list series: %w", err)
+	}
+
+	total := len(allSeries)
+	refreshed := 0
+	for i, series := range allSeries {
+		select {
+		case <-ctx.Done():
+			if activity != nil {
+				activity.Fail("cancelled")
+			}
+			return ctx.Err()
+		default:
+		}
+
+		if activity != nil {
+			pct := (i + 1) * 100 / total
+			activity.Update(fmt.Sprintf("Refreshing: %s", series.Title), pct)
+		}
+
+		if _, err := s.RefreshSeriesMetadata(ctx, series.ID); err != nil {
+			if err == ErrNoMetadataProvider {
+				break
+			}
+			s.logger.Debug().Err(err).Int64("seriesId", series.ID).Str("title", series.Title).Msg("Failed to refresh series metadata")
+			continue
+		}
+		refreshed++
+	}
+
+	if activity != nil {
+		activity.Complete(fmt.Sprintf("Refreshed %d of %d series", refreshed, total))
+	}
+	s.logger.Info().Int("refreshed", refreshed).Int("total", total).Msg("Completed refresh all series")
+	return nil
 }
 
 // buildScanSummary creates a human-readable summary of scan results.

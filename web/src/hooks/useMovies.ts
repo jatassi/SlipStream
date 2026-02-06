@@ -123,3 +123,13 @@ export function useRefreshMovie() {
     },
   })
 }
+
+export function useRefreshAllMovies() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => moviesApi.refreshAll(),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: movieKeys.all })
+    },
+  })
+}
