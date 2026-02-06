@@ -17,7 +17,7 @@ UPDATE requests SET
     approved_by = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons
+RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type ApproveRequestParams struct {
@@ -45,10 +45,10 @@ func (q *Queries) ApproveRequest(ctx context.Context, arg ApproveRequestParams) 
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -112,7 +112,7 @@ INSERT INTO requests (
     user_id, media_type, tmdb_id, tvdb_id, title, year,
     season_number, episode_number, status, monitor_type, target_slot_id, poster_url, requested_seasons
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons
+RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type CreateRequestParams struct {
@@ -165,10 +165,10 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (*
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -188,7 +188,7 @@ UPDATE requests SET
     denied_reason = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons
+RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type DenyRequestParams struct {
@@ -216,16 +216,16 @@ func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (*Requ
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getActiveRequestByTmdbID = `-- name: GetActiveRequestByTmdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tmdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
@@ -256,16 +256,16 @@ func (q *Queries) GetActiveRequestByTmdbID(ctx context.Context, arg GetActiveReq
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getActiveRequestByTvdbID = `-- name: GetActiveRequestByTvdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
@@ -296,16 +296,16 @@ func (q *Queries) GetActiveRequestByTvdbID(ctx context.Context, arg GetActiveReq
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getActiveRequestByTvdbIDAndEpisode = `-- name: GetActiveRequestByTvdbIDAndEpisode :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
@@ -337,16 +337,16 @@ func (q *Queries) GetActiveRequestByTvdbIDAndEpisode(ctx context.Context, arg Ge
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getActiveRequestByTvdbIDAndSeason = `-- name: GetActiveRequestByTvdbIDAndSeason :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
@@ -377,16 +377,16 @@ func (q *Queries) GetActiveRequestByTvdbIDAndSeason(ctx context.Context, arg Get
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getRequest = `-- name: GetRequest :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests WHERE id = ? LIMIT 1
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetRequest(ctx context.Context, id int64) (*Request, error) {
@@ -409,16 +409,16 @@ func (q *Queries) GetRequest(ctx context.Context, id int64) (*Request, error) {
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getRequestByTmdbID = `-- name: GetRequestByTmdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tmdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
@@ -448,16 +448,16 @@ func (q *Queries) GetRequestByTmdbID(ctx context.Context, arg GetRequestByTmdbID
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getRequestByTvdbID = `-- name: GetRequestByTvdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
@@ -487,16 +487,16 @@ func (q *Queries) GetRequestByTvdbID(ctx context.Context, arg GetRequestByTvdbID
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getRequestByTvdbIDAndEpisode = `-- name: GetRequestByTvdbIDAndEpisode :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
@@ -527,16 +527,16 @@ func (q *Queries) GetRequestByTvdbIDAndEpisode(ctx context.Context, arg GetReque
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getRequestByTvdbIDAndSeason = `-- name: GetRequestByTvdbIDAndSeason :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
@@ -566,10 +566,10 @@ func (q *Queries) GetRequestByTvdbIDAndSeason(ctx context.Context, arg GetReques
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -580,7 +580,7 @@ UPDATE requests SET
     status = 'available',
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons
+RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type LinkRequestToMediaParams struct {
@@ -608,16 +608,16 @@ func (q *Queries) LinkRequestToMedia(ctx context.Context, arg LinkRequestToMedia
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const listActiveSeriesRequestsByTvdbID = `-- name: ListActiveSeriesRequestsByTvdbID :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved')
 ORDER BY created_at DESC
 `
@@ -649,10 +649,10 @@ func (q *Queries) ListActiveSeriesRequestsByTvdbID(ctx context.Context, tvdbID s
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -668,7 +668,7 @@ func (q *Queries) ListActiveSeriesRequestsByTvdbID(ctx context.Context, tvdbID s
 }
 
 const listPendingRequests = `-- name: ListPendingRequests :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE status = 'pending'
 ORDER BY created_at ASC
 `
@@ -699,10 +699,10 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]*Request, error) {
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -718,7 +718,7 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]*Request, error) {
 }
 
 const listRequests = `-- name: ListRequests :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests ORDER BY created_at DESC
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests ORDER BY created_at DESC
 `
 
 func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
@@ -747,10 +747,10 @@ func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -766,7 +766,7 @@ func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
 }
 
 const listRequestsByMediaID = `-- name: ListRequestsByMediaID :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE media_id = ? AND media_type = ?
 ORDER BY created_at DESC
 `
@@ -802,10 +802,10 @@ func (q *Queries) ListRequestsByMediaID(ctx context.Context, arg ListRequestsByM
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -821,7 +821,7 @@ func (q *Queries) ListRequestsByMediaID(ctx context.Context, arg ListRequestsByM
 }
 
 const listRequestsByMediaIDAndSeason = `-- name: ListRequestsByMediaIDAndSeason :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE media_id = ? AND media_type = ? AND season_number = ?
 ORDER BY created_at DESC
 `
@@ -858,10 +858,10 @@ func (q *Queries) ListRequestsByMediaIDAndSeason(ctx context.Context, arg ListRe
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -877,7 +877,7 @@ func (q *Queries) ListRequestsByMediaIDAndSeason(ctx context.Context, arg ListRe
 }
 
 const listRequestsByMediaType = `-- name: ListRequestsByMediaType :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE media_type = ?
 ORDER BY created_at DESC
 `
@@ -908,10 +908,10 @@ func (q *Queries) ListRequestsByMediaType(ctx context.Context, mediaType string)
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -927,7 +927,7 @@ func (q *Queries) ListRequestsByMediaType(ctx context.Context, mediaType string)
 }
 
 const listRequestsByStatus = `-- name: ListRequestsByStatus :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE status = ?
 ORDER BY created_at DESC
 `
@@ -958,10 +958,10 @@ func (q *Queries) ListRequestsByStatus(ctx context.Context, status string) ([]*R
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -977,7 +977,7 @@ func (q *Queries) ListRequestsByStatus(ctx context.Context, status string) ([]*R
 }
 
 const listRequestsByUser = `-- name: ListRequestsByUser :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -1008,10 +1008,10 @@ func (q *Queries) ListRequestsByUser(ctx context.Context, userID int64) ([]*Requ
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1027,7 +1027,7 @@ func (q *Queries) ListRequestsByUser(ctx context.Context, userID int64) ([]*Requ
 }
 
 const listRequestsByUserAndStatus = `-- name: ListRequestsByUserAndStatus :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons FROM requests
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE user_id = ? AND status = ?
 ORDER BY created_at DESC
 `
@@ -1063,10 +1063,10 @@ func (q *Queries) ListRequestsByUserAndStatus(ctx context.Context, arg ListReque
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1086,7 +1086,7 @@ UPDATE requests SET
     status = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, created_at, updated_at, poster_url, requested_seasons
+RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type UpdateRequestStatusParams struct {
@@ -1114,10 +1114,10 @@ func (q *Queries) UpdateRequestStatus(ctx context.Context, arg UpdateRequestStat
 		&i.ApprovedBy,
 		&i.MediaID,
 		&i.TargetSlotID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.PosterUrl,
 		&i.RequestedSeasons,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }

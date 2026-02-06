@@ -325,3 +325,67 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 
 	return p, nil
 }
+
+// RecalculateStatusForProfile recalculates status for all movies and episodes using a profile.
+// Called when a profile's cutoff or upgrades_enabled changes.
+func (s *Service) RecalculateStatusForProfile(ctx context.Context, profileID int64) (int, error) {
+	profile, err := s.Get(ctx, profileID)
+	if err != nil {
+		return 0, err
+	}
+
+	updated := 0
+
+	// Recalculate movies
+	movieRows, err := s.queries.ListMoviesWithFilesForProfile(ctx, sql.NullInt64{Int64: profileID, Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list movies for profile: %w", err)
+	}
+
+	for _, row := range movieRows {
+		if !row.CurrentQualityID.Valid {
+			continue
+		}
+		newStatus := profile.StatusForQuality(int(row.CurrentQualityID.Int64))
+		if newStatus != row.Status {
+			if err := s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+				ID:     row.ID,
+				Status: newStatus,
+			}); err != nil {
+				s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to recalculate movie status")
+				continue
+			}
+			updated++
+		}
+	}
+
+	// Recalculate episodes
+	episodeRows, err := s.queries.ListEpisodesWithFilesForProfile(ctx, sql.NullInt64{Int64: profileID, Valid: true})
+	if err != nil {
+		return updated, fmt.Errorf("failed to list episodes for profile: %w", err)
+	}
+
+	for _, row := range episodeRows {
+		if !row.CurrentQualityID.Valid {
+			continue
+		}
+		newStatus := profile.StatusForQuality(int(row.CurrentQualityID.Int64))
+		if newStatus != row.Status {
+			if err := s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+				ID:     row.ID,
+				Status: newStatus,
+			}); err != nil {
+				s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to recalculate episode status")
+				continue
+			}
+			updated++
+		}
+	}
+
+	s.logger.Info().
+		Int64("profileId", profileID).
+		Int("updated", updated).
+		Msg("Recalculated media status for profile change")
+
+	return updated, nil
+}

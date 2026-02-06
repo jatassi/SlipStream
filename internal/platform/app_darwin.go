@@ -62,7 +62,7 @@ func (a *macApp) Run() error {
 
 		a.statusItem = appkit.StatusBar_SystemStatusBar().StatusItemWithLength(appkit.VariableStatusItemLength)
 
-		if button := a.statusItem.Button(); button.Ptr != nil {
+		if button := a.statusItem.Button(); button.Ptr() != nil {
 			button.SetTitle("SlipStream")
 		}
 
@@ -119,14 +119,14 @@ func (a *macApp) toggleStartup() {
 		title = "Disable Start at Login"
 	}
 
-	if a.startupItem.Ptr != nil {
+	if a.startupItem.Ptr() != nil {
 		a.startupItem.SetTitle(title)
 	}
 }
 
 func (a *macApp) OpenBrowser(url string) error {
 	nsURL := foundation.URL_URLWithString(url)
-	if nsURL.Ptr == nil {
+	if nsURL.Ptr() == nil {
 		return exec.Command("open", url).Start()
 	}
 	appkit.Workspace_SharedWorkspace().OpenURL(nsURL)

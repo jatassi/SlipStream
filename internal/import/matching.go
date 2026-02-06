@@ -235,7 +235,7 @@ func (s *Service) matchTVFromParse(ctx context.Context, filename string) *Librar
 		for _, ep := range episodes {
 			if ep.EpisodeNumber == episode {
 				match.EpisodeID = &ep.ID
-				if ep.HasFile && ep.EpisodeFile != nil {
+				if ep.EpisodeFile != nil {
 					match.IsUpgrade = true
 					match.ExistingFile = ep.EpisodeFile.Path
 					match.ExistingFileID = &ep.EpisodeFile.ID

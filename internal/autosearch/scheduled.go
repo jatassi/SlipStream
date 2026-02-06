@@ -313,8 +313,13 @@ func (s *ScheduledSearcher) collectMissingMovies(ctx context.Context) ([]searcha
 
 	items := make([]searchableItemWithPriority, 0, len(rows))
 	for _, row := range rows {
+		// Skip failed items - they require manual retry to reset
+		if row.Status == "failed" {
+			continue
+		}
+
 		// Check backoff status
-		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID)
+		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, "missing")
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to check backoff status")
 		}
@@ -355,6 +360,10 @@ func (s *ScheduledSearcher) collectMissingEpisodes(ctx context.Context) ([]searc
 	seasonEpisodes := make(map[seasonKey][]*sqlc.ListMissingEpisodesRow)
 
 	for _, row := range rows {
+		// Skip failed episodes - they require manual retry to reset
+		if row.Status == "failed" {
+			continue
+		}
 		key := seasonKey{seriesID: row.SeriesID, seasonNumber: row.SeasonNumber}
 		seasonEpisodes[key] = append(seasonEpisodes[key], row)
 	}
@@ -368,7 +377,7 @@ func (s *ScheduledSearcher) collectMissingEpisodes(ctx context.Context) ([]searc
 
 		if allReleasedAndMissing {
 			// Check backoff for the first episode as proxy for season pack
-			shouldSkip, err := s.shouldSkipItem(ctx, "episode", episodes[0].ID)
+			shouldSkip, err := s.shouldSkipItem(ctx, "episode", episodes[0].ID, "missing")
 			if err != nil {
 				s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season")
 			}
@@ -414,7 +423,7 @@ func (s *ScheduledSearcher) collectMissingEpisodes(ctx context.Context) ([]searc
 			// Add individual episodes
 			for _, ep := range episodes {
 				// Check backoff for each episode
-				shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID)
+				shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, "missing")
 				if err != nil {
 					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to check backoff status")
 				}
@@ -470,7 +479,7 @@ func (s *ScheduledSearcher) collectUpgradeMovies(ctx context.Context) ([]searcha
 
 	items := make([]searchableItemWithPriority, 0, len(rows))
 	for _, row := range rows {
-		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID)
+		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, "upgrade")
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to check backoff status")
 		}
@@ -505,7 +514,7 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 
 	items := make([]searchableItemWithPriority, 0, len(rows))
 	for _, row := range rows {
-		shouldSkip, err := s.shouldSkipItem(ctx, "episode", row.ID)
+		shouldSkip, err := s.shouldSkipItem(ctx, "episode", row.ID, "upgrade")
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to check backoff status")
 		}
@@ -530,10 +539,11 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 }
 
 // shouldSkipItem checks if an item should be skipped due to backoff.
-func (s *ScheduledSearcher) shouldSkipItem(ctx context.Context, itemType string, itemID int64) (bool, error) {
+func (s *ScheduledSearcher) shouldSkipItem(ctx context.Context, itemType string, itemID int64, searchType string) (bool, error) {
 	status, err := s.service.queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-		ItemType: itemType,
-		ItemID:   itemID,
+		ItemType:   itemType,
+		ItemID:     itemID,
+		SearchType: searchType,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -570,6 +580,12 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 		default:
 		}
 
+		// Determine search type based on whether item has a file (upgrade vs missing)
+		searchType := "missing"
+		if item.HasFile {
+			searchType = "upgrade"
+		}
+
 		// Broadcast progress
 		s.broadcastTaskProgress(i+1, len(items), item.Title)
 
@@ -598,7 +614,7 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 			result.Results = append(result.Results, &SearchResult{Error: err.Error()})
 
 			// Increment failure count for backoff
-			s.incrementFailureCount(ctx, item)
+			s.incrementFailureCount(ctx, item, searchType)
 			continue
 		}
 
@@ -606,10 +622,10 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 		if searchResult.Found {
 			result.Found++
 			// Reset failure count on success
-			s.resetFailureCount(ctx, item)
+			s.resetFailureCount(ctx, item, searchType)
 		} else {
 			// No results found - increment failure count
-			s.incrementFailureCount(ctx, item)
+			s.incrementFailureCount(ctx, item, searchType)
 		}
 		if searchResult.Downloaded {
 			result.Downloaded++
@@ -635,15 +651,16 @@ func (s *ScheduledSearcher) searchItem(ctx context.Context, item SearchableItem)
 }
 
 // incrementFailureCount increments the failure count for an item.
-func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item SearchableItem) {
+func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
 		itemType = "episode" // Track season by its first episode
 	}
 
 	err := s.service.queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-		ItemType: itemType,
-		ItemID:   item.MediaID,
+		ItemType:   itemType,
+		ItemID:     item.MediaID,
+		SearchType: searchType,
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).
@@ -654,15 +671,16 @@ func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item Sear
 }
 
 // resetFailureCount resets the failure count for an item.
-func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item SearchableItem) {
+func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
 		itemType = "episode"
 	}
 
 	err := s.service.queries.ResetAutosearchFailure(ctx, sqlc.ResetAutosearchFailureParams{
-		ItemType: itemType,
-		ItemID:   item.MediaID,
+		ItemType:   itemType,
+		ItemID:     item.MediaID,
+		SearchType: searchType,
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).

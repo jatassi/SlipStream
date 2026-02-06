@@ -1,8 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { PosterImage } from '@/components/media/PosterImage'
-import { StatusBadge } from '@/components/media/StatusBadge'
-import { MovieAvailabilityBadge } from '@/components/media/AvailabilityBadge'
+import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Movie } from '@/types'
 
@@ -41,9 +40,8 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
           />
         </div>
       )}
-      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-        <StatusBadge status={movie.status} />
-        <MovieAvailabilityBadge movie={movie} />
+      <div className="absolute top-2 right-2">
+        <MediaStatusBadge status={movie.status} />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
         <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">

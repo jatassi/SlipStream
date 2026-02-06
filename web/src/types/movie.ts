@@ -11,16 +11,15 @@ export interface Movie {
   rootFolderId?: number
   qualityProfileId: number
   monitored: boolean
-  status: 'missing' | 'downloading' | 'available'
+  status: 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
+  statusMessage?: string | null
+  activeDownloadId?: string | null
   addedAt: string
   updatedAt?: string
-  hasFile: boolean
   sizeOnDisk?: number
   movieFiles?: MovieFile[]
-  releaseDate?: string // Digital/streaming release date
-  physicalReleaseDate?: string // Bluray release date
-  released: boolean // True if release date is in the past
-  availabilityStatus: string // Badge text: "Available" or "Unreleased"
+  releaseDate?: string
+  physicalReleaseDate?: string
 }
 
 export interface MovieFile {

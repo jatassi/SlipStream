@@ -138,7 +138,7 @@ func (q *Queries) ListRequestWatchers(ctx context.Context, requestID int64) ([]*
 }
 
 const listUserWatchedRequests = `-- name: ListUserWatchedRequests :many
-SELECT r.id, r.user_id, r.media_type, r.tmdb_id, r.tvdb_id, r.title, r.year, r.season_number, r.episode_number, r.status, r.monitor_type, r.denied_reason, r.approved_at, r.approved_by, r.media_id, r.target_slot_id, r.created_at, r.updated_at, r.poster_url, r.requested_seasons FROM requests r
+SELECT r.id, r.user_id, r.media_type, r.tmdb_id, r.tvdb_id, r.title, r.year, r.season_number, r.episode_number, r.status, r.monitor_type, r.denied_reason, r.approved_at, r.approved_by, r.media_id, r.target_slot_id, r.poster_url, r.requested_seasons, r.created_at, r.updated_at FROM requests r
 JOIN request_watchers rw ON r.id = rw.request_id
 WHERE rw.user_id = ?
 ORDER BY r.created_at DESC
@@ -170,10 +170,10 @@ func (q *Queries) ListUserWatchedRequests(ctx context.Context, userID int64) ([]
 			&i.ApprovedBy,
 			&i.MediaID,
 			&i.TargetSlotID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.PosterUrl,
 			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

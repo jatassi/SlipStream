@@ -9,7 +9,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { SeasonAvailabilityBadge } from '@/components/media/AvailabilityBadge'
 import { EpisodeTable } from './EpisodeTable'
 import { useDownloadingStore } from '@/stores'
 import type { Season, Episode, Slot } from '@/types'
@@ -89,8 +88,8 @@ export function SeasonList({
     <Accordion className={cn('space-y-2', className)}>
       {sortedSeasons.map((season) => {
         const seasonEpisodes = episodesBySeason[season.seasonNumber] || []
-        const fileCount = seasonEpisodes.filter((e) => e.hasFile).length
-        const totalCount = seasonEpisodes.length
+        const fileCount = season.statusCounts.available + season.statusCounts.upgradable
+        const totalCount = season.statusCounts.total
 
         return (
           <AccordionItem
@@ -113,7 +112,6 @@ export function SeasonList({
                 <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
                   {fileCount}/{totalCount}
                 </Badge>
-                <SeasonAvailabilityBadge season={season} />
                 <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {onSeasonSearch && (
                     <Button

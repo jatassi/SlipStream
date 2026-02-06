@@ -13,8 +13,7 @@ import {
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
-import { StatusBadge } from '@/components/media/StatusBadge'
-import { MovieAvailabilityBadge } from '@/components/media/AvailabilityBadge'
+import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
 import { QualityBadge } from '@/components/media/QualityBadge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
@@ -219,8 +218,7 @@ export function MovieDetailPage() {
             {/* Info */}
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <StatusBadge status={movie.status} />
-                <MovieAvailabilityBadge movie={movie} />
+                <MediaStatusBadge status={movie.status} />
                 {movie.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (

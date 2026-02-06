@@ -1,3 +1,13 @@
+export interface StatusCounts {
+  unreleased: number
+  missing: number
+  downloading: number
+  failed: number
+  upgradable: number
+  available: number
+  total: number
+}
+
 export interface Series {
   id: number
   title: string
@@ -13,15 +23,12 @@ export interface Series {
   qualityProfileId: number
   monitored: boolean
   seasonFolder: boolean
-  status: 'continuing' | 'ended' | 'upcoming'
+  productionStatus: 'continuing' | 'ended' | 'upcoming'
+  statusCounts: StatusCounts
   addedAt: string
   updatedAt?: string
-  episodeCount: number
-  episodeFileCount: number
   sizeOnDisk?: number
   seasons?: Season[]
-  released: boolean // True if all seasons are released
-  availabilityStatus: string // Badge text: "Available", "Season X Airing", "Seasons 1-N Available", or "Unreleased"
 }
 
 export interface Season {
@@ -31,11 +38,9 @@ export interface Season {
   monitored: boolean
   overview?: string
   posterUrl?: string
-  episodeCount: number
-  episodeFileCount: number
+  statusCounts: StatusCounts
   sizeOnDisk?: number
   episodes?: Episode[]
-  released: boolean // True if all episodes in season have aired
 }
 
 export interface Episode {
@@ -47,9 +52,10 @@ export interface Episode {
   overview?: string
   airDate?: string
   monitored: boolean
-  hasFile: boolean
+  status: 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
+  statusMessage?: string | null
+  activeDownloadId?: string | null
   episodeFile?: EpisodeFile
-  released: boolean // True if air date is in the past
 }
 
 export interface EpisodeFile {
@@ -119,7 +125,7 @@ export interface UpdateSeriesInput {
   qualityProfileId?: number
   monitored?: boolean
   seasonFolder?: boolean
-  status?: string
+  productionStatus?: string
 }
 
 export interface UpdateEpisodeInput {

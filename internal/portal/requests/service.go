@@ -30,6 +30,7 @@ const (
 	StatusApproved    = "approved"
 	StatusDenied      = "denied"
 	StatusDownloading = "downloading"
+	StatusFailed      = "failed"
 	StatusAvailable   = "available"
 )
 
@@ -537,7 +538,7 @@ func isValidMediaType(mediaType string) bool {
 
 func isValidStatus(status string) bool {
 	switch status {
-	case StatusPending, StatusApproved, StatusDenied, StatusDownloading, StatusAvailable:
+	case StatusPending, StatusApproved, StatusDenied, StatusDownloading, StatusFailed, StatusAvailable:
 		return true
 	}
 	return false

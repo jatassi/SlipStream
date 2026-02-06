@@ -299,6 +299,10 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.slotsService = slots.NewService(db, s.qualityService, logger)
 	serverDebugLog("Core services initialized")
 
+	// Wire up quality profile service for status evaluation on file import
+	s.movieService.SetQualityService(s.qualityService)
+	s.tvService.SetQualityService(s.qualityService)
+
 	// Wire up slot-related file deletion handling (Req 12.1.1, 12.1.2)
 	s.movieService.SetFileDeleteHandler(s.slotsService)
 	s.tvService.SetFileDeleteHandler(s.slotsService)
@@ -536,6 +540,12 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.portalStatusTracker.SetNotificationDispatcher(s.portalNotificationsService)
 	s.portalLibraryChecker = requests.NewLibraryChecker(queries, logger)
 	s.importService.SetStatusTracker(s.portalStatusTracker)
+	s.grabService.SetPortalStatusTracker(s.portalStatusTracker)
+	s.downloaderService.SetPortalStatusTracker(s.portalStatusTracker)
+	s.downloaderService.SetBroadcaster(hub)
+	s.downloaderService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
+	s.movieService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
+	s.tvService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
 
 	serverDebugLog("Initializing portal auth service...")
 	authSvc, err := auth.NewService(queries, cfg.Portal.JWTSecret)
@@ -628,6 +638,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.libraryManagerService.SetAutosearchService(s.autosearchService)
 	s.libraryManagerService.SetPreferencesService(s.preferencesService)
 	s.libraryManagerService.SetSlotsService(s.slotsService)
+	s.libraryManagerService.SetHealthService(s.healthService)
 
 	// Wire up series refresher for pre-search metadata updates
 	s.scheduledSearcher.SetSeriesRefresher(s.libraryManagerService)
@@ -2052,6 +2063,17 @@ func (a *importHistoryAdapter) Create(ctx context.Context, input importer.Histor
 		Data:      input.Data,
 	})
 	return err
+}
+
+// statusChangeLoggerAdapter adapts history.Service for status transition logging.
+type statusChangeLoggerAdapter struct {
+	svc *history.Service
+}
+
+func (a *statusChangeLoggerAdapter) LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error {
+	return a.svc.LogStatusChanged(ctx, history.MediaType(mediaType), mediaID, history.StatusChangedData{
+		From: from, To: to, Reason: reason,
+	})
 }
 
 // slotFileDeleterAdapter adapts movie and TV services to slots.FileDeleter interface.

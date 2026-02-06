@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -194,6 +195,16 @@ func (s *Service) CreateQueueMediaForSeasonPack(ctx context.Context, mappingID i
 		if err != nil {
 			s.logger.Warn().Err(err).Str("path", file.Path).Msg("Failed to create queue media entry")
 			continue
+		}
+
+		// Set episode status to downloading when queue_media entry is created
+		if file.EpisodeID != nil {
+			_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+				Status:           "downloading",
+				ActiveDownloadID: sql.NullString{},
+				StatusMessage:    sql.NullString{},
+				ID:               *file.EpisodeID,
+			})
 		}
 
 		entries = append(entries, entry)

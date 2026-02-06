@@ -22,6 +22,8 @@ const (
 	EventTypeSlotAssigned   EventType = "slot_assigned"
 	EventTypeSlotReassigned EventType = "slot_reassigned"
 	EventTypeSlotUnassigned EventType = "slot_unassigned"
+	// Status consolidation: transitions not covered by existing events
+	EventTypeStatusChanged EventType = "status_changed"
 )
 
 // MediaType represents the type of media.
@@ -133,6 +135,13 @@ type SlotEventData struct {
 	FilePath     string `json:"filePath,omitempty"`
 	PreviousSlot *int64 `json:"previousSlotId,omitempty"`
 	Reason       string `json:"reason,omitempty"`
+}
+
+// StatusChangedData contains data for status transition events not covered by existing event types.
+type StatusChangedData struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Reason string `json:"reason"`
 }
 
 // ToJSON converts a data struct to a JSON map.

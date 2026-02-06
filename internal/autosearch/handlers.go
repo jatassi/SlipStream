@@ -34,6 +34,10 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.POST("/series/:id", h.SearchSeries)
 	g.GET("/status/:mediaType/:id", h.GetStatus)
 
+	// Retry endpoints (reset failed → missing/upgradable)
+	g.POST("/retry/movie/:id", h.RetryMovie)
+	g.POST("/retry/episode/:id", h.RetryEpisode)
+
 	// Bulk search endpoints
 	g.POST("/missing/all", h.SearchAllMissing)
 	g.POST("/missing/movies", h.SearchAllMissingMovies)
@@ -281,4 +285,44 @@ func (h *Handlers) SearchAllMissingSeries(c echo.Context) error {
 	return c.JSON(http.StatusAccepted, map[string]string{
 		"message": "Search started for all missing series",
 	})
+}
+
+// RetryMovie resets a failed movie back to missing/upgradable and optionally triggers a search.
+// POST /api/v1/autosearch/retry/movie/:id
+func (h *Handlers) RetryMovie(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie id")
+	}
+
+	result, err := h.service.RetryMovie(c.Request().Context(), id)
+	if err != nil {
+		if err == ErrItemNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+// RetryEpisode resets a failed episode back to missing/upgradable and optionally triggers a search.
+// POST /api/v1/autosearch/retry/episode/:id
+func (h *Handlers) RetryEpisode(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid episode id")
+	}
+
+	result, err := h.service.RetryEpisode(c.Request().Context(), id)
+	if err != nil {
+		if err == ErrItemNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

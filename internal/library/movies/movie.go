@@ -16,20 +16,16 @@ type Movie struct {
 	RootFolderID     int64      `json:"rootFolderId,omitempty"`
 	QualityProfileID int64      `json:"qualityProfileId,omitempty"`
 	Monitored        bool       `json:"monitored"`
-	Status           string     `json:"status"` // "missing", "downloading", "available"
+	Status           string     `json:"status"`
+	StatusMessage    *string    `json:"statusMessage"`
+	ActiveDownloadID *string    `json:"activeDownloadId"`
 	AddedAt          time.Time  `json:"addedAt"`
 	UpdatedAt        time.Time  `json:"updatedAt,omitempty"`
-	HasFile          bool       `json:"hasFile"`
 	SizeOnDisk       int64      `json:"sizeOnDisk,omitempty"`
 	MovieFiles       []MovieFile `json:"movieFiles,omitempty"`
 
-	// Release dates
-	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`         // Digital/streaming release date
-	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"` // Bluray release date
-
-	// Availability
-	Released           bool   `json:"released"`           // True if release date is in the past
-	AvailabilityStatus string `json:"availabilityStatus"` // Badge text: "Available" or "Unreleased"
+	ReleaseDate         *time.Time `json:"releaseDate,omitempty"`
+	PhysicalReleaseDate *time.Time `json:"physicalReleaseDate,omitempty"`
 }
 
 // MovieFile represents a movie file on disk.

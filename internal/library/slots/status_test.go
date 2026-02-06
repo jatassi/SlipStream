@@ -21,8 +21,8 @@ func TestMissingStatusDetermination(t *testing.T) {
 		{
 			name: "T17/Req 6.1.1: 1 monitored empty, 1 filled → missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: true, HasFile: true},
-				{SlotID: 2, Monitored: true, HasFile: false},
+				{SlotID: 1, Monitored: true, Status: "available"},
+				{SlotID: 2, Monitored: true, Status: "missing"},
 			},
 			expectedMissing: true,
 			testID:          "T17",
@@ -30,8 +30,8 @@ func TestMissingStatusDetermination(t *testing.T) {
 		{
 			name: "T18/Req 6.1.2: 1 unmonitored empty, 1 filled → not missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: true, HasFile: true},
-				{SlotID: 2, Monitored: false, HasFile: false},
+				{SlotID: 1, Monitored: true, Status: "available"},
+				{SlotID: 2, Monitored: false, Status: "missing"},
 			},
 			expectedMissing: false,
 			testID:          "T18",
@@ -39,33 +39,33 @@ func TestMissingStatusDetermination(t *testing.T) {
 		{
 			name: "All monitored slots filled → not missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: true, HasFile: true},
-				{SlotID: 2, Monitored: true, HasFile: true},
+				{SlotID: 1, Monitored: true, Status: "available"},
+				{SlotID: 2, Monitored: true, Status: "available"},
 			},
 			expectedMissing: false,
 		},
 		{
 			name: "All monitored slots empty → missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: true, HasFile: false},
-				{SlotID: 2, Monitored: true, HasFile: false},
+				{SlotID: 1, Monitored: true, Status: "missing"},
+				{SlotID: 2, Monitored: true, Status: "missing"},
 			},
 			expectedMissing: true,
 		},
 		{
 			name: "No monitored slots (all unmonitored empty) → not missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: false, HasFile: false},
-				{SlotID: 2, Monitored: false, HasFile: false},
+				{SlotID: 1, Monitored: false, Status: "missing"},
+				{SlotID: 2, Monitored: false, Status: "missing"},
 			},
 			expectedMissing: false,
 		},
 		{
 			name: "Mixed: 1 monitored filled, 1 unmonitored filled, 1 monitored empty → missing",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, Monitored: true, HasFile: true},
-				{SlotID: 2, Monitored: false, HasFile: true},
-				{SlotID: 3, Monitored: true, HasFile: false},
+				{SlotID: 1, Monitored: true, Status: "available"},
+				{SlotID: 2, Monitored: false, Status: "available"},
+				{SlotID: 3, Monitored: true, Status: "missing"},
 			},
 			expectedMissing: true,
 		},
@@ -86,7 +86,7 @@ func TestMissingStatusDetermination(t *testing.T) {
 // Req 6.1.2: Unmonitored empty slots do not affect missing status
 func calculateMissingStatus(slotStatuses []SlotStatus) bool {
 	for _, status := range slotStatuses {
-		if status.Monitored && !status.HasFile {
+		if status.Monitored && status.Status == "missing" {
 			return true
 		}
 	}
@@ -105,37 +105,37 @@ func TestUpgradeStatusDetermination(t *testing.T) {
 		{
 			name: "Req 6.2.2: File below cutoff → needs upgrade",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, HasFile: true, CurrentQualityID: intPtr(10), ProfileCutoff: 20, NeedsUpgrade: true},
+				{SlotID: 1, Status: "upgradable", CurrentQualityID: intPtr(10), ProfileCutoff: 20},
 			},
 			expectedNeedsUpgrade: true,
 		},
 		{
 			name: "File at cutoff → no upgrade needed",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, HasFile: true, CurrentQualityID: intPtr(20), ProfileCutoff: 20, NeedsUpgrade: false},
+				{SlotID: 1, Status: "available", CurrentQualityID: intPtr(20), ProfileCutoff: 20},
 			},
 			expectedNeedsUpgrade: false,
 		},
 		{
 			name: "File above cutoff → no upgrade needed",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, HasFile: true, CurrentQualityID: intPtr(30), ProfileCutoff: 20, NeedsUpgrade: false},
+				{SlotID: 1, Status: "available", CurrentQualityID: intPtr(30), ProfileCutoff: 20},
 			},
 			expectedNeedsUpgrade: false,
 		},
 		{
 			name: "Req 6.2.1: One slot needs upgrade, one doesn't → overall needs upgrade",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, HasFile: true, CurrentQualityID: intPtr(30), ProfileCutoff: 20, NeedsUpgrade: false},
-				{SlotID: 2, HasFile: true, CurrentQualityID: intPtr(10), ProfileCutoff: 20, NeedsUpgrade: true},
+				{SlotID: 1, Status: "available", CurrentQualityID: intPtr(30), ProfileCutoff: 20},
+				{SlotID: 2, Status: "upgradable", CurrentQualityID: intPtr(10), ProfileCutoff: 20},
 			},
 			expectedNeedsUpgrade: true,
 		},
 		{
 			name: "Empty slot doesn't contribute to upgrade status",
 			slotStatuses: []SlotStatus{
-				{SlotID: 1, HasFile: false, NeedsUpgrade: false},
-				{SlotID: 2, HasFile: true, CurrentQualityID: intPtr(30), ProfileCutoff: 20, NeedsUpgrade: false},
+				{SlotID: 1, Status: "missing"},
+				{SlotID: 2, Status: "available", CurrentQualityID: intPtr(30), ProfileCutoff: 20},
 			},
 			expectedNeedsUpgrade: false,
 		},
@@ -154,7 +154,7 @@ func TestUpgradeStatusDetermination(t *testing.T) {
 // calculateOverallUpgradeStatus checks if any slot needs an upgrade.
 func calculateOverallUpgradeStatus(slotStatuses []SlotStatus) bool {
 	for _, status := range slotStatuses {
-		if status.NeedsUpgrade {
+		if status.Status == "upgradable" {
 			return true
 		}
 	}

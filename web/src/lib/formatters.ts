@@ -129,3 +129,15 @@ export function formatSeriesTitle(
   if (!season || !episode) return seriesName
   return `${seriesName} - ${formatEpisodeNumber(season, episode)}`
 }
+
+/**
+ * Format status counts into a summary string for series/season display
+ */
+export function formatStatusSummary(counts: { available: number; upgradable: number; unreleased: number; missing: number; downloading: number; failed: number; total: number }): string {
+  const ready = counts.available + counts.upgradable
+  if (ready === counts.total && counts.total > 0) return 'Available'
+  if (counts.unreleased === counts.total) return 'Unreleased'
+  if (counts.failed > 0) return `${ready}/${counts.total} eps (${counts.failed} failed)`
+  if (counts.downloading > 0) return `${ready}/${counts.total} eps (${counts.downloading} downloading)`
+  return `${ready}/${counts.total} eps`
+}

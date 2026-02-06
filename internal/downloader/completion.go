@@ -2,8 +2,10 @@ package downloader
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/types"
@@ -145,6 +147,119 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 	}
 
 	return completed, nil
+}
+
+// CheckForDisappearedDownloads detects media items with status "downloading" whose
+// active download no longer exists in any download client, and marks them as failed.
+func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
+	clients, err := s.queries.ListEnabledDownloadClients(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list clients: %w", err)
+	}
+
+	// Collect all active download IDs across all clients
+	activeDownloadIDs := make(map[string]struct{})
+	for _, dbClient := range clients {
+		if !IsClientTypeImplemented(dbClient.Type) {
+			continue
+		}
+
+		client, err := s.GetClient(ctx, dbClient.ID)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to get client for disappearance check")
+			continue
+		}
+
+		downloads, err := client.List(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to list downloads for disappearance check")
+			continue
+		}
+
+		for _, d := range downloads {
+			activeDownloadIDs[d.ID] = struct{}{}
+		}
+	}
+
+	failedParams := sqlc.UpdateMovieStatusWithDetailsParams{
+		Status:           "failed",
+		ActiveDownloadID: sql.NullString{},
+		StatusMessage:    sql.NullString{String: "Download removed from client", Valid: true},
+	}
+
+	// Check downloading movies
+	movies, err := s.queries.ListDownloadingMovies(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list downloading movies: %w", err)
+	}
+
+	for _, m := range movies {
+		if !m.ActiveDownloadID.Valid {
+			continue
+		}
+		downloadID := m.ActiveDownloadID.String
+		if strings.HasPrefix(downloadID, "mock-") {
+			continue
+		}
+		if _, exists := activeDownloadIDs[downloadID]; !exists {
+			failedParams.ID = m.ID
+			if err := s.queries.UpdateMovieStatusWithDetails(ctx, failedParams); err != nil {
+				s.logger.Warn().Err(err).Int64("movieId", m.ID).Msg("Failed to mark disappeared movie download as failed")
+				continue
+			}
+			s.logger.Info().Int64("movieId", m.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked movie as failed")
+			if s.statusChangeLogger != nil {
+				_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", m.ID, "downloading", "failed", "Download removed from client")
+			}
+			if s.broadcaster != nil {
+				_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": m.ID})
+			}
+			if s.portalStatusTracker != nil {
+				_ = s.portalStatusTracker.OnDownloadFailed(ctx, "movie", m.ID)
+			}
+		}
+	}
+
+	// Check downloading episodes
+	episodes, err := s.queries.ListDownloadingEpisodes(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list downloading episodes: %w", err)
+	}
+
+	epFailedParams := sqlc.UpdateEpisodeStatusWithDetailsParams{
+		Status:           "failed",
+		ActiveDownloadID: sql.NullString{},
+		StatusMessage:    sql.NullString{String: "Download removed from client", Valid: true},
+	}
+
+	for _, ep := range episodes {
+		if !ep.ActiveDownloadID.Valid {
+			continue
+		}
+		downloadID := ep.ActiveDownloadID.String
+		if strings.HasPrefix(downloadID, "mock-") {
+			continue
+		}
+		if _, exists := activeDownloadIDs[downloadID]; !exists {
+			epFailedParams.ID = ep.ID
+			if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, epFailedParams); err != nil {
+				s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to mark disappeared episode download as failed")
+				continue
+			}
+			s.logger.Info().Int64("episodeId", ep.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked episode as failed")
+			if s.statusChangeLogger != nil {
+				_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", ep.ID, "downloading", "failed", "Download removed from client")
+			}
+			if s.broadcaster != nil {
+				_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": ep.SeriesID})
+			}
+			if s.portalStatusTracker != nil {
+				_ = s.portalStatusTracker.OnDownloadFailed(ctx, "episode", ep.ID)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetDownloadPath returns the file path for a specific download.

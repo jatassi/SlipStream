@@ -196,6 +196,29 @@ func DeserializeItems(data string) ([]QualityItem, error) {
 	return items, nil
 }
 
+// IsAtOrAboveCutoff checks if a quality meets or exceeds the profile cutoff.
+// Returns true if the quality weight >= cutoff weight, meaning no upgrade is needed.
+func (p *Profile) IsAtOrAboveCutoff(qualityID int) bool {
+	q, ok := GetQualityByID(qualityID)
+	if !ok {
+		return false
+	}
+	return q.Weight >= p.getCutoffWeight()
+}
+
+// StatusForQuality returns the appropriate media status based on a file's quality.
+// Returns "available" if at or above cutoff, "upgradable" if below cutoff and upgrades enabled,
+// or "available" if below cutoff but upgrades disabled.
+func (p *Profile) StatusForQuality(qualityID int) string {
+	if p.IsAtOrAboveCutoff(qualityID) {
+		return "available"
+	}
+	if p.UpgradesEnabled {
+		return "upgradable"
+	}
+	return "available"
+}
+
 // IsAcceptable checks if a quality is acceptable for this profile.
 func (p *Profile) IsAcceptable(qualityID int) bool {
 	for _, item := range p.Items {

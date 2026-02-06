@@ -54,8 +54,8 @@ export function SeriesListPage() {
   // Filter series by status
   const filteredSeries = (seriesList || []).filter((s: Series) => {
     if (statusFilter === 'monitored' && !s.monitored) return false
-    if (statusFilter === 'continuing' && s.status !== 'continuing') return false
-    if (statusFilter === 'ended' && s.status !== 'ended') return false
+    if (statusFilter === 'continuing' && s.productionStatus !== 'continuing') return false
+    if (statusFilter === 'ended' && s.productionStatus !== 'ended') return false
     return true
   })
 

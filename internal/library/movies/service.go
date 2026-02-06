@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -43,14 +44,21 @@ type FileDeleteHandler interface {
 	OnFileDeleted(ctx context.Context, mediaType string, fileID int64) error
 }
 
+// StatusChangeLogger logs status transition history events.
+type StatusChangeLogger interface {
+	LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error
+}
+
 // Service provides movie library operations.
 type Service struct {
-	db                *sql.DB
-	queries           *sqlc.Queries
-	hub               *websocket.Hub
-	logger            zerolog.Logger
-	fileDeleteHandler FileDeleteHandler
-	notifier          NotificationDispatcher
+	db                 *sql.DB
+	queries            *sqlc.Queries
+	hub                *websocket.Hub
+	logger             zerolog.Logger
+	fileDeleteHandler  FileDeleteHandler
+	statusChangeLogger StatusChangeLogger
+	notifier           NotificationDispatcher
+	qualityProfiles    *quality.Service
 }
 
 // SetNotificationDispatcher sets the notification dispatcher for movie events.
@@ -58,10 +66,20 @@ func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 	s.notifier = n
 }
 
+// SetQualityService sets the quality profile service for quality evaluation.
+func (s *Service) SetQualityService(qs *quality.Service) {
+	s.qualityProfiles = qs
+}
+
 // SetFileDeleteHandler sets the handler for file deletion events.
 // Req 12.1.1: Deleting file from slot does NOT trigger automatic search
 func (s *Service) SetFileDeleteHandler(handler FileDeleteHandler) {
 	s.fileDeleteHandler = handler
+}
+
+// SetStatusChangeLogger sets the logger for status transition history events.
+func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
+	s.statusChangeLogger = logger
 }
 
 // NewService creates a new movie service.
@@ -99,7 +117,6 @@ func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
 		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to get movie files")
 	} else {
 		movie.MovieFiles = files
-		movie.HasFile = len(files) > 0
 		for _, f := range files {
 			movie.SizeOnDisk += f.Size
 		}
@@ -160,9 +177,6 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 	movies := make([]*Movie, len(rows))
 	for i, row := range rows {
 		movies[i] = s.rowToMovie(row)
-		// Check if has files
-		count, _ := s.queries.CountMovieFiles(ctx, movies[i].ID)
-		movies[i].HasFile = count > 0
 	}
 	return movies, nil
 }
@@ -222,15 +236,13 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		}
 	}
 
-	// Calculate released status and availability_status based on release date
-	released := int64(0)
-	availabilityStatus := "Unreleased"
-	if releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
-		released = 1
-		availabilityStatus = "Available"
+	// Determine initial status based on release date
+	status := "missing"
+	if !releaseDate.Valid || releaseDate.Time.After(time.Now()) {
+		status = "unreleased"
 	}
 
-	row, err := s.queries.CreateMovieWithAvailability(ctx, sqlc.CreateMovieWithAvailabilityParams{
+	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
 		Title:               input.Title,
 		SortTitle:           sortTitle,
 		Year:                sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
@@ -242,12 +254,9 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		RootFolderID:        sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
 		QualityProfileID:    sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
 		Monitored:           boolToInt(input.Monitored),
-		Status:              "missing",
+		Status:              status,
 		ReleaseDate:         releaseDate,
-		DigitalReleaseDate:  sql.NullTime{}, // Deprecated, use ReleaseDate for digital
 		PhysicalReleaseDate: physicalReleaseDate,
-		Released:            released,
-		AvailabilityStatus:  availabilityStatus,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -381,15 +390,15 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		physicalReleaseDate = sql.NullTime{Time: *current.PhysicalReleaseDate, Valid: true}
 	}
 
-	// Calculate released status and availability_status based on release date
-	released := int64(0)
-	availabilityStatus := "Unreleased"
-	if releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
-		released = 1
-		availabilityStatus = "Available"
+	// Recalculate status if release date changed and current status is unreleased/missing
+	status := current.Status
+	if status == "unreleased" && releaseDate.Valid && !releaseDate.Time.After(time.Now()) {
+		status = "missing"
+	} else if status == "missing" && (!releaseDate.Valid || releaseDate.Time.After(time.Now())) {
+		status = "unreleased"
 	}
 
-	row, err := s.queries.UpdateMovieWithAvailability(ctx, sqlc.UpdateMovieWithAvailabilityParams{
+	row, err := s.queries.UpdateMovie(ctx, sqlc.UpdateMovieParams{
 		ID:                  id,
 		Title:               title,
 		SortTitle:           sortTitle,
@@ -402,12 +411,9 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		RootFolderID:        sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
 		QualityProfileID:    sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
 		Monitored:           boolToInt(monitored),
-		Status:              current.Status,
+		Status:              status,
 		ReleaseDate:         releaseDate,
-		DigitalReleaseDate:  sql.NullTime{}, // Deprecated
 		PhysicalReleaseDate: physicalReleaseDate,
-		Released:            released,
-		AvailabilityStatus:  availabilityStatus,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
@@ -504,8 +510,7 @@ func (s *Service) GetPrimaryFile(ctx context.Context, movieID int64) (*MovieFile
 
 // AddFile adds a file to a movie.
 func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieFileInput) (*MovieFile, error) {
-	// Verify movie exists
-	_, err := s.Get(ctx, movieID)
+	movie, err := s.Get(ctx, movieID)
 	if err != nil {
 		return nil, err
 	}
@@ -548,10 +553,15 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 		return nil, fmt.Errorf("failed to create movie file: %w", err)
 	}
 
-	// Update movie status
-	_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+	status := "available"
+	if qualityID.Valid && s.qualityProfiles != nil {
+		if profile, profileErr := s.qualityProfiles.Get(ctx, movie.QualityProfileID); profileErr == nil {
+			status = profile.StatusForQuality(int(qualityID.Int64))
+		}
+	}
+	_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 		ID:     movieID,
-		Status: "available",
+		Status: status,
 	})
 
 	file := s.rowToMovieFile(row)
@@ -598,13 +608,28 @@ func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 		return fmt.Errorf("failed to delete movie file: %w", err)
 	}
 
-	// Check if movie still has files
+	// Check if movie still has files; if none remain, transition to missing and unmonitor
 	count, _ := s.queries.CountMovieFiles(ctx, row.MovieID)
 	if count == 0 {
-		_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+		movie, _ := s.queries.GetMovie(ctx, row.MovieID)
+		oldStatus := ""
+		if movie != nil {
+			oldStatus = movie.Status
+		}
+		_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 			ID:     row.MovieID,
 			Status: "missing",
 		})
+		_ = s.queries.UpdateMovieMonitored(ctx, sqlc.UpdateMovieMonitoredParams{
+			ID:        row.MovieID,
+			Monitored: 0,
+		})
+		if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != "missing" {
+			_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", row.MovieID, oldStatus, "missing", "File removed")
+		}
+		if s.hub != nil {
+			_ = s.hub.Broadcast("movie:updated", map[string]any{"movieId": row.MovieID})
+		}
 	}
 
 	s.logger.Info().Int64("fileId", fileID).Int64("movieId", row.MovieID).Msg("Removed movie file")
@@ -688,18 +713,18 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 		m.UpdatedAt = row.UpdatedAt.Time
 	}
 
-	// Release dates
-	// ReleaseDate stores the digital/streaming release date
 	if row.ReleaseDate.Valid {
 		m.ReleaseDate = &row.ReleaseDate.Time
 	}
 	if row.PhysicalReleaseDate.Valid {
 		m.PhysicalReleaseDate = &row.PhysicalReleaseDate.Time
 	}
-
-	// Availability
-	m.Released = row.Released == 1
-	m.AvailabilityStatus = row.AvailabilityStatus
+	if row.StatusMessage.Valid {
+		m.StatusMessage = &row.StatusMessage.String
+	}
+	if row.ActiveDownloadID.Valid {
+		m.ActiveDownloadID = &row.ActiveDownloadID.String
+	}
 
 	return m
 }

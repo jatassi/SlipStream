@@ -41,17 +41,24 @@ type NotificationService interface {
 	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string)
 }
 
+// PortalStatusTracker tracks download status for portal request mirroring.
+type PortalStatusTracker interface {
+	OnDownloadStarted(ctx context.Context, mediaType string, mediaID int64) error
+	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
+}
+
 // Service handles grabbing releases and sending them to download clients.
 type Service struct {
-	queries             *sqlc.Queries
-	downloaderService   *downloader.Service
-	indexerService      IndexerClientProvider
-	statusService       *status.Service
-	rateLimiter         *ratelimit.Limiter
-	broadcaster         Broadcaster
-	queueTrigger        QueueTrigger
-	notificationService NotificationService
-	logger              zerolog.Logger
+	queries              *sqlc.Queries
+	downloaderService    *downloader.Service
+	indexerService       IndexerClientProvider
+	statusService        *status.Service
+	rateLimiter          *ratelimit.Limiter
+	broadcaster          Broadcaster
+	queueTrigger         QueueTrigger
+	notificationService  NotificationService
+	portalStatusTracker  PortalStatusTracker
+	logger               zerolog.Logger
 }
 
 // IndexerClientProvider provides access to indexer clients for downloading torrents.
@@ -95,6 +102,11 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 // SetNotificationService sets the notification service for external notifications.
 func (s *Service) SetNotificationService(notificationService NotificationService) {
 	s.notificationService = notificationService
+}
+
+// SetPortalStatusTracker sets the portal status tracker for request status mirroring.
+func (s *Service) SetPortalStatusTracker(tracker PortalStatusTracker) {
+	s.portalStatusTracker = tracker
 }
 
 // SetQueueTrigger sets the queue trigger for immediate queue broadcasts when downloads are added.
@@ -551,5 +563,38 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 			Str("mediaType", req.MediaType).
 			Int64("mediaId", req.MediaID).
 			Msg("Failed to create download mapping")
+		return
+	}
+
+	activeDownloadID := sql.NullString{String: downloadID, Valid: true}
+
+	switch req.MediaType {
+	case "movie":
+		if err := s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
+			Status:           "downloading",
+			ActiveDownloadID: activeDownloadID,
+			StatusMessage:    sql.NullString{},
+			ID:               req.MediaID,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", req.MediaID).Msg("Failed to set movie status to downloading")
+		} else if s.broadcaster != nil {
+			_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": req.MediaID})
+		}
+	case "episode":
+		if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+			Status:           "downloading",
+			ActiveDownloadID: activeDownloadID,
+			StatusMessage:    sql.NullString{},
+			ID:               req.MediaID,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", req.MediaID).Msg("Failed to set episode status to downloading")
+		} else if s.broadcaster != nil && req.SeriesID > 0 {
+			_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": req.SeriesID})
+		}
+	}
+
+	// Notify portal status tracker for request mirroring
+	if s.portalStatusTracker != nil {
+		_ = s.portalStatusTracker.OnDownloadStarted(ctx, req.MediaType, req.MediaID)
 	}
 }

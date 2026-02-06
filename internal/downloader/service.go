@@ -89,11 +89,24 @@ type HealthService interface {
 	ClearStatusStr(category, id string)
 }
 
+// StatusChangeLogger logs status transition history events.
+type StatusChangeLogger interface {
+	LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error
+}
+
+// PortalStatusTracker tracks download status for portal request mirroring.
+type PortalStatusTracker interface {
+	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
+}
+
 // Service provides download client operations.
 type Service struct {
-	queries       *sqlc.Queries
-	logger        zerolog.Logger
-	healthService HealthService
+	queries             *sqlc.Queries
+	logger              zerolog.Logger
+	healthService       HealthService
+	broadcaster         Broadcaster
+	statusChangeLogger  StatusChangeLogger
+	portalStatusTracker PortalStatusTracker
 }
 
 // NewService creates a new download client service.
@@ -102,6 +115,21 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 		queries: sqlc.New(db),
 		logger:  logger.With().Str("component", "downloader").Logger(),
 	}
+}
+
+// SetBroadcaster sets the WebSocket broadcaster for real-time events.
+func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
+	s.broadcaster = broadcaster
+}
+
+// SetStatusChangeLogger sets the logger for status transition history events.
+func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
+	s.statusChangeLogger = logger
+}
+
+// SetPortalStatusTracker sets the portal status tracker for request mirroring.
+func (s *Service) SetPortalStatusTracker(tracker PortalStatusTracker) {
+	s.portalStatusTracker = tracker
 }
 
 // SetHealthService sets the health service for tracking client health.

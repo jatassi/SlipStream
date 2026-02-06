@@ -417,6 +417,7 @@ func (s *Service) GetMovieSlotAssignments(ctx context.Context, movieID int64) ([
 			SlotID:           row.SlotID,
 			FileID:           row.FileID,
 			Monitored:        row.Monitored != 0,
+			Status:           row.Status,
 			SlotName:         row.SlotName,
 			SlotNumber:       int(row.SlotNumber),
 			QualityProfileID: row.QualityProfileID,
@@ -441,6 +442,7 @@ func (s *Service) GetEpisodeSlotAssignments(ctx context.Context, episodeID int64
 			SlotID:           row.SlotID,
 			FileID:           row.FileID,
 			Monitored:        row.Monitored != 0,
+			Status:           row.Status,
 			SlotName:         row.SlotName,
 			SlotNumber:       int(row.SlotNumber),
 			QualityProfileID: row.QualityProfileID,
@@ -457,6 +459,7 @@ type MovieSlotAssignmentRow struct {
 	SlotID           int64
 	FileID           interface{} // sql.NullInt64
 	Monitored        bool
+	Status           string
 	SlotName         string
 	SlotNumber       int
 	QualityProfileID interface{} // sql.NullInt64
@@ -469,6 +472,7 @@ type EpisodeSlotAssignmentRow struct {
 	SlotID           int64
 	FileID           interface{} // sql.NullInt64
 	Monitored        bool
+	Status           string
 	SlotName         string
 	SlotNumber       int
 	QualityProfileID interface{} // sql.NullInt64

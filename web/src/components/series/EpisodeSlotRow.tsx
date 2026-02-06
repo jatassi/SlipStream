@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpCircle, AlertCircle, CheckCircle, Search, Zap, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock, Search, Zap, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -137,37 +137,7 @@ function CompactSlotItem({
 }
 
 function CompactSlotBadge({ slot }: { slot: SlotStatus }) {
-  if (slot.isMissing) {
-    return (
-      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
-        <AlertCircle className="size-2.5" />
-        Missing
-      </Badge>
-    )
-  }
-
-  if (slot.needsUpgrade) {
-    return (
-      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
-        <ArrowUpCircle className="size-2.5" />
-        Upgrade
-      </Badge>
-    )
-  }
-
-  if (slot.hasFile) {
-    return (
-      <Badge
-        variant="outline"
-        className={cn('text-[10px] px-1.5 py-0 h-4 gap-0.5', 'border-green-500 text-green-500')}
-      >
-        <CheckCircle className="size-2.5" />
-        OK
-      </Badge>
-    )
-  }
-
-  if (!slot.monitored) {
+  if (!slot.monitored && slot.status !== 'available' && slot.status !== 'upgradable') {
     return (
       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground">
         <EyeOff className="size-2.5" />
@@ -176,9 +146,54 @@ function CompactSlotBadge({ slot }: { slot: SlotStatus }) {
     )
   }
 
-  return (
-    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
-      Empty
-    </Badge>
-  )
+  switch (slot.status) {
+    case 'failed':
+      return (
+        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-red-900/50 border border-red-500 text-red-400">
+          <XCircle className="size-2.5" />
+          Failed
+        </Badge>
+      )
+    case 'downloading':
+      return (
+        <Badge className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-blue-600 hover:bg-blue-600 text-white">
+          <ArrowDownCircle className="size-2.5" />
+          Downloading
+        </Badge>
+      )
+    case 'missing':
+      return (
+        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+          <AlertCircle className="size-2.5" />
+          Missing
+        </Badge>
+      )
+    case 'upgradable':
+      return (
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+          <ArrowUpCircle className="size-2.5" />
+          Upgrade
+        </Badge>
+      )
+    case 'available':
+      return (
+        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4 gap-0.5', 'border-green-500 text-green-500')}>
+          <CheckCircle className="size-2.5" />
+          OK
+        </Badge>
+      )
+    case 'unreleased':
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 border-amber-500 text-amber-500">
+          <Clock className="size-2.5" />
+          Unreleased
+        </Badge>
+      )
+    default:
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+          Empty
+        </Badge>
+      )
+  }
 }

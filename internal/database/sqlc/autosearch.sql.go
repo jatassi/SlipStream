@@ -20,11 +20,16 @@ func (q *Queries) ClearAllAutosearchStatus(ctx context.Context) error {
 }
 
 const countItemsExceedingBackoffThreshold = `-- name: CountItemsExceedingBackoffThreshold :one
-SELECT COUNT(*) FROM autosearch_status WHERE failure_count >= ?
+SELECT COUNT(*) FROM autosearch_status WHERE failure_count >= ? AND search_type = ?
 `
 
-func (q *Queries) CountItemsExceedingBackoffThreshold(ctx context.Context, failureCount int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countItemsExceedingBackoffThreshold, failureCount)
+type CountItemsExceedingBackoffThresholdParams struct {
+	FailureCount int64  `json:"failure_count"`
+	SearchType   string `json:"search_type"`
+}
+
+func (q *Queries) CountItemsExceedingBackoffThreshold(ctx context.Context, arg CountItemsExceedingBackoffThresholdParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countItemsExceedingBackoffThreshold, arg.FailureCount, arg.SearchType)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -46,22 +51,24 @@ func (q *Queries) DeleteAutosearchStatus(ctx context.Context, arg DeleteAutosear
 
 const getAutosearchStatus = `-- name: GetAutosearchStatus :one
 
-SELECT id, item_type, item_id, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status WHERE item_type = ? AND item_id = ? LIMIT 1
+SELECT id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status WHERE item_type = ? AND item_id = ? AND search_type = ? LIMIT 1
 `
 
 type GetAutosearchStatusParams struct {
-	ItemType string `json:"item_type"`
-	ItemID   int64  `json:"item_id"`
+	ItemType   string `json:"item_type"`
+	ItemID     int64  `json:"item_id"`
+	SearchType string `json:"search_type"`
 }
 
 // Autosearch status queries for tracking search failures and backoff
 func (q *Queries) GetAutosearchStatus(ctx context.Context, arg GetAutosearchStatusParams) (*AutosearchStatus, error) {
-	row := q.db.QueryRowContext(ctx, getAutosearchStatus, arg.ItemType, arg.ItemID)
+	row := q.db.QueryRowContext(ctx, getAutosearchStatus, arg.ItemType, arg.ItemID, arg.SearchType)
 	var i AutosearchStatus
 	err := row.Scan(
 		&i.ID,
 		&i.ItemType,
 		&i.ItemID,
+		&i.SearchType,
 		&i.FailureCount,
 		&i.LastSearchedAt,
 		&i.LastMetaChangeAt,
@@ -70,31 +77,37 @@ func (q *Queries) GetAutosearchStatus(ctx context.Context, arg GetAutosearchStat
 }
 
 const incrementAutosearchFailure = `-- name: IncrementAutosearchFailure :exec
-INSERT INTO autosearch_status (item_type, item_id, failure_count, last_searched_at)
-VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-ON CONFLICT(item_type, item_id) DO UPDATE SET
+INSERT INTO autosearch_status (item_type, item_id, search_type, failure_count, last_searched_at)
+VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+ON CONFLICT(item_type, item_id, search_type) DO UPDATE SET
     failure_count = autosearch_status.failure_count + 1,
     last_searched_at = CURRENT_TIMESTAMP
 `
 
 type IncrementAutosearchFailureParams struct {
-	ItemType string `json:"item_type"`
-	ItemID   int64  `json:"item_id"`
+	ItemType   string `json:"item_type"`
+	ItemID     int64  `json:"item_id"`
+	SearchType string `json:"search_type"`
 }
 
 func (q *Queries) IncrementAutosearchFailure(ctx context.Context, arg IncrementAutosearchFailureParams) error {
-	_, err := q.db.ExecContext(ctx, incrementAutosearchFailure, arg.ItemType, arg.ItemID)
+	_, err := q.db.ExecContext(ctx, incrementAutosearchFailure, arg.ItemType, arg.ItemID, arg.SearchType)
 	return err
 }
 
 const listItemsExceedingBackoffThreshold = `-- name: ListItemsExceedingBackoffThreshold :many
-SELECT id, item_type, item_id, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status
-WHERE failure_count >= ?
+SELECT id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status
+WHERE failure_count >= ? AND search_type = ?
 ORDER BY last_searched_at DESC
 `
 
-func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, failureCount int64) ([]*AutosearchStatus, error) {
-	rows, err := q.db.QueryContext(ctx, listItemsExceedingBackoffThreshold, failureCount)
+type ListItemsExceedingBackoffThresholdParams struct {
+	FailureCount int64  `json:"failure_count"`
+	SearchType   string `json:"search_type"`
+}
+
+func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, arg ListItemsExceedingBackoffThresholdParams) ([]*AutosearchStatus, error) {
+	rows, err := q.db.QueryContext(ctx, listItemsExceedingBackoffThreshold, arg.FailureCount, arg.SearchType)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +119,7 @@ func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, failur
 			&i.ID,
 			&i.ItemType,
 			&i.ItemID,
+			&i.SearchType,
 			&i.FailureCount,
 			&i.LastSearchedAt,
 			&i.LastMetaChangeAt,
@@ -126,48 +140,67 @@ func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, failur
 const markAutosearchSearched = `-- name: MarkAutosearchSearched :exec
 UPDATE autosearch_status
 SET last_searched_at = CURRENT_TIMESTAMP
-WHERE item_type = ? AND item_id = ?
+WHERE item_type = ? AND item_id = ? AND search_type = ?
 `
 
 type MarkAutosearchSearchedParams struct {
+	ItemType   string `json:"item_type"`
+	ItemID     int64  `json:"item_id"`
+	SearchType string `json:"search_type"`
+}
+
+func (q *Queries) MarkAutosearchSearched(ctx context.Context, arg MarkAutosearchSearchedParams) error {
+	_, err := q.db.ExecContext(ctx, markAutosearchSearched, arg.ItemType, arg.ItemID, arg.SearchType)
+	return err
+}
+
+const resetAllAutosearchFailuresForItem = `-- name: ResetAllAutosearchFailuresForItem :exec
+UPDATE autosearch_status
+SET failure_count = 0, last_meta_change_at = CURRENT_TIMESTAMP
+WHERE item_type = ? AND item_id = ?
+`
+
+type ResetAllAutosearchFailuresForItemParams struct {
 	ItemType string `json:"item_type"`
 	ItemID   int64  `json:"item_id"`
 }
 
-func (q *Queries) MarkAutosearchSearched(ctx context.Context, arg MarkAutosearchSearchedParams) error {
-	_, err := q.db.ExecContext(ctx, markAutosearchSearched, arg.ItemType, arg.ItemID)
+func (q *Queries) ResetAllAutosearchFailuresForItem(ctx context.Context, arg ResetAllAutosearchFailuresForItemParams) error {
+	_, err := q.db.ExecContext(ctx, resetAllAutosearchFailuresForItem, arg.ItemType, arg.ItemID)
 	return err
 }
 
 const resetAutosearchFailure = `-- name: ResetAutosearchFailure :exec
 UPDATE autosearch_status
 SET failure_count = 0, last_meta_change_at = CURRENT_TIMESTAMP
-WHERE item_type = ? AND item_id = ?
+WHERE item_type = ? AND item_id = ? AND search_type = ?
 `
 
 type ResetAutosearchFailureParams struct {
-	ItemType string `json:"item_type"`
-	ItemID   int64  `json:"item_id"`
+	ItemType   string `json:"item_type"`
+	ItemID     int64  `json:"item_id"`
+	SearchType string `json:"search_type"`
 }
 
 func (q *Queries) ResetAutosearchFailure(ctx context.Context, arg ResetAutosearchFailureParams) error {
-	_, err := q.db.ExecContext(ctx, resetAutosearchFailure, arg.ItemType, arg.ItemID)
+	_, err := q.db.ExecContext(ctx, resetAutosearchFailure, arg.ItemType, arg.ItemID, arg.SearchType)
 	return err
 }
 
 const upsertAutosearchStatus = `-- name: UpsertAutosearchStatus :one
-INSERT INTO autosearch_status (item_type, item_id, failure_count, last_searched_at, last_meta_change_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(item_type, item_id) DO UPDATE SET
+INSERT INTO autosearch_status (item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(item_type, item_id, search_type) DO UPDATE SET
     failure_count = excluded.failure_count,
     last_searched_at = excluded.last_searched_at,
     last_meta_change_at = COALESCE(excluded.last_meta_change_at, autosearch_status.last_meta_change_at)
-RETURNING id, item_type, item_id, failure_count, last_searched_at, last_meta_change_at
+RETURNING id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at
 `
 
 type UpsertAutosearchStatusParams struct {
 	ItemType         string       `json:"item_type"`
 	ItemID           int64        `json:"item_id"`
+	SearchType       string       `json:"search_type"`
 	FailureCount     int64        `json:"failure_count"`
 	LastSearchedAt   sql.NullTime `json:"last_searched_at"`
 	LastMetaChangeAt sql.NullTime `json:"last_meta_change_at"`
@@ -177,6 +210,7 @@ func (q *Queries) UpsertAutosearchStatus(ctx context.Context, arg UpsertAutosear
 	row := q.db.QueryRowContext(ctx, upsertAutosearchStatus,
 		arg.ItemType,
 		arg.ItemID,
+		arg.SearchType,
 		arg.FailureCount,
 		arg.LastSearchedAt,
 		arg.LastMetaChangeAt,
@@ -186,6 +220,7 @@ func (q *Queries) UpsertAutosearchStatus(ctx context.Context, arg UpsertAutosear
 		&i.ID,
 		&i.ItemType,
 		&i.ItemID,
+		&i.SearchType,
 		&i.FailureCount,
 		&i.LastSearchedAt,
 		&i.LastMetaChangeAt,

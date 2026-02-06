@@ -5,14 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -49,14 +47,21 @@ type FileDeleteHandler interface {
 	OnFileDeleted(ctx context.Context, mediaType string, fileID int64) error
 }
 
+// StatusChangeLogger logs status transition history events.
+type StatusChangeLogger interface {
+	LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error
+}
+
 // Service provides TV library operations.
 type Service struct {
-	db                *sql.DB
-	queries           *sqlc.Queries
-	hub               *websocket.Hub
-	logger            zerolog.Logger
-	fileDeleteHandler FileDeleteHandler
-	notifier          NotificationDispatcher
+	db                 *sql.DB
+	queries            *sqlc.Queries
+	hub                *websocket.Hub
+	logger             zerolog.Logger
+	fileDeleteHandler  FileDeleteHandler
+	statusChangeLogger StatusChangeLogger
+	notifier           NotificationDispatcher
+	qualityProfiles    *quality.Service
 }
 
 // SetNotificationDispatcher sets the notification dispatcher for series events.
@@ -68,6 +73,16 @@ func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 // Req 12.1.1: Deleting file from slot does NOT trigger automatic search
 func (s *Service) SetFileDeleteHandler(handler FileDeleteHandler) {
 	s.fileDeleteHandler = handler
+}
+
+// SetStatusChangeLogger sets the logger for status transition history events.
+func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
+	s.statusChangeLogger = logger
+}
+
+// SetQualityService sets the quality profile service for quality evaluation.
+func (s *Service) SetQualityService(qs *quality.Service) {
+	s.qualityProfiles = qs
 }
 
 // NewService creates a new TV service.
@@ -105,11 +120,7 @@ func (s *Service) GetSeries(ctx context.Context, id int64) (*Series, error) {
 		series.Seasons = seasons
 	}
 
-	// Get counts
-	episodeCount, _ := s.queries.CountEpisodesBySeries(ctx, id)
-	fileCount, _ := s.queries.CountEpisodeFilesBySeries(ctx, id)
-	series.EpisodeCount = int(episodeCount)
-	series.EpisodeFileCount = int(fileCount)
+	s.enrichSeriesWithCounts(ctx, series)
 
 	return series, nil
 }
@@ -166,11 +177,7 @@ func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Se
 	seriesList := make([]*Series, len(rows))
 	for i, row := range rows {
 		seriesList[i] = s.rowToSeries(row)
-		// Get counts
-		episodeCount, _ := s.queries.CountEpisodesBySeries(ctx, row.ID)
-		fileCount, _ := s.queries.CountEpisodeFilesBySeries(ctx, row.ID)
-		seriesList[i].EpisodeCount = int(episodeCount)
-		seriesList[i].EpisodeFileCount = int(fileCount)
+		s.enrichSeriesWithCounts(ctx, seriesList[i])
 	}
 	return seriesList, nil
 }
@@ -208,10 +215,9 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 
 	sortTitle := generateSortTitle(input.Title)
 
-	// Default status to "continuing" if not provided
-	status := input.Status
-	if status == "" {
-		status = "continuing"
+	productionStatus := input.ProductionStatus
+	if productionStatus == "" {
+		productionStatus = "continuing"
 	}
 
 	row, err := s.queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
@@ -228,9 +234,8 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		QualityProfileID: sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
 		Monitored:        boolToInt(input.Monitored),
 		SeasonFolder:     boolToInt(input.SeasonFolder),
-		Status:           status,
+		ProductionStatus: productionStatus,
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
-		Released:         0, // Will be calculated by availability service
 		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
 	})
 	if err != nil {
@@ -243,7 +248,6 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 			SeriesID:     row.ID,
 			SeasonNumber: int64(seasonInput.SeasonNumber),
 			Monitored:    boolToInt(seasonInput.Monitored),
-			Released:     0, // Will be calculated by availability service
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Int("season", seasonInput.SeasonNumber).Msg("Failed to create season")
@@ -255,11 +259,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 			if episodeInput.AirDate != nil {
 				airDate = sql.NullTime{Time: *episodeInput.AirDate, Valid: true}
 			}
-			// Calculate released status based on air date
-			released := int64(0)
-			if episodeInput.AirDate != nil && !episodeInput.AirDate.After(time.Now()) {
-				released = 1
-			}
+			status := computeEpisodeStatus(episodeInput.AirDate)
 			_, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 				SeriesID:      row.ID,
 				SeasonNumber:  int64(seasonInput.SeasonNumber),
@@ -268,7 +268,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 				Overview:      sql.NullString{String: episodeInput.Overview, Valid: episodeInput.Overview != ""},
 				AirDate:       airDate,
 				Monitored:     boolToInt(episodeInput.Monitored),
-				Released:      released,
+				Status:        status,
 			})
 			if err != nil {
 				s.logger.Warn().Err(err).Int("episode", episodeInput.EpisodeNumber).Msg("Failed to create episode")
@@ -277,12 +277,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 	}
 
 	series := s.rowToSeries(row)
-
-	// Get episode counts for the newly created series
-	episodeCount, _ := s.queries.CountEpisodesBySeries(ctx, series.ID)
-	fileCount, _ := s.queries.CountEpisodeFilesBySeries(ctx, series.ID)
-	series.EpisodeCount = int(episodeCount)
-	series.EpisodeFileCount = int(fileCount)
+	s.enrichSeriesWithCounts(ctx, series)
 
 	s.logger.Info().Int64("id", series.ID).Str("title", series.Title).Msg("Created series")
 
@@ -375,9 +370,9 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		seasonFolder = *input.SeasonFolder
 	}
 
-	status := current.Status
-	if input.Status != nil {
-		status = *input.Status
+	productionStatus := current.ProductionStatus
+	if input.ProductionStatus != nil {
+		productionStatus = *input.ProductionStatus
 	}
 
 	formatType := current.FormatType
@@ -400,9 +395,8 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		QualityProfileID: sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
 		Monitored:        boolToInt(monitored),
 		SeasonFolder:     boolToInt(seasonFolder),
-		Status:           status,
+		ProductionStatus: productionStatus,
 		Network:          sql.NullString{String: current.Network, Valid: current.Network != ""},
-		Released:         boolToInt(current.Released), // Preserve current value
 		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
 	})
 	if err != nil {
@@ -495,17 +489,7 @@ func (s *Service) ListSeasons(ctx context.Context, seriesID int64) ([]Season, er
 	seasons := make([]Season, len(rows))
 	for i, row := range rows {
 		seasons[i] = s.rowToSeason(row)
-		// Get counts
-		episodeCount, _ := s.queries.CountEpisodesBySeason(ctx, sqlc.CountEpisodesBySeasonParams{
-			SeriesID:     seriesID,
-			SeasonNumber: row.SeasonNumber,
-		})
-		fileCount, _ := s.queries.CountEpisodeFilesBySeason(ctx, sqlc.CountEpisodeFilesBySeasonParams{
-			SeriesID:     seriesID,
-			SeasonNumber: row.SeasonNumber,
-		})
-		seasons[i].EpisodeCount = int(episodeCount)
-		seasons[i].EpisodeFileCount = int(fileCount)
+		s.enrichSeasonWithCounts(ctx, &seasons[i], seriesID)
 	}
 	return seasons, nil
 }
@@ -527,7 +511,6 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 	updated, err := s.queries.UpdateSeason(ctx, sqlc.UpdateSeasonParams{
 		ID:        row.ID,
 		Monitored: boolToInt(monitored),
-		Released:  row.Released, // Preserve current value
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update season: %w", err)
@@ -827,9 +810,7 @@ func (s *Service) ListEpisodes(ctx context.Context, seriesID int64, seasonNumber
 	episodes := make([]Episode, len(rows))
 	for i, row := range rows {
 		episodes[i] = s.rowToEpisode(row)
-		// Check for files
 		files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, row.ID)
-		episodes[i].HasFile = len(files) > 0
 		if len(files) > 0 {
 			ef := s.rowToEpisodeFile(files[0])
 			episodes[i].EpisodeFile = &ef
@@ -850,9 +831,7 @@ func (s *Service) GetEpisode(ctx context.Context, id int64) (*Episode, error) {
 
 	episode := s.rowToEpisode(row)
 
-	// Get files
 	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, id)
-	episode.HasFile = len(files) > 0
 	if len(files) > 0 {
 		ef := s.rowToEpisodeFile(files[0])
 		episode.EpisodeFile = &ef
@@ -877,9 +856,7 @@ func (s *Service) GetEpisodeByNumber(ctx context.Context, seriesID int64, season
 
 	episode := s.rowToEpisode(row)
 
-	// Get files
 	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
-	episode.HasFile = len(files) > 0
 	if len(files) > 0 {
 		ef := s.rowToEpisodeFile(files[0])
 		episode.EpisodeFile = &ef
@@ -920,19 +897,12 @@ func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpiso
 		airDateSQL = sql.NullTime{Time: *airDate, Valid: true}
 	}
 
-	// Calculate released status based on air date
-	released := int64(0)
-	if airDate != nil && !airDate.After(time.Now()) {
-		released = 1
-	}
-
 	row, err := s.queries.UpdateEpisode(ctx, sqlc.UpdateEpisodeParams{
 		ID:        id,
 		Title:     sql.NullString{String: title, Valid: title != ""},
 		Overview:  sql.NullString{String: overview, Valid: overview != ""},
 		AirDate:   airDateSQL,
 		Monitored: boolToInt(monitored),
-		Released:  released,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update episode: %w", err)
@@ -966,14 +936,14 @@ func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumbe
 		}
 	}
 
-	// Create the episode with released=1 since we have a file for it
+	// Create the episode with status "missing" since we have a file for it (it will become "available" once the file is linked)
 	row, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 		SeriesID:      seriesID,
 		SeasonNumber:  int64(seasonNumber),
 		EpisodeNumber: int64(episodeNumber),
 		Title:         sql.NullString{String: title, Valid: title != ""},
 		Monitored:     1,
-		Released:      1, // Mark as released since we have a file
+		Status:        "missing",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create episode: %w", err)
@@ -992,8 +962,7 @@ func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumbe
 
 // AddEpisodeFile adds a file to an episode.
 func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input CreateEpisodeFileInput) (*EpisodeFile, error) {
-	// Verify episode exists
-	_, err := s.GetEpisode(ctx, episodeID)
+	episode, err := s.GetEpisode(ctx, episodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -1036,6 +1005,19 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 		return nil, fmt.Errorf("failed to create episode file: %w", err)
 	}
 
+	status := "available"
+	if qualityID.Valid && s.qualityProfiles != nil {
+		if series, seriesErr := s.GetSeries(ctx, episode.SeriesID); seriesErr == nil {
+			if profile, profileErr := s.qualityProfiles.Get(ctx, series.QualityProfileID); profileErr == nil {
+				status = profile.StatusForQuality(int(qualityID.Int64))
+			}
+		}
+	}
+	_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+		ID:     episodeID,
+		Status: status,
+	})
+
 	file := s.rowToEpisodeFile(row)
 	s.logger.Info().Int64("episodeId", episodeID).Str("path", input.Path).Msg("Added episode file")
 
@@ -1074,7 +1056,7 @@ func (s *Service) GetEpisodeFile(ctx context.Context, episodeID int64) (*Episode
 // Req 12.1.1: Deleting file from slot does NOT trigger automatic search
 // Req 12.1.2: Slot becomes empty; waits for next scheduled search
 func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
-	_, err := s.queries.GetEpisodeFile(ctx, fileID)
+	row, err := s.queries.GetEpisodeFile(ctx, fileID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrEpisodeFileNotFound
@@ -1093,7 +1075,31 @@ func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
 		return fmt.Errorf("failed to delete episode file: %w", err)
 	}
 
-	s.logger.Info().Int64("fileId", fileID).Msg("Removed episode file")
+	// Transition episode to missing and unmonitor after manual file deletion
+	count, _ := s.queries.CountEpisodeFiles(ctx, row.EpisodeID)
+	if count == 0 {
+		episode, _ := s.queries.GetEpisode(ctx, row.EpisodeID)
+		oldStatus := ""
+		if episode != nil {
+			oldStatus = episode.Status
+		}
+		_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+			ID:     row.EpisodeID,
+			Status: "missing",
+		})
+		_ = s.queries.UpdateEpisodeMonitored(ctx, sqlc.UpdateEpisodeMonitoredParams{
+			ID:        row.EpisodeID,
+			Monitored: 0,
+		})
+		if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != "missing" {
+			_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", row.EpisodeID, oldStatus, "missing", "File removed")
+		}
+		if s.hub != nil && episode != nil {
+			_ = s.hub.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+		}
+	}
+
+	s.logger.Info().Int64("fileId", fileID).Int64("episodeId", row.EpisodeID).Msg("Removed episode file")
 	return nil
 }
 
@@ -1162,12 +1168,12 @@ func (s *Service) AreSeasonsComplete(ctx context.Context, seriesID int64, season
 // rowToSeries converts a database row to a Series.
 func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	series := &Series{
-		ID:           row.ID,
-		Title:        row.Title,
-		SortTitle:    row.SortTitle,
-		Monitored:    row.Monitored == 1,
-		SeasonFolder: row.SeasonFolder == 1,
-		Status:       row.Status,
+		ID:               row.ID,
+		Title:            row.Title,
+		SortTitle:        row.SortTitle,
+		Monitored:        row.Monitored == 1,
+		SeasonFolder:     row.SeasonFolder == 1,
+		ProductionStatus: row.ProductionStatus,
 	}
 
 	if row.Year.Valid {
@@ -1206,12 +1212,6 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	if row.Network.Valid {
 		series.Network = row.Network.String
 	}
-
-	// Availability
-	series.Released = row.Released == 1
-	series.AvailabilityStatus = row.AvailabilityStatus
-
-	// Format type
 	if row.FormatType.Valid {
 		series.FormatType = row.FormatType.String
 	}
@@ -1226,7 +1226,6 @@ func (s *Service) rowToSeason(row *sqlc.Season) Season {
 		SeriesID:     row.SeriesID,
 		SeasonNumber: int(row.SeasonNumber),
 		Monitored:    row.Monitored == 1,
-		Released:     row.Released == 1,
 	}
 	if row.Overview.Valid {
 		season.Overview = row.Overview.String
@@ -1245,7 +1244,7 @@ func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
 		SeasonNumber:  int(row.SeasonNumber),
 		EpisodeNumber: int(row.EpisodeNumber),
 		Monitored:     row.Monitored == 1,
-		Released:      row.Released == 1,
+		Status:        row.Status,
 	}
 
 	if row.Title.Valid {
@@ -1256,6 +1255,14 @@ func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
 	}
 	if row.AirDate.Valid {
 		ep.AirDate = &row.AirDate.Time
+	}
+	if row.StatusMessage.Valid {
+		msg := row.StatusMessage.String
+		ep.StatusMessage = &msg
+	}
+	if row.ActiveDownloadID.Valid {
+		dlID := row.ActiveDownloadID.String
+		ep.ActiveDownloadID = &dlID
 	}
 
 	return ep
@@ -1291,6 +1298,65 @@ func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
 	}
 
 	return f
+}
+
+// enrichSeriesWithCounts populates the StatusCounts field on a series by querying episode statuses.
+func (s *Service) enrichSeriesWithCounts(ctx context.Context, series *Series) {
+	counts, err := s.queries.GetEpisodeStatusCountsBySeries(ctx, series.ID)
+	if err != nil {
+		return
+	}
+	series.StatusCounts = StatusCounts{
+		Unreleased:  toInt(counts.Unreleased),
+		Missing:     toInt(counts.Missing),
+		Downloading: toInt(counts.Downloading),
+		Failed:      toInt(counts.Failed),
+		Upgradable:  toInt(counts.Upgradable),
+		Available:   toInt(counts.Available),
+		Total:       int(counts.Total),
+	}
+}
+
+// enrichSeasonWithCounts populates the StatusCounts field on a season by querying episode statuses.
+func (s *Service) enrichSeasonWithCounts(ctx context.Context, season *Season, seriesID int64) {
+	counts, err := s.queries.GetEpisodeStatusCountsBySeason(ctx, sqlc.GetEpisodeStatusCountsBySeasonParams{
+		SeriesID:     seriesID,
+		SeasonNumber: int64(season.SeasonNumber),
+	})
+	if err != nil {
+		return
+	}
+	season.StatusCounts = StatusCounts{
+		Unreleased:  toInt(counts.Unreleased),
+		Missing:     toInt(counts.Missing),
+		Downloading: toInt(counts.Downloading),
+		Failed:      toInt(counts.Failed),
+		Upgradable:  toInt(counts.Upgradable),
+		Available:   toInt(counts.Available),
+		Total:       int(counts.Total),
+	}
+}
+
+// toInt safely converts a COALESCE result (interface{}) to int.
+func toInt(v interface{}) int {
+	switch n := v.(type) {
+	case int64:
+		return int(n)
+	case int:
+		return n
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+// computeEpisodeStatus determines the initial status for an episode based on its air date.
+func computeEpisodeStatus(airDate *time.Time) string {
+	if airDate == nil || airDate.After(time.Now()) {
+		return "unreleased"
+	}
+	return "missing"
 }
 
 // GenerateSeriesPath generates a path for a series.
@@ -1355,10 +1421,9 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		_, err := s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
 			SeriesID:     seriesID,
 			SeasonNumber: int64(seasonMeta.SeasonNumber),
-			Monitored:    1, // Default to monitored
+			Monitored:    1,
 			Overview:     sql.NullString{String: seasonMeta.Overview, Valid: seasonMeta.Overview != ""},
 			PosterUrl:    sql.NullString{String: seasonMeta.PosterURL, Valid: seasonMeta.PosterURL != ""},
-			Released:     0, // Will be calculated by availability service
 		})
 		if err != nil {
 			s.logger.Warn().
@@ -1373,17 +1438,16 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		for _, epMeta := range seasonMeta.Episodes {
 			var airDate sql.NullTime
 			if epMeta.AirDate != "" {
-				// Try parsing common date formats
 				if t, err := parseAirDate(epMeta.AirDate); err == nil {
 					airDate = sql.NullTime{Time: t, Valid: true}
 				}
 			}
 
-			// Calculate released status based on air date
-			released := int64(0)
-			if airDate.Valid && !airDate.Time.After(time.Now()) {
-				released = 1
+			var airDatePtr *time.Time
+			if airDate.Valid {
+				airDatePtr = &airDate.Time
 			}
+			status := computeEpisodeStatus(airDatePtr)
 
 			_, err := s.queries.UpsertEpisode(ctx, sqlc.UpsertEpisodeParams{
 				SeriesID:      seriesID,
@@ -1392,8 +1456,8 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 				Title:         sql.NullString{String: epMeta.Title, Valid: epMeta.Title != ""},
 				Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
 				AirDate:       airDate,
-				Monitored:     1, // Default to monitored
-				Released:      released,
+				Monitored:     1,
+				Status:        status,
 			})
 			if err != nil {
 				s.logger.Warn().
@@ -1411,136 +1475,5 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		Int("seasons", len(seasons)).
 		Msg("Updated seasons from metadata")
 
-	// Recalculate season and series availability after updating all episodes
-	if err := s.recalculateSeriesAvailability(ctx, seriesID); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to recalculate series availability")
-	}
-
 	return nil
-}
-
-// recalculateSeriesAvailability recalculates availability for all levels of a series.
-// This updates seasons from episodes, then series from seasons, then calculates availability_status.
-func (s *Service) recalculateSeriesAvailability(ctx context.Context, seriesID int64) error {
-	// Get all seasons for this series
-	seasons, err := s.queries.GetSeasonsBySeriesID(ctx, seriesID)
-	if err != nil {
-		return err
-	}
-
-	// Update each season's released flag based on its episodes
-	for _, season := range seasons {
-		if err := s.queries.UpdateSeasonReleasedFromEpisodes(ctx, season.ID); err != nil {
-			s.logger.Warn().Err(err).Int64("seasonID", season.ID).Msg("Failed to update season released status")
-		}
-	}
-
-	// Update the series released flag based on its seasons
-	if err := s.queries.UpdateSeriesReleasedFromSeasons(ctx, seriesID); err != nil {
-		return err
-	}
-
-	// Update the series availability_status text
-	return s.updateSeriesAvailabilityStatus(ctx, seriesID)
-}
-
-// updateSeriesAvailabilityStatus calculates and updates the availability_status for a series.
-func (s *Service) updateSeriesAvailabilityStatus(ctx context.Context, seriesID int64) error {
-	data, err := s.queries.GetSeriesAvailabilityData(ctx, seriesID)
-	if err != nil {
-		return err
-	}
-
-	status := s.calculateSeriesAvailabilityStatus(data)
-	return s.queries.UpdateSeriesAvailabilityStatus(ctx, sqlc.UpdateSeriesAvailabilityStatusParams{
-		AvailabilityStatus: status,
-		ID:                 seriesID,
-	})
-}
-
-// calculateSeriesAvailabilityStatus determines the badge text for a series based on downloaded seasons.
-func (s *Service) calculateSeriesAvailabilityStatus(data *sqlc.GetSeriesAvailabilityDataRow) string {
-	if data.TotalSeasons == 0 {
-		return "Unavailable"
-	}
-
-	if data.AvailableSeasons == "" {
-		return "Unavailable"
-	}
-
-	seasons := parseSeasonNumbers(data.AvailableSeasons)
-	if len(seasons) == 0 {
-		return "Unavailable"
-	}
-
-	if int64(len(seasons)) == data.TotalSeasons {
-		return "Available"
-	}
-
-	return formatSeasonRanges(seasons)
-}
-
-// parseSeasonNumbers parses a comma-separated string of season numbers into a sorted slice.
-func parseSeasonNumbers(s string) []int {
-	if s == "" {
-		return nil
-	}
-	parts := strings.Split(s, ",")
-	seasons := make([]int, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if n, err := strconv.Atoi(p); err == nil && n > 0 {
-			seasons = append(seasons, n)
-		}
-	}
-	sort.Ints(seasons)
-	return seasons
-}
-
-// formatSeasonRanges formats a sorted slice of season numbers into a readable string.
-// Examples:
-//   - [3] → "Season 3 Available"
-//   - [1,2,3] → "Seasons 1-3 Available"
-//   - [1,2,3,5] → "Seasons 1-3, 5 Available"
-//   - [1,2,4,5] → "Seasons 1-2, 4-5 Available"
-//   - [1,3,5] → "Seasons 1, 3, 5 Available"
-func formatSeasonRanges(seasons []int) string {
-	if len(seasons) == 0 {
-		return "Unavailable"
-	}
-
-	if len(seasons) == 1 {
-		return fmt.Sprintf("Season %d Available", seasons[0])
-	}
-
-	// Build ranges
-	type seasonRange struct {
-		start, end int
-	}
-	var ranges []seasonRange
-	start := seasons[0]
-	end := seasons[0]
-
-	for i := 1; i < len(seasons); i++ {
-		if seasons[i] == end+1 {
-			end = seasons[i]
-		} else {
-			ranges = append(ranges, seasonRange{start, end})
-			start = seasons[i]
-			end = seasons[i]
-		}
-	}
-	ranges = append(ranges, seasonRange{start, end})
-
-	// Format ranges
-	var parts []string
-	for _, r := range ranges {
-		if r.start == r.end {
-			parts = append(parts, strconv.Itoa(r.start))
-		} else {
-			parts = append(parts, fmt.Sprintf("%d-%d", r.start, r.end))
-		}
-	}
-
-	return fmt.Sprintf("Seasons %s Available", strings.Join(parts, ", "))
 }

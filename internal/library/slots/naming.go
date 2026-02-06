@@ -262,13 +262,13 @@ func ValidateSlotNaming(slots []quality.SlotConfig, movieFormat, episodeFormat s
 	}
 
 	if enabledCount < 2 {
-		// Need at least 2 slots to check for conflicts
-		result.NoEnabledSlots = true
-		result.MovieFormatValid = false
-		result.EpisodeFormatValid = false
-		result.CanProceed = false
-		result.MovieValidation = NamingValidationResult{Valid: false, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
-		result.EpisodeValidation = NamingValidationResult{Valid: false, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
+		// With fewer than 2 enabled slots, no naming conflicts are possible
+		result.NoEnabledSlots = enabledCount == 0
+		result.MovieFormatValid = true
+		result.EpisodeFormatValid = true
+		result.CanProceed = true
+		result.MovieValidation = NamingValidationResult{Valid: true, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
+		result.EpisodeValidation = NamingValidationResult{Valid: true, MissingTokens: []MissingTokenInfo{}, RequiredAttributes: []DifferentiatorAttribute{}}
 		return result
 	}
 

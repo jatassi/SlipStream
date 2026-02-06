@@ -13,8 +13,8 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, status, network, released, format_type
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -32,9 +32,8 @@ UPDATE series SET
     quality_profile_id = ?,
     monitored = ?,
     season_folder = ?,
-    status = ?,
+    production_status = ?,
     network = ?,
-    released = ?,
     format_type = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
@@ -61,7 +60,7 @@ SELECT * FROM episodes WHERE series_id = ? AND season_number = ? ORDER BY episod
 
 -- name: CreateEpisode :one
 INSERT INTO episodes (
-    series_id, season_number, episode_number, title, overview, air_date, monitored, released
+    series_id, season_number, episode_number, title, overview, air_date, monitored, status
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
@@ -70,10 +69,22 @@ UPDATE episodes SET
     title = ?,
     overview = ?,
     air_date = ?,
-    monitored = ?,
-    released = ?
+    monitored = ?
 WHERE id = ?
 RETURNING *;
+
+-- name: UpdateEpisodeMonitored :exec
+UPDATE episodes SET monitored = ? WHERE id = ?;
+
+-- name: UpdateEpisodeStatus :exec
+UPDATE episodes SET status = ? WHERE id = ?;
+
+-- name: UpdateEpisodeStatusWithDetails :exec
+UPDATE episodes SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?
+WHERE id = ?;
 
 -- name: DeleteEpisode :exec
 DELETE FROM episodes WHERE id = ?;
@@ -86,12 +97,12 @@ SELECT * FROM seasons WHERE id = ? LIMIT 1;
 SELECT * FROM seasons WHERE series_id = ? ORDER BY season_number;
 
 -- name: CreateSeason :one
-INSERT INTO seasons (series_id, season_number, monitored, released)
-VALUES (?, ?, ?, ?)
+INSERT INTO seasons (series_id, season_number, monitored)
+VALUES (?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeason :one
-UPDATE seasons SET monitored = ?, released = ? WHERE id = ? RETURNING *;
+UPDATE seasons SET monitored = ? WHERE id = ? RETURNING *;
 
 -- name: SearchSeries :many
 SELECT * FROM series
@@ -110,8 +121,8 @@ SELECT * FROM series WHERE path = ? LIMIT 1;
 -- name: ListSeriesByRootFolder :many
 SELECT * FROM series WHERE root_folder_id = ? ORDER BY sort_title;
 
--- name: UpdateSeriesStatus :exec
-UPDATE series SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+-- name: UpdateSeriesProductionStatus :exec
+UPDATE series SET production_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
 
 -- name: DeleteSeasonsBySeries :exec
 DELETE FROM seasons WHERE series_id = ?;
@@ -187,15 +198,15 @@ WHERE root_folder_id = ?
 ORDER BY sort_title;
 
 -- name: UpsertSeason :one
-INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url, released)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO seasons (series_id, season_number, monitored, overview, poster_url)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(series_id, season_number) DO UPDATE SET
     overview = COALESCE(excluded.overview, seasons.overview),
     poster_url = COALESCE(excluded.poster_url, seasons.poster_url)
 RETURNING *;
 
 -- name: UpsertEpisode :one
-INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored, released)
+INSERT INTO episodes (series_id, season_number, episode_number, title, overview, air_date, monitored, status)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(series_id, season_number, episode_number) DO UPDATE SET
     title = COALESCE(excluded.title, episodes.title),
@@ -221,6 +232,7 @@ SELECT
     e.overview,
     e.air_date,
     e.monitored,
+    e.status,
     s.title as series_title,
     s.network,
     s.tmdb_id as series_tmdb_id
@@ -232,86 +244,53 @@ ORDER BY e.air_date, s.title, e.season_number, e.episode_number;
 -- name: UpdateSeriesNetwork :exec
 UPDATE series SET network = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
 
--- Availability queries
--- name: UpdateEpisodesReleasedByDate :execresult
-UPDATE episodes SET released = 1
-WHERE released = 0 AND air_date IS NOT NULL AND air_date <= date('now');
+-- Status refresh queries
+-- Episodes with actual air time (non-midnight): use precise datetime comparison
+-- name: UpdateUnreleasedEpisodesToMissing :execresult
+UPDATE episodes SET status = 'missing'
+WHERE status = 'unreleased' AND air_date IS NOT NULL
+  AND substr(air_date, 1, 10) <= date('now');
 
--- name: UpdateEpisodeReleased :exec
-UPDATE episodes SET released = ? WHERE id = ?;
+-- Kept for backward compatibility; the above query handles all episodes.
+-- On second call, no rows will match since they were already updated.
+-- name: UpdateUnreleasedEpisodesToMissingDateOnly :execresult
+UPDATE episodes SET status = 'missing'
+WHERE status = 'unreleased' AND air_date IS NOT NULL
+  AND substr(air_date, 1, 10) <= date('now');
 
--- name: UpdateSeasonReleased :exec
-UPDATE seasons SET released = ? WHERE id = ?;
+-- name: UpdateEpisodesToUnreleased :execresult
+UPDATE episodes SET status = 'unreleased'
+WHERE status = 'missing' AND (air_date IS NULL OR air_date > datetime('now'));
 
--- name: UpdateSeriesReleased :exec
-UPDATE series SET released = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+-- StatusCounts computation
+-- name: GetEpisodeStatusCountsBySeries :one
+SELECT
+    COALESCE(SUM(CASE WHEN e.status = 'unreleased' THEN 1 ELSE 0 END), 0) as unreleased,
+    COALESCE(SUM(CASE WHEN e.status = 'missing' THEN 1 ELSE 0 END), 0) as missing,
+    COALESCE(SUM(CASE WHEN e.status = 'downloading' THEN 1 ELSE 0 END), 0) as downloading,
+    COALESCE(SUM(CASE WHEN e.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+    COALESCE(SUM(CASE WHEN e.status = 'upgradable' THEN 1 ELSE 0 END), 0) as upgradable,
+    COALESCE(SUM(CASE WHEN e.status = 'available' THEN 1 ELSE 0 END), 0) as available,
+    COUNT(*) as total
+FROM episodes e
+WHERE e.series_id = ? AND e.season_number > 0;
 
--- name: UpdateSeasonReleasedFromEpisodes :exec
-UPDATE seasons SET released = (
-    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
-    FROM episodes WHERE episodes.series_id = seasons.series_id
-    AND episodes.season_number = seasons.season_number
-) WHERE seasons.id = ?;
-
--- name: UpdateAllSeasonsReleased :execresult
-UPDATE seasons SET released = (
-    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
-    FROM episodes WHERE episodes.series_id = seasons.series_id
-    AND episodes.season_number = seasons.season_number
-);
-
--- name: UpdateSeriesReleasedFromSeasons :exec
-UPDATE series SET released = (
-    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
-    FROM seasons WHERE seasons.series_id = series.id
-), updated_at = CURRENT_TIMESTAMP WHERE series.id = ?;
-
--- name: UpdateAllSeriesReleased :execresult
-UPDATE series SET released = (
-    SELECT CASE WHEN COUNT(*) = SUM(released) AND COUNT(*) > 0 THEN 1 ELSE 0 END
-    FROM seasons WHERE seasons.series_id = series.id
-), updated_at = CURRENT_TIMESTAMP;
+-- name: GetEpisodeStatusCountsBySeason :one
+SELECT
+    COALESCE(SUM(CASE WHEN e.status = 'unreleased' THEN 1 ELSE 0 END), 0) as unreleased,
+    COALESCE(SUM(CASE WHEN e.status = 'missing' THEN 1 ELSE 0 END), 0) as missing,
+    COALESCE(SUM(CASE WHEN e.status = 'downloading' THEN 1 ELSE 0 END), 0) as downloading,
+    COALESCE(SUM(CASE WHEN e.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
+    COALESCE(SUM(CASE WHEN e.status = 'upgradable' THEN 1 ELSE 0 END), 0) as upgradable,
+    COALESCE(SUM(CASE WHEN e.status = 'available' THEN 1 ELSE 0 END), 0) as available,
+    COUNT(*) as total
+FROM episodes e
+WHERE e.series_id = ? AND e.season_number = ?;
 
 -- name: GetSeasonsBySeriesID :many
 SELECT * FROM seasons WHERE series_id = ? ORDER BY season_number;
 
--- name: UpdateSeriesAvailabilityStatus :exec
-UPDATE series SET availability_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
-
--- name: GetSeriesAvailabilityData :one
-SELECT
-    s.id,
-    s.status,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    CAST(COALESCE((SELECT GROUP_CONCAT(season_number) FROM (
-        SELECT sea.season_number
-        FROM seasons sea
-        WHERE sea.series_id = s.id AND sea.season_number > 0
-        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
-        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
-            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
-        ORDER BY sea.season_number
-    )), '') AS TEXT) as available_seasons
-FROM series s
-WHERE s.id = ?;
-
--- name: ListAllSeriesForAvailability :many
-SELECT
-    s.id,
-    s.status,
-    (SELECT COUNT(*) FROM seasons WHERE series_id = s.id AND season_number > 0) as total_seasons,
-    CAST(COALESCE((SELECT GROUP_CONCAT(season_number) FROM (
-        SELECT sea.season_number
-        FROM seasons sea
-        WHERE sea.series_id = s.id AND sea.season_number > 0
-        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number) > 0
-        AND (SELECT COUNT(*) FROM episodes WHERE series_id = sea.series_id AND season_number = sea.season_number)
-            = (SELECT COUNT(*) FROM episode_files ef JOIN episodes e ON ef.episode_id = e.id WHERE e.series_id = sea.series_id AND e.season_number = sea.season_number)
-        ORDER BY sea.season_number
-    )), '') AS TEXT) as available_seasons
-FROM series s;
-
--- Missing episodes queries (respects cascading monitoring: series -> season -> episode)
+-- Missing episodes queries (status-based, respects cascading monitoring)
 -- name: ListMissingEpisodes :many
 SELECT
     e.*,
@@ -324,59 +303,49 @@ SELECT
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1
+WHERE e.status IN ('missing', 'failed')
   AND s.monitored = 1
   AND sea.monitored = 1
   AND e.monitored = 1
-  AND ef.id IS NULL
 ORDER BY e.air_date DESC;
 
 -- name: CountMissingEpisodes :one
 SELECT COUNT(*) FROM episodes e
 JOIN series s ON e.series_id = s.id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1
+WHERE e.status IN ('missing', 'failed')
   AND s.monitored = 1
   AND sea.monitored = 1
-  AND e.monitored = 1
-  AND ef.id IS NULL;
+  AND e.monitored = 1;
 
 -- name: GetMissingEpisodesBySeries :many
 SELECT e.* FROM episodes e
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
 WHERE e.series_id = ?
-  AND e.released = 1
+  AND e.status IN ('missing', 'failed')
   AND sea.monitored = 1
   AND e.monitored = 1
-  AND ef.id IS NULL
 ORDER BY e.season_number, e.episode_number;
 
 -- name: CountMissingEpisodesBySeries :one
 SELECT COUNT(*) FROM episodes e
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
 WHERE e.series_id = ?
-  AND e.released = 1
+  AND e.status IN ('missing', 'failed')
   AND sea.monitored = 1
-  AND e.monitored = 1
-  AND ef.id IS NULL;
+  AND e.monitored = 1;
 
 -- name: ListSeriesWithMissingEpisodes :many
 SELECT DISTINCT s.* FROM series s
 JOIN episodes e ON s.id = e.series_id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
-WHERE e.released = 1
+WHERE e.status IN ('missing', 'failed')
   AND s.monitored = 1
   AND sea.monitored = 1
   AND e.monitored = 1
-  AND ef.id IS NULL
 ORDER BY s.sort_title;
 
--- Upgrade candidate queries (episodes with files below quality cutoff)
+-- Upgrade candidate queries (status-based)
 -- name: ListEpisodeUpgradeCandidates :many
 SELECT
     e.*,
@@ -385,50 +354,33 @@ SELECT
     s.tmdb_id as series_tmdb_id,
     s.imdb_id as series_imdb_id,
     s.year as series_year,
-    s.quality_profile_id as series_quality_profile_id,
-    ef.id as file_id,
-    ef.quality_id as current_quality_id,
-    qp.cutoff
+    s.quality_profile_id as series_quality_profile_id
 FROM episodes e
 JOIN series s ON e.series_id = s.id
-JOIN episode_files ef ON e.id = ef.episode_id
-JOIN quality_profiles qp ON s.quality_profile_id = qp.id
-WHERE e.monitored = 1
-  AND e.released = 1
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+WHERE e.status = 'upgradable'
+  AND e.monitored = 1
   AND s.monitored = 1
-  AND ef.quality_id IS NOT NULL
-  AND ef.quality_id < qp.cutoff
-  AND qp.upgrades_enabled = 1
+  AND sea.monitored = 1
 ORDER BY e.air_date DESC;
 
 -- name: CountEpisodeUpgradeCandidates :one
 SELECT COUNT(*) FROM episodes e
 JOIN series s ON e.series_id = s.id
-JOIN episode_files ef ON e.id = ef.episode_id
-JOIN quality_profiles qp ON s.quality_profile_id = qp.id
-WHERE e.monitored = 1
-  AND e.released = 1
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+WHERE e.status = 'upgradable'
+  AND e.monitored = 1
   AND s.monitored = 1
-  AND ef.quality_id IS NOT NULL
-  AND ef.quality_id < qp.cutoff
-  AND qp.upgrades_enabled = 1;
+  AND sea.monitored = 1;
 
 -- name: ListEpisodeUpgradeCandidatesBySeries :many
 SELECT
-    e.*,
-    ef.id as file_id,
-    ef.quality_id as current_quality_id,
-    qp.cutoff
+    e.*
 FROM episodes e
 JOIN series s ON e.series_id = s.id
-JOIN episode_files ef ON e.id = ef.episode_id
-JOIN quality_profiles qp ON s.quality_profile_id = qp.id
 WHERE e.series_id = ?
+  AND e.status = 'upgradable'
   AND e.monitored = 1
-  AND e.released = 1
-  AND ef.quality_id IS NOT NULL
-  AND ef.quality_id < qp.cutoff
-  AND qp.upgrades_enabled = 1
 ORDER BY e.season_number, e.episode_number;
 
 -- name: GetEpisodeWithFileQuality :one
@@ -466,13 +418,13 @@ UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number = ?;
 SELECT COALESCE(MAX(season_number), 0) as latest FROM seasons WHERE series_id = ? AND season_number > 0;
 
 -- name: UpdateFutureEpisodesMonitored :exec
-UPDATE episodes SET monitored = ? WHERE series_id = ? AND released = 0;
+UPDATE episodes SET monitored = ? WHERE series_id = ? AND status = 'unreleased';
 
 -- name: UpdateFutureSeasonsMonitored :exec
 UPDATE seasons SET monitored = ?
 WHERE seasons.series_id = ? AND seasons.season_number IN (
     SELECT DISTINCT e.season_number FROM episodes e
-    WHERE e.series_id = ? AND e.released = 0
+    WHERE e.series_id = ? AND e.status = 'unreleased'
 );
 
 -- name: UpdateEpisodesMonitoredByIDs :exec
@@ -542,13 +494,50 @@ SELECT * FROM episode_files WHERE original_path = ? LIMIT 1;
 SELECT EXISTS(SELECT 1 FROM episode_files WHERE original_path = ?) AS imported;
 
 -- name: CountMissingEpisodesBySeasons :one
--- Counts missing episodes (released, monitored, no file) in the specified seasons
 SELECT COUNT(*) FROM episodes e
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-LEFT JOIN episode_files ef ON e.id = ef.episode_id
 WHERE e.series_id = ?
   AND e.season_number IN (sqlc.slice('seasonNumbers'))
-  AND e.released = 1
+  AND e.status IN ('missing', 'failed')
   AND sea.monitored = 1
-  AND e.monitored = 1
-  AND ef.id IS NULL;
+  AND e.monitored = 1;
+
+-- name: ListDownloadingEpisodes :many
+SELECT id, series_id, active_download_id FROM episodes
+WHERE status = 'downloading' AND active_download_id IS NOT NULL;
+
+-- name: ListEpisodeFilesForRootFolder :many
+SELECT ef.id as file_id, ef.path, ef.episode_id, e.status as episode_status
+FROM episode_files ef
+JOIN episodes e ON ef.episode_id = e.id
+JOIN series s ON e.series_id = s.id
+WHERE s.root_folder_id = ?
+  AND e.status IN ('available', 'upgradable');
+
+-- Quality profile recalculation: find episodes with files to evaluate against new cutoff
+-- name: ListEpisodesWithFilesForProfile :many
+SELECT e.id, e.status, ef.id as file_id, ef.quality_id as current_quality_id
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN episode_files ef ON e.id = ef.episode_id
+WHERE s.quality_profile_id = ?
+  AND e.status IN ('available', 'upgradable')
+  AND ef.quality_id IS NOT NULL;
+
+-- name: GetSeriesByTmdbID :one
+SELECT * FROM series WHERE tmdb_id = ? LIMIT 1;
+
+-- Portal request status: count non-failed monitored episodes for a series
+-- name: CountNonFailedMonitoredEpisodesBySeries :one
+SELECT COUNT(*) FROM episodes
+WHERE series_id = ?
+  AND monitored = 1
+  AND status NOT IN ('failed', 'unreleased');
+
+-- Portal request status: count non-failed monitored episodes for a specific season
+-- name: CountNonFailedMonitoredEpisodesBySeason :one
+SELECT COUNT(*) FROM episodes
+WHERE series_id = ?
+  AND season_number = ?
+  AND monitored = 1
+  AND status NOT IN ('failed', 'unreleased');

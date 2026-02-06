@@ -99,6 +99,12 @@ func (h *Handlers) Update(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	// Recalculate status for all media using this profile (cutoff/upgrades may have changed)
+	if _, err := h.service.RecalculateStatusForProfile(c.Request().Context(), id); err != nil {
+		h.service.logger.Warn().Err(err).Int64("profileId", id).Msg("Failed to recalculate status after profile update")
+	}
+
 	return c.JSON(http.StatusOK, profile)
 }
 

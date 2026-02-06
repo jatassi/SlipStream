@@ -1,4 +1,5 @@
-export { StatusBadge } from './StatusBadge'
+export { MediaStatusBadge } from './MediaStatusBadge'
+export { ProductionStatusBadge } from './ProductionStatusBadge'
 export { QualityBadge } from './QualityBadge'
 export { PosterImage } from './PosterImage'
 export { BackdropImage } from './BackdropImage'

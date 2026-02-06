@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -24,6 +25,12 @@ import (
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 )
+
+// HealthService defines the interface for health tracking.
+type HealthService interface {
+	SetWarningStr(category, id, message string)
+	ClearStatusStr(category, id string)
+}
 
 var (
 	ErrNoMetadataProvider = errors.New("no metadata provider configured")
@@ -69,6 +76,9 @@ type Service struct {
 
 	// Optional slots service for multi-version support
 	slotsSvc *slots.Service
+
+	// Optional health service for file verification alerts
+	healthSvc HealthService
 
 	// Track active scans by root folder ID
 	activeScans map[int64]string // maps folderID -> activityID
@@ -125,6 +135,11 @@ func (s *Service) SetPreferencesService(svc *preferences.Service) {
 // Req 13.1.2: Auto-assign files to best matching slot based on quality profile matching
 func (s *Service) SetSlotsService(svc *slots.Service) {
 	s.slotsSvc = svc
+}
+
+// SetHealthService sets the optional health service for file verification alerts.
+func (s *Service) SetHealthService(svc HealthService) {
+	s.healthSvc = svc
 }
 
 // ScanRootFolder scans a root folder for media files and matches them to metadata.
@@ -211,6 +226,9 @@ func (s *Service) ScanRootFolder(ctx context.Context, rootFolderID int64) (*Scan
 	} else {
 		s.matchUnmatchedSeries(ctx, folder, result, activity, pending)
 	}
+
+	// Verify existing files still exist on disk (Step 20: disappeared file detection)
+	s.VerifyFileExistence(ctx, rootFolderID, folder.Path)
 
 	// Download artwork for newly added and newly matched items
 	if s.artwork != nil && (len(pending.movieMeta) > 0 || len(pending.seriesMeta) > 0) {
@@ -668,7 +686,7 @@ func (s *Service) createSeriesFromParsed(
 		input.ImdbID = meta.ImdbID
 		input.Overview = meta.Overview
 		input.Runtime = meta.Runtime
-		input.Status = meta.Status
+		input.ProductionStatus = meta.Status
 		input.Path = tv.GenerateSeriesPath(folder.Path, meta.Title)
 		tmdbID = meta.TmdbID
 		tvdbID = meta.TvdbID
@@ -1338,7 +1356,7 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 		ImdbID:   &imdbID,
 		Overview: &overview,
 		Runtime:  &runtime,
-		Status:   &status,
+		ProductionStatus: &status,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -1770,7 +1788,7 @@ func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Mo
 	}
 
 	// Trigger autosearch in background if requested and movie is released
-	if input.SearchOnAdd != nil && *input.SearchOnAdd && s.autosearchSvc != nil && movie.Released {
+	if input.SearchOnAdd != nil && *input.SearchOnAdd && s.autosearchSvc != nil && movie.Status != "unreleased" {
 		go func() {
 			s.logger.Info().Int64("movieId", movie.ID).Str("title", movie.Title).Msg("Triggering search-on-add for movie")
 			if _, err := s.autosearchSvc.SearchMovie(context.Background(), movie.ID, autosearch.SearchSourceAdd); err != nil {
@@ -1800,7 +1818,7 @@ type AddSeriesInput struct {
 	ImdbID           string           `json:"imdbId,omitempty"`
 	Overview         string           `json:"overview,omitempty"`
 	Runtime          int              `json:"runtime,omitempty"`
-	Status           string           `json:"status,omitempty"` // "continuing", "ended", "upcoming"
+	ProductionStatus string           `json:"productionStatus,omitempty"` // "continuing", "ended", "upcoming"
 	Path             string           `json:"path,omitempty"`
 	RootFolderID     int64            `json:"rootFolderId"`
 	QualityProfileID int64            `json:"qualityProfileId"`
@@ -2009,7 +2027,7 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		ImdbID:           input.ImdbID,
 		Overview:         input.Overview,
 		Runtime:          input.Runtime,
-		Status:           input.Status,
+		ProductionStatus: input.ProductionStatus,
 		Path:             input.Path,
 		RootFolderID:     input.RootFolderID,
 		QualityProfileID: input.QualityProfileID,
@@ -2158,7 +2176,7 @@ func (s *Service) triggerSeriesSearchOnAdd(seriesID int64, searchOnAdd string, i
 			return
 		}
 		for _, ep := range episodes {
-			if ep.EpisodeNumber == 1 && ep.Released {
+			if ep.EpisodeNumber == 1 && ep.Status != "unreleased" {
 				if _, err := s.autosearchSvc.SearchEpisode(ctx, ep.ID, autosearch.SearchSourceAdd); err != nil {
 					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Search-on-add failed for episode")
 				}
@@ -2192,4 +2210,63 @@ func (s *Service) triggerSeriesSearchOnAdd(seriesID int64, searchOnAdd string, i
 			s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Search-on-add failed for series")
 		}
 	}
+}
+
+// VerifyFileExistence checks that tracked files for a root folder still exist on disk.
+// Files that have disappeared get their media status set to "missing" and a health alert is registered.
+func (s *Service) VerifyFileExistence(ctx context.Context, rootFolderID int64, folderPath string) int {
+	// Skip virtual paths (developer mode)
+	if strings.HasPrefix(folderPath, "/mock/") {
+		return 0
+	}
+
+	missing := 0
+	rfID := sql.NullInt64{Int64: rootFolderID, Valid: true}
+
+	// Check movie files
+	movieFiles, err := s.queries.ListMovieFilesForRootFolder(ctx, rfID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("rootFolderId", rootFolderID).Msg("Failed to list movie files for verification")
+	} else {
+		for _, mf := range movieFiles {
+			if _, err := os.Stat(mf.Path); os.IsNotExist(err) {
+				missing++
+				s.logger.Warn().Str("path", mf.Path).Int64("movieId", mf.MovieID).Msg("Movie file disappeared from disk")
+				_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+					Status: "missing",
+					ID:     mf.MovieID,
+				})
+				if s.healthSvc != nil {
+					healthID := fmt.Sprintf("missing-file-movie-%d", mf.FileID)
+					s.healthSvc.SetWarningStr("storage", healthID, fmt.Sprintf("Movie file not found: %s", mf.Path))
+				}
+			}
+		}
+	}
+
+	// Check episode files
+	episodeFiles, err := s.queries.ListEpisodeFilesForRootFolder(ctx, rfID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("rootFolderId", rootFolderID).Msg("Failed to list episode files for verification")
+	} else {
+		for _, ef := range episodeFiles {
+			if _, err := os.Stat(ef.Path); os.IsNotExist(err) {
+				missing++
+				s.logger.Warn().Str("path", ef.Path).Int64("episodeId", ef.EpisodeID).Msg("Episode file disappeared from disk")
+				_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+					Status: "missing",
+					ID:     ef.EpisodeID,
+				})
+				if s.healthSvc != nil {
+					healthID := fmt.Sprintf("missing-file-episode-%d", ef.FileID)
+					s.healthSvc.SetWarningStr("storage", healthID, fmt.Sprintf("Episode file not found: %s", ef.Path))
+				}
+			}
+		}
+	}
+
+	if missing > 0 {
+		s.logger.Warn().Int("missing", missing).Int64("rootFolderId", rootFolderID).Msg("Detected disappeared files during scan")
+	}
+	return missing
 }

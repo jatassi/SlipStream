@@ -73,7 +73,7 @@ export interface VerifyPinResponse {
 }
 
 // Request types
-export type RequestStatus = 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled'
+export type RequestStatus = 'pending' | 'approved' | 'denied' | 'downloading' | 'failed' | 'available' | 'cancelled'
 export type PortalMediaType = 'movie' | 'series' | 'season' | 'episode'
 
 export interface Request {

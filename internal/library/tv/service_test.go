@@ -48,8 +48,8 @@ func TestTVService_CreateSeries(t *testing.T) {
 	if !series.SeasonFolder {
 		t.Error("CreateSeries() series.SeasonFolder = false, want true")
 	}
-	if series.Status != "continuing" {
-		t.Errorf("CreateSeries() series.Status = %q, want %q", series.Status, "continuing")
+	if series.ProductionStatus != "continuing" {
+		t.Errorf("CreateSeries() series.ProductionStatus = %q, want %q", series.ProductionStatus, "continuing")
 	}
 }
 
@@ -563,8 +563,8 @@ func TestTVService_AddEpisodeFile(t *testing.T) {
 
 	// Verify episode now has file
 	episode, _ := service.GetEpisode(ctx, episodes[0].ID)
-	if !episode.HasFile {
-		t.Error("Episode should have HasFile = true after adding file")
+	if episode.EpisodeFile == nil {
+		t.Error("Episode should have EpisodeFile set after adding file")
 	}
 }
 
@@ -592,8 +592,8 @@ func TestTVService_RemoveEpisodeFile(t *testing.T) {
 
 	// Verify file is gone
 	episode, _ := service.GetEpisode(ctx, episodes[0].ID)
-	if episode.HasFile {
-		t.Error("Episode should have HasFile = false after removing file")
+	if episode.EpisodeFile != nil {
+		t.Error("Episode should have no EpisodeFile after removing file")
 	}
 }
 

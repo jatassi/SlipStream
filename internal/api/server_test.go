@@ -524,6 +524,7 @@ func TestCORS(t *testing.T) {
 	defer cleanup()
 
 	req := httptest.NewRequest(http.MethodOptions, "/api/v1/movies", nil)
+	req.Host = "localhost:8080"
 	req.Header.Set("Origin", "http://localhost:3000")
 	req.Header.Set("Access-Control-Request-Method", "POST")
 	rec := httptest.NewRecorder()

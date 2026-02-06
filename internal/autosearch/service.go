@@ -709,27 +709,26 @@ func (s *Service) movieToSearchableItem(movie *sqlc.Movie) SearchableItem {
 	return item
 }
 
-// movieUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
-func (s *Service) movieUpgradeCandidateToSearchableItem(row *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
+// movieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
+func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.Movie) SearchableItem {
 	item := SearchableItem{
-		MediaType:        MediaTypeMovie,
-		MediaID:          row.ID,
-		Title:            row.Title,
-		HasFile:          true,
-		CurrentQualityID: int(row.CurrentQualityID.Int64),
+		MediaType: MediaTypeMovie,
+		MediaID:   movie.ID,
+		Title:     movie.Title,
+		HasFile:   true,
 	}
 
-	if row.Year.Valid {
-		item.Year = int(row.Year.Int64)
+	if movie.Year.Valid {
+		item.Year = int(movie.Year.Int64)
 	}
-	if row.ImdbID.Valid {
-		item.ImdbID = row.ImdbID.String
+	if movie.ImdbID.Valid {
+		item.ImdbID = movie.ImdbID.String
 	}
-	if row.TmdbID.Valid {
-		item.TmdbID = int(row.TmdbID.Int64)
+	if movie.TmdbID.Valid {
+		item.TmdbID = int(movie.TmdbID.Int64)
 	}
-	if row.QualityProfileID.Valid {
-		item.QualityProfileID = row.QualityProfileID.Int64
+	if movie.QualityProfileID.Valid {
+		item.QualityProfileID = movie.QualityProfileID.Int64
 	}
 
 	return item
@@ -738,14 +737,13 @@ func (s *Service) movieUpgradeCandidateToSearchableItem(row *sqlc.ListMovieUpgra
 // episodeUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
 func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeUpgradeCandidatesRow) SearchableItem {
 	item := SearchableItem{
-		MediaType:        MediaTypeEpisode,
-		MediaID:          row.ID,
-		SeriesID:         row.SeriesID,
-		Title:            row.SeriesTitle,
-		SeasonNumber:     int(row.SeasonNumber),
-		EpisodeNumber:    int(row.EpisodeNumber),
-		HasFile:          true,
-		CurrentQualityID: int(row.CurrentQualityID.Int64),
+		MediaType:     MediaTypeEpisode,
+		MediaID:       row.ID,
+		SeriesID:      row.SeriesID,
+		Title:         row.SeriesTitle,
+		SeasonNumber:  int(row.SeasonNumber),
+		EpisodeNumber: int(row.EpisodeNumber),
+		HasFile:       true,
 	}
 
 	if row.SeriesYear.Valid {
@@ -860,18 +858,10 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 		return nil, err
 	}
 
-	// Filter to only missing (no file), released, and monitored episodes
 	missing := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		// Check if episode is released, monitored, and has no file
-		if row.Released == 1 && row.Monitored == 1 {
-			hasFile, err := s.queries.CountEpisodeFiles(ctx, row.ID)
-			if err != nil {
-				continue
-			}
-			if hasFile == 0 {
-				missing = append(missing, row)
-			}
+		if row.Status == "missing" && row.Monitored == 1 {
+			missing = append(missing, row)
 		}
 	}
 
@@ -880,16 +870,14 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 
 // getMissingEpisodesForSeries returns all missing, monitored episodes for a series.
 func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int64) ([]*sqlc.Episode, error) {
-	// Get series to check if it's monitored
 	series, err := s.queries.GetSeries(ctx, seriesID)
 	if err != nil {
 		return nil, err
 	}
 	if series.Monitored != 1 {
-		return []*sqlc.Episode{}, nil // Series not monitored
+		return []*sqlc.Episode{}, nil
 	}
 
-	// Get all seasons to build a map of monitored seasons
 	seasons, err := s.queries.ListSeasonsBySeries(ctx, seriesID)
 	if err != nil {
 		return nil, err
@@ -899,29 +887,18 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 		monitoredSeasons[season.SeasonNumber] = season.Monitored == 1
 	}
 
-	// Get all episodes for this series
 	rows, err := s.queries.ListEpisodesBySeries(ctx, seriesID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Filter to only missing (no file), released, and monitored episodes
 	missing := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		// Check if season is monitored
 		if !monitoredSeasons[row.SeasonNumber] {
 			continue
 		}
-
-		// Check if episode is released, monitored, and has no file
-		if row.Released == 1 && row.Monitored == 1 {
-			hasFile, err := s.queries.CountEpisodeFiles(ctx, row.ID)
-			if err != nil {
-				continue
-			}
-			if hasFile == 0 {
-				missing = append(missing, row)
-			}
+		if row.Status == "missing" && row.Monitored == 1 {
+			missing = append(missing, row)
 		}
 	}
 
@@ -970,7 +947,6 @@ func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seas
 
 	// Check that ALL episodes are released, monitored, and missing
 	for _, ep := range episodes {
-		// Check if monitored
 		if ep.Monitored != 1 {
 			s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
 				Int64("episodeId", ep.ID).Int64("episodeNumber", ep.EpisodeNumber).
@@ -978,23 +954,12 @@ func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seas
 			return false
 		}
 
-		// Check if released
-		if ep.Released != 1 {
+		// Status must be "missing" - any other status (unreleased, available, upgradable, downloading, failed) disqualifies
+		if ep.Status != "missing" {
 			s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
 				Int64("episodeId", ep.ID).Int64("episodeNumber", ep.EpisodeNumber).
-				Msg("Season pack ineligible: episode not released")
-			return false
-		}
-
-		// Check if has file
-		hasFile, err := s.queries.CountEpisodeFiles(ctx, ep.ID)
-		if err != nil {
-			continue
-		}
-		if hasFile > 0 {
-			s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-				Int64("episodeId", ep.ID).Int64("episodeNumber", ep.EpisodeNumber).
-				Msg("Season pack ineligible: episode already has file")
+				Str("status", ep.Status).
+				Msg("Season pack ineligible: episode status is not missing")
 			return false
 		}
 	}
@@ -1011,6 +976,126 @@ func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seas
 		Int("episodeCount", len(episodes)).
 		Msg("Season pack eligible: all episodes released, monitored, and missing")
 	return true
+}
+
+// RetryMovie resets a failed movie back to missing or upgradable and clears backoff.
+func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, error) {
+	movie, err := s.queries.GetMovie(ctx, movieID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrItemNotFound
+		}
+		return nil, fmt.Errorf("failed to get movie: %w", err)
+	}
+
+	if movie.Status != "failed" {
+		return &RetryResult{
+			NewStatus: movie.Status,
+			Message:   "movie is not in failed state",
+		}, nil
+	}
+
+	// Check if movie has any files to determine new status
+	fileCount, err := s.queries.CountMovieFiles(ctx, movieID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count movie files: %w", err)
+	}
+
+	newStatus := "missing"
+	if fileCount > 0 {
+		newStatus = "upgradable"
+	}
+
+	// Reset status, clear active_download_id and status_message
+	err = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
+		ID:               movieID,
+		Status:           newStatus,
+		ActiveDownloadID: sql.NullString{},
+		StatusMessage:    sql.NullString{},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update movie status: %w", err)
+	}
+
+	// Reset autosearch backoff
+	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
+		ItemType: "movie",
+		ItemID:   movieID,
+	})
+
+	if s.historyService != nil {
+		_ = s.historyService.LogStatusChanged(ctx, history.MediaTypeMovie, movieID, history.StatusChangedData{
+			From: "failed", To: newStatus, Reason: "Manual retry",
+		})
+	}
+	if s.broadcaster != nil {
+		_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+	}
+
+	return &RetryResult{
+		NewStatus: newStatus,
+		Message:   fmt.Sprintf("movie reset to %s", newStatus),
+	}, nil
+}
+
+// RetryEpisode resets a failed episode back to missing or upgradable and clears backoff.
+func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResult, error) {
+	episode, err := s.queries.GetEpisode(ctx, episodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrItemNotFound
+		}
+		return nil, fmt.Errorf("failed to get episode: %w", err)
+	}
+
+	if episode.Status != "failed" {
+		return &RetryResult{
+			NewStatus: episode.Status,
+			Message:   "episode is not in failed state",
+		}, nil
+	}
+
+	// Check if episode has any files to determine new status
+	fileCount, err := s.queries.CountEpisodeFiles(ctx, episodeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count episode files: %w", err)
+	}
+
+	newStatus := "missing"
+	if fileCount > 0 {
+		newStatus = "upgradable"
+	}
+
+	// Reset status, clear active_download_id and status_message
+	err = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+		ID:               episodeID,
+		Status:           newStatus,
+		ActiveDownloadID: sql.NullString{},
+		StatusMessage:    sql.NullString{},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update episode status: %w", err)
+	}
+
+	// Reset autosearch backoff
+	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
+		ItemType: "episode",
+		ItemID:   episodeID,
+	})
+
+	if s.historyService != nil {
+		_ = s.historyService.LogStatusChanged(ctx, history.MediaTypeEpisode, episodeID, history.StatusChangedData{
+			From: "failed", To: newStatus, Reason: "Manual retry",
+		})
+	}
+	if s.broadcaster != nil {
+		_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+	}
+
+	return &RetryResult{
+		NewStatus: newStatus,
+		Message:   fmt.Sprintf("episode reset to %s", newStatus),
+	}, nil
 }
 
 // Broadcast helpers

@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ArrowUpCircle, AlertCircle, CheckCircle, Search, Zap } from 'lucide-react'
+import { Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock, Search, Zap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -102,9 +102,26 @@ interface SlotSummaryBadgesProps {
 }
 
 function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
+  const hasMissing = status.slotStatuses.some(s => s.status === 'missing')
+  const hasUpgradable = status.slotStatuses.some(s => s.status === 'upgradable')
+  const hasFailed = status.slotStatuses.some(s => s.status === 'failed')
+  const hasDownloading = status.slotStatuses.some(s => s.status === 'downloading')
+  const allGood = status.slotStatuses.every(s => s.status === 'available' || !s.monitored)
+
   return (
     <div className="flex items-center gap-1.5">
-      {status.isMissing && (
+      {hasFailed && (
+        <Tooltip>
+          <TooltipTrigger>
+            <Badge variant="destructive" className="gap-1">
+              <XCircle className="size-3" />
+              Failed
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>One or more slots have failed downloads</TooltipContent>
+        </Tooltip>
+      )}
+      {hasMissing && (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="destructive" className="gap-1">
@@ -115,7 +132,18 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
           <TooltipContent>One or more monitored slots are empty</TooltipContent>
         </Tooltip>
       )}
-      {status.needsUpgrade && !status.isMissing && (
+      {hasDownloading && (
+        <Tooltip>
+          <TooltipTrigger>
+            <Badge className="gap-1 bg-blue-600 hover:bg-blue-600 text-white">
+              <ArrowDownCircle className="size-3" />
+              Downloading
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>One or more slots are downloading</TooltipContent>
+        </Tooltip>
+      )}
+      {hasUpgradable && !hasMissing && (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="secondary" className="gap-1">
@@ -128,7 +156,7 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
           </TooltipContent>
         </Tooltip>
       )}
-      {!status.isMissing && !status.needsUpgrade && status.filledSlots > 0 && (
+      {allGood && status.filledSlots > 0 && (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="outline" className="gap-1 border-green-500 text-green-500">
@@ -243,37 +271,7 @@ interface SlotStatusBadgeProps {
 }
 
 function SlotStatusBadge({ slot }: SlotStatusBadgeProps) {
-  if (slot.isMissing) {
-    return (
-      <Badge variant="destructive" className="gap-1">
-        <AlertCircle className="size-3" />
-        Missing
-      </Badge>
-    )
-  }
-
-  if (slot.needsUpgrade) {
-    return (
-      <Badge variant="secondary" className="gap-1">
-        <ArrowUpCircle className="size-3" />
-        Upgrade
-      </Badge>
-    )
-  }
-
-  if (slot.hasFile) {
-    return (
-      <Badge
-        variant="outline"
-        className={cn('gap-1', 'border-green-500 text-green-500')}
-      >
-        <CheckCircle className="size-3" />
-        OK
-      </Badge>
-    )
-  }
-
-  if (!slot.monitored) {
+  if (!slot.monitored && slot.status !== 'available' && slot.status !== 'upgradable') {
     return (
       <Badge variant="outline" className="gap-1 text-muted-foreground">
         <EyeOff className="size-3" />
@@ -282,9 +280,54 @@ function SlotStatusBadge({ slot }: SlotStatusBadgeProps) {
     )
   }
 
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Empty
-    </Badge>
-  )
+  switch (slot.status) {
+    case 'failed':
+      return (
+        <Badge variant="destructive" className="gap-1 bg-red-900/50 border border-red-500 text-red-400">
+          <XCircle className="size-3" />
+          Failed
+        </Badge>
+      )
+    case 'downloading':
+      return (
+        <Badge className="gap-1 bg-blue-600 hover:bg-blue-600 text-white">
+          <ArrowDownCircle className="size-3" />
+          Downloading
+        </Badge>
+      )
+    case 'missing':
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <AlertCircle className="size-3" />
+          Missing
+        </Badge>
+      )
+    case 'upgradable':
+      return (
+        <Badge variant="secondary" className="gap-1">
+          <ArrowUpCircle className="size-3" />
+          Upgrade
+        </Badge>
+      )
+    case 'available':
+      return (
+        <Badge variant="outline" className={cn('gap-1', 'border-green-500 text-green-500')}>
+          <CheckCircle className="size-3" />
+          OK
+        </Badge>
+      )
+    case 'unreleased':
+      return (
+        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-500">
+          <Clock className="size-3" />
+          Unreleased
+        </Badge>
+      )
+    default:
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          Empty
+        </Badge>
+      )
+  }
 }

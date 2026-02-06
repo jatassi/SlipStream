@@ -347,6 +347,23 @@ func (s *Service) LogImportUpgrade(ctx context.Context, mediaType MediaType, med
 	return err
 }
 
+// LogStatusChanged logs a status transition not covered by existing event types.
+func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, mediaID int64, data StatusChangedData) error {
+	dataMap, err := ToJSON(data)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to marshal status changed data")
+		dataMap = nil
+	}
+
+	_, err = s.Create(ctx, CreateInput{
+		EventType: EventTypeStatusChanged,
+		MediaType: mediaType,
+		MediaID:   mediaID,
+		Data:      dataMap,
+	})
+	return err
+}
+
 // LogSlotAssigned logs when a file is assigned to a slot.
 // Req 17.1.1: Log all slot-related events
 func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {

@@ -13,21 +13,18 @@ type SlotStatus struct {
 	SlotNumber       int     `json:"slotNumber"`
 	SlotName         string  `json:"slotName"`
 	Monitored        bool    `json:"monitored"`
-	HasFile          bool    `json:"hasFile"`
+	Status           string  `json:"status"`
 	FileID           *int64  `json:"fileId,omitempty"`
 	CurrentQuality   string  `json:"currentQuality,omitempty"`
 	CurrentQualityID *int64  `json:"currentQualityId,omitempty"`
 	ProfileCutoff    int     `json:"profileCutoff"`
-	NeedsUpgrade     bool    `json:"needsUpgrade"` // Req 6.2.2: file below cutoff
-	IsMissing        bool    `json:"isMissing"`    // Req 6.1.1: monitored slot is empty
 }
 
 // MediaStatus represents the aggregated status of a movie or episode.
 type MediaStatus struct {
 	MediaType      string       `json:"mediaType"`
 	MediaID        int64        `json:"mediaId"`
-	IsMissing      bool         `json:"isMissing"`      // Req 6.1.1: ANY monitored slot empty
-	NeedsUpgrade   bool         `json:"needsUpgrade"`   // Any slot needs upgrade
+	Status         string       `json:"status"`
 	SlotStatuses   []SlotStatus `json:"slotStatuses"`
 	FilledSlots    int          `json:"filledSlots"`
 	EmptySlots     int          `json:"emptySlots"`
@@ -76,49 +73,32 @@ func (s *Service) GetMovieStatus(ctx context.Context, movieID int64) (*MediaStat
 			SlotID:     slot.ID,
 			SlotNumber: slot.SlotNumber,
 			SlotName:   slot.Name,
-			Monitored:  true, // Default to monitored
+			Monitored:  true,
+			Status:     "missing",
 		}
 
-		// Get profile cutoff if available
 		if slot.QualityProfile != nil {
 			slotStatus.ProfileCutoff = slot.QualityProfile.Cutoff
 		}
 
-		// Check if we have an assignment for this slot
 		if assignment, ok := assignmentMap[slot.ID]; ok {
 			slotStatus.Monitored = assignment.Monitored
+			slotStatus.Status = assignment.Status
 
-			// Check if slot has a file
 			if fileID, ok := assignment.FileID.(sql.NullInt64); ok && fileID.Valid {
-				slotStatus.HasFile = true
 				slotStatus.FileID = &fileID.Int64
 				status.FilledSlots++
 
-				// Check upgrade status using quality from file
 				fileQuality := s.getMovieFileQuality(ctx, fileID.Int64)
 				if fileQuality != nil {
 					slotStatus.CurrentQuality = fileQuality.Quality
 					slotStatus.CurrentQualityID = &fileQuality.QualityID
-					// Req 6.2.2: Check if below cutoff (only if upgrades enabled)
-					if slot.QualityProfile != nil && slot.QualityProfile.UpgradesEnabled {
-						slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
-						if slotStatus.NeedsUpgrade {
-							status.NeedsUpgrade = true
-						}
-					}
 				}
 			} else {
 				status.EmptySlots++
 			}
 		} else {
-			// No assignment exists - slot is empty and uses default monitoring
 			status.EmptySlots++
-		}
-
-		// Req 6.1.1: Check if this contributes to missing status
-		if slotStatus.Monitored && !slotStatus.HasFile {
-			slotStatus.IsMissing = true
-			status.IsMissing = true
 		}
 
 		if slotStatus.Monitored {
@@ -127,6 +107,9 @@ func (s *Service) GetMovieStatus(ctx context.Context, movieID int64) (*MediaStat
 
 		status.SlotStatuses = append(status.SlotStatuses, slotStatus)
 	}
+
+	// Compute aggregate status from slot statuses
+	status.Status = s.computeAggregateStatus(status.SlotStatuses)
 
 	return status, nil
 }
@@ -167,6 +150,7 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 			SlotNumber: slot.SlotNumber,
 			SlotName:   slot.Name,
 			Monitored:  true,
+			Status:     "missing",
 		}
 
 		if slot.QualityProfile != nil {
@@ -175,9 +159,9 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 
 		if assignment, ok := assignmentMap[slot.ID]; ok {
 			slotStatus.Monitored = assignment.Monitored
+			slotStatus.Status = assignment.Status
 
 			if fileID, ok := assignment.FileID.(sql.NullInt64); ok && fileID.Valid {
-				slotStatus.HasFile = true
 				slotStatus.FileID = &fileID.Int64
 				status.FilledSlots++
 
@@ -185,13 +169,6 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 				if fileQuality != nil {
 					slotStatus.CurrentQuality = fileQuality.Quality
 					slotStatus.CurrentQualityID = &fileQuality.QualityID
-					// Check if below cutoff (only if upgrades enabled)
-					if slot.QualityProfile != nil && slot.QualityProfile.UpgradesEnabled {
-						slotStatus.NeedsUpgrade = fileQuality.QualityID < int64(slotStatus.ProfileCutoff)
-						if slotStatus.NeedsUpgrade {
-							status.NeedsUpgrade = true
-						}
-					}
 				}
 			} else {
 				status.EmptySlots++
@@ -200,17 +177,14 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 			status.EmptySlots++
 		}
 
-		if slotStatus.Monitored && !slotStatus.HasFile {
-			slotStatus.IsMissing = true
-			status.IsMissing = true
-		}
-
 		if slotStatus.Monitored {
 			status.MonitoredSlots++
 		}
 
 		status.SlotStatuses = append(status.SlotStatuses, slotStatus)
 	}
+
+	status.Status = s.computeAggregateStatus(status.SlotStatuses)
 
 	return status, nil
 }
@@ -234,12 +208,12 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 		})
 		if err != nil {
 			if err == sql.ErrNoRows {
-				// Create a new assignment with the specified monitoring status
 				_, err = s.queries.CreateMovieSlotAssignment(ctx, sqlc.CreateMovieSlotAssignmentParams{
 					MovieID:   mediaID,
 					SlotID:    slotID,
 					FileID:    sql.NullInt64{},
 					Monitored: monitoredVal,
+					Status:    "missing",
 				})
 				return err
 			}
@@ -263,6 +237,7 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 					SlotID:    slotID,
 					FileID:    sql.NullInt64{},
 					Monitored: monitoredVal,
+					Status:    "missing",
 				})
 				return err
 			}
@@ -334,7 +309,8 @@ func (s *Service) InitializeSlotAssignments(ctx context.Context, mediaType strin
 					MovieID:   mediaID,
 					SlotID:    slot.ID,
 					FileID:    sql.NullInt64{},
-					Monitored: 1, // Default to monitored
+					Monitored: 1,
+					Status:    "missing",
 				})
 				if err != nil {
 					s.logger.Warn().Err(err).Int64("movieId", mediaID).Int64("slotId", slot.ID).Msg("Failed to create movie slot assignment")
@@ -351,6 +327,7 @@ func (s *Service) InitializeSlotAssignments(ctx context.Context, mediaType strin
 					SlotID:    slot.ID,
 					FileID:    sql.NullInt64{},
 					Monitored: 1,
+					Status:    "missing",
 				})
 				if err != nil {
 					s.logger.Warn().Err(err).Int64("episodeId", mediaID).Int64("slotId", slot.ID).Msg("Failed to create episode slot assignment")
@@ -359,4 +336,47 @@ func (s *Service) InitializeSlotAssignments(ctx context.Context, mediaType strin
 		}
 	}
 	return nil
+}
+
+// computeAggregateStatus derives the overall media status from individual slot statuses.
+// Priority order: downloading > failed > missing > upgradable > available > unreleased.
+func (s *Service) computeAggregateStatus(slotStatuses []SlotStatus) string {
+	hasDownloading := false
+	hasFailed := false
+	hasMissing := false
+	hasUpgradable := false
+	hasAvailable := false
+
+	for _, ss := range slotStatuses {
+		if !ss.Monitored {
+			continue
+		}
+		switch ss.Status {
+		case "downloading":
+			hasDownloading = true
+		case "failed":
+			hasFailed = true
+		case "missing":
+			hasMissing = true
+		case "upgradable":
+			hasUpgradable = true
+		case "available":
+			hasAvailable = true
+		}
+	}
+
+	switch {
+	case hasDownloading:
+		return "downloading"
+	case hasFailed:
+		return "failed"
+	case hasMissing:
+		return "missing"
+	case hasUpgradable:
+		return "upgradable"
+	case hasAvailable:
+		return "available"
+	default:
+		return "unreleased"
+	}
 }

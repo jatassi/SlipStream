@@ -184,8 +184,8 @@ WHERE msa.movie_id = ?
 ORDER BY vs.slot_number;
 
 -- name: CreateMovieSlotAssignment :one
-INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovieSlotAssignment :one
@@ -208,6 +208,20 @@ UPDATE movie_slot_assignments SET
     updated_at = CURRENT_TIMESTAMP
 WHERE movie_id = ? AND slot_id = ?;
 
+-- name: UpdateMovieSlotStatus :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ? AND slot_id = ?;
+
+-- name: UpdateMovieSlotStatusWithDetails :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ? AND slot_id = ?;
+
 -- name: ClearMovieSlotFile :exec
 UPDATE movie_slot_assignments SET
     file_id = NULL,
@@ -221,11 +235,12 @@ DELETE FROM movie_slot_assignments WHERE movie_id = ? AND slot_id = ?;
 DELETE FROM movie_slot_assignments WHERE movie_id = ?;
 
 -- name: UpsertMovieSlotAssignment :one
-INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (movie_id, slot_id) DO UPDATE SET
     file_id = excluded.file_id,
     monitored = excluded.monitored,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
@@ -244,8 +259,8 @@ WHERE esa.episode_id = ?
 ORDER BY vs.slot_number;
 
 -- name: CreateEpisodeSlotAssignment :one
-INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateEpisodeSlotAssignment :one
@@ -268,6 +283,20 @@ UPDATE episode_slot_assignments SET
     updated_at = CURRENT_TIMESTAMP
 WHERE episode_id = ? AND slot_id = ?;
 
+-- name: UpdateEpisodeSlotStatus :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ? AND slot_id = ?;
+
+-- name: UpdateEpisodeSlotStatusWithDetails :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ? AND slot_id = ?;
+
 -- name: ClearEpisodeSlotFile :exec
 UPDATE episode_slot_assignments SET
     file_id = NULL,
@@ -281,11 +310,12 @@ DELETE FROM episode_slot_assignments WHERE episode_id = ? AND slot_id = ?;
 DELETE FROM episode_slot_assignments WHERE episode_id = ?;
 
 -- name: UpsertEpisodeSlotAssignment :one
-INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (episode_id, slot_id) DO UPDATE SET
     file_id = excluded.file_id,
     monitored = excluded.monitored,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
@@ -293,7 +323,6 @@ RETURNING *;
 -- Status Queries
 -- =====================
 
--- Req 6.1.1: List movies missing in any monitored slot
 -- name: ListMoviesMissingInMonitoredSlots :many
 SELECT DISTINCT m.*
 FROM movies m
@@ -325,11 +354,69 @@ JOIN series s ON e.series_id = s.id
 WHERE esa.slot_id = ?
 ORDER BY s.title, e.season_number, e.episode_number;
 
+-- Slot status queries for cached aggregate computation
+-- name: ListMonitoredMovieSlotStatuses :many
+SELECT msa.status FROM movie_slot_assignments msa
+WHERE msa.movie_id = ? AND msa.monitored = 1;
+
+-- name: ListMonitoredEpisodeSlotStatuses :many
+SELECT esa.status FROM episode_slot_assignments esa
+WHERE esa.episode_id = ? AND esa.monitored = 1;
+
+-- Bulk status updates for unreleased/missing transitions (affects all slots for an item)
+-- name: UpdateAllMovieSlotStatuses :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ?;
+
+-- name: UpdateAllEpisodeSlotStatuses :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ?;
+
+-- Slot-level search: find slots needing search
+-- name: ListMovieSlotsNeedingSearch :many
+SELECT msa.*, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM movie_slot_assignments msa
+JOIN version_slots vs ON msa.slot_id = vs.id
+WHERE msa.movie_id = ?
+  AND msa.monitored = 1
+  AND msa.status IN ('missing', 'upgradable')
+ORDER BY vs.slot_number;
+
+-- name: ListEpisodeSlotsNeedingSearch :many
+SELECT esa.*, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM episode_slot_assignments esa
+JOIN version_slots vs ON esa.slot_id = vs.id
+WHERE esa.episode_id = ?
+  AND esa.monitored = 1
+  AND esa.status IN ('missing', 'upgradable')
+ORDER BY vs.slot_number;
+
+-- Slot-level quality recalculation
+-- name: ListMovieSlotAssignmentsWithFilesForProfile :many
+SELECT msa.movie_id, msa.slot_id, msa.status, msa.file_id, mf.quality_id as current_quality_id
+FROM movie_slot_assignments msa
+JOIN movie_files mf ON msa.file_id = mf.id
+JOIN version_slots vs ON msa.slot_id = vs.id
+WHERE vs.quality_profile_id = ?
+  AND msa.status IN ('available', 'upgradable')
+  AND mf.quality_id IS NOT NULL;
+
+-- name: ListEpisodeSlotAssignmentsWithFilesForProfile :many
+SELECT esa.episode_id, esa.slot_id, esa.status, esa.file_id, ef.quality_id as current_quality_id
+FROM episode_slot_assignments esa
+JOIN episode_files ef ON esa.file_id = ef.id
+JOIN version_slots vs ON esa.slot_id = vs.id
+WHERE vs.quality_profile_id = ?
+  AND esa.status IN ('available', 'upgradable')
+  AND ef.quality_id IS NOT NULL;
+
 -- =====================
 -- File Deletion Queries
 -- =====================
--- Req 12.1.1: Deleting file from slot does NOT trigger automatic search
--- Req 12.1.2: Slot becomes empty; waits for next scheduled search
 
 -- name: GetMovieSlotAssignmentByFileID :one
 SELECT * FROM movie_slot_assignments WHERE file_id = ? LIMIT 1;
@@ -352,8 +439,6 @@ WHERE file_id = ?;
 -- =====================
 -- Slot Disable Queries
 -- =====================
--- Req 12.2.1: When user disables slot with files, need to handle existing files
--- Req 12.2.2: Options: delete files, keep unassigned, or cancel
 
 -- name: ListFilesAssignedToSlot :many
 SELECT
@@ -399,7 +484,6 @@ WHERE slot_id = ?;
 -- =====================
 -- Review Queue Queries
 -- =====================
--- Req 13.1.3: Extra files (more than slot count) queued for user review
 
 -- name: CountMovieFilesWithoutSlot :one
 SELECT COUNT(*) FROM movie_files WHERE slot_id IS NULL;

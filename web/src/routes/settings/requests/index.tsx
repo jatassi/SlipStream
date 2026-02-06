@@ -79,6 +79,7 @@ const STATUS_CONFIG: Record<RequestStatus, { label: string; icon: React.ReactNod
   approved: { label: 'Approved', icon: <CheckCircle className="size-4" />, color: 'bg-blue-500' },
   denied: { label: 'Denied', icon: <XCircle className="size-4" />, color: 'bg-red-500' },
   downloading: { label: 'Downloading', icon: <Download className="size-4" />, color: 'bg-purple-500' },
+  failed: { label: 'Failed', icon: <XCircle className="size-4" />, color: 'bg-red-700' },
   available: { label: 'Available', icon: <CheckCircle className="size-4" />, color: 'bg-green-500' },
   cancelled: { label: 'Cancelled', icon: <XCircle className="size-4" />, color: 'bg-gray-500' },
 }

@@ -130,20 +130,19 @@ export interface SlotStatus {
   slotNumber: number
   slotName: string
   monitored: boolean
-  hasFile: boolean
+  status: 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
+  statusMessage?: string | null
+  activeDownloadId?: string | null
   fileId?: number
   currentQuality?: string
   currentQualityId?: number
   profileCutoff: number
-  needsUpgrade: boolean // Req 6.2.2: file below cutoff
-  isMissing: boolean    // Req 6.1.1: monitored slot is empty
 }
 
 export interface MediaStatus {
   mediaType: string
   mediaId: number
-  isMissing: boolean      // Req 6.1.1: ANY monitored slot empty
-  needsUpgrade: boolean   // Any slot needs upgrade
+  status: string
   slotStatuses: SlotStatus[]
   filledSlots: number
   emptySlots: number

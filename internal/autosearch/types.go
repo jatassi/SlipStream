@@ -82,6 +82,12 @@ type BatchSearchResult struct {
 	Results       []*SearchResult `json:"results,omitempty"`
 }
 
+// RetryResult contains the outcome of a manual retry operation.
+type RetryResult struct {
+	NewStatus string `json:"newStatus"` // The status the item was reset to (missing or upgradable)
+	Message   string `json:"message"`
+}
+
 // SearchStatus represents the current status of a search operation.
 type SearchStatus struct {
 	MediaType  MediaType `json:"mediaType"`

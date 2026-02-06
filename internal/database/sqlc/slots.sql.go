@@ -199,7 +199,6 @@ SELECT COUNT(*) FROM movie_files WHERE slot_id IS NULL
 // =====================
 // Review Queue Queries
 // =====================
-// Req 13.1.3: Extra files (more than slot count) queued for user review
 func (q *Queries) CountMovieFilesWithoutSlot(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countMovieFilesWithoutSlot)
 	var count int64
@@ -230,9 +229,9 @@ func (q *Queries) CountSlotsUsingProfile(ctx context.Context, qualityProfileID s
 }
 
 const createEpisodeSlotAssignment = `-- name: CreateEpisodeSlotAssignment :one
-INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
-RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at
+INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type CreateEpisodeSlotAssignmentParams struct {
@@ -240,6 +239,7 @@ type CreateEpisodeSlotAssignmentParams struct {
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
 	Monitored int64         `json:"monitored"`
+	Status    string        `json:"status"`
 }
 
 func (q *Queries) CreateEpisodeSlotAssignment(ctx context.Context, arg CreateEpisodeSlotAssignmentParams) (*EpisodeSlotAssignment, error) {
@@ -248,6 +248,7 @@ func (q *Queries) CreateEpisodeSlotAssignment(ctx context.Context, arg CreateEpi
 		arg.SlotID,
 		arg.FileID,
 		arg.Monitored,
+		arg.Status,
 	)
 	var i EpisodeSlotAssignment
 	err := row.Scan(
@@ -258,14 +259,17 @@ func (q *Queries) CreateEpisodeSlotAssignment(ctx context.Context, arg CreateEpi
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
 
 const createMovieSlotAssignment = `-- name: CreateMovieSlotAssignment :one
-INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
-RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at
+INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type CreateMovieSlotAssignmentParams struct {
@@ -273,6 +277,7 @@ type CreateMovieSlotAssignmentParams struct {
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
 	Monitored int64         `json:"monitored"`
+	Status    string        `json:"status"`
 }
 
 func (q *Queries) CreateMovieSlotAssignment(ctx context.Context, arg CreateMovieSlotAssignmentParams) (*MovieSlotAssignment, error) {
@@ -281,6 +286,7 @@ func (q *Queries) CreateMovieSlotAssignment(ctx context.Context, arg CreateMovie
 		arg.SlotID,
 		arg.FileID,
 		arg.Monitored,
+		arg.Status,
 	)
 	var i MovieSlotAssignment
 	err := row.Scan(
@@ -291,6 +297,9 @@ func (q *Queries) CreateMovieSlotAssignment(ctx context.Context, arg CreateMovie
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
@@ -411,7 +420,7 @@ func (q *Queries) GetEpisodeFileSlotAssignments(ctx context.Context, episodeID i
 
 const getEpisodeSlotAssignment = `-- name: GetEpisodeSlotAssignment :one
 
-SELECT id, episode_id, slot_id, file_id, monitored, created_at, updated_at FROM episode_slot_assignments WHERE episode_id = ? AND slot_id = ? LIMIT 1
+SELECT id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message FROM episode_slot_assignments WHERE episode_id = ? AND slot_id = ? LIMIT 1
 `
 
 type GetEpisodeSlotAssignmentParams struct {
@@ -433,12 +442,15 @@ func (q *Queries) GetEpisodeSlotAssignment(ctx context.Context, arg GetEpisodeSl
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
 
 const getEpisodeSlotAssignmentByFileID = `-- name: GetEpisodeSlotAssignmentByFileID :one
-SELECT id, episode_id, slot_id, file_id, monitored, created_at, updated_at FROM episode_slot_assignments WHERE file_id = ? LIMIT 1
+SELECT id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message FROM episode_slot_assignments WHERE file_id = ? LIMIT 1
 `
 
 func (q *Queries) GetEpisodeSlotAssignmentByFileID(ctx context.Context, fileID sql.NullInt64) (*EpisodeSlotAssignment, error) {
@@ -452,6 +464,9 @@ func (q *Queries) GetEpisodeSlotAssignmentByFileID(ctx context.Context, fileID s
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
@@ -526,7 +541,7 @@ func (q *Queries) GetMovieFileSlotAssignments(ctx context.Context, movieID int64
 
 const getMovieSlotAssignment = `-- name: GetMovieSlotAssignment :one
 
-SELECT id, movie_id, slot_id, file_id, monitored, created_at, updated_at FROM movie_slot_assignments WHERE movie_id = ? AND slot_id = ? LIMIT 1
+SELECT id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message FROM movie_slot_assignments WHERE movie_id = ? AND slot_id = ? LIMIT 1
 `
 
 type GetMovieSlotAssignmentParams struct {
@@ -548,20 +563,21 @@ func (q *Queries) GetMovieSlotAssignment(ctx context.Context, arg GetMovieSlotAs
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
 
 const getMovieSlotAssignmentByFileID = `-- name: GetMovieSlotAssignmentByFileID :one
 
-SELECT id, movie_id, slot_id, file_id, monitored, created_at, updated_at FROM movie_slot_assignments WHERE file_id = ? LIMIT 1
+SELECT id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message FROM movie_slot_assignments WHERE file_id = ? LIMIT 1
 `
 
 // =====================
 // File Deletion Queries
 // =====================
-// Req 12.1.1: Deleting file from slot does NOT trigger automatic search
-// Req 12.1.2: Slot becomes empty; waits for next scheduled search
 func (q *Queries) GetMovieSlotAssignmentByFileID(ctx context.Context, fileID sql.NullInt64) (*MovieSlotAssignment, error) {
 	row := q.db.QueryRowContext(ctx, getMovieSlotAssignmentByFileID, fileID)
 	var i MovieSlotAssignment
@@ -573,6 +589,9 @@ func (q *Queries) GetMovieSlotAssignmentByFileID(ctx context.Context, fileID sql
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
@@ -904,7 +923,7 @@ func (q *Queries) ListEpisodeFilesWithoutSlot(ctx context.Context) ([]*ListEpiso
 }
 
 const listEpisodeSlotAssignments = `-- name: ListEpisodeSlotAssignments :many
-SELECT esa.id, esa.episode_id, esa.slot_id, esa.file_id, esa.monitored, esa.created_at, esa.updated_at, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+SELECT esa.id, esa.episode_id, esa.slot_id, esa.file_id, esa.monitored, esa.created_at, esa.updated_at, esa.status, esa.active_download_id, esa.status_message, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
 FROM episode_slot_assignments esa
 JOIN version_slots vs ON esa.slot_id = vs.id
 WHERE esa.episode_id = ?
@@ -912,16 +931,19 @@ ORDER BY vs.slot_number
 `
 
 type ListEpisodeSlotAssignmentsRow struct {
-	ID               int64         `json:"id"`
-	EpisodeID        int64         `json:"episode_id"`
-	SlotID           int64         `json:"slot_id"`
-	FileID           sql.NullInt64 `json:"file_id"`
-	Monitored        int64         `json:"monitored"`
-	CreatedAt        sql.NullTime  `json:"created_at"`
-	UpdatedAt        sql.NullTime  `json:"updated_at"`
-	SlotName         string        `json:"slot_name"`
-	SlotNumber       int64         `json:"slot_number"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	ID               int64          `json:"id"`
+	EpisodeID        int64          `json:"episode_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	SlotName         string         `json:"slot_name"`
+	SlotNumber       int64          `json:"slot_number"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
 }
 
 func (q *Queries) ListEpisodeSlotAssignments(ctx context.Context, episodeID int64) ([]*ListEpisodeSlotAssignmentsRow, error) {
@@ -941,6 +963,9 @@ func (q *Queries) ListEpisodeSlotAssignments(ctx context.Context, episodeID int6
 			&i.Monitored,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
 			&i.SlotName,
 			&i.SlotNumber,
 			&i.QualityProfileID,
@@ -959,7 +984,7 @@ func (q *Queries) ListEpisodeSlotAssignments(ctx context.Context, episodeID int6
 }
 
 const listEpisodeSlotAssignmentsForSlot = `-- name: ListEpisodeSlotAssignmentsForSlot :many
-SELECT esa.id, esa.episode_id, esa.slot_id, esa.file_id, esa.monitored, esa.created_at, esa.updated_at, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
+SELECT esa.id, esa.episode_id, esa.slot_id, esa.file_id, esa.monitored, esa.created_at, esa.updated_at, esa.status, esa.active_download_id, esa.status_message, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
 FROM episode_slot_assignments esa
 JOIN episodes e ON esa.episode_id = e.id
 JOIN series s ON e.series_id = s.id
@@ -968,17 +993,20 @@ ORDER BY s.title, e.season_number, e.episode_number
 `
 
 type ListEpisodeSlotAssignmentsForSlotRow struct {
-	ID            int64          `json:"id"`
-	EpisodeID     int64          `json:"episode_id"`
-	SlotID        int64          `json:"slot_id"`
-	FileID        sql.NullInt64  `json:"file_id"`
-	Monitored     int64          `json:"monitored"`
-	CreatedAt     sql.NullTime   `json:"created_at"`
-	UpdatedAt     sql.NullTime   `json:"updated_at"`
-	EpisodeTitle  sql.NullString `json:"episode_title"`
-	SeasonNumber  int64          `json:"season_number"`
-	EpisodeNumber int64          `json:"episode_number"`
-	SeriesTitle   string         `json:"series_title"`
+	ID               int64          `json:"id"`
+	EpisodeID        int64          `json:"episode_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	EpisodeTitle     sql.NullString `json:"episode_title"`
+	SeasonNumber     int64          `json:"season_number"`
+	EpisodeNumber    int64          `json:"episode_number"`
+	SeriesTitle      string         `json:"series_title"`
 }
 
 func (q *Queries) ListEpisodeSlotAssignmentsForSlot(ctx context.Context, slotID int64) ([]*ListEpisodeSlotAssignmentsForSlotRow, error) {
@@ -998,10 +1026,123 @@ func (q *Queries) ListEpisodeSlotAssignmentsForSlot(ctx context.Context, slotID 
 			&i.Monitored,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
 			&i.EpisodeTitle,
 			&i.SeasonNumber,
 			&i.EpisodeNumber,
 			&i.SeriesTitle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEpisodeSlotAssignmentsWithFilesForProfile = `-- name: ListEpisodeSlotAssignmentsWithFilesForProfile :many
+SELECT esa.episode_id, esa.slot_id, esa.status, esa.file_id, ef.quality_id as current_quality_id
+FROM episode_slot_assignments esa
+JOIN episode_files ef ON esa.file_id = ef.id
+JOIN version_slots vs ON esa.slot_id = vs.id
+WHERE vs.quality_profile_id = ?
+  AND esa.status IN ('available', 'upgradable')
+  AND ef.quality_id IS NOT NULL
+`
+
+type ListEpisodeSlotAssignmentsWithFilesForProfileRow struct {
+	EpisodeID        int64         `json:"episode_id"`
+	SlotID           int64         `json:"slot_id"`
+	Status           string        `json:"status"`
+	FileID           sql.NullInt64 `json:"file_id"`
+	CurrentQualityID sql.NullInt64 `json:"current_quality_id"`
+}
+
+func (q *Queries) ListEpisodeSlotAssignmentsWithFilesForProfile(ctx context.Context, qualityProfileID sql.NullInt64) ([]*ListEpisodeSlotAssignmentsWithFilesForProfileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodeSlotAssignmentsWithFilesForProfile, qualityProfileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListEpisodeSlotAssignmentsWithFilesForProfileRow{}
+	for rows.Next() {
+		var i ListEpisodeSlotAssignmentsWithFilesForProfileRow
+		if err := rows.Scan(
+			&i.EpisodeID,
+			&i.SlotID,
+			&i.Status,
+			&i.FileID,
+			&i.CurrentQualityID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEpisodeSlotsNeedingSearch = `-- name: ListEpisodeSlotsNeedingSearch :many
+SELECT esa.id, esa.episode_id, esa.slot_id, esa.file_id, esa.monitored, esa.created_at, esa.updated_at, esa.status, esa.active_download_id, esa.status_message, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM episode_slot_assignments esa
+JOIN version_slots vs ON esa.slot_id = vs.id
+WHERE esa.episode_id = ?
+  AND esa.monitored = 1
+  AND esa.status IN ('missing', 'upgradable')
+ORDER BY vs.slot_number
+`
+
+type ListEpisodeSlotsNeedingSearchRow struct {
+	ID               int64          `json:"id"`
+	EpisodeID        int64          `json:"episode_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	SlotName         string         `json:"slot_name"`
+	SlotNumber       int64          `json:"slot_number"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
+}
+
+func (q *Queries) ListEpisodeSlotsNeedingSearch(ctx context.Context, episodeID int64) ([]*ListEpisodeSlotsNeedingSearchRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodeSlotsNeedingSearch, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListEpisodeSlotsNeedingSearchRow{}
+	for rows.Next() {
+		var i ListEpisodeSlotsNeedingSearchRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EpisodeID,
+			&i.SlotID,
+			&i.FileID,
+			&i.Monitored,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
+			&i.SlotName,
+			&i.SlotNumber,
+			&i.QualityProfileID,
 		); err != nil {
 			return nil, err
 		}
@@ -1057,8 +1198,6 @@ type ListFilesAssignedToSlotRow struct {
 // =====================
 // Slot Disable Queries
 // =====================
-// Req 12.2.1: When user disables slot with files, need to handle existing files
-// Req 12.2.2: Options: delete files, keep unassigned, or cancel
 func (q *Queries) ListFilesAssignedToSlot(ctx context.Context, arg ListFilesAssignedToSlotParams) ([]*ListFilesAssignedToSlotRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesAssignedToSlot, arg.SlotID, arg.SlotID_2)
 	if err != nil {
@@ -1078,6 +1217,63 @@ func (q *Queries) ListFilesAssignedToSlot(ctx context.Context, arg ListFilesAssi
 			return nil, err
 		}
 		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMonitoredEpisodeSlotStatuses = `-- name: ListMonitoredEpisodeSlotStatuses :many
+SELECT esa.status FROM episode_slot_assignments esa
+WHERE esa.episode_id = ? AND esa.monitored = 1
+`
+
+func (q *Queries) ListMonitoredEpisodeSlotStatuses(ctx context.Context, episodeID int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listMonitoredEpisodeSlotStatuses, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		items = append(items, status)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMonitoredMovieSlotStatuses = `-- name: ListMonitoredMovieSlotStatuses :many
+SELECT msa.status FROM movie_slot_assignments msa
+WHERE msa.movie_id = ? AND msa.monitored = 1
+`
+
+// Slot status queries for cached aggregate computation
+func (q *Queries) ListMonitoredMovieSlotStatuses(ctx context.Context, movieID int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listMonitoredMovieSlotStatuses, movieID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		items = append(items, status)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1219,7 +1415,7 @@ func (q *Queries) ListMovieFilesWithoutSlot(ctx context.Context) ([]*ListMovieFi
 }
 
 const listMovieSlotAssignments = `-- name: ListMovieSlotAssignments :many
-SELECT msa.id, msa.movie_id, msa.slot_id, msa.file_id, msa.monitored, msa.created_at, msa.updated_at, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+SELECT msa.id, msa.movie_id, msa.slot_id, msa.file_id, msa.monitored, msa.created_at, msa.updated_at, msa.status, msa.active_download_id, msa.status_message, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
 FROM movie_slot_assignments msa
 JOIN version_slots vs ON msa.slot_id = vs.id
 WHERE msa.movie_id = ?
@@ -1227,16 +1423,19 @@ ORDER BY vs.slot_number
 `
 
 type ListMovieSlotAssignmentsRow struct {
-	ID               int64         `json:"id"`
-	MovieID          int64         `json:"movie_id"`
-	SlotID           int64         `json:"slot_id"`
-	FileID           sql.NullInt64 `json:"file_id"`
-	Monitored        int64         `json:"monitored"`
-	CreatedAt        sql.NullTime  `json:"created_at"`
-	UpdatedAt        sql.NullTime  `json:"updated_at"`
-	SlotName         string        `json:"slot_name"`
-	SlotNumber       int64         `json:"slot_number"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	ID               int64          `json:"id"`
+	MovieID          int64          `json:"movie_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	SlotName         string         `json:"slot_name"`
+	SlotNumber       int64          `json:"slot_number"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
 }
 
 func (q *Queries) ListMovieSlotAssignments(ctx context.Context, movieID int64) ([]*ListMovieSlotAssignmentsRow, error) {
@@ -1256,6 +1455,9 @@ func (q *Queries) ListMovieSlotAssignments(ctx context.Context, movieID int64) (
 			&i.Monitored,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
 			&i.SlotName,
 			&i.SlotNumber,
 			&i.QualityProfileID,
@@ -1274,7 +1476,7 @@ func (q *Queries) ListMovieSlotAssignments(ctx context.Context, movieID int64) (
 }
 
 const listMovieSlotAssignmentsForSlot = `-- name: ListMovieSlotAssignmentsForSlot :many
-SELECT msa.id, msa.movie_id, msa.slot_id, msa.file_id, msa.monitored, msa.created_at, msa.updated_at, m.title as movie_title
+SELECT msa.id, msa.movie_id, msa.slot_id, msa.file_id, msa.monitored, msa.created_at, msa.updated_at, msa.status, msa.active_download_id, msa.status_message, m.title as movie_title
 FROM movie_slot_assignments msa
 JOIN movies m ON msa.movie_id = m.id
 WHERE msa.slot_id = ?
@@ -1282,14 +1484,17 @@ ORDER BY m.title
 `
 
 type ListMovieSlotAssignmentsForSlotRow struct {
-	ID         int64         `json:"id"`
-	MovieID    int64         `json:"movie_id"`
-	SlotID     int64         `json:"slot_id"`
-	FileID     sql.NullInt64 `json:"file_id"`
-	Monitored  int64         `json:"monitored"`
-	CreatedAt  sql.NullTime  `json:"created_at"`
-	UpdatedAt  sql.NullTime  `json:"updated_at"`
-	MovieTitle string        `json:"movie_title"`
+	ID               int64          `json:"id"`
+	MovieID          int64          `json:"movie_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	MovieTitle       string         `json:"movie_title"`
 }
 
 func (q *Queries) ListMovieSlotAssignmentsForSlot(ctx context.Context, slotID int64) ([]*ListMovieSlotAssignmentsForSlotRow, error) {
@@ -1309,7 +1514,122 @@ func (q *Queries) ListMovieSlotAssignmentsForSlot(ctx context.Context, slotID in
 			&i.Monitored,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
 			&i.MovieTitle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovieSlotAssignmentsWithFilesForProfile = `-- name: ListMovieSlotAssignmentsWithFilesForProfile :many
+SELECT msa.movie_id, msa.slot_id, msa.status, msa.file_id, mf.quality_id as current_quality_id
+FROM movie_slot_assignments msa
+JOIN movie_files mf ON msa.file_id = mf.id
+JOIN version_slots vs ON msa.slot_id = vs.id
+WHERE vs.quality_profile_id = ?
+  AND msa.status IN ('available', 'upgradable')
+  AND mf.quality_id IS NOT NULL
+`
+
+type ListMovieSlotAssignmentsWithFilesForProfileRow struct {
+	MovieID          int64         `json:"movie_id"`
+	SlotID           int64         `json:"slot_id"`
+	Status           string        `json:"status"`
+	FileID           sql.NullInt64 `json:"file_id"`
+	CurrentQualityID sql.NullInt64 `json:"current_quality_id"`
+}
+
+// Slot-level quality recalculation
+func (q *Queries) ListMovieSlotAssignmentsWithFilesForProfile(ctx context.Context, qualityProfileID sql.NullInt64) ([]*ListMovieSlotAssignmentsWithFilesForProfileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMovieSlotAssignmentsWithFilesForProfile, qualityProfileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListMovieSlotAssignmentsWithFilesForProfileRow{}
+	for rows.Next() {
+		var i ListMovieSlotAssignmentsWithFilesForProfileRow
+		if err := rows.Scan(
+			&i.MovieID,
+			&i.SlotID,
+			&i.Status,
+			&i.FileID,
+			&i.CurrentQualityID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovieSlotsNeedingSearch = `-- name: ListMovieSlotsNeedingSearch :many
+SELECT msa.id, msa.movie_id, msa.slot_id, msa.file_id, msa.monitored, msa.created_at, msa.updated_at, msa.status, msa.active_download_id, msa.status_message, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM movie_slot_assignments msa
+JOIN version_slots vs ON msa.slot_id = vs.id
+WHERE msa.movie_id = ?
+  AND msa.monitored = 1
+  AND msa.status IN ('missing', 'upgradable')
+ORDER BY vs.slot_number
+`
+
+type ListMovieSlotsNeedingSearchRow struct {
+	ID               int64          `json:"id"`
+	MovieID          int64          `json:"movie_id"`
+	SlotID           int64          `json:"slot_id"`
+	FileID           sql.NullInt64  `json:"file_id"`
+	Monitored        int64          `json:"monitored"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	SlotName         string         `json:"slot_name"`
+	SlotNumber       int64          `json:"slot_number"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
+}
+
+// Slot-level search: find slots needing search
+func (q *Queries) ListMovieSlotsNeedingSearch(ctx context.Context, movieID int64) ([]*ListMovieSlotsNeedingSearchRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMovieSlotsNeedingSearch, movieID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListMovieSlotsNeedingSearchRow{}
+	for rows.Next() {
+		var i ListMovieSlotsNeedingSearchRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MovieID,
+			&i.SlotID,
+			&i.FileID,
+			&i.Monitored,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
+			&i.SlotName,
+			&i.SlotNumber,
+			&i.QualityProfileID,
 		); err != nil {
 			return nil, err
 		}
@@ -1326,7 +1646,7 @@ func (q *Queries) ListMovieSlotAssignmentsForSlot(ctx context.Context, slotID in
 
 const listMoviesMissingInMonitoredSlots = `-- name: ListMoviesMissingInMonitoredSlots :many
 
-SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.added_at, m.updated_at, m.release_date, m.digital_release_date, m.physical_release_date, m.released, m.availability_status
+SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at
 FROM movies m
 CROSS JOIN version_slots vs
 LEFT JOIN movie_slot_assignments msa ON m.id = msa.movie_id AND vs.id = msa.slot_id
@@ -1339,7 +1659,6 @@ WHERE vs.enabled = 1
 // =====================
 // Status Queries
 // =====================
-// Req 6.1.1: List movies missing in any monitored slot
 func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Movie, error) {
 	rows, err := q.db.QueryContext(ctx, listMoviesMissingInMonitoredSlots)
 	if err != nil {
@@ -1363,13 +1682,12 @@ func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Mov
 			&i.QualityProfileID,
 			&i.Monitored,
 			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
+			&i.ReleaseDate,
+			&i.PhysicalReleaseDate,
 			&i.AddedAt,
 			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.DigitalReleaseDate,
-			&i.PhysicalReleaseDate,
-			&i.Released,
-			&i.AvailabilityStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -1546,6 +1864,41 @@ func (q *Queries) SetMultiVersionEnabled(ctx context.Context, enabled int64) (*M
 	return &i, err
 }
 
+const updateAllEpisodeSlotStatuses = `-- name: UpdateAllEpisodeSlotStatuses :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ?
+`
+
+type UpdateAllEpisodeSlotStatusesParams struct {
+	Status    string `json:"status"`
+	EpisodeID int64  `json:"episode_id"`
+}
+
+func (q *Queries) UpdateAllEpisodeSlotStatuses(ctx context.Context, arg UpdateAllEpisodeSlotStatusesParams) error {
+	_, err := q.db.ExecContext(ctx, updateAllEpisodeSlotStatuses, arg.Status, arg.EpisodeID)
+	return err
+}
+
+const updateAllMovieSlotStatuses = `-- name: UpdateAllMovieSlotStatuses :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ?
+`
+
+type UpdateAllMovieSlotStatusesParams struct {
+	Status  string `json:"status"`
+	MovieID int64  `json:"movie_id"`
+}
+
+// Bulk status updates for unreleased/missing transitions (affects all slots for an item)
+func (q *Queries) UpdateAllMovieSlotStatuses(ctx context.Context, arg UpdateAllMovieSlotStatusesParams) error {
+	_, err := q.db.ExecContext(ctx, updateAllMovieSlotStatuses, arg.Status, arg.MovieID)
+	return err
+}
+
 const updateEpisodeFileSlot = `-- name: UpdateEpisodeFileSlot :one
 UPDATE episode_files SET slot_id = ? WHERE id = ? RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
@@ -1583,7 +1936,7 @@ UPDATE episode_slot_assignments SET
     monitored = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE episode_id = ? AND slot_id = ?
-RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at
+RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type UpdateEpisodeSlotAssignmentParams struct {
@@ -1609,6 +1962,9 @@ func (q *Queries) UpdateEpisodeSlotAssignment(ctx context.Context, arg UpdateEpi
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
@@ -1649,6 +2005,52 @@ func (q *Queries) UpdateEpisodeSlotMonitored(ctx context.Context, arg UpdateEpis
 	return err
 }
 
+const updateEpisodeSlotStatus = `-- name: UpdateEpisodeSlotStatus :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ? AND slot_id = ?
+`
+
+type UpdateEpisodeSlotStatusParams struct {
+	Status    string `json:"status"`
+	EpisodeID int64  `json:"episode_id"`
+	SlotID    int64  `json:"slot_id"`
+}
+
+func (q *Queries) UpdateEpisodeSlotStatus(ctx context.Context, arg UpdateEpisodeSlotStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateEpisodeSlotStatus, arg.Status, arg.EpisodeID, arg.SlotID)
+	return err
+}
+
+const updateEpisodeSlotStatusWithDetails = `-- name: UpdateEpisodeSlotStatusWithDetails :exec
+UPDATE episode_slot_assignments SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE episode_id = ? AND slot_id = ?
+`
+
+type UpdateEpisodeSlotStatusWithDetailsParams struct {
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	EpisodeID        int64          `json:"episode_id"`
+	SlotID           int64          `json:"slot_id"`
+}
+
+func (q *Queries) UpdateEpisodeSlotStatusWithDetails(ctx context.Context, arg UpdateEpisodeSlotStatusWithDetailsParams) error {
+	_, err := q.db.ExecContext(ctx, updateEpisodeSlotStatusWithDetails,
+		arg.Status,
+		arg.ActiveDownloadID,
+		arg.StatusMessage,
+		arg.EpisodeID,
+		arg.SlotID,
+	)
+	return err
+}
+
 const updateMovieFileSlot = `-- name: UpdateMovieFileSlot :one
 UPDATE movie_files SET slot_id = ? WHERE id = ? RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
 `
@@ -1686,7 +2088,7 @@ UPDATE movie_slot_assignments SET
     monitored = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE movie_id = ? AND slot_id = ?
-RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at
+RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type UpdateMovieSlotAssignmentParams struct {
@@ -1712,6 +2114,9 @@ func (q *Queries) UpdateMovieSlotAssignment(ctx context.Context, arg UpdateMovie
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
@@ -1749,6 +2154,52 @@ type UpdateMovieSlotMonitoredParams struct {
 
 func (q *Queries) UpdateMovieSlotMonitored(ctx context.Context, arg UpdateMovieSlotMonitoredParams) error {
 	_, err := q.db.ExecContext(ctx, updateMovieSlotMonitored, arg.Monitored, arg.MovieID, arg.SlotID)
+	return err
+}
+
+const updateMovieSlotStatus = `-- name: UpdateMovieSlotStatus :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ? AND slot_id = ?
+`
+
+type UpdateMovieSlotStatusParams struct {
+	Status  string `json:"status"`
+	MovieID int64  `json:"movie_id"`
+	SlotID  int64  `json:"slot_id"`
+}
+
+func (q *Queries) UpdateMovieSlotStatus(ctx context.Context, arg UpdateMovieSlotStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateMovieSlotStatus, arg.Status, arg.MovieID, arg.SlotID)
+	return err
+}
+
+const updateMovieSlotStatusWithDetails = `-- name: UpdateMovieSlotStatusWithDetails :exec
+UPDATE movie_slot_assignments SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE movie_id = ? AND slot_id = ?
+`
+
+type UpdateMovieSlotStatusWithDetailsParams struct {
+	Status           string         `json:"status"`
+	ActiveDownloadID sql.NullString `json:"active_download_id"`
+	StatusMessage    sql.NullString `json:"status_message"`
+	MovieID          int64          `json:"movie_id"`
+	SlotID           int64          `json:"slot_id"`
+}
+
+func (q *Queries) UpdateMovieSlotStatusWithDetails(ctx context.Context, arg UpdateMovieSlotStatusWithDetailsParams) error {
+	_, err := q.db.ExecContext(ctx, updateMovieSlotStatusWithDetails,
+		arg.Status,
+		arg.ActiveDownloadID,
+		arg.StatusMessage,
+		arg.MovieID,
+		arg.SlotID,
+	)
 	return err
 }
 
@@ -1958,13 +2409,14 @@ func (q *Queries) UpdateVersionSlotRootFolders(ctx context.Context, arg UpdateVe
 }
 
 const upsertEpisodeSlotAssignment = `-- name: UpsertEpisodeSlotAssignment :one
-INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO episode_slot_assignments (episode_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (episode_id, slot_id) DO UPDATE SET
     file_id = excluded.file_id,
     monitored = excluded.monitored,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at
+RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type UpsertEpisodeSlotAssignmentParams struct {
@@ -1972,6 +2424,7 @@ type UpsertEpisodeSlotAssignmentParams struct {
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
 	Monitored int64         `json:"monitored"`
+	Status    string        `json:"status"`
 }
 
 func (q *Queries) UpsertEpisodeSlotAssignment(ctx context.Context, arg UpsertEpisodeSlotAssignmentParams) (*EpisodeSlotAssignment, error) {
@@ -1980,6 +2433,7 @@ func (q *Queries) UpsertEpisodeSlotAssignment(ctx context.Context, arg UpsertEpi
 		arg.SlotID,
 		arg.FileID,
 		arg.Monitored,
+		arg.Status,
 	)
 	var i EpisodeSlotAssignment
 	err := row.Scan(
@@ -1990,18 +2444,22 @@ func (q *Queries) UpsertEpisodeSlotAssignment(ctx context.Context, arg UpsertEpi
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }
 
 const upsertMovieSlotAssignment = `-- name: UpsertMovieSlotAssignment :one
-INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored)
-VALUES (?, ?, ?, ?)
+INSERT INTO movie_slot_assignments (movie_id, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (movie_id, slot_id) DO UPDATE SET
     file_id = excluded.file_id,
     monitored = excluded.monitored,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at
+RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message
 `
 
 type UpsertMovieSlotAssignmentParams struct {
@@ -2009,6 +2467,7 @@ type UpsertMovieSlotAssignmentParams struct {
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
 	Monitored int64         `json:"monitored"`
+	Status    string        `json:"status"`
 }
 
 func (q *Queries) UpsertMovieSlotAssignment(ctx context.Context, arg UpsertMovieSlotAssignmentParams) (*MovieSlotAssignment, error) {
@@ -2017,6 +2476,7 @@ func (q *Queries) UpsertMovieSlotAssignment(ctx context.Context, arg UpsertMovie
 		arg.SlotID,
 		arg.FileID,
 		arg.Monitored,
+		arg.Status,
 	)
 	var i MovieSlotAssignment
 	err := row.Scan(
@@ -2027,6 +2487,9 @@ func (q *Queries) UpsertMovieSlotAssignment(ctx context.Context, arg UpsertMovie
 		&i.Monitored,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
+		&i.ActiveDownloadID,
+		&i.StatusMessage,
 	)
 	return &i, err
 }

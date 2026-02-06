@@ -70,6 +70,91 @@ func (t *StatusTracker) SetNotificationDispatcher(nd NotificationDispatcher) {
 	t.notifDispatcher = nd
 }
 
+// OnDownloadStarted is called when a media item transitions to downloading status.
+// It updates any linked request to downloading status.
+func (t *StatusTracker) OnDownloadStarted(ctx context.Context, mediaType string, mediaID int64) error {
+	// Direct lookup for movie/episode requests
+	reqs, err := t.findRequestsByMediaID(ctx, mediaID, mediaType)
+	if err != nil {
+		return err
+	}
+
+	// For episodes, also look up series/season requests linked to the episode's series
+	if mediaType == "episode" && t.episodeLookup != nil {
+		tvdbID, seasonNum, _, lookupErr := t.episodeLookup.GetEpisodeInfo(ctx, mediaID)
+		if lookupErr == nil && tvdbID > 0 {
+			seriesReqs, _ := t.findSeriesRequestsByTvdbID(ctx, tvdbID, int64(seasonNum))
+			reqs = append(reqs, seriesReqs...)
+		}
+	}
+
+	for _, req := range reqs {
+		if req.Status == StatusApproved {
+			if _, err := t.requestsService.UpdateStatus(ctx, req.ID, StatusDownloading); err != nil {
+				t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as downloading")
+			} else {
+				t.logger.Info().Int64("requestID", req.ID).Str("title", req.Title).Msg("request marked as downloading")
+			}
+		}
+	}
+
+	return nil
+}
+
+// OnDownloadFailed is called when a media item transitions to failed status.
+// For movie/episode requests, it sets the request to failed.
+// For season/series requests, it only sets failed if ALL linked episodes are failed.
+func (t *StatusTracker) OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error {
+	// Direct lookup for movie/episode requests
+	reqs, err := t.findRequestsByMediaID(ctx, mediaID, mediaType)
+	if err != nil {
+		return err
+	}
+
+	// For episodes, also look up series/season requests linked to the episode's series
+	if mediaType == "episode" && t.episodeLookup != nil {
+		tvdbID, seasonNum, _, lookupErr := t.episodeLookup.GetEpisodeInfo(ctx, mediaID)
+		if lookupErr == nil && tvdbID > 0 {
+			seriesReqs, _ := t.findSeriesRequestsByTvdbID(ctx, tvdbID, int64(seasonNum))
+			reqs = append(reqs, seriesReqs...)
+		}
+	}
+
+	for _, req := range reqs {
+		if req.Status != StatusDownloading && req.Status != StatusApproved {
+			continue
+		}
+
+		// For movie or episode requests, directly mark as failed
+		if req.MediaType == MediaTypeMovie || req.MediaType == MediaTypeEpisode {
+			if _, err := t.requestsService.UpdateStatus(ctx, req.ID, StatusFailed); err != nil {
+				t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as failed")
+			} else {
+				t.logger.Info().Int64("requestID", req.ID).Str("title", req.Title).Msg("request marked as failed")
+			}
+			continue
+		}
+
+		// For season/series requests, check if ALL linked episodes are failed
+		if t.seriesLookup != nil && req.MediaID != nil {
+			allFailed, err := t.areAllEpisodesFailed(ctx, *req.MediaID, req.RequestedSeasons)
+			if err != nil {
+				t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to check episode statuses")
+				continue
+			}
+			if allFailed {
+				if _, err := t.requestsService.UpdateStatus(ctx, req.ID, StatusFailed); err != nil {
+					t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as failed")
+				} else {
+					t.logger.Info().Int64("requestID", req.ID).Str("title", req.Title).Msg("series request marked as failed (all episodes failed)")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (t *StatusTracker) OnMovieAvailable(ctx context.Context, movieID int64) error {
 	if t.movieLookup == nil {
 		t.logger.Warn().Msg("movie lookup not configured, cannot update request status")
@@ -368,6 +453,34 @@ func (t *StatusTracker) markAvailable(ctx context.Context, req *Request) error {
 	}
 
 	return nil
+}
+
+// areAllEpisodesFailed checks if all monitored episodes for a series (or specific seasons) are failed.
+func (t *StatusTracker) areAllEpisodesFailed(ctx context.Context, seriesID int64, requestedSeasons []int64) (bool, error) {
+	if len(requestedSeasons) == 0 {
+		// Full series request - check all episodes
+		count, err := t.queries.CountNonFailedMonitoredEpisodesBySeries(ctx, seriesID)
+		if err != nil {
+			return false, err
+		}
+		return count == 0, nil
+	}
+
+	// Check each requested season
+	for _, seasonNum := range requestedSeasons {
+		count, err := t.queries.CountNonFailedMonitoredEpisodesBySeason(ctx, sqlc.CountNonFailedMonitoredEpisodesBySeasonParams{
+			SeriesID:     seriesID,
+			SeasonNumber: seasonNum,
+		})
+		if err != nil {
+			return false, err
+		}
+		if count > 0 {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func (t *StatusTracker) GetWatcherUserIDs(ctx context.Context, requestID int64) ([]int64, error) {

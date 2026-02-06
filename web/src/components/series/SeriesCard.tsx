@@ -1,8 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { PosterImage } from '@/components/media/PosterImage'
-import { StatusBadge } from '@/components/media/StatusBadge'
-import { SeriesAvailabilityBadge } from '@/components/media/AvailabilityBadge'
+import { ProductionStatusBadge } from '@/components/media/ProductionStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Series } from '@/types'
@@ -43,9 +42,8 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
           />
         </div>
       )}
-      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-        <StatusBadge status={series.status} />
-        <SeriesAvailabilityBadge series={series} />
+      <div className="absolute top-2 right-2">
+        <ProductionStatusBadge status={series.productionStatus} />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
         <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
@@ -54,7 +52,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         <div className="flex items-center gap-2 text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
           <span>{series.year || 'Unknown year'}</span>
           <Badge variant="secondary" className="text-xs">
-            {series.episodeFileCount}/{series.episodeCount} eps
+            {(series.statusCounts.available + series.statusCounts.upgradable)}/{series.statusCounts.total} eps
           </Badge>
         </div>
       </div>

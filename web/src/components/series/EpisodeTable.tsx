@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Check, X, MoreHorizontal, Download, Zap, Loader2, ChevronDown } from 'lucide-react'
+import { Search, MoreHorizontal, Download, Zap, Loader2, ChevronDown } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { QualityBadge } from '@/components/media/QualityBadge'
-import { EpisodeAvailabilityBadge } from '@/components/media/AvailabilityBadge'
+import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
 import { EpisodeSlotRow } from './EpisodeSlotRow'
 import { useDownloadingStore } from '@/stores'
 import { useEpisodeSlotStatus, useSetEpisodeSlotMonitored } from '@/hooks'
@@ -106,9 +106,8 @@ export function EpisodeTable({
           <TableHead className="w-16">#</TableHead>
           <TableHead>Title</TableHead>
           <TableHead>Air Date</TableHead>
-          <TableHead>Aired</TableHead>
           <TableHead className="w-24">Monitored</TableHead>
-          <TableHead className="w-20">Status</TableHead>
+          <TableHead>Status</TableHead>
           <TableHead>Quality</TableHead>
           {isMultiVersionEnabled && <TableHead>Slot</TableHead>}
           <TableHead className="w-16">Actions</TableHead>
@@ -237,9 +236,6 @@ function EpisodeRow({
           {episode.airDate ? formatDate(episode.airDate) : '-'}
         </TableCell>
         <TableCell>
-          <EpisodeAvailabilityBadge released={episode.released} />
-        </TableCell>
-        <TableCell>
           <Switch
             checked={episode.monitored}
             onCheckedChange={(checked) => onMonitoredChange?.(episode, checked)}
@@ -247,13 +243,7 @@ function EpisodeRow({
           />
         </TableCell>
         <TableCell>
-          {isDownloading ? (
-            <Download className="size-4 text-green-500" />
-          ) : episode.hasFile ? (
-            <Check className="size-4 text-green-500" />
-          ) : (
-            <X className="size-4 text-red-500" />
-          )}
+          <MediaStatusBadge status={episode.status} />
         </TableCell>
         <TableCell>
           {episode.episodeFile ? (

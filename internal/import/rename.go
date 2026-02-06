@@ -75,7 +75,7 @@ func (s *Service) GetRenamePreviewSeries(ctx context.Context, seriesID *int64) (
 		}
 
 		for _, ep := range episodes {
-			if !ep.HasFile || ep.EpisodeFile == nil {
+			if ep.EpisodeFile == nil {
 				continue
 			}
 
@@ -108,7 +108,7 @@ func (s *Service) GetRenamePreviewMovies(ctx context.Context, movieID *int64) ([
 	}
 
 	for _, movie := range movieList {
-		if !movie.HasFile || len(movie.MovieFiles) == 0 {
+		if len(movie.MovieFiles) == 0 {
 			// Try to get files explicitly
 			files, err := s.movies.GetFiles(ctx, movie.ID)
 			if err != nil || len(files) == 0 {

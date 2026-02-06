@@ -74,7 +74,7 @@ func (s *Service) SearchMovieSlot(ctx context.Context, movieID int64, slotID int
 		SlotID:        slotID,
 		SlotNumber:    slotInfo.SlotNumber,
 		SlotName:      slotInfo.SlotName,
-		IsSlotUpgrade: slotInfo.NeedsUpgrade,
+		IsSlotUpgrade: slotInfo.NeedsUpgrade(),
 	}, nil
 }
 
@@ -118,7 +118,7 @@ func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID int64, slotID
 		SlotID:        slotID,
 		SlotNumber:    slotInfo.SlotNumber,
 		SlotName:      slotInfo.SlotName,
-		IsSlotUpgrade: slotInfo.NeedsUpgrade,
+		IsSlotUpgrade: slotInfo.NeedsUpgrade(),
 	}, nil
 }
 
@@ -212,7 +212,7 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 		SlotID:        slot.SlotID,
 		SlotNumber:    slot.SlotNumber,
 		SlotName:      slot.SlotName,
-		IsSlotUpgrade: slot.NeedsUpgrade,
+		IsSlotUpgrade: slot.NeedsUpgrade(),
 	}
 
 	// Get the quality profile for this slot
@@ -302,7 +302,7 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 	}
 
 	result.Downloaded = grabResult.Success
-	result.Upgraded = slot.NeedsUpgrade
+	result.Upgraded = slot.NeedsUpgrade()
 	result.ClientName = grabResult.ClientName
 	result.DownloadID = grabResult.DownloadID
 
@@ -333,7 +333,7 @@ func (s *Service) selectBestReleaseForSlot(releases []types.TorrentInfo, profile
 		}
 
 		// For upgrades, check if this is actually better than current
-		if slot.HasFile && slot.CurrentQualityID != nil {
+		if slot.HasFile() && slot.CurrentQualityID != nil {
 			currentQuality := int(*slot.CurrentQualityID)
 			if !profile.IsUpgrade(currentQuality, release.ScoreBreakdown.QualityID) {
 				continue
@@ -359,7 +359,7 @@ func (s *Service) logSlotSearchSuccess(ctx context.Context, mediaType MediaType,
 		Int64("slotId", slot.SlotID).
 		Str("slotName", slot.SlotName).
 		Str("release", release.Title).
-		Bool("isUpgrade", slot.NeedsUpgrade).
+		Bool("isUpgrade", slot.NeedsUpgrade()).
 		Msg("Slot search completed successfully")
 }
 
@@ -451,7 +451,7 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 		SlotID:        slot.SlotID,
 		SlotNumber:    slot.SlotNumber,
 		SlotName:      slot.SlotName,
-		IsSlotUpgrade: slot.NeedsUpgrade,
+		IsSlotUpgrade: slot.NeedsUpgrade(),
 	}
 
 	// Get the quality profile for this slot
@@ -527,7 +527,7 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 	}
 
 	result.Downloaded = grabResult.Success
-	result.Upgraded = slot.NeedsUpgrade
+	result.Upgraded = slot.NeedsUpgrade()
 	result.ClientName = grabResult.ClientName
 	result.DownloadID = grabResult.DownloadID
 
@@ -559,7 +559,7 @@ func (s *Service) selectBestEpisodeReleaseForSlot(releases []types.TorrentInfo, 
 		}
 
 		// For upgrades, check if this is actually better than current
-		if slot.HasFile && slot.CurrentQualityID != nil {
+		if slot.HasFile() && slot.CurrentQualityID != nil {
 			currentQuality := int(*slot.CurrentQualityID)
 			if !profile.IsUpgrade(currentQuality, release.ScoreBreakdown.QualityID) {
 				continue

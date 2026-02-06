@@ -41,8 +41,8 @@ func TestMovieService_Create(t *testing.T) {
 	if movie.TmdbID != input.TmdbID {
 		t.Errorf("Create() movie.TmdbID = %d, want %d", movie.TmdbID, input.TmdbID)
 	}
-	if movie.Status != "missing" {
-		t.Errorf("Create() movie.Status = %q, want %q", movie.Status, "missing")
+	if movie.Status != "unreleased" {
+		t.Errorf("Create() movie.Status = %q, want %q", movie.Status, "unreleased")
 	}
 	if !movie.Monitored {
 		t.Error("Create() movie.Monitored = false, want true")
@@ -435,9 +435,6 @@ func TestMovieService_AddFile(t *testing.T) {
 	updated, err := service.Get(ctx, movie.ID)
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
-	}
-	if !updated.HasFile {
-		t.Error("Movie should have HasFile = true after adding file")
 	}
 	if updated.Status != "available" {
 		t.Errorf("Movie status = %q, want %q", updated.Status, "available")

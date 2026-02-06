@@ -2,62 +2,69 @@ package tv
 
 import "time"
 
+// StatusCounts holds episode status counts for a series or season.
+type StatusCounts struct {
+	Unreleased  int `json:"unreleased"`
+	Missing     int `json:"missing"`
+	Downloading int `json:"downloading"`
+	Failed      int `json:"failed"`
+	Upgradable  int `json:"upgradable"`
+	Available   int `json:"available"`
+	Total       int `json:"total"`
+}
+
 // Series represents a TV series in the library.
 type Series struct {
-	ID               int64     `json:"id"`
-	Title            string    `json:"title"`
-	SortTitle        string    `json:"sortTitle"`
-	Year             int       `json:"year,omitempty"`
-	TvdbID           int       `json:"tvdbId,omitempty"`
-	TmdbID           int       `json:"tmdbId,omitempty"`
-	ImdbID           string    `json:"imdbId,omitempty"`
-	Overview         string    `json:"overview,omitempty"`
-	Runtime          int       `json:"runtime,omitempty"`
-	Path             string    `json:"path,omitempty"`
-	RootFolderID     int64     `json:"rootFolderId,omitempty"`
-	QualityProfileID int64     `json:"qualityProfileId,omitempty"`
-	Monitored        bool      `json:"monitored"`
-	SeasonFolder     bool      `json:"seasonFolder"`
-	Status           string    `json:"status"` // "continuing", "ended", "upcoming"
-	Network          string    `json:"network,omitempty"`
-	AddedAt          time.Time `json:"addedAt"`
-	UpdatedAt        time.Time `json:"updatedAt,omitempty"`
-	EpisodeCount     int       `json:"episodeCount"`
-	EpisodeFileCount int       `json:"episodeFileCount"`
-	SizeOnDisk       int64     `json:"sizeOnDisk,omitempty"`
-	Seasons            []Season `json:"seasons,omitempty"`
-	Released           bool     `json:"released"`           // True if all seasons are released
-	AvailabilityStatus string   `json:"availabilityStatus"` // Badge text: "Available", "Airing", "Seasons 1-2 Available", etc.
-	FormatType         string   `json:"formatType,omitempty"` // "standard", "daily", "anime" - empty means auto-detect
+	ID               int64        `json:"id"`
+	Title            string       `json:"title"`
+	SortTitle        string       `json:"sortTitle"`
+	Year             int          `json:"year,omitempty"`
+	TvdbID           int          `json:"tvdbId,omitempty"`
+	TmdbID           int          `json:"tmdbId,omitempty"`
+	ImdbID           string       `json:"imdbId,omitempty"`
+	Overview         string       `json:"overview,omitempty"`
+	Runtime          int          `json:"runtime,omitempty"`
+	Path             string       `json:"path,omitempty"`
+	RootFolderID     int64        `json:"rootFolderId,omitempty"`
+	QualityProfileID int64        `json:"qualityProfileId,omitempty"`
+	Monitored        bool         `json:"monitored"`
+	SeasonFolder     bool         `json:"seasonFolder"`
+	ProductionStatus string       `json:"productionStatus"`
+	Network          string       `json:"network,omitempty"`
+	AddedAt          time.Time    `json:"addedAt"`
+	UpdatedAt        time.Time    `json:"updatedAt,omitempty"`
+	SizeOnDisk       int64        `json:"sizeOnDisk,omitempty"`
+	Seasons          []Season     `json:"seasons,omitempty"`
+	StatusCounts     StatusCounts `json:"statusCounts"`
+	FormatType       string       `json:"formatType,omitempty"`
 }
 
 // Season represents a season of a TV series.
 type Season struct {
-	ID               int64  `json:"id"`
-	SeriesID         int64  `json:"seriesId"`
-	SeasonNumber     int    `json:"seasonNumber"`
-	Monitored        bool   `json:"monitored"`
-	Overview         string `json:"overview,omitempty"`
-	PosterURL        string `json:"posterUrl,omitempty"`
-	EpisodeCount     int    `json:"episodeCount"`
-	EpisodeFileCount int    `json:"episodeFileCount"`
-	SizeOnDisk       int64  `json:"sizeOnDisk,omitempty"`
-	Released         bool   `json:"released"` // True if all episodes in season have aired
+	ID           int64        `json:"id"`
+	SeriesID     int64        `json:"seriesId"`
+	SeasonNumber int          `json:"seasonNumber"`
+	Monitored    bool         `json:"monitored"`
+	Overview     string       `json:"overview,omitempty"`
+	PosterURL    string       `json:"posterUrl,omitempty"`
+	SizeOnDisk   int64        `json:"sizeOnDisk,omitempty"`
+	StatusCounts StatusCounts `json:"statusCounts"`
 }
 
 // Episode represents an episode of a TV series.
 type Episode struct {
-	ID            int64        `json:"id"`
-	SeriesID      int64        `json:"seriesId"`
-	SeasonNumber  int          `json:"seasonNumber"`
-	EpisodeNumber int          `json:"episodeNumber"`
-	Title         string       `json:"title"`
-	Overview      string       `json:"overview,omitempty"`
-	AirDate       *time.Time   `json:"airDate,omitempty"`
-	Monitored     bool         `json:"monitored"`
-	HasFile       bool         `json:"hasFile"`
-	EpisodeFile   *EpisodeFile `json:"episodeFile,omitempty"`
-	Released      bool         `json:"released"` // True if air date is in the past
+	ID               int64        `json:"id"`
+	SeriesID         int64        `json:"seriesId"`
+	SeasonNumber     int          `json:"seasonNumber"`
+	EpisodeNumber    int          `json:"episodeNumber"`
+	Title            string       `json:"title"`
+	Overview         string       `json:"overview,omitempty"`
+	AirDate          *time.Time   `json:"airDate,omitempty"`
+	Monitored        bool         `json:"monitored"`
+	Status           string       `json:"status"`
+	StatusMessage    *string      `json:"statusMessage"`
+	ActiveDownloadID *string      `json:"activeDownloadId"`
+	EpisodeFile      *EpisodeFile `json:"episodeFile,omitempty"`
 }
 
 // EpisodeFile represents an episode file on disk.
@@ -89,8 +96,8 @@ type CreateSeriesInput struct {
 	Monitored        bool          `json:"monitored"`
 	SeasonFolder     bool          `json:"seasonFolder"`
 	Network          string        `json:"network,omitempty"`
-	FormatType       string        `json:"formatType,omitempty"` // "standard", "daily", "anime" - empty for auto-detect
-	Status           string        `json:"status,omitempty"`     // "continuing", "ended", "upcoming" - defaults to "continuing"
+	FormatType       string        `json:"formatType,omitempty"`
+	ProductionStatus string        `json:"productionStatus,omitempty"`
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
 }
 
@@ -124,8 +131,8 @@ type UpdateSeriesInput struct {
 	QualityProfileID *int64  `json:"qualityProfileId,omitempty"`
 	Monitored        *bool   `json:"monitored,omitempty"`
 	SeasonFolder     *bool   `json:"seasonFolder,omitempty"`
-	Status           *string `json:"status,omitempty"`
-	FormatType       *string `json:"formatType,omitempty"` // "standard", "daily", "anime", or null for auto-detect
+	ProductionStatus *string `json:"productionStatus,omitempty"`
+	FormatType       *string `json:"formatType,omitempty"`
 }
 
 // UpdateEpisodeInput contains fields for updating an episode.

@@ -186,6 +186,11 @@ func (b *QueueBroadcaster) broadcast() bool {
 	// Check for completed downloads and trigger import processing
 	b.checkForCompletions(ctx)
 
+	// Check for downloads that disappeared from clients
+	if err := b.service.CheckForDisappearedDownloads(ctx); err != nil {
+		b.logger.Debug().Err(err).Msg("Failed to check for disappeared downloads")
+	}
+
 	// Check if any downloads are actively progressing
 	for _, item := range queue {
 		if item.Status == "downloading" || item.Status == "queued" {

@@ -14,8 +14,8 @@ import {
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
-import { StatusBadge } from '@/components/media/StatusBadge'
-import { SeriesAvailabilityBadge } from '@/components/media/AvailabilityBadge'
+import { ProductionStatusBadge } from '@/components/media/ProductionStatusBadge'
+import { formatStatusSummary } from '@/lib/formatters'
 import { SeasonList } from '@/components/series/SeasonList'
 import { SeriesEditDialog } from '@/components/series/SeriesEditDialog'
 import { LoadingState } from '@/components/data/LoadingState'
@@ -338,8 +338,10 @@ export function SeriesDetailPage() {
             {/* Info */}
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <StatusBadge status={series.status} />
-                <SeriesAvailabilityBadge series={series} />
+                <ProductionStatusBadge status={series.productionStatus} />
+                <Badge variant="secondary">
+                  {formatStatusSummary(series.statusCounts)}
+                </Badge>
                 {series.monitored ? (
                   <Badge variant="outline">Monitored</Badge>
                 ) : (
@@ -373,7 +375,7 @@ export function SeriesDetailPage() {
                 )}
                 <span className="flex items-center gap-1">
                   <Tv className="size-4" />
-                  {series.episodeFileCount}/{series.episodeCount} episodes
+                  {series.statusCounts.available + series.statusCounts.upgradable}/{series.statusCounts.total} episodes
                 </span>
               </div>
             </div>

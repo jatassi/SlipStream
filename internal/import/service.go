@@ -70,6 +70,7 @@ type NotificationDispatcher interface {
 type StatusTrackerService interface {
 	OnMovieAvailable(ctx context.Context, movieID int64) error
 	OnEpisodeAvailable(ctx context.Context, episodeID int64) error
+	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
 }
 
 // ImportNotificationEvent contains import event data for notifications.
@@ -434,6 +435,37 @@ func (s *Service) processJob(ctx context.Context, job ImportJob) {
 			Err(result.Error).
 			Str("path", job.SourcePath).
 			Msg("Import failed")
+
+		// Update media status to failed
+		if job.DownloadMapping != nil {
+			if job.DownloadMapping.MovieID != nil {
+				_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
+					Status:           "failed",
+					ActiveDownloadID: sql.NullString{},
+					StatusMessage:    sql.NullString{String: result.Error.Error(), Valid: true},
+					ID:               *job.DownloadMapping.MovieID,
+				})
+				if s.hub != nil {
+					_ = s.hub.Broadcast("movie:updated", map[string]any{"movieId": *job.DownloadMapping.MovieID})
+				}
+				if s.statusTracker != nil {
+					_ = s.statusTracker.OnDownloadFailed(ctx, "movie", *job.DownloadMapping.MovieID)
+				}
+			} else if job.DownloadMapping.EpisodeID != nil {
+				_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+					Status:           "failed",
+					ActiveDownloadID: sql.NullString{},
+					StatusMessage:    sql.NullString{String: result.Error.Error(), Valid: true},
+					ID:               *job.DownloadMapping.EpisodeID,
+				})
+				if s.hub != nil && job.DownloadMapping.SeriesID != nil {
+					_ = s.hub.Broadcast("series:updated", map[string]any{"id": *job.DownloadMapping.SeriesID})
+				}
+				if s.statusTracker != nil {
+					_ = s.statusTracker.OnDownloadFailed(ctx, "episode", *job.DownloadMapping.EpisodeID)
+				}
+			}
+		}
 
 		// Register health warning
 		if s.health != nil {
