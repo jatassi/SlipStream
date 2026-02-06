@@ -377,7 +377,7 @@ export function SeriesDetailPage() {
                 )}
                 <span className="flex items-center gap-1">
                   <Tv className="size-4" />
-                  {series.statusCounts.available + series.statusCounts.upgradable}/{series.statusCounts.total} episodes
+                  {series.statusCounts.available + series.statusCounts.upgradable}/{series.statusCounts.total - series.statusCounts.unreleased} episodes
                 </span>
               </div>
             </div>

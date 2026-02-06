@@ -675,6 +675,33 @@ func (q *Queries) IsOriginalPathImportedMovie(ctx context.Context, originalPath 
 	return imported, err
 }
 
+const listAllMovieFilePaths = `-- name: ListAllMovieFilePaths :many
+SELECT path FROM movie_files
+`
+
+func (q *Queries) ListAllMovieFilePaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAllMovieFilePaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDownloadingMovies = `-- name: ListDownloadingMovies :many
 SELECT id, active_download_id FROM movies
 WHERE status = 'downloading' AND active_download_id IS NOT NULL

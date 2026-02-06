@@ -89,7 +89,7 @@ export function SeasonList({
       {sortedSeasons.map((season) => {
         const seasonEpisodes = episodesBySeason[season.seasonNumber] || []
         const fileCount = season.statusCounts.available + season.statusCounts.upgradable
-        const totalCount = season.statusCounts.total
+        const totalCount = season.statusCounts.total - season.statusCounts.unreleased
 
         return (
           <AccordionItem

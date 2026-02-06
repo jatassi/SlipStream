@@ -53,7 +53,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         <div className="flex items-center gap-2 text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
           <span>{series.year || 'Unknown year'}</span>
           <Badge variant="secondary" className="text-xs">
-            {(series.statusCounts.available + series.statusCounts.upgradable)}/{series.statusCounts.total} eps
+            {(series.statusCounts.available + series.statusCounts.upgradable)}/{series.statusCounts.total - series.statusCounts.unreleased} eps
           </Badge>
         </div>
       </div>

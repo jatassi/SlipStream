@@ -1253,6 +1253,33 @@ func (q *Queries) IsOriginalPathImportedEpisode(ctx context.Context, originalPat
 	return imported, err
 }
 
+const listAllEpisodeFilePaths = `-- name: ListAllEpisodeFilePaths :many
+SELECT path FROM episode_files
+`
+
+func (q *Queries) ListAllEpisodeFilePaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAllEpisodeFilePaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDownloadingEpisodes = `-- name: ListDownloadingEpisodes :many
 SELECT id, series_id, active_download_id FROM episodes
 WHERE status = 'downloading' AND active_download_id IS NOT NULL

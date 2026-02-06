@@ -207,6 +207,9 @@ SELECT * FROM movie_files WHERE original_path = ? LIMIT 1;
 -- name: IsOriginalPathImportedMovie :one
 SELECT EXISTS(SELECT 1 FROM movie_files WHERE original_path = ?) AS imported;
 
+-- name: ListAllMovieFilePaths :many
+SELECT path FROM movie_files;
+
 -- name: ListDownloadingMovies :many
 SELECT id, active_download_id FROM movies
 WHERE status = 'downloading' AND active_download_id IS NOT NULL;

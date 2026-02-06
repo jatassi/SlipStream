@@ -148,6 +148,9 @@ SELECT COUNT(*) FROM episodes WHERE series_id = ? AND season_number = ?;
 -- name: GetEpisodeFile :one
 SELECT * FROM episode_files WHERE id = ? LIMIT 1;
 
+-- name: ListAllEpisodeFilePaths :many
+SELECT path FROM episode_files;
+
 -- name: ListEpisodeFilesBySeries :many
 SELECT ef.* FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/slipstream/slipstream/internal/database/sqlc"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
@@ -107,6 +106,10 @@ var SlipStreamSubdirs = []string{"SlipStream/Movies", "SlipStream/Series", "Slip
 func (s *Service) ScanForPendingImports(ctx context.Context) error {
 	s.logger.Info().Msg("Scanning for pending imports")
 
+	// Pre-load all library file stats once for efficient hardlink detection.
+	// This avoids repeating expensive stat calls and DB queries per download file.
+	libraryStats := s.loadLibraryFileStats(ctx)
+
 	// Get all download clients
 	clients, err := s.downloader.List(ctx)
 	if err != nil {
@@ -156,7 +159,7 @@ func (s *Service) ScanForPendingImports(ctx context.Context) error {
 				}
 
 				// Skip files that have already been imported
-				if s.isFileAlreadyImported(ctx, file) {
+				if s.isFileAlreadyImported(ctx, file, libraryStats) {
 					continue
 				}
 
@@ -177,13 +180,48 @@ func (s *Service) ScanForPendingImports(ctx context.Context) error {
 	return nil
 }
 
+// libraryFileStat holds a pre-loaded file stat for efficient hardlink detection.
+type libraryFileStat struct {
+	path string
+	info os.FileInfo
+}
+
+// loadLibraryFileStats loads and stats all library files for hardlink detection.
+// Called once per scan cycle to avoid repeated DB queries and stat calls per download file.
+func (s *Service) loadLibraryFileStats(ctx context.Context) []libraryFileStat {
+	var stats []libraryFileStat
+
+	moviePaths, err := s.queries.ListAllMovieFilePaths(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load movie file paths for hardlink detection")
+	} else {
+		for _, p := range moviePaths {
+			if info, err := os.Stat(p); err == nil {
+				stats = append(stats, libraryFileStat{path: p, info: info})
+			}
+		}
+	}
+
+	episodePaths, err := s.queries.ListAllEpisodeFilePaths(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load episode file paths for hardlink detection")
+	} else {
+		for _, p := range episodePaths {
+			if info, err := os.Stat(p); err == nil {
+				stats = append(stats, libraryFileStat{path: p, info: info})
+			}
+		}
+	}
+
+	s.logger.Debug().Int("count", len(stats)).Msg("Loaded library file stats for hardlink detection")
+	return stats
+}
+
 // isFileAlreadyImported checks if a file has already been imported to the library.
 // This prevents re-importing files that remain in the download folder after import (e.g., hardlink mode).
-func (s *Service) isFileAlreadyImported(ctx context.Context, path string) bool {
-	// Convert path to sql.NullString
-	nullPath := toNullString(path)
-
+func (s *Service) isFileAlreadyImported(ctx context.Context, path string, libraryStats []libraryFileStat) bool {
 	// Check if it was imported as a movie file (via original_path)
+	nullPath := toNullString(path)
 	movieImported, err := s.queries.IsOriginalPathImportedMovie(ctx, nullPath)
 	if err == nil && movieImported != 0 {
 		return true
@@ -195,89 +233,30 @@ func (s *Service) isFileAlreadyImported(ctx context.Context, path string) bool {
 		return true
 	}
 
-	// Check if this file is a hardlink to an existing library file
-	// This catches cases where original_path was lost (e.g., movie deleted and re-added via library scan)
-	if s.isHardlinkToLibraryFile(ctx, path) {
-		return true
-	}
-
-	return false
+	// Check if this file is a hardlink to an existing library file using os.SameFile.
+	// Uses pre-loaded stats so no DB queries or extra stat calls are needed here.
+	return s.isHardlinkToLibraryFile(path, libraryStats)
 }
 
 // isHardlinkToLibraryFile checks if the given path is a hardlink to any existing library file.
-// This is used to prevent re-importing files when the original_path tracking was lost.
-func (s *Service) isHardlinkToLibraryFile(ctx context.Context, sourcePath string) bool {
+// Uses pre-loaded library file stats for efficient comparison via os.SameFile.
+func (s *Service) isHardlinkToLibraryFile(sourcePath string, libraryStats []libraryFileStat) bool {
 	sourceStat, err := os.Stat(sourcePath)
 	if err != nil {
 		return false
 	}
 
-	// Parse the filename to narrow down which library items to check
-	filename := filepath.Base(sourcePath)
-	parsed := scanner.ParseFilename(filename)
-
-	if parsed.IsTV && parsed.Title != "" {
-		// Search for series with similar title
-		series, err := s.queries.SearchSeries(ctx, sqlc.SearchSeriesParams{
-			Title:     "%" + parsed.Title + "%",
-			SortTitle: "%" + parsed.Title + "%",
-			Limit:     10,
-			Offset:    0,
-		})
-		if err == nil {
-			for _, show := range series {
-				files, err := s.queries.ListEpisodeFilesBySeries(ctx, show.ID)
-				if err != nil {
-					continue
-				}
-				for _, file := range files {
-					if s.isSameFileFromStat(sourceStat, file.Path) {
-						s.logger.Debug().
-							Str("source", sourcePath).
-							Str("libraryFile", file.Path).
-							Msg("Source file is hardlink to existing library file")
-						return true
-					}
-				}
-			}
-		}
-	} else if parsed.Title != "" && parsed.Year > 0 {
-		// Search for movies with similar title/year
-		movies, err := s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
-			Title:     "%" + parsed.Title + "%",
-			SortTitle: "%" + parsed.Title + "%",
-			Limit:     10,
-			Offset:    0,
-		})
-		if err == nil {
-			for _, movie := range movies {
-				files, err := s.queries.ListMovieFiles(ctx, movie.ID)
-				if err != nil {
-					continue
-				}
-				for _, file := range files {
-					if s.isSameFileFromStat(sourceStat, file.Path) {
-						s.logger.Debug().
-							Str("source", sourcePath).
-							Str("libraryFile", file.Path).
-							Msg("Source file is hardlink to existing library file")
-						return true
-					}
-				}
-			}
+	for _, entry := range libraryStats {
+		if os.SameFile(sourceStat, entry.info) {
+			s.logger.Debug().
+				Str("source", sourcePath).
+				Str("libraryFile", entry.path).
+				Msg("Source file is hardlink to existing library file")
+			return true
 		}
 	}
 
 	return false
-}
-
-// isSameFileFromStat checks if path2 points to the same file as the given stat info.
-func (s *Service) isSameFileFromStat(stat1 os.FileInfo, path2 string) bool {
-	stat2, err := os.Stat(path2)
-	if err != nil {
-		return false
-	}
-	return os.SameFile(stat1, stat2)
 }
 
 // toNullString converts a string to sql.NullString, treating empty strings as null.
