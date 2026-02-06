@@ -747,6 +747,9 @@ func (s *Server) setupMiddleware() {
 		},
 	}))
 
+	// Block proxy probes (absolute URI requests like GET http://www.google.com/)
+	s.echo.Use(apimw.ProxyRequestBlock())
+
 	// Gzip compression
 	s.echo.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,

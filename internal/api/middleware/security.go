@@ -49,6 +49,20 @@ func SameOriginCORS() echo.MiddlewareFunc {
 	}
 }
 
+// ProxyRequestBlock rejects requests that look like they're intended for an HTTP proxy.
+// Scanners probe internet-facing servers by sending absolute URIs (e.g., GET http://www.google.com/)
+// to find open proxies. Legitimate clients always use relative URIs when talking to origin servers.
+func ProxyRequestBlock() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Request().URL.Host != "" {
+				return c.NoContent(http.StatusBadRequest)
+			}
+			return next(c)
+		}
+	}
+}
+
 func SecurityHeaders() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
