@@ -358,9 +358,13 @@ func (s *Service) GetQueueItemCount(ctx context.Context) (int, error) {
 		}
 
 		for _, d := range downloads {
-			if d.Status != types.StatusCompleted && d.Status != types.StatusSeeding {
-				count++
+			if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+				continue
 			}
+			if d.Progress >= 100 {
+				continue
+			}
+			count++
 		}
 	}
 

@@ -76,6 +76,7 @@ function DownloadRow({ item }: { item: QueueItem }) {
   const tvdbId = item.mediaType === 'series' ? series?.tvdbId : undefined
 
   const isMovie = item.mediaType === 'movie'
+  const isSeries = item.mediaType === 'series'
 
   const handlePause = async () => {
     try {
@@ -153,7 +154,8 @@ function DownloadRow({ item }: { item: QueueItem }) {
   // Icon class with themed glow on hover
   const actionIconClass = cn(
     'size-4 transition-all',
-    isMovie ? 'group-hover/btn:icon-glow-movie' : 'group-hover/btn:icon-glow-tv'
+    isMovie && 'group-hover/btn:icon-glow-movie',
+    isSeries && 'group-hover/btn:icon-glow-tv'
   )
 
   const titleSuffix = getTitleSuffix()
@@ -162,9 +164,9 @@ function DownloadRow({ item }: { item: QueueItem }) {
     <div
       className={cn(
         'flex items-center gap-4 px-4 py-3 transition-colors',
-        isMovie
-          ? 'hover:bg-movie-500/5'
-          : 'hover:bg-tv-500/5'
+        isMovie && 'hover:bg-movie-500/5',
+        isSeries && 'hover:bg-tv-500/5',
+        !isMovie && !isSeries && 'hover:bg-accent/50'
       )}
     >
       {/* Poster */}
@@ -182,12 +184,16 @@ function DownloadRow({ item }: { item: QueueItem }) {
         ) : (
           <div className={cn(
             'flex size-10 items-center justify-center rounded',
-            isMovie ? 'bg-movie-500/20 text-movie-500' : 'bg-tv-500/20 text-tv-500'
+            isMovie && 'bg-movie-500/20 text-movie-500',
+            isSeries && 'bg-tv-500/20 text-tv-500',
+            !isMovie && !isSeries && 'bg-muted text-muted-foreground'
           )}>
             {isMovie ? (
               <Film className="size-5" />
-            ) : (
+            ) : isSeries ? (
               <Tv className="size-5" />
+            ) : (
+              <Download className="size-5" />
             )}
           </div>
         )}
@@ -204,7 +210,8 @@ function DownloadRow({ item }: { item: QueueItem }) {
             <div
               className={cn(
                 'font-medium cursor-pointer transition-colors whitespace-nowrap',
-                isMovie ? 'hover:text-movie-500' : 'hover:text-tv-500'
+                isMovie && 'hover:text-movie-500',
+                isSeries && 'hover:text-tv-500'
               )}
               title={item.releaseName}
               onClick={() => setShowReleaseName(!showReleaseName)}
@@ -228,7 +235,7 @@ function DownloadRow({ item }: { item: QueueItem }) {
             <ProgressBar
               value={item.progress}
               size="sm"
-              variant={isMovie ? 'movie' : 'tv'}
+              variant={isMovie ? 'movie' : isSeries ? 'tv' : undefined}
             />
             <div className="absolute left-0 right-0 mt-1 flex items-center text-xs text-muted-foreground">
               <span>{progressText}</span>

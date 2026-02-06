@@ -174,8 +174,15 @@ func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName
 
 	items := make([]QueueItem, 0, len(downloads))
 	for _, d := range downloads {
-		// Filter out completed/seeding downloads - they should not appear in the queue
+		// Filter out completed/seeding downloads - they should not appear in the queue.
 		if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+			continue
+		}
+		// Filter out fully-downloaded items regardless of reported status.
+		// Covers: stopped after seeding (StatusPaused at 100%), seeding with
+		// tracker/piece errors (StatusError at 100% — Transmission overrides
+		// seeding status to error when torrent has issues), etc.
+		if d.Progress >= 100 {
 			continue
 		}
 		item := s.downloadItemToQueueItem(d, clientID, clientName, clientType)

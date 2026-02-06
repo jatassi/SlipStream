@@ -5,6 +5,7 @@ import { movieKeys } from '@/hooks/useMovies'
 import { seriesKeys } from '@/hooks/useSeries'
 import { queueKeys } from '@/hooks/useQueue'
 import { historyKeys } from '@/hooks/useHistory'
+import { missingKeys } from '@/hooks/useMissing'
 import { systemHealthKeys } from '@/hooks/useHealth'
 import { requestKeys } from '@/hooks/portal/useRequests'
 import { inboxKeys } from '@/hooks/portal/useInbox'
@@ -170,11 +171,13 @@ export function useWebSocketHandler() {
       case 'movie:updated':
       case 'movie:deleted':
         queryClient.invalidateQueries({ queryKey: movieKeys.all })
+        queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
         break
       case 'series:added':
       case 'series:updated':
       case 'series:deleted':
         queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+        queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
         break
       case 'queue:updated':
         // Force immediate refetch to get current queue state
@@ -196,6 +199,7 @@ export function useWebSocketHandler() {
         // Imports can happen frequently (especially with mock downloads),
         // and refetching search results on every import would cause rate limiting.
         // Users can re-search to get updated availability info.
+        queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
         break
 
       // Progress events

@@ -81,7 +81,8 @@
       "Bash(go list:*)",
       "Bash(bun run dev)",
       "Bash(pgrep:*)",
-      "Bash(make build-backend:*)"
+      "Bash(make build-backend:*)",
+      "Bash(git status:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
