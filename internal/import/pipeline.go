@@ -216,8 +216,32 @@ func (s *Service) isHardlinkToLibraryFile(ctx context.Context, sourcePath string
 	filename := filepath.Base(sourcePath)
 	parsed := scanner.ParseFilename(filename)
 
-	// Try to find matching movies by title/year
-	if parsed.Title != "" && parsed.Year > 0 {
+	if parsed.IsTV && parsed.Title != "" {
+		// Search for series with similar title
+		series, err := s.queries.SearchSeries(ctx, sqlc.SearchSeriesParams{
+			Title:     "%" + parsed.Title + "%",
+			SortTitle: "%" + parsed.Title + "%",
+			Limit:     10,
+			Offset:    0,
+		})
+		if err == nil {
+			for _, show := range series {
+				files, err := s.queries.ListEpisodeFilesBySeries(ctx, show.ID)
+				if err != nil {
+					continue
+				}
+				for _, file := range files {
+					if s.isSameFileFromStat(sourceStat, file.Path) {
+						s.logger.Debug().
+							Str("source", sourcePath).
+							Str("libraryFile", file.Path).
+							Msg("Source file is hardlink to existing library file")
+						return true
+					}
+				}
+			}
+		}
+	} else if parsed.Title != "" && parsed.Year > 0 {
 		// Search for movies with similar title/year
 		movies, err := s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
 			Title:     "%" + parsed.Title + "%",
@@ -227,7 +251,6 @@ func (s *Service) isHardlinkToLibraryFile(ctx context.Context, sourcePath string
 		})
 		if err == nil {
 			for _, movie := range movies {
-				// Check if any file of this movie is a hardlink to the source
 				files, err := s.queries.ListMovieFiles(ctx, movie.ID)
 				if err != nil {
 					continue

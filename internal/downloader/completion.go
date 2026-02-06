@@ -87,8 +87,15 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 				Str("status", string(d.Status)).
 				Msg("CheckForCompletedDownloads: checking download")
 
-			// Check if download is complete (completed or seeding)
-			if d.Status != types.StatusCompleted && d.Status != types.StatusSeeding {
+			// Check if download is complete (completed, seeding, or paused/stopped with full progress).
+			// Transmission maps "stopped" to StatusPaused — a torrent that finishes and hits its
+			// seed ratio limit will transition downloading→seeding→stopped so fast that the
+			// 2-second poll may never observe the brief seeding window.
+			isComplete := d.Status == types.StatusCompleted || d.Status == types.StatusSeeding
+			if !isComplete && d.Status == types.StatusPaused && d.Progress >= 100 {
+				isComplete = true
+			}
+			if !isComplete {
 				continue
 			}
 

@@ -320,6 +320,7 @@ export function SeriesDetailPage() {
           tvdbId={series.tvdbId}
           type="series"
           alt={series.title}
+          version={series.updatedAt}
           className="absolute inset-0"
         />
         <div className="absolute inset-0 flex items-end p-6">
@@ -331,6 +332,7 @@ export function SeriesDetailPage() {
                 tvdbId={series.tvdbId}
                 alt={series.title}
                 type="series"
+                version={series.updatedAt}
                 className="w-40 h-60 rounded-lg shadow-lg"
               />
             </div>

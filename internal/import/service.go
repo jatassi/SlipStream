@@ -426,6 +426,13 @@ func (s *Service) processJob(ctx context.Context, job ImportJob) {
 				"mediaType":   result.Match.MediaType,
 				"isUpgrade":   result.IsUpgrade,
 			})
+
+			// Broadcast media-specific update so frontend refreshes the detail page
+			if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
+				s.hub.Broadcast("movie:updated", map[string]any{"movieId": *result.Match.MovieID})
+			} else if result.Match.MediaType == "episode" && result.Match.SeriesID != nil {
+				s.hub.Broadcast("series:updated", map[string]any{"id": *result.Match.SeriesID})
+			}
 		}
 
 		// Dispatch notification

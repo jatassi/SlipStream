@@ -20,6 +20,7 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
         tmdbId={movie.tmdbId}
         alt={movie.title}
         type="movie"
+        version={movie.updatedAt}
         className="absolute inset-0"
       />
       {editMode && (

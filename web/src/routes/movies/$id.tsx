@@ -201,6 +201,7 @@ export function MovieDetailPage() {
           tmdbId={movie.tmdbId}
           type="movie"
           alt={movie.title}
+          version={movie.updatedAt}
           className="absolute inset-0"
         />
         <div className="absolute inset-0 flex items-end p-6">
@@ -211,6 +212,7 @@ export function MovieDetailPage() {
                 tmdbId={movie.tmdbId}
                 alt={movie.title}
                 type="movie"
+                version={movie.updatedAt}
                 className="w-40 h-60 rounded-lg shadow-lg"
               />
             </div>

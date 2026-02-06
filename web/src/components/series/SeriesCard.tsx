@@ -22,6 +22,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         tvdbId={series.tvdbId}
         alt={series.title}
         type="series"
+        version={series.updatedAt}
         className="absolute inset-0"
       />
       {editMode && (

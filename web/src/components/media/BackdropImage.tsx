@@ -14,6 +14,8 @@ interface BackdropImageProps {
   type?: 'movie' | 'series'
   alt: string
   size?: keyof typeof BACKDROP_SIZES
+  // Cache-busting version (e.g., updatedAt timestamp) for initial page loads
+  version?: string | null
   className?: string
   overlay?: boolean
 }
@@ -25,6 +27,7 @@ export function BackdropImage({
   type = 'movie',
   alt,
   size = 'w1280',
+  version,
   className,
   overlay = true,
 }: BackdropImageProps) {
@@ -46,9 +49,14 @@ export function BackdropImage({
   // Prefer local artwork if tmdbId/tvdbId is provided, otherwise use TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
-    // Add cache-busting param when artwork version changes
     const baseUrl = getLocalArtworkUrl(type, artworkId!, 'backdrop')
-    imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
+    if (artworkVersion > 0) {
+      imageUrl = `${baseUrl}?v=${artworkVersion}`
+    } else if (version) {
+      imageUrl = `${baseUrl}?v=${version}`
+    } else {
+      imageUrl = baseUrl
+    }
   } else if (path) {
     imageUrl = `${BACKDROP_SIZES[size]}${path}`
   }

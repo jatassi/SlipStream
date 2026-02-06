@@ -401,6 +401,8 @@ func (h *Handlers) GetArtwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "artwork not found")
 	}
 
-	// Serve the file
+	// Set immutable cache headers — frontend uses ?v= query params for cache busting
+	c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+
 	return c.File(path)
 }

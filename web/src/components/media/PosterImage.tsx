@@ -16,6 +16,8 @@ interface PosterImageProps {
   alt: string
   size?: keyof typeof POSTER_SIZES
   type?: 'movie' | 'series'
+  // Cache-busting version (e.g., updatedAt timestamp) for initial page loads
+  version?: string | null
   className?: string
 }
 
@@ -27,6 +29,7 @@ export function PosterImage({
   alt,
   size = 'w342',
   type = 'movie',
+  version,
   className,
 }: PosterImageProps) {
   const [error, setError] = useState(false)
@@ -47,9 +50,14 @@ export function PosterImage({
   // Priority: local artwork (tmdbId or tvdbId) > full URL > TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
-    // Add cache-busting param when artwork version changes
     const baseUrl = getLocalArtworkUrl(type, artworkId!, 'poster')
-    imageUrl = artworkVersion > 0 ? `${baseUrl}?v=${artworkVersion}` : baseUrl
+    if (artworkVersion > 0) {
+      imageUrl = `${baseUrl}?v=${artworkVersion}`
+    } else if (version) {
+      imageUrl = `${baseUrl}?v=${version}`
+    } else {
+      imageUrl = baseUrl
+    }
   } else if (url) {
     imageUrl = url
   } else if (path) {
