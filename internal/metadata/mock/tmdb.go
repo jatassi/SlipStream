@@ -3,6 +3,7 @@ package mock
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
@@ -159,6 +160,14 @@ func (c *TMDBClient) GetMovieStudio(ctx context.Context, id int) (string, error)
 		return studio, nil
 	}
 	return "Warner Bros. Pictures", nil
+}
+
+func (c *TMDBClient) GetMovieLogoURL(ctx context.Context, id int) (string, error) {
+	return fmt.Sprintf("https://image.tmdb.org/t/p/w500/mock_movie_logo_%d.png", id), nil
+}
+
+func (c *TMDBClient) GetSeriesLogoURL(ctx context.Context, id int) (string, error) {
+	return fmt.Sprintf("https://image.tmdb.org/t/p/w500/mock_series_logo_%d.png", id), nil
 }
 
 var defaultMovieCredits = tmdb.NormalizedCredits{

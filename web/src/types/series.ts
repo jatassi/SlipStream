@@ -18,6 +18,8 @@ export interface Series {
   imdbId?: string
   overview?: string
   runtime?: number
+  network?: string
+  networkLogoUrl?: string
   path?: string
   rootFolderId?: number
   qualityProfileId: number
@@ -25,6 +27,9 @@ export interface Series {
   seasonFolder: boolean
   productionStatus: 'continuing' | 'ended' | 'upcoming'
   statusCounts: StatusCounts
+  firstAired?: string
+  lastAired?: string
+  nextAiring?: string
   addedAt: string
   updatedAt?: string
   sizeOnDisk?: number
@@ -79,6 +84,8 @@ export interface CreateSeriesInput {
   imdbId?: string
   overview?: string
   runtime?: number
+  network?: string
+  networkLogoUrl?: string
   path?: string
   rootFolderId: number
   qualityProfileId: number

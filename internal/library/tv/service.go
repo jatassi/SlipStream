@@ -237,6 +237,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		ProductionStatus: productionStatus,
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
+		NetworkLogoUrl:   sql.NullString{String: input.NetworkLogoURL, Valid: input.NetworkLogoURL != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create series: %w", err)
@@ -380,6 +381,16 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		formatType = *input.FormatType
 	}
 
+	network := current.Network
+	if input.Network != nil {
+		network = *input.Network
+	}
+
+	networkLogoURL := current.NetworkLogoURL
+	if input.NetworkLogoURL != nil {
+		networkLogoURL = *input.NetworkLogoURL
+	}
+
 	row, err := s.queries.UpdateSeries(ctx, sqlc.UpdateSeriesParams{
 		ID:               id,
 		Title:            title,
@@ -396,8 +407,9 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeries
 		Monitored:        boolToInt(monitored),
 		SeasonFolder:     boolToInt(seasonFolder),
 		ProductionStatus: productionStatus,
-		Network:          sql.NullString{String: current.Network, Valid: current.Network != ""},
+		Network:          sql.NullString{String: network, Valid: network != ""},
 		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
+		NetworkLogoUrl:   sql.NullString{String: networkLogoURL, Valid: networkLogoURL != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -1212,6 +1224,9 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	if row.Network.Valid {
 		series.Network = row.Network.String
 	}
+	if row.NetworkLogoUrl.Valid {
+		series.NetworkLogoURL = row.NetworkLogoUrl.String
+	}
 	if row.FormatType.Valid {
 		series.FormatType = row.FormatType.String
 	}
@@ -1300,7 +1315,7 @@ func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
 	return f
 }
 
-// enrichSeriesWithCounts populates the StatusCounts field on a series by querying episode statuses.
+// enrichSeriesWithCounts populates the StatusCounts and air date fields on a series by querying episode statuses.
 func (s *Service) enrichSeriesWithCounts(ctx context.Context, series *Series) {
 	counts, err := s.queries.GetEpisodeStatusCountsBySeries(ctx, series.ID)
 	if err != nil {
@@ -1315,6 +1330,9 @@ func (s *Service) enrichSeriesWithCounts(ctx context.Context, series *Series) {
 		Available:   toInt(counts.Available),
 		Total:       int(counts.Total),
 	}
+	series.FirstAired = toTimePtr(counts.FirstAired)
+	series.LastAired = toTimePtr(counts.LastAired)
+	series.NextAiring = toTimePtr(counts.NextAiring)
 }
 
 // enrichSeasonWithCounts populates the StatusCounts field on a season by querying episode statuses.
@@ -1351,6 +1369,22 @@ func toInt(v interface{}) int {
 	}
 }
 
+// toTimePtr converts a nullable aggregate date result to *time.Time.
+func toTimePtr(v interface{}) *time.Time {
+	if v == nil {
+		return nil
+	}
+	switch t := v.(type) {
+	case time.Time:
+		return &t
+	case string:
+		if parsed, err := parseAirDate(t); err == nil {
+			return &parsed
+		}
+	}
+	return nil
+}
+
 // computeEpisodeStatus determines the initial status for an episode based on its air date.
 func computeEpisodeStatus(airDate *time.Time) string {
 	if airDate == nil || airDate.After(time.Now()) {
@@ -1382,6 +1416,8 @@ func boolToInt(b bool) int64 {
 func parseAirDate(s string) (time.Time, error) {
 	formats := []string{
 		"2006-01-02",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05 +0000 UTC",
 		"2006-01-02T15:04:05Z",
 		"2006-01-02T15:04:05.000Z",
 		"January 2, 2006",

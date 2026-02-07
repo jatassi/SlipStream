@@ -29,12 +29,13 @@ type HealthService interface {
 
 // Service orchestrates metadata lookups across multiple providers.
 type Service struct {
-	tmdb          TMDBClient
-	tvdb          TVDBClient
-	omdb          OMDBClient
-	cache         *Cache
-	logger        zerolog.Logger
-	healthService HealthService
+	tmdb             TMDBClient
+	tvdb             TVDBClient
+	omdb             OMDBClient
+	cache            *Cache
+	logger           zerolog.Logger
+	healthService    HealthService
+	networkLogoStore NetworkLogoStore
 }
 
 // NewService creates a new metadata service with real API clients.
@@ -77,6 +78,11 @@ func (s *Service) SetHealthService(hs HealthService) {
 	s.healthService = hs
 }
 
+// SetNetworkLogoStore sets the store for caching network logo URLs.
+func (s *Service) SetNetworkLogoStore(store NetworkLogoStore) {
+	s.networkLogoStore = store
+}
+
 // RegisterMetadataProviders registers configured metadata providers with the health service.
 func (s *Service) RegisterMetadataProviders() {
 	if s.healthService == nil {
@@ -114,24 +120,27 @@ func tmdbMovieToResult(m tmdb.NormalizedMovieResult) MovieResult {
 		ImdbID:      m.ImdbID,
 		Genres:      m.Genres,
 		Runtime:     m.Runtime,
+		Studio:      m.Studio,
 	}
 }
 
 // tmdbSeriesToResult converts a TMDB series result to metadata.SeriesResult.
 func tmdbSeriesToResult(s tmdb.NormalizedSeriesResult) SeriesResult {
 	return SeriesResult{
-		ID:          s.ID,
-		Title:       s.Title,
-		Year:        s.Year,
-		Overview:    s.Overview,
-		PosterURL:   s.PosterURL,
-		BackdropURL: s.BackdropURL,
-		ImdbID:      s.ImdbID,
-		TvdbID:      s.TvdbID,
-		TmdbID:      s.TmdbID,
-		Genres:      s.Genres,
-		Status:      s.Status,
-		Runtime:     s.Runtime,
+		ID:             s.ID,
+		Title:          s.Title,
+		Year:           s.Year,
+		Overview:       s.Overview,
+		PosterURL:      s.PosterURL,
+		BackdropURL:    s.BackdropURL,
+		ImdbID:         s.ImdbID,
+		TvdbID:         s.TvdbID,
+		TmdbID:         s.TmdbID,
+		Genres:         s.Genres,
+		Status:         s.Status,
+		Runtime:        s.Runtime,
+		Network:        s.Network,
+		NetworkLogoURL: s.NetworkLogoURL,
 	}
 }
 
@@ -150,6 +159,7 @@ func tvdbSeriesToResult(s tvdb.NormalizedSeriesResult) SeriesResult {
 		Genres:      s.Genres,
 		Status:      s.Status,
 		Runtime:     s.Runtime,
+		Network:     s.Network,
 	}
 }
 
@@ -263,6 +273,8 @@ func (s *Service) SearchSeries(ctx context.Context, query string) ([]SeriesResul
 			for i, r := range tvdbResults {
 				results[i] = tvdbSeriesToResult(r)
 			}
+			// Enrich TVDB results with cached network logos
+			s.enrichWithNetworkLogos(ctx, results)
 		}
 	}
 
@@ -323,6 +335,13 @@ func (s *Service) GetSeriesByTMDB(ctx context.Context, tmdbID int) (*SeriesResul
 
 	// Ensure TMDB ID is set
 	result.TmdbID = tmdbID
+
+	// Cache network logo for future TVDB search enrichment
+	if s.networkLogoStore != nil && result.Network != "" && result.NetworkLogoURL != "" {
+		if err := s.networkLogoStore.UpsertNetworkLogo(ctx, result.Network, result.NetworkLogoURL); err != nil {
+			s.logger.Warn().Err(err).Str("network", result.Network).Msg("Failed to cache network logo")
+		}
+	}
 
 	// Cache result
 	s.cache.Set(cacheKey, &result)
@@ -448,6 +467,55 @@ func (s *Service) GetOMDBRatings(ctx context.Context, imdbID string) (*omdb.Norm
 		return nil, ErrNoProvidersConfigured
 	}
 	return s.omdb.GetByIMDbID(ctx, imdbID)
+}
+
+// GetMovieLogoURL fetches the title treatment logo URL for a movie from TMDB.
+func (s *Service) GetMovieLogoURL(ctx context.Context, tmdbID int) (string, error) {
+	if !s.tmdb.IsConfigured() {
+		return "", ErrNoProvidersConfigured
+	}
+	return s.tmdb.GetMovieLogoURL(ctx, tmdbID)
+}
+
+// GetSeriesLogoURL fetches the title treatment logo URL for a series from TMDB.
+func (s *Service) GetSeriesLogoURL(ctx context.Context, tmdbID int) (string, error) {
+	if !s.tmdb.IsConfigured() {
+		return "", ErrNoProvidersConfigured
+	}
+	return s.tmdb.GetSeriesLogoURL(ctx, tmdbID)
+}
+
+// enrichWithNetworkLogos populates NetworkLogoURL from the cache for results that have a network name but no logo.
+func (s *Service) enrichWithNetworkLogos(ctx context.Context, results []SeriesResult) {
+	if s.networkLogoStore == nil {
+		return
+	}
+
+	// Collect unique network names that need logos
+	needsLogo := false
+	for _, r := range results {
+		if r.Network != "" && r.NetworkLogoURL == "" {
+			needsLogo = true
+			break
+		}
+	}
+	if !needsLogo {
+		return
+	}
+
+	logos, err := s.networkLogoStore.GetAllNetworkLogos(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to get cached network logos")
+		return
+	}
+
+	for i := range results {
+		if results[i].Network != "" && results[i].NetworkLogoURL == "" {
+			if logoURL, ok := logos[results[i].Network]; ok {
+				results[i].NetworkLogoURL = logoURL
+			}
+		}
+	}
 }
 
 // tmdbSeasonToResult converts a TMDB season result to metadata.SeasonResult.

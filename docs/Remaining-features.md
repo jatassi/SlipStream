@@ -18,7 +18,7 @@
 [ ] Update dashboard
 [ ] Update history page
 [x] Update active task UI
-[ ] Update movies/series list pages
+[x] Update movies/series list pages
 [ ] Update detail pages
 [ ] Update missing page
 [ ] Support for more download clients and indexers (directly refer to *arr codebases)

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getDefaultVisibleColumns, MOVIE_COLUMNS, SERIES_COLUMNS } from '@/lib/table-columns'
 
 export interface Notification {
   id: string
@@ -28,9 +29,13 @@ interface UIState {
   moviesView: 'grid' | 'table'
   seriesView: 'grid' | 'table'
   posterSize: number // 100-250, represents min-width in pixels
+  movieTableColumns: string[]
+  seriesTableColumns: string[]
   setMoviesView: (view: 'grid' | 'table') => void
   setSeriesView: (view: 'grid' | 'table') => void
   setPosterSize: (size: number) => void
+  setMovieTableColumns: (cols: string[]) => void
+  setSeriesTableColumns: (cols: string[]) => void
 
   // Notifications
   notifications: Notification[]
@@ -73,9 +78,13 @@ export const useUIStore = create<UIState>()(
       moviesView: 'grid',
       seriesView: 'grid',
       posterSize: 150,
+      movieTableColumns: getDefaultVisibleColumns(MOVIE_COLUMNS),
+      seriesTableColumns: getDefaultVisibleColumns(SERIES_COLUMNS),
       setMoviesView: (view) => set({ moviesView: view }),
       setSeriesView: (view) => set({ seriesView: view }),
       setPosterSize: (size) => set({ posterSize: size }),
+      setMovieTableColumns: (cols) => set({ movieTableColumns: cols }),
+      setSeriesTableColumns: (cols) => set({ seriesTableColumns: cols }),
 
       // Notifications
       notifications: [],
@@ -101,6 +110,8 @@ export const useUIStore = create<UIState>()(
         moviesView: state.moviesView,
         seriesView: state.seriesView,
         posterSize: state.posterSize,
+        movieTableColumns: state.movieTableColumns,
+        seriesTableColumns: state.seriesTableColumns,
       }),
     }
   )

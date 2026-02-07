@@ -18,6 +18,7 @@ interface BackendMovieResult {
   imdbId?: string
   genres?: string[]
   runtime?: number
+  studio?: string
 }
 
 interface BackendSeriesResult {
@@ -33,6 +34,8 @@ interface BackendSeriesResult {
   genres?: string[]
   status?: string
   runtime?: number
+  network?: string
+  networkLogoUrl?: string
 }
 
 // Transform backend movie result to frontend format

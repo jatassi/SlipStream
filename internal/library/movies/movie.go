@@ -27,6 +27,9 @@ type Movie struct {
 	ReleaseDate            *time.Time `json:"releaseDate,omitempty"`
 	PhysicalReleaseDate    *time.Time `json:"physicalReleaseDate,omitempty"`
 	TheatricalReleaseDate  *time.Time `json:"theatricalReleaseDate,omitempty"`
+
+	Studio string `json:"studio,omitempty"`
+	TvdbID int    `json:"tvdbId,omitempty"`
 }
 
 // MovieFile represents a movie file on disk.
@@ -55,6 +58,9 @@ type CreateMovieInput struct {
 	RootFolderID     int64  `json:"rootFolderId"`
 	QualityProfileID int64  `json:"qualityProfileId"`
 	Monitored        bool   `json:"monitored"`
+
+	Studio string `json:"studio,omitempty"`
+	TvdbID int    `json:"tvdbId,omitempty"`
 
 	// Release dates (YYYY-MM-DD strings)
 	ReleaseDate           string `json:"releaseDate,omitempty"`           // Digital/streaming release date

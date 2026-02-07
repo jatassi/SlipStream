@@ -106,6 +106,7 @@ type Server struct {
 	rootFolderService     *rootfolder.Service
 	metadataService       *metadata.Service
 	artworkDownloader     *metadata.ArtworkDownloader
+	networkLogoStore      *metadata.SQLNetworkLogoStore
 	filesystemService     *filesystem.Service
 	storageService        *filesystem.StorageService
 	libraryManagerService *librarymanager.Service
@@ -325,6 +326,8 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize metadata service and artwork downloader
 	s.metadataService = metadata.NewService(cfg.Metadata, logger)
 	s.metadataService.SetHealthService(s.healthService)
+	s.networkLogoStore = metadata.NewSQLNetworkLogoStore(db)
+	s.metadataService.SetNetworkLogoStore(s.networkLogoStore)
 	// Derive artwork directory from database path (uses same data directory)
 	dataDir := filepath.Dir(cfg.Database.Path)
 	artworkCfg := metadata.ArtworkConfig{
@@ -2392,6 +2395,7 @@ func (s *Server) updateServicesDB() {
 	s.defaultsService.SetDB(db)
 	s.preferencesService.SetDB(db)
 	s.calendarService.SetDB(db)
+	s.networkLogoStore.SetDB(db)
 	s.availabilityService.SetDB(db)
 	s.missingService.SetDB(db)
 	s.statusService.SetDB(db)
@@ -3038,6 +3042,8 @@ func (s *Server) populateMockSeries(ctx context.Context, rootFolderID, qualityPr
 			ImdbID:           seriesMeta.ImdbID,
 			Overview:         seriesMeta.Overview,
 			Runtime:          seriesMeta.Runtime,
+			Network:          seriesMeta.Network,
+			NetworkLogoURL:   seriesMeta.NetworkLogoURL,
 			RootFolderID:     rootFolderID,
 			QualityProfileID: qualityProfileID,
 			Path:             path,

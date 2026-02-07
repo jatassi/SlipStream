@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, Filter, ArrowUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -18,19 +18,44 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { SeriesGrid } from '@/components/series/SeriesGrid'
+import { GroupedSeriesGrid } from '@/components/series/GroupedSeriesGrid'
+import { SeriesTable } from '@/components/series/SeriesTable'
+import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles } from '@/hooks'
+import { groupMedia } from '@/lib/grouping'
+import { SERIES_COLUMNS, createSeriesActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
+import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles, useRootFolders } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
 
 type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
+type SortField = 'title' | 'monitored' | 'qualityProfile' | 'nextAirDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
+
+const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'monitored', label: 'Monitored' },
+  { value: 'continuing', label: 'Continuing' },
+  { value: 'ended', label: 'Ended' },
+]
+
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'title', label: 'Title' },
+  { value: 'monitored', label: 'Monitored' },
+  { value: 'qualityProfile', label: 'Quality Profile' },
+  { value: 'nextAirDate', label: 'Next Air Date' },
+  { value: 'dateAdded', label: 'Date Added' },
+  { value: 'rootFolder', label: 'Root Folder' },
+  { value: 'sizeOnDisk', label: 'Size on Disk' },
+]
 
 export function SeriesListPage() {
-  const { seriesView, setSeriesView, posterSize, setPosterSize } = useUIStore()
+  const { seriesView, setSeriesView, posterSize, setPosterSize, seriesTableColumns, setSeriesTableColumns } = useUIStore()
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [sortField, setSortField] = useState<SortField>('title')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [editMode, setEditMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -38,6 +63,7 @@ export function SeriesListPage() {
 
   const { data: seriesList, isLoading, isError, refetch } = useSeries()
   const { data: qualityProfiles } = useQualityProfiles()
+  const { data: rootFolders } = useRootFolders()
   const bulkDeleteMutation = useBulkDeleteSeries()
   const bulkUpdateMutation = useBulkUpdateSeries()
   const refreshAllMutation = useRefreshAllSeries()
@@ -51,6 +77,20 @@ export function SeriesListPage() {
     }
   }
 
+  const handleColumnSort = (field: string) => {
+    if (field === sortField) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field as SortField)
+      setSortDirection(DEFAULT_SORT_DIRECTIONS[field] || 'asc')
+    }
+  }
+
+  const profileNameMap = new Map(qualityProfiles?.map((p) => [p.id, p.name]) || [])
+  const rootFolderNameMap = new Map(rootFolders?.map((f) => [f.id, f.name]) || [])
+
+  const renderContext = { qualityProfileNames: profileNameMap, rootFolderNames: rootFolderNameMap }
+
   // Filter series by status
   const filteredSeries = (seriesList || []).filter((s: Series) => {
     if (statusFilter === 'monitored' && !s.monitored) return false
@@ -58,6 +98,53 @@ export function SeriesListPage() {
     if (statusFilter === 'ended' && s.productionStatus !== 'ended') return false
     return true
   })
+
+  // Sort series
+  const defaultDir = DEFAULT_SORT_DIRECTIONS[sortField] || 'asc'
+  const dirMultiplier = sortDirection === defaultDir ? 1 : -1
+  const sortedSeries = [...filteredSeries].sort((a, b) => {
+    let result: number
+    switch (sortField) {
+      case 'monitored':
+        result = (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      case 'qualityProfile': {
+        const nameA = profileNameMap.get(a.qualityProfileId) || ''
+        const nameB = profileNameMap.get(b.qualityProfileId) || ''
+        result = nameA.localeCompare(nameB) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      }
+      case 'nextAirDate': {
+        if (!a.nextAiring && !b.nextAiring) { result = a.sortTitle.localeCompare(b.sortTitle); break }
+        if (!a.nextAiring) { result = 1; break }
+        if (!b.nextAiring) { result = -1; break }
+        result = new Date(a.nextAiring).getTime() - new Date(b.nextAiring).getTime()
+        break
+      }
+      case 'dateAdded':
+        result = new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        break
+      case 'rootFolder':
+        result = (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      case 'sizeOnDisk':
+        result = (b.sizeOnDisk || 0) - (a.sizeOnDisk || 0)
+        break
+      default:
+        result = a.sortTitle.localeCompare(b.sortTitle)
+    }
+    return result * dirMultiplier
+  })
+
+  const groups = groupMedia(sortedSeries, sortField, {
+    qualityProfileNames: profileNameMap,
+    rootFolderNames: rootFolderNameMap,
+  })
+
+  const allColumns = useMemo(
+    () => [...SERIES_COLUMNS, createSeriesActionsColumn({})],
+    [],
+  )
 
   const handleToggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -170,12 +257,14 @@ export function SeriesListPage() {
                 Edit
               </Button>
             )}
-            <Link to="/series/add">
-              <Button disabled={editMode} className="bg-tv-500 hover:bg-tv-400 border-tv-500">
-                <Plus className="size-4 mr-1" />
-                Add Series
-              </Button>
-            </Link>
+            <Button
+              disabled={editMode}
+              className="bg-tv-500 hover:bg-tv-400 border-tv-500"
+              onClick={() => document.getElementById('global-search')?.focus()}
+            >
+              <Plus className="size-4 mr-1" />
+              Add Series
+            </Button>
           </div>
         }
       />
@@ -240,20 +329,35 @@ export function SeriesListPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-6">
+      {/* Filters & Sort */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         <Select
           value={statusFilter}
           onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
         >
-          <SelectTrigger className="w-36">
-            {{ all: 'All', monitored: 'Monitored', continuing: 'Continuing', ended: 'Ended' }[statusFilter]}
+          <SelectTrigger className="gap-1.5">
+            <Filter className={cn('size-4 shrink-0', statusFilter !== 'all' ? 'text-tv-400' : 'text-muted-foreground')} />
+            <span className="hidden sm:inline">{FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label}</span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="monitored">Monitored</SelectItem>
-            <SelectItem value="continuing">Continuing</SelectItem>
-            <SelectItem value="ended">Ended</SelectItem>
+            {FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={sortField}
+          onValueChange={(v) => v && setSortField(v as SortField)}
+        >
+          <SelectTrigger className="gap-1.5">
+            <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-tv-400' : 'text-muted-foreground')} />
+            <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sortField)?.label}</span>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -271,6 +375,14 @@ export function SeriesListPage() {
               />
             </div>
           )}
+          {seriesView === 'table' && (
+            <ColumnConfigPopover
+              columns={SERIES_COLUMNS}
+              visibleColumnIds={seriesTableColumns}
+              onVisibleColumnsChange={setSeriesTableColumns}
+              theme="tv"
+            />
+          )}
           <ToggleGroup
             value={[seriesView]}
             onValueChange={(v) => v.length > 0 && setSeriesView(v[0] as 'grid' | 'table')}
@@ -286,7 +398,7 @@ export function SeriesListPage() {
       </div>
 
       {/* Content */}
-      {filteredSeries.length === 0 ? (
+      {sortedSeries.length === 0 ? (
         <EmptyState
           icon={<Tv className="size-8 text-tv-500" />}
           title="No series found"
@@ -301,9 +413,30 @@ export function SeriesListPage() {
               : undefined
           }
         />
+      ) : seriesView === 'table' ? (
+        <SeriesTable
+          series={sortedSeries}
+          columns={allColumns}
+          visibleColumnIds={seriesTableColumns}
+          renderContext={renderContext}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleColumnSort}
+          editMode={editMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
+      ) : groups ? (
+        <GroupedSeriesGrid
+          groups={groups}
+          posterSize={posterSize}
+          editMode={editMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
       ) : (
         <SeriesGrid
-          series={filteredSeries}
+          series={sortedSeries}
           posterSize={posterSize}
           editMode={editMode}
           selectedIds={selectedIds}

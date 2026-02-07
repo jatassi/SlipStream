@@ -390,9 +390,10 @@ func (q *Queries) CreateSeason(ctx context.Context, arg CreateSeasonParams) (*Se
 const createSeries = `-- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at
+    path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type,
+    network_logo_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
 `
 
 type CreateSeriesParams struct {
@@ -412,6 +413,7 @@ type CreateSeriesParams struct {
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
+	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
 }
 
 func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Series, error) {
@@ -432,6 +434,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Se
 		arg.ProductionStatus,
 		arg.Network,
 		arg.FormatType,
+		arg.NetworkLogoUrl,
 	)
 	var i Series
 	err := row.Scan(
@@ -454,6 +457,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Se
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
@@ -775,7 +779,10 @@ SELECT
     COALESCE(SUM(CASE WHEN e.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
     COALESCE(SUM(CASE WHEN e.status = 'upgradable' THEN 1 ELSE 0 END), 0) as upgradable,
     COALESCE(SUM(CASE WHEN e.status = 'available' THEN 1 ELSE 0 END), 0) as available,
-    COUNT(*) as total
+    COUNT(*) as total,
+    MIN(e.air_date) as first_aired,
+    MAX(CASE WHEN substr(e.air_date, 1, 10) <= date('now') THEN e.air_date END) as last_aired,
+    MIN(CASE WHEN substr(e.air_date, 1, 10) > date('now') THEN e.air_date END) as next_airing
 FROM episodes e
 WHERE e.series_id = ? AND e.season_number > 0
 `
@@ -788,6 +795,9 @@ type GetEpisodeStatusCountsBySeriesRow struct {
 	Upgradable  interface{} `json:"upgradable"`
 	Available   interface{} `json:"available"`
 	Total       int64       `json:"total"`
+	FirstAired  interface{} `json:"first_aired"`
+	LastAired   interface{} `json:"last_aired"`
+	NextAiring  interface{} `json:"next_airing"`
 }
 
 // StatusCounts computation
@@ -802,6 +812,9 @@ func (q *Queries) GetEpisodeStatusCountsBySeries(ctx context.Context, seriesID i
 		&i.Upgradable,
 		&i.Available,
 		&i.Total,
+		&i.FirstAired,
+		&i.LastAired,
+		&i.NextAiring,
 	)
 	return &i, err
 }
@@ -1068,7 +1081,7 @@ func (q *Queries) GetSeasonsBySeriesID(ctx context.Context, seriesID int64) ([]*
 }
 
 const getSeries = `-- name: GetSeries :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeries(ctx context.Context, id int64) (*Series, error) {
@@ -1094,12 +1107,13 @@ func (q *Queries) GetSeries(ctx context.Context, id int64) (*Series, error) {
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
 
 const getSeriesByPath = `-- name: GetSeriesByPath :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE path = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByPath(ctx context.Context, path sql.NullString) (*Series, error) {
@@ -1125,12 +1139,13 @@ func (q *Queries) GetSeriesByPath(ctx context.Context, path sql.NullString) (*Se
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
 
 const getSeriesByTmdbID = `-- name: GetSeriesByTmdbID :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE tmdb_id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE tmdb_id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (*Series, error) {
@@ -1156,12 +1171,13 @@ func (q *Queries) GetSeriesByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
 
 const getSeriesByTvdbID = `-- name: GetSeriesByTvdbID :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE tvdb_id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE tvdb_id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByTvdbID(ctx context.Context, tvdbID sql.NullInt64) (*Series, error) {
@@ -1187,6 +1203,7 @@ func (q *Queries) GetSeriesByTvdbID(ctx context.Context, tvdbID sql.NullInt64) (
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
@@ -1833,7 +1850,7 @@ func (q *Queries) ListMissingEpisodes(ctx context.Context) ([]*ListMissingEpisod
 }
 
 const listMonitoredSeries = `-- name: ListMonitoredSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE monitored = 1 ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE monitored = 1 ORDER BY sort_title
 `
 
 func (q *Queries) ListMonitoredSeries(ctx context.Context) ([]*Series, error) {
@@ -1865,6 +1882,7 @@ func (q *Queries) ListMonitoredSeries(ctx context.Context) ([]*Series, error) {
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -1914,7 +1932,7 @@ func (q *Queries) ListSeasonsBySeries(ctx context.Context, seriesID int64) ([]*S
 }
 
 const listSeries = `-- name: ListSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series ORDER BY sort_title
 `
 
 func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
@@ -1946,6 +1964,7 @@ func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -1961,7 +1980,7 @@ func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
 }
 
 const listSeriesByRootFolder = `-- name: ListSeriesByRootFolder :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series WHERE root_folder_id = ? ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE root_folder_id = ? ORDER BY sort_title
 `
 
 func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) ([]*Series, error) {
@@ -1993,6 +2012,7 @@ func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.N
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -2008,7 +2028,7 @@ func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.N
 }
 
 const listSeriesPaginated = `-- name: ListSeriesPaginated :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
 ORDER BY sort_title
 LIMIT ? OFFSET ?
 `
@@ -2047,6 +2067,7 @@ func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginat
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -2062,7 +2083,7 @@ func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginat
 }
 
 const listSeriesWithMissingEpisodes = `-- name: ListSeriesWithMissingEpisodes :many
-SELECT DISTINCT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.production_status, s.network, s.format_type, s.added_at, s.updated_at FROM series s
+SELECT DISTINCT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.production_status, s.network, s.format_type, s.added_at, s.updated_at, s.network_logo_url FROM series s
 JOIN episodes e ON s.id = e.series_id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 WHERE e.status IN ('missing', 'failed')
@@ -2101,6 +2122,7 @@ func (q *Queries) ListSeriesWithMissingEpisodes(ctx context.Context) ([]*Series,
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -2116,7 +2138,7 @@ func (q *Queries) ListSeriesWithMissingEpisodes(ctx context.Context) ([]*Series,
 }
 
 const listUnmatchedSeriesByRootFolder = `-- name: ListUnmatchedSeriesByRootFolder :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
 WHERE root_folder_id = ?
   AND (tvdb_id IS NULL OR tvdb_id = 0)
   AND (tmdb_id IS NULL OR tmdb_id = 0)
@@ -2152,6 +2174,7 @@ func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolde
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -2167,7 +2190,7 @@ func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolde
 }
 
 const searchSeries = `-- name: SearchSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
 WHERE title LIKE ? OR sort_title LIKE ?
 ORDER BY sort_title
 LIMIT ? OFFSET ?
@@ -2214,6 +2237,7 @@ func (q *Queries) SearchSeries(ctx context.Context, arg SearchSeriesParams) ([]*
 			&i.FormatType,
 			&i.AddedAt,
 			&i.UpdatedAt,
+			&i.NetworkLogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -2685,9 +2709,10 @@ UPDATE series SET
     production_status = ?,
     network = ?,
     format_type = ?,
+    network_logo_url = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at
+RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
 `
 
 type UpdateSeriesParams struct {
@@ -2707,6 +2732,7 @@ type UpdateSeriesParams struct {
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
+	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
 	ID               int64          `json:"id"`
 }
 
@@ -2728,6 +2754,7 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (*Se
 		arg.ProductionStatus,
 		arg.Network,
 		arg.FormatType,
+		arg.NetworkLogoUrl,
 		arg.ID,
 	)
 	var i Series
@@ -2751,12 +2778,13 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (*Se
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }
 
 const updateSeriesFormatType = `-- name: UpdateSeriesFormatType :one
-UPDATE series SET format_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at
+UPDATE series SET format_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
 `
 
 type UpdateSeriesFormatTypeParams struct {
@@ -2788,6 +2816,7 @@ func (q *Queries) UpdateSeriesFormatType(ctx context.Context, arg UpdateSeriesFo
 		&i.FormatType,
 		&i.AddedAt,
 		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
 	)
 	return &i, err
 }

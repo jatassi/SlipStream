@@ -10,11 +10,11 @@ import {
 } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ColumnDef, ColumnRenderContext } from '@/lib/table-columns'
-import type { Movie } from '@/types'
+import type { Series } from '@/types'
 
-interface MovieTableProps {
-  movies: Movie[]
-  columns: ColumnDef<Movie>[]
+interface SeriesTableProps {
+  series: Series[]
+  columns: ColumnDef<Series>[]
   visibleColumnIds: string[]
   renderContext: ColumnRenderContext
   sortField?: string
@@ -25,8 +25,8 @@ interface MovieTableProps {
   onToggleSelect?: (id: number) => void
 }
 
-export function MovieTable({
-  movies,
+export function SeriesTable({
+  series,
   columns,
   visibleColumnIds,
   renderContext,
@@ -36,7 +36,7 @@ export function MovieTable({
   editMode,
   selectedIds,
   onToggleSelect,
-}: MovieTableProps) {
+}: SeriesTableProps) {
   const visibleColumns = columns.filter(
     (col) => !col.hideable || visibleColumnIds.includes(col.id),
   )
@@ -70,22 +70,22 @@ export function MovieTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {movies.map((movie) => {
-            const selected = selectedIds?.has(movie.id)
+          {series.map((s) => {
+            const selected = selectedIds?.has(s.id)
             return (
               <TableRow
-                key={movie.id}
+                key={s.id}
                 data-state={selected ? 'selected' : undefined}
                 className={cn(editMode && 'cursor-pointer')}
-                onClick={editMode && onToggleSelect ? () => onToggleSelect(movie.id) : undefined}
+                onClick={editMode && onToggleSelect ? () => onToggleSelect(s.id) : undefined}
               >
                 {editMode && (
                   <TableCell>
                     <Checkbox
                       checked={selected}
-                      onCheckedChange={() => onToggleSelect?.(movie.id)}
+                      onCheckedChange={() => onToggleSelect?.(s.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="data-checked:bg-movie-500 data-checked:border-movie-500"
+                      className="data-checked:bg-tv-500 data-checked:border-tv-500"
                     />
                   </TableCell>
                 )}
@@ -95,7 +95,7 @@ export function MovieTable({
                     className={col.cellClassName}
                     style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                   >
-                    {col.render(movie, renderContext)}
+                    {col.render(s, renderContext)}
                   </TableCell>
                 ))}
               </TableRow>

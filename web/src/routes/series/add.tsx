@@ -55,6 +55,7 @@ export function AddSeriesPage() {
       genres: seriesMetadata.genres,
       status: seriesMetadata.status,
       network: seriesMetadata.network,
+      networkLogoUrl: seriesMetadata.networkLogoUrl,
     })
     setStep('configure')
   }
@@ -128,6 +129,8 @@ export function AddSeriesPage() {
       imdbId: selectedSeries.imdbId,
       overview: selectedSeries.overview,
       runtime: selectedSeries.runtime,
+      network: selectedSeries.network,
+      networkLogoUrl: selectedSeries.networkLogoUrl,
       rootFolderId: parseInt(rootFolderId),
       qualityProfileId: parseInt(qualityProfileId),
       monitored: monitorOnAdd !== 'none',

@@ -26,6 +26,7 @@ type ArtworkType string
 const (
 	ArtworkTypePoster   ArtworkType = "poster"
 	ArtworkTypeBackdrop ArtworkType = "backdrop"
+	ArtworkTypeLogo     ArtworkType = "logo"
 )
 
 // MediaType represents the type of media.
@@ -200,6 +201,17 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 		}
 	}
 
+	// Download logo if URL provided
+	if movie.LogoURL != "" {
+		path, err := d.Download(ctx, movie.LogoURL, MediaTypeMovie, movie.ID, ArtworkTypeLogo)
+		if err != nil {
+			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie logo")
+		} else {
+			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie logo")
+			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeLogo)
+		}
+	}
+
 	return nil
 }
 
@@ -243,13 +255,24 @@ func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *S
 		}
 	}
 
+	// Download logo if URL provided
+	if series.LogoURL != "" {
+		path, err := d.Download(ctx, series.LogoURL, MediaTypeSeries, artworkID, ArtworkTypeLogo)
+		if err != nil {
+			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series logo")
+		} else {
+			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series logo")
+			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeLogo)
+		}
+	}
+
 	return nil
 }
 
 // GetArtworkPath returns the local path for artwork if it exists.
 func (d *ArtworkDownloader) GetArtworkPath(mediaType MediaType, mediaID int, artworkType ArtworkType) string {
 	// Try common extensions
-	extensions := []string{".jpg", ".jpeg", ".png", ".webp"}
+	extensions := []string{".jpg", ".jpeg", ".png", ".webp", ".svg"}
 
 	for _, ext := range extensions {
 		filename := fmt.Sprintf("%d_%s%s", mediaID, artworkType, ext)
@@ -309,7 +332,7 @@ func (d *ArtworkDownloader) getExtension(url string) string {
 		ext := strings.ToLower(filename[dot:])
 		// Validate it's a known image extension
 		switch ext {
-		case ".jpg", ".jpeg", ".png", ".webp", ".gif":
+		case ".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg":
 			return ext
 		}
 	}

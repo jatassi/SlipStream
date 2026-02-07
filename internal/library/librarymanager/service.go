@@ -1439,6 +1439,13 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 
 	bestMatch := &results[0]
 
+	// If we have a TMDB ID, fetch detail for richer metadata (network + logo)
+	if bestMatch.TmdbID > 0 {
+		if detail, err := s.metadata.GetSeriesByTMDB(ctx, bestMatch.TmdbID); err == nil {
+			bestMatch = detail
+		}
+	}
+
 	// Update series with metadata
 	title := bestMatch.Title
 	year := bestMatch.Year
@@ -1448,16 +1455,20 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
 	status := bestMatch.Status
+	network := bestMatch.Network
+	networkLogoURL := bestMatch.NetworkLogoURL
 
 	_, err = s.tv.UpdateSeries(ctx, series.ID, tv.UpdateSeriesInput{
-		Title:    &title,
-		Year:     &year,
-		TvdbID:   &tvdbID,
-		TmdbID:   &tmdbID,
-		ImdbID:   &imdbID,
-		Overview: &overview,
-		Runtime:  &runtime,
+		Title:            &title,
+		Year:             &year,
+		TvdbID:           &tvdbID,
+		TmdbID:           &tmdbID,
+		ImdbID:           &imdbID,
+		Overview:         &overview,
+		Runtime:          &runtime,
 		ProductionStatus: &status,
+		Network:          &network,
+		NetworkLogoURL:   &networkLogoURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
@@ -1992,7 +2003,8 @@ type AddMovieInput struct {
 	ReleaseDate           string `json:"releaseDate,omitempty"`           // Digital/streaming release date
 	PhysicalReleaseDate   string `json:"physicalReleaseDate,omitempty"`   // Bluray release date
 	TheatricalReleaseDate string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
-	SearchOnAdd           *bool  `json:"searchOnAdd,omitempty"`           // Trigger autosearch after add
+	Studio                string `json:"studio,omitempty"`
+	SearchOnAdd           *bool  `json:"searchOnAdd,omitempty"` // Trigger autosearch after add
 }
 
 // AddMovie creates a new movie and downloads artwork in the background.
@@ -2034,6 +2046,7 @@ func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Mo
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
+		Studio:                input.Studio,
 	})
 	if err != nil {
 		return nil, err
@@ -2094,6 +2107,8 @@ type AddSeriesInput struct {
 	Monitored        bool             `json:"monitored"`
 	SeasonFolder     bool             `json:"seasonFolder"`
 	Seasons          []tv.SeasonInput `json:"seasons,omitempty"`
+	Network          string           `json:"network,omitempty"`
+	NetworkLogoURL   string           `json:"networkLogoUrl,omitempty"`
 	PosterURL        string           `json:"posterUrl,omitempty"`
 	BackdropURL      string           `json:"backdropUrl,omitempty"`
 
@@ -2297,6 +2312,8 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		Overview:         input.Overview,
 		Runtime:          input.Runtime,
 		ProductionStatus: input.ProductionStatus,
+		Network:          input.Network,
+		NetworkLogoURL:   input.NetworkLogoURL,
 		Path:             input.Path,
 		RootFolderID:     input.RootFolderID,
 		QualityProfileID: input.QualityProfileID,

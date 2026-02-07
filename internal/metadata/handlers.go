@@ -145,6 +145,11 @@ func (h *Handlers) DownloadMovieArtwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Fetch logo URL from TMDB images endpoint
+	if logoURL, err := h.service.GetMovieLogoURL(c.Request().Context(), id); err == nil && logoURL != "" {
+		movie.LogoURL = logoURL
+	}
+
 	// Download artwork
 	if err := h.artwork.DownloadMovieArtwork(c.Request().Context(), movie); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -154,6 +159,7 @@ func (h *Handlers) DownloadMovieArtwork(c echo.Context) error {
 	response := map[string]string{
 		"poster":   h.artwork.GetArtworkPath(MediaTypeMovie, id, ArtworkTypePoster),
 		"backdrop": h.artwork.GetArtworkPath(MediaTypeMovie, id, ArtworkTypeBackdrop),
+		"logo":     h.artwork.GetArtworkPath(MediaTypeMovie, id, ArtworkTypeLogo),
 	}
 
 	return c.JSON(http.StatusOK, response)
@@ -309,6 +315,15 @@ func (h *Handlers) DownloadSeriesArtwork(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	// Fetch logo URL from TMDB images endpoint
+	tmdbID := series.TmdbID
+	if tmdbID == 0 {
+		tmdbID = series.ID
+	}
+	if logoURL, err := h.service.GetSeriesLogoURL(c.Request().Context(), tmdbID); err == nil && logoURL != "" {
+		series.LogoURL = logoURL
+	}
+
 	// Download artwork
 	if err := h.artwork.DownloadSeriesArtwork(c.Request().Context(), series); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -318,6 +333,7 @@ func (h *Handlers) DownloadSeriesArtwork(c echo.Context) error {
 	response := map[string]string{
 		"poster":   h.artwork.GetArtworkPath(MediaTypeSeries, id, ArtworkTypePoster),
 		"backdrop": h.artwork.GetArtworkPath(MediaTypeSeries, id, ArtworkTypeBackdrop),
+		"logo":     h.artwork.GetArtworkPath(MediaTypeSeries, id, ArtworkTypeLogo),
 	}
 
 	return c.JSON(http.StatusOK, response)
@@ -391,8 +407,10 @@ func (h *Handlers) GetArtwork(c echo.Context) error {
 		artworkType = ArtworkTypePoster
 	case "backdrop":
 		artworkType = ArtworkTypeBackdrop
+	case "logo":
+		artworkType = ArtworkTypeLogo
 	default:
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid artwork type, must be 'poster' or 'backdrop'")
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid artwork type, must be 'poster', 'backdrop', or 'logo'")
 	}
 
 	// Get artwork path

@@ -31,12 +31,16 @@ type Series struct {
 	SeasonFolder     bool         `json:"seasonFolder"`
 	ProductionStatus string       `json:"productionStatus"`
 	Network          string       `json:"network,omitempty"`
+	NetworkLogoURL   string       `json:"networkLogoUrl,omitempty"`
 	AddedAt          time.Time    `json:"addedAt"`
 	UpdatedAt        time.Time    `json:"updatedAt,omitempty"`
 	SizeOnDisk       int64        `json:"sizeOnDisk,omitempty"`
 	Seasons          []Season     `json:"seasons,omitempty"`
 	StatusCounts     StatusCounts `json:"statusCounts"`
 	FormatType       string       `json:"formatType,omitempty"`
+	FirstAired       *time.Time   `json:"firstAired,omitempty"`
+	LastAired        *time.Time   `json:"lastAired,omitempty"`
+	NextAiring       *time.Time   `json:"nextAiring,omitempty"`
 }
 
 // Season represents a season of a TV series.
@@ -96,6 +100,7 @@ type CreateSeriesInput struct {
 	Monitored        bool          `json:"monitored"`
 	SeasonFolder     bool          `json:"seasonFolder"`
 	Network          string        `json:"network,omitempty"`
+	NetworkLogoURL   string        `json:"networkLogoUrl,omitempty"`
 	FormatType       string        `json:"formatType,omitempty"`
 	ProductionStatus string        `json:"productionStatus,omitempty"`
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
@@ -133,6 +138,8 @@ type UpdateSeriesInput struct {
 	SeasonFolder     *bool   `json:"seasonFolder,omitempty"`
 	ProductionStatus *string `json:"productionStatus,omitempty"`
 	FormatType       *string `json:"formatType,omitempty"`
+	Network          *string `json:"network,omitempty"`
+	NetworkLogoURL   *string `json:"networkLogoUrl,omitempty"`
 }
 
 // UpdateEpisodeInput contains fields for updating an episode.

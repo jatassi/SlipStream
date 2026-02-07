@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Plus, Library, Clock, Check, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -77,13 +78,20 @@ export function ExternalSeriesCard({ series, inLibrary, requestInfo, className }
           )}
         </div>
 
+        {/* Network logo */}
+        <NetworkLogo
+          logoUrl={series.networkLogoUrl}
+          network={series.network}
+          className="absolute top-2 right-2"
+        />
+
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
           <h3 className="font-semibold text-white line-clamp-3">{series.title}</h3>
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <span>{series.year || 'Unknown year'}</span>
-            {series.network && (
+            {series.network && !series.networkLogoUrl && (
               <Badge variant="secondary" className="text-xs">
                 {series.network}
               </Badge>

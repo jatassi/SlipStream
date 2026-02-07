@@ -157,23 +157,25 @@ type NormalizedMovieResult struct {
 	ReleaseDate         string   `json:"releaseDate,omitempty"`
 	DigitalReleaseDate  string   `json:"digitalReleaseDate,omitempty"`
 	PhysicalReleaseDate string   `json:"physicalReleaseDate,omitempty"`
+	Studio              string   `json:"studio,omitempty"`
 }
 
 // NormalizedSeriesResult is the normalized series result returned by the client.
 type NormalizedSeriesResult struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Year        int      `json:"year"`
-	Overview    string   `json:"overview"`
-	PosterURL   string   `json:"posterUrl,omitempty"`
-	BackdropURL string   `json:"backdropUrl,omitempty"`
-	ImdbID      string   `json:"imdbId,omitempty"`
-	TvdbID      int      `json:"tvdbId,omitempty"`
-	TmdbID      int      `json:"tmdbId,omitempty"`
-	Genres      []string `json:"genres,omitempty"`
-	Status      string   `json:"status,omitempty"`
-	Runtime     int      `json:"runtime,omitempty"`
-	Network     string   `json:"network,omitempty"`
+	ID             int      `json:"id"`
+	Title          string   `json:"title"`
+	Year           int      `json:"year"`
+	Overview       string   `json:"overview"`
+	PosterURL      string   `json:"posterUrl,omitempty"`
+	BackdropURL    string   `json:"backdropUrl,omitempty"`
+	ImdbID         string   `json:"imdbId,omitempty"`
+	TvdbID         int      `json:"tvdbId,omitempty"`
+	TmdbID         int      `json:"tmdbId,omitempty"`
+	Genres         []string `json:"genres,omitempty"`
+	Status         string   `json:"status,omitempty"`
+	Runtime        int      `json:"runtime,omitempty"`
+	Network        string   `json:"network,omitempty"`
+	NetworkLogoURL string   `json:"networkLogoUrl,omitempty"`
 }
 
 // SeasonDetails is the detailed season info from TMDB /tv/{id}/season/{number} endpoint.
@@ -315,4 +317,18 @@ type TVCreator struct {
 type ProductionCompany struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+}
+
+// ImagesResponse is the response from TMDB /movie/{id}/images or /tv/{id}/images.
+type ImagesResponse struct {
+	Logos []ImageResult `json:"logos"`
+}
+
+// ImageResult represents a single image from TMDB images endpoint.
+type ImageResult struct {
+	FilePath    string  `json:"file_path"`
+	Width       int     `json:"width"`
+	Height      int     `json:"height"`
+	VoteAverage float64 `json:"vote_average"`
+	ISO639_1    string  `json:"iso_639_1"`
 }

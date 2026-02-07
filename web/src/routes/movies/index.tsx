@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { Plus, Grid, List, Film, RefreshCw, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Grid, List, Film, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, Filter, ArrowUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -18,20 +18,44 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { MovieGrid } from '@/components/movies/MovieGrid'
+import { GroupedMovieGrid } from '@/components/movies/GroupedMovieGrid'
 import { MovieTable } from '@/components/movies/MovieTable'
+import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import { LoadingState } from '@/components/data/LoadingState'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles } from '@/hooks'
+import { groupMedia } from '@/lib/grouping'
+import { MOVIE_COLUMNS, createMovieActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
+import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles, useRootFolders } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Movie } from '@/types'
 
 type FilterStatus = 'all' | 'monitored' | 'missing' | 'available'
+type SortField = 'title' | 'monitored' | 'qualityProfile' | 'releaseDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
+
+const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'monitored', label: 'Monitored' },
+  { value: 'missing', label: 'Missing' },
+  { value: 'available', label: 'Available' },
+]
+
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'title', label: 'Title' },
+  { value: 'monitored', label: 'Monitored' },
+  { value: 'qualityProfile', label: 'Quality Profile' },
+  { value: 'releaseDate', label: 'Release Date' },
+  { value: 'dateAdded', label: 'Date Added' },
+  { value: 'rootFolder', label: 'Root Folder' },
+  { value: 'sizeOnDisk', label: 'Size on Disk' },
+]
 
 export function MoviesPage() {
-  const { moviesView, setMoviesView, posterSize, setPosterSize } = useUIStore()
+  const { moviesView, setMoviesView, posterSize, setPosterSize, movieTableColumns, setMovieTableColumns } = useUIStore()
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [sortField, setSortField] = useState<SortField>('title')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [editMode, setEditMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -39,6 +63,7 @@ export function MoviesPage() {
 
   const { data: movies, isLoading, isError, refetch } = useMovies()
   const { data: qualityProfiles } = useQualityProfiles()
+  const { data: rootFolders } = useRootFolders()
   const searchMutation = useSearchMovie()
   const deleteMutation = useDeleteMovie()
   const bulkDeleteMutation = useBulkDeleteMovies()
@@ -54,6 +79,20 @@ export function MoviesPage() {
     }
   }
 
+  const handleColumnSort = (field: string) => {
+    if (field === sortField) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field as SortField)
+      setSortDirection(DEFAULT_SORT_DIRECTIONS[field] || 'asc')
+    }
+  }
+
+  const profileNameMap = new Map(qualityProfiles?.map((p) => [p.id, p.name]) || [])
+  const rootFolderNameMap = new Map(rootFolders?.map((f) => [f.id, f.name]) || [])
+
+  const renderContext = { qualityProfileNames: profileNameMap, rootFolderNames: rootFolderNameMap }
+
   // Filter movies by status
   const filteredMovies = (movies || []).filter((movie: Movie) => {
     if (statusFilter === 'monitored' && !movie.monitored) return false
@@ -61,6 +100,57 @@ export function MoviesPage() {
     if (statusFilter === 'available' && movie.status !== 'available') return false
     return true
   })
+
+  // Sort movies
+  const defaultDir = DEFAULT_SORT_DIRECTIONS[sortField] || 'asc'
+  const dirMultiplier = sortDirection === defaultDir ? 1 : -1
+  const sortedMovies = [...filteredMovies].sort((a, b) => {
+    let result: number
+    switch (sortField) {
+      case 'monitored':
+        result = (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      case 'qualityProfile': {
+        const nameA = profileNameMap.get(a.qualityProfileId) || ''
+        const nameB = profileNameMap.get(b.qualityProfileId) || ''
+        result = nameA.localeCompare(nameB) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      }
+      case 'releaseDate': {
+        const dateA = a.releaseDate ?? a.physicalReleaseDate ?? a.theatricalReleaseDate
+        const dateB = b.releaseDate ?? b.physicalReleaseDate ?? b.theatricalReleaseDate
+        if (!dateA && !dateB) { result = a.sortTitle.localeCompare(b.sortTitle); break }
+        if (!dateA) { result = 1; break }
+        if (!dateB) { result = -1; break }
+        result = new Date(dateB).getTime() - new Date(dateA).getTime()
+        break
+      }
+      case 'dateAdded':
+        result = new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        break
+      case 'rootFolder':
+        result = (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
+        break
+      case 'sizeOnDisk':
+        result = (b.sizeOnDisk || 0) - (a.sizeOnDisk || 0)
+        break
+      default:
+        result = a.sortTitle.localeCompare(b.sortTitle)
+    }
+    return result * dirMultiplier
+  })
+
+  const groups = groupMedia(
+    sortedMovies.map((m) => ({
+      ...m,
+      releaseDate: m.releaseDate ?? m.physicalReleaseDate ?? m.theatricalReleaseDate,
+    })),
+    sortField,
+    {
+      qualityProfileNames: profileNameMap,
+      rootFolderNames: rootFolderNameMap,
+    },
+  )
 
   const handleSearch = async (id: number) => {
     try {
@@ -79,6 +169,15 @@ export function MoviesPage() {
       toast.error('Failed to delete movie')
     }
   }
+
+  const allColumns = useMemo(
+    () => [...MOVIE_COLUMNS, createMovieActionsColumn({
+      onSearch: handleSearch,
+      onDelete: handleDelete,
+    })],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
 
   const handleToggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -191,12 +290,14 @@ export function MoviesPage() {
                 Edit
               </Button>
             )}
-            <Link to="/movies/add">
-              <Button disabled={editMode} className="bg-movie-500 hover:bg-movie-400 border-movie-500">
-                <Plus className="size-4 mr-1" />
-                Add Movie
-              </Button>
-            </Link>
+            <Button
+              disabled={editMode}
+              className="bg-movie-500 hover:bg-movie-400 border-movie-500"
+              onClick={() => document.getElementById('global-search')?.focus()}
+            >
+              <Plus className="size-4 mr-1" />
+              Add Movie
+            </Button>
           </div>
         }
       />
@@ -261,20 +362,35 @@ export function MoviesPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-6">
+      {/* Filters & Sort */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         <Select
           value={statusFilter}
           onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
         >
-          <SelectTrigger className="w-36">
-            {{ all: 'All', monitored: 'Monitored', missing: 'Missing', available: 'Available' }[statusFilter]}
+          <SelectTrigger className="gap-1.5">
+            <Filter className={cn('size-4 shrink-0', statusFilter !== 'all' ? 'text-movie-400' : 'text-muted-foreground')} />
+            <span className="hidden sm:inline">{FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label}</span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="monitored">Monitored</SelectItem>
-            <SelectItem value="missing">Missing</SelectItem>
-            <SelectItem value="available">Available</SelectItem>
+            {FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={sortField}
+          onValueChange={(v) => v && setSortField(v as SortField)}
+        >
+          <SelectTrigger className="gap-1.5">
+            <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-movie-400' : 'text-muted-foreground')} />
+            <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sortField)?.label}</span>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -292,6 +408,14 @@ export function MoviesPage() {
               />
             </div>
           )}
+          {moviesView === 'table' && (
+            <ColumnConfigPopover
+              columns={MOVIE_COLUMNS}
+              visibleColumnIds={movieTableColumns}
+              onVisibleColumnsChange={setMovieTableColumns}
+              theme="movie"
+            />
+          )}
           <ToggleGroup
             value={[moviesView]}
             onValueChange={(v) => v.length > 0 && setMoviesView(v[0] as 'grid' | 'table')}
@@ -307,7 +431,7 @@ export function MoviesPage() {
       </div>
 
       {/* Content */}
-      {filteredMovies.length === 0 ? (
+      {sortedMovies.length === 0 ? (
         <EmptyState
           icon={<Film className="size-8 text-movie-500" />}
           title="No movies found"
@@ -322,19 +446,34 @@ export function MoviesPage() {
               : undefined
           }
         />
-      ) : moviesView === 'grid' ? (
-        <MovieGrid
-          movies={filteredMovies}
+      ) : moviesView === 'table' ? (
+        <MovieTable
+          movies={sortedMovies}
+          columns={allColumns}
+          visibleColumnIds={movieTableColumns}
+          renderContext={renderContext}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleColumnSort}
+          editMode={editMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
+      ) : groups ? (
+        <GroupedMovieGrid
+          groups={groups}
           posterSize={posterSize}
           editMode={editMode}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
         />
       ) : (
-        <MovieTable
-          movies={filteredMovies}
-          onSearch={handleSearch}
-          onDelete={handleDelete}
+        <MovieGrid
+          movies={sortedMovies}
+          posterSize={posterSize}
+          editMode={editMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
         />
       )}
 

@@ -359,6 +359,7 @@ func (c *Client) searchResultToSeries(item SearchResult) NormalizedSeriesResult 
 		PosterURL: item.ImageURL,
 		ImdbID:    imdbID,
 		Status:    status,
+		Network:   item.Network,
 	}
 }
 

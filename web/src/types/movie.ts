@@ -4,9 +4,11 @@ export interface Movie {
   sortTitle: string
   year?: number
   tmdbId?: number
+  tvdbId?: number
   imdbId?: string
   overview?: string
   runtime?: number
+  studio?: string
   path?: string
   rootFolderId?: number
   qualityProfileId: number

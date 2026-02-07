@@ -14,8 +14,9 @@ SELECT * FROM movies WHERE monitored = 1 ORDER BY sort_title;
 INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, status,
-    release_date, physical_release_date, theatrical_release_date
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    release_date, physical_release_date, theatrical_release_date,
+    studio, tvdb_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovie :one
@@ -35,9 +36,14 @@ UPDATE movies SET
     release_date = ?,
     physical_release_date = ?,
     theatrical_release_date = ?,
+    studio = ?,
+    tvdb_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
+
+-- name: GetMovieByTvdbID :one
+SELECT * FROM movies WHERE tvdb_id = ? LIMIT 1;
 
 -- name: DeleteMovie :exec
 DELETE FROM movies WHERE id = ?;

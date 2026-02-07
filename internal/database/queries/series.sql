@@ -13,8 +13,9 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 -- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
-    path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type,
+    network_logo_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -35,6 +36,7 @@ UPDATE series SET
     production_status = ?,
     network = ?,
     format_type = ?,
+    network_logo_url = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -274,7 +276,10 @@ SELECT
     COALESCE(SUM(CASE WHEN e.status = 'failed' THEN 1 ELSE 0 END), 0) as failed,
     COALESCE(SUM(CASE WHEN e.status = 'upgradable' THEN 1 ELSE 0 END), 0) as upgradable,
     COALESCE(SUM(CASE WHEN e.status = 'available' THEN 1 ELSE 0 END), 0) as available,
-    COUNT(*) as total
+    COUNT(*) as total,
+    MIN(e.air_date) as first_aired,
+    MAX(CASE WHEN substr(e.air_date, 1, 10) <= date('now') THEN e.air_date END) as last_aired,
+    MIN(CASE WHEN substr(e.air_date, 1, 10) > date('now') THEN e.air_date END) as next_airing
 FROM episodes e
 WHERE e.series_id = ? AND e.season_number > 0;
 

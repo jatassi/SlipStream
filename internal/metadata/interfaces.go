@@ -8,6 +8,13 @@ import (
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 )
 
+// NetworkLogoStore provides cached network name → logo URL lookups.
+type NetworkLogoStore interface {
+	UpsertNetworkLogo(ctx context.Context, name, logoURL string) error
+	GetNetworkLogoURL(ctx context.Context, name string) (string, error)
+	GetAllNetworkLogos(ctx context.Context) (map[string]string, error)
+}
+
 // TMDBClient defines the interface for TMDB API operations.
 type TMDBClient interface {
 	Name() string
@@ -25,6 +32,8 @@ type TMDBClient interface {
 	GetMovieContentRating(ctx context.Context, id int) (string, error)
 	GetSeriesContentRating(ctx context.Context, id int) (string, error)
 	GetMovieStudio(ctx context.Context, id int) (string, error)
+	GetMovieLogoURL(ctx context.Context, id int) (string, error)
+	GetSeriesLogoURL(ctx context.Context, id int) (string, error)
 }
 
 // TVDBClient defines the interface for TVDB API operations.

@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router'
+import { Eye, EyeOff, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { PosterImage } from '@/components/media/PosterImage'
-import { ProductionStatusBadge } from '@/components/media/ProductionStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Series } from '@/types'
@@ -14,9 +15,35 @@ interface SeriesCardProps {
   onToggleSelect?: (id: number) => void
 }
 
+function formatDate(dateStr: string, format: 'short' | 'medium' | 'long') {
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  switch (format) {
+    case 'short':
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    case 'medium':
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    case 'long':
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  }
+}
+
+function yearFromDate(dateStr?: string): number | null {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  return isNaN(date.getTime()) ? null : date.getFullYear()
+}
+
 export function SeriesCard({ series, className, editMode, selected, onToggleSelect }: SeriesCardProps) {
+  const available = series.statusCounts.available + series.statusCounts.upgradable
+  const total = series.statusCounts.total - series.statusCounts.unreleased
+  const MonitorIcon = series.monitored ? Eye : EyeOff
+  const isEnded = series.productionStatus === 'ended'
+  const lastAiredYear = yearFromDate(series.lastAired)
+  const firstYear = series.year || yearFromDate(series.firstAired)
+
   const cardContent = (
-    <div className="relative aspect-[2/3]">
+    <div className="@container relative aspect-[2/3]">
       <PosterImage
         tmdbId={series.tmdbId}
         tvdbId={series.tvdbId}
@@ -25,7 +52,7 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
         version={series.updatedAt}
         className="absolute inset-0"
       />
-      {editMode && (
+      {editMode ? (
         <div
           className="absolute top-2 left-2 z-10"
           onClick={(e) => {
@@ -42,19 +69,29 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
             )}
           />
         </div>
+      ) : (
+        <Badge variant="secondary" className="absolute top-2 left-2 z-10 text-xs">
+          {available}/{total}
+        </Badge>
       )}
-      <div className="absolute top-2 right-2">
-        <ProductionStatusBadge status={series.productionStatus} />
-      </div>
+      <NetworkLogo
+        logoUrl={series.networkLogoUrl}
+        network={series.network}
+        className="absolute top-2 right-2 z-10 max-w-[40%]"
+      />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
-        <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-          {series.title}
-        </h3>
-        <div className="flex items-center gap-2 text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-          <span>{series.year || 'Unknown year'}</span>
-          <Badge variant="secondary" className="text-xs">
-            {(series.statusCounts.available + series.statusCounts.upgradable)}/{series.statusCounts.total - series.statusCounts.unreleased} eps
-          </Badge>
+        <div className="flex items-end gap-1.5">
+          <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            {series.title}
+          </h3>
+          <MonitorIcon className={cn('size-3.5 shrink-0 mb-0.5', series.monitored ? 'text-tv-400' : 'text-gray-500')} />
+        </div>
+        <div className="text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+          {isEnded ? (
+            <EndedStatus firstYear={firstYear} lastAiredYear={lastAiredYear} />
+          ) : (
+            <ActiveStatus nextAiring={series.nextAiring} />
+          )}
         </div>
       </div>
     </div>
@@ -86,5 +123,39 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
     >
       {cardContent}
     </Link>
+  )
+}
+
+function EndedStatus({ firstYear, lastAiredYear }: { firstYear: number | null; lastAiredYear: number | null }) {
+  const endedLabel = `Ended ${lastAiredYear || ''}`
+  const rangeLabel = firstYear && lastAiredYear ? `${firstYear} \u2013 ${lastAiredYear}` : endedLabel
+
+  return (
+    <>
+      <span className="group-hover:hidden">{endedLabel}</span>
+      <span className="hidden group-hover:inline">{rangeLabel}</span>
+    </>
+  )
+}
+
+function ActiveStatus({ nextAiring }: { nextAiring?: string }) {
+  const shortDate = nextAiring ? formatDate(nextAiring, 'short') : null
+  const mediumDate = nextAiring ? formatDate(nextAiring, 'medium') : null
+  const longDate = nextAiring ? formatDate(nextAiring, 'long') : null
+
+  return (
+    <>
+      <span className="group-hover:hidden">Active</span>
+      {nextAiring && shortDate ? (
+        <span className="hidden group-hover:inline-flex items-center gap-1">
+          <Clock className="size-3" />
+          <span className="@[150px]:hidden">{shortDate}</span>
+          <span className="hidden @[150px]:inline @[190px]:hidden">{mediumDate}</span>
+          <span className="hidden @[190px]:inline">{longDate}</span>
+        </span>
+      ) : (
+        <span className="hidden group-hover:inline">Active</span>
+      )}
+    </>
   )
 }

@@ -1,4 +1,5 @@
 export { MediaStatusBadge } from './MediaStatusBadge'
+export { NetworkLogo } from './NetworkLogo'
 export { ProductionStatusBadge } from './ProductionStatusBadge'
 export { QualityBadge } from './QualityBadge'
 export { PosterImage } from './PosterImage'

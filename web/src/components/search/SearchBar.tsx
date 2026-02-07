@@ -95,6 +95,7 @@ export function SearchBar() {
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
+        id="global-search"
         className="pl-9 pr-8 border-white/50 focus-visible:border-white"
       />
       {searchQuery && (

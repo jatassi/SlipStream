@@ -235,6 +235,8 @@ type Movie struct {
 	AddedAt               sql.NullTime   `json:"added_at"`
 	UpdatedAt             sql.NullTime   `json:"updated_at"`
 	TheatricalReleaseDate sql.NullTime   `json:"theatrical_release_date"`
+	Studio                sql.NullString `json:"studio"`
+	TvdbID                sql.NullInt64  `json:"tvdb_id"`
 }
 
 type MovieFile struct {
@@ -274,6 +276,12 @@ type MultiVersionSetting struct {
 	LastMigrationAt sql.NullTime `json:"last_migration_at"`
 	CreatedAt       sql.NullTime `json:"created_at"`
 	UpdatedAt       sql.NullTime `json:"updated_at"`
+}
+
+type NetworkLogo struct {
+	Name      string       `json:"name"`
+	LogoUrl   string       `json:"logo_url"`
+	UpdatedAt sql.NullTime `json:"updated_at"`
 }
 
 type Notification struct {
@@ -492,6 +500,7 @@ type Series struct {
 	FormatType       sql.NullString `json:"format_type"`
 	AddedAt          sql.NullTime   `json:"added_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
 }
 
 type Setting struct {

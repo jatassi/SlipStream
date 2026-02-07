@@ -276,6 +276,8 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
+		Studio:                sql.NullString{String: input.Studio, Valid: input.Studio != ""},
+		TvdbID:                sql.NullInt64{Int64: int64(input.TvdbID), Valid: input.TvdbID > 0},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -380,6 +382,9 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		monitored = *input.Monitored
 	}
 
+	studio := current.Studio
+	tvdbID := current.TvdbID
+
 	s.logger.Debug().
 		Str("title", title).
 		Int("year", year).
@@ -444,6 +449,8 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
+		Studio:                sql.NullString{String: studio, Valid: studio != ""},
+		TvdbID:                sql.NullInt64{Int64: int64(tvdbID), Valid: tvdbID > 0},
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
@@ -757,6 +764,12 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 	}
 	if row.ActiveDownloadID.Valid {
 		m.ActiveDownloadID = &row.ActiveDownloadID.String
+	}
+	if row.Studio.Valid {
+		m.Studio = row.Studio.String
+	}
+	if row.TvdbID.Valid {
+		m.TvdbID = int(row.TvdbID.Int64)
 	}
 
 	return m

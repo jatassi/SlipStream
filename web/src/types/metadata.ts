@@ -12,6 +12,7 @@ export interface MovieSearchResult {
   runtime?: number
   genres?: string[]
   releaseDate?: string
+  studio?: string
 }
 
 export interface SeriesSearchResult {
@@ -30,6 +31,7 @@ export interface SeriesSearchResult {
   genres?: string[]
   status?: string
   network?: string
+  networkLogoUrl?: string
   firstAirDate?: string
 }
 

@@ -547,6 +547,11 @@ func (c *Client) movieDetailsToResult(details MovieDetails) NormalizedMovieResul
 		genres[i] = g.Name
 	}
 
+	studio := ""
+	if len(details.ProductionCompanies) > 0 {
+		studio = details.ProductionCompanies[0].Name
+	}
+
 	result := NormalizedMovieResult{
 		ID:          details.ID,
 		Title:       details.Title,
@@ -555,7 +560,8 @@ func (c *Client) movieDetailsToResult(details MovieDetails) NormalizedMovieResul
 		Runtime:     details.Runtime,
 		ImdbID:      details.ImdbID,
 		Genres:      genres,
-		ReleaseDate: details.ReleaseDate, // Basic release date from details
+		ReleaseDate: details.ReleaseDate,
+		Studio:      studio,
 	}
 
 	if details.PosterPath != nil {
@@ -647,19 +653,24 @@ func (c *Client) tvDetailsToResult(details TVDetails) NormalizedSeriesResult {
 
 	// Get primary network (first in list)
 	network := ""
+	networkLogoURL := ""
 	if len(details.Networks) > 0 {
 		network = details.Networks[0].Name
+		if details.Networks[0].LogoPath != "" {
+			networkLogoURL = c.GetImageURL(details.Networks[0].LogoPath, "w154")
+		}
 	}
 
 	result := NormalizedSeriesResult{
-		ID:       details.ID,
-		TmdbID:   details.ID,
-		Title:    details.Name,
-		Year:     year,
-		Overview: details.Overview,
-		Status:   status,
-		Genres:   genres,
-		Network:  network,
+		ID:             details.ID,
+		TmdbID:         details.ID,
+		Title:          details.Name,
+		Year:           year,
+		Overview:       details.Overview,
+		Status:         status,
+		Genres:         genres,
+		Network:        network,
+		NetworkLogoURL: networkLogoURL,
 	}
 
 	if details.PosterPath != nil {
@@ -959,6 +970,76 @@ func (c *Client) normalizeCredits(credits CreditsResponse, creators []TVCreator)
 	}
 
 	return result
+}
+
+// GetMovieLogoURL fetches the best English title treatment logo for a movie.
+func (c *Client) GetMovieLogoURL(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d/images", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response ImagesResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return "", err
+	}
+
+	return c.pickBestLogo(response.Logos), nil
+}
+
+// GetSeriesLogoURL fetches the best English title treatment logo for a TV series.
+func (c *Client) GetSeriesLogoURL(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/tv/%d/images", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response ImagesResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return "", ErrSeriesNotFound
+		}
+		return "", err
+	}
+
+	return c.pickBestLogo(response.Logos), nil
+}
+
+// pickBestLogo selects the best logo from a list, preferring English, then highest voted.
+func (c *Client) pickBestLogo(logos []ImageResult) string {
+	if len(logos) == 0 {
+		return ""
+	}
+
+	// Filter for English logos first
+	var english []ImageResult
+	for _, logo := range logos {
+		if logo.ISO639_1 == "en" {
+			english = append(english, logo)
+		}
+	}
+
+	// Pick from English if available, otherwise all logos
+	candidates := english
+	if len(candidates) == 0 {
+		candidates = logos
+	}
+
+	// Pick the highest voted
+	best := candidates[0]
+	for _, logo := range candidates[1:] {
+		if logo.VoteAverage > best.VoteAverage {
+			best = logo
+		}
+	}
+
+	return c.GetImageURL(best.FilePath, "w500")
 }
 
 // GetMovieStudio returns the primary production company for a movie.

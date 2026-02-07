@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Plus, Check, Library, Clock, Download, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -134,6 +135,7 @@ export function ExternalMediaCard({
   const title = media.title
   const year = media.year
   const network = mediaType === 'series' ? (media as SeriesSearchResult).network : undefined
+  const networkLogoUrl = mediaType === 'series' ? (media as SeriesSearchResult).networkLogoUrl : undefined
 
   return (
     <div
@@ -188,13 +190,22 @@ export function ExternalMediaCard({
           )}
         </div>
 
+        {/* Network logo */}
+        {mediaType === 'series' && (
+          <NetworkLogo
+            logoUrl={networkLogoUrl}
+            network={network}
+            className="absolute top-2 right-2"
+          />
+        )}
+
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
           <h3 className="font-semibold text-white line-clamp-3">{title}</h3>
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <span>{year || 'Unknown year'}</span>
-            {network && (
+            {network && !networkLogoUrl && (
               <Badge variant="secondary" className="text-xs">
                 {network}
               </Badge>

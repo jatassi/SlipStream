@@ -188,6 +188,7 @@ type NormalizedSeriesResult struct {
 	Genres      []string `json:"genres,omitempty"`
 	Status      string   `json:"status,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
+	Network     string   `json:"network,omitempty"`
 }
 
 // NormalizedSeasonResult is the normalized season result with episodes.

@@ -31,25 +31,30 @@ type MovieResult struct {
 	Overview    string   `json:"overview"`
 	PosterURL   string   `json:"posterUrl,omitempty"`
 	BackdropURL string   `json:"backdropUrl,omitempty"`
+	LogoURL     string   `json:"logoUrl,omitempty"`
 	ImdbID      string   `json:"imdbId,omitempty"`
 	Genres      []string `json:"genres,omitempty"`
 	Runtime     int      `json:"runtime,omitempty"`
+	Studio      string   `json:"studio,omitempty"`
 }
 
 // SeriesResult represents a TV series from a metadata provider.
 type SeriesResult struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Year        int      `json:"year"`
-	Overview    string   `json:"overview"`
-	PosterURL   string   `json:"posterUrl,omitempty"`
-	BackdropURL string   `json:"backdropUrl,omitempty"`
-	ImdbID      string   `json:"imdbId,omitempty"`
-	TvdbID      int      `json:"tvdbId,omitempty"`
-	TmdbID      int      `json:"tmdbId,omitempty"`
-	Genres      []string `json:"genres,omitempty"`
-	Status      string   `json:"status,omitempty"`
-	Runtime     int      `json:"runtime,omitempty"`
+	ID             int      `json:"id"`
+	Title          string   `json:"title"`
+	Year           int      `json:"year"`
+	Overview       string   `json:"overview"`
+	PosterURL      string   `json:"posterUrl,omitempty"`
+	BackdropURL    string   `json:"backdropUrl,omitempty"`
+	LogoURL        string   `json:"logoUrl,omitempty"`
+	ImdbID         string   `json:"imdbId,omitempty"`
+	TvdbID         int      `json:"tvdbId,omitempty"`
+	TmdbID         int      `json:"tmdbId,omitempty"`
+	Genres         []string `json:"genres,omitempty"`
+	Status         string   `json:"status,omitempty"`
+	Runtime        int      `json:"runtime,omitempty"`
+	Network        string   `json:"network,omitempty"`
+	NetworkLogoURL string   `json:"networkLogoUrl,omitempty"`
 }
 
 // SeasonResult represents a TV season with episodes from a metadata provider.

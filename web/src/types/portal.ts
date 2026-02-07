@@ -222,6 +222,8 @@ export interface PortalSeriesSearchResult {
   overview: string | null
   posterUrl: string | null
   backdropUrl: string | null
+  network?: string
+  networkLogoUrl?: string
   availability?: AvailabilityInfo
 }
 
