@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+
+	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 )
 
 // Handlers provides HTTP handlers for library management.
@@ -225,6 +227,10 @@ func (h *Handlers) AddMovie(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	if claims := portalmw.GetPortalUser(c); claims != nil {
+		input.AddedBy = &claims.UserID
+	}
+
 	movie, err := h.service.AddMovie(c.Request().Context(), input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -239,6 +245,10 @@ func (h *Handlers) AddSeries(c echo.Context) error {
 	var input AddSeriesInput
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if claims := portalmw.GetPortalUser(c); claims != nil {
+		input.AddedBy = &claims.UserID
 	}
 
 	series, err := h.service.AddSeries(c.Request().Context(), input)

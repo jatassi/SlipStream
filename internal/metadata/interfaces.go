@@ -52,4 +52,5 @@ type OMDBClient interface {
 	IsConfigured() bool
 	Test(ctx context.Context) error
 	GetByIMDbID(ctx context.Context, imdbID string) (*omdb.NormalizedRatings, error)
+	GetSeasonEpisodes(ctx context.Context, imdbID string, season int) (map[int]float64, error)
 }

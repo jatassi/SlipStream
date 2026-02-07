@@ -104,7 +104,7 @@ func (s *Service) SetDB(db *sql.DB) {
 
 // GetSeries retrieves a series by ID.
 func (s *Service) GetSeries(ctx context.Context, id int64) (*Series, error) {
-	row, err := s.queries.GetSeries(ctx, id)
+	row, err := s.queries.GetSeriesWithAddedBy(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSeriesNotFound
@@ -112,7 +112,7 @@ func (s *Service) GetSeries(ctx context.Context, id int64) (*Series, error) {
 		return nil, fmt.Errorf("failed to get series: %w", err)
 	}
 
-	series := s.rowToSeries(row)
+	series := s.getSeriesRowToSeries(row)
 
 	// Get seasons
 	seasons, err := s.ListSeasons(ctx, id)
@@ -220,6 +220,11 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		productionStatus = "continuing"
 	}
 
+	var addedBy sql.NullInt64
+	if input.AddedBy != nil {
+		addedBy = sql.NullInt64{Int64: *input.AddedBy, Valid: true}
+	}
+
 	row, err := s.queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
 		Title:            input.Title,
 		SortTitle:        sortTitle,
@@ -238,6 +243,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
 		NetworkLogoUrl:   sql.NullString{String: input.NetworkLogoURL, Valid: input.NetworkLogoURL != ""},
+		AddedBy:          addedBy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create series: %w", err)
@@ -996,6 +1002,8 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 			QualityID:        qualityID,
 			VideoCodec:       sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
 			AudioCodec:       sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			AudioChannels:    sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
+			DynamicRange:     sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
 			Resolution:       sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
 			OriginalPath:     sql.NullString{String: input.OriginalPath, Valid: true},
 			OriginalFilename: sql.NullString{String: input.OriginalFilename, Valid: input.OriginalFilename != ""},
@@ -1003,14 +1011,16 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input Cre
 		})
 	} else {
 		row, err = s.queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
-			EpisodeID:  episodeID,
-			Path:       input.Path,
-			Size:       input.Size,
-			Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-			QualityID:  qualityID,
-			VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-			AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-			Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+			EpisodeID:     episodeID,
+			Path:          input.Path,
+			Size:          input.Size,
+			Quality:       sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:     qualityID,
+			VideoCodec:    sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec:    sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			AudioChannels: sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
+			DynamicRange:  sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
+			Resolution:    sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
 		})
 	}
 	if err != nil {
@@ -1230,7 +1240,42 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	if row.FormatType.Valid {
 		series.FormatType = row.FormatType.String
 	}
+	if row.AddedBy.Valid {
+		v := row.AddedBy.Int64
+		series.AddedBy = &v
+	}
 
+	return series
+}
+
+// getSeriesRowToSeries converts a GetSeriesWithAddedByRow (with JOIN) to a Series.
+func (s *Service) getSeriesRowToSeries(row *sqlc.GetSeriesWithAddedByRow) *Series {
+	series := s.rowToSeries(&sqlc.Series{
+		ID:               row.ID,
+		Title:            row.Title,
+		SortTitle:        row.SortTitle,
+		Year:             row.Year,
+		TvdbID:           row.TvdbID,
+		TmdbID:           row.TmdbID,
+		ImdbID:           row.ImdbID,
+		Overview:         row.Overview,
+		Runtime:          row.Runtime,
+		Path:             row.Path,
+		RootFolderID:     row.RootFolderID,
+		QualityProfileID: row.QualityProfileID,
+		Monitored:        row.Monitored,
+		SeasonFolder:     row.SeasonFolder,
+		ProductionStatus: row.ProductionStatus,
+		Network:          row.Network,
+		FormatType:       row.FormatType,
+		AddedAt:          row.AddedAt,
+		UpdatedAt:        row.UpdatedAt,
+		NetworkLogoUrl:   row.NetworkLogoUrl,
+		AddedBy:          row.AddedBy,
+	})
+	if row.AddedByUsername.Valid {
+		series.AddedByUsername = row.AddedByUsername.String
+	}
 	return series
 }
 
@@ -1300,6 +1345,12 @@ func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
 	}
 	if row.AudioCodec.Valid {
 		f.AudioCodec = row.AudioCodec.String
+	}
+	if row.AudioChannels.Valid {
+		f.AudioChannels = row.AudioChannels.String
+	}
+	if row.DynamicRange.Valid {
+		f.DynamicRange = row.DynamicRange.String
 	}
 	if row.Resolution.Valid {
 		f.Resolution = row.Resolution.String

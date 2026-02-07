@@ -9,6 +9,7 @@ export interface Movie {
   overview?: string
   runtime?: number
   studio?: string
+  contentRating?: string
   path?: string
   rootFolderId?: number
   qualityProfileId: number
@@ -23,6 +24,8 @@ export interface Movie {
   releaseDate?: string
   physicalReleaseDate?: string
   theatricalReleaseDate?: string
+  addedBy?: number
+  addedByUsername?: string
 }
 
 export interface MovieFile {
@@ -33,6 +36,8 @@ export interface MovieFile {
   quality?: string
   videoCodec?: string
   audioCodec?: string
+  audioChannels?: string
+  dynamicRange?: string
   resolution?: string
   createdAt: string
   slotId?: number

@@ -1,6 +1,11 @@
 -- name: GetMovie :one
 SELECT * FROM movies WHERE id = ? LIMIT 1;
 
+-- name: GetMovieWithAddedBy :one
+SELECT m.*, pu.username AS added_by_username FROM movies m
+LEFT JOIN portal_users pu ON m.added_by = pu.id
+WHERE m.id = ? LIMIT 1;
+
 -- name: GetMovieByTmdbID :one
 SELECT * FROM movies WHERE tmdb_id = ? LIMIT 1;
 
@@ -15,8 +20,8 @@ INSERT INTO movies (
     title, sort_title, year, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, status,
     release_date, physical_release_date, theatrical_release_date,
-    studio, tvdb_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    studio, tvdb_id, content_rating, added_by
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovie :one
@@ -38,6 +43,7 @@ UPDATE movies SET
     theatrical_release_date = ?,
     studio = ?,
     tvdb_id = ?,
+    content_rating = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -96,8 +102,8 @@ SELECT * FROM movie_files WHERE id = ? LIMIT 1;
 SELECT * FROM movie_files WHERE movie_id = ? ORDER BY path;
 
 -- name: CreateMovieFile :one
-INSERT INTO movie_files (movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO movie_files (movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution, audio_channels, dynamic_range)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: DeleteMovieFile :exec
@@ -196,8 +202,8 @@ UPDATE movie_files SET quality_id = ? WHERE id = ?;
 -- name: CreateMovieFileWithImportInfo :one
 INSERT INTO movie_files (
     movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
-    original_path, original_filename, imported_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    audio_channels, dynamic_range, original_path, original_filename, imported_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateMovieFileImportInfo :one

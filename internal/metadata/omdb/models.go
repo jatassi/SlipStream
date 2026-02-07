@@ -39,3 +39,19 @@ type NormalizedRatings struct {
 	Metacritic     int     `json:"metacritic,omitempty"`
 	Awards         string  `json:"awards,omitempty"`
 }
+
+// SeasonEpisodesResponse represents the OMDB response for a season's episodes.
+type SeasonEpisodesResponse struct {
+	Title    string          `json:"Title"`
+	Season   string          `json:"Season"`
+	Episodes []EpisodeRating `json:"Episodes"`
+	Response string          `json:"Response"`
+	Error    string          `json:"Error,omitempty"`
+}
+
+// EpisodeRating represents a single episode's rating from OMDB.
+type EpisodeRating struct {
+	Episode    string `json:"Episode"`
+	ImdbRating string `json:"imdbRating"`
+	ImdbID     string `json:"imdbID"`
+}

@@ -115,6 +115,8 @@ type EpisodeFile struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 }
 
 type EpisodeSlotAssignment struct {
@@ -237,6 +239,8 @@ type Movie struct {
 	TheatricalReleaseDate sql.NullTime   `json:"theatrical_release_date"`
 	Studio                sql.NullString `json:"studio"`
 	TvdbID                sql.NullInt64  `json:"tvdb_id"`
+	ContentRating         sql.NullString `json:"content_rating"`
+	AddedBy               sql.NullInt64  `json:"added_by"`
 }
 
 type MovieFile struct {
@@ -254,6 +258,8 @@ type MovieFile struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 }
 
 type MovieSlotAssignment struct {
@@ -501,6 +507,7 @@ type Series struct {
 	AddedAt          sql.NullTime   `json:"added_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
+	AddedBy          sql.NullInt64  `json:"added_by"`
 }
 
 type Setting struct {

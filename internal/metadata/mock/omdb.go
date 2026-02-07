@@ -34,6 +34,35 @@ func (c *OMDBClient) GetByIMDbID(ctx context.Context, imdbID string) (*omdb.Norm
 	return &defaultRatings, nil
 }
 
+func (c *OMDBClient) GetSeasonEpisodes(ctx context.Context, imdbID string, season int) (map[int]float64, error) {
+	ratings, ok := mockEpisodeRatings[imdbID]
+	if ok {
+		if seasonRatings, ok := ratings[season]; ok {
+			return seasonRatings, nil
+		}
+	}
+	// Return default ratings for up to 13 episodes
+	result := make(map[int]float64)
+	for i := 1; i <= 13; i++ {
+		result[i] = 7.5 + float64(i%5)*0.3
+	}
+	return result, nil
+}
+
+// mockEpisodeRatings maps IMDb series ID → season number → episode number → rating
+var mockEpisodeRatings = map[string]map[int]map[int]float64{
+	"tt0903747": { // Breaking Bad
+		1: {1: 9.0, 2: 8.3, 3: 8.1, 4: 8.1, 5: 8.4, 6: 8.7, 7: 9.3},
+		2: {1: 8.4, 2: 8.1, 3: 7.9, 4: 8.4, 5: 8.4, 6: 8.5, 7: 8.2, 8: 8.0, 9: 8.9, 10: 8.3, 11: 8.4, 12: 8.5, 13: 9.1},
+		3: {1: 8.5, 2: 8.0, 3: 7.8, 4: 7.7, 5: 7.7, 6: 8.1, 7: 8.8, 8: 8.2, 9: 7.8, 10: 8.8, 11: 8.4, 12: 9.0, 13: 9.7},
+	},
+	"tt0944947": { // Game of Thrones
+		1: {1: 9.1, 2: 8.8, 3: 8.7, 4: 8.4, 5: 9.1, 6: 9.2, 7: 9.2, 8: 9.0, 9: 9.6, 10: 9.5},
+		2: {1: 8.7, 2: 8.8, 3: 8.6, 4: 8.7, 5: 8.7, 6: 9.0, 7: 8.9, 8: 8.7, 9: 9.7, 10: 9.4},
+		3: {1: 8.5, 2: 8.6, 3: 8.5, 4: 9.1, 5: 8.7, 6: 8.6, 7: 8.4, 8: 8.3, 9: 9.9, 10: 9.0},
+	},
+}
+
 var defaultRatings = omdb.NormalizedRatings{
 	ImdbRating:     8.0,
 	ImdbVotes:      500000,

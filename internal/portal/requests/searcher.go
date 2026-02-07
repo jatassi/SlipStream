@@ -29,6 +29,7 @@ type MediaProvisionInput struct {
 	Year             int
 	QualityProfileID *int64  // Optional: user's assigned quality profile
 	RequestedSeasons []int64 // Optional: specific seasons to monitor (empty = all seasons)
+	AddedBy          *int64  // Optional: portal user ID who triggered the add
 }
 
 type MediaProvisioner interface {
@@ -216,8 +217,9 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 	}
 
 	input := MediaProvisionInput{
-		Title: request.Title,
-		Year:  year,
+		Title:   request.Title,
+		Year:    year,
+		AddedBy: &request.UserID,
 	}
 
 	// Get user's assigned quality profile

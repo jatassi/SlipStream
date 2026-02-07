@@ -34,6 +34,8 @@ export interface Series {
   updatedAt?: string
   sizeOnDisk?: number
   seasons?: Season[]
+  addedBy?: number
+  addedByUsername?: string
 }
 
 export interface Season {

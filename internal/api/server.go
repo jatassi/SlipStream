@@ -1180,6 +1180,7 @@ func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context
 		RootFolderID:     rootFolderID,
 		QualityProfileID: qualityProfileID,
 		Monitored:        true,
+		AddedBy:          input.AddedBy,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create movie: %w", err)
@@ -1215,6 +1216,7 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 		RootFolderID:     rootFolderID,
 		QualityProfileID: qualityProfileID,
 		Monitored:        true,
+		AddedBy:          input.AddedBy,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create series: %w", err)

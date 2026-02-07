@@ -109,6 +109,72 @@ func (c *Client) GetByIMDbID(ctx context.Context, imdbID string) (*NormalizedRat
 	return c.normalizeRatings(omdbResp), nil
 }
 
+// GetSeasonEpisodes fetches episode ratings for a season by IMDb series ID.
+// Returns a map of episode number to IMDB rating.
+func (c *Client) GetSeasonEpisodes(ctx context.Context, imdbID string, season int) (map[int]float64, error) {
+	if !c.IsConfigured() {
+		return nil, ErrAPIKeyMissing
+	}
+
+	if imdbID == "" {
+		return nil, ErrNotFound
+	}
+
+	params := url.Values{}
+	params.Set("apikey", c.config.APIKey)
+	params.Set("i", imdbID)
+	params.Set("Season", strconv.Itoa(season))
+	params.Set("type", "episode")
+
+	reqURL := fmt.Sprintf("%s?%s", c.config.BaseURL, params.Encode())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Error().Err(err).Str("imdbId", imdbID).Int("season", season).Msg("HTTP request failed")
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: status %d", ErrAPIError, resp.StatusCode)
+	}
+
+	var seasonResp SeasonEpisodesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&seasonResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if seasonResp.Response == "False" {
+		return nil, fmt.Errorf("%w: %s", ErrAPIError, seasonResp.Error)
+	}
+
+	ratings := make(map[int]float64, len(seasonResp.Episodes))
+	for _, ep := range seasonResp.Episodes {
+		epNum, err := strconv.Atoi(ep.Episode)
+		if err != nil {
+			continue
+		}
+		if ep.ImdbRating != "" && ep.ImdbRating != "N/A" {
+			if rating, err := strconv.ParseFloat(ep.ImdbRating, 64); err == nil {
+				ratings[epNum] = rating
+			}
+		}
+	}
+
+	c.logger.Debug().
+		Str("imdbId", imdbID).
+		Int("season", season).
+		Int("episodes", len(ratings)).
+		Msg("Fetched season episode ratings from OMDb")
+
+	return ratings, nil
+}
+
 // normalizeRatings converts OMDb response to normalized format.
 func (c *Client) normalizeRatings(resp Response) *NormalizedRatings {
 	result := &NormalizedRatings{

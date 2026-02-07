@@ -573,23 +573,27 @@ func (s *Service) updateLibrary(ctx context.Context, match *LibraryMatch, destPa
 	if match.MediaType == "movie" && match.MovieID != nil {
 		// Add/update movie file
 		_, err = s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
-			Path:       destPath,
-			Size:       stat.Size(),
-			Quality:    "", // TODO: Extract from parsed info
-			VideoCodec: mediaInfo.VideoCodec,
-			AudioCodec: mediaInfo.AudioCodec,
-			Resolution: mediaInfo.VideoResolution,
+			Path:          destPath,
+			Size:          stat.Size(),
+			Quality:       "",
+			VideoCodec:    mediaInfo.VideoCodec,
+			AudioCodec:    mediaInfo.AudioCodec,
+			AudioChannels: mediaInfo.AudioChannels,
+			DynamicRange:  mediaInfo.DynamicRangeType,
+			Resolution:    mediaInfo.VideoResolution,
 		})
 		return err
 	} else if match.MediaType == "episode" && match.EpisodeID != nil {
 		// Add/update episode file
 		_, err = s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
-			Path:       destPath,
-			Size:       stat.Size(),
-			Quality:    "",
-			VideoCodec: mediaInfo.VideoCodec,
-			AudioCodec: mediaInfo.AudioCodec,
-			Resolution: mediaInfo.VideoResolution,
+			Path:          destPath,
+			Size:          stat.Size(),
+			Quality:       "",
+			VideoCodec:    mediaInfo.VideoCodec,
+			AudioCodec:    mediaInfo.AudioCodec,
+			AudioChannels: mediaInfo.AudioChannels,
+			DynamicRange:  mediaInfo.DynamicRangeType,
+			Resolution:    mediaInfo.VideoResolution,
 		})
 		return err
 	}
@@ -931,6 +935,8 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 			Quality:          "",
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,
+			AudioChannels:    mediaInfo.AudioChannels,
+			DynamicRange:     mediaInfo.DynamicRangeType,
 			Resolution:       mediaInfo.VideoResolution,
 			OriginalPath:     sourcePath,
 			OriginalFilename: filepath.Base(sourcePath),
@@ -946,6 +952,8 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 			Quality:          "",
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,
+			AudioChannels:    mediaInfo.AudioChannels,
+			DynamicRange:     mediaInfo.DynamicRangeType,
 			Resolution:       mediaInfo.VideoResolution,
 			OriginalPath:     sourcePath,
 			OriginalFilename: filepath.Base(sourcePath),

@@ -158,6 +158,7 @@ type NormalizedMovieResult struct {
 	DigitalReleaseDate  string   `json:"digitalReleaseDate,omitempty"`
 	PhysicalReleaseDate string   `json:"physicalReleaseDate,omitempty"`
 	Studio              string   `json:"studio,omitempty"`
+	StudioLogoURL       string   `json:"studioLogoUrl,omitempty"`
 }
 
 // NormalizedSeriesResult is the normalized series result returned by the client.
@@ -315,8 +316,9 @@ type TVCreator struct {
 
 // ProductionCompany represents a production company from TMDB.
 type ProductionCompany struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID       int     `json:"id"`
+	Name     string  `json:"name"`
+	LogoPath *string `json:"logo_path"`
 }
 
 // ImagesResponse is the response from TMDB /movie/{id}/images or /tv/{id}/images.

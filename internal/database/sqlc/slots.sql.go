@@ -351,7 +351,7 @@ func (q *Queries) DeleteMovieSlotAssignments(ctx context.Context, movieID int64)
 }
 
 const getEpisodeFileSlotAssignments = `-- name: GetEpisodeFileSlotAssignments :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, vs.name as slot_name, vs.slot_number
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range, vs.name as slot_name, vs.slot_number
 FROM episode_files ef
 LEFT JOIN version_slots vs ON ef.slot_id = vs.id
 WHERE ef.episode_id = ?
@@ -373,6 +373,8 @@ type GetEpisodeFileSlotAssignmentsRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	SlotName         sql.NullString `json:"slot_name"`
 	SlotNumber       sql.NullInt64  `json:"slot_number"`
 }
@@ -402,6 +404,8 @@ func (q *Queries) GetEpisodeFileSlotAssignments(ctx context.Context, episodeID i
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.SlotName,
 			&i.SlotNumber,
 		); err != nil {
@@ -472,7 +476,7 @@ func (q *Queries) GetEpisodeSlotAssignmentByFileID(ctx context.Context, fileID s
 }
 
 const getMovieFileSlotAssignments = `-- name: GetMovieFileSlotAssignments :many
-SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, vs.name as slot_name, vs.slot_number
+SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, mf.audio_channels, mf.dynamic_range, vs.name as slot_name, vs.slot_number
 FROM movie_files mf
 LEFT JOIN version_slots vs ON mf.slot_id = vs.id
 WHERE mf.movie_id = ?
@@ -494,6 +498,8 @@ type GetMovieFileSlotAssignmentsRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	SlotName         sql.NullString `json:"slot_name"`
 	SlotNumber       sql.NullInt64  `json:"slot_number"`
 }
@@ -523,6 +529,8 @@ func (q *Queries) GetMovieFileSlotAssignments(ctx context.Context, movieID int64
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.SlotName,
 			&i.SlotNumber,
 		); err != nil {
@@ -779,7 +787,7 @@ func (q *Queries) ListEnabledVersionSlotsWithProfiles(ctx context.Context) ([]*L
 }
 
 const listEpisodeFilesInSlot = `-- name: ListEpisodeFilesInSlot :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
 FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 JOIN series s ON e.series_id = s.id
@@ -802,6 +810,8 @@ type ListEpisodeFilesInSlotRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	EpisodeTitle     sql.NullString `json:"episode_title"`
 	SeasonNumber     int64          `json:"season_number"`
 	EpisodeNumber    int64          `json:"episode_number"`
@@ -832,6 +842,8 @@ func (q *Queries) ListEpisodeFilesInSlot(ctx context.Context, slotID sql.NullInt
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.EpisodeTitle,
 			&i.SeasonNumber,
 			&i.EpisodeNumber,
@@ -851,7 +863,7 @@ func (q *Queries) ListEpisodeFilesInSlot(ctx context.Context, slotID sql.NullInt
 }
 
 const listEpisodeFilesWithoutSlot = `-- name: ListEpisodeFilesWithoutSlot :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range, e.title as episode_title, e.season_number, e.episode_number, s.title as series_title
 FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 JOIN series s ON e.series_id = s.id
@@ -874,6 +886,8 @@ type ListEpisodeFilesWithoutSlotRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	EpisodeTitle     sql.NullString `json:"episode_title"`
 	SeasonNumber     int64          `json:"season_number"`
 	EpisodeNumber    int64          `json:"episode_number"`
@@ -904,6 +918,8 @@ func (q *Queries) ListEpisodeFilesWithoutSlot(ctx context.Context) ([]*ListEpiso
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.EpisodeTitle,
 			&i.SeasonNumber,
 			&i.EpisodeNumber,
@@ -1285,7 +1301,7 @@ func (q *Queries) ListMonitoredMovieSlotStatuses(ctx context.Context, movieID in
 }
 
 const listMovieFilesInSlot = `-- name: ListMovieFilesInSlot :many
-SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, m.title as movie_title
+SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, mf.audio_channels, mf.dynamic_range, m.title as movie_title
 FROM movie_files mf
 JOIN movies m ON mf.movie_id = m.id
 WHERE mf.slot_id = ?
@@ -1307,6 +1323,8 @@ type ListMovieFilesInSlotRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	MovieTitle       string         `json:"movie_title"`
 }
 
@@ -1334,6 +1352,8 @@ func (q *Queries) ListMovieFilesInSlot(ctx context.Context, slotID sql.NullInt64
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.MovieTitle,
 		); err != nil {
 			return nil, err
@@ -1350,7 +1370,7 @@ func (q *Queries) ListMovieFilesInSlot(ctx context.Context, slotID sql.NullInt64
 }
 
 const listMovieFilesWithoutSlot = `-- name: ListMovieFilesWithoutSlot :many
-SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, m.title as movie_title
+SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, mf.audio_channels, mf.dynamic_range, m.title as movie_title
 FROM movie_files mf
 JOIN movies m ON mf.movie_id = m.id
 WHERE mf.slot_id IS NULL
@@ -1372,6 +1392,8 @@ type ListMovieFilesWithoutSlotRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	MovieTitle       string         `json:"movie_title"`
 }
 
@@ -1399,6 +1421,8 @@ func (q *Queries) ListMovieFilesWithoutSlot(ctx context.Context) ([]*ListMovieFi
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.MovieTitle,
 		); err != nil {
 			return nil, err
@@ -1646,7 +1670,7 @@ func (q *Queries) ListMovieSlotsNeedingSearch(ctx context.Context, movieID int64
 
 const listMoviesMissingInMonitoredSlots = `-- name: ListMoviesMissingInMonitoredSlots :many
 
-SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id
+SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by
 FROM movies m
 CROSS JOIN version_slots vs
 LEFT JOIN movie_slot_assignments msa ON m.id = msa.movie_id AND vs.id = msa.slot_id
@@ -1691,6 +1715,8 @@ func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Mov
 			&i.TheatricalReleaseDate,
 			&i.Studio,
 			&i.TvdbID,
+			&i.ContentRating,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1903,7 +1929,7 @@ func (q *Queries) UpdateAllMovieSlotStatuses(ctx context.Context, arg UpdateAllM
 }
 
 const updateEpisodeFileSlot = `-- name: UpdateEpisodeFileSlot :one
-UPDATE episode_files SET slot_id = ? WHERE id = ? RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
+UPDATE episode_files SET slot_id = ? WHERE id = ? RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range
 `
 
 type UpdateEpisodeFileSlotParams struct {
@@ -1929,6 +1955,8 @@ func (q *Queries) UpdateEpisodeFileSlot(ctx context.Context, arg UpdateEpisodeFi
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
@@ -2055,7 +2083,7 @@ func (q *Queries) UpdateEpisodeSlotStatusWithDetails(ctx context.Context, arg Up
 }
 
 const updateMovieFileSlot = `-- name: UpdateMovieFileSlot :one
-UPDATE movie_files SET slot_id = ? WHERE id = ? RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
+UPDATE movie_files SET slot_id = ? WHERE id = ? RETURNING id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range
 `
 
 type UpdateMovieFileSlotParams struct {
@@ -2081,6 +2109,8 @@ func (q *Queries) UpdateMovieFileSlot(ctx context.Context, arg UpdateMovieFileSl
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }

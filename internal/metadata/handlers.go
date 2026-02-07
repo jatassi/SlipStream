@@ -409,8 +409,10 @@ func (h *Handlers) GetArtwork(c echo.Context) error {
 		artworkType = ArtworkTypeBackdrop
 	case "logo":
 		artworkType = ArtworkTypeLogo
+	case "studio_logo":
+		artworkType = ArtworkTypeStudioLogo
 	default:
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid artwork type, must be 'poster', 'backdrop', or 'logo'")
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid artwork type")
 	}
 
 	// Get artwork path

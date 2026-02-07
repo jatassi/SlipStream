@@ -41,6 +41,9 @@ type Series struct {
 	FirstAired       *time.Time   `json:"firstAired,omitempty"`
 	LastAired        *time.Time   `json:"lastAired,omitempty"`
 	NextAiring       *time.Time   `json:"nextAiring,omitempty"`
+
+	AddedBy         *int64 `json:"addedBy,omitempty"`
+	AddedByUsername string `json:"addedByUsername,omitempty"`
 }
 
 // Season represents a season of a TV series.
@@ -78,11 +81,13 @@ type EpisodeFile struct {
 	Path       string    `json:"path"`
 	Size       int64     `json:"size"`
 	Quality    string    `json:"quality,omitempty"`
-	VideoCodec string    `json:"videoCodec,omitempty"`
-	AudioCodec string    `json:"audioCodec,omitempty"`
-	Resolution string    `json:"resolution,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
-	SlotID     *int64    `json:"slotId,omitempty"`
+	VideoCodec    string    `json:"videoCodec,omitempty"`
+	AudioCodec    string    `json:"audioCodec,omitempty"`
+	AudioChannels string    `json:"audioChannels,omitempty"`
+	DynamicRange  string    `json:"dynamicRange,omitempty"`
+	Resolution    string    `json:"resolution,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
+	SlotID        *int64    `json:"slotId,omitempty"`
 }
 
 // CreateSeriesInput contains fields for creating a series.
@@ -104,6 +109,8 @@ type CreateSeriesInput struct {
 	FormatType       string        `json:"formatType,omitempty"`
 	ProductionStatus string        `json:"productionStatus,omitempty"`
 	Seasons          []SeasonInput `json:"seasons,omitempty"`
+
+	AddedBy *int64 `json:"-"`
 }
 
 // SeasonInput is used when creating seasons.
@@ -167,6 +174,8 @@ type CreateEpisodeFileInput struct {
 	QualityID        *int64 `json:"qualityId,omitempty"`
 	VideoCodec       string `json:"videoCodec,omitempty"`
 	AudioCodec       string `json:"audioCodec,omitempty"`
+	AudioChannels    string `json:"audioChannels,omitempty"`
+	DynamicRange     string `json:"dynamicRange,omitempty"`
 	Resolution       string `json:"resolution,omitempty"`
 	OriginalPath     string `json:"originalPath,omitempty"`     // Source path before import
 	OriginalFilename string `json:"originalFilename,omitempty"` // Original filename before rename

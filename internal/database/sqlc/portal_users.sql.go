@@ -236,6 +236,17 @@ func (q *Queries) GetPortalUserByUsername(ctx context.Context, username string) 
 	return &i, err
 }
 
+const getPortalUserUsername = `-- name: GetPortalUserUsername :one
+SELECT username FROM portal_users WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetPortalUserUsername(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getPortalUserUsername, id)
+	var username string
+	err := row.Scan(&username)
+	return username, err
+}
+
 const listEnabledPortalUsers = `-- name: ListEnabledPortalUsers :many
 SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE enabled = 1 ORDER BY display_name
 `

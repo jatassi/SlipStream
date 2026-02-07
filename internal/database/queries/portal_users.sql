@@ -72,6 +72,9 @@ INSERT INTO portal_users (
 ) VALUES (?, ?, ?, 1, 1, 1)
 RETURNING *;
 
+-- name: GetPortalUserUsername :one
+SELECT username FROM portal_users WHERE id = ? LIMIT 1;
+
 -- name: CreatePortalUserWithID :one
 -- Used for copying users to dev database while preserving IDs
 INSERT INTO portal_users (

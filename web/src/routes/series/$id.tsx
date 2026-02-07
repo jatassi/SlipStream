@@ -1,19 +1,25 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
-  Search,
+  UserSearch,
   RefreshCw,
   Trash2,
   Edit,
   Calendar,
+  CalendarPlus,
   Clock,
-  HardDrive,
-  Bookmark,
-  BookmarkX,
-  Tv,
+  UserStar,
+  UserRoundPlus,
+  Eye,
+  EyeOff,
+  SlidersVertical,
+  Drama,
 } from 'lucide-react'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
+import { TitleTreatment } from '@/components/media/TitleTreatment'
+import { StudioLogo } from '@/components/media/StudioLogo'
+import { RTFreshIcon, RTRottenIcon, IMDbIcon, MetacriticIcon } from '@/components/media/RatingIcons'
 import { ProductionStatusBadge } from '@/components/media/ProductionStatusBadge'
 import { formatStatusSummary } from '@/lib/formatters'
 import { SeasonList } from '@/components/series/SeasonList'
@@ -26,7 +32,6 @@ import { AutoSearchButton } from '@/components/search/AutoSearchButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import {
   useSeriesDetail,
   useUpdateSeries,
@@ -35,17 +40,16 @@ import {
   useEpisodes,
   useUpdateSeasonMonitored,
   useUpdateEpisodeMonitored,
-  useAutoSearchSeason,
-  useAutoSearchEpisode,
   useAutoSearchEpisodeSlot,
   useMultiVersionSettings,
   useSlots,
   useAssignEpisodeFile,
   useQualityProfiles,
+  useExtendedSeriesMetadata,
 } from '@/hooks'
-import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
+import { formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
-import type { Episode, AutoSearchResult, BatchAutoSearchResult } from '@/types'
+import type { Episode } from '@/types'
 
 interface SearchContext {
   season?: number
@@ -60,38 +64,20 @@ export function SeriesDetailPage() {
 
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [searchContext, setSearchContext] = useState<SearchContext>({})
-  const [searchingSeasonNumber, setSearchingSeasonNumber] = useState<number | null>(null)
-  const [searchingEpisodeId, setSearchingEpisodeId] = useState<number | null>(null)
   const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [overviewExpanded, setOverviewExpanded] = useState(false)
 
   const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
+  const { data: extendedData } = useExtendedSeriesMetadata(series?.tmdbId ?? 0)
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: episodes } = useEpisodes(seriesId)
-
-  // Get the first episode's air date (S01E01, or earliest by air date)
-  const firstAirDate = useMemo(() => {
-    if (!episodes || episodes.length === 0) return null
-
-    // Try to find S01E01 first
-    const s01e01 = episodes.find(ep => ep.seasonNumber === 1 && ep.episodeNumber === 1)
-    if (s01e01?.airDate) return s01e01.airDate
-
-    // Otherwise find the earliest episode with an air date
-    const episodesWithAirDate = episodes
-      .filter(ep => ep.airDate && ep.seasonNumber > 0)
-      .sort((a, b) => new Date(a.airDate!).getTime() - new Date(b.airDate!).getTime())
-
-    return episodesWithAirDate[0]?.airDate || null
-  }, [episodes])
 
   const updateMutation = useUpdateSeries()
   const deleteMutation = useDeleteSeries()
   const refreshMutation = useRefreshSeries()
   const updateSeasonMonitoredMutation = useUpdateSeasonMonitored()
   const updateEpisodeMonitoredMutation = useUpdateEpisodeMonitored()
-  const seasonAutoSearchMutation = useAutoSearchSeason()
-  const episodeAutoSearchMutation = useAutoSearchEpisode()
   const episodeSlotAutoSearchMutation = useAutoSearchEpisodeSlot()
 
   const { data: multiVersionSettings } = useMultiVersionSettings()
@@ -100,6 +86,25 @@ export function SeriesDetailPage() {
 
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
   const enabledSlots = slots?.filter(s => s.enabled) ?? []
+
+  const episodeRatings = useMemo(() => {
+    if (!extendedData?.seasons) return undefined
+    const map: Record<number, Record<number, number>> = {}
+    for (const season of extendedData.seasons) {
+      if (season.episodes) {
+        const seasonMap: Record<number, number> = {}
+        for (const ep of season.episodes) {
+          if (ep.imdbRating) {
+            seasonMap[ep.episodeNumber] = ep.imdbRating
+          }
+        }
+        if (Object.keys(seasonMap).length > 0) {
+          map[season.seasonNumber] = seasonMap
+        }
+      }
+    }
+    return Object.keys(map).length > 0 ? map : undefined
+  }, [extendedData?.seasons])
 
   const handleAssignFileToSlot = async (fileId: number, episodeId: number, slotId: number) => {
     try {
@@ -138,74 +143,9 @@ export function SeriesDetailPage() {
     setSearchModalOpen(true)
   }
 
-  const formatBatchResult = (result: BatchAutoSearchResult, label: string) => {
-    if (result.downloaded > 0) {
-      toast.success(`Found ${result.downloaded} releases for ${label}`, {
-        description: `Searched ${result.totalSearched} items`,
-      })
-    } else if (result.found > 0) {
-      toast.info(`Found ${result.found} releases but none downloaded for ${label}`)
-    } else if (result.failed > 0) {
-      toast.error(`Search failed for ${result.failed} items in ${label}`)
-    } else {
-      toast.warning(`No releases found for ${label}`)
-    }
-  }
-
-  const formatSingleResult = (result: AutoSearchResult, title: string) => {
-    if (result.error) {
-      toast.error(`Search failed for "${title}"`, { description: result.error })
-      return
-    }
-    if (!result.found) {
-      toast.warning(`No releases found for "${title}"`)
-      return
-    }
-    if (result.downloaded) {
-      const message = result.upgraded ? 'Quality upgrade found' : 'Found and downloading'
-      toast.success(`${message}: ${result.release?.title || title}`, {
-        description: result.clientName ? `Sent to ${result.clientName}` : undefined,
-      })
-    } else {
-      toast.info(`Release found but not downloaded: ${result.release?.title || title}`)
-    }
-  }
-
-  const handleSeasonAutoSearch = async (seasonNumber: number) => {
-    setSearchingSeasonNumber(seasonNumber)
-    try {
-      const result = await seasonAutoSearchMutation.mutateAsync({ seriesId, seasonNumber })
-      formatBatchResult(result, `Season ${seasonNumber}`)
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning(`Season ${seasonNumber} is already in the download queue`)
-      } else {
-        toast.error(`Search failed for Season ${seasonNumber}`)
-      }
-    } finally {
-      setSearchingSeasonNumber(null)
-    }
-  }
-
   const handleEpisodeSearch = (episode: Episode) => {
     setSearchContext({ season: episode.seasonNumber, episode })
     setSearchModalOpen(true)
-  }
-
-  const handleEpisodeAutoSearch = async (episode: Episode) => {
-    setSearchingEpisodeId(episode.id)
-    try {
-      const result = await episodeAutoSearchMutation.mutateAsync(episode.id)
-      formatSingleResult(result, `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`)
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning(`Episode is already in the download queue`)
-      } else {
-        toast.error(`Search failed for episode`)
-      }
-    } finally {
-      setSearchingEpisodeId(null)
-    }
   }
 
   const handleRefresh = async () => {
@@ -323,6 +263,20 @@ export function SeriesDetailPage() {
           version={series.updatedAt}
           className="absolute inset-0"
         />
+        {series.network && (
+          <StudioLogo
+            tmdbId={series.tmdbId}
+            type="series"
+            alt={series.network}
+            version={series.updatedAt}
+            className="absolute top-4 right-4 z-10"
+            fallback={
+              <span className="px-2.5 py-1 rounded bg-black/50 text-xs font-medium text-white/80 backdrop-blur-sm">
+                {series.network}
+              </span>
+            }
+          />
+        )}
         <div className="absolute inset-0 flex items-end p-6">
           <div className="flex gap-6 items-end max-w-4xl">
             {/* Poster */}
@@ -344,42 +298,98 @@ export function SeriesDetailPage() {
                 <Badge variant="secondary">
                   {formatStatusSummary(series.statusCounts)}
                 </Badge>
-                {series.monitored ? (
-                  <Badge variant="outline">Monitored</Badge>
-                ) : (
-                  <Badge variant="secondary">Unmonitored</Badge>
-                )}
                 {qualityProfiles?.find((p) => p.id === series.qualityProfileId)?.name && (
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="gap-1">
+                    <SlidersVertical className="size-3" />
                     {qualityProfiles.find((p) => p.id === series.qualityProfileId)?.name}
                   </Badge>
                 )}
               </div>
-              <h1 className="text-3xl font-bold text-white">{series.title}</h1>
-              <div className="flex items-center gap-4 text-sm text-gray-300">
-                {(firstAirDate || series.year) && (
-                  <span className="flex items-center gap-1">
-                    <Calendar className="size-4" />
-                    {firstAirDate ? formatDate(firstAirDate) : series.year}
+              <TitleTreatment
+                tmdbId={series.tmdbId}
+                tvdbId={series.tvdbId}
+                type="series"
+                alt={series.title}
+                version={series.updatedAt}
+                fallback={<h1 className="text-3xl font-bold text-white">{series.title}</h1>}
+              />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
+                {extendedData?.contentRating && (
+                  <span className="shrink-0 px-1.5 py-0.5 border border-gray-400 rounded text-xs font-medium text-gray-300">
+                    {extendedData.contentRating}
+                  </span>
+                )}
+                {series.year && (
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <Calendar className="size-4 shrink-0" />
+                    {series.year}
                   </span>
                 )}
                 {series.runtime && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="size-4" />
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <Clock className="size-4 shrink-0" />
                     {formatRuntime(series.runtime)}
                   </span>
                 )}
-                {series.sizeOnDisk && (
-                  <span className="flex items-center gap-1">
-                    <HardDrive className="size-4" />
-                    {formatBytes(series.sizeOnDisk)}
+                {extendedData?.credits?.creators?.[0] && (
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <UserStar className="size-4 shrink-0" />
+                    {extendedData.credits.creators[0].name}
                   </span>
                 )}
-                <span className="flex items-center gap-1">
-                  <Tv className="size-4" />
-                  {series.statusCounts.available + series.statusCounts.upgradable}/{series.statusCounts.total - series.statusCounts.unreleased} episodes
-                </span>
+                {extendedData?.genres && extendedData.genres.length > 0 && (
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <Drama className="size-4 shrink-0" />
+                    {extendedData.genres.join(', ')}
+                  </span>
+                )}
+                {series.addedByUsername && (
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <UserRoundPlus className="size-4 shrink-0" />
+                    {series.addedByUsername}
+                  </span>
+                )}
+                {series.addedAt && (
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <CalendarPlus className="size-4 shrink-0" />
+                    {formatDate(series.addedAt)}
+                  </span>
+                )}
               </div>
+              {(extendedData?.ratings?.rottenTomatoes != null || extendedData?.ratings?.imdbRating != null || extendedData?.ratings?.metacritic != null) && (
+                <div className="flex items-center gap-4 text-sm text-gray-300">
+                  {extendedData?.ratings?.rottenTomatoes != null && (
+                    <span className="flex items-center gap-1.5">
+                      {extendedData.ratings.rottenTomatoes >= 60 ? (
+                        <RTFreshIcon className="h-5" />
+                      ) : (
+                        <RTRottenIcon className="h-5" />
+                      )}
+                      <span className="font-medium">{extendedData.ratings.rottenTomatoes}%</span>
+                    </span>
+                  )}
+                  {extendedData?.ratings?.imdbRating != null && (
+                    <span className="flex items-center gap-1.5">
+                      <IMDbIcon className="h-4" />
+                      <span className="font-medium">{extendedData.ratings.imdbRating.toFixed(1)}</span>
+                    </span>
+                  )}
+                  {extendedData?.ratings?.metacritic != null && (
+                    <span className="flex items-center gap-1.5">
+                      <MetacriticIcon className="h-5" />
+                      <span className="font-medium">{extendedData.ratings.metacritic}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {series.overview && (
+                <p
+                  className={`text-sm text-gray-300 max-w-2xl cursor-pointer ${overviewExpanded ? '' : 'line-clamp-2'}`}
+                  onClick={() => setOverviewExpanded(!overviewExpanded)}
+                >
+                  {series.overview}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -387,8 +397,8 @@ export function SeriesDetailPage() {
 
       {/* Actions */}
       <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
-        <Button onClick={handleManualSearch}>
-          <Search className="size-4 mr-2" />
+        <Button variant="outline" onClick={handleManualSearch}>
+          <UserSearch className="size-4 mr-2" />
           Search
         </Button>
         <AutoSearchButton
@@ -396,32 +406,28 @@ export function SeriesDetailPage() {
           seriesId={series.id}
           title={series.title}
         />
-        <Button
-          variant="outline"
-          onClick={handleRefresh}
-          disabled={refreshMutation.isPending}
-        >
-          <RefreshCw className="size-4 mr-2" />
-          Refresh
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleToggleMonitored}
-          disabled={updateMutation.isPending}
-        >
+        <Button variant="outline" onClick={handleToggleMonitored} className={series.monitored ? 'glow-tv-sm' : ''}>
           {series.monitored ? (
             <>
-              <Bookmark className="size-4 mr-2" />
+              <Eye className="size-4 mr-2 text-tv-400" />
               Monitored
             </>
           ) : (
             <>
-              <BookmarkX className="size-4 mr-2" />
+              <EyeOff className="size-4 mr-2" />
               Unmonitored
             </>
           )}
         </Button>
         <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={refreshMutation.isPending}
+          >
+            <RefreshCw className="size-4 mr-2" />
+            Refresh
+          </Button>
           <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
             <Edit className="size-4 mr-2" />
             Edit
@@ -444,46 +450,6 @@ export function SeriesDetailPage() {
 
       {/* Content */}
       <div className="p-6 space-y-6">
-        {/* Overview */}
-        {series.overview && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{series.overview}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Path</span>
-              <span className="font-mono text-sm">{series.path || 'Not set'}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Added</span>
-              <span>{formatDate(series.addedAt)}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">TVDB ID</span>
-              <span>{series.tvdbId || '-'}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">TMDB ID</span>
-              <span>{series.tmdbId || '-'}</span>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Seasons */}
         <Card>
           <CardHeader>
@@ -497,19 +463,16 @@ export function SeriesDetailPage() {
                 episodes={episodes}
                 onSeasonMonitoredChange={handleSeasonMonitoredChange}
                 onSeasonSearch={handleSeasonSearch}
-                onSeasonAutoSearch={handleSeasonAutoSearch}
                 onEpisodeSearch={handleEpisodeSearch}
-                onEpisodeAutoSearch={handleEpisodeAutoSearch}
                 onEpisodeMonitoredChange={handleEpisodeMonitoredChange}
                 onAssignFileToSlot={handleAssignFileToSlot}
                 onSlotManualSearch={handleSlotManualSearch}
                 onSlotAutoSearch={handleSlotAutoSearch}
-                searchingSeasonNumber={searchingSeasonNumber}
-                searchingEpisodeId={searchingEpisodeId}
                 searchingSlotId={searchingSlotId}
                 isMultiVersionEnabled={isMultiVersionEnabled}
                 enabledSlots={enabledSlots}
                 isAssigning={assignFileMutation.isPending}
+                episodeRatings={episodeRatings}
               />
             ) : (
               <p className="text-muted-foreground">No seasons found</p>

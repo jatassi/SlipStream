@@ -34,8 +34,9 @@ type MovieResult struct {
 	LogoURL     string   `json:"logoUrl,omitempty"`
 	ImdbID      string   `json:"imdbId,omitempty"`
 	Genres      []string `json:"genres,omitempty"`
-	Runtime     int      `json:"runtime,omitempty"`
-	Studio      string   `json:"studio,omitempty"`
+	Runtime       int      `json:"runtime,omitempty"`
+	Studio        string   `json:"studio,omitempty"`
+	StudioLogoURL string   `json:"studioLogoUrl,omitempty"`
 }
 
 // SeriesResult represents a TV series from a metadata provider.
@@ -69,12 +70,13 @@ type SeasonResult struct {
 
 // EpisodeResult represents a TV episode from a metadata provider.
 type EpisodeResult struct {
-	EpisodeNumber int    `json:"episodeNumber"`
-	SeasonNumber  int    `json:"seasonNumber"`
-	Title         string `json:"title"`
-	Overview      string `json:"overview,omitempty"`
-	AirDate       string `json:"airDate,omitempty"`
-	Runtime       int    `json:"runtime,omitempty"`
+	EpisodeNumber int     `json:"episodeNumber"`
+	SeasonNumber  int     `json:"seasonNumber"`
+	Title         string  `json:"title"`
+	Overview      string  `json:"overview,omitempty"`
+	AirDate       string  `json:"airDate,omitempty"`
+	Runtime       int     `json:"runtime,omitempty"`
+	ImdbRating    float64 `json:"imdbRating,omitempty"`
 }
 
 // Person represents a person (actor, director, writer, etc.) from metadata.

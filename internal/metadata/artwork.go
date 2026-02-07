@@ -24,9 +24,10 @@ var (
 type ArtworkType string
 
 const (
-	ArtworkTypePoster   ArtworkType = "poster"
-	ArtworkTypeBackdrop ArtworkType = "backdrop"
-	ArtworkTypeLogo     ArtworkType = "logo"
+	ArtworkTypePoster     ArtworkType = "poster"
+	ArtworkTypeBackdrop   ArtworkType = "backdrop"
+	ArtworkTypeLogo       ArtworkType = "logo"
+	ArtworkTypeStudioLogo ArtworkType = "studio_logo"
 )
 
 // MediaType represents the type of media.
@@ -212,6 +213,17 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 		}
 	}
 
+	// Download studio logo if URL provided
+	if movie.StudioLogoURL != "" {
+		path, err := d.Download(ctx, movie.StudioLogoURL, MediaTypeMovie, movie.ID, ArtworkTypeStudioLogo)
+		if err != nil {
+			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download studio logo")
+		} else {
+			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded studio logo")
+			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeStudioLogo)
+		}
+	}
+
 	return nil
 }
 
@@ -263,6 +275,17 @@ func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *S
 		} else {
 			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series logo")
 			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeLogo)
+		}
+	}
+
+	// Download network logo if URL provided
+	if series.NetworkLogoURL != "" {
+		path, err := d.Download(ctx, series.NetworkLogoURL, MediaTypeSeries, artworkID, ArtworkTypeStudioLogo)
+		if err != nil {
+			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download network logo")
+		} else {
+			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded network logo")
+			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeStudioLogo)
 		}
 	}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, MoreHorizontal, Download, Zap, Loader2, ChevronDown } from 'lucide-react'
+import { UserSearch, Eye, EyeOff, ChevronDown, Loader2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -9,20 +9,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { QualityBadge } from '@/components/media/QualityBadge'
 import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
+import { AutoSearchButton } from '@/components/search/AutoSearchButton'
 import { EpisodeSlotRow } from './EpisodeSlotRow'
 import { useDownloadingStore } from '@/stores'
 import { useEpisodeSlotStatus, useSetEpisodeSlotMonitored } from '@/hooks'
@@ -34,37 +30,40 @@ import type { Episode, Slot } from '@/types'
 interface EpisodeTableProps {
   seriesId: number
   episodes: Episode[]
-  onAutoSearch?: (episode: Episode) => void
   onManualSearch?: (episode: Episode) => void
   onMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
   onSlotManualSearch?: (episodeId: number, slotId: number) => void
   onSlotAutoSearch?: (episodeId: number, slotId: number) => void
-  searchingEpisodeId?: number | null
   searchingSlotId?: number | null
   isMultiVersionEnabled?: boolean
   enabledSlots?: Slot[]
   isAssigning?: boolean
+  episodeRatings?: Record<number, number>
+}
+
+function getRatingColor(rating: number): string {
+  if (rating >= 8.0) return 'text-green-400'
+  if (rating >= 6.0) return 'text-yellow-400'
+  return 'text-red-400'
 }
 
 export function EpisodeTable({
   seriesId,
   episodes,
-  onAutoSearch,
   onManualSearch,
   onMonitoredChange,
   onAssignFileToSlot,
   onSlotManualSearch,
   onSlotAutoSearch,
-  searchingEpisodeId,
   searchingSlotId,
   isMultiVersionEnabled = false,
   enabledSlots = [],
   isAssigning = false,
+  episodeRatings,
 }: EpisodeTableProps) {
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<number | null>(null)
 
-  // Select queueItems directly so component re-renders when it changes
   const queueItems = useDownloadingStore((state) => state.queueItems)
 
   const getSlotName = (slotId: number | undefined) => {
@@ -76,9 +75,7 @@ export function EpisodeTable({
   const isEpisodeDownloading = (episodeId: number, sId?: number, seasonNum?: number) => {
     return queueItems.some((item) => {
       if (item.status !== 'downloading' && item.status !== 'queued') return false
-      // Direct episode match
       if (item.episodeId === episodeId) return true
-      // Season pack or complete series covering this episode
       if (sId && item.seriesId === sId) {
         if (item.isCompleteSeries) return true
         if (seasonNum && item.seasonNumber === seasonNum && item.isSeasonPack) return true
@@ -87,12 +84,11 @@ export function EpisodeTable({
     })
   }
 
-  // Sort by episode number
   const sortedEpisodes = [...episodes].sort(
     (a, b) => a.episodeNumber - b.episodeNumber
   )
 
-  const columnCount = isMultiVersionEnabled ? 10 : 8
+  const columnCount = isMultiVersionEnabled ? 9 : 7
 
   const toggleExpanded = (episodeId: number) => {
     setExpandedEpisodeId(prev => prev === episodeId ? null : episodeId)
@@ -102,15 +98,15 @@ export function EpisodeTable({
     <Table>
       <TableHeader>
         <TableRow>
-          {isMultiVersionEnabled && <TableHead className="w-8" />}
-          <TableHead className="w-16">#</TableHead>
-          <TableHead>Title</TableHead>
-          <TableHead>Air Date</TableHead>
-          <TableHead className="w-24">Monitored</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Quality</TableHead>
-          {isMultiVersionEnabled && <TableHead>Slot</TableHead>}
-          <TableHead className="w-16">Actions</TableHead>
+          {isMultiVersionEnabled && <TableHead className="w-8 px-2" />}
+          <TableHead className="w-10 px-2">#</TableHead>
+          <TableHead className="px-2">Title</TableHead>
+          <TableHead className="px-2">Air Date</TableHead>
+          <TableHead className="w-10 px-2 text-center">Status</TableHead>
+          <TableHead className="px-2">Quality</TableHead>
+          <TableHead className="w-14 px-2 text-center">Rating</TableHead>
+          {isMultiVersionEnabled && <TableHead className="px-2">Slot</TableHead>}
+          <TableHead className="w-28 px-2">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -123,18 +119,17 @@ export function EpisodeTable({
             isExpanded={expandedEpisodeId === episode.id}
             onToggleExpanded={() => toggleExpanded(episode.id)}
             isDownloading={isEpisodeDownloading(episode.id, seriesId, episode.seasonNumber)}
-            isSearching={searchingEpisodeId === episode.id}
             searchingSlotId={searchingSlotId}
             isMultiVersionEnabled={isMultiVersionEnabled}
             enabledSlots={enabledSlots}
             isAssigning={isAssigning}
             getSlotName={getSlotName}
-            onAutoSearch={onAutoSearch}
             onManualSearch={onManualSearch}
             onMonitoredChange={onMonitoredChange}
             onAssignFileToSlot={onAssignFileToSlot}
             onSlotManualSearch={onSlotManualSearch}
             onSlotAutoSearch={onSlotAutoSearch}
+            imdbRating={episodeRatings?.[episode.episodeNumber]}
           />
         ))}
       </TableBody>
@@ -149,18 +144,17 @@ interface EpisodeRowProps {
   isExpanded: boolean
   onToggleExpanded: () => void
   isDownloading: boolean
-  isSearching: boolean
   searchingSlotId?: number | null
   isMultiVersionEnabled: boolean
   enabledSlots: Slot[]
   isAssigning: boolean
   getSlotName: (slotId: number | undefined) => string | null
-  onAutoSearch?: (episode: Episode) => void
   onManualSearch?: (episode: Episode) => void
   onMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
   onSlotManualSearch?: (episodeId: number, slotId: number) => void
   onSlotAutoSearch?: (episodeId: number, slotId: number) => void
+  imdbRating?: number
 }
 
 function EpisodeRow({
@@ -169,40 +163,23 @@ function EpisodeRow({
   columnCount,
   isExpanded,
   onToggleExpanded,
-  isDownloading,
-  isSearching,
+  isDownloading: _isDownloading,
   searchingSlotId,
   isMultiVersionEnabled,
   enabledSlots,
   isAssigning,
   getSlotName,
-  onAutoSearch,
   onManualSearch,
   onMonitoredChange,
   onAssignFileToSlot,
   onSlotManualSearch,
   onSlotAutoSearch,
+  imdbRating,
 }: EpisodeRowProps) {
   const { data: slotStatus, isLoading: isLoadingSlotStatus } = useEpisodeSlotStatus(
     isExpanded ? episode.id : 0
   )
   const setSlotMonitoredMutation = useSetEpisodeSlotMonitored()
-
-  const handleAutoSearch = () => {
-    if (onAutoSearch) {
-      onAutoSearch(episode)
-    } else {
-      toast.info('Automatic search not yet implemented')
-    }
-  }
-
-  const handleManualSearch = () => {
-    if (onManualSearch) {
-      onManualSearch(episode)
-    } else {
-      toast.info('Manual search not yet implemented')
-    }
-  }
 
   const handleSlotMonitoredChange = async (slotId: number, monitored: boolean) => {
     try {
@@ -221,7 +198,7 @@ function EpisodeRow({
     <>
       <TableRow className={cn(isExpanded && 'border-b-0')}>
         {isMultiVersionEnabled && (
-          <TableCell className="p-1">
+          <TableCell className="px-2 py-1">
             <button
               onClick={onToggleExpanded}
               className="p-1 hover:bg-muted rounded"
@@ -230,30 +207,32 @@ function EpisodeRow({
             </button>
           </TableCell>
         )}
-        <TableCell className="font-mono">{episode.episodeNumber}</TableCell>
-        <TableCell className="font-medium">{episode.title}</TableCell>
-        <TableCell>
+        <TableCell className="font-mono px-2 py-1.5">{episode.episodeNumber}</TableCell>
+        <TableCell className="font-medium px-2 py-1.5">{episode.title}</TableCell>
+        <TableCell className="px-2 py-1.5">
           {episode.airDate ? formatDate(episode.airDate) : '-'}
         </TableCell>
-        <TableCell>
-          <Switch
-            checked={episode.monitored}
-            onCheckedChange={(checked) => onMonitoredChange?.(episode, checked)}
-            disabled={!onMonitoredChange}
-          />
+        <TableCell className="px-2 py-1.5 text-center">
+          <MediaStatusBadge status={episode.status} iconOnly />
         </TableCell>
-        <TableCell>
-          <MediaStatusBadge status={episode.status} />
-        </TableCell>
-        <TableCell>
+        <TableCell className="px-2 py-1.5">
           {episode.episodeFile ? (
             <QualityBadge quality={episode.episodeFile.quality} />
           ) : (
             '-'
           )}
         </TableCell>
+        <TableCell className="px-2 py-1.5 text-center">
+          {imdbRating != null ? (
+            <span className={cn('text-xs font-medium', getRatingColor(imdbRating))}>
+              {imdbRating.toFixed(1)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">-</span>
+          )}
+        </TableCell>
         {isMultiVersionEnabled && (
-          <TableCell>
+          <TableCell className="px-2 py-1.5">
             {episode.episodeFile ? (
               <Select
                 value={episode.episodeFile.slotId?.toString() ?? 'unassigned'}
@@ -285,32 +264,57 @@ function EpisodeRow({
             )}
           </TableCell>
         )}
-        <TableCell>
-          {isDownloading ? (
-            <div className="flex items-center justify-center size-8">
-              <Download className="size-4 text-green-500" />
-            </div>
-          ) : isSearching ? (
-            <div className="flex items-center justify-center size-8">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground size-8">
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleAutoSearch}>
-                  <Zap className="size-4 mr-2" />
-                  Automatic Search
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleManualSearch}>
-                  <Search className="size-4 mr-2" />
-                  Manual Search
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+        <TableCell className="px-2 py-1.5">
+          <div className="flex items-center gap-1">
+            {onManualSearch && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onManualSearch(episode)}
+                    />
+                  }
+                >
+                  <UserSearch className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Manual Search</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <AutoSearchButton
+              mediaType="episode"
+              episodeId={episode.id}
+              title={`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`}
+              showLabel={false}
+              variant="ghost"
+              size="icon-sm"
+            />
+            {onMonitoredChange && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onMonitoredChange(episode, !episode.monitored)}
+                    />
+                  }
+                >
+                  {episode.monitored ? (
+                    <Eye className="size-3.5 text-tv-400 icon-glow-tv" />
+                  ) : (
+                    <EyeOff className="size-3.5" />
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{episode.monitored ? 'Monitored' : 'Unmonitored'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </TableCell>
       </TableRow>
       {isMultiVersionEnabled && isExpanded && (
@@ -340,4 +344,3 @@ function EpisodeRow({
     </>
   )
 }
-

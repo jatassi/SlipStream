@@ -548,20 +548,25 @@ func (c *Client) movieDetailsToResult(details MovieDetails) NormalizedMovieResul
 	}
 
 	studio := ""
+	studioLogoURL := ""
 	if len(details.ProductionCompanies) > 0 {
 		studio = details.ProductionCompanies[0].Name
+		if details.ProductionCompanies[0].LogoPath != nil {
+			studioLogoURL = c.GetImageURL(*details.ProductionCompanies[0].LogoPath, "w500")
+		}
 	}
 
 	result := NormalizedMovieResult{
-		ID:          details.ID,
-		Title:       details.Title,
-		Year:        year,
-		Overview:    details.Overview,
-		Runtime:     details.Runtime,
-		ImdbID:      details.ImdbID,
-		Genres:      genres,
-		ReleaseDate: details.ReleaseDate,
-		Studio:      studio,
+		ID:            details.ID,
+		Title:         details.Title,
+		Year:          year,
+		Overview:      details.Overview,
+		Runtime:       details.Runtime,
+		ImdbID:        details.ImdbID,
+		Genres:        genres,
+		ReleaseDate:   details.ReleaseDate,
+		Studio:        studio,
+		StudioLogoURL: studioLogoURL,
 	}
 
 	if details.PosterPath != nil {
@@ -657,7 +662,7 @@ func (c *Client) tvDetailsToResult(details TVDetails) NormalizedSeriesResult {
 	if len(details.Networks) > 0 {
 		network = details.Networks[0].Name
 		if details.Networks[0].LogoPath != "" {
-			networkLogoURL = c.GetImageURL(details.Networks[0].LogoPath, "w154")
+			networkLogoURL = c.GetImageURL(details.Networks[0].LogoPath, "w500")
 		}
 	}
 

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export interface ArtworkReadyPayload {
   mediaType: 'movie' | 'series'
   mediaId: number
-  artworkType: 'poster' | 'backdrop'
+  artworkType: 'poster' | 'backdrop' | 'logo'
 }
 
 interface ArtworkState {

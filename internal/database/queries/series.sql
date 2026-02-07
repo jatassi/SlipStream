@@ -1,6 +1,11 @@
 -- name: GetSeries :one
 SELECT * FROM series WHERE id = ? LIMIT 1;
 
+-- name: GetSeriesWithAddedBy :one
+SELECT s.*, pu.username AS added_by_username FROM series s
+LEFT JOIN portal_users pu ON s.added_by = pu.id
+WHERE s.id = ? LIMIT 1;
+
 -- name: GetSeriesByTvdbID :one
 SELECT * FROM series WHERE tvdb_id = ? LIMIT 1;
 
@@ -14,8 +19,8 @@ SELECT * FROM series WHERE monitored = 1 ORDER BY sort_title;
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type,
-    network_logo_url
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    network_logo_url, added_by
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateSeries :one
@@ -169,8 +174,8 @@ ORDER BY e.episode_number;
 SELECT * FROM episode_files WHERE episode_id = ? ORDER BY path;
 
 -- name: CreateEpisodeFile :one
-INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution, audio_channels, dynamic_range)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: DeleteEpisodeFile :exec
@@ -459,8 +464,8 @@ SELECT
 -- name: CreateEpisodeFileWithImportInfo :one
 INSERT INTO episode_files (
     episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
-    original_path, original_filename, imported_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    audio_channels, dynamic_range, original_path, original_filename, imported_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateEpisodeFileImportInfo :one

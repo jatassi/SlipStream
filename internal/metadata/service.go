@@ -111,16 +111,17 @@ func (s *Service) RegisterMetadataProviders() {
 // tmdbMovieToResult converts a TMDB movie result to metadata.MovieResult.
 func tmdbMovieToResult(m tmdb.NormalizedMovieResult) MovieResult {
 	return MovieResult{
-		ID:          m.ID,
-		Title:       m.Title,
-		Year:        m.Year,
-		Overview:    m.Overview,
-		PosterURL:   m.PosterURL,
-		BackdropURL: m.BackdropURL,
-		ImdbID:      m.ImdbID,
-		Genres:      m.Genres,
-		Runtime:     m.Runtime,
-		Studio:      m.Studio,
+		ID:            m.ID,
+		Title:         m.Title,
+		Year:          m.Year,
+		Overview:      m.Overview,
+		PosterURL:     m.PosterURL,
+		BackdropURL:   m.BackdropURL,
+		ImdbID:        m.ImdbID,
+		Genres:        m.Genres,
+		Runtime:       m.Runtime,
+		Studio:        m.Studio,
+		StudioLogoURL: m.StudioLogoURL,
 	}
 }
 
@@ -477,6 +478,14 @@ func (s *Service) GetMovieLogoURL(ctx context.Context, tmdbID int) (string, erro
 	return s.tmdb.GetMovieLogoURL(ctx, tmdbID)
 }
 
+// GetMovieContentRating fetches the content rating (e.g. PG-13, R) for a movie from TMDB.
+func (s *Service) GetMovieContentRating(ctx context.Context, tmdbID int) (string, error) {
+	if !s.tmdb.IsConfigured() {
+		return "", ErrNoProvidersConfigured
+	}
+	return s.tmdb.GetMovieContentRating(ctx, tmdbID)
+}
+
 // GetSeriesLogoURL fetches the title treatment logo URL for a series from TMDB.
 func (s *Service) GetSeriesLogoURL(ctx context.Context, tmdbID int) (string, error) {
 	if !s.tmdb.IsConfigured() {
@@ -742,6 +751,20 @@ func (s *Service) GetExtendedSeries(ctx context.Context, tmdbID int) (*ExtendedS
 			s.logger.Warn().Err(err).Str("imdbId", series.ImdbID).Msg("Failed to get OMDb ratings")
 		} else {
 			result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
+		}
+
+		// Fetch per-episode ratings for each season
+		for i, season := range result.Seasons {
+			epRatings, err := s.omdb.GetSeasonEpisodes(ctx, series.ImdbID, season.SeasonNumber)
+			if err != nil {
+				s.logger.Debug().Err(err).Int("season", season.SeasonNumber).Msg("Failed to get episode ratings")
+				continue
+			}
+			for j := range result.Seasons[i].Episodes {
+				if rating, ok := epRatings[result.Seasons[i].Episodes[j].EpisodeNumber]; ok {
+					result.Seasons[i].Episodes[j].ImdbRating = rating
+				}
+			}
 		}
 	}
 

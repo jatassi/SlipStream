@@ -20,6 +20,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { PosterImage } from '@/components/media/PosterImage'
+import { RTFreshIcon, RTRottenIcon, IMDbIcon, MetacriticIcon } from '@/components/media/RatingIcons'
 import { formatEta } from '@/lib/formatters'
 import type {
   MovieSearchResult,
@@ -317,25 +318,29 @@ function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
         <div className="flex flex-wrap items-center gap-4">
           {ratings.rottenTomatoes != null && (
             <div className="flex items-center gap-1.5">
-              <span className="text-lg" role="img" aria-label="Rotten Tomatoes">
-                {ratings.rottenTomatoes >= 60 ? '🍅' : '🟢'}
-              </span>
+              {ratings.rottenTomatoes >= 60 ? (
+                <RTFreshIcon className="h-5" />
+              ) : (
+                <RTRottenIcon className="h-5" />
+              )}
               <span className="text-sm font-medium">{ratings.rottenTomatoes}%</span>
               <span className="text-xs text-muted-foreground">Critics</span>
             </div>
           )}
           {ratings.rottenAudience != null && (
             <div className="flex items-center gap-1.5">
-              <span className="text-lg" role="img" aria-label="Audience Score">
-                🍿
-              </span>
+              {ratings.rottenAudience >= 60 ? (
+                <RTFreshIcon className="h-5" />
+              ) : (
+                <RTRottenIcon className="h-5" />
+              )}
               <span className="text-sm font-medium">{ratings.rottenAudience}%</span>
               <span className="text-xs text-muted-foreground">Audience</span>
             </div>
           )}
           {ratings.imdbRating != null && (
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-yellow-500">IMDb</span>
+              <IMDbIcon className="h-4" />
               <span className="text-sm font-medium">{ratings.imdbRating.toFixed(1)}</span>
               {ratings.imdbVotes != null && (
                 <span className="text-xs text-muted-foreground">
@@ -346,18 +351,8 @@ function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
           )}
           {ratings.metacritic != null && (
             <div className="flex items-center gap-1.5">
-              <span
-                className={`text-xs font-bold px-1.5 py-0.5 rounded ${
-                  ratings.metacritic >= 60
-                    ? 'bg-green-600 text-white'
-                    : ratings.metacritic >= 40
-                      ? 'bg-yellow-500 text-black'
-                      : 'bg-red-600 text-white'
-                }`}
-              >
-                {ratings.metacritic}
-              </span>
-              <span className="text-xs text-muted-foreground">Metacritic</span>
+              <MetacriticIcon className="h-5" />
+              <span className="text-sm font-medium">{ratings.metacritic}</span>
             </div>
           )}
         </div>

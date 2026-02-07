@@ -86,6 +86,7 @@ export interface EpisodeResult {
   overview?: string
   airDate?: string
   runtime?: number
+  imdbRating?: number
 }
 
 export interface ExtendedMovieResult extends MovieSearchResult {

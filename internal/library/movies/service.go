@@ -117,7 +117,7 @@ func (s *Service) SetDB(db *sql.DB) {
 
 // Get retrieves a movie by ID.
 func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
-	row, err := s.queries.GetMovie(ctx, id)
+	row, err := s.queries.GetMovieWithAddedBy(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrMovieNotFound
@@ -125,7 +125,7 @@ func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
 		return nil, fmt.Errorf("failed to get movie: %w", err)
 	}
 
-	movie := s.rowToMovie(row)
+	movie := s.getMovieRowToMovie(row)
 
 	// Get movie files
 	files, err := s.GetFiles(ctx, id)
@@ -260,6 +260,11 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		status = "missing"
 	}
 
+	var addedBy sql.NullInt64
+	if input.AddedBy != nil {
+		addedBy = sql.NullInt64{Int64: *input.AddedBy, Valid: true}
+	}
+
 	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
 		Title:                 input.Title,
 		SortTitle:             sortTitle,
@@ -278,6 +283,8 @@ func (s *Service) Create(ctx context.Context, input CreateMovieInput) (*Movie, e
 		TheatricalReleaseDate: theatricalReleaseDate,
 		Studio:                sql.NullString{String: input.Studio, Valid: input.Studio != ""},
 		TvdbID:                sql.NullInt64{Int64: int64(input.TvdbID), Valid: input.TvdbID > 0},
+		ContentRating:         sql.NullString{String: input.ContentRating, Valid: input.ContentRating != ""},
+		AddedBy:               addedBy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -383,7 +390,14 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 	}
 
 	studio := current.Studio
+	if input.Studio != nil {
+		studio = *input.Studio
+	}
 	tvdbID := current.TvdbID
+	contentRating := current.ContentRating
+	if input.ContentRating != nil {
+		contentRating = *input.ContentRating
+	}
 
 	s.logger.Debug().
 		Str("title", title).
@@ -451,6 +465,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateMovieInput) 
 		TheatricalReleaseDate: theatricalReleaseDate,
 		Studio:                sql.NullString{String: studio, Valid: studio != ""},
 		TvdbID:                sql.NullInt64{Int64: int64(tvdbID), Valid: tvdbID > 0},
+		ContentRating:         sql.NullString{String: contentRating, Valid: contentRating != ""},
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
@@ -569,6 +584,8 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 			QualityID:        qualityID,
 			VideoCodec:       sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
 			AudioCodec:       sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			AudioChannels:    sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
+			DynamicRange:     sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
 			Resolution:       sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
 			OriginalPath:     sql.NullString{String: input.OriginalPath, Valid: true},
 			OriginalFilename: sql.NullString{String: input.OriginalFilename, Valid: input.OriginalFilename != ""},
@@ -576,14 +593,16 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input CreateMovieF
 		})
 	} else {
 		row, err = s.queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
-			MovieID:    movieID,
-			Path:       input.Path,
-			Size:       input.Size,
-			Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-			QualityID:  qualityID,
-			VideoCodec: sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-			AudioCodec: sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-			Resolution: sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
+			MovieID:       movieID,
+			Path:          input.Path,
+			Size:          input.Size,
+			Quality:       sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+			QualityID:     qualityID,
+			VideoCodec:    sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
+			AudioCodec:    sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
+			AudioChannels: sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
+			DynamicRange:  sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
+			Resolution:    sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
 		})
 	}
 	if err != nil {
@@ -771,7 +790,48 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 	if row.TvdbID.Valid {
 		m.TvdbID = int(row.TvdbID.Int64)
 	}
+	if row.ContentRating.Valid {
+		m.ContentRating = row.ContentRating.String
+	}
+	if row.AddedBy.Valid {
+		v := row.AddedBy.Int64
+		m.AddedBy = &v
+	}
 
+	return m
+}
+
+// getMovieRowToMovie converts a GetMovieWithAddedByRow (with JOIN) to a Movie.
+func (s *Service) getMovieRowToMovie(row *sqlc.GetMovieWithAddedByRow) *Movie {
+	m := s.rowToMovie(&sqlc.Movie{
+		ID:                    row.ID,
+		Title:                 row.Title,
+		SortTitle:             row.SortTitle,
+		Year:                  row.Year,
+		TmdbID:                row.TmdbID,
+		ImdbID:                row.ImdbID,
+		Overview:              row.Overview,
+		Runtime:               row.Runtime,
+		Path:                  row.Path,
+		RootFolderID:          row.RootFolderID,
+		QualityProfileID:      row.QualityProfileID,
+		Monitored:             row.Monitored,
+		Status:                row.Status,
+		ActiveDownloadID:      row.ActiveDownloadID,
+		StatusMessage:         row.StatusMessage,
+		ReleaseDate:           row.ReleaseDate,
+		PhysicalReleaseDate:   row.PhysicalReleaseDate,
+		AddedAt:               row.AddedAt,
+		UpdatedAt:             row.UpdatedAt,
+		TheatricalReleaseDate: row.TheatricalReleaseDate,
+		Studio:                row.Studio,
+		TvdbID:                row.TvdbID,
+		ContentRating:         row.ContentRating,
+		AddedBy:               row.AddedBy,
+	})
+	if row.AddedByUsername.Valid {
+		m.AddedByUsername = row.AddedByUsername.String
+	}
 	return m
 }
 
@@ -792,6 +852,12 @@ func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
 	}
 	if row.AudioCodec.Valid {
 		f.AudioCodec = row.AudioCodec.String
+	}
+	if row.AudioChannels.Valid {
+		f.AudioChannels = row.AudioChannels.String
+	}
+	if row.DynamicRange.Valid {
+		f.DynamicRange = row.DynamicRange.String
 	}
 	if row.Resolution.Valid {
 		f.Resolution = row.Resolution.String

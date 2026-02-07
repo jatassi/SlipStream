@@ -1,4 +1,4 @@
-import { Search, Zap, Download, Loader2 } from 'lucide-react'
+import { UserSearch, Eye, EyeOff, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Accordion,
@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { MediaStatusBadge, type MediaStatus } from '@/components/media/MediaStatusBadge'
 import { EpisodeTable } from './EpisodeTable'
-import { useDownloadingStore } from '@/stores'
-import type { Season, Episode, Slot } from '@/types'
+import type { Season, Episode, Slot, StatusCounts } from '@/types'
 
 interface SeasonListProps {
   seriesId: number
@@ -19,20 +20,26 @@ interface SeasonListProps {
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
   onSeasonSearch?: (seasonNumber: number) => void
-  onSeasonAutoSearch?: (seasonNumber: number) => void
   onEpisodeSearch?: (episode: Episode) => void
-  onEpisodeAutoSearch?: (episode: Episode) => void
   onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
   onSlotManualSearch?: (episodeId: number, slotId: number) => void
   onSlotAutoSearch?: (episodeId: number, slotId: number) => void
-  searchingSeasonNumber?: number | null
-  searchingEpisodeId?: number | null
   searchingSlotId?: number | null
   isMultiVersionEnabled?: boolean
   enabledSlots?: Slot[]
   isAssigning?: boolean
+  episodeRatings?: Record<number, Record<number, number>>
   className?: string
+}
+
+function computeSeasonStatus(counts: StatusCounts): MediaStatus {
+  if (counts.downloading > 0) return 'downloading'
+  if (counts.failed > 0) return 'failed'
+  if (counts.missing > 0) return 'missing'
+  if (counts.upgradable > 0) return 'upgradable'
+  if (counts.available > 0) return 'available'
+  return 'unreleased'
 }
 
 export function SeasonList({
@@ -41,33 +48,18 @@ export function SeasonList({
   episodes = [],
   onSeasonMonitoredChange,
   onSeasonSearch,
-  onSeasonAutoSearch,
   onEpisodeSearch,
-  onEpisodeAutoSearch,
   onEpisodeMonitoredChange,
   onAssignFileToSlot,
   onSlotManualSearch,
   onSlotAutoSearch,
-  searchingSeasonNumber,
-  searchingEpisodeId,
   searchingSlotId,
   isMultiVersionEnabled = false,
   enabledSlots = [],
   isAssigning = false,
+  episodeRatings,
   className,
 }: SeasonListProps) {
-  // Select queueItems directly so component re-renders when it changes
-  const queueItems = useDownloadingStore((state) => state.queueItems)
-
-  const isSeasonDownloading = (sId: number, seasonNum: number) => {
-    return queueItems.some(
-      (item) =>
-        item.seriesId === sId &&
-        ((item.seasonNumber === seasonNum && item.isSeasonPack) ||
-          item.isCompleteSeries) &&
-        (item.status === 'downloading' || item.status === 'queued')
-    )
-  }
   // Group episodes by season
   const episodesBySeason: Record<number, Episode[]> = {}
   episodes.forEach((ep) => {
@@ -90,6 +82,11 @@ export function SeasonList({
         const seasonEpisodes = episodesBySeason[season.seasonNumber] || []
         const fileCount = season.statusCounts.available + season.statusCounts.upgradable
         const totalCount = season.statusCounts.total - season.statusCounts.unreleased
+        const seasonLabel = season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`
+        const firstAirYear = seasonEpisodes
+          .filter((ep) => ep.airDate)
+          .sort((a, b) => new Date(a.airDate!).getTime() - new Date(b.airDate!).getTime())[0]
+          ?.airDate?.slice(0, 4)
 
         return (
           <AccordionItem
@@ -97,67 +94,74 @@ export function SeasonList({
             value={`season-${season.seasonNumber}`}
             className="border rounded-lg px-4"
           >
-            <AccordionTrigger className="hover:no-underline py-3">
+            <AccordionTrigger className="group hover:no-underline py-3 **:data-[slot=accordion-trigger-icon]:!hidden">
               <div className="flex items-center gap-4 flex-1">
+                <ChevronRight className="size-4 shrink-0 transition-transform duration-200 text-muted-foreground group-aria-expanded/accordion-trigger:rotate-90 group-hover:text-tv-400 group-hover:icon-glow-tv" />
                 {season.posterUrl && (
                   <img
                     src={season.posterUrl}
-                    alt={`Season ${season.seasonNumber}`}
+                    alt={seasonLabel}
                     className="w-10 h-14 object-cover rounded shrink-0"
                   />
                 )}
                 <span className="font-semibold">
-                  {season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`}
+                  {seasonLabel}
+                  {firstAirYear && season.seasonNumber > 0 && <span className="ml-1.5 text-muted-foreground font-normal">({firstAirYear})</span>}
                 </span>
                 <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
                   {fileCount}/{totalCount}
                 </Badge>
+                <MediaStatusBadge status={computeSeasonStatus(season.statusCounts)} />
                 <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {onSeasonSearch && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onSeasonSearch(season.seasonNumber)}
-                    >
-                      <Search className="size-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => onSeasonSearch(season.seasonNumber)}
+                          />
+                        }
+                      >
+                        <UserSearch className="size-4" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Manual Search</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
-                  {onSeasonAutoSearch && (
-                    isSeasonDownloading(seriesId, season.seasonNumber) ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled
-                        title="Downloading"
-                      >
-                        <Download className="size-4 text-green-500" />
-                      </Button>
-                    ) : searchingSeasonNumber === season.seasonNumber ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled
-                        title="Searching..."
-                      >
-                        <Loader2 className="size-4 animate-spin" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSeasonAutoSearch(season.seasonNumber)}
-                      >
-                        <Zap className="size-4" />
-                      </Button>
-                    )
-                  )}
+                  <AutoSearchButton
+                    mediaType="season"
+                    seriesId={seriesId}
+                    seasonNumber={season.seasonNumber}
+                    title={seasonLabel}
+                    showLabel={false}
+                    variant="outline"
+                    size="sm"
+                  />
                   {onSeasonMonitoredChange && (
-                    <Switch
-                      checked={season.monitored}
-                      onCheckedChange={(checked) =>
-                        onSeasonMonitoredChange(season.seasonNumber, checked)
-                      }
-                    />
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className={season.monitored ? 'glow-tv-sm' : ''}
+                            onClick={() => onSeasonMonitoredChange(season.seasonNumber, !season.monitored)}
+                          />
+                        }
+                      >
+                        {season.monitored ? (
+                          <Eye className="size-4 text-tv-400" />
+                        ) : (
+                          <EyeOff className="size-4" />
+                        )}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{season.monitored ? 'Monitored' : 'Unmonitored'}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -173,16 +177,15 @@ export function SeasonList({
                   seriesId={seriesId}
                   episodes={seasonEpisodes}
                   onManualSearch={onEpisodeSearch}
-                  onAutoSearch={onEpisodeAutoSearch}
                   onMonitoredChange={onEpisodeMonitoredChange}
                   onAssignFileToSlot={onAssignFileToSlot}
                   onSlotManualSearch={onSlotManualSearch}
                   onSlotAutoSearch={onSlotAutoSearch}
-                  searchingEpisodeId={searchingEpisodeId}
                   searchingSlotId={searchingSlotId}
                   isMultiVersionEnabled={isMultiVersionEnabled}
                   enabledSlots={enabledSlots}
                   isAssigning={isAssigning}
+                  episodeRatings={episodeRatings?.[season.seasonNumber]}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground py-2">

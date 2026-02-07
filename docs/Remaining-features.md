@@ -19,7 +19,7 @@
 [ ] Update history page
 [x] Update active task UI
 [x] Update movies/series list pages
-[ ] Update detail pages
+[x] Update detail pages
 [ ] Update missing page
 [ ] Support for more download clients and indexers (directly refer to *arr codebases)
 [ ] Config backup & restore

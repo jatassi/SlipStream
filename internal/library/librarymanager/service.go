@@ -1321,6 +1321,15 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 		Str("backdropUrl", bestMatch.BackdropURL).
 		Msg("[REFRESH] Best match selected")
 
+	// Fetch full movie details from TMDB (search results lack runtime, studio, imdbID)
+	if bestMatch.ID > 0 {
+		if details, err := s.metadata.GetMovie(ctx, bestMatch.ID); err == nil {
+			bestMatch = details
+		} else {
+			s.logger.Warn().Err(err).Int("tmdbId", bestMatch.ID).Msg("[REFRESH] Failed to fetch full movie details, using search result")
+		}
+	}
+
 	// Update movie with metadata
 	title := bestMatch.Title
 	year := bestMatch.Year
@@ -1328,6 +1337,7 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 	imdbID := bestMatch.ImdbID
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
+	studio := bestMatch.Studio
 
 	// Fetch release dates from TMDB
 	var releaseDate, physicalReleaseDate, theatricalReleaseDate string
@@ -1347,6 +1357,14 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 		}
 	}
 
+	// Fetch content rating from TMDB
+	var contentRating string
+	if tmdbID > 0 {
+		if cr, err := s.metadata.GetMovieContentRating(ctx, tmdbID); err == nil && cr != "" {
+			contentRating = cr
+		}
+	}
+
 	s.logger.Debug().
 		Str("title", title).
 		Int("year", year).
@@ -1363,9 +1381,11 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 		ImdbID:                &imdbID,
 		Overview:              &overview,
 		Runtime:               &runtime,
+		Studio:                &studio,
 		ReleaseDate:           &releaseDate,
 		PhysicalReleaseDate:   &physicalReleaseDate,
 		TheatricalReleaseDate: &theatricalReleaseDate,
+		ContentRating:         &contentRating,
 	}
 
 	updatedMovie, err := s.movies.Update(ctx, movie.ID, updateInput)
@@ -1381,11 +1401,19 @@ func (s *Service) RefreshMovieMetadata(ctx context.Context, movieID int64) (*mov
 		Str("imdbId", updatedMovie.ImdbID).
 		Msg("[REFRESH] Movie updated in database, returned values")
 
+	// Fetch logo URL from TMDB images endpoint
+	if bestMatch.ID > 0 {
+		if logoURL, err := s.metadata.GetMovieLogoURL(ctx, bestMatch.ID); err == nil && logoURL != "" {
+			bestMatch.LogoURL = logoURL
+		}
+	}
+
 	// Download artwork asynchronously
-	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "") {
+	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "" || bestMatch.LogoURL != "" || bestMatch.StudioLogoURL != "") {
 		s.logger.Debug().
 			Str("posterUrl", bestMatch.PosterURL).
 			Str("backdropUrl", bestMatch.BackdropURL).
+			Str("logoUrl", bestMatch.LogoURL).
 			Msg("[REFRESH] Starting artwork download")
 		go func() {
 			if err := s.artwork.DownloadMovieArtwork(context.Background(), bestMatch); err != nil {
@@ -1520,8 +1548,15 @@ func (s *Service) RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*t
 		}
 	}
 
+	// Fetch logo URL from TMDB images endpoint
+	if bestMatch.TmdbID > 0 {
+		if logoURL, err := s.metadata.GetSeriesLogoURL(ctx, bestMatch.TmdbID); err == nil && logoURL != "" {
+			bestMatch.LogoURL = logoURL
+		}
+	}
+
 	// Download artwork asynchronously
-	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "") {
+	if s.artwork != nil && (bestMatch.PosterURL != "" || bestMatch.BackdropURL != "" || bestMatch.LogoURL != "") {
 		go func() {
 			if err := s.artwork.DownloadSeriesArtwork(context.Background(), bestMatch); err != nil {
 				s.logger.Warn().Err(err).Int("tvdbId", bestMatch.TvdbID).Msg("Failed to download series artwork")
@@ -2004,7 +2039,9 @@ type AddMovieInput struct {
 	PhysicalReleaseDate   string `json:"physicalReleaseDate,omitempty"`   // Bluray release date
 	TheatricalReleaseDate string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
 	Studio                string `json:"studio,omitempty"`
+	ContentRating         string `json:"contentRating,omitempty"`
 	SearchOnAdd           *bool  `json:"searchOnAdd,omitempty"` // Trigger autosearch after add
+	AddedBy               *int64 `json:"-"`
 }
 
 // AddMovie creates a new movie and downloads artwork in the background.
@@ -2031,6 +2068,14 @@ func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Mo
 		}
 	}
 
+	// Fetch content rating from TMDB if not provided
+	contentRating := input.ContentRating
+	if contentRating == "" && input.TmdbID > 0 {
+		if cr, err := s.metadata.GetMovieContentRating(ctx, input.TmdbID); err == nil && cr != "" {
+			contentRating = cr
+		}
+	}
+
 	// Create the movie
 	movie, err := s.movies.Create(ctx, movies.CreateMovieInput{
 		Title:                 input.Title,
@@ -2047,26 +2092,44 @@ func (s *Service) AddMovie(ctx context.Context, input AddMovieInput) (*movies.Mo
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
 		Studio:                input.Studio,
+		ContentRating:         contentRating,
+		AddedBy:               input.AddedBy,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	// Download artwork in the background if we have URLs
-	if s.artwork != nil && input.TmdbID > 0 && (input.PosterURL != "" || input.BackdropURL != "") {
-		go func() {
-			movieResult := &metadata.MovieResult{
-				ID:          input.TmdbID,
-				Title:       input.Title,
-				PosterURL:   input.PosterURL,
-				BackdropURL: input.BackdropURL,
-			}
-			if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
-				s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Msg("Failed to download movie artwork")
-			} else {
-				s.logger.Info().Int("tmdbId", input.TmdbID).Msg("Movie artwork downloaded")
-			}
-		}()
+	if s.artwork != nil && input.TmdbID > 0 {
+		// Fetch logo URL from TMDB images endpoint
+		var logoURL string
+		if url, err := s.metadata.GetMovieLogoURL(ctx, input.TmdbID); err == nil && url != "" {
+			logoURL = url
+		}
+
+		// Fetch studio logo URL from TMDB movie details
+		var studioLogoURL string
+		if details, err := s.metadata.GetMovie(ctx, input.TmdbID); err == nil {
+			studioLogoURL = details.StudioLogoURL
+		}
+
+		if input.PosterURL != "" || input.BackdropURL != "" || logoURL != "" || studioLogoURL != "" {
+			go func() {
+				movieResult := &metadata.MovieResult{
+					ID:            input.TmdbID,
+					Title:         input.Title,
+					PosterURL:     input.PosterURL,
+					BackdropURL:   input.BackdropURL,
+					LogoURL:       logoURL,
+					StudioLogoURL: studioLogoURL,
+				}
+				if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
+					s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Msg("Failed to download movie artwork")
+				} else {
+					s.logger.Info().Int("tmdbId", input.TmdbID).Msg("Movie artwork downloaded")
+				}
+			}()
+		}
 	}
 
 	// Trigger autosearch in background if requested and movie is released
@@ -2116,6 +2179,8 @@ type AddSeriesInput struct {
 	SearchOnAdd     *string `json:"searchOnAdd,omitempty"`     // "no", "first_episode", "first_season", "latest_season", "all"
 	MonitorOnAdd    *string `json:"monitorOnAdd,omitempty"`    // "none", "first_season", "latest_season", "future", "all"
 	IncludeSpecials *bool   `json:"includeSpecials,omitempty"` // Whether to include specials in monitoring/search
+
+	AddedBy *int64 `json:"-"`
 }
 
 // applyMonitoringOnAdd applies the monitoring-on-add settings to a newly added series
@@ -2320,6 +2385,7 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 		Monitored:        input.Monitored,
 		SeasonFolder:     input.SeasonFolder,
 		Seasons:          input.Seasons,
+		AddedBy:          input.AddedBy,
 	})
 	if err != nil {
 		return nil, err
@@ -2377,22 +2443,33 @@ func (s *Service) AddSeries(ctx context.Context, input AddSeriesInput) (*tv.Seri
 	if artworkID == 0 {
 		artworkID = input.TvdbID
 	}
-	if s.artwork != nil && artworkID > 0 && (input.PosterURL != "" || input.BackdropURL != "") {
-		go func() {
-			seriesResult := &metadata.SeriesResult{
-				ID:          artworkID,
-				TmdbID:      input.TmdbID,
-				TvdbID:      input.TvdbID,
-				Title:       input.Title,
-				PosterURL:   input.PosterURL,
-				BackdropURL: input.BackdropURL,
+	if s.artwork != nil && artworkID > 0 {
+		// Fetch logo URL from TMDB images endpoint
+		var logoURL string
+		if input.TmdbID > 0 {
+			if url, err := s.metadata.GetSeriesLogoURL(ctx, input.TmdbID); err == nil && url != "" {
+				logoURL = url
 			}
-			if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
-				s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Failed to download series artwork")
-			} else {
-				s.logger.Info().Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Series artwork downloaded")
-			}
-		}()
+		}
+
+		if input.PosterURL != "" || input.BackdropURL != "" || logoURL != "" {
+			go func() {
+				seriesResult := &metadata.SeriesResult{
+					ID:          artworkID,
+					TmdbID:      input.TmdbID,
+					TvdbID:      input.TvdbID,
+					Title:       input.Title,
+					PosterURL:   input.PosterURL,
+					BackdropURL: input.BackdropURL,
+					LogoURL:     logoURL,
+				}
+				if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
+					s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Failed to download series artwork")
+				} else {
+					s.logger.Info().Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Series artwork downloaded")
+				}
+			}()
+		}
 	}
 
 	// Apply monitoring-on-add settings if provided

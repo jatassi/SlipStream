@@ -28,8 +28,12 @@ type Movie struct {
 	PhysicalReleaseDate    *time.Time `json:"physicalReleaseDate,omitempty"`
 	TheatricalReleaseDate  *time.Time `json:"theatricalReleaseDate,omitempty"`
 
-	Studio string `json:"studio,omitempty"`
-	TvdbID int    `json:"tvdbId,omitempty"`
+	Studio        string `json:"studio,omitempty"`
+	TvdbID        int    `json:"tvdbId,omitempty"`
+	ContentRating string `json:"contentRating,omitempty"`
+
+	AddedBy         *int64 `json:"addedBy,omitempty"`
+	AddedByUsername string `json:"addedByUsername,omitempty"`
 }
 
 // MovieFile represents a movie file on disk.
@@ -39,11 +43,13 @@ type MovieFile struct {
 	Path       string    `json:"path"`
 	Size       int64     `json:"size"`
 	Quality    string    `json:"quality,omitempty"`
-	VideoCodec string    `json:"videoCodec,omitempty"`
-	AudioCodec string    `json:"audioCodec,omitempty"`
-	Resolution string    `json:"resolution,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
-	SlotID     *int64    `json:"slotId,omitempty"`
+	VideoCodec    string    `json:"videoCodec,omitempty"`
+	AudioCodec    string    `json:"audioCodec,omitempty"`
+	AudioChannels string    `json:"audioChannels,omitempty"`
+	DynamicRange  string    `json:"dynamicRange,omitempty"`
+	Resolution    string    `json:"resolution,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
+	SlotID        *int64    `json:"slotId,omitempty"`
 }
 
 // CreateMovieInput contains fields for creating a movie.
@@ -59,13 +65,16 @@ type CreateMovieInput struct {
 	QualityProfileID int64  `json:"qualityProfileId"`
 	Monitored        bool   `json:"monitored"`
 
-	Studio string `json:"studio,omitempty"`
-	TvdbID int    `json:"tvdbId,omitempty"`
+	Studio        string `json:"studio,omitempty"`
+	TvdbID        int    `json:"tvdbId,omitempty"`
+	ContentRating string `json:"contentRating,omitempty"`
 
 	// Release dates (YYYY-MM-DD strings)
 	ReleaseDate           string `json:"releaseDate,omitempty"`           // Digital/streaming release date
 	PhysicalReleaseDate   string `json:"physicalReleaseDate,omitempty"`   // Bluray release date
 	TheatricalReleaseDate string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
+
+	AddedBy *int64 `json:"-"`
 }
 
 // UpdateMovieInput contains fields for updating a movie.
@@ -80,6 +89,9 @@ type UpdateMovieInput struct {
 	RootFolderID     *int64  `json:"rootFolderId,omitempty"`
 	QualityProfileID *int64  `json:"qualityProfileId,omitempty"`
 	Monitored        *bool   `json:"monitored,omitempty"`
+
+	Studio        *string `json:"studio,omitempty"`
+	ContentRating *string `json:"contentRating,omitempty"`
 
 	// Release dates (YYYY-MM-DD strings)
 	ReleaseDate           *string `json:"releaseDate,omitempty"`           // Digital/streaming release date
@@ -104,6 +116,8 @@ type CreateMovieFileInput struct {
 	QualityID        *int64 `json:"qualityId,omitempty"`
 	VideoCodec       string `json:"videoCodec,omitempty"`
 	AudioCodec       string `json:"audioCodec,omitempty"`
+	AudioChannels    string `json:"audioChannels,omitempty"`
+	DynamicRange     string `json:"dynamicRange,omitempty"`
 	Resolution       string `json:"resolution,omitempty"`
 	OriginalPath     string `json:"originalPath,omitempty"`     // Source path before import
 	OriginalFilename string `json:"originalFilename,omitempty"` // Original filename before rename

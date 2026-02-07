@@ -257,20 +257,22 @@ func (q *Queries) CreateEpisode(ctx context.Context, arg CreateEpisodeParams) (*
 }
 
 const createEpisodeFile = `-- name: CreateEpisodeFile :one
-INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
+INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution, audio_channels, dynamic_range)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range
 `
 
 type CreateEpisodeFileParams struct {
-	EpisodeID  int64          `json:"episode_id"`
-	Path       string         `json:"path"`
-	Size       int64          `json:"size"`
-	Quality    sql.NullString `json:"quality"`
-	QualityID  sql.NullInt64  `json:"quality_id"`
-	VideoCodec sql.NullString `json:"video_codec"`
-	AudioCodec sql.NullString `json:"audio_codec"`
-	Resolution sql.NullString `json:"resolution"`
+	EpisodeID     int64          `json:"episode_id"`
+	Path          string         `json:"path"`
+	Size          int64          `json:"size"`
+	Quality       sql.NullString `json:"quality"`
+	QualityID     sql.NullInt64  `json:"quality_id"`
+	VideoCodec    sql.NullString `json:"video_codec"`
+	AudioCodec    sql.NullString `json:"audio_codec"`
+	Resolution    sql.NullString `json:"resolution"`
+	AudioChannels sql.NullString `json:"audio_channels"`
+	DynamicRange  sql.NullString `json:"dynamic_range"`
 }
 
 func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFileParams) (*EpisodeFile, error) {
@@ -283,6 +285,8 @@ func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFilePa
 		arg.VideoCodec,
 		arg.AudioCodec,
 		arg.Resolution,
+		arg.AudioChannels,
+		arg.DynamicRange,
 	)
 	var i EpisodeFile
 	err := row.Scan(
@@ -300,6 +304,8 @@ func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFilePa
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
@@ -307,9 +313,9 @@ func (q *Queries) CreateEpisodeFile(ctx context.Context, arg CreateEpisodeFilePa
 const createEpisodeFileWithImportInfo = `-- name: CreateEpisodeFileWithImportInfo :one
 INSERT INTO episode_files (
     episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution,
-    original_path, original_filename, imported_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
+    audio_channels, dynamic_range, original_path, original_filename, imported_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range
 `
 
 type CreateEpisodeFileWithImportInfoParams struct {
@@ -321,6 +327,8 @@ type CreateEpisodeFileWithImportInfoParams struct {
 	VideoCodec       sql.NullString `json:"video_codec"`
 	AudioCodec       sql.NullString `json:"audio_codec"`
 	Resolution       sql.NullString `json:"resolution"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	OriginalPath     sql.NullString `json:"original_path"`
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
@@ -337,6 +345,8 @@ func (q *Queries) CreateEpisodeFileWithImportInfo(ctx context.Context, arg Creat
 		arg.VideoCodec,
 		arg.AudioCodec,
 		arg.Resolution,
+		arg.AudioChannels,
+		arg.DynamicRange,
 		arg.OriginalPath,
 		arg.OriginalFilename,
 		arg.ImportedAt,
@@ -357,6 +367,8 @@ func (q *Queries) CreateEpisodeFileWithImportInfo(ctx context.Context, arg Creat
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
@@ -391,9 +403,9 @@ const createSeries = `-- name: CreateSeries :one
 INSERT INTO series (
     title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime,
     path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type,
-    network_logo_url
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
+    network_logo_url, added_by
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by
 `
 
 type CreateSeriesParams struct {
@@ -414,6 +426,7 @@ type CreateSeriesParams struct {
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
 	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
+	AddedBy          sql.NullInt64  `json:"added_by"`
 }
 
 func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Series, error) {
@@ -435,6 +448,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Se
 		arg.Network,
 		arg.FormatType,
 		arg.NetworkLogoUrl,
+		arg.AddedBy,
 	)
 	var i Series
 	err := row.Scan(
@@ -458,6 +472,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (*Se
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
@@ -581,7 +596,7 @@ func (q *Queries) GetEpisodeByNumber(ctx context.Context, arg GetEpisodeByNumber
 }
 
 const getEpisodeFile = `-- name: GetEpisodeFile :one
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE id = ? LIMIT 1
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE id = ? LIMIT 1
 `
 
 // Episode Files
@@ -603,12 +618,14 @@ func (q *Queries) GetEpisodeFile(ctx context.Context, id int64) (*EpisodeFile, e
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
 
 const getEpisodeFileByOriginalPath = `-- name: GetEpisodeFileByOriginalPath :one
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE original_path = ? LIMIT 1
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE original_path = ? LIMIT 1
 `
 
 func (q *Queries) GetEpisodeFileByOriginalPath(ctx context.Context, originalPath sql.NullString) (*EpisodeFile, error) {
@@ -629,12 +646,14 @@ func (q *Queries) GetEpisodeFileByOriginalPath(ctx context.Context, originalPath
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
 
 const getEpisodeFileByPath = `-- name: GetEpisodeFileByPath :one
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE path = ? LIMIT 1
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetEpisodeFileByPath(ctx context.Context, path string) (*EpisodeFile, error) {
@@ -655,12 +674,14 @@ func (q *Queries) GetEpisodeFileByPath(ctx context.Context, path string) (*Episo
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
 
 const getEpisodeFilesWithImportInfo = `-- name: GetEpisodeFilesWithImportInfo :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, e.series_id, e.season_number, e.episode_number
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range, e.series_id, e.season_number, e.episode_number
 FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ?
@@ -682,6 +703,8 @@ type GetEpisodeFilesWithImportInfoRow struct {
 	OriginalFilename sql.NullString `json:"original_filename"`
 	ImportedAt       sql.NullTime   `json:"imported_at"`
 	SlotID           sql.NullInt64  `json:"slot_id"`
+	AudioChannels    sql.NullString `json:"audio_channels"`
+	DynamicRange     sql.NullString `json:"dynamic_range"`
 	SeriesID         int64          `json:"series_id"`
 	SeasonNumber     int64          `json:"season_number"`
 	EpisodeNumber    int64          `json:"episode_number"`
@@ -711,6 +734,8 @@ func (q *Queries) GetEpisodeFilesWithImportInfo(ctx context.Context, seriesID in
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 			&i.SeriesID,
 			&i.SeasonNumber,
 			&i.EpisodeNumber,
@@ -1081,7 +1106,7 @@ func (q *Queries) GetSeasonsBySeriesID(ctx context.Context, seriesID int64) ([]*
 }
 
 const getSeries = `-- name: GetSeries :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeries(ctx context.Context, id int64) (*Series, error) {
@@ -1108,12 +1133,13 @@ func (q *Queries) GetSeries(ctx context.Context, id int64) (*Series, error) {
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
 
 const getSeriesByPath = `-- name: GetSeriesByPath :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE path = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByPath(ctx context.Context, path sql.NullString) (*Series, error) {
@@ -1140,12 +1166,13 @@ func (q *Queries) GetSeriesByPath(ctx context.Context, path sql.NullString) (*Se
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
 
 const getSeriesByTmdbID = `-- name: GetSeriesByTmdbID :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE tmdb_id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE tmdb_id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (*Series, error) {
@@ -1172,12 +1199,13 @@ func (q *Queries) GetSeriesByTmdbID(ctx context.Context, tmdbID sql.NullInt64) (
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
 
 const getSeriesByTvdbID = `-- name: GetSeriesByTvdbID :one
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE tvdb_id = ? LIMIT 1
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE tvdb_id = ? LIMIT 1
 `
 
 func (q *Queries) GetSeriesByTvdbID(ctx context.Context, tvdbID sql.NullInt64) (*Series, error) {
@@ -1204,6 +1232,7 @@ func (q *Queries) GetSeriesByTvdbID(ctx context.Context, tvdbID sql.NullInt64) (
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
@@ -1255,6 +1284,67 @@ func (q *Queries) GetSeriesMonitoringStats(ctx context.Context, arg GetSeriesMon
 		&i.MonitoredSeasons,
 		&i.TotalEpisodes,
 		&i.MonitoredEpisodes,
+	)
+	return &i, err
+}
+
+const getSeriesWithAddedBy = `-- name: GetSeriesWithAddedBy :one
+SELECT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.production_status, s.network, s.format_type, s.added_at, s.updated_at, s.network_logo_url, s.added_by, pu.username AS added_by_username FROM series s
+LEFT JOIN portal_users pu ON s.added_by = pu.id
+WHERE s.id = ? LIMIT 1
+`
+
+type GetSeriesWithAddedByRow struct {
+	ID               int64          `json:"id"`
+	Title            string         `json:"title"`
+	SortTitle        string         `json:"sort_title"`
+	Year             sql.NullInt64  `json:"year"`
+	TvdbID           sql.NullInt64  `json:"tvdb_id"`
+	TmdbID           sql.NullInt64  `json:"tmdb_id"`
+	ImdbID           sql.NullString `json:"imdb_id"`
+	Overview         sql.NullString `json:"overview"`
+	Runtime          sql.NullInt64  `json:"runtime"`
+	Path             sql.NullString `json:"path"`
+	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
+	Monitored        int64          `json:"monitored"`
+	SeasonFolder     int64          `json:"season_folder"`
+	ProductionStatus string         `json:"production_status"`
+	Network          sql.NullString `json:"network"`
+	FormatType       sql.NullString `json:"format_type"`
+	AddedAt          sql.NullTime   `json:"added_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	NetworkLogoUrl   sql.NullString `json:"network_logo_url"`
+	AddedBy          sql.NullInt64  `json:"added_by"`
+	AddedByUsername  sql.NullString `json:"added_by_username"`
+}
+
+func (q *Queries) GetSeriesWithAddedBy(ctx context.Context, id int64) (*GetSeriesWithAddedByRow, error) {
+	row := q.db.QueryRowContext(ctx, getSeriesWithAddedBy, id)
+	var i GetSeriesWithAddedByRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.SortTitle,
+		&i.Year,
+		&i.TvdbID,
+		&i.TmdbID,
+		&i.ImdbID,
+		&i.Overview,
+		&i.Runtime,
+		&i.Path,
+		&i.RootFolderID,
+		&i.QualityProfileID,
+		&i.Monitored,
+		&i.SeasonFolder,
+		&i.ProductionStatus,
+		&i.Network,
+		&i.FormatType,
+		&i.AddedAt,
+		&i.UpdatedAt,
+		&i.NetworkLogoUrl,
+		&i.AddedBy,
+		&i.AddedByUsername,
 	)
 	return &i, err
 }
@@ -1332,7 +1422,7 @@ func (q *Queries) ListDownloadingEpisodes(ctx context.Context) ([]*ListDownloadi
 }
 
 const listEpisodeFilesByEpisode = `-- name: ListEpisodeFilesByEpisode :many
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id FROM episode_files WHERE episode_id = ? ORDER BY path
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE episode_id = ? ORDER BY path
 `
 
 func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64) ([]*EpisodeFile, error) {
@@ -1359,6 +1449,8 @@ func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 		); err != nil {
 			return nil, err
 		}
@@ -1374,7 +1466,7 @@ func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64
 }
 
 const listEpisodeFilesBySeason = `-- name: ListEpisodeFilesBySeason :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id FROM episode_files ef
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ? AND e.season_number = ?
 ORDER BY e.episode_number
@@ -1409,6 +1501,8 @@ func (q *Queries) ListEpisodeFilesBySeason(ctx context.Context, arg ListEpisodeF
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 		); err != nil {
 			return nil, err
 		}
@@ -1424,7 +1518,7 @@ func (q *Queries) ListEpisodeFilesBySeason(ctx context.Context, arg ListEpisodeF
 }
 
 const listEpisodeFilesBySeries = `-- name: ListEpisodeFilesBySeries :many
-SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id FROM episode_files ef
+SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range FROM episode_files ef
 JOIN episodes e ON ef.episode_id = e.id
 WHERE e.series_id = ?
 ORDER BY e.season_number, e.episode_number
@@ -1454,6 +1548,8 @@ func (q *Queries) ListEpisodeFilesBySeries(ctx context.Context, seriesID int64) 
 			&i.OriginalFilename,
 			&i.ImportedAt,
 			&i.SlotID,
+			&i.AudioChannels,
+			&i.DynamicRange,
 		); err != nil {
 			return nil, err
 		}
@@ -1850,7 +1946,7 @@ func (q *Queries) ListMissingEpisodes(ctx context.Context) ([]*ListMissingEpisod
 }
 
 const listMonitoredSeries = `-- name: ListMonitoredSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE monitored = 1 ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE monitored = 1 ORDER BY sort_title
 `
 
 func (q *Queries) ListMonitoredSeries(ctx context.Context) ([]*Series, error) {
@@ -1883,6 +1979,7 @@ func (q *Queries) ListMonitoredSeries(ctx context.Context) ([]*Series, error) {
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1932,7 +2029,7 @@ func (q *Queries) ListSeasonsBySeries(ctx context.Context, seriesID int64) ([]*S
 }
 
 const listSeries = `-- name: ListSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series ORDER BY sort_title
 `
 
 func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
@@ -1965,6 +2062,7 @@ func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1980,7 +2078,7 @@ func (q *Queries) ListSeries(ctx context.Context) ([]*Series, error) {
 }
 
 const listSeriesByRootFolder = `-- name: ListSeriesByRootFolder :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series WHERE root_folder_id = ? ORDER BY sort_title
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series WHERE root_folder_id = ? ORDER BY sort_title
 `
 
 func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.NullInt64) ([]*Series, error) {
@@ -2013,6 +2111,7 @@ func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.N
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2028,7 +2127,7 @@ func (q *Queries) ListSeriesByRootFolder(ctx context.Context, rootFolderID sql.N
 }
 
 const listSeriesPaginated = `-- name: ListSeriesPaginated :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series
 ORDER BY sort_title
 LIMIT ? OFFSET ?
 `
@@ -2068,6 +2167,7 @@ func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginat
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2083,7 +2183,7 @@ func (q *Queries) ListSeriesPaginated(ctx context.Context, arg ListSeriesPaginat
 }
 
 const listSeriesWithMissingEpisodes = `-- name: ListSeriesWithMissingEpisodes :many
-SELECT DISTINCT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.production_status, s.network, s.format_type, s.added_at, s.updated_at, s.network_logo_url FROM series s
+SELECT DISTINCT s.id, s.title, s.sort_title, s.year, s.tvdb_id, s.tmdb_id, s.imdb_id, s.overview, s.runtime, s.path, s.root_folder_id, s.quality_profile_id, s.monitored, s.season_folder, s.production_status, s.network, s.format_type, s.added_at, s.updated_at, s.network_logo_url, s.added_by FROM series s
 JOIN episodes e ON s.id = e.series_id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
 WHERE e.status IN ('missing', 'failed')
@@ -2123,6 +2223,7 @@ func (q *Queries) ListSeriesWithMissingEpisodes(ctx context.Context) ([]*Series,
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2138,7 +2239,7 @@ func (q *Queries) ListSeriesWithMissingEpisodes(ctx context.Context) ([]*Series,
 }
 
 const listUnmatchedSeriesByRootFolder = `-- name: ListUnmatchedSeriesByRootFolder :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series
 WHERE root_folder_id = ?
   AND (tvdb_id IS NULL OR tvdb_id = 0)
   AND (tmdb_id IS NULL OR tmdb_id = 0)
@@ -2175,6 +2276,7 @@ func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolde
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2190,7 +2292,7 @@ func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolde
 }
 
 const searchSeries = `-- name: SearchSeries :many
-SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url FROM series
+SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series
 WHERE title LIKE ? OR sort_title LIKE ?
 ORDER BY sort_title
 LIMIT ? OFFSET ?
@@ -2238,6 +2340,7 @@ func (q *Queries) SearchSeries(ctx context.Context, arg SearchSeriesParams) ([]*
 			&i.AddedAt,
 			&i.UpdatedAt,
 			&i.NetworkLogoUrl,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2316,7 +2419,7 @@ UPDATE episode_files SET
     original_filename = ?,
     imported_at = ?
 WHERE id = ?
-RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id
+RETURNING id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range
 `
 
 type UpdateEpisodeFileImportInfoParams struct {
@@ -2349,6 +2452,8 @@ func (q *Queries) UpdateEpisodeFileImportInfo(ctx context.Context, arg UpdateEpi
 		&i.OriginalFilename,
 		&i.ImportedAt,
 		&i.SlotID,
+		&i.AudioChannels,
+		&i.DynamicRange,
 	)
 	return &i, err
 }
@@ -2712,7 +2817,7 @@ UPDATE series SET
     network_logo_url = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
+RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by
 `
 
 type UpdateSeriesParams struct {
@@ -2779,12 +2884,13 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (*Se
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
 
 const updateSeriesFormatType = `-- name: UpdateSeriesFormatType :one
-UPDATE series SET format_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url
+UPDATE series SET format_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by
 `
 
 type UpdateSeriesFormatTypeParams struct {
@@ -2817,6 +2923,7 @@ func (q *Queries) UpdateSeriesFormatType(ctx context.Context, arg UpdateSeriesFo
 		&i.AddedAt,
 		&i.UpdatedAt,
 		&i.NetworkLogoUrl,
+		&i.AddedBy,
 	)
 	return &i, err
 }
