@@ -1096,6 +1096,11 @@ func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
 		return fmt.Errorf("failed to delete episode file: %w", err)
 	}
 
+	// Clear import decisions that referenced this file — previously rejected files may now be eligible
+	if err := s.queries.DeleteImportDecisionsByExistingFile(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
+		s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear import decisions for removed file")
+	}
+
 	// Transition episode to missing and unmonitor after manual file deletion
 	count, _ := s.queries.CountEpisodeFiles(ctx, row.EpisodeID)
 	if count == 0 {

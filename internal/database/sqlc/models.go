@@ -84,6 +84,7 @@ type DownloadMapping struct {
 	IsCompleteSeries int64         `json:"is_complete_series"`
 	CreatedAt        time.Time     `json:"created_at"`
 	TargetSlotID     sql.NullInt64 `json:"target_slot_id"`
+	Source           string        `json:"source"`
 }
 
 type Episode struct {
@@ -141,6 +142,21 @@ type History struct {
 	Quality   sql.NullString `json:"quality"`
 	Data      sql.NullString `json:"data"`
 	CreatedAt sql.NullTime   `json:"created_at"`
+}
+
+type ImportDecision struct {
+	ID                 int64          `json:"id"`
+	SourcePath         string         `json:"source_path"`
+	Decision           string         `json:"decision"`
+	MediaType          string         `json:"media_type"`
+	MediaID            int64          `json:"media_id"`
+	SlotID             sql.NullInt64  `json:"slot_id"`
+	CandidateQualityID sql.NullInt64  `json:"candidate_quality_id"`
+	ExistingQualityID  sql.NullInt64  `json:"existing_quality_id"`
+	ExistingFileID     sql.NullInt64  `json:"existing_file_id"`
+	QualityProfileID   sql.NullInt64  `json:"quality_profile_id"`
+	Reason             sql.NullString `json:"reason"`
+	EvaluatedAt        time.Time      `json:"evaluated_at"`
 }
 
 type ImportSetting struct {

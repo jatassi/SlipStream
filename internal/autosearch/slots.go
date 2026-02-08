@@ -288,6 +288,7 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 		MediaType:    string(MediaTypeMovie),
 		MediaID:      movie.ID,
 		TargetSlotID: &slot.SlotID,
+		Source:       "auto-search",
 	}
 
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
@@ -518,6 +519,7 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 		SeriesID:     series.ID,
 		SeasonNumber: int(episode.SeasonNumber),
 		TargetSlotID: &slot.SlotID,
+		Source:       "auto-search",
 	}
 
 	grabResult, err := s.grabService.Grab(ctx, grabReq)

@@ -3,6 +3,7 @@ package importer
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
@@ -220,6 +222,16 @@ func (s *Service) loadLibraryFileStats(ctx context.Context) []libraryFileStat {
 // isFileAlreadyImported checks if a file has already been imported to the library.
 // This prevents re-importing files that remain in the download folder after import (e.g., hardlink mode).
 func (s *Service) isFileAlreadyImported(ctx context.Context, path string, libraryStats []libraryFileStat) bool {
+	// Check import decisions table — if we previously evaluated and rejected this file, skip it
+	decision, err := s.queries.GetImportDecision(ctx, path)
+	if err == nil && decision.ID > 0 {
+		s.logger.Debug().
+			Str("path", path).
+			Str("decision", decision.Decision).
+			Msg("File has a previous import decision, skipping")
+		return true
+	}
+
 	// Check if it was imported as a movie file (via original_path)
 	nullPath := toNullString(path)
 	movieImported, err := s.queries.IsOriginalPathImportedMovie(ctx, nullPath)
@@ -345,9 +357,20 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	}
 	result.Match = match
 
-	// Step 2b: Check for existing file to detect upgrade scenario
-	if err := s.checkForExistingFile(ctx, match); err != nil {
-		s.logger.Debug().Err(err).Msg("No existing file found")
+	// Step 2b: Check for existing file and quality comparison (single-version mode).
+	// In multi-version mode, checkForExistingFile is a no-op — slot evaluation handles upgrades.
+	if err := s.checkForExistingFile(ctx, match, job.SourcePath); err != nil {
+		if errors.Is(err, ErrNotAnUpgrade) {
+			s.logger.Info().
+				Str("path", job.SourcePath).
+				Int("candidateQuality", match.CandidateQualityID).
+				Int("existingQuality", match.ExistingQualityID).
+				Msg("File is not a quality upgrade, rejecting")
+			s.recordImportDecision(ctx, job.SourcePath, "not_upgrade", match)
+			result.Error = err
+			return result, err
+		}
+		s.logger.Debug().Err(err).Msg("checkForExistingFile returned error")
 	}
 
 	// Step 3: Use empty MediaInfo initially - probe will happen after hardlink
@@ -377,7 +400,10 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 
 	// Step 4.5: Slot evaluation for multi-version support (Req 5.1.1-5.2.3)
 	var targetSlotID *int64
-	if s.slots != nil && s.slots.IsMultiVersionEnabled(ctx) {
+	var slotUpgradeFile *int64 // File ID to delete if this is a per-slot upgrade
+	isMultiVersion := s.slots != nil && s.slots.IsMultiVersionEnabled(ctx)
+
+	if isMultiVersion {
 		slotResult, slotErr := s.evaluateSlotAssignment(ctx, job, match)
 		if slotErr != nil {
 			s.logger.Warn().Err(slotErr).Msg("Slot evaluation failed, continuing without slot assignment")
@@ -398,11 +424,38 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 			} else if slotResult.RecommendedSlotID != nil {
 				targetSlotID = slotResult.RecommendedSlotID
 			}
+
+			// No matching slots → record decision and reject
+			if targetSlotID == nil && len(slotResult.Assignments) == 0 {
+				s.recordImportDecision(ctx, job.SourcePath, "not_acceptable", match)
+				result.Error = ErrNotAnUpgrade
+				return result, result.Error
+			}
 		}
 	}
 
-	// Step 5: Check for existing file (upgrade scenario)
-	if match.ExistingFile != "" {
+	// Step 5: Determine upgrade status
+	if isMultiVersion {
+		// In multi-version mode, derive upgrade status from slot evaluation
+		if targetSlotID != nil {
+			for _, a := range result.SlotAssignments {
+				if a.SlotID == *targetSlotID {
+					if a.IsUpgrade {
+						result.IsUpgrade = true
+						// Get the target slot's current file for cleanup
+						if fileID := s.getSlotFileID(ctx, match, *targetSlotID); fileID != nil {
+							slotUpgradeFile = fileID
+							if filePath := s.getFilePath(ctx, match.MediaType, *fileID); filePath != "" {
+								result.PreviousFile = filePath
+							}
+						}
+					}
+					// IsNewFill → result.IsUpgrade stays false
+					break
+				}
+			}
+		}
+	} else if match.IsUpgrade {
 		result.IsUpgrade = true
 		result.PreviousFile = match.ExistingFile
 	}
@@ -442,6 +495,13 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 		}(destPath, match)
 	}
 
+	// Step 6.7: Resolve quality ID from filename for the new file record.
+	// checkForExistingFile may have already set CandidateQualityID during upgrade comparison,
+	// but for new imports (no existing file) or multi-version mode it won't be set yet.
+	if match.CandidateQualityID == 0 {
+		s.resolveQualityID(ctx, match, job.SourcePath)
+	}
+
 	// Step 7: Update library records
 	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, job.SourcePath, mediaInfo)
 	if updateErr != nil {
@@ -468,15 +528,19 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 		if err := s.organizer.DeleteUpgradedFile(result.PreviousFile, destPath); err != nil {
 			s.logger.Warn().Err(err).Str("file", result.PreviousFile).Msg("Failed to delete upgraded file")
 		}
-		// Delete old database record
-		if match.ExistingFileID != nil {
+		// Delete old database record — in multi-version mode, delete the target slot's file
+		oldFileID := match.ExistingFileID
+		if isMultiVersion && slotUpgradeFile != nil {
+			oldFileID = slotUpgradeFile
+		}
+		if oldFileID != nil {
 			if match.MediaType == "movie" {
-				if err := s.movies.RemoveFile(ctx, *match.ExistingFileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", *match.ExistingFileID).Msg("Failed to remove old movie file record")
+				if err := s.movies.RemoveFile(ctx, *oldFileID); err != nil {
+					s.logger.Warn().Err(err).Int64("fileId", *oldFileID).Msg("Failed to remove old movie file record")
 				}
 			} else if match.MediaType == "episode" {
-				if err := s.tv.RemoveEpisodeFile(ctx, *match.ExistingFileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", *match.ExistingFileID).Msg("Failed to remove old episode file record")
+				if err := s.tv.RemoveEpisodeFile(ctx, *oldFileID); err != nil {
+					s.logger.Warn().Err(err).Int64("fileId", *oldFileID).Msg("Failed to remove old episode file record")
 				}
 			}
 		}
@@ -920,6 +984,43 @@ func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, mat
 	return result, nil
 }
 
+// resolveQualityID parses the source filename and resolves a quality ID against the media's profile.
+// Sets match.CandidateQualityID if a quality can be determined.
+func (s *Service) resolveQualityID(ctx context.Context, match *LibraryMatch, sourcePath string) {
+	if s.quality == nil {
+		return
+	}
+
+	var qualityProfileID int64
+	if match.QualityProfileID > 0 {
+		qualityProfileID = match.QualityProfileID
+	} else if match.MediaType == "movie" && match.MovieID != nil {
+		if movie, err := s.movies.Get(ctx, *match.MovieID); err == nil {
+			qualityProfileID = movie.QualityProfileID
+		}
+	} else if match.MediaType == "episode" && match.SeriesID != nil {
+		if series, err := s.tv.GetSeries(ctx, *match.SeriesID); err == nil {
+			qualityProfileID = series.QualityProfileID
+		}
+	}
+	if qualityProfileID == 0 {
+		return
+	}
+
+	profile, err := s.quality.Get(ctx, qualityProfileID)
+	if err != nil {
+		return
+	}
+
+	filename := filepath.Base(sourcePath)
+	parsed := scanner.ParseFilename(filename)
+	candidateMatch := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
+	if candidateMatch.Matches {
+		match.CandidateQualityID = candidateMatch.MatchedQualityID
+		match.QualityProfileID = qualityProfileID
+	}
+}
+
 // updateLibraryWithID updates the library and returns the created file ID.
 // sourcePath is the original file path before import (for duplicate detection).
 func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath string, sourcePath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
@@ -928,11 +1029,18 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 		return nil, fmt.Errorf("failed to stat destination file: %w", err)
 	}
 
+	var qualityID *int64
+	if match.CandidateQualityID > 0 {
+		id := int64(match.CandidateQualityID)
+		qualityID = &id
+	}
+
 	if match.MediaType == "movie" && match.MovieID != nil {
 		file, err := s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
 			Path:             destPath,
 			Size:             stat.Size(),
 			Quality:          "",
+			QualityID:        qualityID,
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,
 			AudioChannels:    mediaInfo.AudioChannels,
@@ -950,6 +1058,7 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 			Path:             destPath,
 			Size:             stat.Size(),
 			Quality:          "",
+			QualityID:        qualityID,
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,
 			AudioChannels:    mediaInfo.AudioChannels,

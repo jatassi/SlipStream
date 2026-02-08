@@ -106,6 +106,7 @@ func (h *Handlers) Grab(c echo.Context) error {
 		IsSeasonPack:     req.IsSeasonPack,
 		IsCompleteSeries: req.IsCompleteSeries,
 		TargetSlotID:     req.TargetSlotID,
+		Source:           "manual-search",
 	})
 
 	if err != nil {
@@ -148,6 +149,7 @@ func (h *Handlers) GrabBulk(c echo.Context) error {
 		IsSeasonPack:     req.IsSeasonPack,
 		IsCompleteSeries: req.IsCompleteSeries,
 		TargetSlotID:     req.TargetSlotID,
+		Source:           "manual-search",
 	})
 
 	if err != nil {

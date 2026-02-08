@@ -131,6 +131,7 @@ type GrabRequest struct {
 	IsSeasonPack     bool               `json:"isSeasonPack,omitempty"`
 	IsCompleteSeries bool               `json:"isCompleteSeries,omitempty"`
 	TargetSlotID     *int64             `json:"targetSlotId,omitempty"`  // Target slot for multi-version mode
+	Source           string             `json:"source,omitempty"`        // "auto-search", "manual-search", "portal-request"
 }
 
 // GrabResult contains the result of a grab operation.
@@ -154,6 +155,7 @@ type BulkGrabRequest struct {
 	IsCompleteSeries bool                 `json:"isCompleteSeries,omitempty"`
 	// Req 18.2.1: Target slot for multi-version mode
 	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
+	Source       string `json:"source,omitempty"`
 }
 
 // BulkGrabResult contains results from grabbing multiple releases.
@@ -334,6 +336,7 @@ func (s *Service) GrabBulk(ctx context.Context, req BulkGrabRequest) (*BulkGrabR
 			IsSeasonPack:     req.IsSeasonPack,
 			IsCompleteSeries: req.IsCompleteSeries,
 			TargetSlotID:     req.TargetSlotID,
+			Source:           req.Source,
 		})
 
 		result.Results = append(result.Results, grabResult)
@@ -522,9 +525,14 @@ type GrabHistoryItem struct {
 
 // createDownloadMapping creates a mapping between a download and its library item.
 func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, clientID int64, downloadID string) {
+	source := req.Source
+	if source == "" {
+		source = "auto-search"
+	}
 	params := sqlc.CreateDownloadMappingParams{
 		ClientID:   clientID,
 		DownloadID: downloadID,
+		Source:     source,
 	}
 
 	// Set target slot ID if provided (for multi-version mode)

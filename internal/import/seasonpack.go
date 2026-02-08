@@ -357,6 +357,7 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 		DownloadID:       m.DownloadID,
 		IsSeasonPack:     m.IsSeasonPack == 1,
 		IsCompleteSeries: m.IsCompleteSeries == 1,
+		Source:           m.Source,
 	}
 
 	// Copy TargetSlotID if present

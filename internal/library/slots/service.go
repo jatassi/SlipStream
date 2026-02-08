@@ -110,6 +110,12 @@ func (s *Service) UpdateSettings(ctx context.Context, input UpdateMultiVersionSe
 	}
 
 	s.logger.Info().Bool("enabled", input.Enabled).Msg("Updated multi-version settings")
+
+	// Clear all import decisions — mode change invalidates all previous evaluations
+	if err := s.queries.CleanupAllImportDecisions(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to clear import decisions after multi-version toggle")
+	}
+
 	return s.rowToSettings(row), nil
 }
 
@@ -252,6 +258,12 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateSlotInput) (
 	}
 
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated slot")
+
+	// Clear all import decisions — slot config change may affect evaluations
+	if err := s.queries.CleanupAllImportDecisions(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to clear import decisions after slot update")
+	}
+
 	return s.rowToSlot(row), nil
 }
 
@@ -280,6 +292,12 @@ func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*Slot
 	}
 
 	s.logger.Info().Int64("id", id).Bool("enabled", enabled).Msg("Updated slot enabled status")
+
+	// Clear all import decisions — slot availability change may affect evaluations
+	if err := s.queries.CleanupAllImportDecisions(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to clear import decisions after slot enable/disable")
+	}
+
 	return s.rowToSlot(row), nil
 }
 
@@ -385,6 +403,33 @@ func (s *Service) GetSlotFileCount(ctx context.Context, slotID int64) (int64, er
 		return 0, fmt.Errorf("failed to count files in slot: %w", err)
 	}
 	return count, nil
+}
+
+// GetSlotFileID returns the file ID assigned to a specific slot for a media item.
+// Returns 0 if no file is assigned.
+func (s *Service) GetSlotFileID(ctx context.Context, mediaType string, mediaID, slotID int64) (int64, error) {
+	if mediaType == "movie" {
+		rows, err := s.queries.ListMovieSlotAssignments(ctx, mediaID)
+		if err != nil {
+			return 0, err
+		}
+		for _, row := range rows {
+			if row.SlotID == slotID && row.FileID.Valid {
+				return row.FileID.Int64, nil
+			}
+		}
+	} else if mediaType == "episode" {
+		rows, err := s.queries.ListEpisodeSlotAssignments(ctx, mediaID)
+		if err != nil {
+			return 0, err
+		}
+		for _, row := range rows {
+			if row.SlotID == slotID && row.FileID.Valid {
+				return row.FileID.Int64, nil
+			}
+		}
+	}
+	return 0, nil
 }
 
 // ValidationResult holds the result of slot configuration validation.

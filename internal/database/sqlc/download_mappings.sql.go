@@ -29,9 +29,9 @@ func (q *Queries) ClearDownloadMappingSlot(ctx context.Context, arg ClearDownloa
 const createDownloadMapping = `-- name: CreateDownloadMapping :one
 INSERT INTO download_mappings (
     client_id, download_id, movie_id, series_id, season_number,
-    episode_id, is_season_pack, is_complete_series, target_slot_id
+    episode_id, is_season_pack, is_complete_series, target_slot_id, source
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (client_id, download_id) DO UPDATE SET
     movie_id = excluded.movie_id,
@@ -40,8 +40,9 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     episode_id = excluded.episode_id,
     is_season_pack = excluded.is_season_pack,
     is_complete_series = excluded.is_complete_series,
-    target_slot_id = excluded.target_slot_id
-RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id
+    target_slot_id = excluded.target_slot_id,
+    source = excluded.source
+RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source
 `
 
 type CreateDownloadMappingParams struct {
@@ -54,6 +55,7 @@ type CreateDownloadMappingParams struct {
 	IsSeasonPack     int64         `json:"is_season_pack"`
 	IsCompleteSeries int64         `json:"is_complete_series"`
 	TargetSlotID     sql.NullInt64 `json:"target_slot_id"`
+	Source           string        `json:"source"`
 }
 
 func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadMappingParams) (*DownloadMapping, error) {
@@ -67,6 +69,7 @@ func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadM
 		arg.IsSeasonPack,
 		arg.IsCompleteSeries,
 		arg.TargetSlotID,
+		arg.Source,
 	)
 	var i DownloadMapping
 	err := row.Scan(
@@ -81,6 +84,7 @@ func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadM
 		&i.IsCompleteSeries,
 		&i.CreatedAt,
 		&i.TargetSlotID,
+		&i.Source,
 	)
 	return &i, err
 }
@@ -131,7 +135,7 @@ func (q *Queries) DeleteOldDownloadMappings(ctx context.Context) error {
 }
 
 const getDownloadMapping = `-- name: GetDownloadMapping :one
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
 WHERE client_id = ? AND download_id = ?
 `
 
@@ -155,12 +159,13 @@ func (q *Queries) GetDownloadMapping(ctx context.Context, arg GetDownloadMapping
 		&i.IsCompleteSeries,
 		&i.CreatedAt,
 		&i.TargetSlotID,
+		&i.Source,
 	)
 	return &i, err
 }
 
 const getDownloadMappingsByClientDownloadIDs = `-- name: GetDownloadMappingsByClientDownloadIDs :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
 WHERE (client_id, download_id) IN (/*SLICE:client_download_ids*//*SLICE:client_download_ids*/?)
 `
 
@@ -185,6 +190,7 @@ func (q *Queries) GetDownloadMappingsByClientDownloadIDs(ctx context.Context) ([
 			&i.IsCompleteSeries,
 			&i.CreatedAt,
 			&i.TargetSlotID,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +206,7 @@ func (q *Queries) GetDownloadMappingsByClientDownloadIDs(ctx context.Context) ([
 }
 
 const getDownloadMappingsBySlot = `-- name: GetDownloadMappingsBySlot :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
 WHERE target_slot_id = ?
 ORDER BY created_at DESC
 `
@@ -227,6 +233,7 @@ func (q *Queries) GetDownloadMappingsBySlot(ctx context.Context, targetSlotID sq
 			&i.IsCompleteSeries,
 			&i.CreatedAt,
 			&i.TargetSlotID,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -386,7 +393,7 @@ func (q *Queries) IsSeriesDownloading(ctx context.Context, seriesID sql.NullInt6
 }
 
 const listActiveDownloadMappings = `-- name: ListActiveDownloadMappings :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
 ORDER BY created_at DESC
 `
 
@@ -411,6 +418,7 @@ func (q *Queries) ListActiveDownloadMappings(ctx context.Context) ([]*DownloadMa
 			&i.IsCompleteSeries,
 			&i.CreatedAt,
 			&i.TargetSlotID,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}

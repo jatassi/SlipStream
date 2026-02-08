@@ -555,8 +555,10 @@ func matchesAreCompatible(a, b *LibraryMatch) bool {
 		return false
 	}
 
-	// Season must match if both have it
-	if a.SeasonNum != nil && b.SeasonNum != nil && *a.SeasonNum != *b.SeasonNum {
+	// Season must match if both have it, unless the queue match (a) has no episode ID,
+	// indicating a batch download (season pack or complete series) where the season number
+	// is just the searched season, not a constraint on individual files.
+	if a.EpisodeID != nil && a.SeasonNum != nil && b.SeasonNum != nil && *a.SeasonNum != *b.SeasonNum {
 		return false
 	}
 

@@ -1,9 +1,9 @@
 -- name: CreateDownloadMapping :one
 INSERT INTO download_mappings (
     client_id, download_id, movie_id, series_id, season_number,
-    episode_id, is_season_pack, is_complete_series, target_slot_id
+    episode_id, is_season_pack, is_complete_series, target_slot_id, source
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (client_id, download_id) DO UPDATE SET
     movie_id = excluded.movie_id,
@@ -12,7 +12,8 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     episode_id = excluded.episode_id,
     is_season_pack = excluded.is_season_pack,
     is_complete_series = excluded.is_complete_series,
-    target_slot_id = excluded.target_slot_id
+    target_slot_id = excluded.target_slot_id,
+    source = excluded.source
 RETURNING *;
 
 -- name: GetDownloadMapping :one

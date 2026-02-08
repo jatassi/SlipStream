@@ -15,7 +15,9 @@ import (
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
@@ -34,6 +36,7 @@ var (
 	ErrImportFailed          = errors.New("import failed after retries")
 	ErrPathTooLong           = errors.New("destination path exceeds maximum length")
 	ErrFileAlreadyInLibrary  = errors.New("file already exists in library")
+	ErrNotAnUpgrade          = errors.New("candidate file is not a quality upgrade")
 )
 
 // HealthService defines the interface for health tracking.
@@ -137,6 +140,7 @@ type Service struct {
 	organizer  *organizer.Service
 	renamer    *renamer.Resolver
 	mediainfo  *mediainfo.Service
+	quality       *quality.Service
 	slots         *slots.Service
 	health        HealthService
 	history       HistoryService
@@ -179,6 +183,7 @@ type DownloadMapping struct {
 	IsSeasonPack     bool
 	IsCompleteSeries bool
 	TargetSlotID     *int64
+	Source           string // "auto-search", "manual-search", "portal-request"
 }
 
 // QueueMedia represents per-file status within a download.
@@ -204,9 +209,12 @@ type LibraryMatch struct {
 	Confidence  float64 // Match confidence 0.0 - 1.0
 	Source      string  // "queue", "parse", "manual"
 	RootFolder  string  // Root folder path
-	IsUpgrade      bool    // Whether this replaces an existing file
-	ExistingFile   string  // Path to existing file if upgrade
-	ExistingFileID *int64  // ID of existing file for database cleanup
+	IsUpgrade          bool    // Whether this replaces an existing file
+	ExistingFile       string  // Path to existing file if upgrade
+	ExistingFileID     *int64  // ID of existing file for database cleanup
+	CandidateQualityID int    // Quality ID of the candidate file
+	ExistingQualityID  int    // Quality ID of the existing file
+	QualityProfileID   int64  // Quality profile used for evaluation
 }
 
 // ImportResult contains the result of an import operation.
@@ -283,6 +291,11 @@ func (s *Service) SetHealthService(hs HealthService) {
 // SetHistoryService sets the history service for logging import events.
 func (s *Service) SetHistoryService(hs HistoryService) {
 	s.history = hs
+}
+
+// SetQualityService sets the quality service for upgrade comparison during import.
+func (s *Service) SetQualityService(qs *quality.Service) {
+	s.quality = qs
 }
 
 // SetSlotsService sets the slots service for multi-version support.
@@ -709,24 +722,210 @@ func (s *Service) populateRootFolder(ctx context.Context, match *LibraryMatch, t
 	return nil
 }
 
-// checkForExistingFile checks if there's an existing file that would be upgraded.
-func (s *Service) checkForExistingFile(ctx context.Context, match *LibraryMatch) error {
+// checkForExistingFile checks if there's an existing file and performs quality comparison.
+// In multi-version mode, this is skipped entirely — slot evaluation handles per-slot upgrades.
+// Returns ErrNotAnUpgrade if a file exists but the candidate is not a quality upgrade.
+func (s *Service) checkForExistingFile(ctx context.Context, match *LibraryMatch, sourcePath string) error {
+	// In multi-version mode, skip — slot evaluation handles per-slot quality comparison
+	if s.slots != nil && s.slots.IsMultiVersionEnabled(ctx) {
+		return nil
+	}
+
+	var existingFile struct {
+		id        int64
+		path      string
+		qualityID sql.NullInt64
+	}
+	var qualityProfileID int64
+
 	if match.MediaType == "movie" && match.MovieID != nil {
 		file, err := s.movies.GetPrimaryFile(ctx, *match.MovieID)
-		if err == nil && file != nil && file.Path != "" {
-			match.IsUpgrade = true
-			match.ExistingFile = file.Path
-			match.ExistingFileID = &file.ID
+		if err != nil || file == nil || file.Path == "" {
+			return nil // No existing file — not an upgrade scenario
 		}
+		existingFile.id = file.ID
+		existingFile.path = file.Path
+
+		// Get quality_id from the sqlc-level record (not exposed in domain MovieFile)
+		dbFile, dbErr := s.queries.GetMovieFile(ctx, file.ID)
+		if dbErr == nil {
+			existingFile.qualityID = dbFile.QualityID
+		}
+
+		movie, mErr := s.movies.Get(ctx, *match.MovieID)
+		if mErr != nil {
+			return mErr
+		}
+		qualityProfileID = movie.QualityProfileID
+
 	} else if match.MediaType == "episode" && match.EpisodeID != nil {
 		file, err := s.tv.GetEpisodeFile(ctx, *match.EpisodeID)
-		if err == nil && file != nil && file.Path != "" {
-			match.IsUpgrade = true
-			match.ExistingFile = file.Path
-			match.ExistingFileID = &file.ID
+		if err != nil || file == nil || file.Path == "" {
+			return nil
+		}
+		existingFile.id = file.ID
+		existingFile.path = file.Path
+
+		dbFile, dbErr := s.queries.GetEpisodeFile(ctx, file.ID)
+		if dbErr == nil {
+			existingFile.qualityID = dbFile.QualityID
+		}
+
+		// Get series quality profile
+		if match.SeriesID != nil {
+			series, sErr := s.tv.GetSeries(ctx, *match.SeriesID)
+			if sErr != nil {
+				return sErr
+			}
+			qualityProfileID = series.QualityProfileID
+		}
+	} else {
+		return nil
+	}
+
+	match.ExistingFile = existingFile.path
+	match.ExistingFileID = &existingFile.id
+	match.QualityProfileID = qualityProfileID
+
+	// If no quality service or no profile, fall back to old behavior (assume upgrade)
+	if s.quality == nil || qualityProfileID == 0 {
+		match.IsUpgrade = true
+		return nil
+	}
+
+	profile, err := s.quality.Get(ctx, qualityProfileID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("profileId", qualityProfileID).Msg("Failed to load quality profile, assuming upgrade")
+		match.IsUpgrade = true
+		return nil
+	}
+
+	// If upgrades are disabled on the profile, this is not an upgrade
+	if !profile.UpgradesEnabled {
+		match.IsUpgrade = false
+		return ErrNotAnUpgrade
+	}
+
+	// Parse candidate file quality from filename
+	filename := filepath.Base(sourcePath)
+	parsed := scanner.ParseFilename(filename)
+	candidateMatch := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
+
+	if candidateMatch.Matches {
+		match.CandidateQualityID = candidateMatch.MatchedQualityID
+	}
+
+	existingQualityID := 0
+	if existingFile.qualityID.Valid {
+		existingQualityID = int(existingFile.qualityID.Int64)
+	}
+	match.ExistingQualityID = existingQualityID
+
+	// If existing file has no quality_id, we can't compare — treat as upgrade
+	if existingQualityID == 0 {
+		match.IsUpgrade = true
+		return nil
+	}
+
+	// If candidate quality couldn't be determined, reject
+	if match.CandidateQualityID == 0 {
+		match.IsUpgrade = false
+		return ErrNotAnUpgrade
+	}
+
+	// Check if at cutoff — no upgrades needed
+	if profile.IsAtOrAboveCutoff(existingQualityID) {
+		match.IsUpgrade = false
+		return ErrNotAnUpgrade
+	}
+
+	// Compare quality
+	if profile.IsUpgrade(existingQualityID, match.CandidateQualityID) {
+		match.IsUpgrade = true
+		return nil
+	}
+
+	match.IsUpgrade = false
+	return ErrNotAnUpgrade
+}
+
+// getSlotFileID returns the file ID currently assigned to a slot for a given media item.
+func (s *Service) getSlotFileID(ctx context.Context, match *LibraryMatch, slotID int64) *int64 {
+	if s.slots == nil {
+		return nil
+	}
+	var mediaID int64
+	if match.MediaType == "movie" && match.MovieID != nil {
+		mediaID = *match.MovieID
+	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+		mediaID = *match.EpisodeID
+	} else {
+		return nil
+	}
+	fileID, err := s.slots.GetSlotFileID(ctx, match.MediaType, mediaID, slotID)
+	if err != nil || fileID == 0 {
+		return nil
+	}
+	return &fileID
+}
+
+// getFilePath returns the file path for a given file ID and media type.
+func (s *Service) getFilePath(ctx context.Context, mediaType string, fileID int64) string {
+	if mediaType == "movie" {
+		f, err := s.queries.GetMovieFile(ctx, fileID)
+		if err == nil {
+			return f.Path
+		}
+	} else if mediaType == "episode" {
+		f, err := s.queries.GetEpisodeFile(ctx, fileID)
+		if err == nil {
+			return f.Path
 		}
 	}
-	return nil
+	return ""
+}
+
+// recordImportDecision records a rejection decision for a source file.
+func (s *Service) recordImportDecision(ctx context.Context, sourcePath, decision string, match *LibraryMatch) {
+	var mediaID int64
+	mediaType := match.MediaType
+	if match.MediaType == "movie" && match.MovieID != nil {
+		mediaID = *match.MovieID
+	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+		mediaID = *match.EpisodeID
+	} else {
+		return
+	}
+
+	params := sqlc.UpsertImportDecisionParams{
+		SourcePath: sourcePath,
+		Decision:   decision,
+		MediaType:  mediaType,
+		MediaID:    mediaID,
+	}
+
+	if match.CandidateQualityID > 0 {
+		params.CandidateQualityID = sql.NullInt64{Int64: int64(match.CandidateQualityID), Valid: true}
+	}
+	if match.ExistingQualityID > 0 {
+		params.ExistingQualityID = sql.NullInt64{Int64: int64(match.ExistingQualityID), Valid: true}
+	}
+	if match.ExistingFileID != nil {
+		params.ExistingFileID = sql.NullInt64{Int64: *match.ExistingFileID, Valid: true}
+	}
+	if match.QualityProfileID > 0 {
+		params.QualityProfileID = sql.NullInt64{Int64: match.QualityProfileID, Valid: true}
+	}
+
+	if _, err := s.queries.UpsertImportDecision(ctx, params); err != nil {
+		s.logger.Warn().Err(err).Str("path", sourcePath).Msg("Failed to record import decision")
+	}
+}
+
+// ClearDecisionsForProfile clears import decisions that reference a specific quality profile.
+// Implements quality.ImportDecisionCleaner.
+func (s *Service) ClearDecisionsForProfile(ctx context.Context, profileID int64) error {
+	return s.queries.DeleteImportDecisionsByProfile(ctx, sql.NullInt64{Int64: profileID, Valid: true})
 }
 
 // dispatchImportNotification sends a download or upgrade notification after successful import.

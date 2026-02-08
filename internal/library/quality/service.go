@@ -17,10 +17,16 @@ var (
 	ErrInvalidProfile  = errors.New("invalid quality profile")
 )
 
+// ImportDecisionCleaner clears cached import decisions when quality profiles change.
+type ImportDecisionCleaner interface {
+	ClearDecisionsForProfile(ctx context.Context, profileID int64) error
+}
+
 // Service provides quality profile operations.
 type Service struct {
-	queries *sqlc.Queries
-	logger  zerolog.Logger
+	queries               *sqlc.Queries
+	logger                zerolog.Logger
+	importDecisionCleaner ImportDecisionCleaner
 }
 
 // NewService creates a new quality profile service.
@@ -29,6 +35,11 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 		queries: sqlc.New(db),
 		logger:  logger.With().Str("component", "quality").Logger(),
 	}
+}
+
+// SetImportDecisionCleaner sets the cleaner that invalidates import decisions when profiles change.
+func (s *Service) SetImportDecisionCleaner(c ImportDecisionCleaner) {
+	s.importDecisionCleaner = c
 }
 
 // SetDB updates the database connection used by this service.
@@ -202,6 +213,14 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 	}
 
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated quality profile")
+
+	// Invalidate import decisions that used this profile — files may now be eligible for import
+	if s.importDecisionCleaner != nil {
+		if err := s.importDecisionCleaner.ClearDecisionsForProfile(ctx, id); err != nil {
+			s.logger.Warn().Err(err).Int64("profileId", id).Msg("Failed to clear import decisions for profile")
+		}
+	}
+
 	return s.rowToProfile(row)
 }
 

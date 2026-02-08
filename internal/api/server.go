@@ -483,7 +483,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	)
 	s.importService.SetHealthService(s.healthService)
 	s.importService.SetHistoryService(&importHistoryAdapter{s.historyService})
+	s.importService.SetQualityService(s.qualityService)
 	s.importService.SetSlotsService(s.slotsService)
+	s.qualityService.SetImportDecisionCleaner(s.importService)
 
 	// Initialize notification service
 	s.notificationService = notification.NewService(db, logger)

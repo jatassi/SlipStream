@@ -194,8 +194,8 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 	}
 
 	// Check for existing file (upgrade)
-	if err := h.service.checkForExistingFile(ctx, match); err != nil {
-		// Non-fatal, just means it's not an upgrade
+	if err := h.service.checkForExistingFile(ctx, match, req.Path); err != nil {
+		// Non-fatal for manual imports, just means it's not an upgrade
 		_ = err
 	}
 

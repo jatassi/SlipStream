@@ -444,6 +444,7 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		SeriesID:     item.SeriesID,
 		SeasonNumber: item.SeasonNumber,
 		TargetSlotID: item.TargetSlotID,
+		Source:       "auto-search",
 	}
 	if item.MediaType == MediaTypeSeason {
 		grabReq.IsSeasonPack = true

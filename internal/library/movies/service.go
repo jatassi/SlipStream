@@ -663,6 +663,11 @@ func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 		return fmt.Errorf("failed to delete movie file: %w", err)
 	}
 
+	// Clear import decisions that referenced this file — previously rejected files may now be eligible
+	if err := s.queries.DeleteImportDecisionsByExistingFile(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
+		s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear import decisions for removed file")
+	}
+
 	// Check if movie still has files; if none remain, transition to missing and unmonitor
 	count, _ := s.queries.CountMovieFiles(ctx, row.MovieID)
 	if count == 0 {
