@@ -170,10 +170,9 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 	if opts.Search != "" {
 		searchTerm := "%" + opts.Search + "%"
 		rows, err = s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
-			Title:     searchTerm,
-			SortTitle: searchTerm,
-			Limit:     int64(opts.PageSize),
-			Offset:    offset,
+			SearchTerm: searchTerm,
+			Lim:        int64(opts.PageSize),
+			Off:        offset,
 		})
 	} else if opts.RootFolderID != nil {
 		rows, err = s.queries.ListMoviesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})

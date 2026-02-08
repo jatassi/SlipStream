@@ -1434,25 +1434,21 @@ func (q *Queries) ListUnmatchedMoviesByRootFolder(ctx context.Context, rootFolde
 
 const searchMovies = `-- name: SearchMovies :many
 SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, active_download_id, status_message, release_date, physical_release_date, added_at, updated_at, theatrical_release_date, studio, tvdb_id, content_rating, added_by FROM movies
-WHERE title LIKE ? OR sort_title LIKE ?
+WHERE title LIKE ?1 OR sort_title LIKE ?1
+   OR REPLACE(title, '''', '') LIKE ?1
+   OR REPLACE(sort_title, '''', '') LIKE ?1
 ORDER BY sort_title
-LIMIT ? OFFSET ?
+LIMIT ?3 OFFSET ?2
 `
 
 type SearchMoviesParams struct {
-	Title     string `json:"title"`
-	SortTitle string `json:"sort_title"`
-	Limit     int64  `json:"limit"`
-	Offset    int64  `json:"offset"`
+	SearchTerm string `json:"search_term"`
+	Off        int64  `json:"off"`
+	Lim        int64  `json:"lim"`
 }
 
 func (q *Queries) SearchMovies(ctx context.Context, arg SearchMoviesParams) ([]*Movie, error) {
-	rows, err := q.db.QueryContext(ctx, searchMovies,
-		arg.Title,
-		arg.SortTitle,
-		arg.Limit,
-		arg.Offset,
-	)
+	rows, err := q.db.QueryContext(ctx, searchMovies, arg.SearchTerm, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

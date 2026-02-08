@@ -113,9 +113,11 @@ UPDATE seasons SET monitored = ? WHERE id = ? RETURNING *;
 
 -- name: SearchSeries :many
 SELECT * FROM series
-WHERE title LIKE ? OR sort_title LIKE ?
+WHERE title LIKE sqlc.arg(search_term) OR sort_title LIKE sqlc.arg(search_term)
+   OR REPLACE(title, '''', '') LIKE sqlc.arg(search_term)
+   OR REPLACE(sort_title, '''', '') LIKE sqlc.arg(search_term)
 ORDER BY sort_title
-LIMIT ? OFFSET ?;
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: ListSeriesPaginated :many
 SELECT * FROM series

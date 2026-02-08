@@ -154,10 +154,9 @@ func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Se
 	if opts.Search != "" {
 		searchTerm := "%" + opts.Search + "%"
 		rows, err = s.queries.SearchSeries(ctx, sqlc.SearchSeriesParams{
-			Title:     searchTerm,
-			SortTitle: searchTerm,
-			Limit:     int64(opts.PageSize),
-			Offset:    offset,
+			SearchTerm: searchTerm,
+			Lim:        int64(opts.PageSize),
+			Off:        offset,
 		})
 	} else if opts.RootFolderID != nil {
 		rows, err = s.queries.ListSeriesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
