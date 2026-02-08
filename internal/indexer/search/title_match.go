@@ -6,14 +6,19 @@ import (
 )
 
 var (
+	apostropheRegex    = regexp.MustCompile(`[''\x60\x{2018}\x{2019}\x{02BC}]`)
 	specialCharsRegex  = regexp.MustCompile(`[^a-zA-Z0-9\s]`)
 	multipleSpaceRegex = regexp.MustCompile(`\s+`)
 )
 
 // NormalizeTitle converts a title to a normalized form for comparison.
-// It converts to lowercase, removes special characters, and collapses multiple spaces.
+// It converts to lowercase, strips apostrophes (within-word punctuation),
+// replaces remaining special characters with spaces, and collapses multiple spaces.
+// Apostrophes are stripped rather than replaced with spaces so that titles like
+// "Schitt's Creek" and "Schitts Creek" both normalize to "schitts creek".
 func NormalizeTitle(title string) string {
 	normalized := strings.ToLower(title)
+	normalized = apostropheRegex.ReplaceAllString(normalized, "")
 	normalized = specialCharsRegex.ReplaceAllString(normalized, " ")
 	normalized = multipleSpaceRegex.ReplaceAllString(normalized, " ")
 	normalized = strings.TrimSpace(normalized)

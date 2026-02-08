@@ -85,6 +85,16 @@ func (s *Service) matchToLibraryWithSettings(ctx context.Context, path string, m
 		}
 	}
 
+	// If queue match exists but has no EpisodeID (e.g., season pack import),
+	// try to extract episode info directly from the filename using the known SeriesID.
+	// This handles cases where matchFromParse fails due to title mismatches
+	// (e.g., apostrophes in titles like "Schitt's Creek" not matching SQL LIKE).
+	if queueMatch != nil && queueMatch.EpisodeID == nil && queueMatch.SeriesID != nil {
+		if epMatch := s.enrichSeasonPackMatch(ctx, path, queueMatch); epMatch != nil {
+			queueMatch = epMatch
+		}
+	}
+
 	// Return queue match if available (highest confidence)
 	if queueMatch != nil {
 		return queueMatch, nil
@@ -551,6 +561,49 @@ func matchesAreCompatible(a, b *LibraryMatch) bool {
 	}
 
 	return true
+}
+
+// enrichSeasonPackMatch extracts season/episode numbers from the filename and looks up
+// the episode directly using the known SeriesID from the queue mapping. This is used
+// when matchFromParse fails (e.g., due to apostrophes in titles preventing SQL LIKE matches)
+// but we already know the series from the download mapping.
+func (s *Service) enrichSeasonPackMatch(ctx context.Context, path string, queueMatch *LibraryMatch) *LibraryMatch {
+	filename := filepath.Base(path)
+	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	var season, episode int
+
+	if matches := tvPattern1.FindStringSubmatch(name); len(matches) >= 4 {
+		season, _ = strconv.Atoi(matches[2])
+		episode, _ = strconv.Atoi(matches[3])
+	} else if matches := tvPattern2.FindStringSubmatch(name); len(matches) >= 4 {
+		season, _ = strconv.Atoi(matches[2])
+		episode, _ = strconv.Atoi(matches[3])
+	}
+
+	if season == 0 || episode == 0 {
+		return nil
+	}
+
+	episodes, err := s.tv.ListEpisodes(ctx, *queueMatch.SeriesID, &season)
+	if err != nil {
+		return nil
+	}
+
+	for _, ep := range episodes {
+		if ep.EpisodeNumber == episode {
+			queueMatch.EpisodeID = &ep.ID
+			queueMatch.SeasonNum = &season
+			if ep.EpisodeFile != nil {
+				queueMatch.IsUpgrade = true
+				queueMatch.ExistingFile = ep.EpisodeFile.Path
+				queueMatch.ExistingFileID = &ep.EpisodeFile.ID
+			}
+			return queueMatch
+		}
+	}
+
+	return nil
 }
 
 // MatchPreview provides information about a potential match for manual import.

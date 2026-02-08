@@ -56,6 +56,26 @@ func TestNormalizeTitle(t *testing.T) {
 			input:    "DaRk KnIgHt",
 			expected: "dark knight",
 		},
+		{
+			name:     "apostrophe removed not replaced with space",
+			input:    "Schitt's Creek",
+			expected: "schitts creek",
+		},
+		{
+			name:     "smart apostrophe removed",
+			input:    "Schitt\u2019s Creek",
+			expected: "schitts creek",
+		},
+		{
+			name:     "no apostrophe unchanged",
+			input:    "Schitts Creek",
+			expected: "schitts creek",
+		},
+		{
+			name:     "possessive with dot separators",
+			input:    "Grey's.Anatomy",
+			expected: "greys anatomy",
+		},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +154,24 @@ func TestTitlesMatch(t *testing.T) {
 			parsedTitle: "Dark",
 			searchQuery: "",
 			expected:    false,
+		},
+		{
+			name:        "apostrophe in query but not in release",
+			parsedTitle: "Schitts Creek",
+			searchQuery: "Schitt's Creek",
+			expected:    true,
+		},
+		{
+			name:        "apostrophe in release but not in query",
+			parsedTitle: "Schitt's Creek",
+			searchQuery: "Schitts Creek",
+			expected:    true,
+		},
+		{
+			name:        "smart apostrophe vs standard",
+			parsedTitle: "Schitt\u2019s Creek",
+			searchQuery: "Schitt's Creek",
+			expected:    true,
 		},
 	}
 

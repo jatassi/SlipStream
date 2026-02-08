@@ -82,7 +82,8 @@
       "Bash(bun run dev)",
       "Bash(pgrep:*)",
       "Bash(make build-backend:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
