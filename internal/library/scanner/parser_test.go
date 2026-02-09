@@ -575,8 +575,23 @@ func TestParseFilename_Source(t *testing.T) {
 			wantSource: "WEB-DL",
 		},
 		{
+			name:       "bare WEB source",
+			filename:   "The.Lincoln.Lawyer.S04E01.HDR.2160P.WEB.H265-POKE.mkv",
+			wantSource: "WEB-DL",
+		},
+		{
+			name:       "bare WEB source with spaces",
+			filename:   "Movie 2020 2160p WEB x265.mkv",
+			wantSource: "WEB-DL",
+		},
+		{
 			name:       "WEBRip source",
 			filename:   "Movie.2020.1080p.WEBRip.mkv",
+			wantSource: "WEBRip",
+		},
+		{
+			name:       "WEB-Rip source not confused with WEB",
+			filename:   "Movie.2020.1080p.WEB-Rip.mkv",
 			wantSource: "WEBRip",
 		},
 		{

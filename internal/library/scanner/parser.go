@@ -74,8 +74,8 @@ var (
 	// Source patterns
 	sourcePatterns = map[string]*regexp.Regexp{
 		"BluRay":  regexp.MustCompile(`(?i)(blu-?ray|bdrip|brrip|bdremux)`),
-		"WEB-DL":  regexp.MustCompile(`(?i)(web-?dl|webdl)`),
-		"WEBRip":  regexp.MustCompile(`(?i)webrip`),
+		"WEB-DL":  regexp.MustCompile(`(?i)(web-?dl|webdl|\bweb\b)`),
+		"WEBRip":  regexp.MustCompile(`(?i)web-?rip`),
 		"HDTV":    regexp.MustCompile(`(?i)hdtv`),
 		"DVDRip":  regexp.MustCompile(`(?i)(dvdrip|dvd-?r)`),
 		"SDTV":    regexp.MustCompile(`(?i)(sdtv|pdtv|dsr)`),
@@ -347,7 +347,7 @@ func parseQualityInfo(text string, parsed *ParsedMedia) {
 	}
 
 	// Source - check in priority order (Remux first since it's highest quality)
-	sourceOrder := []string{"Remux", "BluRay", "WEB-DL", "WEBRip", "HDTV", "DVDRip", "SDTV", "CAM"}
+	sourceOrder := []string{"Remux", "BluRay", "WEBRip", "WEB-DL", "HDTV", "DVDRip", "SDTV", "CAM"}
 	for _, source := range sourceOrder {
 		if pattern, ok := sourcePatterns[source]; ok && pattern.MatchString(text) {
 			parsed.Source = source

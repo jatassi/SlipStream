@@ -717,8 +717,8 @@ func (s *Service) parseFilename(filename string) *ParsedInfo {
 		source  string
 	}{
 		{regexp.MustCompile(`(?i)BluRay|BDRip|BRRip`), "BluRay"},
-		{regexp.MustCompile(`(?i)WEB-?DL`), "WEBDL"},
 		{regexp.MustCompile(`(?i)WEB-?Rip`), "WEBRip"},
+		{regexp.MustCompile(`(?i)(WEB-?DL|\bWEB\b)`), "WEBDL"},
 		{regexp.MustCompile(`(?i)HDTV`), "HDTV"},
 		{regexp.MustCompile(`(?i)DVDRip`), "DVDRip"},
 	}

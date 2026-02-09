@@ -342,7 +342,7 @@ func normalizeSource(source string) string {
 	switch source {
 	case "BluRay", "Blu-Ray", "BDRip", "BRRip":
 		return "bluray"
-	case "WEB-DL", "WEBDL":
+	case "WEB-DL", "WEBDL", "WEB":
 		return "webdl"
 	case "WEBRip":
 		return "webrip"
