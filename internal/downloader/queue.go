@@ -46,34 +46,55 @@ type QueueItem struct {
 	TargetSlotName string `json:"targetSlotName,omitempty"`
 }
 
+// ClientError reports a per-client failure when fetching the queue.
+type ClientError struct {
+	ClientID   int64  `json:"clientId"`
+	ClientName string `json:"clientName"`
+	Message    string `json:"message"`
+}
+
+// QueueResponse wraps queue items together with any per-client errors.
+// When a client is unreachable, its last known items are served as stale data
+// and the error is reported so the frontend can display a warning.
+type QueueResponse struct {
+	Items  []QueueItem   `json:"items"`
+	Errors []ClientError `json:"errors,omitempty"`
+}
+
 // GetQueue returns all items from all enabled download clients.
-func (s *Service) GetQueue(ctx context.Context) ([]QueueItem, error) {
-	// Get all enabled clients
+// On per-client failure, cached (stale) items are served and the error is reported.
+func (s *Service) GetQueue(ctx context.Context) (*QueueResponse, error) {
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []QueueItem
+	var clientErrors []ClientError
 
 	for _, dbClient := range clients {
-		// Skip unimplemented clients
 		if !IsClientTypeImplemented(dbClient.Type) {
 			continue
 		}
 
 		clientItems, err := s.getClientQueue(ctx, dbClient.ID, dbClient.Name, dbClient.Type)
 		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Str("name", dbClient.Name).Msg("Failed to get queue from client")
+			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Str("name", dbClient.Name).Msg("Failed to get queue from client, serving cached data")
+			clientErrors = append(clientErrors, ClientError{
+				ClientID:   dbClient.ID,
+				ClientName: dbClient.Name,
+				Message:    err.Error(),
+			})
+			items = append(items, s.getCachedQueue(dbClient.ID)...)
 			continue
 		}
+		s.setCachedQueue(dbClient.ID, clientItems)
 		items = append(items, clientItems...)
 	}
 
-	// Enrich items with library IDs from download mappings
 	s.enrichQueueItemsWithMappings(ctx, items)
 
-	return items, nil
+	return &QueueResponse{Items: items, Errors: clientErrors}, nil
 }
 
 // enrichQueueItemsWithMappings populates library IDs on queue items from download_mappings.

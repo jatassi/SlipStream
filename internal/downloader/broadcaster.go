@@ -173,13 +173,13 @@ func (b *QueueBroadcaster) broadcast() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	queue, err := b.service.GetQueue(ctx)
+	resp, err := b.service.GetQueue(ctx)
 	if err != nil {
 		b.logger.Warn().Err(err).Msg("Failed to get queue for broadcast")
 		return false
 	}
 
-	if err := b.hub.Broadcast("queue:state", queue); err != nil {
+	if err := b.hub.Broadcast("queue:state", resp); err != nil {
 		b.logger.Warn().Err(err).Msg("Failed to broadcast queue state")
 	}
 
@@ -191,8 +191,7 @@ func (b *QueueBroadcaster) broadcast() bool {
 		b.logger.Debug().Err(err).Msg("Failed to check for disappeared downloads")
 	}
 
-	// Check if any downloads are actively progressing
-	for _, item := range queue {
+	for _, item := range resp.Items {
 		if item.Status == "downloading" || item.Status == "queued" {
 			return true
 		}

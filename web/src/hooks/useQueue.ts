@@ -20,14 +20,18 @@ export function useQueue(enabled = true) {
     queryKey: queueKeys.list(),
     queryFn: () => queueApi.list(),
     enabled,
-    // Fallback polling: only poll if we have active downloads and
-    // haven't received a WebSocket update in 10 seconds
+    // Fallback polling: poll if we have active downloads or client errors,
+    // and haven't received a WebSocket update in 10 seconds.
+    // Force HTTP polling when errors exist so isFetching cycles for retry UX.
     refetchInterval: (q) => {
       if (!enabled) return false
-      const hasActiveDownloads = q.state.data?.some(
+      const data = q.state.data
+      const hasErrors = (data?.errors?.length ?? 0) > 0
+      const hasActiveDownloads = data?.items?.some(
         (item) => item.status === 'downloading' || item.status === 'queued'
       )
-      if (!hasActiveDownloads) return false
+      if (!hasActiveDownloads && !hasErrors) return false
+      if (hasErrors) return FALLBACK_POLL_MS
       const timeSinceUpdate = Date.now() - usePortalDownloadsStore.getState().lastUpdateTime
       return timeSinceUpdate > WS_TIMEOUT_MS ? FALLBACK_POLL_MS : false
     },
@@ -39,8 +43,9 @@ export function useQueue(enabled = true) {
   // Sync queue items to both stores (including empty arrays)
   useEffect(() => {
     if (query.data !== undefined) {
-      setQueueItems(query.data ?? [])
-      setPortalQueue(query.data ?? [])
+      const items = query.data?.items ?? []
+      setQueueItems(items)
+      setPortalQueue(items)
     }
   }, [query.data, setQueueItems, setPortalQueue])
 

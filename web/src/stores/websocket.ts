@@ -16,7 +16,7 @@ import { useDevModeStore } from './devmode'
 import { usePortalDownloadsStore } from './portalDownloads'
 import { useLogsStore } from './logs'
 import type { Activity, ProgressEventType } from '@/types/progress'
-import type { QueueItem } from '@/types/queue'
+import type { QueueResponse } from '@/types/queue'
 import type { LogEntry } from '@/types/logs'
 
 export interface WSMessage {
@@ -183,11 +183,13 @@ export function useWebSocketHandler() {
         // Force immediate refetch to get current queue state
         queryClient.refetchQueries({ queryKey: queueKeys.all })
         break
-      case 'queue:state':
+      case 'queue:state': {
         // Real-time queue state pushed from backend - update stores directly (no API call)
-        usePortalDownloadsStore.getState().setQueue(lastMessage.payload as QueueItem[])
-        queryClient.setQueryData(queueKeys.list(), lastMessage.payload as QueueItem[])
+        const queueResp = lastMessage.payload as QueueResponse
+        usePortalDownloadsStore.getState().setQueue(queueResp.items)
+        queryClient.setQueryData(queueKeys.list(), queueResp)
         break
+      }
       case 'download:completed':
         queryClient.invalidateQueries({ queryKey: queueKeys.all })
         break

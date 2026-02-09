@@ -1358,13 +1358,13 @@ type portalQueueGetterAdapter struct {
 }
 
 func (a *portalQueueGetterAdapter) GetQueue(ctx context.Context) ([]requests.QueueItem, error) {
-	queue, err := a.downloaderSvc.GetQueue(ctx)
+	resp, err := a.downloaderSvc.GetQueue(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]requests.QueueItem, len(queue))
-	for i, item := range queue {
+	result := make([]requests.QueueItem, len(resp.Items))
+	for i, item := range resp.Items {
 		result[i] = requests.QueueItem{
 			ID:             item.ID,
 			ClientID:       item.ClientID,
@@ -1929,7 +1929,7 @@ func (s *Server) testNewDownloadClient(c echo.Context) error {
 func (s *Server) getQueue(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	items, err := s.downloaderService.GetQueue(ctx)
+	resp, err := s.downloaderService.GetQueue(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -1942,7 +1942,7 @@ func (s *Server) getQueue(c echo.Context) error {
 		}
 	}()
 
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) pauseDownload(c echo.Context) error {

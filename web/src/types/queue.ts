@@ -31,6 +31,17 @@ export interface QueueItem {
   targetSlotName?: string
 }
 
+export interface ClientError {
+  clientId: number
+  clientName: string
+  message: string
+}
+
+export interface QueueResponse {
+  items: QueueItem[]
+  errors?: ClientError[]
+}
+
 export interface QueueStats {
   totalCount: number
   downloadingCount: number

@@ -1,9 +1,9 @@
 import { apiFetch } from './client'
-import type { QueueItem, QueueStats } from '@/types'
+import type { QueueResponse, QueueStats } from '@/types'
 
 export const queueApi = {
   list: () =>
-    apiFetch<QueueItem[]>('/queue'),
+    apiFetch<QueueResponse>('/queue'),
 
   pause: (clientId: number, id: string) =>
     apiFetch<{ status: string }>(`/queue/${id}/pause`, {

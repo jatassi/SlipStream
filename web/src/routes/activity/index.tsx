@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Pause, Play, Trash2, Film, Tv, Download, FastForward } from 'lucide-react'
+import { Pause, Play, Trash2, Film, Tv, Download, FastForward, AlertTriangle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ import {
 } from '@/hooks'
 import { formatBytes, formatSpeed, formatEta } from '@/lib/formatters'
 import { toast } from 'sonner'
-import type { QueueItem } from '@/types'
+import type { QueueItem, ClientError } from '@/types'
 
 type MediaFilter = 'all' | 'movies' | 'series'
 
@@ -348,22 +348,46 @@ function DownloadsTable({ items }: { items: QueueItem[] }) {
   )
 }
 
+function QueueErrorBanner({ errors, isFetching }: { errors: ClientError[]; isFetching: boolean }) {
+  if (errors.length === 0) return null
+
+  const clientNames = errors.map((e) => e.clientName).join(', ')
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+      <AlertTriangle className="size-4 shrink-0 text-yellow-500" />
+      <span className="flex-1">
+        Unable to reach <span className="font-medium text-yellow-100">{clientNames}</span> — showing last known data
+      </span>
+      {isFetching && (
+        <span className="flex items-center gap-1.5 text-xs text-yellow-400">
+          <Loader2 className="size-3 animate-spin" />
+          Retrying…
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function ActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
-  const { data: queue, isLoading, isError, refetch } = useQueue()
+  const { data: queueResponse, isLoading, isError, isFetching, refetch } = useQueue()
+
+  const items = queueResponse?.items ?? []
+  const clientErrors = queueResponse?.errors ?? []
 
   // Filter by media type and sort by title (completed downloads are already filtered by backend)
-  const filteredItems = (queue?.filter((item) => {
+  const filteredItems = items.filter((item) => {
     if (filter === 'all') return true
     if (filter === 'movies') return item.mediaType === 'movie'
     if (filter === 'series') return item.mediaType === 'series'
     return true
-  }) || []).sort((a, b) => a.title.localeCompare(b.title))
+  }).sort((a, b) => a.title.localeCompare(b.title))
 
   // Count items by media type
-  const movieCount = queue?.filter((q) => q.mediaType === 'movie').length ?? 0
-  const seriesCount = queue?.filter((q) => q.mediaType === 'series').length ?? 0
-  const totalCount = queue?.length ?? 0
+  const movieCount = items.filter((q) => q.mediaType === 'movie').length
+  const seriesCount = items.filter((q) => q.mediaType === 'series').length
+  const totalCount = items.length
 
   if (isLoading) {
     return (
@@ -439,6 +463,11 @@ export function ActivityPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              {clientErrors.length > 0 && (
+                <div className="px-4 pt-4">
+                  <QueueErrorBanner errors={clientErrors} isFetching={isFetching} />
+                </div>
+              )}
               <DownloadsTable items={filteredItems} />
             </CardContent>
           </Card>

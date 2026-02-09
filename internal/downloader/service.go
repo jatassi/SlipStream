@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -107,13 +108,17 @@ type Service struct {
 	broadcaster         Broadcaster
 	statusChangeLogger  StatusChangeLogger
 	portalStatusTracker PortalStatusTracker
+
+	queueCacheMu sync.RWMutex
+	queueCache   map[int64][]QueueItem
 }
 
 // NewService creates a new download client service.
 func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 	return &Service{
-		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "downloader").Logger(),
+		queries:    sqlc.New(db),
+		logger:     logger.With().Str("component", "downloader").Logger(),
+		queueCache: make(map[int64][]QueueItem),
 	}
 }
 
@@ -585,4 +590,21 @@ func toNullFloat64(f *float64) sql.NullFloat64 {
 		return sql.NullFloat64{}
 	}
 	return sql.NullFloat64{Float64: *f, Valid: true}
+}
+
+func (s *Service) getCachedQueue(clientID int64) []QueueItem {
+	s.queueCacheMu.RLock()
+	defer s.queueCacheMu.RUnlock()
+	items := s.queueCache[clientID]
+	copied := make([]QueueItem, len(items))
+	copy(copied, items)
+	return copied
+}
+
+func (s *Service) setCachedQueue(clientID int64, items []QueueItem) {
+	s.queueCacheMu.Lock()
+	defer s.queueCacheMu.Unlock()
+	copied := make([]QueueItem, len(items))
+	copy(copied, items)
+	s.queueCache[clientID] = copied
 }

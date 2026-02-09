@@ -32,7 +32,7 @@ function QueuePreview() {
     )
   }
 
-  const activeDownloads = queue?.filter((q) => q.status === 'downloading') || []
+  const activeDownloads = queue?.items?.filter((q) => q.status === 'downloading') || []
 
   return (
     <Card>
