@@ -636,44 +636,6 @@ func (s *Service) executeImport(ctx context.Context, source, dest string) (organ
 	return s.organizer.ImportFile(source, dest)
 }
 
-// updateLibrary updates the library database with the imported file.
-func (s *Service) updateLibrary(ctx context.Context, match *LibraryMatch, destPath string, mediaInfo *mediainfo.MediaInfo) error {
-	stat, err := os.Stat(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat destination file: %w", err)
-	}
-
-	if match.MediaType == "movie" && match.MovieID != nil {
-		// Add/update movie file
-		_, err = s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
-			Path:          destPath,
-			Size:          stat.Size(),
-			Quality:       "",
-			VideoCodec:    mediaInfo.VideoCodec,
-			AudioCodec:    mediaInfo.AudioCodec,
-			AudioChannels: mediaInfo.AudioChannels,
-			DynamicRange:  mediaInfo.DynamicRangeType,
-			Resolution:    mediaInfo.VideoResolution,
-		})
-		return err
-	} else if match.MediaType == "episode" && match.EpisodeID != nil {
-		// Add/update episode file
-		_, err = s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
-			Path:          destPath,
-			Size:          stat.Size(),
-			Quality:       "",
-			VideoCodec:    mediaInfo.VideoCodec,
-			AudioCodec:    mediaInfo.AudioCodec,
-			AudioChannels: mediaInfo.AudioChannels,
-			DynamicRange:  mediaInfo.DynamicRangeType,
-			Resolution:    mediaInfo.VideoResolution,
-		})
-		return err
-	}
-
-	return nil
-}
-
 // buildTokenContext creates a token context from match and mediainfo.
 func (s *Service) buildTokenContext(
 	ctx context.Context,
@@ -820,11 +782,13 @@ func (s *Service) logImportHistory(ctx context.Context, result *ImportResult) er
 		eventType = "import_upgrade"
 	}
 
+	parsed := scanner.ParsePath(result.SourcePath)
+
 	return s.history.Create(ctx, HistoryInput{
 		EventType: eventType,
 		MediaType: result.Match.MediaType,
 		MediaID:   mediaID,
-		Quality:   "", // TODO: Extract quality
+		Quality:   parsed.Quality,
 		Data: map[string]any{
 			"sourcePath":       result.SourcePath,
 			"destinationPath":  result.DestinationPath,
@@ -1042,11 +1006,14 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 		qualityID = &id
 	}
 
+	parsed := scanner.ParsePath(sourcePath)
+	qualityStr := parsed.Quality
+
 	if match.MediaType == "movie" && match.MovieID != nil {
 		file, err := s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
 			Path:             destPath,
 			Size:             stat.Size(),
-			Quality:          "",
+			Quality:          qualityStr,
 			QualityID:        qualityID,
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,
@@ -1064,7 +1031,7 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 		file, err := s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
 			Path:             destPath,
 			Size:             stat.Size(),
-			Quality:          "",
+			Quality:          qualityStr,
 			QualityID:        qualityID,
 			VideoCodec:       mediaInfo.VideoCodec,
 			AudioCodec:       mediaInfo.AudioCodec,

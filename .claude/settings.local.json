@@ -83,7 +83,8 @@
       "Bash(pgrep:*)",
       "Bash(make build-backend:*)",
       "Bash(git status:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(/Users/jatassi/Git/SlipStream/internal/library/scanner/parsedebug2_test.go <<'GOEOF'\npackage scanner\n\nimport \\(\n\t\"fmt\"\n\t\"regexp\"\n\t\"testing\"\n\\)\n\nfunc TestDebugLincolnLawyer2\\(t *testing.T\\) {\n\t// Test the raw regex on the quality text\n\ttext := \"NF WEB-DL 1080p x264 EAC3 DDP 5.1 Subs-InChY\"\n\tp := regexp.MustCompile\\(`-\\([A-Za-z0-9]+\\)\\(?:\\\\.[a-z0-9]{2,4}\\)?/Users/jatassi/Git/SlipStream/internal/library/scanner/parsedebug2_test.go \\)\n\tm := p.FindStringSubmatch\\(text\\)\n\tfmt.Printf\\(\"Release group regex on quality text: %v\\\\n\", m\\)\n\n\t// Now test ParseFilename on the directory name\n\tdirName := \"The Lincoln Lawyer S04 NF WEB-DL 1080p x264 EAC3 DDP 5.1 Subs-InChY\"\n\tparsed := ParseFilename\\(dirName\\)\n\tfmt.Printf\\(\"Parsed release group: %q\\\\n\", parsed.ReleaseGroup\\)\n\t\n\t// Test with a dot extension \\(as if it were a file\\)\n\tdirNameWithExt := \"The Lincoln Lawyer S04 NF WEB-DL 1080p x264 EAC3 DDP 5.1 Subs-InChY.mkv\"\n\tparsed2 := ParseFilename\\(dirNameWithExt\\)\n\tfmt.Printf\\(\"Parsed \\(with ext\\) release group: %q\\\\n\", parsed2.ReleaseGroup\\)\n}\nGOEOF)"
     ]
   },
   "enableAllProjectMcpServers": true,

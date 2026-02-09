@@ -232,11 +232,13 @@ func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, medi
 		if !assignment.FileID.Valid {
 			return nil
 		}
-		return &currentSlotFileInfo{
-			FileID:       &assignment.FileID.Int64,
-			Quality:      "",
-			QualityScore: 0,
+		info := &currentSlotFileInfo{
+			FileID: &assignment.FileID.Int64,
 		}
+		if fq := s.getMovieFileQuality(ctx, assignment.FileID.Int64); fq != nil {
+			info.Quality = fq.Quality
+		}
+		return info
 	case "episode":
 		assignment, err := s.queries.GetEpisodeSlotAssignment(ctx, sqlc.GetEpisodeSlotAssignmentParams{
 			EpisodeID: mediaID,
@@ -248,11 +250,13 @@ func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, medi
 		if !assignment.FileID.Valid {
 			return nil
 		}
-		return &currentSlotFileInfo{
-			FileID:       &assignment.FileID.Int64,
-			Quality:      "",
-			QualityScore: 0,
+		info := &currentSlotFileInfo{
+			FileID: &assignment.FileID.Int64,
 		}
+		if fq := s.getEpisodeFileQuality(ctx, assignment.FileID.Int64); fq != nil {
+			info.Quality = fq.Quality
+		}
+		return info
 	}
 	return nil
 }
