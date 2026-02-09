@@ -1006,6 +1006,17 @@ func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, 
 		qualityID = &id
 	}
 
+	// Remove existing file record before creating new one to prevent duplicates.
+	// This handles re-imports at the same quality level where upgrade cleanup doesn't run.
+	if match.ExistingFileID != nil {
+		if match.MediaType == "movie" {
+			_ = s.movies.RemoveFile(ctx, *match.ExistingFileID)
+		} else if match.MediaType == "episode" {
+			_ = s.tv.RemoveEpisodeFile(ctx, *match.ExistingFileID)
+		}
+		match.ExistingFileID = nil
+	}
+
 	parsed := scanner.ParsePath(sourcePath)
 	qualityStr := parsed.Quality
 
