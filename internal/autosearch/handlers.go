@@ -42,6 +42,11 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.POST("/missing/all", h.SearchAllMissing)
 	g.POST("/missing/movies", h.SearchAllMissingMovies)
 	g.POST("/missing/series", h.SearchAllMissingSeries)
+
+	// Upgradable bulk search endpoints
+	g.POST("/upgradable/all", h.SearchAllUpgradable)
+	g.POST("/upgradable/movies", h.SearchAllUpgradableMovies)
+	g.POST("/upgradable/series", h.SearchAllUpgradableSeries)
 }
 
 // SearchMovie triggers automatic search for a movie.
@@ -284,6 +289,66 @@ func (h *Handlers) SearchAllMissingSeries(c echo.Context) error {
 
 	return c.JSON(http.StatusAccepted, map[string]string{
 		"message": "Search started for all missing series",
+	})
+}
+
+// SearchAllUpgradable triggers automatic search for all upgradable items.
+// POST /api/v1/autosearch/upgradable/all
+func (h *Handlers) SearchAllUpgradable(c echo.Context) error {
+	if h.scheduledSearcher == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "scheduled searcher not available")
+	}
+
+	if h.scheduledSearcher.IsRunning() {
+		return echo.NewHTTPError(http.StatusConflict, "search task already running")
+	}
+
+	go func() {
+		_ = h.scheduledSearcher.Run(context.Background())
+	}()
+
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"message": "Search started for all upgradable items",
+	})
+}
+
+// SearchAllUpgradableMovies triggers automatic search for all upgradable movies.
+// POST /api/v1/autosearch/upgradable/movies
+func (h *Handlers) SearchAllUpgradableMovies(c echo.Context) error {
+	if h.scheduledSearcher == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "scheduled searcher not available")
+	}
+
+	if h.scheduledSearcher.IsRunning() {
+		return echo.NewHTTPError(http.StatusConflict, "search task already running")
+	}
+
+	go func() {
+		_ = h.scheduledSearcher.RunUpgradeMoviesOnly(context.Background())
+	}()
+
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"message": "Search started for all upgradable movies",
+	})
+}
+
+// SearchAllUpgradableSeries triggers automatic search for all upgradable series episodes.
+// POST /api/v1/autosearch/upgradable/series
+func (h *Handlers) SearchAllUpgradableSeries(c echo.Context) error {
+	if h.scheduledSearcher == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "scheduled searcher not available")
+	}
+
+	if h.scheduledSearcher.IsRunning() {
+		return echo.NewHTTPError(http.StatusConflict, "search task already running")
+	}
+
+	go func() {
+		_ = h.scheduledSearcher.RunUpgradeSeriesOnly(context.Background())
+	}()
+
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"message": "Search started for all upgradable series",
 	})
 }
 

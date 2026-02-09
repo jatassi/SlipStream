@@ -6,6 +6,9 @@ export const missingKeys = {
   movies: () => [...missingKeys.all, 'movies'] as const,
   series: () => [...missingKeys.all, 'series'] as const,
   counts: () => [...missingKeys.all, 'counts'] as const,
+  upgradableMovies: () => [...missingKeys.all, 'upgradable-movies'] as const,
+  upgradableSeries: () => [...missingKeys.all, 'upgradable-series'] as const,
+  upgradableCounts: () => [...missingKeys.all, 'upgradable-counts'] as const,
 }
 
 export function useMissingMovies() {
@@ -26,5 +29,26 @@ export function useMissingCounts() {
   return useQuery({
     queryKey: missingKeys.counts(),
     queryFn: () => missingApi.getCounts(),
+  })
+}
+
+export function useUpgradableMovies() {
+  return useQuery({
+    queryKey: missingKeys.upgradableMovies(),
+    queryFn: () => missingApi.getUpgradableMovies(),
+  })
+}
+
+export function useUpgradableSeries() {
+  return useQuery({
+    queryKey: missingKeys.upgradableSeries(),
+    queryFn: () => missingApi.getUpgradableSeries(),
+  })
+}
+
+export function useUpgradableCounts() {
+  return useQuery({
+    queryKey: missingKeys.upgradableCounts(),
+    queryFn: () => missingApi.getUpgradableCounts(),
   })
 }

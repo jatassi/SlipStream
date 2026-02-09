@@ -2968,14 +2968,18 @@ func (s *Server) createMockMovieFiles(ctx context.Context, movieID int64, movieP
 			continue
 		}
 
-		// Parse quality info from filename
-		quality := parseQualityFromFilename(f.Name)
-
-		_, err := s.movieService.AddFile(ctx, movieID, movies.CreateMovieFileInput{
+		qualityName := parseQualityFromFilename(f.Name)
+		input := movies.CreateMovieFileInput{
 			Path:    f.Path,
 			Size:    f.Size,
-			Quality: quality,
-		})
+			Quality: qualityName,
+		}
+		if q, ok := quality.GetQualityByName(qualityName); ok {
+			qid := int64(q.ID)
+			input.QualityID = &qid
+		}
+
+		_, err := s.movieService.AddFile(ctx, movieID, input)
 		if err != nil {
 			s.logger.Debug().Err(err).Str("path", f.Path).Msg("Failed to create movie file")
 		}
@@ -3067,7 +3071,7 @@ func (s *Server) populateMockSeries(ctx context.Context, rootFolderID, qualityPr
 
 		// Create episode files if the series has files in VFS
 		if s2.hasFiles {
-			s.createMockEpisodeFiles(ctx, series.ID, path)
+			s.createMockEpisodeFiles(ctx, series.ID, path, qualityProfileID)
 		}
 
 		s.logger.Debug().Str("title", seriesMeta.Title).Bool("hasFiles", s2.hasFiles).Int("seasons", len(seasons)).Msg("Created mock series")
@@ -3076,7 +3080,7 @@ func (s *Server) populateMockSeries(ctx context.Context, rootFolderID, qualityPr
 	s.logger.Info().Int("count", len(mockSeriesIDs)).Msg("Populated mock series")
 }
 
-func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string) {
+func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string, qualityProfileID int64) {
 	vfs := fsmock.GetInstance()
 	seasonDirs, err := vfs.ListDirectory(seriesPath)
 	if err != nil {
@@ -3088,6 +3092,15 @@ func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, ser
 	if err != nil {
 		return
 	}
+
+	// Fetch quality profile once for status evaluation
+	var profile *quality.Profile
+	if s.qualityService != nil {
+		profile, _ = s.qualityService.Get(ctx, qualityProfileID)
+	}
+
+	// Use direct sqlc queries to avoid expensive GetSeries calls per file
+	queries := sqlc.New(s.dbManager.Conn())
 
 	// Create a map of season:episode -> episodeID
 	episodeMap := make(map[string]int64)
@@ -3127,11 +3140,27 @@ func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, ser
 				continue
 			}
 
-			quality := parseQualityFromFilename(f.Name)
-			_, _ = s.tvService.AddEpisodeFile(ctx, episodeID, tv.CreateEpisodeFileInput{
-				Path:    f.Path,
-				Size:    f.Size,
-				Quality: quality,
+			qualityName := parseQualityFromFilename(f.Name)
+			qualityID := sql.NullInt64{}
+			if q, ok := quality.GetQualityByName(qualityName); ok {
+				qualityID = sql.NullInt64{Int64: int64(q.ID), Valid: true}
+			}
+
+			_, _ = queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
+				EpisodeID: episodeID,
+				Path:      f.Path,
+				Size:      f.Size,
+				Quality:   sql.NullString{String: qualityName, Valid: qualityName != ""},
+				QualityID: qualityID,
+			})
+
+			status := "available"
+			if qualityID.Valid && profile != nil {
+				status = profile.StatusForQuality(int(qualityID.Int64))
+			}
+			_ = queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+				ID:     episodeID,
+				Status: status,
 			})
 		}
 	}
@@ -3171,23 +3200,23 @@ func parseSeasonNumber(name string) int {
 }
 
 func parseEpisodeNumber(filename string) int {
-	// Find SxxExx pattern
+	// Find SxxExx pattern — look for 'e' preceded by digits (part of SxxExx)
 	filename = strings.ToLower(filename)
-	idx := strings.Index(filename, "e")
-	if idx == -1 {
-		return 0
-	}
-	// Extract number after 'e'
-	numStr := ""
-	for i := idx + 1; i < len(filename) && i < idx+4; i++ {
-		if filename[i] >= '0' && filename[i] <= '9' {
-			numStr += string(filename[i])
-		} else {
-			break
+	for i := 1; i < len(filename)-1; i++ {
+		if filename[i] == 'e' && filename[i-1] >= '0' && filename[i-1] <= '9' && i+1 < len(filename) && filename[i+1] >= '0' && filename[i+1] <= '9' {
+			numStr := ""
+			for j := i + 1; j < len(filename) && j < i+4; j++ {
+				if filename[j] >= '0' && filename[j] <= '9' {
+					numStr += string(filename[j])
+				} else {
+					break
+				}
+			}
+			num, _ := strconv.Atoi(numStr)
+			return num
 		}
 	}
-	num, _ := strconv.Atoi(numStr)
-	return num
+	return 0
 }
 
 func itoa(n int) string {

@@ -249,6 +249,14 @@ JOIN movies m ON mf.movie_id = m.id
 WHERE m.root_folder_id = ?
   AND m.status IN ('available', 'upgradable');
 
+-- Upgradable movies with current file quality
+-- name: ListUpgradableMoviesWithQuality :many
+SELECT m.*, mf.quality_id as current_quality_id
+FROM movies m
+JOIN movie_files mf ON m.id = mf.movie_id
+WHERE m.status = 'upgradable' AND m.monitored = 1
+ORDER BY m.release_date DESC;
+
 -- Quality profile recalculation: find movies with files to evaluate against new cutoff
 -- name: ListMoviesWithFilesForProfile :many
 SELECT m.id, m.status, mf.id as file_id, mf.quality_id as current_quality_id

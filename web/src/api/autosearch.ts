@@ -45,4 +45,14 @@ export const autosearchApi = {
 
   searchAllMissingSeries: () =>
     apiFetch<BulkSearchStartedResponse>('/autosearch/missing/series', { method: 'POST' }),
+
+  // Upgradable bulk search operations
+  searchAllUpgradable: () =>
+    apiFetch<BulkSearchStartedResponse>('/autosearch/upgradable/all', { method: 'POST' }),
+
+  searchAllUpgradableMovies: () =>
+    apiFetch<BulkSearchStartedResponse>('/autosearch/upgradable/movies', { method: 'POST' }),
+
+  searchAllUpgradableSeries: () =>
+    apiFetch<BulkSearchStartedResponse>('/autosearch/upgradable/series', { method: 'POST' }),
 }

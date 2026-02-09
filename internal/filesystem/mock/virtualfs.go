@@ -124,7 +124,7 @@ func (vfs *VirtualFS) populateMovies() {
 				{"Dune.2021.1080p.HMAX.WEB-DL.DDP5.1.Atmos.H.264-FLUX.mkv", 10 * 1024 * 1024 * 1024},
 			},
 		},
-		// Pulp Fiction - single 1080p version (single-slot scenario)
+		// Pulp Fiction - single WEB-DL 1080p (upgradable with Bluray-1080p cutoff)
 		{
 			title: "Pulp Fiction",
 			year:  1994,
@@ -132,10 +132,10 @@ func (vfs *VirtualFS) populateMovies() {
 				name string
 				size int64
 			}{
-				{"Pulp.Fiction.1994.1080p.BluRay.x264.DTS-HD.MA.5.1-GROUP.mkv", 14 * 1024 * 1024 * 1024},
+				{"Pulp.Fiction.1994.1080p.WEB-DL.x264.DDP5.1-GROUP.mkv", 8 * 1024 * 1024 * 1024},
 			},
 		},
-		// Fight Club - single 1080p version (single-slot scenario)
+		// Fight Club - single 720p BluRay (upgradable with Bluray-1080p cutoff)
 		{
 			title: "Fight Club",
 			year:  1999,
@@ -143,7 +143,7 @@ func (vfs *VirtualFS) populateMovies() {
 				name string
 				size int64
 			}{
-				{"Fight.Club.1999.1080p.BluRay.x264.DTS-HD.MA.5.1-GROUP.mkv", 13 * 1024 * 1024 * 1024},
+				{"Fight.Club.1999.720p.BluRay.x264.DTS-GROUP.mkv", 5 * 1024 * 1024 * 1024},
 			},
 		},
 	}
@@ -179,7 +179,7 @@ func (vfs *VirtualFS) populateTV() {
 		}
 	}{
 		// Breaking Bad - Season 1 has both 4K and 1080p for multi-slot testing
-		// Other seasons are 1080p only (upgrade testing via indexer)
+		// S2-S3 are 1080p BluRay (available), S4-S5 are WEB-DL (upgradable)
 		// TVDB: 81189
 		{
 			title: "Breaking Bad",
@@ -194,12 +194,12 @@ func (vfs *VirtualFS) populateTV() {
 				}},
 				{2, 13, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
 				{3, 13, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
-				{4, 13, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
-				{5, 16, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
+				{4, 13, []string{"1080p.AMZN.WEB-DL.DDP5.1.H.264"}},
+				{5, 16, []string{"1080p.AMZN.WEB-DL.DDP5.1.H.264"}},
 			},
 		},
 		// Game of Thrones - Season 1 has 4K HDR10 and 1080p for multi-slot testing
-		// Seasons 2-3 are 1080p only, seasons 4-8 missing
+		// Seasons 2-3 are 720p BluRay (upgradable), seasons 4-8 missing
 		// TVDB: 121361
 		{
 			title: "Game of Thrones",
@@ -212,8 +212,8 @@ func (vfs *VirtualFS) populateTV() {
 					"2160p.UHD.BluRay.HDR10.HEVC.TrueHD.7.1.Atmos",
 					"1080p.BluRay.x264.DTS-HD.MA.5.1",
 				}},
-				{2, 10, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
-				{3, 10, []string{"1080p.BluRay.x264.DTS-HD.MA.5.1"}},
+				{2, 10, []string{"720p.BluRay.x264.DTS-GROUP"}},
+				{3, 10, []string{"720p.BluRay.x264.DTS-GROUP"}},
 			},
 		},
 	}

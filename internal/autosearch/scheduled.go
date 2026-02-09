@@ -251,6 +251,122 @@ func (s *ScheduledSearcher) RunSeriesOnly(ctx context.Context) error {
 	return nil
 }
 
+// RunUpgradeMoviesOnly executes search for upgradable movies only.
+func (s *ScheduledSearcher) RunUpgradeMoviesOnly(ctx context.Context) error {
+	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		s.logger.Debug().Msg("Scheduled search task already running, skipping upgrade-movies-only")
+		return nil
+	}
+	s.running = true
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
+	}()
+
+	startTime := time.Now()
+	s.logger.Info().Msg("Starting search task for upgradable movies only")
+
+	movieItems, err := s.collectUpgradeMovies(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to collect upgradable movies")
+		return err
+	}
+
+	sort.Slice(movieItems, func(i, j int) bool {
+		return movieItems[i].releaseDate.After(movieItems[j].releaseDate)
+	})
+
+	items := make([]SearchableItem, len(movieItems))
+	for i, item := range movieItems {
+		items[i] = item.item
+	}
+
+	if len(items) == 0 {
+		s.logger.Info().Msg("No upgradable movies to search")
+		return nil
+	}
+
+	s.logger.Info().Int("itemCount", len(items)).Msg("Collected upgradable movies")
+	s.broadcastTaskStarted(len(items))
+
+	result := s.processItems(ctx, items)
+
+	elapsed := time.Since(startTime)
+	s.logger.Info().
+		Int("searched", result.TotalSearched).
+		Int("found", result.Found).
+		Int("downloaded", result.Downloaded).
+		Int("failed", result.Failed).
+		Dur("elapsed", elapsed).
+		Msg("Upgrade movies search task completed")
+
+	s.broadcastTaskCompleted(result, elapsed)
+	return nil
+}
+
+// RunUpgradeSeriesOnly executes search for upgradable series episodes only.
+func (s *ScheduledSearcher) RunUpgradeSeriesOnly(ctx context.Context) error {
+	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		s.logger.Debug().Msg("Scheduled search task already running, skipping upgrade-series-only")
+		return nil
+	}
+	s.running = true
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
+	}()
+
+	startTime := time.Now()
+	s.logger.Info().Msg("Starting search task for upgradable series only")
+
+	episodeItems, err := s.collectUpgradeEpisodes(ctx)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to collect upgradable episodes")
+		return err
+	}
+
+	sort.Slice(episodeItems, func(i, j int) bool {
+		return episodeItems[i].releaseDate.After(episodeItems[j].releaseDate)
+	})
+
+	items := make([]SearchableItem, len(episodeItems))
+	for i, item := range episodeItems {
+		items[i] = item.item
+	}
+
+	if len(items) == 0 {
+		s.logger.Info().Msg("No upgradable episodes to search")
+		return nil
+	}
+
+	s.logger.Info().Int("itemCount", len(items)).Msg("Collected upgradable episodes")
+	s.broadcastTaskStarted(len(items))
+
+	result := s.processItems(ctx, items)
+
+	elapsed := time.Since(startTime)
+	s.logger.Info().
+		Int("searched", result.TotalSearched).
+		Int("found", result.Found).
+		Int("downloaded", result.Downloaded).
+		Int("failed", result.Failed).
+		Dur("elapsed", elapsed).
+		Msg("Upgrade series search task completed")
+
+	s.broadcastTaskCompleted(result, elapsed)
+	return nil
+}
+
 // searchableItemWithPriority wraps a searchable item with sorting metadata.
 type searchableItemWithPriority struct {
 	item        SearchableItem

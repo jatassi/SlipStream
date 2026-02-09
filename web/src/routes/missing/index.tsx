@@ -1,48 +1,87 @@
 import { useState, useEffect } from 'react'
-import { Film, Tv, Binoculars, Zap, Loader2 } from 'lucide-react'
+import { Film, Tv, Zap, Loader2, Binoculars, TrendingUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from '@/components/ui/tabs'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { MissingMoviesList } from '@/components/missing/MissingMoviesList'
 import { MissingSeriesList } from '@/components/missing/MissingSeriesList'
+import { UpgradableMoviesList } from '@/components/missing/UpgradableMoviesList'
+import { UpgradableSeriesList } from '@/components/missing/UpgradableSeriesList'
 import {
   useMissingMovies,
   useMissingSeries,
+  useUpgradableMovies,
+  useUpgradableSeries,
   useSearchAllMissing,
   useSearchAllMissingMovies,
   useSearchAllMissingSeries,
+  useSearchAllUpgradable,
+  useSearchAllUpgradableMovies,
+  useSearchAllUpgradableSeries,
+  useQualityProfiles,
 } from '@/hooks'
 import { useAutoSearchStore } from '@/stores'
 import { toast } from 'sonner'
+import type { QualityProfile } from '@/types/qualityProfile'
 
+type ViewMode = 'missing' | 'upgradable'
 type MediaFilter = 'all' | 'movies' | 'series'
 
 export function MissingPage() {
+  const [view, setView] = useState<ViewMode>('missing')
   const [filter, setFilter] = useState<MediaFilter>('all')
 
+  // Missing data
   const {
-    data: movies,
-    isLoading: moviesLoading,
-    isError: moviesError,
-    refetch: refetchMovies,
+    data: missingMovies,
+    isLoading: missingMoviesLoading,
+    isError: missingMoviesError,
+    refetch: refetchMissingMovies,
   } = useMissingMovies()
 
   const {
-    data: series,
-    isLoading: seriesLoading,
-    isError: seriesError,
-    refetch: refetchSeries,
+    data: missingSeries,
+    isLoading: missingSeriesLoading,
+    isError: missingSeriesError,
+    refetch: refetchMissingSeries,
   } = useMissingSeries()
 
-  const searchAllMutation = useSearchAllMissing()
-  const searchMoviesMutation = useSearchAllMissingMovies()
-  const searchSeriesMutation = useSearchAllMissingSeries()
+  // Upgradable data
+  const {
+    data: upgradableMovies,
+    isLoading: upgradableMoviesLoading,
+    isError: upgradableMoviesError,
+    refetch: refetchUpgradableMovies,
+  } = useUpgradableMovies()
+
+  const {
+    data: upgradableSeries,
+    isLoading: upgradableSeriesLoading,
+    isError: upgradableSeriesError,
+    refetch: refetchUpgradableSeries,
+  } = useUpgradableSeries()
+
+  const { data: qualityProfiles } = useQualityProfiles()
+  const qualityProfileNames = new Map(qualityProfiles?.map((p) => [p.id, p.name]) ?? [])
+  const qualityProfileMap = new Map<number, QualityProfile>(qualityProfiles?.map((p) => [p.id, p]) ?? [])
+
+  // Missing search mutations
+  const searchAllMissingMutation = useSearchAllMissing()
+  const searchMissingMoviesMutation = useSearchAllMissingMovies()
+  const searchMissingSeriesMutation = useSearchAllMissingSeries()
+
+  // Upgradable search mutations
+  const searchAllUpgradableMutation = useSearchAllUpgradable()
+  const searchUpgradableMoviesMutation = useSearchAllUpgradableMovies()
+  const searchUpgradableSeriesMutation = useSearchAllUpgradableSeries()
 
   const { task, clearResult } = useAutoSearchStore()
-  const isSearching = task.isRunning || searchAllMutation.isPending || searchMoviesMutation.isPending || searchSeriesMutation.isPending
+  const isSearching = task.isRunning
+    || searchAllMissingMutation.isPending || searchMissingMoviesMutation.isPending || searchMissingSeriesMutation.isPending
+    || searchAllUpgradableMutation.isPending || searchUpgradableMoviesMutation.isPending || searchUpgradableSeriesMutation.isPending
 
   useEffect(() => {
     if (task.result) {
@@ -68,21 +107,41 @@ export function MissingPage() {
     }
   }, [task.result, clearResult])
 
-  const isLoading = moviesLoading || seriesLoading
-  const isError = moviesError || seriesError
+  // Counts
+  const missingMovieCount = missingMovies?.length || 0
+  const missingEpisodeCount = missingSeries?.reduce((acc, s) => acc + s.missingCount, 0) || 0
+  const missingTotalCount = missingMovieCount + missingEpisodeCount
 
-  const movieCount = movies?.length || 0
-  const episodeCount = series?.reduce((acc, s) => acc + s.missingCount, 0) || 0
-  const totalCount = movieCount + episodeCount
+  const upgradableMovieCount = upgradableMovies?.length || 0
+  const upgradableEpisodeCount = upgradableSeries?.reduce((acc, s) => acc + s.upgradableCount, 0) || 0
+  const upgradableTotalCount = upgradableMovieCount + upgradableEpisodeCount
+
+  const isMissingView = view === 'missing'
+  const movieCount = isMissingView ? missingMovieCount : upgradableMovieCount
+  const episodeCount = isMissingView ? missingEpisodeCount : upgradableEpisodeCount
+  const totalCount = isMissingView ? missingTotalCount : upgradableTotalCount
+
+  const isLoading = isMissingView
+    ? (missingMoviesLoading || missingSeriesLoading)
+    : (upgradableMoviesLoading || upgradableSeriesLoading)
+
+  const isError = isMissingView
+    ? (missingMoviesError || missingSeriesError)
+    : (upgradableMoviesError || upgradableSeriesError)
 
   const handleRefetch = () => {
-    refetchMovies()
-    refetchSeries()
+    if (isMissingView) {
+      refetchMissingMovies()
+      refetchMissingSeries()
+    } else {
+      refetchUpgradableMovies()
+      refetchUpgradableSeries()
+    }
   }
 
-  const handleSearchAll = async () => {
+  const handleSearch = async (searchFn: () => Promise<unknown>) => {
     try {
-      await searchAllMutation.mutateAsync()
+      await searchFn()
     } catch (error) {
       if (error instanceof Error && error.message.includes('409')) {
         toast.warning('A search task is already running')
@@ -90,69 +149,29 @@ export function MissingPage() {
         toast.error('Failed to start search')
       }
     }
-  }
-
-  const handleSearchMovies = async () => {
-    try {
-      await searchMoviesMutation.mutateAsync()
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning('A search task is already running')
-      } else {
-        toast.error('Failed to start search')
-      }
-    }
-  }
-
-  const handleSearchSeries = async () => {
-    try {
-      await searchSeriesMutation.mutateAsync()
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning('A search task is already running')
-      } else {
-        toast.error('Failed to start search')
-      }
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Missing" />
-        <LoadingState variant="list" />
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div>
-        <PageHeader title="Missing" />
-        <ErrorState onRetry={handleRefetch} />
-      </div>
-    )
   }
 
   const getSearchHandler = () => {
-    switch (filter) {
-      case 'movies':
-        return handleSearchMovies
-      case 'series':
-        return handleSearchSeries
-      default:
-        return handleSearchAll
+    if (isMissingView) {
+      switch (filter) {
+        case 'movies': return () => handleSearch(() => searchMissingMoviesMutation.mutateAsync())
+        case 'series': return () => handleSearch(() => searchMissingSeriesMutation.mutateAsync())
+        default: return () => handleSearch(() => searchAllMissingMutation.mutateAsync())
+      }
+    } else {
+      switch (filter) {
+        case 'movies': return () => handleSearch(() => searchUpgradableMoviesMutation.mutateAsync())
+        case 'series': return () => handleSearch(() => searchUpgradableSeriesMutation.mutateAsync())
+        default: return () => handleSearch(() => searchAllUpgradableMutation.mutateAsync())
+      }
     }
   }
 
   const getSearchCount = () => {
     switch (filter) {
-      case 'movies':
-        return movieCount
-      case 'series':
-        return episodeCount
-      default:
-        return totalCount
+      case 'movies': return movieCount
+      case 'series': return episodeCount
+      default: return totalCount
     }
   }
 
@@ -162,38 +181,55 @@ export function MissingPage() {
     const hasMovies = filter === 'movies' || (filter === 'all' && movieCount > 0)
     const hasSeries = filter === 'series' || (filter === 'all' && episodeCount > 0)
 
-    if (hasMovies && hasSeries) {
-      return 'glow-media-sm'
-    }
-    if (hasMovies) {
-      return 'bg-movie-500 hover:bg-movie-600 glow-movie-sm'
-    }
-    if (hasSeries) {
-      return 'bg-tv-500 hover:bg-tv-600 glow-tv-sm'
-    }
+    if (hasMovies && hasSeries) return 'glow-media-sm'
+    if (hasMovies) return 'bg-movie-500 hover:bg-movie-600 glow-movie-sm'
+    if (hasSeries) return 'bg-tv-500 hover:bg-tv-600 glow-tv-sm'
     return ''
+  }
+
+  if (isLoading) {
+    return (
+      <div>
+        <PageHeader title={isMissingView ? 'Missing' : 'Upgradable'} />
+        <LoadingState variant="list" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <PageHeader title={isMissingView ? 'Missing' : 'Upgradable'} />
+        <ErrorState onRetry={handleRefetch} />
+      </div>
+    )
   }
 
   return (
     <div>
       <PageHeader
-        title="Missing"
-        description="Media that has been released but not yet downloaded"
+        title={isMissingView ? 'Missing' : 'Upgradable'}
+        description={isMissingView
+          ? 'Media that has been released but not yet downloaded'
+          : 'Media with files below the quality cutoff'
+        }
         actions={
-          searchCount > 0 && (
-            <Button
-              disabled={isSearching}
-              onClick={getSearchHandler()}
-              className={cn(getSearchButtonStyle())}
-            >
-              {isSearching ? (
-                <Loader2 className="size-4 mr-2 animate-spin" />
-              ) : (
-                <Zap className="size-4 mr-2" />
-              )}
-              Search All ({searchCount})
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            {searchCount > 0 && (
+              <Button
+                disabled={isSearching}
+                onClick={getSearchHandler()}
+                className={cn(getSearchButtonStyle())}
+              >
+                {isSearching ? (
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="size-4 mr-2" />
+                )}
+                Search All ({searchCount})
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -202,85 +238,162 @@ export function MissingPage() {
         onValueChange={(v) => setFilter(v as MediaFilter)}
         className="space-y-4"
       >
-        <TabsList>
-          <TabsTrigger
-            value="all"
-            className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
-          >
-            All
-            {totalCount > 0 && (
-              <span className="ml-2 text-xs data-active:text-black/60">
-                ({totalCount})
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="movies"
-            className="data-active:bg-white data-active:text-black data-active:glow-movie"
-          >
-            <Film className="size-4 mr-1.5" />
-            Movies
-            {movieCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({movieCount})
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="series"
-            className="data-active:bg-white data-active:text-black data-active:glow-tv"
-          >
-            <Tv className="size-4 mr-1.5" />
-            Series
-            {episodeCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({episodeCount})
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <TabsList>
+            <TabsTrigger
+              value="all"
+              className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
+            >
+              All
+              {totalCount > 0 && (
+                <span className="ml-2 text-xs data-active:text-black/60">
+                  ({totalCount})
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="movies"
+              className="data-active:bg-white data-active:text-black data-active:glow-movie"
+            >
+              <Film className="size-4 mr-1.5" />
+              Movies
+              {movieCount > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({movieCount})
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="series"
+              className="data-active:bg-white data-active:text-black data-active:glow-tv"
+            >
+              <Tv className="size-4 mr-1.5" />
+              Series
+              {episodeCount > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({episodeCount})
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="all" className="space-y-6">
-          {movieCount > 0 && (
-            <div className="space-y-3">
-              <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Film className="size-4 text-movie-400" />
-                Movies
-                <span className="text-movie-400">({movieCount})</span>
-              </h2>
-              <MissingMoviesList movies={movies || []} />
-            </div>
-          )}
+          <div className={tabsListVariants()}>
+            <button
+              onClick={() => setView('missing')}
+              className={cn(
+                'gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium inline-flex h-[calc(100%-1px)] items-center justify-center whitespace-nowrap transition-all',
+                isMissingView
+                  ? 'bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30'
+                  : 'text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground'
+              )}
+            >
+              <Binoculars className="size-4" />
+              Missing
+            </button>
+            <button
+              onClick={() => setView('upgradable')}
+              className={cn(
+                'gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium inline-flex h-[calc(100%-1px)] items-center justify-center whitespace-nowrap transition-all',
+                !isMissingView
+                  ? 'bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30'
+                  : 'text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground'
+              )}
+            >
+              <TrendingUp className="size-4" />
+              Upgradable
+            </button>
+          </div>
+        </div>
 
-          {(series?.length || 0) > 0 && (
-            <div className="space-y-3">
-              <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Tv className="size-4 text-tv-400" />
-                Episodes
-                <span className="text-tv-400">({episodeCount})</span>
-              </h2>
-              <MissingSeriesList series={series || []} />
-            </div>
-          )}
+        {isMissingView ? (
+          <>
+            <TabsContent value="all" className="space-y-6">
+              {missingMovieCount > 0 && (
+                <div className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Film className="size-4 text-movie-400" />
+                    Movies
+                    <span className="text-movie-400">({missingMovieCount})</span>
+                  </h2>
+                  <MissingMoviesList movies={missingMovies || []} qualityProfileNames={qualityProfileNames} />
+                </div>
+              )}
 
-          {movieCount === 0 && episodeCount === 0 && (
-            <div className="flex flex-col items-center justify-center text-center py-16">
-              <Binoculars className="size-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No missing media</h3>
-              <p className="text-muted-foreground mt-1">
-                All monitored media that has been released has been downloaded
-              </p>
-            </div>
-          )}
-        </TabsContent>
+              {(missingSeries?.length || 0) > 0 && (
+                <div className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Tv className="size-4 text-tv-400" />
+                    Episodes
+                    <span className="text-tv-400">({missingEpisodeCount})</span>
+                  </h2>
+                  <MissingSeriesList series={missingSeries || []} qualityProfileNames={qualityProfileNames} />
+                </div>
+              )}
 
-        <TabsContent value="movies">
-          <MissingMoviesList movies={movies || []} />
-        </TabsContent>
+              {missingMovieCount === 0 && missingEpisodeCount === 0 && (
+                <div className="flex flex-col items-center justify-center text-center py-16">
+                  <Binoculars className="size-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">No missing media</h3>
+                  <p className="text-muted-foreground mt-1">
+                    All monitored media that has been released has been downloaded
+                  </p>
+                </div>
+              )}
+            </TabsContent>
 
-        <TabsContent value="series">
-          <MissingSeriesList series={series || []} />
-        </TabsContent>
+            <TabsContent value="movies">
+              <MissingMoviesList movies={missingMovies || []} qualityProfileNames={qualityProfileNames} />
+            </TabsContent>
+
+            <TabsContent value="series">
+              <MissingSeriesList series={missingSeries || []} qualityProfileNames={qualityProfileNames} />
+            </TabsContent>
+          </>
+        ) : (
+          <>
+            <TabsContent value="all" className="space-y-6">
+              {upgradableMovieCount > 0 && (
+                <div className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Film className="size-4 text-movie-400" />
+                    Movies
+                    <span className="text-movie-400">({upgradableMovieCount})</span>
+                  </h2>
+                  <UpgradableMoviesList movies={upgradableMovies || []} qualityProfiles={qualityProfileMap} />
+                </div>
+              )}
+
+              {(upgradableSeries?.length || 0) > 0 && (
+                <div className="space-y-3">
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Tv className="size-4 text-tv-400" />
+                    Episodes
+                    <span className="text-tv-400">({upgradableEpisodeCount})</span>
+                  </h2>
+                  <UpgradableSeriesList series={upgradableSeries || []} qualityProfiles={qualityProfileMap} />
+                </div>
+              )}
+
+              {upgradableMovieCount === 0 && upgradableEpisodeCount === 0 && (
+                <div className="flex flex-col items-center justify-center text-center py-16">
+                  <TrendingUp className="size-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">No upgradable media</h3>
+                  <p className="text-muted-foreground mt-1">
+                    All monitored media meets the quality cutoff
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="movies">
+              <UpgradableMoviesList movies={upgradableMovies || []} qualityProfiles={qualityProfileMap} />
+            </TabsContent>
+
+            <TabsContent value="series">
+              <UpgradableSeriesList series={upgradableSeries || []} qualityProfiles={qualityProfileMap} />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   )

@@ -129,3 +129,21 @@ export function useSearchAllMissingSeries() {
     mutationFn: () => autosearchApi.searchAllMissingSeries(),
   })
 }
+
+export function useSearchAllUpgradable() {
+  return useMutation({
+    mutationFn: () => autosearchApi.searchAllUpgradable(),
+  })
+}
+
+export function useSearchAllUpgradableMovies() {
+  return useMutation({
+    mutationFn: () => autosearchApi.searchAllUpgradableMovies(),
+  })
+}
+
+export function useSearchAllUpgradableSeries() {
+  return useMutation({
+    mutationFn: () => autosearchApi.searchAllUpgradableSeries(),
+  })
+}

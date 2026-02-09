@@ -2291,6 +2291,83 @@ func (q *Queries) ListUnmatchedSeriesByRootFolder(ctx context.Context, rootFolde
 	return items, nil
 }
 
+const listUpgradableEpisodesWithQuality = `-- name: ListUpgradableEpisodesWithQuality :many
+SELECT e.id, e.series_id, e.season_number, e.episode_number, e.title, e.overview, e.air_date, e.monitored, e.status, e.active_download_id, e.status_message, s.title as series_title, s.tvdb_id as series_tvdb_id,
+       s.tmdb_id as series_tmdb_id, s.imdb_id as series_imdb_id,
+       s.year as series_year, s.quality_profile_id as series_quality_profile_id,
+       ef.quality_id as current_quality_id
+FROM episodes e
+JOIN series s ON e.series_id = s.id
+JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+JOIN episode_files ef ON e.id = ef.episode_id
+WHERE e.status = 'upgradable' AND e.monitored = 1 AND s.monitored = 1 AND sea.monitored = 1
+ORDER BY e.air_date DESC
+`
+
+type ListUpgradableEpisodesWithQualityRow struct {
+	ID                     int64          `json:"id"`
+	SeriesID               int64          `json:"series_id"`
+	SeasonNumber           int64          `json:"season_number"`
+	EpisodeNumber          int64          `json:"episode_number"`
+	Title                  sql.NullString `json:"title"`
+	Overview               sql.NullString `json:"overview"`
+	AirDate                sql.NullTime   `json:"air_date"`
+	Monitored              int64          `json:"monitored"`
+	Status                 string         `json:"status"`
+	ActiveDownloadID       sql.NullString `json:"active_download_id"`
+	StatusMessage          sql.NullString `json:"status_message"`
+	SeriesTitle            string         `json:"series_title"`
+	SeriesTvdbID           sql.NullInt64  `json:"series_tvdb_id"`
+	SeriesTmdbID           sql.NullInt64  `json:"series_tmdb_id"`
+	SeriesImdbID           sql.NullString `json:"series_imdb_id"`
+	SeriesYear             sql.NullInt64  `json:"series_year"`
+	SeriesQualityProfileID sql.NullInt64  `json:"series_quality_profile_id"`
+	CurrentQualityID       sql.NullInt64  `json:"current_quality_id"`
+}
+
+// Upgradable episodes with current file quality
+func (q *Queries) ListUpgradableEpisodesWithQuality(ctx context.Context) ([]*ListUpgradableEpisodesWithQualityRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUpgradableEpisodesWithQuality)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*ListUpgradableEpisodesWithQualityRow{}
+	for rows.Next() {
+		var i ListUpgradableEpisodesWithQualityRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SeriesID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.Title,
+			&i.Overview,
+			&i.AirDate,
+			&i.Monitored,
+			&i.Status,
+			&i.ActiveDownloadID,
+			&i.StatusMessage,
+			&i.SeriesTitle,
+			&i.SeriesTvdbID,
+			&i.SeriesTmdbID,
+			&i.SeriesImdbID,
+			&i.SeriesYear,
+			&i.SeriesQualityProfileID,
+			&i.CurrentQualityID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchSeries = `-- name: SearchSeries :many
 SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series
 WHERE title LIKE ?1 OR sort_title LIKE ?1
