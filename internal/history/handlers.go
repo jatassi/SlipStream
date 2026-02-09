@@ -21,6 +21,8 @@ func NewHandlers(service *Service) *Handlers {
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.List)
 	g.DELETE("", h.Clear)
+	g.GET("/settings", h.GetSettings)
+	g.PUT("/settings", h.UpdateSettings)
 }
 
 // List returns paginated history entries.
@@ -43,6 +45,8 @@ func (h *Handlers) List(c echo.Context) error {
 	opts := ListOptions{
 		EventType: c.QueryParam("eventType"),
 		MediaType: c.QueryParam("mediaType"),
+		Before:    c.QueryParam("before"),
+		After:     c.QueryParam("after"),
 		Page:      page,
 		PageSize:  pageSize,
 	}
@@ -62,4 +66,33 @@ func (h *Handlers) Clear(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// GetSettings returns history retention settings.
+// GET /api/v1/history/settings
+func (h *Handlers) GetSettings(c echo.Context) error {
+	settings, err := h.service.GetRetentionSettings(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, settings)
+}
+
+// UpdateSettings updates history retention settings.
+// PUT /api/v1/history/settings
+func (h *Handlers) UpdateSettings(c echo.Context) error {
+	var settings RetentionSettings
+	if err := c.Bind(&settings); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if settings.RetentionDays < 1 {
+		settings.RetentionDays = 1
+	}
+
+	if err := h.service.SaveRetentionSettings(c.Request().Context(), settings); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, settings)
 }

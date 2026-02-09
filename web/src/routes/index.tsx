@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useQueue, useHistory } from '@/hooks'
 import { useStorage } from '@/hooks/useStorage'
 import { formatRelativeTime } from '@/lib/formatters'
+import { eventTypeLabels } from '@/lib/history-utils'
 import { ProgressBar } from '@/components/media/ProgressBar'
 import { StorageCard } from '@/components/dashboard/StorageCard'
 import { HealthWidget } from '@/components/health'
@@ -122,7 +123,7 @@ function RecentActivity() {
                     {item.mediaTitle || `${item.mediaType} #${item.mediaId}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {item.eventType} - {formatRelativeTime(item.createdAt)}
+                    {eventTypeLabels[item.eventType] || item.eventType} - {formatRelativeTime(item.createdAt)}
                   </p>
                 </div>
               </div>

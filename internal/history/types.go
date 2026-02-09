@@ -10,14 +10,10 @@ const (
 	EventTypeImported           EventType = "imported"
 	EventTypeDeleted            EventType = "deleted"
 	EventTypeFailed             EventType = "failed"
-	EventTypeRenamed            EventType = "renamed"
+	EventTypeRenamed            EventType = "file_renamed"
 	EventTypeAutoSearchDownload EventType = "autosearch_download"
-	EventTypeAutoSearchUpgrade  EventType = "autosearch_upgrade"
 	EventTypeAutoSearchFailed   EventType = "autosearch_failed"
-	EventTypeImportStarted      EventType = "import_started"
-	EventTypeImportCompleted    EventType = "import_completed"
 	EventTypeImportFailed       EventType = "import_failed"
-	EventTypeImportUpgrade      EventType = "import_upgrade"
 	// Req 17.1.1: Slot-related event types for multi-version tracking
 	EventTypeSlotAssigned   EventType = "slot_assigned"
 	EventTypeSlotReassigned EventType = "slot_reassigned"
@@ -36,15 +32,17 @@ const (
 
 // Entry represents a history entry.
 type Entry struct {
-	ID         int64             `json:"id"`
-	EventType  EventType         `json:"eventType"`
-	MediaType  MediaType         `json:"mediaType"`
-	MediaID    int64             `json:"mediaId"`
-	Source     string            `json:"source,omitempty"`
-	Quality    string            `json:"quality,omitempty"`
-	Data       map[string]any    `json:"data,omitempty"`
-	CreatedAt  string            `json:"createdAt"`
-	MediaTitle string            `json:"mediaTitle,omitempty"`
+	ID         int64          `json:"id"`
+	EventType  EventType      `json:"eventType"`
+	MediaType  MediaType      `json:"mediaType"`
+	MediaID    int64          `json:"mediaId"`
+	Source     string         `json:"source,omitempty"`
+	Quality    string         `json:"quality,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+	CreatedAt  string         `json:"createdAt"`
+	MediaTitle string         `json:"mediaTitle,omitempty"`
+	SeriesID   *int64         `json:"seriesId,omitempty"`
+	Year       *int64         `json:"year,omitempty"`
 }
 
 // CreateInput contains fields for creating a history entry.
@@ -61,6 +59,8 @@ type CreateInput struct {
 type ListOptions struct {
 	EventType string
 	MediaType string
+	Before    string
+	After     string
 	Page      int
 	PageSize  int
 }
@@ -74,27 +74,16 @@ type ListResponse struct {
 	TotalPages int      `json:"totalPages"`
 }
 
-// AutoSearchDownloadData contains data for autosearch download events.
+// AutoSearchDownloadData contains data for autosearch download events (including upgrades).
 type AutoSearchDownloadData struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 	Indexer     string `json:"indexer,omitempty"`
 	ClientName  string `json:"clientName,omitempty"`
 	DownloadID  string `json:"downloadId,omitempty"`
 	Source      string `json:"source,omitempty"` // "manual", "scheduled", "add"
-	// Req 17.1.2: Slot information in history entries
-	SlotID   *int64 `json:"slotId,omitempty"`
-	SlotName string `json:"slotName,omitempty"`
-}
-
-// AutoSearchUpgradeData contains data for autosearch upgrade events.
-type AutoSearchUpgradeData struct {
-	ReleaseName string `json:"releaseName,omitempty"`
-	Indexer     string `json:"indexer,omitempty"`
-	ClientName  string `json:"clientName,omitempty"`
-	DownloadID  string `json:"downloadId,omitempty"`
+	IsUpgrade   bool   `json:"isUpgrade,omitempty"`
 	OldQuality  string `json:"oldQuality,omitempty"`
 	NewQuality  string `json:"newQuality,omitempty"`
-	Source      string `json:"source,omitempty"`
 	// Req 17.1.2: Slot information in history entries
 	SlotID   *int64 `json:"slotId,omitempty"`
 	SlotName string `json:"slotName,omitempty"`

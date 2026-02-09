@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { historyApi } from '@/api'
 import type { ListHistoryOptions } from '@/types'
+import type { HistoryRetentionSettings } from '@/api/history'
 
 export const historyKeys = {
   all: ['history'] as const,
   lists: () => [...historyKeys.all, 'list'] as const,
   list: (filters: ListHistoryOptions) => [...historyKeys.lists(), filters] as const,
-  detail: (id: number) => [...historyKeys.all, 'detail', id] as const,
+  settings: () => [...historyKeys.all, 'settings'] as const,
 }
 
 export function useHistory(options?: ListHistoryOptions) {
@@ -16,20 +17,29 @@ export function useHistory(options?: ListHistoryOptions) {
   })
 }
 
-export function useHistoryItem(id: number) {
-  return useQuery({
-    queryKey: historyKeys.detail(id),
-    queryFn: () => historyApi.get(id),
-    enabled: !!id,
-  })
-}
-
 export function useClearHistory() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => historyApi.clear(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: historyKeys.all })
+    },
+  })
+}
+
+export function useHistorySettings() {
+  return useQuery({
+    queryKey: historyKeys.settings(),
+    queryFn: () => historyApi.getSettings(),
+  })
+}
+
+export function useUpdateHistorySettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (settings: HistoryRetentionSettings) => historyApi.updateSettings(settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: historyKeys.settings() })
     },
   })
 }

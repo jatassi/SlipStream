@@ -548,6 +548,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.grabService.SetPortalStatusTracker(s.portalStatusTracker)
 	s.downloaderService.SetPortalStatusTracker(s.portalStatusTracker)
 	s.downloaderService.SetBroadcaster(hub)
+	s.historyService.SetBroadcaster(hub)
 	s.downloaderService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
 	s.movieService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
 	s.tvService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
@@ -675,6 +676,10 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		// Register import scan task (scans for completed downloads ready to import)
 		if err := tasks.RegisterImportScanTask(s.scheduler, s.importService, logger); err != nil {
 			logger.Error().Err(err).Msg("Failed to register import scan task")
+		}
+		// Register history cleanup task (runs daily at 2 AM)
+		if err := tasks.RegisterHistoryCleanupTask(s.scheduler, s.historyService); err != nil {
+			logger.Error().Err(err).Msg("Failed to register history cleanup task")
 		}
 	}
 

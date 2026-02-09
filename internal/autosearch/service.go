@@ -1297,27 +1297,19 @@ func (s *Service) logAutoSearchSuccess(ctx context.Context, item SearchableItem,
 		qualityStr = release.ScoreBreakdown.QualityName
 	}
 
+	data := history.AutoSearchDownloadData{
+		ReleaseName: release.Title,
+		Indexer:     release.IndexerName,
+		ClientName:  grabResult.ClientName,
+		DownloadID:  grabResult.DownloadID,
+		Source:      string(source),
+		IsUpgrade:   isUpgrade,
+	}
 	if isUpgrade {
-		if err := s.historyService.LogAutoSearchUpgrade(ctx, mediaType, item.MediaID, qualityStr, history.AutoSearchUpgradeData{
-			ReleaseName: release.Title,
-			Indexer:     release.IndexerName,
-			ClientName:  grabResult.ClientName,
-			DownloadID:  grabResult.DownloadID,
-			NewQuality:  qualityStr,
-			Source:      string(source),
-		}); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to log autosearch upgrade event")
-		}
-	} else {
-		if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, history.AutoSearchDownloadData{
-			ReleaseName: release.Title,
-			Indexer:     release.IndexerName,
-			ClientName:  grabResult.ClientName,
-			DownloadID:  grabResult.DownloadID,
-			Source:      string(source),
-		}); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to log autosearch download event")
-		}
+		data.NewQuality = qualityStr
+	}
+	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, data); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to log autosearch download event")
 	}
 }
 

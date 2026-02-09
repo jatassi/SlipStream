@@ -143,6 +143,8 @@ LIMIT ? OFFSET ?;
 SELECT * FROM history
 WHERE (? = '' OR event_type = ?)
   AND (? = '' OR media_type = ?)
+  AND (? = '' OR created_at >= ?)
+  AND (? = '' OR created_at <= ?)
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
 
@@ -158,7 +160,9 @@ SELECT COUNT(*) FROM history WHERE media_type = ?;
 -- name: CountHistoryFiltered :one
 SELECT COUNT(*) FROM history
 WHERE (? = '' OR event_type = ?)
-  AND (? = '' OR media_type = ?);
+  AND (? = '' OR media_type = ?)
+  AND (? = '' OR created_at >= ?)
+  AND (? = '' OR created_at <= ?);
 
 -- name: ListHistoryByMedia :many
 SELECT * FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at DESC;

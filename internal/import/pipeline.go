@@ -777,27 +777,33 @@ func (s *Service) logImportHistory(ctx context.Context, result *ImportResult) er
 		mediaID = *result.Match.EpisodeID
 	}
 
-	eventType := "imported"
-	if result.IsUpgrade {
-		eventType = "import_upgrade"
-	}
-
 	parsed := scanner.ParsePath(result.SourcePath)
 
+	data := map[string]any{
+		"sourcePath":       result.SourcePath,
+		"destinationPath":  result.DestinationPath,
+		"originalFilename": filepath.Base(result.SourcePath),
+		"finalFilename":    filepath.Base(result.DestinationPath),
+		"linkMode":         string(result.LinkMode),
+		"isUpgrade":        result.IsUpgrade,
+		"previousFile":     result.PreviousFile,
+	}
+
+	if result.IsUpgrade {
+		if q, ok := quality.GetQualityByID(result.Match.CandidateQualityID); ok {
+			data["newQuality"] = q.Name
+		}
+		if q, ok := quality.GetQualityByID(result.Match.ExistingQualityID); ok {
+			data["previousQuality"] = q.Name
+		}
+	}
+
 	return s.history.Create(ctx, HistoryInput{
-		EventType: eventType,
+		EventType: "imported",
 		MediaType: result.Match.MediaType,
 		MediaID:   mediaID,
 		Quality:   parsed.Quality,
-		Data: map[string]any{
-			"sourcePath":       result.SourcePath,
-			"destinationPath":  result.DestinationPath,
-			"originalFilename": filepath.Base(result.SourcePath),
-			"finalFilename":    filepath.Base(result.DestinationPath),
-			"linkMode":         string(result.LinkMode),
-			"isUpgrade":        result.IsUpgrade,
-			"previousFile":     result.PreviousFile,
-		},
+		Data:      data,
 	})
 }
 

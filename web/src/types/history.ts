@@ -3,10 +3,11 @@ export type HistoryEventType =
   | 'imported'
   | 'deleted'
   | 'failed'
-  | 'renamed'
+  | 'file_renamed'
   | 'autosearch_download'
-  | 'autosearch_upgrade'
   | 'autosearch_failed'
+  | 'import_failed'
+  | 'status_changed'
 
 export interface HistoryEntry {
   id: number
@@ -17,8 +18,9 @@ export interface HistoryEntry {
   quality?: string
   data?: HistoryEventData
   createdAt: string
-  // Expanded media info
   mediaTitle?: string
+  seriesId?: number
+  year?: number
 }
 
 export interface AutoSearchDownloadData {
@@ -27,16 +29,9 @@ export interface AutoSearchDownloadData {
   clientName?: string
   downloadId?: string
   source?: string
-}
-
-export interface AutoSearchUpgradeData {
-  releaseName?: string
-  indexer?: string
-  clientName?: string
-  downloadId?: string
+  isUpgrade?: boolean
   oldQuality?: string
   newQuality?: string
-  source?: string
 }
 
 export interface AutoSearchFailedData {
@@ -45,18 +40,53 @@ export interface AutoSearchFailedData {
   source?: string
 }
 
+export interface ImportEventData {
+  sourcePath?: string
+  destinationPath?: string
+  originalFilename?: string
+  finalFilename?: string
+  quality?: string
+  source?: string
+  codec?: string
+  size?: number
+  error?: string
+  isUpgrade?: boolean
+  previousFile?: string
+  previousQuality?: string
+  newQuality?: string
+  clientName?: string
+  linkMode?: string
+}
+
+export interface StatusChangedData {
+  from?: string
+  to?: string
+  reason?: string
+}
+
+export interface FileRenamedData {
+  source_path?: string
+  destination_path?: string
+  old_filename?: string
+  new_filename?: string
+}
+
 export type HistoryEventData =
   | AutoSearchDownloadData
-  | AutoSearchUpgradeData
   | AutoSearchFailedData
+  | ImportEventData
+  | StatusChangedData
+  | FileRenamedData
   | Record<string, unknown>
 
 export interface ListHistoryOptions {
   eventType?: HistoryEventType
-  mediaType?: 'movie' | 'series'
+  mediaType?: 'movie' | 'episode'
   mediaId?: number
   page?: number
   pageSize?: number
+  before?: string
+  after?: string
 }
 
 export interface HistoryResponse {

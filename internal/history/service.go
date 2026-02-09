@@ -4,17 +4,29 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/indexer/scoring"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 )
+
+// Broadcaster defines the interface for sending WebSocket messages.
+type Broadcaster interface {
+	Broadcast(msgType string, payload interface{}) error
+}
 
 // Service provides history management functionality.
 type Service struct {
-	db      *sql.DB
-	queries *sqlc.Queries
-	logger  zerolog.Logger
+	db          *sql.DB
+	queries     *sqlc.Queries
+	logger      zerolog.Logger
+	broadcaster Broadcaster
 }
 
 // NewService creates a new history service.
@@ -31,6 +43,11 @@ func NewService(db *sql.DB, logger zerolog.Logger) *Service {
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
+}
+
+// SetBroadcaster sets the WebSocket broadcaster for real-time history events.
+func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
+	s.broadcaster = broadcaster
 }
 
 // Create creates a new history entry.
@@ -56,7 +73,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Entry, error)
 		return nil, err
 	}
 
-	return s.rowToEntry(row), nil
+	entry := s.rowToEntry(row)
+	s.enrichEntry(ctx, entry)
+
+	if s.broadcaster != nil {
+		_ = s.broadcaster.Broadcast("history:added", entry)
+	}
+
+	return entry, nil
 }
 
 // List lists history entries with pagination and filtering.
@@ -78,28 +102,52 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (*ListResponse, er
 	var err error
 	var totalCount int64
 
-	// Use filtered query if filters provided
-	if opts.EventType != "" || opts.MediaType != "" {
+	hasFilters := opts.EventType != "" || opts.MediaType != "" || opts.After != "" || opts.Before != ""
+
+	if hasFilters {
 		eventFilter := opts.EventType
 		mediaFilter := opts.MediaType
+		afterFilter := opts.After
+		beforeFilter := opts.Before
+
+		afterTime := sql.NullTime{}
+		if afterFilter != "" {
+			if t, err := time.Parse(time.RFC3339, afterFilter); err == nil {
+				afterTime = sql.NullTime{Time: t, Valid: true}
+			}
+		}
+		beforeTime := sql.NullTime{}
+		if beforeFilter != "" {
+			if t, err := time.Parse(time.RFC3339, beforeFilter); err == nil {
+				beforeTime = sql.NullTime{Time: t, Valid: true}
+			}
+		}
 
 		rows, err = s.queries.ListHistoryFiltered(ctx, sqlc.ListHistoryFilteredParams{
-			Column1:   eventFilter,
-			EventType: eventFilter,
-			Column3:   mediaFilter,
-			MediaType: mediaFilter,
-			Limit:     limit,
-			Offset:    offset,
+			Column1:     eventFilter,
+			EventType:   eventFilter,
+			Column3:     mediaFilter,
+			MediaType:   mediaFilter,
+			Column5:     afterFilter,
+			CreatedAt:   afterTime,
+			Column7:     beforeFilter,
+			CreatedAt_2: beforeTime,
+			Limit:       limit,
+			Offset:      offset,
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		totalCount, err = s.queries.CountHistoryFiltered(ctx, sqlc.CountHistoryFilteredParams{
-			Column1:   eventFilter,
-			EventType: eventFilter,
-			Column3:   mediaFilter,
-			MediaType: mediaFilter,
+			Column1:     eventFilter,
+			EventType:   eventFilter,
+			Column3:     mediaFilter,
+			MediaType:   mediaFilter,
+			Column5:     afterFilter,
+			CreatedAt:   afterTime,
+			Column7:     beforeFilter,
+			CreatedAt_2: beforeTime,
 		})
 		if err != nil {
 			return nil, err
@@ -193,26 +241,66 @@ func (s *Service) rowToEntry(row *sqlc.History) *Entry {
 	return entry
 }
 
-// enrichEntry adds media title to the entry.
+// enrichEntry adds media title, series ID, and year to the entry.
 func (s *Service) enrichEntry(ctx context.Context, entry *Entry) {
 	switch entry.MediaType {
 	case MediaTypeMovie:
 		movie, err := s.queries.GetMovie(ctx, entry.MediaID)
 		if err == nil {
 			entry.MediaTitle = movie.Title
+			if movie.Year.Valid && movie.Year.Int64 > 0 {
+				year := movie.Year.Int64
+				entry.Year = &year
+			}
 		}
 	case MediaTypeEpisode:
 		episode, err := s.queries.GetEpisode(ctx, entry.MediaID)
 		if err == nil {
-			series, err := s.queries.GetSeries(ctx, episode.SeriesID)
+			seriesID := episode.SeriesID
+			entry.SeriesID = &seriesID
+			series, err := s.queries.GetSeries(ctx, seriesID)
 			if err == nil {
-				entry.MediaTitle = series.Title
-				if episode.Title.Valid {
+				epCode := fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
+				entry.MediaTitle = series.Title + " - " + epCode
+				if episode.Title.Valid && episode.Title.String != "" {
 					entry.MediaTitle += " - " + episode.Title.String
 				}
 			}
 		}
 	}
+
+	// Backfill quality names for imported upgrade events that lack them
+	if entry.EventType == EventTypeImported && entry.Data != nil {
+		isUpgrade, _ := entry.Data["isUpgrade"].(bool)
+		_, hasPrev := entry.Data["previousQuality"]
+		_, hasNew := entry.Data["newQuality"]
+		if isUpgrade && (!hasPrev || !hasNew) {
+			if !hasPrev {
+				if prev, _ := entry.Data["previousFile"].(string); prev != "" {
+					if name := qualityNameFromPath(prev); name != "" {
+						entry.Data["previousQuality"] = name
+					}
+				}
+			}
+			if !hasNew {
+				if dest, _ := entry.Data["destinationPath"].(string); dest != "" {
+					if name := qualityNameFromPath(dest); name != "" {
+						entry.Data["newQuality"] = name
+					}
+				}
+			}
+		}
+	}
+}
+
+// qualityNameFromPath derives a quality name (e.g. "Bluray-1080p") from a file path.
+func qualityNameFromPath(path string) string {
+	parsed := scanner.ParsePath(path)
+	res, _ := strconv.Atoi(strings.TrimSuffix(parsed.Quality, "p"))
+	if result := scoring.MatchQuality(parsed.Source, res); result.Quality != nil {
+		return result.Quality.Name
+	}
+	return ""
 }
 
 // LogAutoSearchDownload logs a successful autosearch download.
@@ -225,25 +313,6 @@ func (s *Service) LogAutoSearchDownload(ctx context.Context, mediaType MediaType
 
 	_, err = s.Create(ctx, CreateInput{
 		EventType: EventTypeAutoSearchDownload,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   quality,
-		Data:      dataMap,
-	})
-	return err
-}
-
-// LogAutoSearchUpgrade logs a quality upgrade.
-func (s *Service) LogAutoSearchUpgrade(ctx context.Context, mediaType MediaType, mediaID int64, quality string, data AutoSearchUpgradeData) error {
-	dataMap, err := ToJSON(data)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to marshal autosearch upgrade data")
-		dataMap = nil
-	}
-
-	_, err = s.Create(ctx, CreateInput{
-		EventType: EventTypeAutoSearchUpgrade,
 		MediaType: mediaType,
 		MediaID:   mediaID,
 		Source:    data.Source,
@@ -271,81 +340,6 @@ func (s *Service) LogAutoSearchFailed(ctx context.Context, mediaType MediaType, 
 	return err
 }
 
-// LogImportStarted logs when an import process begins.
-func (s *Service) LogImportStarted(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
-	dataMap, err := ToJSON(data)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to marshal import started data")
-		dataMap = nil
-	}
-
-	_, err = s.Create(ctx, CreateInput{
-		EventType: EventTypeImportStarted,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   data.Quality,
-		Data:      dataMap,
-	})
-	return err
-}
-
-// LogImportCompleted logs a successful import.
-func (s *Service) LogImportCompleted(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
-	dataMap, err := ToJSON(data)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to marshal import completed data")
-		dataMap = nil
-	}
-
-	_, err = s.Create(ctx, CreateInput{
-		EventType: EventTypeImportCompleted,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   data.Quality,
-		Data:      dataMap,
-	})
-	return err
-}
-
-// LogImportFailed logs a failed import.
-func (s *Service) LogImportFailed(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
-	dataMap, err := ToJSON(data)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to marshal import failed data")
-		dataMap = nil
-	}
-
-	_, err = s.Create(ctx, CreateInput{
-		EventType: EventTypeImportFailed,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   data.Quality,
-		Data:      dataMap,
-	})
-	return err
-}
-
-// LogImportUpgrade logs an import that upgraded an existing file.
-func (s *Service) LogImportUpgrade(ctx context.Context, mediaType MediaType, mediaID int64, data ImportEventData) error {
-	dataMap, err := ToJSON(data)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to marshal import upgrade data")
-		dataMap = nil
-	}
-
-	_, err = s.Create(ctx, CreateInput{
-		EventType: EventTypeImportUpgrade,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   data.Quality,
-		Data:      dataMap,
-	})
-	return err
-}
 
 // LogStatusChanged logs a status transition not covered by existing event types.
 func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, mediaID int64, data StatusChangedData) error {

@@ -1,10 +1,14 @@
 import { useState, useCallback } from 'react'
-import { Save } from 'lucide-react'
+import { Save, History } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { ServerSection } from '@/components/settings'
 import { SystemNav } from './SystemNav'
-import { useUpdateSettings } from '@/hooks'
+import { useUpdateSettings, useHistorySettings, useUpdateHistorySettings } from '@/hooks'
 import { toast } from 'sonner'
 
 interface LogRotationSettings {
@@ -12,6 +16,87 @@ interface LogRotationSettings {
   maxBackups: number
   maxAgeDays: number
   compress: boolean
+}
+
+function HistoryRetentionCard() {
+  const { data: settings } = useHistorySettings()
+  const updateMutation = useUpdateHistorySettings()
+
+  const [enabled, setEnabled] = useState<boolean | null>(null)
+  const [days, setDays] = useState<number | null>(null)
+  const [prevSettings, setPrevSettings] = useState(settings)
+
+  if (settings !== prevSettings) {
+    setPrevSettings(settings)
+    if (settings) {
+      setEnabled(settings.enabled)
+      setDays(settings.retentionDays)
+    }
+  }
+
+  const currentEnabled = enabled ?? settings?.enabled ?? true
+  const currentDays = days ?? settings?.retentionDays ?? 365
+
+  const hasChanges = settings && (
+    currentEnabled !== settings.enabled ||
+    currentDays !== settings.retentionDays
+  )
+
+  const handleSave = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        enabled: currentEnabled,
+        retentionDays: currentDays,
+      })
+      toast.success('History retention settings saved')
+    } catch {
+      toast.error('Failed to save history retention settings')
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="size-4" />
+          History Retention
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="retention-enabled">Auto-cleanup old history entries</Label>
+          <Switch
+            id="retention-enabled"
+            checked={currentEnabled}
+            onCheckedChange={(v) => setEnabled(v)}
+          />
+        </div>
+        {currentEnabled && (
+          <div className="space-y-2">
+            <Label htmlFor="retention-days">Retention period (days)</Label>
+            <Input
+              id="retention-days"
+              type="number"
+              min={1}
+              max={3650}
+              value={currentDays}
+              onChange={(e) => setDays(parseInt(e.target.value) || 1)}
+              className="w-32"
+            />
+            <p className="text-xs text-muted-foreground">
+              History entries older than this will be automatically deleted daily at 2 AM.
+            </p>
+          </div>
+        )}
+        {hasChanges && (
+          <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
+            <Save className="size-3 mr-1.5" />
+            Save
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 export function ServerPage() {
@@ -101,7 +186,7 @@ export function ServerPage() {
 
       <SystemNav />
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-6">
         <ServerSection
           port={port}
           onPortChange={handlePortChange}
@@ -112,6 +197,7 @@ export function ServerPage() {
           externalAccessEnabled={externalAccessEnabled}
           onExternalAccessChange={handleExternalAccessChange}
         />
+        <HistoryRetentionCard />
       </div>
     </div>
   )
