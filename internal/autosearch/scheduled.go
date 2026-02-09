@@ -622,13 +622,21 @@ func (s *ScheduledSearcher) collectUpgradeMovies(ctx context.Context) ([]searcha
 }
 
 // collectUpgradeEpisodes collects episodes with files below quality cutoff.
+// When all monitored episodes in a season are upgradable, a single season pack
+// search is used instead of individual episode searches.
 func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searchableItemWithPriority, error) {
 	rows, err := s.service.queries.ListEpisodeUpgradeCandidates(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]searchableItemWithPriority, 0, len(rows))
+	// Group episodes by series and season for season pack prioritization
+	type seasonKey struct {
+		seriesID     int64
+		seasonNumber int64
+	}
+	seasonEpisodes := make(map[seasonKey][]*sqlc.ListEpisodeUpgradeCandidatesRow)
+
 	for _, row := range rows {
 		shouldSkip, err := s.shouldSkipItem(ctx, "episode", row.ID, "upgrade")
 		if err != nil {
@@ -637,18 +645,84 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 		if shouldSkip {
 			continue
 		}
+		key := seasonKey{seriesID: row.SeriesID, seasonNumber: row.SeasonNumber}
+		seasonEpisodes[key] = append(seasonEpisodes[key], row)
+	}
 
-		item := s.service.episodeUpgradeCandidateToSearchableItem(row)
+	var items []searchableItemWithPriority
 
-		var airDate time.Time
-		if row.AirDate.Valid {
-			airDate = row.AirDate.Time
+	for key, episodes := range seasonEpisodes {
+		allUpgradable := s.service.isSeasonPackUpgradeEligible(ctx, key.seriesID, int(key.seasonNumber))
+
+		if allUpgradable {
+			firstEp := episodes[0]
+
+			// Use the highest current quality ID so the season pack must beat all files
+			var maxQualityID int
+			for _, ep := range episodes {
+				if ep.CurrentQualityID.Valid && int(ep.CurrentQualityID.Int64) > maxQualityID {
+					maxQualityID = int(ep.CurrentQualityID.Int64)
+				}
+			}
+
+			var airDate time.Time
+			if firstEp.AirDate.Valid {
+				airDate = firstEp.AirDate.Time
+			}
+
+			item := SearchableItem{
+				MediaType:        MediaTypeSeason,
+				MediaID:          key.seriesID,
+				SeriesID:         key.seriesID,
+				Title:            firstEp.SeriesTitle,
+				SeasonNumber:     int(key.seasonNumber),
+				HasFile:          true,
+				CurrentQualityID: maxQualityID,
+			}
+			if firstEp.SeriesYear.Valid {
+				item.Year = int(firstEp.SeriesYear.Int64)
+			}
+			if firstEp.SeriesTvdbID.Valid {
+				item.TvdbID = int(firstEp.SeriesTvdbID.Int64)
+			}
+			if firstEp.SeriesTmdbID.Valid {
+				item.TmdbID = int(firstEp.SeriesTmdbID.Int64)
+			}
+			if firstEp.SeriesImdbID.Valid {
+				item.ImdbID = firstEp.SeriesImdbID.String
+			}
+			if firstEp.SeriesQualityProfileID.Valid {
+				item.QualityProfileID = firstEp.SeriesQualityProfileID.Int64
+			}
+
+			s.logger.Info().
+				Str("title", firstEp.SeriesTitle).
+				Int64("seriesId", key.seriesID).
+				Int64("season", key.seasonNumber).
+				Int("episodes", len(episodes)).
+				Int("maxCurrentQualityId", maxQualityID).
+				Msg("Using season pack search for upgrade")
+
+			items = append(items, searchableItemWithPriority{
+				item:         item,
+				releaseDate:  airDate,
+				isSeasonPack: true,
+			})
+		} else {
+			for _, ep := range episodes {
+				item := s.service.episodeUpgradeCandidateToSearchableItem(ep)
+
+				var airDate time.Time
+				if ep.AirDate.Valid {
+					airDate = ep.AirDate.Time
+				}
+
+				items = append(items, searchableItemWithPriority{
+					item:        item,
+					releaseDate: airDate,
+				})
+			}
 		}
-
-		items = append(items, searchableItemWithPriority{
-			item:        item,
-			releaseDate: airDate,
-		})
 	}
 
 	return items, nil
@@ -759,7 +833,30 @@ func (s *ScheduledSearcher) searchItem(ctx context.Context, item SearchableItem)
 	case MediaTypeEpisode:
 		return s.service.SearchEpisode(ctx, item.MediaID, SearchSourceScheduled)
 	case MediaTypeSeason:
-		// Season pack search - searches for a single release containing all episodes
+		if item.HasFile {
+			// Season pack upgrade search with individual episode fallback
+			batchResult, err := s.service.SearchSeasonUpgrade(ctx, item.MediaID, item.SeasonNumber, item.CurrentQualityID, SearchSourceScheduled)
+			if err != nil {
+				return nil, err
+			}
+			// Aggregate batch result into a single SearchResult for the scheduled search loop
+			result := &SearchResult{
+				Found:      batchResult.Found > 0,
+				Downloaded: batchResult.Downloaded > 0,
+			}
+			// Use the first downloaded release's info if available
+			for _, r := range batchResult.Results {
+				if r.Downloaded && r.Release != nil {
+					result.Release = r.Release
+					result.ClientName = r.ClientName
+					result.DownloadID = r.DownloadID
+					result.Upgraded = true
+					break
+				}
+			}
+			return result, nil
+		}
+		// Missing season pack search
 		return s.service.searchSeasonPackByID(ctx, item.MediaID, item.SeasonNumber, SearchSourceScheduled)
 	default:
 		return &SearchResult{Error: "unsupported media type"}, nil

@@ -270,6 +270,90 @@ func (s *Service) searchSeasonPack(ctx context.Context, series *sqlc.Series, sea
 	return s.searchAndGrab(ctx, item, source)
 }
 
+// SearchSeasonUpgrade searches for a season pack upgrade, falling back to individual episodes.
+func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seasonNumber int, currentQualityID int, source SearchSource) (*BatchSearchResult, error) {
+	series, err := s.queries.GetSeries(ctx, seriesID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrItemNotFound
+		}
+		return nil, fmt.Errorf("failed to get series: %w", err)
+	}
+
+	// Try season pack search first
+	item := s.seriesToSeasonPackItem(series, seasonNumber)
+	item.HasFile = true
+	item.CurrentQualityID = currentQualityID
+
+	packResult, err := s.searchAndGrab(ctx, item, source)
+	if err == nil && packResult.Downloaded {
+		return &BatchSearchResult{
+			TotalSearched: 1,
+			Found:         1,
+			Downloaded:    1,
+			Results:       []*SearchResult{packResult},
+		}, nil
+	}
+
+	s.logger.Info().
+		Int64("seriesId", seriesID).
+		Int("season", seasonNumber).
+		Msg("No season pack found for upgrade, falling back to individual episodes")
+
+	// Fall back to individual upgradable episodes
+	episodes, err := s.getUpgradableEpisodesForSeason(ctx, seriesID, seasonNumber)
+	if err != nil || len(episodes) == 0 {
+		// Return the season pack result (no results found)
+		result := &BatchSearchResult{TotalSearched: 1, Results: []*SearchResult{}}
+		if packResult != nil {
+			result.Results = append(result.Results, packResult)
+		}
+		return result, nil
+	}
+
+	result := &BatchSearchResult{
+		TotalSearched: len(episodes),
+		Results:       make([]*SearchResult, 0, len(episodes)),
+	}
+
+	for _, ep := range episodes {
+		epResult, epErr := s.SearchEpisode(ctx, ep.ID, source)
+		if epErr != nil {
+			result.Failed++
+			result.Results = append(result.Results, &SearchResult{Error: epErr.Error()})
+			continue
+		}
+		result.Results = append(result.Results, epResult)
+		if epResult.Found {
+			result.Found++
+		}
+		if epResult.Downloaded {
+			result.Downloaded++
+		}
+	}
+
+	return result, nil
+}
+
+// getUpgradableEpisodesForSeason returns upgradable, monitored episodes for a season.
+func (s *Service) getUpgradableEpisodesForSeason(ctx context.Context, seriesID int64, seasonNumber int) ([]*sqlc.Episode, error) {
+	rows, err := s.queries.ListEpisodesBySeason(ctx, sqlc.ListEpisodesBySeasonParams{
+		SeriesID:     seriesID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	upgradable := make([]*sqlc.Episode, 0)
+	for _, row := range rows {
+		if row.Status == "upgradable" && row.Monitored == 1 {
+			upgradable = append(upgradable, row)
+		}
+	}
+	return upgradable, nil
+}
+
 // searchSeasonPackByID searches for a season pack by series ID (for scheduled searches).
 func (s *Service) searchSeasonPackByID(ctx context.Context, seriesID int64, seasonNumber int, source SearchSource) (*SearchResult, error) {
 	series, err := s.queries.GetSeries(ctx, seriesID)
@@ -985,6 +1069,49 @@ func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seas
 	s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
 		Int("episodeCount", len(episodes)).
 		Msg("Season pack eligible: all episodes released, monitored, and missing")
+	return true
+}
+
+// isSeasonPackUpgradeEligible checks if a season pack search should be used for upgrades.
+// A season pack upgrade search is used when ALL monitored episodes in the season are upgradable.
+func (s *Service) isSeasonPackUpgradeEligible(ctx context.Context, seriesID int64, seasonNumber int) bool {
+	season, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
+		SeriesID:     seriesID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil {
+		return false
+	}
+	if season.Monitored != 1 {
+		return false
+	}
+
+	episodes, err := s.queries.ListEpisodesBySeason(ctx, sqlc.ListEpisodesBySeasonParams{
+		SeriesID:     seriesID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil || len(episodes) == 0 {
+		return false
+	}
+
+	upgradableCount := 0
+	for _, ep := range episodes {
+		if ep.Monitored != 1 {
+			continue
+		}
+		if ep.Status != "upgradable" {
+			return false
+		}
+		upgradableCount++
+	}
+
+	if upgradableCount <= 1 {
+		return false
+	}
+
+	s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
+		Int("upgradableCount", upgradableCount).
+		Msg("Season pack upgrade eligible: all monitored episodes upgradable")
 	return true
 }
 
