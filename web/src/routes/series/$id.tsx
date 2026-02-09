@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
-  UserSearch,
   RefreshCw,
   Trash2,
   Edit,
@@ -10,8 +9,6 @@ import {
   Clock,
   UserStar,
   UserRoundPlus,
-  Eye,
-  EyeOff,
   SlidersVertical,
   Drama,
 } from 'lucide-react'
@@ -27,9 +24,9 @@ import { SeriesEditDialog } from '@/components/series/SeriesEditDialog'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { SearchModal } from '@/components/search/SearchModal'
-import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -40,7 +37,7 @@ import {
   useEpisodes,
   useUpdateSeasonMonitored,
   useUpdateEpisodeMonitored,
-  useAutoSearchEpisodeSlot,
+
   useMultiVersionSettings,
   useSlots,
   useAssignEpisodeFile,
@@ -51,20 +48,11 @@ import { formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { Episode } from '@/types'
 
-interface SearchContext {
-  season?: number
-  episode?: Episode
-  qualityProfileId?: number | null
-}
-
 export function SeriesDetailPage() {
   const { id } = useParams({ from: '/series/$id' })
   const navigate = useNavigate()
   const seriesId = parseInt(id)
 
-  const [searchModalOpen, setSearchModalOpen] = useState(false)
-  const [searchContext, setSearchContext] = useState<SearchContext>({})
-  const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [overviewExpanded, setOverviewExpanded] = useState(false)
 
@@ -78,7 +66,7 @@ export function SeriesDetailPage() {
   const refreshMutation = useRefreshSeries()
   const updateSeasonMonitoredMutation = useUpdateSeasonMonitored()
   const updateEpisodeMonitoredMutation = useUpdateEpisodeMonitored()
-  const episodeSlotAutoSearchMutation = useAutoSearchEpisodeSlot()
+
 
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slots } = useSlots()
@@ -120,32 +108,18 @@ export function SeriesDetailPage() {
     }
   }
 
-  const handleToggleMonitored = async () => {
+  const handleToggleMonitored = async (newMonitored?: boolean) => {
     if (!series) return
+    const target = newMonitored ?? !series.monitored
     try {
       await updateMutation.mutateAsync({
         id: series.id,
-        data: { monitored: !series.monitored },
+        data: { monitored: target },
       })
-      toast.success(series.monitored ? 'Series unmonitored' : 'Series monitored')
+      toast.success(target ? 'Series monitored' : 'Series unmonitored')
     } catch {
       toast.error('Failed to update series')
     }
-  }
-
-  const handleManualSearch = () => {
-    setSearchContext({})
-    setSearchModalOpen(true)
-  }
-
-  const handleSeasonSearch = (seasonNumber: number) => {
-    setSearchContext({ season: seasonNumber })
-    setSearchModalOpen(true)
-  }
-
-  const handleEpisodeSearch = (episode: Episode) => {
-    setSearchContext({ season: episode.seasonNumber, episode })
-    setSearchModalOpen(true)
   }
 
   const handleRefresh = async () => {
@@ -190,56 +164,6 @@ export function SeriesDetailPage() {
       toast.success(`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')} ${monitored ? 'monitored' : 'unmonitored'}`)
     } catch {
       toast.error('Failed to update episode')
-    }
-  }
-
-  const handleSlotManualSearch = (episodeId: number, slotId: number) => {
-    const slot = slots?.find(s => s.id === slotId)
-    const episode = episodes?.find(e => e.id === episodeId)
-    if (!slot?.qualityProfileId) {
-      toast.error('Slot has no quality profile configured')
-      return
-    }
-    if (episode) {
-      setSearchContext({
-        season: episode.seasonNumber,
-        episode,
-        qualityProfileId: slot.qualityProfileId,
-      })
-      setSearchModalOpen(true)
-    }
-  }
-
-  const handleSlotAutoSearch = async (episodeId: number, slotId: number) => {
-    const slot = slots?.find(s => s.id === slotId)
-    const episode = episodes?.find(e => e.id === episodeId)
-    if (!slot?.qualityProfileId) {
-      toast.error('Slot has no quality profile configured')
-      return
-    }
-
-    setSearchingSlotId(slotId)
-    try {
-      const result = await episodeSlotAutoSearchMutation.mutateAsync({ episodeId, slotId })
-      const epLabel = episode
-        ? `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`
-        : 'Episode'
-      if (result.downloaded) {
-        toast.success(`Release grabbed for ${slot.name} (${epLabel})`)
-        refetch()
-      } else if (result.found) {
-        toast.info(`Release found for ${slot.name} (${epLabel}) but not grabbed`)
-      } else {
-        toast.info(`No releases found for ${slot.name} (${epLabel})`)
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning('Episode is already in the download queue')
-      } else {
-        toast.error(`Auto search failed for ${slot.name}`)
-      }
-    } finally {
-      setSearchingSlotId(null)
     }
   }
 
@@ -397,47 +321,82 @@ export function SeriesDetailPage() {
 
       {/* Actions */}
       <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
-        <Button variant="outline" onClick={handleManualSearch}>
-          <UserSearch className="size-4 mr-2" />
-          Search
-        </Button>
-        <AutoSearchButton
+        <MediaSearchMonitorControls
           mediaType="series"
           seriesId={series.id}
           title={series.title}
+          theme="tv"
+          size="responsive"
+          monitored={series.monitored}
+          onMonitoredChange={handleToggleMonitored}
+          qualityProfileId={series.qualityProfileId}
+          tvdbId={series.tvdbId}
+          tmdbId={series.tmdbId}
+          imdbId={series.imdbId}
         />
-        <Button variant="outline" onClick={handleToggleMonitored} className={series.monitored ? 'glow-tv-sm' : ''}>
-          {series.monitored ? (
-            <>
-              <Eye className="size-4 mr-2 text-tv-400" />
-              Monitored
-            </>
-          ) : (
-            <>
-              <EyeOff className="size-4 mr-2" />
-              Unmonitored
-            </>
-          )}
-        </Button>
         <div className="ml-auto flex gap-2">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="min-[820px]:hidden"
+                  onClick={handleRefresh}
+                  disabled={refreshMutation.isPending}
+                />
+              }
+            >
+              <RefreshCw className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
           <Button
             variant="outline"
+            className="hidden min-[820px]:inline-flex"
             onClick={handleRefresh}
             disabled={refreshMutation.isPending}
           >
             <RefreshCw className="size-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="min-[820px]:hidden"
+                  onClick={() => setEditDialogOpen(true)}
+                />
+              }
+            >
+              <Edit className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Button variant="outline" className="hidden min-[820px]:inline-flex" onClick={() => setEditDialogOpen(true)}>
             <Edit className="size-4 mr-2" />
             Edit
           </Button>
           <ConfirmDialog
             trigger={
-              <Button variant="destructive">
-                <Trash2 className="size-4 mr-2" />
-                Delete
-              </Button>
+              <>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button variant="destructive" size="icon" className="min-[820px]:hidden" />
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+                <Button variant="destructive" className="hidden min-[820px]:inline-flex">
+                  <Trash2 className="size-4 mr-2" />
+                  Delete
+                </Button>
+              </>
             }
             title="Delete series"
             description={`Are you sure you want to delete "${series.title}"? This action cannot be undone.`}
@@ -459,16 +418,16 @@ export function SeriesDetailPage() {
             {series.seasons && series.seasons.length > 0 ? (
               <SeasonList
                 seriesId={series.id}
+                seriesTitle={series.title}
+                qualityProfileId={series.qualityProfileId}
+                tvdbId={series.tvdbId}
+                tmdbId={series.tmdbId}
+                imdbId={series.imdbId}
                 seasons={series.seasons}
                 episodes={episodes}
                 onSeasonMonitoredChange={handleSeasonMonitoredChange}
-                onSeasonSearch={handleSeasonSearch}
-                onEpisodeSearch={handleEpisodeSearch}
                 onEpisodeMonitoredChange={handleEpisodeMonitoredChange}
                 onAssignFileToSlot={handleAssignFileToSlot}
-                onSlotManualSearch={handleSlotManualSearch}
-                onSlotAutoSearch={handleSlotAutoSearch}
-                searchingSlotId={searchingSlotId}
                 isMultiVersionEnabled={isMultiVersionEnabled}
                 enabledSlots={enabledSlots}
                 isAssigning={assignFileMutation.isPending}
@@ -480,21 +439,6 @@ export function SeriesDetailPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Search Modal */}
-      <SearchModal
-        open={searchModalOpen}
-        onOpenChange={(open) => {
-          setSearchModalOpen(open)
-          if (!open) setSearchContext({})
-        }}
-        qualityProfileId={searchContext.qualityProfileId ?? series.qualityProfileId}
-        seriesId={series.id}
-        seriesTitle={series.title}
-        tvdbId={series.tvdbId}
-        season={searchContext.season}
-        episode={searchContext.episode?.episodeNumber}
-      />
 
       {/* Edit Dialog */}
       <SeriesEditDialog

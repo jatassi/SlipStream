@@ -92,6 +92,7 @@ export function DownloadsNavLink({ collapsed, indented = false, popover = false 
   }, [completionFlash])
 
   const hasDownloads = queueItems.length > 0
+  const allPaused = hasDownloads && queueItems.every(i => i.status === 'paused')
 
   const badge = (
     <span className="flex items-center text-xs">
@@ -138,7 +139,8 @@ export function DownloadsNavLink({ collapsed, indented = false, popover = false 
     hasDownloads && 'ring-1 ring-inset',
     hasDownloads && theme === 'movie' && 'ring-movie-500/40 animate-[inset-glow-pulse-movie_2s_ease-in-out_infinite]',
     hasDownloads && theme === 'tv' && 'ring-tv-500/40 animate-[inset-glow-pulse-tv_2s_ease-in-out_infinite]',
-    hasDownloads && theme === 'both' && 'ring-white/20 animate-[inset-glow-pulse-media_2s_ease-in-out_infinite]'
+    hasDownloads && theme === 'both' && 'ring-white/20 animate-[inset-glow-pulse-media_2s_ease-in-out_infinite]',
+    allPaused && 'animation-paused'
   )
 
   const flashAnimationClass = cn(
@@ -173,7 +175,7 @@ export function DownloadsNavLink({ collapsed, indented = false, popover = false 
       className={cn(baseClassName, hoverClassName, activeClassName, glowClassName, flashAnimationClass)}
     >
       {hasDownloads && (
-        <div className="absolute inset-0 overflow-hidden rounded-md">
+        <div className={cn("absolute inset-0 overflow-hidden rounded-md", allPaused && 'animation-paused')}>
           <div className="absolute inset-0 bg-muted/30" />
 
           <div

@@ -1,31 +1,39 @@
-import { Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock, Search, Zap, Loader2 } from 'lucide-react'
+import { EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { MediaSearchMonitorControls } from '@/components/search'
 import type { SlotStatus } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface EpisodeSlotRowProps {
   slotStatuses: SlotStatus[]
-  onToggleMonitored?: (slotId: number, monitored: boolean) => void
-  onManualSearch?: (slotId: number) => void
-  onAutoSearch?: (slotId: number) => void
-  isUpdating?: boolean
-  isSearching?: number | null
+  episodeId: number
+  seriesId: number
+  seriesTitle: string
+  seasonNumber: number
+  episodeNumber: number
+  qualityProfileId: number
+  tvdbId?: number
+  tmdbId?: number
+  imdbId?: string
+  slotQualityProfiles?: Record<number, number>
+  onSlotMonitoredChange?: (slotId: number, monitored: boolean) => void
+  isMonitorUpdating?: boolean
 }
 
 export function EpisodeSlotRow({
   slotStatuses,
-  onToggleMonitored,
-  onManualSearch,
-  onAutoSearch,
-  isUpdating,
-  isSearching,
+  episodeId,
+  seriesId,
+  seriesTitle,
+  seasonNumber,
+  episodeNumber,
+  qualityProfileId,
+  tvdbId,
+  tmdbId,
+  imdbId,
+  slotQualityProfiles,
+  onSlotMonitoredChange,
+  isMonitorUpdating,
 }: EpisodeSlotRowProps) {
   if (!slotStatuses || slotStatuses.length === 0) {
     return null
@@ -37,11 +45,17 @@ export function EpisodeSlotRow({
         <CompactSlotItem
           key={slot.slotId}
           slot={slot}
-          onToggleMonitored={onToggleMonitored}
-          onManualSearch={onManualSearch}
-          onAutoSearch={onAutoSearch}
-          isUpdating={isUpdating}
-          isSearching={isSearching === slot.slotId}
+          episodeId={episodeId}
+          seriesId={seriesId}
+          seriesTitle={seriesTitle}
+          seasonNumber={seasonNumber}
+          episodeNumber={episodeNumber}
+          qualityProfileId={slotQualityProfiles?.[slot.slotId] ?? qualityProfileId}
+          tvdbId={tvdbId}
+          tmdbId={tmdbId}
+          imdbId={imdbId}
+          onMonitoredChange={onSlotMonitoredChange}
+          isMonitorUpdating={isMonitorUpdating}
         />
       ))}
     </div>
@@ -50,25 +64,33 @@ export function EpisodeSlotRow({
 
 interface CompactSlotItemProps {
   slot: SlotStatus
-  onToggleMonitored?: (slotId: number, monitored: boolean) => void
-  onManualSearch?: (slotId: number) => void
-  onAutoSearch?: (slotId: number) => void
-  isUpdating?: boolean
-  isSearching?: boolean
+  episodeId: number
+  seriesId: number
+  seriesTitle: string
+  seasonNumber: number
+  episodeNumber: number
+  qualityProfileId: number
+  tvdbId?: number
+  tmdbId?: number
+  imdbId?: string
+  onMonitoredChange?: (slotId: number, monitored: boolean) => void
+  isMonitorUpdating?: boolean
 }
 
 function CompactSlotItem({
   slot,
-  onToggleMonitored,
-  onManualSearch,
-  onAutoSearch,
-  isUpdating,
-  isSearching,
+  episodeId,
+  seriesId,
+  seriesTitle,
+  seasonNumber,
+  episodeNumber,
+  qualityProfileId,
+  tvdbId,
+  tmdbId,
+  imdbId,
+  onMonitoredChange,
+  isMonitorUpdating,
 }: CompactSlotItemProps) {
-  const handleToggle = (checked: boolean) => {
-    onToggleMonitored?.(slot.slotId, checked)
-  }
-
   return (
     <div className="flex items-center justify-between gap-2 py-1 text-xs">
       <div className="flex items-center gap-2 min-w-0">
@@ -82,55 +104,25 @@ function CompactSlotItem({
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        {isSearching ? (
-          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-        ) : (
-          <>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    onClick={() => onManualSearch?.(slot.slotId)}
-                    disabled={isUpdating}
-                  />
-                }
-              >
-                <Search className="size-3" />
-              </TooltipTrigger>
-              <TooltipContent>Manual search</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    onClick={() => onAutoSearch?.(slot.slotId)}
-                    disabled={isUpdating}
-                  />
-                }
-              >
-                <Zap className="size-3" />
-              </TooltipTrigger>
-              <TooltipContent>Auto search</TooltipContent>
-            </Tooltip>
-          </>
-        )}
-        <Switch
-          checked={slot.monitored}
-          onCheckedChange={handleToggle}
-          disabled={isUpdating}
-          className="scale-75"
+        <MediaSearchMonitorControls
+          mediaType="episode-slot"
+          episodeId={episodeId}
+          slotId={slot.slotId}
+          seriesId={seriesId}
+          seriesTitle={seriesTitle}
+          seasonNumber={seasonNumber}
+          episodeNumber={episodeNumber}
+          title={`${slot.slotName} S${seasonNumber.toString().padStart(2, '0')}E${episodeNumber.toString().padStart(2, '0')}`}
+          theme="tv"
+          size="xs"
+          monitored={slot.monitored}
+          onMonitoredChange={(m) => onMonitoredChange?.(slot.slotId, m)}
+          monitorDisabled={isMonitorUpdating}
+          qualityProfileId={qualityProfileId}
+          tvdbId={tvdbId}
+          tmdbId={tmdbId}
+          imdbId={imdbId}
         />
-        {slot.monitored ? (
-          <Eye className="size-3 text-muted-foreground" />
-        ) : (
-          <EyeOff className="size-3 text-muted-foreground" />
-        )}
       </div>
     </div>
   )

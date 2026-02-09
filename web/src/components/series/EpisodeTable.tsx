@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { UserSearch, Eye, EyeOff, ChevronDown, Loader2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -14,13 +14,10 @@ import {
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { QualityBadge } from '@/components/media/QualityBadge'
 import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
-import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { EpisodeSlotRow } from './EpisodeSlotRow'
-import { useDownloadingStore } from '@/stores'
 import { useEpisodeSlotStatus, useSetEpisodeSlotMonitored } from '@/hooks'
 import { formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -29,13 +26,14 @@ import type { Episode, Slot } from '@/types'
 
 interface EpisodeTableProps {
   seriesId: number
+  seriesTitle: string
+  qualityProfileId: number
+  tvdbId?: number
+  tmdbId?: number
+  imdbId?: string
   episodes: Episode[]
-  onManualSearch?: (episode: Episode) => void
   onMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
-  onSlotManualSearch?: (episodeId: number, slotId: number) => void
-  onSlotAutoSearch?: (episodeId: number, slotId: number) => void
-  searchingSlotId?: number | null
   isMultiVersionEnabled?: boolean
   enabledSlots?: Slot[]
   isAssigning?: boolean
@@ -50,13 +48,14 @@ function getRatingColor(rating: number): string {
 
 export function EpisodeTable({
   seriesId,
+  seriesTitle,
+  qualityProfileId,
+  tvdbId,
+  tmdbId,
+  imdbId,
   episodes,
-  onManualSearch,
   onMonitoredChange,
   onAssignFileToSlot,
-  onSlotManualSearch,
-  onSlotAutoSearch,
-  searchingSlotId,
   isMultiVersionEnabled = false,
   enabledSlots = [],
   isAssigning = false,
@@ -64,24 +63,20 @@ export function EpisodeTable({
 }: EpisodeTableProps) {
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<number | null>(null)
 
-  const queueItems = useDownloadingStore((state) => state.queueItems)
+  const slotQualityProfiles = useMemo(() => {
+    const map: Record<number, number> = {}
+    for (const slot of enabledSlots) {
+      if (slot.qualityProfileId != null) {
+        map[slot.id] = slot.qualityProfileId
+      }
+    }
+    return map
+  }, [enabledSlots])
 
   const getSlotName = (slotId: number | undefined) => {
     if (!slotId) return null
     const slot = enabledSlots.find(s => s.id === slotId)
     return slot?.name ?? null
-  }
-
-  const isEpisodeDownloading = (episodeId: number, sId?: number, seasonNum?: number) => {
-    return queueItems.some((item) => {
-      if (item.status !== 'downloading' && item.status !== 'queued') return false
-      if (item.episodeId === episodeId) return true
-      if (sId && item.seriesId === sId) {
-        if (item.isCompleteSeries) return true
-        if (seasonNum && item.seasonNumber === seasonNum && item.isSeasonPack) return true
-      }
-      return false
-    })
   }
 
   const sortedEpisodes = [...episodes].sort(
@@ -115,20 +110,21 @@ export function EpisodeTable({
             key={episode.id}
             episode={episode}
             seriesId={seriesId}
+            seriesTitle={seriesTitle}
+            qualityProfileId={qualityProfileId}
+            tvdbId={tvdbId}
+            tmdbId={tmdbId}
+            imdbId={imdbId}
             columnCount={columnCount}
             isExpanded={expandedEpisodeId === episode.id}
             onToggleExpanded={() => toggleExpanded(episode.id)}
-            isDownloading={isEpisodeDownloading(episode.id, seriesId, episode.seasonNumber)}
-            searchingSlotId={searchingSlotId}
             isMultiVersionEnabled={isMultiVersionEnabled}
             enabledSlots={enabledSlots}
             isAssigning={isAssigning}
             getSlotName={getSlotName}
-            onManualSearch={onManualSearch}
             onMonitoredChange={onMonitoredChange}
             onAssignFileToSlot={onAssignFileToSlot}
-            onSlotManualSearch={onSlotManualSearch}
-            onSlotAutoSearch={onSlotAutoSearch}
+            slotQualityProfiles={slotQualityProfiles}
             imdbRating={episodeRatings?.[episode.episodeNumber]}
           />
         ))}
@@ -140,40 +136,42 @@ export function EpisodeTable({
 interface EpisodeRowProps {
   episode: Episode
   seriesId: number
+  seriesTitle: string
+  qualityProfileId: number
+  tvdbId?: number
+  tmdbId?: number
+  imdbId?: string
   columnCount: number
   isExpanded: boolean
   onToggleExpanded: () => void
-  isDownloading: boolean
-  searchingSlotId?: number | null
   isMultiVersionEnabled: boolean
   enabledSlots: Slot[]
   isAssigning: boolean
   getSlotName: (slotId: number | undefined) => string | null
-  onManualSearch?: (episode: Episode) => void
   onMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
-  onSlotManualSearch?: (episodeId: number, slotId: number) => void
-  onSlotAutoSearch?: (episodeId: number, slotId: number) => void
+  slotQualityProfiles: Record<number, number>
   imdbRating?: number
 }
 
 function EpisodeRow({
   episode,
-  seriesId: _seriesId,
+  seriesId,
+  seriesTitle,
+  qualityProfileId,
+  tvdbId,
+  tmdbId,
+  imdbId,
   columnCount,
   isExpanded,
   onToggleExpanded,
-  isDownloading: _isDownloading,
-  searchingSlotId,
   isMultiVersionEnabled,
   enabledSlots,
   isAssigning,
   getSlotName,
-  onManualSearch,
   onMonitoredChange,
   onAssignFileToSlot,
-  onSlotManualSearch,
-  onSlotAutoSearch,
+  slotQualityProfiles,
   imdbRating,
 }: EpisodeRowProps) {
   const { data: slotStatus, isLoading: isLoadingSlotStatus } = useEpisodeSlotStatus(
@@ -265,56 +263,24 @@ function EpisodeRow({
           </TableCell>
         )}
         <TableCell className="px-2 py-1.5">
-          <div className="flex items-center gap-1">
-            {onManualSearch && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onManualSearch(episode)}
-                    />
-                  }
-                >
-                  <UserSearch className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Manual Search</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <AutoSearchButton
-              mediaType="episode"
-              episodeId={episode.id}
-              title={`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`}
-              showLabel={false}
-              variant="ghost"
-              size="icon-sm"
-            />
-            {onMonitoredChange && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onMonitoredChange(episode, !episode.monitored)}
-                    />
-                  }
-                >
-                  {episode.monitored ? (
-                    <Eye className="size-3.5 text-tv-400 icon-glow-tv" />
-                  ) : (
-                    <EyeOff className="size-3.5" />
-                  )}
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{episode.monitored ? 'Monitored' : 'Unmonitored'}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
+          <MediaSearchMonitorControls
+            mediaType="episode"
+            episodeId={episode.id}
+            seriesId={seriesId}
+            seriesTitle={seriesTitle}
+            seasonNumber={episode.seasonNumber}
+            episodeNumber={episode.episodeNumber}
+            title={`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`}
+            theme="tv"
+            size="xs"
+            monitored={episode.monitored}
+            onMonitoredChange={(m) => onMonitoredChange?.(episode, m)}
+            monitorDisabled={!onMonitoredChange}
+            qualityProfileId={qualityProfileId}
+            tvdbId={tvdbId}
+            tmdbId={tmdbId}
+            imdbId={imdbId}
+          />
         </TableCell>
       </TableRow>
       {isMultiVersionEnabled && isExpanded && (
@@ -327,11 +293,18 @@ function EpisodeRow({
             ) : slotStatus?.slotStatuses && slotStatus.slotStatuses.length > 0 ? (
               <EpisodeSlotRow
                 slotStatuses={slotStatus.slotStatuses}
-                onToggleMonitored={handleSlotMonitoredChange}
-                onManualSearch={(slotId) => onSlotManualSearch?.(episode.id, slotId)}
-                onAutoSearch={(slotId) => onSlotAutoSearch?.(episode.id, slotId)}
-                isUpdating={setSlotMonitoredMutation.isPending}
-                isSearching={searchingSlotId}
+                episodeId={episode.id}
+                seriesId={seriesId}
+                seriesTitle={seriesTitle}
+                seasonNumber={episode.seasonNumber}
+                episodeNumber={episode.episodeNumber}
+                qualityProfileId={qualityProfileId}
+                tvdbId={tvdbId}
+                tmdbId={tmdbId}
+                imdbId={imdbId}
+                slotQualityProfiles={slotQualityProfiles}
+                onSlotMonitoredChange={handleSlotMonitoredChange}
+                isMonitorUpdating={setSlotMonitoredMutation.isPending}
               />
             ) : (
               <div className="text-xs text-muted-foreground text-center py-2">

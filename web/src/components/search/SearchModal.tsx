@@ -48,6 +48,7 @@ interface SearchModalProps {
   tvdbId?: number
   season?: number
   episode?: number
+  onGrabSuccess?: () => void
 }
 
 type SortColumn = 'score' | 'title' | 'quality' | 'slot' | 'indexer' | 'size' | 'age' | 'peers'
@@ -85,6 +86,7 @@ export function SearchModal({
   tvdbId,
   season,
   episode,
+  onGrabSuccess,
 }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [searchEnabled, setSearchEnabled] = useState(false)
@@ -194,6 +196,7 @@ export function SearchModal({
 
       if (result.success) {
         toast.success(`Grabbed "${release.title}"`)
+        onGrabSuccess?.()
       } else {
         toast.error(result.error || 'Failed to grab release')
       }

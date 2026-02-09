@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import {
-  UserSearch,
   RefreshCw,
   Trash2,
   Edit,
@@ -10,8 +9,6 @@ import {
   Clock,
   UserStar,
   UserRoundPlus,
-  Eye,
-  EyeOff,
   SlidersVertical,
   User,
   Drama,
@@ -26,11 +23,11 @@ import { QualityBadge } from '@/components/media/QualityBadge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { SearchModal } from '@/components/search/SearchModal'
-import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { SlotStatusCard } from '@/components/slots'
 import { MovieEditDialog } from '@/components/movies/MovieEditDialog'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -57,7 +54,7 @@ import {
   useSetMovieSlotMonitored,
   useSlots,
   useAssignMovieFile,
-  useAutoSearchMovieSlot,
+
   useQualityProfiles,
   useExtendedMovieMetadata,
 } from '@/hooks'
@@ -70,8 +67,6 @@ export function MovieDetailPage() {
   const navigate = useNavigate()
   const movieId = parseInt(id)
 
-  const [searchModalOpen, setSearchModalOpen] = useState(false)
-  const [searchQualityProfileId, setSearchQualityProfileId] = useState<number | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [overviewExpanded, setOverviewExpanded] = useState(false)
   const [expandedFileId, setExpandedFileId] = useState<number | null>(null)
@@ -87,11 +82,20 @@ export function MovieDetailPage() {
   const refreshMutation = useRefreshMovie()
   const setSlotMonitoredMutation = useSetMovieSlotMonitored()
   const assignFileMutation = useAssignMovieFile()
-  const autoSearchSlotMutation = useAutoSearchMovieSlot()
+
 
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
-  const [searchingSlotId, setSearchingSlotId] = useState<number | null>(null)
   const enabledSlots = slots?.filter(s => s.enabled) ?? []
+
+  const slotQualityProfiles = useMemo(() => {
+    const map: Record<number, number> = {}
+    for (const slot of enabledSlots) {
+      if (slot.qualityProfileId != null) {
+        map[slot.id] = slot.qualityProfileId
+      }
+    }
+    return map
+  }, [enabledSlots])
 
   const getSlotName = (slotId: number | undefined) => {
     if (!slotId) return null
@@ -99,21 +103,18 @@ export function MovieDetailPage() {
     return slot?.name ?? null
   }
 
-  const handleToggleMonitored = async () => {
+  const handleToggleMonitored = async (newMonitored?: boolean) => {
     if (!movie) return
+    const target = newMonitored ?? !movie.monitored
     try {
       await updateMutation.mutateAsync({
         id: movie.id,
-        data: { monitored: !movie.monitored },
+        data: { monitored: target },
       })
-      toast.success(movie.monitored ? 'Movie unmonitored' : 'Movie monitored')
+      toast.success(target ? 'Movie monitored' : 'Movie unmonitored')
     } catch {
       toast.error('Failed to update movie')
     }
-  }
-
-  const handleManualSearch = () => {
-    setSearchModalOpen(true)
   }
 
   const handleRefresh = async () => {
@@ -145,41 +146,6 @@ export function MovieDetailPage() {
       toast.success(monitored ? 'Slot monitored' : 'Slot unmonitored')
     } catch {
       toast.error('Failed to update slot monitoring')
-    }
-  }
-
-  const handleSlotManualSearch = (slotId: number) => {
-    const slot = slots?.find(s => s.id === slotId)
-    if (slot?.qualityProfileId) {
-      setSearchQualityProfileId(slot.qualityProfileId)
-      setSearchModalOpen(true)
-    } else {
-      toast.error('Slot has no quality profile configured')
-    }
-  }
-
-  const handleSlotAutoSearch = async (slotId: number) => {
-    const slot = slots?.find(s => s.id === slotId)
-    if (!slot?.qualityProfileId) {
-      toast.error('Slot has no quality profile configured')
-      return
-    }
-
-    setSearchingSlotId(slotId)
-    try {
-      const result = await autoSearchSlotMutation.mutateAsync({ movieId, slotId })
-      if (result.downloaded) {
-        toast.success(`Release grabbed for ${slot.name}`)
-        refetch()
-      } else if (result.found) {
-        toast.info(`Release found for ${slot.name} but not grabbed`)
-      } else {
-        toast.info(`No releases found for ${slot.name}`)
-      }
-    } catch {
-      toast.error(`Auto search failed for ${slot.name}`)
-    } finally {
-      setSearchingSlotId(null)
     }
   }
 
@@ -345,47 +311,82 @@ export function MovieDetailPage() {
 
       {/* Actions */}
       <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
-        <Button variant="outline" onClick={handleManualSearch}>
-          <UserSearch className="size-4 mr-2" />
-          Search
-        </Button>
-        <AutoSearchButton
+        <MediaSearchMonitorControls
           mediaType="movie"
           movieId={movie.id}
           title={movie.title}
+          theme="movie"
+          size="responsive"
+          monitored={movie.monitored}
+          onMonitoredChange={handleToggleMonitored}
+          qualityProfileId={movie.qualityProfileId}
+          tmdbId={movie.tmdbId}
+          imdbId={movie.imdbId}
+          year={movie.year}
         />
-        <Button variant="outline" onClick={handleToggleMonitored} className={movie.monitored ? 'glow-movie-sm' : ''}>
-          {movie.monitored ? (
-            <>
-              <Eye className="size-4 mr-2 text-movie-400" />
-              Monitored
-            </>
-          ) : (
-            <>
-              <EyeOff className="size-4 mr-2" />
-              Unmonitored
-            </>
-          )}
-        </Button>
         <div className="ml-auto flex gap-2">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="min-[820px]:hidden"
+                  onClick={handleRefresh}
+                  disabled={refreshMutation.isPending}
+                />
+              }
+            >
+              <RefreshCw className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
           <Button
             variant="outline"
+            className="hidden min-[820px]:inline-flex"
             onClick={handleRefresh}
             disabled={refreshMutation.isPending}
           >
             <RefreshCw className="size-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="min-[820px]:hidden"
+                  onClick={() => setEditDialogOpen(true)}
+                />
+              }
+            >
+              <Edit className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Button variant="outline" className="hidden min-[820px]:inline-flex" onClick={() => setEditDialogOpen(true)}>
             <Edit className="size-4 mr-2" />
             Edit
           </Button>
           <ConfirmDialog
             trigger={
-              <Button variant="destructive">
-                <Trash2 className="size-4 mr-2" />
-                Delete
-              </Button>
+              <>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button variant="destructive" size="icon" className="min-[820px]:hidden" />
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+                <Button variant="destructive" className="hidden min-[820px]:inline-flex">
+                  <Trash2 className="size-4 mr-2" />
+                  Delete
+                </Button>
+              </>
             }
             title="Delete movie"
             description={`Are you sure you want to delete "${movie.title}"? This action cannot be undone.`}
@@ -403,11 +404,15 @@ export function MovieDetailPage() {
           <SlotStatusCard
             status={slotStatus}
             isLoading={isLoadingSlotStatus}
+            movieId={movieId}
+            movieTitle={movie.title}
+            qualityProfileId={movie.qualityProfileId}
+            tmdbId={movie.tmdbId}
+            imdbId={movie.imdbId}
+            year={movie.year}
+            slotQualityProfiles={slotQualityProfiles}
             onToggleMonitored={handleToggleSlotMonitored}
-            onManualSearch={handleSlotManualSearch}
-            onAutoSearch={handleSlotAutoSearch}
             isUpdating={setSlotMonitoredMutation.isPending}
-            isSearching={searchingSlotId}
           />
         )}
 
@@ -555,21 +560,6 @@ export function MovieDetailPage() {
           </Card>
         )}
       </div>
-
-      {/* Search Modal */}
-      <SearchModal
-        open={searchModalOpen}
-        onOpenChange={(open) => {
-          setSearchModalOpen(open)
-          if (!open) setSearchQualityProfileId(null)
-        }}
-        qualityProfileId={searchQualityProfileId ?? movie.qualityProfileId}
-        movieId={movie.id}
-        movieTitle={movie.title}
-        tmdbId={movie.tmdbId}
-        imdbId={movie.imdbId}
-        year={movie.year}
-      />
 
       {/* Edit Dialog */}
       <MovieEditDialog

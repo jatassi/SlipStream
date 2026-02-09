@@ -1,4 +1,4 @@
-import { UserSearch, Eye, EyeOff, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Accordion,
@@ -7,25 +7,23 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { AutoSearchButton } from '@/components/search/AutoSearchButton'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { MediaStatusBadge, type MediaStatus } from '@/components/media/MediaStatusBadge'
 import { EpisodeTable } from './EpisodeTable'
 import type { Season, Episode, Slot, StatusCounts } from '@/types'
 
 interface SeasonListProps {
   seriesId: number
+  seriesTitle: string
+  qualityProfileId: number
+  tvdbId?: number
+  tmdbId?: number
+  imdbId?: string
   seasons: Season[]
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
-  onSeasonSearch?: (seasonNumber: number) => void
-  onEpisodeSearch?: (episode: Episode) => void
   onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
   onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
-  onSlotManualSearch?: (episodeId: number, slotId: number) => void
-  onSlotAutoSearch?: (episodeId: number, slotId: number) => void
-  searchingSlotId?: number | null
   isMultiVersionEnabled?: boolean
   enabledSlots?: Slot[]
   isAssigning?: boolean
@@ -44,16 +42,16 @@ function computeSeasonStatus(counts: StatusCounts): MediaStatus {
 
 export function SeasonList({
   seriesId,
+  seriesTitle,
+  qualityProfileId,
+  tvdbId,
+  tmdbId,
+  imdbId,
   seasons,
   episodes = [],
   onSeasonMonitoredChange,
-  onSeasonSearch,
-  onEpisodeSearch,
   onEpisodeMonitoredChange,
   onAssignFileToSlot,
-  onSlotManualSearch,
-  onSlotAutoSearch,
-  searchingSlotId,
   isMultiVersionEnabled = false,
   enabledSlots = [],
   isAssigning = false,
@@ -113,56 +111,22 @@ export function SeasonList({
                 </Badge>
                 <MediaStatusBadge status={computeSeasonStatus(season.statusCounts)} />
                 <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  {onSeasonSearch && (
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => onSeasonSearch(season.seasonNumber)}
-                          />
-                        }
-                      >
-                        <UserSearch className="size-4" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Manual Search</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <AutoSearchButton
+                  <MediaSearchMonitorControls
                     mediaType="season"
                     seriesId={seriesId}
+                    seriesTitle={seriesTitle}
                     seasonNumber={season.seasonNumber}
                     title={seasonLabel}
-                    showLabel={false}
-                    variant="outline"
+                    theme="tv"
                     size="sm"
+                    monitored={season.monitored}
+                    onMonitoredChange={(m) => onSeasonMonitoredChange?.(season.seasonNumber, m)}
+                    monitorDisabled={!onSeasonMonitoredChange}
+                    qualityProfileId={qualityProfileId}
+                    tvdbId={tvdbId}
+                    tmdbId={tmdbId}
+                    imdbId={imdbId}
                   />
-                  {onSeasonMonitoredChange && (
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            className={season.monitored ? 'glow-tv-sm' : ''}
-                            onClick={() => onSeasonMonitoredChange(season.seasonNumber, !season.monitored)}
-                          />
-                        }
-                      >
-                        {season.monitored ? (
-                          <Eye className="size-4 text-tv-400" />
-                        ) : (
-                          <EyeOff className="size-4" />
-                        )}
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{season.monitored ? 'Monitored' : 'Unmonitored'}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
                 </div>
               </div>
             </AccordionTrigger>
@@ -175,13 +139,14 @@ export function SeasonList({
               {seasonEpisodes.length > 0 ? (
                 <EpisodeTable
                   seriesId={seriesId}
+                  seriesTitle={seriesTitle}
+                  qualityProfileId={qualityProfileId}
+                  tvdbId={tvdbId}
+                  tmdbId={tmdbId}
+                  imdbId={imdbId}
                   episodes={seasonEpisodes}
-                  onManualSearch={onEpisodeSearch}
                   onMonitoredChange={onEpisodeMonitoredChange}
                   onAssignFileToSlot={onAssignFileToSlot}
-                  onSlotManualSearch={onSlotManualSearch}
-                  onSlotAutoSearch={onSlotAutoSearch}
-                  searchingSlotId={searchingSlotId}
                   isMultiVersionEnabled={isMultiVersionEnabled}
                   enabledSlots={enabledSlots}
                   isAssigning={isAssigning}

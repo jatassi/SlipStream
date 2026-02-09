@@ -49,6 +49,7 @@ import { SetupPage } from '@/routes/auth/setup'
 
 // Dev Pages
 import { ColorPreviewPage } from '@/routes/dev/colors'
+import { ControlsShowcasePage } from '@/routes/dev/controls'
 
 // Portal Pages
 import { LoginPage } from '@/routes/requests/auth/login'
@@ -313,6 +314,12 @@ const devColorsRoute = createRoute({
   component: ColorPreviewPage,
 })
 
+const devControlsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/controls',
+  component: ControlsShowcasePage,
+})
+
 // Portal auth routes (no layout)
 const portalLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -415,6 +422,7 @@ const routeTree = rootRoute.addChildren([
   updateRoute,
   // Dev routes
   devColorsRoute,
+  devControlsRoute,
   // Portal auth routes (public)
   portalLoginRoute,
   portalSignupRoute,

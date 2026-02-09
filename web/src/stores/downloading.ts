@@ -8,6 +8,7 @@ interface DownloadingState {
   isSeriesDownloading: (seriesId: number) => boolean
   isSeasonDownloading: (seriesId: number, seasonNumber: number) => boolean
   isEpisodeDownloading: (episodeId: number, seriesId?: number, seasonNumber?: number) => boolean
+  isSlotDownloading: (slotId: number) => boolean
 }
 
 export const useDownloadingStore = create<DownloadingState>((set, get) => ({
@@ -58,5 +59,14 @@ export const useDownloadingStore = create<DownloadingState>((set, get) => ({
       }
       return false
     })
+  },
+
+  isSlotDownloading: (slotId) => {
+    const { queueItems } = get()
+    return queueItems.some(
+      (item) =>
+        item.targetSlotId === slotId &&
+        (item.status === 'downloading' || item.status === 'queued' || item.status === 'paused')
+    )
   },
 }))

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Film, Tv, Search, Zap, Loader2 } from 'lucide-react'
+import { Film, Tv, Binoculars, Zap, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
@@ -44,7 +44,6 @@ export function MissingPage() {
   const { task, clearResult } = useAutoSearchStore()
   const isSearching = task.isRunning || searchAllMutation.isPending || searchMoviesMutation.isPending || searchSeriesMutation.isPending
 
-  // Show toast when task completes
   useEffect(() => {
     if (task.result) {
       const { downloaded, found, failed, totalSearched } = task.result
@@ -72,7 +71,6 @@ export function MissingPage() {
   const isLoading = moviesLoading || seriesLoading
   const isError = moviesError || seriesError
 
-  // Count items
   const movieCount = movies?.length || 0
   const episodeCount = series?.reduce((acc, s) => acc + s.missingCount, 0) || 0
   const totalCount = movieCount + episodeCount
@@ -160,6 +158,22 @@ export function MissingPage() {
 
   const searchCount = getSearchCount()
 
+  const getSearchButtonStyle = () => {
+    const hasMovies = filter === 'movies' || (filter === 'all' && movieCount > 0)
+    const hasSeries = filter === 'series' || (filter === 'all' && episodeCount > 0)
+
+    if (hasMovies && hasSeries) {
+      return 'glow-media-sm'
+    }
+    if (hasMovies) {
+      return 'bg-movie-500 hover:bg-movie-600 glow-movie-sm'
+    }
+    if (hasSeries) {
+      return 'bg-tv-500 hover:bg-tv-600 glow-tv-sm'
+    }
+    return ''
+  }
+
   return (
     <div>
       <PageHeader
@@ -167,7 +181,11 @@ export function MissingPage() {
         description="Media that has been released but not yet downloaded"
         actions={
           searchCount > 0 && (
-            <Button disabled={isSearching} onClick={getSearchHandler()}>
+            <Button
+              disabled={isSearching}
+              onClick={getSearchHandler()}
+              className={cn(getSearchButtonStyle())}
+            >
               {isSearching ? (
                 <Loader2 className="size-4 mr-2 animate-spin" />
               ) : (
@@ -185,16 +203,22 @@ export function MissingPage() {
         className="space-y-4"
       >
         <TabsList>
-          <TabsTrigger value="all">
+          <TabsTrigger
+            value="all"
+            className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
+          >
             All
             {totalCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
+              <span className="ml-2 text-xs data-active:text-black/60">
                 ({totalCount})
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="movies">
-            <Film className="size-4 mr-1" />
+          <TabsTrigger
+            value="movies"
+            className="data-active:bg-white data-active:text-black data-active:glow-movie"
+          >
+            <Film className="size-4 mr-1.5" />
             Movies
             {movieCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">
@@ -202,8 +226,11 @@ export function MissingPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="series">
-            <Tv className="size-4 mr-1" />
+          <TabsTrigger
+            value="series"
+            className="data-active:bg-white data-active:text-black data-active:glow-tv"
+          >
+            <Tv className="size-4 mr-1.5" />
             Series
             {episodeCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">
@@ -213,76 +240,46 @@ export function MissingPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="all" className="space-y-6">
           {movieCount > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Film className="size-5" />
-                  Missing Movies
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <MissingMoviesList movies={movies || []} isSearchingAll={task.isRunning} />
-              </CardContent>
-            </Card>
+            <div className="space-y-3">
+              <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Film className="size-4 text-movie-400" />
+                Movies
+                <span className="text-movie-400">({movieCount})</span>
+              </h2>
+              <MissingMoviesList movies={movies || []} />
+            </div>
           )}
 
           {(series?.length || 0) > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Tv className="size-5" />
-                  Missing Episodes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MissingSeriesList series={series || []} isSearchingAll={task.isRunning} />
-              </CardContent>
-            </Card>
+            <div className="space-y-3">
+              <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Tv className="size-4 text-tv-400" />
+                Episodes
+                <span className="text-tv-400">({episodeCount})</span>
+              </h2>
+              <MissingSeriesList series={series || []} />
+            </div>
           )}
 
           {movieCount === 0 && episodeCount === 0 && (
-            <Card>
-              <CardContent className="py-12">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <Search className="size-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No missing media</h3>
-                  <p className="text-muted-foreground mt-1">
-                    All monitored media that has been released has been downloaded
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center text-center py-16">
+              <Binoculars className="size-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No missing media</h3>
+              <p className="text-muted-foreground mt-1">
+                All monitored media that has been released has been downloaded
+              </p>
+            </div>
           )}
         </TabsContent>
 
         <TabsContent value="movies">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Film className="size-5" />
-                Missing Movies
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <MissingMoviesList movies={movies || []} isSearchingAll={task.isRunning} />
-            </CardContent>
-          </Card>
+          <MissingMoviesList movies={movies || []} />
         </TabsContent>
 
         <TabsContent value="series">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tv className="size-5" />
-                Missing Episodes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MissingSeriesList series={series || []} isSearchingAll={task.isRunning} />
-            </CardContent>
-          </Card>
+          <MissingSeriesList series={series || []} />
         </TabsContent>
       </Tabs>
     </div>

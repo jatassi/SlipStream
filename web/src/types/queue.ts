@@ -27,6 +27,8 @@ export interface QueueItem {
   episodeId?: number
   isSeasonPack?: boolean
   isCompleteSeries?: boolean
+  targetSlotId?: number
+  targetSlotName?: string
 }
 
 export interface QueueStats {

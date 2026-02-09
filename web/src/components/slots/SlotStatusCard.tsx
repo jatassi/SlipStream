@@ -1,9 +1,6 @@
-import { Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock, Search, Zap } from 'lucide-react'
+import { EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -18,27 +15,36 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { MediaSearchMonitorControls } from '@/components/search'
 import type { MediaStatus, SlotStatus } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface SlotStatusCardProps {
   status: MediaStatus | undefined
   isLoading: boolean
+  movieId: number
+  movieTitle: string
+  qualityProfileId: number
+  tmdbId?: number
+  imdbId?: string
+  year?: number
+  slotQualityProfiles?: Record<number, number>
   onToggleMonitored?: (slotId: number, monitored: boolean) => void
-  onManualSearch?: (slotId: number) => void
-  onAutoSearch?: (slotId: number) => void
   isUpdating?: boolean
-  isSearching?: number | null // slotId currently being searched
 }
 
 export function SlotStatusCard({
   status,
   isLoading,
+  movieId,
+  movieTitle,
+  qualityProfileId,
+  tmdbId,
+  imdbId,
+  year,
+  slotQualityProfiles,
   onToggleMonitored,
-  onManualSearch,
-  onAutoSearch,
   isUpdating,
-  isSearching,
 }: SlotStatusCardProps) {
   if (isLoading) {
     return (
@@ -74,8 +80,7 @@ export function SlotStatusCard({
               <TableHead>Slot</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Quality</TableHead>
-              <TableHead>Actions</TableHead>
-              <TableHead className="text-right">Monitored</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -83,11 +88,14 @@ export function SlotStatusCard({
               <SlotStatusRow
                 key={slot.slotId}
                 slot={slot}
+                movieId={movieId}
+                movieTitle={movieTitle}
+                qualityProfileId={slotQualityProfiles?.[slot.slotId] ?? qualityProfileId}
+                tmdbId={tmdbId}
+                imdbId={imdbId}
+                year={year}
                 onToggleMonitored={onToggleMonitored}
-                onManualSearch={onManualSearch}
-                onAutoSearch={onAutoSearch}
                 isUpdating={isUpdating}
-                isSearching={isSearching === slot.slotId}
               />
             ))}
           </TableBody>
@@ -173,25 +181,27 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
 
 interface SlotStatusRowProps {
   slot: SlotStatus
+  movieId: number
+  movieTitle: string
+  qualityProfileId: number
+  tmdbId?: number
+  imdbId?: string
+  year?: number
   onToggleMonitored?: (slotId: number, monitored: boolean) => void
-  onManualSearch?: (slotId: number) => void
-  onAutoSearch?: (slotId: number) => void
   isUpdating?: boolean
-  isSearching?: boolean
 }
 
 function SlotStatusRow({
   slot,
+  movieId,
+  movieTitle,
+  qualityProfileId,
+  tmdbId,
+  imdbId,
+  year,
   onToggleMonitored,
-  onManualSearch,
-  onAutoSearch,
   isUpdating,
-  isSearching,
 }: SlotStatusRowProps) {
-  const handleToggle = (checked: boolean) => {
-    onToggleMonitored?.(slot.slotId, checked)
-  }
-
   return (
     <TableRow>
       <TableCell>
@@ -210,67 +220,30 @@ function SlotStatusRow({
           <span className="text-muted-foreground text-sm">-</span>
         )}
       </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onManualSearch?.(slot.slotId)}
-                  disabled={isSearching}
-                />
-              }
-            >
-              <Search className="size-4" />
-            </TooltipTrigger>
-            <TooltipContent>Manual search for {slot.slotName}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onAutoSearch?.(slot.slotId)}
-                  disabled={isSearching}
-                />
-              }
-            >
-              <Zap className={cn('size-4', isSearching && 'animate-pulse')} />
-            </TooltipTrigger>
-            <TooltipContent>Auto search for {slot.slotName}</TooltipContent>
-          </Tooltip>
-        </div>
-      </TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Label htmlFor={`slot-${slot.slotId}-monitored`} className="sr-only">
-            Monitor slot {slot.slotName}
-          </Label>
-          <Switch
-            id={`slot-${slot.slotId}-monitored`}
-            checked={slot.monitored}
-            onCheckedChange={handleToggle}
-            disabled={isUpdating}
+        <div className="flex items-center justify-end">
+          <MediaSearchMonitorControls
+            mediaType="movie-slot"
+            movieId={movieId}
+            slotId={slot.slotId}
+            title={`${movieTitle} — ${slot.slotName}`}
+            theme="movie"
+            size="sm"
+            monitored={slot.monitored}
+            onMonitoredChange={(m) => onToggleMonitored?.(slot.slotId, m)}
+            monitorDisabled={isUpdating}
+            qualityProfileId={qualityProfileId}
+            tmdbId={tmdbId}
+            imdbId={imdbId}
+            year={year}
           />
-          {slot.monitored ? (
-            <Eye className="size-4 text-muted-foreground" />
-          ) : (
-            <EyeOff className="size-4 text-muted-foreground" />
-          )}
         </div>
       </TableCell>
     </TableRow>
   )
 }
 
-interface SlotStatusBadgeProps {
-  slot: SlotStatus
-}
-
-function SlotStatusBadge({ slot }: SlotStatusBadgeProps) {
+function SlotStatusBadge({ slot }: { slot: SlotStatus }) {
   if (!slot.monitored && slot.status !== 'available' && slot.status !== 'upgradable') {
     return (
       <Badge variant="outline" className="gap-1 text-muted-foreground">

@@ -20,7 +20,7 @@
 [x] Update active task UI
 [x] Update movies/series list pages
 [x] Update detail pages
-[ ] Update missing page
+[x] Update missing page
 [ ] Support for more download clients and indexers (directly refer to *arr codebases)
 [ ] Config backup & restore
 [ ] Simplification, Refactor, Enhanced Test Suite, Security Audit
