@@ -806,9 +806,8 @@ func (s *Service) checkForExistingFile(ctx context.Context, match *LibraryMatch,
 		return ErrNotAnUpgrade
 	}
 
-	// Parse candidate file quality from filename
-	filename := filepath.Base(sourcePath)
-	parsed := scanner.ParseFilename(filename)
+	// Parse candidate file quality from path (falls back to parent dir)
+	parsed := scanner.ParsePath(sourcePath)
 	candidateMatch := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
 
 	if candidateMatch.Matches {

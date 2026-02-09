@@ -683,8 +683,8 @@ func (s *Service) buildTokenContext(
 ) *renamer.TokenContext {
 	filename := filepath.Base(sourcePath)
 
-	// Parse filename for quality/source/codec info
-	parsed := scanner.ParseFilename(filename)
+	// Parse path for quality/source/codec info (falls back to parent dir)
+	parsed := scanner.ParsePath(sourcePath)
 
 	tc := &renamer.TokenContext{
 		OriginalFile:  filename,
@@ -942,9 +942,8 @@ func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, mat
 		return nil, nil
 	}
 
-	// Parse the filename to get release attributes
-	filename := filepath.Base(job.SourcePath)
-	parsed := scanner.ParseFilename(filename)
+	// Parse the path to get release attributes (falls back to parent dir)
+	parsed := scanner.ParsePath(job.SourcePath)
 
 	// Get media ID for slot evaluation
 	var mediaType string
@@ -1021,8 +1020,7 @@ func (s *Service) resolveQualityID(ctx context.Context, match *LibraryMatch, sou
 		return
 	}
 
-	filename := filepath.Base(sourcePath)
-	parsed := scanner.ParseFilename(filename)
+	parsed := scanner.ParsePath(sourcePath)
 	candidateMatch := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
 	if candidateMatch.Matches {
 		match.CandidateQualityID = candidateMatch.MatchedQualityID

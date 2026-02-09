@@ -88,8 +88,8 @@ func (s *Service) AnalyzeSeasonPack(ctx context.Context, downloadPath string, se
 			packFile.Size = stat.Size()
 		}
 
-		// Parse the filename
-		parsed := scanner.ParseFilename(packFile.Filename)
+		// Parse the filename, falling back to parent dir for quality info
+		parsed := scanner.ParsePath(filePath)
 		packFile.ParsedInfo = parsed
 
 		// Check if file is ready for import
@@ -427,7 +427,7 @@ func (s *Service) DetectSeasonPackFromPath(ctx context.Context, downloadPath str
 	episodeCount := 0
 	seasonNumber := 0
 	for _, file := range files {
-		parsed := scanner.ParseFilename(filepath.Base(file))
+		parsed := scanner.ParsePath(file)
 		if parsed.Episode > 0 {
 			episodeCount++
 			if seasonNumber == 0 && parsed.Season > 0 {

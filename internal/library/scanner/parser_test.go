@@ -1095,3 +1095,104 @@ func TestParseFilename_Languages(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePath_QualityFallback(t *testing.T) {
+	tests := []struct {
+		name              string
+		path              string
+		wantQuality       string
+		wantSource        string
+		wantCodec         string
+		wantReleaseGroup  string
+		wantAudioCodecs   []string
+		wantAudioChannels []string
+	}{
+		{
+			name:              "Lincoln Lawyer season pack - inherits quality from parent dir",
+			path:              "/downloads/The Lincoln Lawyer S04 NF WEB-DL 1080p x264 EAC3 DDP 5.1 Subs-InChY/The Lincoln Lawyer.S04E01.7211956.mkv",
+			wantQuality:       "1080p",
+			wantSource:        "WEB-DL",
+			wantCodec:         "x264",
+			wantReleaseGroup:  "InChY",
+			wantAudioCodecs:   []string{"DDP"}, // EAC3 and DDP both normalize to DDP
+			wantAudioChannels: []string{"5.1"},
+		},
+		{
+			name:              "season pack with 2160p BluRay x265",
+			path:              "/downloads/Breaking Bad S05 2160p BluRay x265 HDR10-Group/Breaking.Bad.S05E01.12345.mkv",
+			wantQuality:       "2160p",
+			wantSource:        "BluRay",
+			wantCodec:         "x265",
+			wantReleaseGroup:  "Group",
+			wantAudioCodecs:   nil,
+			wantAudioChannels: nil,
+		},
+		{
+			name:              "file already has quality - no override from parent dir",
+			path:              "/downloads/Show S01 720p HDTV/Show.S01E01.1080p.WEB-DL.x265.mkv",
+			wantQuality:       "1080p",
+			wantSource:        "WEB-DL",
+			wantCodec:         "x265",
+			wantReleaseGroup:  "DL", // WEB-DL causes DL to match as release group
+			wantAudioCodecs:   nil,
+			wantAudioChannels: nil,
+		},
+		{
+			name:              "parent dir also has no quality - stays empty",
+			path:              "/downloads/Some Show S01/Some.Show.S01E01.12345.mkv",
+			wantQuality:       "",
+			wantSource:        "",
+			wantCodec:         "",
+			wantReleaseGroup:  "",
+			wantAudioCodecs:   nil,
+			wantAudioChannels: nil,
+		},
+		{
+			name:              "file at root level - no parent to inherit from",
+			path:              "Show.S01E01.12345.mkv",
+			wantQuality:       "",
+			wantSource:        "",
+			wantCodec:         "",
+			wantReleaseGroup:  "",
+			wantAudioCodecs:   nil,
+			wantAudioChannels: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParsePath(tt.path)
+
+			if result.Quality != tt.wantQuality {
+				t.Errorf("Quality = %q, want %q", result.Quality, tt.wantQuality)
+			}
+			if result.Source != tt.wantSource {
+				t.Errorf("Source = %q, want %q", result.Source, tt.wantSource)
+			}
+			if result.Codec != tt.wantCodec {
+				t.Errorf("Codec = %q, want %q", result.Codec, tt.wantCodec)
+			}
+			if result.ReleaseGroup != tt.wantReleaseGroup {
+				t.Errorf("ReleaseGroup = %q, want %q", result.ReleaseGroup, tt.wantReleaseGroup)
+			}
+			if len(result.AudioCodecs) != len(tt.wantAudioCodecs) {
+				t.Errorf("AudioCodecs = %v, want %v", result.AudioCodecs, tt.wantAudioCodecs)
+			} else {
+				for i, codec := range result.AudioCodecs {
+					if codec != tt.wantAudioCodecs[i] {
+						t.Errorf("AudioCodecs[%d] = %q, want %q", i, codec, tt.wantAudioCodecs[i])
+					}
+				}
+			}
+			if len(result.AudioChannels) != len(tt.wantAudioChannels) {
+				t.Errorf("AudioChannels = %v, want %v", result.AudioChannels, tt.wantAudioChannels)
+			} else {
+				for i, ch := range result.AudioChannels {
+					if ch != tt.wantAudioChannels[i] {
+						t.Errorf("AudioChannels[%d] = %q, want %q", i, ch, tt.wantAudioChannels[i])
+					}
+				}
+			}
+		})
+	}
+}

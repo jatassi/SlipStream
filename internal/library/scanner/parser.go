@@ -202,13 +202,17 @@ var (
 
 // ParseFilename parses a media filename into structured data.
 func ParseFilename(filename string) *ParsedMedia {
-	// Remove extension for parsing
 	ext := filepath.Ext(filename)
 	name := strings.TrimSuffix(filename, ext)
+	parsed := parseMediaName(name)
+	parsed.FilePath = filename
+	return parsed
+}
 
-	parsed := &ParsedMedia{
-		FilePath: filename,
-	}
+// parseMediaName parses a media name (without file extension) into structured data.
+// This is the core parsing logic shared by filename and directory name parsing.
+func parseMediaName(name string) *ParsedMedia {
+	parsed := &ParsedMedia{}
 
 	// Try TV patterns first
 	if match := tvPatternSE.FindStringSubmatch(name); match != nil {
@@ -317,7 +321,7 @@ func ParseFilename(filename string) *ParsedMedia {
 		}
 	}
 
-	// Fallback: just use the filename as title
+	// Fallback: just use the name as title
 	parsed.Title = cleanTitle(name)
 	parseQualityInfo(name, parsed)
 	return parsed
@@ -466,24 +470,75 @@ func ParsePath(fullPath string) *ParsedMedia {
 	filename := filepath.Base(fullPath)
 	parsed := ParseFilename(filename)
 
+	dir := filepath.Dir(fullPath)
+	folderName := filepath.Base(dir)
+
 	// If we didn't get a year for a movie, try the parent folder
-	if !parsed.IsTV && parsed.Year == 0 {
-		dir := filepath.Dir(fullPath)
-		folderName := filepath.Base(dir)
-		folderParsed := ParseFilename(folderName)
+	if !parsed.IsTV && parsed.Year == 0 && folderName != "." && folderName != "/" {
+		// Use parseMediaName directly — directory names have no file extension,
+		// and filepath.Ext would incorrectly treat dots (e.g. "5.1") as extensions.
+		folderParsed := parseMediaName(folderName)
 		if folderParsed.Year != 0 {
 			parsed.Year = folderParsed.Year
-			// Use folder's title when folder parsing was successful (has year)
-			// This handles cases like "The Matrix (1999)/The.Matrix.1080p.BluRay.mkv"
-			// where the filename lacks the proper title format
 			if folderParsed.Title != "" {
 				parsed.Title = folderParsed.Title
 			}
 		}
 	}
 
+	// If the filename yielded no quality info, try inheriting from the parent directory.
+	// This handles season pack directories like "Show S04 NF WEB-DL 1080p x264-Group/"
+	// containing episode files like "Show.S04E01.1234567.mkv" with zero quality info.
+	if parsed.Quality == "" && parsed.Source == "" && folderName != "." && folderName != "/" {
+		folderParsed := parseMediaName(folderName)
+		inheritQualityInfo(parsed, folderParsed)
+	}
+
 	parsed.FilePath = fullPath
 	return parsed
+}
+
+// inheritQualityInfo copies quality-related fields from src to dst when dst has no quality info.
+func inheritQualityInfo(dst, src *ParsedMedia) {
+	if src.Quality == "" && src.Source == "" {
+		return
+	}
+	if dst.Quality == "" {
+		dst.Quality = src.Quality
+	}
+	if dst.Source == "" {
+		dst.Source = src.Source
+	}
+	if dst.Codec == "" {
+		dst.Codec = src.Codec
+	}
+	if len(dst.HDRFormats) == 1 && dst.HDRFormats[0] == "SDR" && len(src.HDRFormats) > 0 {
+		dst.HDRFormats = src.HDRFormats
+	}
+	if len(dst.Attributes) == 0 {
+		dst.Attributes = src.Attributes
+	}
+	if len(dst.AudioCodecs) == 0 {
+		dst.AudioCodecs = src.AudioCodecs
+	}
+	if len(dst.AudioChannels) == 0 {
+		dst.AudioChannels = src.AudioChannels
+	}
+	if len(dst.AudioEnhancements) == 0 {
+		dst.AudioEnhancements = src.AudioEnhancements
+	}
+	if dst.ReleaseGroup == "" {
+		dst.ReleaseGroup = src.ReleaseGroup
+	}
+	if dst.Revision == "" {
+		dst.Revision = src.Revision
+	}
+	if dst.Edition == "" {
+		dst.Edition = src.Edition
+	}
+	if len(dst.Languages) == 0 {
+		dst.Languages = src.Languages
+	}
 }
 
 // ToReleaseAttributes converts ParsedMedia to quality.ReleaseAttributes for profile matching.
