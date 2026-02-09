@@ -714,7 +714,7 @@ func (s *Service) movieToSearchableItem(movie *sqlc.Movie) SearchableItem {
 }
 
 // movieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
-func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.Movie) SearchableItem {
+func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
 	item := SearchableItem{
 		MediaType: MediaTypeMovie,
 		MediaID:   movie.ID,
@@ -733,6 +733,9 @@ func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.Movie) Searc
 	}
 	if movie.QualityProfileID.Valid {
 		item.QualityProfileID = movie.QualityProfileID.Int64
+	}
+	if movie.CurrentQualityID.Valid {
+		item.CurrentQualityID = int(movie.CurrentQualityID.Int64)
 	}
 
 	return item
@@ -764,6 +767,9 @@ func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeU
 	}
 	if row.SeriesQualityProfileID.Valid {
 		item.QualityProfileID = row.SeriesQualityProfileID.Int64
+	}
+	if row.CurrentQualityID.Valid {
+		item.CurrentQualityID = int(row.CurrentQualityID.Int64)
 	}
 
 	return item

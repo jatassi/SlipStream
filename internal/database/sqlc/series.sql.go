@@ -1616,10 +1616,12 @@ SELECT
     s.tmdb_id as series_tmdb_id,
     s.imdb_id as series_imdb_id,
     s.year as series_year,
-    s.quality_profile_id as series_quality_profile_id
+    s.quality_profile_id as series_quality_profile_id,
+    ef.quality_id as current_quality_id
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+JOIN episode_files ef ON e.id = ef.episode_id
 WHERE e.status = 'upgradable'
   AND e.monitored = 1
   AND s.monitored = 1
@@ -1645,6 +1647,7 @@ type ListEpisodeUpgradeCandidatesRow struct {
 	SeriesImdbID           sql.NullString `json:"series_imdb_id"`
 	SeriesYear             sql.NullInt64  `json:"series_year"`
 	SeriesQualityProfileID sql.NullInt64  `json:"series_quality_profile_id"`
+	CurrentQualityID       sql.NullInt64  `json:"current_quality_id"`
 }
 
 // Upgrade candidate queries (status-based)
@@ -1675,6 +1678,7 @@ func (q *Queries) ListEpisodeUpgradeCandidates(ctx context.Context) ([]*ListEpis
 			&i.SeriesImdbID,
 			&i.SeriesYear,
 			&i.SeriesQualityProfileID,
+			&i.CurrentQualityID,
 		); err != nil {
 			return nil, err
 		}

@@ -1114,22 +1114,51 @@ func (q *Queries) ListMovieFilesForRootFolder(ctx context.Context, rootFolderID 
 }
 
 const listMovieUpgradeCandidates = `-- name: ListMovieUpgradeCandidates :many
-SELECT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by FROM movies m
+SELECT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by, mf.quality_id as current_quality_id FROM movies m
+JOIN movie_files mf ON m.id = mf.movie_id
 WHERE m.status = 'upgradable'
   AND m.monitored = 1
 ORDER BY m.release_date DESC
 `
 
+type ListMovieUpgradeCandidatesRow struct {
+	ID                    int64          `json:"id"`
+	Title                 string         `json:"title"`
+	SortTitle             string         `json:"sort_title"`
+	Year                  sql.NullInt64  `json:"year"`
+	TmdbID                sql.NullInt64  `json:"tmdb_id"`
+	ImdbID                sql.NullString `json:"imdb_id"`
+	Overview              sql.NullString `json:"overview"`
+	Runtime               sql.NullInt64  `json:"runtime"`
+	Path                  sql.NullString `json:"path"`
+	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
+	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
+	Monitored             int64          `json:"monitored"`
+	Status                string         `json:"status"`
+	ActiveDownloadID      sql.NullString `json:"active_download_id"`
+	StatusMessage         sql.NullString `json:"status_message"`
+	ReleaseDate           sql.NullTime   `json:"release_date"`
+	PhysicalReleaseDate   sql.NullTime   `json:"physical_release_date"`
+	AddedAt               sql.NullTime   `json:"added_at"`
+	UpdatedAt             sql.NullTime   `json:"updated_at"`
+	TheatricalReleaseDate sql.NullTime   `json:"theatrical_release_date"`
+	Studio                sql.NullString `json:"studio"`
+	TvdbID                sql.NullInt64  `json:"tvdb_id"`
+	ContentRating         sql.NullString `json:"content_rating"`
+	AddedBy               sql.NullInt64  `json:"added_by"`
+	CurrentQualityID      sql.NullInt64  `json:"current_quality_id"`
+}
+
 // Upgrade candidate queries (status-based)
-func (q *Queries) ListMovieUpgradeCandidates(ctx context.Context) ([]*Movie, error) {
+func (q *Queries) ListMovieUpgradeCandidates(ctx context.Context) ([]*ListMovieUpgradeCandidatesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMovieUpgradeCandidates)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*Movie{}
+	items := []*ListMovieUpgradeCandidatesRow{}
 	for rows.Next() {
-		var i Movie
+		var i ListMovieUpgradeCandidatesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -1155,6 +1184,7 @@ func (q *Queries) ListMovieUpgradeCandidates(ctx context.Context) ([]*Movie, err
 			&i.TvdbID,
 			&i.ContentRating,
 			&i.AddedBy,
+			&i.CurrentQualityID,
 		); err != nil {
 			return nil, err
 		}

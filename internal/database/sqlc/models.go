@@ -427,18 +427,20 @@ type ProwlarrIndexerSetting struct {
 }
 
 type QualityProfile struct {
-	ID                   int64        `json:"id"`
-	Name                 string       `json:"name"`
-	Cutoff               int64        `json:"cutoff"`
-	Items                string       `json:"items"`
-	CreatedAt            sql.NullTime `json:"created_at"`
-	UpdatedAt            sql.NullTime `json:"updated_at"`
-	HdrSettings          string       `json:"hdr_settings"`
-	VideoCodecSettings   string       `json:"video_codec_settings"`
-	AudioCodecSettings   string       `json:"audio_codec_settings"`
-	AudioChannelSettings string       `json:"audio_channel_settings"`
-	UpgradesEnabled      int64        `json:"upgrades_enabled"`
-	AllowAutoApprove     int64        `json:"allow_auto_approve"`
+	ID                      int64        `json:"id"`
+	Name                    string       `json:"name"`
+	Cutoff                  int64        `json:"cutoff"`
+	Items                   string       `json:"items"`
+	CreatedAt               sql.NullTime `json:"created_at"`
+	UpdatedAt               sql.NullTime `json:"updated_at"`
+	HdrSettings             string       `json:"hdr_settings"`
+	VideoCodecSettings      string       `json:"video_codec_settings"`
+	AudioCodecSettings      string       `json:"audio_codec_settings"`
+	AudioChannelSettings    string       `json:"audio_channel_settings"`
+	UpgradesEnabled         int64        `json:"upgrades_enabled"`
+	AllowAutoApprove        int64        `json:"allow_auto_approve"`
+	UpgradeStrategy         string       `json:"upgrade_strategy"`
+	CutoffOverridesStrategy int64        `json:"cutoff_overrides_strategy"`
 }
 
 type QueueMedium struct {

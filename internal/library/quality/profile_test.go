@@ -433,3 +433,257 @@ func TestQualityWeightOrdering(t *testing.T) {
 		}
 	}
 }
+
+func TestModalityTier(t *testing.T) {
+	tests := []struct {
+		source string
+		want   int
+	}{
+		{"tv", 1},
+		{"dvd", 2},
+		{"webrip", 3},
+		{"webdl", 4},
+		{"bluray", 5},
+		{"remux", 6},
+		{"unknown", 0},
+		{"", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.source, func(t *testing.T) {
+			got := ModalityTier(tt.source)
+			if got != tt.want {
+				t.Errorf("ModalityTier(%q) = %d, want %d", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsDiscSource(t *testing.T) {
+	tests := []struct {
+		source string
+		want   bool
+	}{
+		{"bluray", true},
+		{"remux", true},
+		{"tv", false},
+		{"dvd", false},
+		{"webrip", false},
+		{"webdl", false},
+		{"unknown", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.source, func(t *testing.T) {
+			if got := IsDiscSource(tt.source); got != tt.want {
+				t.Errorf("IsDiscSource(%q) = %v, want %v", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsValidUpgradeStrategy(t *testing.T) {
+	tests := []struct {
+		s    string
+		want bool
+	}{
+		{"aggressive", true},
+		{"balanced", true},
+		{"resolution_only", true},
+		{"", false},
+		{"invalid", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.s, func(t *testing.T) {
+			if got := IsValidUpgradeStrategy(tt.s); got != tt.want {
+				t.Errorf("IsValidUpgradeStrategy(%q) = %v, want %v", tt.s, got, tt.want)
+			}
+		})
+	}
+}
+
+// allAllowedProfile returns a profile with all qualities allowed and given settings.
+func allAllowedProfile(cutoff int, strategy UpgradeStrategy) Profile {
+	items := make([]QualityItem, len(PredefinedQualities))
+	for i, q := range PredefinedQualities {
+		items[i] = QualityItem{Quality: q, Allowed: true}
+	}
+	return Profile{
+		Cutoff:          cutoff,
+		UpgradesEnabled: true,
+		UpgradeStrategy: strategy,
+		Items:           items,
+	}
+}
+
+func TestProfile_IsUpgrade_Aggressive(t *testing.T) {
+	profile := allAllowedProfile(16, StrategyAggressive) // Bluray-2160p cutoff
+
+	tests := []struct {
+		name        string
+		currentID   int
+		candidateID int
+		want        bool
+	}{
+		{"HDTV-720p→WEBRip-720p is upgrade (higher weight)", 4, 5, true},
+		{"WEBRip-1080p→WEBDL-1080p is upgrade", 9, 10, true},
+		{"WEBDL-1080p→WEBRip-1080p is not upgrade (lower weight)", 10, 9, false},
+		{"same quality not upgrade", 10, 10, false},
+		{"720p→1080p is upgrade", 4, 8, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := profile.IsUpgrade(tt.currentID, tt.candidateID)
+			if got != tt.want {
+				t.Errorf("IsUpgrade(%d, %d) = %v, want %v", tt.currentID, tt.candidateID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProfile_IsUpgrade_Balanced(t *testing.T) {
+	profile := allAllowedProfile(16, StrategyBalanced) // Bluray-2160p cutoff
+
+	tests := []struct {
+		name        string
+		currentID   int
+		candidateID int
+		want        bool
+	}{
+		// Resolution upgrades always accepted
+		{"720p→1080p resolution upgrade", 4, 8, true},
+		{"1080p→2160p resolution upgrade", 8, 13, true},
+		{"Bluray-1080p→HDTV-2160p resolution upgrade wins", 11, 13, true},
+
+		// Non-disc → disc at same resolution = upgrade
+		{"WEBRip-1080p→Bluray-1080p non-disc to disc", 9, 11, true},
+		{"WEBDL-1080p→Bluray-1080p non-disc to disc", 10, 11, true},
+		{"HDTV-1080p→Remux-1080p non-disc to disc", 8, 12, true},
+		{"WEBDL-720p→Bluray-720p non-disc to disc", 6, 7, true},
+
+		// Within same tier at same resolution = not upgrade
+		{"WEBRip-1080p→WEBDL-1080p within non-disc", 9, 10, false},
+		{"HDTV-1080p→WEBRip-1080p within non-disc", 8, 9, false},
+		{"Bluray-1080p→Remux-1080p within disc", 11, 12, false},
+
+		// Disc → non-disc at same resolution = not upgrade
+		{"WEBDL-1080p→WEBRip-1080p not upgrade", 10, 9, false},
+		{"Bluray-1080p→WEBDL-1080p disc to non-disc", 11, 10, false},
+
+		// Other rejections
+		{"same quality not upgrade", 10, 10, false},
+		{"HDTV-720p→HDTV-720p same", 4, 4, false},
+		{"2160p→1080p downgrade", 13, 8, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := profile.IsUpgrade(tt.currentID, tt.candidateID)
+			if got != tt.want {
+				t.Errorf("IsUpgrade(%d, %d) = %v, want %v", tt.currentID, tt.candidateID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProfile_IsUpgrade_ResolutionOnly(t *testing.T) {
+	profile := allAllowedProfile(16, StrategyResolutionOnly) // Bluray-2160p cutoff
+
+	tests := []struct {
+		name        string
+		currentID   int
+		candidateID int
+		want        bool
+	}{
+		{"720p→1080p resolution upgrade", 4, 8, true},
+		{"1080p→2160p resolution upgrade", 8, 13, true},
+		{"WEBRip-1080p→WEBDL-1080p not upgrade (same resolution)", 9, 10, false},
+		{"WEBRip-1080p→Bluray-1080p not upgrade (same resolution)", 9, 11, false},
+		{"HDTV-1080p→Remux-1080p not upgrade (same resolution)", 8, 12, false},
+		{"same quality not upgrade", 10, 10, false},
+		{"2160p→1080p downgrade", 13, 8, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := profile.IsUpgrade(tt.currentID, tt.candidateID)
+			if got != tt.want {
+				t.Errorf("IsUpgrade(%d, %d) = %v, want %v", tt.currentID, tt.candidateID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProfile_IsUpgrade_CutoffOverridesStrategy(t *testing.T) {
+	profile := allAllowedProfile(12, StrategyBalanced) // Remux-1080p cutoff
+	profile.CutoffOverridesStrategy = true
+
+	tests := []struct {
+		name        string
+		currentID   int
+		candidateID int
+		want        bool
+	}{
+		// Candidate matches cutoff exactly → override allows it
+		{"Bluray-1080p→Remux-1080p override grabs cutoff", 11, 12, true},
+		{"WEBDL-1080p→Remux-1080p override grabs cutoff", 10, 12, true},
+		{"HDTV-1080p→Remux-1080p override grabs cutoff", 8, 12, true},
+
+		// Already at cutoff → no upgrade
+		{"Remux-1080p→Remux-2160p already at cutoff", 12, 17, false},
+
+		// Above cutoff → no upgrade
+		{"HDTV-2160p→Remux-2160p above cutoff", 13, 17, false},
+
+		// Candidate is NOT the cutoff quality → normal strategy applies
+		{"WEBDL-1080p→Bluray-1080p non-disc to disc (balanced allows)", 10, 11, true},
+		{"WEBRip-1080p→WEBDL-1080p within non-disc (balanced blocks)", 9, 10, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := profile.IsUpgrade(tt.currentID, tt.candidateID)
+			if got != tt.want {
+				t.Errorf("IsUpgrade(%d, %d) = %v, want %v", tt.currentID, tt.candidateID, got, tt.want)
+			}
+		})
+	}
+
+	// Verify same scenarios without override
+	profile.CutoffOverridesStrategy = false
+	// Bluray-1080p → Remux-1080p: both disc, balanced blocks within-disc
+	if profile.IsUpgrade(11, 12) {
+		t.Error("Without override, Bluray→Remux should be blocked by balanced strategy")
+	}
+}
+
+func TestProfile_IsUpgrade_DefaultStrategy(t *testing.T) {
+	// Empty strategy should default to aggressive behavior
+	profile := allAllowedProfile(16, "")
+
+	// This tests that empty/unrecognized falls back to aggressive (weight-based)
+	// WEBRip-1080p (weight 9) → WEBDL-1080p (weight 10) is upgrade in aggressive
+	got := profile.IsUpgrade(9, 10)
+	if !got {
+		t.Error("Empty strategy should default to aggressive: IsUpgrade(9, 10) = false, want true")
+	}
+
+	// Same with unrecognized strategy
+	profile.UpgradeStrategy = "bogus"
+	got = profile.IsUpgrade(9, 10)
+	if !got {
+		t.Error("Unrecognized strategy should default to aggressive: IsUpgrade(9, 10) = false, want true")
+	}
+}
+
+func TestDefaultProfile_UpgradeStrategy(t *testing.T) {
+	if DefaultProfile().UpgradeStrategy != StrategyBalanced {
+		t.Error("DefaultProfile should use balanced strategy")
+	}
+	if HD1080pProfile().UpgradeStrategy != StrategyBalanced {
+		t.Error("HD1080pProfile should use balanced strategy")
+	}
+	if Ultra4KProfile().UpgradeStrategy != StrategyBalanced {
+		t.Error("Ultra4KProfile should use balanced strategy")
+	}
+}

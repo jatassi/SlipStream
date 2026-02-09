@@ -5,6 +5,50 @@ import (
 	"time"
 )
 
+// UpgradeStrategy controls how quality upgrades are evaluated.
+type UpgradeStrategy string
+
+const (
+	StrategyAggressive    UpgradeStrategy = "aggressive"
+	StrategyBalanced      UpgradeStrategy = "balanced"
+	StrategyResolutionOnly UpgradeStrategy = "resolution_only"
+)
+
+// IsValidUpgradeStrategy checks if a string is a valid upgrade strategy.
+func IsValidUpgradeStrategy(s string) bool {
+	switch UpgradeStrategy(s) {
+	case StrategyAggressive, StrategyBalanced, StrategyResolutionOnly:
+		return true
+	}
+	return false
+}
+
+// ModalityTier returns a numeric tier for a source type.
+// Higher tier = better modality within the same resolution.
+func ModalityTier(source string) int {
+	switch source {
+	case "tv":
+		return 1
+	case "dvd":
+		return 2
+	case "webrip":
+		return 3
+	case "webdl":
+		return 4
+	case "bluray":
+		return 5
+	case "remux":
+		return 6
+	default:
+		return 0
+	}
+}
+
+// IsDiscSource returns true for physical disc sources (bluray, remux).
+func IsDiscSource(source string) bool {
+	return source == "bluray" || source == "remux"
+}
+
 // Quality represents a quality tier.
 type Quality struct {
 	ID         int    `json:"id"`
@@ -22,14 +66,16 @@ type QualityItem struct {
 
 // Profile represents a quality profile.
 type Profile struct {
-	ID               int64         `json:"id"`
-	Name             string        `json:"name"`
-	Cutoff           int           `json:"cutoff"`           // Quality ID at which upgrades stop
-	UpgradesEnabled  bool          `json:"upgradesEnabled"`  // Whether upgrades are enabled for this profile
-	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
-	Items            []QualityItem `json:"items"`            // Ordered list of qualities
-	CreatedAt        time.Time     `json:"createdAt"`
-	UpdatedAt        time.Time     `json:"updatedAt"`
+	ID                      int64           `json:"id"`
+	Name                    string          `json:"name"`
+	Cutoff                  int             `json:"cutoff"`                  // Quality ID at which upgrades stop
+	UpgradesEnabled         bool            `json:"upgradesEnabled"`         // Whether upgrades are enabled for this profile
+	UpgradeStrategy         UpgradeStrategy `json:"upgradeStrategy"`         // How upgrades are evaluated
+	CutoffOverridesStrategy bool            `json:"cutoffOverridesStrategy"` // Always grab cutoff quality even if strategy would block it
+	AllowAutoApprove        bool            `json:"allowAutoApprove"`        // Whether requests using this profile can be auto-approved
+	Items                   []QualityItem   `json:"items"`                   // Ordered list of qualities
+	CreatedAt        time.Time       `json:"createdAt"`
+	UpdatedAt        time.Time       `json:"updatedAt"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -40,11 +86,13 @@ type Profile struct {
 
 // CreateProfileInput is used when creating a new profile.
 type CreateProfileInput struct {
-	Name             string        `json:"name"`
-	Cutoff           int           `json:"cutoff"`
-	UpgradesEnabled  *bool         `json:"upgradesEnabled"`  // Pointer to distinguish unset from false
-	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
-	Items            []QualityItem `json:"items"`
+	Name                    string          `json:"name"`
+	Cutoff                  int             `json:"cutoff"`
+	UpgradesEnabled         *bool           `json:"upgradesEnabled"` // Pointer to distinguish unset from false
+	UpgradeStrategy         UpgradeStrategy `json:"upgradeStrategy"`
+	CutoffOverridesStrategy bool            `json:"cutoffOverridesStrategy"`
+	AllowAutoApprove        bool            `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
+	Items                   []QualityItem   `json:"items"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -55,11 +103,13 @@ type CreateProfileInput struct {
 
 // UpdateProfileInput is used when updating a profile.
 type UpdateProfileInput struct {
-	Name             string        `json:"name"`
-	Cutoff           int           `json:"cutoff"`
-	UpgradesEnabled  bool          `json:"upgradesEnabled"`
-	AllowAutoApprove bool          `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
-	Items            []QualityItem `json:"items"`
+	Name                    string          `json:"name"`
+	Cutoff                  int             `json:"cutoff"`
+	UpgradesEnabled         bool            `json:"upgradesEnabled"`
+	UpgradeStrategy         UpgradeStrategy `json:"upgradeStrategy"`
+	CutoffOverridesStrategy bool            `json:"cutoffOverridesStrategy"`
+	AllowAutoApprove        bool            `json:"allowAutoApprove"` // Whether requests using this profile can be auto-approved
+	Items                   []QualityItem   `json:"items"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -128,6 +178,7 @@ func DefaultProfile() Profile {
 		Name:                 "Any",
 		Cutoff:               11, // Bluray-1080p
 		UpgradesEnabled:      true,
+		UpgradeStrategy:      StrategyBalanced,
 		Items:                items,
 		HDRSettings:          DefaultAttributeSettings(),
 		VideoCodecSettings:   DefaultAttributeSettings(),
@@ -149,6 +200,7 @@ func HD1080pProfile() Profile {
 		Name:                 "HD-1080p",
 		Cutoff:               11, // Bluray-1080p
 		UpgradesEnabled:      true,
+		UpgradeStrategy:      StrategyBalanced,
 		Items:                items,
 		HDRSettings:          DefaultAttributeSettings(),
 		VideoCodecSettings:   DefaultAttributeSettings(),
@@ -170,6 +222,7 @@ func Ultra4KProfile() Profile {
 		Name:                 "Ultra-HD",
 		Cutoff:               16, // Bluray-2160p
 		UpgradesEnabled:      true,
+		UpgradeStrategy:      StrategyBalanced,
 		Items:                items,
 		HDRSettings:          DefaultAttributeSettings(),
 		VideoCodecSettings:   DefaultAttributeSettings(),
@@ -231,30 +284,44 @@ func (p *Profile) IsAcceptable(qualityID int) bool {
 
 // IsUpgrade checks if candidate quality is an upgrade over current quality.
 func (p *Profile) IsUpgrade(currentQualityID, candidateQualityID int) bool {
-	// Validate current quality - invalid quality can't be upgraded
 	currentQuality, ok := GetQualityByID(currentQualityID)
 	if !ok {
 		return false
 	}
 
-	// If we're at or above cutoff, no upgrades
 	if currentQuality.Weight >= p.getCutoffWeight() {
 		return false
 	}
 
-	// Check if candidate is valid
 	candidateQuality, ok := GetQualityByID(candidateQualityID)
 	if !ok {
 		return false
 	}
 
-	// Must be allowed
 	if !p.IsAcceptable(candidateQualityID) {
 		return false
 	}
 
-	// Must be higher weight
-	return candidateQuality.Weight > currentQuality.Weight
+	if p.CutoffOverridesStrategy && candidateQualityID == p.Cutoff {
+		return true
+	}
+
+	switch p.UpgradeStrategy {
+	case StrategyResolutionOnly:
+		return candidateQuality.Resolution > currentQuality.Resolution
+
+	case StrategyBalanced:
+		if candidateQuality.Resolution > currentQuality.Resolution {
+			return true
+		}
+		if candidateQuality.Resolution == currentQuality.Resolution {
+			return IsDiscSource(candidateQuality.Source) && !IsDiscSource(currentQuality.Source)
+		}
+		return false
+
+	default: // aggressive (and fallback for empty/unrecognized)
+		return candidateQuality.Weight > currentQuality.Weight
+	}
 }
 
 // getCutoffWeight returns the weight of the cutoff quality.

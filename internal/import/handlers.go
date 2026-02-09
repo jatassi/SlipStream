@@ -193,13 +193,8 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to determine root folder: "+err.Error())
 	}
 
-	// Check for existing file (upgrade)
-	if err := h.service.checkForExistingFile(ctx, match, req.Path); err != nil {
-		// Non-fatal for manual imports, just means it's not an upgrade
-		_ = err
-	}
-
-	// Process the import synchronously
+	// Process the import synchronously (upgrade check happens inside processImport,
+	// and manual imports bypass the rejection)
 	result, err := h.service.ProcessManualImport(ctx, req.Path, match, req.TargetSlotID)
 
 	resp := ManualImportResponse{

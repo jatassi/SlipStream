@@ -17,11 +17,15 @@ export interface AttributeSettings {
   items: Record<string, AttributeMode> // value -> mode mapping (e.g., { "DV": "required", "HDR10": "preferred" })
 }
 
+export type UpgradeStrategy = 'aggressive' | 'balanced' | 'resolution_only'
+
 export interface QualityProfile {
   id: number
   name: string
   cutoff: number
   upgradesEnabled: boolean
+  upgradeStrategy: UpgradeStrategy
+  cutoffOverridesStrategy: boolean
   allowAutoApprove: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings
@@ -36,6 +40,8 @@ export interface CreateQualityProfileInput {
   name: string
   cutoff: number
   upgradesEnabled: boolean
+  upgradeStrategy: UpgradeStrategy
+  cutoffOverridesStrategy: boolean
   allowAutoApprove: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings
@@ -48,6 +54,8 @@ export interface UpdateQualityProfileInput {
   name: string
   cutoff: number
   upgradesEnabled: boolean
+  upgradeStrategy: UpgradeStrategy
+  cutoffOverridesStrategy: boolean
   allowAutoApprove: boolean
   items: QualityItem[]
   hdrSettings: AttributeSettings

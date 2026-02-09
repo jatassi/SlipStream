@@ -180,7 +180,8 @@ WHERE m.status IN ('missing', 'failed')
 
 -- Upgrade candidate queries (status-based)
 -- name: ListMovieUpgradeCandidates :many
-SELECT m.* FROM movies m
+SELECT m.*, mf.quality_id as current_quality_id FROM movies m
+JOIN movie_files mf ON m.id = mf.movie_id
 WHERE m.status = 'upgradable'
   AND m.monitored = 1
 ORDER BY m.release_date DESC;

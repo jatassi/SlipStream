@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
+import { Loader2, ChevronDown, AlertTriangle, TrendingUp, ArrowRight, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,11 +32,13 @@ import {
   useQualityProfileAttributes,
 } from '@/hooks'
 import type {
+  Quality,
   QualityProfile,
   QualityItem,
   CreateQualityProfileInput,
   AttributeSettings,
   AttributeMode,
+  UpgradeStrategy,
 } from '@/types'
 import { PREDEFINED_QUALITIES, DEFAULT_ATTRIBUTE_SETTINGS } from '@/types'
 
@@ -60,6 +62,130 @@ const MODE_LABELS: Record<AttributeMode, string> = {
   notAllowed: 'Not Allowed',
 }
 
+const UPGRADE_STRATEGY_OPTIONS: { value: UpgradeStrategy; label: string; description: string }[] = [
+  { value: 'balanced', label: 'Balanced', description: 'Upgrade for better resolution or source type' },
+  { value: 'aggressive', label: 'Aggressive', description: 'Upgrade for any higher quality weight' },
+  { value: 'resolution_only', label: 'Resolution Only', description: 'Only upgrade for higher resolution' },
+]
+
+const DISC_SOURCES = new Set(['bluray', 'remux'])
+
+interface UpgradeScenario {
+  from: Quality
+  to: Quality
+  allowed: boolean
+  reason: string
+}
+
+function isUpgradeByStrategy(current: Quality, candidate: Quality, strategy: UpgradeStrategy): boolean {
+  switch (strategy) {
+    case 'resolution_only':
+      return candidate.resolution > current.resolution
+    case 'balanced':
+      if (candidate.resolution > current.resolution) return true
+      if (candidate.resolution === current.resolution) {
+        return DISC_SOURCES.has(candidate.source) && !DISC_SOURCES.has(current.source)
+      }
+      return false
+    default: // aggressive
+      return candidate.weight > current.weight
+  }
+}
+
+function generateScenarios(
+  allowedItems: QualityItem[],
+  strategy: UpgradeStrategy,
+  cutoffId: number,
+  cutoffOverridesStrategy: boolean
+): UpgradeScenario[] {
+  const allowed = allowedItems.filter((i) => i.allowed).map((i) => i.quality)
+  if (allowed.length < 2) return []
+
+  const sorted = [...allowed].sort((a, b) => a.weight - b.weight)
+  const cutoffQ = sorted.find((q) => q.id === cutoffId)
+  const cutoffWeight = cutoffQ?.weight ?? sorted[sorted.length - 1].weight
+
+  const scenarios: UpgradeScenario[] = []
+  const addedKeys = new Set<string>()
+  const add = (s: UpgradeScenario) => {
+    const key = `${s.from.id}-${s.to.id}`
+    if (addedKeys.has(key)) return
+    addedKeys.add(key)
+    scenarios.push(s)
+  }
+
+  const resolutions = [...new Set(sorted.map((q) => q.resolution))].sort((a, b) => a - b)
+
+  for (const res of resolutions) {
+    const atRes = sorted.filter((q) => q.resolution === res)
+    const belowCutoffAtRes = atRes.filter((q) => q.weight < cutoffWeight)
+    if (belowCutoffAtRes.length === 0) continue
+
+    const nonDisc = belowCutoffAtRes.filter((q) => !DISC_SOURCES.has(q.source))
+    const disc = atRes.filter((q) => DISC_SOURCES.has(q.source))
+
+    // Within non-disc (e.g. WEBRip → WEBDL): aggressive ✓, balanced ✗, res_only ✗
+    if (nonDisc.length >= 2) {
+      const from = nonDisc[0]
+      const to = nonDisc[nonDisc.length - 1]
+      const passes = isUpgradeByStrategy(from, to, strategy)
+      add({ from, to, allowed: passes, reason: passes ? 'Better source' : 'Same tier' })
+    }
+
+    // Non-disc → disc (e.g. WEBDL → Bluray): aggressive ✓, balanced ✓, res_only ✗
+    if (nonDisc.length > 0 && disc.length > 0) {
+      const from = nonDisc[nonDisc.length - 1]
+      const to = disc[0]
+      const passes = isUpgradeByStrategy(from, to, strategy)
+      add({ from, to, allowed: passes, reason: passes ? 'Non-disc to disc' : 'Same resolution' })
+    }
+
+    // Within disc (e.g. Bluray → Remux): aggressive ✓, balanced ✗, res_only ✗
+    if (disc.length >= 2 && disc.some((q) => q.weight < cutoffWeight)) {
+      const from = disc[0]
+      const to = disc[disc.length - 1]
+      if (from.weight < cutoffWeight) {
+        const passes = isUpgradeByStrategy(from, to, strategy)
+        add({ from, to, allowed: passes, reason: passes ? 'Better source' : 'Same tier' })
+      }
+    }
+  }
+
+  // Resolution upgrades across tiers
+  for (let i = 0; i < resolutions.length - 1; i++) {
+    const fromQ = sorted.filter((q) => q.resolution === resolutions[i])
+    const toQ = sorted.filter((q) => q.resolution === resolutions[i + 1])
+    const from = fromQ[fromQ.length - 1]
+    const to = toQ[0]
+    if (from.weight >= cutoffWeight) continue
+    add({ from, to, allowed: true, reason: 'Higher resolution' })
+  }
+
+  // Cutoff override: show a scenario where the override bypasses strategy
+  if (cutoffOverridesStrategy && cutoffQ) {
+    const belowCutoff = sorted.filter((q) => q.weight < cutoffWeight)
+    const overrideFrom = [...belowCutoff].reverse().find(
+      (q) => !isUpgradeByStrategy(q, cutoffQ, strategy)
+    )
+    if (overrideFrom) {
+      add({ from: overrideFrom, to: cutoffQ, allowed: true, reason: 'Cutoff override' })
+    }
+  }
+
+  // Cutoff block
+  const atCutoff = sorted.filter((q) => q.weight >= cutoffWeight)
+  if (atCutoff.length > 0) {
+    const from = atCutoff[0]
+    const higher = sorted.find((q) => q.weight > from.weight)
+    if (higher) {
+      add({ from, to: higher, allowed: false, reason: 'At cutoff' })
+    }
+  }
+
+  // Sort: allowed first, then blocked
+  return scenarios.sort((a, b) => (a.allowed === b.allowed ? 0 : a.allowed ? -1 : 1))
+}
+
 const defaultItems: QualityItem[] = PREDEFINED_QUALITIES.map((q) => ({
   quality: q,
   allowed: q.weight >= 10,
@@ -69,6 +195,8 @@ const defaultFormData: CreateQualityProfileInput = {
   name: '',
   cutoff: 10,
   upgradesEnabled: true,
+  upgradeStrategy: 'balanced',
+  cutoffOverridesStrategy: false,
   allowAutoApprove: false,
   items: defaultItems,
   hdrSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -102,6 +230,8 @@ export function QualityProfileDialog({
           name: profile.name,
           cutoff: profile.cutoff,
           upgradesEnabled: profile.upgradesEnabled ?? true,
+          upgradeStrategy: profile.upgradeStrategy || 'balanced',
+          cutoffOverridesStrategy: profile.cutoffOverridesStrategy ?? false,
           allowAutoApprove: profile.allowAutoApprove ?? false,
           items: profile.items,
           hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -331,6 +461,63 @@ export function QualityProfileDialog({
             />
           </div>
 
+          {/* Upgrade Strategy */}
+          <div className="space-y-2">
+            <Label className={!formData.upgradesEnabled ? 'text-muted-foreground' : ''}>
+              Upgrade Strategy
+            </Label>
+            <Select
+              value={formData.upgradeStrategy}
+              onValueChange={(v) => v && setFormData((prev) => ({ ...prev, upgradeStrategy: v as UpgradeStrategy }))}
+              disabled={!formData.upgradesEnabled}
+            >
+              <SelectTrigger className={`w-full ${!formData.upgradesEnabled ? 'opacity-50' : ''}`}>
+                {UPGRADE_STRATEGY_OPTIONS.find((o) => o.value === formData.upgradeStrategy)?.label || 'Select strategy'}
+              </SelectTrigger>
+              <SelectContent>
+                {UPGRADE_STRATEGY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div>
+                      <div>{option.label}</div>
+                      <div className="text-xs text-muted-foreground">{option.description}</div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Upgrade Strategy Preview */}
+          {formData.upgradesEnabled && allowedQualities.length >= 2 && (
+            <UpgradeStrategyPreview
+              allowedQualities={formData.items}
+              strategy={formData.upgradeStrategy}
+              cutoffId={formData.cutoff}
+              cutoffOverridesStrategy={formData.cutoffOverridesStrategy}
+            />
+          )}
+
+          {/* Cutoff Overrides Strategy Toggle */}
+          <div className={`flex items-center justify-between rounded-lg border p-3 ${
+            !formData.upgradesEnabled || formData.upgradeStrategy === 'aggressive' ? 'opacity-50' : ''
+          }`}>
+            <div className="space-y-0.5">
+              <Label className={!formData.upgradesEnabled || formData.upgradeStrategy === 'aggressive' ? 'text-muted-foreground' : ''}>
+                Cutoff Overrides Strategy
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Always grab cutoff quality even if strategy would block it
+              </p>
+            </div>
+            <Switch
+              checked={formData.cutoffOverridesStrategy}
+              disabled={!formData.upgradesEnabled || formData.upgradeStrategy === 'aggressive'}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, cutoffOverridesStrategy: checked }))
+              }
+            />
+          </div>
+
           {/* Allow Auto-Approve Toggle */}
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
@@ -423,6 +610,75 @@ export function QualityProfileDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ScenarioRow({ scenario }: { scenario: UpgradeScenario }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      {scenario.allowed ? (
+        <Check className="size-3.5 shrink-0 text-green-500" />
+      ) : (
+        <X className="size-3.5 shrink-0 text-red-500" />
+      )}
+      <Badge
+        variant="secondary"
+        className={`font-normal text-xs px-1.5 py-0 ${scenario.allowed ? '' : 'opacity-60'}`}
+      >
+        {scenario.from.name}
+        <ArrowRight className="size-3 mx-1 inline" />
+        {scenario.to.name}
+      </Badge>
+      <span className="text-[10px] text-muted-foreground">{scenario.reason}</span>
+    </div>
+  )
+}
+
+function UpgradeStrategyPreview({
+  allowedQualities,
+  strategy,
+  cutoffId,
+  cutoffOverridesStrategy,
+}: {
+  allowedQualities: QualityItem[]
+  strategy: UpgradeStrategy
+  cutoffId: number
+  cutoffOverridesStrategy: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const scenarios = generateScenarios(allowedQualities, strategy, cutoffId, cutoffOverridesStrategy)
+  if (scenarios.length === 0) return null
+
+  const allowedCount = scenarios.filter((s) => s.allowed).length
+  const blockedCount = scenarios.length - allowedCount
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+        <CollapsibleTrigger className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <TrendingUp className="size-3" />
+            Upgrade Preview
+          </div>
+          <div className="flex items-center gap-2">
+            {allowedCount > 0 && (
+              <span className="text-[10px] text-green-500">{allowedCount} allowed</span>
+            )}
+            {blockedCount > 0 && (
+              <span className="text-[10px] text-red-500">{blockedCount} blocked</span>
+            )}
+            <ChevronDown
+              className={`size-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1.5 pt-1.5">
+          {scenarios.map((s, i) => (
+            <ScenarioRow key={i} scenario={s} />
+          ))}
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   )
 }
 

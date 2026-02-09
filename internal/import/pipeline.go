@@ -361,16 +361,25 @@ func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResu
 	// In multi-version mode, checkForExistingFile is a no-op — slot evaluation handles upgrades.
 	if err := s.checkForExistingFile(ctx, match, job.SourcePath); err != nil {
 		if errors.Is(err, ErrNotAnUpgrade) {
-			s.logger.Info().
-				Str("path", job.SourcePath).
-				Int("candidateQuality", match.CandidateQualityID).
-				Int("existingQuality", match.ExistingQualityID).
-				Msg("File is not a quality upgrade, rejecting")
-			s.recordImportDecision(ctx, job.SourcePath, "not_upgrade", match)
-			result.Error = err
-			return result, err
+			if job.Manual {
+				s.logger.Info().
+					Str("path", job.SourcePath).
+					Int("candidateQuality", match.CandidateQualityID).
+					Int("existingQuality", match.ExistingQualityID).
+					Msg("File is not a quality upgrade, but manual import — proceeding anyway")
+			} else {
+				s.logger.Info().
+					Str("path", job.SourcePath).
+					Int("candidateQuality", match.CandidateQualityID).
+					Int("existingQuality", match.ExistingQualityID).
+					Msg("File is not a quality upgrade, rejecting")
+				s.recordImportDecision(ctx, job.SourcePath, "not_upgrade", match)
+				result.Error = err
+				return result, err
+			}
+		} else {
+			s.logger.Debug().Err(err).Msg("checkForExistingFile returned error")
 		}
-		s.logger.Debug().Err(err).Msg("checkForExistingFile returned error")
 	}
 
 	// Step 3: Use empty MediaInfo initially - probe will happen after hardlink

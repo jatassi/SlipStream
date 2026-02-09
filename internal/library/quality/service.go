@@ -133,16 +133,28 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 		allowAutoApprove = 1
 	}
 
+	cutoffOverridesStrategy := int64(0)
+	if input.CutoffOverridesStrategy {
+		cutoffOverridesStrategy = 1
+	}
+
+	upgradeStrategy := string(input.UpgradeStrategy)
+	if !IsValidUpgradeStrategy(upgradeStrategy) {
+		upgradeStrategy = string(StrategyBalanced)
+	}
+
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
-		Name:                 input.Name,
-		Cutoff:               int64(input.Cutoff),
-		Items:                itemsJSON,
-		HdrSettings:          hdrJSON,
-		VideoCodecSettings:   videoCodecJSON,
-		AudioCodecSettings:   audioCodecJSON,
-		AudioChannelSettings: audioChannelJSON,
-		UpgradesEnabled:      upgradesEnabled,
-		AllowAutoApprove:     allowAutoApprove,
+		Name:                    input.Name,
+		Cutoff:                  int64(input.Cutoff),
+		Items:                   itemsJSON,
+		HdrSettings:             hdrJSON,
+		VideoCodecSettings:      videoCodecJSON,
+		AudioCodecSettings:      audioCodecJSON,
+		AudioChannelSettings:    audioChannelJSON,
+		UpgradesEnabled:         upgradesEnabled,
+		AllowAutoApprove:        allowAutoApprove,
+		UpgradeStrategy:         upgradeStrategy,
+		CutoffOverridesStrategy: cutoffOverridesStrategy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -193,17 +205,29 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		allowAutoApprove = 1
 	}
 
+	cutoffOverridesStrategy := int64(0)
+	if input.CutoffOverridesStrategy {
+		cutoffOverridesStrategy = 1
+	}
+
+	upgradeStrategy := string(input.UpgradeStrategy)
+	if !IsValidUpgradeStrategy(upgradeStrategy) {
+		upgradeStrategy = string(StrategyBalanced)
+	}
+
 	row, err := s.queries.UpdateQualityProfile(ctx, sqlc.UpdateQualityProfileParams{
-		ID:                   id,
-		Name:                 input.Name,
-		Cutoff:               int64(input.Cutoff),
-		Items:                itemsJSON,
-		HdrSettings:          hdrJSON,
-		VideoCodecSettings:   videoCodecJSON,
-		AudioCodecSettings:   audioCodecJSON,
-		AudioChannelSettings: audioChannelJSON,
-		UpgradesEnabled:      upgradesEnabled,
-		AllowAutoApprove:     allowAutoApprove,
+		ID:                      id,
+		Name:                    input.Name,
+		Cutoff:                  int64(input.Cutoff),
+		Items:                   itemsJSON,
+		HdrSettings:             hdrJSON,
+		VideoCodecSettings:      videoCodecJSON,
+		AudioCodecSettings:      audioCodecJSON,
+		AudioChannelSettings:    audioChannelJSON,
+		UpgradesEnabled:         upgradesEnabled,
+		AllowAutoApprove:        allowAutoApprove,
+		UpgradeStrategy:         upgradeStrategy,
+		CutoffOverridesStrategy: cutoffOverridesStrategy,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -322,12 +346,19 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		audioChannelSettings = DefaultAttributeSettings()
 	}
 
+	upgradeStrategy := UpgradeStrategy(row.UpgradeStrategy)
+	if !IsValidUpgradeStrategy(string(upgradeStrategy)) {
+		upgradeStrategy = StrategyBalanced
+	}
+
 	p := &Profile{
-		ID:                   row.ID,
-		Name:                 row.Name,
-		Cutoff:               int(row.Cutoff),
-		UpgradesEnabled:      row.UpgradesEnabled == 1,
-		AllowAutoApprove:     row.AllowAutoApprove == 1,
+		ID:                      row.ID,
+		Name:                    row.Name,
+		Cutoff:                  int(row.Cutoff),
+		UpgradesEnabled:         row.UpgradesEnabled == 1,
+		UpgradeStrategy:         upgradeStrategy,
+		CutoffOverridesStrategy: row.CutoffOverridesStrategy == 1,
+		AllowAutoApprove:        row.AllowAutoApprove == 1,
 		Items:                items,
 		HDRSettings:          hdrSettings,
 		VideoCodecSettings:   videoCodecSettings,
