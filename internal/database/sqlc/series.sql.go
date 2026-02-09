@@ -1621,7 +1621,9 @@ SELECT
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-JOIN episode_files ef ON e.id = ef.episode_id
+JOIN episode_files ef ON ef.id = (
+    SELECT id FROM episode_files WHERE episode_id = e.id ORDER BY id DESC LIMIT 1
+)
 WHERE e.status = 'upgradable'
   AND e.monitored = 1
   AND s.monitored = 1
@@ -2303,7 +2305,9 @@ SELECT e.id, e.series_id, e.season_number, e.episode_number, e.title, e.overview
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 JOIN seasons sea ON e.series_id = sea.series_id AND e.season_number = sea.season_number
-JOIN episode_files ef ON e.id = ef.episode_id
+JOIN episode_files ef ON ef.id = (
+    SELECT id FROM episode_files WHERE episode_id = e.id ORDER BY id DESC LIMIT 1
+)
 WHERE e.status = 'upgradable' AND e.monitored = 1 AND s.monitored = 1 AND sea.monitored = 1
 ORDER BY e.air_date DESC
 `

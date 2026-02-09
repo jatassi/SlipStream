@@ -1115,7 +1115,9 @@ func (q *Queries) ListMovieFilesForRootFolder(ctx context.Context, rootFolderID 
 
 const listMovieUpgradeCandidates = `-- name: ListMovieUpgradeCandidates :many
 SELECT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by, mf.quality_id as current_quality_id FROM movies m
-JOIN movie_files mf ON m.id = mf.movie_id
+JOIN movie_files mf ON mf.id = (
+    SELECT id FROM movie_files WHERE movie_id = m.id ORDER BY id DESC LIMIT 1
+)
 WHERE m.status = 'upgradable'
   AND m.monitored = 1
 ORDER BY m.release_date DESC
@@ -1465,7 +1467,9 @@ func (q *Queries) ListUnmatchedMoviesByRootFolder(ctx context.Context, rootFolde
 const listUpgradableMoviesWithQuality = `-- name: ListUpgradableMoviesWithQuality :many
 SELECT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by, mf.quality_id as current_quality_id
 FROM movies m
-JOIN movie_files mf ON m.id = mf.movie_id
+JOIN movie_files mf ON mf.id = (
+    SELECT id FROM movie_files WHERE movie_id = m.id ORDER BY id DESC LIMIT 1
+)
 WHERE m.status = 'upgradable' AND m.monitored = 1
 ORDER BY m.release_date DESC
 `
