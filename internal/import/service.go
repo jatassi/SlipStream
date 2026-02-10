@@ -933,18 +933,18 @@ func (s *Service) dispatchImportNotification(ctx context.Context, result *Import
 		return
 	}
 
-	quality := ""
-	if result.MediaInfo != nil {
-		quality = result.MediaInfo.VideoResolution
-	}
+	newQuality := qualityNameFromID(result.Match.CandidateQualityID)
+	oldQuality := qualityNameFromID(result.Match.ExistingQualityID)
 
 	if result.IsUpgrade {
 		event := UpgradeNotificationEvent{
 			MediaType:   result.Match.MediaType,
+			OldQuality:  oldQuality,
 			OldPath:     result.PreviousFile,
 			NewPath:     result.DestinationPath,
-			NewQuality:  quality,
+			NewQuality:  newQuality,
 			ReleaseName: filepath.Base(result.SourcePath),
+			SlotID:      result.AssignedSlotID,
 		}
 
 		if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
@@ -974,10 +974,11 @@ func (s *Service) dispatchImportNotification(ctx context.Context, result *Import
 	} else {
 		event := ImportNotificationEvent{
 			MediaType:       result.Match.MediaType,
-			Quality:         quality,
+			Quality:         newQuality,
 			SourcePath:      result.SourcePath,
 			DestinationPath: result.DestinationPath,
 			ReleaseName:     filepath.Base(result.SourcePath),
+			SlotID:          result.AssignedSlotID,
 		}
 
 		if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
@@ -1005,4 +1006,12 @@ func (s *Service) dispatchImportNotification(ctx context.Context, result *Import
 
 		s.notifier.DispatchImport(ctx, event)
 	}
+}
+
+// qualityNameFromID returns the quality name for a given ID, or empty string if unknown.
+func qualityNameFromID(id int) string {
+	if q, ok := quality.GetQualityByID(id); ok {
+		return q.Name
+	}
+	return ""
 }

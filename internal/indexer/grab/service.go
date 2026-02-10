@@ -36,9 +36,17 @@ type QueueTrigger interface {
 	Trigger()
 }
 
+// GrabMediaContext contains media metadata for grab notifications.
+type GrabMediaContext struct {
+	MediaType    string // "movie", "episode", "season"
+	MediaID      int64  // movie_id, episode_id, or series_id (for season packs)
+	SeriesID     int64  // For episodes/seasons
+	SeasonNumber int
+}
+
 // NotificationService interface for sending external notifications.
 type NotificationService interface {
-	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string)
+	OnGrab(ctx context.Context, release *types.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string, media *GrabMediaContext)
 }
 
 // PortalStatusTracker tracks download status for portal request mirroring.
@@ -266,7 +274,13 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 
 	// Send external notifications
 	if s.notificationService != nil {
-		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID, req.TargetSlotID, "")
+		media := &GrabMediaContext{
+			MediaType:    req.MediaType,
+			MediaID:      req.MediaID,
+			SeriesID:     req.SeriesID,
+			SeasonNumber: req.SeasonNumber,
+		}
+		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID, req.TargetSlotID, "", media)
 	}
 
 	s.logger.Info().

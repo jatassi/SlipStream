@@ -504,7 +504,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.healthService.SetNotifier(s.notificationService)
 
 	// Wire up notification service to grab service
-	s.grabService.SetNotificationService(&grabNotificationAdapter{s.notificationService})
+	s.grabService.SetNotificationService(&grabNotificationAdapter{
+		svc:    s.notificationService,
+		movies: s.movieService,
+		tv:     s.tvService,
+	})
 
 	// Wire up notification service to movies service
 	s.movieService.SetNotificationDispatcher(&movieNotificationAdapter{s.notificationService})
@@ -2169,17 +2173,20 @@ func (a *slotRootFolderAdapter) Get(ctx context.Context, id int64) (*slots.RootF
 
 // grabNotificationAdapter adapts notification.Service to grab.NotificationService interface.
 type grabNotificationAdapter struct {
-	svc *notification.Service
+	svc    *notification.Service
+	movies *movies.Service
+	tv     *tv.Service
 }
 
 // OnGrab implements grab.NotificationService.
-func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTypes.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string) {
+func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTypes.ReleaseInfo, clientName string, clientID int64, downloadID string, slotID *int64, slotName string, media *grab.GrabMediaContext) {
 	event := notification.GrabEvent{
 		Release: notification.ReleaseInfo{
 			ReleaseName: release.Title,
 			Quality:     release.Quality,
 			Size:        release.Size,
 			Indexer:     release.IndexerName,
+			Languages:   release.Languages,
 		},
 		DownloadClient: notification.DownloadClientInfo{
 			ID:         clientID,
@@ -2197,7 +2204,48 @@ func (a *grabNotificationAdapter) OnGrab(ctx context.Context, release *indexerTy
 		}
 	}
 
-	// TODO: Add movie/episode info from release if available
+	// Populate media info from grab context
+	if media != nil {
+		switch media.MediaType {
+		case "movie":
+			if media.MediaID > 0 {
+				if movie, err := a.movies.Get(ctx, media.MediaID); err == nil {
+					event.Movie = &notification.MediaInfo{
+						ID:    movie.ID,
+						Title: movie.Title,
+						Year:  movie.Year,
+					}
+				}
+			}
+		case "episode":
+			if media.MediaID > 0 {
+				ep := &notification.EpisodeInfo{}
+				if episode, err := a.tv.GetEpisode(ctx, media.MediaID); err == nil {
+					ep.EpisodeNumber = episode.EpisodeNumber
+					ep.EpisodeTitle = episode.Title
+				}
+				if media.SeriesID > 0 {
+					ep.SeriesID = media.SeriesID
+					if series, err := a.tv.GetSeries(ctx, media.SeriesID); err == nil {
+						ep.SeriesTitle = series.Title
+					}
+				}
+				ep.SeasonNumber = media.SeasonNumber
+				event.Episode = ep
+			}
+		case "season":
+			if media.SeriesID > 0 {
+				ep := &notification.EpisodeInfo{
+					SeriesID:     media.SeriesID,
+					SeasonNumber: media.SeasonNumber,
+				}
+				if series, err := a.tv.GetSeries(ctx, media.SeriesID); err == nil {
+					ep.SeriesTitle = series.Title
+				}
+				event.Episode = ep
+			}
+		}
+	}
 
 	a.svc.Dispatch(ctx, notification.EventGrab, event)
 }
@@ -2306,15 +2354,16 @@ func (a *importNotificationAdapter) DispatchImport(ctx context.Context, event im
 			Year:  event.MovieYear,
 		}
 	} else if event.MediaType == "episode" {
-		notifEvent.Episode = &notification.EpisodeInfo{
+		ep := &notification.EpisodeInfo{
 			SeriesTitle:   event.SeriesTitle,
 			SeasonNumber:  event.SeasonNumber,
 			EpisodeNumber: event.EpisodeNumber,
 			EpisodeTitle:  event.EpisodeTitle,
 		}
 		if event.SeriesID != nil {
-			notifEvent.Episode.SeriesID = *event.SeriesID
+			ep.SeriesID = *event.SeriesID
 		}
+		notifEvent.Episode = ep
 	}
 
 	if event.SlotID != nil {
@@ -2345,15 +2394,16 @@ func (a *importNotificationAdapter) DispatchUpgrade(ctx context.Context, event i
 			Year:  event.MovieYear,
 		}
 	} else if event.MediaType == "episode" {
-		notifEvent.Episode = &notification.EpisodeInfo{
+		ep := &notification.EpisodeInfo{
 			SeriesTitle:   event.SeriesTitle,
 			SeasonNumber:  event.SeasonNumber,
 			EpisodeNumber: event.EpisodeNumber,
 			EpisodeTitle:  event.EpisodeTitle,
 		}
 		if event.SeriesID != nil {
-			notifEvent.Episode.SeriesID = *event.SeriesID
+			ep.SeriesID = *event.SeriesID
 		}
+		notifEvent.Episode = ep
 	}
 
 	if event.SlotID != nil {
