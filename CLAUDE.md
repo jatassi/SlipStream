@@ -380,6 +380,40 @@ function usePasskeySupport() {
 ### Service Layer
 Handlers delegate to service structs (e.g., `movies.Service`, `metadata.Service`) which wrap sqlc queries. Services are injected into handlers during server setup.
 
+### Auto Search & Upgrade Pipeline
+
+Auto search finds and grabs releases for missing or upgradable media. Understanding the full flow is critical when modifying this area — bugs here cause repeated erroneous downloads.
+
+**Key files:**
+- `internal/autosearch/service.go` — Core search/grab logic, SearchableItem construction
+- `internal/autosearch/scheduled.go` — Scheduled task that collects items and dispatches searches
+- `internal/indexer/scoring/scorer.go` — Release scoring and quality matching
+- `internal/indexer/search/router.go` — Search routing (Prowlarr vs direct indexers)
+- `internal/import/pipeline.go` — Post-download import with quality upgrade validation
+
+**Search flow for TV upgrades (the most complex path):**
+1. Scheduled task calls `collectUpgradeEpisodes` which groups upgradable episodes by season
+2. If all episodes in a season are upgradable → `SearchSeasonUpgrade` (season pack with upgrade checks)
+3. `SearchSeasonUpgrade` creates a season pack `SearchableItem` with `HasFile=true` and `CurrentQualityID` set
+4. `selectBestRelease` filters: season pack parsing → quality acceptable check → **upgrade check** (skips if `!HasFile`)
+5. If no season pack upgrade found → falls back to individual episodes via `SearchEpisode`
+6. `SearchEpisode` has an E01 fallback that retries as a season pack for missing episodes only (`!item.HasFile`)
+
+**Critical invariant — `SearchableItem` must carry file info:**
+When an episode/movie has a file, the `SearchableItem` MUST have `HasFile=true` and `CurrentQualityID` set to the highest quality across all file records. Without this, `selectBestRelease` skips the upgrade check entirely and grabs any matching release.
+
+**Common pitfalls:**
+- `seriesToSeasonPackItem` does NOT set `HasFile`/`CurrentQualityID` — callers must set these explicitly for upgrade scenarios (see `SearchSeasonUpgrade` lines 285-286)
+- Duplicate file records can exist from re-imports — always use the highest `quality_id` across all files, never just `files[0]`
+- The E01 season pack fallback in `SearchEpisode` must NOT run for upgradable episodes — the season pack search was already attempted by `SearchSeasonUpgrade` with proper guards
+- `selectBestRelease` only checks upgrades when `item.HasFile` is true — if file info is lost when constructing a `SearchableItem`, the upgrade check is silently skipped
+
+**Quality system basics:**
+- Each quality has a unique ID and weight (e.g., WEBDL-2160p = ID 15, weight 15)
+- `profile.IsUpgrade(currentID, releaseID)` checks if the release quality is strictly better
+- `profile.IsAcceptable(qualityID)` checks if a quality is allowed in the profile
+- Profile cutoff determines the "upgradable" vs "available" boundary
+
 ## Testing Notes
 
 Unit tests are in `*_test.go` files alongside source. Integration tests may use `internal/testutil` helpers. Scanner tests parse media filenames; quality tests validate profile matching logic.

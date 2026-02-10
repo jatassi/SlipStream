@@ -499,6 +499,11 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete download mappings for movie")
 	}
 
+	// Clean up autosearch backoff records
+	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "movie", ItemID: id}); err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete autosearch status for movie")
+	}
+
 	// Delete movie files from database
 	if err := s.queries.DeleteMovieFilesByMovie(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete movie files: %w", err)

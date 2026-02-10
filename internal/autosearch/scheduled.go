@@ -492,8 +492,8 @@ func (s *ScheduledSearcher) collectMissingEpisodes(ctx context.Context) ([]searc
 		allReleasedAndMissing := s.service.isSeasonPackEligible(ctx, key.seriesID, int(key.seasonNumber))
 
 		if allReleasedAndMissing {
-			// Check backoff for the first episode as proxy for season pack
-			shouldSkip, err := s.shouldSkipItem(ctx, "episode", episodes[0].ID, "missing")
+			// Check backoff at the series level for season pack searches
+			shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, "missing")
 			if err != nil {
 				s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season")
 			}
@@ -637,14 +637,9 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 	}
 	seasonEpisodes := make(map[seasonKey][]*sqlc.ListEpisodeUpgradeCandidatesRow)
 
+	// Group all upgradable episodes by season first — backoff is checked after grouping
+	// at the appropriate level (series-level for season packs, episode-level for individuals)
 	for _, row := range rows {
-		shouldSkip, err := s.shouldSkipItem(ctx, "episode", row.ID, "upgrade")
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to check backoff status")
-		}
-		if shouldSkip {
-			continue
-		}
 		key := seasonKey{seriesID: row.SeriesID, seasonNumber: row.SeasonNumber}
 		seasonEpisodes[key] = append(seasonEpisodes[key], row)
 	}
@@ -655,6 +650,15 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 		allUpgradable := s.service.isSeasonPackUpgradeEligible(ctx, key.seriesID, int(key.seasonNumber))
 
 		if allUpgradable {
+			// Check backoff at the series level for season pack searches
+			shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, "upgrade")
+			if err != nil {
+				s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season upgrade")
+			}
+			if shouldSkip {
+				continue
+			}
+
 			firstEp := episodes[0]
 
 			// Use the highest current quality ID so the season pack must beat all files
@@ -710,6 +714,15 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 			})
 		} else {
 			for _, ep := range episodes {
+				// Check backoff per-episode for individual episode searches
+				shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, "upgrade")
+				if err != nil {
+					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to check backoff status")
+				}
+				if shouldSkip {
+					continue
+				}
+
 				item := s.service.episodeUpgradeCandidateToSearchableItem(ep)
 
 				var airDate time.Time
@@ -867,7 +880,7 @@ func (s *ScheduledSearcher) searchItem(ctx context.Context, item SearchableItem)
 func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
-		itemType = "episode" // Track season by its first episode
+		itemType = "series"
 	}
 
 	err := s.service.queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
@@ -887,7 +900,7 @@ func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item Sear
 func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
-		itemType = "episode"
+		itemType = "series"
 	}
 
 	err := s.service.queries.ResetAutosearchFailure(ctx, sqlc.ResetAutosearchFailureParams{

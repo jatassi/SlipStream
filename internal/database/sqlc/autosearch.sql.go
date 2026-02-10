@@ -49,6 +49,16 @@ func (q *Queries) DeleteAutosearchStatus(ctx context.Context, arg DeleteAutosear
 	return err
 }
 
+const deleteAutosearchStatusForSeriesEpisodes = `-- name: DeleteAutosearchStatusForSeriesEpisodes :exec
+DELETE FROM autosearch_status WHERE item_type = 'episode'
+AND item_id IN (SELECT id FROM episodes WHERE series_id = ?)
+`
+
+func (q *Queries) DeleteAutosearchStatusForSeriesEpisodes(ctx context.Context, seriesID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAutosearchStatusForSeriesEpisodes, seriesID)
+	return err
+}
+
 const getAutosearchStatus = `-- name: GetAutosearchStatus :one
 
 SELECT id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status WHERE item_type = ? AND item_id = ? AND search_type = ? LIMIT 1

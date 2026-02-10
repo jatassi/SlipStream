@@ -137,7 +137,7 @@ type StatusConfig struct {
 type AutoSearchConfig struct {
 	Enabled          bool `mapstructure:"enabled"`           // Default: true
 	IntervalHours    int  `mapstructure:"interval_hours"`    // Default: 8 (range: 1-24)
-	BackoffThreshold int  `mapstructure:"backoff_threshold"` // Default: 8
+	BackoffThreshold int  `mapstructure:"backoff_threshold"` // Default: 12
 	BaseDelayMs      int  `mapstructure:"base_delay_ms"`     // Default: 1000
 }
 
@@ -243,7 +243,7 @@ func Default() *Config {
 		AutoSearch: AutoSearchConfig{
 			Enabled:          true,
 			IntervalHours:    8,
-			BackoffThreshold: 8,
+			BackoffThreshold: 12,
 			BaseDelayMs:      1000,
 		},
 		Health: HealthConfig{

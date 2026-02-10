@@ -45,5 +45,9 @@ ORDER BY last_searched_at DESC;
 -- name: CountItemsExceedingBackoffThreshold :one
 SELECT COUNT(*) FROM autosearch_status WHERE failure_count >= ? AND search_type = ?;
 
+-- name: DeleteAutosearchStatusForSeriesEpisodes :exec
+DELETE FROM autosearch_status WHERE item_type = 'episode'
+AND item_id IN (SELECT id FROM episodes WHERE series_id = ?);
+
 -- name: ClearAllAutosearchStatus :exec
 DELETE FROM autosearch_status;

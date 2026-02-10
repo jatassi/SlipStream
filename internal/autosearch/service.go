@@ -1276,10 +1276,15 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 		return nil, fmt.Errorf("failed to update episode status: %w", err)
 	}
 
-	// Reset autosearch backoff
+	// Reset autosearch backoff for this episode
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
 		ItemType: "episode",
 		ItemID:   episodeID,
+	})
+	// Also reset series-level backoff so season pack searches are unblocked
+	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
+		ItemType: "series",
+		ItemID:   episode.SeriesID,
 	})
 
 	if s.historyService != nil {

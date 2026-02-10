@@ -459,6 +459,15 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete download mappings for series")
 	}
 
+	// Clean up autosearch backoff records (must happen before episodes are deleted
+	// since the episode query uses a subquery on the episodes table)
+	if err := s.queries.DeleteAutosearchStatusForSeriesEpisodes(ctx, id); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series episodes")
+	}
+	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "series", ItemID: id}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series")
+	}
+
 	// Delete all episode files, episodes, seasons
 	// TODO: If deleteFiles is true, delete actual files from disk
 
