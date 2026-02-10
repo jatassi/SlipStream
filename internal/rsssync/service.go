@@ -12,6 +12,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/health"
+	"github.com/slipstream/slipstream/internal/history"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
 	"github.com/slipstream/slipstream/internal/indexer/scoring"
 	"github.com/slipstream/slipstream/internal/indexer/types"
@@ -36,6 +37,7 @@ type Service struct {
 	fetcher        *FeedFetcher
 	grabService    *grab.Service
 	qualityService *quality.Service
+	historyService *history.Service
 	grabLock       *decisioning.GrabLock
 	healthService  *health.Service
 	hub            *websocket.Hub
@@ -52,6 +54,7 @@ func NewService(
 	fetcher *FeedFetcher,
 	grabService *grab.Service,
 	qualityService *quality.Service,
+	historyService *history.Service,
 	grabLock *decisioning.GrabLock,
 	healthService *health.Service,
 	hub *websocket.Hub,
@@ -62,6 +65,7 @@ func NewService(
 		fetcher:        fetcher,
 		grabService:    grabService,
 		qualityService: qualityService,
+		historyService: historyService,
 		grabLock:       grabLock,
 		healthService:  healthService,
 		hub:            hub,
@@ -413,20 +417,27 @@ func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *m
 	result, err := s.grabService.Grab(ctx, req)
 	if err != nil {
 		s.logger.Warn().Err(err).Str("title", best.Title).Msg("RSS grab failed")
+		s.logGrabFailed(ctx, g.item, err.Error())
 		return false
 	}
 
 	if !result.Success {
 		s.logger.Warn().Str("title", best.Title).Msg("RSS grab unsuccessful")
+		s.logGrabFailed(ctx, g.item, "grab unsuccessful")
 		return false
 	}
+
+	isUpgrade := g.item.HasFile && g.item.CurrentQualityID > 0
 
 	s.logger.Info().
 		Str("title", best.Title).
 		Str("mediaType", string(g.item.MediaType)).
 		Int64("mediaID", g.item.MediaID).
 		Str("quality", best.Quality).
+		Bool("isUpgrade", isUpgrade).
 		Msg("RSS sync grabbed release")
+
+	s.logGrabSuccess(ctx, g.item, best, result, isUpgrade)
 
 	return true
 }
@@ -463,6 +474,59 @@ func (s *Service) broadcast(eventType string, payload interface{}) {
 	}
 	if err := s.hub.Broadcast(eventType, payload); err != nil {
 		s.logger.Warn().Err(err).Str("event", eventType).Msg("failed to broadcast RSS sync event")
+	}
+}
+
+func (s *Service) logGrabSuccess(ctx context.Context, item decisioning.SearchableItem, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
+	if s.historyService == nil {
+		return
+	}
+
+	mediaType := history.MediaTypeMovie
+	if item.MediaType == decisioning.MediaTypeEpisode || item.MediaType == decisioning.MediaTypeSeason {
+		mediaType = history.MediaTypeEpisode
+	}
+
+	qualityStr := ""
+	if release.ScoreBreakdown != nil {
+		qualityStr = release.ScoreBreakdown.QualityName
+	}
+
+	data := history.AutoSearchDownloadData{
+		ReleaseName: release.Title,
+		Indexer:     release.IndexerName,
+		ClientName:  grabResult.ClientName,
+		DownloadID:  grabResult.DownloadID,
+		Source:      "rss-sync",
+		IsUpgrade:   isUpgrade,
+	}
+	if isUpgrade {
+		data.NewQuality = qualityStr
+	}
+	if item.TargetSlotID != nil {
+		data.SlotID = item.TargetSlotID
+	}
+
+	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, data); err != nil {
+		s.logger.Warn().Err(err).Msg("failed to log RSS sync grab history")
+	}
+}
+
+func (s *Service) logGrabFailed(ctx context.Context, item decisioning.SearchableItem, errMsg string) {
+	if s.historyService == nil {
+		return
+	}
+
+	mediaType := history.MediaTypeMovie
+	if item.MediaType == decisioning.MediaTypeEpisode || item.MediaType == decisioning.MediaTypeSeason {
+		mediaType = history.MediaTypeEpisode
+	}
+
+	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.MediaID, history.AutoSearchFailedData{
+		Error:  errMsg,
+		Source: "rss-sync",
+	}); err != nil {
+		s.logger.Warn().Err(err).Msg("failed to log RSS sync failure history")
 	}
 }
 

@@ -46,6 +46,41 @@ func TestRefreshMovies_UnreleasedToMissing(t *testing.T) {
 	}
 }
 
+func TestRefreshMovies_SameDayRelease(t *testing.T) {
+	// Regression: the Go SQLite driver stores time.Time in RFC3339 format with
+	// timezone offset (e.g. "2026-02-10T00:00:00-07:00"). A raw string comparison
+	// against date('now') ("2026-02-10") fails on the release day because 'T'
+	// extends past the date-only string. The fix uses substr(col, 1, 10) to
+	// extract the date portion before comparing.
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, tdb.Logger)
+	queries := sqlc.New(tdb.Conn)
+	ctx := context.Background()
+
+	today := time.Now()
+	_, err := queries.CreateMovie(ctx, sqlc.CreateMovieParams{
+		Title:       "Today Movie",
+		SortTitle:   "Today Movie",
+		Status:      "unreleased",
+		Monitored:   1,
+		ReleaseDate: sql.NullTime{Time: today, Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateMovie error = %v", err)
+	}
+
+	updated, err := service.RefreshMovies(ctx)
+	if err != nil {
+		t.Fatalf("RefreshMovies() error = %v", err)
+	}
+
+	if updated != 1 {
+		t.Errorf("RefreshMovies() updated = %d, want 1 (same-day release must transition)", updated)
+	}
+}
+
 func TestRefreshMovies_FutureNotChanged(t *testing.T) {
 	// Movies with future release dates should NOT be changed
 	tdb := testutil.NewTestDB(t)

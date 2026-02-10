@@ -2716,7 +2716,7 @@ func (q *Queries) UpdateEpisodesMonitoredExcludingSpecials(ctx context.Context, 
 
 const updateEpisodesToUnreleased = `-- name: UpdateEpisodesToUnreleased :execresult
 UPDATE episodes SET status = 'unreleased'
-WHERE status = 'missing' AND (air_date IS NULL OR air_date > datetime('now'))
+WHERE status = 'missing' AND (air_date IS NULL OR substr(air_date, 1, 10) > date('now'))
 `
 
 func (q *Queries) UpdateEpisodesToUnreleased(ctx context.Context) (sql.Result, error) {

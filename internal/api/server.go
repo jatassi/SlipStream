@@ -615,7 +615,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Initialize RSS sync service
 	rssFetcher := rsssync.NewFeedFetcher(s.indexerService, s.prowlarrService, s.prowlarrModeManager, sqlc.New(db), logger)
-	s.rssSyncService = rsssync.NewService(sqlc.New(db), rssFetcher, s.grabService, s.qualityService, s.grabLock, s.healthService, hub, logger)
+	s.rssSyncService = rsssync.NewService(sqlc.New(db), rssFetcher, s.grabService, s.qualityService, s.historyService, s.grabLock, s.healthService, hub, logger)
 
 	// Load saved RSS sync settings into config
 	if err := rsssync.LoadSettingsIntoConfig(context.Background(), sqlc.New(db), &cfg.RssSync); err != nil {

@@ -272,7 +272,7 @@ WHERE status = 'unreleased' AND air_date IS NOT NULL
 
 -- name: UpdateEpisodesToUnreleased :execresult
 UPDATE episodes SET status = 'unreleased'
-WHERE status = 'missing' AND (air_date IS NULL OR air_date > datetime('now'));
+WHERE status = 'missing' AND (air_date IS NULL OR substr(air_date, 1, 10) > date('now'));
 
 -- StatusCounts computation
 -- name: GetEpisodeStatusCountsBySeries :one

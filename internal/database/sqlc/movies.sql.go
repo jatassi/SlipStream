@@ -793,9 +793,9 @@ func (q *Queries) GetMoviesInDateRange(ctx context.Context, arg GetMoviesInDateR
 const getUnreleasedMoviesWithPastDate = `-- name: GetUnreleasedMoviesWithPastDate :many
 SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, active_download_id, status_message, release_date, physical_release_date, added_at, updated_at, theatrical_release_date, studio, tvdb_id, content_rating, added_by FROM movies
 WHERE status = 'unreleased' AND (
-    (release_date IS NOT NULL AND release_date <= date('now'))
-    OR (physical_release_date IS NOT NULL AND physical_release_date <= date('now'))
-    OR (theatrical_release_date IS NOT NULL AND date(theatrical_release_date, '+90 days') <= date('now'))
+    (release_date IS NOT NULL AND substr(release_date, 1, 10) <= date('now'))
+    OR (physical_release_date IS NOT NULL AND substr(physical_release_date, 1, 10) <= date('now'))
+    OR (theatrical_release_date IS NOT NULL AND date(substr(theatrical_release_date, 1, 10), '+90 days') <= date('now'))
 )
 `
 
@@ -1895,9 +1895,9 @@ func (q *Queries) UpdateMovieStatusWithDetails(ctx context.Context, arg UpdateMo
 const updateMoviesToUnreleased = `-- name: UpdateMoviesToUnreleased :execresult
 UPDATE movies SET status = 'unreleased', updated_at = CURRENT_TIMESTAMP
 WHERE status = 'missing'
-    AND (release_date IS NULL OR release_date > date('now'))
-    AND (physical_release_date IS NULL OR physical_release_date > date('now'))
-    AND (theatrical_release_date IS NULL OR date(theatrical_release_date, '+90 days') > date('now'))
+    AND (release_date IS NULL OR substr(release_date, 1, 10) > date('now'))
+    AND (physical_release_date IS NULL OR substr(physical_release_date, 1, 10) > date('now'))
+    AND (theatrical_release_date IS NULL OR date(substr(theatrical_release_date, 1, 10), '+90 days') > date('now'))
 `
 
 func (q *Queries) UpdateMoviesToUnreleased(ctx context.Context) (sql.Result, error) {
@@ -1905,15 +1905,20 @@ func (q *Queries) UpdateMoviesToUnreleased(ctx context.Context) (sql.Result, err
 }
 
 const updateUnreleasedMoviesToMissing = `-- name: UpdateUnreleasedMoviesToMissing :execresult
+
 UPDATE movies SET status = 'missing', updated_at = CURRENT_TIMESTAMP
 WHERE status = 'unreleased' AND (
-    (release_date IS NOT NULL AND release_date <= date('now'))
-    OR (physical_release_date IS NOT NULL AND physical_release_date <= date('now'))
-    OR (theatrical_release_date IS NOT NULL AND date(theatrical_release_date, '+90 days') <= date('now'))
+    (release_date IS NOT NULL AND substr(release_date, 1, 10) <= date('now'))
+    OR (physical_release_date IS NOT NULL AND substr(physical_release_date, 1, 10) <= date('now'))
+    OR (theatrical_release_date IS NOT NULL AND date(substr(theatrical_release_date, 1, 10), '+90 days') <= date('now'))
 )
 `
 
 // Status refresh queries
+// Note: substr(col, 1, 10) is required because the Go SQLite driver (modernc.org/sqlite)
+// stores time.Time in RFC3339 format with timezone offset (e.g. '2026-02-10T00:00:00-07:00').
+// SQLite's date() function cannot parse this format (returns NULL), and raw string comparison
+// fails on same-day dates since 'T' extends past the date-only string from date('now').
 func (q *Queries) UpdateUnreleasedMoviesToMissing(ctx context.Context) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateUnreleasedMoviesToMissing)
 }
