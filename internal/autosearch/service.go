@@ -729,24 +729,44 @@ func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quali
 			}
 		}
 
+		// Determine release quality
+		releaseQualityID := 0
+		if release.ScoreBreakdown != nil {
+			releaseQualityID = release.ScoreBreakdown.QualityID
+		}
+
 		// Skip if quality is not acceptable
-		if release.ScoreBreakdown != nil && release.ScoreBreakdown.QualityID > 0 {
-			if !profile.IsAcceptable(release.ScoreBreakdown.QualityID) {
-				if item.MediaType == MediaTypeSeason {
-					s.logger.Debug().
-						Str("release", release.Title).
-						Int("qualityId", release.ScoreBreakdown.QualityID).
-						Str("qualityName", release.ScoreBreakdown.QualityName).
-						Msg("Season pack rejected - quality not acceptable")
-				}
+		if releaseQualityID > 0 && !profile.IsAcceptable(releaseQualityID) {
+			s.logger.Debug().
+				Str("release", release.Title).
+				Int("qualityId", releaseQualityID).
+				Str("qualityName", release.ScoreBreakdown.QualityName).
+				Msg("Rejected - quality not acceptable")
+			continue
+		}
+
+		// If item already has a file, only grab upgrades
+		if item.HasFile {
+			if item.CurrentQualityID == 0 {
+				s.logger.Debug().
+					Str("release", release.Title).
+					Msg("Skipping release - have file but current quality unknown")
 				continue
 			}
-
-			// If item has a file, check if this is an upgrade
-			if item.HasFile && item.CurrentQualityID > 0 {
-				if !profile.IsUpgrade(item.CurrentQualityID, release.ScoreBreakdown.QualityID) {
-					continue
-				}
+			if releaseQualityID == 0 {
+				s.logger.Debug().
+					Str("release", release.Title).
+					Int("currentQualityId", item.CurrentQualityID).
+					Msg("Skipping release with unknown quality - already have file")
+				continue
+			}
+			if !profile.IsUpgrade(item.CurrentQualityID, releaseQualityID) {
+				s.logger.Debug().
+					Str("release", release.Title).
+					Int("currentQualityId", item.CurrentQualityID).
+					Int("releaseQualityId", releaseQualityID).
+					Msg("Skipping release - not an upgrade")
+				continue
 			}
 		}
 
@@ -781,13 +801,24 @@ func (s *Service) movieToSearchableItem(ctx context.Context, movie *sqlc.Movie) 
 		Title:     movie.Title,
 	}
 
-	// Populate file info if movie has a file (needed for upgrade checks)
+	// Populate file info if movie has a file (needed for upgrade checks).
+	// Use the highest quality file to prevent re-grabbing when duplicate records exist.
 	if movie.Status == "upgradable" || movie.Status == "available" {
 		item.HasFile = true
 		files, err := s.queries.GetMovieFilesWithImportInfo(ctx, movie.ID)
-		if err == nil && len(files) > 0 && files[0].QualityID.Valid {
-			item.CurrentQualityID = int(files[0].QualityID.Int64)
+		if err == nil && len(files) > 0 {
+			for _, f := range files {
+				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
+					item.CurrentQualityID = int(f.QualityID.Int64)
+				}
+			}
 		}
+		s.logger.Debug().
+			Int64("movieId", movie.ID).
+			Str("status", movie.Status).
+			Bool("hasFile", item.HasFile).
+			Int("currentQualityId", item.CurrentQualityID).
+			Msg("Movie upgrade check info")
 	}
 
 	if movie.Year.Valid {
@@ -882,13 +913,25 @@ func (s *Service) episodeToSearchableItem(ctx context.Context, episode *sqlc.Epi
 	// Use series title for search
 	item.Title = series.Title
 
-	// Populate file info if episode has a file (needed for upgrade checks)
+	// Populate file info if episode has a file (needed for upgrade checks).
+	// Use the highest quality file to prevent re-grabbing when duplicate records exist.
 	if episode.Status == "upgradable" || episode.Status == "available" {
 		item.HasFile = true
 		files, err := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
-		if err == nil && len(files) > 0 && files[0].QualityID.Valid {
-			item.CurrentQualityID = int(files[0].QualityID.Int64)
+		if err == nil && len(files) > 0 {
+			for _, f := range files {
+				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
+					item.CurrentQualityID = int(f.QualityID.Int64)
+				}
+			}
 		}
+		s.logger.Debug().
+			Int64("episodeId", episode.ID).
+			Str("status", episode.Status).
+			Bool("hasFile", item.HasFile).
+			Int("currentQualityId", item.CurrentQualityID).
+			Int("fileCount", len(files)).
+			Msg("Episode upgrade check info")
 	}
 
 	if series.Year.Valid {
