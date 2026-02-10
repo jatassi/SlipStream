@@ -125,10 +125,10 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 		return result, err
 	}
 
-	// For first episodes of a season, try season pack search as fallback
-	// This handles Netflix-style shows where the full season releases at once
-	// but metadata providers may only have a placeholder E01 entry
-	if episode.EpisodeNumber == 1 && !result.Downloaded {
+	// For first episodes of a season, try season pack search as fallback.
+	// Only for missing episodes — upgradable episodes already had season pack
+	// search attempted via SearchSeasonUpgrade before reaching here.
+	if episode.EpisodeNumber == 1 && !result.Downloaded && !item.HasFile {
 		s.logger.Debug().
 			Int64("seriesId", episode.SeriesID).
 			Int64("seasonNumber", episode.SeasonNumber).
