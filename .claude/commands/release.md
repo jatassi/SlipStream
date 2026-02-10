@@ -23,15 +23,16 @@ Create a new release by committing changes, bumping version, generating release 
 
 ## Release Notes Format
 
-Group commits by feature area using the directory-to-category mapping below. Each category gets a `### Category` heading with bullet points underneath. Omit empty categories. End with a "Full Changelog" comparison link.
+Group commits by feature area using the directory-to-category mapping below. Each category gets a `### Category` heading with bullet points underneath. Omit empty categories. End with a "Full Changelog" comparison link. Focus on the functional change or result of a bugfix. Do not include technical details of what caused a bug or how we implemented a feature. Highlight new features or functionality added to existing features.
 
 Example output:
 ```markdown
 ## What's Changed
 
 ### Auto Search & Upgrades
-- Fix auto search grabbing same-quality releases due to stale file records
+- Fix auto search grabbing same-quality releases
 - Skip redundant season pack fallback for episodes that already have files
+- **NEW:** auto search now supports trackers using the UNIT3D protocol
 
 ### UI
 - Add loading skeleton to search results page
