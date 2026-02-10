@@ -260,11 +260,8 @@ func (s *Service) enrichEntry(ctx context.Context, entry *Entry) {
 			entry.SeriesID = &seriesID
 			series, err := s.queries.GetSeries(ctx, seriesID)
 			if err == nil {
-				epCode := fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
-				entry.MediaTitle = series.Title + " - " + epCode
-				if episode.Title.Valid && episode.Title.String != "" {
-					entry.MediaTitle += " - " + episode.Title.String
-				}
+				entry.MediaTitle = series.Title
+				entry.MediaQualifier = fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
 			}
 		}
 	}

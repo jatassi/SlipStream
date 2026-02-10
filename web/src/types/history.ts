@@ -19,6 +19,7 @@ export interface HistoryEntry {
   data?: HistoryEventData
   createdAt: string
   mediaTitle?: string
+  mediaQualifier?: string
   seriesId?: number
   year?: number
 }

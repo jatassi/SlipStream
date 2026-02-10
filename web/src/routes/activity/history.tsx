@@ -243,16 +243,25 @@ function ExpandedRow({ item }: { item: HistoryEntry }) {
 function MediaTitle({ item }: { item: HistoryEntry }) {
   const isMovie = item.mediaType === 'movie'
   const title = item.mediaTitle || `${item.mediaType} #${item.mediaId}`
-  const displayTitle = isMovie && item.year ? `${title} (${item.year})` : title
+  const qualifier = isMovie
+    ? (item.year ? String(item.year) : undefined)
+    : item.mediaQualifier
+
+  const content = (
+    <>
+      <span className="font-medium">{title}</span>
+      {qualifier && <span className="text-muted-foreground ml-1.5">{qualifier}</span>}
+    </>
+  )
 
   if (isMovie) {
     return (
       <Link
         to="/movies/$id"
         params={{ id: String(item.mediaId) }}
-        className={cn('font-medium hover:text-movie-500 transition-colors', 'hover:underline')}
+        className="hover:text-movie-500 transition-colors hover:underline"
       >
-        {displayTitle}
+        {content}
       </Link>
     )
   }
@@ -262,14 +271,14 @@ function MediaTitle({ item }: { item: HistoryEntry }) {
       <Link
         to="/series/$id"
         params={{ id: String(item.seriesId) }}
-        className={cn('font-medium hover:text-tv-500 transition-colors', 'hover:underline')}
+        className="hover:text-tv-500 transition-colors hover:underline"
       >
-        {displayTitle}
+        {content}
       </Link>
     )
   }
 
-  return <span className="font-medium">{displayTitle}</span>
+  return <span>{content}</span>
 }
 
 export function HistoryPage() {

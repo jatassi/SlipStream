@@ -40,9 +40,10 @@ type Entry struct {
 	Quality    string         `json:"quality,omitempty"`
 	Data       map[string]any `json:"data,omitempty"`
 	CreatedAt  string         `json:"createdAt"`
-	MediaTitle string         `json:"mediaTitle,omitempty"`
-	SeriesID   *int64         `json:"seriesId,omitempty"`
-	Year       *int64         `json:"year,omitempty"`
+	MediaTitle     string         `json:"mediaTitle,omitempty"`
+	MediaQualifier string         `json:"mediaQualifier,omitempty"`
+	SeriesID       *int64         `json:"seriesId,omitempty"`
+	Year           *int64         `json:"year,omitempty"`
 }
 
 // CreateInput contains fields for creating a history entry.
