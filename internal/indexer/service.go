@@ -11,6 +11,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
+	"github.com/slipstream/slipstream/internal/indexer/genericrss"
 	indexermock "github.com/slipstream/slipstream/internal/indexer/mock"
 )
 
@@ -183,6 +184,7 @@ type CreateIndexerInput struct {
 	Priority          int             `json:"priority"`
 	Enabled           bool            `json:"enabled"`
 	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
+	RssEnabled        *bool           `json:"rssEnabled,omitempty"`
 }
 
 // UpdateIndexerInput is the input for updating an indexer (all fields optional for partial updates).
@@ -196,6 +198,7 @@ type UpdateIndexerInput struct {
 	Priority          *int            `json:"priority,omitempty"`
 	Enabled           *bool           `json:"enabled,omitempty"`
 	AutoSearchEnabled *bool           `json:"autoSearchEnabled,omitempty"`
+	RssEnabled        *bool           `json:"rssEnabled,omitempty"`
 }
 
 // Create creates a new indexer.
@@ -204,8 +207,8 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		return nil, err
 	}
 
-	// Skip definition validation for mock indexers
-	if input.DefinitionID != MockDefinitionID {
+	// Skip definition validation for mock and generic-rss indexers
+	if input.DefinitionID != MockDefinitionID && input.DefinitionID != genericrss.DefinitionID {
 		if _, err := s.manager.GetDefinition(input.DefinitionID); err != nil {
 			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, input.DefinitionID)
 		}
@@ -237,6 +240,11 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		autoSearchEnabled = *input.AutoSearchEnabled
 	}
 
+	rssEnabled := true
+	if input.RssEnabled != nil {
+		rssEnabled = *input.RssEnabled
+	}
+
 	row, err := s.queries.CreateIndexer(ctx, sqlc.CreateIndexerParams{
 		Name:              input.Name,
 		DefinitionID:      input.DefinitionID,
@@ -247,6 +255,7 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		Priority:          int64(input.Priority),
 		Enabled:           boolToInt64(input.Enabled),
 		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
+		RssEnabled:        boolToInt64(rssEnabled),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create indexer: %w", err)
@@ -293,8 +302,8 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput
 		return nil, fmt.Errorf("%w: definition ID is required", ErrInvalidIndexer)
 	}
 
-	// Skip definition validation for mock indexers
-	if definitionID != MockDefinitionID {
+	// Skip definition validation for mock and generic-rss indexers
+	if definitionID != MockDefinitionID && definitionID != genericrss.DefinitionID {
 		if _, err := s.manager.GetDefinition(definitionID); err != nil {
 			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
 		}
@@ -344,6 +353,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput
 		autoSearchEnabled = *input.AutoSearchEnabled
 	}
 
+	rssEnabled := existing.RssEnabled
+	if input.RssEnabled != nil {
+		rssEnabled = *input.RssEnabled
+	}
+
 	row, err := s.queries.UpdateIndexer(ctx, sqlc.UpdateIndexerParams{
 		ID:                id,
 		Name:              name,
@@ -355,6 +369,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput
 		Priority:          int64(priority),
 		Enabled:           boolToInt64(enabled),
 		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
+		RssEnabled:        boolToInt64(rssEnabled),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -452,6 +467,31 @@ func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestR
 		}, nil
 	}
 
+	// Generic RSS indexers test by fetching the feed
+	if input.DefinitionID == genericrss.DefinitionID {
+		settings := make(map[string]string)
+		if input.Settings != nil {
+			if err := json.Unmarshal(input.Settings, &settings); err != nil {
+				return &TestResult{
+					Success: false,
+					Message: fmt.Sprintf("Invalid settings format: %s", err.Error()),
+				}, nil
+			}
+		}
+		client := genericrss.NewClient(nil, settings)
+		if err := client.Test(ctx); err != nil {
+			return &TestResult{
+				Success: false,
+				Message: fmt.Sprintf("RSS feed test failed: %s", err.Error()),
+			}, nil
+		}
+		return &TestResult{
+			Success:      true,
+			Message:      "Successfully connected to RSS feed",
+			Capabilities: client.Capabilities(),
+		}, nil
+	}
+
 	// Parse settings
 	settings := make(map[string]string)
 	if input.Settings != nil {
@@ -500,6 +540,17 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 		return indexermock.NewClient(indexer), nil
 	}
 
+	// Return generic RSS client
+	if indexer.DefinitionID == genericrss.DefinitionID {
+		settings := make(map[string]string)
+		if indexer.Settings != nil {
+			if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
+				return nil, fmt.Errorf("failed to parse generic-rss settings: %w", err)
+			}
+		}
+		return genericrss.NewClient(indexer, settings), nil
+	}
+
 	// Check if we already have a cached Cardigann client with valid settings
 	if client, ok := s.manager.GetClient(id); ok {
 		// Verify the cached client has settings - if empty, recreate it
@@ -540,9 +591,23 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 	return client, nil
 }
 
-// ListDefinitions returns all available Cardigann definitions.
+// ListDefinitions returns all available definitions (Cardigann + built-in).
 func (s *Service) ListDefinitions() ([]*cardigann.DefinitionMetadata, error) {
-	return s.manager.ListDefinitions()
+	defs, err := s.manager.ListDefinitions()
+	if err != nil {
+		return nil, err
+	}
+
+	defs = append(defs, &cardigann.DefinitionMetadata{
+		ID:          genericrss.DefinitionID,
+		Name:        "Generic RSS",
+		Description: "Generic RSS/Atom/TorrentPotato feed",
+		Type:        "public",
+		Language:    "en-US",
+		Protocol:    "torrent",
+	})
+
+	return defs, nil
 }
 
 // SearchDefinitions searches for definitions matching the query.
@@ -557,6 +622,9 @@ func (s *Service) GetDefinition(id string) (*cardigann.Definition, error) {
 
 // GetDefinitionSchema returns the settings schema for a definition.
 func (s *Service) GetDefinitionSchema(id string) ([]cardigann.Setting, error) {
+	if id == genericrss.DefinitionID {
+		return genericrss.DefinitionSchema(), nil
+	}
 	return s.manager.GetSettingsSchema(id)
 }
 
@@ -592,6 +660,7 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		Priority:          int(row.Priority),
 		Enabled:           row.Enabled == 1,
 		AutoSearchEnabled: row.AutoSearchEnabled == 1,
+		RssEnabled:        row.RssEnabled == 1,
 		Categories:        []int{},
 	}
 
@@ -608,11 +677,16 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		}
 	}
 
-	// Get protocol and privacy from the Cardigann definition (skip for mock)
+	// Get protocol and privacy from the Cardigann definition (skip for mock/generic-rss)
 	if row.DefinitionID == MockDefinitionID {
 		def.Protocol = ProtocolTorrent
 		def.Privacy = PrivacyPrivate
 		def.SupportsSearch = true
+		def.SupportsRSS = true
+	} else if row.DefinitionID == genericrss.DefinitionID {
+		def.Protocol = ProtocolTorrent
+		def.Privacy = PrivacyPrivate
+		def.SupportsSearch = false
 		def.SupportsRSS = true
 	} else if cardDef, err := s.manager.GetDefinition(row.DefinitionID); err == nil {
 		def.Protocol = Protocol(cardDef.GetProtocol())

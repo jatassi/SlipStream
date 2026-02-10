@@ -21,8 +21,8 @@ SELECT * FROM indexers WHERE definition_id = ? ORDER BY priority, name;
 
 -- name: CreateIndexer :one
 INSERT INTO indexers (
-    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, auto_search_enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, auto_search_enabled, rss_enabled
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateIndexer :one
@@ -36,6 +36,7 @@ UPDATE indexers SET
     priority = ?,
     enabled = ?,
     auto_search_enabled = ?,
+    rss_enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -173,6 +174,32 @@ SELECT * FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 ORDER BY pr
 
 -- name: UpdateIndexerAutoSearchEnabled :exec
 UPDATE indexers SET auto_search_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- RSS Sync enabled indexer queries
+
+-- name: ListRssEnabledIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND rss_enabled = 1 ORDER BY priority, name;
+
+-- name: ListRssEnabledMovieIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND rss_enabled = 1 AND supports_movies = 1 ORDER BY priority, name;
+
+-- name: ListRssEnabledTVIndexers :many
+SELECT * FROM indexers WHERE enabled = 1 AND rss_enabled = 1 AND supports_tv = 1 ORDER BY priority, name;
+
+-- name: UpdateIndexerRssEnabled :exec
+UPDATE indexers SET rss_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- RSS cache boundary queries
+
+-- name: GetIndexerRssCache :one
+SELECT last_rss_release_url, last_rss_release_date FROM indexer_status WHERE indexer_id = ? LIMIT 1;
+
+-- name: UpdateIndexerRssCache :exec
+INSERT INTO indexer_status (indexer_id, last_rss_release_url, last_rss_release_date)
+VALUES (?, ?, ?)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    last_rss_release_url = excluded.last_rss_release_url,
+    last_rss_release_date = excluded.last_rss_release_date;
 
 -- Cookie management queries
 

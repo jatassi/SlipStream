@@ -215,6 +215,12 @@ function SlipStreamModeContent({
                       <span className="text-yellow-500">Manual search only</span>
                     </>
                   )}
+                  {!indexer.rssEnabled && (
+                    <>
+                      <span className="text-muted-foreground/50">|</span>
+                      <span className="text-yellow-500">No RSS</span>
+                    </>
+                  )}
                 </CardDescription>
               </div>
             </div>

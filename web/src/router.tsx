@@ -30,6 +30,7 @@ import { FileNamingPage } from '@/routes/settings/media/file-naming'
 import { IndexersPage } from '@/routes/settings/downloads/indexers'
 import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
 import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
+import { RssSyncPage } from '@/routes/settings/downloads/rss-sync'
 // System settings pages
 import { ServerPage } from '@/routes/settings/system/server'
 import { AuthenticationPage } from '@/routes/settings/system/authentication'
@@ -229,6 +230,12 @@ const autoSearchRoute = createRoute({
   component: AutoSearchPage,
 })
 
+const rssSyncRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/downloads/rss-sync',
+  component: RssSyncPage,
+})
+
 // System settings routes
 const systemSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -406,6 +413,7 @@ const routeTree = rootRoute.addChildren([
   indexersRoute,
   downloadClientsRoute,
   autoSearchRoute,
+  rssSyncRoute,
   // System settings
   systemSettingsRoute,
   serverRoute,

@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/history"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
@@ -41,6 +42,7 @@ type Service struct {
 	qualityService *quality.Service
 	historyService *history.Service
 	slotsService   *slots.Service
+	grabLock       *decisioning.GrabLock
 	broadcaster    Broadcaster
 	logger         zerolog.Logger
 
@@ -73,6 +75,11 @@ func NewService(
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
+}
+
+// SetGrabLock sets the shared grab lock for concurrent grab protection.
+func (s *Service) SetGrabLock(lock *decisioning.GrabLock) {
+	s.grabLock = lock
 }
 
 // SetBroadcaster sets the WebSocket broadcaster for real-time events.
@@ -520,6 +527,18 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 	// Determine if this is an upgrade
 	isUpgrade := item.HasFile && item.CurrentQualityID > 0
 
+	// Acquire grab lock to prevent concurrent grabs from RSS sync
+	if s.grabLock != nil {
+		lockKey := decisioning.Key(item.MediaType, item.MediaID)
+		if !s.grabLock.TryAcquire(lockKey) {
+			s.logger.Debug().Str("key", lockKey).Msg("skipping: grab lock held")
+			result := &SearchResult{Found: true}
+			s.broadcastCompleted(item, result)
+			return result, nil
+		}
+		defer s.grabLock.Release(lockKey)
+	}
+
 	// Grab the release
 	grabReq := grab.GrabRequest{
 		Release:      &bestRelease.ReleaseInfo,
@@ -671,315 +690,34 @@ func (s *Service) buildSearchCriteria(item SearchableItem) types.SearchCriteria 
 }
 
 // selectBestRelease selects the best release from scored results.
+// Delegates to the shared decisioning.SelectBestRelease.
 func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item SearchableItem) *types.TorrentInfo {
-	// Releases are already sorted by score (highest first)
-	seasonPackCandidates := 0
-	seasonPacksFound := 0
-	for i := range releases {
-		release := &releases[i]
-
-		// For TV searches, verify the release matches the target season/episode
-		if item.MediaType == MediaTypeEpisode || item.MediaType == MediaTypeSeason {
-			parsed := scanner.ParseFilename(release.Title)
-
-			// Check if the release covers the target season
-			if item.SeasonNumber > 0 && parsed.Season > 0 {
-				if parsed.IsCompleteSeries && parsed.EndSeason > 0 {
-					// Multi-season range (S01-04): check if target is within range
-					if item.SeasonNumber < parsed.Season || item.SeasonNumber > parsed.EndSeason {
-						continue // Target season not in range
-					}
-				} else if parsed.Season != item.SeasonNumber {
-					continue // Wrong season (single season pack)
-				}
-			}
-			// Note: parsed.Season == 0 means complete series (all seasons) - always matches
-
-			// For specific episode searches, require exact episode match (no season packs)
-			if item.MediaType == MediaTypeEpisode && item.EpisodeNumber > 0 {
-				if parsed.Episode != item.EpisodeNumber {
-					continue // Wrong episode or season pack - need exact match
-				}
-			}
-
-			// For season pack searches, require actual season pack (not specials like E00)
-			if item.MediaType == MediaTypeSeason {
-				if !parsed.IsSeasonPack {
-					// Log first few rejections for debugging
-					if seasonPackCandidates < 5 {
-						s.logger.Info().
-							Str("release", release.Title).
-							Int("parsedSeason", parsed.Season).
-							Int("parsedEpisode", parsed.Episode).
-							Bool("isSeasonPack", parsed.IsSeasonPack).
-							Msg("Rejected release for season pack search")
-					}
-					seasonPackCandidates++
-					continue // Individual episode or special - need season pack
-				}
-				// Found a valid season pack!
-				seasonPacksFound++
-				s.logger.Info().
-					Str("release", release.Title).
-					Int("parsedSeason", parsed.Season).
-					Int("parsedEndSeason", parsed.EndSeason).
-					Bool("isSeasonPack", parsed.IsSeasonPack).
-					Bool("isCompleteSeries", parsed.IsCompleteSeries).
-					Msg("Found season pack release")
-			}
-		}
-
-		// Determine release quality
-		releaseQualityID := 0
-		if release.ScoreBreakdown != nil {
-			releaseQualityID = release.ScoreBreakdown.QualityID
-		}
-
-		// Skip if quality is not acceptable
-		if releaseQualityID > 0 && !profile.IsAcceptable(releaseQualityID) {
-			s.logger.Debug().
-				Str("release", release.Title).
-				Int("qualityId", releaseQualityID).
-				Str("qualityName", release.ScoreBreakdown.QualityName).
-				Msg("Rejected - quality not acceptable")
-			continue
-		}
-
-		// If item already has a file, only grab upgrades
-		if item.HasFile {
-			if item.CurrentQualityID == 0 {
-				s.logger.Debug().
-					Str("release", release.Title).
-					Msg("Skipping release - have file but current quality unknown")
-				continue
-			}
-			if releaseQualityID == 0 {
-				s.logger.Debug().
-					Str("release", release.Title).
-					Int("currentQualityId", item.CurrentQualityID).
-					Msg("Skipping release with unknown quality - already have file")
-				continue
-			}
-			if !profile.IsUpgrade(item.CurrentQualityID, releaseQualityID) {
-				s.logger.Debug().
-					Str("release", release.Title).
-					Int("currentQualityId", item.CurrentQualityID).
-					Int("releaseQualityId", releaseQualityID).
-					Msg("Skipping release - not an upgrade")
-				continue
-			}
-		}
-
-		return release
-	}
-
-	// Log season pack search summary
-	if item.MediaType == MediaTypeSeason {
-		if seasonPacksFound == 0 && seasonPackCandidates > 0 {
-			s.logger.Info().
-				Int("totalReleases", len(releases)).
-				Int("individualEpisodes", seasonPackCandidates).
-				Int("seasonPacksFound", seasonPacksFound).
-				Int("targetSeason", item.SeasonNumber).
-				Msg("No season pack found - all matching releases were individual episodes")
-		} else if seasonPacksFound == 0 {
-			s.logger.Info().
-				Int("totalReleases", len(releases)).
-				Int("targetSeason", item.SeasonNumber).
-				Msg("No releases matched the target season")
-		}
-	}
-
-	return nil
+	return decisioning.SelectBestRelease(releases, profile, item, s.logger)
 }
 
 // movieToSearchableItem converts a movie database row to a SearchableItem.
 func (s *Service) movieToSearchableItem(ctx context.Context, movie *sqlc.Movie) SearchableItem {
-	item := SearchableItem{
-		MediaType: MediaTypeMovie,
-		MediaID:   movie.ID,
-		Title:     movie.Title,
-	}
-
-	// Populate file info if movie has a file (needed for upgrade checks).
-	// Use the highest quality file to prevent re-grabbing when duplicate records exist.
-	if movie.Status == "upgradable" || movie.Status == "available" {
-		item.HasFile = true
-		files, err := s.queries.GetMovieFilesWithImportInfo(ctx, movie.ID)
-		if err == nil && len(files) > 0 {
-			for _, f := range files {
-				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
-					item.CurrentQualityID = int(f.QualityID.Int64)
-				}
-			}
-		}
-		s.logger.Debug().
-			Int64("movieId", movie.ID).
-			Str("status", movie.Status).
-			Bool("hasFile", item.HasFile).
-			Int("currentQualityId", item.CurrentQualityID).
-			Msg("Movie upgrade check info")
-	}
-
-	if movie.Year.Valid {
-		item.Year = int(movie.Year.Int64)
-	}
-	if movie.ImdbID.Valid {
-		item.ImdbID = movie.ImdbID.String
-	}
-	if movie.TmdbID.Valid {
-		item.TmdbID = int(movie.TmdbID.Int64)
-	}
-	if movie.QualityProfileID.Valid {
-		item.QualityProfileID = movie.QualityProfileID.Int64
-	}
-
-	return item
-}
-
-// movieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
-func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
-	item := SearchableItem{
-		MediaType: MediaTypeMovie,
-		MediaID:   movie.ID,
-		Title:     movie.Title,
-		HasFile:   true,
-	}
-
-	if movie.Year.Valid {
-		item.Year = int(movie.Year.Int64)
-	}
-	if movie.ImdbID.Valid {
-		item.ImdbID = movie.ImdbID.String
-	}
-	if movie.TmdbID.Valid {
-		item.TmdbID = int(movie.TmdbID.Int64)
-	}
-	if movie.QualityProfileID.Valid {
-		item.QualityProfileID = movie.QualityProfileID.Int64
-	}
-	if movie.CurrentQualityID.Valid {
-		item.CurrentQualityID = int(movie.CurrentQualityID.Int64)
-	}
-
-	return item
-}
-
-// episodeUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
-func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeUpgradeCandidatesRow) SearchableItem {
-	item := SearchableItem{
-		MediaType:     MediaTypeEpisode,
-		MediaID:       row.ID,
-		SeriesID:      row.SeriesID,
-		Title:         row.SeriesTitle,
-		SeasonNumber:  int(row.SeasonNumber),
-		EpisodeNumber: int(row.EpisodeNumber),
-		HasFile:       true,
-	}
-
-	if row.SeriesYear.Valid {
-		item.Year = int(row.SeriesYear.Int64)
-	}
-	if row.SeriesTvdbID.Valid {
-		item.TvdbID = int(row.SeriesTvdbID.Int64)
-	}
-	if row.SeriesTmdbID.Valid {
-		item.TmdbID = int(row.SeriesTmdbID.Int64)
-	}
-	if row.SeriesImdbID.Valid {
-		item.ImdbID = row.SeriesImdbID.String
-	}
-	if row.SeriesQualityProfileID.Valid {
-		item.QualityProfileID = row.SeriesQualityProfileID.Int64
-	}
-	if row.CurrentQualityID.Valid {
-		item.CurrentQualityID = int(row.CurrentQualityID.Int64)
-	}
-
-	return item
+	return decisioning.MovieToSearchableItem(ctx, s.queries, s.logger, movie)
 }
 
 // episodeToSearchableItem converts an episode and series to a SearchableItem.
-// It checks the episode status to populate file info for upgrade detection.
 func (s *Service) episodeToSearchableItem(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
-	item := SearchableItem{
-		MediaType:     MediaTypeEpisode,
-		MediaID:       episode.ID,
-		SeriesID:      series.ID,
-		SeasonNumber:  int(episode.SeasonNumber),
-		EpisodeNumber: int(episode.EpisodeNumber),
-	}
-
-	// Use series title for search
-	item.Title = series.Title
-
-	// Populate file info if episode has a file (needed for upgrade checks).
-	// Use the highest quality file to prevent re-grabbing when duplicate records exist.
-	if episode.Status == "upgradable" || episode.Status == "available" {
-		item.HasFile = true
-		files, err := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
-		if err == nil && len(files) > 0 {
-			for _, f := range files {
-				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
-					item.CurrentQualityID = int(f.QualityID.Int64)
-				}
-			}
-		}
-		s.logger.Debug().
-			Int64("episodeId", episode.ID).
-			Str("status", episode.Status).
-			Bool("hasFile", item.HasFile).
-			Int("currentQualityId", item.CurrentQualityID).
-			Int("fileCount", len(files)).
-			Msg("Episode upgrade check info")
-	}
-
-	if series.Year.Valid {
-		item.Year = int(series.Year.Int64)
-	}
-	if series.TvdbID.Valid {
-		item.TvdbID = int(series.TvdbID.Int64)
-	}
-	if series.TmdbID.Valid {
-		item.TmdbID = int(series.TmdbID.Int64)
-	}
-	if series.ImdbID.Valid {
-		item.ImdbID = series.ImdbID.String
-	}
-	if series.QualityProfileID.Valid {
-		item.QualityProfileID = series.QualityProfileID.Int64
-	}
-
-	return item
+	return decisioning.EpisodeToSearchableItem(ctx, s.queries, s.logger, episode, series)
 }
 
 // seriesToSeasonPackItem converts a series and season number to a season pack SearchableItem.
 func (s *Service) seriesToSeasonPackItem(series *sqlc.Series, seasonNumber int) SearchableItem {
-	item := SearchableItem{
-		MediaType:    MediaTypeSeason,
-		MediaID:      series.ID,
-		SeriesID:     series.ID, // Set SeriesID for download mapping
-		Title:        series.Title,
-		SeasonNumber: seasonNumber,
-	}
+	return decisioning.SeriesToSeasonPackItem(series, seasonNumber)
+}
 
-	if series.Year.Valid {
-		item.Year = int(series.Year.Int64)
-	}
-	if series.TvdbID.Valid {
-		item.TvdbID = int(series.TvdbID.Int64)
-	}
-	if series.TmdbID.Valid {
-		item.TmdbID = int(series.TmdbID.Int64)
-	}
-	if series.ImdbID.Valid {
-		item.ImdbID = series.ImdbID.String
-	}
-	if series.QualityProfileID.Valid {
-		item.QualityProfileID = series.QualityProfileID.Int64
-	}
+// movieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
+func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
+	return decisioning.MovieUpgradeCandidateToSearchableItem(movie)
+}
 
-	return item
+// episodeUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
+func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeUpgradeCandidatesRow) SearchableItem {
+	return decisioning.EpisodeUpgradeCandidateToSearchableItem(row)
 }
 
 // getMissingEpisodesForSeason returns missing, monitored episodes for a specific season.
@@ -1062,119 +800,13 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 }
 
 // isSeasonPackEligible checks if a season pack search should be used.
-// A season pack search is only used when ALL episodes in the season are:
-// 1. Released (available)
-// 2. Monitored
-// 3. Missing (no file)
-// This ensures we only grab a full season pack when we actually want all episodes.
 func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seasonNumber int) bool {
-	// Check if season is monitored
-	season, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil {
-		s.logger.Debug().Err(err).Int64("seriesId", seriesID).Int("season", seasonNumber).
-			Msg("Season pack ineligible: failed to get season")
-		return false
-	}
-	if season.Monitored != 1 {
-		s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-			Msg("Season pack ineligible: season not monitored")
-		return false
-	}
-
-	// Get all episodes for this season
-	episodes, err := s.queries.ListEpisodesBySeason(ctx, sqlc.ListEpisodesBySeasonParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil {
-		s.logger.Debug().Err(err).Int64("seriesId", seriesID).Int("season", seasonNumber).
-			Msg("Season pack ineligible: failed to list episodes")
-		return false
-	}
-
-	if len(episodes) == 0 {
-		s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-			Msg("Season pack ineligible: no episodes in season")
-		return false
-	}
-
-	// Check that ALL episodes are released, monitored, and missing
-	for _, ep := range episodes {
-		if ep.Monitored != 1 {
-			s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-				Int64("episodeId", ep.ID).Int64("episodeNumber", ep.EpisodeNumber).
-				Msg("Season pack ineligible: episode not monitored")
-			return false
-		}
-
-		// Status must be "missing" - any other status (unreleased, available, upgradable, downloading, failed) disqualifies
-		if ep.Status != "missing" {
-			s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-				Int64("episodeId", ep.ID).Int64("episodeNumber", ep.EpisodeNumber).
-				Str("status", ep.Status).
-				Msg("Season pack ineligible: episode status is not missing")
-			return false
-		}
-	}
-
-	// Only use season pack if there's more than one episode
-	if len(episodes) <= 1 {
-		s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-			Int("episodeCount", len(episodes)).
-			Msg("Season pack ineligible: only one episode in season")
-		return false
-	}
-
-	s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-		Int("episodeCount", len(episodes)).
-		Msg("Season pack eligible: all episodes released, monitored, and missing")
-	return true
+	return decisioning.IsSeasonPackEligible(ctx, s.queries, s.logger, seriesID, seasonNumber)
 }
 
 // isSeasonPackUpgradeEligible checks if a season pack search should be used for upgrades.
-// A season pack upgrade search is used when ALL monitored episodes in the season are upgradable.
 func (s *Service) isSeasonPackUpgradeEligible(ctx context.Context, seriesID int64, seasonNumber int) bool {
-	season, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil {
-		return false
-	}
-	if season.Monitored != 1 {
-		return false
-	}
-
-	episodes, err := s.queries.ListEpisodesBySeason(ctx, sqlc.ListEpisodesBySeasonParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil || len(episodes) == 0 {
-		return false
-	}
-
-	upgradableCount := 0
-	for _, ep := range episodes {
-		if ep.Monitored != 1 {
-			continue
-		}
-		if ep.Status != "upgradable" {
-			return false
-		}
-		upgradableCount++
-	}
-
-	if upgradableCount <= 1 {
-		return false
-	}
-
-	s.logger.Debug().Int64("seriesId", seriesID).Int("season", seasonNumber).
-		Int("upgradableCount", upgradableCount).
-		Msg("Season pack upgrade eligible: all monitored episodes upgradable")
-	return true
+	return decisioning.IsSeasonPackUpgradeEligible(ctx, s.queries, s.logger, seriesID, seasonNumber)
 }
 
 // RetryMovie resets a failed movie back to missing or upgradable and clears backoff.

@@ -22,6 +22,7 @@ type Config struct {
 	Metadata   MetadataConfig   `mapstructure:"metadata"`
 	Indexer    IndexerConfig    `mapstructure:"indexer"`
 	AutoSearch AutoSearchConfig `mapstructure:"autosearch"`
+	RssSync    RssSyncConfig    `mapstructure:"rsssync"`
 	Health     HealthConfig     `mapstructure:"health"`
 	Portal     PortalConfig     `mapstructure:"portal"`
 }
@@ -141,6 +142,17 @@ type AutoSearchConfig struct {
 	BaseDelayMs      int  `mapstructure:"base_delay_ms"`     // Default: 1000
 }
 
+// RssSyncConfig holds RSS sync scheduling configuration.
+type RssSyncConfig struct {
+	Enabled     bool `mapstructure:"enabled"`      // Default: true
+	IntervalMin int  `mapstructure:"interval_min"` // Default: 15 (range: 10-60)
+}
+
+// IntervalDuration returns the RSS sync interval as a time.Duration.
+func (c *RssSyncConfig) IntervalDuration() time.Duration {
+	return time.Duration(c.IntervalMin) * time.Minute
+}
+
 // HealthConfig holds system health monitoring configuration.
 type HealthConfig struct {
 	DownloadClientCheckInterval time.Duration `mapstructure:"download_client_check_interval"` // Default: 6h
@@ -245,6 +257,10 @@ func Default() *Config {
 			IntervalHours:    8,
 			BackoffThreshold: 12,
 			BaseDelayMs:      1000,
+		},
+		RssSync: RssSyncConfig{
+			Enabled:     true,
+			IntervalMin: 15,
 		},
 		Health: HealthConfig{
 			DownloadClientCheckInterval: 6 * time.Hour,

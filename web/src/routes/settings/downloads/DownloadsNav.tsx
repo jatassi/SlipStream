@@ -1,11 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Globe, Download, Search } from 'lucide-react'
+import { Globe, Download, Search, Rss } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const downloadsNavItems = [
   { title: 'Indexers', href: '/settings/downloads/indexers', icon: Globe },
   { title: 'Download Clients', href: '/settings/downloads/clients', icon: Download },
   { title: 'Auto Search', href: '/settings/downloads/auto-search', icon: Search },
+  { title: 'RSS Sync', href: '/settings/downloads/rss-sync', icon: Rss },
 ]
 
 export function DownloadsNav() {

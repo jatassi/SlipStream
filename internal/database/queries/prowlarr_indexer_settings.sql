@@ -53,3 +53,4 @@ WHERE prowlarr_indexer_id = ?;
 SELECT * FROM prowlarr_indexer_settings
 WHERE content_type = ? OR content_type = 'both'
 ORDER BY priority ASC;
+

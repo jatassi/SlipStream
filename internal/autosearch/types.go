@@ -2,17 +2,19 @@
 package autosearch
 
 import (
+	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
 
-// MediaType represents the type of media being searched.
-type MediaType string
+// Type aliases for zero-breakage migration to decisioning package.
+type MediaType = decisioning.MediaType
+type SearchableItem = decisioning.SearchableItem
 
 const (
-	MediaTypeMovie   MediaType = "movie"
-	MediaTypeEpisode MediaType = "episode"
-	MediaTypeSeason  MediaType = "season"
-	MediaTypeSeries  MediaType = "series"
+	MediaTypeMovie   = decisioning.MediaTypeMovie
+	MediaTypeEpisode = decisioning.MediaTypeEpisode
+	MediaTypeSeason  = decisioning.MediaTypeSeason
+	MediaTypeSeries  = decisioning.MediaTypeSeries
 )
 
 // SearchSource indicates what triggered the search.
@@ -43,34 +45,6 @@ type SearchResult struct {
 	Upgraded   bool               `json:"upgraded"`             // Was this a quality upgrade?
 	ClientName string             `json:"clientName,omitempty"` // Name of download client used
 	DownloadID string             `json:"downloadId,omitempty"` // Download client's ID for the download
-}
-
-// SearchableItem represents an item that can be searched.
-type SearchableItem struct {
-	MediaType MediaType `json:"mediaType"`
-	MediaID   int64     `json:"mediaId"`
-	Title     string    `json:"title"`
-	Year      int       `json:"year,omitempty"`
-
-	// External IDs for search queries
-	ImdbID string `json:"imdbId,omitempty"`
-	TmdbID int    `json:"tmdbId,omitempty"`
-	TvdbID int    `json:"tvdbId,omitempty"`
-
-	// TV-specific fields
-	SeriesID      int64 `json:"seriesId,omitempty"` // Series ID for episodes
-	SeasonNumber  int   `json:"seasonNumber,omitempty"`
-	EpisodeNumber int   `json:"episodeNumber,omitempty"`
-
-	// Quality profile for scoring
-	QualityProfileID int64 `json:"qualityProfileId"`
-
-	// Current file info for upgrades
-	HasFile          bool `json:"hasFile"`
-	CurrentQualityID int  `json:"currentQualityId,omitempty"`
-
-	// Slot targeting (for multi-version mode)
-	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
 }
 
 // BatchSearchResult contains results from searching multiple items.

@@ -523,6 +523,48 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (*Setting, error) 
 	return &i, err
 }
 
+const hasRecentGrab = `-- name: HasRecentGrab :one
+SELECT COUNT(*) > 0 FROM history
+WHERE media_type = ? AND media_id = ?
+AND event_type IN ('grabbed', 'autosearch_download')
+AND created_at > datetime('now', '-12 hours')
+`
+
+type HasRecentGrabParams struct {
+	MediaType string `json:"media_type"`
+	MediaID   int64  `json:"media_id"`
+}
+
+func (q *Queries) HasRecentGrab(ctx context.Context, arg HasRecentGrabParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasRecentGrab, arg.MediaType, arg.MediaID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const hasRecentSeasonGrab = `-- name: HasRecentSeasonGrab :one
+SELECT COUNT(*) > 0 FROM history h
+JOIN episodes e ON h.media_type = 'episode' AND h.media_id = e.id
+WHERE e.series_id = ? AND e.season_number = ?
+AND h.event_type IN ('grabbed', 'autosearch_download')
+AND h.created_at > datetime('now', '-12 hours')
+`
+
+type HasRecentSeasonGrabParams struct {
+	SeriesID     int64 `json:"series_id"`
+	SeasonNumber int64 `json:"season_number"`
+}
+
+// Checks for recent grabs of any episode in a series+season.
+// Used by RSS sync to prevent grabbing a season pack when individual episodes
+// from the same season were recently grabbed (or vice versa).
+func (q *Queries) HasRecentSeasonGrab(ctx context.Context, arg HasRecentSeasonGrabParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasRecentSeasonGrab, arg.SeriesID, arg.SeasonNumber)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listActiveDownloads = `-- name: ListActiveDownloads :many
 SELECT id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE status IN ('queued', 'downloading', 'paused') ORDER BY added_at
 `

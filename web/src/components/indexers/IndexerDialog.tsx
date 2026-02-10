@@ -62,6 +62,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
     priority: number
     enabled: boolean
     autoSearchEnabled: boolean
+    rssEnabled: boolean
   }>({
     name: '',
     settings: {},
@@ -70,6 +71,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
     priority: 50,
     enabled: true,
     autoSearchEnabled: true,
+    rssEnabled: true,
   })
   const [isTesting, setIsTesting] = useState(false)
 
@@ -109,6 +111,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
           priority: indexer.priority,
           enabled: indexer.enabled,
           autoSearchEnabled: indexer.autoSearchEnabled,
+          rssEnabled: indexer.rssEnabled,
         })
         setStep('configure')
       } else {
@@ -122,6 +125,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
           priority: 50,
           enabled: true,
           autoSearchEnabled: true,
+          rssEnabled: true,
         })
         setStep('select')
       }
@@ -183,6 +187,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
       priority: formData.priority,
       enabled: formData.enabled,
       autoSearchEnabled: formData.autoSearchEnabled,
+      rssEnabled: formData.rssEnabled,
     }
 
     try {
@@ -337,13 +342,31 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
               <div className="space-y-0.5">
                 <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
                 <p className="text-xs text-muted-foreground">
-                  Use this indexer when automatically searching for releases
+                  {selectedDefinition?.id === 'generic-rss'
+                    ? 'Generic RSS feeds do not support search'
+                    : 'Use this indexer when automatically searching for releases'}
                 </p>
               </div>
               <Switch
                 id="autoSearchEnabled"
-                checked={formData.autoSearchEnabled}
+                checked={selectedDefinition?.id === 'generic-rss' ? false : formData.autoSearchEnabled}
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))}
+                disabled={selectedDefinition?.id === 'generic-rss'}
+              />
+            </div>
+
+            {/* RSS Enabled Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="rssEnabled">Enable for RSS Sync</Label>
+                <p className="text-xs text-muted-foreground">
+                  Include this indexer when fetching RSS feeds for new releases
+                </p>
+              </div>
+              <Switch
+                id="rssEnabled"
+                checked={formData.rssEnabled}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, rssEnabled: checked }))}
               />
             </div>
             </div>

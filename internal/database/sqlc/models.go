@@ -196,6 +196,7 @@ type Indexer struct {
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
 	AutoSearchEnabled int64          `json:"auto_search_enabled"`
+	RssEnabled        int64          `json:"rss_enabled"`
 }
 
 type IndexerHistory struct {
@@ -212,15 +213,17 @@ type IndexerHistory struct {
 }
 
 type IndexerStatus struct {
-	ID                int64          `json:"id"`
-	IndexerID         int64          `json:"indexer_id"`
-	InitialFailure    sql.NullTime   `json:"initial_failure"`
-	MostRecentFailure sql.NullTime   `json:"most_recent_failure"`
-	EscalationLevel   sql.NullInt64  `json:"escalation_level"`
-	DisabledTill      sql.NullTime   `json:"disabled_till"`
-	LastRssSync       sql.NullTime   `json:"last_rss_sync"`
-	Cookies           sql.NullString `json:"cookies"`
-	CookiesExpiration sql.NullTime   `json:"cookies_expiration"`
+	ID                 int64          `json:"id"`
+	IndexerID          int64          `json:"indexer_id"`
+	InitialFailure     sql.NullTime   `json:"initial_failure"`
+	MostRecentFailure  sql.NullTime   `json:"most_recent_failure"`
+	EscalationLevel    sql.NullInt64  `json:"escalation_level"`
+	DisabledTill       sql.NullTime   `json:"disabled_till"`
+	LastRssSync        sql.NullTime   `json:"last_rss_sync"`
+	Cookies            sql.NullString `json:"cookies"`
+	CookiesExpiration  sql.NullTime   `json:"cookies_expiration"`
+	LastRssReleaseUrl  sql.NullString `json:"last_rss_release_url"`
+	LastRssReleaseDate sql.NullTime   `json:"last_rss_release_date"`
 }
 
 type Job struct {

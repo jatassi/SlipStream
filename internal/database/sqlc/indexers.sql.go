@@ -111,9 +111,9 @@ func (q *Queries) CountIndexers(ctx context.Context) (int64, error) {
 
 const createIndexer = `-- name: CreateIndexer :one
 INSERT INTO indexers (
-    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, auto_search_enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled
+    name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, auto_search_enabled, rss_enabled
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled
 `
 
 type CreateIndexerParams struct {
@@ -126,6 +126,7 @@ type CreateIndexerParams struct {
 	Priority          int64          `json:"priority"`
 	Enabled           int64          `json:"enabled"`
 	AutoSearchEnabled int64          `json:"auto_search_enabled"`
+	RssEnabled        int64          `json:"rss_enabled"`
 }
 
 func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*Indexer, error) {
@@ -139,6 +140,7 @@ func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*
 		arg.Priority,
 		arg.Enabled,
 		arg.AutoSearchEnabled,
+		arg.RssEnabled,
 	)
 	var i Indexer
 	err := row.Scan(
@@ -154,6 +156,7 @@ func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AutoSearchEnabled,
+		&i.RssEnabled,
 	)
 	return &i, err
 }
@@ -255,7 +258,7 @@ func (q *Queries) GetDefinitionMetadata(ctx context.Context, id string) (*Defini
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE id = ? LIMIT 1
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetIndexer(ctx context.Context, id int64) (*Indexer, error) {
@@ -274,12 +277,13 @@ func (q *Queries) GetIndexer(ctx context.Context, id int64) (*Indexer, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AutoSearchEnabled,
+		&i.RssEnabled,
 	)
 	return &i, err
 }
 
 const getIndexerByDefinitionID = `-- name: GetIndexerByDefinitionID :one
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE definition_id = ? LIMIT 1
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE definition_id = ? LIMIT 1
 `
 
 func (q *Queries) GetIndexerByDefinitionID(ctx context.Context, definitionID string) (*Indexer, error) {
@@ -298,6 +302,7 @@ func (q *Queries) GetIndexerByDefinitionID(ctx context.Context, definitionID str
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AutoSearchEnabled,
+		&i.RssEnabled,
 	)
 	return &i, err
 }
@@ -317,6 +322,24 @@ func (q *Queries) GetIndexerCookies(ctx context.Context, indexerID int64) (*GetI
 	row := q.db.QueryRowContext(ctx, getIndexerCookies, indexerID)
 	var i GetIndexerCookiesRow
 	err := row.Scan(&i.Cookies, &i.CookiesExpiration)
+	return &i, err
+}
+
+const getIndexerRssCache = `-- name: GetIndexerRssCache :one
+
+SELECT last_rss_release_url, last_rss_release_date FROM indexer_status WHERE indexer_id = ? LIMIT 1
+`
+
+type GetIndexerRssCacheRow struct {
+	LastRssReleaseUrl  sql.NullString `json:"last_rss_release_url"`
+	LastRssReleaseDate sql.NullTime   `json:"last_rss_release_date"`
+}
+
+// RSS cache boundary queries
+func (q *Queries) GetIndexerRssCache(ctx context.Context, indexerID int64) (*GetIndexerRssCacheRow, error) {
+	row := q.db.QueryRowContext(ctx, getIndexerRssCache, indexerID)
+	var i GetIndexerRssCacheRow
+	err := row.Scan(&i.LastRssReleaseUrl, &i.LastRssReleaseDate)
 	return &i, err
 }
 
@@ -354,7 +377,7 @@ func (q *Queries) GetIndexerStats(ctx context.Context, indexerID int64) (*GetInd
 
 const getIndexerStatus = `-- name: GetIndexerStatus :one
 
-SELECT id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration FROM indexer_status WHERE indexer_id = ? LIMIT 1
+SELECT id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration, last_rss_release_url, last_rss_release_date FROM indexer_status WHERE indexer_id = ? LIMIT 1
 `
 
 // Indexer Status queries
@@ -371,12 +394,14 @@ func (q *Queries) GetIndexerStatus(ctx context.Context, indexerID int64) (*Index
 		&i.LastRssSync,
 		&i.Cookies,
 		&i.CookiesExpiration,
+		&i.LastRssReleaseUrl,
+		&i.LastRssReleaseDate,
 	)
 	return &i, err
 }
 
 const listAutoSearchEnabledIndexers = `-- name: ListAutoSearchEnabledIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListAutoSearchEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -401,6 +426,7 @@ func (q *Queries) ListAutoSearchEnabledIndexers(ctx context.Context) ([]*Indexer
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -417,7 +443,7 @@ func (q *Queries) ListAutoSearchEnabledIndexers(ctx context.Context) ([]*Indexer
 
 const listAutoSearchEnabledMovieIndexers = `-- name: ListAutoSearchEnabledMovieIndexers :many
 
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_movies = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_movies = 1 ORDER BY priority, name
 `
 
 // Auto-search enabled indexer queries
@@ -443,6 +469,7 @@ func (q *Queries) ListAutoSearchEnabledMovieIndexers(ctx context.Context) ([]*In
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -458,7 +485,7 @@ func (q *Queries) ListAutoSearchEnabledMovieIndexers(ctx context.Context) ([]*In
 }
 
 const listAutoSearchEnabledTVIndexers = `-- name: ListAutoSearchEnabledTVIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_tv = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND auto_search_enabled = 1 AND supports_tv = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListAutoSearchEnabledTVIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -483,6 +510,7 @@ func (q *Queries) ListAutoSearchEnabledTVIndexers(ctx context.Context) ([]*Index
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -606,7 +634,7 @@ func (q *Queries) ListDefinitionMetadataByProtocol(ctx context.Context, protocol
 }
 
 const listDisabledIndexers = `-- name: ListDisabledIndexers :many
-SELECT i.id, i.name, i.definition_id, i.settings, i.categories, i.supports_movies, i.supports_tv, i.priority, i.enabled, i.created_at, i.updated_at, i.auto_search_enabled, s.disabled_till FROM indexers i
+SELECT i.id, i.name, i.definition_id, i.settings, i.categories, i.supports_movies, i.supports_tv, i.priority, i.enabled, i.created_at, i.updated_at, i.auto_search_enabled, i.rss_enabled, s.disabled_till FROM indexers i
 JOIN indexer_status s ON i.id = s.indexer_id
 WHERE s.disabled_till IS NOT NULL AND s.disabled_till > CURRENT_TIMESTAMP
 `
@@ -624,6 +652,7 @@ type ListDisabledIndexersRow struct {
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
 	AutoSearchEnabled int64          `json:"auto_search_enabled"`
+	RssEnabled        int64          `json:"rss_enabled"`
 	DisabledTill      sql.NullTime   `json:"disabled_till"`
 }
 
@@ -649,6 +678,7 @@ func (q *Queries) ListDisabledIndexers(ctx context.Context) ([]*ListDisabledInde
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 			&i.DisabledTill,
 		); err != nil {
 			return nil, err
@@ -665,7 +695,7 @@ func (q *Queries) ListDisabledIndexers(ctx context.Context) ([]*ListDisabledInde
 }
 
 const listEnabledIndexers = `-- name: ListEnabledIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -690,6 +720,7 @@ func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -705,7 +736,7 @@ func (q *Queries) ListEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
 }
 
 const listEnabledMovieIndexers = `-- name: ListEnabledMovieIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 AND supports_movies = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND supports_movies = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledMovieIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -730,6 +761,7 @@ func (q *Queries) ListEnabledMovieIndexers(ctx context.Context) ([]*Indexer, err
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -745,7 +777,7 @@ func (q *Queries) ListEnabledMovieIndexers(ctx context.Context) ([]*Indexer, err
 }
 
 const listEnabledTVIndexers = `-- name: ListEnabledTVIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE enabled = 1 AND supports_tv = 1 ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND supports_tv = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledTVIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -770,6 +802,7 @@ func (q *Queries) ListEnabledTVIndexers(ctx context.Context) ([]*Indexer, error)
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -832,7 +865,7 @@ func (q *Queries) ListIndexerHistory(ctx context.Context, arg ListIndexerHistory
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers ORDER BY priority, name
 `
 
 func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
@@ -857,6 +890,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -872,7 +906,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]*Indexer, error) {
 }
 
 const listIndexersByDefinition = `-- name: ListIndexersByDefinition :many
-SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled FROM indexers WHERE definition_id = ? ORDER BY priority, name
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE definition_id = ? ORDER BY priority, name
 `
 
 func (q *Queries) ListIndexersByDefinition(ctx context.Context, definitionID string) ([]*Indexer, error) {
@@ -897,6 +931,7 @@ func (q *Queries) ListIndexersByDefinition(ctx context.Context, definitionID str
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AutoSearchEnabled,
+			&i.RssEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -956,6 +991,131 @@ func (q *Queries) ListRecentIndexerHistory(ctx context.Context, arg ListRecentIn
 	return items, nil
 }
 
+const listRssEnabledIndexers = `-- name: ListRssEnabledIndexers :many
+
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND rss_enabled = 1 ORDER BY priority, name
+`
+
+// RSS Sync enabled indexer queries
+func (q *Queries) ListRssEnabledIndexers(ctx context.Context) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listRssEnabledIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AutoSearchEnabled,
+			&i.RssEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRssEnabledMovieIndexers = `-- name: ListRssEnabledMovieIndexers :many
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND rss_enabled = 1 AND supports_movies = 1 ORDER BY priority, name
+`
+
+func (q *Queries) ListRssEnabledMovieIndexers(ctx context.Context) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listRssEnabledMovieIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AutoSearchEnabled,
+			&i.RssEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRssEnabledTVIndexers = `-- name: ListRssEnabledTVIndexers :many
+SELECT id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled FROM indexers WHERE enabled = 1 AND rss_enabled = 1 AND supports_tv = 1 ORDER BY priority, name
+`
+
+func (q *Queries) ListRssEnabledTVIndexers(ctx context.Context) ([]*Indexer, error) {
+	rows, err := q.db.QueryContext(ctx, listRssEnabledTVIndexers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Indexer{}
+	for rows.Next() {
+		var i Indexer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.DefinitionID,
+			&i.Settings,
+			&i.Categories,
+			&i.SupportsMovies,
+			&i.SupportsTv,
+			&i.Priority,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AutoSearchEnabled,
+			&i.RssEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateIndexer = `-- name: UpdateIndexer :one
 UPDATE indexers SET
     name = ?,
@@ -967,9 +1127,10 @@ UPDATE indexers SET
     priority = ?,
     enabled = ?,
     auto_search_enabled = ?,
+    rss_enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled
+RETURNING id, name, definition_id, settings, categories, supports_movies, supports_tv, priority, enabled, created_at, updated_at, auto_search_enabled, rss_enabled
 `
 
 type UpdateIndexerParams struct {
@@ -982,6 +1143,7 @@ type UpdateIndexerParams struct {
 	Priority          int64          `json:"priority"`
 	Enabled           int64          `json:"enabled"`
 	AutoSearchEnabled int64          `json:"auto_search_enabled"`
+	RssEnabled        int64          `json:"rss_enabled"`
 	ID                int64          `json:"id"`
 }
 
@@ -996,6 +1158,7 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (*
 		arg.Priority,
 		arg.Enabled,
 		arg.AutoSearchEnabled,
+		arg.RssEnabled,
 		arg.ID,
 	)
 	var i Indexer
@@ -1012,6 +1175,7 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (*
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AutoSearchEnabled,
+		&i.RssEnabled,
 	)
 	return &i, err
 }
@@ -1058,6 +1222,39 @@ ON CONFLICT(indexer_id) DO UPDATE SET
 
 func (q *Queries) UpdateIndexerLastRssSync(ctx context.Context, indexerID int64) error {
 	_, err := q.db.ExecContext(ctx, updateIndexerLastRssSync, indexerID)
+	return err
+}
+
+const updateIndexerRssCache = `-- name: UpdateIndexerRssCache :exec
+INSERT INTO indexer_status (indexer_id, last_rss_release_url, last_rss_release_date)
+VALUES (?, ?, ?)
+ON CONFLICT(indexer_id) DO UPDATE SET
+    last_rss_release_url = excluded.last_rss_release_url,
+    last_rss_release_date = excluded.last_rss_release_date
+`
+
+type UpdateIndexerRssCacheParams struct {
+	IndexerID          int64          `json:"indexer_id"`
+	LastRssReleaseUrl  sql.NullString `json:"last_rss_release_url"`
+	LastRssReleaseDate sql.NullTime   `json:"last_rss_release_date"`
+}
+
+func (q *Queries) UpdateIndexerRssCache(ctx context.Context, arg UpdateIndexerRssCacheParams) error {
+	_, err := q.db.ExecContext(ctx, updateIndexerRssCache, arg.IndexerID, arg.LastRssReleaseUrl, arg.LastRssReleaseDate)
+	return err
+}
+
+const updateIndexerRssEnabled = `-- name: UpdateIndexerRssEnabled :exec
+UPDATE indexers SET rss_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdateIndexerRssEnabledParams struct {
+	RssEnabled int64 `json:"rss_enabled"`
+	ID         int64 `json:"id"`
+}
+
+func (q *Queries) UpdateIndexerRssEnabled(ctx context.Context, arg UpdateIndexerRssEnabledParams) error {
+	_, err := q.db.ExecContext(ctx, updateIndexerRssEnabled, arg.RssEnabled, arg.ID)
 	return err
 }
 
@@ -1120,7 +1317,7 @@ ON CONFLICT(indexer_id) DO UPDATE SET
     escalation_level = excluded.escalation_level,
     disabled_till = excluded.disabled_till,
     last_rss_sync = excluded.last_rss_sync
-RETURNING id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration
+RETURNING id, indexer_id, initial_failure, most_recent_failure, escalation_level, disabled_till, last_rss_sync, cookies, cookies_expiration, last_rss_release_url, last_rss_release_date
 `
 
 type UpsertIndexerStatusParams struct {
@@ -1152,6 +1349,8 @@ func (q *Queries) UpsertIndexerStatus(ctx context.Context, arg UpsertIndexerStat
 		&i.LastRssSync,
 		&i.Cookies,
 		&i.CookiesExpiration,
+		&i.LastRssReleaseUrl,
+		&i.LastRssReleaseDate,
 	)
 	return &i, err
 }

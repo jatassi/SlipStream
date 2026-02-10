@@ -172,6 +172,22 @@ INSERT INTO history (event_type, media_type, media_id, source, quality, data)
 VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
+-- name: HasRecentGrab :one
+SELECT COUNT(*) > 0 FROM history
+WHERE media_type = ? AND media_id = ?
+AND event_type IN ('grabbed', 'autosearch_download')
+AND created_at > datetime('now', '-12 hours');
+
+-- name: HasRecentSeasonGrab :one
+-- Checks for recent grabs of any episode in a series+season.
+-- Used by RSS sync to prevent grabbing a season pack when individual episodes
+-- from the same season were recently grabbed (or vice versa).
+SELECT COUNT(*) > 0 FROM history h
+JOIN episodes e ON h.media_type = 'episode' AND h.media_id = e.id
+WHERE e.series_id = ? AND e.season_number = ?
+AND h.event_type IN ('grabbed', 'autosearch_download')
+AND h.created_at > datetime('now', '-12 hours');
+
 -- name: DeleteAllHistory :exec
 DELETE FROM history;
 

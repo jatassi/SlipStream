@@ -46,6 +46,7 @@ type IndexerDefinition struct {
 	Priority          int             `json:"priority"`
 	Enabled           bool            `json:"enabled"`
 	AutoSearchEnabled bool            `json:"autoSearchEnabled"`
+	RssEnabled        bool            `json:"rssEnabled"`
 	Settings          json.RawMessage `json:"settings,omitempty"`
 	CreatedAt         time.Time       `json:"createdAt,omitempty"`
 	UpdatedAt         time.Time       `json:"updatedAt,omitempty"`

@@ -59,7 +59,9 @@ import (
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/notification"
+	"github.com/slipstream/slipstream/internal/rsssync"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/prowlarr"
 	"github.com/slipstream/slipstream/internal/auth"
@@ -124,6 +126,9 @@ type Server struct {
 	missingService        *missing.Service
 	autosearchService     *autosearch.Service
 	scheduledSearcher     *autosearch.ScheduledSearcher
+	rssSyncService         *rsssync.Service
+	rssSyncSettingsHandler *rsssync.SettingsHandler
+	grabLock               *decisioning.GrabLock
 	preferencesService    *preferences.Service
 	historyService        *history.Service
 	healthService            *health.Service
@@ -604,6 +609,19 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Initialize scheduled searcher for automatic background searches
 	s.scheduledSearcher = autosearch.NewScheduledSearcher(s.autosearchService, &cfg.AutoSearch, logger)
 
+	// Initialize shared grab lock for concurrent grab protection
+	s.grabLock = decisioning.NewGrabLock()
+	s.autosearchService.SetGrabLock(s.grabLock)
+
+	// Initialize RSS sync service
+	rssFetcher := rsssync.NewFeedFetcher(s.indexerService, s.prowlarrService, s.prowlarrModeManager, sqlc.New(db), logger)
+	s.rssSyncService = rsssync.NewService(sqlc.New(db), rssFetcher, s.grabService, s.qualityService, s.grabLock, s.healthService, hub, logger)
+
+	// Load saved RSS sync settings into config
+	if err := rsssync.LoadSettingsIntoConfig(context.Background(), sqlc.New(db), &cfg.RssSync); err != nil {
+		logger.Warn().Err(err).Msg("Failed to load RSS sync settings, using defaults")
+	}
+
 	// Initialize scheduler
 	serverDebugLog("Initializing scheduler...")
 	sched, err := scheduler.New(logger)
@@ -620,6 +638,10 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		// Register automatic search task
 		if err := tasks.RegisterAutoSearchTask(s.scheduler, s.scheduledSearcher, &cfg.AutoSearch); err != nil {
 			logger.Error().Err(err).Msg("Failed to register autosearch task")
+		}
+		// Register RSS sync task
+		if err := tasks.RegisterRssSyncTask(s.scheduler, s.rssSyncService, &cfg.RssSync); err != nil {
+			logger.Error().Err(err).Msg("Failed to register RSS sync task")
 		}
 		serverDebugLog("Scheduler tasks registered")
 	}
@@ -997,6 +1019,18 @@ func (s *Server) setupRoutes() {
 	}
 	settings.GET("/autosearch", autosearchSettings.GetSettings)
 	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
+
+	// RSS sync routes
+	rssSyncHandlers := rsssync.NewHandlers(s.rssSyncService)
+	rssSyncHandlers.RegisterRoutes(protected.Group("/rsssync"))
+
+	// RSS sync settings routes
+	s.rssSyncSettingsHandler = rsssync.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.RssSync)
+	if s.scheduler != nil {
+		s.rssSyncSettingsHandler.SetScheduler(s.scheduler, s.rssSyncService, tasks.UpdateRssSyncTask)
+	}
+	settings.GET("/rsssync", s.rssSyncSettingsHandler.GetSettings)
+	settings.PUT("/rsssync", s.rssSyncSettingsHandler.UpdateSettings)
 
 	// Import routes
 	importHandlers := importer.NewHandlers(s.importService, s.startupDB)
@@ -2399,6 +2433,8 @@ func (s *Server) updateServicesDB() {
 	s.historyService.SetDB(db)
 	s.slotsService.SetDB(db)
 	s.autosearchService.SetDB(db)
+	s.rssSyncService.SetDB(sqlc.New(db))
+	s.rssSyncSettingsHandler.SetDB(sqlc.New(db))
 	s.importService.SetDB(db)
 	s.importSettingsHandlers.SetDB(db)
 	s.defaultsService.SetDB(db)
