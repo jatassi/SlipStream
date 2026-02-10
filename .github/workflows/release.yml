@@ -457,12 +457,11 @@ jobs:
           echo "Release files:"
           ls -la release/
 
-      - name: Create GitHub Release
+      - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: "SlipStream ${{ steps.version.outputs.version }}"
-          generate_release_notes: true
           files: release/*
           fail_on_unmatched_files: false
         env:
