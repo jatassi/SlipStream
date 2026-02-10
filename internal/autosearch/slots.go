@@ -59,7 +59,7 @@ func (s *Service) SearchMovieSlot(ctx context.Context, movieID int64, slotID int
 	}
 
 	// Build searchable item with slot's quality profile
-	item := s.movieToSearchableItem(movie)
+	item := s.movieToSearchableItem(ctx, movie)
 	item.QualityProfileID = slotInfo.QualityProfileID
 	item.TargetSlotID = &slotID
 
@@ -103,7 +103,7 @@ func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID int64, slotID
 	}
 
 	// Build searchable item with slot's quality profile
-	item := s.episodeToSearchableItem(episode, series)
+	item := s.episodeToSearchableItem(ctx, episode, series)
 	item.QualityProfileID = slotInfo.QualityProfileID
 	item.TargetSlotID = &slotID
 

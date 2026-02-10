@@ -443,7 +443,7 @@ func (s *ScheduledSearcher) collectMissingMovies(ctx context.Context) ([]searcha
 			continue
 		}
 
-		item := s.service.movieToSearchableItem(row)
+		item := s.service.movieToSearchableItem(ctx, row)
 
 		var releaseDate time.Time
 		if row.PhysicalReleaseDate.Valid {

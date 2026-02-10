@@ -96,7 +96,7 @@ func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchS
 		return nil, fmt.Errorf("failed to get movie: %w", err)
 	}
 
-	item := s.movieToSearchableItem(movie)
+	item := s.movieToSearchableItem(ctx, movie)
 	return s.searchAndGrab(ctx, item, source)
 }
 
@@ -119,7 +119,7 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 		return nil, fmt.Errorf("failed to get series: %w", err)
 	}
 
-	item := s.episodeToSearchableItem(episode, series)
+	item := s.episodeToSearchableItem(ctx, episode, series)
 	result, err := s.searchAndGrab(ctx, item, source)
 	if err != nil {
 		return result, err
@@ -239,7 +239,7 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 	}
 
 	for _, ep := range episodes {
-		item := s.episodeToSearchableItem(ep, series)
+		item := s.episodeToSearchableItem(ctx, ep, series)
 		searchResult, err := s.searchAndGrab(ctx, item, source)
 		if err != nil {
 			s.logger.Warn().Err(err).
@@ -408,7 +408,7 @@ func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source Searc
 		} else {
 			// Use individual episode searches
 			for _, ep := range eps {
-				items = append(items, s.episodeToSearchableItem(ep, series))
+				items = append(items, s.episodeToSearchableItem(ctx, ep, series))
 			}
 		}
 	}
@@ -774,11 +774,20 @@ func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quali
 }
 
 // movieToSearchableItem converts a movie database row to a SearchableItem.
-func (s *Service) movieToSearchableItem(movie *sqlc.Movie) SearchableItem {
+func (s *Service) movieToSearchableItem(ctx context.Context, movie *sqlc.Movie) SearchableItem {
 	item := SearchableItem{
 		MediaType: MediaTypeMovie,
 		MediaID:   movie.ID,
 		Title:     movie.Title,
+	}
+
+	// Populate file info if movie has a file (needed for upgrade checks)
+	if movie.Status == "upgradable" || movie.Status == "available" {
+		item.HasFile = true
+		files, err := s.queries.GetMovieFilesWithImportInfo(ctx, movie.ID)
+		if err == nil && len(files) > 0 && files[0].QualityID.Valid {
+			item.CurrentQualityID = int(files[0].QualityID.Int64)
+		}
 	}
 
 	if movie.Year.Valid {
@@ -860,7 +869,8 @@ func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeU
 }
 
 // episodeToSearchableItem converts an episode and series to a SearchableItem.
-func (s *Service) episodeToSearchableItem(episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
+// It checks the episode status to populate file info for upgrade detection.
+func (s *Service) episodeToSearchableItem(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
 	item := SearchableItem{
 		MediaType:     MediaTypeEpisode,
 		MediaID:       episode.ID,
@@ -871,6 +881,15 @@ func (s *Service) episodeToSearchableItem(episode *sqlc.Episode, series *sqlc.Se
 
 	// Use series title for search
 	item.Title = series.Title
+
+	// Populate file info if episode has a file (needed for upgrade checks)
+	if episode.Status == "upgradable" || episode.Status == "available" {
+		item.HasFile = true
+		files, err := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
+		if err == nil && len(files) > 0 && files[0].QualityID.Valid {
+			item.CurrentQualityID = int(files[0].QualityID.Int64)
+		}
+	}
 
 	if series.Year.Valid {
 		item.Year = int(series.Year.Int64)
