@@ -1,3 +1,5 @@
+import { AlertCircle, FileEdit, PackageCheck, RefreshCw, Search } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { HistoryEventType } from '@/types'
 
 export const eventTypeColors: Record<HistoryEventType, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -25,13 +27,13 @@ export const eventTypeLabels: Record<HistoryEventType, string> = {
 }
 
 /** Event types shown in the filter dropdown. */
-export const filterableEventTypes: { value: HistoryEventType; label: string }[] = [
-  { value: 'autosearch_download', label: 'Auto Download' },
-  { value: 'autosearch_failed', label: 'Auto Failed' },
-  { value: 'imported', label: 'Imported' },
-  { value: 'import_failed', label: 'Import Failed' },
-  { value: 'file_renamed', label: 'File Renamed' },
-  { value: 'status_changed', label: 'Status Changed' },
+export const filterableEventTypes: { value: HistoryEventType; label: string; icon: LucideIcon }[] = [
+  { value: 'autosearch_download', label: 'Auto Download', icon: Search },
+  { value: 'autosearch_failed', label: 'Auto Failed', icon: AlertCircle },
+  { value: 'imported', label: 'Imported', icon: PackageCheck },
+  { value: 'import_failed', label: 'Import Failed', icon: AlertCircle },
+  { value: 'file_renamed', label: 'File Renamed', icon: FileEdit },
+  { value: 'status_changed', label: 'Status Changed', icon: RefreshCw },
 ]
 
 /** Check whether a history entry represents an upgrade (from data fields). */

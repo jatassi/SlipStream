@@ -81,7 +81,7 @@ export type HistoryEventData =
   | Record<string, unknown>
 
 export interface ListHistoryOptions {
-  eventType?: HistoryEventType
+  eventType?: string
   mediaType?: 'movie' | 'episode'
   mediaId?: number
   page?: number

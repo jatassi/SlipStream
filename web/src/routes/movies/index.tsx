@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Plus, Grid, List, Film, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, Filter, ArrowUpDown } from 'lucide-react'
+import { Plus, Grid, List, Film, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, ArrowUpDown, Clock, Binoculars, ArrowDownCircle, XCircle, ArrowUpCircle, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import {
@@ -31,14 +32,19 @@ import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Movie } from '@/types'
 
-type FilterStatus = 'all' | 'monitored' | 'missing' | 'available'
+type FilterStatus = 'monitored' | 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
 type SortField = 'title' | 'monitored' | 'qualityProfile' | 'releaseDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
 
-const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'monitored', label: 'Monitored' },
-  { value: 'missing', label: 'Missing' },
-  { value: 'available', label: 'Available' },
+const ALL_FILTERS: FilterStatus[] = ['monitored', 'unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available']
+
+const FILTER_OPTIONS: { value: FilterStatus; label: string; icon: typeof Eye }[] = [
+  { value: 'monitored', label: 'Monitored', icon: Eye },
+  { value: 'unreleased', label: 'Unreleased', icon: Clock },
+  { value: 'missing', label: 'Missing', icon: Binoculars },
+  { value: 'downloading', label: 'Downloading', icon: ArrowDownCircle },
+  { value: 'failed', label: 'Failed', icon: XCircle },
+  { value: 'upgradable', label: 'Upgradable', icon: ArrowUpCircle },
+  { value: 'available', label: 'Available', icon: CheckCircle },
 ]
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -53,7 +59,7 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
 
 export function MoviesPage() {
   const { moviesView, setMoviesView, posterSize, setPosterSize, movieTableColumns, setMovieTableColumns } = useUIStore()
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [editMode, setEditMode] = useState(false)
@@ -93,12 +99,14 @@ export function MoviesPage() {
 
   const renderContext = { qualityProfileNames: profileNameMap, rootFolderNames: rootFolderNameMap }
 
+  const allFiltersSelected = statusFilters.length >= ALL_FILTERS.length
+
   // Filter movies by status
   const filteredMovies = (movies || []).filter((movie: Movie) => {
-    if (statusFilter === 'monitored' && !movie.monitored) return false
-    if (statusFilter === 'missing' && movie.status !== 'missing') return false
-    if (statusFilter === 'available' && movie.status !== 'available') return false
-    return true
+    if (allFiltersSelected) return true
+    if (statusFilters.includes('monitored') && movie.monitored) return true
+    if (statusFilters.includes(movie.status as FilterStatus)) return true
+    return false
   })
 
   // Sort movies
@@ -364,20 +372,14 @@ export function MoviesPage() {
 
       {/* Filters & Sort */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
-        >
-          <SelectTrigger className="gap-1.5">
-            <Filter className={cn('size-4 shrink-0', statusFilter !== 'all' ? 'text-movie-400' : 'text-muted-foreground')} />
-            <span className="hidden sm:inline">{FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label}</span>
-          </SelectTrigger>
-          <SelectContent>
-            {FILTER_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterDropdown
+          options={FILTER_OPTIONS}
+          selected={statusFilters}
+          onToggle={(v) => setStatusFilters((prev) => prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v])}
+          onReset={() => setStatusFilters([...ALL_FILTERS])}
+          label="Statuses"
+          theme="movie"
+        />
 
         <Select
           value={sortField}
@@ -436,12 +438,12 @@ export function MoviesPage() {
           icon={<Film className="size-8 text-movie-500" />}
           title="No movies found"
           description={
-            statusFilter !== 'all'
+            !allFiltersSelected
               ? 'Try adjusting your filters'
               : 'Add your first movie to get started'
           }
           action={
-            statusFilter === 'all'
+            allFiltersSelected
               ? { label: 'Add Movie', onClick: () => {} }
               : undefined
           }

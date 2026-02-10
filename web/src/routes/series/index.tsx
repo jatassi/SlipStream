@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, Filter, ArrowUpDown } from 'lucide-react'
+import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, ArrowUpDown, Clock, Binoculars, ArrowDownCircle, XCircle, ArrowUpCircle, CheckCircle, Play, CircleStop } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import {
@@ -31,14 +32,21 @@ import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
 
-type FilterStatus = 'all' | 'monitored' | 'continuing' | 'ended'
+type FilterStatus = 'monitored' | 'continuing' | 'ended' | 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
 type SortField = 'title' | 'monitored' | 'qualityProfile' | 'nextAirDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
 
-const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'monitored', label: 'Monitored' },
-  { value: 'continuing', label: 'Continuing' },
-  { value: 'ended', label: 'Ended' },
+const ALL_FILTERS: FilterStatus[] = ['monitored', 'continuing', 'ended', 'unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available']
+
+const FILTER_OPTIONS: { value: FilterStatus; label: string; icon: typeof Eye }[] = [
+  { value: 'monitored', label: 'Monitored', icon: Eye },
+  { value: 'continuing', label: 'Continuing', icon: Play },
+  { value: 'ended', label: 'Ended', icon: CircleStop },
+  { value: 'unreleased', label: 'Unreleased', icon: Clock },
+  { value: 'missing', label: 'Missing', icon: Binoculars },
+  { value: 'downloading', label: 'Downloading', icon: ArrowDownCircle },
+  { value: 'failed', label: 'Failed', icon: XCircle },
+  { value: 'upgradable', label: 'Upgradable', icon: ArrowUpCircle },
+  { value: 'available', label: 'Available', icon: CheckCircle },
 ]
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -53,7 +61,7 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
 
 export function SeriesListPage() {
   const { seriesView, setSeriesView, posterSize, setPosterSize, seriesTableColumns, setSeriesTableColumns } = useUIStore()
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [editMode, setEditMode] = useState(false)
@@ -91,12 +99,15 @@ export function SeriesListPage() {
 
   const renderContext = { qualityProfileNames: profileNameMap, rootFolderNames: rootFolderNameMap }
 
+  const allFiltersSelected = statusFilters.length >= ALL_FILTERS.length
+
   // Filter series by status
   const filteredSeries = (seriesList || []).filter((s: Series) => {
-    if (statusFilter === 'monitored' && !s.monitored) return false
-    if (statusFilter === 'continuing' && s.productionStatus !== 'continuing') return false
-    if (statusFilter === 'ended' && s.productionStatus !== 'ended') return false
-    return true
+    if (allFiltersSelected) return true
+    if (statusFilters.includes('monitored') && s.monitored) return true
+    if (statusFilters.includes(s.productionStatus as FilterStatus)) return true
+    if (statusFilters.includes(s.status as FilterStatus)) return true
+    return false
   })
 
   // Sort series
@@ -331,20 +342,14 @@ export function SeriesListPage() {
 
       {/* Filters & Sort */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => v && setStatusFilter(v as FilterStatus)}
-        >
-          <SelectTrigger className="gap-1.5">
-            <Filter className={cn('size-4 shrink-0', statusFilter !== 'all' ? 'text-tv-400' : 'text-muted-foreground')} />
-            <span className="hidden sm:inline">{FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label}</span>
-          </SelectTrigger>
-          <SelectContent>
-            {FILTER_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterDropdown
+          options={FILTER_OPTIONS}
+          selected={statusFilters}
+          onToggle={(v) => setStatusFilters((prev) => prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v])}
+          onReset={() => setStatusFilters([...ALL_FILTERS])}
+          label="Statuses"
+          theme="tv"
+        />
 
         <Select
           value={sortField}
@@ -403,12 +408,12 @@ export function SeriesListPage() {
           icon={<Tv className="size-8 text-tv-500" />}
           title="No series found"
           description={
-            statusFilter !== 'all'
+            !allFiltersSelected
               ? 'Try adjusting your filters'
               : 'Add your first series to get started'
           }
           action={
-            statusFilter === 'all'
+            allFiltersSelected
               ? { label: 'Add Series', onClick: () => {} }
               : undefined
           }

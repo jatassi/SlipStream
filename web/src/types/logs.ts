@@ -6,4 +6,4 @@ export interface LogEntry {
   fields?: Record<string, unknown>
 }
 
-export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'

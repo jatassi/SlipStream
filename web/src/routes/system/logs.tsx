@@ -1,31 +1,29 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
+  AlertTriangle,
+  Bug,
+  ChevronsDown,
+  ChevronsUp,
+  CircleX,
   Download,
+  Info,
   Pause,
   Play,
   Search,
   Trash2,
-  ArrowDownToLine,
-  ArrowUpFromLine,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { LoadingState } from '@/components/data/LoadingState'
 import { useLogs, useDownloadLogFile } from '@/hooks/useLogs'
-import { useLogsStore } from '@/stores/logs'
+import { useLogsStore, ALL_LOG_LEVELS } from '@/stores/logs'
 import { cn } from '@/lib/utils'
 import type { LogLevel } from '@/types/logs'
 
 const LEVEL_COLORS: Record<string, string> = {
-  trace: 'text-gray-400',
   debug: 'text-blue-400',
   info: 'text-green-400',
   warn: 'text-yellow-400',
@@ -33,13 +31,11 @@ const LEVEL_COLORS: Record<string, string> = {
   fatal: 'text-red-600 font-bold',
 }
 
-const LEVEL_OPTIONS: { value: LogLevel | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Levels' },
-  { value: 'trace', label: 'Trace' },
-  { value: 'debug', label: 'Debug' },
-  { value: 'info', label: 'Info' },
-  { value: 'warn', label: 'Warning' },
-  { value: 'error', label: 'Error' },
+const LEVEL_OPTIONS: { value: LogLevel; label: string; icon: typeof Bug }[] = [
+  { value: 'debug', label: 'Debug', icon: Bug },
+  { value: 'info', label: 'Info', icon: Info },
+  { value: 'warn', label: 'Warning', icon: AlertTriangle },
+  { value: 'error', label: 'Error', icon: CircleX },
 ]
 
 function formatTimestamp(timestamp: string): string {
@@ -70,25 +66,39 @@ export function LogsPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const {
-    filterLevel,
+    filterLevels,
     searchText,
     isPaused,
     autoScroll,
-    setFilterLevel,
+    toggleFilterLevel,
+    resetFilterLevels,
     setSearchText,
     togglePaused,
     toggleAutoScroll,
+    setAutoScroll,
     clear,
     getFilteredEntries,
   } = useLogsStore()
 
   const filteredEntries = getFilteredEntries()
+  const allSelected = filterLevels.length === ALL_LOG_LEVELS.length
 
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [filteredEntries.length, autoScroll])
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    if (atBottom && !autoScroll) {
+      setAutoScroll(true)
+    } else if (!atBottom && autoScroll) {
+      setAutoScroll(false)
+    }
+  }, [autoScroll, setAutoScroll])
 
   const handleDownload = async () => {
     try {
@@ -129,21 +139,13 @@ export function LogsPage() {
           />
         </div>
 
-        <Select
-          value={filterLevel}
-          onValueChange={(v) => setFilterLevel(v as LogLevel | 'all')}
-        >
-          <SelectTrigger className="w-[140px]">
-            {LEVEL_OPTIONS.find((o) => o.value === filterLevel)?.label}
-          </SelectTrigger>
-          <SelectContent>
-            {LEVEL_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterDropdown
+          options={LEVEL_OPTIONS}
+          selected={filterLevels}
+          onToggle={toggleFilterLevel}
+          onReset={resetFilterLevels}
+          label="Levels"
+        />
 
         <div className="flex-1" />
 
@@ -154,9 +156,9 @@ export function LogsPage() {
           title={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
         >
           {autoScroll ? (
-            <ArrowDownToLine className="size-4" />
+            <ChevronsDown className="size-4" />
           ) : (
-            <ArrowUpFromLine className="size-4" />
+            <ChevronsUp className="size-4" />
           )}
         </Button>
 
@@ -195,11 +197,12 @@ export function LogsPage() {
 
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-auto bg-zinc-950 rounded-md border font-mono text-xs"
       >
         {filteredEntries.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
-            {searchText || filterLevel !== 'all'
+            {searchText || !allSelected
               ? 'No logs match your filters'
               : 'No logs yet'}
           </div>

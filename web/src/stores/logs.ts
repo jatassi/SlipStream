@@ -2,27 +2,22 @@ import { create } from 'zustand'
 import type { LogEntry, LogLevel } from '@/types/logs'
 
 const MAX_ENTRIES = 2000
-const LOG_LEVEL_PRIORITY: Record<string, number> = {
-  trace: 0,
-  debug: 1,
-  info: 2,
-  warn: 3,
-  error: 4,
-  fatal: 5,
-}
+export const ALL_LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error']
 
 interface LogsState {
   entries: LogEntry[]
-  filterLevel: LogLevel | 'all'
+  filterLevels: LogLevel[]
   searchText: string
   isPaused: boolean
   autoScroll: boolean
 
   addEntry: (entry: LogEntry) => void
   setEntries: (entries: LogEntry[]) => void
-  setFilterLevel: (level: LogLevel | 'all') => void
+  toggleFilterLevel: (level: LogLevel) => void
+  resetFilterLevels: () => void
   setSearchText: (text: string) => void
   togglePaused: () => void
+  setAutoScroll: (value: boolean) => void
   toggleAutoScroll: () => void
   clear: () => void
 
@@ -31,7 +26,7 @@ interface LogsState {
 
 export const useLogsStore = create<LogsState>((set, get) => ({
   entries: [],
-  filterLevel: 'all',
+  filterLevels: [...ALL_LOG_LEVELS],
   searchText: '',
   isPaused: false,
   autoScroll: true,
@@ -52,26 +47,34 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     set({ entries: entries.slice(-MAX_ENTRIES) })
   },
 
-  setFilterLevel: (level) => set({ filterLevel: level }),
+  toggleFilterLevel: (level) =>
+    set((state) => {
+      const has = state.filterLevels.includes(level)
+      return {
+        filterLevels: has
+          ? state.filterLevels.filter((l) => l !== level)
+          : [...state.filterLevels, level],
+      }
+    }),
+
+  resetFilterLevels: () => set({ filterLevels: [...ALL_LOG_LEVELS] }),
 
   setSearchText: (text) => set({ searchText: text }),
 
   togglePaused: () => set((state) => ({ isPaused: !state.isPaused })),
+
+  setAutoScroll: (value) => set({ autoScroll: value }),
 
   toggleAutoScroll: () => set((state) => ({ autoScroll: !state.autoScroll })),
 
   clear: () => set({ entries: [] }),
 
   getFilteredEntries: () => {
-    const { entries, filterLevel, searchText } = get()
+    const { entries, filterLevels, searchText } = get()
 
     return entries.filter((entry) => {
-      if (filterLevel !== 'all') {
-        const entryPriority = LOG_LEVEL_PRIORITY[entry.level] ?? 0
-        const filterPriority = LOG_LEVEL_PRIORITY[filterLevel] ?? 0
-        if (entryPriority < filterPriority) {
-          return false
-        }
+      if (filterLevels.length < ALL_LOG_LEVELS.length && !filterLevels.includes(entry.level as LogLevel)) {
+        return false
       }
 
       if (searchText) {

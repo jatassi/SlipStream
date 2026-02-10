@@ -125,7 +125,7 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (*ListResponse, er
 
 		rows, err = s.queries.ListHistoryFiltered(ctx, sqlc.ListHistoryFilteredParams{
 			Column1:     eventFilter,
-			EventType:   eventFilter,
+			Column2:     sql.NullString{String: eventFilter, Valid: eventFilter != ""},
 			Column3:     mediaFilter,
 			MediaType:   mediaFilter,
 			Column5:     afterFilter,
@@ -141,7 +141,7 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (*ListResponse, er
 
 		totalCount, err = s.queries.CountHistoryFiltered(ctx, sqlc.CountHistoryFilteredParams{
 			Column1:     eventFilter,
-			EventType:   eventFilter,
+			Column2:     sql.NullString{String: eventFilter, Valid: eventFilter != ""},
 			Column3:     mediaFilter,
 			MediaType:   mediaFilter,
 			Column5:     afterFilter,

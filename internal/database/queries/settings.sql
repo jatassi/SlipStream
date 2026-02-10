@@ -141,7 +141,7 @@ LIMIT ? OFFSET ?;
 
 -- name: ListHistoryFiltered :many
 SELECT * FROM history
-WHERE (? = '' OR event_type = ?)
+WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
   AND (? = '' OR media_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
@@ -159,7 +159,7 @@ SELECT COUNT(*) FROM history WHERE media_type = ?;
 
 -- name: CountHistoryFiltered :one
 SELECT COUNT(*) FROM history
-WHERE (? = '' OR event_type = ?)
+WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
   AND (? = '' OR media_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?);

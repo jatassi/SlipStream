@@ -45,27 +45,27 @@ func (q *Queries) CountHistoryByMediaType(ctx context.Context, mediaType string)
 
 const countHistoryFiltered = `-- name: CountHistoryFiltered :one
 SELECT COUNT(*) FROM history
-WHERE (? = '' OR event_type = ?)
+WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
   AND (? = '' OR media_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
 `
 
 type CountHistoryFilteredParams struct {
-	Column1     interface{}  `json:"column_1"`
-	EventType   string       `json:"event_type"`
-	Column3     interface{}  `json:"column_3"`
-	MediaType   string       `json:"media_type"`
-	Column5     interface{}  `json:"column_5"`
-	CreatedAt   sql.NullTime `json:"created_at"`
-	Column7     interface{}  `json:"column_7"`
-	CreatedAt_2 sql.NullTime `json:"created_at_2"`
+	Column1     interface{}    `json:"column_1"`
+	Column2     sql.NullString `json:"column_2"`
+	Column3     interface{}    `json:"column_3"`
+	MediaType   string         `json:"media_type"`
+	Column5     interface{}    `json:"column_5"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	Column7     interface{}    `json:"column_7"`
+	CreatedAt_2 sql.NullTime   `json:"created_at_2"`
 }
 
 func (q *Queries) CountHistoryFiltered(ctx context.Context, arg CountHistoryFilteredParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countHistoryFiltered,
 		arg.Column1,
-		arg.EventType,
+		arg.Column2,
 		arg.Column3,
 		arg.MediaType,
 		arg.Column5,
@@ -817,7 +817,7 @@ func (q *Queries) ListHistoryByMediaType(ctx context.Context, arg ListHistoryByM
 
 const listHistoryFiltered = `-- name: ListHistoryFiltered :many
 SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
-WHERE (? = '' OR event_type = ?)
+WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
   AND (? = '' OR media_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
@@ -826,22 +826,22 @@ LIMIT ? OFFSET ?
 `
 
 type ListHistoryFilteredParams struct {
-	Column1     interface{}  `json:"column_1"`
-	EventType   string       `json:"event_type"`
-	Column3     interface{}  `json:"column_3"`
-	MediaType   string       `json:"media_type"`
-	Column5     interface{}  `json:"column_5"`
-	CreatedAt   sql.NullTime `json:"created_at"`
-	Column7     interface{}  `json:"column_7"`
-	CreatedAt_2 sql.NullTime `json:"created_at_2"`
-	Limit       int64        `json:"limit"`
-	Offset      int64        `json:"offset"`
+	Column1     interface{}    `json:"column_1"`
+	Column2     sql.NullString `json:"column_2"`
+	Column3     interface{}    `json:"column_3"`
+	MediaType   string         `json:"media_type"`
+	Column5     interface{}    `json:"column_5"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	Column7     interface{}    `json:"column_7"`
+	CreatedAt_2 sql.NullTime   `json:"created_at_2"`
+	Limit       int64          `json:"limit"`
+	Offset      int64          `json:"offset"`
 }
 
 func (q *Queries) ListHistoryFiltered(ctx context.Context, arg ListHistoryFilteredParams) ([]*History, error) {
 	rows, err := q.db.QueryContext(ctx, listHistoryFiltered,
 		arg.Column1,
-		arg.EventType,
+		arg.Column2,
 		arg.Column3,
 		arg.MediaType,
 		arg.Column5,

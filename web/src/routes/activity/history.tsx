@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import {
   Table,
   TableBody,
@@ -282,16 +283,19 @@ function MediaTitle({ item }: { item: HistoryEntry }) {
 }
 
 export function HistoryPage() {
-  const [eventType, setEventType] = useState<HistoryEventType | 'all'>('all')
+  const [eventTypes, setEventTypes] = useState<HistoryEventType[]>(
+    filterableEventTypes.map((et) => et.value),
+  )
   const [mediaType, setMediaType] = useState<MediaFilter>('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [page, setPage] = useState(1)
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   const mediaTypeParam = mediaType === 'all' ? undefined : mediaType
+  const allEventTypesSelected = eventTypes.length >= filterableEventTypes.length
 
   const { data: history, isLoading, isError, refetch } = useHistory({
-    eventType: eventType === 'all' ? undefined : eventType,
+    eventType: allEventTypesSelected ? undefined : eventTypes.join(','),
     mediaType: mediaTypeParam,
     after: getAfterDate(datePreset),
     page,
@@ -309,11 +313,12 @@ export function HistoryPage() {
     }
   }
 
-  const handleEventTypeChange = (v: string | null) => {
-    if (v) {
-      setEventType(v as HistoryEventType | 'all')
-      setPage(1)
-    }
+  const handleToggleEventType = (value: HistoryEventType) => {
+    setEventTypes((prev) => {
+      const has = prev.includes(value)
+      return has ? prev.filter((v) => v !== value) : [...prev, value]
+    })
+    setPage(1)
   }
 
   const handleMediaTypeChange = (v: string) => {
@@ -396,22 +401,13 @@ export function HistoryPage() {
         </Tabs>
 
         <div className="flex items-center gap-3">
-          <Select
-            value={eventType}
-            onValueChange={handleEventTypeChange}
-          >
-            <SelectTrigger className="w-auto">
-              {eventType === 'all' ? 'All Events' : eventTypeLabels[eventType]}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Events</SelectItem>
-              {filterableEventTypes.map((et) => (
-                <SelectItem key={et.value} value={et.value}>
-                  {et.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FilterDropdown
+            options={filterableEventTypes}
+            selected={eventTypes}
+            onToggle={handleToggleEventType}
+            onReset={() => setEventTypes(filterableEventTypes.map((e) => e.value))}
+            label="Events"
+          />
 
           <Select
             value={datePreset}
