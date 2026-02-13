@@ -106,7 +106,8 @@ export function SeriesListPage() {
     if (allFiltersSelected) return true
     if (statusFilters.includes('monitored') && s.monitored) return true
     if (statusFilters.includes(s.productionStatus as FilterStatus)) return true
-    if (statusFilters.includes(s.status as FilterStatus)) return true
+    const statusKeys = ['unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available'] as const
+    if (statusKeys.some((k) => statusFilters.includes(k) && s.statusCounts[k] > 0)) return true
     return false
   })
 
