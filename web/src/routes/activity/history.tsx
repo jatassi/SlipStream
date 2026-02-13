@@ -30,11 +30,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { useHistory, useClearHistory } from '@/hooks'
+import { useHistory, useClearHistory, useGlobalLoading } from '@/hooks'
 import { formatRelativeTime } from '@/lib/formatters'
 import { eventTypeColors, eventTypeLabels, filterableEventTypes, isUpgradeEvent } from '@/lib/history-utils'
 import { toast } from 'sonner'
@@ -294,7 +294,8 @@ export function HistoryPage() {
   const mediaTypeParam = mediaType === 'all' ? undefined : mediaType
   const allEventTypesSelected = eventTypes.length >= filterableEventTypes.length
 
-  const { data: history, isLoading, isError, refetch } = useHistory({
+  const globalLoading = useGlobalLoading()
+  const { data: history, isLoading: queryLoading, isError, refetch } = useHistory({
     eventType: allEventTypesSelected ? undefined : eventTypes.join(','),
     mediaType: mediaTypeParam,
     after: getAfterDate(datePreset),
@@ -302,6 +303,7 @@ export function HistoryPage() {
     pageSize: 50,
   })
 
+  const isLoading = queryLoading || globalLoading
   const clearMutation = useClearHistory()
 
   const handleClearHistory = async () => {
@@ -333,15 +335,6 @@ export function HistoryPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="History" />
-        <LoadingState variant="list" />
-      </div>
-    )
-  }
-
   if (isError) {
     return (
       <div>
@@ -355,26 +348,33 @@ export function HistoryPage() {
     <div>
       <PageHeader
         title="History"
-        description="View past activity and events"
+        description={isLoading ? <Skeleton className="h-4 w-48" /> : 'View past activity and events'}
         actions={
-          <ConfirmDialog
-            trigger={
-              <Button variant="destructive">
-                <Trash2 className="size-4 mr-2" />
-                Clear History
-              </Button>
-            }
-            title="Clear history"
-            description="Are you sure you want to clear all history? This action cannot be undone."
-            confirmLabel="Clear"
-            variant="destructive"
-            onConfirm={handleClearHistory}
-          />
+          isLoading ? (
+            <Button variant="destructive" disabled>
+              <Trash2 className="size-4 mr-2" />
+              Clear History
+            </Button>
+          ) : (
+            <ConfirmDialog
+              trigger={
+                <Button variant="destructive">
+                  <Trash2 className="size-4 mr-2" />
+                  Clear History
+                </Button>
+              }
+              title="Clear history"
+              description="Are you sure you want to clear all history? This action cannot be undone."
+              confirmLabel="Clear"
+              variant="destructive"
+              onConfirm={handleClearHistory}
+            />
+          )
         }
       />
 
       {/* Media type tabs + filters */}
-      <div className="flex items-center justify-between mb-4">
+      <div className={cn('flex items-center justify-between mb-4', isLoading && 'pointer-events-none opacity-50')}>
         <Tabs value={mediaType} onValueChange={handleMediaTypeChange}>
           <TabsList>
             <TabsTrigger
@@ -430,7 +430,47 @@ export function HistoryPage() {
       {/* History table */}
       <Card>
         <CardContent className="p-0">
-          {!history?.items?.length ? (
+          {isLoading ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Event</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="w-8 pr-0">
+                      <Skeleton className="size-3.5" />
+                    </TableCell>
+                    <TableCell className="w-12">
+                      <Skeleton className="size-4 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-4 w-10" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-48" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-16" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : !history?.items?.length ? (
             <EmptyState
               icon={<History className="size-8" />}
               title="No history"
@@ -522,7 +562,7 @@ export function HistoryPage() {
       </Card>
 
       {/* Pagination */}
-      {history && history.totalPages > 1 && (
+      {!isLoading && history && history.totalPages > 1 && (
         <Pagination className="mt-4">
           <PaginationContent>
             <PaginationItem>

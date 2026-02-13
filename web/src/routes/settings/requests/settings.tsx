@@ -29,6 +29,7 @@ import {
   useUpdateNotification,
   useNotificationSchemas,
   systemKeys,
+  useGlobalLoading,
 } from '@/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -36,7 +37,9 @@ import type { RequestSettings, Notification } from '@/types'
 
 export function RequestSettingsPage() {
   const queryClient = useQueryClient()
-  const { data: settings, isLoading, isError, refetch } = useRequestSettings()
+  const globalLoading = useGlobalLoading()
+  const { data: settings, isLoading: queryLoading, isError, refetch } = useRequestSettings()
+  const isLoading = queryLoading || globalLoading
   const { data: rootFolders } = useRootFolders()
   const updateMutation = useUpdateRequestSettings()
 

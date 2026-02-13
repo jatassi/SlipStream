@@ -33,6 +33,7 @@ interface FilterDropdownProps<T extends string> {
   label?: string
   theme?: FilterTheme
   className?: string
+  disabled?: boolean
 }
 
 export function FilterDropdown<T extends string>({
@@ -44,6 +45,7 @@ export function FilterDropdown<T extends string>({
   label = 'Items',
   theme = 'neutral',
   className,
+  disabled,
 }: FilterDropdownProps<T>) {
   const allSelected = selected.length >= options.length
 
@@ -62,6 +64,7 @@ export function FilterDropdown<T extends string>({
       <DropdownMenuTrigger
         className={cn(
           'border-input dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-[3px] h-8 flex w-fit items-center whitespace-nowrap outline-none',
+          disabled && 'pointer-events-none opacity-50',
           className,
         )}
       >

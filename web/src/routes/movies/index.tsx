@@ -23,11 +23,12 @@ import { GroupedMovieGrid } from '@/components/movies/GroupedMovieGrid'
 import { MovieTable } from '@/components/movies/MovieTable'
 import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import { LoadingState } from '@/components/data/LoadingState'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { groupMedia } from '@/lib/grouping'
 import { MOVIE_COLUMNS, createMovieActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
-import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles, useRootFolders } from '@/hooks'
+import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles, useRootFolders, useGlobalLoading } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Movie } from '@/types'
@@ -67,7 +68,9 @@ export function MoviesPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteFiles, setDeleteFiles] = useState(false)
 
-  const { data: movies, isLoading, isError, refetch } = useMovies()
+  const globalLoading = useGlobalLoading()
+  const { data: movies, isLoading: queryLoading, isError, refetch } = useMovies()
+  const isLoading = queryLoading || globalLoading
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: rootFolders } = useRootFolders()
   const searchMutation = useSearchMovie()
@@ -254,15 +257,6 @@ export function MoviesPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Movies" />
-        <LoadingState variant={moviesView === 'grid' ? 'card' : 'list'} />
-      </div>
-    )
-  }
-
   if (isError) {
     return (
       <div>
@@ -276,13 +270,13 @@ export function MoviesPage() {
     <div>
       <PageHeader
         title="Movies"
-        description={`${movies?.length || 0} movies in library`}
+        description={isLoading ? <Skeleton className="h-4 w-36" /> : `${movies?.length || 0} movies in library`}
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={handleRefreshAll}
-              disabled={refreshAllMutation.isPending || editMode}
+              disabled={isLoading || refreshAllMutation.isPending || editMode}
             >
               <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
               {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
@@ -293,13 +287,13 @@ export function MoviesPage() {
                 Cancel
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setEditMode(true)}>
+              <Button variant="outline" onClick={() => setEditMode(true)} disabled={isLoading}>
                 <Pencil className="size-4 mr-1" />
                 Edit
               </Button>
             )}
             <Button
-              disabled={editMode}
+              disabled={isLoading || editMode}
               className="bg-movie-500 hover:bg-movie-400 border-movie-500"
               onClick={() => document.getElementById('global-search')?.focus()}
             >
@@ -379,11 +373,13 @@ export function MoviesPage() {
           onReset={() => setStatusFilters([...ALL_FILTERS])}
           label="Statuses"
           theme="movie"
+          disabled={isLoading}
         />
 
         <Select
           value={sortField}
           onValueChange={(v) => v && setSortField(v as SortField)}
+          disabled={isLoading}
         >
           <SelectTrigger className="gap-1.5">
             <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-movie-400' : 'text-muted-foreground')} />
@@ -407,6 +403,7 @@ export function MoviesPage() {
                 max={250}
                 step={10}
                 className="w-24"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -421,6 +418,7 @@ export function MoviesPage() {
           <ToggleGroup
             value={[moviesView]}
             onValueChange={(v) => v.length > 0 && setMoviesView(v[0] as 'grid' | 'table')}
+            disabled={isLoading}
           >
             <ToggleGroupItem value="grid" aria-label="Grid view">
               <Grid className="size-4" />
@@ -433,7 +431,9 @@ export function MoviesPage() {
       </div>
 
       {/* Content */}
-      {sortedMovies.length === 0 ? (
+      {isLoading ? (
+        <LoadingState variant={moviesView === 'grid' ? 'card' : 'list'} posterSize={posterSize} theme="movie" />
+      ) : sortedMovies.length === 0 ? (
         <EmptyState
           icon={<Film className="size-8 text-movie-500" />}
           title="No movies found"

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { Film, Tv, Zap, Loader2, Binoculars, TrendingUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from '@/components/ui/tabs'
-import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { MissingMoviesList } from '@/components/missing/MissingMoviesList'
 import { MissingSeriesList } from '@/components/missing/MissingSeriesList'
@@ -22,6 +22,7 @@ import {
   useSearchAllUpgradableMovies,
   useSearchAllUpgradableSeries,
   useQualityProfiles,
+  useGlobalLoading,
 } from '@/hooks'
 import { useAutoSearchStore } from '@/stores'
 import { toast } from 'sonner'
@@ -121,9 +122,10 @@ export function MissingPage() {
   const episodeCount = isMissingView ? missingEpisodeCount : upgradableEpisodeCount
   const totalCount = isMissingView ? missingTotalCount : upgradableTotalCount
 
-  const isLoading = isMissingView
+  const globalLoading = useGlobalLoading()
+  const isLoading = globalLoading || (isMissingView
     ? (missingMoviesLoading || missingSeriesLoading)
-    : (upgradableMoviesLoading || upgradableSeriesLoading)
+    : (upgradableMoviesLoading || upgradableSeriesLoading))
 
   const isError = isMissingView
     ? (missingMoviesError || missingSeriesError)
@@ -187,15 +189,6 @@ export function MissingPage() {
     return ''
   }
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title={isMissingView ? 'Missing' : 'Upgradable'} />
-        <LoadingState variant="list" />
-      </div>
-    )
-  }
-
   if (isError) {
     return (
       <div>
@@ -209,13 +202,20 @@ export function MissingPage() {
     <div>
       <PageHeader
         title={isMissingView ? 'Missing' : 'Upgradable'}
-        description={isMissingView
-          ? 'Media that has been released but not yet downloaded'
-          : 'Media with files below the quality cutoff'
+        description={isLoading
+          ? <Skeleton className="h-4 w-64" />
+          : isMissingView
+            ? 'Media that has been released but not yet downloaded'
+            : 'Media with files below the quality cutoff'
         }
         actions={
           <div className="flex items-center gap-2">
-            {searchCount > 0 && (
+            {isLoading ? (
+              <Button disabled>
+                <Zap className="size-4 mr-2" />
+                Search All
+              </Button>
+            ) : searchCount > 0 ? (
               <Button
                 disabled={isSearching}
                 onClick={getSearchHandler()}
@@ -228,7 +228,7 @@ export function MissingPage() {
                 )}
                 Search All ({searchCount})
               </Button>
-            )}
+            ) : null}
           </div>
         }
       />
@@ -238,14 +238,14 @@ export function MissingPage() {
         onValueChange={(v) => setFilter(v as MediaFilter)}
         className="space-y-4"
       >
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className={cn('flex items-center justify-between flex-wrap gap-3', isLoading && 'pointer-events-none opacity-50')}>
           <TabsList>
             <TabsTrigger
               value="all"
               className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
             >
               All
-              {totalCount > 0 && (
+              {!isLoading && totalCount > 0 && (
                 <span className="ml-2 text-xs data-active:text-black/60">
                   ({totalCount})
                 </span>
@@ -257,7 +257,7 @@ export function MissingPage() {
             >
               <Film className="size-4 mr-1.5" />
               Movies
-              {movieCount > 0 && (
+              {!isLoading && movieCount > 0 && (
                 <span className="ml-2 text-xs text-muted-foreground">
                   ({movieCount})
                 </span>
@@ -269,7 +269,7 @@ export function MissingPage() {
             >
               <Tv className="size-4 mr-1.5" />
               Series
-              {episodeCount > 0 && (
+              {!isLoading && episodeCount > 0 && (
                 <span className="ml-2 text-xs text-muted-foreground">
                   ({episodeCount})
                 </span>
@@ -305,7 +305,26 @@ export function MissingPage() {
           </div>
         </div>
 
-        {isMissingView ? (
+        {isLoading ? (
+          <div className="space-y-6 mt-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="size-4 rounded-full" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-8" />
+              </div>
+              <MissingSkeletonRows count={5} />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="size-4 rounded-full" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-8" />
+              </div>
+              <MissingSkeletonRows count={4} />
+            </div>
+          </div>
+        ) : isMissingView ? (
           <>
             <TabsContent value="all" className="space-y-6">
               {missingMovieCount > 0 && (
@@ -395,6 +414,32 @@ export function MissingPage() {
           </>
         )}
       </Tabs>
+    </div>
+  )
+}
+
+function MissingSkeletonRows({ count }: { count: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3"
+        >
+          <Skeleton className="hidden sm:block w-10 h-[60px] rounded-md shrink-0" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-baseline gap-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <Skeleton className="h-4 w-20 rounded-full" />
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            <Skeleton className="size-8 rounded-md" />
+            <Skeleton className="size-8 rounded-md" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

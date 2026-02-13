@@ -27,6 +27,7 @@ export * from './useProwlarr'
 export * from './useUpdate'
 export * from './useLogs'
 export * from './useMediaDownloadProgress'
+export * from './useGlobalLoading'
 
 // Portal hooks
 export * from './portal'

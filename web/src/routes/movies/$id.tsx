@@ -57,6 +57,7 @@ import {
 
   useQualityProfiles,
   useExtendedMovieMetadata,
+  useGlobalLoading,
 } from '@/hooks'
 import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
 import type { Person } from '@/types'
@@ -71,7 +72,9 @@ export function MovieDetailPage() {
   const [overviewExpanded, setOverviewExpanded] = useState(false)
   const [expandedFileId, setExpandedFileId] = useState<number | null>(null)
 
-  const { data: movie, isLoading, isError, refetch } = useMovie(movieId)
+  const globalLoading = useGlobalLoading()
+  const { data: movie, isLoading: queryLoading, isError, refetch } = useMovie(movieId)
+  const isLoading = queryLoading || globalLoading
   const { data: extendedData } = useExtendedMovieMetadata(movie?.tmdbId ?? 0)
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: multiVersionSettings } = useMultiVersionSettings()

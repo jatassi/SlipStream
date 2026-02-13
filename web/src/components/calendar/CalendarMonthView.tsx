@@ -14,6 +14,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { CalendarEventCard } from './CalendarEventCard'
 import type { CalendarEvent } from '@/types/calendar'
 
@@ -115,7 +116,12 @@ export function CalendarMonthView({
 
                 <div className="space-y-1 overflow-y-auto max-h-[90px]">
                   {loading ? (
-                    <div className="h-6 bg-muted animate-pulse rounded" />
+                    <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-1">
+                      <div className="flex items-center gap-1">
+                        <Skeleton className="size-3 rounded-full shrink-0" />
+                        <Skeleton className="h-3 w-full" />
+                      </div>
+                    </div>
                   ) : (
                     dayEvents.slice(0, 3).map((event) => (
                       <CalendarEventCard

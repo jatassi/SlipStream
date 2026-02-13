@@ -1,4 +1,4 @@
-import { Bell, Hammer, Loader2 } from 'lucide-react'
+import { Bell, Hammer, Loader2, LayoutTemplate } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,7 @@ import { ProgressItem } from '@/components/progress/ProgressItem'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function Header() {
-  const { notifications, dismissNotification } = useUIStore()
+  const { notifications, dismissNotification, globalLoading, setGlobalLoading } = useUIStore()
   const { enabled: devModeEnabled, switching: devModeSwitching, setEnabled, setSwitching } = useDevModeStore()
   const { send } = useWebSocketStore()
   const { data: tasks } = useScheduledTasks()
@@ -152,6 +152,31 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {/* Global Loading Toggle (dev mode only) */}
+        {devModeEnabled && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Toggle
+                    pressed={globalLoading}
+                    onPressedChange={setGlobalLoading}
+                    size="sm"
+                    className={cn(
+                      globalLoading && 'bg-purple-600/20 text-purple-500 hover:bg-purple-600/30 hover:text-purple-400'
+                    )}
+                  />
+                }
+              >
+                <LayoutTemplate className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>
+                {globalLoading ? 'Loading states forced on' : 'Force loading states'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         {/* Notifications */}
         <DropdownMenu>

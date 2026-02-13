@@ -34,7 +34,7 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useBrowseForImport } from '@/hooks/useFilesystem'
 import {
   useScanDirectory,
@@ -42,7 +42,7 @@ import {
   usePendingImports,
   useRetryImport,
 } from '@/hooks/useImport'
-import { useMovies, useSeries, useEpisodes } from '@/hooks'
+import { useMovies, useSeries, useEpisodes, useGlobalLoading } from '@/hooks'
 import { useSlots, useMultiVersionSettings } from '@/hooks/useSlots'
 import { toast } from 'sonner'
 import type { ScannedFile, Slot } from '@/types'
@@ -85,7 +85,9 @@ function FileBrowser({
   isImporting: boolean
 }) {
   const [pathInput, setPathInput] = useState(currentPath)
-  const { data, isLoading, refetch } = useBrowseForImport(currentPath || undefined)
+  const globalLoading = useGlobalLoading()
+  const { data, isLoading: queryLoading, refetch } = useBrowseForImport(currentPath || undefined)
+  const isLoading = queryLoading || globalLoading
 
   const showScanResults = scannedFiles.length > 0
 
@@ -142,11 +144,11 @@ function FileBrowser({
               </>
             ) : (
               <>
-                <Button size="sm" variant="outline" onClick={() => refetch()}>
+                <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
                   <RefreshCw className="size-4" />
                 </Button>
                 {currentPath && (
-                  <Button size="sm" onClick={() => onScanPath(currentPath)} disabled={isScanning}>
+                  <Button size="sm" onClick={() => onScanPath(currentPath)} disabled={isScanning || isLoading}>
                     {isScanning ? (
                       <Loader2 className="size-4 mr-2 animate-spin" />
                     ) : (
@@ -187,7 +189,15 @@ function FileBrowser({
             />
           </ScrollArea>
         ) : isLoading ? (
-          <LoadingState variant="list" count={5} />
+          <div className="space-y-1">
+            {[55, 40, 65, 48, 60, 42, 70, 50].map((w, i) => (
+              <div key={i} className="flex items-center gap-2 p-2">
+                <Skeleton className="size-4 rounded shrink-0" />
+                <Skeleton className="h-4" style={{ width: `${w}%` }} />
+                {i % 3 === 0 && <Skeleton className="size-4 ml-auto shrink-0" />}
+              </div>
+            ))}
+          </div>
         ) : (
           <ScrollArea className="h-[400px]">
             <div className="space-y-1">
@@ -662,10 +672,35 @@ function ScannedFilesList({
 }
 
 function PendingImportsCard() {
-  const { data: pending, isLoading } = usePendingImports()
+  const globalLoading = useGlobalLoading()
+  const { data: pending, isLoading: queryLoading } = usePendingImports()
   const retryMutation = useRetryImport()
+  const isLoading = queryLoading || globalLoading
 
-  if (isLoading) return null
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex items-center justify-between p-2 border rounded-lg">
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-8 w-14 rounded-md" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (!pending || pending.length === 0) return null
 
   return (

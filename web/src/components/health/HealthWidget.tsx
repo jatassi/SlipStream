@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusIndicator, getStatusBgColor } from './StatusIndicator'
 import { useSystemHealthSummary, useTestHealthCategory } from '@/hooks/useHealth'
+import { useGlobalLoading } from '@/hooks'
 import {
   getCategoryDisplayName,
   getCategorySettingsPath,
@@ -132,7 +133,9 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
 }
 
 export function HealthWidget() {
-  const { data: summary, isLoading, error } = useSystemHealthSummary()
+  const globalLoading = useGlobalLoading()
+  const { data: summary, isLoading: queryLoading, error } = useSystemHealthSummary()
+  const isLoading = queryLoading || globalLoading
 
   if (isLoading) {
     return (

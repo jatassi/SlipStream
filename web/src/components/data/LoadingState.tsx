@@ -1,15 +1,63 @@
+import { useRef, useState, useLayoutEffect } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface LoadingStateProps {
   variant?: 'card' | 'list' | 'detail'
   count?: number
+  posterSize?: number
+  theme?: 'movie' | 'tv'
 }
 
-export function LoadingState({ variant = 'card', count = 6 }: LoadingStateProps) {
+const GAP = 16
+
+function useFillCount(
+  ref: React.RefObject<HTMLDivElement | null>,
+  posterSize: number | undefined,
+  variant: string,
+) {
+  const [count, setCount] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    function calc() {
+      const rect = el!.getBoundingClientRect()
+      const availableWidth = rect.width
+      const availableHeight = window.innerHeight - rect.top
+
+      if (variant === 'list') {
+        const rowHeight = 48 + 8 // h-12 + space-y-2
+        setCount(Math.ceil(availableHeight / rowHeight))
+        return
+      }
+
+      const minWidth = posterSize || 150
+      const cols = Math.max(1, Math.floor((availableWidth + GAP) / (minWidth + GAP)))
+      const colWidth = (availableWidth - GAP * (cols - 1)) / cols
+      const cardHeight = colWidth * 1.5 // aspect-[2/3]
+      const rows = Math.max(1, Math.ceil(availableHeight / (cardHeight + GAP)))
+      setCount(cols * rows)
+    }
+
+    calc()
+    const observer = new ResizeObserver(calc)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref, posterSize, variant])
+
+  return count
+}
+
+export function LoadingState({ variant = 'card', count, posterSize, theme }: LoadingStateProps) {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const autoCount = useFillCount(gridRef, posterSize, variant)
+  const finalCount = count ?? autoCount
+
   if (variant === 'list') {
     return (
-      <div className="space-y-2">
-        {Array.from({ length: count }).map((_, i) => (
+      <div ref={gridRef} className="space-y-2">
+        {finalCount > 0 && Array.from({ length: finalCount }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
@@ -27,13 +75,33 @@ export function LoadingState({ variant = 'card', count = 6 }: LoadingStateProps)
     )
   }
 
+  const gridStyle = posterSize
+    ? { gridTemplateColumns: `repeat(auto-fill, minmax(${posterSize}px, 1fr))` }
+    : undefined
+
+  const gridClassName = posterSize
+    ? "grid gap-4"
+    : "grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+
   return (
-    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="space-y-2">
-          <Skeleton className="aspect-[2/3] w-full rounded-lg" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
+    <div ref={gridRef} className={gridClassName} style={gridStyle}>
+      {finalCount > 0 && Array.from({ length: finalCount }).map((_, i) => (
+        <div key={i} className="rounded-lg overflow-hidden border border-border bg-card">
+          <div className="relative aspect-[2/3]">
+            <Skeleton className="absolute inset-0 rounded-none" />
+            <div className="absolute top-2 right-2 z-10">
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            {theme === 'tv' && (
+              <div className="absolute top-2 left-2 z-10">
+                <Skeleton className="h-5 w-10 rounded-full" />
+              </div>
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
+              <Skeleton className="h-4 w-3/4 bg-white/10" />
+              <Skeleton className="h-3 w-1/3 mt-1.5 bg-white/10" />
+            </div>
+          </div>
         </div>
       ))}
     </div>

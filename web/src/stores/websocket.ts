@@ -13,6 +13,7 @@ import { useProgressStore } from './progress'
 import { useArtworkStore, type ArtworkReadyPayload } from './artwork'
 import { useAutoSearchStore, type AutoSearchTaskResult } from './autosearch'
 import { useDevModeStore } from './devmode'
+import { useUIStore } from './ui'
 import { usePortalDownloadsStore } from './portalDownloads'
 import { useLogsStore } from './logs'
 import type { Activity, ProgressEventType } from '@/types/progress'
@@ -246,14 +247,17 @@ export function useWebSocketHandler() {
         break
 
       // Developer mode events
-      case 'devmode:changed':
-        useDevModeStore.getState().setEnabled(
-          (lastMessage.payload as { enabled: boolean }).enabled
-        )
+      case 'devmode:changed': {
+        const { enabled } = lastMessage.payload as { enabled: boolean }
+        useDevModeStore.getState().setEnabled(enabled)
         useDevModeStore.getState().setSwitching(false)
+        if (!enabled) {
+          useUIStore.getState().setGlobalLoading(false)
+        }
         // Invalidate all queries to refresh with potentially different database
         queryClient.invalidateQueries()
         break
+      }
 
       case 'devmode:error':
         useDevModeStore.getState().setSwitching(false)

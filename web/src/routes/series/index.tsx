@@ -23,11 +23,12 @@ import { GroupedSeriesGrid } from '@/components/series/GroupedSeriesGrid'
 import { SeriesTable } from '@/components/series/SeriesTable'
 import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import { LoadingState } from '@/components/data/LoadingState'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { groupMedia } from '@/lib/grouping'
 import { SERIES_COLUMNS, createSeriesActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
-import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles, useRootFolders } from '@/hooks'
+import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles, useRootFolders, useGlobalLoading } from '@/hooks'
 import { useUIStore } from '@/stores'
 import { toast } from 'sonner'
 import type { Series } from '@/types'
@@ -69,7 +70,9 @@ export function SeriesListPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteFiles, setDeleteFiles] = useState(false)
 
-  const { data: seriesList, isLoading, isError, refetch } = useSeries()
+  const globalLoading = useGlobalLoading()
+  const { data: seriesList, isLoading: queryLoading, isError, refetch } = useSeries()
+  const isLoading = queryLoading || globalLoading
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: rootFolders } = useRootFolders()
   const bulkDeleteMutation = useBulkDeleteSeries()
@@ -225,15 +228,6 @@ export function SeriesListPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Series" />
-        <LoadingState variant="card" />
-      </div>
-    )
-  }
-
   if (isError) {
     return (
       <div>
@@ -247,13 +241,13 @@ export function SeriesListPage() {
     <div>
       <PageHeader
         title="Series"
-        description={`${seriesList?.length || 0} series in library`}
+        description={isLoading ? <Skeleton className="h-4 w-36" /> : `${seriesList?.length || 0} series in library`}
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={handleRefreshAll}
-              disabled={refreshAllMutation.isPending || editMode}
+              disabled={isLoading || refreshAllMutation.isPending || editMode}
             >
               <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
               {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
@@ -264,13 +258,13 @@ export function SeriesListPage() {
                 Cancel
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setEditMode(true)}>
+              <Button variant="outline" onClick={() => setEditMode(true)} disabled={isLoading}>
                 <Pencil className="size-4 mr-1" />
                 Edit
               </Button>
             )}
             <Button
-              disabled={editMode}
+              disabled={isLoading || editMode}
               className="bg-tv-500 hover:bg-tv-400 border-tv-500"
               onClick={() => document.getElementById('global-search')?.focus()}
             >
@@ -350,11 +344,13 @@ export function SeriesListPage() {
           onReset={() => setStatusFilters([...ALL_FILTERS])}
           label="Statuses"
           theme="tv"
+          disabled={isLoading}
         />
 
         <Select
           value={sortField}
           onValueChange={(v) => v && setSortField(v as SortField)}
+          disabled={isLoading}
         >
           <SelectTrigger className="gap-1.5">
             <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-tv-400' : 'text-muted-foreground')} />
@@ -378,6 +374,7 @@ export function SeriesListPage() {
                 max={250}
                 step={10}
                 className="w-24"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -392,6 +389,7 @@ export function SeriesListPage() {
           <ToggleGroup
             value={[seriesView]}
             onValueChange={(v) => v.length > 0 && setSeriesView(v[0] as 'grid' | 'table')}
+            disabled={isLoading}
           >
             <ToggleGroupItem value="grid" aria-label="Grid view">
               <Grid className="size-4" />
@@ -404,7 +402,9 @@ export function SeriesListPage() {
       </div>
 
       {/* Content */}
-      {sortedSeries.length === 0 ? (
+      {isLoading ? (
+        <LoadingState variant={seriesView === 'grid' ? 'card' : 'list'} posterSize={posterSize} theme="tv" />
+      ) : sortedSeries.length === 0 ? (
         <EmptyState
           icon={<Tv className="size-8 text-tv-500" />}
           title="No series found"

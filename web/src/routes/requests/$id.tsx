@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useRequest, useCancelRequest, useWatchRequest, useUnwatchRequest, usePortalDownloads } from '@/hooks'
+import { useRequest, useCancelRequest, useWatchRequest, useUnwatchRequest, usePortalDownloads, useGlobalLoading } from '@/hooks'
 import { usePortalAuthStore } from '@/stores'
 import { Progress } from '@/components/ui/progress'
 import { formatEta } from '@/lib/formatters'
@@ -52,7 +52,9 @@ export function RequestDetailPage() {
   const requestId = parseInt(params.id || '0', 10)
 
   const { user } = usePortalAuthStore()
-  const { data: request, isLoading, error } = useRequest(requestId)
+  const globalLoading = useGlobalLoading()
+  const { data: request, isLoading: queryLoading, error } = useRequest(requestId)
+  const isLoading = queryLoading || globalLoading
   const { data: downloads } = usePortalDownloads()
   const cancelMutation = useCancelRequest()
   const watchMutation = useWatchRequest()

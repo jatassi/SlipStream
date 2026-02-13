@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useQueue, useHistory } from '@/hooks'
+import { useQueue, useHistory, useGlobalLoading } from '@/hooks'
 import { useStorage } from '@/hooks/useStorage'
 import { formatRelativeTime } from '@/lib/formatters'
 import { eventTypeLabels } from '@/lib/history-utils'
@@ -13,7 +13,9 @@ import { StorageCard } from '@/components/dashboard/StorageCard'
 import { HealthWidget } from '@/components/health'
 
 function QueuePreview() {
-  const { data: queue, isLoading } = useQueue()
+  const globalLoading = useGlobalLoading()
+  const { data: queue, isLoading: queryLoading } = useQueue()
+  const isLoading = queryLoading || globalLoading
 
   if (isLoading) {
     return (
@@ -71,7 +73,9 @@ function QueuePreview() {
 }
 
 function RecentActivity() {
-  const { data: history, isLoading } = useHistory({ pageSize: 10 })
+  const globalLoading = useGlobalLoading()
+  const { data: history, isLoading: queryLoading } = useHistory({ pageSize: 10 })
+  const isLoading = queryLoading || globalLoading
 
   if (isLoading) {
     return (
@@ -136,6 +140,7 @@ function RecentActivity() {
 }
 
 export function DashboardPage() {
+  const globalLoading = useGlobalLoading()
   const storage = useStorage()
 
   return (
@@ -149,7 +154,7 @@ export function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         <StorageCard
           storage={storage?.data}
-          loading={storage?.isLoading}
+          loading={storage?.isLoading || globalLoading}
         />
         <HealthWidget />
       </div>

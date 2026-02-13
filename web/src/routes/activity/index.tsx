@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProgressBar } from '@/components/media/ProgressBar'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
@@ -20,6 +20,7 @@ import {
   useFastForwardQueueItem,
   useMovie,
   useSeriesDetail,
+  useGlobalLoading,
 } from '@/hooks'
 import { formatBytes, formatSpeed, formatEta } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -371,7 +372,9 @@ function QueueErrorBanner({ errors, isFetching }: { errors: ClientError[]; isFet
 
 export function ActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
-  const { data: queueResponse, isLoading, isError, isFetching, refetch } = useQueue()
+  const globalLoading = useGlobalLoading()
+  const { data: queueResponse, isLoading: queryLoading, isError, isFetching, refetch } = useQueue()
+  const isLoading = queryLoading || globalLoading
 
   const items = queueResponse?.items ?? []
   const clientErrors = queueResponse?.errors ?? []
@@ -389,15 +392,6 @@ export function ActivityPage() {
   const seriesCount = items.filter((q) => q.mediaType === 'series').length
   const totalCount = items.length
 
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Downloads" />
-        <LoadingState variant="list" />
-      </div>
-    )
-  }
-
   if (isError) {
     return (
       <div>
@@ -411,7 +405,7 @@ export function ActivityPage() {
     <div>
       <PageHeader
         title="Downloads"
-        description="Monitor active downloads"
+        description={isLoading ? <Skeleton className="h-4 w-44" /> : 'Monitor active downloads'}
         actions={
           <Link to="/activity/history">
             <Button variant="outline">View History</Button>
@@ -420,37 +414,39 @@ export function ActivityPage() {
       />
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as MediaFilter)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger
-            value="all"
-            className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
-          >
-            All
-            {totalCount > 0 && (
-              <span className="ml-2 text-xs data-active:text-black/60">({totalCount})</span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="movies"
-            className="data-active:bg-white data-active:text-black data-active:glow-movie"
-          >
-            <Film className="size-4 mr-1.5" />
-            Movies
-            {movieCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">({movieCount})</span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="series"
-            className="data-active:bg-white data-active:text-black data-active:glow-tv"
-          >
-            <Tv className="size-4 mr-1.5" />
-            Series
-            {seriesCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">({seriesCount})</span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className={cn(isLoading && 'pointer-events-none opacity-50')}>
+          <TabsList>
+            <TabsTrigger
+              value="all"
+              className="px-4 data-active:bg-white data-active:text-black data-active:glow-media-sm"
+            >
+              All
+              {!isLoading && totalCount > 0 && (
+                <span className="ml-2 text-xs data-active:text-black/60">({totalCount})</span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="movies"
+              className="data-active:bg-white data-active:text-black data-active:glow-movie"
+            >
+              <Film className="size-4 mr-1.5" />
+              Movies
+              {!isLoading && movieCount > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">({movieCount})</span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="series"
+              className="data-active:bg-white data-active:text-black data-active:glow-tv"
+            >
+              <Tv className="size-4 mr-1.5" />
+              Series
+              {!isLoading && seriesCount > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">({seriesCount})</span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={filter}>
           <Card>
@@ -463,12 +459,42 @@ export function ActivityPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {clientErrors.length > 0 && (
-                <div className="px-4 pt-4">
-                  <QueueErrorBanner errors={clientErrors} isFetching={isFetching} />
+              {isLoading ? (
+                <div className="divide-y divide-border">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-4 px-4 py-3">
+                      <Skeleton className="size-10 rounded shrink-0" />
+                      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                        <div className="shrink-0 space-y-1">
+                          <Skeleton className="h-4 w-36" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                        <div className="flex-1 basis-56 min-w-[200px] space-y-1.5">
+                          <Skeleton className="h-2 w-full rounded-full" />
+                          <div className="flex items-center text-xs">
+                            <Skeleton className="h-3 w-24" />
+                            <Skeleton className="h-3 w-16 mx-auto" />
+                            <Skeleton className="h-3 w-12" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Skeleton className="size-8 rounded-md" />
+                        <Skeleton className="size-8 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <>
+                  {clientErrors.length > 0 && (
+                    <div className="px-4 pt-4">
+                      <QueueErrorBanner errors={clientErrors} isFetching={isFetching} />
+                    </div>
+                  )}
+                  <DownloadsTable items={filteredItems} />
+                </>
               )}
-              <DownloadsTable items={filteredItems} />
             </CardContent>
           </Card>
         </TabsContent>

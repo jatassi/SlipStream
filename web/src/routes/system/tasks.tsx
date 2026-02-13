@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useScheduledTasks, useRunTask } from '@/hooks'
+import { useScheduledTasks, useRunTask, useGlobalLoading } from '@/hooks'
 import { formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { ScheduledTask } from '@/types'
@@ -127,7 +127,9 @@ function formatRelativeTime(dateString?: string): string {
 }
 
 export function TasksPage() {
-  const { data: tasks, isLoading, isError, refetch } = useScheduledTasks()
+  const globalLoading = useGlobalLoading()
+  const { data: tasks, isLoading: queryLoading, isError, refetch } = useScheduledTasks()
+  const isLoading = queryLoading || globalLoading
   const runTaskMutation = useRunTask()
 
   const handleRunTask = async (taskId: string, taskName: string) => {

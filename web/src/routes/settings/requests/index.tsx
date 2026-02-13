@@ -53,6 +53,7 @@ import {
   useAutoSearchMovie,
   useAutoSearchSeason,
   usePortalEnabled,
+  useGlobalLoading,
 } from '@/hooks'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
@@ -97,7 +98,9 @@ export function RequestQueuePage() {
   const [processingRequest, setProcessingRequest] = useState<number | null>(null)
   const pendingSeasonsRef = useRef<number[]>([])
 
-  const { data: requests = [], isLoading, isError, refetch } = useAdminRequests()
+  const globalLoading = useGlobalLoading()
+  const { data: requests = [], isLoading: queryLoading, isError, refetch } = useAdminRequests()
+  const isLoading = queryLoading || globalLoading
   const { data: rootFolders } = useRootFolders()
   const { data: requestSettings } = useRequestSettings()
   const { data: qualityProfiles } = useQualityProfiles()

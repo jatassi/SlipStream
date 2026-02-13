@@ -37,6 +37,10 @@ interface UIState {
   setMovieTableColumns: (cols: string[]) => void
   setSeriesTableColumns: (cols: string[]) => void
 
+  // Global loading override (dev tool)
+  globalLoading: boolean
+  setGlobalLoading: (loading: boolean) => void
+
   // Notifications
   notifications: Notification[]
   addNotification: (notification: Omit<Notification, 'id'>) => void
@@ -85,6 +89,10 @@ export const useUIStore = create<UIState>()(
       setPosterSize: (size) => set({ posterSize: size }),
       setMovieTableColumns: (cols) => set({ movieTableColumns: cols }),
       setSeriesTableColumns: (cols) => set({ seriesTableColumns: cols }),
+
+      // Global loading override
+      globalLoading: false,
+      setGlobalLoading: (loading) => set({ globalLoading: loading }),
 
       // Notifications
       notifications: [],

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
 import { StatusIndicator, getStatusBgColor } from '@/components/health'
+import { useGlobalLoading } from '@/hooks'
 import {
   useSystemHealth,
   useTestHealthCategory,
@@ -451,7 +452,9 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
 }
 
 export function SystemHealthPage() {
-  const { data: health, isLoading, error } = useSystemHealth()
+  const globalLoading = useGlobalLoading()
+  const { data: health, isLoading: queryLoading, error } = useSystemHealth()
+  const isLoading = queryLoading || globalLoading
   const { data: modeData } = useIndexerMode()
 
   const isProwlarrMode = modeData?.effectiveMode === 'prowlarr'

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { format, parseISO, isToday, isPast, isFuture } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 import { CalendarEventCard } from './CalendarEventCard'
 import type { CalendarEvent } from '@/types/calendar'
 
@@ -29,11 +30,28 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
   if (loading) {
     return (
       <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="space-y-2">
-            <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-            <div className="h-20 bg-muted animate-pulse rounded" />
-            <div className="h-20 bg-muted animate-pulse rounded" />
+        {Array.from({ length: 7 }, (_, i) => (
+          <div key={i}>
+            <div className="flex items-center gap-3 py-2 mb-2">
+              <Skeleton className="w-14 h-14 rounded-lg" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <div className="space-y-2 pl-[70px]">
+              <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-2 space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Skeleton className="size-3 rounded-full shrink-0" />
+                  <Skeleton className="h-3.5 w-48" />
+                </div>
+                <Skeleton className="h-3 w-32" />
+                <div className="flex gap-1">
+                  <Skeleton className="h-4 w-12 rounded-full" />
+                  <Skeleton className="h-4 w-10 rounded-full" />
+                </div>
+              </div>
+            </div>
           </div>
         ))}
       </div>

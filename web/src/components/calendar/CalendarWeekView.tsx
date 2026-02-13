@@ -11,6 +11,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { CalendarEventCard } from './CalendarEventCard'
 import type { CalendarEvent } from '@/types/calendar'
 
@@ -100,10 +101,17 @@ export function CalendarWeekView({
 
                 <div className="space-y-2">
                   {loading ? (
-                    <>
-                      <div className="h-16 bg-muted animate-pulse rounded" />
-                      <div className="h-16 bg-muted animate-pulse rounded" />
-                    </>
+                    <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-2 space-y-1.5">
+                      <div className="flex items-center gap-1">
+                        <Skeleton className="size-3 rounded-full shrink-0" />
+                        <Skeleton className="h-3.5 w-3/4" />
+                      </div>
+                      <Skeleton className="h-3 w-1/2" />
+                      <div className="flex gap-1">
+                        <Skeleton className="h-4 w-12 rounded-full" />
+                        <Skeleton className="h-4 w-10 rounded-full" />
+                      </div>
+                    </div>
                   ) : dayEvents.length > 0 ? (
                     dayEvents.map((event) => (
                       <CalendarEventCard

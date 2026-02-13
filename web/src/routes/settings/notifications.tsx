@@ -16,6 +16,7 @@ import {
   useTestNotification,
   useUpdateNotification,
   useNotificationSchemas,
+  useGlobalLoading,
 } from '@/hooks'
 import { toast } from 'sonner'
 import type { Notification } from '@/types'
@@ -24,7 +25,9 @@ export function NotificationsPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [editingNotification, setEditingNotification] = useState<Notification | null>(null)
 
-  const { data: notifications, isLoading, isError, refetch } = useNotifications()
+  const globalLoading = useGlobalLoading()
+  const { data: notifications, isLoading: queryLoading, isError, refetch } = useNotifications()
+  const isLoading = queryLoading || globalLoading
   const { data: schemas } = useNotificationSchemas()
   const deleteMutation = useDeleteNotification()
   const testMutation = useTestNotification()

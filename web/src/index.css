@@ -426,6 +426,19 @@
   }
 }
 
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(50%);
+  }
+}
+
+.animate-skeleton-shimmer {
+  animation: skeleton-shimmer 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @keyframes progress-glow-movie {
   0%, 100% {
     box-shadow: 0 0 8px color-mix(in oklch, var(--movie-500) 40%, transparent);

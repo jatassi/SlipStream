@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { LoadingState } from '@/components/data/LoadingState'
+import { useGlobalLoading } from '@/hooks'
 import { useLogs, useDownloadLogFile } from '@/hooks/useLogs'
 import { useLogsStore, ALL_LOG_LEVELS } from '@/stores/logs'
 import { cn } from '@/lib/utils'
@@ -61,7 +62,9 @@ function formatFields(fields: Record<string, unknown> | undefined): string {
 }
 
 export function LogsPage() {
-  const { isLoading } = useLogs()
+  const globalLoading = useGlobalLoading()
+  const { isLoading: queryLoading } = useLogs()
+  const isLoading = queryLoading || globalLoading
   const downloadMutation = useDownloadLogFile()
   const scrollRef = useRef<HTMLDivElement>(null)
 

@@ -43,6 +43,7 @@ import {
   useAssignEpisodeFile,
   useQualityProfiles,
   useExtendedSeriesMetadata,
+  useGlobalLoading,
 } from '@/hooks'
 import { formatRuntime, formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
@@ -56,7 +57,9 @@ export function SeriesDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [overviewExpanded, setOverviewExpanded] = useState(false)
 
-  const { data: series, isLoading, isError, refetch } = useSeriesDetail(seriesId)
+  const globalLoading = useGlobalLoading()
+  const { data: series, isLoading: queryLoading, isError, refetch } = useSeriesDetail(seriesId)
+  const isLoading = queryLoading || globalLoading
   const { data: extendedData } = useExtendedSeriesMetadata(series?.tmdbId ?? 0)
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: episodes } = useEpisodes(seriesId)

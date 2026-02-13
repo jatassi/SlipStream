@@ -41,6 +41,7 @@ import {
   getInvitationLink,
   useQualityProfiles,
   usePortalEnabled,
+  useGlobalLoading,
 } from '@/hooks'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
@@ -58,6 +59,7 @@ export function RequestUsersPage() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [expandedLinkToken, setExpandedLinkToken] = useState<string | null>(null)
 
+  const globalLoading = useGlobalLoading()
   const { data: users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useAdminUsers()
   const { data: invitations, isLoading: invitationsLoading, isError: invitationsError, refetch: refetchInvitations } = useAdminInvitations()
   const { data: qualityProfiles } = useQualityProfiles()
@@ -201,7 +203,7 @@ export function RequestUsersPage() {
     return profile?.name || 'Unknown'
   }
 
-  const isLoading = activeTab === 'users' ? usersLoading : invitationsLoading
+  const isLoading = (activeTab === 'users' ? usersLoading : invitationsLoading) || globalLoading
   const isError = activeTab === 'users' ? usersError : invitationsError
   const refetch = activeTab === 'users' ? refetchUsers : refetchInvitations
 

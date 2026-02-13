@@ -10,9 +10,8 @@ import {
 import { CalendarDays, CalendarRange, List } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { LoadingState } from '@/components/data/LoadingState'
 import { ErrorState } from '@/components/data/ErrorState'
-import { useCalendarEvents } from '@/hooks'
+import { useCalendarEvents, useGlobalLoading } from '@/hooks'
 import {
   CalendarMonthView,
   CalendarWeekView,
@@ -50,21 +49,14 @@ export function CalendarPage() {
     }
   }, [view, currentDate])
 
-  const { data: events, isLoading, isError, refetch } = useCalendarEvents(dateRange)
+  const globalLoading = useGlobalLoading()
+  const { data: events, isLoading: queryLoading, isError, refetch } = useCalendarEvents(dateRange)
+  const isLoading = queryLoading || globalLoading
 
   const handleViewChange = (newView: string[]) => {
     if (newView.length > 0) {
       setView(newView[0] as CalendarView)
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Calendar" />
-        <LoadingState variant="list" />
-      </div>
-    )
   }
 
   if (isError) {
