@@ -1,5 +1,13 @@
+import type {
+  MissingCounts,
+  MissingMovie,
+  MissingSeries,
+  UpgradableCounts,
+  UpgradableMovie,
+  UpgradableSeries,
+} from '@/types/missing'
+
 import { apiFetch } from './client'
-import type { MissingMovie, MissingSeries, MissingCounts, UpgradableMovie, UpgradableSeries, UpgradableCounts } from '@/types/missing'
 
 export const missingApi = {
   getMovies: () => apiFetch<MissingMovie[]>('/missing/movies'),

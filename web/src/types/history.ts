@@ -9,7 +9,7 @@ export type HistoryEventType =
   | 'import_failed'
   | 'status_changed'
 
-export interface HistoryEntry {
+export type HistoryEntry = {
   id: number
   eventType: HistoryEventType
   mediaType: 'movie' | 'episode'
@@ -24,7 +24,7 @@ export interface HistoryEntry {
   year?: number
 }
 
-export interface AutoSearchDownloadData {
+export type AutoSearchDownloadData = {
   releaseName?: string
   indexer?: string
   clientName?: string
@@ -35,13 +35,13 @@ export interface AutoSearchDownloadData {
   newQuality?: string
 }
 
-export interface AutoSearchFailedData {
+export type AutoSearchFailedData = {
   error?: string
   indexer?: string
   source?: string
 }
 
-export interface ImportEventData {
+export type ImportEventData = {
   sourcePath?: string
   destinationPath?: string
   originalFilename?: string
@@ -59,13 +59,13 @@ export interface ImportEventData {
   linkMode?: string
 }
 
-export interface StatusChangedData {
+export type StatusChangedData = {
   from?: string
   to?: string
   reason?: string
 }
 
-export interface FileRenamedData {
+export type FileRenamedData = {
   source_path?: string
   destination_path?: string
   old_filename?: string
@@ -80,7 +80,7 @@ export type HistoryEventData =
   | FileRenamedData
   | Record<string, unknown>
 
-export interface ListHistoryOptions {
+export type ListHistoryOptions = {
   eventType?: string
   mediaType?: 'movie' | 'episode'
   mediaId?: number
@@ -90,7 +90,7 @@ export interface ListHistoryOptions {
   after?: string
 }
 
-export interface HistoryResponse {
+export type HistoryResponse = {
   items: HistoryEntry[]
   page: number
   pageSize: number

@@ -1,13 +1,14 @@
 import { Link } from '@tanstack/react-router'
-import { Eye, EyeOff, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Clock, Eye, EyeOff } from 'lucide-react'
+
 import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 import type { Series } from '@/types'
 
-interface SeriesCardProps {
+type SeriesCardProps = {
   series: Series
   className?: string
   editMode?: boolean
@@ -17,24 +18,42 @@ interface SeriesCardProps {
 
 function formatDate(dateStr: string, format: 'short' | 'medium' | 'long') {
   const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return null
+  if (isNaN(date.getTime())) {
+    return null
+  }
   switch (format) {
-    case 'short':
+    case 'short': {
       return `${date.getMonth() + 1}/${date.getDate()}`
-    case 'medium':
+    }
+    case 'medium': {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    case 'long':
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    case 'long': {
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    }
   }
 }
 
 function yearFromDate(dateStr?: string): number | null {
-  if (!dateStr) return null
+  if (!dateStr) {
+    return null
+  }
   const date = new Date(dateStr)
   return isNaN(date.getTime()) ? null : date.getFullYear()
 }
 
-export function SeriesCard({ series, className, editMode, selected, onToggleSelect }: SeriesCardProps) {
+export function SeriesCard({
+  series,
+  className,
+  editMode,
+  selected,
+  onToggleSelect,
+}: SeriesCardProps) {
   const available = series.statusCounts.available + series.statusCounts.upgradable
   const total = series.statusCounts.total - series.statusCounts.unreleased
   const MonitorIcon = series.monitored ? Eye : EyeOff
@@ -64,8 +83,8 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
           <Checkbox
             checked={selected}
             className={cn(
-              'size-5 bg-background/80 border-2',
-              selected && 'border-tv-500 data-[checked]:bg-tv-500'
+              'bg-background/80 size-5 border-2',
+              selected && 'border-tv-500 data-[checked]:bg-tv-500',
             )}
           />
         </div>
@@ -81,10 +100,15 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
       />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
         <div className="flex items-end gap-1.5">
-          <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+          <h3 className="line-clamp-2 font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
             {series.title}
           </h3>
-          <MonitorIcon className={cn('size-3.5 shrink-0 mb-0.5', series.monitored ? 'text-tv-400' : 'text-gray-500')} />
+          <MonitorIcon
+            className={cn(
+              'mb-0.5 size-3.5 shrink-0',
+              series.monitored ? 'text-tv-400' : 'text-gray-500',
+            )}
+          />
         </div>
         <div className="text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
           {isEnded ? (
@@ -101,9 +125,11 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
     return (
       <div
         className={cn(
-          'group block rounded-lg overflow-hidden bg-card border-2 transition-all cursor-pointer',
-          selected ? 'border-tv-500 glow-tv' : 'border-border hover:border-tv-500/50 hover:glow-tv-sm',
-          className
+          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all',
+          selected
+            ? 'border-tv-500 glow-tv'
+            : 'border-border hover:border-tv-500/50 hover:glow-tv-sm',
+          className,
         )}
         onClick={() => onToggleSelect?.(series.id)}
       >
@@ -117,8 +143,8 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
       to="/series/$id"
       params={{ id: String(series.id) }}
       className={cn(
-        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-tv-500/50 hover:glow-tv',
-        className
+        'group bg-card border-border hover:border-tv-500/50 hover:glow-tv block overflow-hidden rounded-lg border transition-all',
+        className,
       )}
     >
       {cardContent}
@@ -126,9 +152,16 @@ export function SeriesCard({ series, className, editMode, selected, onToggleSele
   )
 }
 
-function EndedStatus({ firstYear, lastAiredYear }: { firstYear: number | null; lastAiredYear: number | null }) {
+function EndedStatus({
+  firstYear,
+  lastAiredYear,
+}: {
+  firstYear: number | null
+  lastAiredYear: number | null
+}) {
   const endedLabel = `Ended ${lastAiredYear || ''}`
-  const rangeLabel = firstYear && lastAiredYear ? `${firstYear} \u2013 ${lastAiredYear}` : endedLabel
+  const rangeLabel =
+    firstYear && lastAiredYear ? `${firstYear} \u2013 ${lastAiredYear}` : endedLabel
 
   return (
     <>
@@ -147,7 +180,7 @@ function ActiveStatus({ nextAiring }: { nextAiring?: string }) {
     <>
       <span className="group-hover:hidden">Active</span>
       {nextAiring && shortDate ? (
-        <span className="hidden group-hover:inline-flex items-center gap-1">
+        <span className="hidden items-center gap-1 group-hover:inline-flex">
           <Clock className="size-3" />
           <span className="@[150px]:hidden">{shortDate}</span>
           <span className="hidden @[150px]:inline @[190px]:hidden">{mediumDate}</span>

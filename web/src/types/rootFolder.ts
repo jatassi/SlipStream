@@ -1,4 +1,4 @@
-export interface RootFolder {
+export type RootFolder = {
   id: number
   path: string
   name: string
@@ -8,7 +8,7 @@ export interface RootFolder {
   isDefault?: boolean
 }
 
-export interface CreateRootFolderInput {
+export type CreateRootFolderInput = {
   path: string
   name?: string
   mediaType: 'movie' | 'tv'

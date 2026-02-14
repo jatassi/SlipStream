@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+
 import { getDefaultVisibleColumns, MOVIE_COLUMNS, SERIES_COLUMNS } from '@/lib/table-columns'
 
-export interface Notification {
+export type Notification = {
   id: string
   type: 'info' | 'success' | 'warning' | 'error'
   title: string
@@ -10,7 +11,7 @@ export interface Notification {
   duration?: number
 }
 
-interface UIState {
+type UIState = {
   // Sidebar
   sidebarCollapsed: boolean
   toggleSidebar: () => void
@@ -53,8 +54,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       // Sidebar
       sidebarCollapsed: false,
-      toggleSidebar: () =>
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
       // Sidebar menu expansion state
@@ -98,10 +98,7 @@ export const useUIStore = create<UIState>()(
       notifications: [],
       addNotification: (notification) =>
         set((state) => ({
-          notifications: [
-            ...state.notifications,
-            { ...notification, id: crypto.randomUUID() },
-          ],
+          notifications: [...state.notifications, { ...notification, id: crypto.randomUUID() }],
         })),
       dismissNotification: (id) =>
         set((state) => ({
@@ -121,6 +118,6 @@ export const useUIStore = create<UIState>()(
         movieTableColumns: state.movieTableColumns,
         seriesTableColumns: state.seriesTableColumns,
       }),
-    }
-  )
+    },
+  ),
 )

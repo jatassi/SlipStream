@@ -1,22 +1,23 @@
 import { Link } from '@tanstack/react-router'
-import { UserSearch, Calendar, ChevronRight, SlidersVertical } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Calendar, ChevronRight, SlidersVertical, UserSearch } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { PosterImage } from '@/components/media/PosterImage'
+import { MediaSearchMonitorControls } from '@/components/search'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { PosterImage } from '@/components/media/PosterImage'
-import { MediaSearchMonitorControls } from '@/components/search'
-import { EmptyState } from '@/components/data/EmptyState'
+import { Badge } from '@/components/ui/badge'
+import { useUpdateEpisodeMonitored, useUpdateSeasonMonitored, useUpdateSeries } from '@/hooks'
 import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { useUpdateSeries, useUpdateSeasonMonitored, useUpdateEpisodeMonitored } from '@/hooks'
-import { toast } from 'sonner'
-import type { MissingSeries, MissingSeason, MissingEpisode } from '@/types/missing'
+import type { MissingEpisode, MissingSeason, MissingSeries } from '@/types/missing'
 
-interface MissingSeriesListProps {
+type MissingSeriesListProps = {
   series: MissingSeries[]
   qualityProfileNames: Map<number, string>
 }
@@ -38,7 +39,11 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
     }
   }
 
-  const handleSeasonMonitored = async (seriesId: number, seasonNumber: number, monitored: boolean) => {
+  const handleSeasonMonitored = async (
+    seriesId: number,
+    seasonNumber: number,
+    monitored: boolean,
+  ) => {
     try {
       await updateSeasonMonitoredMutation.mutateAsync({
         seriesId,
@@ -51,7 +56,12 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
     }
   }
 
-  const handleEpisodeMonitored = async (seriesId: number, episodeId: number, label: string, monitored: boolean) => {
+  const handleEpisodeMonitored = async (
+    seriesId: number,
+    episodeId: number,
+    label: string,
+    monitored: boolean,
+  ) => {
     try {
       await updateEpisodeMonitoredMutation.mutateAsync({
         seriesId,
@@ -67,7 +77,7 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
   if (series.length === 0) {
     return (
       <EmptyState
-        icon={<UserSearch className="size-8 text-tv-400" />}
+        icon={<UserSearch className="text-tv-400 size-8" />}
         title="No missing episodes"
         description="All monitored episodes that have aired have been downloaded"
         className="py-8"
@@ -81,15 +91,15 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
         <AccordionItem
           key={s.id}
           value={`series-${s.id}`}
-          className="border rounded-lg px-4 bg-card transition-colors data-open:border-tv-500/30"
+          className="bg-card data-open:border-tv-500/30 rounded-lg border px-4 transition-colors"
         >
-          <AccordionTrigger className="group hover:no-underline py-3 **:data-[slot=accordion-trigger-icon]:!hidden">
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-1 flex-1">
-              <ChevronRight className="size-4 shrink-0 transition-transform duration-200 text-muted-foreground group-aria-expanded/accordion-trigger:rotate-90 group-hover:text-tv-400 group-hover:icon-glow-tv" />
+          <AccordionTrigger className="group py-3 hover:no-underline **:data-[slot=accordion-trigger-icon]:!hidden">
+            <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 sm:flex-nowrap">
+              <ChevronRight className="text-muted-foreground group-hover:text-tv-400 group-hover:icon-glow-tv size-4 shrink-0 transition-transform duration-200 group-aria-expanded/accordion-trigger:rotate-90" />
               <Link
                 to="/series/$id"
                 params={{ id: s.id.toString() }}
-                className="hidden sm:block shrink-0"
+                className="hidden shrink-0 sm:block"
                 onClick={(e) => e.stopPropagation()}
               >
                 <PosterImage
@@ -97,7 +107,7 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
                   tvdbId={s.tvdbId}
                   alt={s.title}
                   type="series"
-                  className="w-10 h-14 rounded shrink-0"
+                  className="h-14 w-10 shrink-0 rounded"
                 />
               </Link>
               <div className="min-w-0 flex-1 sm:flex-initial">
@@ -105,21 +115,19 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
                   <Link
                     to="/series/$id"
                     params={{ id: s.id.toString() }}
-                    className="font-semibold hover:text-tv-400 transition-colors sm:line-clamp-1"
+                    className="hover:text-tv-400 font-semibold transition-colors sm:line-clamp-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {s.title}
                   </Link>
-                  {s.year && (
-                    <span className="shrink-0 text-xs text-muted-foreground">({s.year})</span>
-                  )}
+                  {s.year ? (
+                    <span className="text-muted-foreground shrink-0 text-xs">({s.year})</span>
+                  ) : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                  <Badge variant="secondary">
-                    {s.missingCount} missing
-                  </Badge>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Badge variant="secondary">{s.missingCount} missing</Badge>
                   {qualityProfileNames.get(s.qualityProfileId) && (
-                    <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
                       <SlidersVertical className="size-2.5" />
                       {qualityProfileNames.get(s.qualityProfileId)}
                     </Badge>
@@ -133,7 +141,7 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
                   title={s.title}
                   theme="tv"
                   size="sm"
-                  monitored={true}
+                  monitored
                   onMonitoredChange={(m) => handleSeriesMonitored(s, m)}
                   monitorDisabled={updateSeriesMutation.isPending}
                   qualityProfileId={s.qualityProfileId}
@@ -166,11 +174,16 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
   )
 }
 
-interface MissingSeasonItemProps {
+type MissingSeasonItemProps = {
   series: MissingSeries
   season: MissingSeason
   onSeasonMonitored: (seriesId: number, seasonNumber: number, monitored: boolean) => void
-  onEpisodeMonitored: (seriesId: number, episodeId: number, label: string, monitored: boolean) => void
+  onEpisodeMonitored: (
+    seriesId: number,
+    episodeId: number,
+    label: string,
+    monitored: boolean,
+  ) => void
   isSeasonDisabled: boolean
   isEpisodeDisabled: boolean
 }
@@ -186,12 +199,12 @@ function MissingSeasonItem({
   return (
     <AccordionItem
       value={`season-${s.id}-${season.seasonNumber}`}
-      className="border rounded-lg px-3"
+      className="rounded-lg border px-3"
     >
-      <AccordionTrigger className="group hover:no-underline py-2 **:data-[slot=accordion-trigger-icon]:!hidden">
-        <div className="flex items-center gap-3 flex-1">
-          <ChevronRight className="size-3.5 shrink-0 transition-transform duration-200 text-muted-foreground group-aria-expanded/accordion-trigger:rotate-90 group-hover:text-tv-400" />
-          <span className="font-medium text-sm">Season {season.seasonNumber}</span>
+      <AccordionTrigger className="group py-2 hover:no-underline **:data-[slot=accordion-trigger-icon]:!hidden">
+        <div className="flex flex-1 items-center gap-3">
+          <ChevronRight className="text-muted-foreground group-hover:text-tv-400 size-3.5 shrink-0 transition-transform duration-200 group-aria-expanded/accordion-trigger:rotate-90" />
+          <span className="text-sm font-medium">Season {season.seasonNumber}</span>
           <Badge variant="secondary" className="text-xs">
             {season.missingEpisodes.length} missing
           </Badge>
@@ -204,7 +217,7 @@ function MissingSeasonItem({
               title={`${s.title} Season ${season.seasonNumber}`}
               theme="tv"
               size="xs"
-              monitored={true}
+              monitored
               onMonitoredChange={(m) => onSeasonMonitored(s.id, season.seasonNumber, m)}
               monitorDisabled={isSeasonDisabled}
               qualityProfileId={s.qualityProfileId}
@@ -235,39 +248,39 @@ function MissingSeasonItem({
   )
 }
 
-interface MissingEpisodeRowProps {
+type MissingEpisodeRowProps = {
   series: MissingSeries
   episode: MissingEpisode
   onMonitored: (seriesId: number, episodeId: number, label: string, monitored: boolean) => void
   isDisabled: boolean
 }
 
-function MissingEpisodeRow({ series: s, episode, onMonitored, isDisabled }: MissingEpisodeRowProps) {
+function MissingEpisodeRow({
+  series: s,
+  episode,
+  onMonitored,
+  isDisabled,
+}: MissingEpisodeRowProps) {
   const epLabel = `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`
 
   return (
-    <div
-      className="flex items-center justify-between py-1.5 px-1 text-sm rounded hover:bg-muted/50"
-    >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-tv-400 font-mono text-xs w-6 shrink-0 text-center">
+    <div className="hover:bg-muted/50 flex items-center justify-between rounded px-1 py-1.5 text-sm">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="text-tv-400 w-6 shrink-0 text-center font-mono text-xs">
           {episode.episodeNumber.toString().padStart(2, '0')}
         </span>
         <span
-          className={cn(
-            'truncate',
-            !episode.title && 'text-muted-foreground italic'
-          )}
+          className={cn('truncate', !episode.title && 'text-muted-foreground italic')}
           title={episode.title || 'TBA'}
         >
           {episode.title || 'TBA'}
         </span>
-        {episode.airDate && (
-          <span className="flex items-center gap-1 text-muted-foreground text-xs shrink-0">
+        {episode.airDate ? (
+          <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
             <Calendar className="size-3" />
             {formatDate(episode.airDate)}
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="shrink-0">
@@ -281,7 +294,7 @@ function MissingEpisodeRow({ series: s, episode, onMonitored, isDisabled }: Miss
           title={epLabel}
           theme="tv"
           size="xs"
-          monitored={true}
+          monitored
           onMonitoredChange={(m) => onMonitored(s.id, episode.id, epLabel, m)}
           monitorDisabled={isDisabled}
           qualityProfileId={s.qualityProfileId}

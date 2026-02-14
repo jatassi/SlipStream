@@ -1,7 +1,8 @@
-import { apiFetch } from './client'
 import type { BrowseResult } from '@/types'
 
-export interface ImportBrowseResult {
+import { apiFetch } from './client'
+
+export type ImportBrowseResult = {
   path: string
   parent?: string
   directories: { name: string; path: string; isDir: boolean }[]
@@ -15,15 +16,13 @@ export const filesystemApi = {
    * If path is empty, returns root (drives on Windows, / on Unix)
    */
   browse: (path?: string) =>
-    apiFetch<BrowseResult>(
-      `/filesystem/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`
-    ),
+    apiFetch<BrowseResult>(`/filesystem/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`),
 
   /**
    * Browse directories and video files for import
    */
   browseForImport: (path?: string) =>
     apiFetch<ImportBrowseResult>(
-      `/filesystem/browse/import${path ? `?path=${encodeURIComponent(path)}` : ''}`
+      `/filesystem/browse/import${path ? `?path=${encodeURIComponent(path)}` : ''}`,
     ),
 }

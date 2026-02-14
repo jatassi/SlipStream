@@ -1,4 +1,4 @@
-export interface Quality {
+export type Quality = {
   id: number
   name: string
   source: string
@@ -6,20 +6,20 @@ export interface Quality {
   weight: number
 }
 
-export interface QualityItem {
+export type QualityItem = {
   quality: Quality
   allowed: boolean
 }
 
 export type AttributeMode = 'acceptable' | 'preferred' | 'required' | 'notAllowed'
 
-export interface AttributeSettings {
+export type AttributeSettings = {
   items: Record<string, AttributeMode> // value -> mode mapping (e.g., { "DV": "required", "HDR10": "preferred" })
 }
 
 export type UpgradeStrategy = 'aggressive' | 'balanced' | 'resolution_only'
 
-export interface QualityProfile {
+export type QualityProfile = {
   id: number
   name: string
   cutoff: number
@@ -36,7 +36,7 @@ export interface QualityProfile {
   updatedAt: string
 }
 
-export interface CreateQualityProfileInput {
+export type CreateQualityProfileInput = {
   name: string
   cutoff: number
   upgradesEnabled: boolean
@@ -50,7 +50,7 @@ export interface CreateQualityProfileInput {
   audioChannelSettings: AttributeSettings
 }
 
-export interface UpdateQualityProfileInput {
+export type UpdateQualityProfileInput = {
   name: string
   cutoff: number
   upgradesEnabled: boolean
@@ -64,7 +64,7 @@ export interface UpdateQualityProfileInput {
   audioChannelSettings: AttributeSettings
 }
 
-export interface AttributeOptions {
+export type AttributeOptions = {
   hdrFormats: string[]
   videoCodecs: string[]
   audioCodecs: string[]
@@ -97,7 +97,7 @@ export const PREDEFINED_QUALITIES: Quality[] = [
 ]
 
 // Exclusivity checking types (Req 3.1.1-3.1.4)
-export interface ExclusivityDetail {
+export type ExclusivityDetail = {
   profileAId: number
   profileAName: string
   profileBId: number
@@ -108,7 +108,7 @@ export interface ExclusivityDetail {
   hints?: string[]
 }
 
-export interface SlotExclusivityError {
+export type SlotExclusivityError = {
   slotA: number
   slotB: number
   slotAName: string
@@ -119,7 +119,7 @@ export interface SlotExclusivityError {
   reason: string
 }
 
-export interface CheckExclusivityResponse {
+export type CheckExclusivityResponse = {
   valid: boolean
   errors?: SlotExclusivityError[]
   details?: ExclusivityDetail[]

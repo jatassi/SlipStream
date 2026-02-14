@@ -1,19 +1,20 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { slotsApi } from '@/api'
 import type {
-  Slot,
-  MultiVersionSettings,
-  UpdateSlotInput,
-  UpdateMultiVersionSettingsInput,
-  SetEnabledInput,
-  SetProfileInput,
   AssignFileInput,
-  SetMonitoredInput,
+  ExecuteMigrationInput,
+  MultiVersionSettings,
   ParseReleaseInput,
   ProfileMatchInput,
+  SetEnabledInput,
+  SetMonitoredInput,
+  SetProfileInput,
   SimulateImportInput,
+  Slot,
+  UpdateMultiVersionSettingsInput,
+  UpdateSlotInput,
   ValidateNamingInput,
-  ExecuteMigrationInput,
 } from '@/types'
 
 export const slotsKeys = {
@@ -55,8 +56,7 @@ export function useMultiVersionSettings() {
 export function useUpdateMultiVersionSettings() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: UpdateMultiVersionSettingsInput) =>
-      slotsApi.updateSettings(data),
+    mutationFn: (data: UpdateMultiVersionSettingsInput) => slotsApi.updateSettings(data),
     onSuccess: (settings: MultiVersionSettings) => {
       queryClient.invalidateQueries({ queryKey: slotsKeys.all })
       queryClient.setQueryData(slotsKeys.settings(), settings)
@@ -67,8 +67,7 @@ export function useUpdateMultiVersionSettings() {
 export function useUpdateSlot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateSlotInput }) =>
-      slotsApi.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: UpdateSlotInput }) => slotsApi.update(id, data),
     onSuccess: (slot: Slot) => {
       queryClient.invalidateQueries({ queryKey: slotsKeys.all })
       queryClient.setQueryData(slotsKeys.detail(slot.id), slot)
@@ -136,13 +135,8 @@ export function useAssignMovieFile() {
 export function useUnassignMovieSlot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({
-      movieId,
-      slotId,
-    }: {
-      movieId: number
-      slotId: number
-    }) => slotsApi.unassignMovieSlot(movieId, slotId),
+    mutationFn: ({ movieId, slotId }: { movieId: number; slotId: number }) =>
+      slotsApi.unassignMovieSlot(movieId, slotId),
     onSuccess: (_, { movieId }) => {
       queryClient.invalidateQueries({ queryKey: slotsKeys.movieAssignments(movieId) })
     },
@@ -179,13 +173,8 @@ export function useAssignEpisodeFile() {
 export function useUnassignEpisodeSlot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({
-      episodeId,
-      slotId,
-    }: {
-      episodeId: number
-      slotId: number
-    }) => slotsApi.unassignEpisodeSlot(episodeId, slotId),
+    mutationFn: ({ episodeId, slotId }: { episodeId: number; slotId: number }) =>
+      slotsApi.unassignEpisodeSlot(episodeId, slotId),
     onSuccess: (_, { episodeId }) => {
       queryClient.invalidateQueries({ queryKey: slotsKeys.episodeAssignments(episodeId) })
     },

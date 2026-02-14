@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface DevModeState {
+type DevModeState = {
   enabled: boolean
   switching: boolean
   setEnabled: (enabled: boolean) => void

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { missingApi } from '@/api'
 
 export const missingKeys = {

@@ -1,8 +1,9 @@
-import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
 import type { HealthStatus } from '@/types/health'
 
-interface StatusIndicatorProps {
+type StatusIndicatorProps = {
   status: HealthStatus
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -18,29 +19,24 @@ export function StatusIndicator({ status, size = 'md', className }: StatusIndica
   const sizeClass = sizeClasses[size]
 
   switch (status) {
-    case 'ok':
+    case 'ok': {
       return (
-        <CheckCircle2
-          className={cn(sizeClass, 'text-green-500', className)}
-          aria-label="Healthy"
-        />
+        <CheckCircle2 className={cn(sizeClass, 'text-green-500', className)} aria-label="Healthy" />
       )
-    case 'warning':
+    }
+    case 'warning': {
       return (
         <AlertTriangle
           className={cn(sizeClass, 'text-yellow-500', className)}
           aria-label="Warning"
         />
       )
-    case 'error':
-      return (
-        <XCircle
-          className={cn(sizeClass, 'text-red-500', className)}
-          aria-label="Error"
-        />
-      )
-    default:
+    }
+    case 'error': {
+      return <XCircle className={cn(sizeClass, 'text-red-500', className)} aria-label="Error" />
+    }
+    default: {
       return null
+    }
   }
 }
-

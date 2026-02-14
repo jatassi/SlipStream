@@ -1,5 +1,13 @@
+import type {
+  ApproveRequestInput,
+  BatchApproveInput,
+  BatchDenyInput,
+  DenyRequestInput,
+  Request,
+  RequestListFilters,
+} from '@/types'
+
 import { apiFetch, buildQueryString } from '../client'
-import type { Request, RequestListFilters, ApproveRequestInput, DenyRequestInput, BatchApproveInput, BatchDenyInput } from '@/types'
 
 const BASE_PATH = '/admin/requests'
 

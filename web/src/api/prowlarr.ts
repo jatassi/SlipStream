@@ -1,24 +1,24 @@
-import { apiFetch } from './client'
 import type {
+  ModeInfo,
+  ProwlarrCapabilities,
   ProwlarrConfig,
   ProwlarrConfigInput,
-  ProwlarrTestInput,
-  ProwlarrTestResult,
-  ProwlarrIndexer,
-  ProwlarrCapabilities,
   ProwlarrConnectionStatus,
-  ModeInfo,
-  SetModeInput,
-  RefreshResult,
-  ProwlarrIndexerWithSettings,
+  ProwlarrIndexer,
   ProwlarrIndexerSettings,
   ProwlarrIndexerSettingsInput,
+  ProwlarrIndexerWithSettings,
+  ProwlarrTestInput,
+  ProwlarrTestResult,
+  RefreshResult,
+  SetModeInput,
 } from '@/types'
+
+import { apiFetch } from './client'
 
 export const prowlarrApi = {
   // Configuration operations
-  getConfig: () =>
-    apiFetch<ProwlarrConfig>('/indexers/prowlarr'),
+  getConfig: () => apiFetch<ProwlarrConfig>('/indexers/prowlarr'),
 
   updateConfig: (data: ProwlarrConfigInput) =>
     apiFetch<ProwlarrConfig>('/indexers/prowlarr', {
@@ -34,16 +34,13 @@ export const prowlarrApi = {
     }),
 
   // Indexer operations (read-only from Prowlarr)
-  getIndexers: () =>
-    apiFetch<ProwlarrIndexer[]>('/indexers/prowlarr/indexers'),
+  getIndexers: () => apiFetch<ProwlarrIndexer[]>('/indexers/prowlarr/indexers'),
 
   // Capabilities
-  getCapabilities: () =>
-    apiFetch<ProwlarrCapabilities>('/indexers/prowlarr/capabilities'),
+  getCapabilities: () => apiFetch<ProwlarrCapabilities>('/indexers/prowlarr/capabilities'),
 
   // Connection status
-  getStatus: () =>
-    apiFetch<ProwlarrConnectionStatus>('/indexers/prowlarr/status'),
+  getStatus: () => apiFetch<ProwlarrConnectionStatus>('/indexers/prowlarr/status'),
 
   // Refresh cached data
   refresh: () =>
@@ -52,8 +49,7 @@ export const prowlarrApi = {
     }),
 
   // Mode operations
-  getMode: () =>
-    apiFetch<ModeInfo>('/indexers/mode'),
+  getMode: () => apiFetch<ModeInfo>('/indexers/mode'),
 
   setMode: (data: SetModeInput) =>
     apiFetch<ModeInfo>('/indexers/mode', {

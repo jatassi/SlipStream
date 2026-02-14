@@ -1,20 +1,22 @@
 import { useState } from 'react'
-import { Folder, FolderUp, HardDrive, ChevronRight, Loader2 } from 'lucide-react'
+
+import { ChevronRight, Folder, FolderUp, HardDrive, Loader2 } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useBrowseDirectory } from '@/hooks'
-import { cn } from '@/lib/utils'
 import { formatBytes } from '@/lib/formatters'
+import { cn } from '@/lib/utils'
 
-interface FolderBrowserProps {
+type FolderBrowserProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialPath?: string
@@ -30,10 +32,7 @@ export function FolderBrowser({
   const [currentPath, setCurrentPath] = useState(initialPath)
   const [inputPath, setInputPath] = useState(initialPath)
 
-  const { data, isLoading, error, refetch } = useBrowseDirectory(
-    currentPath || undefined,
-    open
-  )
+  const { data, isLoading, error, refetch } = useBrowseDirectory(currentPath || undefined, open)
 
   const handleNavigate = (path: string) => {
     setCurrentPath(path)
@@ -52,7 +51,9 @@ export function FolderBrowser({
 
   // Build breadcrumb parts from path
   const getBreadcrumbs = (path: string) => {
-    if (!path) return []
+    if (!path) {
+      return []
+    }
 
     // Handle Windows paths
     const isWindows = /^[A-Za-z]:/.test(path)
@@ -63,13 +64,13 @@ export function FolderBrowser({
 
     for (const part of parts) {
       accumulated = isWindows
-        ? (accumulated ? `${accumulated}\\${part}` : `${part}`)
+        ? accumulated
+          ? `${accumulated}\\${part}`
+          : part
         : `${accumulated}${accumulated === '/' ? '' : '/'}${part}`
 
       // For Windows, add : after drive letter
-      const displayPath = isWindows && breadcrumbs.length === 0
-        ? `${part}:\\`
-        : accumulated
+      const displayPath = isWindows && breadcrumbs.length === 0 ? `${part}:\\` : accumulated
 
       breadcrumbs.push({
         label: part,
@@ -104,7 +105,7 @@ export function FolderBrowser({
 
         {/* Breadcrumb navigation */}
         {breadcrumbs.length > 0 && (
-          <div className="flex items-center gap-1 text-sm overflow-x-auto pb-1">
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 text-sm">
             <Button
               variant="ghost"
               size="sm"
@@ -115,14 +116,11 @@ export function FolderBrowser({
             </Button>
             {breadcrumbs.map((crumb, index) => (
               <div key={crumb.path} className="flex items-center">
-                <ChevronRight className="size-4 text-muted-foreground" />
+                <ChevronRight className="text-muted-foreground size-4" />
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={cn(
-                    'h-7 px-2',
-                    index === breadcrumbs.length - 1 && 'font-medium'
-                  )}
+                  className={cn('h-7 px-2', index === breadcrumbs.length - 1 && 'font-medium')}
                   onClick={() => handleNavigate(crumb.path)}
                 >
                   {crumb.label}
@@ -133,15 +131,15 @@ export function FolderBrowser({
         )}
 
         {/* Content area */}
-        <div className="border rounded-lg">
+        <div className="rounded-lg border">
           {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            <div className="flex h-64 items-center justify-center">
+              <Loader2 className="text-muted-foreground size-6 animate-spin" />
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center p-4">
+            <div className="flex h-64 flex-col items-center justify-center p-4 text-center">
               <p className="text-destructive mb-2">Failed to load directory</p>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-muted-foreground mb-4 text-sm">
                 {error instanceof Error ? error.message : 'Unknown error'}
               </p>
               <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -151,46 +149,42 @@ export function FolderBrowser({
           ) : (
             <ScrollArea className="h-64">
               {/* Drives (Windows root) */}
-              {data?.drives && data.drives.length > 0 && (
+              {data?.drives && data.drives.length > 0 ? (
                 <div className="p-2">
-                  <p className="text-xs font-medium text-muted-foreground mb-2 px-2">
-                    Drives
-                  </p>
+                  <p className="text-muted-foreground mb-2 px-2 text-xs font-medium">Drives</p>
                   {data.drives.map((drive) => (
                     <button
                       key={drive.letter}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-accent text-left"
+                      className="hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-left"
                       onClick={() => handleNavigate(`${drive.letter}\\`)}
                     >
-                      <HardDrive className="size-5 text-muted-foreground" />
+                      <HardDrive className="text-muted-foreground size-5" />
                       <div className="flex-1">
                         <span className="font-medium">{drive.letter}</span>
-                        {drive.label && (
-                          <span className="text-muted-foreground ml-2">
-                            {drive.label}
-                          </span>
-                        )}
+                        {drive.label ? (
+                          <span className="text-muted-foreground ml-2">{drive.label}</span>
+                        ) : null}
                       </div>
                       {drive.freeSpace !== undefined && drive.freeSpace > 0 && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                           {formatBytes(drive.freeSpace)} free
                         </span>
                       )}
                     </button>
                   ))}
                 </div>
-              )}
+              ) : null}
 
               {/* Parent directory */}
-              {data?.parent && (
+              {data?.parent ? (
                 <button
-                  className="flex items-center gap-3 w-full px-3 py-2 hover:bg-accent text-left border-b"
+                  className="hover:bg-accent flex w-full items-center gap-3 border-b px-3 py-2 text-left"
                   onClick={() => handleNavigate(data.parent!)}
                 >
-                  <FolderUp className="size-5 text-muted-foreground" />
+                  <FolderUp className="text-muted-foreground size-5" />
                   <span className="text-muted-foreground">..</span>
                 </button>
-              )}
+              ) : null}
 
               {/* Directory entries */}
               {data?.entries && data.entries.length > 0 ? (
@@ -198,7 +192,7 @@ export function FolderBrowser({
                   {data.entries.map((entry) => (
                     <button
                       key={entry.path}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-accent text-left"
+                      className="hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-left"
                       onClick={() => handleNavigate(entry.path)}
                     >
                       <Folder className="size-5 text-blue-500" />
@@ -207,7 +201,7 @@ export function FolderBrowser({
                   ))}
                 </div>
               ) : data?.path && !data?.drives ? (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <div className="text-muted-foreground flex h-32 items-center justify-center">
                   No subdirectories
                 </div>
               ) : null}
@@ -216,12 +210,12 @@ export function FolderBrowser({
         </div>
 
         {/* Selected path display */}
-        {(currentPath || inputPath) && (
+        {currentPath || inputPath ? (
           <div className="text-sm">
             <span className="text-muted-foreground">Selected: </span>
             <span className="font-mono">{currentPath || inputPath}</span>
           </div>
-        )}
+        ) : null}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

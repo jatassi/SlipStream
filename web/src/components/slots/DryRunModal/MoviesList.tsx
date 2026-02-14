@@ -1,25 +1,23 @@
 import { useState } from 'react'
-import { ChevronDown, AlertTriangle, HelpCircle, CheckCircle } from 'lucide-react'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+
+import { AlertTriangle, CheckCircle, ChevronDown, HelpCircle } from 'lucide-react'
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+
 import { AggregatedFileTooltip } from './AggregatedFileTooltip'
 import { FileItem } from './FileItem'
-import type { MoviesListProps, MovieItemProps } from './types'
+import type { MovieItemProps, MoviesListProps } from './types'
 
-export function MoviesList({ movies, selectedFileIds, ignoredFileIds, onToggleFileSelection }: MoviesListProps) {
+export function MoviesList({
+  movies,
+  selectedFileIds,
+  ignoredFileIds,
+  onToggleFileSelection,
+}: MoviesListProps) {
   if (movies.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        No movies with files to migrate
-      </div>
+      <div className="text-muted-foreground py-8 text-center">No movies with files to migrate</div>
     )
   }
 
@@ -38,23 +36,28 @@ export function MoviesList({ movies, selectedFileIds, ignoredFileIds, onToggleFi
   )
 }
 
-function MovieItem({ movie, selectedFileIds, ignoredFileIds, onToggleFileSelection }: MovieItemProps) {
+function MovieItem({
+  movie,
+  selectedFileIds,
+  ignoredFileIds,
+  onToggleFileSelection,
+}: MovieItemProps) {
   const [isOpen, setIsOpen] = useState(movie.hasConflict)
-  const problemFiles = movie.files.filter(f => f.conflict || f.needsReview)
-  const hasConflictFiles = movie.files.some(f => f.conflict)
-  const hasNoMatchFiles = movie.files.some(f => f.needsReview && !f.conflict)
+  const problemFiles = movie.files.filter((f) => f.conflict || f.needsReview)
+  const hasConflictFiles = movie.files.some((f) => f.conflict)
+  const hasNoMatchFiles = movie.files.some((f) => f.needsReview && !f.conflict)
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+      <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center justify-between rounded-lg border p-3 transition-colors">
         <div className="flex items-center gap-3">
-          {(hasConflictFiles || hasNoMatchFiles) ? (
+          {hasConflictFiles || hasNoMatchFiles ? (
             <Tooltip>
               <TooltipTrigger onClick={(e) => e.stopPropagation()}>
                 {hasConflictFiles ? (
-                  <AlertTriangle className="size-4 text-orange-500 cursor-help" />
+                  <AlertTriangle className="size-4 cursor-help text-orange-500" />
                 ) : (
-                  <HelpCircle className="size-4 text-red-500 cursor-help" />
+                  <HelpCircle className="size-4 cursor-help text-red-500" />
                 )}
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-sm">
@@ -67,18 +70,22 @@ function MovieItem({ movie, selectedFileIds, ignoredFileIds, onToggleFileSelecti
           <div className="text-left">
             <div className="font-medium">
               {movie.title}
-              {movie.year && <span className="text-muted-foreground ml-1">({movie.year})</span>}
+              {movie.year ? (
+                <span className="text-muted-foreground ml-1">({movie.year})</span>
+              ) : null}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {movie.files.length} file{movie.files.length !== 1 ? 's' : ''}
+            <div className="text-muted-foreground text-sm">
+              {movie.files.length} file{movie.files.length === 1 ? '' : 's'}
             </div>
           </div>
         </div>
-        <ChevronDown className={`size-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`text-muted-foreground size-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="mt-1 ml-4 border-l-2 border-muted pl-4 space-y-2 py-2">
+        <div className="border-muted mt-1 ml-4 space-y-2 border-l-2 py-2 pl-4">
           {movie.files.map((file) => (
             <FileItem
               key={file.fileId}

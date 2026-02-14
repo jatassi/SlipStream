@@ -1,27 +1,29 @@
 import { useState } from 'react'
-import { Edit, Trash2, Rss, TestTube, Globe, Lock, Unlock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { LoadingState } from '@/components/data/LoadingState'
+
+import { Edit, Globe, Lock, Rss, TestTube, Trash2, Unlock } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { AddPlaceholderCard } from '@/components/settings/AddPlaceholderCard'
 import {
   IndexerDialog,
   IndexerModeToggle,
   ProwlarrConfigForm,
   ProwlarrIndexerList,
 } from '@/components/indexers'
+import { AddPlaceholderCard } from '@/components/settings/AddPlaceholderCard'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import {
-  useIndexers,
   useDeleteIndexer,
+  useIndexerMode,
+  useIndexers,
   useTestIndexer,
   useUpdateIndexer,
-  useIndexerMode,
 } from '@/hooks'
-import { toast } from 'sonner'
 import type { Indexer, Privacy, Protocol } from '@/types'
 
 const privacyIcons: Record<Privacy, React.ReactNode> = {
@@ -119,11 +121,7 @@ export function IndexersSection() {
         />
       )}
 
-      <IndexerDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        indexer={editingIndexer}
-      />
+      <IndexerDialog open={dialogOpen} onOpenChange={setDialogOpen} indexer={editingIndexer} />
     </div>
   )
 }
@@ -137,7 +135,7 @@ function ProwlarrModeContent() {
   )
 }
 
-interface SlipStreamModeContentProps {
+type SlipStreamModeContentProps = {
   indexers: Indexer[] | undefined
   isLoading: boolean
   isError: boolean
@@ -171,12 +169,7 @@ function SlipStreamModeContent({
   }
 
   if (!indexers?.length) {
-    return (
-      <AddPlaceholderCard
-        label="Add Indexer"
-        onClick={handleAdd}
-      />
-    )
+    return <AddPlaceholderCard label="Add Indexer" onClick={handleAdd} />
   }
 
   return (
@@ -185,7 +178,7 @@ function SlipStreamModeContent({
         <Card key={indexer.id}>
           <CardHeader className="flex flex-row items-center justify-between py-4">
             <div className="flex items-center gap-4">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+              <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
                 <Rss className="size-5" />
               </div>
               <div>
@@ -199,14 +192,14 @@ function SlipStreamModeContent({
                     {indexer.privacy}
                   </Badge>
                 </div>
-                <CardDescription className="text-xs flex items-center gap-2">
+                <CardDescription className="flex items-center gap-2 text-xs">
                   <span>{indexer.definitionId}</span>
                   <span className="text-muted-foreground/50">|</span>
-                  {indexer.supportsMovies && <span>Movies</span>}
-                  {indexer.supportsMovies && indexer.supportsTv && (
+                  {indexer.supportsMovies ? <span>Movies</span> : null}
+                  {indexer.supportsMovies && indexer.supportsTv ? (
                     <span className="text-muted-foreground/50">/</span>
-                  )}
-                  {indexer.supportsTv && <span>TV</span>}
+                  ) : null}
+                  {indexer.supportsTv ? <span>TV</span> : null}
                   <span className="text-muted-foreground/50">|</span>
                   <span>Priority: {indexer.priority}</span>
                   {!indexer.autoSearchEnabled && (
@@ -235,7 +228,7 @@ function SlipStreamModeContent({
                 onClick={() => handleTest(indexer.id)}
                 disabled={testMutation.isPending}
               >
-                <TestTube className="size-4 mr-1" />
+                <TestTube className="mr-1 size-4" />
                 Test
               </Button>
               <Button variant="ghost" size="icon" onClick={() => handleEdit(indexer)}>
@@ -257,10 +250,7 @@ function SlipStreamModeContent({
           </CardHeader>
         </Card>
       ))}
-      <AddPlaceholderCard
-        label="Add Indexer"
-        onClick={handleAdd}
-      />
+      <AddPlaceholderCard label="Add Indexer" onClick={handleAdd} />
     </div>
   )
 }

@@ -1,10 +1,11 @@
 import { create } from 'zustand'
+
 import type { LogEntry, LogLevel } from '@/types/logs'
 
 const MAX_ENTRIES = 2000
 export const ALL_LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error']
 
-interface LogsState {
+type LogsState = {
   entries: LogEntry[]
   filterLevels: LogLevel[]
   searchText: string
@@ -32,7 +33,9 @@ export const useLogsStore = create<LogsState>((set, get) => ({
   autoScroll: true,
 
   addEntry: (entry) => {
-    if (get().isPaused) return
+    if (get().isPaused) {
+      return
+    }
 
     set((state) => {
       const newEntries = [...state.entries, entry]
@@ -73,7 +76,10 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     const { entries, filterLevels, searchText } = get()
 
     return entries.filter((entry) => {
-      if (filterLevels.length < ALL_LOG_LEVELS.length && !filterLevels.includes(entry.level as LogLevel)) {
+      if (
+        filterLevels.length < ALL_LOG_LEVELS.length &&
+        !filterLevels.includes(entry.level as LogLevel)
+      ) {
         return false
       }
 
@@ -81,8 +87,8 @@ export const useLogsStore = create<LogsState>((set, get) => ({
         const lowerSearch = searchText.toLowerCase()
         const matchesMessage = entry.message.toLowerCase().includes(lowerSearch)
         const matchesComponent = entry.component?.toLowerCase().includes(lowerSearch)
-        const matchesFields = Object.values(entry.fields || {}).some(
-          (v) => String(v).toLowerCase().includes(lowerSearch)
+        const matchesFields = Object.values(entry.fields || {}).some((v) =>
+          String(v).toLowerCase().includes(lowerSearch),
         )
         if (!matchesMessage && !matchesComponent && !matchesFields) {
           return false

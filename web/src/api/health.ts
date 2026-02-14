@@ -1,25 +1,23 @@
-import { apiFetch } from './client'
 import type {
+  HealthCategory,
+  HealthItem,
   HealthResponse,
   HealthSummary,
-  HealthItem,
-  HealthCategory,
   TestCategoryResult,
   TestItemResult,
 } from '@/types/health'
 
+import { apiFetch } from './client'
+
 export const healthApi = {
   // Get all health items grouped by category
-  getAll: () =>
-    apiFetch<HealthResponse>('/system/health'),
+  getAll: () => apiFetch<HealthResponse>('/system/health'),
 
   // Get summary counts for dashboard
-  getSummary: () =>
-    apiFetch<HealthSummary>('/system/health/summary'),
+  getSummary: () => apiFetch<HealthSummary>('/system/health/summary'),
 
   // Get items for a specific category
-  getCategory: (category: HealthCategory) =>
-    apiFetch<HealthItem[]>(`/system/health/${category}`),
+  getCategory: (category: HealthCategory) => apiFetch<HealthItem[]>(`/system/health/${category}`),
 
   // Test all items in a category
   testCategory: (category: HealthCategory) =>

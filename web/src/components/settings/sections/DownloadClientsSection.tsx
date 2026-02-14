@@ -1,19 +1,21 @@
 import { useState } from 'react'
-import { Edit, Trash2, Download, TestTube } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+
+import { Download, Edit, TestTube, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { DownloadClientDialog } from '@/components/downloadclients/DownloadClientDialog'
+import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { ListSection } from '@/components/settings/ListSection'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import {
-  useDownloadClients,
   useDeleteDownloadClient,
+  useDownloadClients,
   useTestDownloadClient,
   useUpdateDownloadClient,
 } from '@/hooks'
-import { toast } from 'sonner'
 import type { DownloadClient } from '@/types'
 
 const clientTypeLabels: Record<string, string> = {
@@ -77,15 +79,13 @@ export function DownloadClientsSection() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between py-4">
         <div className="flex items-center gap-4">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+          <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
             <Download className="size-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-base">{client.name}</CardTitle>
-              <Badge variant="outline">
-                {clientTypeLabels[client.type] || client.type}
-              </Badge>
+              <Badge variant="outline">{clientTypeLabels[client.type] || client.type}</Badge>
               <Badge variant="secondary">Priority {client.priority}</Badge>
             </div>
             <CardDescription className="text-xs">
@@ -104,7 +104,7 @@ export function DownloadClientsSection() {
             onClick={() => handleTest(client.id)}
             disabled={testMutation.isPending}
           >
-            <TestTube className="size-4 mr-1" />
+            <TestTube className="mr-1 size-4" />
             Test
           </Button>
           <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(client)}>
@@ -143,11 +143,7 @@ export function DownloadClientsSection() {
         addPlaceholder={{ label: 'Add Download Client', onClick: handleOpenAdd }}
       />
 
-      <DownloadClientDialog
-        open={showDialog}
-        onOpenChange={setShowDialog}
-        client={editingClient}
-      />
+      <DownloadClientDialog open={showDialog} onOpenChange={setShowDialog} client={editingClient} />
     </>
   )
 }

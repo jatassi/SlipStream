@@ -1,25 +1,33 @@
 import { useState } from 'react'
-import { Trash2, FolderOpen, Film, Tv, HardDrive, FolderSearch, Check, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+
+import { Check, Film, FolderOpen, FolderSearch, HardDrive, Trash2, Tv, X } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { FolderBrowser } from '@/components/forms/FolderBrowser'
 import { ListSection } from '@/components/settings/ListSection'
-import { useRootFolders, useCreateRootFolder, useDeleteRootFolder } from '@/hooks'
-import { useSetDefault, useClearDefault } from '@/hooks/useDefaults'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useCreateRootFolder, useDeleteRootFolder, useRootFolders } from '@/hooks'
+import { useClearDefault, useSetDefault } from '@/hooks/useDefaults'
 import { formatBytes } from '@/lib/formatters'
-import { toast } from 'sonner'
 import type { RootFolder } from '@/types'
 
 export function RootFoldersSection() {
@@ -70,7 +78,7 @@ export function RootFoldersSection() {
       await setDefaultMutation.mutateAsync({
         entityType: 'root_folder',
         mediaType,
-        entityId: id
+        entityId: id,
       })
       toast.success(`Default ${mediaType} root folder set`)
     } catch {
@@ -82,7 +90,7 @@ export function RootFoldersSection() {
     try {
       await clearDefaultMutation.mutateAsync({
         entityType: 'root_folder',
-        mediaType
+        mediaType,
       })
       toast.success(`Default ${mediaType} root folder cleared`)
     } catch {
@@ -94,34 +102,28 @@ export function RootFoldersSection() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between py-4">
         <div className="flex items-center gap-4">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-            {folder.mediaType === 'movie' ? (
-              <Film className="size-5" />
-            ) : (
-              <Tv className="size-5" />
-            )}
+          <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
+            {folder.mediaType === 'movie' ? <Film className="size-5" /> : <Tv className="size-5" />}
           </div>
           <div>
             <CardTitle className="text-base">{folder.name}</CardTitle>
-            <CardDescription className="font-mono text-xs">
-              {folder.path}
-            </CardDescription>
+            <CardDescription className="font-mono text-xs">{folder.path}</CardDescription>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1 flex items-center gap-2">
               <Badge variant="secondary">{folder.mediaType}</Badge>
-              {folder.isDefault && (
+              {folder.isDefault ? (
                 <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                  <Check className="size-3 mr-1" />
+                  <Check className="mr-1 size-3" />
                   Default
                 </Badge>
-              )}
+              ) : null}
             </div>
             {folder.freeSpace > 0 && (
-              <p className="text-xs text-muted-foreground">
-                <HardDrive className="size-3 inline mr-1" />
+              <p className="text-muted-foreground text-xs">
+                <HardDrive className="mr-1 inline size-3" />
                 {formatBytes(folder.freeSpace)} free
               </p>
             )}
@@ -134,7 +136,7 @@ export function RootFoldersSection() {
                 onClick={() => handleClearDefault(folder.mediaType)}
                 title="Clear default"
               >
-                <X className="size-3 mr-1" />
+                <X className="mr-1 size-3" />
                 Clear Default
               </Button>
             ) : (
@@ -144,7 +146,7 @@ export function RootFoldersSection() {
                 onClick={() => handleSetDefault(folder.id, folder.mediaType)}
                 title="Set as default"
               >
-                <Check className="size-3 mr-1" />
+                <Check className="mr-1 size-3" />
                 Set Default
               </Button>
             )}
@@ -220,11 +222,9 @@ export function RootFoldersSection() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="mediaType">Media Type</Label>
-              <Select value={newMediaType} onValueChange={(v) => v && setNewMediaType(v as 'movie' | 'tv')}>
+              <Select value={newMediaType} onValueChange={(v) => v && setNewMediaType(v)}>
                 <SelectTrigger>
-                  <SelectValue>
-                    {newMediaType === 'movie' ? 'Movies' : 'TV Shows'}
-                  </SelectValue>
+                  <SelectValue>{newMediaType === 'movie' ? 'Movies' : 'TV Shows'}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="movie">Movies</SelectItem>
@@ -253,4 +253,3 @@ export function RootFoldersSection() {
     </>
   )
 }
-

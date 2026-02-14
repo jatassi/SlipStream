@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { setPortalAuthToken } from '@/api/portal/client'
+
 import { setAdminAuthToken } from '@/api/client'
+import { setPortalAuthToken } from '@/api/portal/client'
 import type { PortalUser } from '@/types'
 
-interface PortalAuthState {
+type PortalAuthState = {
   token: string | null
   user: PortalUser | null
   redirectUrl: string | null
@@ -71,6 +72,6 @@ export const usePortalAuthStore = create<PortalAuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 )

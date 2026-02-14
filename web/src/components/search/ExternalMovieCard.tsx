@@ -1,26 +1,34 @@
 import { useState } from 'react'
+
 import { useNavigate } from '@tanstack/react-router'
-import { Plus, Library, Clock, Check, CheckCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Check, CheckCircle, Clock, Library, Plus } from 'lucide-react'
+
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { MediaInfoModal } from './MediaInfoModal'
+import { cn } from '@/lib/utils'
 import type { MovieSearchResult, RequestStatus } from '@/types'
 
-interface RequestInfo {
+import { MediaInfoModal } from './MediaInfoModal'
+
+type RequestInfo = {
   id: number
   status: RequestStatus
 }
 
-interface ExternalMovieCardProps {
+type ExternalMovieCardProps = {
   movie: MovieSearchResult
   inLibrary?: boolean
   requestInfo?: RequestInfo
   className?: string
 }
 
-export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: ExternalMovieCardProps) {
+export function ExternalMovieCard({
+  movie,
+  inLibrary,
+  requestInfo,
+  className,
+}: ExternalMovieCardProps) {
   const navigate = useNavigate()
   const [infoOpen, setInfoOpen] = useState(false)
 
@@ -35,14 +43,11 @@ export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: 
   return (
     <div
       className={cn(
-        'group rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-movie-500/50 hover:glow-movie',
-        className
+        'group bg-card border-border hover:border-movie-500/50 hover:glow-movie overflow-hidden rounded-lg border transition-all',
+        className,
       )}
     >
-      <div
-        className="relative aspect-[2/3] cursor-pointer"
-        onClick={() => setInfoOpen(true)}
-      >
+      <div className="relative aspect-[2/3] cursor-pointer" onClick={() => setInfoOpen(true)}>
         <PosterImage
           url={movie.posterUrl}
           alt={movie.title}
@@ -53,34 +58,49 @@ export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: 
         {/* Status badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {inLibrary ? (
-            <Badge variant="secondary" className="bg-green-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-              <Library className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+            <Badge
+              variant="secondary"
+              className="bg-green-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+            >
+              <Library className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
               In Library
             </Badge>
-          ) : requestInfo && (
-            isAvailable ? (
-              <Badge variant="secondary" className="bg-green-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <CheckCircle className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+          ) : (
+            requestInfo &&
+            (isAvailable ? (
+              <Badge
+                variant="secondary"
+                className="bg-green-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+              >
+                <CheckCircle className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
                 Available
               </Badge>
             ) : isApproved ? (
-              <Badge variant="secondary" className="bg-blue-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <Check className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+              <Badge
+                variant="secondary"
+                className="bg-blue-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+              >
+                <Check className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
                 Approved
               </Badge>
-            ) : isPending && (
-              <Badge variant="secondary" className="bg-yellow-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <Clock className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
-                Requested
-              </Badge>
-            )
+            ) : (
+              isPending && (
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+                >
+                  <Clock className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
+                  Requested
+                </Badge>
+              )
+            ))
           )}
         </div>
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-          <h3 className="font-semibold text-white line-clamp-3">{movie.title}</h3>
+        <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-3 opacity-0 transition-opacity group-hover:opacity-100">
+          <h3 className="line-clamp-3 font-semibold text-white">{movie.title}</h3>
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <span>{movie.year || 'Unknown year'}</span>
           </div>
@@ -90,12 +110,17 @@ export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: 
       <div className="p-2">
         {inLibrary ? (
           <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-            <Check className="size-3 md:size-4 mr-1 md:mr-2" />
+            <Check className="mr-1 size-3 md:mr-2 md:size-4" />
             In Library
           </Button>
         ) : (
-          <Button variant="default" size="sm" className="w-full text-xs md:text-sm" onClick={handleAdd}>
-            <Plus className="size-3 md:size-4 mr-1 md:mr-2" />
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full text-xs md:text-sm"
+            onClick={handleAdd}
+          >
+            <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
             Add...
           </Button>
         )}
@@ -107,9 +132,9 @@ export function ExternalMovieCard({ movie, inLibrary, requestInfo, className }: 
         media={movie}
         mediaType="movie"
         inLibrary={inLibrary}
-        onAction={!inLibrary ? handleAdd : undefined}
+        onAction={inLibrary ? undefined : handleAdd}
         actionLabel="Add..."
-        actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+        actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
         disabledLabel="Already Added"
       />
     </div>

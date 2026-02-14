@@ -2,10 +2,17 @@
 export type HealthStatus = 'ok' | 'warning' | 'error'
 
 // HealthCategory represents the category of health items
-export type HealthCategory = 'downloadClients' | 'indexers' | 'prowlarr' | 'rootFolders' | 'metadata' | 'storage' | 'import'
+export type HealthCategory =
+  | 'downloadClients'
+  | 'indexers'
+  | 'prowlarr'
+  | 'rootFolders'
+  | 'metadata'
+  | 'storage'
+  | 'import'
 
 // HealthItem represents a single health-tracked item
-export interface HealthItem {
+export type HealthItem = {
   id: string
   category: HealthCategory
   name: string
@@ -15,7 +22,7 @@ export interface HealthItem {
 }
 
 // CategorySummary provides counts for a health category
-export interface CategorySummary {
+export type CategorySummary = {
   category: HealthCategory
   ok: number
   warning: number
@@ -23,7 +30,7 @@ export interface CategorySummary {
 }
 
 // HealthResponse contains all health items grouped by category
-export interface HealthResponse {
+export type HealthResponse = {
   downloadClients: HealthItem[]
   indexers: HealthItem[]
   prowlarr: HealthItem[]
@@ -34,26 +41,26 @@ export interface HealthResponse {
 }
 
 // HealthSummary provides an overview of system health
-export interface HealthSummary {
+export type HealthSummary = {
   categories: CategorySummary[]
   hasIssues: boolean
 }
 
 // TestCategoryResult represents the result of testing a category
-export interface TestCategoryResult {
+export type TestCategoryResult = {
   category: HealthCategory
   results: TestItemResult[]
 }
 
 // TestItemResult represents the result of testing a single item
-export interface TestItemResult {
+export type TestItemResult = {
   id: string
   success: boolean
   message: string
 }
 
 // HealthUpdatePayload is the WebSocket payload for health updates
-export interface HealthUpdatePayload {
+export type HealthUpdatePayload = {
   category: HealthCategory
   id: string
   name: string

@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
+
 import { Loader2, Plus, Search } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 
-interface SearchResultsSectionProps {
+type SearchResultsSectionProps = {
   title: string
   icon?: ReactNode
   isLoading?: boolean
@@ -25,7 +27,7 @@ export function SearchResultsSection({
     <section className={`space-y-4 ${className || ''}`}>
       <div className="flex items-center gap-2">
         <h2
-          className={`text-lg font-semibold flex items-center gap-2 ${
+          className={`flex items-center gap-2 text-lg font-semibold ${
             !isLoading && !hasResults ? 'text-muted-foreground' : ''
           }`}
         >
@@ -33,13 +35,13 @@ export function SearchResultsSection({
           {title}
           {!isLoading && !hasResults && ' (0 results)'}
         </h2>
-        {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        {isLoading ? <Loader2 className="text-muted-foreground size-4 animate-spin" /> : null}
       </div>
 
       {isLoading ? (
         <LoadingGrid />
       ) : !hasResults && emptyMessage ? (
-        <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
+        <div className="border-border bg-card text-muted-foreground rounded-lg border p-6 text-center">
           {emptyMessage}
         </div>
       ) : hasResults ? (
@@ -51,15 +53,15 @@ export function SearchResultsSection({
 
 function LoadingGrid() {
   return (
-    <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="aspect-[2/3] rounded-lg bg-muted animate-pulse" />
+        <div key={i} className="bg-muted aspect-[2/3] animate-pulse rounded-lg" />
       ))}
     </div>
   )
 }
 
-interface ExternalSearchSectionProps {
+type ExternalSearchSectionProps = {
   query: string
   enabled: boolean
   onEnable: () => void
@@ -83,31 +85,31 @@ export function ExternalSearchSection({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Plus className="size-5" />
           {title}
         </h2>
-        {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        {isLoading ? <Loader2 className="text-muted-foreground size-4 animate-spin" /> : null}
       </div>
 
-      {!enabled ? (
-        <div className="rounded-lg border border-dashed border-border bg-card/50 p-6 text-center">
-          <p className="text-muted-foreground mb-4">
-            Want to add something new to your library?
-          </p>
+      {enabled ? (
+        isLoading ? (
+          <LoadingGrid />
+        ) : hasResults ? (
+          children
+        ) : (
+          <div className="border-border bg-card text-muted-foreground rounded-lg border p-6 text-center">
+            {emptyMessage || `No external results found for "${query}"`}
+          </div>
+        )
+      ) : (
+        <div className="border-border bg-card/50 rounded-lg border border-dashed p-6 text-center">
+          <p className="text-muted-foreground mb-4">Want to add something new to your library?</p>
           <Button onClick={onEnable}>
-            <Search className="size-4 mr-2" />
+            <Search className="mr-2 size-4" />
             Search TMDB for "{query}"
           </Button>
         </div>
-      ) : isLoading ? (
-        <LoadingGrid />
-      ) : !hasResults ? (
-        <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-          {emptyMessage || `No external results found for "${query}"`}
-        </div>
-      ) : (
-        children
       )}
     </section>
   )

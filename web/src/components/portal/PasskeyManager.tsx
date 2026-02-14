@@ -1,17 +1,19 @@
-import { useState, useCallback, useRef } from 'react'
-import {
-  usePasskeySupport,
-  usePasskeyCredentials,
-  useRegisterPasskey,
-  useDeletePasskey,
-  useUpdatePasskeyName,
-} from '@/hooks/portal'
+import { useCallback, useRef, useState } from 'react'
+
+import { formatDistanceToNow } from 'date-fns'
+import { Check, KeyRound, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import { KeyRound, Plus, Trash2, Pencil, Check, X, Loader2 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { Label } from '@/components/ui/label'
+import {
+  useDeletePasskey,
+  usePasskeyCredentials,
+  usePasskeySupport,
+  useRegisterPasskey,
+  useUpdatePasskeyName,
+} from '@/hooks/portal'
 
 export function PasskeyManager() {
   const [newPasskeyName, setNewPasskeyName] = useState('')
@@ -27,21 +29,31 @@ export function PasskeyManager() {
   const deletePasskey = useDeletePasskey()
   const updateName = useUpdatePasskeyName()
 
-  const handleRegister = useCallback(async (pinValue: string, nameValue: string) => {
-    if (!nameValue.trim() || pinValue.length !== 4 || registerPasskey.isPending || isSubmittingRef.current) return
-    isSubmittingRef.current = true
+  const handleRegister = useCallback(
+    async (pinValue: string, nameValue: string) => {
+      if (
+        !nameValue.trim() ||
+        pinValue.length !== 4 ||
+        registerPasskey.isPending ||
+        isSubmittingRef.current
+      ) {
+        return
+      }
+      isSubmittingRef.current = true
 
-    try {
-      await registerPasskey.mutateAsync({ pin: pinValue, name: nameValue })
-      setNewPasskeyName('')
-      setPin('')
-      setIsRegistering(false)
-    } catch {
-      setPin('')
-    } finally {
-      isSubmittingRef.current = false
-    }
-  }, [registerPasskey])
+      try {
+        await registerPasskey.mutateAsync({ pin: pinValue, name: nameValue })
+        setNewPasskeyName('')
+        setPin('')
+        setIsRegistering(false)
+      } catch {
+        setPin('')
+      } finally {
+        isSubmittingRef.current = false
+      }
+    },
+    [registerPasskey],
+  )
 
   const handlePinChange = (value: string) => {
     setPin(value)
@@ -53,14 +65,14 @@ export function PasskeyManager() {
   if (isSupportLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
       </div>
     )
   }
 
   if (!isSupported) {
     return (
-      <div className="rounded-lg border border-border p-4 text-muted-foreground">
+      <div className="border-border text-muted-foreground rounded-lg border p-4">
         Passkeys require a secure connection (HTTPS).
       </div>
     )
@@ -72,7 +84,9 @@ export function PasskeyManager() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingId || !editingName.trim()) return
+    if (!editingId || !editingName.trim()) {
+      return
+    }
     await updateName.mutateAsync({ id: editingId, name: editingName })
     setEditingId(null)
     setEditingName('')
@@ -88,24 +102,20 @@ export function PasskeyManager() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium">Passkeys</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Use passkeys for faster, more secure sign-in
           </p>
         </div>
         {!isRegistering && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsRegistering(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setIsRegistering(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Passkey
           </Button>
         )}
       </div>
 
-      {isRegistering && (
-        <div className="rounded-lg border border-border p-4 space-y-4">
+      {isRegistering ? (
+        <div className="border-border space-y-4 rounded-lg border p-4">
           <div className="space-y-2">
             <Label>Passkey Name</Label>
             <Input
@@ -119,7 +129,7 @@ export function PasskeyManager() {
             <Label>Enter PIN to confirm</Label>
             <div className="flex justify-center">
               {registerPasskey.isPending ? (
-                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                <Loader2 className="text-muted-foreground h-10 w-10 animate-spin" />
               ) : (
                 <InputOTP
                   maxLength={4}
@@ -150,14 +160,14 @@ export function PasskeyManager() {
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
         </div>
       ) : credentials?.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
+        <div className="border-border text-muted-foreground rounded-lg border border-dashed p-8 text-center">
           No passkeys registered. Add one for faster, more secure login.
         </div>
       ) : (
@@ -165,10 +175,10 @@ export function PasskeyManager() {
           {credentials?.map((cred) => (
             <div
               key={cred.id}
-              className="flex items-center justify-between rounded-lg border border-border p-3"
+              className="border-border flex items-center justify-between rounded-lg border p-3"
             >
               <div className="flex items-center gap-3">
-                <KeyRound className="h-5 w-5 text-muted-foreground" />
+                <KeyRound className="text-muted-foreground h-5 w-5" />
                 <div>
                   {editingId === cred.id ? (
                     <div className="flex items-center gap-2">
@@ -199,11 +209,11 @@ export function PasskeyManager() {
                   ) : (
                     <>
                       <div className="font-medium">{cred.name}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-muted-foreground text-sm">
                         Created {formatDistanceToNow(new Date(cred.createdAt))} ago
-                        {cred.lastUsedAt && (
+                        {cred.lastUsedAt ? (
                           <> · Last used {formatDistanceToNow(new Date(cred.lastUsedAt))} ago</>
-                        )}
+                        ) : null}
                       </div>
                     </>
                   )}

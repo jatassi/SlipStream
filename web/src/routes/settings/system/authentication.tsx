@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { AuthenticationSection } from '@/components/settings'
+
 import { SystemNav } from './SystemNav'
 
 export function AuthenticationPage() {
@@ -8,10 +9,7 @@ export function AuthenticationPage() {
       <PageHeader
         title="System"
         description="Server configuration and authentication settings"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'System' },
-        ]}
+        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'System' }]}
       />
 
       <SystemNav />

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+
 import { Film, Tv } from 'lucide-react'
+
+import { getLocalArtworkUrl, POSTER_SIZES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { POSTER_SIZES, getLocalArtworkUrl } from '@/lib/constants'
 import { useArtworkStore } from '@/stores/artwork'
 
-interface PosterImageProps {
+type PosterImageProps = {
   // For TMDB paths - e.g., "/abc123.jpg" (will be prefixed with TMDB base URL)
   path?: string | null
   // For full URLs from search results - e.g., "https://image.tmdb.org/t/p/w500/abc123.jpg"
@@ -41,7 +43,7 @@ export function PosterImage({
 
   // Subscribe to artwork version changes for this specific artwork
   const artworkVersion = useArtworkStore((state) =>
-    artworkId ? state.getVersion(type, artworkId, 'poster') : 0
+    artworkId ? state.getVersion(type, artworkId, 'poster') : 0,
   )
 
   // Determine if this is a local artwork request
@@ -50,7 +52,7 @@ export function PosterImage({
   // Priority: local artwork (tmdbId or tvdbId) > full URL > TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
-    const baseUrl = getLocalArtworkUrl(type, artworkId!, 'poster')
+    const baseUrl = getLocalArtworkUrl(type, artworkId, 'poster')
     if (artworkVersion > 0) {
       imageUrl = `${baseUrl}?v=${artworkVersion}`
     } else if (version) {
@@ -74,25 +76,16 @@ export function PosterImage({
   if (!imageUrl || error) {
     return (
       <div
-        className={cn(
-          'flex items-center justify-center bg-muted text-muted-foreground',
-          className
-        )}
+        className={cn('bg-muted text-muted-foreground flex items-center justify-center', className)}
       >
-        {type === 'movie' ? (
-          <Film className="size-12" />
-        ) : (
-          <Tv className="size-12" />
-        )}
+        {type === 'movie' ? <Film className="size-12" /> : <Tv className="size-12" />}
       </div>
     )
   }
 
   return (
     <div className={cn('relative overflow-hidden', className)}>
-      {loading && (
-        <div className="absolute inset-0 animate-pulse bg-muted" />
-      )}
+      {loading ? <div className="bg-muted absolute inset-0 animate-pulse" /> : null}
       <img
         src={imageUrl}
         alt={alt}
@@ -100,7 +93,7 @@ export function PosterImage({
         onError={() => setError(true)}
         className={cn(
           'size-full object-cover transition-opacity',
-          loading ? 'opacity-0' : 'opacity-100'
+          loading ? 'opacity-0' : 'opacity-100',
         )}
       />
     </div>

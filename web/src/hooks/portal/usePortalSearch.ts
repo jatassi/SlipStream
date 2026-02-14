@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { portalSearchApi } from '@/api'
 
 export const portalSearchKeys = {
   all: ['portalSearch'] as const,
   movies: (query: string) => [...portalSearchKeys.all, 'movies', query] as const,
   series: (query: string) => [...portalSearchKeys.all, 'series', query] as const,
-  seasons: (tmdbId?: number, tvdbId?: number) => [...portalSearchKeys.all, 'seasons', tmdbId, tvdbId] as const,
+  seasons: (tmdbId?: number, tvdbId?: number) =>
+    [...portalSearchKeys.all, 'seasons', tmdbId, tvdbId] as const,
 }
 
 export function usePortalMovieSearch(query: string) {

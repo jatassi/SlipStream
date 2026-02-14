@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react'
-import { Search, Filter, Globe, Lock, Unlock } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useMemo, useState } from 'react'
+
+import { Filter, Globe, Lock, Search, Unlock } from 'lucide-react'
+
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -18,11 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useDebounce } from '@/hooks'
-import type { DefinitionMetadata, Protocol, Privacy } from '@/types'
+import type { DefinitionMetadata, Privacy, Protocol } from '@/types'
 
-interface DefinitionSearchTableProps {
+type DefinitionSearchTableProps = {
   definitions: DefinitionMetadata[]
   isLoading?: boolean
   onSelect: (definition: DefinitionMetadata) => void
@@ -95,12 +97,12 @@ export function DefinitionSearchTable({
   }, [definitions])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Search and filters */}
       <div className="space-y-3 pb-4">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
               placeholder="Search definitions..."
               value={searchQuery}
@@ -117,7 +119,7 @@ export function DefinitionSearchTable({
           </Button>
         </div>
 
-        {showFilters && (
+        {showFilters ? (
           <div className="flex gap-2">
             <Select
               value={protocolFilter}
@@ -125,10 +127,13 @@ export function DefinitionSearchTable({
             >
               <SelectTrigger className="w-32">
                 <SelectValue>
-                  {protocolFilter === 'all' ? `All (${stats.total})` :
-                   protocolFilter === 'torrent' ? `Torrent (${stats.torrent})` :
-                   protocolFilter === 'usenet' ? `Usenet (${stats.usenet})` :
-                   protocolFilter}
+                  {protocolFilter === 'all'
+                    ? `All (${stats.total})`
+                    : protocolFilter === 'torrent'
+                      ? `Torrent (${stats.torrent})`
+                      : protocolFilter === 'usenet'
+                        ? `Usenet (${stats.usenet})`
+                        : protocolFilter}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -144,11 +149,15 @@ export function DefinitionSearchTable({
             >
               <SelectTrigger className="w-36">
                 <SelectValue>
-                  {privacyFilter === 'all' ? 'All' :
-                   privacyFilter === 'public' ? `Public (${stats.public})` :
-                   privacyFilter === 'semi-private' ? 'Semi-Private' :
-                   privacyFilter === 'private' ? `Private (${stats.private})` :
-                   privacyFilter}
+                  {privacyFilter === 'all'
+                    ? 'All'
+                    : privacyFilter === 'public'
+                      ? `Public (${stats.public})`
+                      : privacyFilter === 'semi-private'
+                        ? 'Semi-Private'
+                        : privacyFilter === 'private'
+                          ? `Private (${stats.private})`
+                          : privacyFilter}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -159,15 +168,15 @@ export function DefinitionSearchTable({
               </SelectContent>
             </Select>
           </div>
-        )}
+        ) : null}
 
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {filteredDefinitions.length} of {definitions.length} definitions
         </p>
       </div>
 
       {/* Table */}
-      <ScrollArea className="flex-1 min-h-0 border rounded-md">
+      <ScrollArea className="min-h-0 flex-1 rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -180,13 +189,13 @@ export function DefinitionSearchTable({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={4} className="text-muted-foreground py-8 text-center">
                   Loading definitions...
                 </TableCell>
               </TableRow>
             ) : filteredDefinitions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={4} className="text-muted-foreground py-8 text-center">
                   {searchQuery || protocolFilter !== 'all' || privacyFilter !== 'all'
                     ? 'No definitions match your filters'
                     : 'No definitions available'}
@@ -196,7 +205,7 @@ export function DefinitionSearchTable({
               filteredDefinitions.map((def) => (
                 <TableRow
                   key={def.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="hover:bg-muted/50 cursor-pointer"
                   onClick={() => onSelect(def)}
                 >
                   <TableCell className="font-medium">{def.name}</TableCell>
@@ -211,7 +220,7 @@ export function DefinitionSearchTable({
                       {def.privacy}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground truncate max-w-[300px]">
+                  <TableCell className="text-muted-foreground max-w-[300px] truncate">
                     {def.description || '-'}
                   </TableCell>
                 </TableRow>

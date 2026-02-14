@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
-import { format, parseISO, isToday, isPast, isFuture } from 'date-fns'
-import { cn } from '@/lib/utils'
+
+import { format, isFuture, isPast, isToday, parseISO } from 'date-fns'
+
 import { Skeleton } from '@/components/ui/skeleton'
-import { CalendarEventCard } from './CalendarEventCard'
+import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 
-interface CalendarAgendaViewProps {
+import { CalendarEventCard } from './CalendarEventCard'
+
+type CalendarAgendaViewProps = {
   events: CalendarEvent[]
   loading?: boolean
 }
@@ -24,7 +27,7 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
       groups.get(event.date)!.push(event)
     })
 
-    return Array.from(groups.entries())
+    return [...groups.entries()]
   }, [events])
 
   if (loading) {
@@ -32,17 +35,17 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
       <div className="space-y-6">
         {Array.from({ length: 7 }, (_, i) => (
           <div key={i}>
-            <div className="flex items-center gap-3 py-2 mb-2">
-              <Skeleton className="w-14 h-14 rounded-lg" />
+            <div className="mb-2 flex items-center gap-3 py-2">
+              <Skeleton className="h-14 w-14 rounded-lg" />
               <div className="space-y-1.5">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-32" />
               </div>
             </div>
             <div className="space-y-2 pl-[70px]">
-              <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-2 space-y-1.5">
+              <div className="border-l-muted-foreground/20 bg-muted/30 space-y-1.5 rounded-lg border-l-4 p-2">
                 <div className="flex items-center gap-1">
-                  <Skeleton className="size-3 rounded-full shrink-0" />
+                  <Skeleton className="size-3 shrink-0 rounded-full" />
                   <Skeleton className="h-3.5 w-48" />
                 </div>
                 <Skeleton className="h-3 w-32" />
@@ -60,7 +63,7 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
 
   if (groupedEvents.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <div className="text-muted-foreground flex h-64 items-center justify-center">
         No upcoming events in this date range
       </div>
     )
@@ -78,33 +81,28 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
           <div key={dateStr}>
             <div
               className={cn(
-                'sticky top-0 bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm z-10 py-2 mb-2',
-                'flex items-center gap-3'
+                'bg-background/95 sticky top-0 z-10 mb-2 py-2 supports-[backdrop-filter]:backdrop-blur-sm',
+                'flex items-center gap-3',
               )}
             >
               <div
                 className={cn(
-                  'flex flex-col items-center justify-center w-14 h-14 rounded-lg',
+                  'flex h-14 w-14 flex-col items-center justify-center rounded-lg',
                   isCurrentDay && 'bg-primary text-primary-foreground',
                   isPastDay && 'bg-muted text-muted-foreground',
-                  isFutureDay && !isCurrentDay && 'bg-secondary'
+                  isFutureDay && !isCurrentDay && 'bg-secondary',
                 )}
               >
                 <span className="text-xs uppercase">{format(date, 'EEE')}</span>
                 <span className="text-xl font-bold">{format(date, 'd')}</span>
               </div>
               <div>
-                <div className={cn(
-                  'font-semibold',
-                  isCurrentDay && 'text-primary'
-                )}>
+                <div className={cn('font-semibold', isCurrentDay && 'text-primary')}>
                   {isCurrentDay ? 'Today' : format(date, 'EEEE')}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {format(date, 'MMMM d, yyyy')}
-                </div>
+                <div className="text-muted-foreground text-sm">{format(date, 'MMMM d, yyyy')}</div>
               </div>
-              <div className="ml-auto text-sm text-muted-foreground">
+              <div className="text-muted-foreground ml-auto text-sm">
                 {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
               </div>
             </div>

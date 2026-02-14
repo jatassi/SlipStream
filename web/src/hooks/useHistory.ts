@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { historyApi } from '@/api'
-import type { ListHistoryOptions } from '@/types'
 import type { HistoryRetentionSettings } from '@/api/history'
+import type { ListHistoryOptions } from '@/types'
 
 export const historyKeys = {
   all: ['history'] as const,

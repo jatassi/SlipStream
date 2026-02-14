@@ -1,7 +1,8 @@
-import { SeriesCard } from './SeriesCard'
 import type { Series } from '@/types'
 
-interface SeriesGridProps {
+import { SeriesCard } from './SeriesCard'
+
+type SeriesGridProps = {
   series: Series[]
   posterSize?: number
   editMode?: boolean
@@ -9,7 +10,13 @@ interface SeriesGridProps {
   onToggleSelect?: (id: number) => void
 }
 
-export function SeriesGrid({ series, posterSize = 150, editMode, selectedIds, onToggleSelect }: SeriesGridProps) {
+export function SeriesGrid({
+  series,
+  posterSize = 150,
+  editMode,
+  selectedIds,
+  onToggleSelect,
+}: SeriesGridProps) {
   return (
     <div
       className="grid gap-4"

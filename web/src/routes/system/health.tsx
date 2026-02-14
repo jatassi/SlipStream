@@ -1,44 +1,49 @@
 import { Link } from '@tanstack/react-router'
-import { FlaskConical, Settings, ExternalLink } from 'lucide-react'
+import { ExternalLink, FlaskConical, Settings } from 'lucide-react'
 import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
+import { getStatusBgColor, StatusIndicator } from '@/components/health'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { StatusIndicator, getStatusBgColor } from '@/components/health'
 import { useGlobalLoading } from '@/hooks'
-import {
-  useSystemHealth,
-  useTestHealthCategory,
-  useTestHealthItem,
-} from '@/hooks/useHealth'
+import { useSystemHealth, useTestHealthCategory, useTestHealthItem } from '@/hooks/useHealth'
 import { useIndexerMode } from '@/hooks/useProwlarr'
+import { cn } from '@/lib/utils'
 import {
   getCategoryDisplayName,
   getCategorySettingsPath,
   type HealthCategory,
   type HealthItem,
 } from '@/types/health'
-import { cn } from '@/lib/utils'
 
 function formatRelativeTime(dateString?: string): string {
-  if (!dateString) return ''
+  if (!dateString) {
+    return ''
+  }
 
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.round(diffMs / 60000)
-  const diffHours = Math.round(diffMs / 3600000)
-  const diffDays = Math.round(diffMs / 86400000)
+  const diffMins = Math.round(diffMs / 60_000)
+  const diffHours = Math.round(diffMs / 3_600_000)
+  const diffDays = Math.round(diffMs / 86_400_000)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins} min ago`
-  if (diffHours < 24) return `${diffHours} hours ago`
+  if (diffMins < 1) {
+    return 'Just now'
+  }
+  if (diffMins < 60) {
+    return `${diffMins} min ago`
+  }
+  if (diffHours < 24) {
+    return `${diffHours} hours ago`
+  }
   return `${diffDays} days ago`
 }
 
-interface HealthItemRowProps {
+type HealthItemRowProps = {
   item: HealthItem
 }
 
@@ -61,24 +66,22 @@ function HealthItemRow({ item }: HealthItemRowProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between p-3 rounded-md',
-        getStatusBgColor(item.status)
+        'flex items-center justify-between rounded-md p-3',
+        getStatusBgColor(item.status),
       )}
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <StatusIndicator status={item.status} size="md" />
-        <div className="flex-1 min-w-0">
-          <div className="font-medium truncate">{item.name}</div>
-          {item.message && (
-            <div className="text-sm text-muted-foreground truncate">
-              {item.message}
-            </div>
-          )}
-          {item.timestamp && (
-            <div className="text-xs text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">{item.name}</div>
+          {item.message ? (
+            <div className="text-muted-foreground truncate text-sm">{item.message}</div>
+          ) : null}
+          {item.timestamp ? (
+            <div className="text-muted-foreground text-xs">
               {formatRelativeTime(item.timestamp)}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       {item.category !== 'storage' && (
@@ -89,16 +92,14 @@ function HealthItemRow({ item }: HealthItemRowProps) {
           disabled={testItem.isPending}
           title={`Test ${item.name}`}
         >
-          <FlaskConical
-            className={cn('size-4', testItem.isPending && 'animate-pulse')}
-          />
+          <FlaskConical className={cn('size-4', testItem.isPending && 'animate-pulse')} />
         </Button>
       )}
     </div>
   )
 }
 
-interface HealthItemRowChildProps {
+type HealthItemRowChildProps = {
   item: HealthItem
 }
 
@@ -121,25 +122,23 @@ function HealthItemRowChild({ item }: HealthItemRowChildProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between p-3 pl-8 rounded-md',
-        getStatusBgColor(item.status)
+        'flex items-center justify-between rounded-md p-3 pl-8',
+        getStatusBgColor(item.status),
       )}
     >
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="text-muted-foreground">└</div>
         <StatusIndicator status={item.status} size="md" />
-        <div className="flex-1 min-w-0">
-          <div className="font-medium truncate">{item.name}</div>
-          {item.message && (
-            <div className="text-sm text-muted-foreground truncate">
-              {item.message}
-            </div>
-          )}
-          {item.timestamp && (
-            <div className="text-xs text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">{item.name}</div>
+          {item.message ? (
+            <div className="text-muted-foreground truncate text-sm">{item.message}</div>
+          ) : null}
+          {item.timestamp ? (
+            <div className="text-muted-foreground text-xs">
               {formatRelativeTime(item.timestamp)}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       <Button
@@ -149,15 +148,13 @@ function HealthItemRowChild({ item }: HealthItemRowChildProps) {
         disabled={testItem.isPending}
         title={`Test ${item.name}`}
       >
-        <FlaskConical
-          className={cn('size-4', testItem.isPending && 'animate-pulse')}
-        />
+        <FlaskConical className={cn('size-4', testItem.isPending && 'animate-pulse')} />
       </Button>
     </div>
   )
 }
 
-interface ProwlarrTreeCardProps {
+type ProwlarrTreeCardProps = {
   prowlarrItem: HealthItem | undefined
   indexerItems: HealthItem[]
 }
@@ -167,7 +164,9 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
   const testItem = useTestHealthItem()
 
   const handleTestProwlarr = async () => {
-    if (!prowlarrItem) return
+    if (!prowlarrItem) {
+      return
+    }
     try {
       const result = await testItem.mutateAsync({ category: 'prowlarr', id: prowlarrItem.id })
       if (result.success) {
@@ -181,21 +180,21 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
   }
 
   const handleTestAll = async () => {
-    const getItemName = (id: string) => indexerItems.find(i => i.id === id)?.name ?? id
+    const getItemName = (id: string) => indexerItems.find((i) => i.id === id)?.name ?? id
     try {
       const result = await testCategory.mutateAsync('indexers')
-      const passedItems = result.results?.filter(r => r.success) ?? []
-      const failedItems = result.results?.filter(r => !r.success) ?? []
+      const passedItems = result.results?.filter((r) => r.success) ?? []
+      const failedItems = result.results?.filter((r) => !r.success) ?? []
 
       const getResultText = (items: { id: string }[], success: boolean) => {
         const count = items.length
         if (indexerItems.length <= 4 && count > 0) {
-          const names = items.map(r => getItemName(r.id)).join(', ')
+          const names = items.map((r) => getItemName(r.id)).join(', ')
           return success ? `${names} connected` : `${names} failed`
         }
         return success
-          ? `${count} connection${count !== 1 ? 's' : ''} verified`
-          : `${count} connection${count !== 1 ? 's' : ''} failed`
+          ? `${count} connection${count === 1 ? '' : 's'} verified`
+          : `${count} connection${count === 1 ? '' : 's'} failed`
       }
 
       if (failedItems.length === 0) {
@@ -203,7 +202,9 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
       } else if (passedItems.length === 0) {
         toast.error(`Indexers: ${getResultText(failedItems, false)}`)
       } else {
-        toast.warning(`Indexers: ${getResultText(passedItems, true)}, ${getResultText(failedItems, false)}`)
+        toast.warning(
+          `Indexers: ${getResultText(passedItems, true)}, ${getResultText(failedItems, false)}`,
+        )
       }
     } catch {
       toast.error('Indexers: Test failed')
@@ -230,8 +231,8 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
         <div className="flex items-center gap-2">
           <StatusIndicator status={worstStatus} size="sm" />
           <CardTitle className="text-base">Indexers</CardTitle>
-          <span className="text-sm text-muted-foreground">
-            ({totalItems} item{totalItems !== 1 ? 's' : ''})
+          <span className="text-muted-foreground text-sm">
+            ({totalItems} item{totalItems === 1 ? '' : 's'})
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -243,52 +244,42 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
             title="Test all indexers"
           >
             <FlaskConical
-              className={cn('size-4 mr-1', testCategory.isPending && 'animate-pulse')}
+              className={cn('mr-1 size-4', testCategory.isPending && 'animate-pulse')}
             />
             Test All
           </Button>
           <Link to="/settings/downloads">
             <Button variant="ghost" size="sm" title="Settings">
-              <Settings className="size-4 mr-1" />
+              <Settings className="mr-1 size-4" />
               Settings
             </Button>
           </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        {!prowlarrItem ? (
-          <div className="text-sm text-muted-foreground text-center py-4">
-            Prowlarr not configured.{' '}
-            <Link
-              to="/settings/downloads"
-              className="text-primary hover:underline inline-flex items-center gap-1"
-            >
-              Configure <ExternalLink className="size-3" />
-            </Link>
-          </div>
-        ) : (
+        {prowlarrItem ? (
           <>
             {/* Prowlarr parent item */}
             <div
               className={cn(
-                'flex items-center justify-between p-3 rounded-md',
-                getStatusBgColor(prowlarrItem.status)
+                'flex items-center justify-between rounded-md p-3',
+                getStatusBgColor(prowlarrItem.status),
               )}
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <StatusIndicator status={prowlarrItem.status} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{prowlarrItem.name}</div>
-                  {prowlarrItem.message && (
-                    <div className="text-sm text-muted-foreground truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{prowlarrItem.name}</div>
+                  {prowlarrItem.message ? (
+                    <div className="text-muted-foreground truncate text-sm">
                       {prowlarrItem.message}
                     </div>
-                  )}
-                  {prowlarrItem.timestamp && (
-                    <div className="text-xs text-muted-foreground">
+                  ) : null}
+                  {prowlarrItem.timestamp ? (
+                    <div className="text-muted-foreground text-xs">
                       {formatRelativeTime(prowlarrItem.timestamp)}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
               <Button
@@ -298,30 +289,36 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
                 disabled={testItem.isPending}
                 title="Test Prowlarr connection"
               >
-                <FlaskConical
-                  className={cn('size-4', testItem.isPending && 'animate-pulse')}
-                />
+                <FlaskConical className={cn('size-4', testItem.isPending && 'animate-pulse')} />
               </Button>
             </div>
 
             {/* Indexer child items */}
             {indexerItems.length === 0 ? (
-              <div className="text-sm text-muted-foreground pl-8 py-2">
+              <div className="text-muted-foreground py-2 pl-8 text-sm">
                 No indexers found in Prowlarr
               </div>
             ) : (
-              indexerItems.map((item) => (
-                <HealthItemRowChild key={item.id} item={item} />
-              ))
+              indexerItems.map((item) => <HealthItemRowChild key={item.id} item={item} />)
             )}
           </>
+        ) : (
+          <div className="text-muted-foreground py-4 text-center text-sm">
+            Prowlarr not configured.{' '}
+            <Link
+              to="/settings/downloads"
+              className="text-primary inline-flex items-center gap-1 hover:underline"
+            >
+              Configure <ExternalLink className="size-3" />
+            </Link>
+          </div>
         )}
       </CardContent>
     </Card>
   )
 }
 
-interface HealthCategoryCardProps {
+type HealthCategoryCardProps = {
   category: HealthCategory
   items: HealthItem[]
 }
@@ -333,12 +330,12 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
     const categoryName = getCategoryDisplayName(category)
 
     // Get item name by ID
-    const getItemName = (id: string) => items.find(i => i.id === id)?.name ?? id
+    const getItemName = (id: string) => items.find((i) => i.id === id)?.name ?? id
 
     // Get descriptive text based on category and results
     const getResultText = (resultItems: { id: string; success: boolean }[], success: boolean) => {
       const count = resultItems.length
-      const names = resultItems.map(r => getItemName(r.id))
+      const names = resultItems.map((r) => getItemName(r.id))
 
       // Enumerate names if 4 or fewer items total
       if (items.length <= 4 && count > 0) {
@@ -355,30 +352,32 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
       // Fall back to counts for larger sets
       if (category === 'rootFolders') {
         return success
-          ? `${count} folder${count !== 1 ? 's' : ''} accessible`
-          : `${count} folder${count !== 1 ? 's' : ''} inaccessible`
+          ? `${count} folder${count === 1 ? '' : 's'} accessible`
+          : `${count} folder${count === 1 ? '' : 's'} inaccessible`
       }
       if (category === 'metadata') {
         return success
-          ? `${count} API${count !== 1 ? 's' : ''} responding`
-          : `${count} API${count !== 1 ? 's' : ''} unreachable`
+          ? `${count} API${count === 1 ? '' : 's'} responding`
+          : `${count} API${count === 1 ? '' : 's'} unreachable`
       }
       return success
-        ? `${count} connection${count !== 1 ? 's' : ''} verified`
-        : `${count} connection${count !== 1 ? 's' : ''} failed`
+        ? `${count} connection${count === 1 ? '' : 's'} verified`
+        : `${count} connection${count === 1 ? '' : 's'} failed`
     }
 
     try {
       const result = await testCategory.mutateAsync(category)
-      const passedItems = result.results?.filter(r => r.success) ?? []
-      const failedItems = result.results?.filter(r => !r.success) ?? []
+      const passedItems = result.results?.filter((r) => r.success) ?? []
+      const failedItems = result.results?.filter((r) => !r.success) ?? []
 
       if (failedItems.length === 0) {
         toast.success(`${categoryName}: ${getResultText(passedItems, true)}`)
       } else if (passedItems.length === 0) {
         toast.error(`${categoryName}: ${getResultText(failedItems, false)}`)
       } else {
-        toast.warning(`${categoryName}: ${getResultText(passedItems, true)}, ${getResultText(failedItems, false)}`)
+        toast.warning(
+          `${categoryName}: ${getResultText(passedItems, true)}, ${getResultText(failedItems, false)}`,
+        )
       }
     } catch {
       toast.error(`${categoryName}: Test failed`)
@@ -402,11 +401,9 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <StatusIndicator status={worstStatus} size="sm" />
-          <CardTitle className="text-base">
-            {getCategoryDisplayName(category)}
-          </CardTitle>
-          <span className="text-sm text-muted-foreground">
-            ({items.length} item{items.length !== 1 ? 's' : ''})
+          <CardTitle className="text-base">{getCategoryDisplayName(category)}</CardTitle>
+          <span className="text-muted-foreground text-sm">
+            ({items.length} item{items.length === 1 ? '' : 's'})
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -419,14 +416,14 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
               title="Test all"
             >
               <FlaskConical
-                className={cn('size-4 mr-1', testCategory.isPending && 'animate-pulse')}
+                className={cn('mr-1 size-4', testCategory.isPending && 'animate-pulse')}
               />
               Test All
             </Button>
           )}
           <Link to={getCategorySettingsPath(category)}>
             <Button variant="ghost" size="sm" title="Settings">
-              <Settings className="size-4 mr-1" />
+              <Settings className="mr-1 size-4" />
               Settings
             </Button>
           </Link>
@@ -434,11 +431,11 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
       </CardHeader>
       <CardContent className="space-y-2">
         {items.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-4">
+          <div className="text-muted-foreground py-4 text-center text-sm">
             No items configured.{' '}
             <Link
               to={getCategorySettingsPath(category)}
-              className="text-primary hover:underline inline-flex items-center gap-1"
+              className="text-primary inline-flex items-center gap-1 hover:underline"
             >
               Add one <ExternalLink className="size-3" />
             </Link>
@@ -503,16 +500,10 @@ export function SystemHealthPage() {
       />
 
       <div className="space-y-4">
-        <HealthCategoryCard
-          category="downloadClients"
-          items={health?.downloadClients || []}
-        />
+        <HealthCategoryCard category="downloadClients" items={health?.downloadClients || []} />
 
         {isProwlarrMode ? (
-          <ProwlarrTreeCard
-            prowlarrItem={prowlarrItem}
-            indexerItems={indexerItems}
-          />
+          <ProwlarrTreeCard prowlarrItem={prowlarrItem} indexerItems={indexerItems} />
         ) : (
           <HealthCategoryCard category="indexers" items={indexerItems} />
         )}

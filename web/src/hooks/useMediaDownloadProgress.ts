@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+
 import { useDownloadingStore } from '@/stores'
 import type { QueueItem } from '@/types/queue'
 
@@ -8,9 +9,15 @@ export type MediaTarget =
   | { mediaType: 'season'; seriesId: number; seasonNumber: number }
   | { mediaType: 'episode'; episodeId: number; seriesId?: number; seasonNumber?: number }
   | { mediaType: 'movie-slot'; movieId: number; slotId: number }
-  | { mediaType: 'episode-slot'; episodeId: number; slotId: number; seriesId?: number; seasonNumber?: number }
+  | {
+      mediaType: 'episode-slot'
+      episodeId: number
+      slotId: number
+      seriesId?: number
+      seasonNumber?: number
+    }
 
-export interface MediaDownloadProgress {
+export type MediaDownloadProgress = {
   isDownloading: boolean
   isPaused: boolean
   progress: number
@@ -25,36 +32,69 @@ export interface MediaDownloadProgress {
 
 function matchItems(queueItems: QueueItem[], target: MediaTarget): QueueItem[] {
   return queueItems.filter((item) => {
-    const active = item.status === 'downloading' || item.status === 'queued' || item.status === 'paused'
-    if (!active) return false
+    const active =
+      item.status === 'downloading' || item.status === 'queued' || item.status === 'paused'
+    if (!active) {
+      return false
+    }
 
     switch (target.mediaType) {
-      case 'movie':
+      case 'movie': {
         return item.movieId === target.movieId
-      case 'series':
+      }
+      case 'series': {
         return item.seriesId === target.seriesId && item.isCompleteSeries
-      case 'season':
+      }
+      case 'season': {
         return (
           item.seriesId === target.seriesId &&
           (item.isCompleteSeries ||
             (item.seasonNumber === target.seasonNumber && item.isSeasonPack))
         )
-      case 'episode':
-        if (item.episodeId === target.episodeId) return true
+      }
+      case 'episode': {
+        if (item.episodeId === target.episodeId) {
+          return true
+        }
         if (target.seriesId && item.seriesId === target.seriesId) {
-          if (item.isCompleteSeries) return true
-          if (target.seasonNumber && item.seasonNumber === target.seasonNumber && item.isSeasonPack) return true
+          if (item.isCompleteSeries) {
+            return true
+          }
+          if (
+            target.seasonNumber &&
+            item.seasonNumber === target.seasonNumber &&
+            item.isSeasonPack
+          ) {
+            return true
+          }
         }
         return false
-      case 'movie-slot':
+      }
+      case 'movie-slot': {
         return item.movieId === target.movieId && item.targetSlotId === target.slotId
-      case 'episode-slot':
-        if (item.episodeId === target.episodeId && item.targetSlotId === target.slotId) return true
-        if (target.seriesId && item.seriesId === target.seriesId && item.targetSlotId === target.slotId) {
-          if (item.isCompleteSeries) return true
-          if (target.seasonNumber && item.seasonNumber === target.seasonNumber && item.isSeasonPack) return true
+      }
+      case 'episode-slot': {
+        if (item.episodeId === target.episodeId && item.targetSlotId === target.slotId) {
+          return true
+        }
+        if (
+          target.seriesId &&
+          item.seriesId === target.seriesId &&
+          item.targetSlotId === target.slotId
+        ) {
+          if (item.isCompleteSeries) {
+            return true
+          }
+          if (
+            target.seasonNumber &&
+            item.seasonNumber === target.seasonNumber &&
+            item.isSeasonPack
+          ) {
+            return true
+          }
         }
         return false
+      }
     }
   })
 }
@@ -80,7 +120,9 @@ export function useMediaDownloadProgress(target: MediaTarget): MediaDownloadProg
 
   // Auto-reset completion flag after delay
   useEffect(() => {
-    if (!justCompleted) return
+    if (!justCompleted) {
+      return
+    }
     const timer = setTimeout(() => {
       setJustCompleted(false)
     }, COMPLETION_DURATION)

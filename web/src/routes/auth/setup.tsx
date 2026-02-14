@@ -1,13 +1,15 @@
 import { useState } from 'react'
+
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import { useAdminSetup } from '@/hooks'
 import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { Label } from '@/components/ui/label'
+import { useAdminSetup } from '@/hooks'
 
 export function SetupPage() {
   const navigate = useNavigate()
@@ -37,7 +39,7 @@ export function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome to SlipStream</CardTitle>
@@ -58,12 +60,7 @@ export function SetupPage() {
             <div className="space-y-3">
               <Label>PIN</Label>
               <div className="flex justify-center">
-                <InputOTP
-                  maxLength={4}
-                  value={pin}
-                  onChange={setPin}
-                  autoFocus
-                >
+                <InputOTP maxLength={4} value={pin} onChange={setPin} autoFocus>
                   <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
                     <InputOTPSlot index={0} className="size-12 text-xl" />
                     <InputOTPSlot index={1} className="size-12 text-xl" />
@@ -72,7 +69,7 @@ export function SetupPage() {
                   </InputOTPGroup>
                 </InputOTP>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-muted-foreground text-center text-xs">
                 Choose a 4-digit PIN you'll remember
               </p>
             </div>
@@ -81,7 +78,7 @@ export function SetupPage() {
               className="w-full"
               disabled={setupMutation.isPending || pin.length !== 4}
             >
-              {setupMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {setupMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Create Administrator
             </Button>
           </form>

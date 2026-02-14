@@ -1,9 +1,9 @@
-import { apiFetch } from './client'
 import type { QueueResponse, QueueStats } from '@/types'
 
+import { apiFetch } from './client'
+
 export const queueApi = {
-  list: () =>
-    apiFetch<QueueResponse>('/queue'),
+  list: () => apiFetch<QueueResponse>('/queue'),
 
   pause: (clientId: number, id: string) =>
     apiFetch<{ status: string }>(`/queue/${id}/pause`, {
@@ -28,6 +28,5 @@ export const queueApi = {
       method: 'DELETE',
     }),
 
-  stats: () =>
-    apiFetch<QueueStats>('/queue/stats'),
+  stats: () => apiFetch<QueueStats>('/queue/stats'),
 }

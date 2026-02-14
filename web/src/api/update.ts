@@ -1,5 +1,6 @@
+import type { UpdateReleaseInfo, UpdateSettings, UpdateStatus } from '@/types/update'
+
 import { apiFetch } from './client'
-import type { UpdateStatus, UpdateSettings, UpdateReleaseInfo } from '@/types/update'
 
 export const updateApi = {
   getStatus: () => apiFetch<UpdateStatus>('/update'),
@@ -11,11 +12,9 @@ export const updateApi = {
       release?: UpdateReleaseInfo
     }>('/update/check', { method: 'POST' }),
 
-  install: () =>
-    apiFetch<{ message: string }>('/update/install', { method: 'POST' }),
+  install: () => apiFetch<{ message: string }>('/update/install', { method: 'POST' }),
 
-  cancel: () =>
-    apiFetch<{ message: string }>('/update/cancel', { method: 'POST' }),
+  cancel: () => apiFetch<{ message: string }>('/update/cancel', { method: 'POST' }),
 
   getSettings: () => apiFetch<UpdateSettings>('/update/settings'),
 

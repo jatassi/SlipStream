@@ -1,5 +1,6 @@
-import { portalFetch, buildQueryString } from './client'
 import type { PortalMovieSearchResult, PortalSeriesSearchResult, SeasonInfo } from '@/types'
+
+import { buildQueryString, portalFetch } from './client'
 
 export const portalSearchApi = {
   searchMovies: (query: string) =>

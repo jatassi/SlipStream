@@ -1,5 +1,10 @@
-import { Play, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, Clock, Loader2, Play, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -9,29 +14,33 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { useScheduledTasks, useRunTask, useGlobalLoading } from '@/hooks'
+import { useGlobalLoading, useRunTask, useScheduledTasks } from '@/hooks'
 import { formatDate } from '@/lib/formatters'
-import { toast } from 'sonner'
 import type { ScheduledTask } from '@/types'
 
 // Parse Go duration string (e.g., "6h0m0s", "15m0s", "1h30m0s")
-function parseGoDuration(duration: string): { hours: number; minutes: number; seconds: number } | null {
-  const match = duration.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/)
-  if (!match) return null
+function parseGoDuration(
+  duration: string,
+): { hours: number; minutes: number; seconds: number } | null {
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(duration)
+  if (!match) {
+    return null
+  }
   return {
-    hours: parseInt(match[1] || '0'),
-    minutes: parseInt(match[2] || '0'),
-    seconds: parseInt(match[3] || '0'),
+    hours: Number.parseInt(match[1] || '0'),
+    minutes: Number.parseInt(match[2] || '0'),
+    seconds: Number.parseInt(match[3] || '0'),
   }
 }
 
 // Format time with AM/PM
 function formatTime(hour: number, minute: number): string {
-  if (hour === 0 && minute === 0) return 'midnight'
-  if (hour === 12 && minute === 0) return 'noon'
+  if (hour === 0 && minute === 0) {
+    return 'midnight'
+  }
+  if (hour === 12 && minute === 0) {
+    return 'noon'
+  }
   const period = hour >= 12 ? 'PM' : 'AM'
   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
   const displayMinute = minute.toString().padStart(2, '0')
@@ -59,42 +68,76 @@ function cronToPlainEnglish(cron: string): string {
   }
 
   const parts = cron.split(' ')
-  if (parts.length !== 5) return cron
+  if (parts.length !== 5) {
+    return cron
+  }
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts
-  const minuteNum = parseInt(minute)
-  const hourNum = parseInt(hour)
+  const minuteNum = Number.parseInt(minute)
+  const hourNum = Number.parseInt(hour)
 
   // Every X minutes patterns (*/X * * * *)
-  if (minute.startsWith('*/') && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-    const interval = parseInt(minute.slice(2))
+  if (
+    minute.startsWith('*/') &&
+    hour === '*' &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
+    const interval = Number.parseInt(minute.slice(2))
     if (!isNaN(interval)) {
       return interval === 1 ? 'Every minute' : `Every ${interval} minutes`
     }
   }
 
   // Every X hours patterns (0 */X * * *)
-  if (minute === '0' && hour.startsWith('*/') && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-    const interval = parseInt(hour.slice(2))
+  if (
+    minute === '0' &&
+    hour.startsWith('*/') &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
+    const interval = Number.parseInt(hour.slice(2))
     if (!isNaN(interval)) {
       return interval === 1 ? 'Every hour' : `Every ${interval} hours`
     }
   }
 
   // Every hour (minute is fixed, hour is wildcard)
-  if (!isNaN(minuteNum) && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+  if (
+    !isNaN(minuteNum) &&
+    hour === '*' &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
     return minuteNum === 0 ? 'Every hour' : `Every hour at :${minute.padStart(2, '0')}`
   }
 
   // Daily at specific time
-  if (!isNaN(minuteNum) && !isNaN(hourNum) && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+  if (
+    !isNaN(minuteNum) &&
+    !isNaN(hourNum) &&
+    dayOfMonth === '*' &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
     return `Daily at ${formatTime(hourNum, minuteNum)}`
   }
 
   // Weekly patterns
-  const dayNames = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
+  const dayNames = [
+    'Sundays',
+    'Mondays',
+    'Tuesdays',
+    'Wednesdays',
+    'Thursdays',
+    'Fridays',
+    'Saturdays',
+  ]
   if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
-    const dayNum = parseInt(dayOfWeek)
+    const dayNum = Number.parseInt(dayOfWeek)
     if (!isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 && !isNaN(hourNum) && !isNaN(minuteNum)) {
       return `Weekly on ${dayNames[dayNum]} at ${formatTime(hourNum, minuteNum)}`
     }
@@ -105,25 +148,36 @@ function cronToPlainEnglish(cron: string): string {
 
 // Format relative time for last/next run
 function formatRelativeTime(dateString?: string): string {
-  if (!dateString) return 'Never'
+  if (!dateString) {
+    return 'Never'
+  }
 
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = date.getTime() - now.getTime()
-  const diffMins = Math.round(diffMs / 60000)
-  const diffHours = Math.round(diffMs / 3600000)
-  const diffDays = Math.round(diffMs / 86400000)
+  const diffMins = Math.round(diffMs / 60_000)
+  const diffHours = Math.round(diffMs / 3_600_000)
+  const diffDays = Math.round(diffMs / 86_400_000)
 
-  if (Math.abs(diffMins) < 1) return 'Just now'
-  if (diffMins > 0) {
-    if (diffMins < 60) return `in ${diffMins} min`
-    if (diffHours < 24) return `in ${diffHours} hours`
-    return `in ${diffDays} days`
-  } else {
-    if (Math.abs(diffMins) < 60) return `${Math.abs(diffMins)} min ago`
-    if (Math.abs(diffHours) < 24) return `${Math.abs(diffHours)} hours ago`
-    return `${Math.abs(diffDays)} days ago`
+  if (Math.abs(diffMins) < 1) {
+    return 'Just now'
   }
+  if (diffMins > 0) {
+    if (diffMins < 60) {
+      return `in ${diffMins} min`
+    }
+    if (diffHours < 24) {
+      return `in ${diffHours} hours`
+    }
+    return `in ${diffDays} days`
+  }
+  if (Math.abs(diffMins) < 60) {
+    return `${Math.abs(diffMins)} min ago`
+  }
+  if (Math.abs(diffHours) < 24) {
+    return `${Math.abs(diffHours)} hours ago`
+  }
+  return `${Math.abs(diffDays)} days ago`
 }
 
 export function TasksPage() {
@@ -185,49 +239,45 @@ export function TasksPage() {
                   <TableCell>
                     <div>
                       <p className="font-medium">{task.name}</p>
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
+                      <p className="text-muted-foreground text-sm">{task.description}</p>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Clock className="size-4 text-muted-foreground" />
+                      <Clock className="text-muted-foreground size-4" />
                       <span>{cronToPlainEnglish(task.cron)}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
                       <p>{formatRelativeTime(task.lastRun)}</p>
-                      {task.lastRun && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(task.lastRun)}
-                        </p>
-                      )}
+                      {task.lastRun ? (
+                        <p className="text-muted-foreground text-xs">{formatDate(task.lastRun)}</p>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
                       <p>{formatRelativeTime(task.nextRun)}</p>
-                      {task.nextRun && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(task.nextRun)}
-                        </p>
-                      )}
+                      {task.nextRun ? (
+                        <p className="text-muted-foreground text-xs">{formatDate(task.nextRun)}</p>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>
                     {task.running ? (
                       <Badge className="bg-blue-600 hover:bg-blue-600">
-                        <Loader2 className="size-3 mr-1 animate-spin" />
+                        <Loader2 className="mr-1 size-3 animate-spin" />
                         Running
                       </Badge>
                     ) : task.lastError ? (
                       <Badge variant="destructive">
-                        <XCircle className="size-3 mr-1" />
+                        <XCircle className="mr-1 size-3" />
                         Failed
                       </Badge>
                     ) : task.lastRun ? (
                       <Badge className="bg-green-600 hover:bg-green-600">
-                        <CheckCircle className="size-3 mr-1" />
+                        <CheckCircle className="mr-1 size-3" />
                         Success
                       </Badge>
                     ) : (
@@ -248,7 +298,7 @@ export function TasksPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                   No scheduled tasks found
                 </TableCell>
               </TableRow>

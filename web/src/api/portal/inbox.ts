@@ -1,6 +1,6 @@
 import { portalFetch } from './client'
 
-export interface PortalNotification {
+export type PortalNotification = {
   id: number
   requestId?: number
   type: 'approved' | 'denied' | 'available'
@@ -10,12 +10,12 @@ export interface PortalNotification {
   createdAt: string
 }
 
-export interface PortalNotificationListResponse {
+export type PortalNotificationListResponse = {
   notifications: PortalNotification[]
   unreadCount: number
 }
 
-export interface UnreadCountResponse {
+export type UnreadCountResponse = {
   count: number
 }
 
@@ -23,12 +23,9 @@ export const portalInboxApi = {
   list: (limit = 50, offset = 0) =>
     portalFetch<PortalNotificationListResponse>(`/inbox?limit=${limit}&offset=${offset}`),
 
-  unreadCount: () =>
-    portalFetch<UnreadCountResponse>('/inbox/count'),
+  unreadCount: () => portalFetch<UnreadCountResponse>('/inbox/count'),
 
-  markRead: (id: number) =>
-    portalFetch<void>(`/inbox/${id}/read`, { method: 'POST' }),
+  markRead: (id: number) => portalFetch<void>(`/inbox/${id}/read`, { method: 'POST' }),
 
-  markAllRead: () =>
-    portalFetch<void>('/inbox/read', { method: 'POST' }),
+  markAllRead: () => portalFetch<void>('/inbox/read', { method: 'POST' }),
 }

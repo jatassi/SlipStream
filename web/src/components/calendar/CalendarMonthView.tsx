@@ -1,24 +1,27 @@
 import { useMemo } from 'react'
+
 import {
-  format,
-  startOfMonth,
-  endOfMonth,
+  addMonths,
   eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
   isSameMonth,
   isToday,
-  addMonths,
-  subMonths,
+  startOfMonth,
   startOfWeek,
-  endOfWeek,
+  subMonths,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CalendarEventCard } from './CalendarEventCard'
+import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 
-interface CalendarMonthViewProps {
+import { CalendarEventCard } from './CalendarEventCard'
+
+type CalendarMonthViewProps = {
   events: CalendarEvent[]
   currentDate: Date
   onDateChange: (date: Date) => void
@@ -56,9 +59,9 @@ export function CalendarMonthView({
   const handleToday = () => onDateChange(new Date())
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={handlePrevMonth}>
             <ChevronLeft className="size-4" />
@@ -66,9 +69,7 @@ export function CalendarMonthView({
           <Button variant="outline" size="icon" onClick={handleNextMonth}>
             <ChevronRight className="size-4" />
           </Button>
-          <h2 className="text-xl font-semibold ml-2">
-            {format(currentDate, 'MMMM yyyy')}
-          </h2>
+          <h2 className="ml-2 text-xl font-semibold">{format(currentDate, 'MMMM yyyy')}</h2>
         </div>
         <Button variant="outline" onClick={handleToday}>
           Today
@@ -81,14 +82,14 @@ export function CalendarMonthView({
           {weekDays.map((day) => (
             <div
               key={day}
-              className="py-2 text-center text-sm font-medium text-muted-foreground border-r last:border-r-0"
+              className="text-muted-foreground border-r py-2 text-center text-sm font-medium last:border-r-0"
             >
               {day}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 auto-rows-fr min-h-[600px]">
+        <div className="grid min-h-[600px] auto-rows-fr grid-cols-7">
           {days.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd')
             const dayEvents = eventsByDate.get(dateKey) || []
@@ -99,40 +100,42 @@ export function CalendarMonthView({
               <div
                 key={dateKey}
                 className={cn(
-                  'border-r border-b p-1 min-h-[120px] last:border-r-0',
+                  'min-h-[120px] border-r border-b p-1 last:border-r-0',
                   !isCurrentMonth && 'bg-muted/30',
-                  isCurrentDay && 'bg-primary/5'
+                  isCurrentDay && 'bg-primary/5',
                 )}
               >
                 <div
                   className={cn(
-                    'text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full',
+                    'mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium',
                     isCurrentDay && 'bg-primary text-primary-foreground',
-                    !isCurrentMonth && 'text-muted-foreground'
+                    !isCurrentMonth && 'text-muted-foreground',
                   )}
                 >
                   {format(day, 'd')}
                 </div>
 
-                <div className="space-y-1 overflow-y-auto max-h-[90px]">
+                <div className="max-h-[90px] space-y-1 overflow-y-auto">
                   {loading ? (
-                    <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-1">
+                    <div className="border-l-muted-foreground/20 bg-muted/30 rounded-lg border-l-4 p-1">
                       <div className="flex items-center gap-1">
-                        <Skeleton className="size-3 rounded-full shrink-0" />
+                        <Skeleton className="size-3 shrink-0 rounded-full" />
                         <Skeleton className="h-3 w-full" />
                       </div>
                     </div>
                   ) : (
-                    dayEvents.slice(0, 3).map((event) => (
-                      <CalendarEventCard
-                        key={`${event.mediaType}-${event.id}-${event.eventType}`}
-                        event={event}
-                        compact
-                      />
-                    ))
+                    dayEvents
+                      .slice(0, 3)
+                      .map((event) => (
+                        <CalendarEventCard
+                          key={`${event.mediaType}-${event.id}-${event.eventType}`}
+                          event={event}
+                          compact
+                        />
+                      ))
                   )}
                   {dayEvents.length > 3 && (
-                    <div className="text-xs text-muted-foreground text-center">
+                    <div className="text-muted-foreground text-center text-xs">
                       +{dayEvents.length - 3} more
                     </div>
                   )}

@@ -1,10 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { qualityProfilesApi } from '@/api'
-import type {
-  QualityProfile,
-  CreateQualityProfileInput,
-  UpdateQualityProfileInput,
-} from '@/types'
+import type { CreateQualityProfileInput, QualityProfile, UpdateQualityProfileInput } from '@/types'
 
 export const qualityProfileKeys = {
   all: ['qualityProfiles'] as const,

@@ -1,4 +1,4 @@
-export interface SystemStatus {
+export type SystemStatus = {
   version: string
   startTime: string
   uptime: number
@@ -17,18 +17,18 @@ export interface SystemStatus {
   }
 }
 
-export interface HealthCheck {
+export type HealthCheck = {
   status: 'healthy' | 'degraded' | 'unhealthy'
   checks: HealthCheckItem[]
 }
 
-export interface HealthCheckItem {
+export type HealthCheckItem = {
   name: string
   status: 'healthy' | 'degraded' | 'unhealthy'
   message?: string
 }
 
-export interface Settings {
+export type Settings = {
   serverPort: number
   logLevel: string
   authEnabled: boolean
@@ -41,7 +41,7 @@ export interface Settings {
   externalAccessEnabled: boolean
 }
 
-export interface UpdateSettingsInput {
+export type UpdateSettingsInput = {
   serverPort?: number
   logLevel?: string
   authEnabled?: boolean
@@ -53,7 +53,7 @@ export interface UpdateSettingsInput {
   externalAccessEnabled?: boolean
 }
 
-export interface FirewallStatus {
+export type FirewallStatus = {
   port: number
   isListening: boolean
   firewallAllows: boolean

@@ -1,4 +1,4 @@
-export interface MissingMovie {
+export type MissingMovie = {
   id: number
   title: string
   year?: number
@@ -10,7 +10,7 @@ export interface MissingMovie {
   qualityProfileId: number
 }
 
-export interface MissingEpisode {
+export type MissingEpisode = {
   id: number
   seriesId: number
   seasonNumber: number
@@ -24,12 +24,12 @@ export interface MissingEpisode {
   seriesYear?: number
 }
 
-export interface MissingSeason {
+export type MissingSeason = {
   seasonNumber: number
   missingEpisodes: MissingEpisode[]
 }
 
-export interface MissingSeries {
+export type MissingSeries = {
   id: number
   title: string
   year?: number
@@ -41,12 +41,12 @@ export interface MissingSeries {
   missingSeasons: MissingSeason[]
 }
 
-export interface MissingCounts {
+export type MissingCounts = {
   movies: number
   episodes: number
 }
 
-export interface UpgradableMovie {
+export type UpgradableMovie = {
   id: number
   title: string
   year?: number
@@ -59,7 +59,7 @@ export interface UpgradableMovie {
   currentQualityId: number
 }
 
-export interface UpgradableEpisode {
+export type UpgradableEpisode = {
   id: number
   seriesId: number
   seasonNumber: number
@@ -74,12 +74,12 @@ export interface UpgradableEpisode {
   currentQualityId: number
 }
 
-export interface UpgradableSeason {
+export type UpgradableSeason = {
   seasonNumber: number
   upgradableEpisodes: UpgradableEpisode[]
 }
 
-export interface UpgradableSeries {
+export type UpgradableSeries = {
   id: number
   title: string
   year?: number
@@ -91,7 +91,7 @@ export interface UpgradableSeries {
   upgradableSeasons: UpgradableSeason[]
 }
 
-export interface UpgradableCounts {
+export type UpgradableCounts = {
   movies: number
   episodes: number
 }

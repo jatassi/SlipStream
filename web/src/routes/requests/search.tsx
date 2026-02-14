@@ -1,36 +1,39 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
+
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Search, Plus, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2, Plus, Search } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { EmptyState } from '@/components/data/EmptyState'
+import { ExpandableMediaGrid, ExternalMediaCard, SearchResultsSection } from '@/components/search'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
-  ExternalMediaCard,
-  ExpandableMediaGrid,
-  SearchResultsSection,
-} from '@/components/search'
-import { usePortalMovieSearch, usePortalSeriesSearch, useCreateRequest, useSeriesSeasons } from '@/hooks'
+  useCreateRequest,
+  usePortalMovieSearch,
+  usePortalSeriesSearch,
+  useSeriesSeasons,
+} from '@/hooks'
 import { usePortalAuthStore } from '@/stores'
 import type {
+  MovieSearchResult,
   PortalMovieSearchResult,
   PortalSeriesSearchResult,
-  MovieSearchResult,
   SeriesSearchResult,
 } from '@/types'
-import { toast } from 'sonner'
 
-interface PortalSearchPageProps {
+type PortalSearchPageProps = {
   q: string
 }
 
@@ -39,7 +42,7 @@ function convertToMovieSearchResult(movie: PortalMovieSearchResult): MovieSearch
   const tmdbId = movie.tmdbId || movie.id
   return {
     id: tmdbId,
-    tmdbId: tmdbId,
+    tmdbId,
     title: movie.title,
     year: movie.year ?? undefined,
     overview: movie.overview ?? undefined,
@@ -53,7 +56,7 @@ function convertToSeriesSearchResult(series: PortalSeriesSearchResult): SeriesSe
   const tmdbId = series.tmdbId || series.id
   return {
     id: tmdbId,
-    tmdbId: tmdbId,
+    tmdbId,
     tvdbId: series.tvdbId ?? undefined,
     title: series.title,
     year: series.year ?? undefined,
@@ -80,16 +83,21 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 
   const { data: seasons = [], isLoading: loadingSeasons } = useSeriesSeasons(
     selectedSeries?.tmdbId || selectedSeries?.id,
-    selectedSeries?.tvdbId || undefined
+    selectedSeries?.tvdbId || undefined,
   )
 
-  const isRequested = useCallback((tmdbId: number) => requestedTmdbIds.has(tmdbId), [requestedTmdbIds])
+  const isRequested = useCallback(
+    (tmdbId: number) => requestedTmdbIds.has(tmdbId),
+    [requestedTmdbIds],
+  )
 
   const isLoading = loadingMovies || loadingSeries
 
   // Split results into library items and requestable items
   // Sort library items by addedAt descending (newest first)
-  const sortByAddedAt = <T extends { availability?: { addedAt?: string | null } }>(items: T[]): T[] =>
+  const sortByAddedAt = <T extends { availability?: { addedAt?: string | null } }>(
+    items: T[],
+  ): T[] =>
     [...items].sort((a, b) => {
       const aDate = a.availability?.addedAt ? new Date(a.availability.addedAt).getTime() : 0
       const bDate = b.availability?.addedAt ? new Date(b.availability.addedAt).getTime() : 0
@@ -109,7 +117,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
     createRequest.mutate(
       {
         mediaType: 'movie',
-        tmdbId: tmdbId,
+        tmdbId,
         title: movie.title,
         year: movie.year || undefined,
         posterUrl: movie.posterUrl || undefined,
@@ -126,7 +134,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
             description: error.message,
           })
         },
-      }
+      },
     )
   }
 
@@ -158,19 +166,21 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
   }
 
   const handleSubmitSeriesRequest = () => {
-    if (!selectedSeries) return
+    if (!selectedSeries) {
+      return
+    }
 
     const tmdbId = selectedSeries.tmdbId || selectedSeries.id
-    const seasonsArray = Array.from(selectedSeasons).sort((a, b) => a - b)
+    const seasonsArray = [...selectedSeasons].sort((a, b) => a - b)
 
     createRequest.mutate(
       {
         mediaType: 'series',
-        tmdbId: tmdbId,
+        tmdbId,
         tvdbId: selectedSeries.tvdbId || undefined,
         title: selectedSeries.title,
         year: selectedSeries.year || undefined,
-        monitorFuture: monitorFuture,
+        monitorFuture,
         posterUrl: selectedSeries.posterUrl || undefined,
         requestedSeasons: seasonsArray.length > 0 ? seasonsArray : undefined,
       },
@@ -189,7 +199,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
             description: error.message,
           })
         },
-      }
+      },
     )
   }
 
@@ -199,7 +209,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 
   if (!query) {
     return (
-      <div className="max-w-6xl mx-auto pt-6 px-6">
+      <div className="mx-auto max-w-6xl px-6 pt-6">
         <EmptyState
           icon={<Search className="size-8" />}
           title="Search for content"
@@ -210,12 +220,11 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pt-6 px-6">
-
+    <div className="mx-auto max-w-6xl space-y-8 px-6 pt-6">
       {isLoading && !hasLibraryResults && !hasRequestableResults ? (
-        <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] rounded-lg bg-muted animate-pulse" />
+            <div key={i} className="bg-muted aspect-[2/3] animate-pulse rounded-lg" />
           ))}
         </div>
       ) : !hasLibraryResults && !hasRequestableResults ? (
@@ -227,7 +236,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
       ) : (
         <>
           {/* In Library Section - only show if there are library results */}
-          {hasLibraryResults && (
+          {hasLibraryResults ? (
             <SearchResultsSection
               title="In Library"
               isLoading={isLoading}
@@ -247,7 +256,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                       currentUserId={user?.id}
                       onViewRequest={goToRequest}
                       actionLabel="Request"
-                      actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                      actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                       disabledLabel="In Library"
                     />
                   )}
@@ -265,14 +274,14 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                       currentUserId={user?.id}
                       onViewRequest={goToRequest}
                       actionLabel="Request"
-                      actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                      actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                       disabledLabel="In Library"
                     />
                   )}
                 />
               </div>
             </SearchResultsSection>
-          )}
+          ) : null}
 
           {/* Request Section - hide header if no library results */}
           {hasLibraryResults ? (
@@ -300,7 +309,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                       onAction={() => handleMovieRequest(movie)}
                       onViewRequest={goToRequest}
                       actionLabel="Request"
-                      actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                      actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                       disabledLabel="In Library"
                     />
                   )}
@@ -321,7 +330,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                       onAction={() => handleSeriesRequestClick(item)}
                       onViewRequest={goToRequest}
                       actionLabel="Request"
-                      actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                      actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                       disabledLabel="In Library"
                     />
                   )}
@@ -346,7 +355,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                     onAction={() => handleMovieRequest(movie)}
                     onViewRequest={goToRequest}
                     actionLabel="Request"
-                    actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                    actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                     disabledLabel="In Library"
                   />
                 )}
@@ -367,7 +376,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                     onAction={() => handleSeriesRequestClick(item)}
                     onViewRequest={goToRequest}
                     actionLabel="Request"
-                    actionIcon={<Plus className="size-3 md:size-4 mr-1 md:mr-2" />}
+                    actionIcon={<Plus className="mr-1 size-3 md:mr-2 md:size-4" />}
                     disabledLabel="In Library"
                   />
                 )}
@@ -428,19 +437,16 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                   ))}
                 </div>
               ) : seasons.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">
+                <p className="text-muted-foreground py-2 text-sm">
                   No season information available
                 </p>
               ) : (
-                <div className="max-h-48 overflow-y-auto space-y-1 border rounded-md p-2">
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
                   {seasons
                     .filter((s) => s.seasonNumber > 0)
                     .sort((a, b) => a.seasonNumber - b.seasonNumber)
                     .map((season) => (
-                      <div
-                        key={season.seasonNumber}
-                        className="flex items-center space-x-2 py-1"
-                      >
+                      <div key={season.seasonNumber} className="flex items-center space-x-2 py-1">
                         <Checkbox
                           id={`season-${season.seasonNumber}`}
                           checked={selectedSeasons.has(season.seasonNumber)}
@@ -448,23 +454,24 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                         />
                         <Label
                           htmlFor={`season-${season.seasonNumber}`}
-                          className="text-sm cursor-pointer flex-1"
+                          className="flex-1 cursor-pointer text-sm"
                         >
                           Season {season.seasonNumber}
-                          {season.name && season.name !== `Season ${season.seasonNumber}` && (
+                          {season.name && season.name !== `Season ${season.seasonNumber}` ? (
                             <span className="text-muted-foreground ml-1">({season.name})</span>
-                          )}
+                          ) : null}
                         </Label>
                       </div>
                     ))}
                 </div>
               )}
 
-              {selectedSeasons.size === 0 && monitorFuture && (
-                <p className="text-xs text-muted-foreground">
-                  No seasons selected. Series will be added to library and only future episodes will be monitored.
+              {selectedSeasons.size === 0 && monitorFuture ? (
+                <p className="text-muted-foreground text-xs">
+                  No seasons selected. Series will be added to library and only future episodes will
+                  be monitored.
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -476,7 +483,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
               onClick={handleSubmitSeriesRequest}
               disabled={createRequest.isPending || (!monitorFuture && selectedSeasons.size === 0)}
             >
-              {createRequest.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {createRequest.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Submit Request
             </Button>
           </DialogFooter>
@@ -487,6 +494,6 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 }
 
 export function PortalSearchPageWrapper() {
-  const { q } = useSearch({ strict: false }) as { q?: string }
+  const { q } = useSearch({ strict: false })
   return <PortalSearchPage q={q || ''} />
 }

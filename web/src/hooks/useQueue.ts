@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { queueApi } from '@/api'
 import { useDownloadingStore, usePortalDownloadsStore } from '@/stores'
 
@@ -10,7 +12,7 @@ export const queueKeys = {
 }
 
 const WS_TIMEOUT_MS = 10_000
-const FALLBACK_POLL_MS = 2_000
+const FALLBACK_POLL_MS = 2000
 
 export function useQueue(enabled = true) {
   const setQueueItems = useDownloadingStore((state) => state.setQueueItems)
@@ -24,14 +26,20 @@ export function useQueue(enabled = true) {
     // and haven't received a WebSocket update in 10 seconds.
     // Force HTTP polling when errors exist so isFetching cycles for retry UX.
     refetchInterval: (q) => {
-      if (!enabled) return false
+      if (!enabled) {
+        return false
+      }
       const data = q.state.data
       const hasErrors = (data?.errors?.length ?? 0) > 0
       const hasActiveDownloads = data?.items?.some(
-        (item) => item.status === 'downloading' || item.status === 'queued'
+        (item) => item.status === 'downloading' || item.status === 'queued',
       )
-      if (!hasActiveDownloads && !hasErrors) return false
-      if (hasErrors) return FALLBACK_POLL_MS
+      if (!hasActiveDownloads && !hasErrors) {
+        return false
+      }
+      if (hasErrors) {
+        return FALLBACK_POLL_MS
+      }
       const timeSinceUpdate = Date.now() - usePortalDownloadsStore.getState().lastUpdateTime
       return timeSinceUpdate > WS_TIMEOUT_MS ? FALLBACK_POLL_MS : false
     },
@@ -60,21 +68,23 @@ export function useQueueStats() {
     // haven't received a WebSocket update in 10 seconds
     refetchInterval: (q) => {
       const hasActiveDownloads = (q.state.data?.totalCount ?? 0) > 0
-      if (!hasActiveDownloads) return false
+      if (!hasActiveDownloads) {
+        return false
+      }
       const timeSinceUpdate = Date.now() - usePortalDownloadsStore.getState().lastUpdateTime
       return timeSinceUpdate > WS_TIMEOUT_MS ? FALLBACK_POLL_MS : false
     },
   })
 }
 
-interface QueueItemParams {
+type QueueItemParams = {
   clientId: number
   id: string
 }
 
-interface RemoveParams extends QueueItemParams {
+type RemoveParams = {
   deleteFiles?: boolean
-}
+} & QueueItemParams
 
 export function useRemoveFromQueue() {
   const queryClient = useQueryClient()
@@ -90,8 +100,7 @@ export function useRemoveFromQueue() {
 export function usePauseQueueItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ clientId, id }: QueueItemParams) =>
-      queueApi.pause(clientId, id),
+    mutationFn: ({ clientId, id }: QueueItemParams) => queueApi.pause(clientId, id),
     onSuccess: () => {
       // Force immediate refetch to get updated status
       queryClient.refetchQueries({ queryKey: queueKeys.all })
@@ -102,8 +111,7 @@ export function usePauseQueueItem() {
 export function useResumeQueueItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ clientId, id }: QueueItemParams) =>
-      queueApi.resume(clientId, id),
+    mutationFn: ({ clientId, id }: QueueItemParams) => queueApi.resume(clientId, id),
     onSuccess: () => {
       // Force immediate refetch to get updated status
       queryClient.refetchQueries({ queryKey: queueKeys.all })
@@ -114,8 +122,7 @@ export function useResumeQueueItem() {
 export function useFastForwardQueueItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ clientId, id }: QueueItemParams) =>
-      queueApi.fastForward(clientId, id),
+    mutationFn: ({ clientId, id }: QueueItemParams) => queueApi.fastForward(clientId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queueKeys.all })
     },

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
+
 import { BACKDROP_SIZES, getLocalArtworkUrl } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { useArtworkStore } from '@/stores/artwork'
 
-interface BackdropImageProps {
+type BackdropImageProps = {
   // For TMDB paths (search results) - e.g., "/abc123.jpg"
   path?: string | null
   // For local artwork (library items) - the TMDB ID (primary)
@@ -40,7 +41,7 @@ export function BackdropImage({
 
   // Subscribe to artwork version changes for this specific artwork
   const artworkVersion = useArtworkStore((state) =>
-    artworkId ? state.getVersion(type, artworkId, 'backdrop') : 0
+    artworkId ? state.getVersion(type, artworkId, 'backdrop') : 0,
   )
 
   // Determine if this is a local artwork request
@@ -49,7 +50,7 @@ export function BackdropImage({
   // Prefer local artwork if tmdbId/tvdbId is provided, otherwise use TMDB path
   let imageUrl: string | null = null
   if (isLocalArtwork) {
-    const baseUrl = getLocalArtworkUrl(type, artworkId!, 'backdrop')
+    const baseUrl = getLocalArtworkUrl(type, artworkId, 'backdrop')
     if (artworkVersion > 0) {
       imageUrl = `${baseUrl}?v=${artworkVersion}`
     } else if (version) {
@@ -69,16 +70,12 @@ export function BackdropImage({
   }
 
   if (!imageUrl || error) {
-    return (
-      <div className={cn('bg-gradient-to-b from-muted to-background', className)} />
-    )
+    return <div className={cn('from-muted to-background bg-gradient-to-b', className)} />
   }
 
   return (
     <div className={cn('relative overflow-hidden', className)}>
-      {loading && (
-        <div className="absolute inset-0 animate-pulse bg-muted" />
-      )}
+      {loading ? <div className="bg-muted absolute inset-0 animate-pulse" /> : null}
       <img
         src={imageUrl}
         alt={alt}
@@ -86,12 +83,12 @@ export function BackdropImage({
         onError={() => setError(true)}
         className={cn(
           'size-full object-cover transition-opacity',
-          loading ? 'opacity-0' : 'opacity-100'
+          loading ? 'opacity-0' : 'opacity-100',
         )}
       />
-      {overlay && (
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-      )}
+      {overlay ? (
+        <div className="from-background via-background/60 absolute inset-0 bg-gradient-to-t to-transparent" />
+      ) : null}
     </div>
   )
 }

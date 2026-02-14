@@ -1,172 +1,172 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/inter';
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant data-active (&[data-active]);
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.58 0.22 27);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.809 0.105 251.813);
-    --chart-2: oklch(0.623 0.214 259.815);
-    --chart-3: oklch(0.546 0.245 262.881);
-    --chart-4: oklch(0.488 0.243 264.376);
-    --chart-5: oklch(0.424 0.199 265.638);
-    --radius: 0.45rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --radius: 0.45rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.87 0.00 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.371 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.809 0.105 251.813);
-    --chart-2: oklch(0.623 0.214 259.815);
-    --chart-3: oklch(0.546 0.245 262.881);
-    --chart-4: oklch(0.488 0.243 264.376);
-    --chart-5: oklch(0.424 0.199 265.638);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.87 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 
-    /* Movie (orange) palette */
-    --movie-50: oklch(98.2% 0.013 81);
-    --movie-100: oklch(95.6% 0.033 82);
-    --movie-200: oklch(90.6% 0.067 78);
-    --movie-300: oklch(84.7% 0.106 74);
-    --movie-400: oklch(76.8% 0.142 64);
-    --movie-500: oklch(72% 0.16 55);
-    --movie-600: oklch(65.1% 0.164 47);
-    --movie-700: oklch(55.4% 0.145 43);
-    --movie-800: oklch(47.1% 0.117 41);
-    --movie-900: oklch(40.9% 0.093 42);
-    --movie-950: oklch(26.9% 0.061 40);
+  /* Movie (orange) palette */
+  --movie-50: oklch(98.2% 0.013 81);
+  --movie-100: oklch(95.6% 0.033 82);
+  --movie-200: oklch(90.6% 0.067 78);
+  --movie-300: oklch(84.7% 0.106 74);
+  --movie-400: oklch(76.8% 0.142 64);
+  --movie-500: oklch(72% 0.16 55);
+  --movie-600: oklch(65.1% 0.164 47);
+  --movie-700: oklch(55.4% 0.145 43);
+  --movie-800: oklch(47.1% 0.117 41);
+  --movie-900: oklch(40.9% 0.093 42);
+  --movie-950: oklch(26.9% 0.061 40);
 
-    /* TV (blue) palette */
-    --tv-50: oklch(97.6% 0.013 242);
-    --tv-100: oklch(94.8% 0.026 242);
-    --tv-200: oklch(89.8% 0.056 237);
-    --tv-300: oklch(82.5% 0.106 236);
-    --tv-400: oklch(74% 0.155 238);
-    --tv-500: oklch(67.5% 0.17 243);
-    --tv-600: oklch(58.1% 0.165 247);
-    --tv-700: oklch(49.8% 0.145 248);
-    --tv-800: oklch(44% 0.119 247);
-    --tv-900: oklch(38.9% 0.095 247);
-    --tv-950: oklch(29.1% 0.067 249);
+  /* TV (blue) palette */
+  --tv-50: oklch(97.6% 0.013 242);
+  --tv-100: oklch(94.8% 0.026 242);
+  --tv-200: oklch(89.8% 0.056 237);
+  --tv-300: oklch(82.5% 0.106 236);
+  --tv-400: oklch(74% 0.155 238);
+  --tv-500: oklch(67.5% 0.17 243);
+  --tv-600: oklch(58.1% 0.165 247);
+  --tv-700: oklch(49.8% 0.145 248);
+  --tv-800: oklch(44% 0.119 247);
+  --tv-900: oklch(38.9% 0.095 247);
+  --tv-950: oklch(29.1% 0.067 249);
 }
 
 @theme inline {
-    --font-sans: 'Inter Variable', sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) + 4px);
-    --radius-2xl: calc(var(--radius) + 8px);
-    --radius-3xl: calc(var(--radius) + 12px);
-    --radius-4xl: calc(var(--radius) + 16px);
+  --font-sans: 'Inter Variable', sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 
-    /* Movie (orange) color scale */
-    --color-movie-50: var(--movie-50);
-    --color-movie-100: var(--movie-100);
-    --color-movie-200: var(--movie-200);
-    --color-movie-300: var(--movie-300);
-    --color-movie-400: var(--movie-400);
-    --color-movie-500: var(--movie-500);
-    --color-movie-600: var(--movie-600);
-    --color-movie-700: var(--movie-700);
-    --color-movie-800: var(--movie-800);
-    --color-movie-900: var(--movie-900);
-    --color-movie-950: var(--movie-950);
+  /* Movie (orange) color scale */
+  --color-movie-50: var(--movie-50);
+  --color-movie-100: var(--movie-100);
+  --color-movie-200: var(--movie-200);
+  --color-movie-300: var(--movie-300);
+  --color-movie-400: var(--movie-400);
+  --color-movie-500: var(--movie-500);
+  --color-movie-600: var(--movie-600);
+  --color-movie-700: var(--movie-700);
+  --color-movie-800: var(--movie-800);
+  --color-movie-900: var(--movie-900);
+  --color-movie-950: var(--movie-950);
 
-    /* TV (blue) color scale */
-    --color-tv-50: var(--tv-50);
-    --color-tv-100: var(--tv-100);
-    --color-tv-200: var(--tv-200);
-    --color-tv-300: var(--tv-300);
-    --color-tv-400: var(--tv-400);
-    --color-tv-500: var(--tv-500);
-    --color-tv-600: var(--tv-600);
-    --color-tv-700: var(--tv-700);
-    --color-tv-800: var(--tv-800);
-    --color-tv-900: var(--tv-900);
-    --color-tv-950: var(--tv-950);
+  /* TV (blue) color scale */
+  --color-tv-50: var(--tv-50);
+  --color-tv-100: var(--tv-100);
+  --color-tv-200: var(--tv-200);
+  --color-tv-300: var(--tv-300);
+  --color-tv-400: var(--tv-400);
+  --color-tv-500: var(--tv-500);
+  --color-tv-600: var(--tv-600);
+  --color-tv-700: var(--tv-700);
+  --color-tv-800: var(--tv-800);
+  --color-tv-900: var(--tv-900);
+  --color-tv-950: var(--tv-950);
 }
 
 @layer base {
@@ -174,7 +174,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
   html {
     @apply font-sans;
@@ -210,13 +210,19 @@
     box-shadow: 0 0 15px var(--movie-500);
   }
   .glow-movie-lg {
-    box-shadow: 0 0 25px var(--movie-500), 0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--movie-500),
+      0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
   }
   .glow-movie-border {
-    box-shadow: 0 0 0 1px var(--movie-500), 0 0 15px var(--movie-500);
+    box-shadow:
+      0 0 0 1px var(--movie-500),
+      0 0 15px var(--movie-500);
   }
   .glow-movie-ring {
-    box-shadow: 0 0 0 2px color-mix(in oklch, var(--movie-500) 30%, transparent), 0 0 15px var(--movie-500);
+    box-shadow:
+      0 0 0 2px color-mix(in oklch, var(--movie-500) 30%, transparent),
+      0 0 15px var(--movie-500);
   }
 
   /* TV glow effects */
@@ -227,24 +233,36 @@
     box-shadow: 0 0 15px var(--tv-500);
   }
   .glow-tv-lg {
-    box-shadow: 0 0 25px var(--tv-500), 0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--tv-500),
+      0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
   .glow-tv-border {
-    box-shadow: 0 0 0 1px var(--tv-500), 0 0 15px var(--tv-500);
+    box-shadow:
+      0 0 0 1px var(--tv-500),
+      0 0 15px var(--tv-500);
   }
   .glow-tv-ring {
-    box-shadow: 0 0 0 2px color-mix(in oklch, var(--tv-500) 30%, transparent), 0 0 15px var(--tv-500);
+    box-shadow:
+      0 0 0 2px color-mix(in oklch, var(--tv-500) 30%, transparent),
+      0 0 15px var(--tv-500);
   }
 
   /* Media gradient glow (combines both colors) */
   .glow-media-sm {
-    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    box-shadow:
+      -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
+      8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
   .glow-media {
-    box-shadow: -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent), 12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+    box-shadow:
+      -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+      12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
   }
   .glow-media-lg {
-    box-shadow: -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent), 15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
+    box-shadow:
+      -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent),
+      15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
   }
 
   /* Animated pulse glows */
@@ -266,7 +284,9 @@
     box-shadow: 0 0 15px var(--movie-500);
   }
   .hover\:glow-movie-lg:hover {
-    box-shadow: 0 0 25px var(--movie-500), 0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--movie-500),
+      0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
   }
   .hover\:glow-tv-sm:hover {
     box-shadow: 0 0 8px var(--tv-500);
@@ -275,13 +295,19 @@
     box-shadow: 0 0 15px var(--tv-500);
   }
   .hover\:glow-tv-lg:hover {
-    box-shadow: 0 0 25px var(--tv-500), 0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--tv-500),
+      0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
   .hover\:glow-media-sm:hover {
-    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    box-shadow:
+      -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
+      8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
   .hover\:glow-media:hover {
-    box-shadow: -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent), 12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+    box-shadow:
+      -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+      12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
   }
 
   /* Icon glow effects (using drop-shadow for SVG icons) */
@@ -313,7 +339,6 @@
   .hover\:icon-glow-tv:hover {
     filter: drop-shadow(0 0 4px var(--tv-500));
   }
-
 }
 
 /* Data-active variants for tabs (outside @layer to prevent tree-shaking) */
@@ -330,34 +355,47 @@
   box-shadow: 0 0 15px var(--tv-500);
 }
 .data-active\:glow-media-sm[data-active] {
-  box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+  box-shadow:
+    -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
+    8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
 }
 
 /* Glow animations */
 @keyframes glow-movie-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 10px color-mix(in oklch, var(--movie-500) 50%, transparent);
   }
   50% {
-    box-shadow: 0 0 25px var(--movie-500), 0 0 40px color-mix(in oklch, var(--movie-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--movie-500),
+      0 0 40px color-mix(in oklch, var(--movie-500) 50%, transparent);
   }
 }
 
 @keyframes glow-tv-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 10px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
   50% {
-    box-shadow: 0 0 25px var(--tv-500), 0 0 40px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    box-shadow:
+      0 0 25px var(--tv-500),
+      0 0 40px color-mix(in oklch, var(--tv-500) 50%, transparent);
   }
 }
 
 @keyframes glow-media-pulse {
-  0%, 100% {
-    box-shadow: -8px 0 15px color-mix(in oklch, var(--movie-500) 30%, transparent), 8px 0 15px color-mix(in oklch, var(--tv-500) 30%, transparent);
+  0%,
+  100% {
+    box-shadow:
+      -8px 0 15px color-mix(in oklch, var(--movie-500) 30%, transparent),
+      8px 0 15px color-mix(in oklch, var(--tv-500) 30%, transparent);
   }
   50% {
-    box-shadow: -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent), 15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
+    box-shadow:
+      -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent),
+      15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
   }
 }
 
@@ -376,44 +414,59 @@
 
 @keyframes download-complete-flash-movie {
   0% {
-    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+    box-shadow:
+      inset 0 0 0 0 transparent,
+      0 0 0 transparent;
   }
   15% {
-    box-shadow: inset 0 0 30px var(--movie-500), 0 0 20px var(--movie-500);
+    box-shadow:
+      inset 0 0 30px var(--movie-500),
+      0 0 20px var(--movie-500);
   }
   100% {
-    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+    box-shadow:
+      inset 0 0 0 0 transparent,
+      0 0 0 transparent;
   }
 }
 
 @keyframes download-complete-flash-tv {
   0% {
-    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+    box-shadow:
+      inset 0 0 0 0 transparent,
+      0 0 0 transparent;
   }
   15% {
-    box-shadow: inset 0 0 30px var(--tv-500), 0 0 20px var(--tv-500);
+    box-shadow:
+      inset 0 0 30px var(--tv-500),
+      0 0 20px var(--tv-500);
   }
   100% {
-    box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent;
+    box-shadow:
+      inset 0 0 0 0 transparent,
+      0 0 0 transparent;
   }
 }
 
 @keyframes download-complete-flash-media {
   0% {
-    box-shadow: inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
-                inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
-                0 0 0 transparent;
+    box-shadow:
+      inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
+      inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
+      0 0 0 transparent;
   }
   15% {
-    box-shadow: inset -20px 0 30px var(--movie-500),
-                inset 20px 0 30px var(--tv-500),
-                -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-                10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+    box-shadow:
+      inset -20px 0 30px var(--movie-500),
+      inset 20px 0 30px var(--tv-500),
+      -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+      10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
   }
   100% {
-    box-shadow: inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
-                inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
-                0 0 0 transparent;
+    box-shadow:
+      inset -20px 0 30px color-mix(in oklch, var(--movie-500) 0%, transparent),
+      inset 20px 0 30px color-mix(in oklch, var(--tv-500) 0%, transparent),
+      0 0 0 transparent;
   }
 }
 
@@ -440,7 +493,8 @@
 }
 
 @keyframes progress-glow-movie {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 8px color-mix(in oklch, var(--movie-500) 40%, transparent);
   }
   50% {
@@ -449,7 +503,8 @@
 }
 
 @keyframes progress-glow-tv {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 8px color-mix(in oklch, var(--tv-500) 40%, transparent);
   }
   50% {
@@ -458,18 +513,22 @@
 }
 
 @keyframes progress-glow-media {
-  0%, 100% {
-    box-shadow: -6px 0 12px color-mix(in oklch, var(--movie-500) 30%, transparent),
-                6px 0 12px color-mix(in oklch, var(--tv-500) 30%, transparent);
+  0%,
+  100% {
+    box-shadow:
+      -6px 0 12px color-mix(in oklch, var(--movie-500) 30%, transparent),
+      6px 0 12px color-mix(in oklch, var(--tv-500) 30%, transparent);
   }
   50% {
-    box-shadow: -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-                10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+    box-shadow:
+      -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+      10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
   }
 }
 
 @keyframes inset-glow-pulse-movie {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: inset 0 0 8px color-mix(in oklch, var(--movie-500) 10%, transparent);
   }
   50% {
@@ -478,7 +537,8 @@
 }
 
 @keyframes inset-glow-pulse-tv {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: inset 0 0 8px color-mix(in oklch, var(--tv-500) 10%, transparent);
   }
   50% {
@@ -487,13 +547,16 @@
 }
 
 @keyframes inset-glow-pulse-media {
-  0%, 100% {
-    box-shadow: inset -6px 0 10px color-mix(in oklch, var(--movie-500) 8%, transparent),
-                inset 6px 0 10px color-mix(in oklch, var(--tv-500) 8%, transparent);
+  0%,
+  100% {
+    box-shadow:
+      inset -6px 0 10px color-mix(in oklch, var(--movie-500) 8%, transparent),
+      inset 6px 0 10px color-mix(in oklch, var(--tv-500) 8%, transparent);
   }
   50% {
-    box-shadow: inset -12px 0 20px color-mix(in oklch, var(--movie-500) 18%, transparent),
-                inset 12px 0 20px color-mix(in oklch, var(--tv-500) 18%, transparent);
+    box-shadow:
+      inset -12px 0 20px color-mix(in oklch, var(--movie-500) 18%, transparent),
+      inset 12px 0 20px color-mix(in oklch, var(--tv-500) 18%, transparent);
   }
 }
 
@@ -533,8 +596,12 @@
 
 /* Shimmer text effect for xs searching state */
 @keyframes shimmer-text {
-  0% { background-position: 200% center; }
-  100% { background-position: -200% center; }
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
 }
 
 .shimmer-text-movie,
@@ -581,27 +648,21 @@
 }
 
 .shimmer-text-movie::after {
-  background-image: linear-gradient(
-    90deg,
-    transparent 40%,
-    var(--movie-400) 50%,
-    transparent 60%
-  );
+  background-image: linear-gradient(90deg, transparent 40%, var(--movie-400) 50%, transparent 60%);
 }
 
 .shimmer-text-tv::after {
-  background-image: linear-gradient(
-    90deg,
-    transparent 40%,
-    var(--tv-400) 50%,
-    transparent 60%
-  );
+  background-image: linear-gradient(90deg, transparent 40%, var(--tv-400) 50%, transparent 60%);
 }
 
 /* Chasing lights animation for search state */
 @keyframes chasing-orbit {
-  from { offset-distance: 0%; }
-  to { offset-distance: 100%; }
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
 }
 
 .chasing-lights-movie,
@@ -650,8 +711,14 @@
 
 /* Button fade-out for controls transition */
 @keyframes controls-fade-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.95); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
 }
 
 @theme inline {

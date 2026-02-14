@@ -1,64 +1,61 @@
 import {
-  createRouter,
-  createRoute,
   createRootRoute,
-  redirect,
+  createRoute,
+  createRouter,
   Outlet,
+  redirect,
 } from '@tanstack/react-router'
+
 import { RootLayout } from '@/components/layout/RootLayout'
-import { PortalLayout, PortalAuthGuard } from '@/components/portal'
-
-// Pages
-import { DashboardPage } from '@/routes/index'
-import { SearchPage } from '@/routes/search/index'
-import { MoviesPage } from '@/routes/movies/index'
-import { MovieDetailPage } from '@/routes/movies/$id'
-import { AddMoviePage } from '@/routes/movies/add'
-import { SeriesListPage } from '@/routes/series/index'
-import { SeriesDetailPage } from '@/routes/series/$id'
-import { AddSeriesPage } from '@/routes/series/add'
-import { CalendarPage } from '@/routes/calendar/index'
-import { MissingPage } from '@/routes/missing/index'
-import { ActivityPage } from '@/routes/activity/index'
+import { PortalAuthGuard, PortalLayout } from '@/components/portal'
 import { HistoryPage } from '@/routes/activity/history'
-// Media settings pages
-import { RootFoldersPage } from '@/routes/settings/media/root-folders'
-import { QualityProfilesPage } from '@/routes/settings/media/quality-profiles'
-import { VersionSlotsPage } from '@/routes/settings/media/version-slots'
-import { FileNamingPage } from '@/routes/settings/media/file-naming'
-// Downloads settings pages
-import { IndexersPage } from '@/routes/settings/downloads/indexers'
-import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
-import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
-import { RssSyncPage } from '@/routes/settings/downloads/rss-sync'
-// System settings pages
-import { ServerPage } from '@/routes/settings/system/server'
-import { AuthenticationPage } from '@/routes/settings/system/authentication'
-import { UpdatePage } from '@/routes/system/update'
-// Other settings pages
-import { NotificationsPage } from '@/routes/settings/notifications'
-import { RequestQueuePage } from '@/routes/settings/requests/index'
-import { RequestUsersPage } from '@/routes/settings/requests/users'
-import { RequestSettingsPage } from '@/routes/settings/requests/settings'
-import { ManualImportPage } from '@/routes/import/index'
-import { TasksPage } from '@/routes/system/tasks'
-import { SystemHealthPage } from '@/routes/system/health'
-import { LogsPage } from '@/routes/system/logs'
-
+import { ActivityPage } from '@/routes/activity/index'
 // Auth Pages
 import { SetupPage } from '@/routes/auth/setup'
-
+import { CalendarPage } from '@/routes/calendar/index'
 // Dev Pages
 import { ColorPreviewPage } from '@/routes/dev/colors'
 import { ControlsShowcasePage } from '@/routes/dev/controls'
-
+import { ManualImportPage } from '@/routes/import/index'
+// Pages
+import { DashboardPage } from '@/routes/index'
+import { MissingPage } from '@/routes/missing/index'
+import { MovieDetailPage } from '@/routes/movies/$id'
+import { AddMoviePage } from '@/routes/movies/add'
+import { MoviesPage } from '@/routes/movies/index'
+import { RequestDetailPage } from '@/routes/requests/$id'
 // Portal Pages
 import { LoginPage } from '@/routes/requests/auth/login'
 import { SignupPage } from '@/routes/requests/auth/signup'
 import { RequestsListPage } from '@/routes/requests/index'
 import { PortalSearchPageWrapper } from '@/routes/requests/search'
-import { RequestDetailPage } from '@/routes/requests/$id'
 import { PortalSettingsPage } from '@/routes/requests/settings'
+import { SearchPage } from '@/routes/search/index'
+import { SeriesDetailPage } from '@/routes/series/$id'
+import { AddSeriesPage } from '@/routes/series/add'
+import { SeriesListPage } from '@/routes/series/index'
+import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
+import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
+// Downloads settings pages
+import { IndexersPage } from '@/routes/settings/downloads/indexers'
+import { RssSyncPage } from '@/routes/settings/downloads/rss-sync'
+import { FileNamingPage } from '@/routes/settings/media/file-naming'
+import { QualityProfilesPage } from '@/routes/settings/media/quality-profiles'
+// Media settings pages
+import { RootFoldersPage } from '@/routes/settings/media/root-folders'
+import { VersionSlotsPage } from '@/routes/settings/media/version-slots'
+// Other settings pages
+import { NotificationsPage } from '@/routes/settings/notifications'
+import { RequestQueuePage } from '@/routes/settings/requests/index'
+import { RequestSettingsPage } from '@/routes/settings/requests/settings'
+import { RequestUsersPage } from '@/routes/settings/requests/users'
+import { AuthenticationPage } from '@/routes/settings/system/authentication'
+// System settings pages
+import { ServerPage } from '@/routes/settings/system/server'
+import { SystemHealthPage } from '@/routes/system/health'
+import { LogsPage } from '@/routes/system/logs'
+import { TasksPage } from '@/routes/system/tasks'
+import { UpdatePage } from '@/routes/system/update'
 
 // Create root route with layout (auth is handled by RootLayout)
 const rootRoute = createRootRoute({
@@ -448,7 +445,7 @@ export const router = createRouter({ routeTree })
 
 // Type declaration for router
 declare module '@tanstack/react-router' {
-  interface Register {
+  type Register = {
     router: typeof router
   }
 }

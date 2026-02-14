@@ -1,58 +1,58 @@
-import { useState, useMemo } from 'react'
-import { useParams, useNavigate } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
+
+import { useNavigate, useParams } from '@tanstack/react-router'
 import {
-  RefreshCw,
-  Trash2,
-  Edit,
   Calendar,
   CalendarPlus,
   Clock,
-  UserStar,
-  UserRoundPlus,
-  SlidersVertical,
   Drama,
+  Edit,
+  RefreshCw,
+  SlidersVertical,
+  Trash2,
+  UserRoundPlus,
+  UserStar,
 } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
+import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { BackdropImage } from '@/components/media/BackdropImage'
 import { PosterImage } from '@/components/media/PosterImage'
-import { TitleTreatment } from '@/components/media/TitleTreatment'
-import { StudioLogo } from '@/components/media/StudioLogo'
-import { RTFreshIcon, RTRottenIcon, IMDbIcon, MetacriticIcon } from '@/components/media/RatingIcons'
 import { ProductionStatusBadge } from '@/components/media/ProductionStatusBadge'
-import { formatStatusSummary } from '@/lib/formatters'
+import { IMDbIcon, MetacriticIcon, RTFreshIcon, RTRottenIcon } from '@/components/media/RatingIcons'
+import { StudioLogo } from '@/components/media/StudioLogo'
+import { TitleTreatment } from '@/components/media/TitleTreatment'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { SeasonList } from '@/components/series/SeasonList'
 import { SeriesEditDialog } from '@/components/series/SeriesEditDialog'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { MediaSearchMonitorControls } from '@/components/search'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  useSeriesDetail,
-  useUpdateSeries,
-  useDeleteSeries,
-  useRefreshSeries,
-  useEpisodes,
-  useUpdateSeasonMonitored,
-  useUpdateEpisodeMonitored,
-
-  useMultiVersionSettings,
-  useSlots,
   useAssignEpisodeFile,
-  useQualityProfiles,
+  useDeleteSeries,
+  useEpisodes,
   useExtendedSeriesMetadata,
   useGlobalLoading,
+  useMultiVersionSettings,
+  useQualityProfiles,
+  useRefreshSeries,
+  useSeriesDetail,
+  useSlots,
+  useUpdateEpisodeMonitored,
+  useUpdateSeasonMonitored,
+  useUpdateSeries,
 } from '@/hooks'
-import { formatRuntime, formatDate } from '@/lib/formatters'
-import { toast } from 'sonner'
+import { formatDate, formatRuntime, formatStatusSummary } from '@/lib/formatters'
 import type { Episode } from '@/types'
 
 export function SeriesDetailPage() {
   const { id } = useParams({ from: '/series/$id' })
   const navigate = useNavigate()
-  const seriesId = parseInt(id)
+  const seriesId = Number.parseInt(id)
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [overviewExpanded, setOverviewExpanded] = useState(false)
@@ -70,17 +70,18 @@ export function SeriesDetailPage() {
   const updateSeasonMonitoredMutation = useUpdateSeasonMonitored()
   const updateEpisodeMonitoredMutation = useUpdateEpisodeMonitored()
 
-
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slots } = useSlots()
   const assignFileMutation = useAssignEpisodeFile()
 
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
-  const enabledSlots = slots?.filter(s => s.enabled) ?? []
+  const enabledSlots = slots?.filter((s) => s.enabled) ?? []
 
   const extendedSeasons = extendedData?.seasons
   const episodeRatings = useMemo(() => {
-    if (!extendedSeasons) return undefined
+    if (!extendedSeasons) {
+      return undefined
+    }
     const map: Record<number, Record<number, number>> = {}
     for (const season of extendedSeasons) {
       if (season.episodes) {
@@ -113,7 +114,9 @@ export function SeriesDetailPage() {
   }
 
   const handleToggleMonitored = async (newMonitored?: boolean) => {
-    if (!series) return
+    if (!series) {
+      return
+    }
     const target = newMonitored ?? !series.monitored
     try {
       await updateMutation.mutateAsync({
@@ -165,7 +168,9 @@ export function SeriesDetailPage() {
         episodeId: episode.id,
         monitored,
       })
-      toast.success(`S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')} ${monitored ? 'monitored' : 'unmonitored'}`)
+      toast.success(
+        `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')} ${monitored ? 'monitored' : 'unmonitored'}`,
+      )
     } catch {
       toast.error('Failed to update episode')
     }
@@ -191,7 +196,7 @@ export function SeriesDetailPage() {
           version={series.updatedAt}
           className="absolute inset-0"
         />
-        {series.network && (
+        {series.network ? (
           <StudioLogo
             tmdbId={series.tmdbId}
             type="series"
@@ -199,39 +204,37 @@ export function SeriesDetailPage() {
             version={series.updatedAt}
             className="absolute top-4 right-4 z-10"
             fallback={
-              <span className="px-2.5 py-1 rounded bg-black/50 text-xs font-medium text-white/80 backdrop-blur-sm">
+              <span className="rounded bg-black/50 px-2.5 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
                 {series.network}
               </span>
             }
           />
-        )}
+        ) : null}
         <div className="absolute inset-0 flex items-end p-6">
-          <div className="flex gap-6 items-end max-w-4xl">
+          <div className="flex max-w-4xl items-end gap-6">
             {/* Poster */}
-            <div className="hidden md:block shrink-0">
+            <div className="hidden shrink-0 md:block">
               <PosterImage
                 tmdbId={series.tmdbId}
                 tvdbId={series.tvdbId}
                 alt={series.title}
                 type="series"
                 version={series.updatedAt}
-                className="w-40 h-60 rounded-lg shadow-lg"
+                className="h-60 w-40 rounded-lg shadow-lg"
               />
             </div>
 
             {/* Info */}
             <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2">
                 <ProductionStatusBadge status={series.productionStatus} />
-                <Badge variant="secondary">
-                  {formatStatusSummary(series.statusCounts)}
-                </Badge>
-                {qualityProfiles?.find((p) => p.id === series.qualityProfileId)?.name && (
+                <Badge variant="secondary">{formatStatusSummary(series.statusCounts)}</Badge>
+                {qualityProfiles?.find((p) => p.id === series.qualityProfileId)?.name ? (
                   <Badge variant="secondary" className="gap-1">
                     <SlidersVertical className="size-3" />
                     {qualityProfiles.find((p) => p.id === series.qualityProfileId)?.name}
                   </Badge>
-                )}
+                ) : null}
               </div>
               <TitleTreatment
                 tmdbId={series.tmdbId}
@@ -242,49 +245,51 @@ export function SeriesDetailPage() {
                 fallback={<h1 className="text-3xl font-bold text-white">{series.title}</h1>}
               />
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
-                {extendedData?.contentRating && (
-                  <span className="shrink-0 px-1.5 py-0.5 border border-gray-400 rounded text-xs font-medium text-gray-300">
+                {extendedData?.contentRating ? (
+                  <span className="shrink-0 rounded border border-gray-400 px-1.5 py-0.5 text-xs font-medium text-gray-300">
                     {extendedData.contentRating}
                   </span>
-                )}
-                {series.year && (
+                ) : null}
+                {series.year ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Calendar className="size-4 shrink-0" />
                     {series.year}
                   </span>
-                )}
-                {series.runtime && (
+                ) : null}
+                {series.runtime ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Clock className="size-4 shrink-0" />
                     {formatRuntime(series.runtime)}
                   </span>
-                )}
-                {extendedData?.credits?.creators?.[0] && (
+                ) : null}
+                {extendedData?.credits?.creators?.[0] ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <UserStar className="size-4 shrink-0" />
                     {extendedData.credits.creators[0].name}
                   </span>
-                )}
-                {extendedData?.genres && extendedData.genres.length > 0 && (
+                ) : null}
+                {extendedData?.genres && extendedData.genres.length > 0 ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Drama className="size-4 shrink-0" />
                     {extendedData.genres.join(', ')}
                   </span>
-                )}
-                {series.addedByUsername && (
+                ) : null}
+                {series.addedByUsername ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <UserRoundPlus className="size-4 shrink-0" />
                     {series.addedByUsername}
                   </span>
-                )}
-                {series.addedAt && (
+                ) : null}
+                {series.addedAt ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <CalendarPlus className="size-4 shrink-0" />
                     {formatDate(series.addedAt)}
                   </span>
-                )}
+                ) : null}
               </div>
-              {(extendedData?.ratings?.rottenTomatoes != null || extendedData?.ratings?.imdbRating != null || extendedData?.ratings?.metacritic != null) && (
+              {(extendedData?.ratings?.rottenTomatoes != null ||
+                extendedData?.ratings?.imdbRating != null ||
+                extendedData?.ratings?.metacritic != null) && (
                 <div className="flex items-center gap-4 text-sm text-gray-300">
                   {extendedData?.ratings?.rottenTomatoes != null && (
                     <span className="flex items-center gap-1.5">
@@ -299,7 +304,9 @@ export function SeriesDetailPage() {
                   {extendedData?.ratings?.imdbRating != null && (
                     <span className="flex items-center gap-1.5">
                       <IMDbIcon className="h-4" />
-                      <span className="font-medium">{extendedData.ratings.imdbRating.toFixed(1)}</span>
+                      <span className="font-medium">
+                        {extendedData.ratings.imdbRating.toFixed(1)}
+                      </span>
                     </span>
                   )}
                   {extendedData?.ratings?.metacritic != null && (
@@ -310,21 +317,21 @@ export function SeriesDetailPage() {
                   )}
                 </div>
               )}
-              {series.overview && (
+              {series.overview ? (
                 <p
-                  className={`text-sm text-gray-300 max-w-2xl cursor-pointer ${overviewExpanded ? '' : 'line-clamp-2'}`}
+                  className={`max-w-2xl cursor-pointer text-sm text-gray-300 ${overviewExpanded ? '' : 'line-clamp-2'}`}
                   onClick={() => setOverviewExpanded(!overviewExpanded)}
                 >
                   {series.overview}
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
+      <div className="bg-card flex flex-wrap gap-2 border-b px-6 py-4">
         <MediaSearchMonitorControls
           mediaType="series"
           seriesId={series.id}
@@ -361,7 +368,7 @@ export function SeriesDetailPage() {
             onClick={handleRefresh}
             disabled={refreshMutation.isPending}
           >
-            <RefreshCw className="size-4 mr-2" />
+            <RefreshCw className="mr-2 size-4" />
             Refresh
           </Button>
           <Tooltip>
@@ -379,8 +386,12 @@ export function SeriesDetailPage() {
             </TooltipTrigger>
             <TooltipContent>Edit</TooltipContent>
           </Tooltip>
-          <Button variant="outline" className="hidden min-[820px]:inline-flex" onClick={() => setEditDialogOpen(true)}>
-            <Edit className="size-4 mr-2" />
+          <Button
+            variant="outline"
+            className="hidden min-[820px]:inline-flex"
+            onClick={() => setEditDialogOpen(true)}
+          >
+            <Edit className="mr-2 size-4" />
             Edit
           </Button>
           <ConfirmDialog
@@ -397,7 +408,7 @@ export function SeriesDetailPage() {
                   <TooltipContent>Delete</TooltipContent>
                 </Tooltip>
                 <Button variant="destructive" className="hidden min-[820px]:inline-flex">
-                  <Trash2 className="size-4 mr-2" />
+                  <Trash2 className="mr-2 size-4" />
                   Delete
                 </Button>
               </>
@@ -412,7 +423,7 @@ export function SeriesDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         {/* Seasons */}
         <Card>
           <CardHeader>
@@ -445,11 +456,7 @@ export function SeriesDetailPage() {
       </div>
 
       {/* Edit Dialog */}
-      <SeriesEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        series={series}
-      />
+      <SeriesEditDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} series={series} />
     </div>
   )
 }

@@ -1,27 +1,24 @@
 import { useState } from 'react'
+
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
-import { useUpdateMovie, useQualityProfiles } from '@/hooks'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { useQualityProfiles, useUpdateMovie } from '@/hooks'
 import type { Movie } from '@/types'
 
-interface MovieEditDialogProps {
+type MovieEditDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   movie: Movie
@@ -74,7 +71,7 @@ export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogPr
             <Label htmlFor="quality-profile">Quality Profile</Label>
             <Select
               value={qualityProfileId?.toString() ?? ''}
-              onValueChange={(v) => v && setQualityProfileId(parseInt(v, 10))}
+              onValueChange={(v) => v && setQualityProfileId(Number.parseInt(v, 10))}
             >
               <SelectTrigger id="quality-profile">
                 {profiles?.find((p) => p.id === qualityProfileId)?.name ?? 'Select profile...'}
@@ -92,15 +89,11 @@ export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogPr
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="monitored">Monitored</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Search for releases and upgrade quality
               </p>
             </div>
-            <Switch
-              id="monitored"
-              checked={monitored}
-              onCheckedChange={setMonitored}
-            />
+            <Switch id="monitored" checked={monitored} onCheckedChange={setMonitored} />
           </div>
         </div>
 
@@ -109,7 +102,7 @@ export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogPr
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={updateMutation.isPending}>
-            {updateMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+            {updateMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Save
           </Button>
         </DialogFooter>

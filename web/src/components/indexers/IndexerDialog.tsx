@@ -1,32 +1,35 @@
-import { useState, useEffect } from 'react'
-import { Loader2, TestTube, ArrowLeft, Globe, Lock, Unlock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { useEffect, useState } from 'react'
+
+import { ArrowLeft, Globe, Loader2, Lock, TestTube, Unlock } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
 import {
   useCreateIndexer,
-  useUpdateIndexer,
-  useTestIndexerConfig,
   useDefinitions,
   useDefinitionSchema,
+  useTestIndexerConfig,
+  useUpdateIndexer,
 } from '@/hooks'
+import type { CreateIndexerInput, DefinitionMetadata, Indexer, Privacy, Protocol } from '@/types'
+
 import { DefinitionSearchTable } from './DefinitionSearchTable'
 import { DynamicSettingsForm } from './DynamicSettingsForm'
-import type { Indexer, CreateIndexerInput, DefinitionMetadata, Privacy, Protocol } from '@/types'
 
-interface IndexerDialogProps {
+type IndexerDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   indexer?: Indexer | null
@@ -77,7 +80,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
 
   const { data: definitions = [], isLoading: isLoadingDefinitions } = useDefinitions()
   const { data: schema = [], isLoading: isLoadingSchema } = useDefinitionSchema(
-    selectedDefinition?.id ?? ''
+    selectedDefinition?.id ?? '',
   )
 
   const createMutation = useCreateIndexer()
@@ -148,7 +151,9 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
   }
 
   const handleTest = async () => {
-    if (!selectedDefinition) return
+    if (!selectedDefinition) {
+      return
+    }
 
     setIsTesting(true)
     try {
@@ -211,7 +216,13 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={step === 'select' ? 'sm:max-w-3xl h-[600px] flex flex-col overflow-hidden' : 'sm:max-w-2xl h-[80vh] flex flex-col overflow-hidden'}>
+      <DialogContent
+        className={
+          step === 'select'
+            ? 'flex h-[600px] flex-col overflow-hidden sm:max-w-3xl'
+            : 'flex h-[80vh] flex-col overflow-hidden sm:max-w-2xl'
+        }
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === 'configure' && !isEditing && (
@@ -229,7 +240,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
         </DialogHeader>
 
         {step === 'select' && (
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <DefinitionSearchTable
               definitions={definitions}
               isLoading={isLoadingDefinitions}
@@ -238,148 +249,164 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
           </div>
         )}
 
-        {step === 'configure' && selectedDefinition && (
-          <ScrollArea className="flex-1 min-h-0">
+        {step === 'configure' && selectedDefinition ? (
+          <ScrollArea className="min-h-0 flex-1">
             <div className="space-y-4 py-4 pr-4">
-            {/* Definition Info Banner */}
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <div className="flex-1">
-                <p className="font-medium">{selectedDefinition.name}</p>
-                {selectedDefinition.description && (
-                  <p className="text-sm text-muted-foreground">{selectedDefinition.description}</p>
-                )}
+              {/* Definition Info Banner */}
+              <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
+                <div className="flex-1">
+                  <p className="font-medium">{selectedDefinition.name}</p>
+                  {selectedDefinition.description ? (
+                    <p className="text-muted-foreground text-sm">
+                      {selectedDefinition.description}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex gap-2">
+                  <Badge
+                    variant="secondary"
+                    className={protocolColors[selectedDefinition.protocol]}
+                  >
+                    {selectedDefinition.protocol}
+                  </Badge>
+                  <Badge variant="secondary" className={privacyColors[selectedDefinition.privacy]}>
+                    <span className="mr-1">{privacyIcons[selectedDefinition.privacy]}</span>
+                    {selectedDefinition.privacy}
+                  </Badge>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Badge variant="secondary" className={protocolColors[selectedDefinition.protocol]}>
-                  {selectedDefinition.protocol}
-                </Badge>
-                <Badge variant="secondary" className={privacyColors[selectedDefinition.privacy]}>
-                  <span className="mr-1">{privacyIcons[selectedDefinition.privacy]}</span>
-                  {selectedDefinition.privacy}
-                </Badge>
+
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  placeholder="My Indexer"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                />
               </div>
-            </div>
 
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="My Indexer"
-                value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
+              {/* Dynamic Settings */}
+              {isLoadingSchema ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Loading settings...
+                </div>
+              ) : (
+                <DynamicSettingsForm
+                  settings={schema}
+                  values={formData.settings}
+                  onChange={(settings) => setFormData((prev) => ({ ...prev, settings }))}
+                />
+              )}
 
-            {/* Dynamic Settings */}
-            {isLoadingSchema ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="size-4 animate-spin mr-2" />
-                Loading settings...
+              {/* Supports Movies/TV */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supportsMovies">Movies</Label>
+                  <Switch
+                    id="supportsMovies"
+                    checked={formData.supportsMovies}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, supportsMovies: checked }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supportsTv">TV Shows</Label>
+                  <Switch
+                    id="supportsTv"
+                    checked={formData.supportsTv}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, supportsTv: checked }))
+                    }
+                  />
+                </div>
               </div>
-            ) : (
-              <DynamicSettingsForm
-                settings={schema}
-                values={formData.settings}
-                onChange={(settings) => setFormData((prev) => ({ ...prev, settings }))}
-              />
-            )}
 
-            {/* Supports Movies/TV */}
-            <div className="grid grid-cols-2 gap-4">
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Input
+                  id="priority"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      priority: Number.parseInt(e.target.value) || 50,
+                    }))
+                  }
+                />
+                <p className="text-muted-foreground text-xs">
+                  Lower values have higher priority (1-100)
+                </p>
+              </div>
+
+              {/* Enabled Toggle */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="supportsMovies">Movies</Label>
+                <Label htmlFor="enabled">Enabled</Label>
                 <Switch
-                  id="supportsMovies"
-                  checked={formData.supportsMovies}
+                  id="enabled"
+                  checked={formData.enabled}
                   onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, supportsMovies: checked }))
+                    setFormData((prev) => ({ ...prev, enabled: checked }))
                   }
                 />
               </div>
+
+              {/* Auto Search Enabled Toggle */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="supportsTv">TV Shows</Label>
+                <div className="space-y-0.5">
+                  <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
+                  <p className="text-muted-foreground text-xs">
+                    {selectedDefinition?.id === 'generic-rss'
+                      ? 'Generic RSS feeds do not support search'
+                      : 'Use this indexer when automatically searching for releases'}
+                  </p>
+                </div>
                 <Switch
-                  id="supportsTv"
-                  checked={formData.supportsTv}
+                  id="autoSearchEnabled"
+                  checked={
+                    selectedDefinition?.id === 'generic-rss' ? false : formData.autoSearchEnabled
+                  }
                   onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, supportsTv: checked }))
+                    setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))
+                  }
+                  disabled={selectedDefinition?.id === 'generic-rss'}
+                />
+              </div>
+
+              {/* RSS Enabled Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="rssEnabled">Enable for RSS Sync</Label>
+                  <p className="text-muted-foreground text-xs">
+                    Include this indexer when fetching RSS feeds for new releases
+                  </p>
+                </div>
+                <Switch
+                  id="rssEnabled"
+                  checked={formData.rssEnabled}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, rssEnabled: checked }))
                   }
                 />
               </div>
-            </div>
-
-            {/* Priority */}
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Input
-                id="priority"
-                type="number"
-                min={1}
-                max={100}
-                value={formData.priority}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, priority: parseInt(e.target.value) || 50 }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Lower values have higher priority (1-100)
-              </p>
-            </div>
-
-            {/* Enabled Toggle */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="enabled">Enabled</Label>
-              <Switch
-                id="enabled"
-                checked={formData.enabled}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: checked }))}
-              />
-            </div>
-
-            {/* Auto Search Enabled Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
-                <p className="text-xs text-muted-foreground">
-                  {selectedDefinition?.id === 'generic-rss'
-                    ? 'Generic RSS feeds do not support search'
-                    : 'Use this indexer when automatically searching for releases'}
-                </p>
-              </div>
-              <Switch
-                id="autoSearchEnabled"
-                checked={selectedDefinition?.id === 'generic-rss' ? false : formData.autoSearchEnabled}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))}
-                disabled={selectedDefinition?.id === 'generic-rss'}
-              />
-            </div>
-
-            {/* RSS Enabled Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="rssEnabled">Enable for RSS Sync</Label>
-                <p className="text-xs text-muted-foreground">
-                  Include this indexer when fetching RSS feeds for new releases
-                </p>
-              </div>
-              <Switch
-                id="rssEnabled"
-                checked={formData.rssEnabled}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, rssEnabled: checked }))}
-              />
-            </div>
             </div>
           </ScrollArea>
-        )}
+        ) : null}
 
         {step === 'configure' && (
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={handleTest} disabled={isTesting}>
               {isTesting ? (
-                <Loader2 className="size-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <TestTube className="size-4 mr-2" />
+                <TestTube className="mr-2 size-4" />
               )}
               Test
             </Button>
@@ -388,7 +415,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
                 Cancel
               </Button>
               <Button onClick={handleSubmit} disabled={isPending}>
-                {isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+                {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 {isEditing ? 'Save' : 'Add'}
               </Button>
             </div>

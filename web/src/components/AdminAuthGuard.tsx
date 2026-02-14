@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
-import { useNavigate, useLocation } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
-import { usePortalAuthStore } from '@/stores'
-import { useAuthStatus } from '@/hooks'
 
-interface AdminAuthGuardProps {
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { Loader2 } from 'lucide-react'
+
+import { useAuthStatus } from '@/hooks'
+import { usePortalAuthStore } from '@/stores'
+
+type AdminAuthGuardProps = {
   children: ReactNode
 }
 
@@ -16,7 +18,9 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   const { data: authStatus, isLoading: isLoadingStatus } = useAuthStatus()
 
   useEffect(() => {
-    if (isLoadingStatus) return
+    if (isLoadingStatus) {
+      return
+    }
 
     // First-time setup required
     if (authStatus?.requiresSetup) {
@@ -37,8 +41,8 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   // Show loading while checking auth status
   if (isLoadingStatus) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
       </div>
     )
   }
@@ -46,8 +50,8 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   // Show loading during redirect
   if (authStatus?.requiresSetup || !isAuthenticated || !user?.isAdmin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
       </div>
     )
   }

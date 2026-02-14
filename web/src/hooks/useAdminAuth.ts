@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import * as authApi from '@/api/auth'
 import { usePortalAuthStore } from '@/stores/portalAuth'
 
@@ -11,7 +12,7 @@ export function useAuthStatus() {
   return useQuery({
     queryKey: adminAuthKeys.status(),
     queryFn: () => authApi.getAuthStatus(),
-    staleTime: 30000,
+    staleTime: 30_000,
     retry: false,
   })
 }

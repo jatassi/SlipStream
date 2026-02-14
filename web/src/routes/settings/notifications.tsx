@@ -1,24 +1,26 @@
 import { useState } from 'react'
-import { Edit, Trash2, Bell, TestTube } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { LoadingState } from '@/components/data/LoadingState'
+
+import { Bell, Edit, TestTube, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { NotificationDialog } from '@/components/notifications/NotificationDialog'
 import { AddPlaceholderCard } from '@/components/settings'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import {
-  useNotifications,
   useDeleteNotification,
+  useGlobalLoading,
+  useNotifications,
+  useNotificationSchemas,
   useTestNotification,
   useUpdateNotification,
-  useNotificationSchemas,
-  useGlobalLoading,
 } from '@/hooks'
-import { toast } from 'sonner'
 import type { Notification } from '@/types'
 
 export function NotificationsPage() {
@@ -39,15 +41,33 @@ export function NotificationsPage() {
 
   const getActiveEvents = (notification: Notification) => {
     const events = []
-    if (notification.onGrab) events.push('Grab')
-    if (notification.onImport) events.push('Import')
-    if (notification.onUpgrade) events.push('Upgrade')
-    if (notification.onMovieAdded) events.push('Movie Added')
-    if (notification.onMovieDeleted) events.push('Movie Deleted')
-    if (notification.onSeriesAdded) events.push('Series Added')
-    if (notification.onSeriesDeleted) events.push('Series Deleted')
-    if (notification.onHealthIssue) events.push('Health')
-    if (notification.onAppUpdate) events.push('App Update')
+    if (notification.onGrab) {
+      events.push('Grab')
+    }
+    if (notification.onImport) {
+      events.push('Import')
+    }
+    if (notification.onUpgrade) {
+      events.push('Upgrade')
+    }
+    if (notification.onMovieAdded) {
+      events.push('Movie Added')
+    }
+    if (notification.onMovieDeleted) {
+      events.push('Movie Deleted')
+    }
+    if (notification.onSeriesAdded) {
+      events.push('Series Added')
+    }
+    if (notification.onSeriesDeleted) {
+      events.push('Series Deleted')
+    }
+    if (notification.onHealthIssue) {
+      events.push('Health')
+    }
+    if (notification.onAppUpdate) {
+      events.push('App Update')
+    }
     return events
   }
 
@@ -115,69 +135,63 @@ export function NotificationsPage() {
       <PageHeader
         title="Notifications"
         description="Configure notification channels for events"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings' },
-          { label: 'Notifications' },
-        ]}
+        breadcrumbs={[{ label: 'Settings', href: '/settings' }, { label: 'Notifications' }]}
       />
 
       <div className="space-y-4">
         {notifications?.map((notification) => (
-            <Card key={notification.id}>
-              <CardHeader className="flex flex-row items-center justify-between py-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                    <Bell className="size-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">{notification.name}</CardTitle>
-                      <Badge variant="outline">{getTypeName(notification.type)}</Badge>
-                    </div>
-                    <CardDescription className="text-xs">
-                      {getActiveEvents(notification).length > 0
-                        ? getActiveEvents(notification).join(', ')
-                        : 'No events configured'}
-                    </CardDescription>
-                  </div>
+          <Card key={notification.id}>
+            <CardHeader className="flex flex-row items-center justify-between py-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
+                  <Bell className="size-5" />
                 </div>
-                <div className="flex items-center gap-4">
-                  <Switch
-                    checked={notification.enabled}
-                    onCheckedChange={(checked) => handleToggleEnabled(notification.id, checked)}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleTest(notification.id)}
-                    disabled={testMutation.isPending}
-                  >
-                    <TestTube className="size-4 mr-1" />
-                    Test
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(notification)}>
-                    <Edit className="size-4" />
-                  </Button>
-                  <ConfirmDialog
-                    trigger={
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="size-4" />
-                      </Button>
-                    }
-                    title="Delete notification"
-                    description={`Are you sure you want to delete "${notification.name}"?`}
-                    confirmLabel="Delete"
-                    variant="destructive"
-                    onConfirm={() => handleDelete(notification.id)}
-                  />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">{notification.name}</CardTitle>
+                    <Badge variant="outline">{getTypeName(notification.type)}</Badge>
+                  </div>
+                  <CardDescription className="text-xs">
+                    {getActiveEvents(notification).length > 0
+                      ? getActiveEvents(notification).join(', ')
+                      : 'No events configured'}
+                  </CardDescription>
                 </div>
-              </CardHeader>
-            </Card>
-          ))}
-        <AddPlaceholderCard
-          label="Add Notification Channel"
-          onClick={handleOpenAdd}
-        />
+              </div>
+              <div className="flex items-center gap-4">
+                <Switch
+                  checked={notification.enabled}
+                  onCheckedChange={(checked) => handleToggleEnabled(notification.id, checked)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleTest(notification.id)}
+                  disabled={testMutation.isPending}
+                >
+                  <TestTube className="mr-1 size-4" />
+                  Test
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(notification)}>
+                  <Edit className="size-4" />
+                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  }
+                  title="Delete notification"
+                  description={`Are you sure you want to delete "${notification.name}"?`}
+                  confirmLabel="Delete"
+                  variant="destructive"
+                  onConfirm={() => handleDelete(notification.id)}
+                />
+              </div>
+            </CardHeader>
+          </Card>
+        ))}
+        <AddPlaceholderCard label="Add Notification Channel" onClick={handleOpenAdd} />
       </div>
 
       <NotificationDialog

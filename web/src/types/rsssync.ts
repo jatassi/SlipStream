@@ -1,9 +1,9 @@
-export interface RssSyncSettings {
+export type RssSyncSettings = {
   enabled: boolean
   intervalMin: number
 }
 
-export interface RssSyncStatus {
+export type RssSyncStatus = {
   running: boolean
   lastRun?: string
   totalReleases: number

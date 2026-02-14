@@ -1,7 +1,7 @@
-import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
-interface QualityBadgeProps {
+type QualityBadgeProps = {
   quality?: string
   resolution?: string
   className?: string

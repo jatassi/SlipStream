@@ -1,5 +1,5 @@
 // Import settings types
-export interface ImportSettings {
+export type ImportSettings = {
   validationLevel: 'basic' | 'standard' | 'full'
   minimumFileSizeMB: number
   videoExtensions: string[]
@@ -21,7 +21,7 @@ export interface ImportSettings {
   movieFileFormat: string
 }
 
-export interface UpdateImportSettingsRequest {
+export type UpdateImportSettingsRequest = {
   validationLevel?: string
   minimumFileSizeMB?: number
   videoExtensions?: string[]
@@ -44,12 +44,12 @@ export interface UpdateImportSettingsRequest {
 }
 
 // Pattern preview types
-export interface PatternPreviewRequest {
+export type PatternPreviewRequest = {
   pattern: string
   mediaType?: 'episode' | 'movie' | 'folder'
 }
 
-export interface TokenBreakdown {
+export type TokenBreakdown = {
   token: string
   name: string
   value: string
@@ -57,7 +57,7 @@ export interface TokenBreakdown {
   modified: boolean
 }
 
-export interface PatternPreviewResponse {
+export type PatternPreviewResponse = {
   pattern: string
   preview: string
   valid: boolean
@@ -65,7 +65,7 @@ export interface PatternPreviewResponse {
   tokens?: TokenBreakdown[]
 }
 
-export interface PatternValidateResponse {
+export type PatternValidateResponse = {
   pattern: string
   valid: boolean
   error?: string
@@ -73,13 +73,13 @@ export interface PatternValidateResponse {
 }
 
 // Import status types
-export interface ImportStatus {
+export type ImportStatus = {
   queueLength: number
   processingCount: number
 }
 
 // Pending import types
-export interface PendingImport {
+export type PendingImport = {
   id?: number
   filePath: string
   fileName: string
@@ -94,7 +94,7 @@ export interface PendingImport {
 }
 
 // Manual import types
-export interface ManualImportRequest {
+export type ManualImportRequest = {
   path: string
   mediaType: 'movie' | 'episode'
   mediaId: number
@@ -103,7 +103,7 @@ export interface ManualImportRequest {
   targetSlotId?: number
 }
 
-export interface ImportSlotAssignment {
+export type ImportSlotAssignment = {
   slotId: number
   slotNumber: number
   slotName: string
@@ -112,7 +112,7 @@ export interface ImportSlotAssignment {
   isNewFill: boolean
 }
 
-export interface ManualImportResponse {
+export type ManualImportResponse = {
   success: boolean
   sourcePath: string
   destinationPath?: string
@@ -126,7 +126,7 @@ export interface ManualImportResponse {
 }
 
 // Preview import types
-export interface ParsedMediaInfo {
+export type ParsedMediaInfo = {
   title?: string
   year?: number
   season?: number
@@ -144,7 +144,7 @@ export interface ParsedMediaInfo {
   isSeasonPack?: boolean
 }
 
-export interface SuggestedMatch {
+export type SuggestedMatch = {
   mediaType: string
   mediaId: number
   mediaTitle: string
@@ -156,7 +156,7 @@ export interface SuggestedMatch {
   seriesTitle?: string
 }
 
-export interface PreviewImportResponse {
+export type PreviewImportResponse = {
   path: string
   fileName: string
   fileSize: number
@@ -167,7 +167,7 @@ export interface PreviewImportResponse {
 }
 
 // Scan directory types
-export interface ScannedFile {
+export type ScannedFile = {
   path: string
   fileName: string
   fileSize: number
@@ -177,7 +177,7 @@ export interface ScannedFile {
   suggestedMatch?: SuggestedMatch
 }
 
-export interface ScanDirectoryResponse {
+export type ScanDirectoryResponse = {
   path: string
   files: ScannedFile[]
   total: number
@@ -185,7 +185,7 @@ export interface ScanDirectoryResponse {
 }
 
 // Rename preview types
-export interface RenamePreview {
+export type RenamePreview = {
   fileId: number
   mediaType: string
   mediaId: number
@@ -198,17 +198,17 @@ export interface RenamePreview {
   error?: string
 }
 
-export interface RenamePreviewResponse {
+export type RenamePreviewResponse = {
   total: number
   previews: RenamePreview[]
 }
 
-export interface ExecuteRenameRequest {
+export type ExecuteRenameRequest = {
   mediaType: string
   fileIds: number[]
 }
 
-export interface ExecuteRenameResponse {
+export type ExecuteRenameResponse = {
   total: number
   succeeded: number
   failed: number
@@ -216,7 +216,7 @@ export interface ExecuteRenameResponse {
   results: RenameResult[]
 }
 
-export interface RenameResult {
+export type RenameResult = {
   fileId: number
   success: boolean
   oldPath: string
@@ -225,13 +225,13 @@ export interface RenameResult {
 }
 
 // Filename parsing types
-export interface ParsedTokenDetail {
+export type ParsedTokenDetail = {
   name: string
   value: string
   raw?: string
 }
 
-export interface ParseFilenameResponse {
+export type ParseFilenameResponse = {
   filename: string
   parsedInfo?: ParsedMediaInfo
   tokens: ParsedTokenDetail[]

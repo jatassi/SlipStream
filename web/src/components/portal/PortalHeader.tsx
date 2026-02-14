@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from '@tanstack/react-router'
-import { Settings, Search, ArrowRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
+import { ArrowRight, Search, Settings } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+
 import { NotificationBell } from './NotificationBell'
 
 export function PortalHeader() {
@@ -30,18 +33,25 @@ export function PortalHeader() {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-      <Link to="/requests" className="flex items-center gap-1.5 md:gap-2 font-semibold text-base md:text-lg shrink-0">
-        <div className="size-7 md:size-8 rounded bg-media-gradient flex items-center justify-center text-white font-bold text-xs md:text-sm glow-media-sm">
+    <header className="border-border bg-card flex h-14 items-center justify-between border-b px-6">
+      <Link
+        to="/requests"
+        className="flex shrink-0 items-center gap-1.5 text-base font-semibold md:gap-2 md:text-lg"
+      >
+        <div className="bg-media-gradient glow-media-sm flex size-7 items-center justify-center rounded text-xs font-bold text-white md:size-8 md:text-sm">
           SS
         </div>
-        <span className={`text-media-gradient ${isSearchPage ? 'hidden sm:inline' : ''}`}>SlipStream</span>
+        <span className={`text-media-gradient ${isSearchPage ? 'hidden sm:inline' : ''}`}>
+          SlipStream
+        </span>
       </Link>
 
-      {isSearchPage && (
-        <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-2 sm:mx-8">
-          <div className={`relative rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}>
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
+      {isSearchPage ? (
+        <form onSubmit={handleSearch} className="mx-2 max-w-xl flex-1 sm:mx-8">
+          <div
+            className={`relative rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}
+          >
+            <Search className="text-muted-foreground absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
             <Input
               type="text"
               placeholder="Search movies and series..."
@@ -49,17 +59,17 @@ export function PortalHeader() {
               onChange={(e) => setSearchInput(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
-              className="pl-10 pr-10"
+              className="pr-10 pl-10"
             />
             <button
               type="submit"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 z-10 -translate-y-1/2 transition-colors"
             >
               <ArrowRight className="size-4" />
             </button>
           </div>
         </form>
-      )}
+      ) : null}
 
       <div className="flex items-center gap-1 md:gap-2">
         <NotificationBell />

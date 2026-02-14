@@ -1,23 +1,23 @@
-import { apiFetch, buildQueryString } from './client'
 import type {
-  Series,
-  Season,
-  Episode,
-  CreateSeriesInput,
-  UpdateSeriesInput,
-  UpdateEpisodeInput,
-  ListSeriesOptions,
-  BulkMonitorInput,
   BulkEpisodeMonitorInput,
+  BulkMonitorInput,
+  CreateSeriesInput,
+  Episode,
+  ListSeriesOptions,
   MonitoringStats,
+  Season,
+  Series,
+  UpdateEpisodeInput,
+  UpdateSeriesInput,
 } from '@/types'
+
+import { apiFetch, buildQueryString } from './client'
 
 export const seriesApi = {
   list: (options?: ListSeriesOptions) =>
     apiFetch<Series[]>(`/series${buildQueryString(options || {})}`),
 
-  get: (id: number) =>
-    apiFetch<Series>(`/series/${id}`),
+  get: (id: number) => apiFetch<Series>(`/series/${id}`),
 
   create: (data: CreateSeriesInput) =>
     apiFetch<Series>('/series', {
@@ -35,26 +35,31 @@ export const seriesApi = {
     apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
 
   bulkDelete: (ids: number[], deleteFiles?: boolean) =>
-    Promise.all(ids.map(id => apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }))),
+    Promise.all(
+      ids.map((id) =>
+        apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, {
+          method: 'DELETE',
+        }),
+      ),
+    ),
 
   bulkUpdate: (ids: number[], data: UpdateSeriesInput) =>
-    Promise.all(ids.map(id => apiFetch<Series>(`/series/${id}`, { method: 'PUT', body: JSON.stringify(data) }))),
+    Promise.all(
+      ids.map((id) =>
+        apiFetch<Series>(`/series/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      ),
+    ),
 
-  scan: (id: number) =>
-    apiFetch<void>(`/series/${id}/scan`, { method: 'POST' }),
+  scan: (id: number) => apiFetch<void>(`/series/${id}/scan`, { method: 'POST' }),
 
-  search: (id: number) =>
-    apiFetch<void>(`/series/${id}/search`, { method: 'POST' }),
+  search: (id: number) => apiFetch<void>(`/series/${id}/search`, { method: 'POST' }),
 
-  refresh: (id: number) =>
-    apiFetch<Series>(`/series/${id}/refresh`, { method: 'POST' }),
+  refresh: (id: number) => apiFetch<Series>(`/series/${id}/refresh`, { method: 'POST' }),
 
-  refreshAll: () =>
-    apiFetch<{ message: string }>('/series/refresh', { method: 'POST' }),
+  refreshAll: () => apiFetch<{ message: string }>('/series/refresh', { method: 'POST' }),
 
   // Season operations
-  getSeasons: (seriesId: number) =>
-    apiFetch<Season[]>(`/series/${seriesId}/seasons`),
+  getSeasons: (seriesId: number) => apiFetch<Season[]>(`/series/${seriesId}/seasons`),
 
   getSeason: (seriesId: number, seasonNumber: number) =>
     apiFetch<Season>(`/series/${seriesId}/seasons/${seasonNumber}`),
@@ -67,9 +72,10 @@ export const seriesApi = {
 
   // Episode operations
   getEpisodes: (seriesId: number, seasonNumber?: number) => {
-    const path = seasonNumber !== undefined
-      ? `/series/${seriesId}/seasons/${seasonNumber}/episodes`
-      : `/series/${seriesId}/episodes`
+    const path =
+      seasonNumber === undefined
+        ? `/series/${seriesId}/episodes`
+        : `/series/${seriesId}/seasons/${seasonNumber}/episodes`
     return apiFetch<Episode[]>(path)
   },
 
@@ -80,15 +86,12 @@ export const seriesApi = {
     seriesId: number,
     seasonNumber: number,
     episodeNumber: number,
-    data: UpdateEpisodeInput
+    data: UpdateEpisodeInput,
   ) =>
-    apiFetch<Episode>(
-      `/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }
-    ),
+    apiFetch<Episode>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 
   updateEpisodeById: (seriesId: number, episodeId: number, data: UpdateEpisodeInput) =>
     apiFetch<Episode>(`/series/${seriesId}/episodes/${episodeId}`, {
@@ -97,10 +100,9 @@ export const seriesApi = {
     }),
 
   searchEpisode: (seriesId: number, seasonNumber: number, episodeNumber: number) =>
-    apiFetch<void>(
-      `/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}/search`,
-      { method: 'POST' }
-    ),
+    apiFetch<void>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}/search`, {
+      method: 'POST',
+    }),
 
   // Bulk monitoring operations
   bulkMonitor: (seriesId: number, data: BulkMonitorInput) =>

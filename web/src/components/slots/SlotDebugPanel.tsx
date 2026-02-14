@@ -1,27 +1,16 @@
 import { useState } from 'react'
-import { Bug, ChevronDown, ChevronUp, Play, Check, X, AlertCircle } from 'lucide-react'
+
+import { AlertCircle, Bug, Check, ChevronDown, ChevronUp, Play, X } from 'lucide-react'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useParseRelease, useProfileMatch, useQualityProfiles } from '@/hooks'
-import type {
-  ParseReleaseOutput,
-  ProfileMatchOutput,
-  AttributeMatchResult,
-} from '@/types'
+import type { AttributeMatchResult, ParseReleaseOutput, ProfileMatchOutput } from '@/types'
 
 export function SlotDebugPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -35,14 +24,14 @@ export function SlotDebugPanel() {
               <div className="flex items-center gap-2">
                 <Bug className="size-5 text-orange-500" />
                 <CardTitle className="text-orange-500">Debug Tools</CardTitle>
-                <Badge variant="outline" className="text-orange-500 border-orange-500">
+                <Badge variant="outline" className="border-orange-500 text-orange-500">
                   Developer Mode
                 </Badge>
               </div>
               {isOpen ? (
-                <ChevronUp className="size-4 text-muted-foreground" />
+                <ChevronUp className="text-muted-foreground size-4" />
               ) : (
-                <ChevronDown className="size-4 text-muted-foreground" />
+                <ChevronDown className="text-muted-foreground size-4" />
               )}
             </div>
             <CardDescription>
@@ -70,13 +59,15 @@ function ParseReleaseTester() {
   const parseReleaseMutation = useParseRelease()
 
   const handleParse = async () => {
-    if (!releaseTitle.trim()) return
+    if (!releaseTitle.trim()) {
+      return
+    }
     setError(null)
     try {
       const data = await parseReleaseMutation.mutateAsync({ releaseTitle: releaseTitle.trim() })
       setResult(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to parse release')
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : 'Failed to parse release')
       setResult(null)
     }
   }
@@ -84,8 +75,8 @@ function ParseReleaseTester() {
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="font-medium mb-2">Parse Release Title</h4>
-        <p className="text-sm text-muted-foreground mb-3">
+        <h4 className="mb-2 font-medium">Parse Release Title</h4>
+        <p className="text-muted-foreground mb-3 text-sm">
           See how SlipStream parses a release title to extract quality attributes.
         </p>
       </div>
@@ -101,74 +92,74 @@ function ParseReleaseTester() {
           onClick={handleParse}
           disabled={!releaseTitle.trim() || parseReleaseMutation.isPending}
         >
-          <Play className="size-4 mr-2" />
+          <Play className="mr-2 size-4" />
           Parse
         </Button>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+      {error ? (
+        <div className="text-destructive flex items-center gap-2 text-sm">
           <AlertCircle className="size-4" />
           {error}
         </div>
-      )}
+      ) : null}
 
-      {result && (
-        <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      {result ? (
+        <div className="bg-muted/50 space-y-3 rounded-lg p-4">
+          <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
             <div>
               <span className="text-muted-foreground">Title:</span>
               <p className="font-medium">{result.title}</p>
             </div>
-            {result.year && (
+            {result.year ? (
               <div>
                 <span className="text-muted-foreground">Year:</span>
                 <p className="font-medium">{result.year}</p>
               </div>
-            )}
-            {result.quality && (
+            ) : null}
+            {result.quality ? (
               <div>
                 <span className="text-muted-foreground">Resolution:</span>
                 <p className="font-medium">{result.quality}</p>
               </div>
-            )}
-            {result.source && (
+            ) : null}
+            {result.source ? (
               <div>
                 <span className="text-muted-foreground">Source:</span>
                 <p className="font-medium">{result.source}</p>
               </div>
-            )}
-            {result.videoCodec && (
+            ) : null}
+            {result.videoCodec ? (
               <div>
                 <span className="text-muted-foreground">Video Codec:</span>
                 <p className="font-medium">{result.videoCodec}</p>
               </div>
-            )}
-            {result.hdrFormats && result.hdrFormats.length > 0 && (
+            ) : null}
+            {result.hdrFormats && result.hdrFormats.length > 0 ? (
               <div>
                 <span className="text-muted-foreground">HDR:</span>
                 <p className="font-medium">{result.hdrFormats.join(', ')}</p>
               </div>
-            )}
-            {result.audioCodecs && result.audioCodecs.length > 0 && (
+            ) : null}
+            {result.audioCodecs && result.audioCodecs.length > 0 ? (
               <div>
                 <span className="text-muted-foreground">Audio:</span>
                 <p className="font-medium">{result.audioCodecs.join(', ')}</p>
               </div>
-            )}
-            {result.audioChannels && result.audioChannels.length > 0 && (
+            ) : null}
+            {result.audioChannels && result.audioChannels.length > 0 ? (
               <div>
                 <span className="text-muted-foreground">Channels:</span>
                 <p className="font-medium">{result.audioChannels.join(', ')}</p>
               </div>
-            )}
+            ) : null}
           </div>
-          <div className="pt-2 border-t">
+          <div className="border-t pt-2">
             <span className="text-muted-foreground text-sm">Quality Score: </span>
             <Badge variant="secondary">{result.qualityScore}</Badge>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -183,32 +174,36 @@ function ProfileMatchTester() {
   const profileMatchMutation = useProfileMatch()
 
   const handleMatch = async () => {
-    if (!releaseTitle.trim() || !selectedProfileId) return
+    if (!releaseTitle.trim() || !selectedProfileId) {
+      return
+    }
     setError(null)
     try {
       const data = await profileMatchMutation.mutateAsync({
         releaseTitle: releaseTitle.trim(),
-        qualityProfileId: parseInt(selectedProfileId, 10),
+        qualityProfileId: Number.parseInt(selectedProfileId, 10),
       })
       setResult(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to match profile')
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : 'Failed to match profile')
       setResult(null)
     }
   }
 
   return (
-    <div className="space-y-4 pt-4 border-t">
+    <div className="space-y-4 border-t pt-4">
       <div>
-        <h4 className="font-medium mb-2">Profile Matching Tester</h4>
-        <p className="text-sm text-muted-foreground mb-3">
+        <h4 className="mb-2 font-medium">Profile Matching Tester</h4>
+        <p className="text-muted-foreground mb-3 text-sm">
           Test whether a release matches a quality profile's attribute requirements.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="md:col-span-2">
-          <Label htmlFor="profile-match-input" className="sr-only">Release Title</Label>
+          <Label htmlFor="profile-match-input" className="sr-only">
+            Release Title
+          </Label>
           <Input
             id="profile-match-input"
             placeholder="e.g., Movie.2024.2160p.BluRay.DV.HDR10.x265.TrueHD.Atmos.7.1.mkv"
@@ -219,7 +214,8 @@ function ProfileMatchTester() {
         <div className="flex gap-2">
           <Select value={selectedProfileId} onValueChange={(v) => v && setSelectedProfileId(v)}>
             <SelectTrigger className="flex-1">
-              {profiles?.find(p => p.id.toString() === selectedProfileId)?.name ?? 'Select profile...'}
+              {profiles?.find((p) => p.id.toString() === selectedProfileId)?.name ??
+                'Select profile...'}
             </SelectTrigger>
             <SelectContent>
               {profiles?.map((profile) => (
@@ -233,38 +229,44 @@ function ProfileMatchTester() {
             onClick={handleMatch}
             disabled={!releaseTitle.trim() || !selectedProfileId || profileMatchMutation.isPending}
           >
-            <Play className="size-4 mr-2" />
+            <Play className="mr-2 size-4" />
             Test
           </Button>
         </div>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
+      {error ? (
+        <div className="text-destructive flex items-center gap-2 text-sm">
           <AlertCircle className="size-4" />
           {error}
         </div>
-      )}
+      ) : null}
 
-      {result && (
-        <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+      {result ? (
+        <div className="bg-muted/50 space-y-4 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="font-medium">Overall Result:</span>
               {result.allAttributesMatch ? (
                 <Badge className="bg-green-500">
-                  <Check className="size-3 mr-1" /> Matches
+                  <Check className="mr-1 size-3" /> Matches
                 </Badge>
               ) : (
                 <Badge variant="destructive">
-                  <X className="size-3 mr-1" /> Does Not Match
+                  <X className="mr-1 size-3" /> Does Not Match
                 </Badge>
               )}
             </div>
             <div className="flex gap-4 text-sm">
-              <span>Quality: <Badge variant="secondary">{result.qualityScore}</Badge></span>
-              <span>Attributes: <Badge variant="secondary">{result.totalScore}</Badge></span>
-              <span>Combined: <Badge>{result.combinedScore}</Badge></span>
+              <span>
+                Quality: <Badge variant="secondary">{result.qualityScore}</Badge>
+              </span>
+              <span>
+                Attributes: <Badge variant="secondary">{result.totalScore}</Badge>
+              </span>
+              <span>
+                Combined: <Badge>{result.combinedScore}</Badge>
+              </span>
             </div>
           </div>
 
@@ -275,7 +277,7 @@ function ProfileMatchTester() {
             <AttributeMatchCard label="Audio Channels" result={result.audioChannelMatch} />
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -283,19 +285,22 @@ function ProfileMatchTester() {
 function AttributeMatchCard({ label, result }: { label: string; result: AttributeMatchResult }) {
   const getModeColor = (mode: string) => {
     switch (mode) {
-      case 'required':
+      case 'required': {
         return 'text-red-500'
-      case 'preferred':
+      }
+      case 'preferred': {
         return 'text-blue-500'
-      default:
+      }
+      default: {
         return 'text-muted-foreground'
+      }
     }
   }
 
   return (
-    <div className="bg-background rounded-md p-3 border">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-sm">{label}</span>
+    <div className="bg-background rounded-md border p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className={getModeColor(result.mode)}>
             {result.mode}
@@ -307,7 +312,7 @@ function AttributeMatchCard({ label, result }: { label: string; result: Attribut
           )}
         </div>
       </div>
-      <div className="text-xs space-y-1">
+      <div className="space-y-1 text-xs">
         {result.profileValues.length > 0 && (
           <div>
             <span className="text-muted-foreground">Profile: </span>
@@ -324,9 +329,7 @@ function AttributeMatchCard({ label, result }: { label: string; result: Attribut
             <span className="text-green-500">+{result.score}</span>
           </div>
         )}
-        {result.reason && (
-          <div className="text-red-500">{result.reason}</div>
-        )}
+        {result.reason ? <div className="text-red-500">{result.reason}</div> : null}
       </div>
     </div>
   )

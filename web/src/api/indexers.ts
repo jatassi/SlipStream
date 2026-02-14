@@ -1,24 +1,23 @@
-import { apiFetch, buildQueryString } from './client'
 import type {
-  Indexer,
   CreateIndexerInput,
-  UpdateIndexerInput,
+  Definition,
+  DefinitionFilters,
+  DefinitionMetadata,
+  DefinitionSetting,
+  Indexer,
+  IndexerStatus,
   IndexerTestResult,
   TestConfigInput,
-  DefinitionMetadata,
-  Definition,
-  DefinitionSetting,
-  DefinitionFilters,
-  IndexerStatus,
+  UpdateIndexerInput,
 } from '@/types'
+
+import { apiFetch, buildQueryString } from './client'
 
 export const indexersApi = {
   // Indexer CRUD operations
-  list: () =>
-    apiFetch<Indexer[]>('/indexers'),
+  list: () => apiFetch<Indexer[]>('/indexers'),
 
-  get: (id: number) =>
-    apiFetch<Indexer>(`/indexers/${id}`),
+  get: (id: number) => apiFetch<Indexer>(`/indexers/${id}`),
 
   create: (data: CreateIndexerInput) =>
     apiFetch<Indexer>('/indexers', {
@@ -32,12 +31,10 @@ export const indexersApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/indexers/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<void>(`/indexers/${id}`, { method: 'DELETE' }),
 
   // Test operations
-  test: (id: number) =>
-    apiFetch<IndexerTestResult>(`/indexers/${id}/test`, { method: 'POST' }),
+  test: (id: number) => apiFetch<IndexerTestResult>(`/indexers/${id}/test`, { method: 'POST' }),
 
   testConfig: (data: TestConfigInput) =>
     apiFetch<IndexerTestResult>('/indexers/test', {
@@ -46,22 +43,28 @@ export const indexersApi = {
     }),
 
   // Status operations
-  getStatus: (id: number) =>
-    apiFetch<IndexerStatus>(`/indexers/${id}/status`),
+  getStatus: (id: number) => apiFetch<IndexerStatus>(`/indexers/${id}/status`),
 
   getAllStatuses: () =>
     apiFetch<{ indexers: IndexerStatus[]; stats?: Record<string, number> }>('/indexers/status'),
 
   // Definition operations
-  listDefinitions: () =>
-    apiFetch<DefinitionMetadata[]>('/indexers/definitions'),
+  listDefinitions: () => apiFetch<DefinitionMetadata[]>('/indexers/definitions'),
 
   searchDefinitions: (query?: string, filters?: DefinitionFilters) => {
     const params: Record<string, string> = {}
-    if (query) params.q = query
-    if (filters?.protocol) params.protocol = filters.protocol
-    if (filters?.privacy) params.privacy = filters.privacy
-    if (filters?.language) params.language = filters.language
+    if (query) {
+      params.q = query
+    }
+    if (filters?.protocol) {
+      params.protocol = filters.protocol
+    }
+    if (filters?.privacy) {
+      params.privacy = filters.privacy
+    }
+    if (filters?.language) {
+      params.language = filters.language
+    }
     const queryString = buildQueryString(params)
     return apiFetch<DefinitionMetadata[]>(`/indexers/definitions/search${queryString}`)
   },

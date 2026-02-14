@@ -1,45 +1,65 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { Layers, Check, Info, X, FlaskConical, Settings, FileText, AlertTriangle, Wand2, Pencil, XCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { SlotDebugPanel, ResolveConfigModal, ResolveNamingModal, DryRunModal } from '@/components/slots'
-import {
-  useSlots,
-  useMultiVersionSettings,
-  useUpdateMultiVersionSettings,
-  useUpdateSlot,
-  useSetSlotEnabled,
-  useSetSlotProfile,
-  useValidateSlotConfiguration,
-  useValidateNaming,
-  useQualityProfiles,
-  useDeveloperMode,
-  useImportSettings,
-  useRootFoldersByType,
-} from '@/hooks'
-import type { Slot, UpdateSlotInput, SlotNamingValidation, SlotConflict, RootFolder } from '@/types'
+  AlertTriangle,
+  Check,
+  FileText,
+  FlaskConical,
+  Info,
+  Layers,
+  Pencil,
+  Settings,
+  Wand2,
+  X,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
+import {
+  DryRunModal,
+  ResolveConfigModal,
+  ResolveNamingModal,
+  SlotDebugPanel,
+} from '@/components/slots'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  useDeveloperMode,
+  useImportSettings,
+  useMultiVersionSettings,
+  useQualityProfiles,
+  useRootFoldersByType,
+  useSetSlotEnabled,
+  useSetSlotProfile,
+  useSlots,
+  useUpdateMultiVersionSettings,
+  useUpdateSlot,
+  useValidateNaming,
+  useValidateSlotConfiguration,
+} from '@/hooks'
+import type { RootFolder, Slot, SlotConflict, SlotNamingValidation, UpdateSlotInput } from '@/types'
+
 export function VersionSlotsSection() {
-  const { data: slots, isLoading: slotsLoading, isError: slotsError, refetch: refetchSlots } = useSlots()
-  const { data: settings, isLoading: settingsLoading, isError: settingsError, refetch: refetchSettings } = useMultiVersionSettings()
+  const {
+    data: slots,
+    isLoading: slotsLoading,
+    isError: slotsError,
+    refetch: refetchSlots,
+  } = useSlots()
+  const {
+    data: settings,
+    isLoading: settingsLoading,
+    isError: settingsError,
+    refetch: refetchSettings,
+  } = useMultiVersionSettings()
   const { data: profiles } = useQualityProfiles()
   const { data: movieRootFolders } = useRootFoldersByType('movie')
   const { data: tvRootFolders } = useRootFoldersByType('tv')
@@ -58,7 +78,7 @@ export function VersionSlotsSection() {
   const setEnabledMutate = setEnabledMutation.mutate
   useEffect(() => {
     if (slots && !autoEnableInitiated.current) {
-      const slotsToEnable = slots.filter(s => s.slotNumber <= 2 && !s.enabled)
+      const slotsToEnable = slots.filter((s) => s.slotNumber <= 2 && !s.enabled)
       if (slotsToEnable.length > 0) {
         autoEnableInitiated.current = true
         for (const slot of slotsToEnable) {
@@ -68,7 +88,11 @@ export function VersionSlotsSection() {
     }
   }, [slots, setEnabledMutate])
 
-  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors?: string[]; conflicts?: SlotConflict[] } | null>(null)
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean
+    errors?: string[]
+    conflicts?: SlotConflict[]
+  } | null>(null)
   const [namingValidation, setNamingValidation] = useState<SlotNamingValidation | null>(null)
   const [infoCardDismissed, setInfoCardDismissed] = useState(false)
   const [resolveConfigOpen, setResolveConfigOpen] = useState(false)
@@ -79,11 +103,13 @@ export function VersionSlotsSection() {
   const multiVersionEnabled = settings?.enabled ?? false
 
   const configurationReady = useMemo(() => {
-    if (!slots || !profiles || !movieRootFolders || !tvRootFolders) return false
+    if (!slots || !profiles || !movieRootFolders || !tvRootFolders) {
+      return false
+    }
 
-    const profileIds = new Set(profiles.map(p => p.id))
-    const movieRootFolderIds = new Set(movieRootFolders.map(f => f.id))
-    const tvRootFolderIds = new Set(tvRootFolders.map(f => f.id))
+    const profileIds = new Set(profiles.map((p) => p.id))
+    const movieRootFolderIds = new Set(movieRootFolders.map((f) => f.id))
+    const tvRootFolderIds = new Set(tvRootFolders.map((f) => f.id))
 
     for (const slot of slots) {
       const isRequired = slot.slotNumber <= 2 || slot.enabled
@@ -131,7 +157,9 @@ export function VersionSlotsSection() {
   }
 
   const handleSlotNameChange = async (slot: Slot, name: string) => {
-    if (!name.trim()) return
+    if (!name.trim()) {
+      return
+    }
     const input: UpdateSlotInput = {
       name: name.trim(),
       enabled: slot.enabled,
@@ -142,16 +170,16 @@ export function VersionSlotsSection() {
   }
 
   const handleSlotProfileChange = async (slot: Slot, profileId: string) => {
-    const id = profileId === 'none' ? null : parseInt(profileId, 10)
+    const id = profileId === 'none' ? null : Number.parseInt(profileId, 10)
     await setProfileMutation.mutateAsync({ id: slot.id, data: { qualityProfileId: id } })
   }
 
   const handleSlotRootFolderChange = async (
     slot: Slot,
     mediaType: 'movie' | 'tv',
-    rootFolderId: string
+    rootFolderId: string,
   ) => {
-    const id = rootFolderId === 'none' ? null : parseInt(rootFolderId, 10)
+    const id = rootFolderId === 'none' ? null : Number.parseInt(rootFolderId, 10)
     const input: UpdateSlotInput = {
       name: slot.name,
       enabled: slot.enabled,
@@ -183,8 +211,11 @@ export function VersionSlotsSection() {
       const { data: latestSettings } = await refetchImportSettings()
 
       const result = await validateNamingMutation.mutateAsync({
-        movieFileFormat: latestSettings?.movieFileFormat || '{Movie Title} ({Year}) - {Quality Title}',
-        episodeFileFormat: latestSettings?.standardEpisodeFormat || '{Series Title} - S{season:00}E{episode:00} - {Quality Title}',
+        movieFileFormat:
+          latestSettings?.movieFileFormat || '{Movie Title} ({Year}) - {Quality Title}',
+        episodeFileFormat:
+          latestSettings?.standardEpisodeFormat ||
+          '{Series Title} - S{season:00}E{episode:00} - {Quality Title}',
       })
       setNamingValidation(result)
       if (result.canProceed) {
@@ -206,29 +237,36 @@ export function VersionSlotsSection() {
   }
 
   if (isError) {
-    return <ErrorState onRetry={() => { refetchSlots(); refetchSettings() }} />
+    return (
+      <ErrorState
+        onRetry={() => {
+          refetchSlots()
+          refetchSettings()
+        }}
+      />
+    )
   }
 
-  const enabledSlotCount = slots?.filter(s => s.enabled).length ?? 0
+  const enabledSlotCount = slots?.filter((s) => s.enabled).length ?? 0
 
   return (
     <div className="space-y-6">
       {!infoCardDismissed && !multiVersionEnabled && (
-        <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-800">
+        <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50">
           <Info className="size-4 text-blue-600 dark:text-blue-400" />
           <AlertTitle className="flex items-center justify-between">
             <span>Multi-Version Feature</span>
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 -mr-2 -mt-1"
+              className="-mt-1 -mr-2 size-6"
               onClick={() => setInfoCardDismissed(true)}
             >
               <X className="size-4" />
             </Button>
           </AlertTitle>
           <AlertDescription className="text-blue-800 dark:text-blue-200">
-            <ul className="list-disc list-inside space-y-1 mt-1">
+            <ul className="mt-1 list-inside list-disc space-y-1">
               <li>Keep multiple quality versions of the same media (e.g., 4K HDR and 1080p SDR)</li>
               <li>Assign a different quality profile to each slot</li>
               <li>Files are downloaded and organized separately for each slot</li>
@@ -248,46 +286,48 @@ export function VersionSlotsSection() {
               </CardTitle>
               <CardDescription>
                 {settings?.enabled
-                  ? `Active with ${enabledSlotCount} slot${enabledSlotCount !== 1 ? 's' : ''} enabled`
+                  ? `Active with ${enabledSlotCount} slot${enabledSlotCount === 1 ? '' : 's'} enabled`
                   : 'Use the dry run below to preview and enable multi-version mode'}
               </CardDescription>
             </div>
-            {!multiVersionEnabled ? (
+            {multiVersionEnabled ? (
+              <Switch
+                id="multi-version-toggle"
+                checked
+                onCheckedChange={handleToggleMultiVersion}
+                disabled={updateSettingsMutation.isPending}
+                className="origin-right scale-150"
+              />
+            ) : (
               <Tooltip>
                 <TooltipTrigger>
                   <Switch
                     id="multi-version-toggle"
                     checked={false}
                     disabled
-                    className="scale-150 origin-right"
+                    className="origin-right scale-150"
                   />
                 </TooltipTrigger>
                 <TooltipContent side="left">
                   <p>Perform a dry run first</p>
                 </TooltipContent>
               </Tooltip>
-            ) : (
-              <Switch
-                id="multi-version-toggle"
-                checked={true}
-                onCheckedChange={handleToggleMultiVersion}
-                disabled={updateSettingsMutation.isPending}
-                className="scale-150 origin-right"
-              />
             )}
           </div>
         </CardHeader>
-        {(migrationError || !settings?.enabled) && (
+        {migrationError || !settings?.enabled ? (
           <CardContent className="space-y-3">
-            {migrationError && (
+            {migrationError ? (
               <Alert className="border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/50">
                 <XCircle className="size-4 text-red-600 dark:text-red-400" />
                 <AlertTitle className="flex items-center justify-between">
-                  <span className="text-red-800 dark:text-red-200">Failed to Enable Multi-Version Mode</span>
+                  <span className="text-red-800 dark:text-red-200">
+                    Failed to Enable Multi-Version Mode
+                  </span>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-6 -mr-2 -mt-1"
+                    className="-mt-1 -mr-2 size-6"
                     onClick={() => setMigrationError(null)}
                   >
                     <X className="size-4" />
@@ -296,26 +336,24 @@ export function VersionSlotsSection() {
                 <AlertDescription className="text-red-700 dark:text-red-300">
                   <p className="mt-1">{migrationError}</p>
                   <p className="mt-2 text-sm">
-                    Try running the dry run again to review your file assignments, or check that your slot configuration is valid.
+                    Try running the dry run again to review your file assignments, or check that
+                    your slot configuration is valid.
                   </p>
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
 
             {!settings?.enabled && (
               <Alert className="border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-950/50">
                 <FlaskConical className="size-4 text-purple-600 dark:text-purple-400" />
-                <div className="flex items-center justify-between flex-1">
+                <div className="flex flex-1 items-center justify-between">
                   <div>
                     <AlertTitle>Dry Run</AlertTitle>
                     <AlertDescription>
                       See how your existing files will be organized
                     </AlertDescription>
                   </div>
-                  <Button
-                    onClick={() => setDryRunOpen(true)}
-                    disabled={!configurationReady}
-                  >
+                  <Button onClick={() => setDryRunOpen(true)} disabled={!configurationReady}>
                     Begin
                   </Button>
                 </div>
@@ -339,10 +377,15 @@ export function VersionSlotsSection() {
                 ) : (
                   <AlertTriangle className="size-4 text-orange-500 dark:text-orange-400" />
                 )}
-                <div className="flex items-center justify-between flex-1">
+                <div className="flex flex-1 items-center justify-between">
                   <div className="flex-1">
                     <AlertTitle>
-                      Quality Profiles {validationResult === null ? 'Validation' : validationResult.valid ? 'Valid' : 'Not Valid'}
+                      Quality Profiles{' '}
+                      {validationResult === null
+                        ? 'Validation'
+                        : validationResult.valid
+                          ? 'Valid'
+                          : 'Not Valid'}
                     </AlertTitle>
                     <AlertDescription>
                       {validationResult === null ? (
@@ -350,43 +393,47 @@ export function VersionSlotsSection() {
                       ) : validationResult.valid ? (
                         <div className="mt-2">
                           <span>Slot profiles are mutually exclusive based on one or more of:</span>
-                          <ul className="mt-1 ml-4 space-y-0.5 text-muted-foreground text-sm">
+                          <ul className="text-muted-foreground mt-1 ml-4 space-y-0.5 text-sm">
                             <li>• Different allowed quality tiers (e.g., 1080p vs 2160p)</li>
-                            <li>• Conflicting HDR requirements (e.g., HDR required vs SDR required)</li>
+                            <li>
+                              • Conflicting HDR requirements (e.g., HDR required vs SDR required)
+                            </li>
                             <li>• Conflicting video codec requirements</li>
                             <li>• Conflicting audio codec or channel requirements</li>
                           </ul>
                         </div>
                       ) : (
                         <div className="mt-2">
-                          {validationResult.errors &&
-                            validationResult.errors.filter((e) => !e.startsWith('Profile conflict')).length > 0 && (
-                              <ul className="list-disc list-inside">
-                                {validationResult.errors
-                                  .filter((e) => !e.startsWith('Profile conflict'))
-                                  .map((error, i) => (
-                                    <li key={i}>{error}</li>
-                                  ))}
-                              </ul>
-                            )}
-                          {validationResult.conflicts && validationResult.conflicts.length > 0 && (
-                            <div className="space-y-3 mt-2">
+                          {validationResult.errors?.some(
+                            (e) => !e.startsWith('Profile conflict'),
+                          ) ? (
+                            <ul className="list-inside list-disc">
+                              {validationResult.errors
+                                .filter((e) => !e.startsWith('Profile conflict'))
+                                .map((error, i) => (
+                                  <li key={i}>{error}</li>
+                                ))}
+                            </ul>
+                          ) : null}
+                          {validationResult.conflicts && validationResult.conflicts.length > 0 ? (
+                            <div className="mt-2 space-y-3">
                               {validationResult.conflicts.map((conflict, i) => (
                                 <div key={i}>
                                   <p className="font-medium">
                                     Conflict between {conflict.slotAName} and {conflict.slotBName}:
                                   </p>
-                                  <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                                  <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
                                     {conflict.issues.map((issue, j) => (
                                       <li key={j}>
-                                        <span className="font-medium">{issue.attribute}:</span> {issue.message}
+                                        <span className="font-medium">{issue.attribute}:</span>{' '}
+                                        {issue.message}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
                               ))}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </AlertDescription>
@@ -394,9 +441,9 @@ export function VersionSlotsSection() {
                   {validationResult !== null && !validationResult.valid ? (
                     <Button
                       onClick={() => setResolveConfigOpen(true)}
-                      className="shrink-0 ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+                      className="ml-4 shrink-0 bg-orange-500 text-white hover:bg-orange-600"
                     >
-                      <Wand2 className="size-4 mr-2" />
+                      <Wand2 className="mr-2 size-4" />
                       Resolve...
                     </Button>
                   ) : (
@@ -404,7 +451,7 @@ export function VersionSlotsSection() {
                       variant="outline"
                       onClick={handleValidate}
                       disabled={!configurationReady || validateMutation.isPending}
-                      className="shrink-0 ml-4"
+                      className="ml-4 shrink-0"
                     >
                       {validateMutation.isPending ? 'Validating...' : 'Validate'}
                     </Button>
@@ -434,17 +481,25 @@ export function VersionSlotsSection() {
                 ) : (
                   <AlertTriangle className="size-4 text-orange-500 dark:text-orange-400" />
                 )}
-                <div className="flex items-center justify-between flex-1">
+                <div className="flex flex-1 items-center justify-between">
                   <div className="flex-1">
                     <AlertTitle>
-                      File Naming {namingValidation === null ? 'Validation' : namingValidation.noEnabledSlots ? 'Blocked' : namingValidation.canProceed ? 'Valid' : 'Not Valid'}
+                      File Naming{' '}
+                      {namingValidation === null
+                        ? 'Validation'
+                        : namingValidation.noEnabledSlots
+                          ? 'Blocked'
+                          : namingValidation.canProceed
+                            ? 'Valid'
+                            : 'Not Valid'}
                     </AlertTitle>
                     <AlertDescription>
                       {namingValidation === null ? (
                         'Verify filename formats include required differentiator tokens'
                       ) : namingValidation.noEnabledSlots ? (
                         <p className="mt-2 text-orange-700 dark:text-orange-300">
-                          Complete Quality Profile validation first to ensure slot profiles are mutually exclusive.
+                          Complete Quality Profile validation first to ensure slot profiles are
+                          mutually exclusive.
                         </p>
                       ) : namingValidation.canProceed ? (
                         <p className="mt-2">
@@ -457,32 +512,45 @@ export function VersionSlotsSection() {
                       ) : (
                         <div className="mt-2 space-y-3">
                           <p>
-                            Slots have different requirements for: <span className="font-medium">{namingValidation.requiredAttributes?.join(', ') ?? ''}</span>
+                            Slots have different requirements for:{' '}
+                            <span className="font-medium">
+                              {namingValidation.requiredAttributes?.join(', ') ?? ''}
+                            </span>
                           </p>
-                          {!namingValidation.movieFormatValid && namingValidation.movieValidation.missingTokens && (
+                          {!namingValidation.movieFormatValid &&
+                          namingValidation.movieValidation.missingTokens ? (
                             <div>
                               <p className="font-medium">Movie filename format missing tokens:</p>
-                              <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+                              <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
                                 {namingValidation.movieValidation.missingTokens.map((token, i) => (
                                   <li key={i}>
-                                    <span className="font-medium">{token.attribute}:</span> Add <code className="bg-muted px-1 rounded">{token.suggestedToken}</code>
+                                    <span className="font-medium">{token.attribute}:</span> Add{' '}
+                                    <code className="bg-muted rounded px-1">
+                                      {token.suggestedToken}
+                                    </code>
                                   </li>
                                 ))}
                               </ul>
                             </div>
-                          )}
-                          {!namingValidation.episodeFormatValid && namingValidation.episodeValidation.missingTokens && (
+                          ) : null}
+                          {!namingValidation.episodeFormatValid &&
+                          namingValidation.episodeValidation.missingTokens ? (
                             <div>
                               <p className="font-medium">Episode filename format missing tokens:</p>
-                              <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
-                                {namingValidation.episodeValidation.missingTokens.map((token, i) => (
-                                  <li key={i}>
-                                    <span className="font-medium">{token.attribute}:</span> Add <code className="bg-muted px-1 rounded">{token.suggestedToken}</code>
-                                  </li>
-                                ))}
+                              <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
+                                {namingValidation.episodeValidation.missingTokens.map(
+                                  (token, i) => (
+                                    <li key={i}>
+                                      <span className="font-medium">{token.attribute}:</span> Add{' '}
+                                      <code className="bg-muted rounded px-1">
+                                        {token.suggestedToken}
+                                      </code>
+                                    </li>
+                                  ),
+                                )}
                               </ul>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </AlertDescription>
@@ -490,9 +558,9 @@ export function VersionSlotsSection() {
                   {namingValidation !== null && !namingValidation.canProceed ? (
                     <Button
                       onClick={() => setResolveNamingOpen(true)}
-                      className="shrink-0 ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+                      className="ml-4 shrink-0 bg-orange-500 text-white hover:bg-orange-600"
                     >
-                      <Wand2 className="size-4 mr-2" />
+                      <Wand2 className="mr-2 size-4" />
                       Resolve...
                     </Button>
                   ) : (
@@ -500,7 +568,7 @@ export function VersionSlotsSection() {
                       variant="outline"
                       onClick={handleValidateNaming}
                       disabled={!configurationReady || validateNamingMutation.isPending}
-                      className="shrink-0 ml-4"
+                      className="ml-4 shrink-0"
                     >
                       {validateNamingMutation.isPending ? 'Validating...' : 'Validate'}
                     </Button>
@@ -509,7 +577,7 @@ export function VersionSlotsSection() {
               </Alert>
             )}
           </CardContent>
-        )}
+        ) : null}
       </Card>
 
       {/* Slot Configuration */}
@@ -543,7 +611,7 @@ export function VersionSlotsSection() {
         })}
       </div>
 
-      {developerMode && <SlotDebugPanel />}
+      {developerMode ? <SlotDebugPanel /> : null}
 
       <ResolveConfigModal
         open={resolveConfigOpen}
@@ -573,7 +641,7 @@ export function VersionSlotsSection() {
   )
 }
 
-interface SlotCardProps {
+type SlotCardProps = {
   slot: Slot
   profiles: { id: number; name: string }[]
   usedProfileIds: number[]
@@ -617,17 +685,17 @@ function SlotCard({
     <Card className={isActive ? 'ring-primary/50 ring-2' : ''}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold">
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full font-semibold">
               {slot.slotNumber}
             </div>
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div
               className={`group relative flex items-center rounded-md border transition-colors ${
                 editingName
                   ? 'border-primary bg-background'
-                  : 'border-transparent hover:border-muted-foreground/25 hover:bg-muted/50'
+                  : 'hover:border-muted-foreground/25 hover:bg-muted/50 border-transparent'
               }`}
             >
               <Input
@@ -646,24 +714,20 @@ function SlotCard({
                     e.currentTarget.blur()
                   }
                 }}
-                className="h-8 border-0 bg-transparent text-base font-semibold tracking-tight focus-visible:ring-0 focus-visible:ring-offset-0 pr-8"
+                className="h-8 border-0 bg-transparent pr-8 text-base font-semibold tracking-tight focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <Pencil
-                className={`absolute right-2 size-3.5 text-muted-foreground transition-opacity ${
+                className={`text-muted-foreground absolute right-2 size-3.5 transition-opacity ${
                   editingName ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
                 }`}
               />
             </div>
           </div>
-          {showToggle && (
+          {showToggle ? (
             slot.qualityProfileId === null ? (
               <Tooltip>
                 <TooltipTrigger>
-                  <Switch
-                    checked={slot.enabled}
-                    disabled
-                    className="shrink-0"
-                  />
+                  <Switch checked={slot.enabled} disabled className="shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent side="left">
                   <p>Select a quality profile first</p>
@@ -677,7 +741,7 @@ function SlotCard({
                 className="shrink-0"
               />
             )
-          )}
+          ) : null}
         </div>
         <CardDescription>
           {isActive ? 'Active' : 'Disabled'}
@@ -715,7 +779,8 @@ function SlotCard({
               disabled={isUpdating}
             >
               <SelectTrigger id={`slot-${slot.id}-movie-root`}>
-                {movieRootFolders.find(f => f.id === slot.movieRootFolderId)?.name ?? 'Use media default'}
+                {movieRootFolders.find((f) => f.id === slot.movieRootFolderId)?.name ??
+                  'Use media default'}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Use media default</SelectItem>
@@ -736,7 +801,8 @@ function SlotCard({
               disabled={isUpdating}
             >
               <SelectTrigger id={`slot-${slot.id}-tv-root`}>
-                {tvRootFolders.find(f => f.id === slot.tvRootFolderId)?.name ?? 'Use media default'}
+                {tvRootFolders.find((f) => f.id === slot.tvRootFolderId)?.name ??
+                  'Use media default'}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Use media default</SelectItem>

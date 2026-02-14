@@ -1,16 +1,17 @@
 import { Link } from '@tanstack/react-router'
 import { Film, Tv } from 'lucide-react'
+
+import { StorageCard } from '@/components/dashboard/StorageCard'
+import { HealthWidget } from '@/components/health'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProgressBar } from '@/components/media/ProgressBar'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useQueue, useHistory, useGlobalLoading } from '@/hooks'
+import { useGlobalLoading, useHistory, useQueue } from '@/hooks'
 import { useStorage } from '@/hooks/useStorage'
 import { formatRelativeTime } from '@/lib/formatters'
 import { eventTypeLabels } from '@/lib/history-utils'
-import { ProgressBar } from '@/components/media/ProgressBar'
-import { StorageCard } from '@/components/dashboard/StorageCard'
-import { HealthWidget } from '@/components/health'
 
 function QueuePreview() {
   const globalLoading = useGlobalLoading()
@@ -49,18 +50,14 @@ function QueuePreview() {
       </CardHeader>
       <CardContent>
         {activeDownloads.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active downloads</p>
+          <p className="text-muted-foreground text-sm">No active downloads</p>
         ) : (
           <div className="space-y-4">
             {activeDownloads.slice(0, 5).map((item) => (
               <div key={item.id} className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium truncate max-w-[200px]">
-                    {item.title}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.progress.toFixed(1)}%
-                  </span>
+                  <span className="max-w-[200px] truncate text-sm font-medium">{item.title}</span>
+                  <span className="text-muted-foreground text-xs">{item.progress.toFixed(1)}%</span>
                 </div>
                 <ProgressBar value={item.progress} size="sm" />
               </div>
@@ -109,30 +106,31 @@ function RecentActivity() {
         </Link>
       </CardHeader>
       <CardContent>
-        {!history?.items?.length ? (
-          <p className="text-sm text-muted-foreground">No recent activity</p>
-        ) : (
+        {history?.items?.length ? (
           <div className="space-y-3">
             {history.items.slice(0, 5).map((item) => (
               <div key={item.id} className="flex items-center gap-3">
-                <div className="flex size-8 items-center justify-center rounded bg-muted">
+                <div className="bg-muted flex size-8 items-center justify-center rounded">
                   {item.mediaType === 'movie' ? (
                     <Film className="size-4" />
                   ) : (
                     <Tv className="size-4" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
                     {item.mediaTitle || `${item.mediaType} #${item.mediaId}`}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {eventTypeLabels[item.eventType] || item.eventType} - {formatRelativeTime(item.createdAt)}
+                  <p className="text-muted-foreground text-xs">
+                    {eventTypeLabels[item.eventType] || item.eventType} -{' '}
+                    {formatRelativeTime(item.createdAt)}
                   </p>
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">No recent activity</p>
         )}
       </CardContent>
     </Card>
@@ -145,17 +143,11 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        description="Overview of your media library"
-      />
+      <PageHeader title="Dashboard" description="Overview of your media library" />
 
       {/* Stats grid */}
-      <div className="grid gap-4 md:grid-cols-2 mb-6">
-        <StorageCard
-          storage={storage?.data}
-          loading={storage?.isLoading || globalLoading}
-        />
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <StorageCard storage={storage?.data} loading={storage?.isLoading || globalLoading} />
         <HealthWidget />
       </div>
 

@@ -1,35 +1,35 @@
-import { apiFetch } from './client'
 import type {
-  Slot,
-  MultiVersionSettings,
-  UpdateSlotInput,
-  UpdateMultiVersionSettingsInput,
-  SetEnabledInput,
-  SetProfileInput,
-  ValidateConfigurationResponse,
-  MovieSlotAssignment,
-  EpisodeSlotAssignment,
   AssignFileInput,
+  EpisodeSlotAssignment,
+  ExecuteMigrationInput,
+  GeneratePreviewInput,
   MediaStatus,
-  SetMonitoredInput,
+  MigrationPreview,
+  MigrationResult,
+  MovieSlotAssignment,
+  MultiVersionSettings,
   ParseReleaseInput,
   ParseReleaseOutput,
   ProfileMatchInput,
   ProfileMatchOutput,
+  SetEnabledInput,
+  SetMonitoredInput,
+  SetProfileInput,
   SimulateImportInput,
   SimulateImportOutput,
-  ValidateNamingInput,
+  Slot,
   SlotNamingValidation,
-  MigrationPreview,
-  MigrationResult,
-  ExecuteMigrationInput,
-  GeneratePreviewInput,
+  UpdateMultiVersionSettingsInput,
+  UpdateSlotInput,
+  ValidateConfigurationResponse,
+  ValidateNamingInput,
 } from '@/types'
+
+import { apiFetch } from './client'
 
 export const slotsApi = {
   // Multi-version settings
-  getSettings: () =>
-    apiFetch<MultiVersionSettings>('/slots/settings'),
+  getSettings: () => apiFetch<MultiVersionSettings>('/slots/settings'),
 
   updateSettings: (data: UpdateMultiVersionSettingsInput) =>
     apiFetch<MultiVersionSettings>('/slots/settings', {
@@ -38,11 +38,9 @@ export const slotsApi = {
     }),
 
   // Version slots
-  list: () =>
-    apiFetch<Slot[]>('/slots'),
+  list: () => apiFetch<Slot[]>('/slots'),
 
-  get: (id: number) =>
-    apiFetch<Slot>(`/slots/${id}`),
+  get: (id: number) => apiFetch<Slot>(`/slots/${id}`),
 
   update: (id: number, data: UpdateSlotInput) =>
     apiFetch<Slot>(`/slots/${id}`, {
@@ -106,8 +104,7 @@ export const slotsApi = {
     }),
 
   // Movie status (Phase 5: Status & Monitoring)
-  getMovieStatus: (movieId: number) =>
-    apiFetch<MediaStatus>(`/slots/movies/${movieId}/status`),
+  getMovieStatus: (movieId: number) => apiFetch<MediaStatus>(`/slots/movies/${movieId}/status`),
 
   setMovieSlotMonitored: (movieId: number, slotId: number, data: SetMonitoredInput) =>
     apiFetch<{ status: string }>(`/slots/movies/${movieId}/slots/${slotId}/monitored`, {

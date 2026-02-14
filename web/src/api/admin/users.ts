@@ -1,5 +1,6 @@
+import type { AdminUpdateUserInput, PortalUserWithQuota, QuotaLimits } from '@/types'
+
 import { apiFetch } from '../client'
-import type { PortalUserWithQuota, AdminUpdateUserInput, QuotaLimits } from '@/types'
 
 const BASE_PATH = '/admin/requests/users'
 
@@ -11,7 +12,10 @@ export async function getUser(id: number): Promise<PortalUserWithQuota> {
   return apiFetch<PortalUserWithQuota>(`${BASE_PATH}/${id}`)
 }
 
-export async function updateUser(id: number, input: AdminUpdateUserInput): Promise<PortalUserWithQuota> {
+export async function updateUser(
+  id: number,
+  input: AdminUpdateUserInput,
+): Promise<PortalUserWithQuota> {
   return apiFetch<PortalUserWithQuota>(`${BASE_PATH}/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),

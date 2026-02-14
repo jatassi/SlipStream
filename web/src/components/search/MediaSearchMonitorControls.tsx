@@ -1,31 +1,26 @@
-import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from 'react'
-import {
-  UserSearch,
-  Zap,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  Check,
-  Download,
-} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+
+import { AlertCircle, Check, Download, Eye, EyeOff, UserSearch, Zap } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { SearchModal } from './SearchModal'
 import {
-  useAutoSearchMovie,
   useAutoSearchEpisode,
+  useAutoSearchEpisodeSlot,
+  useAutoSearchMovie,
+  useAutoSearchMovieSlot,
   useAutoSearchSeason,
   useAutoSearchSeries,
-  useAutoSearchMovieSlot,
-  useAutoSearchEpisodeSlot,
-  useMediaDownloadProgress,
   useDeveloperMode,
+  useMediaDownloadProgress,
 } from '@/hooks'
 import type { MediaTarget } from '@/hooks/useMediaDownloadProgress'
-import type { AutoSearchResult, BatchAutoSearchResult } from '@/types'
-import { formatBytes, formatSpeed, formatEta } from '@/lib/formatters'
+import { formatBytes, formatEta, formatSpeed } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
+import type { AutoSearchResult, BatchAutoSearchResult } from '@/types'
+
+import { SearchModal } from './SearchModal'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -34,7 +29,7 @@ import { toast } from 'sonner'
 type MediaTheme = 'movie' | 'tv'
 type ControlSize = 'lg' | 'sm' | 'xs' | 'responsive'
 
-interface BaseProps {
+type BaseProps = {
   title: string
   theme: MediaTheme
   size: ControlSize
@@ -45,23 +40,23 @@ interface BaseProps {
   className?: string
 }
 
-interface MovieProps extends BaseProps {
+type MovieProps = {
   mediaType: 'movie'
   movieId: number
   tmdbId?: number
   imdbId?: string
   year?: number
-}
+} & BaseProps
 
-interface SeriesProps extends BaseProps {
+type SeriesProps = {
   mediaType: 'series'
   seriesId: number
   tvdbId?: number
   tmdbId?: number
   imdbId?: string
-}
+} & BaseProps
 
-interface SeasonProps extends BaseProps {
+type SeasonProps = {
   mediaType: 'season'
   seriesId: number
   seriesTitle: string
@@ -69,9 +64,9 @@ interface SeasonProps extends BaseProps {
   tvdbId?: number
   tmdbId?: number
   imdbId?: string
-}
+} & BaseProps
 
-interface EpisodeProps extends BaseProps {
+type EpisodeProps = {
   mediaType: 'episode'
   episodeId: number
   seriesId: number
@@ -81,18 +76,18 @@ interface EpisodeProps extends BaseProps {
   tvdbId?: number
   tmdbId?: number
   imdbId?: string
-}
+} & BaseProps
 
-interface MovieSlotProps extends BaseProps {
+type MovieSlotProps = {
   mediaType: 'movie-slot'
   movieId: number
   slotId: number
   tmdbId?: number
   imdbId?: string
   year?: number
-}
+} & BaseProps
 
-interface EpisodeSlotProps extends BaseProps {
+type EpisodeSlotProps = {
   mediaType: 'episode-slot'
   episodeId: number
   slotId: number
@@ -103,7 +98,7 @@ interface EpisodeSlotProps extends BaseProps {
   tvdbId?: number
   tmdbId?: number
   imdbId?: string
-}
+} & BaseProps
 
 export type MediaSearchMonitorControlsProps =
   | MovieProps
@@ -167,11 +162,11 @@ function formatBatchResult(result: BatchAutoSearchResult, title: string): void {
 
 const SM_BREAKPOINT = '(max-width: 819px)'
 const smSubscribe = (cb: () => void) => {
-  const mql = window.matchMedia(SM_BREAKPOINT)
+  const mql = globalThis.matchMedia(SM_BREAKPOINT)
   mql.addEventListener('change', cb)
   return () => mql.removeEventListener('change', cb)
 }
-const smSnapshot = () => window.matchMedia(SM_BREAKPOINT).matches
+const smSnapshot = () => globalThis.matchMedia(SM_BREAKPOINT).matches
 const smServer = () => false
 
 export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProps) {
@@ -204,13 +199,19 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
     setControlState({ type: 'progress' })
   }
   // Transition to progress when a new download starts
-  if (downloadProgress.isDownloading && !prevDownloading.current) {
-    if (controlState.type !== 'progress') {
-      setControlState({ type: 'progress' })
-    }
+  if (
+    downloadProgress.isDownloading &&
+    !prevDownloading.current &&
+    controlState.type !== 'progress'
+  ) {
+    setControlState({ type: 'progress' })
   }
   // Detect completion
-  if (!downloadProgress.isDownloading && prevDownloading.current && controlState.type === 'progress') {
+  if (
+    !downloadProgress.isDownloading &&
+    prevDownloading.current &&
+    controlState.type === 'progress'
+  ) {
     setControlState({ type: 'completed' })
     completionTimerRef.current = setTimeout(() => {
       setControlState({ type: 'default' })
@@ -221,7 +222,9 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
   // Cleanup timer
   useEffect(() => {
     return () => {
-      if (completionTimerRef.current) clearTimeout(completionTimerRef.current)
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current)
+      }
     }
   }, [])
 
@@ -242,15 +245,20 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
     setControlState({ type: 'searching', mode: 'manual' })
   }, [])
 
-  const handleModalClose = useCallback((open: boolean) => {
-    setSearchModalOpen(open)
-    if (!open && controlState.type === 'searching' && controlState.mode === 'manual') {
-      // Only revert if not already transitioned to progress
-      if (!downloadProgress.isDownloading) {
+  const handleModalClose = useCallback(
+    (open: boolean) => {
+      setSearchModalOpen(open)
+      if (
+        !open &&
+        controlState.type === 'searching' &&
+        controlState.mode === 'manual' && // Only revert if not already transitioned to progress
+        !downloadProgress.isDownloading
+      ) {
         setControlState({ type: 'default' })
       }
-    }
-  }, [controlState, downloadProgress.isDownloading])
+    },
+    [controlState, downloadProgress.isDownloading],
+  )
 
   const handleGrabSuccess = useCallback(() => {
     setControlState({ type: 'progress' })
@@ -268,10 +276,10 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
           formatSingleResult(result, title)
           if (result.downloaded) {
             setControlState({ type: 'progress' })
-          } else if (!result.found) {
-            setControlState({ type: 'error', message: 'Not Found' })
-          } else {
+          } else if (result.found) {
             setControlState({ type: 'default' })
+          } else {
+            setControlState({ type: 'error', message: 'Not Found' })
           }
           break
         }
@@ -280,10 +288,10 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
           formatSingleResult(result, title)
           if (result.downloaded) {
             setControlState({ type: 'progress' })
-          } else if (!result.found) {
-            setControlState({ type: 'error', message: 'Not Found' })
-          } else {
+          } else if (result.found) {
             setControlState({ type: 'default' })
+          } else {
+            setControlState({ type: 'error', message: 'Not Found' })
           }
           break
         }
@@ -358,7 +366,7 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
         setControlState({ type: 'error', message: 'Failed' })
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props, title, developerMode])
 
   const handleErrorDismiss = useCallback(() => {
@@ -404,11 +412,7 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
       {!isDefault && (
         <div className="absolute inset-0 flex items-center">
           {effectiveState.type === 'searching' && (
-            <SearchingState
-              size={size}
-              theme={theme}
-              mode={effectiveState.mode}
-            />
+            <SearchingState size={size} theme={theme} mode={effectiveState.mode} />
           )}
 
           {effectiveState.type === 'progress' && (
@@ -426,11 +430,7 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
           )}
 
           {effectiveState.type === 'completed' && (
-            <CompletedState
-              size={size}
-              theme={theme}
-              onClick={handleCompletionClick}
-            />
+            <CompletedState size={size} theme={theme} onClick={handleCompletionClick} />
           )}
 
           {effectiveState.type === 'error' && (
@@ -458,7 +458,7 @@ export function MediaSearchMonitorControls(props: MediaSearchMonitorControlsProp
 // Sub-components for each state
 // ---------------------------------------------------------------------------
 
-interface DefaultButtonsProps {
+type DefaultButtonsProps = {
   size: ControlSize
   theme: MediaTheme
   monitored: boolean
@@ -481,11 +481,11 @@ function DefaultButtons({
     return (
       <>
         <Button variant="outline" onClick={onManualSearch}>
-          <UserSearch className="size-4 mr-2" />
+          <UserSearch className="mr-2 size-4" />
           Search
         </Button>
         <Button variant="outline" onClick={onAutoSearch}>
-          <Zap className="size-4 mr-2" />
+          <Zap className="mr-2 size-4" />
           Auto Search
         </Button>
         <Button
@@ -494,9 +494,11 @@ function DefaultButtons({
           disabled={monitorDisabled}
         >
           {monitored ? (
-            <Eye className={cn('size-4 mr-2', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
+            <Eye
+              className={cn('mr-2 size-4', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')}
+            />
           ) : (
-            <EyeOff className="size-4 mr-2" />
+            <EyeOff className="mr-2 size-4" />
           )}
           {monitored ? 'Monitored' : 'Unmonitored'}
         </Button>
@@ -509,9 +511,7 @@ function DefaultButtons({
       <>
         <Tooltip>
           <TooltipTrigger
-            render={
-              <Button variant="outline" size="icon-sm" onClick={onManualSearch} />
-            }
+            render={<Button variant="outline" size="icon-sm" onClick={onManualSearch} />}
           >
             <UserSearch className="size-4" />
           </TooltipTrigger>
@@ -519,9 +519,7 @@ function DefaultButtons({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
-            render={
-              <Button variant="outline" size="icon-sm" onClick={onAutoSearch} />
-            }
+            render={<Button variant="outline" size="icon-sm" onClick={onAutoSearch} />}
           >
             <Zap className="size-4" />
           </TooltipTrigger>
@@ -554,21 +552,13 @@ function DefaultButtons({
   return (
     <>
       <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button variant="ghost" size="icon-sm" onClick={onManualSearch} />
-          }
-        >
+        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" onClick={onManualSearch} />}>
           <UserSearch className="size-3.5" />
         </TooltipTrigger>
         <TooltipContent>Manual Search</TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button variant="ghost" size="icon-sm" onClick={onAutoSearch} />
-          }
-        >
+        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" onClick={onAutoSearch} />}>
           <Zap className="size-3.5" />
         </TooltipTrigger>
         <TooltipContent>Auto Search</TooltipContent>
@@ -596,7 +586,7 @@ function DefaultButtons({
   )
 }
 
-interface SearchingStateProps {
+type SearchingStateProps = {
   size: ControlSize
   theme: MediaTheme
   mode: 'manual' | 'auto'
@@ -605,7 +595,11 @@ interface SearchingStateProps {
 function SearchingState({ size, theme, mode }: SearchingStateProps) {
   if (mode === 'manual') {
     return (
-      <Button variant="outline" disabled className={cn('w-full', size === 'xs' ? 'h-6 text-xs' : size === 'sm' ? 'h-8 text-xs' : '')}>
+      <Button
+        variant="outline"
+        disabled
+        className={cn('w-full', size === 'xs' ? 'h-6 text-xs' : size === 'sm' ? 'h-8 text-xs' : '')}
+      >
         Searching...
       </Button>
     )
@@ -615,8 +609,10 @@ function SearchingState({ size, theme, mode }: SearchingStateProps) {
   if (size === 'xs') {
     const shimmerClass = theme === 'movie' ? 'shimmer-text-movie' : 'shimmer-text-tv'
     return (
-      <Button variant="ghost" disabled className="w-full h-6 text-xs disabled:opacity-100">
-        <span className={shimmerClass} data-text="Searching...">Searching...</span>
+      <Button variant="ghost" disabled className="h-6 w-full text-xs disabled:opacity-100">
+        <span className={shimmerClass} data-text="Searching...">
+          Searching...
+        </span>
       </Button>
     )
   }
@@ -626,7 +622,7 @@ function SearchingState({ size, theme, mode }: SearchingStateProps) {
   if (size === 'lg') {
     return (
       <div className={cn(chasingClass, 'w-full')}>
-        <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+        <div className="bg-card absolute inset-0 z-[1] rounded-md" />
         <Button variant="outline" disabled className="relative z-[2] w-full">
           Searching...
         </Button>
@@ -637,15 +633,15 @@ function SearchingState({ size, theme, mode }: SearchingStateProps) {
   // sm
   return (
     <div className={cn(chasingClass, 'w-full')}>
-      <div className="absolute inset-0 rounded-md bg-card z-[1]" />
-      <Button variant="outline" disabled className="relative z-[2] w-full h-8 text-xs">
+      <div className="bg-card absolute inset-0 z-[1] rounded-md" />
+      <Button variant="outline" disabled className="relative z-[2] h-8 w-full text-xs">
         Searching...
       </Button>
     </div>
   )
 }
 
-interface ProgressStateProps {
+type ProgressStateProps = {
   size: ControlSize
   theme: MediaTheme
   progress: number
@@ -671,21 +667,21 @@ function ProgressState({
   const progressContent = (
     <div
       className={cn(
-        'relative overflow-hidden rounded-md w-full',
+        'relative w-full overflow-hidden rounded-md',
         isPaused && 'animation-paused',
         size === 'xs' ? 'h-6' : size === 'sm' ? 'h-8' : 'h-9',
       )}
     >
       {/* Background */}
-      <div className="absolute inset-0 bg-muted/30" />
+      <div className="bg-muted/30 absolute inset-0" />
 
       {/* Progress fill */}
       <div
         className={cn(
           'absolute inset-y-0 left-0 transition-all duration-500 ease-out',
           theme === 'movie'
-            ? 'bg-gradient-to-r from-movie-600/40 via-movie-500/50 to-movie-500/60'
-            : 'bg-gradient-to-r from-tv-600/40 via-tv-500/50 to-tv-500/60',
+            ? 'from-movie-600/40 via-movie-500/50 to-movie-500/60 bg-gradient-to-r'
+            : 'from-tv-600/40 via-tv-500/50 to-tv-500/60 bg-gradient-to-r',
         )}
         style={{ width: `${Math.max(progress, 2)}%` }}
       >
@@ -696,8 +692,8 @@ function ProgressState({
               className={cn(
                 'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
                 theme === 'movie'
-                  ? 'bg-gradient-to-r from-transparent via-movie-400/25 to-transparent'
-                  : 'bg-gradient-to-r from-transparent via-tv-400/25 to-transparent',
+                  ? 'via-movie-400/25 bg-gradient-to-r from-transparent to-transparent'
+                  : 'via-tv-400/25 bg-gradient-to-r from-transparent to-transparent',
               )}
             />
           </div>
@@ -728,7 +724,7 @@ function ProgressState({
       )}
 
       {/* Label */}
-      <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+      <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
         <Download className={size === 'xs' ? 'size-3.5' : 'size-4'} />
         {size === 'lg' && `Downloading${eta > 0 ? ` (${formatEta(eta)})` : ''}`}
       </div>
@@ -737,42 +733,49 @@ function ProgressState({
 
   const tooltipContent = (
     <div className="space-y-1 text-xs">
-      {releaseName && <p className="font-medium max-w-64 truncate">{releaseName}</p>}
-      <p>{progress.toFixed(1)}% — {formatBytes(downloadedSize)} / {formatBytes(totalSize)}</p>
-      {!isPaused && speed > 0 && <p>{formatSpeed(speed)} — ETA: {formatEta(eta)}</p>}
-      {isPaused && <p className="text-amber-400">Paused</p>}
+      {releaseName ? <p className="max-w-64 truncate font-medium">{releaseName}</p> : null}
+      <p>
+        {progress.toFixed(1)}% — {formatBytes(downloadedSize)} / {formatBytes(totalSize)}
+      </p>
+      {!isPaused && speed > 0 && (
+        <p>
+          {formatSpeed(speed)} — ETA: {formatEta(eta)}
+        </p>
+      )}
+      {isPaused ? <p className="text-amber-400">Paused</p> : null}
     </div>
   )
 
   return (
     <Tooltip>
-      <TooltipTrigger render={<div className="w-full" />}>
-        {progressContent}
-      </TooltipTrigger>
+      <TooltipTrigger render={<div className="w-full" />}>{progressContent}</TooltipTrigger>
       <TooltipContent>{tooltipContent}</TooltipContent>
     </Tooltip>
   )
 }
 
-interface CompletedStateProps {
+type CompletedStateProps = {
   size: ControlSize
   theme: MediaTheme
   onClick: () => void
 }
 
 function CompletedState({ size, theme, onClick }: CompletedStateProps) {
-  const flashClass = theme === 'movie'
-    ? 'animate-[download-complete-flash-movie_800ms_ease-out]'
-    : 'animate-[download-complete-flash-tv_800ms_ease-out]'
+  const flashClass =
+    theme === 'movie'
+      ? 'animate-[download-complete-flash-movie_800ms_ease-out]'
+      : 'animate-[download-complete-flash-tv_800ms_ease-out]'
 
   if (size === 'lg') {
     return (
       <Button
         variant="outline"
-        className={cn(flashClass, 'cursor-pointer w-full')}
+        className={cn(flashClass, 'w-full cursor-pointer')}
         onClick={onClick}
       >
-        <Check className={cn('size-4 mr-2', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
+        <Check
+          className={cn('mr-2 size-4', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')}
+        />
         Downloaded
       </Button>
     )
@@ -786,7 +789,7 @@ function CompletedState({ size, theme, onClick }: CompletedStateProps) {
             <Button
               variant="outline"
               size="icon-sm"
-              className={cn(flashClass, 'cursor-pointer w-full')}
+              className={cn(flashClass, 'w-full cursor-pointer')}
               onClick={onClick}
             />
           }
@@ -800,13 +803,13 @@ function CompletedState({ size, theme, onClick }: CompletedStateProps) {
 
   // xs
   return (
-    <button onClick={onClick} className="p-1 w-full flex items-center justify-center">
+    <button onClick={onClick} className="flex w-full items-center justify-center p-1">
       <Check className={cn('size-3.5', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
     </button>
   )
 }
 
-interface ErrorStateProps {
+type ErrorStateProps = {
   size: ControlSize
   theme: MediaTheme
   message: string
@@ -818,8 +821,8 @@ function ErrorState({ size, theme, message, onClick }: ErrorStateProps) {
 
   if (size === 'lg') {
     return (
-      <Button variant="outline" className="cursor-pointer w-full" onClick={onClick}>
-        <AlertCircle className={cn('size-4 mr-2', colorClass)} />
+      <Button variant="outline" className="w-full cursor-pointer" onClick={onClick}>
+        <AlertCircle className={cn('mr-2 size-4', colorClass)} />
         {message}
       </Button>
     )
@@ -830,7 +833,12 @@ function ErrorState({ size, theme, message, onClick }: ErrorStateProps) {
       <Tooltip>
         <TooltipTrigger
           render={
-            <Button variant="outline" size="icon-sm" className="cursor-pointer w-full" onClick={onClick} />
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="w-full cursor-pointer"
+              onClick={onClick}
+            />
           }
         >
           <AlertCircle className={cn('size-4', colorClass)} />
@@ -844,7 +852,7 @@ function ErrorState({ size, theme, message, onClick }: ErrorStateProps) {
   return (
     <Tooltip>
       <TooltipTrigger>
-        <button onClick={onClick} className="p-1 w-full flex items-center justify-center">
+        <button onClick={onClick} className="flex w-full items-center justify-center p-1">
           <AlertCircle className={cn('size-3.5', colorClass)} />
         </button>
       </TooltipTrigger>
@@ -859,18 +867,35 @@ function ErrorState({ size, theme, message, onClick }: ErrorStateProps) {
 
 function buildDownloadTarget(props: MediaSearchMonitorControlsProps): MediaTarget {
   switch (props.mediaType) {
-    case 'movie':
+    case 'movie': {
       return { mediaType: 'movie', movieId: props.movieId }
-    case 'series':
+    }
+    case 'series': {
       return { mediaType: 'series', seriesId: props.seriesId }
-    case 'season':
+    }
+    case 'season': {
       return { mediaType: 'season', seriesId: props.seriesId, seasonNumber: props.seasonNumber }
-    case 'episode':
-      return { mediaType: 'episode', episodeId: props.episodeId, seriesId: props.seriesId, seasonNumber: props.seasonNumber }
-    case 'movie-slot':
+    }
+    case 'episode': {
+      return {
+        mediaType: 'episode',
+        episodeId: props.episodeId,
+        seriesId: props.seriesId,
+        seasonNumber: props.seasonNumber,
+      }
+    }
+    case 'movie-slot': {
       return { mediaType: 'movie-slot', movieId: props.movieId, slotId: props.slotId }
-    case 'episode-slot':
-      return { mediaType: 'episode-slot', episodeId: props.episodeId, slotId: props.slotId, seriesId: props.seriesId, seasonNumber: props.seasonNumber }
+    }
+    case 'episode-slot': {
+      return {
+        mediaType: 'episode-slot',
+        episodeId: props.episodeId,
+        slotId: props.slotId,
+        seriesId: props.seriesId,
+        seasonNumber: props.seasonNumber,
+      }
+    }
   }
 }
 
@@ -879,7 +904,7 @@ function buildSearchModalProps(
   qualityProfileId: number,
 ): Omit<React.ComponentProps<typeof SearchModal>, 'open' | 'onOpenChange' | 'onGrabSuccess'> {
   switch (props.mediaType) {
-    case 'movie':
+    case 'movie': {
       return {
         qualityProfileId,
         movieId: props.movieId,
@@ -888,14 +913,16 @@ function buildSearchModalProps(
         imdbId: props.imdbId,
         year: props.year,
       }
-    case 'series':
+    }
+    case 'series': {
       return {
         qualityProfileId,
         seriesId: props.seriesId,
         seriesTitle: props.title,
         tvdbId: props.tvdbId,
       }
-    case 'season':
+    }
+    case 'season': {
       return {
         qualityProfileId,
         seriesId: props.seriesId,
@@ -903,7 +930,8 @@ function buildSearchModalProps(
         tvdbId: props.tvdbId,
         season: props.seasonNumber,
       }
-    case 'episode':
+    }
+    case 'episode': {
       return {
         qualityProfileId,
         seriesId: props.seriesId,
@@ -912,7 +940,8 @@ function buildSearchModalProps(
         season: props.seasonNumber,
         episode: props.episodeNumber,
       }
-    case 'movie-slot':
+    }
+    case 'movie-slot': {
       return {
         qualityProfileId,
         movieId: props.movieId,
@@ -921,7 +950,8 @@ function buildSearchModalProps(
         imdbId: props.imdbId,
         year: props.year,
       }
-    case 'episode-slot':
+    }
+    case 'episode-slot': {
       return {
         qualityProfileId,
         seriesId: props.seriesId,
@@ -930,5 +960,6 @@ function buildSearchModalProps(
         season: props.seasonNumber,
         episode: props.episodeNumber,
       }
+    }
   }
 }

@@ -1,10 +1,19 @@
-import { EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { MediaSearchMonitorControls } from '@/components/search'
-import type { SlotStatus } from '@/types'
-import { cn } from '@/lib/utils'
+import {
+  AlertCircle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  CheckCircle,
+  Clock,
+  EyeOff,
+  XCircle,
+} from 'lucide-react'
 
-interface EpisodeSlotRowProps {
+import { MediaSearchMonitorControls } from '@/components/search'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import type { SlotStatus } from '@/types'
+
+type EpisodeSlotRowProps = {
   slotStatuses: SlotStatus[]
   episodeId: number
   seriesId: number
@@ -40,7 +49,7 @@ export function EpisodeSlotRow({
   }
 
   return (
-    <div className="space-y-1 py-2 px-3 bg-muted/30 rounded-md">
+    <div className="bg-muted/30 space-y-1 rounded-md px-3 py-2">
       {slotStatuses.map((slot) => (
         <CompactSlotItem
           key={slot.slotId}
@@ -62,7 +71,7 @@ export function EpisodeSlotRow({
   )
 }
 
-interface CompactSlotItemProps {
+type CompactSlotItemProps = {
   slot: SlotStatus
   episodeId: number
   seriesId: number
@@ -93,17 +102,17 @@ function CompactSlotItem({
 }: CompactSlotItemProps) {
   return (
     <div className="flex items-center justify-between gap-2 py-1 text-xs">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="font-medium shrink-0">{slot.slotName}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 font-medium">{slot.slotName}</span>
         <CompactSlotBadge slot={slot} />
-        {slot.currentQuality && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+        {slot.currentQuality ? (
+          <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
             {slot.currentQuality}
           </Badge>
-        )}
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex shrink-0 items-center gap-1">
         <MediaSearchMonitorControls
           mediaType="episode-slot"
           episodeId={episodeId}
@@ -131,7 +140,10 @@ function CompactSlotItem({
 function CompactSlotBadge({ slot }: { slot: SlotStatus }) {
   if (!slot.monitored && slot.status !== 'available' && slot.status !== 'upgradable') {
     return (
-      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground">
+      <Badge
+        variant="outline"
+        className="text-muted-foreground h-4 gap-0.5 px-1.5 py-0 text-[10px]"
+      >
         <EyeOff className="size-2.5" />
         Not Monitored
       </Badge>
@@ -139,53 +151,69 @@ function CompactSlotBadge({ slot }: { slot: SlotStatus }) {
   }
 
   switch (slot.status) {
-    case 'failed':
+    case 'failed': {
       return (
-        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-red-900/50 border border-red-500 text-red-400">
+        <Badge
+          variant="destructive"
+          className="h-4 gap-0.5 border border-red-500 bg-red-900/50 px-1.5 py-0 text-[10px] text-red-400"
+        >
           <XCircle className="size-2.5" />
           Failed
         </Badge>
       )
-    case 'downloading':
+    }
+    case 'downloading': {
       return (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-blue-600 hover:bg-blue-600 text-white">
+        <Badge className="h-4 gap-0.5 bg-blue-600 px-1.5 py-0 text-[10px] text-white hover:bg-blue-600">
           <ArrowDownCircle className="size-2.5" />
           Downloading
         </Badge>
       )
-    case 'missing':
+    }
+    case 'missing': {
       return (
-        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+        <Badge variant="destructive" className="h-4 gap-0.5 px-1.5 py-0 text-[10px]">
           <AlertCircle className="size-2.5" />
           Missing
         </Badge>
       )
-    case 'upgradable':
+    }
+    case 'upgradable': {
       return (
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 gap-0.5">
+        <Badge variant="secondary" className="h-4 gap-0.5 px-1.5 py-0 text-[10px]">
           <ArrowUpCircle className="size-2.5" />
           Upgrade
         </Badge>
       )
-    case 'available':
+    }
+    case 'available': {
       return (
-        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4 gap-0.5', 'border-green-500 text-green-500')}>
+        <Badge
+          variant="outline"
+          className={cn('h-4 gap-0.5 px-1.5 py-0 text-[10px]', 'border-green-500 text-green-500')}
+        >
           <CheckCircle className="size-2.5" />
           OK
         </Badge>
       )
-    case 'unreleased':
+    }
+    case 'unreleased': {
       return (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 border-amber-500 text-amber-500">
+        <Badge
+          variant="outline"
+          className="h-4 gap-0.5 border-amber-500 px-1.5 py-0 text-[10px] text-amber-500"
+        >
           <Clock className="size-2.5" />
           Unreleased
         </Badge>
       )
-    default:
+    }
+    default: {
       return (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+        <Badge variant="outline" className="text-muted-foreground h-4 px-1.5 py-0 text-[10px]">
           Empty
         </Badge>
       )
+    }
   }
 }

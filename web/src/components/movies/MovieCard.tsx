@@ -1,11 +1,12 @@
 import { Link } from '@tanstack/react-router'
-import { cn } from '@/lib/utils'
-import { PosterImage } from '@/components/media/PosterImage'
+
 import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
+import { PosterImage } from '@/components/media/PosterImage'
 import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 import type { Movie } from '@/types'
 
-interface MovieCardProps {
+type MovieCardProps = {
   movie: Movie
   className?: string
   editMode?: boolean
@@ -13,7 +14,13 @@ interface MovieCardProps {
   onToggleSelect?: (id: number) => void
 }
 
-export function MovieCard({ movie, className, editMode, selected, onToggleSelect }: MovieCardProps) {
+export function MovieCard({
+  movie,
+  className,
+  editMode,
+  selected,
+  onToggleSelect,
+}: MovieCardProps) {
   const cardContent = (
     <div className="relative aspect-[2/3]">
       <PosterImage
@@ -23,7 +30,7 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
         version={movie.updatedAt}
         className="absolute inset-0"
       />
-      {editMode && (
+      {editMode ? (
         <div
           className="absolute top-2 left-2 z-10"
           onClick={(e) => {
@@ -35,17 +42,17 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
           <Checkbox
             checked={selected}
             className={cn(
-              'size-5 bg-background/80 border-2',
-              selected && 'border-movie-500 data-[checked]:bg-movie-500'
+              'bg-background/80 size-5 border-2',
+              selected && 'border-movie-500 data-[checked]:bg-movie-500',
             )}
           />
         </div>
-      )}
+      ) : null}
       <div className="absolute top-2 right-2">
         <MediaStatusBadge status={movie.status} />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
-        <h3 className="font-semibold text-white line-clamp-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+        <h3 className="line-clamp-2 font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
           {movie.title}
         </h3>
         <p className="text-sm text-gray-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
@@ -59,9 +66,11 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
     return (
       <div
         className={cn(
-          'group block rounded-lg overflow-hidden bg-card border-2 transition-all cursor-pointer',
-          selected ? 'border-movie-500 glow-movie' : 'border-border hover:border-movie-500/50 hover:glow-movie-sm',
-          className
+          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all',
+          selected
+            ? 'border-movie-500 glow-movie'
+            : 'border-border hover:border-movie-500/50 hover:glow-movie-sm',
+          className,
         )}
         onClick={() => onToggleSelect?.(movie.id)}
       >
@@ -75,8 +84,8 @@ export function MovieCard({ movie, className, editMode, selected, onToggleSelect
       to="/movies/$id"
       params={{ id: String(movie.id) }}
       className={cn(
-        'group block rounded-lg overflow-hidden bg-card border border-border transition-all hover:border-movie-500/50 hover:glow-movie',
-        className
+        'group bg-card border-border hover:border-movie-500/50 hover:glow-movie block overflow-hidden rounded-lg border transition-all',
+        className,
       )}
     >
       {cardContent}

@@ -1,24 +1,28 @@
 import { useState } from 'react'
+
 import { Layers } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+
 import type { AssignModalProps } from './types'
 
-export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign }: AssignModalProps) {
+export function AssignModal({
+  open,
+  onOpenChange,
+  slots,
+  selectedCount,
+  onAssign,
+}: AssignModalProps) {
   const [selectedSlotId, setSelectedSlotId] = useState<string>('')
   const [prevOpen, setPrevOpen] = useState(open)
 
@@ -31,8 +35,10 @@ export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign
   }
 
   const handleAssign = () => {
-    if (!selectedSlotId) return
-    const slot = slots.find(s => s.id === parseInt(selectedSlotId))
+    if (!selectedSlotId) {
+      return
+    }
+    const slot = slots.find((s) => s.id === Number.parseInt(selectedSlotId))
     if (slot) {
       onAssign(slot.id, slot.name)
     }
@@ -44,29 +50,31 @@ export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign
         <DialogHeader>
           <DialogTitle>Assign to Slot</DialogTitle>
           <DialogDescription>
-            Select a slot to assign {selectedCount} selected file{selectedCount !== 1 ? 's' : ''} to
+            Select a slot to assign {selectedCount} selected file{selectedCount === 1 ? '' : 's'} to
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
-          <Label htmlFor="slot-select" className="text-sm font-medium mb-2 block">
+          <Label htmlFor="slot-select" className="mb-2 block text-sm font-medium">
             Select Slot
           </Label>
           <Select value={selectedSlotId} onValueChange={(value) => setSelectedSlotId(value ?? '')}>
             <SelectTrigger id="slot-select" className="w-full">
-              {selectedSlotId ? slots.find(s => s.id === parseInt(selectedSlotId))?.name : 'Choose a slot...'}
+              {selectedSlotId
+                ? slots.find((s) => s.id === Number.parseInt(selectedSlotId))?.name
+                : 'Choose a slot...'}
             </SelectTrigger>
             <SelectContent className="min-w-[var(--trigger-width)]">
-              {slots.map(slot => (
+              {slots.map((slot) => (
                 <SelectItem key={slot.id} value={slot.id.toString()}>
                   <div className="flex items-center gap-2">
                     <Layers className="size-4" />
                     <span>{slot.name}</span>
-                    {slot.qualityProfile && (
+                    {slot.qualityProfile ? (
                       <span className="text-muted-foreground text-xs">
                         ({slot.qualityProfile.name})
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </SelectItem>
               ))}
@@ -79,7 +87,7 @@ export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign
             Cancel
           </Button>
           <Button onClick={handleAssign} disabled={!selectedSlotId}>
-            <Layers className="size-4 mr-2" />
+            <Layers className="mr-2 size-4" />
             Assign
           </Button>
         </DialogFooter>

@@ -5,7 +5,7 @@ export type Protocol = 'torrent' | 'usenet'
 export type Privacy = 'public' | 'semi-private' | 'private'
 
 // Indexer represents a configured indexer instance
-export interface Indexer {
+export type Indexer = {
   id: number
   name: string
   definitionId: string
@@ -26,7 +26,7 @@ export interface Indexer {
 }
 
 // CreateIndexerInput is the input for creating a new indexer
-export interface CreateIndexerInput {
+export type CreateIndexerInput = {
   name: string
   definitionId: string
   settings?: Record<string, string>
@@ -40,7 +40,7 @@ export interface CreateIndexerInput {
 }
 
 // UpdateIndexerInput is the input for updating an indexer
-export interface UpdateIndexerInput {
+export type UpdateIndexerInput = {
   name?: string
   definitionId?: string
   settings?: Record<string, string>
@@ -54,20 +54,20 @@ export interface UpdateIndexerInput {
 }
 
 // TestConfigInput is the input for testing an indexer configuration
-export interface TestConfigInput {
+export type TestConfigInput = {
   definitionId: string
   settings?: Record<string, string>
 }
 
 // IndexerTestResult is the result of testing an indexer
-export interface IndexerTestResult {
+export type IndexerTestResult = {
   success: boolean
   message: string
   capabilities?: IndexerCapabilities
 }
 
 // IndexerCapabilities describes what an indexer supports
-export interface IndexerCapabilities {
+export type IndexerCapabilities = {
   supportsMovies: boolean
   supportsTv: boolean
   supportsSearch: boolean
@@ -80,14 +80,14 @@ export interface IndexerCapabilities {
 }
 
 // CategoryMapping maps indexer categories to standard categories
-export interface CategoryMapping {
+export type CategoryMapping = {
   id: number
   name: string
   description?: string
 }
 
 // IndexerStatus represents the health status of an indexer
-export interface IndexerStatus {
+export type IndexerStatus = {
   indexerId: number
   indexerName: string
   status: 'healthy' | 'warning' | 'failing' | 'disabled'
@@ -98,7 +98,7 @@ export interface IndexerStatus {
 }
 
 // DefinitionMetadata contains metadata about a Cardigann definition
-export interface DefinitionMetadata {
+export type DefinitionMetadata = {
   id: string
   name: string
   description?: string
@@ -109,7 +109,7 @@ export interface DefinitionMetadata {
 }
 
 // DefinitionSetting describes a configurable setting for a definition
-export interface DefinitionSetting {
+export type DefinitionSetting = {
   name: string
   type: 'text' | 'password' | 'checkbox' | 'select' | 'info'
   label: string
@@ -118,14 +118,14 @@ export interface DefinitionSetting {
 }
 
 // DefinitionFilters for searching definitions
-export interface DefinitionFilters {
+export type DefinitionFilters = {
   protocol?: Protocol
   privacy?: Privacy
   language?: string
 }
 
 // Definition contains full details about a Cardigann definition
-export interface Definition {
+export type Definition = {
   id: string
   name: string
   description?: string

@@ -1,21 +1,24 @@
 import { useMemo } from 'react'
+
 import {
-  format,
-  eachDayOfInterval,
-  startOfWeek,
-  endOfWeek,
   addWeeks,
-  subWeeks,
+  eachDayOfInterval,
+  endOfWeek,
+  format,
   isToday,
+  startOfWeek,
+  subWeeks,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CalendarEventCard } from './CalendarEventCard'
+import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 
-interface CalendarWeekViewProps {
+import { CalendarEventCard } from './CalendarEventCard'
+
+type CalendarWeekViewProps = {
   events: CalendarEvent[]
   currentDate: Date
   onDateChange: (date: Date) => void
@@ -49,9 +52,9 @@ export function CalendarWeekView({
   const handleToday = () => onDateChange(new Date())
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={handlePrevWeek}>
             <ChevronLeft className="size-4" />
@@ -59,7 +62,7 @@ export function CalendarWeekView({
           <Button variant="outline" size="icon" onClick={handleNextWeek}>
             <ChevronRight className="size-4" />
           </Button>
-          <h2 className="text-xl font-semibold ml-2">
+          <h2 className="ml-2 text-xl font-semibold">
             {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
           </h2>
         </div>
@@ -80,30 +83,25 @@ export function CalendarWeekView({
               <div
                 key={dateKey}
                 className={cn(
-                  'rounded-lg border p-3 min-h-[500px]',
+                  'min-h-[500px] rounded-lg border p-3',
                   'supports-[backdrop-filter]:backdrop-blur-sm',
-                  isCurrentDay && 'border-primary bg-primary/5'
+                  isCurrentDay && 'border-primary bg-primary/5',
                 )}
               >
                 <div className="mb-3 text-center">
-                  <div className="text-xs text-muted-foreground uppercase">
+                  <div className="text-muted-foreground text-xs uppercase">
                     {format(day, 'EEE')}
                   </div>
-                  <div
-                    className={cn(
-                      'text-2xl font-bold',
-                      isCurrentDay && 'text-primary'
-                    )}
-                  >
+                  <div className={cn('text-2xl font-bold', isCurrentDay && 'text-primary')}>
                     {format(day, 'd')}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   {loading ? (
-                    <div className="rounded-lg border-l-4 border-l-muted-foreground/20 bg-muted/30 p-2 space-y-1.5">
+                    <div className="border-l-muted-foreground/20 bg-muted/30 space-y-1.5 rounded-lg border-l-4 p-2">
                       <div className="flex items-center gap-1">
-                        <Skeleton className="size-3 rounded-full shrink-0" />
+                        <Skeleton className="size-3 shrink-0 rounded-full" />
                         <Skeleton className="h-3.5 w-3/4" />
                       </div>
                       <Skeleton className="h-3 w-1/2" />
@@ -120,9 +118,7 @@ export function CalendarWeekView({
                       />
                     ))
                   ) : (
-                    <div className="text-center text-sm text-muted-foreground py-4">
-                      No events
-                    </div>
+                    <div className="text-muted-foreground py-4 text-center text-sm">No events</div>
                   )}
                 </div>
               </div>

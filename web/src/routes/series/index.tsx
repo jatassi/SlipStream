@@ -1,13 +1,36 @@
-import { useState, useMemo } from 'react'
-import { Plus, Grid, List, Tv, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, ArrowUpDown, Clock, Binoculars, ArrowDownCircle, XCircle, ArrowUpCircle, CheckCircle, Play, CircleStop } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useMemo, useState } from 'react'
+
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowUpDown,
+  Binoculars,
+  CheckCircle,
+  CircleStop,
+  Clock,
+  Eye,
+  EyeOff,
+  Grid,
+  List,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Tv,
+  X,
+  XCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { FilterDropdown } from '@/components/ui/filter-dropdown'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Slider } from '@/components/ui/slider'
+import { GroupedSeriesGrid } from '@/components/series/GroupedSeriesGrid'
+import { SeriesGrid } from '@/components/series/SeriesGrid'
+import { SeriesTable } from '@/components/series/SeriesTable'
+import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,25 +41,62 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { SeriesGrid } from '@/components/series/SeriesGrid'
-import { GroupedSeriesGrid } from '@/components/series/GroupedSeriesGrid'
-import { SeriesTable } from '@/components/series/SeriesTable'
-import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/data/EmptyState'
-import { ErrorState } from '@/components/data/ErrorState'
+import { Slider } from '@/components/ui/slider'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  useBulkDeleteSeries,
+  useBulkUpdateSeries,
+  useGlobalLoading,
+  useQualityProfiles,
+  useRefreshAllSeries,
+  useRootFolders,
+  useSeries,
+} from '@/hooks'
 import { groupMedia } from '@/lib/grouping'
-import { SERIES_COLUMNS, createSeriesActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
-import { useSeries, useBulkDeleteSeries, useBulkUpdateSeries, useRefreshAllSeries, useQualityProfiles, useRootFolders, useGlobalLoading } from '@/hooks'
+import {
+  createSeriesActionsColumn,
+  DEFAULT_SORT_DIRECTIONS,
+  SERIES_COLUMNS,
+} from '@/lib/table-columns'
+import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores'
-import { toast } from 'sonner'
 import type { Series } from '@/types'
 
-type FilterStatus = 'monitored' | 'continuing' | 'ended' | 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
-type SortField = 'title' | 'monitored' | 'qualityProfile' | 'nextAirDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
+type FilterStatus =
+  | 'monitored'
+  | 'continuing'
+  | 'ended'
+  | 'unreleased'
+  | 'missing'
+  | 'downloading'
+  | 'failed'
+  | 'upgradable'
+  | 'available'
+type SortField =
+  | 'title'
+  | 'monitored'
+  | 'qualityProfile'
+  | 'nextAirDate'
+  | 'dateAdded'
+  | 'rootFolder'
+  | 'sizeOnDisk'
 
-const ALL_FILTERS: FilterStatus[] = ['monitored', 'continuing', 'ended', 'unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available']
+const ALL_FILTERS: FilterStatus[] = [
+  'monitored',
+  'continuing',
+  'ended',
+  'unreleased',
+  'missing',
+  'downloading',
+  'failed',
+  'upgradable',
+  'available',
+]
 
 const FILTER_OPTIONS: { value: FilterStatus; label: string; icon: typeof Eye }[] = [
   { value: 'monitored', label: 'Monitored', icon: Eye },
@@ -61,7 +121,14 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
 ]
 
 export function SeriesListPage() {
-  const { seriesView, setSeriesView, posterSize, setPosterSize, seriesTableColumns, setSeriesTableColumns } = useUIStore()
+  const {
+    seriesView,
+    setSeriesView,
+    posterSize,
+    setPosterSize,
+    seriesTableColumns,
+    setSeriesTableColumns,
+  } = useUIStore()
   const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -106,11 +173,26 @@ export function SeriesListPage() {
 
   // Filter series by status
   const filteredSeries = (seriesList || []).filter((s: Series) => {
-    if (allFiltersSelected) return true
-    if (statusFilters.includes('monitored') && s.monitored) return true
-    if (statusFilters.includes(s.productionStatus as FilterStatus)) return true
-    const statusKeys = ['unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available'] as const
-    if (statusKeys.some((k) => statusFilters.includes(k) && s.statusCounts[k] > 0)) return true
+    if (allFiltersSelected) {
+      return true
+    }
+    if (statusFilters.includes('monitored') && s.monitored) {
+      return true
+    }
+    if (statusFilters.includes(s.productionStatus as FilterStatus)) {
+      return true
+    }
+    const statusKeys = [
+      'unreleased',
+      'missing',
+      'downloading',
+      'failed',
+      'upgradable',
+      'available',
+    ] as const
+    if (statusKeys.some((k) => statusFilters.includes(k) && s.statusCounts[k] > 0)) {
+      return true
+    }
     return false
   })
 
@@ -120,9 +202,11 @@ export function SeriesListPage() {
   const sortedSeries = [...filteredSeries].sort((a, b) => {
     let result: number
     switch (sortField) {
-      case 'monitored':
-        result = (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
+      case 'monitored': {
+        result =
+          (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
         break
+      }
       case 'qualityProfile': {
         const nameA = profileNameMap.get(a.qualityProfileId) || ''
         const nameB = profileNameMap.get(b.qualityProfileId) || ''
@@ -130,23 +214,37 @@ export function SeriesListPage() {
         break
       }
       case 'nextAirDate': {
-        if (!a.nextAiring && !b.nextAiring) { result = a.sortTitle.localeCompare(b.sortTitle); break }
-        if (!a.nextAiring) { result = 1; break }
-        if (!b.nextAiring) { result = -1; break }
+        if (!a.nextAiring && !b.nextAiring) {
+          result = a.sortTitle.localeCompare(b.sortTitle)
+          break
+        }
+        if (!a.nextAiring) {
+          result = 1
+          break
+        }
+        if (!b.nextAiring) {
+          result = -1
+          break
+        }
         result = new Date(a.nextAiring).getTime() - new Date(b.nextAiring).getTime()
         break
       }
-      case 'dateAdded':
+      case 'dateAdded': {
         result = new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
         break
-      case 'rootFolder':
-        result = (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
+      }
+      case 'rootFolder': {
+        result =
+          (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
         break
-      case 'sizeOnDisk':
+      }
+      case 'sizeOnDisk': {
         result = (b.sizeOnDisk || 0) - (a.sizeOnDisk || 0)
         break
-      default:
+      }
+      default: {
         result = a.sortTitle.localeCompare(b.sortTitle)
+      }
     }
     return result * dirMultiplier
   })
@@ -156,10 +254,7 @@ export function SeriesListPage() {
     rootFolderNames: rootFolderNameMap,
   })
 
-  const allColumns = useMemo(
-    () => [...SERIES_COLUMNS, createSeriesActionsColumn({})],
-    [],
-  )
+  const allColumns = useMemo(() => [...SERIES_COLUMNS, createSeriesActionsColumn({})], [])
 
   const handleToggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -189,7 +284,7 @@ export function SeriesListPage() {
   const handleBulkDelete = async () => {
     try {
       await bulkDeleteMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         deleteFiles,
       })
       toast.success(`${selectedIds.size} series deleted`)
@@ -204,7 +299,7 @@ export function SeriesListPage() {
   const handleBulkMonitor = async (monitored: boolean) => {
     try {
       await bulkUpdateMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         data: { monitored },
       })
       toast.success(`${selectedIds.size} series ${monitored ? 'monitored' : 'unmonitored'}`)
@@ -217,7 +312,7 @@ export function SeriesListPage() {
   const handleBulkChangeQualityProfile = async (qualityProfileId: number) => {
     try {
       await bulkUpdateMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         data: { qualityProfileId },
       })
       const profile = qualityProfiles?.find((p) => p.id === qualityProfileId)
@@ -241,7 +336,13 @@ export function SeriesListPage() {
     <div>
       <PageHeader
         title="Series"
-        description={isLoading ? <Skeleton className="h-4 w-36" /> : `${seriesList?.length || 0} series in library`}
+        description={
+          isLoading ? (
+            <Skeleton className="h-4 w-36" />
+          ) : (
+            `${seriesList?.length || 0} series in library`
+          )
+        }
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -249,17 +350,19 @@ export function SeriesListPage() {
               onClick={handleRefreshAll}
               disabled={isLoading || refreshAllMutation.isPending || editMode}
             >
-              <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`mr-1 size-4 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`}
+              />
               {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
             </Button>
             {editMode ? (
               <Button variant="outline" onClick={handleExitEditMode}>
-                <X className="size-4 mr-1" />
+                <X className="mr-1 size-4" />
                 Cancel
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setEditMode(true)} disabled={isLoading}>
-                <Pencil className="size-4 mr-1" />
+                <Pencil className="mr-1 size-4" />
                 Edit
               </Button>
             )}
@@ -268,7 +371,7 @@ export function SeriesListPage() {
               className="bg-tv-500 hover:bg-tv-400 border-tv-500"
               onClick={() => document.getElementById('global-search')?.focus()}
             >
-              <Plus className="size-4 mr-1" />
+              <Plus className="mr-1 size-4" />
               Add Series
             </Button>
           </div>
@@ -276,14 +379,14 @@ export function SeriesListPage() {
       />
 
       {/* Edit Mode Toolbar */}
-      {editMode && (
-        <div className="flex items-center gap-4 mb-4 p-3 bg-tv-500/10 border border-tv-500/20 rounded-lg">
+      {editMode ? (
+        <div className="bg-tv-500/10 border-tv-500/20 mb-4 flex items-center gap-4 rounded-lg border p-3">
           <div className="flex items-center gap-2">
             <Checkbox
               checked={selectedIds.size === filteredSeries.length && filteredSeries.length > 0}
               onCheckedChange={handleSelectAll}
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-muted-foreground text-sm">
               {selectedIds.size} of {filteredSeries.length} selected
             </span>
           </div>
@@ -294,7 +397,7 @@ export function SeriesListPage() {
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
               onClick={() => handleBulkMonitor(true)}
             >
-              <Eye className="size-4 mr-1" />
+              <Eye className="mr-1 size-4" />
               Monitor
             </Button>
             <Button
@@ -303,7 +406,7 @@ export function SeriesListPage() {
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
               onClick={() => handleBulkMonitor(false)}
             >
-              <EyeOff className="size-4 mr-1" />
+              <EyeOff className="mr-1 size-4" />
               Unmonitor
             </Button>
             <Select
@@ -311,9 +414,7 @@ export function SeriesListPage() {
               onValueChange={(v) => v && handleBulkChangeQualityProfile(Number(v))}
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
             >
-              <SelectTrigger className="w-40 h-8 text-sm">
-                Set Quality Profile
-              </SelectTrigger>
+              <SelectTrigger className="h-8 w-40 text-sm">Set Quality Profile</SelectTrigger>
               <SelectContent>
                 {qualityProfiles?.map((profile) => (
                   <SelectItem key={profile.id} value={String(profile.id)}>
@@ -328,19 +429,23 @@ export function SeriesListPage() {
               disabled={selectedIds.size === 0}
               onClick={() => setShowDeleteDialog(true)}
             >
-              <Trash2 className="size-4 mr-1" />
+              <Trash2 className="mr-1 size-4" />
               Delete
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Filters & Sort */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <FilterDropdown
           options={FILTER_OPTIONS}
           selected={statusFilters}
-          onToggle={(v) => setStatusFilters((prev) => prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v])}
+          onToggle={(v) =>
+            setStatusFilters((prev) =>
+              prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v],
+            )
+          }
           onReset={() => setStatusFilters([...ALL_FILTERS])}
           label="Statuses"
           theme="tv"
@@ -353,12 +458,21 @@ export function SeriesListPage() {
           disabled={isLoading}
         >
           <SelectTrigger className="gap-1.5">
-            <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-tv-400' : 'text-muted-foreground')} />
-            <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sortField)?.label}</span>
+            <ArrowUpDown
+              className={cn(
+                'size-4 shrink-0',
+                sortField === 'title' ? 'text-muted-foreground' : 'text-tv-400',
+              )}
+            />
+            <span className="hidden sm:inline">
+              {SORT_OPTIONS.find((o) => o.value === sortField)?.label}
+            </span>
           </SelectTrigger>
           <SelectContent>
             {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -366,7 +480,7 @@ export function SeriesListPage() {
         <div className="ml-auto flex items-center gap-4">
           {seriesView === 'grid' && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Size</span>
+              <span className="text-muted-foreground text-xs">Size</span>
               <Slider
                 value={[posterSize]}
                 onValueChange={(v) => setPosterSize(Array.isArray(v) ? v[0] : v)}
@@ -403,21 +517,21 @@ export function SeriesListPage() {
 
       {/* Content */}
       {isLoading ? (
-        <LoadingState variant={seriesView === 'grid' ? 'card' : 'list'} posterSize={posterSize} theme="tv" />
+        <LoadingState
+          variant={seriesView === 'grid' ? 'card' : 'list'}
+          posterSize={posterSize}
+          theme="tv"
+        />
       ) : sortedSeries.length === 0 ? (
         <EmptyState
-          icon={<Tv className="size-8 text-tv-500" />}
+          icon={<Tv className="text-tv-500 size-8" />}
           title="No series found"
           description={
-            !allFiltersSelected
-              ? 'Try adjusting your filters'
-              : 'Add your first series to get started'
-          }
-          action={
             allFiltersSelected
-              ? { label: 'Add Series', onClick: () => {} }
-              : undefined
+              ? 'Add your first series to get started'
+              : 'Try adjusting your filters'
           }
+          action={allFiltersSelected ? { label: 'Add Series', onClick: () => {} } : undefined}
         />
       ) : seriesView === 'table' ? (
         <SeriesTable
@@ -463,9 +577,9 @@ export function SeriesListPage() {
             <Checkbox
               id="deleteSeriesFiles"
               checked={deleteFiles}
-              onCheckedChange={(checked) => setDeleteFiles(checked === true)}
+              onCheckedChange={(checked) => setDeleteFiles(checked)}
             />
-            <label htmlFor="deleteSeriesFiles" className="text-sm cursor-pointer">
+            <label htmlFor="deleteSeriesFiles" className="cursor-pointer text-sm">
               Also delete files from disk
             </label>
           </div>

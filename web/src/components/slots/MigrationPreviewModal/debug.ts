@@ -1,7 +1,7 @@
 import { slotsApi } from '@/api'
-import type { MigrationPreview, GeneratePreviewInput, MockMovie, MockTVShow } from '@/types'
+import type { GeneratePreviewInput, MigrationPreview, MockMovie, MockTVShow } from '@/types'
 
-interface ReleaseTemplate {
+type ReleaseTemplate = {
   resolution: string
   source: string
   hdr?: string
@@ -13,68 +13,251 @@ interface ReleaseTemplate {
 
 const RELEASE_TEMPLATES: ReleaseTemplate[] = [
   // 4K HDR variants
-  { resolution: '2160p', source: 'UHD.BluRay.REMUX', hdr: 'DV.HDR10', videoCodec: 'HEVC', audioCodec: 'TrueHD.Atmos', audioChannels: '7.1', group: 'FraMeSToR' },
-  { resolution: '2160p', source: 'UHD.BluRay.REMUX', hdr: 'DV.HDR10Plus', videoCodec: 'HEVC', audioCodec: 'DTS-HD.MA', audioChannels: '7.1', group: 'SiCFoI' },
-  { resolution: '2160p', source: 'UHD.BluRay', hdr: 'HDR10', videoCodec: 'HEVC', audioCodec: 'DTS-HD.MA', audioChannels: '7.1', group: 'DON' },
-  { resolution: '2160p', source: 'WEB-DL', hdr: 'DV.HDR10', videoCodec: 'HEVC', audioCodec: 'EAC3.Atmos', audioChannels: '5.1', group: 'FLUX' },
-  { resolution: '2160p', source: 'WEBRip', hdr: 'HDR10', videoCodec: 'HEVC', audioCodec: 'EAC3', audioChannels: '5.1', group: 'NTb' },
+  {
+    resolution: '2160p',
+    source: 'UHD.BluRay.REMUX',
+    hdr: 'DV.HDR10',
+    videoCodec: 'HEVC',
+    audioCodec: 'TrueHD.Atmos',
+    audioChannels: '7.1',
+    group: 'FraMeSToR',
+  },
+  {
+    resolution: '2160p',
+    source: 'UHD.BluRay.REMUX',
+    hdr: 'DV.HDR10Plus',
+    videoCodec: 'HEVC',
+    audioCodec: 'DTS-HD.MA',
+    audioChannels: '7.1',
+    group: 'SiCFoI',
+  },
+  {
+    resolution: '2160p',
+    source: 'UHD.BluRay',
+    hdr: 'HDR10',
+    videoCodec: 'HEVC',
+    audioCodec: 'DTS-HD.MA',
+    audioChannels: '7.1',
+    group: 'DON',
+  },
+  {
+    resolution: '2160p',
+    source: 'WEB-DL',
+    hdr: 'DV.HDR10',
+    videoCodec: 'HEVC',
+    audioCodec: 'EAC3.Atmos',
+    audioChannels: '5.1',
+    group: 'FLUX',
+  },
+  {
+    resolution: '2160p',
+    source: 'WEBRip',
+    hdr: 'HDR10',
+    videoCodec: 'HEVC',
+    audioCodec: 'EAC3',
+    audioChannels: '5.1',
+    group: 'NTb',
+  },
   // 4K SDR variants
-  { resolution: '2160p', source: 'UHD.BluRay.REMUX', videoCodec: 'HEVC', audioCodec: 'TrueHD.Atmos', audioChannels: '7.1', group: 'FraMeSToR' },
-  { resolution: '2160p', source: 'WEB-DL', videoCodec: 'HEVC', audioCodec: 'EAC3', audioChannels: '5.1', group: 'NTG' },
+  {
+    resolution: '2160p',
+    source: 'UHD.BluRay.REMUX',
+    videoCodec: 'HEVC',
+    audioCodec: 'TrueHD.Atmos',
+    audioChannels: '7.1',
+    group: 'FraMeSToR',
+  },
+  {
+    resolution: '2160p',
+    source: 'WEB-DL',
+    videoCodec: 'HEVC',
+    audioCodec: 'EAC3',
+    audioChannels: '5.1',
+    group: 'NTG',
+  },
   // 1080p variants
-  { resolution: '1080p', source: 'BluRay.REMUX', videoCodec: 'AVC', audioCodec: 'DTS-HD.MA', audioChannels: '7.1', group: 'FraMeSToR' },
-  { resolution: '1080p', source: 'BluRay', videoCodec: 'x264', audioCodec: 'DTS-HD.MA', audioChannels: '5.1', group: 'DON' },
-  { resolution: '1080p', source: 'BluRay', videoCodec: 'x264', audioCodec: 'DTS', audioChannels: '5.1', group: 'EbP' },
-  { resolution: '1080p', source: 'WEB-DL', videoCodec: 'x264', audioCodec: 'EAC3', audioChannels: '5.1', group: 'NTb' },
-  { resolution: '1080p', source: 'WEB-DL', videoCodec: 'x264', audioCodec: 'AAC', audioChannels: '2.0', group: 'FLUX' },
-  { resolution: '1080p', source: 'WEBRip', videoCodec: 'x264', audioCodec: 'AAC', audioChannels: '2.0', group: 'RARBG' },
-  { resolution: '1080p', source: 'HDTV', videoCodec: 'x264', audioCodec: 'AC3', audioChannels: '5.1', group: 'LOL' },
+  {
+    resolution: '1080p',
+    source: 'BluRay.REMUX',
+    videoCodec: 'AVC',
+    audioCodec: 'DTS-HD.MA',
+    audioChannels: '7.1',
+    group: 'FraMeSToR',
+  },
+  {
+    resolution: '1080p',
+    source: 'BluRay',
+    videoCodec: 'x264',
+    audioCodec: 'DTS-HD.MA',
+    audioChannels: '5.1',
+    group: 'DON',
+  },
+  {
+    resolution: '1080p',
+    source: 'BluRay',
+    videoCodec: 'x264',
+    audioCodec: 'DTS',
+    audioChannels: '5.1',
+    group: 'EbP',
+  },
+  {
+    resolution: '1080p',
+    source: 'WEB-DL',
+    videoCodec: 'x264',
+    audioCodec: 'EAC3',
+    audioChannels: '5.1',
+    group: 'NTb',
+  },
+  {
+    resolution: '1080p',
+    source: 'WEB-DL',
+    videoCodec: 'x264',
+    audioCodec: 'AAC',
+    audioChannels: '2.0',
+    group: 'FLUX',
+  },
+  {
+    resolution: '1080p',
+    source: 'WEBRip',
+    videoCodec: 'x264',
+    audioCodec: 'AAC',
+    audioChannels: '2.0',
+    group: 'RARBG',
+  },
+  {
+    resolution: '1080p',
+    source: 'HDTV',
+    videoCodec: 'x264',
+    audioCodec: 'AC3',
+    audioChannels: '5.1',
+    group: 'LOL',
+  },
   // 720p variants
-  { resolution: '720p', source: 'BluRay', videoCodec: 'x264', audioCodec: 'DTS', audioChannels: '5.1', group: 'DON' },
-  { resolution: '720p', source: 'WEB-DL', videoCodec: 'x264', audioCodec: 'AAC', audioChannels: '2.0', group: 'NTb' },
-  { resolution: '720p', source: 'HDTV', videoCodec: 'x264', audioCodec: 'AC3', audioChannels: '5.1', group: 'LOL' },
+  {
+    resolution: '720p',
+    source: 'BluRay',
+    videoCodec: 'x264',
+    audioCodec: 'DTS',
+    audioChannels: '5.1',
+    group: 'DON',
+  },
+  {
+    resolution: '720p',
+    source: 'WEB-DL',
+    videoCodec: 'x264',
+    audioCodec: 'AAC',
+    audioChannels: '2.0',
+    group: 'NTb',
+  },
+  {
+    resolution: '720p',
+    source: 'HDTV',
+    videoCodec: 'x264',
+    audioCodec: 'AC3',
+    audioChannels: '5.1',
+    group: 'LOL',
+  },
   // SD variants (for no-match scenarios)
-  { resolution: '480p', source: 'DVDRip', videoCodec: 'XviD', audioCodec: 'MP3', audioChannels: '2.0', group: 'aXXo' },
-  { resolution: '576p', source: 'DVDRip', videoCodec: 'x264', audioCodec: 'AC3', audioChannels: '5.1', group: 'FGT' },
+  {
+    resolution: '480p',
+    source: 'DVDRip',
+    videoCodec: 'XviD',
+    audioCodec: 'MP3',
+    audioChannels: '2.0',
+    group: 'aXXo',
+  },
+  {
+    resolution: '576p',
+    source: 'DVDRip',
+    videoCodec: 'x264',
+    audioCodec: 'AC3',
+    audioChannels: '5.1',
+    group: 'FGT',
+  },
 ]
 
 const MOVIE_TITLES = [
-  'The Dark Knight', 'Inception', 'Interstellar', 'The Matrix', 'Pulp Fiction',
-  'Fight Club', 'Forrest Gump', 'The Godfather', 'Goodfellas', 'The Shawshank Redemption',
-  'Gladiator', 'Braveheart', 'Saving Private Ryan', 'Schindlers List', 'The Green Mile',
-  'Se7en', 'The Silence of the Lambs', 'American History X', 'The Departed', 'Heat',
-  'Casino', 'Scarface', 'The Prestige', 'Memento', 'Tenet', 'Dunkirk', 'Oppenheimer',
-  'Dune', 'Blade Runner 2049', 'Arrival',
+  'The Dark Knight',
+  'Inception',
+  'Interstellar',
+  'The Matrix',
+  'Pulp Fiction',
+  'Fight Club',
+  'Forrest Gump',
+  'The Godfather',
+  'Goodfellas',
+  'The Shawshank Redemption',
+  'Gladiator',
+  'Braveheart',
+  'Saving Private Ryan',
+  'Schindlers List',
+  'The Green Mile',
+  'Se7en',
+  'The Silence of the Lambs',
+  'American History X',
+  'The Departed',
+  'Heat',
+  'Casino',
+  'Scarface',
+  'The Prestige',
+  'Memento',
+  'Tenet',
+  'Dunkirk',
+  'Oppenheimer',
+  'Dune',
+  'Blade Runner 2049',
+  'Arrival',
 ]
 
 const TV_SHOW_TITLES = [
-  'Breaking Bad', 'Game of Thrones', 'The Sopranos', 'The Wire', 'Mad Men',
-  'Better Call Saul', 'True Detective', 'Fargo', 'Westworld', 'Succession',
-  'House of the Dragon', 'The Last of Us', 'Severance', 'Andor', 'The Mandalorian',
+  'Breaking Bad',
+  'Game of Thrones',
+  'The Sopranos',
+  'The Wire',
+  'Mad Men',
+  'Better Call Saul',
+  'True Detective',
+  'Fargo',
+  'Westworld',
+  'Succession',
+  'House of the Dragon',
+  'The Last of Us',
+  'Severance',
+  'Andor',
+  'The Mandalorian',
 ]
 
 function buildReleaseTitle(title: string, year: number, template: ReleaseTemplate): string {
   const parts = [
-    title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '.'),
+    title.replaceAll(/[^a-zA-Z0-9\s]/g, '').replaceAll(/\s+/g, '.'),
     year.toString(),
     template.resolution,
     template.source,
   ]
-  if (template.hdr) parts.push(template.hdr)
+  if (template.hdr) {
+    parts.push(template.hdr)
+  }
   parts.push(template.videoCodec, template.audioCodec, template.audioChannels, template.group)
   return parts.join('.')
 }
 
-function buildEpisodeReleaseTitle(show: string, season: number, episode: number, template: ReleaseTemplate): string {
+function buildEpisodeReleaseTitle(
+  show: string,
+  season: number,
+  episode: number,
+  template: ReleaseTemplate,
+): string {
   const sStr = String(season).padStart(2, '0')
   const eStr = String(episode).padStart(2, '0')
   const parts = [
-    show.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '.'),
+    show.replaceAll(/[^a-zA-Z0-9\s]/g, '').replaceAll(/\s+/g, '.'),
     `S${sStr}E${eStr}`,
     template.resolution,
     template.source,
   ]
-  if (template.hdr) parts.push(template.hdr)
+  if (template.hdr) {
+    parts.push(template.hdr)
+  }
   parts.push(template.videoCodec, template.audioCodec, template.audioChannels, template.group)
   return parts.join('.')
 }

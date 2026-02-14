@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { autosearchApi } from '@/api'
+import type {
+  AutoSearchMediaType,
+  AutoSearchResult,
+  AutoSearchSettings,
+  BatchAutoSearchResult,
+  SlotSearchResult,
+} from '@/types'
+
 import { queueKeys } from './useQueue'
-import type { AutoSearchMediaType, AutoSearchSettings, AutoSearchResult, BatchAutoSearchResult, SlotSearchResult } from '@/types'
 
 export const autosearchKeys = {
   all: ['autosearch'] as const,

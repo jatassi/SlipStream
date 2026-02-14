@@ -1,8 +1,9 @@
-import { useState, useRef, type ReactNode, type SyntheticEvent } from 'react'
+import { type ReactNode, type SyntheticEvent, useRef, useState } from 'react'
+
 import { getLocalArtworkUrl } from '@/lib/constants'
 import { useArtworkStore } from '@/stores/artwork'
 
-interface StudioLogoProps {
+type StudioLogoProps = {
   tmdbId?: number | null
   type?: 'movie' | 'series'
   alt: string
@@ -29,7 +30,7 @@ export function StudioLogo({
   const imgRef = useRef<HTMLImageElement>(null)
 
   const artworkVersion = useArtworkStore((state) =>
-    tmdbId ? state.getVersion(type, tmdbId, 'studio_logo') : 0
+    tmdbId ? state.getVersion(type, tmdbId, 'studio_logo') : 0,
   )
 
   let imageUrl: string | null = null
@@ -81,7 +82,7 @@ export function StudioLogo({
         onLoad={handleLoad}
         onError={() => setError(true)}
         style={dimensions ? { width: dimensions.width, height: dimensions.height } : undefined}
-        className={`object-contain brightness-0 invert opacity-70 drop-shadow-lg ${loading ? 'hidden' : ''}`}
+        className={`object-contain opacity-70 brightness-0 drop-shadow-lg invert ${loading ? 'hidden' : ''}`}
       />
     </div>
   )

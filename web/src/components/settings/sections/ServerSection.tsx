@@ -1,5 +1,21 @@
-import { useState, useEffect } from 'react'
-import { Copy, Check, RefreshCw, CheckCircle2, XCircle, AlertCircle, Loader2, Shield } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  RefreshCw,
+  Shield,
+  XCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   InputGroup,
@@ -10,12 +26,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { useSettings, useStatus, useFirewallStatus, useCheckFirewall } from '@/hooks'
-import { toast } from 'sonner'
+import { useCheckFirewall, useFirewallStatus, useSettings, useStatus } from '@/hooks'
 
 const LOG_LEVELS = [
   { value: 'trace', label: 'Trace' },
@@ -25,14 +36,14 @@ const LOG_LEVELS = [
   { value: 'error', label: 'Error' },
 ]
 
-interface LogRotationSettings {
+type LogRotationSettings = {
   maxSizeMB: number
   maxBackups: number
   maxAgeDays: number
   compress: boolean
 }
 
-interface ServerSectionProps {
+type ServerSectionProps = {
   port: string
   onPortChange: (port: string) => void
   logLevel: string
@@ -107,12 +118,12 @@ export function ServerSection({
           onChange={(e) => onPortChange(e.target.value)}
           placeholder="8080"
         />
-        {portConflict && (
+        {portConflict ? (
           <p className="text-sm text-amber-600 dark:text-amber-500">
             Port {status.configuredPort} was in use. Server is running on port {status.actualPort}.
             Restart required to apply port changes.
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -123,24 +134,24 @@ export function ServerSection({
             checked={externalAccessEnabled}
             onCheckedChange={onExternalAccessChange}
           />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground text-sm">
             {externalAccessEnabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {externalAccessEnabled
             ? 'Server is accessible from other devices on your network'
             : 'Server is only accessible from this machine (localhost)'}
         </p>
-        {externalAccessEnabled && (
+        {externalAccessEnabled ? (
           <p className="text-sm text-amber-600 dark:text-amber-500">
             Warning: Enabling external access exposes your server to other devices on your network.
             Ensure you have proper authentication enabled.
           </p>
-        )}
+        ) : null}
       </div>
 
-      {externalAccessEnabled && (
+      {externalAccessEnabled ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Firewall Status</Label>
@@ -159,21 +170,25 @@ export function ServerSection({
             </Button>
           </div>
           {firewallLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
               <Loader2 className="size-4 animate-spin" />
               Checking firewall status...
             </div>
           ) : firewallStatus ? (
-            <div className="rounded-lg border p-3 space-y-2">
+            <div className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center gap-2">
-                <Shield className="size-4 text-muted-foreground" />
+                <Shield className="text-muted-foreground size-4" />
                 <span className="text-sm font-medium">
                   {firewallStatus.firewallName || 'Firewall'}
                 </span>
                 {firewallStatus.firewallEnabled ? (
-                  <Badge variant="secondary" className="text-xs">Enabled</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Enabled
+                  </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-xs">Disabled</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Disabled
+                  </Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -184,38 +199,43 @@ export function ServerSection({
                       Port {firewallStatus.port} is open for external access
                     </span>
                   </>
-                ) : !firewallStatus.isListening ? (
+                ) : firewallStatus.isListening ? (
+                  firewallStatus.firewallEnabled ? (
+                    <>
+                      <XCircle className="size-4 text-red-500" />
+                      <span className="text-sm text-red-600 dark:text-red-400">
+                        Port {firewallStatus.port} may be blocked by firewall
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="size-4 text-amber-500" />
+                      <span className="text-sm text-amber-600 dark:text-amber-400">
+                        No firewall detected - port should be accessible
+                      </span>
+                    </>
+                  )
+                ) : (
                   <>
                     <XCircle className="size-4 text-red-500" />
                     <span className="text-sm text-red-600 dark:text-red-400">
                       Port {firewallStatus.port} is not listening
                     </span>
                   </>
-                ) : !firewallStatus.firewallEnabled ? (
-                  <>
-                    <AlertCircle className="size-4 text-amber-500" />
-                    <span className="text-sm text-amber-600 dark:text-amber-400">
-                      No firewall detected - port should be accessible
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="size-4 text-red-500" />
-                    <span className="text-sm text-red-600 dark:text-red-400">
-                      Port {firewallStatus.port} may be blocked by firewall
-                    </span>
-                  </>
                 )}
               </div>
-              {firewallStatus.message && firewallStatus.firewallEnabled && !firewallStatus.firewallAllows && (
-                <p className="text-xs text-muted-foreground">
-                  You may need to add a firewall rule to allow incoming connections on port {firewallStatus.port}.
+              {firewallStatus.message &&
+              firewallStatus.firewallEnabled &&
+              !firewallStatus.firewallAllows ? (
+                <p className="text-muted-foreground text-xs">
+                  You may need to add a firewall rule to allow incoming connections on port{' '}
+                  {firewallStatus.port}.
                 </p>
-              )}
+              ) : null}
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="logLevel">Log Level</Label>
@@ -236,11 +256,7 @@ export function ServerSection({
       <div className="space-y-2">
         <Label>Log Files</Label>
         <InputGroup>
-          <InputGroupInput
-            value={settings?.logPath || ''}
-            readOnly
-            className="font-mono text-sm"
-          />
+          <InputGroupInput value={settings?.logPath || ''} readOnly className="font-mono text-sm" />
           <InputGroupAddon align="inline-end">
             <InputGroupButton
               aria-label="Copy"
@@ -252,15 +268,13 @@ export function ServerSection({
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
-        <p className="text-sm text-muted-foreground">
-          Location where log files are stored
-        </p>
+        <p className="text-muted-foreground text-sm">Location where log files are stored</p>
       </div>
 
-      <div className="pt-4 border-t space-y-4">
+      <div className="space-y-4 border-t pt-4">
         <div>
-          <h4 className="text-sm font-medium mb-1">Log Rotation</h4>
-          <p className="text-sm text-muted-foreground">
+          <h4 className="mb-1 text-sm font-medium">Log Rotation</h4>
+          <p className="text-muted-foreground text-sm">
             Configure automatic log file rotation to manage disk space
           </p>
         </div>
@@ -275,10 +289,13 @@ export function ServerSection({
               max={100}
               value={logRotation.maxSizeMB}
               onChange={(e) =>
-                onLogRotationChange({ ...logRotation, maxSizeMB: parseInt(e.target.value) || 10 })
+                onLogRotationChange({
+                  ...logRotation,
+                  maxSizeMB: Number.parseInt(e.target.value) || 10,
+                })
               }
             />
-            <p className="text-xs text-muted-foreground">Rotate when file exceeds this size</p>
+            <p className="text-muted-foreground text-xs">Rotate when file exceeds this size</p>
           </div>
 
           <div className="space-y-2">
@@ -290,10 +307,13 @@ export function ServerSection({
               max={20}
               value={logRotation.maxBackups}
               onChange={(e) =>
-                onLogRotationChange({ ...logRotation, maxBackups: parseInt(e.target.value) || 5 })
+                onLogRotationChange({
+                  ...logRotation,
+                  maxBackups: Number.parseInt(e.target.value) || 5,
+                })
               }
             />
-            <p className="text-xs text-muted-foreground">Number of old files to keep</p>
+            <p className="text-muted-foreground text-xs">Number of old files to keep</p>
           </div>
 
           <div className="space-y-2">
@@ -305,10 +325,13 @@ export function ServerSection({
               max={365}
               value={logRotation.maxAgeDays}
               onChange={(e) =>
-                onLogRotationChange({ ...logRotation, maxAgeDays: parseInt(e.target.value) || 30 })
+                onLogRotationChange({
+                  ...logRotation,
+                  maxAgeDays: Number.parseInt(e.target.value) || 30,
+                })
               }
             />
-            <p className="text-xs text-muted-foreground">Delete files older than this</p>
+            <p className="text-muted-foreground text-xs">Delete files older than this</p>
           </div>
 
           <div className="space-y-2">
@@ -321,11 +344,11 @@ export function ServerSection({
                   onLogRotationChange({ ...logRotation, compress: checked })
                 }
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-muted-foreground text-sm">
                 {logRotation.compress ? 'Enabled' : 'Disabled'}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">Gzip rotated log files</p>
+            <p className="text-muted-foreground text-xs">Gzip rotated log files</p>
           </div>
         </div>
       </div>

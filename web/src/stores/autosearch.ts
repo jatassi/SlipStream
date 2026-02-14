@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export interface AutoSearchTaskState {
+export type AutoSearchTaskState = {
   isRunning: boolean
   totalItems: number
   currentItem: number
@@ -8,7 +8,7 @@ export interface AutoSearchTaskState {
   result: AutoSearchTaskResult | null
 }
 
-export interface AutoSearchTaskResult {
+export type AutoSearchTaskResult = {
   totalSearched: number
   found: number
   downloaded: number
@@ -16,10 +16,14 @@ export interface AutoSearchTaskResult {
   elapsedMs: number
 }
 
-interface AutoSearchStore {
+type AutoSearchStore = {
   task: AutoSearchTaskState
   handleTaskStarted: (payload: { totalItems: number }) => void
-  handleTaskProgress: (payload: { currentItem: number; totalItems: number; currentTitle: string }) => void
+  handleTaskProgress: (payload: {
+    currentItem: number
+    totalItems: number
+    currentTitle: string
+  }) => void
   handleTaskCompleted: (payload: AutoSearchTaskResult) => void
   clearResult: () => void
 }

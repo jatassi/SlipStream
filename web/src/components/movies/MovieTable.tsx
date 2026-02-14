@@ -1,5 +1,6 @@
-import { ChevronUp, ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -8,11 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Checkbox } from '@/components/ui/checkbox'
 import type { ColumnDef, ColumnRenderContext } from '@/lib/table-columns'
+import { cn } from '@/lib/utils'
 import type { Movie } from '@/types'
 
-interface MovieTableProps {
+type MovieTableProps = {
   movies: Movie[]
   columns: ColumnDef<Movie>[]
   visibleColumnIds: string[]
@@ -37,33 +38,33 @@ export function MovieTable({
   selectedIds,
   onToggleSelect,
 }: MovieTableProps) {
-  const visibleColumns = columns.filter(
-    (col) => !col.hideable || visibleColumnIds.includes(col.id),
-  )
+  const visibleColumns = columns.filter((col) => !col.hideable || visibleColumnIds.includes(col.id))
 
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            {editMode && <TableHead className="w-[40px]" />}
+            {editMode ? <TableHead className="w-[40px]" /> : null}
             {visibleColumns.map((col) => (
               <TableHead
                 key={col.id}
                 className={cn(
                   col.headerClassName,
-                  col.sortField && 'cursor-pointer select-none hover:text-foreground',
+                  col.sortField && 'hover:text-foreground cursor-pointer select-none',
                 )}
                 style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                 onClick={col.sortField && onSort ? () => onSort(col.sortField!) : undefined}
               >
                 <span className="inline-flex items-center gap-1">
                   {col.label}
-                  {col.sortField && sortField === col.sortField && (
-                    sortDirection === 'asc'
-                      ? <ChevronUp className="size-3.5" />
-                      : <ChevronDown className="size-3.5" />
-                  )}
+                  {col.sortField && sortField === col.sortField ? (
+                    sortDirection === 'asc' ? (
+                      <ChevronUp className="size-3.5" />
+                    ) : (
+                      <ChevronDown className="size-3.5" />
+                    )
+                  ) : null}
                 </span>
               </TableHead>
             ))}
@@ -79,7 +80,7 @@ export function MovieTable({
                 className={cn(editMode && 'cursor-pointer')}
                 onClick={editMode && onToggleSelect ? () => onToggleSelect(movie.id) : undefined}
               >
-                {editMode && (
+                {editMode ? (
                   <TableCell>
                     <Checkbox
                       checked={selected}
@@ -88,7 +89,7 @@ export function MovieTable({
                       className="data-checked:bg-movie-500 data-checked:border-movie-500"
                     />
                   </TableCell>
-                )}
+                ) : null}
                 {visibleColumns.map((col) => (
                   <TableCell
                     key={col.id}

@@ -1,7 +1,7 @@
-import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
-interface FormatBadgesProps {
+type FormatBadgesProps = {
   source?: string
   codec?: string
   attributes: string[]
@@ -29,7 +29,9 @@ function getAttributeStyle(attr: string): string {
   }
 
   // Audio attributes - blue tones
-  if (['atmos', 'dts-x', 'dts-hd', 'truehd', 'dts', 'dd+', 'dd', 'aac', 'flac'].includes(attrLower)) {
+  if (
+    ['atmos', 'dts-x', 'dts-hd', 'truehd', 'dts', 'dd+', 'dd', 'aac', 'flac'].includes(attrLower)
+  ) {
     return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
   }
 
@@ -72,11 +74,7 @@ export function FormatBadges({ source, codec, attributes, className }: FormatBad
   return (
     <div className={cn('flex flex-wrap gap-1', className)}>
       {badges.map((badge, i) => (
-        <Badge
-          key={i}
-          variant="secondary"
-          className={cn('font-mono text-xs', badge.style)}
-        >
+        <Badge key={i} variant="secondary" className={cn('font-mono text-xs', badge.style)}>
           {badge.label}
         </Badge>
       ))}

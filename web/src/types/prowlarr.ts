@@ -1,10 +1,10 @@
-import type { Protocol, Privacy } from './indexer'
+import type { Privacy, Protocol } from './indexer'
 
 // IndexerMode represents the active indexer management mode
 export type IndexerMode = 'slipstream' | 'prowlarr'
 
 // ProwlarrConfig holds Prowlarr connection and behavior configuration
-export interface ProwlarrConfig {
+export type ProwlarrConfig = {
   id: number
   enabled: boolean
   url: string
@@ -20,7 +20,7 @@ export interface ProwlarrConfig {
 }
 
 // ProwlarrConfigInput is the input for updating Prowlarr configuration
-export interface ProwlarrConfigInput {
+export type ProwlarrConfigInput = {
   enabled: boolean
   url: string
   apiKey: string
@@ -31,7 +31,7 @@ export interface ProwlarrConfigInput {
 }
 
 // ProwlarrTestInput is the input for testing Prowlarr connection
-export interface ProwlarrTestInput {
+export type ProwlarrTestInput = {
   url: string
   apiKey: string
   timeout?: number
@@ -39,13 +39,13 @@ export interface ProwlarrTestInput {
 }
 
 // ProwlarrTestResult is the result of testing Prowlarr connection
-export interface ProwlarrTestResult {
+export type ProwlarrTestResult = {
   success: boolean
   message?: string
 }
 
 // ProwlarrIndexer represents an indexer configured in Prowlarr
-export interface ProwlarrIndexer {
+export type ProwlarrIndexer = {
   id: number
   name: string
   protocol: Protocol
@@ -68,7 +68,7 @@ export const ProwlarrIndexerStatusLabels: Record<ProwlarrIndexerStatus, string> 
 }
 
 // ProwlarrIndexerCapabilities represents the capabilities of a Prowlarr indexer
-export interface ProwlarrIndexerCapabilities {
+export type ProwlarrIndexerCapabilities = {
   supportsSearch: boolean
   supportsTvSearch: boolean
   supportsMovieSearch: boolean
@@ -76,7 +76,7 @@ export interface ProwlarrIndexerCapabilities {
 }
 
 // ProwlarrCapabilities represents the aggregated capabilities of Prowlarr
-export interface ProwlarrCapabilities {
+export type ProwlarrCapabilities = {
   supportsMovies: boolean
   supportsTv: boolean
   supportsSearch: boolean
@@ -87,7 +87,7 @@ export interface ProwlarrCapabilities {
 }
 
 // ProwlarrCategory represents a Newznab category from Prowlarr
-export interface ProwlarrCategory {
+export type ProwlarrCategory = {
   id: number
   name: string
   description?: string
@@ -95,7 +95,7 @@ export interface ProwlarrCategory {
 }
 
 // ProwlarrConnectionStatus represents the connection status to Prowlarr
-export interface ProwlarrConnectionStatus {
+export type ProwlarrConnectionStatus = {
   connected: boolean
   version?: string
   lastChecked?: string
@@ -103,19 +103,19 @@ export interface ProwlarrConnectionStatus {
 }
 
 // ModeInfo provides detailed information about the current indexer mode state
-export interface ModeInfo {
+export type ModeInfo = {
   effectiveMode: IndexerMode
   configuredMode: IndexerMode
   devModeOverride: boolean
 }
 
 // SetModeInput is the input for setting the indexer mode
-export interface SetModeInput {
+export type SetModeInput = {
   mode: IndexerMode
 }
 
 // RefreshResult is the result of refreshing Prowlarr data
-export interface RefreshResult {
+export type RefreshResult = {
   indexers: ProwlarrIndexer[]
   refreshed: boolean
 }
@@ -172,17 +172,26 @@ export function isTvCategory(categoryId: number): boolean {
 }
 
 // Helper to get status badge variant based on indexer status
-export function getIndexerStatusVariant(status: ProwlarrIndexerStatus): 'default' | 'warning' | 'destructive' {
+export function getIndexerStatusVariant(
+  status: ProwlarrIndexerStatus,
+): 'default' | 'warning' | 'destructive' {
   switch (status) {
-    case 0: // Healthy
+    case 0: {
+      // Healthy
       return 'default'
-    case 1: // Warning
+    }
+    case 1: {
+      // Warning
       return 'warning'
+    }
     case 2: // Disabled
-    case 3: // Failed
+    case 3: {
+      // Failed
       return 'destructive'
-    default:
+    }
+    default: {
       return 'default'
+    }
   }
 }
 
@@ -190,7 +199,7 @@ export function getIndexerStatusVariant(status: ProwlarrIndexerStatus): 'default
 export type ContentType = 'movies' | 'series' | 'both'
 
 // ProwlarrIndexerSettings holds per-indexer configuration stored in SlipStream
-export interface ProwlarrIndexerSettings {
+export type ProwlarrIndexerSettings = {
   prowlarrIndexerId: number
   priority: number
   contentType: ContentType
@@ -205,7 +214,7 @@ export interface ProwlarrIndexerSettings {
 }
 
 // ProwlarrIndexerSettingsInput is used for creating/updating indexer settings
-export interface ProwlarrIndexerSettingsInput {
+export type ProwlarrIndexerSettingsInput = {
   priority: number
   contentType: ContentType
   movieCategories?: number[]
@@ -213,9 +222,9 @@ export interface ProwlarrIndexerSettingsInput {
 }
 
 // ProwlarrIndexerWithSettings combines Prowlarr indexer data with SlipStream settings
-export interface ProwlarrIndexerWithSettings extends ProwlarrIndexer {
+export type ProwlarrIndexerWithSettings = {
   settings?: ProwlarrIndexerSettings
-}
+} & ProwlarrIndexer
 
 // ContentType labels for display
 export const ContentTypeLabels: Record<ContentType, string> = {

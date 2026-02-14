@@ -1,10 +1,12 @@
 import { Activity } from 'lucide-react'
+
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useProgressStore } from '@/stores/progress'
-import { ProgressItem } from './ProgressItem'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
-interface ProgressContainerProps {
+import { ProgressItem } from './ProgressItem'
+
+type ProgressContainerProps = {
   collapsed?: boolean
   className?: string
 }
@@ -27,7 +29,7 @@ export function ProgressContainer({ collapsed = false, className }: ProgressCont
         <div className="relative">
           <Activity className={cn('size-5', activeCount > 0 && 'text-primary animate-pulse')} />
           {activeCount > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+            <span className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium">
               {activeCount}
             </span>
           )}
@@ -42,10 +44,10 @@ export function ProgressContainer({ collapsed = false, className }: ProgressCont
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
           <Activity className={cn('size-4', activeCount > 0 && 'text-primary')} />
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="text-muted-foreground text-xs font-medium">
             Activity
             {activeCount > 0 && (
-              <span className="ml-1.5 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              <span className="bg-primary text-primary-foreground ml-1.5 inline-flex size-4 items-center justify-center rounded-full text-[10px]">
                 {activeCount}
               </span>
             )}

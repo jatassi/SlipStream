@@ -1,16 +1,31 @@
 import { useState } from 'react'
-import { Edit, Trash2, Users, UserPlus, Copy, Check, RefreshCw, Loader2, AlertCircle, Link, ChevronUp } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { RequestsNav } from './RequestsNav'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { LoadingState } from '@/components/data/LoadingState'
+
+import { formatDistanceToNow } from 'date-fns'
+import {
+  AlertCircle,
+  Check,
+  ChevronUp,
+  Copy,
+  Edit,
+  Link,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  UserPlus,
+  Users,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -21,32 +36,27 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import {
-  useAdminUsers,
-  useUpdateAdminUser,
-  useEnableUser,
-  useDisableUser,
-  useDeleteAdminUser,
-  useAdminInvitations,
-  useCreateInvitation,
-  useDeleteInvitation,
-  useAdminResendInvitation,
   getInvitationLink,
-  useQualityProfiles,
-  usePortalEnabled,
+  useAdminInvitations,
+  useAdminResendInvitation,
+  useAdminUsers,
+  useCreateInvitation,
+  useDeleteAdminUser,
+  useDeleteInvitation,
+  useDisableUser,
+  useEnableUser,
   useGlobalLoading,
+  usePortalEnabled,
+  useQualityProfiles,
+  useUpdateAdminUser,
 } from '@/hooks'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { toast } from 'sonner'
-import type { PortalUserWithQuota, Invitation, AdminUpdateUserInput } from '@/types'
-import { formatDistanceToNow } from 'date-fns'
+import type { AdminUpdateUserInput, Invitation, PortalUserWithQuota } from '@/types'
+
+import { RequestsNav } from './RequestsNav'
 
 export function RequestUsersPage() {
   const [activeTab, setActiveTab] = useState<string>('users')
@@ -60,8 +70,18 @@ export function RequestUsersPage() {
   const [expandedLinkToken, setExpandedLinkToken] = useState<string | null>(null)
 
   const globalLoading = useGlobalLoading()
-  const { data: users, isLoading: usersLoading, isError: usersError, refetch: refetchUsers } = useAdminUsers()
-  const { data: invitations, isLoading: invitationsLoading, isError: invitationsError, refetch: refetchInvitations } = useAdminInvitations()
+  const {
+    data: users,
+    isLoading: usersLoading,
+    isError: usersError,
+    refetch: refetchUsers,
+  } = useAdminUsers()
+  const {
+    data: invitations,
+    isLoading: invitationsLoading,
+    isError: invitationsError,
+    refetch: refetchInvitations,
+  } = useAdminInvitations()
   const { data: qualityProfiles } = useQualityProfiles()
   const portalEnabled = usePortalEnabled()
 
@@ -172,7 +192,9 @@ export function RequestUsersPage() {
     setExpandedLinkToken(expandedLinkToken === token ? null : token)
   }
 
-  const getInvitationStatus = (invitation: Invitation): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {
+  const getInvitationStatus = (
+    invitation: Invitation,
+  ): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {
     if (invitation.usedAt) {
       return { label: 'Used', variant: 'secondary' }
     }
@@ -183,7 +205,9 @@ export function RequestUsersPage() {
   }
 
   const getQuotaDisplay = (user: PortalUserWithQuota): string => {
-    if (!user.quota) return 'Not set'
+    if (!user.quota) {
+      return 'Not set'
+    }
     const parts = []
     if (user.quota.moviesLimit !== null) {
       parts.push(`${user.quota.moviesUsed}/${user.quota.moviesLimit} movies`)
@@ -198,7 +222,9 @@ export function RequestUsersPage() {
   }
 
   const getProfileName = (profileId: number | null): string => {
-    if (!profileId) return 'Default'
+    if (!profileId) {
+      return 'Default'
+    }
     const profile = qualityProfiles?.find((p) => p.id === profileId)
     return profile?.name || 'Unknown'
   }
@@ -236,7 +262,7 @@ export function RequestUsersPage() {
         ]}
         actions={
           <Button onClick={handleOpenInvite}>
-            <UserPlus className="size-4 mr-2" />
+            <UserPlus className="mr-2 size-4" />
             Invite User
           </Button>
         }
@@ -248,8 +274,12 @@ export function RequestUsersPage() {
         <Alert>
           <AlertCircle className="size-4" />
           <AlertDescription>
-            The external requests portal is currently disabled. Portal users cannot submit new requests or access the portal.
-            You can re-enable it in the <a href="/settings/requests/settings" className="underline font-medium">Settings</a> tab.
+            The external requests portal is currently disabled. Portal users cannot submit new
+            requests or access the portal. You can re-enable it in the{' '}
+            <a href="/settings/requests/settings" className="font-medium underline">
+              Settings
+            </a>{' '}
+            tab.
           </AlertDescription>
         </Alert>
       )}
@@ -257,40 +287,44 @@ export function RequestUsersPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="users">
-            Users {users && users.length > 0 && <Badge variant="secondary" className="ml-1">{users.length}</Badge>}
+            Users{' '}
+            {users && users.length > 0 ? (
+              <Badge variant="secondary" className="ml-1">
+                {users.length}
+              </Badge>
+            ) : null}
           </TabsTrigger>
           <TabsTrigger value="invitations">
-            Invitations {invitations && invitations.filter((i) => !i.usedAt).length > 0 && (
-              <Badge variant="secondary" className="ml-1">{invitations.filter((i) => !i.usedAt).length}</Badge>
-            )}
+            Invitations{' '}
+            {invitations?.some((i) => !i.usedAt) ? (
+              <Badge variant="secondary" className="ml-1">
+                {invitations.filter((i) => !i.usedAt).length}
+              </Badge>
+            ) : null}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="mt-4">
-          {!users?.length ? (
-            <EmptyState
-              icon={<Users className="size-8" />}
-              title="No users yet"
-              description="Invite users to start using the request portal"
-              action={{ label: 'Invite User', onClick: handleOpenInvite }}
-            />
-          ) : (
+          {users?.length ? (
             <div className="space-y-4">
               {users.map((user) => (
                 <Card key={user.id}>
                   <CardHeader className="flex flex-row items-center justify-between py-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                      <div className="bg-muted flex size-10 items-center justify-center rounded-full">
                         <Users className="size-5" />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-base">{user.displayName || user.username}</CardTitle>
-                          {user.autoApprove && <Badge>Auto-Approve</Badge>}
+                          <CardTitle className="text-base">
+                            {user.displayName || user.username}
+                          </CardTitle>
+                          {user.autoApprove ? <Badge>Auto-Approve</Badge> : null}
                           {!user.enabled && <Badge variant="destructive">Disabled</Badge>}
                         </div>
                         <CardDescription className="text-xs">
-                          {user.username} • Profile: {getProfileName(user.qualityProfileId)} • Quota: {getQuotaDisplay(user)}
+                          {user.username} • Profile: {getProfileName(user.qualityProfileId)} •
+                          Quota: {getQuotaDisplay(user)}
                         </CardDescription>
                       </div>
                     </div>
@@ -320,18 +354,18 @@ export function RequestUsersPage() {
                 </Card>
               ))}
             </div>
+          ) : (
+            <EmptyState
+              icon={<Users className="size-8" />}
+              title="No users yet"
+              description="Invite users to start using the request portal"
+              action={{ label: 'Invite User', onClick: handleOpenInvite }}
+            />
           )}
         </TabsContent>
 
         <TabsContent value="invitations" className="mt-4">
-          {!invitations?.length ? (
-            <EmptyState
-              icon={<UserPlus className="size-8" />}
-              title="No invitations"
-              description="Create an invitation to add new users"
-              action={{ label: 'Create Invitation', onClick: handleOpenInvite }}
-            />
-          ) : (
+          {invitations?.length ? (
             <div className="space-y-4">
               {invitations.map((invitation) => {
                 const status = getInvitationStatus(invitation)
@@ -340,7 +374,7 @@ export function RequestUsersPage() {
                   <Card key={invitation.id}>
                     <CardHeader className="flex flex-row items-center justify-between py-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                        <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
                           <UserPlus className="size-5" />
                         </div>
                         <div className="space-y-1">
@@ -349,8 +383,12 @@ export function RequestUsersPage() {
                             <Badge variant={status.variant}>{status.label}</Badge>
                           </div>
                           <CardDescription className="text-xs">
-                            Created {formatDistanceToNow(new Date(invitation.createdAt), { addSuffix: true })}
-                            {!invitation.usedAt && ` • Expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}`}
+                            Created{' '}
+                            {formatDistanceToNow(new Date(invitation.createdAt), {
+                              addSuffix: true,
+                            })}
+                            {!invitation.usedAt &&
+                              ` • Expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}`}
                           </CardDescription>
                         </div>
                       </div>
@@ -363,9 +401,9 @@ export function RequestUsersPage() {
                               onClick={() => handleCopyLink(invitation.token)}
                             >
                               {copiedToken === invitation.token ? (
-                                <Check className="size-4 mr-1" />
+                                <Check className="mr-1 size-4" />
                               ) : (
-                                <Copy className="size-4 mr-1" />
+                                <Copy className="mr-1 size-4" />
                               )}
                               Copy Link
                             </Button>
@@ -375,9 +413,9 @@ export function RequestUsersPage() {
                               onClick={() => toggleLinkVisibility(invitation.token)}
                             >
                               {isLinkExpanded ? (
-                                <ChevronUp className="size-4 mr-1" />
+                                <ChevronUp className="mr-1 size-4" />
                               ) : (
-                                <Link className="size-4 mr-1" />
+                                <Link className="mr-1 size-4" />
                               )}
                               {isLinkExpanded ? 'Hide' : 'Show'} Link
                             </Button>
@@ -387,7 +425,7 @@ export function RequestUsersPage() {
                               onClick={() => handleResendInvitation(invitation.id)}
                               disabled={resendInvitationMutation.isPending}
                             >
-                              <RefreshCw className="size-4 mr-1" />
+                              <RefreshCw className="mr-1 size-4" />
                               Resend
                             </Button>
                           </>
@@ -406,7 +444,7 @@ export function RequestUsersPage() {
                         />
                       </div>
                     </CardHeader>
-                    {isLinkExpanded && !invitation.usedAt && (
+                    {isLinkExpanded && !invitation.usedAt ? (
                       <div className="px-6 pb-4">
                         <div className="flex items-center gap-2">
                           <Input
@@ -416,15 +454,22 @@ export function RequestUsersPage() {
                             onFocus={(e) => e.target.select()}
                           />
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">
+                        <p className="text-muted-foreground mt-2 text-xs">
                           Select the link above and copy it manually
                         </p>
                       </div>
-                    )}
+                    ) : null}
                   </Card>
                 )
               })}
             </div>
+          ) : (
+            <EmptyState
+              icon={<UserPlus className="size-8" />}
+              title="No invitations"
+              description="Create an invitation to add new users"
+              action={{ label: 'Create Invitation', onClick: handleOpenInvite }}
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -434,7 +479,8 @@ export function RequestUsersPage() {
           <DialogHeader>
             <DialogTitle>Invite User</DialogTitle>
             <DialogDescription>
-              Create an invitation for a new user to join the request portal. The name you enter will become their username.
+              Create an invitation for a new user to join the request portal. The name you enter
+              will become their username.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -453,13 +499,15 @@ export function RequestUsersPage() {
               <Label>Quality Profile</Label>
               <Select
                 value={inviteQualityProfileId?.toString() || ''}
-                onValueChange={(value) => setInviteQualityProfileId(value ? parseInt(value, 10) : null)}
+                onValueChange={(value) =>
+                  setInviteQualityProfileId(value ? Number.parseInt(value, 10) : null)
+                }
               >
                 <SelectTrigger>
                   {inviteQualityProfileId
-                    ? qualityProfiles?.find((p) => p.id === inviteQualityProfileId)?.name || 'Select profile'
-                    : 'Default (use global)'
-                  }
+                    ? qualityProfiles?.find((p) => p.id === inviteQualityProfileId)?.name ||
+                      'Select profile'
+                    : 'Default (use global)'}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Default (use global)</SelectItem>
@@ -476,7 +524,7 @@ export function RequestUsersPage() {
               <Checkbox
                 id="inviteAutoApprove"
                 checked={inviteAutoApprove}
-                onCheckedChange={(checked) => setInviteAutoApprove(checked === true)}
+                onCheckedChange={(checked) => setInviteAutoApprove(checked)}
               />
               <Label htmlFor="inviteAutoApprove">Auto-approve requests</Label>
             </div>
@@ -486,26 +534,28 @@ export function RequestUsersPage() {
               Cancel
             </Button>
             <Button onClick={handleCreateInvitation} disabled={createInvitationMutation.isPending}>
-              {createInvitationMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {createInvitationMutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
               Create Invitation
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {editingUser && (
+      {editingUser ? (
         <UserEditDialog
           user={editingUser}
           open={showUserDialog}
           onOpenChange={setShowUserDialog}
           qualityProfiles={qualityProfiles || []}
         />
-      )}
+      ) : null}
     </div>
   )
 }
 
-interface UserEditDialogProps {
+type UserEditDialogProps = {
   user: PortalUserWithQuota
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -519,7 +569,9 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
   const [qualityProfileId, setQualityProfileId] = useState<number | null>(user.qualityProfileId)
   const [autoApprove, setAutoApprove] = useState(user.autoApprove)
   const [useQuotaOverride, setUseQuotaOverride] = useState(
-    user.quota?.moviesLimit !== null || user.quota?.seasonsLimit !== null || user.quota?.episodesLimit !== null
+    user.quota?.moviesLimit !== null ||
+      user.quota?.seasonsLimit !== null ||
+      user.quota?.episodesLimit !== null,
   )
   const [moviesLimit, setMoviesLimit] = useState(user.quota?.moviesLimit?.toString() || '')
   const [seasonsLimit, setSeasonsLimit] = useState(user.quota?.seasonsLimit?.toString() || '')
@@ -528,24 +580,22 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
   const handleSave = async () => {
     try {
       const input: AdminUpdateUserInput = {
-        username: username !== user.username ? username : undefined,
+        username: username === user.username ? undefined : username,
         qualityProfileId,
         autoApprove,
       }
 
-      if (useQuotaOverride) {
-        input.quotaOverride = {
-          moviesLimit: moviesLimit ? parseInt(moviesLimit, 10) : null,
-          seasonsLimit: seasonsLimit ? parseInt(seasonsLimit, 10) : null,
-          episodesLimit: episodesLimit ? parseInt(episodesLimit, 10) : null,
-        }
-      } else {
-        input.quotaOverride = {
-          moviesLimit: null,
-          seasonsLimit: null,
-          episodesLimit: null,
-        }
-      }
+      input.quotaOverride = useQuotaOverride
+        ? {
+            moviesLimit: moviesLimit ? Number.parseInt(moviesLimit, 10) : null,
+            seasonsLimit: seasonsLimit ? Number.parseInt(seasonsLimit, 10) : null,
+            episodesLimit: episodesLimit ? Number.parseInt(episodesLimit, 10) : null,
+          }
+        : {
+            moviesLimit: null,
+            seasonsLimit: null,
+            episodesLimit: null,
+          }
 
       await updateMutation.mutateAsync({ id: user.id, data: input })
       toast.success('User updated')
@@ -579,13 +629,14 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
             <Label>Quality Profile</Label>
             <Select
               value={qualityProfileId?.toString() || ''}
-              onValueChange={(value) => setQualityProfileId(value ? parseInt(value, 10) : null)}
+              onValueChange={(value) =>
+                setQualityProfileId(value ? Number.parseInt(value, 10) : null)
+              }
             >
               <SelectTrigger>
                 {qualityProfileId
                   ? qualityProfiles.find((p) => p.id === qualityProfileId)?.name || 'Select profile'
-                  : 'Default (use global)'
-                }
+                  : 'Default (use global)'}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Default (use global)</SelectItem>
@@ -602,7 +653,7 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
             <Checkbox
               id="autoApprove"
               checked={autoApprove}
-              onCheckedChange={(checked) => setAutoApprove(checked === true)}
+              onCheckedChange={(checked) => setAutoApprove(checked)}
             />
             <Label htmlFor="autoApprove">Auto-approve requests</Label>
           </div>
@@ -612,12 +663,12 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
               <Checkbox
                 id="quotaOverride"
                 checked={useQuotaOverride}
-                onCheckedChange={(checked) => setUseQuotaOverride(checked === true)}
+                onCheckedChange={(checked) => setUseQuotaOverride(checked)}
               />
               <Label htmlFor="quotaOverride">Override quota limits</Label>
             </div>
 
-            {useQuotaOverride && (
+            {useQuotaOverride ? (
               <div className="ml-6 space-y-2 pt-2">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
@@ -648,11 +699,11 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
                     />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   Leave empty to use the global default. Set to 0 for no limit.
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
         <DialogFooter>
@@ -660,7 +711,7 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={updateMutation.isPending}>
-            {updateMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+            {updateMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Save Changes
           </Button>
         </DialogFooter>

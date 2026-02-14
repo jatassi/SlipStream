@@ -1,6 +1,16 @@
-import { EyeOff, ArrowUpCircle, ArrowDownCircle, AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  AlertCircle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  CheckCircle,
+  Clock,
+  EyeOff,
+  XCircle,
+} from 'lucide-react'
+
+import { MediaSearchMonitorControls } from '@/components/search'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -10,16 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { MediaSearchMonitorControls } from '@/components/search'
-import type { MediaStatus, SlotStatus } from '@/types'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import type { MediaStatus, SlotStatus } from '@/types'
 
-interface SlotStatusCardProps {
+type SlotStatusCardProps = {
   status: MediaStatus | undefined
   isLoading: boolean
   movieId: number
@@ -59,7 +64,7 @@ export function SlotStatusCard({
     )
   }
 
-  if (!status || !status.slotStatuses || status.slotStatuses.length === 0) {
+  if (!status?.slotStatuses || status.slotStatuses.length === 0) {
     return null
   }
 
@@ -105,20 +110,20 @@ export function SlotStatusCard({
   )
 }
 
-interface SlotSummaryBadgesProps {
+type SlotSummaryBadgesProps = {
   status: MediaStatus
 }
 
 function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
-  const hasMissing = status.slotStatuses.some(s => s.status === 'missing')
-  const hasUpgradable = status.slotStatuses.some(s => s.status === 'upgradable')
-  const hasFailed = status.slotStatuses.some(s => s.status === 'failed')
-  const hasDownloading = status.slotStatuses.some(s => s.status === 'downloading')
-  const allGood = status.slotStatuses.every(s => s.status === 'available' || !s.monitored)
+  const hasMissing = status.slotStatuses.some((s) => s.status === 'missing')
+  const hasUpgradable = status.slotStatuses.some((s) => s.status === 'upgradable')
+  const hasFailed = status.slotStatuses.some((s) => s.status === 'failed')
+  const hasDownloading = status.slotStatuses.some((s) => s.status === 'downloading')
+  const allGood = status.slotStatuses.every((s) => s.status === 'available' || !s.monitored)
 
   return (
     <div className="flex items-center gap-1.5">
-      {hasFailed && (
+      {hasFailed ? (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="destructive" className="gap-1">
@@ -128,8 +133,8 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
           </TooltipTrigger>
           <TooltipContent>One or more slots have failed downloads</TooltipContent>
         </Tooltip>
-      )}
-      {hasMissing && (
+      ) : null}
+      {hasMissing ? (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="destructive" className="gap-1">
@@ -139,19 +144,19 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
           </TooltipTrigger>
           <TooltipContent>One or more monitored slots are empty</TooltipContent>
         </Tooltip>
-      )}
-      {hasDownloading && (
+      ) : null}
+      {hasDownloading ? (
         <Tooltip>
           <TooltipTrigger>
-            <Badge className="gap-1 bg-blue-600 hover:bg-blue-600 text-white">
+            <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
               <ArrowDownCircle className="size-3" />
               Downloading
             </Badge>
           </TooltipTrigger>
           <TooltipContent>One or more slots are downloading</TooltipContent>
         </Tooltip>
-      )}
-      {hasUpgradable && !hasMissing && (
+      ) : null}
+      {hasUpgradable && !hasMissing ? (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="secondary" className="gap-1">
@@ -159,12 +164,10 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
               Upgrade Available
             </Badge>
           </TooltipTrigger>
-          <TooltipContent>
-            One or more files are below the quality cutoff
-          </TooltipContent>
+          <TooltipContent>One or more files are below the quality cutoff</TooltipContent>
         </Tooltip>
-      )}
-      {allGood && status.filledSlots > 0 && (
+      ) : null}
+      {allGood && status.filledSlots > 0 ? (
         <Tooltip>
           <TooltipTrigger>
             <Badge variant="outline" className="gap-1 border-green-500 text-green-500">
@@ -174,12 +177,12 @@ function SlotSummaryBadges({ status }: SlotSummaryBadgesProps) {
           </TooltipTrigger>
           <TooltipContent>All monitored slots are filled at target quality</TooltipContent>
         </Tooltip>
-      )}
+      ) : null}
     </div>
   )
 }
 
-interface SlotStatusRowProps {
+type SlotStatusRowProps = {
   slot: SlotStatus
   movieId: number
   movieTitle: string
@@ -246,7 +249,7 @@ function SlotStatusRow({
 function SlotStatusBadge({ slot }: { slot: SlotStatus }) {
   if (!slot.monitored && slot.status !== 'available' && slot.status !== 'upgradable') {
     return (
-      <Badge variant="outline" className="gap-1 text-muted-foreground">
+      <Badge variant="outline" className="text-muted-foreground gap-1">
         <EyeOff className="size-3" />
         Not Monitored
       </Badge>
@@ -254,53 +257,63 @@ function SlotStatusBadge({ slot }: { slot: SlotStatus }) {
   }
 
   switch (slot.status) {
-    case 'failed':
+    case 'failed': {
       return (
-        <Badge variant="destructive" className="gap-1 bg-red-900/50 border border-red-500 text-red-400">
+        <Badge
+          variant="destructive"
+          className="gap-1 border border-red-500 bg-red-900/50 text-red-400"
+        >
           <XCircle className="size-3" />
           Failed
         </Badge>
       )
-    case 'downloading':
+    }
+    case 'downloading': {
       return (
-        <Badge className="gap-1 bg-blue-600 hover:bg-blue-600 text-white">
+        <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
           <ArrowDownCircle className="size-3" />
           Downloading
         </Badge>
       )
-    case 'missing':
+    }
+    case 'missing': {
       return (
         <Badge variant="destructive" className="gap-1">
           <AlertCircle className="size-3" />
           Missing
         </Badge>
       )
-    case 'upgradable':
+    }
+    case 'upgradable': {
       return (
         <Badge variant="secondary" className="gap-1">
           <ArrowUpCircle className="size-3" />
           Upgrade
         </Badge>
       )
-    case 'available':
+    }
+    case 'available': {
       return (
         <Badge variant="outline" className={cn('gap-1', 'border-green-500 text-green-500')}>
           <CheckCircle className="size-3" />
           OK
         </Badge>
       )
-    case 'unreleased':
+    }
+    case 'unreleased': {
       return (
         <Badge variant="outline" className="gap-1 border-amber-500 text-amber-500">
           <Clock className="size-3" />
           Unreleased
         </Badge>
       )
-    default:
+    }
+    default: {
       return (
         <Badge variant="outline" className="text-muted-foreground">
           Empty
         </Badge>
       )
+    }
   }
 }

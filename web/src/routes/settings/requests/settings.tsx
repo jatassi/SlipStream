@@ -1,39 +1,37 @@
 import { useState } from 'react'
-import { Save, Loader2, Plus, Edit, Trash2, Bell, TestTube } from 'lucide-react'
+
+import { useQueryClient } from '@tanstack/react-query'
+import { Bell, Edit, Loader2, Plus, Save, TestTube, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
+import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { RequestsNav } from './RequestsNav'
+import { NotificationDialog } from '@/components/notifications/NotificationDialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { EmptyState } from '@/components/data/EmptyState'
-import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { NotificationDialog } from '@/components/notifications/NotificationDialog'
-import {
-  useRequestSettings,
-  useUpdateRequestSettings,
-  useRootFolders,
-  useNotifications,
+  systemKeys,
   useDeleteNotification,
+  useGlobalLoading,
+  useNotifications,
+  useNotificationSchemas,
+  useRequestSettings,
+  useRootFolders,
   useTestNotification,
   useUpdateNotification,
-  useNotificationSchemas,
-  systemKeys,
-  useGlobalLoading,
+  useUpdateRequestSettings,
 } from '@/hooks'
-import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import type { RequestSettings, Notification } from '@/types'
+import type { Notification, RequestSettings } from '@/types'
+
+import { RequestsNav } from './RequestsNav'
 
 export function RequestSettingsPage() {
   const queryClient = useQueryClient()
@@ -169,9 +167,9 @@ export function RequestSettingsPage() {
         actions={
           <Button onClick={handleSave} disabled={!hasChanges || updateMutation.isPending}>
             {updateMutation.isPending ? (
-              <Loader2 className="size-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Save className="size-4 mr-2" />
+              <Save className="mr-2 size-4" />
             )}
             Save Changes
           </Button>
@@ -192,8 +190,9 @@ export function RequestSettingsPage() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Enable External Requests Portal</Label>
-                <p className="text-sm text-muted-foreground">
-                  When disabled, portal users cannot access the request system. Existing users and data are preserved.
+                <p className="text-muted-foreground text-sm">
+                  When disabled, portal users cannot access the request system. Existing users and
+                  data are preserved.
                 </p>
               </div>
               <Switch
@@ -204,225 +203,239 @@ export function RequestSettingsPage() {
           </CardContent>
         </Card>
 
-        {portalEnabled && (
+        {portalEnabled ? (
           <>
             <Card>
               <CardHeader>
                 <CardTitle>Default Quotas</CardTitle>
-            <CardDescription>
-              Set the default weekly quota limits for new users. Users can have individual overrides.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="movieQuota">Movies per Week</Label>
-                <Input
-                  id="movieQuota"
-                  type="number"
-                  min="0"
-                  value={formData.defaultMovieQuota ?? ''}
-                  onChange={(e) => handleChange('defaultMovieQuota', parseInt(e.target.value, 10) || 0)}
-                  placeholder="e.g., 5"
-                />
-                <p className="text-xs text-muted-foreground">Set to 0 for unlimited</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="seasonQuota">Seasons per Week</Label>
-                <Input
-                  id="seasonQuota"
-                  type="number"
-                  min="0"
-                  value={formData.defaultSeasonQuota ?? ''}
-                  onChange={(e) => handleChange('defaultSeasonQuota', parseInt(e.target.value, 10) || 0)}
-                  placeholder="e.g., 3"
-                />
-                <p className="text-xs text-muted-foreground">Set to 0 for unlimited</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="episodeQuota">Episodes per Week</Label>
-                <Input
-                  id="episodeQuota"
-                  type="number"
-                  min="0"
-                  value={formData.defaultEpisodeQuota ?? ''}
-                  onChange={(e) => handleChange('defaultEpisodeQuota', parseInt(e.target.value, 10) || 0)}
-                  placeholder="e.g., 10"
-                />
-                <p className="text-xs text-muted-foreground">Set to 0 for unlimited</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <CardDescription>
+                  Set the default weekly quota limits for new users. Users can have individual
+                  overrides.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="movieQuota">Movies per Week</Label>
+                    <Input
+                      id="movieQuota"
+                      type="number"
+                      min="0"
+                      value={formData.defaultMovieQuota ?? ''}
+                      onChange={(e) =>
+                        handleChange('defaultMovieQuota', Number.parseInt(e.target.value, 10) || 0)
+                      }
+                      placeholder="e.g., 5"
+                    />
+                    <p className="text-muted-foreground text-xs">Set to 0 for unlimited</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="seasonQuota">Seasons per Week</Label>
+                    <Input
+                      id="seasonQuota"
+                      type="number"
+                      min="0"
+                      value={formData.defaultSeasonQuota ?? ''}
+                      onChange={(e) =>
+                        handleChange('defaultSeasonQuota', Number.parseInt(e.target.value, 10) || 0)
+                      }
+                      placeholder="e.g., 3"
+                    />
+                    <p className="text-muted-foreground text-xs">Set to 0 for unlimited</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="episodeQuota">Episodes per Week</Label>
+                    <Input
+                      id="episodeQuota"
+                      type="number"
+                      min="0"
+                      value={formData.defaultEpisodeQuota ?? ''}
+                      onChange={(e) =>
+                        handleChange(
+                          'defaultEpisodeQuota',
+                          Number.parseInt(e.target.value, 10) || 0,
+                        )
+                      }
+                      placeholder="e.g., 10"
+                    />
+                    <p className="text-muted-foreground text-xs">Set to 0 for unlimited</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Content Settings</CardTitle>
-            <CardDescription>
-              Configure default settings for requested content.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Default Root Folder</Label>
-              <Select
-                value={formData.defaultRootFolderId?.toString() || ''}
-                onValueChange={(value) => handleChange('defaultRootFolderId', value ? parseInt(value, 10) : null)}
-              >
-                <SelectTrigger className="w-full max-w-md">
-                  {formData.defaultRootFolderId
-                    ? rootFolders?.find((f) => f.id === formData.defaultRootFolderId)?.path || 'Selected folder'
-                    : 'Select default root folder'}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No default (use first available)</SelectItem>
-                  {rootFolders?.map((folder) => (
-                    <SelectItem key={folder.id} value={folder.id.toString()}>
-                      {folder.path}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                The root folder where requested content will be downloaded by default.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>
-                Configure admin notifications for the request portal.
-              </CardDescription>
-            </div>
-            <Button onClick={handleOpenAddNotification}>
-              <Plus className="size-4 mr-2" />
-              Add Channel
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Notify on New Requests</Label>
-                <p className="text-sm text-muted-foreground">
-                  Send a notification to admins when a new request is submitted.
-                </p>
-              </div>
-              <Switch
-                checked={formData.adminNotifyNew ?? false}
-                onCheckedChange={(checked) => handleChange('adminNotifyNew', checked)}
-              />
-            </div>
-
-            {/* Notification Channels */}
-            <div className="border-t pt-4 mt-4">
-              <Label className="text-sm font-medium">Notification Channels</Label>
-              <p className="text-sm text-muted-foreground mb-3">
-                Channels configured here will receive request notifications.
-              </p>
-              {!notifications?.length ? (
-                <EmptyState
-                  icon={<Bell className="size-6" />}
-                  title="No channels configured"
-                  description="Add a notification channel to receive request alerts"
-                  action={{ label: 'Add Channel', onClick: handleOpenAddNotification }}
-                  className="py-6"
-                />
-              ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Content Settings</CardTitle>
+                <CardDescription>Configure default settings for requested content.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/40"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-8 items-center justify-center rounded bg-background">
-                          <Bell className="size-4" />
-                        </div>
-                        <div>
+                  <Label>Default Root Folder</Label>
+                  <Select
+                    value={formData.defaultRootFolderId?.toString() || ''}
+                    onValueChange={(value) =>
+                      handleChange('defaultRootFolderId', value ? Number.parseInt(value, 10) : null)
+                    }
+                  >
+                    <SelectTrigger className="w-full max-w-md">
+                      {formData.defaultRootFolderId
+                        ? rootFolders?.find((f) => f.id === formData.defaultRootFolderId)?.path ||
+                          'Selected folder'
+                        : 'Select default root folder'}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No default (use first available)</SelectItem>
+                      {rootFolders?.map((folder) => (
+                        <SelectItem key={folder.id} value={folder.id.toString()}>
+                          {folder.path}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    The root folder where requested content will be downloaded by default.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Notifications</CardTitle>
+                  <CardDescription>
+                    Configure admin notifications for the request portal.
+                  </CardDescription>
+                </div>
+                <Button onClick={handleOpenAddNotification}>
+                  <Plus className="mr-2 size-4" />
+                  Add Channel
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Notify on New Requests</Label>
+                    <p className="text-muted-foreground text-sm">
+                      Send a notification to admins when a new request is submitted.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.adminNotifyNew ?? false}
+                    onCheckedChange={(checked) => handleChange('adminNotifyNew', checked)}
+                  />
+                </div>
+
+                {/* Notification Channels */}
+                <div className="mt-4 border-t pt-4">
+                  <Label className="text-sm font-medium">Notification Channels</Label>
+                  <p className="text-muted-foreground mb-3 text-sm">
+                    Channels configured here will receive request notifications.
+                  </p>
+                  {notifications?.length ? (
+                    <div className="space-y-2">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="bg-muted/40 flex items-center justify-between rounded-lg border p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="bg-background flex size-8 items-center justify-center rounded">
+                              <Bell className="size-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{notification.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {getTypeName(notification.type)}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{notification.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {getTypeName(notification.type)}
-                            </Badge>
+                            <Switch
+                              checked={notification.enabled}
+                              onCheckedChange={(checked) =>
+                                handleToggleNotificationEnabled(notification.id, checked)
+                              }
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleTestNotification(notification.id)}
+                              disabled={testNotificationMutation.isPending}
+                            >
+                              <TestTube className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEditNotification(notification)}
+                            >
+                              <Edit className="size-4" />
+                            </Button>
+                            <ConfirmDialog
+                              trigger={
+                                <Button variant="ghost" size="icon">
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              }
+                              title="Delete notification"
+                              description={`Are you sure you want to delete "${notification.name}"?`}
+                              confirmLabel="Delete"
+                              variant="destructive"
+                              onConfirm={() => handleDeleteNotification(notification.id)}
+                            />
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={notification.enabled}
-                          onCheckedChange={(checked) =>
-                            handleToggleNotificationEnabled(notification.id, checked)
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleTestNotification(notification.id)}
-                          disabled={testNotificationMutation.isPending}
-                        >
-                          <TestTube className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenEditNotification(notification)}
-                        >
-                          <Edit className="size-4" />
-                        </Button>
-                        <ConfirmDialog
-                          trigger={
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="size-4" />
-                            </Button>
-                          }
-                          title="Delete notification"
-                          description={`Are you sure you want to delete "${notification.name}"?`}
-                          confirmLabel="Delete"
-                          variant="destructive"
-                          onConfirm={() => handleDeleteNotification(notification.id)}
-                        />
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <EmptyState
+                      icon={<Bell className="size-6" />}
+                      title="No channels configured"
+                      description="Add a notification channel to receive request alerts"
+                      action={{ label: 'Add Channel', onClick: handleOpenAddNotification }}
+                      className="py-6"
+                    />
+                  )}
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Rate Limiting</CardTitle>
-            <CardDescription>
-              Control search rate limits to prevent abuse.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="rateLimit">Search Rate Limit</Label>
-              <div className="flex items-center gap-2 max-w-md">
-                <Input
-                  id="rateLimit"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.searchRateLimit ?? ''}
-                  onChange={(e) => handleChange('searchRateLimit', parseInt(e.target.value, 10) || 10)}
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">requests per minute</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Maximum number of search requests a user can make per minute. Applies globally to all portal users.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Rate Limiting</CardTitle>
+                <CardDescription>Control search rate limits to prevent abuse.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rateLimit">Search Rate Limit</Label>
+                  <div className="flex max-w-md items-center gap-2">
+                    <Input
+                      id="rateLimit"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={formData.searchRateLimit ?? ''}
+                      onChange={(e) =>
+                        handleChange('searchRateLimit', Number.parseInt(e.target.value, 10) || 10)
+                      }
+                    />
+                    <span className="text-muted-foreground text-sm whitespace-nowrap">
+                      requests per minute
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Maximum number of search requests a user can make per minute. Applies globally
+                    to all portal users.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </>
-        )}
+        ) : null}
       </div>
 
       <NotificationDialog

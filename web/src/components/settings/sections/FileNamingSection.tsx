@@ -1,40 +1,52 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Save, Plus, X, Code2, Pencil, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Slider } from '@/components/ui/slider'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
+  AlertTriangle,
+  CheckCircle2,
+  Code2,
+  ExternalLink,
+  Pencil,
+  Plus,
+  Save,
+  X,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
-import { useImportSettings, useUpdateImportSettings, usePreviewNamingPattern, useParseFilename, useMediainfoAvailable } from '@/hooks'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  useImportSettings,
+  useMediainfoAvailable,
+  useParseFilename,
+  usePreviewNamingPattern,
+  useUpdateImportSettings,
+} from '@/hooks'
 import { useDebounce } from '@/hooks/useDebounce'
-import { toast } from 'sonner'
-import type { ImportSettings, TokenBreakdown, ParsedTokenDetail } from '@/types'
+import type { ImportSettings, ParsedTokenDetail, TokenBreakdown } from '@/types'
 
 const VALIDATION_LEVELS = [
   { value: 'basic', label: 'Basic', description: 'File exists and size > 0' },
@@ -43,14 +55,26 @@ const VALIDATION_LEVELS = [
 ]
 
 const MATCH_CONFLICT_OPTIONS = [
-  { value: 'trust_queue', label: 'Trust Queue', description: 'Trust the queue record over filename parsing' },
-  { value: 'trust_parse', label: 'Trust Parse', description: 'Trust filename parsing over queue record' },
+  {
+    value: 'trust_queue',
+    label: 'Trust Queue',
+    description: 'Trust the queue record over filename parsing',
+  },
+  {
+    value: 'trust_parse',
+    label: 'Trust Parse',
+    description: 'Trust filename parsing over queue record',
+  },
   { value: 'fail', label: 'Fail with Warning', description: 'Fail import when conflict detected' },
 ]
 
 const UNKNOWN_MEDIA_OPTIONS = [
-  { value: 'ignore', label: 'Ignore', description: 'Skip files that don\'t match library items' },
-  { value: 'auto_add', label: 'Auto Add', description: 'Automatically add to library and fetch metadata' },
+  { value: 'ignore', label: 'Ignore', description: "Skip files that don't match library items" },
+  {
+    value: 'auto_add',
+    label: 'Auto Add',
+    description: 'Automatically add to library and fetch metadata',
+  },
 ]
 
 const COLON_REPLACEMENT_OPTIONS = [
@@ -73,10 +97,22 @@ const MULTI_EPISODE_STYLES = [
 
 const TOKEN_REFERENCE = {
   series: [
-    { token: '{Series Title}', description: 'Full series title', example: 'The Series Title\'s!' },
-    { token: '{Series TitleYear}', description: 'Title with year', example: 'The Series Title (2024)' },
-    { token: '{Series CleanTitle}', description: 'Title without special chars', example: 'The Series Titles' },
-    { token: '{Series CleanTitleYear}', description: 'Clean title with year', example: 'The Series Titles 2024' },
+    { token: '{Series Title}', description: 'Full series title', example: "The Series Title's!" },
+    {
+      token: '{Series TitleYear}',
+      description: 'Title with year',
+      example: 'The Series Title (2024)',
+    },
+    {
+      token: '{Series CleanTitle}',
+      description: 'Title without special chars',
+      example: 'The Series Titles',
+    },
+    {
+      token: '{Series CleanTitleYear}',
+      description: 'Clean title with year',
+      example: 'The Series Titles 2024',
+    },
   ],
   season: [
     { token: '{season:0}', description: 'Season number (no padding)', example: '1' },
@@ -86,23 +122,43 @@ const TOKEN_REFERENCE = {
     { token: '{episode:0}', description: 'Episode number (no padding)', example: '1' },
     { token: '{episode:00}', description: 'Episode number (2-digit pad)', example: '01' },
     { token: '{Episode Title}', description: 'Episode title', example: 'Episode Title' },
-    { token: '{Episode CleanTitle}', description: 'Clean episode title', example: 'Episodes Title' },
+    {
+      token: '{Episode CleanTitle}',
+      description: 'Clean episode title',
+      example: 'Episodes Title',
+    },
   ],
   quality: [
-    { token: '{Quality Full}', description: 'Quality with revision', example: 'WEBDL-1080p Proper' },
+    {
+      token: '{Quality Full}',
+      description: 'Quality with revision',
+      example: 'WEBDL-1080p Proper',
+    },
     { token: '{Quality Title}', description: 'Quality only', example: 'WEBDL-1080p' },
   ],
   mediaInfo: [
     { token: '{MediaInfo Simple}', description: 'Basic codec info', example: 'x264 DTS' },
-    { token: '{MediaInfo Full}', description: 'Full codec info with languages', example: 'x264 DTS [EN]' },
+    {
+      token: '{MediaInfo Full}',
+      description: 'Full codec info with languages',
+      example: 'x264 DTS [EN]',
+    },
     { token: '{MediaInfo VideoCodec}', description: 'Video codec', example: 'x264' },
     { token: '{MediaInfo VideoBitDepth}', description: 'Video bit depth', example: '10' },
     { token: '{MediaInfo VideoDynamicRange}', description: 'HDR indicator', example: 'HDR' },
     { token: '{MediaInfo VideoDynamicRangeType}', description: 'HDR type', example: 'DV HDR10' },
     { token: '{MediaInfo AudioCodec}', description: 'Audio codec', example: 'DTS' },
     { token: '{MediaInfo AudioChannels}', description: 'Audio channels', example: '5.1' },
-    { token: '{MediaInfo AudioLanguages}', description: 'Audio language codes', example: '[EN+DE]' },
-    { token: '{MediaInfo SubtitleLanguages}', description: 'Subtitle language codes', example: '[EN+ES]' },
+    {
+      token: '{MediaInfo AudioLanguages}',
+      description: 'Audio language codes',
+      example: '[EN+DE]',
+    },
+    {
+      token: '{MediaInfo SubtitleLanguages}',
+      description: 'Subtitle language codes',
+      example: '[EN+ES]',
+    },
   ],
   other: [
     { token: '{Air-Date}', description: 'Air date with dashes', example: '2024-03-20' },
@@ -110,14 +166,30 @@ const TOKEN_REFERENCE = {
     { token: '{Release Group}', description: 'Release group name', example: 'SPARKS' },
     { token: '{Revision}', description: 'Release revision', example: 'Proper' },
     { token: '{Custom Formats}', description: 'Matched custom formats', example: 'Remux HDR' },
-    { token: '{Original Title}', description: 'Original release title', example: 'The.Series.S01E01' },
-    { token: '{Original Filename}', description: 'Original filename', example: 'The.Series.S01E01.mkv' },
+    {
+      token: '{Original Title}',
+      description: 'Original release title',
+      example: 'The.Series.S01E01',
+    },
+    {
+      token: '{Original Filename}',
+      description: 'Original filename',
+      example: 'The.Series.S01E01.mkv',
+    },
   ],
   movie: [
     { token: '{Movie Title}', description: 'Movie title', example: 'The Movie Title' },
-    { token: '{Movie TitleYear}', description: 'Title with year', example: 'The Movie Title (2024)' },
+    {
+      token: '{Movie TitleYear}',
+      description: 'Title with year',
+      example: 'The Movie Title (2024)',
+    },
     { token: '{Movie CleanTitle}', description: 'Clean movie title', example: 'The Movie Title' },
-    { token: '{Movie CleanTitleYear}', description: 'Clean title with year', example: 'The Movie Title 2024' },
+    {
+      token: '{Movie CleanTitleYear}',
+      description: 'Clean title with year',
+      example: 'The Movie Title 2024',
+    },
     { token: '{Year}', description: 'Release year', example: '2024' },
     { token: '{Edition Tags}', description: 'Edition info', example: 'Directors Cut' },
   ],
@@ -132,8 +204,8 @@ type TokenCategory = keyof typeof TOKEN_REFERENCE
 type TokenContext = 'episode' | 'movie' | 'series-folder' | 'season-folder' | 'movie-folder'
 
 const TOKEN_CATEGORIES_BY_CONTEXT: Record<TokenContext, TokenCategory[]> = {
-  'episode': ['series', 'season', 'episode', 'anime', 'quality', 'mediaInfo', 'other'],
-  'movie': ['movie', 'quality', 'mediaInfo', 'other'],
+  episode: ['series', 'season', 'episode', 'anime', 'quality', 'mediaInfo', 'other'],
+  movie: ['movie', 'quality', 'mediaInfo', 'other'],
   'series-folder': ['series'],
   'season-folder': ['series', 'season'],
   'movie-folder': ['movie'],
@@ -205,19 +277,17 @@ function TokenBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="flex max-h-[80vh] flex-col sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Token Builder</DialogTitle>
-          <DialogDescription>
-            Click a token to insert it into your format pattern
-          </DialogDescription>
+          <DialogDescription>Click a token to insert it into your format pattern</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-2">
+        <div className="flex-1 space-y-4 overflow-y-auto py-2">
           {categories.map((category) => (
             <div key={category} className="space-y-2">
-              <h4 className="text-sm font-medium capitalize text-muted-foreground">
-                {category.replace(/([A-Z])/g, ' $1').trim()}
+              <h4 className="text-muted-foreground text-sm font-medium capitalize">
+                {category.replaceAll(/([A-Z])/g, ' $1').trim()}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {TOKEN_REFERENCE[category].map((t) => (
@@ -225,10 +295,10 @@ function TokenBuilderDialog({
                     key={t.token}
                     type="button"
                     onClick={() => handleInsertToken(t.token)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono bg-muted hover:bg-muted/80 border rounded-md transition-colors cursor-pointer"
+                    className="bg-muted hover:bg-muted/80 inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-xs transition-colors"
                     title={`${t.description}\nExample: ${t.example}`}
                   >
-                    <Code2 className="size-3 text-muted-foreground" />
+                    <Code2 className="text-muted-foreground size-3" />
                     {t.token}
                   </button>
                 ))}
@@ -237,7 +307,7 @@ function TokenBuilderDialog({
           ))}
         </div>
 
-        <div className="space-y-2 pt-2 border-t">
+        <div className="space-y-2 border-t pt-2">
           <Label>Format Pattern</Label>
           <Textarea
             ref={textareaRef}
@@ -246,7 +316,7 @@ function TokenBuilderDialog({
             onSelect={handleTextareaSelect}
             onClick={handleTextareaSelect}
             onKeyUp={handleTextareaSelect}
-            className="font-mono text-sm min-h-[80px]"
+            className="min-h-[80px] font-mono text-sm"
             placeholder="Click tokens above to build your format pattern..."
           />
         </div>
@@ -303,31 +373,27 @@ function PatternEditor({
       <button
         type="button"
         onClick={() => setTokenDialogOpen(true)}
-        className="w-full flex items-start gap-3 p-3 text-left font-mono text-sm bg-muted/50 hover:bg-muted border rounded-md transition-colors cursor-pointer"
+        className="bg-muted/50 hover:bg-muted flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left font-mono text-sm transition-colors"
       >
-        <Pencil className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
+        <Pencil className="text-muted-foreground mt-0.5 size-4 shrink-0" />
         <span className="break-all">{localValue || '(not configured)'}</span>
       </button>
-      {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
-      )}
-      {preview && (
-        <div className="p-3 rounded-md bg-muted/50 space-y-2">
+      {description ? <p className="text-muted-foreground text-xs">{description}</p> : null}
+      {preview ? (
+        <div className="bg-muted/50 space-y-2 rounded-md p-3">
           <div className="flex items-start gap-2">
-            <span className="text-xs font-medium shrink-0">Preview:</span>
+            <span className="shrink-0 text-xs font-medium">Preview:</span>
             {preview.valid ? (
-              <span className="text-sm font-mono text-green-600 dark:text-green-400 break-all">
+              <span className="font-mono text-sm break-all text-green-600 dark:text-green-400">
                 {preview.preview}
               </span>
             ) : (
-              <span className="text-sm text-red-600 dark:text-red-400">
-                {preview.error}
-              </span>
+              <span className="text-sm text-red-600 dark:text-red-400">{preview.error}</span>
             )}
           </div>
-          {preview.tokens && preview.tokens.length > 0 && (
+          {preview.tokens && preview.tokens.length > 0 ? (
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
                 Token breakdown
               </summary>
               <div className="mt-2 space-y-1">
@@ -335,16 +401,14 @@ function PatternEditor({
                   <div key={i} className="flex items-center gap-2 font-mono">
                     <span className="text-muted-foreground">{t.token}</span>
                     <span className="text-muted-foreground">→</span>
-                    <span className={t.empty ? 'text-yellow-600' : ''}>
-                      {t.value || '(empty)'}
-                    </span>
+                    <span className={t.empty ? 'text-yellow-600' : ''}>{t.value || '(empty)'}</span>
                   </div>
                 ))}
               </div>
             </details>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
       <TokenBuilderDialog
         open={tokenDialogOpen}
         onOpenChange={setTokenDialogOpen}
@@ -366,9 +430,13 @@ function ExtensionManager({
   const [newExt, setNewExt] = useState('')
 
   const addExtension = () => {
-    if (!newExt) return
+    if (!newExt) {
+      return
+    }
     let ext = newExt.trim().toLowerCase()
-    if (!ext.startsWith('.')) ext = '.' + ext
+    if (!ext.startsWith('.')) {
+      ext = `.${ext}`
+    }
     if (!extensions.includes(ext)) {
       onChange([...extensions, ext])
     }
@@ -389,7 +457,7 @@ function ExtensionManager({
             <button
               type="button"
               onClick={() => removeExtension(ext)}
-              className="ml-1 hover:text-destructive"
+              className="hover:text-destructive ml-1"
             >
               <X className="size-3" />
             </button>
@@ -405,7 +473,7 @@ function ExtensionManager({
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addExtension())}
         />
         <Button type="button" size="sm" variant="outline" onClick={addExtension}>
-          <Plus className="size-4 mr-1" />
+          <Plus className="mr-1 size-4" />
           Add
         </Button>
       </div>
@@ -434,17 +502,16 @@ function FilenameTester({
   const result = parseMutation.data
   const showResult = filename.trim() && result
 
-  const defaultPlaceholder = mediaType === 'tv'
-    ? 'Breaking.Bad.S01E02.720p.BluRay.x264-DEMAND.mkv'
-    : 'The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv'
+  const defaultPlaceholder =
+    mediaType === 'tv'
+      ? 'Breaking.Bad.S01E02.720p.BluRay.x264-DEMAND.mkv'
+      : 'The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv'
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Test Filename Parsing</CardTitle>
-        <CardDescription>
-          Paste a filename to see how it will be parsed
-        </CardDescription>
+        <CardDescription>Paste a filename to see how it will be parsed</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Input
@@ -453,49 +520,42 @@ function FilenameTester({
           placeholder={placeholder || defaultPlaceholder}
           className="font-mono text-sm"
         />
-        {showResult && (
-          <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+        {showResult ? (
+          <div className="bg-muted/30 space-y-3 rounded-md border p-4">
             {result.parsedInfo ? (
               <>
                 <div className="flex items-center gap-2">
                   <Badge variant={result.parsedInfo.isTV ? 'default' : 'secondary'}>
                     {result.parsedInfo.isTV ? 'TV Show' : 'Movie'}
                   </Badge>
-                  {result.parsedInfo.isSeasonPack && (
+                  {result.parsedInfo.isSeasonPack ? (
                     <Badge variant="outline">Season Pack</Badge>
-                  )}
+                  ) : null}
                 </div>
                 <div className="grid gap-2">
                   {result.tokens.map((token: ParsedTokenDetail, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 text-sm"
-                    >
-                      <span className="text-muted-foreground min-w-[80px]">
-                        {token.name}
-                      </span>
-                      <span className="font-mono bg-background px-2 py-0.5 rounded border">
+                    <div key={i} className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground min-w-[80px]">{token.name}</span>
+                      <span className="bg-background rounded border px-2 py-0.5 font-mono">
                         {token.value}
                       </span>
                     </div>
                   ))}
                 </div>
                 {result.tokens.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     No metadata could be extracted from this filename
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Could not parse this filename
-              </p>
+              <p className="text-muted-foreground text-sm">Could not parse this filename</p>
             )}
           </div>
-        )}
-        {parseMutation.isPending && (
-          <p className="text-sm text-muted-foreground">Parsing...</p>
-        )}
+        ) : null}
+        {parseMutation.isPending ? (
+          <p className="text-muted-foreground text-sm">Parsing...</p>
+        ) : null}
       </CardContent>
     </Card>
   )
@@ -506,24 +566,26 @@ function MediaInfoStatus() {
 
   if (isAvailable) {
     return (
-      <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-500/10 border-green-500/20">
-        <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+      <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 p-3">
+        <CheckCircle2 className="size-4 shrink-0 text-green-500" />
         <span className="text-sm">MediaInfo is installed and available for file probing</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-amber-500/10 border-amber-500/20">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
       <div className="flex items-center gap-2">
-        <AlertTriangle className="size-4 text-amber-500 shrink-0" />
-        <span className="text-sm">MediaInfo not found - file probing will use filename parsing only</span>
+        <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+        <span className="text-sm">
+          MediaInfo not found - file probing will use filename parsing only
+        </span>
       </div>
       <a
         href="https://mediaarea.net/en/MediaInfo/Download"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shrink-0"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
       >
         Download
         <ExternalLink className="size-3" />
@@ -548,12 +610,12 @@ export function FileNamingSection() {
     }
   }
 
-  const updateField = useCallback(<K extends keyof ImportSettings>(
-    field: K,
-    value: ImportSettings[K]
-  ) => {
-    setForm((prev) => prev ? { ...prev, [field]: value } : null)
-  }, [])
+  const updateField = useCallback(
+    <K extends keyof ImportSettings>(field: K, value: ImportSettings[K]) => {
+      setForm((prev) => (prev ? { ...prev, [field]: value } : null))
+    },
+    [],
+  )
 
   const hasChanges = form && settings && JSON.stringify(form) !== JSON.stringify(settings)
 
@@ -562,7 +624,9 @@ export function FileNamingSection() {
   const lastSavedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!debouncedForm || !settings) return
+    if (!debouncedForm || !settings) {
+      return
+    }
     const formJson = JSON.stringify(debouncedForm)
     const settingsJson = JSON.stringify(settings)
     // Only save if form has changed from settings AND we haven't already saved this exact form
@@ -572,7 +636,7 @@ export function FileNamingSection() {
         onError: () => {
           toast.error('Failed to auto-save settings')
           lastSavedRef.current = null
-        }
+        },
       })
     }
   }, [debouncedForm, settings, updateMutation])
@@ -597,39 +661,37 @@ export function FileNamingSection() {
             <TabsTrigger value="tokens">Token Reference</TabsTrigger>
           </TabsList>
           {updateMutation.isPending ? (
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
+            <span className="text-muted-foreground flex items-center gap-2 text-sm">
               <Save className="size-4 animate-pulse" />
               Saving...
             </span>
           ) : hasChanges ? (
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
+            <span className="text-muted-foreground flex items-center gap-2 text-sm">
               <Save className="size-4" />
               Unsaved changes
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
+            <span className="text-muted-foreground flex items-center gap-2 text-sm">
               <Save className="size-4" />
               All changes saved
             </span>
           )}
         </div>
 
-        <TabsContent value="validation" className="space-y-6 max-w-2xl mt-6">
+        <TabsContent value="validation" className="mt-6 max-w-2xl space-y-6">
           <MediaInfoStatus />
 
           <Card>
             <CardHeader>
               <CardTitle>File Validation</CardTitle>
-              <CardDescription>
-                Configure how files are validated before import
-              </CardDescription>
+              <CardDescription>Configure how files are validated before import</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <Label>Validation Level</Label>
                 <Select
                   value={form.validationLevel}
-                  onValueChange={(v) => updateField('validationLevel', v as ImportSettings['validationLevel'])}
+                  onValueChange={(v) => updateField('validationLevel', v!)}
                 >
                   <SelectTrigger>
                     {VALIDATION_LEVELS.find((l) => l.value === form.validationLevel)?.label}
@@ -642,7 +704,7 @@ export function FileNamingSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {VALIDATION_LEVELS.find((l) => l.value === form.validationLevel)?.description}
                 </p>
               </div>
@@ -650,18 +712,18 @@ export function FileNamingSection() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <Label>Minimum File Size</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {form.minimumFileSizeMB} MB
-                  </span>
+                  <span className="text-muted-foreground text-sm">{form.minimumFileSizeMB} MB</span>
                 </div>
                 <Slider
                   value={[form.minimumFileSizeMB]}
-                  onValueChange={(v) => updateField('minimumFileSizeMB', Array.isArray(v) ? v[0] : v)}
+                  onValueChange={(v) =>
+                    updateField('minimumFileSizeMB', Array.isArray(v) ? v[0] : v)
+                  }
                   min={0}
                   max={500}
                   step={10}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   Files smaller than this will be rejected (helps filter sample files)
                 </p>
               </div>
@@ -674,23 +736,24 @@ export function FileNamingSection() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="matching" className="space-y-6 max-w-2xl mt-6">
+        <TabsContent value="matching" className="mt-6 max-w-2xl space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Match Behavior</CardTitle>
-              <CardDescription>
-                Configure how files are matched to library items
-              </CardDescription>
+              <CardDescription>Configure how files are matched to library items</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <Label>Match Conflict Behavior</Label>
                 <Select
                   value={form.matchConflictBehavior}
-                  onValueChange={(v) => updateField('matchConflictBehavior', v as ImportSettings['matchConflictBehavior'])}
+                  onValueChange={(v) => updateField('matchConflictBehavior', v!)}
                 >
                   <SelectTrigger>
-                    {MATCH_CONFLICT_OPTIONS.find((o) => o.value === form.matchConflictBehavior)?.label}
+                    {
+                      MATCH_CONFLICT_OPTIONS.find((o) => o.value === form.matchConflictBehavior)
+                        ?.label
+                    }
                   </SelectTrigger>
                   <SelectContent>
                     {MATCH_CONFLICT_OPTIONS.map((opt) => (
@@ -700,8 +763,11 @@ export function FileNamingSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {MATCH_CONFLICT_OPTIONS.find((o) => o.value === form.matchConflictBehavior)?.description}
+                <p className="text-muted-foreground text-xs">
+                  {
+                    MATCH_CONFLICT_OPTIONS.find((o) => o.value === form.matchConflictBehavior)
+                      ?.description
+                  }
                 </p>
               </div>
 
@@ -709,10 +775,13 @@ export function FileNamingSection() {
                 <Label>Unknown Media Handling</Label>
                 <Select
                   value={form.unknownMediaBehavior}
-                  onValueChange={(v) => updateField('unknownMediaBehavior', v as ImportSettings['unknownMediaBehavior'])}
+                  onValueChange={(v) => updateField('unknownMediaBehavior', v!)}
                 >
                   <SelectTrigger>
-                    {UNKNOWN_MEDIA_OPTIONS.find((o) => o.value === form.unknownMediaBehavior)?.label}
+                    {
+                      UNKNOWN_MEDIA_OPTIONS.find((o) => o.value === form.unknownMediaBehavior)
+                        ?.label
+                    }
                   </SelectTrigger>
                   <SelectContent>
                     {UNKNOWN_MEDIA_OPTIONS.map((opt) => (
@@ -722,29 +791,30 @@ export function FileNamingSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {UNKNOWN_MEDIA_OPTIONS.find((o) => o.value === form.unknownMediaBehavior)?.description}
+                <p className="text-muted-foreground text-xs">
+                  {
+                    UNKNOWN_MEDIA_OPTIONS.find((o) => o.value === form.unknownMediaBehavior)
+                      ?.description
+                  }
                 </p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="tv-naming" className="space-y-6 max-w-3xl mt-6">
+        <TabsContent value="tv-naming" className="mt-6 max-w-3xl space-y-6">
           <FilenameTester mediaType="tv" />
 
           <Card>
             <CardHeader>
               <CardTitle>Episode Renaming</CardTitle>
-              <CardDescription>
-                Configure how TV episodes are renamed during import
-              </CardDescription>
+              <CardDescription>Configure how TV episodes are renamed during import</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Rename Episodes</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Rename files according to format patterns
                   </p>
                 </div>
@@ -757,7 +827,7 @@ export function FileNamingSection() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Replace Illegal Characters</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Replace filesystem-illegal characters with safe alternatives
                   </p>
                 </div>
@@ -771,10 +841,13 @@ export function FileNamingSection() {
                 <Label>Colon Replacement</Label>
                 <Select
                   value={form.colonReplacement}
-                  onValueChange={(v) => updateField('colonReplacement', v as ImportSettings['colonReplacement'])}
+                  onValueChange={(v) => updateField('colonReplacement', v!)}
                 >
                   <SelectTrigger>
-                    {COLON_REPLACEMENT_OPTIONS.find((o) => o.value === form.colonReplacement)?.label}
+                    {
+                      COLON_REPLACEMENT_OPTIONS.find((o) => o.value === form.colonReplacement)
+                        ?.label
+                    }
                   </SelectTrigger>
                   <SelectContent>
                     {COLON_REPLACEMENT_OPTIONS.map((opt) => (
@@ -784,8 +857,12 @@ export function FileNamingSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Example: {COLON_REPLACEMENT_OPTIONS.find((o) => o.value === form.colonReplacement)?.example}
+                <p className="text-muted-foreground text-xs">
+                  Example:{' '}
+                  {
+                    COLON_REPLACEMENT_OPTIONS.find((o) => o.value === form.colonReplacement)
+                      ?.example
+                  }
                 </p>
                 {form.colonReplacement === 'custom' && (
                   <Input
@@ -800,7 +877,7 @@ export function FileNamingSection() {
                 <Label>Multi-Episode Style</Label>
                 <Select
                   value={form.multiEpisodeStyle}
-                  onValueChange={(v) => updateField('multiEpisodeStyle', v as ImportSettings['multiEpisodeStyle'])}
+                  onValueChange={(v) => updateField('multiEpisodeStyle', v!)}
                 >
                   <SelectTrigger>
                     {MULTI_EPISODE_STYLES.find((s) => s.value === form.multiEpisodeStyle)?.label}
@@ -813,8 +890,9 @@ export function FileNamingSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground font-mono">
-                  Example: {MULTI_EPISODE_STYLES.find((s) => s.value === form.multiEpisodeStyle)?.example}
+                <p className="text-muted-foreground font-mono text-xs">
+                  Example:{' '}
+                  {MULTI_EPISODE_STYLES.find((s) => s.value === form.multiEpisodeStyle)?.example}
                 </p>
               </div>
             </CardContent>
@@ -823,9 +901,7 @@ export function FileNamingSection() {
           <Card>
             <CardHeader>
               <CardTitle>Episode Format Patterns</CardTitle>
-              <CardDescription>
-                Define naming patterns for different episode types
-              </CardDescription>
+              <CardDescription>Define naming patterns for different episode types</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <PatternEditor
@@ -895,21 +971,19 @@ export function FileNamingSection() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="movie-naming" className="space-y-6 max-w-3xl mt-6">
+        <TabsContent value="movie-naming" className="mt-6 max-w-3xl space-y-6">
           <FilenameTester mediaType="movie" />
 
           <Card>
             <CardHeader>
               <CardTitle>Movie Renaming</CardTitle>
-              <CardDescription>
-                Configure how movies are renamed during import
-              </CardDescription>
+              <CardDescription>Configure how movies are renamed during import</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Rename Movies</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Rename files according to format patterns
                   </p>
                 </div>
@@ -940,29 +1014,27 @@ export function FileNamingSection() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tokens" className="space-y-6 max-w-4xl mt-6">
+        <TabsContent value="tokens" className="mt-6 max-w-4xl space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Token Reference</CardTitle>
-              <CardDescription>
-                Available tokens for naming patterns
-              </CardDescription>
+              <CardDescription>Available tokens for naming patterns</CardDescription>
             </CardHeader>
             <CardContent>
               <Accordion>
                 {Object.entries(TOKEN_REFERENCE).map(([category, tokens]) => (
                   <AccordionItem key={category} value={category}>
                     <AccordionTrigger className="capitalize">
-                      {category.replace(/([A-Z])/g, ' $1').trim()} Tokens
+                      {category.replaceAll(/([A-Z])/g, ' $1').trim()} Tokens
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-2">
                         {tokens.map((t) => (
                           <div
                             key={t.token}
-                            className="flex items-start gap-4 py-2 border-b last:border-0"
+                            className="flex items-start gap-4 border-b py-2 last:border-0"
                           >
-                            <code className="bg-muted px-2 py-1 rounded text-sm font-mono min-w-[180px]">
+                            <code className="bg-muted min-w-[180px] rounded px-2 py-1 font-mono text-sm">
                               {t.token}
                             </code>
                             <div className="flex-1 text-sm">
@@ -984,32 +1056,40 @@ export function FileNamingSection() {
           <Card>
             <CardHeader>
               <CardTitle>Token Modifiers</CardTitle>
-              <CardDescription>
-                Additional formatting options for tokens
-              </CardDescription>
+              <CardDescription>Additional formatting options for tokens</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <h4 className="font-medium mb-2">Separator Control</h4>
-                <p className="text-muted-foreground mb-2">
-                  Control word separation within tokens:
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li><code>{'{Series Title}'}</code> - Space separator (default)</li>
-                  <li><code>{'{Series.Title}'}</code> - Period separator</li>
-                  <li><code>{'{Series-Title}'}</code> - Dash separator</li>
-                  <li><code>{'{Series_Title}'}</code> - Underscore separator</li>
+                <h4 className="mb-2 font-medium">Separator Control</h4>
+                <p className="text-muted-foreground mb-2">Control word separation within tokens:</p>
+                <ul className="text-muted-foreground list-inside list-disc space-y-1">
+                  <li>
+                    <code>{'{Series Title}'}</code> - Space separator (default)
+                  </li>
+                  <li>
+                    <code>{'{Series.Title}'}</code> - Period separator
+                  </li>
+                  <li>
+                    <code>{'{Series-Title}'}</code> - Dash separator
+                  </li>
+                  <li>
+                    <code>{'{Series_Title}'}</code> - Underscore separator
+                  </li>
                 </ul>
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Truncation</h4>
+                <h4 className="mb-2 font-medium">Truncation</h4>
                 <p className="text-muted-foreground mb-2">
                   Limit token length to prevent path issues:
                 </p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li><code>{'{Episode Title:30}'}</code> - Truncate to 30 chars from end</li>
-                  <li><code>{'{Episode Title:-30}'}</code> - Truncate to 30 chars from start</li>
+                <ul className="text-muted-foreground list-inside list-disc space-y-1">
+                  <li>
+                    <code>{'{Episode Title:30}'}</code> - Truncate to 30 chars from end
+                  </li>
+                  <li>
+                    <code>{'{Episode Title:-30}'}</code> - Truncate to 30 chars from start
+                  </li>
                 </ul>
               </div>
             </CardContent>

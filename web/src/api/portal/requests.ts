@@ -1,17 +1,11 @@
-import { portalFetch, buildQueryString } from './client'
-import type {
-  Request,
-  CreateRequestInput,
-  RequestListFilters,
-  PortalDownload,
-} from '@/types'
+import type { CreateRequestInput, PortalDownload, Request, RequestListFilters } from '@/types'
+
+import { buildQueryString, portalFetch } from './client'
 
 export const portalRequestsApi = {
-  list: (filters?: RequestListFilters) =>
-    portalFetch<Request[]>(`${buildQueryString(filters || {})}`),
+  list: (filters?: RequestListFilters) => portalFetch<Request[]>(buildQueryString(filters || {})),
 
-  get: (id: number) =>
-    portalFetch<Request>(`/${id}`),
+  get: (id: number) => portalFetch<Request>(`/${id}`),
 
   create: (data: CreateRequestInput) =>
     portalFetch<Request>('', {
@@ -19,18 +13,13 @@ export const portalRequestsApi = {
       body: JSON.stringify(data),
     }),
 
-  cancel: (id: number) =>
-    portalFetch<void>(`/${id}`, { method: 'DELETE' }),
+  cancel: (id: number) => portalFetch<void>(`/${id}`, { method: 'DELETE' }),
 
-  watch: (id: number) =>
-    portalFetch<void>(`/${id}/watch`, { method: 'POST' }),
+  watch: (id: number) => portalFetch<void>(`/${id}/watch`, { method: 'POST' }),
 
-  unwatch: (id: number) =>
-    portalFetch<void>(`/${id}/watch`, { method: 'DELETE' }),
+  unwatch: (id: number) => portalFetch<void>(`/${id}/watch`, { method: 'DELETE' }),
 
-  getWatchers: (id: number) =>
-    portalFetch<number[]>(`/${id}/watchers`),
+  getWatchers: (id: number) => portalFetch<number[]>(`/${id}/watchers`),
 
-  downloads: () =>
-    portalFetch<PortalDownload[]>('/downloads'),
+  downloads: () => portalFetch<PortalDownload[]>('/downloads'),
 }

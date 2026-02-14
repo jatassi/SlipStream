@@ -1,20 +1,22 @@
 import type { ReactNode } from 'react'
+
 import { Link } from '@tanstack/react-router'
-import { MoreHorizontal, Search, Trash2, RefreshCw, Eye } from 'lucide-react'
+import { Eye, MoreHorizontal, RefreshCw, Search, Trash2 } from 'lucide-react'
+
+import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
+import { NetworkLogo } from '@/components/media/NetworkLogo'
+import { ProgressBar } from '@/components/media/ProgressBar'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
-import { ProgressBar } from '@/components/media/ProgressBar'
-import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { formatBytes, formatDate, formatRuntime } from '@/lib/formatters'
 import type { Movie } from '@/types/movie'
 import type { Series, StatusCounts } from '@/types/series'
 
-export interface ColumnDef<T> {
+export type ColumnDef<T> = {
   id: string
   label: string
   sortField?: string
@@ -26,7 +28,7 @@ export interface ColumnDef<T> {
   cellClassName?: string
 }
 
-export interface ColumnRenderContext {
+export type ColumnRenderContext = {
   qualityProfileNames: Map<number, string>
   rootFolderNames: Map<number, string>
 }
@@ -60,9 +62,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     label: 'Studio',
     defaultVisible: true,
     hideable: true,
-    render: (movie) => (
-      <span className="text-muted-foreground">{movie.studio || '-'}</span>
-    ),
+    render: (movie) => <span className="text-muted-foreground">{movie.studio || '-'}</span>,
   },
   {
     id: 'status',
@@ -112,9 +112,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     sortField: 'dateAdded',
     defaultVisible: true,
     hideable: true,
-    render: (movie) => (
-      <span className="text-muted-foreground">{formatDate(movie.addedAt)}</span>
-    ),
+    render: (movie) => <span className="text-muted-foreground">{formatDate(movie.addedAt)}</span>,
   },
   {
     id: 'sizeOnDisk',
@@ -147,7 +145,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     hideable: true,
     minWidth: '200px',
     render: (movie) => (
-      <span className="text-muted-foreground text-xs font-mono truncate max-w-[300px] block">
+      <span className="text-muted-foreground block max-w-[300px] truncate font-mono text-xs">
         {movie.path || '-'}
       </span>
     ),
@@ -167,37 +165,37 @@ export function createMovieActionsColumn(callbacks: {
     headerClassName: 'w-[50px]',
     render: (movie) => (
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground size-8">
+        <DropdownMenuTrigger className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground inline-flex size-8 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:ring-1 focus-visible:outline-none">
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <Link to="/movies/$id" params={{ id: String(movie.id) }}>
             <DropdownMenuItem>
-              <Eye className="size-4 mr-2" />
+              <Eye className="mr-2 size-4" />
               View details
             </DropdownMenuItem>
           </Link>
-          {callbacks.onSearch && (
+          {callbacks.onSearch ? (
             <DropdownMenuItem onClick={() => callbacks.onSearch!(movie.id)}>
-              <Search className="size-4 mr-2" />
+              <Search className="mr-2 size-4" />
               Search
             </DropdownMenuItem>
-          )}
-          {callbacks.onRefresh && (
+          ) : null}
+          {callbacks.onRefresh ? (
             <DropdownMenuItem onClick={() => callbacks.onRefresh!(movie.id)}>
-              <RefreshCw className="size-4 mr-2" />
+              <RefreshCw className="mr-2 size-4" />
               Refresh
             </DropdownMenuItem>
-          )}
-          {callbacks.onDelete && (
+          ) : null}
+          {callbacks.onDelete ? (
             <DropdownMenuItem
               onClick={() => callbacks.onDelete!(movie.id)}
               className="text-destructive"
             >
-              <Trash2 className="size-4 mr-2" />
+              <Trash2 className="mr-2 size-4" />
               Delete
             </DropdownMenuItem>
-          )}
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -209,11 +207,21 @@ export function createMovieActionsColumn(callbacks: {
 export function getAggregateStatus(
   counts: StatusCounts,
 ): 'downloading' | 'failed' | 'missing' | 'upgradable' | 'available' | 'unreleased' {
-  if (counts.downloading > 0) return 'downloading'
-  if (counts.failed > 0) return 'failed'
-  if (counts.missing > 0) return 'missing'
-  if (counts.upgradable > 0) return 'upgradable'
-  if (counts.available > 0) return 'available'
+  if (counts.downloading > 0) {
+    return 'downloading'
+  }
+  if (counts.failed > 0) {
+    return 'failed'
+  }
+  if (counts.missing > 0) {
+    return 'missing'
+  }
+  if (counts.upgradable > 0) {
+    return 'upgradable'
+  }
+  if (counts.available > 0) {
+    return 'available'
+  }
   return 'unreleased'
 }
 
@@ -268,7 +276,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
       const available = counts.available + counts.upgradable
       return (
         <div className="flex items-center gap-2">
-          <span className="text-xs tabular-nums whitespace-nowrap">
+          <span className="text-xs whitespace-nowrap tabular-nums">
             {available}/{counts.total}
           </span>
           <ProgressBar
@@ -276,7 +284,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
             max={counts.total || 1}
             variant="tv"
             size="sm"
-            className="flex-1 min-w-[60px]"
+            className="min-w-[60px] flex-1"
           />
         </div>
       )
@@ -333,9 +341,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
     sortField: 'dateAdded',
     defaultVisible: true,
     hideable: true,
-    render: (series) => (
-      <span className="text-muted-foreground">{formatDate(series.addedAt)}</span>
-    ),
+    render: (series) => <span className="text-muted-foreground">{formatDate(series.addedAt)}</span>,
   },
   {
     id: 'sizeOnDisk',
@@ -357,7 +363,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
     hideable: true,
     minWidth: '200px',
     render: (series) => (
-      <span className="text-muted-foreground text-xs font-mono truncate max-w-[300px] block">
+      <span className="text-muted-foreground block max-w-[300px] truncate font-mono text-xs">
         {series.path || '-'}
       </span>
     ),
@@ -375,25 +381,25 @@ export function createSeriesActionsColumn(callbacks: {
     headerClassName: 'w-[50px]',
     render: (series) => (
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground size-8">
+        <DropdownMenuTrigger className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground inline-flex size-8 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:ring-1 focus-visible:outline-none">
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <Link to="/series/$id" params={{ id: String(series.id) }}>
             <DropdownMenuItem>
-              <Eye className="size-4 mr-2" />
+              <Eye className="mr-2 size-4" />
               View details
             </DropdownMenuItem>
           </Link>
-          {callbacks.onDelete && (
+          {callbacks.onDelete ? (
             <DropdownMenuItem
               onClick={() => callbacks.onDelete!(series.id)}
               className="text-destructive"
             >
-              <Trash2 className="size-4 mr-2" />
+              <Trash2 className="mr-2 size-4" />
               Delete
             </DropdownMenuItem>
-          )}
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     ),

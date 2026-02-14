@@ -1,4 +1,5 @@
 import { ApiError } from '@/types'
+
 import { getPortalAuthToken } from './portal/client'
 
 const API_BASE = '/api/v1'
@@ -28,10 +29,7 @@ export function getAdminAuthToken(): string | null {
   return adminAuthToken
 }
 
-export async function apiFetch<T>(
-  path: string,
-  options?: RequestInit
-): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -39,7 +37,7 @@ export async function apiFetch<T>(
   // Use admin token if available, otherwise fall back to portal token
   const token = adminAuthToken || getPortalAuthToken()
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+    headers.Authorization = `Bearer ${token}`
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -56,7 +54,7 @@ export async function apiFetch<T>(
       const hadToken = !!(adminAuthToken || getPortalAuthToken())
       adminAuthToken = null
       if (hadToken) {
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+        globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))
       }
     }
     let errorData = null

@@ -1,4 +1,4 @@
-export interface Movie {
+export type Movie = {
   id: number
   title: string
   sortTitle: string
@@ -28,7 +28,7 @@ export interface Movie {
   addedByUsername?: string
 }
 
-export interface MovieFile {
+export type MovieFile = {
   id: number
   movieId: number
   path: string
@@ -43,7 +43,7 @@ export interface MovieFile {
   slotId?: number
 }
 
-export interface CreateMovieInput {
+export type CreateMovieInput = {
   title: string
   year?: number
   tmdbId?: number
@@ -56,13 +56,13 @@ export interface CreateMovieInput {
   monitored: boolean
 }
 
-export interface AddMovieInput extends CreateMovieInput {
+export type AddMovieInput = {
   posterUrl?: string
   backdropUrl?: string
   searchOnAdd?: boolean
-}
+} & CreateMovieInput
 
-export interface UpdateMovieInput {
+export type UpdateMovieInput = {
   title?: string
   year?: number
   tmdbId?: number
@@ -75,7 +75,7 @@ export interface UpdateMovieInput {
   monitored?: boolean
 }
 
-export interface ListMoviesOptions {
+export type ListMoviesOptions = {
   search?: string
   monitored?: boolean
   rootFolderId?: number

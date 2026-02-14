@@ -1,17 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
-import { useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+
 import { useNavigate } from '@tanstack/react-router'
-import { Search, Loader2, X } from 'lucide-react'
+import { Loader2, Search, X } from 'lucide-react'
+
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 type Breakpoint = 'sm' | 'md' | 'lg'
 
 function getBreakpoint(): Breakpoint {
-  if (typeof window === 'undefined') return 'lg'
+  if (globalThis.window === undefined) {
+    return 'lg'
+  }
   const width = window.innerWidth
-  if (width < 640) return 'sm'
-  if (width < 1024) return 'md'
+  if (width < 640) {
+    return 'sm'
+  }
+  if (width < 1024) {
+    return 'md'
+  }
   return 'lg'
 }
 
@@ -79,13 +86,13 @@ export function SearchBar() {
       className={cn(
         'relative rounded-md transition-shadow duration-300',
         isSearching && 'glow-media-pulse',
-        isFocused && !isSearching && 'glow-media-sm'
+        isFocused && !isSearching && 'glow-media-sm',
       )}
     >
       {isSearching ? (
-        <Loader2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-foreground z-10" />
+        <Loader2 className="text-foreground absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 animate-spin" />
       ) : (
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
+        <Search className="text-muted-foreground absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
       )}
       <Input
         type="text"
@@ -96,17 +103,17 @@ export function SearchBar() {
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         id="global-search"
-        className="pl-9 pr-8 border-white/50 focus-visible:border-white"
+        className="border-white/50 pr-8 pl-9 focus-visible:border-white"
       />
-      {searchQuery && (
+      {searchQuery ? (
         <button
           type="button"
           onClick={() => setSearchQuery('')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white z-10"
+          className="absolute top-1/2 right-2 z-10 -translate-y-1/2 text-white/70 hover:text-white"
         >
           <X className="size-4" />
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

@@ -1,16 +1,17 @@
-import { apiFetch } from './client'
 import type { PortalUser } from '@/types'
 
-export interface AuthStatus {
+import { apiFetch } from './client'
+
+export type AuthStatus = {
   requiresSetup: boolean
   requiresAuth: boolean
 }
 
-export interface AdminSetupRequest {
+export type AdminSetupRequest = {
   password: string
 }
 
-export interface AdminSetupResponse {
+export type AdminSetupResponse = {
   token: string
   user: PortalUser
 }

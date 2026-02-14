@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
+
 import { getLocalArtworkUrl } from '@/lib/constants'
 import { useArtworkStore } from '@/stores/artwork'
 
-interface TitleTreatmentProps {
+type TitleTreatmentProps = {
   tmdbId?: number | null
   tvdbId?: number | null
   type?: 'movie' | 'series'
@@ -28,7 +29,7 @@ export function TitleTreatment({
   const artworkId = tmdbId && tmdbId > 0 ? tmdbId : tvdbId && tvdbId > 0 ? tvdbId : null
 
   const artworkVersion = useArtworkStore((state) =>
-    artworkId ? state.getVersion(type, artworkId, 'logo') : 0
+    artworkId ? state.getVersion(type, artworkId, 'logo') : 0,
   )
 
   let imageUrl: string | null = null
@@ -55,13 +56,17 @@ export function TitleTreatment({
 
   return (
     <div className={className}>
-      {loading && fallback}
+      {loading ? fallback : null}
       <img
         src={imageUrl}
         alt={alt}
         onLoad={() => setLoading(false)}
         onError={() => setError(true)}
-        className={loading ? 'hidden' : 'max-h-16 md:max-h-20 w-auto object-contain object-left drop-shadow-lg'}
+        className={
+          loading
+            ? 'hidden'
+            : 'max-h-16 w-auto object-contain object-left drop-shadow-lg md:max-h-20'
+        }
       />
     </div>
   )

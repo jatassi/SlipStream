@@ -1,22 +1,24 @@
 import { Link } from '@tanstack/react-router'
-import { Activity, Settings, FlaskConical } from 'lucide-react'
+import { Activity, FlaskConical, Settings } from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StatusIndicator } from './StatusIndicator'
-import { getStatusBgColor } from './statusUtils'
-import { useSystemHealthSummary, useTestHealthCategory } from '@/hooks/useHealth'
 import { useGlobalLoading } from '@/hooks'
+import { useSystemHealthSummary, useTestHealthCategory } from '@/hooks/useHealth'
+import { cn } from '@/lib/utils'
 import {
   getCategoryDisplayName,
   getCategorySettingsPath,
   type HealthCategory,
   type HealthStatus,
 } from '@/types/health'
-import { cn } from '@/lib/utils'
 
-interface CategoryRowProps {
+import { StatusIndicator } from './StatusIndicator'
+import { getStatusBgColor } from './statusUtils'
+
+type CategoryRowProps = {
   category: HealthCategory
   ok: number
   warning: number
@@ -29,14 +31,23 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
 
   // Determine worst status for the category
   let worstStatus: HealthStatus = 'ok'
-  if (error > 0) worstStatus = 'error'
-  else if (warning > 0) worstStatus = 'warning'
+  if (error > 0) {
+    worstStatus = 'error'
+  } else if (warning > 0) {
+    worstStatus = 'warning'
+  }
 
   // Build status summary text
   const parts: string[] = []
-  if (ok > 0) parts.push(`${ok} OK`)
-  if (warning > 0) parts.push(`${warning} Warning`)
-  if (error > 0) parts.push(`${error} Error`)
+  if (ok > 0) {
+    parts.push(`${ok} OK`)
+  }
+  if (warning > 0) {
+    parts.push(`${warning} Warning`)
+  }
+  if (error > 0) {
+    parts.push(`${error} Error`)
+  }
   const statusText = parts.length > 0 ? parts.join(', ') : 'None'
 
   const handleTest = async () => {
@@ -57,30 +68,32 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
 
       if (category === 'rootFolders') {
         return success
-          ? `${count} folder${count !== 1 ? 's' : ''} accessible`
-          : `${count} folder${count !== 1 ? 's' : ''} inaccessible`
+          ? `${count} folder${count === 1 ? '' : 's'} accessible`
+          : `${count} folder${count === 1 ? '' : 's'} inaccessible`
       }
       if (category === 'metadata') {
         return success
-          ? `${count} API${count !== 1 ? 's' : ''} responding`
-          : `${count} API${count !== 1 ? 's' : ''} unreachable`
+          ? `${count} API${count === 1 ? '' : 's'} responding`
+          : `${count} API${count === 1 ? '' : 's'} unreachable`
       }
       return success
-        ? `${count} connection${count !== 1 ? 's' : ''} verified`
-        : `${count} connection${count !== 1 ? 's' : ''} failed`
+        ? `${count} connection${count === 1 ? '' : 's'} verified`
+        : `${count} connection${count === 1 ? '' : 's'} failed`
     }
 
     try {
       const result = await testCategory.mutateAsync(category)
-      const passed = result.results?.filter(r => r.success).length ?? 0
-      const failed = result.results?.filter(r => !r.success).length ?? 0
+      const passed = result.results?.filter((r) => r.success).length ?? 0
+      const failed = result.results?.filter((r) => !r.success).length ?? 0
 
       if (failed === 0) {
         toast.success(`${categoryName}: ${getResultText(passed, true, true)}`)
       } else if (passed === 0) {
         toast.error(`${categoryName}: ${getResultText(failed, false, true)}`)
       } else {
-        toast.warning(`${categoryName}: ${getResultText(passed, true, false)}, ${getResultText(failed, false, false)}`)
+        toast.warning(
+          `${categoryName}: ${getResultText(passed, true, false)}, ${getResultText(failed, false, false)}`,
+        )
       }
     } catch {
       toast.error(`${categoryName}: Test failed`)
@@ -90,16 +103,14 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between p-2 rounded-md',
-        getStatusBgColor(worstStatus)
+        'flex items-center justify-between rounded-md p-2',
+        getStatusBgColor(worstStatus),
       )}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <StatusIndicator status={worstStatus} size="sm" />
-        <span className="text-sm font-medium truncate">
-          {getCategoryDisplayName(category)}
-        </span>
-        <span className="text-xs text-muted-foreground hidden sm:inline">
+        <span className="truncate text-sm font-medium">{getCategoryDisplayName(category)}</span>
+        <span className="text-muted-foreground hidden text-xs sm:inline">
           {total > 0 ? statusText : 'No items'}
         </span>
       </div>
@@ -113,18 +124,11 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
             disabled={testCategory.isPending || total === 0}
             title={`Test all ${getCategoryDisplayName(category).toLowerCase()}`}
           >
-            <FlaskConical
-              className={cn('size-3', testCategory.isPending && 'animate-pulse')}
-            />
+            <FlaskConical className={cn('size-3', testCategory.isPending && 'animate-pulse')} />
           </Button>
         )}
         <Link to={getCategorySettingsPath(category)}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            title="Settings"
-          >
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Settings">
             <Settings className="size-3" />
           </Button>
         </Link>
@@ -142,10 +146,8 @@ export function HealthWidget() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            System Health
-          </CardTitle>
-          <Activity className="size-4 text-muted-foreground" />
+          <CardTitle className="text-muted-foreground text-sm font-medium">System Health</CardTitle>
+          <Activity className="text-muted-foreground size-4" />
         </CardHeader>
         <CardContent className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -160,13 +162,11 @@ export function HealthWidget() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            System Health
-          </CardTitle>
-          <Activity className="size-4 text-muted-foreground" />
+          <CardTitle className="text-muted-foreground text-sm font-medium">System Health</CardTitle>
+          <Activity className="text-muted-foreground size-4" />
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-destructive">Failed to load health status</p>
+          <p className="text-destructive text-sm">Failed to load health status</p>
         </CardContent>
       </Card>
     )
@@ -182,12 +182,10 @@ export function HealthWidget() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          System Health
-        </CardTitle>
+        <CardTitle className="text-muted-foreground text-sm font-medium">System Health</CardTitle>
         <div className="flex items-center gap-2">
           <StatusIndicator status={overallStatus} size="sm" />
-          <Activity className="size-4 text-muted-foreground" />
+          <Activity className="text-muted-foreground size-4" />
         </div>
       </CardHeader>
       <CardContent className="space-y-2">

@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RssSyncSection } from '@/components/settings'
+
 import { DownloadsNav } from './DownloadsNav'
 
 export function RssSyncPage() {

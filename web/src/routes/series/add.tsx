@@ -1,26 +1,42 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
+
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, Search } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PosterImage } from '@/components/media/PosterImage'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { PosterImage } from '@/components/media/PosterImage'
-import { LoadingState } from '@/components/data/LoadingState'
-import { EmptyState } from '@/components/data/EmptyState'
-import { useSeriesSearch, useSeriesMetadata, useQualityProfiles, useRootFoldersByType, useAddSeries, useDefault, useDebounce, useAddFlowPreferences } from '@/hooks'
-import { toast } from 'sonner'
-import type { SeriesSearchResult, AddSeriesInput, SeriesSearchOnAdd, SeriesMonitorOnAdd } from '@/types'
+import {
+  useAddFlowPreferences,
+  useAddSeries,
+  useDebounce,
+  useDefault,
+  useQualityProfiles,
+  useRootFoldersByType,
+  useSeriesMetadata,
+  useSeriesSearch,
+} from '@/hooks'
+import type {
+  AddSeriesInput,
+  SeriesMonitorOnAdd,
+  SeriesSearchOnAdd,
+  SeriesSearchResult,
+} from '@/types'
 
 type Step = 'search' | 'configure'
 
 export function AddSeriesPage() {
   const navigate = useNavigate()
   // Get tmdbId from URL search params
-  const searchParams = useSearch({ strict: false }) as { tmdbId?: string }
+  const searchParams = useSearch({ strict: false })
   const tmdbId = useMemo(() => {
     const id = searchParams.tmdbId
     return id ? Number(id) : undefined
@@ -131,8 +147,8 @@ export function AddSeriesPage() {
       runtime: selectedSeries.runtime,
       network: selectedSeries.network,
       networkLogoUrl: selectedSeries.networkLogoUrl,
-      rootFolderId: parseInt(rootFolderId),
-      qualityProfileId: parseInt(qualityProfileId),
+      rootFolderId: Number.parseInt(rootFolderId),
+      qualityProfileId: Number.parseInt(qualityProfileId),
       monitored: monitorOnAdd !== 'none',
       seasonFolder,
       posterUrl: selectedSeries.posterUrl,
@@ -155,31 +171,28 @@ export function AddSeriesPage() {
     <div>
       <PageHeader
         title="Add Series"
-        breadcrumbs={[
-          { label: 'Series', href: '/series' },
-          { label: 'Add' },
-        ]}
+        breadcrumbs={[{ label: 'Series', href: '/series' }, { label: 'Add' }]}
         actions={
           <Button variant="ghost" onClick={handleBack}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="mr-2 size-4" />
             Back
           </Button>
         }
       />
 
       {/* Loading state when fetching by tmdbId */}
-      {tmdbId && loadingMetadata && (
+      {tmdbId && loadingMetadata ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground size-8 animate-spin" />
         </div>
-      )}
+      ) : null}
 
       {step === 'search' && !tmdbId && (
         <div className="space-y-6">
           {/* Search input */}
           <div className="max-w-xl">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
               <Input
                 placeholder="Search for a series..."
                 value={searchQuery}
@@ -199,21 +212,15 @@ export function AddSeriesPage() {
               title="Search for a series"
               description="Enter at least 2 characters to search"
             />
-          ) : !searchResults?.length ? (
-            <EmptyState
-              icon={<Search className="size-8" />}
-              title="No results found"
-              description="Try a different search term"
-            />
-          ) : (
+          ) : searchResults?.length ? (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((series) => (
                 <Card
                   key={series.tmdbId || series.id}
-                  className="cursor-pointer hover:border-primary transition-colors"
+                  className="hover:border-primary cursor-pointer transition-colors"
                   onClick={() => handleSelectSeries(series)}
                 >
-                  <div className="aspect-[2/3] relative">
+                  <div className="relative aspect-[2/3]">
                     <PosterImage
                       url={series.posterUrl}
                       alt={series.title}
@@ -222,41 +229,47 @@ export function AddSeriesPage() {
                     />
                   </div>
                   <CardContent className="p-3">
-                    <h3 className="font-semibold truncate">{series.title}</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="truncate font-semibold">{series.title}</h3>
+                    <p className="text-muted-foreground text-sm">
                       {series.year || 'Unknown year'}
-                      {series.network && ` - ${series.network}`}
+                      {series.network ? ` - ${series.network}` : null}
                     </p>
                   </CardContent>
                 </Card>
               ))}
             </div>
+          ) : (
+            <EmptyState
+              icon={<Search className="size-8" />}
+              title="No results found"
+              description="Try a different search term"
+            />
           )}
         </div>
       )}
 
-      {step === 'configure' && selectedSeries && (
+      {step === 'configure' && selectedSeries ? (
         <div className="max-w-2xl space-y-6">
           {/* Selected series preview */}
           <Card>
-            <CardContent className="p-4 flex gap-4">
+            <CardContent className="flex gap-4 p-4">
               <PosterImage
                 url={selectedSeries.posterUrl}
                 alt={selectedSeries.title}
                 type="series"
-                className="w-24 h-36 rounded shrink-0"
+                className="h-36 w-24 shrink-0 rounded"
               />
               <div>
                 <h2 className="text-xl font-semibold">{selectedSeries.title}</h2>
                 <p className="text-muted-foreground">
                   {selectedSeries.year || 'Unknown year'}
-                  {selectedSeries.network && ` - ${selectedSeries.network}`}
+                  {selectedSeries.network ? ` - ${selectedSeries.network}` : null}
                 </p>
-                {selectedSeries.overview && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                {selectedSeries.overview ? (
+                  <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
                     {selectedSeries.overview}
                   </p>
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -271,7 +284,9 @@ export function AddSeriesPage() {
                 <Label htmlFor="rootFolder">Root Folder *</Label>
                 <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
                   <SelectTrigger>
-                    {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
+                    {(rootFolderId &&
+                      rootFolders?.find((f) => f.id === Number.parseInt(rootFolderId))?.name) ||
+                      'Select a root folder'}
                   </SelectTrigger>
                   <SelectContent>
                     {rootFolders?.map((folder) => (
@@ -287,7 +302,10 @@ export function AddSeriesPage() {
                 <Label htmlFor="qualityProfile">Quality Profile *</Label>
                 <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
                   <SelectTrigger>
-                    {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
+                    {(qualityProfileId &&
+                      qualityProfiles?.find((p) => p.id === Number.parseInt(qualityProfileId))
+                        ?.name) ||
+                      'Select a quality profile'}
                   </SelectTrigger>
                   <SelectContent>
                     {qualityProfiles?.map((profile) => (
@@ -301,15 +319,17 @@ export function AddSeriesPage() {
 
               <div className="space-y-2">
                 <Label>Monitor</Label>
-                <Select value={monitorOnAdd ?? 'future'} onValueChange={(v) => setMonitorOnAdd(v as SeriesMonitorOnAdd)}>
+                <Select value={monitorOnAdd ?? 'future'} onValueChange={(v) => setMonitorOnAdd(v!)}>
                   <SelectTrigger>
-                    {{
-                      all: 'All Episodes',
-                      future: 'Future Episodes Only',
-                      first_season: 'First Season Only',
-                      latest_season: 'Latest Season Only',
-                      none: 'None',
-                    }[monitorOnAdd ?? 'future']}
+                    {
+                      {
+                        all: 'All Episodes',
+                        future: 'Future Episodes Only',
+                        first_season: 'First Season Only',
+                        latest_season: 'Latest Season Only',
+                        none: 'None',
+                      }[monitorOnAdd ?? 'future']
+                    }
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Episodes</SelectItem>
@@ -319,22 +339,24 @@ export function AddSeriesPage() {
                     <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   Which episodes should be monitored for automatic downloads
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label>Search on Add</Label>
-                <Select value={searchOnAdd ?? 'no'} onValueChange={(v) => setSearchOnAdd(v as SeriesSearchOnAdd)}>
+                <Select value={searchOnAdd ?? 'no'} onValueChange={(v) => setSearchOnAdd(v!)}>
                   <SelectTrigger>
-                    {{
-                      no: "Don't Search",
-                      first_episode: 'First Episode Only',
-                      first_season: 'First Season Only',
-                      latest_season: 'Latest Season Only',
-                      all: 'All Monitored Episodes',
-                    }[searchOnAdd ?? 'no']}
+                    {
+                      {
+                        no: "Don't Search",
+                        first_episode: 'First Episode Only',
+                        first_season: 'First Season Only',
+                        latest_season: 'Latest Season Only',
+                        all: 'All Monitored Episodes',
+                      }[searchOnAdd ?? 'no']
+                    }
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="no">Don't Search</SelectItem>
@@ -344,7 +366,7 @@ export function AddSeriesPage() {
                     <SelectItem value="all">All Monitored Episodes</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   Start searching for releases immediately after adding
                 </p>
               </div>
@@ -352,7 +374,7 @@ export function AddSeriesPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Season Folder</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Organize episodes into season folders
                   </p>
                 </div>
@@ -362,7 +384,7 @@ export function AddSeriesPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Include Specials</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Monitor and search for special episodes (Season 0)
                   </p>
                 </div>
@@ -372,7 +394,7 @@ export function AddSeriesPage() {
           </Card>
 
           {/* Actions */}
-          <div className="flex gap-2 justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleBack}>
               Back
             </Button>
@@ -380,12 +402,12 @@ export function AddSeriesPage() {
               onClick={handleAdd}
               disabled={!rootFolderId || !qualityProfileId || addMutation.isPending}
             >
-              <Check className="size-4 mr-2" />
+              <Check className="mr-2 size-4" />
               Add Series
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

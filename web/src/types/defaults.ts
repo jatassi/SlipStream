@@ -1,4 +1,4 @@
-export interface DefaultEntry {
+export type DefaultEntry = {
   key: string
   entityType: string
   mediaType: string

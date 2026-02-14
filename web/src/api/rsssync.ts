@@ -1,5 +1,6 @@
-import { apiFetch } from './client'
 import type { RssSyncSettings, RssSyncStatus } from '@/types'
+
+import { apiFetch } from './client'
 
 export const rssSyncApi = {
   getSettings: () => apiFetch<RssSyncSettings>('/settings/rsssync'),

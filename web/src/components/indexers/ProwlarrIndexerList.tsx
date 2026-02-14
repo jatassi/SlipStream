@@ -1,57 +1,54 @@
 import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  Globe,
+  Loader2,
+  Lock,
+  RotateCcw,
+  Rss,
+  Settings,
+  TrendingDown,
+  TrendingUp,
+  Unlock,
+  XCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog'
-import {
-  Loader2,
-  Rss,
-  Globe,
-  Lock,
-  Unlock,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Ban,
-  Settings,
-  RotateCcw,
-  TrendingUp,
-  TrendingDown,
-} from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import {
   useProwlarrIndexersWithSettings,
   useProwlarrStatus,
-  useUpdateProwlarrIndexerSettings,
   useResetProwlarrIndexerStats,
+  useUpdateProwlarrIndexerSettings,
 } from '@/hooks'
-import { EmptyState } from '@/components/data/EmptyState'
-import { toast } from 'sonner'
 import type {
-  ProwlarrIndexerWithSettings,
-  ProwlarrIndexerStatus,
-  Protocol,
-  Privacy,
   ContentType,
+  Privacy,
+  Protocol,
   ProwlarrIndexerSettingsInput,
+  ProwlarrIndexerStatus,
+  ProwlarrIndexerWithSettings,
 } from '@/types'
-import { ProwlarrIndexerStatusLabels, ContentTypeLabels } from '@/types'
+import { ContentTypeLabels, ProwlarrIndexerStatusLabels } from '@/types'
 
 const privacyIcons: Record<Privacy, React.ReactNode> = {
   public: <Globe className="size-3" />,
@@ -73,7 +70,7 @@ const protocolColors: Record<Protocol, string> = {
 const statusIcons: Record<ProwlarrIndexerStatus, React.ReactNode> = {
   0: <CheckCircle2 className="size-4 text-green-500" />,
   1: <AlertTriangle className="size-4 text-yellow-500" />,
-  2: <Ban className="size-4 text-muted-foreground" />,
+  2: <Ban className="text-muted-foreground size-4" />,
   3: <XCircle className="size-4 text-red-500" />,
 }
 
@@ -90,7 +87,7 @@ const contentTypeColors: Record<ContentType, string> = {
   both: 'bg-gray-500/10 text-gray-400',
 }
 
-interface ProwlarrIndexerListProps {
+type ProwlarrIndexerListProps = {
   showOnlyEnabled?: boolean
 }
 
@@ -116,7 +113,7 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground size-6 animate-spin" />
         </CardContent>
       </Card>
     )
@@ -125,7 +122,9 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
   const filteredIndexers = showOnlyEnabled ? indexers?.filter((i) => i.enable) : indexers
   const displayedIndexers = filteredIndexers?.slice().sort((a, b) => {
     // Sort by enabled state first (enabled at top)
-    if (a.enable !== b.enable) return a.enable ? -1 : 1
+    if (a.enable !== b.enable) {
+      return a.enable ? -1 : 1
+    }
     // Then by priority (lower numbers first)
     const priorityA = a.settings?.priority ?? 25
     const priorityB = b.settings?.priority ?? 25
@@ -159,7 +158,9 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">Prowlarr Indexers</CardTitle>
-            <CardDescription>Configure per-indexer settings for priority and content filtering</CardDescription>
+            <CardDescription>
+              Configure per-indexer settings for priority and content filtering
+            </CardDescription>
           </div>
           <Badge variant="secondary">
             {enabledCount} / {totalCount} enabled
@@ -172,9 +173,9 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
             <IndexerRow key={indexer.id} indexer={indexer} />
           ))}
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Priority: Lower numbers are preferred during deduplication. Content type filters which searches use this
-          indexer.
+        <p className="text-muted-foreground mt-4 text-xs">
+          Priority: Lower numbers are preferred during deduplication. Content type filters which
+          searches use this indexer.
         </p>
       </CardContent>
     </Card>
@@ -188,40 +189,41 @@ function IndexerRow({ indexer }: { indexer: ProwlarrIndexerWithSettings }) {
   const contentType = settings?.contentType ?? 'both'
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+    <div className="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-3 transition-colors">
       <div className="flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-muted">
+        <div className="bg-muted flex size-8 items-center justify-center rounded-lg">
           <Rss className="size-4" />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">{indexer.name}</span>
+            <span className="text-sm font-medium">{indexer.name}</span>
             <Badge variant="secondary" className={`text-xs ${protocolColors[indexer.protocol]}`}>
               {indexer.protocol}
             </Badge>
-            {indexer.privacy && (
+            {indexer.privacy ? (
               <Badge variant="secondary" className={`text-xs ${privacyColors[indexer.privacy]}`}>
                 <span className="mr-1">{privacyIcons[indexer.privacy]}</span>
                 {indexer.privacy}
               </Badge>
-            )}
+            ) : null}
             <Badge variant="secondary" className={`text-xs ${contentTypeColors[contentType]}`}>
               {ContentTypeLabels[contentType]}
             </Badge>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+          <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
             <span>Priority: {priority}</span>
-            {indexer.capabilities && (
+            {indexer.capabilities ? (
               <>
                 <span className="text-muted-foreground/50">|</span>
-                {indexer.capabilities.supportsMovieSearch && <span>Movies</span>}
-                {indexer.capabilities.supportsMovieSearch && indexer.capabilities.supportsTvSearch && (
+                {indexer.capabilities.supportsMovieSearch ? <span>Movies</span> : null}
+                {indexer.capabilities.supportsMovieSearch &&
+                indexer.capabilities.supportsTvSearch ? (
                   <span className="text-muted-foreground/50">/</span>
-                )}
-                {indexer.capabilities.supportsTvSearch && <span>TV</span>}
+                ) : null}
+                {indexer.capabilities.supportsTvSearch ? <span>TV</span> : null}
               </>
-            )}
-            {settings && (settings.successCount > 0 || settings.failureCount > 0) && (
+            ) : null}
+            {settings && (settings.successCount > 0 || settings.failureCount > 0) ? (
               <>
                 <span className="text-muted-foreground/50">|</span>
                 <span className="flex items-center gap-1">
@@ -233,7 +235,7 @@ function IndexerRow({ indexer }: { indexer: ProwlarrIndexerWithSettings }) {
                   {settings.failureCount}
                 </span>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -258,7 +260,9 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
   const resetStats = useResetProwlarrIndexerStats()
 
   const [priority, setPriority] = useState(indexer.settings?.priority ?? 25)
-  const [contentType, setContentType] = useState<ContentType>(indexer.settings?.contentType ?? 'both')
+  const [contentType, setContentType] = useState<ContentType>(
+    indexer.settings?.contentType ?? 'both',
+  )
   const [open, setOpen] = useState(false)
 
   const handleSave = async () => {
@@ -303,7 +307,9 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Settings for {indexer.name}</DialogTitle>
-          <DialogDescription>Configure priority and content type filtering for this indexer</DialogDescription>
+          <DialogDescription>
+            Configure priority and content type filtering for this indexer
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -315,14 +321,18 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
               min={1}
               max={50}
               value={priority}
-              onChange={(e) => setPriority(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+              onChange={(e) =>
+                setPriority(Math.min(50, Math.max(1, Number.parseInt(e.target.value) || 1)))
+              }
             />
-            <p className="text-xs text-muted-foreground">Lower priority indexers are preferred during deduplication</p>
+            <p className="text-muted-foreground text-xs">
+              Lower priority indexers are preferred during deduplication
+            </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="contentType">Content Type</Label>
-            <Select value={contentType} onValueChange={(v) => setContentType(v as ContentType)}>
+            <Select value={contentType} onValueChange={(v) => setContentType(v!)}>
               <SelectTrigger id="contentType">{ContentTypeLabels[contentType]}</SelectTrigger>
               <SelectContent>
                 <SelectItem value="both">Both</SelectItem>
@@ -330,17 +340,22 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
                 <SelectItem value="series">Series Only</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Filter this indexer to only be used for specific content types
             </p>
           </div>
 
-          {settings && (settings.successCount > 0 || settings.failureCount > 0) && (
-            <div className="rounded-lg border p-3 space-y-2">
+          {settings && (settings.successCount > 0 || settings.failureCount > 0) ? (
+            <div className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Statistics</span>
-                <Button variant="ghost" size="sm" onClick={handleResetStats} disabled={resetStats.isPending}>
-                  <RotateCcw className="size-3 mr-1" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetStats}
+                  disabled={resetStats.isPending}
+                >
+                  <RotateCcw className="mr-1 size-3" />
                   Reset
                 </Button>
               </div>
@@ -354,17 +369,19 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
                   <span>{settings.failureCount} failed</span>
                 </div>
               </div>
-              {settings.lastFailureReason && (
-                <p className="text-xs text-muted-foreground">Last failure: {settings.lastFailureReason}</p>
-              )}
+              {settings.lastFailureReason ? (
+                <p className="text-muted-foreground text-xs">
+                  Last failure: {settings.lastFailureReason}
+                </p>
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button onClick={handleSave} disabled={updateSettings.isPending}>
-            {updateSettings.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+            {updateSettings.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Save
           </Button>
         </DialogFooter>

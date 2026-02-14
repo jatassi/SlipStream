@@ -4,7 +4,7 @@ export type ActivityType = 'scan' | 'download' | 'import' | 'metadata-refresh' |
 
 export type ActivityStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
 
-export interface Activity {
+export type Activity = {
   id: string
   type: ActivityType
   title: string

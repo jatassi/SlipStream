@@ -1,7 +1,8 @@
-import { apiFetch, buildQueryString } from './client'
 import type { HistoryResponse, ListHistoryOptions } from '@/types'
 
-export interface HistoryRetentionSettings {
+import { apiFetch, buildQueryString } from './client'
+
+export type HistoryRetentionSettings = {
   enabled: boolean
   retentionDays: number
 }
@@ -10,11 +11,9 @@ export const historyApi = {
   list: (options?: ListHistoryOptions) =>
     apiFetch<HistoryResponse>(`/history${buildQueryString(options || {})}`),
 
-  clear: () =>
-    apiFetch<void>('/history', { method: 'DELETE' }),
+  clear: () => apiFetch<void>('/history', { method: 'DELETE' }),
 
-  getSettings: () =>
-    apiFetch<HistoryRetentionSettings>('/history/settings'),
+  getSettings: () => apiFetch<HistoryRetentionSettings>('/history/settings'),
 
   updateSettings: (settings: HistoryRetentionSettings) =>
     apiFetch<HistoryRetentionSettings>('/history/settings', {

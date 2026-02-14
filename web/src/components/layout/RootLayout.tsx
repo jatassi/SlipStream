@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { Sidebar } from './Sidebar'
-import { Header } from './Header'
+
 import { Toaster } from '@/components/ui/sonner'
-import { useWebSocketStore, useWebSocketHandler, useUIStore, useDevModeStore, usePortalAuthStore } from '@/stores'
-import { useQueue, useStatus, useAuthStatus } from '@/hooks'
+import { useAuthStatus, useQueue, useStatus } from '@/hooks'
+import {
+  useDevModeStore,
+  usePortalAuthStore,
+  useUIStore,
+  useWebSocketHandler,
+  useWebSocketStore,
+} from '@/stores'
+
+import { Header } from './Header'
+import { Sidebar } from './Sidebar'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -19,7 +28,7 @@ const queryClient = new QueryClient({
   },
 })
 
-interface RootLayoutProps {
+type RootLayoutProps = {
   children: ReactNode
 }
 
@@ -34,10 +43,9 @@ const PUBLIC_PATHS = [
 
 function isPublicPath(pathname: string): boolean {
   // Check exact matches and prefix matches for portal routes
-  return PUBLIC_PATHS.some(path =>
-    pathname === path ||
-    pathname.startsWith('/requests/') ||
-    pathname.startsWith('/requests?')
+  return PUBLIC_PATHS.some(
+    (path) =>
+      pathname === path || pathname.startsWith('/requests/') || pathname.startsWith('/requests?'),
   )
 }
 
@@ -77,12 +85,8 @@ function LayoutContent({ children }: RootLayoutProps) {
       root.classList.remove('dark')
     } else {
       // System theme
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      if (mediaQuery.matches) {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
+      const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
+      root.classList.toggle('dark', mediaQuery.matches)
     }
   }, [theme])
 
@@ -128,8 +132,8 @@ function LayoutContent({ children }: RootLayoutProps) {
       navigate({ to: '/requests/auth/login' })
     }
 
-    window.addEventListener('auth:unauthorized', handleUnauthorized)
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    globalThis.addEventListener('auth:unauthorized', handleUnauthorized)
+    return () => globalThis.removeEventListener('auth:unauthorized', handleUnauthorized)
   }, [navigate])
 
   // Auth check for non-public routes
@@ -161,14 +165,27 @@ function LayoutContent({ children }: RootLayoutProps) {
       setRedirectUrl(location.pathname + location.search)
       navigate({ to: '/requests/auth/login' })
     }
-  }, [location.pathname, location.search, authStatus, isLoadingAuthStatus, isAuthenticated, user, navigate, setRedirectUrl])
+  }, [
+    location.pathname,
+    location.search,
+    authStatus,
+    isLoadingAuthStatus,
+    isAuthenticated,
+    user,
+    navigate,
+    setRedirectUrl,
+  ])
 
   // Show loading while checking auth status for protected routes
   // But skip if already authenticated as admin (handles stale authStatus after setup)
-  if (!isPublicPath(location.pathname) && isLoadingAuthStatus && !(isAuthenticated && user?.isAdmin)) {
+  if (
+    !isPublicPath(location.pathname) &&
+    isLoadingAuthStatus &&
+    !(isAuthenticated && user?.isAdmin)
+  ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
       </div>
     )
   }
@@ -176,7 +193,7 @@ function LayoutContent({ children }: RootLayoutProps) {
   // For public paths, render without layout (setup, login, signup, portal)
   if (isPublicPath(location.pathname)) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen">
         {children}
         <Toaster />
       </div>
@@ -187,14 +204,14 @@ function LayoutContent({ children }: RootLayoutProps) {
   // But if authenticated as admin, proceed (handles stale authStatus.requiresSetup)
   if (!isAuthenticated || !user?.isAdmin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="bg-background flex h-screen">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />

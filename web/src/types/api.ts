@@ -2,10 +2,7 @@ export class ApiError extends Error {
   status: number
   data: { message?: string; error?: string } | null
 
-  constructor(
-    status: number,
-    data: { message?: string; error?: string } | null
-  ) {
+  constructor(status: number, data: { message?: string; error?: string } | null) {
     super(data?.message || data?.error || `HTTP Error ${status}`)
     this.name = 'ApiError'
     this.status = status
@@ -13,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface PaginatedResponse<T> {
+export type PaginatedResponse<T> = {
   items: T[]
   page: number
   pageSize: number
@@ -21,7 +18,7 @@ export interface PaginatedResponse<T> {
   totalPages: number
 }
 
-export interface ApiResponse<T> {
+export type ApiResponse<T> = {
   data: T
   message?: string
 }

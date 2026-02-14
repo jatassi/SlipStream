@@ -1,11 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { indexersApi } from '@/api'
 import type {
-  Indexer,
   CreateIndexerInput,
-  UpdateIndexerInput,
-  TestConfigInput,
   DefinitionFilters,
+  Indexer,
+  TestConfigInput,
+  UpdateIndexerInput,
 } from '@/types'
 
 export const indexerKeys = {

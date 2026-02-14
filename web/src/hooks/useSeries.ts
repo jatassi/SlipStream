@@ -1,15 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { seriesApi, libraryApi } from '@/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { libraryApi, seriesApi } from '@/api'
 import type {
-  Series,
-  CreateSeriesInput,
   AddSeriesInput,
-  UpdateSeriesInput,
-  UpdateEpisodeInput,
-  ListSeriesOptions,
-  BulkMonitorInput,
   BulkEpisodeMonitorInput,
+  BulkMonitorInput,
+  CreateSeriesInput,
+  ListSeriesOptions,
+  Series,
+  UpdateEpisodeInput,
+  UpdateSeriesInput,
 } from '@/types'
+
 import { calendarKeys } from './useCalendar'
 import { missingKeys } from './useMissing'
 

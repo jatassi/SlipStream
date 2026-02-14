@@ -1,45 +1,38 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useEffect, useMemo, useState } from 'react'
+
+import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import {
-  useQualityProfiles,
-  useUpdateQualityProfile,
   useQualityProfileAttributes,
+  useQualityProfiles,
   useSlots,
+  useUpdateQualityProfile,
 } from '@/hooks'
 import type {
-  CreateQualityProfileInput,
-  AttributeSettings,
   AttributeMode,
+  AttributeSettings,
+  CreateQualityProfileInput,
   SlotConflict,
 } from '@/types'
 import { DEFAULT_ATTRIBUTE_SETTINGS } from '@/types'
 
-interface ResolveConfigModalProps {
+type ResolveConfigModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   conflicts: SlotConflict[]
@@ -96,11 +89,17 @@ export function ResolveConfigModal({
   })
 
   // Find profiles that are assigned to slots and have conflicts
-  const profilesToEdit = useMemo(() => (profiles || []).filter((profile) => {
-    const slot = slots?.find((s) => s.qualityProfileId === profile.id && s.enabled)
-    if (!slot) return false
-    return conflictingProfileNames.has(slot.name)
-  }), [profiles, slots, conflictingProfileNames])
+  const profilesToEdit = useMemo(
+    () =>
+      (profiles || []).filter((profile) => {
+        const slot = slots?.find((s) => s.qualityProfileId === profile.id && s.enabled)
+        if (!slot) {
+          return false
+        }
+        return conflictingProfileNames.has(slot.name)
+      }),
+    [profiles, slots, conflictingProfileNames],
+  )
 
   // Initialize form data when modal opens
   useEffect(() => {
@@ -128,7 +127,7 @@ export function ResolveConfigModal({
   const updateProfileForm = (
     profileId: number,
     field: keyof CreateQualityProfileInput,
-    value: unknown
+    value: unknown,
   ) => {
     setProfileForms((prev) => ({
       ...prev,
@@ -141,13 +140,19 @@ export function ResolveConfigModal({
 
   const updateItemMode = (
     profileId: number,
-    settingsField: 'hdrSettings' | 'videoCodecSettings' | 'audioCodecSettings' | 'audioChannelSettings',
+    settingsField:
+      | 'hdrSettings'
+      | 'videoCodecSettings'
+      | 'audioCodecSettings'
+      | 'audioChannelSettings',
     value: string,
-    mode: AttributeMode
+    mode: AttributeMode,
   ) => {
     setProfileForms((prev) => {
       const currentForm = prev[profileId]
-      if (!currentForm) return prev
+      if (!currentForm) {
+        return prev
+      }
 
       const currentItems = { ...currentForm[settingsField].items }
       if (mode === 'acceptable') {
@@ -163,7 +168,7 @@ export function ResolveConfigModal({
             currentItems[hdrFormat] = 'notAllowed'
           }
         } else if (HDR_FORMATS.includes(value)) {
-          currentItems['SDR'] = 'notAllowed'
+          currentItems.SDR = 'notAllowed'
         }
       }
 
@@ -180,14 +185,16 @@ export function ResolveConfigModal({
   const toggleQuality = (profileId: number, qualityId: number) => {
     setProfileForms((prev) => {
       const currentForm = prev[profileId]
-      if (!currentForm) return prev
+      if (!currentForm) {
+        return prev
+      }
 
       return {
         ...prev,
         [profileId]: {
           ...currentForm,
           items: currentForm.items.map((item) =>
-            item.quality.id === qualityId ? { ...item, allowed: !item.allowed } : item
+            item.quality.id === qualityId ? { ...item, allowed: !item.allowed } : item,
           ),
         },
       }
@@ -221,25 +228,31 @@ export function ResolveConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Resolve Profile Conflicts</DialogTitle>
           <DialogDescription>
-            Edit the conflicting profiles to make them mutually exclusive. Conflicting attributes are highlighted in orange.
+            Edit the conflicting profiles to make them mutually exclusive. Conflicting attributes
+            are highlighted in orange.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${Math.min(profilesToEdit.length, 3)}, 1fr)` }}>
+        <div
+          className="grid gap-6"
+          style={{ gridTemplateColumns: `repeat(${Math.min(profilesToEdit.length, 3)}, 1fr)` }}
+        >
           {profilesToEdit.slice(0, 3).map((profile) => {
             const formData = profileForms[profile.id]
-            if (!formData) return null
+            if (!formData) {
+              return null
+            }
 
             const slot = slots?.find((s) => s.qualityProfileId === profile.id)
             const allowedQualities = formData.items.filter((i) => i.allowed)
             const cutoffOptions = allowedQualities.length > 0 ? allowedQualities : formData.items
 
             return (
-              <div key={profile.id} className="space-y-4 border rounded-lg p-4">
+              <div key={profile.id} className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{slot?.name || 'Unknown Slot'}</Badge>
                   <span className="font-medium">{profile.name}</span>
@@ -257,20 +270,25 @@ export function ResolveConfigModal({
                 {/* Allowed Qualities */}
                 <div className="space-y-2">
                   <Label>Allowed Qualities</Label>
-                  <div className="border rounded-lg bg-muted/30 divide-y max-h-40 overflow-y-auto">
+                  <div className="bg-muted/30 max-h-40 divide-y overflow-y-auto rounded-lg border">
                     {[480, 720, 1080, 2160].map((resolution) => {
                       const resolutionItems = formData.items.filter(
-                        (item) => item.quality.resolution === resolution
+                        (item) => item.quality.resolution === resolution,
                       )
-                      if (resolutionItems.length === 0) return null
+                      if (resolutionItems.length === 0) {
+                        return null
+                      }
                       return (
                         <div key={resolution} className="p-2">
-                          <div className="text-xs font-medium text-muted-foreground mb-1">
+                          <div className="text-muted-foreground mb-1 text-xs font-medium">
                             {resolution === 480 ? 'SD' : `${resolution}p`}
                           </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-1">
                             {resolutionItems.map((item) => (
-                              <label key={item.quality.id} className="flex items-center gap-1.5 cursor-pointer">
+                              <label
+                                key={item.quality.id}
+                                className="flex cursor-pointer items-center gap-1.5"
+                              >
                                 <Checkbox
                                   checked={item.allowed}
                                   onCheckedChange={() => toggleQuality(profile.id, item.quality.id)}
@@ -290,10 +308,13 @@ export function ResolveConfigModal({
                   <Label>Cutoff</Label>
                   <Select
                     value={formData.cutoff.toString()}
-                    onValueChange={(v) => v && updateProfileForm(profile.id, 'cutoff', parseInt(v))}
+                    onValueChange={(v) =>
+                      v && updateProfileForm(profile.id, 'cutoff', Number.parseInt(v))
+                    }
                   >
                     <SelectTrigger className="h-8 text-sm">
-                      {cutoffOptions.find((i) => i.quality.id === formData.cutoff)?.quality.name || 'Select cutoff'}
+                      {cutoffOptions.find((i) => i.quality.id === formData.cutoff)?.quality.name ||
+                        'Select cutoff'}
                     </SelectTrigger>
                     <SelectContent>
                       {cutoffOptions.map((item) => (
@@ -314,7 +335,9 @@ export function ResolveConfigModal({
                     settings={formData.hdrSettings}
                     options={hdrOptions}
                     isConflicting={conflictingAttributes.has('HDR')}
-                    onItemModeChange={(value, mode) => updateItemMode(profile.id, 'hdrSettings', value, mode)}
+                    onItemModeChange={(value, mode) =>
+                      updateItemMode(profile.id, 'hdrSettings', value, mode)
+                    }
                   />
 
                   <CompactAttributeSection
@@ -322,7 +345,9 @@ export function ResolveConfigModal({
                     settings={formData.videoCodecSettings}
                     options={attributeOptions?.videoCodecs || []}
                     isConflicting={conflictingAttributes.has('Video Codec')}
-                    onItemModeChange={(value, mode) => updateItemMode(profile.id, 'videoCodecSettings', value, mode)}
+                    onItemModeChange={(value, mode) =>
+                      updateItemMode(profile.id, 'videoCodecSettings', value, mode)
+                    }
                   />
 
                   <CompactAttributeSection
@@ -330,7 +355,9 @@ export function ResolveConfigModal({
                     settings={formData.audioCodecSettings}
                     options={attributeOptions?.audioCodecs || []}
                     isConflicting={conflictingAttributes.has('Audio Codec')}
-                    onItemModeChange={(value, mode) => updateItemMode(profile.id, 'audioCodecSettings', value, mode)}
+                    onItemModeChange={(value, mode) =>
+                      updateItemMode(profile.id, 'audioCodecSettings', value, mode)
+                    }
                   />
 
                   <CompactAttributeSection
@@ -338,7 +365,9 @@ export function ResolveConfigModal({
                     settings={formData.audioChannelSettings}
                     options={attributeOptions?.audioChannels || []}
                     isConflicting={conflictingAttributes.has('Audio Channels')}
-                    onItemModeChange={(value, mode) => updateItemMode(profile.id, 'audioChannelSettings', value, mode)}
+                    onItemModeChange={(value, mode) =>
+                      updateItemMode(profile.id, 'audioChannelSettings', value, mode)
+                    }
                   />
                 </div>
               </div>
@@ -351,7 +380,7 @@ export function ResolveConfigModal({
             Cancel
           </Button>
           <Button onClick={handleSaveAll} disabled={saving}>
-            {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Save All
           </Button>
         </DialogFooter>
@@ -360,7 +389,7 @@ export function ResolveConfigModal({
   )
 }
 
-interface CompactAttributeSectionProps {
+type CompactAttributeSectionProps = {
   label: string
   settings: AttributeSettings
   options: string[]
@@ -394,35 +423,41 @@ function CompactAttributeSection({
   const textClass = isConflicting ? 'text-orange-600 dark:text-orange-400' : ''
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={`border rounded-lg ${borderClass}`}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-muted/50 transition-colors">
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className={`rounded-lg border ${borderClass}`}
+    >
+      <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center justify-between p-2 transition-colors">
         <div className="flex items-center gap-1.5">
-          {isConflicting && <AlertTriangle className="size-3.5 text-orange-500" />}
-          <span className={`font-medium text-xs ${textClass}`}>{label}</span>
+          {isConflicting ? <AlertTriangle className="size-3.5 text-orange-500" /> : null}
+          <span className={`text-xs font-medium ${textClass}`}>{label}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {requiredCount > 0 && (
-            <Badge variant="destructive" className="text-[10px] px-1 py-0 h-4">
+            <Badge variant="destructive" className="h-4 px-1 py-0 text-[10px]">
               {requiredCount}
             </Badge>
           )}
           {preferredCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+            <Badge variant="secondary" className="h-4 px-1 py-0 text-[10px]">
               {preferredCount}
             </Badge>
           )}
           {notAllowedCount > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+            <Badge variant="outline" className="h-4 px-1 py-0 text-[10px]">
               {notAllowedCount}
             </Badge>
           )}
           {!hasSettings && <span className="text-muted-foreground text-[10px]">Acceptable</span>}
-          <ChevronDown className={`size-3 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`text-muted-foreground size-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
         </div>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="px-2 pb-2 space-y-1 border-t pt-2">
+        <div className="space-y-1 border-t px-2 pt-2 pb-2">
           {options.map((value) => (
             <div key={value} className="flex items-center justify-between py-0.5">
               <span className="text-xs">{value}</span>
@@ -430,7 +465,7 @@ function CompactAttributeSection({
                 value={getItemMode(value)}
                 onValueChange={(v) => v && onItemModeChange(value, v as AttributeMode)}
               >
-                <SelectTrigger className="w-24 h-6 text-[10px]">
+                <SelectTrigger className="h-6 w-24 text-[10px]">
                   {MODE_LABELS[getItemMode(value)]}
                 </SelectTrigger>
                 <SelectContent>

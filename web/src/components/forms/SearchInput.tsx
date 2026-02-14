@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Search, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useCallback, useEffect, useState } from 'react'
 
-interface SearchInputProps {
+import { Search, X } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
+
+type SearchInputProps = {
   value?: string
   onChange: (value: string) => void
   placeholder?: string
@@ -46,26 +48,26 @@ export function SearchInput({
 
   return (
     <div className={cn('relative', className)}>
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
       <Input
         type="search"
         value={internalValue}
         onChange={(e) => setInternalValue(e.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-9"
+        className="pr-9 pl-9"
         autoFocus={autoFocus}
       />
-      {internalValue && (
+      {internalValue ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={handleClear}
-          className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+          className="absolute top-1/2 right-1 size-7 -translate-y-1/2"
         >
           <X className="size-4" />
         </Button>
-      )}
+      ) : null}
     </div>
   )
 }

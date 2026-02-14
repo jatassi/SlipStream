@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import * as adminApi from '@/api/admin'
 import type { RequestSettings } from '@/types'
 
@@ -17,8 +18,7 @@ export function useRequestSettings() {
 export function useUpdateRequestSettings() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (settings: Partial<RequestSettings>) =>
-      adminApi.updateRequestSettings(settings),
+    mutationFn: (settings: Partial<RequestSettings>) => adminApi.updateRequestSettings(settings),
     onSuccess: (settings) => {
       queryClient.setQueryData(requestSettingsKeys.settings(), settings)
     },

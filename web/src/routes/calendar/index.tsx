@@ -1,22 +1,13 @@
-import { useState, useMemo } from 'react'
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addDays,
-} from 'date-fns'
+import { useMemo, useState } from 'react'
+
+import { addDays, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-fns'
 import { CalendarDays, CalendarRange, List } from 'lucide-react'
+
+import { CalendarAgendaView, CalendarMonthView, CalendarWeekView } from '@/components/calendar'
+import { ErrorState } from '@/components/data/ErrorState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { ErrorState } from '@/components/data/ErrorState'
 import { useCalendarEvents, useGlobalLoading } from '@/hooks'
-import {
-  CalendarMonthView,
-  CalendarWeekView,
-  CalendarAgendaView,
-} from '@/components/calendar'
 import type { CalendarView } from '@/types/calendar'
 
 export function CalendarPage() {
@@ -33,19 +24,19 @@ export function CalendarPage() {
         start: format(startOfWeek(monthStart), 'yyyy-MM-dd'),
         end: format(endOfWeek(monthEnd), 'yyyy-MM-dd'),
       }
-    } else if (view === 'week') {
+    }
+    if (view === 'week') {
       const weekStart = startOfWeek(currentDate)
       const weekEnd = endOfWeek(currentDate)
       return {
         start: format(weekStart, 'yyyy-MM-dd'),
         end: format(weekEnd, 'yyyy-MM-dd'),
       }
-    } else {
-      // Agenda: show 30 days from today
-      return {
-        start: format(new Date(), 'yyyy-MM-dd'),
-        end: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
-      }
+    }
+    // Agenda: show 30 days from today
+    return {
+      start: format(new Date(), 'yyyy-MM-dd'),
+      end: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
     }
   }, [view, currentDate])
 
@@ -69,15 +60,12 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       <PageHeader
         title="Calendar"
         description="Upcoming releases and air dates"
         actions={
-          <ToggleGroup
-            value={[view]}
-            onValueChange={handleViewChange}
-          >
+          <ToggleGroup value={[view]} onValueChange={handleViewChange}>
             <ToggleGroupItem value="month" aria-label="Month view">
               <CalendarDays className="size-4" />
             </ToggleGroupItem>
@@ -91,7 +79,7 @@ export function CalendarPage() {
         }
       />
 
-      <div className="flex-1 min-h-0">
+      <div className="min-h-0 flex-1">
         {view === 'month' && (
           <CalendarMonthView
             events={events || []}
@@ -108,12 +96,7 @@ export function CalendarPage() {
             loading={isLoading}
           />
         )}
-        {view === 'agenda' && (
-          <CalendarAgendaView
-            events={events || []}
-            loading={isLoading}
-          />
-        )}
+        {view === 'agenda' && <CalendarAgendaView events={events || []} loading={isLoading} />}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 // Search criteria for indexer queries
-export interface SearchCriteria {
+export type SearchCriteria = {
   query?: string
   type?: 'search' | 'tvsearch' | 'movie'
   categories?: string // comma-separated category IDs
@@ -14,16 +14,15 @@ export interface SearchCriteria {
 }
 
 // Extended search criteria for scored search endpoints
-export interface ScoredSearchCriteria extends SearchCriteria {
+export type ScoredSearchCriteria = {
   qualityProfileId: number
-}
+} & SearchCriteria
 
 // Re-export Protocol from indexer
 import type { Protocol } from './indexer'
-export type { Protocol }
 
 // Base release info from search results
-export interface ReleaseInfo {
+export type ReleaseInfo = {
   guid: string
   title: string
   description?: string
@@ -39,13 +38,13 @@ export interface ReleaseInfo {
   tmdbId?: number
   tvdbId?: number
   // Parsed quality info
-  quality?: string    // "720p", "1080p", "2160p"
-  source?: string     // "BluRay", "WEB-DL", "HDTV"
+  quality?: string // "720p", "1080p", "2160p"
+  source?: string // "BluRay", "WEB-DL", "HDTV"
   resolution?: number // 720, 1080, 2160
 }
 
 // Score breakdown for desirability scoring
-export interface ScoreBreakdown {
+export type ScoreBreakdown = {
   qualityScore: number
   qualityId?: number
   qualityName?: string
@@ -56,7 +55,7 @@ export interface ScoreBreakdown {
 }
 
 // Torrent-specific release info
-export interface TorrentInfo extends ReleaseInfo {
+export type TorrentInfo = {
   seeders: number
   leechers: number
   infoHash?: string
@@ -77,25 +76,25 @@ export interface TorrentInfo extends ReleaseInfo {
   targetSlotName?: string
   isSlotUpgrade?: boolean
   isSlotNewFill?: boolean
-}
+} & ReleaseInfo
 
 // Usenet-specific release info
-export interface UsenetInfo extends ReleaseInfo {
+export type UsenetInfo = {
   grabs?: number
   usenetAge?: number
   poster?: string
   group?: string
-}
+} & ReleaseInfo
 
 // Error from a specific indexer during search
-export interface SearchIndexerError {
+export type SearchIndexerError = {
   indexerId: number
   indexerName: string
   error: string
 }
 
 // Search result from API
-export interface SearchResult {
+export type SearchResult = {
   releases: ReleaseInfo[]
   total: number
   indexersSearched: number
@@ -103,7 +102,7 @@ export interface SearchResult {
 }
 
 // Torrent search result
-export interface TorrentSearchResult {
+export type TorrentSearchResult = {
   releases: TorrentInfo[]
   total: number
   indexersSearched: number
@@ -111,7 +110,7 @@ export interface TorrentSearchResult {
 }
 
 // Grab request to send release to download client
-export interface GrabRequest {
+export type GrabRequest = {
   release: {
     guid: string
     title: string
@@ -136,7 +135,7 @@ export interface GrabRequest {
 }
 
 // Result from grabbing a release
-export interface GrabResult {
+export type GrabResult = {
   success: boolean
   downloadId?: string
   clientId?: number
@@ -145,7 +144,7 @@ export interface GrabResult {
 }
 
 // Bulk grab request
-export interface BulkGrabRequest {
+export type BulkGrabRequest = {
   releases: GrabRequest['release'][]
   clientId?: number
   mediaType?: 'movie' | 'episode'
@@ -153,7 +152,7 @@ export interface BulkGrabRequest {
 }
 
 // Bulk grab result
-export interface BulkGrabResult {
+export type BulkGrabResult = {
   totalRequested: number
   successful: number
   failed: number
@@ -161,7 +160,7 @@ export interface BulkGrabResult {
 }
 
 // Grab history item
-export interface GrabHistoryItem {
+export type GrabHistoryItem = {
   id: number
   indexerId: number
   title: string
@@ -171,3 +170,5 @@ export interface GrabHistoryItem {
 }
 
 // IndexerStatus is defined in ./indexer
+
+export { type Protocol } from './indexer'

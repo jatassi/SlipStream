@@ -1,13 +1,13 @@
 // Storage-related types
 
-export interface RootFolderRef {
+export type RootFolderRef = {
   id: number
   name: string
   path: string
   mediaType: 'movie' | 'tv'
 }
 
-export interface StorageInfo {
+export type StorageInfo = {
   label: string
   path: string
   freeSpace: number

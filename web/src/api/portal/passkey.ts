@@ -1,38 +1,37 @@
-import {
-  startRegistration,
-  startAuthentication,
-} from '@simplewebauthn/browser'
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser'
-import { portalFetch, getPortalAuthToken } from './client'
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
+
 import type { PortalUser } from '@/types'
+
+import { getPortalAuthToken, portalFetch } from './client'
 
 const API_BASE = '/api/v1/requests'
 
-interface BeginRegistrationResponse {
+type BeginRegistrationResponse = {
   challengeId: string
   options: {
     publicKey: PublicKeyCredentialCreationOptionsJSON
   }
 }
 
-interface BeginLoginResponse {
+type BeginLoginResponse = {
   challengeId: string
   options: {
     publicKey: PublicKeyCredentialRequestOptionsJSON
   }
 }
 
-interface PasskeyCredential {
+type PasskeyCredential = {
   id: string
   name: string
   createdAt: string
   lastUsedAt: string | null
 }
 
-interface PasskeyLoginResponse {
+type PasskeyLoginResponse = {
   token: string
   user: PortalUser
   isAdmin: boolean
@@ -40,10 +39,12 @@ interface PasskeyLoginResponse {
 
 export const passkeyApi = {
   isSupported: () => {
-    if (typeof window === 'undefined') return false
+    if (globalThis.window === undefined) {
+      return false
+    }
     return (
-      window.PublicKeyCredential !== undefined &&
-      typeof window.PublicKeyCredential === 'function'
+      globalThis.PublicKeyCredential !== undefined &&
+      typeof globalThis.PublicKeyCredential === 'function'
     )
   },
 
@@ -70,7 +71,7 @@ export const passkeyApi = {
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify(credential),
-      }
+      },
     )
 
     if (!res.ok) {
@@ -99,7 +100,7 @@ export const passkeyApi = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(credential),
-      }
+      },
     )
 
     if (!res.ok) {
@@ -111,8 +112,7 @@ export const passkeyApi = {
   },
 
   // Credential management
-  listCredentials: () =>
-    portalFetch<PasskeyCredential[]>('/auth/passkey/credentials'),
+  listCredentials: () => portalFetch<PasskeyCredential[]>('/auth/passkey/credentials'),
 
   updateCredential: (id: string, name: string) =>
     portalFetch<void>(`/auth/passkey/credentials/${id}`, {

@@ -1,35 +1,38 @@
-import { useState, useMemo } from 'react'
-import { useParams, useNavigate } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
+
+import { useNavigate, useParams } from '@tanstack/react-router'
 import {
-  RefreshCw,
-  Trash2,
-  Edit,
   Calendar,
   CalendarPlus,
   Clock,
-  UserStar,
-  UserRoundPlus,
-  SlidersVertical,
-  User,
   Drama,
+  Edit,
+  RefreshCw,
+  SlidersVertical,
+  Trash2,
+  User,
+  UserRoundPlus,
+  UserStar,
 } from 'lucide-react'
-import { BackdropImage } from '@/components/media/BackdropImage'
-import { PosterImage } from '@/components/media/PosterImage'
-import { TitleTreatment } from '@/components/media/TitleTreatment'
-import { StudioLogo } from '@/components/media/StudioLogo'
-import { RTFreshIcon, RTRottenIcon, IMDbIcon, MetacriticIcon } from '@/components/media/RatingIcons'
-import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
-import { QualityBadge } from '@/components/media/QualityBadge'
-import { LoadingState } from '@/components/data/LoadingState'
+import { toast } from 'sonner'
+
 import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
+import { BackdropImage } from '@/components/media/BackdropImage'
+import { MediaStatusBadge } from '@/components/media/MediaStatusBadge'
+import { PosterImage } from '@/components/media/PosterImage'
+import { QualityBadge } from '@/components/media/QualityBadge'
+import { IMDbIcon, MetacriticIcon, RTFreshIcon, RTRottenIcon } from '@/components/media/RatingIcons'
+import { StudioLogo } from '@/components/media/StudioLogo'
+import { TitleTreatment } from '@/components/media/TitleTreatment'
+import { MovieEditDialog } from '@/components/movies/MovieEditDialog'
 import { MediaSearchMonitorControls } from '@/components/search'
 import { SlotStatusCard } from '@/components/slots'
-import { MovieEditDialog } from '@/components/movies/MovieEditDialog'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -38,35 +41,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import {
-  useMovie,
-  useUpdateMovie,
-  useDeleteMovie,
-  useRefreshMovie,
-  useMultiVersionSettings,
-  useMovieSlotStatus,
-  useSetMovieSlotMonitored,
-  useSlots,
   useAssignMovieFile,
-
-  useQualityProfiles,
+  useDeleteMovie,
   useExtendedMovieMetadata,
   useGlobalLoading,
+  useMovie,
+  useMovieSlotStatus,
+  useMultiVersionSettings,
+  useQualityProfiles,
+  useRefreshMovie,
+  useSetMovieSlotMonitored,
+  useSlots,
+  useUpdateMovie,
 } from '@/hooks'
-import { formatBytes, formatRuntime, formatDate } from '@/lib/formatters'
+import { formatBytes, formatDate, formatRuntime } from '@/lib/formatters'
 import type { Person } from '@/types'
-import { toast } from 'sonner'
 
 export function MovieDetailPage() {
   const { id } = useParams({ from: '/movies/$id' })
   const navigate = useNavigate()
-  const movieId = parseInt(id)
+  const movieId = Number.parseInt(id)
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [overviewExpanded, setOverviewExpanded] = useState(false)
@@ -86,9 +82,8 @@ export function MovieDetailPage() {
   const setSlotMonitoredMutation = useSetMovieSlotMonitored()
   const assignFileMutation = useAssignMovieFile()
 
-
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
-  const enabledSlots = useMemo(() => slots?.filter(s => s.enabled) ?? [], [slots])
+  const enabledSlots = useMemo(() => slots?.filter((s) => s.enabled) ?? [], [slots])
 
   const slotQualityProfiles = useMemo(() => {
     const map: Record<number, number> = {}
@@ -101,13 +96,17 @@ export function MovieDetailPage() {
   }, [enabledSlots])
 
   const getSlotName = (slotId: number | undefined) => {
-    if (!slotId) return null
-    const slot = slots?.find(s => s.id === slotId)
+    if (!slotId) {
+      return null
+    }
+    const slot = slots?.find((s) => s.id === slotId)
     return slot?.name ?? null
   }
 
   const handleToggleMonitored = async (newMonitored?: boolean) => {
-    if (!movie) return
+    if (!movie) {
+      return
+    }
     const target = newMonitored ?? !movie.monitored
     try {
       await updateMutation.mutateAsync({
@@ -185,7 +184,7 @@ export function MovieDetailPage() {
           version={movie.updatedAt}
           className="absolute inset-0"
         />
-        {movie.studio && (
+        {movie.studio ? (
           <StudioLogo
             tmdbId={movie.tmdbId}
             type="movie"
@@ -193,35 +192,35 @@ export function MovieDetailPage() {
             version={movie.updatedAt}
             className="absolute top-4 right-4 z-10"
             fallback={
-              <span className="px-2.5 py-1 rounded bg-black/50 text-xs font-medium text-white/80 backdrop-blur-sm">
+              <span className="rounded bg-black/50 px-2.5 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
                 {movie.studio}
               </span>
             }
           />
-        )}
+        ) : null}
         <div className="absolute inset-0 flex items-end p-6">
-          <div className="flex gap-6 items-end max-w-4xl">
+          <div className="flex max-w-4xl items-end gap-6">
             {/* Poster */}
-            <div className="hidden md:block shrink-0">
+            <div className="hidden shrink-0 md:block">
               <PosterImage
                 tmdbId={movie.tmdbId}
                 alt={movie.title}
                 type="movie"
                 version={movie.updatedAt}
-                className="w-40 h-60 rounded-lg shadow-lg"
+                className="h-60 w-40 rounded-lg shadow-lg"
               />
             </div>
 
             {/* Info */}
             <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2">
                 <MediaStatusBadge status={movie.status} />
-                {qualityProfiles?.find((p) => p.id === movie.qualityProfileId)?.name && (
+                {qualityProfiles?.find((p) => p.id === movie.qualityProfileId)?.name ? (
                   <Badge variant="secondary" className="gap-1">
                     <SlidersVertical className="size-3" />
                     {qualityProfiles.find((p) => p.id === movie.qualityProfileId)?.name}
                   </Badge>
-                )}
+                ) : null}
               </div>
               <TitleTreatment
                 tmdbId={movie.tmdbId}
@@ -231,49 +230,51 @@ export function MovieDetailPage() {
                 fallback={<h1 className="text-3xl font-bold text-white">{movie.title}</h1>}
               />
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
-                {movie.contentRating && (
-                  <span className="shrink-0 px-1.5 py-0.5 border border-gray-400 rounded text-xs font-medium text-gray-300">
+                {movie.contentRating ? (
+                  <span className="shrink-0 rounded border border-gray-400 px-1.5 py-0.5 text-xs font-medium text-gray-300">
                     {movie.contentRating}
                   </span>
-                )}
-                {movie.year && (
+                ) : null}
+                {movie.year ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Calendar className="size-4 shrink-0" />
                     {movie.year}
                   </span>
-                )}
-                {movie.runtime && (
+                ) : null}
+                {movie.runtime ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Clock className="size-4 shrink-0" />
                     {formatRuntime(movie.runtime)}
                   </span>
-                )}
-                {extendedData?.credits?.directors?.[0] && (
+                ) : null}
+                {extendedData?.credits?.directors?.[0] ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <UserStar className="size-4 shrink-0" />
                     {extendedData.credits.directors[0].name}
                   </span>
-                )}
-                {extendedData?.genres && extendedData.genres.length > 0 && (
+                ) : null}
+                {extendedData?.genres && extendedData.genres.length > 0 ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <Drama className="size-4 shrink-0" />
                     {extendedData.genres.join(', ')}
                   </span>
-                )}
-                {movie.addedByUsername && (
+                ) : null}
+                {movie.addedByUsername ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <UserRoundPlus className="size-4 shrink-0" />
                     {movie.addedByUsername}
                   </span>
-                )}
-                {movie.addedAt && (
+                ) : null}
+                {movie.addedAt ? (
                   <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                     <CalendarPlus className="size-4 shrink-0" />
                     {formatDate(movie.addedAt)}
                   </span>
-                )}
+                ) : null}
               </div>
-              {(extendedData?.ratings?.rottenTomatoes != null || extendedData?.ratings?.imdbRating != null || extendedData?.ratings?.metacritic != null) && (
+              {(extendedData?.ratings?.rottenTomatoes != null ||
+                extendedData?.ratings?.imdbRating != null ||
+                extendedData?.ratings?.metacritic != null) && (
                 <div className="flex items-center gap-4 text-sm text-gray-300">
                   {extendedData?.ratings?.rottenTomatoes != null && (
                     <span className="flex items-center gap-1.5">
@@ -288,7 +289,9 @@ export function MovieDetailPage() {
                   {extendedData?.ratings?.imdbRating != null && (
                     <span className="flex items-center gap-1.5">
                       <IMDbIcon className="h-4" />
-                      <span className="font-medium">{extendedData.ratings.imdbRating.toFixed(1)}</span>
+                      <span className="font-medium">
+                        {extendedData.ratings.imdbRating.toFixed(1)}
+                      </span>
                     </span>
                   )}
                   {extendedData?.ratings?.metacritic != null && (
@@ -299,21 +302,21 @@ export function MovieDetailPage() {
                   )}
                 </div>
               )}
-              {movie.overview && (
+              {movie.overview ? (
                 <p
-                  className={`text-sm text-gray-300 max-w-2xl cursor-pointer ${overviewExpanded ? '' : 'line-clamp-2'}`}
+                  className={`max-w-2xl cursor-pointer text-sm text-gray-300 ${overviewExpanded ? '' : 'line-clamp-2'}`}
                   onClick={() => setOverviewExpanded(!overviewExpanded)}
                 >
                   {movie.overview}
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="px-6 py-4 border-b bg-card flex flex-wrap gap-2">
+      <div className="bg-card flex flex-wrap gap-2 border-b px-6 py-4">
         <MediaSearchMonitorControls
           mediaType="movie"
           movieId={movie.id}
@@ -350,7 +353,7 @@ export function MovieDetailPage() {
             onClick={handleRefresh}
             disabled={refreshMutation.isPending}
           >
-            <RefreshCw className="size-4 mr-2" />
+            <RefreshCw className="mr-2 size-4" />
             Refresh
           </Button>
           <Tooltip>
@@ -368,8 +371,12 @@ export function MovieDetailPage() {
             </TooltipTrigger>
             <TooltipContent>Edit</TooltipContent>
           </Tooltip>
-          <Button variant="outline" className="hidden min-[820px]:inline-flex" onClick={() => setEditDialogOpen(true)}>
-            <Edit className="size-4 mr-2" />
+          <Button
+            variant="outline"
+            className="hidden min-[820px]:inline-flex"
+            onClick={() => setEditDialogOpen(true)}
+          >
+            <Edit className="mr-2 size-4" />
             Edit
           </Button>
           <ConfirmDialog
@@ -386,7 +393,7 @@ export function MovieDetailPage() {
                   <TooltipContent>Delete</TooltipContent>
                 </Tooltip>
                 <Button variant="destructive" className="hidden min-[820px]:inline-flex">
-                  <Trash2 className="size-4 mr-2" />
+                  <Trash2 className="mr-2 size-4" />
                   Delete
                 </Button>
               </>
@@ -401,9 +408,9 @@ export function MovieDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         {/* Multi-Version Slot Status */}
-        {isMultiVersionEnabled && (
+        {isMultiVersionEnabled ? (
           <SlotStatusCard
             status={slotStatus}
             isLoading={isLoadingSlotStatus}
@@ -417,7 +424,7 @@ export function MovieDetailPage() {
             onToggleMonitored={handleToggleSlotMonitored}
             isUpdating={setSlotMonitoredMutation.isPending}
           />
-        )}
+        ) : null}
 
         {/* Files */}
         <Card>
@@ -425,9 +432,7 @@ export function MovieDetailPage() {
             <CardTitle>Files</CardTitle>
           </CardHeader>
           <CardContent>
-            {!movie.movieFiles?.length ? (
-              <p className="text-muted-foreground">No files found</p>
-            ) : (
+            {movie.movieFiles?.length ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -437,7 +442,7 @@ export function MovieDetailPage() {
                         <TableHead>Quality</TableHead>
                         <TableHead>Video</TableHead>
                         <TableHead>Audio</TableHead>
-                        {isMultiVersionEnabled && <TableHead>Slot</TableHead>}
+                        {isMultiVersionEnabled ? <TableHead>Slot</TableHead> : null}
                         <TableHead className="text-right">Size</TableHead>
                       </>
                     )}
@@ -466,12 +471,12 @@ export function MovieDetailPage() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                {file.videoCodec && (
+                                {file.videoCodec ? (
                                   <Badge variant="outline" className="font-mono text-xs">
                                     {file.videoCodec}
                                   </Badge>
-                                )}
-                                {file.dynamicRange && file.dynamicRange.split(' ').map((dr) => (
+                                ) : null}
+                                {file.dynamicRange?.split(' ').map((dr) => (
                                   <Badge key={dr} variant="outline" className="font-mono text-xs">
                                     {dr}
                                   </Badge>
@@ -480,30 +485,30 @@ export function MovieDetailPage() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                {file.audioCodec && (
+                                {file.audioCodec ? (
                                   <Badge variant="outline" className="font-mono text-xs">
                                     {file.audioCodec}
                                   </Badge>
-                                )}
-                                {file.audioChannels && (
+                                ) : null}
+                                {file.audioChannels ? (
                                   <Badge variant="outline" className="font-mono text-xs">
                                     {file.audioChannels}
                                   </Badge>
-                                )}
+                                ) : null}
                               </div>
                             </TableCell>
-                            {isMultiVersionEnabled && (
+                            {isMultiVersionEnabled ? (
                               <TableCell>
                                 <Select
                                   value={file.slotId?.toString() ?? 'unassigned'}
                                   onValueChange={(value) => {
                                     if (value && value !== 'unassigned') {
-                                      handleAssignFileToSlot(file.id, parseInt(value, 10))
+                                      handleAssignFileToSlot(file.id, Number.parseInt(value, 10))
                                     }
                                   }}
                                   disabled={assignFileMutation.isPending}
                                 >
-                                  <SelectTrigger className="w-32 h-8">
+                                  <SelectTrigger className="h-8 w-32">
                                     {getSlotName(file.slotId) ?? (
                                       <span className="text-muted-foreground">Unassigned</span>
                                     )}
@@ -520,7 +525,7 @@ export function MovieDetailPage() {
                                   </SelectContent>
                                 </Select>
                               </TableCell>
-                            )}
+                            ) : null}
                             <TableCell className="text-right">{formatBytes(file.size)}</TableCell>
                           </>
                         )}
@@ -529,12 +534,14 @@ export function MovieDetailPage() {
                   })}
                 </TableBody>
               </Table>
+            ) : (
+              <p className="text-muted-foreground">No files found</p>
             )}
           </CardContent>
         </Card>
 
         {/* Cast */}
-        {extendedData?.credits?.cast && extendedData.credits.cast.length > 0 && (
+        {extendedData?.credits?.cast && extendedData.credits.cast.length > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>Cast</CardTitle>
@@ -543,10 +550,11 @@ export function MovieDetailPage() {
               <PersonList people={extendedData.credits.cast} max={18} />
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Crew */}
-        {extendedData?.credits && (extendedData.credits.directors?.length || extendedData.credits.writers?.length) && (
+        {extendedData?.credits &&
+        (extendedData.credits.directors?.length || extendedData.credits.writers?.length) ? (
           <Card>
             <CardHeader>
               <CardTitle>Crew</CardTitle>
@@ -561,15 +569,11 @@ export function MovieDetailPage() {
               />
             </CardContent>
           </Card>
-        )}
+        ) : null}
       </div>
 
       {/* Edit Dialog */}
-      <MovieEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        movie={movie}
-      />
+      <MovieEditDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} movie={movie} />
     </div>
   )
 }
@@ -580,25 +584,21 @@ function PersonList({ people, max = 12 }: { people: Person[]; max?: number }) {
       {people.slice(0, max).map((person) => (
         <div
           key={`${person.id}-${person.role}`}
-          className="flex flex-col items-center gap-1 shrink-0 w-20"
+          className="flex w-20 shrink-0 flex-col items-center gap-1"
         >
-          <div className="size-16 rounded-full bg-muted overflow-hidden flex items-center justify-center">
+          <div className="bg-muted flex size-16 items-center justify-center overflow-hidden rounded-full">
             {person.photoUrl ? (
-              <img
-                src={person.photoUrl}
-                alt={person.name}
-                className="size-full object-cover"
-              />
+              <img src={person.photoUrl} alt={person.name} className="size-full object-cover" />
             ) : (
-              <User className="size-8 text-muted-foreground" />
+              <User className="text-muted-foreground size-8" />
             )}
           </div>
-          <span className="text-xs text-center line-clamp-2 w-full">{person.name}</span>
-          {person.role && (
-            <span className="text-xs text-muted-foreground text-center line-clamp-2 w-full">
+          <span className="line-clamp-2 w-full text-center text-xs">{person.name}</span>
+          {person.role ? (
+            <span className="text-muted-foreground line-clamp-2 w-full text-center text-xs">
               {person.role}
             </span>
-          )}
+          ) : null}
         </div>
       ))}
     </div>

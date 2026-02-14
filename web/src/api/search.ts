@@ -1,32 +1,55 @@
-import { apiFetch } from './client'
 import type {
-  SearchCriteria,
-  ScoredSearchCriteria,
-  SearchResult,
-  TorrentSearchResult,
-  GrabRequest,
-  GrabResult,
   BulkGrabRequest,
   BulkGrabResult,
   GrabHistoryItem,
+  GrabRequest,
+  GrabResult,
   IndexerStatus,
+  ScoredSearchCriteria,
+  SearchCriteria,
+  SearchResult,
+  TorrentSearchResult,
 } from '@/types'
+
+import { apiFetch } from './client'
 
 // Build query string from search criteria
 function buildSearchQuery(criteria: SearchCriteria): string {
   const params = new URLSearchParams()
 
-  if (criteria.query) params.set('query', criteria.query)
-  if (criteria.type) params.set('type', criteria.type)
-  if (criteria.categories) params.set('categories', criteria.categories)
-  if (criteria.imdbId) params.set('imdbId', criteria.imdbId)
-  if (criteria.tmdbId) params.set('tmdbId', String(criteria.tmdbId))
-  if (criteria.tvdbId) params.set('tvdbId', String(criteria.tvdbId))
-  if (criteria.season) params.set('season', String(criteria.season))
-  if (criteria.episode) params.set('episode', String(criteria.episode))
-  if (criteria.year) params.set('year', String(criteria.year))
-  if (criteria.limit) params.set('limit', String(criteria.limit))
-  if (criteria.offset) params.set('offset', String(criteria.offset))
+  if (criteria.query) {
+    params.set('query', criteria.query)
+  }
+  if (criteria.type) {
+    params.set('type', criteria.type)
+  }
+  if (criteria.categories) {
+    params.set('categories', criteria.categories)
+  }
+  if (criteria.imdbId) {
+    params.set('imdbId', criteria.imdbId)
+  }
+  if (criteria.tmdbId) {
+    params.set('tmdbId', String(criteria.tmdbId))
+  }
+  if (criteria.tvdbId) {
+    params.set('tvdbId', String(criteria.tvdbId))
+  }
+  if (criteria.season) {
+    params.set('season', String(criteria.season))
+  }
+  if (criteria.episode) {
+    params.set('episode', String(criteria.episode))
+  }
+  if (criteria.year) {
+    params.set('year', String(criteria.year))
+  }
+  if (criteria.limit) {
+    params.set('limit', String(criteria.limit))
+  }
+  if (criteria.offset) {
+    params.set('offset', String(criteria.offset))
+  }
 
   return params.toString()
 }
@@ -48,26 +71,30 @@ export const searchApi = {
   searchMovie: (criteria: ScoredSearchCriteria) => {
     const url = `/search/movie?${buildScoredSearchQuery(criteria)}`
     console.log('[searchApi.searchMovie] Making request to:', url, 'criteria:', criteria)
-    return apiFetch<TorrentSearchResult>(url).then(result => {
-      console.log('[searchApi.searchMovie] Response JSON:', JSON.stringify(result, null, 2))
-      return result
-    }).catch(err => {
-      console.error('[searchApi.searchMovie] Error:', err)
-      throw err
-    })
+    return apiFetch<TorrentSearchResult>(url)
+      .then((result) => {
+        console.log('[searchApi.searchMovie] Response JSON:', JSON.stringify(result, null, 2))
+        return result
+      })
+      .catch((error) => {
+        console.error('[searchApi.searchMovie] Error:', error)
+        throw error
+      })
   },
 
   // TV-specific search with scoring (returns scored TorrentInfo)
   searchTV: (criteria: ScoredSearchCriteria) => {
     const url = `/search/tv?${buildScoredSearchQuery(criteria)}`
     console.log('[searchApi.searchTV] Making request to:', url, 'criteria:', criteria)
-    return apiFetch<TorrentSearchResult>(url).then(result => {
-      console.log('[searchApi.searchTV] Response:', result)
-      return result
-    }).catch(err => {
-      console.error('[searchApi.searchTV] Error:', err)
-      throw err
-    })
+    return apiFetch<TorrentSearchResult>(url)
+      .then((result) => {
+        console.log('[searchApi.searchTV] Response:', result)
+        return result
+      })
+      .catch((error) => {
+        console.error('[searchApi.searchTV] Error:', error)
+        throw error
+      })
   },
 
   // Torrent search with scoring (returns scored TorrentInfo)
@@ -93,6 +120,5 @@ export const searchApi = {
     apiFetch<GrabHistoryItem[]>(`/search/grab/history?limit=${limit}&offset=${offset}`),
 
   // Get indexer statuses
-  getIndexerStatuses: () =>
-    apiFetch<IndexerStatus[]>('/indexers/status'),
+  getIndexerStatuses: () => apiFetch<IndexerStatus[]>('/indexers/status'),
 }

@@ -1,15 +1,12 @@
 import { Columns3 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ColumnDef } from '@/lib/table-columns'
+import { cn } from '@/lib/utils'
 
-interface ColumnConfigPopoverProps<T> {
+type ColumnConfigPopoverProps<T> = {
   columns: ColumnDef<T>[]
   visibleColumnIds: string[]
   onVisibleColumnsChange: (ids: string[]) => void
@@ -37,14 +34,14 @@ export function ColumnConfigPopover<T>({
     <Popover>
       <PopoverTrigger render={<Button variant="outline" size="sm" />}>
         <Columns3 className={cn('size-4', accentClass)} />
-        <span className="hidden sm:inline ml-1.5">Columns</span>
+        <span className="ml-1.5 hidden sm:inline">Columns</span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-48 p-2">
         <div className="space-y-1">
           {hideableColumns.map((col) => (
             <label
               key={col.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer text-sm"
+              className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
             >
               <Checkbox
                 checked={visibleColumnIds.includes(col.id)}

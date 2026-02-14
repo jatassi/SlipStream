@@ -1,19 +1,13 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { AlertCircle, Check, Download, Eye, EyeOff, UserSearch, Zap } from 'lucide-react'
+
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { MediaSearchMonitorControls } from '@/components/search'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { MediaSearchMonitorControls } from '@/components/search'
-import {
-  UserSearch,
-  Zap,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  Check,
-  Download,
-} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type MediaTheme = 'movie' | 'tv'
@@ -37,14 +31,15 @@ export function ControlsShowcasePage() {
           <CardTitle>Live Components — Default State</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            These are real <code>MediaSearchMonitorControls</code> instances. Click buttons to trigger state transitions.
+          <p className="text-muted-foreground text-sm">
+            These are real <code>MediaSearchMonitorControls</code> instances. Click buttons to
+            trigger state transitions.
           </p>
 
           <div className="grid grid-cols-1 gap-6">
             {(['movie', 'tv'] as const).map((theme) => (
               <div key={theme} className="space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <h3 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
                   {theme === 'movie' ? 'Movie Theme (Orange)' : 'TV Theme (Blue)'}
                 </h3>
                 <div className="space-y-3">
@@ -67,7 +62,7 @@ export function ControlsShowcasePage() {
           <CardTitle>All Visual States</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-muted-foreground mb-6 text-sm">
             Static mockups of every state × size × theme combination.
           </p>
 
@@ -75,13 +70,13 @@ export function ControlsShowcasePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-3 w-32">State</th>
-                  <th className="text-center py-2 px-3">Movie / lg</th>
-                  <th className="text-center py-2 px-3">Movie / sm</th>
-                  <th className="text-center py-2 px-3">Movie / xs</th>
-                  <th className="text-center py-2 px-3">TV / lg</th>
-                  <th className="text-center py-2 px-3">TV / sm</th>
-                  <th className="text-center py-2 px-3">TV / xs</th>
+                  <th className="w-32 px-3 py-2 text-left">State</th>
+                  <th className="px-3 py-2 text-center">Movie / lg</th>
+                  <th className="px-3 py-2 text-center">Movie / sm</th>
+                  <th className="px-3 py-2 text-center">Movie / xs</th>
+                  <th className="px-3 py-2 text-center">TV / lg</th>
+                  <th className="px-3 py-2 text-center">TV / sm</th>
+                  <th className="px-3 py-2 text-center">TV / xs</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,14 +102,14 @@ export function ControlsShowcasePage() {
           <CardTitle>Chasing Lights Animation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             The chasing lights effect used during auto-search at lg and sm sizes.
           </p>
-          <div className="flex flex-wrap gap-6 items-center">
+          <div className="flex flex-wrap items-center gap-6">
             <div className="space-y-2">
               <Badge variant="outline">Movie / lg</Badge>
               <div className="chasing-lights-movie">
-                <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+                <div className="bg-card absolute inset-0 z-[1] rounded-md" />
                 <Button variant="outline" disabled className="relative z-[2]">
                   Searching...
                 </Button>
@@ -123,7 +118,7 @@ export function ControlsShowcasePage() {
             <div className="space-y-2">
               <Badge variant="outline">Movie / sm</Badge>
               <div className="chasing-lights-movie">
-                <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+                <div className="bg-card absolute inset-0 z-[1] rounded-md" />
                 <Button variant="outline" size="sm" disabled className="relative z-[2] h-8 text-xs">
                   Searching...
                 </Button>
@@ -132,7 +127,7 @@ export function ControlsShowcasePage() {
             <div className="space-y-2">
               <Badge variant="outline">TV / lg</Badge>
               <div className="chasing-lights-tv">
-                <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+                <div className="bg-card absolute inset-0 z-[1] rounded-md" />
                 <Button variant="outline" disabled className="relative z-[2]">
                   Searching...
                 </Button>
@@ -141,7 +136,7 @@ export function ControlsShowcasePage() {
             <div className="space-y-2">
               <Badge variant="outline">TV / sm</Badge>
               <div className="chasing-lights-tv">
-                <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+                <div className="bg-card absolute inset-0 z-[1] rounded-md" />
                 <Button variant="outline" size="sm" disabled className="relative z-[2] h-8 text-xs">
                   Searching...
                 </Button>
@@ -157,19 +152,19 @@ export function ControlsShowcasePage() {
           <CardTitle>Progress Bar Variations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Progress state at various percentages with shimmer, edge glow, and inset glow.
           </p>
 
           {(['movie', 'tv'] as const).map((theme) => (
             <div key={theme} className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
                 {theme === 'movie' ? 'Movie' : 'TV'}
               </h3>
               <div className="space-y-2">
                 {[5, 25, 50, 75, 95].map((pct) => (
                   <div key={pct} className="flex items-center gap-4">
-                    <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                    <span className="text-muted-foreground w-8 text-right text-xs">{pct}%</span>
                     <div className="flex items-center gap-3">
                       <ProgressMockup theme={theme} size="lg" progress={pct} paused={false} />
                       <ProgressMockup theme={theme} size="sm" progress={pct} paused={false} />
@@ -178,7 +173,7 @@ export function ControlsShowcasePage() {
                   </div>
                 ))}
                 <div className="flex items-center gap-4">
-                  <span className="text-xs text-muted-foreground w-8 text-right">50%</span>
+                  <span className="text-muted-foreground w-8 text-right text-xs">50%</span>
                   <div className="flex items-center gap-3">
                     <div className="space-y-0.5">
                       <ProgressMockup theme={theme} size="lg" progress={50} paused />
@@ -206,10 +201,10 @@ export function ControlsShowcasePage() {
           <CardTitle>Completion Flash</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             The flash animation plays once on completion. Click to restart.
           </p>
-          <div className="flex flex-wrap gap-6 items-start">
+          <div className="flex flex-wrap items-start gap-6">
             <CompletedFlashDemo theme="movie" />
             <CompletedFlashDemo theme="tv" />
           </div>
@@ -222,19 +217,19 @@ export function ControlsShowcasePage() {
           <CardTitle>Monitor Button Styles</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Monitor/Unmonitor button appearance across all sizes and themes.
           </p>
           <div className="grid grid-cols-2 gap-6">
             {(['movie', 'tv'] as const).map((theme) => (
               <div key={theme} className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <h3 className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
                   {theme === 'movie' ? 'Movie' : 'TV'}
                 </h3>
                 <div className="space-y-2">
                   {(['lg', 'sm', 'xs'] as const).map((size) => (
                     <div key={size} className="flex items-center gap-4">
-                      <span className="text-xs text-muted-foreground w-6">{size}</span>
+                      <span className="text-muted-foreground w-6 text-xs">{size}</span>
                       <MonitorMockup theme={theme} size={size} monitored />
                       <MonitorMockup theme={theme} size={size} monitored={false} />
                     </div>
@@ -267,7 +262,9 @@ function LiveDefaultRow({ theme, size }: { theme: MediaTheme; size: ControlSize 
 
   return (
     <div className="flex items-center gap-4">
-      <Badge variant="outline" className="w-8 justify-center text-xs">{size}</Badge>
+      <Badge variant="outline" className="w-8 justify-center text-xs">
+        {size}
+      </Badge>
       {theme === 'movie' ? (
         <MediaSearchMonitorControls
           mediaType="movie"
@@ -282,12 +279,12 @@ function LiveDefaultRow({ theme, size }: { theme: MediaTheme; size: ControlSize 
           mediaType="series"
           seriesId={1}
           title="Breaking Bad"
-          tvdbId={81189}
+          tvdbId={81_189}
           imdbId="tt0903747"
           {...commonProps}
         />
       )}
-      <span className="text-xs text-muted-foreground">
+      <span className="text-muted-foreground text-xs">
         {monitored ? 'monitored' : 'unmonitored'}
       </span>
     </div>
@@ -347,7 +344,9 @@ function InteractiveStatePreview() {
               TV
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">Click buttons to trigger state transitions</p>
+          <p className="text-muted-foreground text-sm">
+            Click buttons to trigger state transitions
+          </p>
         </div>
 
         <div className="space-y-4">
@@ -367,8 +366,14 @@ function DemoRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const cleanup = useCallback(() => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
   }, [])
 
   useEffect(() => cleanup, [cleanup])
@@ -382,7 +387,9 @@ function DemoRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
       intervalRef.current = setInterval(() => {
         pct += 2
         if (pct >= 100) {
-          if (intervalRef.current) clearInterval(intervalRef.current)
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+          }
           setState({ type: 'completed' })
           timerRef.current = setTimeout(() => setState({ type: 'default' }), 2500)
         } else {
@@ -403,35 +410,47 @@ function DemoRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
 
   const content = (() => {
     switch (state.type) {
-      case 'searching':
+      case 'searching': {
         return <SearchingMockup theme={theme} size={size} mode={state.mode} fullWidth />
-      case 'progress':
-        return <ProgressMockup theme={theme} size={size} progress={state.percent} paused={false} fullWidth />
-      case 'completed':
+      }
+      case 'progress': {
+        return (
+          <ProgressMockup
+            theme={theme}
+            size={size}
+            progress={state.percent}
+            paused={false}
+            fullWidth
+          />
+        )
+      }
+      case 'completed': {
         return <CompletedMockup theme={theme} size={size} fullWidth />
-      case 'error':
+      }
+      case 'error': {
         return <ErrorMockup theme={theme} size={size} message={state.message} fullWidth />
-      default:
+      }
+      default: {
         return null
+      }
     }
   })()
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-xs text-muted-foreground font-medium w-6">{size}</span>
-      <div className="flex-1 relative">
+      <span className="text-muted-foreground w-6 text-xs font-medium">{size}</span>
+      <div className="relative flex-1">
         <div className={cn('flex items-center', gap, !isDefault && 'invisible')}>
-          <DefaultMockup theme={theme} size={size} monitored={monitored}
+          <DefaultMockup
+            theme={theme}
+            size={size}
+            monitored={monitored}
             onManualSearch={runManualSearch}
             onAutoSearch={runAutoSearch}
             onMonitoredChange={setMonitored}
           />
         </div>
-        {!isDefault && (
-          <div className="absolute inset-0 flex items-center">
-            {content}
-          </div>
-        )}
+        {!isDefault && <div className="absolute inset-0 flex items-center">{content}</div>}
       </div>
     </div>
   )
@@ -444,61 +463,83 @@ function DemoRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
 function StateRow({ label, state }: { label: string; state: StateName }) {
   return (
     <tr className="border-b last:border-0">
-      <td className="py-3 px-3 font-medium text-xs">{label}</td>
+      <td className="px-3 py-3 text-xs font-medium">{label}</td>
       {(['movie', 'tv'] as const).map((theme) =>
         (['lg', 'sm', 'xs'] as const).map((size) => (
-          <td key={`${theme}-${size}`} className="py-3 px-3">
+          <td key={`${theme}-${size}`} className="px-3 py-3">
             <div className="flex justify-center">
               <StateMockup state={state} theme={theme} size={size} />
             </div>
           </td>
-        ))
+        )),
       )}
     </tr>
   )
 }
 
-function StateMockup({ state, theme, size }: { state: StateName; theme: MediaTheme; size: ControlSize }) {
+function StateMockup({
+  state,
+  theme,
+  size,
+}: {
+  state: StateName
+  theme: MediaTheme
+  size: ControlSize
+}) {
   const isDefault = state === 'default-monitored' || state === 'default-unmonitored'
 
   const fw = !isDefault
   const content = (() => {
     switch (state) {
-      case 'default-monitored':
+      case 'default-monitored': {
         return <DefaultMockup theme={theme} size={size} monitored />
-      case 'default-unmonitored':
+      }
+      case 'default-unmonitored': {
         return <DefaultMockup theme={theme} size={size} monitored={false} />
-      case 'searching-auto':
+      }
+      case 'searching-auto': {
         return <SearchingMockup theme={theme} size={size} mode="auto" fullWidth={fw} />
-      case 'searching-manual':
+      }
+      case 'searching-manual': {
         return <SearchingMockup theme={theme} size={size} mode="manual" fullWidth={fw} />
-      case 'progress-35':
-        return <ProgressMockup theme={theme} size={size} progress={35} paused={false} fullWidth={fw} />
-      case 'progress-72':
-        return <ProgressMockup theme={theme} size={size} progress={72} paused={false} fullWidth={fw} />
-      case 'progress-paused':
+      }
+      case 'progress-35': {
+        return (
+          <ProgressMockup theme={theme} size={size} progress={35} paused={false} fullWidth={fw} />
+        )
+      }
+      case 'progress-72': {
+        return (
+          <ProgressMockup theme={theme} size={size} progress={72} paused={false} fullWidth={fw} />
+        )
+      }
+      case 'progress-paused': {
         return <ProgressMockup theme={theme} size={size} progress={50} paused fullWidth={fw} />
-      case 'completed':
+      }
+      case 'completed': {
         return <CompletedMockup theme={theme} size={size} fullWidth={fw} />
-      case 'error-notfound':
+      }
+      case 'error-notfound': {
         return <ErrorMockup theme={theme} size={size} message="Not Found" fullWidth={fw} />
-      case 'error-failed':
+      }
+      case 'error-failed': {
         return <ErrorMockup theme={theme} size={size} message="Failed" fullWidth={fw} />
+      }
     }
   })()
 
-  if (isDefault) return content
+  if (isDefault) {
+    return content
+  }
 
   // Non-default: show inside a container sized by invisible default buttons
   const gap = size === 'lg' ? 'gap-2' : size === 'sm' ? 'gap-1.5' : 'gap-1'
   return (
     <div className="relative">
-      <div className={cn('flex items-center invisible', gap)}>
+      <div className={cn('invisible flex items-center', gap)}>
         <DefaultMockup theme={theme} size={size} monitored />
       </div>
-      <div className="absolute inset-0 flex items-center">
-        {content}
-      </div>
+      <div className="absolute inset-0 flex items-center">{content}</div>
     </div>
   )
 }
@@ -507,9 +548,20 @@ function StateMockup({ state, theme, size }: { state: StateName; theme: MediaThe
 // Visual mockups of each state
 // ---------------------------------------------------------------------------
 
-function DefaultMockup({ theme, size, monitored, onManualSearch, onAutoSearch, onMonitoredChange }: {
-  theme: MediaTheme; size: ControlSize; monitored: boolean
-  onManualSearch?: () => void; onAutoSearch?: () => void; onMonitoredChange?: (v: boolean) => void
+function DefaultMockup({
+  theme,
+  size,
+  monitored,
+  onManualSearch,
+  onAutoSearch,
+  onMonitoredChange,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  monitored: boolean
+  onManualSearch?: () => void
+  onAutoSearch?: () => void
+  onMonitoredChange?: (v: boolean) => void
 }) {
   const interactive = !!onManualSearch
   const gap = size === 'lg' ? 'gap-2' : size === 'sm' ? 'gap-1.5' : 'gap-1'
@@ -518,21 +570,28 @@ function DefaultMockup({ theme, size, monitored, onManualSearch, onAutoSearch, o
     return (
       <div className={cn('flex items-center', gap)}>
         <Button variant="outline" size="default" disabled={!interactive} onClick={onManualSearch}>
-          <UserSearch className="size-4 mr-2" />
+          <UserSearch className="mr-2 size-4" />
           Search
         </Button>
         <Button variant="outline" size="default" disabled={!interactive} onClick={onAutoSearch}>
-          <Zap className="size-4 mr-2" />
+          <Zap className="mr-2 size-4" />
           Auto Search
         </Button>
-        <Button variant="outline" size="default" disabled={!interactive} onClick={() => onMonitoredChange?.(!monitored)}>
+        <Button
+          variant="outline"
+          size="default"
+          disabled={!interactive}
+          onClick={() => onMonitoredChange?.(!monitored)}
+        >
           <span className="inline-grid [&>*]:col-start-1 [&>*]:row-start-1">
             <span className={cn('flex items-center', !monitored && 'invisible')}>
-              <Eye className={cn('size-4 mr-2', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
+              <Eye
+                className={cn('mr-2 size-4', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')}
+              />
               Monitored
             </span>
             <span className={cn('flex items-center', monitored && 'invisible')}>
-              <EyeOff className="size-4 mr-2" />
+              <EyeOff className="mr-2 size-4" />
               Unmonitored
             </span>
           </span>
@@ -550,7 +609,12 @@ function DefaultMockup({ theme, size, monitored, onManualSearch, onAutoSearch, o
         <Button variant="outline" size="icon-sm" disabled={!interactive} onClick={onAutoSearch}>
           <Zap className="size-4" />
         </Button>
-        <Button variant="outline" size="icon-sm" disabled={!interactive} onClick={() => onMonitoredChange?.(!monitored)}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          disabled={!interactive}
+          onClick={() => onMonitoredChange?.(!monitored)}
+        >
           {monitored ? (
             <Eye className={cn('size-4', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
           ) : (
@@ -570,7 +634,12 @@ function DefaultMockup({ theme, size, monitored, onManualSearch, onAutoSearch, o
       <Button variant="ghost" size="icon-sm" disabled={!interactive} onClick={onAutoSearch}>
         <Zap className="size-3.5" />
       </Button>
-      <Button variant="ghost" size="icon-sm" disabled={!interactive} onClick={() => onMonitoredChange?.(!monitored)}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        disabled={!interactive}
+        onClick={() => onMonitoredChange?.(!monitored)}
+      >
         {monitored ? (
           <Eye className={cn('size-3.5', theme === 'movie' ? 'text-movie-400' : 'text-tv-400')} />
         ) : (
@@ -581,10 +650,27 @@ function DefaultMockup({ theme, size, monitored, onManualSearch, onAutoSearch, o
   )
 }
 
-function SearchingMockup({ theme, size, mode, fullWidth }: { theme: MediaTheme; size: ControlSize; mode: 'manual' | 'auto'; fullWidth?: boolean }) {
+function SearchingMockup({
+  theme,
+  size,
+  mode,
+  fullWidth,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  mode: 'manual' | 'auto'
+  fullWidth?: boolean
+}) {
   if (mode === 'manual') {
     return (
-      <Button variant="outline" disabled className={cn(fullWidth && 'w-full', size === 'xs' ? 'h-6 text-xs' : size === 'sm' ? 'h-8 text-xs' : '')}>
+      <Button
+        variant="outline"
+        disabled
+        className={cn(
+          fullWidth && 'w-full',
+          size === 'xs' ? 'h-6 text-xs' : size === 'sm' ? 'h-8 text-xs' : '',
+        )}
+      >
         Searching...
       </Button>
     )
@@ -594,8 +680,14 @@ function SearchingMockup({ theme, size, mode, fullWidth }: { theme: MediaTheme; 
   if (size === 'xs') {
     const shimmerClass = theme === 'movie' ? 'shimmer-text-movie' : 'shimmer-text-tv'
     return (
-      <Button variant="ghost" disabled className={cn('h-6 text-xs disabled:opacity-100', fullWidth && 'w-full')}>
-        <span className={shimmerClass} data-text="Searching...">Searching...</span>
+      <Button
+        variant="ghost"
+        disabled
+        className={cn('h-6 text-xs disabled:opacity-100', fullWidth && 'w-full')}
+      >
+        <span className={shimmerClass} data-text="Searching...">
+          Searching...
+        </span>
       </Button>
     )
   }
@@ -605,7 +697,7 @@ function SearchingMockup({ theme, size, mode, fullWidth }: { theme: MediaTheme; 
   if (size === 'lg') {
     return (
       <div className={cn(chasingClass, fullWidth && 'w-full')}>
-        <div className="absolute inset-0 rounded-md bg-card z-[1]" />
+        <div className="bg-card absolute inset-0 z-[1] rounded-md" />
         <Button variant="outline" disabled className="relative z-[2] w-full">
           Searching...
         </Button>
@@ -616,15 +708,31 @@ function SearchingMockup({ theme, size, mode, fullWidth }: { theme: MediaTheme; 
   // sm
   return (
     <div className={cn(chasingClass, fullWidth && 'w-full')}>
-      <div className="absolute inset-0 rounded-md bg-card z-[1]" />
-      <Button variant="outline" disabled className={cn('relative z-[2] h-8 text-xs', fullWidth && 'w-full')}>
+      <div className="bg-card absolute inset-0 z-[1] rounded-md" />
+      <Button
+        variant="outline"
+        disabled
+        className={cn('relative z-[2] h-8 text-xs', fullWidth && 'w-full')}
+      >
         Searching...
       </Button>
     </div>
   )
 }
 
-function ProgressMockup({ theme, size, progress, paused, fullWidth }: { theme: MediaTheme; size: ControlSize; progress: number; paused: boolean; fullWidth?: boolean }) {
+function ProgressMockup({
+  theme,
+  size,
+  progress,
+  paused,
+  fullWidth,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  progress: number
+  paused: boolean
+  fullWidth?: boolean
+}) {
   return (
     <div
       className={cn(
@@ -632,16 +740,20 @@ function ProgressMockup({ theme, size, progress, paused, fullWidth }: { theme: M
         paused && 'animation-paused',
         fullWidth
           ? cn('w-full', size === 'xs' ? 'h-6' : size === 'sm' ? 'h-8' : 'h-9')
-          : (size === 'xs' ? 'h-6 w-20' : size === 'sm' ? 'h-8 w-24' : 'h-9 min-w-32'),
+          : size === 'xs'
+            ? 'h-6 w-20'
+            : size === 'sm'
+              ? 'h-8 w-24'
+              : 'h-9 min-w-32',
       )}
     >
-      <div className="absolute inset-0 bg-muted/30" />
+      <div className="bg-muted/30 absolute inset-0" />
       <div
         className={cn(
           'absolute inset-y-0 left-0 transition-all duration-500 ease-out',
           theme === 'movie'
-            ? 'bg-gradient-to-r from-movie-600/40 via-movie-500/50 to-movie-500/60'
-            : 'bg-gradient-to-r from-tv-600/40 via-tv-500/50 to-tv-500/60',
+            ? 'from-movie-600/40 via-movie-500/50 to-movie-500/60 bg-gradient-to-r'
+            : 'from-tv-600/40 via-tv-500/50 to-tv-500/60 bg-gradient-to-r',
         )}
         style={{ width: `${Math.max(progress, 2)}%` }}
       >
@@ -651,8 +763,8 @@ function ProgressMockup({ theme, size, progress, paused, fullWidth }: { theme: M
               className={cn(
                 'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
                 theme === 'movie'
-                  ? 'bg-gradient-to-r from-transparent via-movie-400/25 to-transparent'
-                  : 'bg-gradient-to-r from-transparent via-tv-400/25 to-transparent',
+                  ? 'via-movie-400/25 bg-gradient-to-r from-transparent to-transparent'
+                  : 'via-tv-400/25 bg-gradient-to-r from-transparent to-transparent',
               )}
             />
           </div>
@@ -677,7 +789,7 @@ function ProgressMockup({ theme, size, progress, paused, fullWidth }: { theme: M
           )}
         />
       )}
-      <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+      <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
         <Download className={size === 'xs' ? 'size-3.5' : 'size-4'} />
         {size === 'lg' && 'Downloading'}
       </div>
@@ -685,13 +797,21 @@ function ProgressMockup({ theme, size, progress, paused, fullWidth }: { theme: M
   )
 }
 
-function CompletedMockup({ theme, size, fullWidth }: { theme: MediaTheme; size: ControlSize; fullWidth?: boolean }) {
+function CompletedMockup({
+  theme,
+  size,
+  fullWidth,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  fullWidth?: boolean
+}) {
   const colorClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
 
   if (size === 'lg') {
     return (
       <Button variant="outline" disabled className={cn(fullWidth && 'w-full')}>
-        <Check className={cn('size-4 mr-2', colorClass)} />
+        <Check className={cn('mr-2 size-4', colorClass)} />
         Downloaded
       </Button>
     )
@@ -706,19 +826,29 @@ function CompletedMockup({ theme, size, fullWidth }: { theme: MediaTheme; size: 
   }
 
   return (
-    <div className={cn('p-1', fullWidth && 'w-full flex items-center justify-center')}>
+    <div className={cn('p-1', fullWidth && 'flex w-full items-center justify-center')}>
       <Check className={cn('size-3.5', colorClass)} />
     </div>
   )
 }
 
-function ErrorMockup({ theme, size, message, fullWidth }: { theme: MediaTheme; size: ControlSize; message: string; fullWidth?: boolean }) {
+function ErrorMockup({
+  theme,
+  size,
+  message,
+  fullWidth,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  message: string
+  fullWidth?: boolean
+}) {
   const colorClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
 
   if (size === 'lg') {
     return (
       <Button variant="outline" disabled className={cn(fullWidth && 'w-full')}>
-        <AlertCircle className={cn('size-4 mr-2', colorClass)} />
+        <AlertCircle className={cn('mr-2 size-4', colorClass)} />
         {message}
       </Button>
     )
@@ -728,7 +858,14 @@ function ErrorMockup({ theme, size, message, fullWidth }: { theme: MediaTheme; s
     return (
       <Tooltip>
         <TooltipTrigger
-          render={<Button variant="outline" size="icon-sm" disabled className={cn(fullWidth && 'w-full')} />}
+          render={
+            <Button
+              variant="outline"
+              size="icon-sm"
+              disabled
+              className={cn(fullWidth && 'w-full')}
+            />
+          }
         >
           <AlertCircle className={cn('size-4', colorClass)} />
         </TooltipTrigger>
@@ -740,7 +877,7 @@ function ErrorMockup({ theme, size, message, fullWidth }: { theme: MediaTheme; s
   return (
     <Tooltip>
       <TooltipTrigger>
-        <div className={cn('p-1', fullWidth && 'w-full flex items-center justify-center')}>
+        <div className={cn('p-1', fullWidth && 'flex w-full items-center justify-center')}>
           <AlertCircle className={cn('size-3.5', colorClass)} />
         </div>
       </TooltipTrigger>
@@ -749,7 +886,15 @@ function ErrorMockup({ theme, size, message, fullWidth }: { theme: MediaTheme; s
   )
 }
 
-function MonitorMockup({ theme, size, monitored }: { theme: MediaTheme; size: ControlSize; monitored: boolean }) {
+function MonitorMockup({
+  theme,
+  size,
+  monitored,
+}: {
+  theme: MediaTheme
+  size: ControlSize
+  monitored: boolean
+}) {
   const activeColor = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
 
   if (size === 'lg') {
@@ -757,11 +902,11 @@ function MonitorMockup({ theme, size, monitored }: { theme: MediaTheme; size: Co
       <Button variant="outline" disabled>
         <span className="inline-grid [&>*]:col-start-1 [&>*]:row-start-1">
           <span className={cn('flex items-center', !monitored && 'invisible')}>
-            <Eye className={cn('size-4 mr-2', activeColor)} />
+            <Eye className={cn('mr-2 size-4', activeColor)} />
             Monitored
           </span>
           <span className={cn('flex items-center', monitored && 'invisible')}>
-            <EyeOff className="size-4 mr-2" />
+            <EyeOff className="mr-2 size-4" />
             Unmonitored
           </span>
         </span>
@@ -772,11 +917,7 @@ function MonitorMockup({ theme, size, monitored }: { theme: MediaTheme; size: Co
   if (size === 'sm') {
     return (
       <Button variant="outline" size="icon-sm" disabled>
-        {monitored ? (
-          <Eye className={cn('size-4', activeColor)} />
-        ) : (
-          <EyeOff className="size-4" />
-        )}
+        {monitored ? <Eye className={cn('size-4', activeColor)} /> : <EyeOff className="size-4" />}
       </Button>
     )
   }
@@ -798,9 +939,10 @@ function MonitorMockup({ theme, size, monitored }: { theme: MediaTheme; size: Co
 
 function CompletedFlashDemo({ theme }: { theme: MediaTheme }) {
   const [key, setKey] = useState(0)
-  const flashClass = theme === 'movie'
-    ? 'animate-[download-complete-flash-movie_800ms_ease-out]'
-    : 'animate-[download-complete-flash-tv_800ms_ease-out]'
+  const flashClass =
+    theme === 'movie'
+      ? 'animate-[download-complete-flash-movie_800ms_ease-out]'
+      : 'animate-[download-complete-flash-tv_800ms_ease-out]'
   const colorClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
 
   return (
@@ -813,7 +955,7 @@ function CompletedFlashDemo({ theme }: { theme: MediaTheme }) {
           className={cn(flashClass, 'cursor-pointer')}
           onClick={() => setKey((k) => k + 1)}
         >
-          <Check className={cn('size-4 mr-2', colorClass)} />
+          <Check className={cn('mr-2 size-4', colorClass)} />
           Downloaded
         </Button>
         <Button
@@ -825,7 +967,7 @@ function CompletedFlashDemo({ theme }: { theme: MediaTheme }) {
         >
           <Check className={cn('size-4', colorClass)} />
         </Button>
-        <span className="text-xs text-muted-foreground">click to replay</span>
+        <span className="text-muted-foreground text-xs">click to replay</span>
       </div>
     </div>
   )

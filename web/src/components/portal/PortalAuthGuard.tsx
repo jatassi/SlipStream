@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
-import { useNavigate, useLocation } from '@tanstack/react-router'
-import { Loader2, Ban } from 'lucide-react'
-import { usePortalAuthStore } from '@/stores'
-import { usePortalEnabled } from '@/hooks'
 
-interface PortalAuthGuardProps {
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { Ban, Loader2 } from 'lucide-react'
+
+import { usePortalEnabled } from '@/hooks'
+import { usePortalAuthStore } from '@/stores'
+
+type PortalAuthGuardProps = {
   children: ReactNode
 }
 
@@ -17,7 +19,10 @@ export function PortalAuthGuard({ children }: PortalAuthGuardProps) {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      if (location.pathname !== '/requests/auth/login' && location.pathname !== '/requests/auth/signup') {
+      if (
+        location.pathname !== '/requests/auth/login' &&
+        location.pathname !== '/requests/auth/signup'
+      ) {
         setRedirectUrl(location.pathname)
       }
       navigate({ to: '/requests/auth/login' })
@@ -26,12 +31,13 @@ export function PortalAuthGuard({ children }: PortalAuthGuardProps) {
 
   if (!portalEnabled) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Ban className="size-12 mx-auto text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <Ban className="text-muted-foreground mx-auto size-12" />
           <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
           <p className="text-muted-foreground max-w-sm">
-            The external requests portal is currently disabled. Please contact your server administrator.
+            The external requests portal is currently disabled. Please contact your server
+            administrator.
           </p>
         </div>
       </div>
@@ -40,8 +46,8 @@ export function PortalAuthGuard({ children }: PortalAuthGuardProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
       </div>
     )
   }

@@ -2,7 +2,7 @@ import { Progress } from '@/components/ui/progress'
 import { usePortalDownloads } from '@/hooks'
 import { formatEta } from '@/lib/formatters'
 
-interface DownloadProgressBarProps {
+type DownloadProgressBarProps = {
   mediaId?: number
   mediaType: 'movie' | 'series'
 }
@@ -11,17 +11,22 @@ export function DownloadProgressBar({ mediaId, mediaType }: DownloadProgressBarP
   const { data: downloads } = usePortalDownloads()
 
   // Find ALL downloads matching the media (for series, there may be multiple season downloads)
-  const matchingDownloads = downloads?.filter(d => {
-    if (mediaType === 'movie') return d.movieId != null && mediaId != null && d.movieId === mediaId
-    if (mediaType === 'series') return d.seriesId != null && mediaId != null && d.seriesId === mediaId
-    return false
-  }) ?? []
+  const matchingDownloads =
+    downloads?.filter((d) => {
+      if (mediaType === 'movie') {
+        return d.movieId != null && mediaId != null && d.movieId === mediaId
+      }
+      if (mediaType === 'series') {
+        return d.seriesId != null && mediaId != null && d.seriesId === mediaId
+      }
+      return false
+    }) ?? []
 
   if (matchingDownloads.length === 0) {
     return (
       <div className="w-full space-y-1">
         <Progress value={0} className="h-2" />
-        <div className="flex justify-between text-xs text-muted-foreground">
+        <div className="text-muted-foreground flex justify-between text-xs">
           <span>0%</span>
           <span>Queued</span>
         </div>
@@ -42,17 +47,25 @@ export function DownloadProgressBar({ mediaId, mediaType }: DownloadProgressBarP
   const combinedEta = totalSpeed > 0 ? Math.ceil(remainingBytes / totalSpeed) : 0
 
   // Check status: if any is downloading, show as downloading; if all paused, show paused
-  const hasActiveDownload = matchingDownloads.some(d => d.status === 'downloading')
-  const allPaused = matchingDownloads.every(d => d.status === 'paused')
+  const hasActiveDownload = matchingDownloads.some((d) => d.status === 'downloading')
+  const allPaused = matchingDownloads.every((d) => d.status === 'paused')
 
   const isComplete = Math.round(progress) >= 100
 
   return (
     <div className="w-full space-y-1">
       <Progress value={progress} className="h-2" />
-      <div className="flex justify-between text-xs text-muted-foreground">
+      <div className="text-muted-foreground flex justify-between text-xs">
         <span>{Math.round(progress)}%</span>
-        <span>{isComplete ? 'Importing' : allPaused ? 'Paused' : hasActiveDownload ? formatEta(combinedEta) : 'Queued'}</span>
+        <span>
+          {isComplete
+            ? 'Importing'
+            : allPaused
+              ? 'Paused'
+              : hasActiveDownload
+                ? formatEta(combinedEta)
+                : 'Queued'}
+        </span>
       </div>
     </div>
   )

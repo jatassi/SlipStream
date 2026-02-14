@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QualityProfilesSection } from '@/components/settings'
+
 import { MediaNav } from './MediaNav'
 
 export function QualityProfilesPage() {

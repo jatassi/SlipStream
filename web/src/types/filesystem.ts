@@ -1,17 +1,17 @@
-export interface DirectoryEntry {
+export type DirectoryEntry = {
   name: string
   path: string
   isDir: boolean
 }
 
-export interface DriveInfo {
+export type DriveInfo = {
   letter: string
   label?: string
   type?: string
   freeSpace?: number
 }
 
-export interface BrowseResult {
+export type BrowseResult = {
   path: string
   parent?: string
   entries: DirectoryEntry[]

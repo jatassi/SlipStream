@@ -1,4 +1,4 @@
-export interface StatusCounts {
+export type StatusCounts = {
   unreleased: number
   missing: number
   downloading: number
@@ -8,7 +8,7 @@ export interface StatusCounts {
   total: number
 }
 
-export interface Series {
+export type Series = {
   id: number
   title: string
   sortTitle: string
@@ -38,7 +38,7 @@ export interface Series {
   addedByUsername?: string
 }
 
-export interface Season {
+export type Season = {
   id: number
   seriesId: number
   seasonNumber: number
@@ -50,7 +50,7 @@ export interface Season {
   episodes?: Episode[]
 }
 
-export interface Episode {
+export type Episode = {
   id: number
   seriesId: number
   seasonNumber: number
@@ -65,7 +65,7 @@ export interface Episode {
   episodeFile?: EpisodeFile
 }
 
-export interface EpisodeFile {
+export type EpisodeFile = {
   id: number
   episodeId: number
   path: string
@@ -78,7 +78,7 @@ export interface EpisodeFile {
   slotId?: number
 }
 
-export interface CreateSeriesInput {
+export type CreateSeriesInput = {
   title: string
   year?: number
   tvdbId?: number
@@ -99,21 +99,21 @@ export interface CreateSeriesInput {
 export type SeriesSearchOnAdd = 'no' | 'first_episode' | 'first_season' | 'latest_season' | 'all'
 export type SeriesMonitorOnAdd = 'none' | 'first_season' | 'latest_season' | 'future' | 'all'
 
-export interface AddSeriesInput extends CreateSeriesInput {
+export type AddSeriesInput = {
   posterUrl?: string
   backdropUrl?: string
   searchOnAdd?: SeriesSearchOnAdd
   monitorOnAdd?: SeriesMonitorOnAdd
   includeSpecials?: boolean
-}
+} & CreateSeriesInput
 
-export interface SeasonInput {
+export type SeasonInput = {
   seasonNumber: number
   monitored: boolean
   episodes?: EpisodeInput[]
 }
 
-export interface EpisodeInput {
+export type EpisodeInput = {
   episodeNumber: number
   title: string
   overview?: string
@@ -121,7 +121,7 @@ export interface EpisodeInput {
   monitored: boolean
 }
 
-export interface UpdateSeriesInput {
+export type UpdateSeriesInput = {
   title?: string
   year?: number
   tvdbId?: number
@@ -137,14 +137,14 @@ export interface UpdateSeriesInput {
   productionStatus?: string
 }
 
-export interface UpdateEpisodeInput {
+export type UpdateEpisodeInput = {
   title?: string
   overview?: string
   airDate?: string
   monitored?: boolean
 }
 
-export interface ListSeriesOptions {
+export type ListSeriesOptions = {
   search?: string
   monitored?: boolean
   rootFolderId?: number
@@ -155,17 +155,17 @@ export interface ListSeriesOptions {
 // Bulk monitoring types
 export type MonitorType = 'all' | 'none' | 'future' | 'first_season' | 'latest_season'
 
-export interface BulkMonitorInput {
+export type BulkMonitorInput = {
   monitorType: MonitorType
   includeSpecials: boolean
 }
 
-export interface BulkEpisodeMonitorInput {
+export type BulkEpisodeMonitorInput = {
   episodeIds: number[]
   monitored: boolean
 }
 
-export interface MonitoringStats {
+export type MonitoringStats = {
   totalSeasons: number
   monitoredSeasons: number
   totalEpisodes: number

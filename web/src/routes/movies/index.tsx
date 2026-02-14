@@ -1,13 +1,34 @@
-import { useState, useMemo } from 'react'
-import { Plus, Grid, List, Film, RefreshCw, Pencil, Trash2, X, Eye, EyeOff, ArrowUpDown, Clock, Binoculars, ArrowDownCircle, XCircle, ArrowUpCircle, CheckCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useMemo, useState } from 'react'
+
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowUpDown,
+  Binoculars,
+  CheckCircle,
+  Clock,
+  Eye,
+  EyeOff,
+  Film,
+  Grid,
+  List,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+  XCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { FilterDropdown } from '@/components/ui/filter-dropdown'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Slider } from '@/components/ui/slider'
+import { GroupedMovieGrid } from '@/components/movies/GroupedMovieGrid'
+import { MovieGrid } from '@/components/movies/MovieGrid'
+import { MovieTable } from '@/components/movies/MovieTable'
+import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,25 +39,60 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MovieGrid } from '@/components/movies/MovieGrid'
-import { GroupedMovieGrid } from '@/components/movies/GroupedMovieGrid'
-import { MovieTable } from '@/components/movies/MovieTable'
-import { ColumnConfigPopover } from '@/components/tables/ColumnConfigPopover'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/data/EmptyState'
-import { ErrorState } from '@/components/data/ErrorState'
+import { Slider } from '@/components/ui/slider'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  useBulkDeleteMovies,
+  useBulkUpdateMovies,
+  useDeleteMovie,
+  useGlobalLoading,
+  useMovies,
+  useQualityProfiles,
+  useRefreshAllMovies,
+  useRootFolders,
+  useSearchMovie,
+} from '@/hooks'
 import { groupMedia } from '@/lib/grouping'
-import { MOVIE_COLUMNS, createMovieActionsColumn, DEFAULT_SORT_DIRECTIONS } from '@/lib/table-columns'
-import { useMovies, useSearchMovie, useDeleteMovie, useBulkDeleteMovies, useBulkUpdateMovies, useRefreshAllMovies, useQualityProfiles, useRootFolders, useGlobalLoading } from '@/hooks'
+import {
+  createMovieActionsColumn,
+  DEFAULT_SORT_DIRECTIONS,
+  MOVIE_COLUMNS,
+} from '@/lib/table-columns'
+import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores'
-import { toast } from 'sonner'
 import type { Movie } from '@/types'
 
-type FilterStatus = 'monitored' | 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
-type SortField = 'title' | 'monitored' | 'qualityProfile' | 'releaseDate' | 'dateAdded' | 'rootFolder' | 'sizeOnDisk'
+type FilterStatus =
+  | 'monitored'
+  | 'unreleased'
+  | 'missing'
+  | 'downloading'
+  | 'failed'
+  | 'upgradable'
+  | 'available'
+type SortField =
+  | 'title'
+  | 'monitored'
+  | 'qualityProfile'
+  | 'releaseDate'
+  | 'dateAdded'
+  | 'rootFolder'
+  | 'sizeOnDisk'
 
-const ALL_FILTERS: FilterStatus[] = ['monitored', 'unreleased', 'missing', 'downloading', 'failed', 'upgradable', 'available']
+const ALL_FILTERS: FilterStatus[] = [
+  'monitored',
+  'unreleased',
+  'missing',
+  'downloading',
+  'failed',
+  'upgradable',
+  'available',
+]
 
 const FILTER_OPTIONS: { value: FilterStatus; label: string; icon: typeof Eye }[] = [
   { value: 'monitored', label: 'Monitored', icon: Eye },
@@ -59,7 +115,14 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
 ]
 
 export function MoviesPage() {
-  const { moviesView, setMoviesView, posterSize, setPosterSize, movieTableColumns, setMovieTableColumns } = useUIStore()
+  const {
+    moviesView,
+    setMoviesView,
+    posterSize,
+    setPosterSize,
+    movieTableColumns,
+    setMovieTableColumns,
+  } = useUIStore()
   const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -106,9 +169,15 @@ export function MoviesPage() {
 
   // Filter movies by status
   const filteredMovies = (movies || []).filter((movie: Movie) => {
-    if (allFiltersSelected) return true
-    if (statusFilters.includes('monitored') && movie.monitored) return true
-    if (statusFilters.includes(movie.status as FilterStatus)) return true
+    if (allFiltersSelected) {
+      return true
+    }
+    if (statusFilters.includes('monitored') && movie.monitored) {
+      return true
+    }
+    if (statusFilters.includes(movie.status as FilterStatus)) {
+      return true
+    }
     return false
   })
 
@@ -118,9 +187,11 @@ export function MoviesPage() {
   const sortedMovies = [...filteredMovies].sort((a, b) => {
     let result: number
     switch (sortField) {
-      case 'monitored':
-        result = (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
+      case 'monitored': {
+        result =
+          (b.monitored ? 1 : 0) - (a.monitored ? 1 : 0) || a.sortTitle.localeCompare(b.sortTitle)
         break
+      }
       case 'qualityProfile': {
         const nameA = profileNameMap.get(a.qualityProfileId) || ''
         const nameB = profileNameMap.get(b.qualityProfileId) || ''
@@ -130,23 +201,37 @@ export function MoviesPage() {
       case 'releaseDate': {
         const dateA = a.releaseDate ?? a.physicalReleaseDate ?? a.theatricalReleaseDate
         const dateB = b.releaseDate ?? b.physicalReleaseDate ?? b.theatricalReleaseDate
-        if (!dateA && !dateB) { result = a.sortTitle.localeCompare(b.sortTitle); break }
-        if (!dateA) { result = 1; break }
-        if (!dateB) { result = -1; break }
+        if (!dateA && !dateB) {
+          result = a.sortTitle.localeCompare(b.sortTitle)
+          break
+        }
+        if (!dateA) {
+          result = 1
+          break
+        }
+        if (!dateB) {
+          result = -1
+          break
+        }
         result = new Date(dateB).getTime() - new Date(dateA).getTime()
         break
       }
-      case 'dateAdded':
+      case 'dateAdded': {
         result = new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
         break
-      case 'rootFolder':
-        result = (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
+      }
+      case 'rootFolder': {
+        result =
+          (a.rootFolderId || 0) - (b.rootFolderId || 0) || a.sortTitle.localeCompare(b.sortTitle)
         break
-      case 'sizeOnDisk':
+      }
+      case 'sizeOnDisk': {
         result = (b.sizeOnDisk || 0) - (a.sizeOnDisk || 0)
         break
-      default:
+      }
+      default: {
         result = a.sortTitle.localeCompare(b.sortTitle)
+      }
     }
     return result * dirMultiplier
   })
@@ -182,10 +267,13 @@ export function MoviesPage() {
   }
 
   const allColumns = useMemo(
-    () => [...MOVIE_COLUMNS, createMovieActionsColumn({
-      onSearch: handleSearch,
-      onDelete: handleDelete,
-    })],
+    () => [
+      ...MOVIE_COLUMNS,
+      createMovieActionsColumn({
+        onSearch: handleSearch,
+        onDelete: handleDelete,
+      }),
+    ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
@@ -218,7 +306,7 @@ export function MoviesPage() {
   const handleBulkDelete = async () => {
     try {
       await bulkDeleteMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         deleteFiles,
       })
       toast.success(`${selectedIds.size} movie${selectedIds.size > 1 ? 's' : ''} deleted`)
@@ -233,10 +321,12 @@ export function MoviesPage() {
   const handleBulkMonitor = async (monitored: boolean) => {
     try {
       await bulkUpdateMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         data: { monitored },
       })
-      toast.success(`${selectedIds.size} movie${selectedIds.size > 1 ? 's' : ''} ${monitored ? 'monitored' : 'unmonitored'}`)
+      toast.success(
+        `${selectedIds.size} movie${selectedIds.size > 1 ? 's' : ''} ${monitored ? 'monitored' : 'unmonitored'}`,
+      )
       handleExitEditMode()
     } catch {
       toast.error(`Failed to ${monitored ? 'monitor' : 'unmonitor'} movies`)
@@ -246,11 +336,13 @@ export function MoviesPage() {
   const handleBulkChangeQualityProfile = async (qualityProfileId: number) => {
     try {
       await bulkUpdateMutation.mutateAsync({
-        ids: Array.from(selectedIds),
+        ids: [...selectedIds],
         data: { qualityProfileId },
       })
       const profile = qualityProfiles?.find((p) => p.id === qualityProfileId)
-      toast.success(`${selectedIds.size} movie${selectedIds.size > 1 ? 's' : ''} set to "${profile?.name || 'Unknown'}" profile`)
+      toast.success(
+        `${selectedIds.size} movie${selectedIds.size > 1 ? 's' : ''} set to "${profile?.name || 'Unknown'}" profile`,
+      )
       handleExitEditMode()
     } catch {
       toast.error('Failed to change quality profile')
@@ -270,7 +362,9 @@ export function MoviesPage() {
     <div>
       <PageHeader
         title="Movies"
-        description={isLoading ? <Skeleton className="h-4 w-36" /> : `${movies?.length || 0} movies in library`}
+        description={
+          isLoading ? <Skeleton className="h-4 w-36" /> : `${movies?.length || 0} movies in library`
+        }
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -278,17 +372,19 @@ export function MoviesPage() {
               onClick={handleRefreshAll}
               disabled={isLoading || refreshAllMutation.isPending || editMode}
             >
-              <RefreshCw className={`size-4 mr-1 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`mr-1 size-4 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`}
+              />
               {refreshAllMutation.isPending ? 'Refreshing...' : 'Refresh'}
             </Button>
             {editMode ? (
               <Button variant="outline" onClick={handleExitEditMode}>
-                <X className="size-4 mr-1" />
+                <X className="mr-1 size-4" />
                 Cancel
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setEditMode(true)} disabled={isLoading}>
-                <Pencil className="size-4 mr-1" />
+                <Pencil className="mr-1 size-4" />
                 Edit
               </Button>
             )}
@@ -297,7 +393,7 @@ export function MoviesPage() {
               className="bg-movie-500 hover:bg-movie-400 border-movie-500"
               onClick={() => document.getElementById('global-search')?.focus()}
             >
-              <Plus className="size-4 mr-1" />
+              <Plus className="mr-1 size-4" />
               Add Movie
             </Button>
           </div>
@@ -305,14 +401,14 @@ export function MoviesPage() {
       />
 
       {/* Edit Mode Toolbar */}
-      {editMode && (
-        <div className="flex items-center gap-4 mb-4 p-3 bg-movie-500/10 border border-movie-500/20 rounded-lg">
+      {editMode ? (
+        <div className="bg-movie-500/10 border-movie-500/20 mb-4 flex items-center gap-4 rounded-lg border p-3">
           <div className="flex items-center gap-2">
             <Checkbox
               checked={selectedIds.size === filteredMovies.length && filteredMovies.length > 0}
               onCheckedChange={handleSelectAll}
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-muted-foreground text-sm">
               {selectedIds.size} of {filteredMovies.length} selected
             </span>
           </div>
@@ -323,7 +419,7 @@ export function MoviesPage() {
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
               onClick={() => handleBulkMonitor(true)}
             >
-              <Eye className="size-4 mr-1" />
+              <Eye className="mr-1 size-4" />
               Monitor
             </Button>
             <Button
@@ -332,7 +428,7 @@ export function MoviesPage() {
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
               onClick={() => handleBulkMonitor(false)}
             >
-              <EyeOff className="size-4 mr-1" />
+              <EyeOff className="mr-1 size-4" />
               Unmonitor
             </Button>
             <Select
@@ -340,9 +436,7 @@ export function MoviesPage() {
               onValueChange={(v) => v && handleBulkChangeQualityProfile(Number(v))}
               disabled={selectedIds.size === 0 || bulkUpdateMutation.isPending}
             >
-              <SelectTrigger className="w-40 h-8 text-sm">
-                Set Quality Profile
-              </SelectTrigger>
+              <SelectTrigger className="h-8 w-40 text-sm">Set Quality Profile</SelectTrigger>
               <SelectContent>
                 {qualityProfiles?.map((profile) => (
                   <SelectItem key={profile.id} value={String(profile.id)}>
@@ -357,19 +451,23 @@ export function MoviesPage() {
               disabled={selectedIds.size === 0}
               onClick={() => setShowDeleteDialog(true)}
             >
-              <Trash2 className="size-4 mr-1" />
+              <Trash2 className="mr-1 size-4" />
               Delete
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Filters & Sort */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <FilterDropdown
           options={FILTER_OPTIONS}
           selected={statusFilters}
-          onToggle={(v) => setStatusFilters((prev) => prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v])}
+          onToggle={(v) =>
+            setStatusFilters((prev) =>
+              prev.includes(v) ? prev.filter((f) => f !== v) : [...prev, v],
+            )
+          }
           onReset={() => setStatusFilters([...ALL_FILTERS])}
           label="Statuses"
           theme="movie"
@@ -382,12 +480,21 @@ export function MoviesPage() {
           disabled={isLoading}
         >
           <SelectTrigger className="gap-1.5">
-            <ArrowUpDown className={cn('size-4 shrink-0', sortField !== 'title' ? 'text-movie-400' : 'text-muted-foreground')} />
-            <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sortField)?.label}</span>
+            <ArrowUpDown
+              className={cn(
+                'size-4 shrink-0',
+                sortField === 'title' ? 'text-muted-foreground' : 'text-movie-400',
+              )}
+            />
+            <span className="hidden sm:inline">
+              {SORT_OPTIONS.find((o) => o.value === sortField)?.label}
+            </span>
           </SelectTrigger>
           <SelectContent>
             {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -395,7 +502,7 @@ export function MoviesPage() {
         <div className="ml-auto flex items-center gap-4">
           {moviesView === 'grid' && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Size</span>
+              <span className="text-muted-foreground text-xs">Size</span>
               <Slider
                 value={[posterSize]}
                 onValueChange={(v) => setPosterSize(Array.isArray(v) ? v[0] : v)}
@@ -432,21 +539,21 @@ export function MoviesPage() {
 
       {/* Content */}
       {isLoading ? (
-        <LoadingState variant={moviesView === 'grid' ? 'card' : 'list'} posterSize={posterSize} theme="movie" />
+        <LoadingState
+          variant={moviesView === 'grid' ? 'card' : 'list'}
+          posterSize={posterSize}
+          theme="movie"
+        />
       ) : sortedMovies.length === 0 ? (
         <EmptyState
-          icon={<Film className="size-8 text-movie-500" />}
+          icon={<Film className="text-movie-500 size-8" />}
           title="No movies found"
           description={
-            !allFiltersSelected
-              ? 'Try adjusting your filters'
-              : 'Add your first movie to get started'
-          }
-          action={
             allFiltersSelected
-              ? { label: 'Add Movie', onClick: () => {} }
-              : undefined
+              ? 'Add your first movie to get started'
+              : 'Try adjusting your filters'
           }
+          action={allFiltersSelected ? { label: 'Add Movie', onClick: () => {} } : undefined}
         />
       ) : moviesView === 'table' ? (
         <MovieTable
@@ -483,7 +590,9 @@ export function MoviesPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} Movie{selectedIds.size > 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} Movie{selectedIds.size > 1 ? 's' : ''}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. The selected movies will be removed from your library.
             </AlertDialogDescription>
@@ -492,9 +601,9 @@ export function MoviesPage() {
             <Checkbox
               id="deleteFiles"
               checked={deleteFiles}
-              onCheckedChange={(checked) => setDeleteFiles(checked === true)}
+              onCheckedChange={(checked) => setDeleteFiles(checked)}
             />
-            <label htmlFor="deleteFiles" className="text-sm cursor-pointer">
+            <label htmlFor="deleteFiles" className="cursor-pointer text-sm">
               Also delete files from disk
             </label>
           </div>

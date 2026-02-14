@@ -1,10 +1,11 @@
 import { create } from 'zustand'
+
 import type { Activity, ProgressEventType } from '@/types/progress'
 
 const AUTO_DISMISS_DELAY = 3000 // 3 seconds after completion
 const MAX_VISIBLE_ACTIVITIES = 5
 
-interface ProgressState {
+type ProgressState = {
   activities: Activity[]
   // Derived state stored directly to avoid selector issues
   visibleActivities: Activity[]
@@ -18,7 +19,7 @@ interface ProgressState {
 function computeDerivedState(activities: Activity[]) {
   const visibleActivities = activities.slice(0, MAX_VISIBLE_ACTIVITIES)
   const activeCount = activities.filter(
-    (a) => a.status === 'in_progress' || a.status === 'pending'
+    (a) => a.status === 'in_progress' || a.status === 'pending',
   ).length
   return { visibleActivities, activeCount }
 }

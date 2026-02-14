@@ -1,7 +1,8 @@
-import { useRef, useState, useLayoutEffect } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+
 import { Skeleton } from '@/components/ui/skeleton'
 
-interface LoadingStateProps {
+type LoadingStateProps = {
   variant?: 'card' | 'list' | 'detail'
   count?: number
   posterSize?: number
@@ -19,7 +20,9 @@ function useFillCount(
 
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el) {
+      return
+    }
 
     function calc() {
       const rect = el!.getBoundingClientRect()
@@ -57,9 +60,10 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
   if (variant === 'list') {
     return (
       <div ref={gridRef} className="space-y-2">
-        {finalCount > 0 && Array.from({ length: finalCount }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
+        {finalCount > 0 &&
+          Array.from({ length: finalCount }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
       </div>
     )
   }
@@ -80,30 +84,31 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
     : undefined
 
   const gridClassName = posterSize
-    ? "grid gap-4"
-    : "grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+    ? 'grid gap-4'
+    : 'grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
 
   return (
     <div ref={gridRef} className={gridClassName} style={gridStyle}>
-      {finalCount > 0 && Array.from({ length: finalCount }).map((_, i) => (
-        <div key={i} className="rounded-lg overflow-hidden border border-border bg-card">
-          <div className="relative aspect-[2/3]">
-            <Skeleton className="absolute inset-0 rounded-none" />
-            <div className="absolute top-2 right-2 z-10">
-              <Skeleton className="h-5 w-16 rounded-full" />
-            </div>
-            {theme === 'tv' && (
-              <div className="absolute top-2 left-2 z-10">
-                <Skeleton className="h-5 w-10 rounded-full" />
+      {finalCount > 0 &&
+        Array.from({ length: finalCount }).map((_, i) => (
+          <div key={i} className="border-border bg-card overflow-hidden rounded-lg border">
+            <div className="relative aspect-[2/3]">
+              <Skeleton className="absolute inset-0 rounded-none" />
+              <div className="absolute top-2 right-2 z-10">
+                <Skeleton className="h-5 w-16 rounded-full" />
               </div>
-            )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
-              <Skeleton className="h-4 w-3/4 bg-white/10" />
-              <Skeleton className="h-3 w-1/3 mt-1.5 bg-white/10" />
+              {theme === 'tv' && (
+                <div className="absolute top-2 left-2 z-10">
+                  <Skeleton className="h-5 w-10 rounded-full" />
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
+                <Skeleton className="h-4 w-3/4 bg-white/10" />
+                <Skeleton className="mt-1.5 h-3 w-1/3 bg-white/10" />
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
     </div>
   )
 }

@@ -1,6 +1,9 @@
+import { Info } from 'lucide-react'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -8,11 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Info } from 'lucide-react'
 import type { DefinitionSetting } from '@/types'
 
-interface DynamicSettingsFormProps {
+type DynamicSettingsFormProps = {
   settings: DefinitionSetting[]
   values: Record<string, string>
   onChange: (values: Record<string, string>) => void
@@ -31,7 +32,7 @@ export function DynamicSettingsForm({
 
   if (settings.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-4 text-center">
+      <p className="text-muted-foreground py-4 text-center text-sm">
         No configuration required for this indexer.
       </p>
     )
@@ -52,7 +53,7 @@ export function DynamicSettingsForm({
   )
 }
 
-interface SettingFieldProps {
+type SettingFieldProps = {
   setting: DefinitionSetting
   value: string
   onChange: (value: string) => void
@@ -61,7 +62,7 @@ interface SettingFieldProps {
 
 function SettingField({ setting, value, onChange, disabled }: SettingFieldProps) {
   switch (setting.type) {
-    case 'text':
+    case 'text': {
       return (
         <div className="space-y-2">
           <Label htmlFor={setting.name}>{setting.label}</Label>
@@ -73,8 +74,9 @@ function SettingField({ setting, value, onChange, disabled }: SettingFieldProps)
           />
         </div>
       )
+    }
 
-    case 'password':
+    case 'password': {
       return (
         <div className="space-y-2">
           <Label htmlFor={setting.name}>{setting.label}</Label>
@@ -88,8 +90,9 @@ function SettingField({ setting, value, onChange, disabled }: SettingFieldProps)
           />
         </div>
       )
+    }
 
-    case 'checkbox':
+    case 'checkbox': {
       return (
         <div className="flex items-center space-x-2">
           <Checkbox
@@ -98,43 +101,45 @@ function SettingField({ setting, value, onChange, disabled }: SettingFieldProps)
             onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
             disabled={disabled}
           />
-          <Label htmlFor={setting.name} className="font-normal cursor-pointer">
+          <Label htmlFor={setting.name} className="cursor-pointer font-normal">
             {setting.label}
           </Label>
         </div>
       )
+    }
 
-    case 'select':
+    case 'select': {
       return (
         <div className="space-y-2">
           <Label htmlFor={setting.name}>{setting.label}</Label>
           <Select value={value} onValueChange={(v) => v && onChange(v)} disabled={disabled}>
             <SelectTrigger id={setting.name}>
-              <SelectValue>
-                {value && setting.options ? setting.options[value] : value}
-              </SelectValue>
+              <SelectValue>{value && setting.options ? setting.options[value] : value}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {setting.options &&
-                Object.entries(setting.options).map(([optValue, optLabel]) => (
-                  <SelectItem key={optValue} value={optValue}>
-                    {optLabel}
-                  </SelectItem>
-                ))}
+              {setting.options
+                ? Object.entries(setting.options).map(([optValue, optLabel]) => (
+                    <SelectItem key={optValue} value={optValue}>
+                      {optLabel}
+                    </SelectItem>
+                  ))
+                : null}
             </SelectContent>
           </Select>
         </div>
       )
+    }
 
-    case 'info':
+    case 'info': {
       return (
         <Alert>
           <Info className="size-4" />
           <AlertDescription>{setting.label}</AlertDescription>
         </Alert>
       )
+    }
 
-    default:
+    default: {
       return (
         <div className="space-y-2">
           <Label htmlFor={setting.name}>{setting.label}</Label>
@@ -146,5 +151,6 @@ function SettingField({ setting, value, onChange, disabled }: SettingFieldProps)
           />
         </div>
       )
+    }
   }
 }

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { QueueItem } from '@/types/queue'
-import type { PortalDownload, Request } from '@/types/portal'
 
-interface MatchInfo {
+import type { PortalDownload, Request } from '@/types/portal'
+import type { QueueItem } from '@/types/queue'
+
+type MatchInfo = {
   requestId: number
   requestTitle: string
   requestMediaId?: number
@@ -10,7 +11,7 @@ interface MatchInfo {
   tvdbId?: number
 }
 
-interface PortalDownloadsState {
+type PortalDownloadsState = {
   // Raw queue state from WebSocket
   queue: QueueItem[]
   // Cached matches: queueItemId -> match info
@@ -48,7 +49,11 @@ export const usePortalDownloadsStore = create<PortalDownloadsState>((set, get) =
       if (!newMatches.has(item.id)) {
         const match = findMatchingRequest(item, state.userRequests)
         if (match) {
-          console.log('[PortalDownloads] New match found', { itemId: item.id, itemTitle: item.title, requestId: match.requestId })
+          console.log('[PortalDownloads] New match found', {
+            itemId: item.id,
+            itemTitle: item.title,
+            requestId: match.requestId,
+          })
           newMatches.set(item.id, match)
         }
       }
@@ -79,7 +84,11 @@ export const usePortalDownloadsStore = create<PortalDownloadsState>((set, get) =
     for (const item of state.queue) {
       const match = findMatchingRequest(item, requests)
       if (match) {
-        console.log('[PortalDownloads] Match found on request update', { itemId: item.id, itemTitle: item.title, requestId: match.requestId })
+        console.log('[PortalDownloads] Match found on request update', {
+          itemId: item.id,
+          itemTitle: item.title,
+          requestId: match.requestId,
+        })
         newMatches.set(item.id, match)
       }
     }
@@ -130,16 +139,13 @@ export const usePortalDownloadsStore = create<PortalDownloadsState>((set, get) =
 function normalizeTitle(title: string): string {
   return title
     .toLowerCase()
-    .replace(/[._-]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
+    .replaceAll(/[._-]/g, ' ')
+    .replaceAll(/[^a-z0-9\s]/g, '')
+    .replaceAll(/\s+/g, ' ')
     .trim()
 }
 
-function findMatchingRequest(
-  item: QueueItem,
-  requests: Request[]
-): MatchInfo | null {
+function findMatchingRequest(item: QueueItem, requests: Request[]): MatchInfo | null {
   // First pass: match by internal media ID (most reliable)
   for (const req of requests) {
     if (req.mediaId != null) {
@@ -152,7 +158,10 @@ function findMatchingRequest(
           tvdbId: req.tvdbId ?? undefined,
         }
       }
-      if ((req.mediaType === 'series' || req.mediaType === 'season') && item.seriesId === req.mediaId) {
+      if (
+        (req.mediaType === 'series' || req.mediaType === 'season') &&
+        item.seriesId === req.mediaId
+      ) {
         return {
           requestId: req.id,
           requestTitle: req.title,
@@ -173,11 +182,15 @@ function findMatchingRequest(
     if (req.mediaId == null) {
       const reqTitleNorm = normalizeTitle(req.title)
       // Check if the queue item title contains the request title
-      if (reqTitleNorm.length > 0 && (itemTitleNorm.startsWith(reqTitleNorm) || itemTitleNorm.includes(reqTitleNorm))) {
+      if (
+        reqTitleNorm.length > 0 &&
+        (itemTitleNorm.startsWith(reqTitleNorm) || itemTitleNorm.includes(reqTitleNorm))
+      ) {
         // Also verify media type matches
         const typeMatches =
           (req.mediaType === 'movie' && item.mediaType === 'movie') ||
-          ((req.mediaType === 'series' || req.mediaType === 'season') && item.mediaType === 'series')
+          ((req.mediaType === 'series' || req.mediaType === 'season') &&
+            item.mediaType === 'series')
         if (typeMatches) {
           return {
             requestId: req.id,

@@ -1,12 +1,13 @@
 import { HardDrive } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatBytes } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import type { StorageInfo } from '@/types/storage'
 
-interface StorageProgressBarProps {
+type StorageProgressBarProps = {
   value: number
   max?: number
   showPercentage?: boolean
@@ -21,24 +22,22 @@ function StorageProgressBar({
 }: StorageProgressBarProps) {
   const percentage = Math.min((value / max) * 100, 100)
 
-
-
   const colorClasses = getColorClasses(percentage)
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <div className="flex-1 h-6 rounded-full bg-muted relative overflow-hidden">
+      <div className="bg-muted relative h-6 flex-1 overflow-hidden rounded-full">
         <div
           className={cn('h-full transition-all', colorClasses)}
           style={{ width: `${percentage}%` }}
         />
-        {showPercentage && (
+        {showPercentage ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-[16px] font-medium text-white drop-shadow-sm">
               {percentage.toFixed(0)}%
             </span>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
@@ -46,14 +45,22 @@ function StorageProgressBar({
 
 // Get color classes based on usage percentage
 function getColorClasses(percent: number): string {
-  if (percent < 30) return 'bg-emerald-700' // Dark green
-  if (percent < 50) return 'bg-emerald-500' // Light green
-  if (percent < 70) return 'bg-yellow-500'  // Yellow
-  if (percent < 85) return 'bg-amber-500'   // Amber
-  return 'bg-red-500'                      // Red
+  if (percent < 30) {
+    return 'bg-emerald-700'
+  } // Dark green
+  if (percent < 50) {
+    return 'bg-emerald-500'
+  } // Light green
+  if (percent < 70) {
+    return 'bg-yellow-500'
+  } // Yellow
+  if (percent < 85) {
+    return 'bg-amber-500'
+  } // Amber
+  return 'bg-red-500' // Red
 }
 
-interface StorageCardProps {
+type StorageCardProps = {
   storage?: StorageInfo[]
   loading?: boolean
 }
@@ -63,13 +70,11 @@ export function StorageCard({ storage, loading }: StorageCardProps) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Storage
-          </CardTitle>
-          <HardDrive className="size-4 text-muted-foreground" />
+          <CardTitle className="text-muted-foreground text-sm font-medium">Storage</CardTitle>
+          <HardDrive className="text-muted-foreground size-4" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-8 w-20 mb-4" />
+          <Skeleton className="mb-4 h-8 w-20" />
           <div className="space-y-3">
             {[1, 2].map((i) => (
               <div key={i} className="space-y-2">
@@ -84,75 +89,66 @@ export function StorageCard({ storage, loading }: StorageCardProps) {
     )
   }
 
-
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Storage
-        </CardTitle>
-        <HardDrive className="size-4 text-muted-foreground" />
+        <CardTitle className="text-muted-foreground text-sm font-medium">Storage</CardTitle>
+        <HardDrive className="text-muted-foreground size-4" />
       </CardHeader>
       <CardContent>
         {/* Overall storage summary */}
-        <div className="text-2xl font-bold mb-4">
+        <div className="mb-4 text-2xl font-bold">
           {storage?.length === 1 ? storage[0].label : 'Storage'}
         </div>
 
         {/* Root folders as badges */}
-        {storage?.length === 1 && storage[0].rootFolders && storage[0].rootFolders.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
+        {storage?.length === 1 && storage[0].rootFolders && storage[0].rootFolders.length > 0 ? (
+          <div className="mb-4 flex flex-wrap gap-1">
             {storage[0].rootFolders.map((folder) => (
-              <Badge 
+              <Badge
                 key={folder.id}
                 variant="default"
-                className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                className="bg-blue-100 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200"
               >
                 {folder.name}
               </Badge>
             ))}
           </div>
-        )}
+        ) : null}
 
         {/* Storage volumes */}
         <div className="space-y-3">
           {storage
-            ?.filter(volume => volume && volume.totalSpace > 1000000000) // Show volumes > 1GB
+            ?.filter((volume) => volume && volume.totalSpace > 1_000_000_000) // Show volumes > 1GB
             ?.sort((a, b) => b.totalSpace - a.totalSpace) // Sort by size
             ?.slice(0, 3)
             .map((volume) => (
-            <div key={volume.path} className="space-y-1">
-              {/* Only show volume label if multiple volumes */}
-              {storage?.length > 1 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {volume.label}
-                  </span>
-                  {volume.rootFolders && volume.rootFolders.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {volume.rootFolders.length} folder{volume.rootFolders.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div key={volume.path} className="space-y-1">
+                {/* Only show volume label if multiple volumes */}
+                {storage?.length > 1 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{volume.label}</span>
+                    {volume.rootFolders && volume.rootFolders.length > 0 ? (
+                      <span className="text-muted-foreground text-xs">
+                        {volume.rootFolders.length} folder
+                        {volume.rootFolders.length === 1 ? '' : 's'}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
 
-              {/* Storage usage progress bar */}
-              <StorageProgressBar 
-                value={volume.usedPercent} 
-                showPercentage={true}
-              />
-              
-              {/* Storage details */}
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{formatBytes(volume.totalSpace)} Total</span>
-                <span>{formatBytes(volume.freeSpace)} Free</span>
+                {/* Storage usage progress bar */}
+                <StorageProgressBar value={volume.usedPercent} showPercentage />
+
+                {/* Storage details */}
+                <div className="text-muted-foreground flex justify-between text-xs">
+                  <span>{formatBytes(volume.totalSpace)} Total</span>
+                  <span>{formatBytes(volume.freeSpace)} Free</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </CardContent>
     </Card>
   )
 }
-

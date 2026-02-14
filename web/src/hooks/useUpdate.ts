@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { updateApi } from '@/api'
 
 export const updateKeys = {
@@ -16,7 +17,7 @@ export function useUpdateStatus() {
       if (state === 'downloading' || state === 'installing') {
         return 1000
       }
-      return 60000
+      return 60_000
     },
   })
 }
@@ -65,8 +66,7 @@ export function useUpdateAutoInstall() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (autoInstall: boolean) =>
-      updateApi.updateSettings({ autoInstall }),
+    mutationFn: (autoInstall: boolean) => updateApi.updateSettings({ autoInstall }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: updateKeys.settings() })
     },

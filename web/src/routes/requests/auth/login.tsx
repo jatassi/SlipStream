@@ -1,16 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
 import { useNavigate } from '@tanstack/react-router'
-import { Loader2, Trash2, User, KeyRound, Ban } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import { usePortalLogin, useAuthStatus, usePortalEnabled } from '@/hooks'
-import { usePasskeySupport, usePasskeyLogin } from '@/hooks/portal'
-import { usePortalAuthStore } from '@/stores'
-import { deleteAdmin } from '@/api/auth'
+import { Ban, KeyRound, Loader2, Trash2, User } from 'lucide-react'
 import { toast } from 'sonner'
+
+import { deleteAdmin } from '@/api/auth'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { Label } from '@/components/ui/label'
+import { useAuthStatus, usePortalEnabled, usePortalLogin } from '@/hooks'
+import { usePasskeyLogin, usePasskeySupport } from '@/hooks/portal'
+import { usePortalAuthStore } from '@/stores'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -51,7 +53,9 @@ export function LoginPage() {
   }
 
   const performLogin = useCallback(() => {
-    if (loginMutation.isPending) return
+    if (loginMutation.isPending) {
+      return
+    }
 
     loginMutation.mutate(
       { username, password: pin },
@@ -67,7 +71,7 @@ export function LoginPage() {
           })
           setPin('')
         },
-      }
+      },
     )
   }, [username, pin, loginMutation, getPostLoginRedirect, navigate])
 
@@ -93,14 +97,15 @@ export function LoginPage() {
 
   if (!portalEnabled) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="bg-background flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <Ban className="size-12 mx-auto text-muted-foreground" />
+            <div className="space-y-4 text-center">
+              <Ban className="text-muted-foreground mx-auto size-12" />
               <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
               <p className="text-muted-foreground">
-                The external requests portal is currently disabled. Please contact your server administrator.
+                The external requests portal is currently disabled. Please contact your server
+                administrator.
               </p>
             </div>
           </CardContent>
@@ -110,16 +115,19 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-t-2 border-t-transparent" style={{ borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }}>
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
+      <Card
+        className="w-full max-w-md border-t-2 border-t-transparent"
+        style={{ borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }}
+      >
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl text-media-gradient">Welcome Back</CardTitle>
+          <CardTitle className="text-media-gradient text-2xl">Welcome Back</CardTitle>
           <CardDescription>Sign in to your SlipStream account</CardDescription>
         </CardHeader>
         <CardContent>
           {passkeyLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              <Loader2 className="text-muted-foreground size-6 animate-spin" />
             </div>
           ) : shouldShowPasskeyLogin ? (
             <div className="space-y-6">
@@ -129,9 +137,9 @@ export function LoginPage() {
                 className="w-full text-sm md:text-base"
               >
                 {passkeyLoginMutation.isPending ? (
-                  <Loader2 className="size-3 md:size-4 mr-1 md:mr-2 animate-spin" />
+                  <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
                 ) : (
-                  <KeyRound className="size-3 md:size-4 mr-1 md:mr-2" />
+                  <KeyRound className="mr-1 size-3 md:mr-2 md:size-4" />
                 )}
                 Sign in with Passkey
               </Button>
@@ -140,7 +148,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPinForm(true)}
-                  className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                  className="text-muted-foreground hover:text-foreground text-sm hover:underline"
                 >
                   Use PIN instead
                 </button>
@@ -164,12 +172,12 @@ export function LoginPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between p-2 md:p-3 rounded-lg border border-border bg-muted/50">
+                  <div className="border-border bg-muted/50 flex items-center justify-between rounded-lg border p-2 md:p-3">
                     <div className="flex items-center gap-2 md:gap-3">
-                      <div className="p-1.5 md:p-2 rounded-full bg-primary/10">
-                        <User className="size-4 md:size-5 text-primary" />
+                      <div className="bg-primary/10 rounded-full p-1.5 md:p-2">
+                        <User className="text-primary size-4 md:size-5" />
                       </div>
-                      <span className="font-medium text-sm md:text-base">{username}</span>
+                      <span className="text-sm font-medium md:text-base">{username}</span>
                     </div>
                     <Button
                       type="button"
@@ -185,16 +193,12 @@ export function LoginPage() {
                 <div className="space-y-3">
                   <Label>PIN</Label>
                   <div className="flex justify-center">
-                    <InputOTP
-                      maxLength={4}
-                      value={pin}
-                      onChange={setPin}
-                    >
-                      <InputOTPGroup className="gap-2 md:gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
-                        <InputOTPSlot index={0} className="size-10 md:size-12 text-lg md:text-xl" />
-                        <InputOTPSlot index={1} className="size-10 md:size-12 text-lg md:text-xl" />
-                        <InputOTPSlot index={2} className="size-10 md:size-12 text-lg md:text-xl" />
-                        <InputOTPSlot index={3} className="size-10 md:size-12 text-lg md:text-xl" />
+                    <InputOTP maxLength={4} value={pin} onChange={setPin}>
+                      <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
+                        <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
+                        <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />
+                        <InputOTPSlot index={2} className="size-10 text-lg md:size-12 md:text-xl" />
+                        <InputOTPSlot index={3} className="size-10 text-lg md:size-12 md:text-xl" />
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
@@ -204,28 +208,30 @@ export function LoginPage() {
                   className="w-full text-sm md:text-base"
                   disabled={loginMutation.isPending || pin.length !== 4 || username.trim() === ''}
                 >
-                  {loginMutation.isPending && <Loader2 className="size-3 md:size-4 mr-1 md:mr-2 animate-spin" />}
+                  {loginMutation.isPending ? (
+                    <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
+                  ) : null}
                   Sign In
                 </Button>
               </form>
 
-              {!passkeyLoading && passkeySupported && (
+              {!passkeyLoading && passkeySupported ? (
                 <div className="mt-4 text-center">
                   <button
                     type="button"
                     onClick={() => setShowPinForm(false)}
-                    className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                    className="text-muted-foreground hover:text-foreground text-sm hover:underline"
                   >
                     Use Passkey instead
                   </button>
                 </div>
-              )}
+              ) : null}
             </>
           )}
 
           {/* Temporary debug button */}
           {!authStatus?.requiresSetup && (
-            <div className="mt-6 pt-4 border-t border-border">
+            <div className="border-border mt-6 border-t pt-4">
               <Button
                 type="button"
                 variant="destructive"
@@ -235,9 +241,9 @@ export function LoginPage() {
                 disabled={isDeleting}
               >
                 {isDeleting ? (
-                  <Loader2 className="size-3 md:size-4 mr-1 md:mr-2 animate-spin" />
+                  <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
                 ) : (
-                  <Trash2 className="size-3 md:size-4 mr-1 md:mr-2" />
+                  <Trash2 className="mr-1 size-3 md:mr-2 md:size-4" />
                 )}
                 Delete Admin (Debug)
               </Button>

@@ -1,18 +1,17 @@
-import { apiFetch } from './client'
 import type {
-  Notification,
   CreateNotificationInput,
-  UpdateNotificationInput,
+  Notification,
   NotificationTestResult,
   NotifierSchema,
+  UpdateNotificationInput,
 } from '@/types'
 
-export const notificationsApi = {
-  list: () =>
-    apiFetch<Notification[]>('/notifications'),
+import { apiFetch } from './client'
 
-  get: (id: number) =>
-    apiFetch<Notification>(`/notifications/${id}`),
+export const notificationsApi = {
+  list: () => apiFetch<Notification[]>('/notifications'),
+
+  get: (id: number) => apiFetch<Notification>(`/notifications/${id}`),
 
   create: (data: CreateNotificationInput) =>
     apiFetch<Notification>('/notifications', {
@@ -26,8 +25,7 @@ export const notificationsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/notifications/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<void>(`/notifications/${id}`, { method: 'DELETE' }),
 
   test: (id: number) =>
     apiFetch<NotificationTestResult>(`/notifications/${id}/test`, { method: 'POST' }),
@@ -38,6 +36,5 @@ export const notificationsApi = {
       body: JSON.stringify(data),
     }),
 
-  getSchemas: () =>
-    apiFetch<NotifierSchema[]>('/notifications/schema'),
+  getSchemas: () => apiFetch<NotifierSchema[]>('/notifications/schema'),
 }

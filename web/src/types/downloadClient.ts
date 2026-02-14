@@ -1,6 +1,6 @@
 export type DownloadClientType = 'qbittorrent' | 'transmission' | 'sabnzbd' | 'nzbget'
 
-export interface DownloadClient {
+export type DownloadClient = {
   id: number
   name: string
   type: DownloadClientType
@@ -16,7 +16,7 @@ export interface DownloadClient {
   updatedAt: string
 }
 
-export interface CreateDownloadClientInput {
+export type CreateDownloadClientInput = {
   name: string
   type: DownloadClientType
   host: string
@@ -29,7 +29,7 @@ export interface CreateDownloadClientInput {
   enabled?: boolean
 }
 
-export interface UpdateDownloadClientInput {
+export type UpdateDownloadClientInput = {
   name?: string
   type?: DownloadClientType
   host?: string
@@ -42,7 +42,7 @@ export interface UpdateDownloadClientInput {
   enabled?: boolean
 }
 
-export interface DownloadClientTestResult {
+export type DownloadClientTestResult = {
   success: boolean
   message: string
 }

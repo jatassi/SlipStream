@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { defaultsApi } from '@/api'
 import type { EntityType, MediaType } from '@/api/defaults'
 
@@ -8,7 +9,8 @@ export const defaultsKeys = {
   list: () => [...defaultsKeys.all, 'list'] as const,
   listByEntityType: (entityType: string) => [...defaultsKeys.lists(), entityType] as const,
   details: () => [...defaultsKeys.all, 'detail'] as const,
-  detail: (entityType: string, mediaType: string) => [...defaultsKeys.details(), entityType, mediaType] as const,
+  detail: (entityType: string, mediaType: string) =>
+    [...defaultsKeys.details(), entityType, mediaType] as const,
 }
 
 export const useDefaults = () =>
@@ -33,11 +35,18 @@ export const useSetDefault = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ entityType, mediaType, entityId }: { entityType: EntityType; mediaType: MediaType; entityId: number }) =>
-      defaultsApi.set(entityType, mediaType, entityId),
+    mutationFn: ({
+      entityType,
+      mediaType,
+      entityId,
+    }: {
+      entityType: EntityType
+      mediaType: MediaType
+      entityId: number
+    }) => defaultsApi.set(entityType, mediaType, entityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: defaultsKeys.all })
-    }
+    },
   })
 }
 
@@ -49,6 +58,6 @@ export const useClearDefault = () => {
       defaultsApi.clear(entityType, mediaType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: defaultsKeys.all })
-    }
+    },
   })
 }

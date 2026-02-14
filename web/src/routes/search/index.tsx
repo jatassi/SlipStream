@@ -1,24 +1,21 @@
-import { useState, useRef, useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
+
 import { Search } from 'lucide-react'
+
 import { EmptyState } from '@/components/data/EmptyState'
 import { MovieCard } from '@/components/movies/MovieCard'
-import { SeriesCard } from '@/components/series/SeriesCard'
 import {
-  ExternalMovieCard,
-  ExternalSeriesCard,
   ExpandableMediaGrid,
-  SearchResultsSection,
+  ExternalMovieCard,
   ExternalSearchSection,
+  ExternalSeriesCard,
+  SearchResultsSection,
 } from '@/components/search'
-import {
-  useMovies,
-  useSeries,
-  useMovieSearch,
-  useSeriesSearch,
-} from '@/hooks'
+import { SeriesCard } from '@/components/series/SeriesCard'
+import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
 import { useAdminRequests } from '@/hooks/admin/useAdminRequests'
 
-interface SearchPageProps {
+type SearchPageProps = {
   q: string
 }
 
@@ -30,15 +27,17 @@ export function SearchPage({ q }: SearchPageProps) {
   const prevQueryRef = useRef(query)
   if (prevQueryRef.current !== query) {
     prevQueryRef.current = query
-    if (externalEnabled) setExternalEnabled(false)
+    if (externalEnabled) {
+      setExternalEnabled(false)
+    }
   }
 
   // Fetch library results
   const { data: libraryMovies = [], isLoading: loadingLibraryMovies } = useMovies(
-    query ? { search: query } : undefined
+    query ? { search: query } : undefined,
   )
   const { data: librarySeries = [], isLoading: loadingLibrarySeries } = useSeries(
-    query ? { search: query } : undefined
+    query ? { search: query } : undefined,
   )
 
   const isLibraryLoading = loadingLibraryMovies || loadingLibrarySeries
@@ -49,10 +48,10 @@ export function SearchPage({ q }: SearchPageProps) {
 
   // Fetch external results (conditional)
   const { data: externalMovies = [], isLoading: loadingExternalMovies } = useMovieSearch(
-    shouldSearchExternal && query.length >= 2 ? query : ''
+    shouldSearchExternal && query.length >= 2 ? query : '',
   )
   const { data: externalSeries = [], isLoading: loadingExternalSeries } = useSeriesSearch(
-    shouldSearchExternal && query.length >= 2 ? query : ''
+    shouldSearchExternal && query.length >= 2 ? query : '',
   )
 
   const isExternalLoading = loadingExternalMovies || loadingExternalSeries
@@ -145,7 +144,20 @@ export function SearchPage({ q }: SearchPageProps) {
               <ExternalMovieCard
                 movie={movie}
                 inLibrary={libraryMovieTmdbIds.has(movie.tmdbId)}
-                requestInfo={movieRequestsByTmdbId.get(movie.tmdbId) as { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined}
+                requestInfo={
+                  movieRequestsByTmdbId.get(movie.tmdbId) as
+                    | {
+                        id: number
+                        status:
+                          | 'pending'
+                          | 'approved'
+                          | 'denied'
+                          | 'downloading'
+                          | 'available'
+                          | 'cancelled'
+                      }
+                    | undefined
+                }
               />
             )}
           />
@@ -159,7 +171,20 @@ export function SearchPage({ q }: SearchPageProps) {
               <ExternalSeriesCard
                 series={series}
                 inLibrary={librarySeriesTmdbIds.has(series.tmdbId)}
-                requestInfo={seriesRequestsByTmdbId.get(series.tmdbId) as { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined}
+                requestInfo={
+                  seriesRequestsByTmdbId.get(series.tmdbId) as
+                    | {
+                        id: number
+                        status:
+                          | 'pending'
+                          | 'approved'
+                          | 'denied'
+                          | 'downloading'
+                          | 'available'
+                          | 'cancelled'
+                      }
+                    | undefined
+                }
               />
             )}
           />

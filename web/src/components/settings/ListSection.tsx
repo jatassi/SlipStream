@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react'
-import { LoadingState } from '@/components/data/LoadingState'
+
 import { EmptyState } from '@/components/data/EmptyState'
 import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { AddPlaceholderCard } from '@/components/settings/AddPlaceholderCard'
 import { cn } from '@/lib/utils'
 
-interface AddPlaceholder {
+type AddPlaceholder = {
   label: string
   onClick: () => void
   icon?: ReactNode
 }
 
-interface ListSectionProps<T> {
+type ListSectionProps<T> = {
   data: T[] | undefined
   isLoading: boolean
   isError: boolean
@@ -71,7 +72,7 @@ export function ListSection<T>({
   const gridClassName = cn(
     gridCols === 1 && 'space-y-4',
     gridCols === 2 && 'grid gap-4 md:grid-cols-2',
-    gridCols === 3 && 'grid gap-4 md:grid-cols-3'
+    gridCols === 3 && 'grid gap-4 md:grid-cols-3',
   )
 
   return (
@@ -79,13 +80,13 @@ export function ListSection<T>({
       {data.map((item) => (
         <div key={keyExtractor(item)}>{renderItem(item)}</div>
       ))}
-      {addPlaceholder && (
+      {addPlaceholder ? (
         <AddPlaceholderCard
           label={addPlaceholder.label}
           onClick={addPlaceholder.onClick}
           icon={addPlaceholder.icon}
         />
-      )}
+      ) : null}
     </div>
   )
 }

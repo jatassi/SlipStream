@@ -1,5 +1,6 @@
+import type { CreateInvitationRequest, Invitation } from '@/types'
+
 import { apiFetch } from '../client'
-import type { Invitation, CreateInvitationRequest } from '@/types'
 
 const BASE_PATH = '/admin/requests/invitations'
 
@@ -27,6 +28,6 @@ export async function resendInvitation(id: number): Promise<Invitation> {
 }
 
 export function getInvitationLink(token: string): string {
-  const baseUrl = window.location.origin
+  const baseUrl = globalThis.location.origin
   return `${baseUrl}/requests/auth/signup?token=${token}`
 }

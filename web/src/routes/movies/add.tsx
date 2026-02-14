@@ -1,26 +1,43 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
+
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, Search, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, Search } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PosterImage } from '@/components/media/PosterImage'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { PosterImage } from '@/components/media/PosterImage'
-import { LoadingState } from '@/components/data/LoadingState'
-import { EmptyState } from '@/components/data/EmptyState'
-import { useMovieSearch, useMovieMetadata, useQualityProfiles, useRootFoldersByType, useAddMovie, useDefault, useDebounce, useAddFlowPreferences } from '@/hooks'
-import { toast } from 'sonner'
-import type { MovieSearchResult, AddMovieInput } from '@/types'
+import {
+  useAddFlowPreferences,
+  useAddMovie,
+  useDebounce,
+  useDefault,
+  useMovieMetadata,
+  useMovieSearch,
+  useQualityProfiles,
+  useRootFoldersByType,
+} from '@/hooks'
+import type { AddMovieInput, MovieSearchResult } from '@/types'
 
 type Step = 'search' | 'configure'
 
 export function AddMoviePage() {
   const navigate = useNavigate()
   // Get tmdbId from URL search params
-  const searchParams = useSearch({ strict: false }) as { tmdbId?: string }
+  const searchParams = useSearch({ strict: false })
   const tmdbId = useMemo(() => {
     const id = searchParams.tmdbId
     return id ? Number(id) : undefined
@@ -74,7 +91,11 @@ export function AddMoviePage() {
   const [prevDefaultRootFolder, setPrevDefaultRootFolder] = useState(defaultRootFolder)
 
   // Initialize searchOnAdd from preferences (React-recommended pattern)
-  if (addFlowPreferences && addFlowPreferences !== prevAddFlowPreferences && searchOnAdd === undefined) {
+  if (
+    addFlowPreferences &&
+    addFlowPreferences !== prevAddFlowPreferences &&
+    searchOnAdd === undefined
+  ) {
     setPrevAddFlowPreferences(addFlowPreferences)
     setSearchOnAdd(addFlowPreferences.movieSearchOnAdd)
   }
@@ -114,8 +135,8 @@ export function AddMoviePage() {
       imdbId: selectedMovie.imdbId,
       overview: selectedMovie.overview,
       runtime: selectedMovie.runtime,
-      rootFolderId: parseInt(rootFolderId),
-      qualityProfileId: parseInt(qualityProfileId),
+      rootFolderId: Number.parseInt(rootFolderId),
+      qualityProfileId: Number.parseInt(qualityProfileId),
       monitored,
       posterUrl: selectedMovie.posterUrl,
       backdropUrl: selectedMovie.backdropUrl,
@@ -135,31 +156,28 @@ export function AddMoviePage() {
     <div>
       <PageHeader
         title="Add Movie"
-        breadcrumbs={[
-          { label: 'Movies', href: '/movies' },
-          { label: 'Add' },
-        ]}
+        breadcrumbs={[{ label: 'Movies', href: '/movies' }, { label: 'Add' }]}
         actions={
           <Button variant="ghost" onClick={handleBack}>
-            <ArrowLeft className="size-4 mr-2" />
+            <ArrowLeft className="mr-2 size-4" />
             Back
           </Button>
         }
       />
 
       {/* Loading state when fetching by tmdbId */}
-      {tmdbId && loadingMetadata && (
+      {tmdbId && loadingMetadata ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground size-8 animate-spin" />
         </div>
-      )}
+      ) : null}
 
       {step === 'search' && !tmdbId && (
         <div className="space-y-6">
           {/* Search input */}
           <div className="max-w-xl">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
               <Input
                 placeholder="Search for a movie..."
                 value={searchQuery}
@@ -179,21 +197,15 @@ export function AddMoviePage() {
               title="Search for a movie"
               description="Enter at least 2 characters to search"
             />
-          ) : !searchResults?.length ? (
-            <EmptyState
-              icon={<Search className="size-8" />}
-              title="No results found"
-              description="Try a different search term"
-            />
-          ) : (
+          ) : searchResults?.length ? (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((movie) => (
                 <Card
                   key={movie.tmdbId || movie.id}
-                  className="cursor-pointer hover:border-primary transition-colors"
+                  className="hover:border-primary cursor-pointer transition-colors"
                   onClick={() => handleSelectMovie(movie)}
                 >
-                  <div className="aspect-[2/3] relative">
+                  <div className="relative aspect-[2/3]">
                     <PosterImage
                       url={movie.posterUrl}
                       alt={movie.title}
@@ -202,39 +214,41 @@ export function AddMoviePage() {
                     />
                   </div>
                   <CardContent className="p-3">
-                    <h3 className="font-semibold truncate">{movie.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {movie.year || 'Unknown year'}
-                    </p>
+                    <h3 className="truncate font-semibold">{movie.title}</h3>
+                    <p className="text-muted-foreground text-sm">{movie.year || 'Unknown year'}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
+          ) : (
+            <EmptyState
+              icon={<Search className="size-8" />}
+              title="No results found"
+              description="Try a different search term"
+            />
           )}
         </div>
       )}
 
-      {step === 'configure' && selectedMovie && (
+      {step === 'configure' && selectedMovie ? (
         <div className="max-w-2xl space-y-6">
           {/* Selected movie preview */}
           <Card>
-            <CardContent className="p-4 flex gap-4">
+            <CardContent className="flex gap-4 p-4">
               <PosterImage
                 url={selectedMovie.posterUrl}
                 alt={selectedMovie.title}
                 type="movie"
-                className="w-24 h-36 rounded shrink-0"
+                className="h-36 w-24 shrink-0 rounded"
               />
               <div>
                 <h2 className="text-xl font-semibold">{selectedMovie.title}</h2>
-                <p className="text-muted-foreground">
-                  {selectedMovie.year || 'Unknown year'}
-                </p>
-                {selectedMovie.overview && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+                <p className="text-muted-foreground">{selectedMovie.year || 'Unknown year'}</p>
+                {selectedMovie.overview ? (
+                  <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
                     {selectedMovie.overview}
                   </p>
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -250,7 +264,9 @@ export function AddMoviePage() {
                 <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
                   <SelectTrigger>
                     <SelectValue>
-                      {rootFolderId && rootFolders?.find(f => f.id === parseInt(rootFolderId))?.name || "Select a root folder"}
+                      {(rootFolderId &&
+                        rootFolders?.find((f) => f.id === Number.parseInt(rootFolderId))?.name) ||
+                        'Select a root folder'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -268,7 +284,10 @@ export function AddMoviePage() {
                 <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
                   <SelectTrigger>
                     <SelectValue>
-                      {qualityProfileId && qualityProfiles?.find(p => p.id === parseInt(qualityProfileId))?.name || "Select a quality profile"}
+                      {(qualityProfileId &&
+                        qualityProfiles?.find((p) => p.id === Number.parseInt(qualityProfileId))
+                          ?.name) ||
+                        'Select a quality profile'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +303,7 @@ export function AddMoviePage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Monitored</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Automatically search for and download releases
                   </p>
                 </div>
@@ -294,7 +313,7 @@ export function AddMoviePage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Search on Add</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Start searching for releases immediately
                   </p>
                 </div>
@@ -304,7 +323,7 @@ export function AddMoviePage() {
           </Card>
 
           {/* Actions */}
-          <div className="flex gap-2 justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleBack}>
               Back
             </Button>
@@ -312,12 +331,12 @@ export function AddMoviePage() {
               onClick={handleAdd}
               disabled={!rootFolderId || !qualityProfileId || addMutation.isPending}
             >
-              <Check className="size-4 mr-2" />
+              <Check className="mr-2 size-4" />
               Add Movie
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

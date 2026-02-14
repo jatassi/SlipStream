@@ -1,22 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
-import { Loader2, Code2, Pencil } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+
+import { Code2, Loader2, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
-import { useImportSettings, useUpdateImportSettings, usePreviewNamingPattern } from '@/hooks'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { useImportSettings, usePreviewNamingPattern, useUpdateImportSettings } from '@/hooks'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { ImportSettings, MissingTokenInfo } from '@/types'
 
-interface ResolveNamingModalProps {
+type ResolveNamingModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   missingMovieTokens?: MissingTokenInfo[]
@@ -26,7 +28,11 @@ interface ResolveNamingModalProps {
 
 const TOKEN_REFERENCE = {
   quality: [
-    { token: '{Quality Full}', description: 'Quality with revision', example: 'WEBDL-1080p Proper' },
+    {
+      token: '{Quality Full}',
+      description: 'Quality with revision',
+      example: 'WEBDL-1080p Proper',
+    },
     { token: '{Quality Title}', description: 'Quality only', example: 'WEBDL-1080p' },
   ],
   mediaInfo: [
@@ -75,7 +81,9 @@ export function ResolveNamingModal({
   }, [open, settings])
 
   const handleSave = async () => {
-    if (!settings) return
+    if (!settings) {
+      return
+    }
     setSaving(true)
     try {
       await updateMutation.mutateAsync({
@@ -98,16 +106,16 @@ export function ResolveNamingModal({
 
   // Check each format independently
   const missingInStandard = requiredEpisodeTokens.filter(
-    (token) => !(form.standardEpisodeFormat || '').includes(token)
+    (token) => !(form.standardEpisodeFormat || '').includes(token),
   )
   const missingInDaily = requiredEpisodeTokens.filter(
-    (token) => !(form.dailyEpisodeFormat || '').includes(token)
+    (token) => !(form.dailyEpisodeFormat || '').includes(token),
   )
   const missingInAnime = requiredEpisodeTokens.filter(
-    (token) => !(form.animeEpisodeFormat || '').includes(token)
+    (token) => !(form.animeEpisodeFormat || '').includes(token),
   )
   const missingInMovie = requiredMovieTokens.filter(
-    (token) => !(form.movieFileFormat || '').includes(token)
+    (token) => !(form.movieFileFormat || '').includes(token),
   )
 
   // Tokens still missing anywhere (for highlighting Differentiator Tokens section)
@@ -127,23 +135,24 @@ export function ResolveNamingModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Resolve Naming Format Issues</DialogTitle>
           <DialogDescription>
-            Add the missing tokens to your filename formats to differentiate files in different slots.
+            Add the missing tokens to your filename formats to differentiate files in different
+            slots.
             {stillMissingTokens.size > 0 && (
-              <span className="block mt-2 font-medium text-orange-600 dark:text-orange-400">
-                Suggested tokens to add: {Array.from(stillMissingTokens).join(', ')}
+              <span className="mt-2 block font-medium text-orange-600 dark:text-orange-400">
+                Suggested tokens to add: {[...stillMissingTokens].join(', ')}
               </span>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 md:grid-cols-2 py-4">
+        <div className="grid gap-6 py-4 md:grid-cols-2">
           {/* Episode Formats */}
           <div className="space-y-4">
-            <h3 className="font-medium text-sm border-b pb-2">Episode Formats</h3>
+            <h3 className="border-b pb-2 text-sm font-medium">Episode Formats</h3>
 
             <PatternEditorCompact
               label="Standard Episode Format"
@@ -172,7 +181,7 @@ export function ResolveNamingModal({
 
           {/* Movie Format */}
           <div className="space-y-4">
-            <h3 className="font-medium text-sm border-b pb-2">Movie Format</h3>
+            <h3 className="border-b pb-2 text-sm font-medium">Movie Format</h3>
 
             <PatternEditorCompact
               label="Movie File Format"
@@ -183,13 +192,13 @@ export function ResolveNamingModal({
             />
 
             {/* Token Reference */}
-            <div className="space-y-3 mt-6">
-              <h4 className="text-xs font-medium text-muted-foreground">Differentiator Tokens</h4>
+            <div className="mt-6 space-y-3">
+              <h4 className="text-muted-foreground text-xs font-medium">Differentiator Tokens</h4>
               <div className="grid gap-2">
                 {[...TOKEN_REFERENCE.quality, ...TOKEN_REFERENCE.mediaInfo.slice(0, 5)].map((t) => (
                   <div
                     key={t.token}
-                    className={`flex items-center justify-between text-xs p-2 rounded border ${
+                    className={`flex items-center justify-between rounded border p-2 text-xs ${
                       stillMissingTokens.has(t.token)
                         ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30'
                         : 'bg-muted/30'
@@ -209,7 +218,7 @@ export function ResolveNamingModal({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || !allResolved}>
-            {saving && <Loader2 className="size-4 mr-2 animate-spin" />}
+            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Save
           </Button>
         </DialogFooter>
@@ -218,7 +227,7 @@ export function ResolveNamingModal({
   )
 }
 
-interface PatternEditorCompactProps {
+type PatternEditorCompactProps = {
   label: string
   value: string
   onChange: (value: string) => void
@@ -265,25 +274,25 @@ function PatternEditorCompact({
       <button
         type="button"
         onClick={() => setTokenDialogOpen(true)}
-        className={`w-full flex items-start gap-2 p-2 text-left font-mono text-xs bg-muted/50 hover:bg-muted border rounded-md transition-colors cursor-pointer ${
+        className={`bg-muted/50 hover:bg-muted flex w-full cursor-pointer items-start gap-2 rounded-md border p-2 text-left font-mono text-xs transition-colors ${
           isMissingTokens ? 'border-orange-400' : ''
         }`}
       >
-        <Pencil className="size-3 mt-0.5 shrink-0 text-muted-foreground" />
+        <Pencil className="text-muted-foreground mt-0.5 size-3 shrink-0" />
         <span className="break-all">{localValue || '(not configured)'}</span>
       </button>
-      {preview && (
-        <div className="p-2 rounded-md bg-muted/50 text-xs">
+      {preview ? (
+        <div className="bg-muted/50 rounded-md p-2 text-xs">
           <span className="text-muted-foreground">Preview: </span>
           {preview.valid ? (
-            <span className="font-mono text-green-600 dark:text-green-400 break-all">
+            <span className="font-mono break-all text-green-600 dark:text-green-400">
               {preview.preview}
             </span>
           ) : (
             <span className="text-red-600 dark:text-red-400">{preview.error}</span>
           )}
         </div>
-      )}
+      ) : null}
       <TokenBuilderDialogCompact
         open={tokenDialogOpen}
         onOpenChange={setTokenDialogOpen}
@@ -296,7 +305,7 @@ function PatternEditorCompact({
   )
 }
 
-interface TokenBuilderDialogCompactProps {
+type TokenBuilderDialogCompactProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   value: string
@@ -354,13 +363,14 @@ function TokenBuilderDialogCompact({
     onOpenChange(false)
   }
 
-  const categories = mediaType === 'episode'
-    ? ['episode', 'quality', 'mediaInfo'] as const
-    : ['movie', 'quality', 'mediaInfo'] as const
+  const categories =
+    mediaType === 'episode'
+      ? (['episode', 'quality', 'mediaInfo'] as const)
+      : (['movie', 'quality', 'mediaInfo'] as const)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[70vh] flex flex-col">
+      <DialogContent className="flex max-h-[70vh] flex-col sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit Pattern</DialogTitle>
           <DialogDescription>
@@ -368,14 +378,14 @@ function TokenBuilderDialogCompact({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-3 py-2">
+        <div className="flex-1 space-y-3 overflow-y-auto py-2">
           {categories.map((category) => {
             // Only highlight tokens in differentiator categories (quality, mediaInfo)
             const canHighlight = category === 'quality' || category === 'mediaInfo'
             return (
               <div key={category} className="space-y-1.5">
-                <h4 className="text-xs font-medium capitalize text-muted-foreground">
-                  {category.replace(/([A-Z])/g, ' $1').trim()}
+                <h4 className="text-muted-foreground text-xs font-medium capitalize">
+                  {category.replaceAll(/([A-Z])/g, ' $1').trim()}
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
                   {TOKEN_REFERENCE[category].map((t) => (
@@ -383,14 +393,14 @@ function TokenBuilderDialogCompact({
                       key={t.token}
                       type="button"
                       onClick={() => handleInsertToken(t.token)}
-                      className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono border rounded transition-colors cursor-pointer ${
+                      className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 font-mono text-[10px] transition-colors ${
                         canHighlight && highlightTokens.includes(t.token)
-                          ? 'bg-orange-100 border-orange-400 hover:bg-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900'
+                          ? 'border-orange-400 bg-orange-100 hover:bg-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900'
                           : 'bg-muted hover:bg-muted/80'
                       }`}
                       title={`${t.description}\nExample: ${t.example}`}
                     >
-                      <Code2 className="size-2.5 text-muted-foreground" />
+                      <Code2 className="text-muted-foreground size-2.5" />
                       {t.token}
                     </button>
                   ))}
@@ -400,7 +410,7 @@ function TokenBuilderDialogCompact({
           })}
         </div>
 
-        <div className="space-y-2 pt-2 border-t">
+        <div className="space-y-2 border-t pt-2">
           <Label className="text-xs">Format Pattern</Label>
           <Textarea
             ref={textareaRef}
@@ -409,7 +419,7 @@ function TokenBuilderDialogCompact({
             onSelect={(e) => setCursorPosition(e.currentTarget.selectionStart)}
             onClick={(e) => setCursorPosition(e.currentTarget.selectionStart)}
             onKeyUp={(e) => setCursorPosition(e.currentTarget.selectionStart)}
-            className="font-mono text-xs min-h-[60px]"
+            className="min-h-[60px] font-mono text-xs"
             placeholder="Click tokens above to build your format pattern..."
           />
         </div>

@@ -4,7 +4,7 @@ export type AutoSearchMediaType = 'movie' | 'episode' | 'season' | 'series'
 
 export type AutoSearchSource = 'manual' | 'scheduled' | 'add'
 
-export interface AutoSearchResult {
+export type AutoSearchResult = {
   found: boolean
   downloaded: boolean
   release?: TorrentInfo
@@ -14,14 +14,14 @@ export interface AutoSearchResult {
   downloadId?: string
 }
 
-export interface SlotSearchResult extends AutoSearchResult {
+export type SlotSearchResult = {
   slotId: number
   slotNumber: number
   slotName: string
   isSlotUpgrade: boolean
-}
+} & AutoSearchResult
 
-export interface BatchAutoSearchResult {
+export type BatchAutoSearchResult = {
   totalSearched: number
   found: number
   downloaded: number
@@ -29,7 +29,7 @@ export interface BatchAutoSearchResult {
   results?: AutoSearchResult[]
 }
 
-export interface AutoSearchStatus {
+export type AutoSearchStatus = {
   mediaType: AutoSearchMediaType
   mediaId: number
   searching: boolean
@@ -37,7 +37,7 @@ export interface AutoSearchStatus {
   lastSearch?: string
 }
 
-export interface AutoSearchSettings {
+export type AutoSearchSettings = {
   enabled: boolean
   intervalHours: number
   backoffThreshold: number

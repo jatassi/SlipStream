@@ -1,4 +1,4 @@
-export interface QueueItem {
+export type QueueItem = {
   id: string
   clientId: number
   clientName: string
@@ -31,18 +31,18 @@ export interface QueueItem {
   targetSlotName?: string
 }
 
-export interface ClientError {
+export type ClientError = {
   clientId: number
   clientName: string
   message: string
 }
 
-export interface QueueResponse {
+export type QueueResponse = {
   items: QueueItem[]
   errors?: ClientError[]
 }
 
-export interface QueueStats {
+export type QueueStats = {
   totalCount: number
   downloadingCount: number
   queuedCount: number

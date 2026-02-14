@@ -1,15 +1,17 @@
 import { useState } from 'react'
+
 import { Save } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ErrorState } from '@/components/data/ErrorState'
+import { LoadingState } from '@/components/data/LoadingState'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
-import { LoadingState } from '@/components/data/LoadingState'
-import { ErrorState } from '@/components/data/ErrorState'
+import { Switch } from '@/components/ui/switch'
 import { useAutoSearchSettings, useUpdateAutoSearchSettings } from '@/hooks'
-import { toast } from 'sonner'
 
 export function AutoSearchSection() {
   const { data: settings, isLoading, isError, refetch } = useAutoSearchSettings()
@@ -43,11 +45,11 @@ export function AutoSearchSection() {
     }
   }
 
-  const hasChanges = settings && (
-    enabled !== settings.enabled ||
-    intervalHours !== settings.intervalHours ||
-    backoffThreshold !== settings.backoffThreshold
-  )
+  const hasChanges =
+    settings &&
+    (enabled !== settings.enabled ||
+      intervalHours !== settings.intervalHours ||
+      backoffThreshold !== settings.backoffThreshold)
 
   if (isLoading) {
     return <LoadingState variant="list" count={2} />
@@ -70,21 +72,18 @@ export function AutoSearchSection() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Enable Automatic Search</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Periodically search for missing movies and episodes
               </p>
             </div>
-            <Switch
-              checked={enabled}
-              onCheckedChange={setEnabled}
-            />
+            <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex justify-between">
                 <Label>Search Interval</Label>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-muted-foreground text-sm">
                   {intervalHours === 1 ? 'Every hour' : `Every ${intervalHours} hours`}
                 </span>
               </div>
@@ -99,7 +98,7 @@ export function AutoSearchSection() {
                 step={1}
                 disabled={!enabled}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 How often to search for missing items (1-24 hours)
               </p>
             </div>
@@ -121,13 +120,15 @@ export function AutoSearchSection() {
               id="backoffThreshold"
               type="number"
               value={backoffThreshold}
-              onChange={(e) => setBackoffThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={(e) =>
+                setBackoffThreshold(Math.max(1, Number.parseInt(e.target.value) || 1))
+              }
               min={1}
               disabled={!enabled}
             />
-            <p className="text-xs text-muted-foreground">
-              After this many consecutive failed searches, the item will be searched less frequently.
-              Default: 12 failures before backoff.
+            <p className="text-muted-foreground text-xs">
+              After this many consecutive failed searches, the item will be searched less
+              frequently. Default: 12 failures before backoff.
             </p>
           </div>
         </CardContent>
@@ -135,7 +136,7 @@ export function AutoSearchSection() {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
-          <Save className="size-4 mr-2" />
+          <Save className="mr-2 size-4" />
           Save Changes
         </Button>
       </div>

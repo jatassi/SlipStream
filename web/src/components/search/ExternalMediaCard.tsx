@@ -1,16 +1,19 @@
-import { useState, useMemo } from 'react'
-import { Plus, Check, Library, Clock, Download, CheckCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useMemo, useState } from 'react'
+
+import { Check, CheckCircle, Clock, Download, Library, Plus } from 'lucide-react'
+
 import { NetworkLogo } from '@/components/media/NetworkLogo'
 import { PosterImage } from '@/components/media/PosterImage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { MediaInfoModal } from './MediaInfoModal'
-import { DownloadProgressBar } from './DownloadProgressBar'
 import { usePortalDownloads } from '@/hooks'
-import type { MovieSearchResult, SeriesSearchResult, AvailabilityInfo, Request } from '@/types'
+import { cn } from '@/lib/utils'
+import type { AvailabilityInfo, MovieSearchResult, Request, SeriesSearchResult } from '@/types'
 
-export interface ExternalMediaCardProps {
+import { DownloadProgressBar } from './DownloadProgressBar'
+import { MediaInfoModal } from './MediaInfoModal'
+
+export type ExternalMediaCardProps = {
   media: MovieSearchResult | SeriesSearchResult
   mediaType: 'movie' | 'series'
   inLibrary?: boolean
@@ -37,7 +40,7 @@ export function ExternalMediaCard({
   onAction,
   onViewRequest,
   actionLabel = 'Add to Library',
-  actionIcon = <Plus className="size-3 md:size-4 mr-1 md:mr-2" />,
+  actionIcon = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />,
   disabledLabel = 'Already Added',
   requestedLabel = 'Requested',
 }: ExternalMediaCardProps) {
@@ -49,11 +52,17 @@ export function ExternalMediaCard({
   // Find ALL requests for this media (by TMDB ID)
   // For series, this includes both 'series' and 'season' type requests
   const matchingRequests = useMemo((): Request[] => {
-    if (!requests || !tmdbId) return []
+    if (!requests || !tmdbId) {
+      return []
+    }
     return requests.filter((r) => {
-      if (r.tmdbId !== tmdbId) return false
+      if (r.tmdbId !== tmdbId) {
+        return false
+      }
       // For movies, match 'movie' type
-      if (mediaType === 'movie') return r.mediaType === 'movie'
+      if (mediaType === 'movie') {
+        return r.mediaType === 'movie'
+      }
       // For series, match 'series' or 'season' types
       return r.mediaType === 'series' || r.mediaType === 'season'
     })
@@ -61,25 +70,38 @@ export function ExternalMediaCard({
 
   // Also check by availability's existingRequestId if not already found
   const currentRequest = useMemo((): Request | undefined => {
-    if (matchingRequests.length > 0) return matchingRequests[0]
-    if (!requests || !availability?.existingRequestId) return undefined
+    if (matchingRequests.length > 0) {
+      return matchingRequests[0]
+    }
+    if (!requests || !availability?.existingRequestId) {
+      return undefined
+    }
     return requests.find((r) => r.id === availability.existingRequestId)
   }, [requests, matchingRequests, availability?.existingRequestId])
 
   // Determine aggregate status across all requests
   const aggregateStatus = useMemo(() => {
-    const allRequests = matchingRequests.length > 0 ? matchingRequests : (currentRequest ? [currentRequest] : [])
-    if (allRequests.length === 0) return null
+    const allRequests =
+      matchingRequests.length > 0 ? matchingRequests : currentRequest ? [currentRequest] : []
+    if (allRequests.length === 0) {
+      return null
+    }
 
     // If ALL requests are 'available', the item is fully in library
     const allAvailable = allRequests.every((r) => r.status === 'available')
-    if (allAvailable) return 'available'
+    if (allAvailable) {
+      return 'available'
+    }
 
     // If ANY request is still pending, show pending
-    if (allRequests.some((r) => r.status === 'pending')) return 'pending'
+    if (allRequests.some((r) => r.status === 'pending')) {
+      return 'pending'
+    }
 
     // If ANY request is approved (but not available), show approved
-    if (allRequests.some((r) => r.status === 'approved')) return 'approved'
+    if (allRequests.some((r) => r.status === 'approved')) {
+      return 'approved'
+    }
 
     // Fall back to first request's status
     return allRequests[0].status
@@ -90,32 +112,74 @@ export function ExternalMediaCard({
   const isAvailable = requestStatus === 'available'
 
   // Item is in library if: availability says so, OR all requests are 'available'
-  const allRequestsHaveMediaId = matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId != null)
-  const isInLibrary = inLibrary || availability?.inLibrary || (isAvailable && (allRequestsHaveMediaId || currentRequest?.mediaId != null))
-  const hasExistingRequest = requested || availability?.existingRequestId != null || matchingRequests.length > 0
-  const isOwnRequest = requested || (availability?.existingRequestUserId != null && availability.existingRequestUserId === currentUserId) || matchingRequests.length > 0
-  const canRequest = !requested && matchingRequests.length === 0 && !currentRequest && (availability?.canRequest ?? !isInLibrary)
+  const allRequestsHaveMediaId =
+    matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId != null)
+  const isInLibrary =
+    inLibrary ||
+    availability?.inLibrary ||
+    (isAvailable && (allRequestsHaveMediaId || currentRequest?.mediaId != null))
+  const hasExistingRequest =
+    requested || availability?.existingRequestId != null || matchingRequests.length > 0
+  const isOwnRequest =
+    requested ||
+    (availability?.existingRequestUserId != null &&
+      availability.existingRequestUserId === currentUserId) ||
+    matchingRequests.length > 0
+  const canRequest =
+    !requested &&
+    matchingRequests.length === 0 &&
+    !currentRequest &&
+    (availability?.canRequest ?? !isInLibrary)
 
   // Check for actual active download (not just request status)
   // Match by TMDB ID or any of the matching request IDs
   const activeDownload = useMemo(() => {
-    if (!downloads) return undefined
+    if (!downloads) {
+      return undefined
+    }
     const requestIds = new Set(matchingRequests.map((r) => r.id))
-    if (currentRequest) requestIds.add(currentRequest.id)
+    if (currentRequest) {
+      requestIds.add(currentRequest.id)
+    }
 
     return downloads.find((d) => {
       // Match by TMDB ID
-      if (tmdbId != null && d.tmdbId != null && d.tmdbId === tmdbId) return true
+      if (tmdbId != null && d.tmdbId != null && d.tmdbId === tmdbId) {
+        return true
+      }
       // Match by any of our request IDs
-      if (requestIds.has(d.requestId)) return true
+      if (requestIds.has(d.requestId)) {
+        return true
+      }
       // Match by request ID from availability
-      if (availability?.existingRequestId != null && d.requestId === availability.existingRequestId) return true
+      if (
+        availability?.existingRequestId != null &&
+        d.requestId === availability.existingRequestId
+      ) {
+        return true
+      }
       // Fall back to matching by internal media ID
-      if (mediaType === 'movie') return d.movieId != null && availability?.mediaId != null && d.movieId === availability.mediaId
-      if (mediaType === 'series') return d.seriesId != null && availability?.mediaId != null && d.seriesId === availability.mediaId
+      if (mediaType === 'movie') {
+        return (
+          d.movieId != null && availability?.mediaId != null && d.movieId === availability.mediaId
+        )
+      }
+      if (mediaType === 'series') {
+        return (
+          d.seriesId != null && availability?.mediaId != null && d.seriesId === availability.mediaId
+        )
+      }
       return false
     })
-  }, [downloads, tmdbId, matchingRequests, currentRequest, availability?.existingRequestId, availability?.mediaId, mediaType])
+  }, [
+    downloads,
+    tmdbId,
+    matchingRequests,
+    currentRequest,
+    availability?.existingRequestId,
+    availability?.mediaId,
+    mediaType,
+  ])
 
   const hasActiveDownload = !!activeDownload
 
@@ -135,22 +199,20 @@ export function ExternalMediaCard({
   const title = media.title
   const year = media.year
   const network = mediaType === 'series' ? (media as SeriesSearchResult).network : undefined
-  const networkLogoUrl = mediaType === 'series' ? (media as SeriesSearchResult).networkLogoUrl : undefined
+  const networkLogoUrl =
+    mediaType === 'series' ? (media as SeriesSearchResult).networkLogoUrl : undefined
 
   return (
     <div
       className={cn(
-        'group rounded-lg overflow-hidden bg-card border border-border transition-all',
+        'group bg-card border-border overflow-hidden rounded-lg border transition-all',
         mediaType === 'movie'
           ? 'hover:border-movie-500/50 hover:glow-movie'
           : 'hover:border-tv-500/50 hover:glow-tv',
-        className
+        className,
       )}
     >
-      <div
-        className="relative aspect-[2/3] cursor-pointer"
-        onClick={() => setInfoOpen(true)}
-      >
+      <div className="relative aspect-[2/3] cursor-pointer" onClick={() => setInfoOpen(true)}>
         <PosterImage
           url={media.posterUrl}
           alt={title}
@@ -161,32 +223,48 @@ export function ExternalMediaCard({
         {/* Status badges - show downloading if active download, otherwise in library */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {hasActiveDownload ? (
-            <Badge variant="secondary" className="bg-purple-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-              <Download className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+            <Badge
+              variant="secondary"
+              className="bg-purple-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+            >
+              <Download className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
               Downloading
             </Badge>
           ) : isInLibrary ? (
-            <Badge variant="secondary" className="bg-green-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-              <Library className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+            <Badge
+              variant="secondary"
+              className="bg-green-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+            >
+              <Library className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
               In Library
             </Badge>
-          ) : hasExistingRequest && (
-            isAvailable ? (
-              <Badge variant="secondary" className="bg-green-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <CheckCircle className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+          ) : (
+            hasExistingRequest &&
+            (isAvailable ? (
+              <Badge
+                variant="secondary"
+                className="bg-green-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+              >
+                <CheckCircle className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
                 Available
               </Badge>
             ) : isApproved ? (
-              <Badge variant="secondary" className="bg-blue-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <Check className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+              <Badge
+                variant="secondary"
+                className="bg-blue-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+              >
+                <Check className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
                 Approved
               </Badge>
             ) : (
-              <Badge variant="secondary" className="bg-yellow-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5">
-                <Clock className="size-2.5 md:size-3 mr-0.5 md:mr-1" />
+              <Badge
+                variant="secondary"
+                className="bg-yellow-600 px-1.5 py-0.5 text-[10px] text-white md:px-2 md:text-xs"
+              >
+                <Clock className="mr-0.5 size-2.5 md:mr-1 md:size-3" />
                 Requested
               </Badge>
-            )
+            ))
           )}
         </div>
 
@@ -200,16 +278,16 @@ export function ExternalMediaCard({
         )}
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="absolute inset-x-0 bottom-0 p-3 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-          <h3 className="font-semibold text-white line-clamp-3">{title}</h3>
+        <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="absolute inset-x-0 bottom-0 flex flex-col justify-end p-3 opacity-0 transition-opacity group-hover:opacity-100">
+          <h3 className="line-clamp-3 font-semibold text-white">{title}</h3>
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <span>{year || 'Unknown year'}</span>
-            {network && !networkLogoUrl && (
+            {network && !networkLogoUrl ? (
               <Badge variant="secondary" className="text-xs">
                 {network}
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -223,42 +301,57 @@ export function ExternalMediaCard({
           />
         ) : isInLibrary ? (
           <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-            <Check className="size-3 md:size-4 mr-1 md:mr-2" />
+            <Check className="mr-1 size-3 md:mr-2 md:size-4" />
             In Library
           </Button>
         ) : hasExistingRequest ? (
           isAvailable ? (
             <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-              <CheckCircle className="size-3 md:size-4 mr-1 md:mr-2" />
+              <CheckCircle className="mr-1 size-3 md:mr-2 md:size-4" />
               Available
             </Button>
           ) : isApproved ? (
             <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-              <Check className="size-3 md:size-4 mr-1 md:mr-2" />
+              <Check className="mr-1 size-3 md:mr-2 md:size-4" />
               Approved
             </Button>
           ) : isOwnRequest ? (
             <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-              <Clock className="size-3 md:size-4 mr-1 md:mr-2" />
+              <Clock className="mr-1 size-3 md:mr-2 md:size-4" />
               {requestedLabel}
             </Button>
           ) : (availability?.existingRequestId ?? currentRequest?.id) && onViewRequest ? (
-            <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" onClick={handleViewRequest}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full text-xs md:text-sm"
+              onClick={handleViewRequest}
+            >
               View Request
             </Button>
           ) : (
             <Button variant="secondary" size="sm" className="w-full text-xs md:text-sm" disabled>
-              <Clock className="size-3 md:size-4 mr-1 md:mr-2" />
+              <Clock className="mr-1 size-3 md:mr-2 md:size-4" />
               {requestedLabel}
             </Button>
           )
         ) : canRequest && onAction ? (
-          <Button variant="default" size="sm" className="w-full text-xs md:text-sm" onClick={handleAction}>
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full text-xs md:text-sm"
+            onClick={handleAction}
+          >
             {actionIcon}
             {actionLabel}
           </Button>
         ) : (
-          <Button variant="default" size="sm" className="w-full text-xs md:text-sm" onClick={handleAction}>
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full text-xs md:text-sm"
+            onClick={handleAction}
+          >
             {actionIcon}
             {actionLabel}
           </Button>

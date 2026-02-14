@@ -1,41 +1,38 @@
-import { Bell, Hammer, Loader2, LayoutTemplate } from 'lucide-react'
+import { Bell, Hammer, LayoutTemplate, Loader2 } from 'lucide-react'
+
+import { ProgressItem } from '@/components/progress/ProgressItem'
+import { SearchBar } from '@/components/search/SearchBar'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
-import { useUIStore, useDevModeStore, useWebSocketStore, useProgressStore } from '@/stores'
-import { Badge } from '@/components/ui/badge'
-import { SearchBar } from '@/components/search/SearchBar'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useScheduledTasks } from '@/hooks'
 import { cn } from '@/lib/utils'
-import { ProgressItem } from '@/components/progress/ProgressItem'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { useDevModeStore, useProgressStore, useUIStore, useWebSocketStore } from '@/stores'
 
 export function Header() {
   const { notifications, dismissNotification, globalLoading, setGlobalLoading } = useUIStore()
-  const { enabled: devModeEnabled, switching: devModeSwitching, setEnabled, setSwitching } = useDevModeStore()
+  const {
+    enabled: devModeEnabled,
+    switching: devModeSwitching,
+    setEnabled,
+    setSwitching,
+  } = useDevModeStore()
   const { send } = useWebSocketStore()
   const { data: tasks } = useScheduledTasks()
   const activities = useProgressStore((state) => state.visibleActivities)
   const activeCount = useProgressStore((state) => state.activeCount)
   const dismissActivity = useProgressStore((state) => state.dismissActivity)
 
-  const runningTasks = tasks?.filter(t => t.running) || []
+  const runningTasks = tasks?.filter((t) => t.running) || []
   const hasRunningTasks = runningTasks.length > 0
   const hasActiveActivities = activeCount > 0
 
@@ -44,15 +41,15 @@ export function Header() {
     setEnabled(pressed)
     send({
       type: 'devmode:set',
-      payload: { enabled: pressed }
+      payload: { enabled: pressed },
     })
   }
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-6">
+    <header className="border-border bg-card flex h-14 items-center gap-4 border-b px-6">
       {/* Search */}
-      <div className="flex-1 flex justify-center">
-        <div className="flex-1 max-w-2xl">
+      <div className="flex flex-1 justify-center">
+        <div className="max-w-2xl flex-1">
           <SearchBar />
         </div>
       </div>
@@ -60,52 +57,59 @@ export function Header() {
       {/* Actions */}
       <div className="flex items-center gap-2">
         {/* Running Tasks Indicator */}
-        {hasRunningTasks && (
+        {hasRunningTasks ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-600/10 text-blue-600">
+                <div className="flex items-center gap-1.5 rounded-md bg-blue-600/10 px-2 py-1 text-blue-600">
                   <Loader2 className="size-4 animate-spin" />
                   <span className="text-sm font-medium">
-                    {runningTasks.length === 1 ? runningTasks[0].name : `${runningTasks.length} tasks`}
+                    {runningTasks.length === 1
+                      ? runningTasks[0].name
+                      : `${runningTasks.length} tasks`}
                   </span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
                 <div className="space-y-1">
-                  {runningTasks.map(task => (
+                  {runningTasks.map((task) => (
                     <p key={task.id}>{task.name}</p>
                   ))}
                 </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        )}
+        ) : null}
 
         {/* Activity Indicator */}
         {activities.length > 0 && (
           <HoverCard>
             <HoverCardTrigger>
-              <div className={cn(
-                "flex items-center gap-1.5 px-2 py-1 rounded-md cursor-default",
-                hasActiveActivities ? "bg-blue-600/10 text-blue-600" : "bg-muted text-muted-foreground"
-              )}>
-                <Loader2 className={cn("size-4", hasActiveActivities && "animate-spin")} />
+              <div
+                className={cn(
+                  'flex cursor-default items-center gap-1.5 rounded-md px-2 py-1',
+                  hasActiveActivities
+                    ? 'bg-blue-600/10 text-blue-600'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                <Loader2 className={cn('size-4', hasActiveActivities && 'animate-spin')} />
                 <span className="text-sm font-medium">
                   {activeCount > 0
                     ? activeCount === 1
-                      ? activities.find(a => a.status === 'in_progress' || a.status === 'pending')?.title || '1 activity'
+                      ? activities.find((a) => a.status === 'in_progress' || a.status === 'pending')
+                          ?.title || '1 activity'
                       : `${activeCount} activities`
                     : `${activities.length} recent`}
                 </span>
               </div>
             </HoverCardTrigger>
             <HoverCardContent align="end" className="w-80 p-0">
-              <div className="px-3 py-2 border-b border-border">
-                <span className="text-xs font-medium text-muted-foreground">
+              <div className="border-border border-b px-3 py-2">
+                <span className="text-muted-foreground text-xs font-medium">
                   Activity
                   {activeCount > 0 && (
-                    <span className="ml-1.5 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                    <span className="bg-primary text-primary-foreground ml-1.5 inline-flex size-4 items-center justify-center rounded-full text-[10px]">
                       {activeCount}
                     </span>
                   )}
@@ -132,8 +136,8 @@ export function Header() {
             <Popover>
               <PopoverTrigger
                 className={cn(
-                  'inline-flex items-center justify-center rounded-md h-8 w-8 transition-colors',
-                  'text-amber-500 hover:bg-amber-600/20'
+                  'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                  'text-amber-500 hover:bg-amber-600/20',
                 )}
               >
                 {devModeSwitching ? (
@@ -142,19 +146,15 @@ export function Header() {
                   <Hammer className="size-4" />
                 )}
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-0 gap-0">
-                <div className="px-3 py-2 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground">Developer Tools</span>
+              <PopoverContent align="end" className="w-56 gap-0 p-0">
+                <div className="border-border border-b px-3 py-2">
+                  <span className="text-muted-foreground text-xs font-medium">Developer Tools</span>
                 </div>
-                <div className="p-2 space-y-1">
-                  <label className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors cursor-pointer">
-                    <LayoutTemplate className="size-4 shrink-0 text-muted-foreground" />
+                <div className="space-y-1 p-2">
+                  <label className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors">
+                    <LayoutTemplate className="text-muted-foreground size-4 shrink-0" />
                     <span className="flex-1">Force Loading</span>
-                    <Switch
-                      checked={globalLoading}
-                      onCheckedChange={setGlobalLoading}
-                      size="sm"
-                    />
+                    <Switch checked={globalLoading} onCheckedChange={setGlobalLoading} size="sm" />
                   </label>
                 </div>
               </PopoverContent>
@@ -162,7 +162,7 @@ export function Header() {
           ) : (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground">
+                <TooltipTrigger className="text-muted-foreground inline-flex h-8 w-8 items-center justify-center rounded-md">
                   <Hammer className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent>Enable developer mode</TooltipContent>
@@ -180,12 +180,12 @@ export function Header() {
 
         {/* Notifications */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="relative inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-9 w-9">
+          <DropdownMenuTrigger className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground relative inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:ring-1 focus-visible:outline-none">
             <Bell className="size-5" />
             {notifications.length > 0 && (
               <Badge
                 variant="destructive"
-                className="absolute -right-1 -top-1 size-5 p-0 text-xs flex items-center justify-center"
+                className="absolute -top-1 -right-1 flex size-5 items-center justify-center p-0 text-xs"
               >
                 {notifications.length}
               </Badge>
@@ -193,9 +193,7 @@ export function Header() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             {notifications.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No notifications
-              </div>
+              <div className="text-muted-foreground p-4 text-center text-sm">No notifications</div>
             ) : (
               notifications.slice(0, 5).map((notification) => (
                 <DropdownMenuItem
@@ -204,17 +202,14 @@ export function Header() {
                   className="flex flex-col items-start gap-1 p-3"
                 >
                   <span className="font-medium">{notification.title}</span>
-                  {notification.message && (
-                    <span className="text-sm text-muted-foreground">
-                      {notification.message}
-                    </span>
-                  )}
+                  {notification.message ? (
+                    <span className="text-muted-foreground text-sm">{notification.message}</span>
+                  ) : null}
                 </DropdownMenuItem>
               ))
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
     </header>
   )

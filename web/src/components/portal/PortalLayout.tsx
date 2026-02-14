@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
-import { PortalHeader } from './PortalHeader'
-import { PortalDownloads } from './PortalDownloads'
 
-interface PortalLayoutProps {
+import { PortalDownloads } from './PortalDownloads'
+import { PortalHeader } from './PortalHeader'
+
+type PortalLayoutProps = {
   children: ReactNode
 }
 
@@ -12,7 +13,7 @@ interface PortalLayoutProps {
 // 2. Separate React Query caches between admin and portal views
 export function PortalLayout({ children }: PortalLayoutProps) {
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="bg-background flex h-dvh flex-col">
       <PortalHeader />
       <PortalDownloads />
       <main className="flex-1 overflow-auto">{children}</main>

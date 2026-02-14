@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { portalRequestsApi } from '@/api'
 import { usePortalAuthStore, usePortalDownloadsStore } from '@/stores'
-import type { CreateRequestInput, Request, RequestListFilters, PortalDownload } from '@/types'
+import type { CreateRequestInput, PortalDownload, Request, RequestListFilters } from '@/types'
 
 export const requestKeys = {
   all: ['requests'] as const,
@@ -44,8 +46,12 @@ export function useCreateRequest() {
       // Also update the query cache optimistically to prevent invalidation from
       // replacing userRequests with stale server data (if server hasn't persisted yet)
       queryClient.setQueryData<Request[]>(requestKeys.list(), (old) => {
-        if (!old) return [request]
-        if (old.some((r) => r.id === request.id)) return old
+        if (!old) {
+          return [request]
+        }
+        if (old.some((r) => r.id === request.id)) {
+          return old
+        }
         return [...old, request]
       })
 

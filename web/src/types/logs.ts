@@ -1,4 +1,4 @@
-export interface LogEntry {
+export type LogEntry = {
   timestamp: string
   level: string
   component?: string

@@ -1,17 +1,20 @@
-import { useState, useCallback } from 'react'
-import { Save, History } from 'lucide-react'
+import { useCallback, useState } from 'react'
+
+import { History, Save } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { PageHeader } from '@/components/layout/PageHeader'
+import { ServerSection } from '@/components/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { ServerSection } from '@/components/settings'
-import { SystemNav } from './SystemNav'
-import { useUpdateSettings, useHistorySettings, useUpdateHistorySettings } from '@/hooks'
-import { toast } from 'sonner'
+import { useHistorySettings, useUpdateHistorySettings, useUpdateSettings } from '@/hooks'
 
-interface LogRotationSettings {
+import { SystemNav } from './SystemNav'
+
+type LogRotationSettings = {
   maxSizeMB: number
   maxBackups: number
   maxAgeDays: number
@@ -37,10 +40,8 @@ function HistoryRetentionCard() {
   const currentEnabled = enabled ?? settings?.enabled ?? true
   const currentDays = days ?? settings?.retentionDays ?? 365
 
-  const hasChanges = settings && (
-    currentEnabled !== settings.enabled ||
-    currentDays !== settings.retentionDays
-  )
+  const hasChanges =
+    settings && (currentEnabled !== settings.enabled || currentDays !== settings.retentionDays)
 
   const handleSave = async () => {
     try {
@@ -71,7 +72,7 @@ function HistoryRetentionCard() {
             onCheckedChange={(v) => setEnabled(v)}
           />
         </div>
-        {currentEnabled && (
+        {currentEnabled ? (
           <div className="space-y-2">
             <Label htmlFor="retention-days">Retention period (days)</Label>
             <Input
@@ -80,20 +81,20 @@ function HistoryRetentionCard() {
               min={1}
               max={3650}
               value={currentDays}
-              onChange={(e) => setDays(parseInt(e.target.value) || 1)}
+              onChange={(e) => setDays(Number.parseInt(e.target.value) || 1)}
               className="w-32"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               History entries older than this will be automatically deleted daily at 2 AM.
             </p>
           </div>
-        )}
-        {hasChanges && (
+        ) : null}
+        {hasChanges ? (
           <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
-            <Save className="size-3 mr-1.5" />
+            <Save className="mr-1.5 size-3" />
             Save
           </Button>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   )
@@ -116,40 +117,60 @@ export function ServerPage() {
   const [initialLogRotation, setInitialLogRotation] = useState<LogRotationSettings | null>(null)
   const [initialExternalAccess, setInitialExternalAccess] = useState<boolean | null>(null)
 
-  const handlePortChange = useCallback((value: string) => {
-    if (!initialPort) setInitialPort(value)
-    setPort(value)
-  }, [initialPort])
+  const handlePortChange = useCallback(
+    (value: string) => {
+      if (!initialPort) {
+        setInitialPort(value)
+      }
+      setPort(value)
+    },
+    [initialPort],
+  )
 
-  const handleLogLevelChange = useCallback((value: string) => {
-    if (!initialLogLevel) setInitialLogLevel(value)
-    setLogLevel(value)
-  }, [initialLogLevel])
+  const handleLogLevelChange = useCallback(
+    (value: string) => {
+      if (!initialLogLevel) {
+        setInitialLogLevel(value)
+      }
+      setLogLevel(value)
+    },
+    [initialLogLevel],
+  )
 
-  const handleLogRotationChange = useCallback((value: LogRotationSettings) => {
-    if (!initialLogRotation) setInitialLogRotation(value)
-    setLogRotation(value)
-  }, [initialLogRotation])
+  const handleLogRotationChange = useCallback(
+    (value: LogRotationSettings) => {
+      if (!initialLogRotation) {
+        setInitialLogRotation(value)
+      }
+      setLogRotation(value)
+    },
+    [initialLogRotation],
+  )
 
-  const handleExternalAccessChange = useCallback((value: boolean) => {
-    if (initialExternalAccess === null) setInitialExternalAccess(value)
-    setExternalAccessEnabled(value)
-  }, [initialExternalAccess])
+  const handleExternalAccessChange = useCallback(
+    (value: boolean) => {
+      if (initialExternalAccess === null) {
+        setInitialExternalAccess(value)
+      }
+      setExternalAccessEnabled(value)
+    },
+    [initialExternalAccess],
+  )
 
-  const hasChanges = (port !== initialPort && initialPort !== '') ||
-                     (logLevel !== initialLogLevel && initialLogLevel !== '') ||
-                     (initialLogRotation !== null && (
-                       logRotation.maxSizeMB !== initialLogRotation.maxSizeMB ||
-                       logRotation.maxBackups !== initialLogRotation.maxBackups ||
-                       logRotation.maxAgeDays !== initialLogRotation.maxAgeDays ||
-                       logRotation.compress !== initialLogRotation.compress
-                     )) ||
-                     (initialExternalAccess !== null && externalAccessEnabled !== initialExternalAccess)
+  const hasChanges =
+    (port !== initialPort && initialPort !== '') ||
+    (logLevel !== initialLogLevel && initialLogLevel !== '') ||
+    (initialLogRotation !== null &&
+      (logRotation.maxSizeMB !== initialLogRotation.maxSizeMB ||
+        logRotation.maxBackups !== initialLogRotation.maxBackups ||
+        logRotation.maxAgeDays !== initialLogRotation.maxAgeDays ||
+        logRotation.compress !== initialLogRotation.compress)) ||
+    (initialExternalAccess !== null && externalAccessEnabled !== initialExternalAccess)
 
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync({
-        serverPort: parseInt(port),
+        serverPort: Number.parseInt(port),
         logLevel,
         logMaxSizeMB: logRotation.maxSizeMB,
         logMaxBackups: logRotation.maxBackups,
@@ -172,13 +193,10 @@ export function ServerPage() {
       <PageHeader
         title="System"
         description="Server configuration and authentication settings"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'System' },
-        ]}
+        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'System' }]}
         actions={
           <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
-            <Save className="size-4 mr-2" />
+            <Save className="mr-2 size-4" />
             Save Changes
           </Button>
         }

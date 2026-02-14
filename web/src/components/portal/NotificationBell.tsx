@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Bell, Check, CheckCircle } from 'lucide-react'
+
 import { formatDistanceToNow } from 'date-fns'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Bell, Check, CheckCircle } from 'lucide-react'
+
+import type { PortalNotification } from '@/api/portal'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useInbox, useMarkAllRead, useMarkRead, useUnreadCount } from '@/hooks/portal'
 import { cn } from '@/lib/utils'
-import type { PortalNotification } from '@/api/portal'
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
@@ -37,14 +35,18 @@ export function NotificationBell() {
 
   const getNotificationIcon = (type: PortalNotification['type']) => {
     switch (type) {
-      case 'approved':
-        return <CheckCircle className="size-3 md:size-4 text-blue-500" />
-      case 'denied':
-        return <span className="size-3 md:size-4 text-red-500 font-bold text-center">✕</span>
-      case 'available':
-        return <Check className="size-3 md:size-4 text-green-500" />
-      default:
+      case 'approved': {
+        return <CheckCircle className="size-3 text-blue-500 md:size-4" />
+      }
+      case 'denied': {
+        return <span className="size-3 text-center font-bold text-red-500 md:size-4">✕</span>
+      }
+      case 'available': {
+        return <Check className="size-3 text-green-500 md:size-4" />
+      }
+      default: {
         return <Bell className="size-3 md:size-4" />
+      }
     }
   }
 
@@ -54,52 +56,45 @@ export function NotificationBell() {
         render={
           <Button variant="ghost" size="icon" className="relative size-8 md:size-9">
             <Bell className="size-4 md:size-5" />
-            {hasUnread && (
+            {hasUnread ? (
               <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" />
-            )}
+            ) : null}
           </Button>
         }
       />
       <PopoverContent align="end" className="w-80 p-0">
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="font-semibold text-sm">Notifications</h3>
+        <div className="border-border border-b px-4 py-3">
+          <h3 className="text-sm font-semibold">Notifications</h3>
         </div>
 
         <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
-            <div className="p-4 text-center text-muted-foreground text-sm">
-              Loading...
-            </div>
+            <div className="text-muted-foreground p-4 text-center text-sm">Loading...</div>
           ) : !inboxData || inboxData.notifications.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
+            <div className="text-muted-foreground p-8 text-center text-sm">
               No notifications yet
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="divide-border divide-y">
               {inboxData.notifications.map((notification) => (
                 <button
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    'w-full text-left px-3 md:px-4 py-2 md:py-3 hover:bg-muted/50 transition-colors',
-                    !notification.read && 'bg-muted/30'
+                    'hover:bg-muted/50 w-full px-3 py-2 text-left transition-colors md:px-4 md:py-3',
+                    !notification.read && 'bg-muted/30',
                   )}
                 >
                   <div className="flex gap-2 md:gap-3">
-                    <div className="shrink-0 mt-0.5">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        'text-xs md:text-sm',
-                        !notification.read && 'font-medium'
-                      )}>
+                    <div className="mt-0.5 shrink-0">{getNotificationIcon(notification.type)}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('text-xs md:text-sm', !notification.read && 'font-medium')}>
                         {notification.title}
                       </p>
-                      <p className="text-xs md:text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                      <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs md:text-sm">
                         {notification.message}
                       </p>
-                      <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
+                      <p className="text-muted-foreground mt-1 text-[10px] md:text-xs">
                         {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                       </p>
                     </div>

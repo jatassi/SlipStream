@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 
-export interface DefaultEntry {
+export type DefaultEntry = {
   key: string
   entityType: string
   mediaType: string
@@ -11,14 +11,14 @@ export type EntityType = 'root_folder' | 'quality_profile' | 'download_client' |
 export type MediaType = 'movie' | 'tv'
 
 export const defaultsApi = {
-  getAll: () =>
-    apiFetch<DefaultEntry[]>('/defaults'),
+  getAll: () => apiFetch<DefaultEntry[]>('/defaults'),
 
-  getByEntityType: (entityType: EntityType) =>
-    apiFetch<DefaultEntry[]>(`/defaults/${entityType}`),
+  getByEntityType: (entityType: EntityType) => apiFetch<DefaultEntry[]>(`/defaults/${entityType}`),
 
   get: (entityType: EntityType, mediaType: MediaType) =>
-    apiFetch<{ exists: boolean; defaultEntry?: DefaultEntry }>(`/defaults/${entityType}/${mediaType}`),
+    apiFetch<{ exists: boolean; defaultEntry?: DefaultEntry }>(
+      `/defaults/${entityType}/${mediaType}`,
+    ),
 
   set: (entityType: EntityType, mediaType: MediaType, entityId: number) =>
     apiFetch<{ message: string }>(`/defaults/${entityType}/${mediaType}`, {

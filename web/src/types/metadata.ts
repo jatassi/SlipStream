@@ -1,4 +1,4 @@
-export interface MovieSearchResult {
+export type MovieSearchResult = {
   id: number
   tmdbId: number
   imdbId?: string
@@ -15,7 +15,7 @@ export interface MovieSearchResult {
   studio?: string
 }
 
-export interface SeriesSearchResult {
+export type SeriesSearchResult = {
   id: number
   tvdbId?: number
   tmdbId: number
@@ -35,33 +35,33 @@ export interface SeriesSearchResult {
   firstAirDate?: string
 }
 
-export interface MetadataImages {
+export type MetadataImages = {
   posters: ImageInfo[]
   backdrops: ImageInfo[]
 }
 
-export interface ImageInfo {
+export type ImageInfo = {
   path: string
   width: number
   height: number
   voteAverage?: number
 }
 
-export interface Person {
+export type Person = {
   id: number
   name: string
   role?: string
   photoUrl?: string
 }
 
-export interface Credits {
+export type Credits = {
   directors?: Person[]
   writers?: Person[]
   creators?: Person[]
   cast: Person[]
 }
 
-export interface ExternalRatings {
+export type ExternalRatings = {
   imdbRating?: number
   imdbVotes?: number
   rottenTomatoes?: number
@@ -70,7 +70,7 @@ export interface ExternalRatings {
   awards?: string
 }
 
-export interface SeasonResult {
+export type SeasonResult = {
   seasonNumber: number
   name: string
   overview?: string
@@ -79,7 +79,7 @@ export interface SeasonResult {
   episodes?: EpisodeResult[]
 }
 
-export interface EpisodeResult {
+export type EpisodeResult = {
   episodeNumber: number
   seasonNumber: number
   title: string
@@ -89,16 +89,16 @@ export interface EpisodeResult {
   imdbRating?: number
 }
 
-export interface ExtendedMovieResult extends MovieSearchResult {
+export type ExtendedMovieResult = {
   credits?: Credits
   contentRating?: string
   studio?: string
   ratings?: ExternalRatings
-}
+} & MovieSearchResult
 
-export interface ExtendedSeriesResult extends SeriesSearchResult {
+export type ExtendedSeriesResult = {
   credits?: Credits
   contentRating?: string
   ratings?: ExternalRatings
   seasons?: SeasonResult[]
-}
+} & SeriesSearchResult

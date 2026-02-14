@@ -1,7 +1,15 @@
-import { apiFetch } from './client'
-import type { AutoSearchResult, BatchAutoSearchResult, AutoSearchStatus, AutoSearchMediaType, AutoSearchSettings, SlotSearchResult } from '@/types'
+import type {
+  AutoSearchMediaType,
+  AutoSearchResult,
+  AutoSearchSettings,
+  AutoSearchStatus,
+  BatchAutoSearchResult,
+  SlotSearchResult,
+} from '@/types'
 
-export interface BulkSearchStartedResponse {
+import { apiFetch } from './client'
+
+export type BulkSearchStartedResponse = {
   message: string
 }
 
@@ -16,10 +24,14 @@ export const autosearchApi = {
     apiFetch<AutoSearchResult>(`/autosearch/episode/${episodeId}`, { method: 'POST' }),
 
   searchEpisodeSlot: (episodeId: number, slotId: number) =>
-    apiFetch<SlotSearchResult>(`/autosearch/episode/${episodeId}/slot/${slotId}`, { method: 'POST' }),
+    apiFetch<SlotSearchResult>(`/autosearch/episode/${episodeId}/slot/${slotId}`, {
+      method: 'POST',
+    }),
 
   searchSeason: (seriesId: number, seasonNumber: number) =>
-    apiFetch<BatchAutoSearchResult>(`/autosearch/season/${seriesId}/${seasonNumber}`, { method: 'POST' }),
+    apiFetch<BatchAutoSearchResult>(`/autosearch/season/${seriesId}/${seasonNumber}`, {
+      method: 'POST',
+    }),
 
   searchSeries: (seriesId: number) =>
     apiFetch<BatchAutoSearchResult>(`/autosearch/series/${seriesId}`, { method: 'POST' }),
@@ -27,8 +39,7 @@ export const autosearchApi = {
   getStatus: (mediaType: AutoSearchMediaType, mediaId: number) =>
     apiFetch<AutoSearchStatus>(`/autosearch/status/${mediaType}/${mediaId}`),
 
-  getSettings: () =>
-    apiFetch<AutoSearchSettings>('/settings/autosearch'),
+  getSettings: () => apiFetch<AutoSearchSettings>('/settings/autosearch'),
 
   updateSettings: (settings: AutoSearchSettings) =>
     apiFetch<AutoSearchSettings>('/settings/autosearch', {

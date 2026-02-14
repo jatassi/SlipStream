@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { Edit, Trash2, Sliders } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+
+import { Edit, Sliders, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { QualityProfileDialog } from '@/components/qualityprofiles'
 import { ListSection } from '@/components/settings/ListSection'
-import { useQualityProfiles, useDeleteQualityProfile } from '@/hooks'
-import { PREDEFINED_QUALITIES } from '@/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useDeleteQualityProfile, useQualityProfiles } from '@/hooks'
 import type { QualityProfile } from '@/types'
-import { toast } from 'sonner'
+import { PREDEFINED_QUALITIES } from '@/types'
 
 export function QualityProfilesSection() {
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -53,9 +55,11 @@ export function QualityProfilesSection() {
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-lg">{profile.name}</CardTitle>
-              {profile.allowAutoApprove && (
-                <Badge variant="outline" className="text-xs">Auto-Approve</Badge>
-              )}
+              {profile.allowAutoApprove ? (
+                <Badge variant="outline" className="text-xs">
+                  Auto-Approve
+                </Badge>
+              ) : null}
             </div>
             <CardDescription>
               {profile.upgradesEnabled ? (

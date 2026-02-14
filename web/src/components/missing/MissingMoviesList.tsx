@@ -1,14 +1,15 @@
 import { Link } from '@tanstack/react-router'
-import { UserSearch, SlidersVertical } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { SlidersVertical, UserSearch } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { EmptyState } from '@/components/data/EmptyState'
 import { PosterImage } from '@/components/media/PosterImage'
 import { MediaSearchMonitorControls } from '@/components/search'
-import { EmptyState } from '@/components/data/EmptyState'
+import { Badge } from '@/components/ui/badge'
 import { useUpdateMovie } from '@/hooks'
-import { toast } from 'sonner'
 import type { MissingMovie } from '@/types/missing'
 
-interface MissingMoviesListProps {
+type MissingMoviesListProps = {
   movies: MissingMovie[]
   qualityProfileNames: Map<number, string>
 }
@@ -31,7 +32,7 @@ export function MissingMoviesList({ movies, qualityProfileNames }: MissingMovies
   if (movies.length === 0) {
     return (
       <EmptyState
-        icon={<UserSearch className="size-8 text-movie-400" />}
+        icon={<UserSearch className="text-movie-400 size-8" />}
         title="No missing movies"
         description="All monitored movies with available release dates have been downloaded"
         className="py-8"
@@ -44,18 +45,18 @@ export function MissingMoviesList({ movies, qualityProfileNames }: MissingMovies
       {movies.map((movie) => (
         <div
           key={movie.id}
-          className="group flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-movie-500/50"
+          className="group border-border bg-card hover:border-movie-500/50 flex items-center gap-4 rounded-lg border px-4 py-3 transition-colors"
         >
           <Link
             to="/movies/$id"
             params={{ id: movie.id.toString() }}
-            className="hidden sm:block shrink-0"
+            className="hidden shrink-0 sm:block"
           >
             <PosterImage
               tmdbId={movie.tmdbId}
               alt={movie.title}
               type="movie"
-              className="w-10 h-[60px] rounded-md shadow-sm"
+              className="h-[60px] w-10 rounded-md shadow-sm"
             />
           </Link>
 
@@ -64,17 +65,17 @@ export function MissingMoviesList({ movies, qualityProfileNames }: MissingMovies
               <Link
                 to="/movies/$id"
                 params={{ id: movie.id.toString() }}
-                className="font-medium text-foreground hover:text-movie-400 transition-colors sm:line-clamp-1"
+                className="text-foreground hover:text-movie-400 font-medium transition-colors sm:line-clamp-1"
               >
                 {movie.title}
               </Link>
-              {movie.year && (
-                <span className="shrink-0 text-xs text-muted-foreground">({movie.year})</span>
-              )}
+              {movie.year ? (
+                <span className="text-muted-foreground shrink-0 text-xs">({movie.year})</span>
+              ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
+            <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               {qualityProfileNames.get(movie.qualityProfileId) && (
-                <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0">
+                <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
                   <SlidersVertical className="size-2.5" />
                   {qualityProfileNames.get(movie.qualityProfileId)}
                 </Badge>
@@ -89,7 +90,7 @@ export function MissingMoviesList({ movies, qualityProfileNames }: MissingMovies
               title={movie.title}
               theme="movie"
               size="sm"
-              monitored={true}
+              monitored
               onMonitoredChange={(m) => handleToggleMonitored(movie, m)}
               monitorDisabled={updateMovieMutation.isPending}
               qualityProfileId={movie.qualityProfileId}

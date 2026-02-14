@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RootFoldersSection } from '@/components/settings'
+
 import { MediaNav } from './MediaNav'
 
 export function RootFoldersPage() {

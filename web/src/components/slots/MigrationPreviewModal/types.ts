@@ -1,9 +1,8 @@
 import type {
-  MigrationPreview,
-  MovieMigrationPreview,
-  TVShowMigrationPreview,
   FileMigrationPreview,
+  MovieMigrationPreview,
   Slot,
+  TVShowMigrationPreview,
 } from '@/types'
 
 // Manual edit types for tracking user overrides
@@ -12,13 +11,13 @@ export type ManualEdit =
   | { type: 'assign'; slotId: number; slotName: string }
   | { type: 'unassign' }
 
-export interface DryRunModalProps {
+export type DryRunModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onMigrationComplete: () => void
 }
 
-export interface SummaryCardProps {
+export type SummaryCardProps = {
   label: string
   value: number
   icon: React.ElementType
@@ -27,35 +26,35 @@ export interface SummaryCardProps {
   onClick?: () => void
 }
 
-export interface MoviesListProps {
+export type MoviesListProps = {
   movies: MovieMigrationPreview[]
   selectedFileIds: Set<number>
   ignoredFileIds: Set<number>
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface MovieItemProps {
+export type MovieItemProps = {
   movie: MovieMigrationPreview
   selectedFileIds: Set<number>
   ignoredFileIds: Set<number>
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface TVShowsListProps {
+export type TVShowsListProps = {
   shows: TVShowMigrationPreview[]
   selectedFileIds: Set<number>
   ignoredFileIds: Set<number>
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface TVShowItemProps {
+export type TVShowItemProps = {
   show: TVShowMigrationPreview
   selectedFileIds: Set<number>
   ignoredFileIds: Set<number>
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface SeasonItemProps {
+export type SeasonItemProps = {
   season: {
     seasonNumber: number
     episodes: {
@@ -73,7 +72,7 @@ export interface SeasonItemProps {
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface EpisodeItemProps {
+export type EpisodeItemProps = {
   episode: {
     episodeId: number
     episodeNumber: number
@@ -86,7 +85,7 @@ export interface EpisodeItemProps {
   onToggleFileSelection: (fileId: number) => void
 }
 
-export interface FileItemProps {
+export type FileItemProps = {
   file: FileMigrationPreview
   compact?: boolean
   isSelected: boolean
@@ -94,7 +93,7 @@ export interface FileItemProps {
   onToggleSelection: () => void
 }
 
-export interface AssignModalProps {
+export type AssignModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   slots: Slot[]
@@ -102,15 +101,16 @@ export interface AssignModalProps {
   onAssign: (slotId: number, slotName: string) => void
 }
 
-export interface AggregatedFileTooltipProps {
+export type AggregatedFileTooltipProps = {
   files: FileMigrationPreview[]
 }
 
 // Re-export types that are used across components
-export type {
-  MigrationPreview,
-  MovieMigrationPreview,
-  TVShowMigrationPreview,
-  FileMigrationPreview,
-  Slot,
-}
+
+export {
+  type FileMigrationPreview,
+  type MigrationPreview,
+  type MovieMigrationPreview,
+  type Slot,
+  type TVShowMigrationPreview,
+} from '@/types'

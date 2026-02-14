@@ -1,10 +1,22 @@
-import { X, Loader2, CheckCircle2, XCircle, AlertCircle, FolderSearch, Download, FileInput, RefreshCw, FileIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Progress, ProgressTrack, ProgressIndicator } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
-import type { Activity, ActivityType, ActivityStatus } from '@/types/progress'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  FileIcon,
+  FileInput,
+  FolderSearch,
+  Loader2,
+  RefreshCw,
+  X,
+  XCircle,
+} from 'lucide-react'
 
-interface ProgressItemProps {
+import { Button } from '@/components/ui/button'
+import { Progress, ProgressIndicator, ProgressTrack } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
+import type { Activity, ActivityStatus, ActivityType } from '@/types/progress'
+
+type ProgressItemProps = {
   activity: Activity
   onDismiss?: () => void
 }
@@ -42,55 +54,46 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
   return (
     <div
       className={cn(
-        'group relative rounded-md border bg-card p-3 transition-all',
+        'group bg-card relative rounded-md border p-3 transition-all',
         isActive && 'border-primary/30',
         activity.status === 'completed' && 'border-green-500/30 opacity-80',
         activity.status === 'failed' && 'border-destructive/30',
-        activity.status === 'cancelled' && 'border-yellow-500/30 opacity-80'
+        activity.status === 'cancelled' && 'border-yellow-500/30 opacity-80',
       )}
     >
       {/* Dismiss button */}
-      {onDismiss && (
+      {onDismiss ? (
         <Button
           variant="ghost"
           size="icon-xs"
-          className="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={onDismiss}
         >
           <X className="size-3" />
           <span className="sr-only">Dismiss</span>
         </Button>
-      )}
+      ) : null}
 
       {/* Header with icon and title */}
       <div className="flex items-start gap-2">
         <div className={cn('mt-0.5 shrink-0', statusColors[activity.status])}>
-          {StatusIcon && (
-            <StatusIcon
-              className={cn(
-                'size-4',
-                isActive && 'animate-spin'
-              )}
-            />
-          )}
+          {StatusIcon ? <StatusIcon className={cn('size-4', isActive && 'animate-spin')} /> : null}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <ActivityIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <ActivityIcon className="text-muted-foreground size-3.5 shrink-0" />
             <span className="truncate text-sm font-medium">{activity.title}</span>
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {activity.subtitle}
-          </p>
+          <p className="text-muted-foreground mt-0.5 truncate text-xs">{activity.subtitle}</p>
         </div>
       </div>
 
       {/* Progress bar */}
-      {isActive && (
+      {isActive ? (
         <div className="mt-2">
           {isIndeterminate ? (
-            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+            <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
+              <div className="bg-primary h-full w-1/3 animate-pulse rounded-full" />
             </div>
           ) : (
             <Progress value={activity.progress}>
@@ -100,12 +103,12 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
             </Progress>
           )}
           {!isIndeterminate && activity.progress >= 0 && (
-            <div className="mt-1 text-right text-xs text-muted-foreground">
+            <div className="text-muted-foreground mt-1 text-right text-xs">
               {activity.progress}%
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

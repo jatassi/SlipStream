@@ -1,14 +1,15 @@
-import { apiFetch } from './client'
 import type {
-  MovieSearchResult,
-  SeriesSearchResult,
-  MetadataImages,
   ExtendedMovieResult,
   ExtendedSeriesResult,
+  MetadataImages,
+  MovieSearchResult,
+  SeriesSearchResult,
 } from '@/types'
 
+import { apiFetch } from './client'
+
 // Backend response types (before transformation)
-interface BackendMovieResult {
+type BackendMovieResult = {
   id: number
   title: string
   year?: number
@@ -21,7 +22,7 @@ interface BackendMovieResult {
   studio?: string
 }
 
-interface BackendSeriesResult {
+type BackendSeriesResult = {
   id: number
   title: string
   year?: number
@@ -56,7 +57,9 @@ function transformSeriesResult(result: BackendSeriesResult): SeriesSearchResult 
 
 export const metadataApi = {
   searchMovies: async (query: string) => {
-    const results = await apiFetch<BackendMovieResult[]>(`/metadata/movie/search?query=${encodeURIComponent(query)}`)
+    const results = await apiFetch<BackendMovieResult[]>(
+      `/metadata/movie/search?query=${encodeURIComponent(query)}`,
+    )
     return results.map(transformMovieResult)
   },
 
@@ -65,11 +68,12 @@ export const metadataApi = {
     return transformMovieResult(result)
   },
 
-  getMovieImages: (tmdbId: number) =>
-    apiFetch<MetadataImages>(`/metadata/movie/${tmdbId}/images`),
+  getMovieImages: (tmdbId: number) => apiFetch<MetadataImages>(`/metadata/movie/${tmdbId}/images`),
 
   searchSeries: async (query: string) => {
-    const results = await apiFetch<BackendSeriesResult[]>(`/metadata/series/search?query=${encodeURIComponent(query)}`)
+    const results = await apiFetch<BackendSeriesResult[]>(
+      `/metadata/series/search?query=${encodeURIComponent(query)}`,
+    )
     return results.map(transformSeriesResult)
   },
 

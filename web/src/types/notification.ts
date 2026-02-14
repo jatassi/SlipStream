@@ -16,7 +16,7 @@ export type NotifierType =
   | 'custom_script'
   | 'plex'
 
-export interface Notification {
+export type Notification = {
   id: number
   name: string
   type: NotifierType
@@ -42,7 +42,7 @@ export interface Notification {
   updatedAt?: string
 }
 
-export interface CreateNotificationInput {
+export type CreateNotificationInput = {
   name: string
   type: NotifierType
   enabled?: boolean
@@ -61,7 +61,7 @@ export interface CreateNotificationInput {
   tags?: number[]
 }
 
-export interface UpdateNotificationInput {
+export type UpdateNotificationInput = {
   name?: string
   type?: NotifierType
   enabled?: boolean
@@ -80,19 +80,19 @@ export interface UpdateNotificationInput {
   tags?: number[]
 }
 
-export interface NotificationTestResult {
+export type NotificationTestResult = {
   success: boolean
   message: string
 }
 
 export type FieldType = 'text' | 'password' | 'number' | 'bool' | 'select' | 'url' | 'action'
 
-export interface SelectOption {
+export type SelectOption = {
   value: string
   label: string
 }
 
-export interface SettingsField {
+export type SettingsField = {
   name: string
   label: string
   type: FieldType
@@ -107,7 +107,7 @@ export interface SettingsField {
   actionType?: string
 }
 
-export interface NotifierSchema {
+export type NotifierSchema = {
   type: NotifierType
   name: string
   description?: string

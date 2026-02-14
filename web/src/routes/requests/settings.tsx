@@ -1,41 +1,45 @@
 import { useState } from 'react'
+
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  Lock,
-  Bell,
-  Plus,
-  Trash2,
-  Loader2,
-  TestTube,
-  Edit,
-  LogOut,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ArrowLeft, Bell, Edit, Loader2, Lock, LogOut, Plus, TestTube, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { EmptyState } from '@/components/data/EmptyState'
 import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
 import { NotificationDialog } from '@/components/notifications/NotificationDialog'
-import { PasskeyManager, ChangePinDialog } from '@/components/portal'
+import { ChangePinDialog, PasskeyManager } from '@/components/portal'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  useCreateUserNotification,
+  useDeleteUserNotification,
   usePortalLogout,
+  useTestUserNotification,
+  useUpdateUserNotification,
   useUserNotifications,
   useUserNotificationSchema,
-  useCreateUserNotification,
-  useUpdateUserNotification,
-  useDeleteUserNotification,
-  useTestUserNotification,
 } from '@/hooks'
-import type { UserNotification, CreateNotificationInput, Notification, NotifierType } from '@/types'
-import { toast } from 'sonner'
+import type { CreateNotificationInput, Notification, NotifierType, UserNotification } from '@/types'
 
 const portalEventTriggers = [
-  { key: 'onApproved', label: 'Request Approved', description: 'When your request is approved by an admin' },
-  { key: 'onDenied', label: 'Request Denied', description: 'When your request is denied by an admin' },
-  { key: 'onAvailable', label: 'Request Available', description: 'When your requested content becomes available' },
+  {
+    key: 'onApproved',
+    label: 'Request Approved',
+    description: 'When your request is approved by an admin',
+  },
+  {
+    key: 'onDenied',
+    label: 'Request Denied',
+    description: 'When your request is denied by an admin',
+  },
+  {
+    key: 'onAvailable',
+    label: 'Request Available',
+    description: 'When your requested content becomes available',
+  },
 ]
 
 export function PortalSettingsPage() {
@@ -44,7 +48,7 @@ export function PortalSettingsPage() {
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
 
   const goBack = () => {
-    window.history.back()
+    globalThis.history.back()
   }
 
   const handleLogout = () => {
@@ -56,18 +60,23 @@ export function PortalSettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto pt-6 px-6 space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-6 pt-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={goBack} className="text-xs md:text-sm">
-          <ArrowLeft className="size-3 md:size-4 mr-0.5 md:mr-1" />
+          <ArrowLeft className="mr-0.5 size-3 md:mr-1 md:size-4" />
           Back
         </Button>
-        <h1 className="text-xl md:text-2xl font-bold flex-1">Settings</h1>
-        <Button variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending} className="text-xs md:text-sm">
+        <h1 className="flex-1 text-xl font-bold md:text-2xl">Settings</h1>
+        <Button
+          variant="destructive"
+          onClick={handleLogout}
+          disabled={logoutMutation.isPending}
+          className="text-xs md:text-sm"
+        >
           {logoutMutation.isPending ? (
-            <Loader2 className="size-3 md:size-4 mr-1 md:mr-2 animate-spin" />
+            <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
           ) : (
-            <LogOut className="size-3 md:size-4 mr-1 md:mr-2" />
+            <LogOut className="mr-1 size-3 md:mr-2 md:size-4" />
           )}
           Log Out
         </Button>
@@ -76,11 +85,11 @@ export function PortalSettingsPage() {
       <Tabs defaultValue="security">
         <TabsList>
           <TabsTrigger value="security" className="text-xs md:text-sm">
-            <Lock className="size-3 md:size-4 mr-1 md:mr-2" />
+            <Lock className="mr-1 size-3 md:mr-2 md:size-4" />
             Security
           </TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs md:text-sm">
-            <Bell className="size-3 md:size-4 mr-1 md:mr-2" />
+            <Bell className="mr-1 size-3 md:mr-2 md:size-4" />
             Notifications
           </TabsTrigger>
         </TabsList>
@@ -93,7 +102,7 @@ export function PortalSettingsPage() {
             </CardHeader>
             <CardContent>
               <Button onClick={() => setPinDialogOpen(true)} className="text-xs md:text-sm">
-                <Lock className="size-3 md:size-4 mr-1 md:mr-2" />
+                <Lock className="mr-1 size-3 md:mr-2 md:size-4" />
                 Change PIN...
               </Button>
             </CardContent>
@@ -237,12 +246,10 @@ function NotificationsSection() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Notification Channels</CardTitle>
-              <CardDescription>
-                Get notified when your requests become available
-              </CardDescription>
+              <CardDescription>Get notified when your requests become available</CardDescription>
             </div>
             <Button onClick={handleCreate} className="text-xs md:text-sm">
-              <Plus className="size-3 md:size-4 mr-1 md:mr-2" />
+              <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
               Add Channel
             </Button>
           </div>
@@ -250,7 +257,7 @@ function NotificationsSection() {
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              <Loader2 className="text-muted-foreground size-6 animate-spin" />
             </div>
           ) : notifications.length === 0 ? (
             <EmptyState
@@ -264,10 +271,10 @@ function NotificationsSection() {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-border"
+                  className="border-border flex items-center justify-between rounded-lg border p-4"
                 >
                   <div className="flex items-center gap-3 md:gap-4">
-                    <div className="p-1.5 md:p-2 rounded-lg bg-muted">
+                    <div className="bg-muted rounded-lg p-1.5 md:p-2">
                       <Bell className="size-4 md:size-5" />
                     </div>
                     <div>
@@ -293,7 +300,12 @@ function NotificationsSection() {
                     >
                       <TestTube className="size-3 md:size-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(notification)} className="size-8 md:size-9">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(notification)}
+                      className="size-8 md:size-9"
+                    >
                       <Edit className="size-3 md:size-4" />
                     </Button>
                     <ConfirmDialog

@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 
-export interface ArtworkReadyPayload {
+export type ArtworkReadyPayload = {
   mediaType: 'movie' | 'series'
   mediaId: number
   artworkType: 'poster' | 'backdrop' | 'logo'
 }
 
-interface ArtworkState {
+type ArtworkState = {
   // Track artwork versions by key (mediaType:mediaId:artworkType)
   versions: Map<string, number>
   // Notify that artwork is ready

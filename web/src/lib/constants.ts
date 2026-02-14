@@ -22,7 +22,11 @@ export const BACKDROP_SIZES = {
 export const ARTWORK_API_BASE = '/api/v1/metadata/artwork'
 
 // Build local artwork URL
-export function getLocalArtworkUrl(type: 'movie' | 'series', tmdbId: number, artworkType: 'poster' | 'backdrop' | 'logo' | 'studio_logo'): string {
+export function getLocalArtworkUrl(
+  type: 'movie' | 'series',
+  tmdbId: number,
+  artworkType: 'poster' | 'backdrop' | 'logo' | 'studio_logo',
+): string {
   return `${ARTWORK_API_BASE}/${type}/${tmdbId}/${artworkType}`
 }
 

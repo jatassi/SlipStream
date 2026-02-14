@@ -1,9 +1,9 @@
-import rtFreshImg from '@/assets/ratings/rt-fresh.png'
-import rtRottenImg from '@/assets/ratings/rt-rotten.png'
 import imdbImg from '@/assets/ratings/imdb.png'
 import metacriticImg from '@/assets/ratings/metacritic.png'
+import rtFreshImg from '@/assets/ratings/rt-fresh.png'
+import rtRottenImg from '@/assets/ratings/rt-rotten.png'
 
-interface IconProps {
+type IconProps = {
   className?: string
 }
 

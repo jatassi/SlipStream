@@ -1,4 +1,4 @@
-export interface CalendarEvent {
+export type CalendarEvent = {
   id: number
   title: string
   mediaType: 'movie' | 'episode'
@@ -22,7 +22,7 @@ export interface CalendarEvent {
   earlyAccess?: boolean
 }
 
-export interface CalendarRequest {
+export type CalendarRequest = {
   start: string // YYYY-MM-DD
   end: string // YYYY-MM-DD
 }

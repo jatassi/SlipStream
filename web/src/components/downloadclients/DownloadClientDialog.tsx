@@ -1,9 +1,20 @@
-import { useState, useEffect } from 'react'
-import { Loader2, TestTube, Bug } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+import { Bug, Loader2, TestTube } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { downloadClientsApi } from '@/api'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -11,31 +22,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog'
-import { toast } from 'sonner'
+import { Switch } from '@/components/ui/switch'
 import {
   useCreateDownloadClient,
-  useUpdateDownloadClient,
-  useTestNewDownloadClient,
   useDeveloperMode,
+  useTestNewDownloadClient,
+  useUpdateDownloadClient,
 } from '@/hooks'
-import { downloadClientsApi } from '@/api'
-import type { DownloadClient, DownloadClientType, CreateDownloadClientInput } from '@/types'
+import type { CreateDownloadClientInput, DownloadClient, DownloadClientType } from '@/types'
 
-interface DownloadClientDialogProps {
+type DownloadClientDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   client?: DownloadClient | null
 }
 
-interface ClientTypeConfig {
+type ClientTypeConfig = {
   label: string
   defaultPort: number
   supportsCategory: boolean
@@ -92,11 +94,7 @@ const defaultFormData: CreateDownloadClientInput = {
   enabled: true,
 }
 
-export function DownloadClientDialog({
-  open,
-  onOpenChange,
-  client,
-}: DownloadClientDialogProps) {
+export function DownloadClientDialog({ open, onOpenChange, client }: DownloadClientDialogProps) {
   const [formData, setFormData] = useState<CreateDownloadClientInput>(defaultFormData)
   const [isTesting, setIsTesting] = useState(false)
   const [isAddingDebugTorrent, setIsAddingDebugTorrent] = useState(false)
@@ -155,7 +153,9 @@ export function DownloadClientDialog({
   }
 
   const handleDebugTorrent = async () => {
-    if (!client) return
+    if (!client) {
+      return
+    }
 
     setIsAddingDebugTorrent(true)
     try {
@@ -216,14 +216,9 @@ export function DownloadClientDialog({
           {/* Client Type */}
           <div className="space-y-2">
             <Label htmlFor="type">Client Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(v) => handleTypeChange(v as DownloadClientType)}
-            >
+            <Select value={formData.type} onValueChange={(v) => handleTypeChange(v!)}>
               <SelectTrigger>
-                <SelectValue>
-                  {clientTypeConfigs[formData.type].label}
-                </SelectValue>
+                <SelectValue>{clientTypeConfigs[formData.type].label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="transmission">Transmission</SelectItem>
@@ -263,7 +258,7 @@ export function DownloadClientDialog({
                 type="number"
                 value={formData.port}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, port: parseInt(e.target.value) || 0 }))
+                  setFormData((prev) => ({ ...prev, port: Number.parseInt(e.target.value) || 0 }))
                 }
               />
             </div>
@@ -284,7 +279,7 @@ export function DownloadClientDialog({
             <Label htmlFor="username">
               {config.usernameLabel}
               {!config.usernameRequired && (
-                <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+                <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
               )}
             </Label>
             <Input
@@ -298,7 +293,7 @@ export function DownloadClientDialog({
           <div className="space-y-2">
             <Label htmlFor="password">
               {config.passwordLabel}
-              <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+              <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
             </Label>
             <Input
               id="password"
@@ -309,11 +304,11 @@ export function DownloadClientDialog({
           </div>
 
           {/* Category (only for clients that support it) */}
-          {config.supportsCategory && (
+          {config.supportsCategory ? (
             <div className="space-y-2">
               <Label htmlFor="category">
                 Category
-                <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+                <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
               </Label>
               <Input
                 id="category"
@@ -322,7 +317,7 @@ export function DownloadClientDialog({
                 onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
               />
             </div>
-          )}
+          ) : null}
 
           {/* Priority */}
           <div className="space-y-2">
@@ -334,10 +329,13 @@ export function DownloadClientDialog({
               max={100}
               value={formData.priority}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, priority: parseInt(e.target.value) || 50 }))
+                setFormData((prev) => ({
+                  ...prev,
+                  priority: Number.parseInt(e.target.value) || 50,
+                }))
               }
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Lower values have higher priority (1-100)
             </p>
           </div>
@@ -357,13 +355,13 @@ export function DownloadClientDialog({
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleTest} disabled={isTesting}>
               {isTesting ? (
-                <Loader2 className="size-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <TestTube className="size-4 mr-2" />
+                <TestTube className="mr-2 size-4" />
               )}
               Test
             </Button>
-            {developerMode && isEditing && formData.type === 'transmission' && (
+            {developerMode && isEditing && formData.type === 'transmission' ? (
               <Button
                 variant="outline"
                 onClick={handleDebugTorrent}
@@ -371,20 +369,20 @@ export function DownloadClientDialog({
                 title="Add mock download for testing"
               >
                 {isAddingDebugTorrent ? (
-                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Bug className="size-4 mr-2" />
+                  <Bug className="mr-2 size-4" />
                 )}
                 Debug
               </Button>
-            )}
+            ) : null}
           </div>
           <div className="flex gap-2 sm:ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isPending}>
-              {isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {isEditing ? 'Save' : 'Add'}
             </Button>
           </div>

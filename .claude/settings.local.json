@@ -91,7 +91,9 @@
       "Bash(gh run watch:*)",
       "WebFetch(domain:github.com)",
       "Bash(gh api:*)",
-      "Bash(gh release delete:*)"
+      "Bash(gh release delete:*)",
+      "Bash(bun run lint:fix:*)",
+      "Bash(bun run format:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,17 +1,16 @@
-import { apiFetch } from './client'
 import type {
-  DownloadClient,
   CreateDownloadClientInput,
-  UpdateDownloadClientInput,
+  DownloadClient,
   DownloadClientTestResult,
+  UpdateDownloadClientInput,
 } from '@/types'
 
-export const downloadClientsApi = {
-  list: () =>
-    apiFetch<DownloadClient[]>('/downloadclients'),
+import { apiFetch } from './client'
 
-  get: (id: number) =>
-    apiFetch<DownloadClient>(`/downloadclients/${id}`),
+export const downloadClientsApi = {
+  list: () => apiFetch<DownloadClient[]>('/downloadclients'),
+
+  get: (id: number) => apiFetch<DownloadClient>(`/downloadclients/${id}`),
 
   create: (data: CreateDownloadClientInput) =>
     apiFetch<DownloadClient>('/downloadclients', {
@@ -25,8 +24,7 @@ export const downloadClientsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/downloadclients/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<void>(`/downloadclients/${id}`, { method: 'DELETE' }),
 
   test: (id: number) =>
     apiFetch<DownloadClientTestResult>(`/downloadclients/${id}/test`, { method: 'POST' }),
@@ -40,6 +38,6 @@ export const downloadClientsApi = {
   debugAddTorrent: (id: number) =>
     apiFetch<{ success: boolean; torrentId: string; message: string }>(
       `/downloadclients/${id}/debug/addtorrent`,
-      { method: 'POST' }
+      { method: 'POST' },
     ),
 }

@@ -10,7 +10,7 @@ export type UpdateState =
   | 'complete'
   | 'failed'
 
-export interface UpdateReleaseInfo {
+export type UpdateReleaseInfo = {
   version: string
   tagName: string
   releaseDate: string
@@ -21,7 +21,7 @@ export interface UpdateReleaseInfo {
   publishedAt: string
 }
 
-export interface UpdateStatus {
+export type UpdateStatus = {
   state: UpdateState
   currentVersion: string
   latestRelease?: UpdateReleaseInfo
@@ -32,6 +32,6 @@ export interface UpdateStatus {
   lastChecked?: string
 }
 
-export interface UpdateSettings {
+export type UpdateSettings = {
   autoInstall: boolean
 }

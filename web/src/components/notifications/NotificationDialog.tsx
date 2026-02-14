@@ -1,46 +1,43 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Loader2, TestTube, ExternalLink, ChevronDown, ChevronUp, Check, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+import { Check, ChevronDown, ChevronUp, ExternalLink, Loader2, TestTube, X } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { apiFetch } from '@/api/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import {
   useCreateNotification,
-  useUpdateNotification,
-  useTestNewNotification,
   useNotificationSchemas,
+  useTestNewNotification,
+  useUpdateNotification,
 } from '@/hooks'
-import { apiFetch } from '@/api/client'
 import type {
-  Notification,
-  NotifierType,
   CreateNotificationInput,
-  SettingsField,
+  Notification,
   NotifierSchema,
+  NotifierType,
+  SettingsField,
 } from '@/types'
 
-interface EventTrigger {
+type EventTrigger = {
   key: string
   label: string
   description?: string
 }
 
-interface NotificationDialogProps {
+type NotificationDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   notification?: Notification | null
@@ -56,14 +53,14 @@ interface NotificationDialogProps {
   onTest?: (data: CreateNotificationInput) => Promise<{ success: boolean; message?: string }>
 }
 
-interface PlexServer {
+type PlexServer = {
   id: string
   name: string
   owned: boolean
   address?: string
 }
 
-interface PlexSection {
+type PlexSection = {
   key: number
   title: string
   type: string
@@ -97,7 +94,11 @@ const adminEventTriggers: EventTrigger[] = [
   { key: 'onSeriesAdded', label: 'On Series Added', description: 'When a series is added' },
   { key: 'onSeriesDeleted', label: 'On Series Deleted', description: 'When a series is removed' },
   { key: 'onHealthIssue', label: 'On Health Issue', description: 'When a health check fails' },
-  { key: 'onHealthRestored', label: 'On Health Restored', description: 'When a health issue is resolved' },
+  {
+    key: 'onHealthRestored',
+    label: 'On Health Restored',
+    description: 'When a health issue is resolved',
+  },
   { key: 'onAppUpdate', label: 'On App Update', description: 'When the application is updated' },
 ]
 
@@ -182,11 +183,11 @@ export function NotificationDialog({
       } else {
         const resetData = { ...defaultFormData }
         if (eventTriggers) {
-          adminEventTriggers.forEach(t => {
-            (resetData as unknown as Record<string, unknown>)[t.key] = false
+          adminEventTriggers.forEach((t) => {
+            ;(resetData as unknown as Record<string, unknown>)[t.key] = false
           })
-          eventTriggers.forEach(t => {
-            (resetData as unknown as Record<string, unknown>)[t.key] = true
+          eventTriggers.forEach((t) => {
+            ;(resetData as unknown as Record<string, unknown>)[t.key] = true
           })
         }
         setFormData(resetData)
@@ -215,8 +216,8 @@ export function NotificationDialog({
         headers: { 'X-Plex-Token': token },
       })
       setPlexServers(servers)
-    } catch (err) {
-      console.error('Failed to fetch Plex servers:', err)
+    } catch (error) {
+      console.error('Failed to fetch Plex servers:', error)
     } finally {
       setIsLoadingServers(false)
     }
@@ -225,12 +226,15 @@ export function NotificationDialog({
   const fetchPlexSections = async (serverId: string, token: string) => {
     setIsLoadingSections(true)
     try {
-      const sections = await apiFetch<PlexSection[]>(`/notifications/plex/servers/${serverId}/sections`, {
-        headers: { 'X-Plex-Token': token },
-      })
+      const sections = await apiFetch<PlexSection[]>(
+        `/notifications/plex/servers/${serverId}/sections`,
+        {
+          headers: { 'X-Plex-Token': token },
+        },
+      )
       setPlexSections(sections)
-    } catch (err) {
-      console.error('Failed to fetch Plex sections:', err)
+    } catch (error) {
+      console.error('Failed to fetch Plex sections:', error)
     } finally {
       setIsLoadingSections(false)
     }
@@ -239,7 +243,11 @@ export function NotificationDialog({
   const handlePlexOAuth = async () => {
     setIsPlexConnecting(true)
     try {
-      const { pinId, authUrl, clientId } = await apiFetch<{ pinId: number; authUrl: string; clientId: string }>('/notifications/plex/auth/start', {
+      const { pinId, authUrl, clientId } = await apiFetch<{
+        pinId: number
+        authUrl: string
+        clientId: string
+      }>('/notifications/plex/auth/start', {
         method: 'POST',
       })
       setPlexPinId(pinId)
@@ -253,16 +261,18 @@ export function NotificationDialog({
       // Poll for completion
       pollIntervalRef.current = setInterval(async () => {
         try {
-          const status = await apiFetch<{ complete: boolean; authToken?: string }>(`/notifications/plex/auth/status/${pinId}`)
+          const status = await apiFetch<{ complete: boolean; authToken?: string }>(
+            `/notifications/plex/auth/status/${pinId}`,
+          )
           if (status.complete && status.authToken) {
             cleanupPlexPolling()
             handleSettingChange('authToken', status.authToken)
             toast.success('Connected to Plex!')
             fetchPlexServers(status.authToken)
           }
-        } catch (err) {
+        } catch (error) {
           // Check if it's a 410 Gone (expired)
-          if (err && typeof err === 'object' && 'status' in err && err.status === 410) {
+          if (error && typeof error === 'object' && 'status' in error && error.status === 410) {
             cleanupPlexPolling()
             toast.error('Plex authentication expired. Please try again.')
           }
@@ -271,12 +281,15 @@ export function NotificationDialog({
       }, 2000)
 
       // Timeout after 5 minutes
-      setTimeout(() => {
-        if (pollIntervalRef.current) {
-          cleanupPlexPolling()
-          toast.error('Plex authentication timed out. Please try again.')
-        }
-      }, 5 * 60 * 1000)
+      setTimeout(
+        () => {
+          if (pollIntervalRef.current) {
+            cleanupPlexPolling()
+            toast.error('Plex authentication timed out. Please try again.')
+          }
+        },
+        5 * 60 * 1000,
+      )
     } catch {
       setIsPlexConnecting(false)
       toast.error('Failed to start Plex authentication')
@@ -348,7 +361,9 @@ export function NotificationDialog({
 
     const requiredFields = currentSchema?.fields.filter((f) => f.required) || []
     for (const field of requiredFields) {
-      if (field.type === 'action') continue // Skip action fields in validation
+      if (field.type === 'action') {
+        continue
+      } // Skip action fields in validation
       const value = formData.settings[field.name]
       if (!value || (typeof value === 'string' && !value.trim())) {
         toast.error(`${field.label} is required`)
@@ -359,18 +374,12 @@ export function NotificationDialog({
     setIsPending(true)
     try {
       if (isEditing && notification) {
-        if (onUpdate) {
-          await onUpdate(notification.id, formData)
-        } else {
-          await updateMutation.mutateAsync({ id: notification.id, data: formData })
-        }
+        await (onUpdate
+          ? onUpdate(notification.id, formData)
+          : updateMutation.mutateAsync({ id: notification.id, data: formData }))
         toast.success('Notification updated')
       } else {
-        if (onCreate) {
-          await onCreate(formData)
-        } else {
-          await createMutation.mutateAsync(formData)
-        }
+        await (onCreate ? onCreate(formData) : createMutation.mutateAsync(formData))
         toast.success('Notification created')
       }
       onOpenChange(false)
@@ -386,7 +395,7 @@ export function NotificationDialog({
 
     switch (field.type) {
       case 'text':
-      case 'url':
+      case 'url': {
         return (
           <Input
             id={field.name}
@@ -396,8 +405,9 @@ export function NotificationDialog({
             onChange={(e) => handleSettingChange(field.name, e.target.value)}
           />
         )
+      }
 
-      case 'password':
+      case 'password': {
         return (
           <Input
             id={field.name}
@@ -407,19 +417,23 @@ export function NotificationDialog({
             onChange={(e) => handleSettingChange(field.name, e.target.value)}
           />
         )
+      }
 
-      case 'number':
+      case 'number': {
         return (
           <Input
             id={field.name}
             type="number"
             placeholder={field.placeholder}
-            value={value !== undefined ? String(value) : ''}
-            onChange={(e) => handleSettingChange(field.name, e.target.value ? Number(e.target.value) : undefined)}
+            value={value === undefined ? '' : String(value)}
+            onChange={(e) =>
+              handleSettingChange(field.name, e.target.value ? Number(e.target.value) : undefined)
+            }
           />
         )
+      }
 
-      case 'bool':
+      case 'bool': {
         return (
           <Switch
             id={field.name}
@@ -427,8 +441,9 @@ export function NotificationDialog({
             onCheckedChange={(checked) => handleSettingChange(field.name, checked)}
           />
         )
+      }
 
-      case 'select':
+      case 'select': {
         // Special handling for Plex server select
         if (isPlex && field.name === 'serverId') {
           return (
@@ -450,7 +465,7 @@ export function NotificationDialog({
               <SelectContent>
                 {plexServers.map((server) => (
                   <SelectItem key={server.id} value={server.id}>
-                    {server.name} {server.owned && '(owned)'}
+                    {server.name} {server.owned ? '(owned)' : null}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -460,11 +475,12 @@ export function NotificationDialog({
 
         return (
           <Select
-            value={(value as string) || field.default as string || ''}
+            value={(value as string) || (field.default as string) || ''}
             onValueChange={(v) => handleSettingChange(field.name, v)}
           >
             <SelectTrigger>
-              {field.options?.find((o) => o.value === (value || field.default))?.label || 'Select...'}
+              {field.options?.find((o) => o.value === (value || field.default))?.label ||
+                'Select...'}
             </SelectTrigger>
             <SelectContent>
               {field.options?.map((option) => (
@@ -475,8 +491,9 @@ export function NotificationDialog({
             </SelectContent>
           </Select>
         )
+      }
 
-      case 'action':
+      case 'action': {
         if (field.actionType === 'oauth' && isPlex) {
           return (
             <div className="flex items-center gap-2">
@@ -487,7 +504,7 @@ export function NotificationDialog({
                 </div>
               ) : isPlexConnecting ? (
                 <Button variant="outline" disabled>
-                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   Waiting for approval...
                 </Button>
               ) : (
@@ -495,7 +512,7 @@ export function NotificationDialog({
                   {field.actionLabel || 'Connect'}
                 </Button>
               )}
-              {hasPlexToken && (
+              {hasPlexToken ? (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -510,43 +527,50 @@ export function NotificationDialog({
                 >
                   <X className="size-4" />
                 </Button>
-              )}
+              ) : null}
             </div>
           )
         }
         return (
-          <Button variant="outline" onClick={() => field.actionEndpoint && fetch(field.actionEndpoint)}>
+          <Button
+            variant="outline"
+            onClick={() => field.actionEndpoint && fetch(field.actionEndpoint)}
+          >
             {field.actionLabel || 'Action'}
           </Button>
         )
+      }
 
-      default:
+      default: {
         return null
+      }
     }
   }
 
   // Render Plex sections selector (custom field not in schema)
   const renderPlexSections = () => {
-    if (!isPlex || !hasPlexToken || !formData.settings.serverId) return null
+    if (!isPlex || !hasPlexToken || !formData.settings.serverId) {
+      return null
+    }
 
     const currentSectionIds = (formData.settings.sectionIds as number[]) || []
 
     return (
       <div className="space-y-2">
         <Label>Library Sections</Label>
-        <p className="text-xs text-muted-foreground">Select which library sections to refresh</p>
+        <p className="text-muted-foreground text-xs">Select which library sections to refresh</p>
         {isLoadingSections ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" />
             Loading sections...
           </div>
         ) : plexSections.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No movie or TV sections found</p>
+          <p className="text-muted-foreground text-sm">No movie or TV sections found</p>
         ) : (
-          <div className="space-y-2 border rounded-lg p-3">
+          <div className="space-y-2 rounded-lg border p-3">
             {plexSections.map((section) => (
               <div key={section.key} className="flex items-center justify-between">
-                <Label htmlFor={`section-${section.key}`} className="font-normal cursor-pointer">
+                <Label htmlFor={`section-${section.key}`} className="cursor-pointer font-normal">
                   {section.title} ({section.type})
                 </Label>
                 <Switch
@@ -569,21 +593,21 @@ export function NotificationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Notification' : 'Add Notification'}</DialogTitle>
           <DialogDescription>
             {currentSchema?.description || 'Configure notification settings and triggers.'}
-            {currentSchema?.infoUrl && (
+            {currentSchema?.infoUrl ? (
               <a
                 href={currentSchema.infoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 ml-1 text-primary hover:underline"
+                className="text-primary ml-1 inline-flex items-center gap-1 hover:underline"
               >
                 Learn more <ExternalLink className="size-3" />
               </a>
-            )}
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -593,7 +617,7 @@ export function NotificationDialog({
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.type}
-              onValueChange={(v) => handleTypeChange(v as NotifierType)}
+              onValueChange={(v) => handleTypeChange(v!)}
               disabled={isEditing}
             >
               <SelectTrigger>
@@ -624,17 +648,22 @@ export function NotificationDialog({
           {currentSchema?.fields
             .filter((f) => !f.advanced)
             .map((field) => (
-              <div key={field.name} className={field.type === 'bool' ? 'flex items-center justify-between' : 'space-y-2'}>
+              <div
+                key={field.name}
+                className={
+                  field.type === 'bool' ? 'flex items-center justify-between' : 'space-y-2'
+                }
+              >
                 <div>
                   <Label htmlFor={field.name}>
                     {field.label}
                     {!field.required && field.type !== 'bool' && field.type !== 'action' && (
-                      <span className="text-muted-foreground text-xs ml-1">(optional)</span>
+                      <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
                     )}
                   </Label>
-                  {field.helpText && field.type !== 'bool' && (
-                    <p className="text-xs text-muted-foreground">{field.helpText}</p>
-                  )}
+                  {field.helpText && field.type !== 'bool' ? (
+                    <p className="text-muted-foreground text-xs">{field.helpText}</p>
+                  ) : null}
                 </div>
                 {renderField(field)}
               </div>
@@ -644,7 +673,7 @@ export function NotificationDialog({
           {renderPlexSections()}
 
           {/* Advanced Settings Toggle */}
-          {hasAdvancedFields && (
+          {hasAdvancedFields ? (
             <Button
               type="button"
               variant="ghost"
@@ -654,47 +683,53 @@ export function NotificationDialog({
             >
               {showAdvanced ? (
                 <>
-                  <ChevronUp className="size-4 mr-2" />
+                  <ChevronUp className="mr-2 size-4" />
                   Hide Advanced Settings
                 </>
               ) : (
                 <>
-                  <ChevronDown className="size-4 mr-2" />
+                  <ChevronDown className="mr-2 size-4" />
                   Show Advanced Settings
                 </>
               )}
             </Button>
-          )}
+          ) : null}
 
           {/* Advanced Provider Settings */}
-          {showAdvanced &&
-            currentSchema?.fields
-              .filter((f) => f.advanced)
-              .map((field) => (
-                <div key={field.name} className={field.type === 'bool' ? 'flex items-center justify-between' : 'space-y-2'}>
-                  <div>
-                    <Label htmlFor={field.name}>
-                      {field.label}
-                      {!field.required && field.type !== 'bool' && (
-                        <span className="text-muted-foreground text-xs ml-1">(optional)</span>
-                      )}
-                    </Label>
-                    {field.helpText && field.type !== 'bool' && (
-                      <p className="text-xs text-muted-foreground">{field.helpText}</p>
-                    )}
+          {showAdvanced
+            ? currentSchema?.fields
+                .filter((f) => f.advanced)
+                .map((field) => (
+                  <div
+                    key={field.name}
+                    className={
+                      field.type === 'bool' ? 'flex items-center justify-between' : 'space-y-2'
+                    }
+                  >
+                    <div>
+                      <Label htmlFor={field.name}>
+                        {field.label}
+                        {!field.required && field.type !== 'bool' && (
+                          <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+                        )}
+                      </Label>
+                      {field.helpText && field.type !== 'bool' ? (
+                        <p className="text-muted-foreground text-xs">{field.helpText}</p>
+                      ) : null}
+                    </div>
+                    {renderField(field)}
                   </div>
-                  {renderField(field)}
-                </div>
-              ))}
+                ))
+            : null}
 
           {/* Event Triggers */}
           {triggers.length > 0 && (
             <div className="space-y-3">
               <Label>Event Triggers</Label>
-              <div className="space-y-2 border rounded-lg p-3">
+              <div className="space-y-2 rounded-lg border p-3">
                 {triggers.map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between">
-                    <Label htmlFor={key} className="font-normal cursor-pointer">
+                    <Label htmlFor={key} className="cursor-pointer font-normal">
                       {label}
                     </Label>
                     <Switch
@@ -724,9 +759,9 @@ export function NotificationDialog({
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={handleTest} disabled={isTesting}>
             {isTesting ? (
-              <Loader2 className="size-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <TestTube className="size-4 mr-2" />
+              <TestTube className="mr-2 size-4" />
             )}
             Test
           </Button>
@@ -735,7 +770,7 @@ export function NotificationDialog({
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isPending}>
-              {isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+              {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {isEditing ? 'Save' : 'Add'}
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
+
 import {
   AlertTriangle,
   Bug,
@@ -13,15 +14,16 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
+import { LoadingState } from '@/components/data/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
-import { LoadingState } from '@/components/data/LoadingState'
+import { Input } from '@/components/ui/input'
 import { useGlobalLoading } from '@/hooks'
-import { useLogs, useDownloadLogFile } from '@/hooks/useLogs'
-import { useLogsStore, ALL_LOG_LEVELS } from '@/stores/logs'
+import { useDownloadLogFile, useLogs } from '@/hooks/useLogs'
 import { cn } from '@/lib/utils'
+import { ALL_LOG_LEVELS, useLogsStore } from '@/stores/logs'
 import type { LogLevel } from '@/types/logs'
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -55,7 +57,9 @@ function formatTimestamp(timestamp: string): string {
 }
 
 function formatFields(fields: Record<string, unknown> | undefined): string {
-  if (!fields || Object.keys(fields).length === 0) return ''
+  if (!fields || Object.keys(fields).length === 0) {
+    return ''
+  }
   return Object.entries(fields)
     .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
     .join(' ')
@@ -94,7 +98,9 @@ export function LogsPage() {
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
     if (atBottom && !autoScroll) {
       setAutoScroll(true)
@@ -115,25 +121,19 @@ export function LogsPage() {
   if (isLoading) {
     return (
       <div>
-        <PageHeader
-          title="System Logs"
-          description="Real-time log streaming"
-        />
+        <PageHeader title="System Logs" description="Real-time log streaming" />
         <LoadingState variant="list" count={10} />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
-      <PageHeader
-        title="System Logs"
-        description="Real-time log streaming"
-      />
+    <div className="flex h-[calc(100vh-120px)] flex-col">
+      <PageHeader title="System Logs" description="Real-time log streaming" />
 
-      <div className="flex items-center gap-2 mb-4">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative max-w-xs flex-1">
+          <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
           <Input
             placeholder="Search logs..."
             value={searchText}
@@ -158,11 +158,7 @@ export function LogsPage() {
           onClick={toggleAutoScroll}
           title={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
         >
-          {autoScroll ? (
-            <ChevronsDown className="size-4" />
-          ) : (
-            <ChevronsUp className="size-4" />
-          )}
+          {autoScroll ? <ChevronsDown className="size-4" /> : <ChevronsUp className="size-4" />}
         </Button>
 
         <Button
@@ -171,19 +167,10 @@ export function LogsPage() {
           onClick={togglePaused}
           title={isPaused ? 'Resume streaming' : 'Pause streaming'}
         >
-          {isPaused ? (
-            <Play className="size-4" />
-          ) : (
-            <Pause className="size-4" />
-          )}
+          {isPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
         </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clear}
-          title="Clear logs"
-        >
+        <Button variant="outline" size="sm" onClick={clear} title="Clear logs">
           <Trash2 className="size-4" />
         </Button>
 
@@ -201,43 +188,35 @@ export function LogsPage() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-auto bg-zinc-950 rounded-md border font-mono text-xs"
+        className="flex-1 overflow-auto rounded-md border bg-zinc-950 font-mono text-xs"
       >
         {filteredEntries.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            {searchText || !allSelected
-              ? 'No logs match your filters'
-              : 'No logs yet'}
+          <div className="text-muted-foreground flex h-full items-center justify-center">
+            {searchText || !allSelected ? 'No logs match your filters' : 'No logs yet'}
           </div>
         ) : (
-          <div className="p-2 space-y-px">
+          <div className="space-y-px p-2">
             {filteredEntries.map((entry, idx) => {
               const fields = formatFields(entry.fields)
               return (
                 <div
                   key={`${entry.timestamp}-${idx}`}
-                  className="flex gap-2 hover:bg-zinc-900 px-1 rounded"
+                  className="flex gap-2 rounded px-1 hover:bg-zinc-900"
                 >
-                  <span className="text-zinc-500 shrink-0">
-                    {formatTimestamp(entry.timestamp)}
-                  </span>
+                  <span className="shrink-0 text-zinc-500">{formatTimestamp(entry.timestamp)}</span>
                   <span
                     className={cn(
-                      'uppercase w-12 shrink-0',
-                      LEVEL_COLORS[entry.level] || 'text-zinc-400'
+                      'w-12 shrink-0 uppercase',
+                      LEVEL_COLORS[entry.level] || 'text-zinc-400',
                     )}
                   >
                     {entry.level.slice(0, 5).padEnd(5)}
                   </span>
-                  {entry.component && (
-                    <span className="text-cyan-400 shrink-0">
-                      [{entry.component}]
-                    </span>
-                  )}
+                  {entry.component ? (
+                    <span className="shrink-0 text-cyan-400">[{entry.component}]</span>
+                  ) : null}
                   <span className="text-zinc-100">{entry.message}</span>
-                  {fields && (
-                    <span className="text-zinc-500">{fields}</span>
-                  )}
+                  {fields ? <span className="text-zinc-500">{fields}</span> : null}
                 </div>
               )
             })}
@@ -245,9 +224,9 @@ export function LogsPage() {
         )}
       </div>
 
-      <div className="mt-2 text-xs text-muted-foreground flex items-center gap-4">
+      <div className="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
         <span>{filteredEntries.length} entries</span>
-        {isPaused && <span className="text-yellow-500">Streaming paused</span>}
+        {isPaused ? <span className="text-yellow-500">Streaming paused</span> : null}
         {!autoScroll && <span>Auto-scroll disabled</span>}
       </div>
     </div>

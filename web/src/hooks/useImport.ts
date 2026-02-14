@@ -1,21 +1,22 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { apiFetch } from '@/api/client'
 import type {
+  ExecuteRenameRequest,
+  ExecuteRenameResponse,
   ImportSettings,
-  UpdateImportSettingsRequest,
+  ImportStatus,
+  ManualImportRequest,
+  ManualImportResponse,
+  ParseFilenameResponse,
   PatternPreviewRequest,
   PatternPreviewResponse,
   PatternValidateResponse,
-  ImportStatus,
   PendingImport,
-  ManualImportRequest,
-  ManualImportResponse,
   PreviewImportResponse,
-  ScanDirectoryResponse,
   RenamePreviewResponse,
-  ExecuteRenameRequest,
-  ExecuteRenameResponse,
-  ParseFilenameResponse,
+  ScanDirectoryResponse,
+  UpdateImportSettingsRequest,
 } from '@/types'
 
 // Settings hooks
@@ -134,10 +135,18 @@ export function useScanDirectory() {
 }
 
 // Rename preview hooks
-export function useRenamePreview(mediaType: 'series' | 'movie', mediaId?: number, needsRename?: boolean) {
+export function useRenamePreview(
+  mediaType: 'series' | 'movie',
+  mediaId?: number,
+  needsRename?: boolean,
+) {
   const params = new URLSearchParams({ type: mediaType })
-  if (mediaId) params.set('mediaId', mediaId.toString())
-  if (needsRename) params.set('needsRename', 'true')
+  if (mediaId) {
+    params.set('mediaId', mediaId.toString())
+  }
+  if (needsRename) {
+    params.set('needsRename', 'true')
+  }
 
   return useQuery<RenamePreviewResponse>({
     queryKey: ['renamePreview', mediaType, mediaId, needsRename],

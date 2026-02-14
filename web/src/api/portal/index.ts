@@ -1,9 +1,13 @@
 export { portalAuthApi } from './auth'
+export { buildQueryString, getPortalAuthToken, portalFetch, setPortalAuthToken } from './client'
+export type {
+  PortalNotification,
+  PortalNotificationListResponse,
+  UnreadCountResponse,
+} from './inbox'
+export { portalInboxApi } from './inbox'
+export { portalNotificationsApi } from './notifications'
+export type { PasskeyCredential, PasskeyLoginResponse } from './passkey'
+export { passkeyApi } from './passkey'
 export { portalRequestsApi } from './requests'
 export { portalSearchApi } from './search'
-export { portalNotificationsApi } from './notifications'
-export { portalInboxApi } from './inbox'
-export { passkeyApi } from './passkey'
-export type { PortalNotification, PortalNotificationListResponse, UnreadCountResponse } from './inbox'
-export type { PasskeyCredential, PasskeyLoginResponse } from './passkey'
-export { setPortalAuthToken, getPortalAuthToken, portalFetch, buildQueryString } from './client'

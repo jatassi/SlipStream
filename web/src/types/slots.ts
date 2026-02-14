@@ -1,18 +1,18 @@
 // Version slot types for multi-version support
 
-export interface SlotProfile {
+export type SlotProfile = {
   id: number
   name: string
   cutoff: number
 }
 
-export interface SlotRootFolder {
+export type SlotRootFolder = {
   id: number
   path: string
   name: string
 }
 
-export interface Slot {
+export type Slot = {
   id: number
   slotNumber: number
   name: string
@@ -30,7 +30,7 @@ export interface Slot {
   fileCount?: number
 }
 
-export interface MultiVersionSettings {
+export type MultiVersionSettings = {
   enabled: boolean
   dryRunCompleted: boolean
   lastMigrationAt?: string
@@ -38,7 +38,7 @@ export interface MultiVersionSettings {
   updatedAt: string
 }
 
-export interface UpdateSlotInput {
+export type UpdateSlotInput = {
   name: string
   enabled: boolean
   qualityProfileId: number | null
@@ -47,37 +47,37 @@ export interface UpdateSlotInput {
   tvRootFolderId?: number | null
 }
 
-export interface UpdateMultiVersionSettingsInput {
+export type UpdateMultiVersionSettingsInput = {
   enabled: boolean
 }
 
-export interface SetEnabledInput {
+export type SetEnabledInput = {
   enabled: boolean
 }
 
-export interface SetProfileInput {
+export type SetProfileInput = {
   qualityProfileId: number | null
 }
 
-export interface AttributeIssue {
+export type AttributeIssue = {
   attribute: string
   message: string
 }
 
-export interface SlotConflict {
+export type SlotConflict = {
   slotAName: string
   slotBName: string
   issues: AttributeIssue[]
 }
 
-export interface ValidateConfigurationResponse {
+export type ValidateConfigurationResponse = {
   valid: boolean
   errors?: string[]
   conflicts?: SlotConflict[]
 }
 
 // Slot Assignment types
-export interface SlotAssignment {
+export type SlotAssignment = {
   slotId: number
   slotNumber: number
   slotName: string
@@ -90,14 +90,14 @@ export interface SlotAssignment {
   currentQuality?: string
 }
 
-export interface SlotEvaluation {
+export type SlotEvaluation = {
   assignments: SlotAssignment[]
   recommendedSlotId: number
   requiresSelection: boolean
   matchingCount: number
 }
 
-export interface MovieSlotAssignment {
+export type MovieSlotAssignment = {
   id: number
   movieId: number
   slotId: number
@@ -108,7 +108,7 @@ export interface MovieSlotAssignment {
   qualityProfileId: number | null
 }
 
-export interface EpisodeSlotAssignment {
+export type EpisodeSlotAssignment = {
   id: number
   episodeId: number
   slotId: number
@@ -119,13 +119,13 @@ export interface EpisodeSlotAssignment {
   qualityProfileId: number | null
 }
 
-export interface AssignFileInput {
+export type AssignFileInput = {
   fileId: number
 }
 
 // Slot Status types (Phase 5: Status & Monitoring)
 
-export interface SlotStatus {
+export type SlotStatus = {
   slotId: number
   slotNumber: number
   slotName: string
@@ -139,7 +139,7 @@ export interface SlotStatus {
   profileCutoff: number
 }
 
-export interface MediaStatus {
+export type MediaStatus = {
   mediaType: string
   mediaId: number
   status: string
@@ -149,17 +149,17 @@ export interface MediaStatus {
   monitoredSlots: number
 }
 
-export interface SetMonitoredInput {
+export type SetMonitoredInput = {
   monitored: boolean
 }
 
 // Debug API types (Phase 13: Debug & Testing)
 
-export interface ParseReleaseInput {
+export type ParseReleaseInput = {
   releaseTitle: string
 }
 
-export interface ParseReleaseOutput {
+export type ParseReleaseOutput = {
   title: string
   year?: number
   season?: number
@@ -177,13 +177,13 @@ export interface ParseReleaseOutput {
   qualityScore: number
 }
 
-export interface ProfileMatchInput {
+export type ProfileMatchInput = {
   releaseTitle: string
   qualityProfileId: number
 }
 
-export interface AttributeMatchResult {
-  mode: string           // "acceptable", "required", "preferred"
+export type AttributeMatchResult = {
+  mode: string // "acceptable", "required", "preferred"
   profileValues: string[]
   releaseValue: string
   matches: boolean
@@ -191,7 +191,7 @@ export interface AttributeMatchResult {
   reason?: string
 }
 
-export interface ProfileMatchOutput {
+export type ProfileMatchOutput = {
   release: ParseReleaseOutput
   profileId: number
   profileName: string
@@ -205,13 +205,13 @@ export interface ProfileMatchOutput {
   audioChannelMatch: AttributeMatchResult
 }
 
-export interface SimulateImportInput {
+export type SimulateImportInput = {
   releaseTitle: string
   mediaType: string // "movie" or "episode"
   mediaId: number
 }
 
-export interface SlotEvaluationDetail {
+export type SlotEvaluationDetail = {
   slotId: number
   slotNumber: number
   slotName: string
@@ -227,7 +227,7 @@ export interface SlotEvaluationDetail {
   attributesPassed: boolean
 }
 
-export interface SimulateImportOutput {
+export type SimulateImportOutput = {
   release: ParseReleaseOutput
   slotEvaluations: SlotEvaluationDetail[]
   recommendedSlot?: SlotEvaluationDetail
@@ -241,26 +241,26 @@ export interface SimulateImportOutput {
 
 export type DifferentiatorAttribute = 'HDR' | 'Video Codec' | 'Audio Codec' | 'Audio Channels'
 
-export interface MissingTokenInfo {
+export type MissingTokenInfo = {
   attribute: DifferentiatorAttribute
   tokenName: string
   description: string
   suggestedToken: string
 }
 
-export interface NamingValidationResult {
+export type NamingValidationResult = {
   valid: boolean
   missingTokens?: MissingTokenInfo[]
   requiredAttributes?: DifferentiatorAttribute[]
   warnings?: string[]
 }
 
-export interface ValidateNamingInput {
+export type ValidateNamingInput = {
   movieFileFormat: string
   episodeFileFormat: string
 }
 
-export interface SlotNamingValidation {
+export type SlotNamingValidation = {
   movieFormatValid: boolean
   episodeFormatValid: boolean
   movieValidation: NamingValidationResult
@@ -268,19 +268,19 @@ export interface SlotNamingValidation {
   requiredAttributes: DifferentiatorAttribute[]
   canProceed: boolean
   warnings: string[]
-  qualityTierExclusive?: boolean  // Profiles are exclusive via quality tiers only
-  noEnabledSlots?: boolean        // No enabled slots with profiles found
+  qualityTierExclusive?: boolean // Profiles are exclusive via quality tiers only
+  noEnabledSlots?: boolean // No enabled slots with profiles found
 }
 
 // Migration/Dry Run Types (Req 14.1.1-14.2.3)
 
-export interface SlotRejectionInfo {
+export type SlotRejectionInfo = {
   slotId: number
   slotName: string
   reasons: string[]
 }
 
-export interface FileMigrationPreview {
+export type FileMigrationPreview = {
   fileId: number
   path: string
   quality: string
@@ -293,7 +293,7 @@ export interface FileMigrationPreview {
   slotRejections?: SlotRejectionInfo[]
 }
 
-export interface MovieMigrationPreview {
+export type MovieMigrationPreview = {
   movieId: number
   title: string
   year?: number
@@ -302,7 +302,7 @@ export interface MovieMigrationPreview {
   conflicts?: string[]
 }
 
-export interface EpisodeMigrationPreview {
+export type EpisodeMigrationPreview = {
   episodeId: number
   episodeNumber: number
   title?: string
@@ -310,14 +310,14 @@ export interface EpisodeMigrationPreview {
   hasConflict: boolean
 }
 
-export interface SeasonMigrationPreview {
+export type SeasonMigrationPreview = {
   seasonNumber: number
   episodes: EpisodeMigrationPreview[]
   totalFiles: number
   hasConflict: boolean
 }
 
-export interface TVShowMigrationPreview {
+export type TVShowMigrationPreview = {
   seriesId: number
   title: string
   seasons: SeasonMigrationPreview[]
@@ -325,7 +325,7 @@ export interface TVShowMigrationPreview {
   hasConflict: boolean
 }
 
-export interface MigrationSummary {
+export type MigrationSummary = {
   totalMovies: number
   totalTvShows: number
   totalFiles: number
@@ -334,13 +334,13 @@ export interface MigrationSummary {
   conflicts: number
 }
 
-export interface MigrationPreview {
+export type MigrationPreview = {
   movies: MovieMigrationPreview[]
   tvShows: TVShowMigrationPreview[]
   summary: MigrationSummary
 }
 
-export interface MigrationResult {
+export type MigrationResult = {
   success: boolean
   filesAssigned: number
   filesQueued: number
@@ -349,52 +349,52 @@ export interface MigrationResult {
 }
 
 // File override for manual migration adjustments
-export interface FileOverride {
+export type FileOverride = {
   fileId: number
   type: 'ignore' | 'assign' | 'unassign'
   slotId?: number // Required when type is 'assign'
 }
 
 // Input for execute migration with optional overrides
-export interface ExecuteMigrationInput {
+export type ExecuteMigrationInput = {
   overrides?: FileOverride[]
 }
 
 // Debug Preview Generation Types
 
-export interface MockFile {
+export type MockFile = {
   fileId: number
   path: string
   quality: string
   size: number
 }
 
-export interface MockMovie {
+export type MockMovie = {
   movieId: number
   title: string
   year?: number
   files: MockFile[]
 }
 
-export interface MockEpisode {
+export type MockEpisode = {
   episodeId: number
   episodeNumber: number
   title?: string
   files: MockFile[]
 }
 
-export interface MockSeason {
+export type MockSeason = {
   seasonNumber: number
   episodes: MockEpisode[]
 }
 
-export interface MockTVShow {
+export type MockTVShow = {
   seriesId: number
   title: string
   seasons: MockSeason[]
 }
 
-export interface GeneratePreviewInput {
+export type GeneratePreviewInput = {
   movies: MockMovie[]
   tvShows: MockTVShow[]
 }

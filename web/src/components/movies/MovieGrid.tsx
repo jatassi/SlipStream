@@ -1,7 +1,8 @@
-import { MovieCard } from './MovieCard'
 import type { Movie } from '@/types'
 
-interface MovieGridProps {
+import { MovieCard } from './MovieCard'
+
+type MovieGridProps = {
   movies: Movie[]
   posterSize?: number
   editMode?: boolean
@@ -9,7 +10,13 @@ interface MovieGridProps {
   onToggleSelect?: (id: number) => void
 }
 
-export function MovieGrid({ movies, posterSize = 150, editMode, selectedIds, onToggleSelect }: MovieGridProps) {
+export function MovieGrid({
+  movies,
+  posterSize = 150,
+  editMode,
+  selectedIds,
+  onToggleSelect,
+}: MovieGridProps) {
   return (
     <div
       className="grid gap-4"

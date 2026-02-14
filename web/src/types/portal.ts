@@ -1,5 +1,5 @@
 // Portal User types
-export interface PortalUser {
+export type PortalUser = {
   id: number
   username: string
   displayName: string | null
@@ -11,41 +11,41 @@ export interface PortalUser {
   updatedAt: string
 }
 
-export interface PortalUserWithQuota extends PortalUser {
+export type PortalUserWithQuota = {
   quota: UserQuota | null
-}
+} & PortalUser
 
 // Auth types
-export interface LoginRequest {
+export type LoginRequest = {
   username: string
   password: string
 }
 
-export interface LoginResponse {
+export type LoginResponse = {
   token: string
   user: PortalUser
   isAdmin: boolean
 }
 
-export interface SignupRequest {
+export type SignupRequest = {
   token: string
   password: string
   displayName?: string
 }
 
-export interface SignupResponse {
+export type SignupResponse = {
   token: string
   user: PortalUser
 }
 
-export interface UpdateProfileRequest {
+export type UpdateProfileRequest = {
   username?: string
   displayName?: string
   password?: string
 }
 
 // Invitation types
-export interface Invitation {
+export type Invitation = {
   id: number
   username: string
   token: string
@@ -56,27 +56,34 @@ export interface Invitation {
   autoApprove: boolean
 }
 
-export interface CreateInvitationRequest {
+export type CreateInvitationRequest = {
   username: string
   qualityProfileId?: number | null
   autoApprove?: boolean
 }
 
-export interface ValidateInvitationResponse {
+export type ValidateInvitationResponse = {
   valid: boolean
   username: string
   expiresAt: string
 }
 
-export interface VerifyPinResponse {
+export type VerifyPinResponse = {
   valid: boolean
 }
 
 // Request types
-export type RequestStatus = 'pending' | 'approved' | 'denied' | 'downloading' | 'failed' | 'available' | 'cancelled'
+export type RequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'denied'
+  | 'downloading'
+  | 'failed'
+  | 'available'
+  | 'cancelled'
 export type PortalMediaType = 'movie' | 'series' | 'season' | 'episode'
 
-export interface Request {
+export type Request = {
   id: number
   userId: number
   mediaType: PortalMediaType
@@ -101,7 +108,7 @@ export interface Request {
   isWatching?: boolean
 }
 
-export interface CreateRequestInput {
+export type CreateRequestInput = {
   mediaType: PortalMediaType
   tmdbId?: number
   tvdbId?: number
@@ -114,35 +121,35 @@ export interface CreateRequestInput {
   requestedSeasons?: number[]
 }
 
-export interface RequestListFilters {
+export type RequestListFilters = {
   status?: RequestStatus
   mediaType?: PortalMediaType
   userId?: number
   scope?: 'mine' | 'all'
 }
 
-export interface ApproveRequestInput {
+export type ApproveRequestInput = {
   action: 'approve_only' | 'auto_search' | 'manual_search'
   rootFolderId?: number
 }
 
-export interface DenyRequestInput {
+export type DenyRequestInput = {
   reason?: string
 }
 
-export interface BatchApproveInput {
+export type BatchApproveInput = {
   ids: number[]
   action: 'approve_only' | 'auto_search' | 'manual_search'
   rootFolderId?: number
 }
 
-export interface BatchDenyInput {
+export type BatchDenyInput = {
   ids: number[]
   reason?: string
 }
 
 // Quota types
-export interface UserQuota {
+export type UserQuota = {
   userId: number
   moviesLimit: number | null
   seasonsLimit: number | null
@@ -153,14 +160,14 @@ export interface UserQuota {
   periodStart: string
 }
 
-export interface QuotaLimits {
+export type QuotaLimits = {
   moviesLimit?: number | null
   seasonsLimit?: number | null
   episodesLimit?: number | null
 }
 
 // User notification types
-export interface UserNotification {
+export type UserNotification = {
   id: number
   userId: number
   type: string
@@ -174,7 +181,7 @@ export interface UserNotification {
   updatedAt: string
 }
 
-export interface CreateUserNotificationInput {
+export type CreateUserNotificationInput = {
   type: string
   name: string
   settings: Record<string, unknown>
@@ -185,7 +192,7 @@ export interface CreateUserNotificationInput {
 }
 
 // Search with availability
-export interface AvailabilityInfo {
+export type AvailabilityInfo = {
   inLibrary: boolean
   existingSlots: SlotInfo[]
   canRequest: boolean
@@ -196,13 +203,13 @@ export interface AvailabilityInfo {
   addedAt: string | null
 }
 
-export interface SlotInfo {
+export type SlotInfo = {
   id: number
   name: string
   quality: string
 }
 
-export interface PortalMovieSearchResult {
+export type PortalMovieSearchResult = {
   id: number
   tmdbId: number
   title: string
@@ -213,7 +220,7 @@ export interface PortalMovieSearchResult {
   availability?: AvailabilityInfo
 }
 
-export interface PortalSeriesSearchResult {
+export type PortalSeriesSearchResult = {
   id: number
   tmdbId: number
   tvdbId: number | null
@@ -227,7 +234,7 @@ export interface PortalSeriesSearchResult {
   availability?: AvailabilityInfo
 }
 
-export interface SeasonInfo {
+export type SeasonInfo = {
   seasonNumber: number
   name: string
   overview?: string
@@ -236,7 +243,7 @@ export interface SeasonInfo {
 }
 
 // Request settings
-export interface RequestSettings {
+export type RequestSettings = {
   enabled: boolean
   defaultMovieQuota: number
   defaultSeasonQuota: number
@@ -247,7 +254,7 @@ export interface RequestSettings {
 }
 
 // Admin user management
-export interface AdminUpdateUserInput {
+export type AdminUpdateUserInput = {
   username?: string
   qualityProfileId?: number | null
   autoApprove?: boolean
@@ -255,7 +262,7 @@ export interface AdminUpdateUserInput {
 }
 
 // Auto-approve result
-export interface AutoApproveResult {
+export type AutoApproveResult = {
   autoApproved: boolean
   quotaExceeded: boolean
   searchStarted: boolean
@@ -263,13 +270,13 @@ export interface AutoApproveResult {
   searchError?: string
 }
 
-export interface CreateRequestResponse {
+export type CreateRequestResponse = {
   request: Request
   autoApprove: AutoApproveResult
 }
 
 // Portal download (queue item filtered to user's requests)
-export interface PortalDownload {
+export type PortalDownload = {
   id: string
   clientId: number
   clientName: string

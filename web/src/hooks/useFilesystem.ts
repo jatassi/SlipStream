@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { filesystemApi } from '@/api'
 
 export const filesystemKeys = {
@@ -17,7 +18,7 @@ export function useBrowseDirectory(path?: string, enabled = true) {
     queryKey: filesystemKeys.browse(path),
     queryFn: () => filesystemApi.browse(path),
     enabled,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30_000, // Cache for 30 seconds
   })
 }
 
@@ -31,6 +32,6 @@ export function useBrowseForImport(path?: string, enabled = true) {
     queryKey: filesystemKeys.browseImport(path),
     queryFn: () => filesystemApi.browseForImport(path),
     enabled,
-    staleTime: 30000,
+    staleTime: 30_000,
   })
 }

@@ -1,14 +1,15 @@
-import { portalFetch } from './client'
 import type {
   LoginRequest,
   LoginResponse,
+  PortalUser,
   SignupRequest,
   SignupResponse,
-  PortalUser,
   UpdateProfileRequest,
   ValidateInvitationResponse,
   VerifyPinResponse,
 } from '@/types'
+
+import { portalFetch } from './client'
 
 export const portalAuthApi = {
   login: (data: LoginRequest) =>
@@ -24,7 +25,9 @@ export const portalAuthApi = {
     }),
 
   validateInvitation: (token: string) =>
-    portalFetch<ValidateInvitationResponse>(`/auth/validate-invitation?token=${encodeURIComponent(token)}`),
+    portalFetch<ValidateInvitationResponse>(
+      `/auth/validate-invitation?token=${encodeURIComponent(token)}`,
+    ),
 
   resendInvitation: (username: string) =>
     portalFetch<void>('/auth/resend', {
@@ -32,8 +35,7 @@ export const portalAuthApi = {
       body: JSON.stringify({ username }),
     }),
 
-  getProfile: () =>
-    portalFetch<PortalUser>('/auth/profile'),
+  getProfile: () => portalFetch<PortalUser>('/auth/profile'),
 
   updateProfile: (data: UpdateProfileRequest) =>
     portalFetch<PortalUser>('/auth/profile', {
@@ -47,6 +49,5 @@ export const portalAuthApi = {
       body: JSON.stringify({ pin }),
     }),
 
-  logout: () =>
-    portalFetch<void>('/auth/logout', { method: 'POST' }),
+  logout: () => portalFetch<void>('/auth/logout', { method: 'POST' }),
 }

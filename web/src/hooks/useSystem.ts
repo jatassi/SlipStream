@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { systemApi } from '@/api'
 import type { UpdateSettingsInput } from '@/types'
 
@@ -14,7 +15,7 @@ export function useStatus() {
   return useQuery({
     queryKey: systemKeys.status(),
     queryFn: () => systemApi.status(),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30_000, // Refresh every 30 seconds
   })
 }
 
@@ -22,7 +23,7 @@ export function useHealth() {
   return useQuery({
     queryKey: systemKeys.health(),
     queryFn: () => systemApi.health(),
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60_000, // Refresh every minute
   })
 }
 
@@ -76,7 +77,8 @@ export function useMediainfoAvailable() {
 export function useUpdateTMDBSearchOrdering() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (disableSearchOrdering: boolean) => systemApi.updateTMDBSearchOrdering(disableSearchOrdering),
+    mutationFn: (disableSearchOrdering: boolean) =>
+      systemApi.updateTMDBSearchOrdering(disableSearchOrdering),
     onSuccess: (data, variables) => {
       console.log('useUpdateTMDBSearchOrdering - Success:', { data, variables })
       queryClient.invalidateQueries({ queryKey: systemKeys.status() })
@@ -86,7 +88,7 @@ export function useUpdateTMDBSearchOrdering() {
     },
     onSettled: () => {
       console.log('useUpdateTMDBSearchOrdering - Settled')
-    }
+    },
   })
 }
 
@@ -100,7 +102,7 @@ export function useFirewallStatus() {
   return useQuery({
     queryKey: systemKeys.firewall(),
     queryFn: () => systemApi.checkFirewall(),
-    staleTime: 60000, // Consider fresh for 1 minute
+    staleTime: 60_000, // Consider fresh for 1 minute
   })
 }
 

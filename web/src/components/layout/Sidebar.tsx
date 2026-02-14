@@ -1,35 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
-  Film,
-  Tv,
+  ArrowUpCircle,
+  Bell,
+  Binoculars,
   Calendar,
-  History,
-  Settings,
-  FolderOpen,
-  Download,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Clock,
-  Binoculars,
-  HeartPulse,
-  Server,
-  FileInput,
-  Bell,
   Cog,
-  Users,
-  RotateCcw,
+  Download,
+  FileInput,
+  Film,
+  FolderOpen,
+  HeartPulse,
+  History,
   Loader2,
   LogOut,
-  ArrowUpCircle,
+  RotateCcw,
   ScrollText,
+  Server,
+  Settings,
+  Tv,
+  Users,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+
 import { Button } from '@/components/ui/button'
-import { useUIStore, usePortalAuthStore } from '@/stores'
-import { DownloadsNavLink } from './DownloadsNavLink'
-import { useMissingCounts, useRestart } from '@/hooks'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -38,32 +37,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMissingCounts, useRestart } from '@/hooks'
+import { cn } from '@/lib/utils'
+import { usePortalAuthStore, useUIStore } from '@/stores'
 
-interface NavItem {
+import { DownloadsNavLink } from './DownloadsNavLink'
+
+type NavItem = {
   title: string
   href: string
   icon: React.ElementType
   theme?: 'movie' | 'tv'
 }
 
-interface ActionItem {
+type ActionItem = {
   title: string
   icon: React.ElementType
   action: 'restart' | 'logout'
@@ -76,7 +66,7 @@ function isActionItem(item: MenuItem): item is ActionItem {
   return 'action' in item
 }
 
-interface CollapsibleNavGroup {
+type CollapsibleNavGroup = {
   id: string
   title: string
   icon: React.ElementType
@@ -134,15 +124,15 @@ function NavLink({
   badge?: React.ReactNode
 }) {
   const router = useRouterState()
-  const isActive = router.location.pathname === item.href ||
-    router.location.pathname.startsWith(item.href + '/')
+  const isActive =
+    router.location.pathname === item.href || router.location.pathname.startsWith(`${item.href}/`)
 
   const iconClassName = cn(
     'size-4 shrink-0 transition-colors',
     item.theme === 'movie' && 'text-movie-500',
     item.theme === 'tv' && 'text-tv-500',
     isActive && item.theme === 'movie' && 'text-movie-400',
-    isActive && item.theme === 'tv' && 'text-tv-400'
+    isActive && item.theme === 'tv' && 'text-tv-400',
   )
 
   const linkContent = (
@@ -169,15 +159,13 @@ function NavLink({
     item.theme === 'movie' && isActive && 'bg-movie-500/15 text-foreground border-l-movie-500',
     // TV theme
     item.theme === 'tv' && 'hover:bg-tv-500/10 hover:text-foreground',
-    item.theme === 'tv' && isActive && 'bg-tv-500/15 text-foreground border-l-tv-500'
+    item.theme === 'tv' && isActive && 'bg-tv-500/15 text-foreground border-l-tv-500',
   )
 
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger
-          render={<Link to={item.href} className={linkClassName} />}
-        >
+        <TooltipTrigger render={<Link to={item.href} className={linkClassName} />}>
           {linkContent}
         </TooltipTrigger>
         <TooltipContent side="right">
@@ -206,27 +194,31 @@ function MissingBadge() {
 
   return (
     <span className="flex items-center text-xs">
-      {counts.movies > 0 && (
-        <span className="text-movie-500">{counts.movies}</span>
-      )}
+      {counts.movies > 0 && <span className="text-movie-500">{counts.movies}</span>}
       {counts.movies > 0 && counts.episodes > 0 && (
-        <span className="px-1 text-muted-foreground">|</span>
+        <span className="text-muted-foreground px-1">|</span>
       )}
-      {counts.episodes > 0 && (
-        <span className="text-tv-500">{counts.episodes}</span>
-      )}
+      {counts.episodes > 0 && <span className="text-tv-500">{counts.episodes}</span>}
     </span>
   )
 }
 
-function NavSection({ items, collapsed, includeDownloads = false }: { items: NavItem[]; collapsed: boolean; includeDownloads?: boolean }) {
+function NavSection({
+  items,
+  collapsed,
+  includeDownloads = false,
+}: {
+  items: NavItem[]
+  collapsed: boolean
+  includeDownloads?: boolean
+}) {
   return (
     <div className="space-y-1">
       {items.map((item) => (
         <div key={item.href}>
-          {includeDownloads && item.href === '/import' && (
+          {includeDownloads && item.href === '/import' ? (
             <DownloadsNavLink collapsed={collapsed} />
-          )}
+          ) : null}
           <NavLink
             item={item}
             collapsed={collapsed}
@@ -252,7 +244,7 @@ function CollapsibleNavSection({
 
   const isExpanded = expandedMenus[group.id] ?? false
   const isAnyChildActive = group.items.some(
-    (item) => !isActionItem(item) && router.location.pathname === item.href
+    (item) => !isActionItem(item) && router.location.pathname === item.href,
   )
 
   // When sidebar is collapsed, show a popover with submenu items on click
@@ -263,17 +255,13 @@ function CollapsibleNavSection({
           className={cn(
             'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
             'hover:bg-accent hover:text-accent-foreground',
-            isAnyChildActive && 'bg-accent text-accent-foreground'
+            isAnyChildActive && 'bg-accent text-accent-foreground',
           )}
         >
           <group.icon className="size-5 shrink-0" />
         </PopoverTrigger>
-        <PopoverContent
-          side="right"
-          sideOffset={8}
-          className="w-auto min-w-[160px] p-1"
-        >
-          <div className="mb-1 px-2 py-1 text-xs font-semibold text-muted-foreground">
+        <PopoverContent side="right" sideOffset={8} className="w-auto min-w-[160px] p-1">
+          <div className="text-muted-foreground mb-1 px-2 py-1 text-xs font-semibold">
             {group.title}
           </div>
           {group.items.map((item) =>
@@ -287,7 +275,7 @@ function CollapsibleNavSection({
                     'text-destructive hover:bg-destructive/10 hover:text-destructive',
                   item.variant === 'warning' &&
                     'text-amber-500 hover:bg-amber-500/10 hover:text-amber-500',
-                  !item.variant && 'hover:bg-accent hover:text-accent-foreground'
+                  !item.variant && 'hover:bg-accent hover:text-accent-foreground',
                 )}
               >
                 <item.icon className="size-4" />
@@ -301,13 +289,13 @@ function CollapsibleNavSection({
                   'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',
                   router.location.pathname === item.href &&
-                    'bg-accent text-accent-foreground font-medium'
+                    'bg-accent text-accent-foreground font-medium',
                 )}
               >
                 <item.icon className="size-4" />
                 <span className="flex-1">{item.title}</span>
               </Link>
-            )
+            ),
           )}
         </PopoverContent>
       </Popover>
@@ -320,7 +308,7 @@ function CollapsibleNavSection({
         className={cn(
           'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
           'hover:bg-accent hover:text-accent-foreground',
-          isAnyChildActive && 'text-accent-foreground'
+          isAnyChildActive && 'text-accent-foreground',
         )}
       >
         <group.icon className="size-5 shrink-0" />
@@ -328,11 +316,11 @@ function CollapsibleNavSection({
         <ChevronDown
           className={cn(
             'size-4 shrink-0 transition-transform duration-200',
-            isExpanded && 'rotate-180'
+            isExpanded && 'rotate-180',
           )}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="overflow-hidden data-[ending-style]:animate-collapse-up data-[starting-style]:animate-collapse-down">
+      <CollapsibleContent className="data-[ending-style]:animate-collapse-up data-[starting-style]:animate-collapse-down overflow-hidden">
         <div className="mt-1 space-y-1">
           {group.items.map((item) =>
             isActionItem(item) ? (
@@ -341,25 +329,20 @@ function CollapsibleNavSection({
                 onClick={() => onAction?.(item.action)}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  'ml-4 border-l border-border pl-4',
+                  'border-border ml-4 border-l pl-4',
                   item.variant === 'destructive' &&
                     'text-destructive hover:bg-destructive/10 hover:text-destructive',
                   item.variant === 'warning' &&
                     'text-amber-500 hover:bg-amber-500/10 hover:text-amber-500',
-                  !item.variant && 'hover:bg-accent hover:text-accent-foreground'
+                  !item.variant && 'hover:bg-accent hover:text-accent-foreground',
                 )}
               >
                 <item.icon className="size-4 shrink-0" />
                 <span className="flex-1 text-left">{item.title}</span>
               </button>
             ) : (
-              <NavLink
-                key={item.href}
-                item={item}
-                collapsed={false}
-                indented
-              />
-            )
+              <NavLink key={item.href} item={item} collapsed={false} indented />
+            ),
           )}
         </div>
       </CollapsibleContent>
@@ -377,9 +360,11 @@ export function Sidebar() {
   const restartMutation = useRestart()
 
   useEffect(() => {
-    if (countdown === null) return
+    if (countdown === null) {
+      return
+    }
     if (countdown === 0) {
-      window.location.reload()
+      globalThis.location.reload()
       return
     }
     const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
@@ -408,23 +393,23 @@ export function Sidebar() {
     <TooltipProvider delay={0}>
       <aside
         className={cn(
-          'flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
-          sidebarCollapsed ? 'w-16' : 'w-64'
+          'border-border bg-card flex h-screen flex-col border-r transition-all duration-300',
+          sidebarCollapsed ? 'w-16' : 'w-64',
         )}
       >
         {/* Logo */}
         <div
           className={cn(
-            'flex h-14 items-center border-b border-border px-4',
-            sidebarCollapsed && 'justify-center px-2'
+            'border-border flex h-14 items-center border-b px-4',
+            sidebarCollapsed && 'justify-center px-2',
           )}
         >
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-md bg-media-gradient text-white glow-media-sm">
+            <div className="bg-media-gradient glow-media-sm flex size-8 items-center justify-center rounded-md text-white">
               <Film className="size-5" />
             </div>
             {!sidebarCollapsed && (
-              <span className="text-lg font-semibold text-media-gradient">SlipStream</span>
+              <span className="text-media-gradient text-lg font-semibold">SlipStream</span>
             )}
           </Link>
         </div>
@@ -436,19 +421,16 @@ export function Sidebar() {
             <NavSection items={libraryNavItems} collapsed={sidebarCollapsed} />
 
             {/* Divider */}
-            <div className="h-px bg-border" />
+            <div className="bg-border h-px" />
 
             {/* Discover navigation */}
             <NavSection items={discoverNavItems} collapsed={sidebarCollapsed} includeDownloads />
 
             {/* Divider */}
-            <div className="h-px bg-border" />
+            <div className="bg-border h-px" />
 
             {/* Settings collapsible menu */}
-            <CollapsibleNavSection
-              group={settingsGroup}
-              collapsed={sidebarCollapsed}
-            />
+            <CollapsibleNavSection group={settingsGroup} collapsed={sidebarCollapsed} />
 
             {/* System collapsible menu */}
             <CollapsibleNavSection
@@ -460,7 +442,7 @@ export function Sidebar() {
         </ScrollArea>
 
         {/* Collapse toggle */}
-        <div className="border-t border-border p-3">
+        <div className="border-border border-t p-3">
           <Button
             variant="ghost"
             size="sm"
@@ -482,16 +464,18 @@ export function Sidebar() {
       <Dialog
         open={showRestartDialog}
         onOpenChange={(open) => {
-          if (countdown === null) setShowRestartDialog(open)
+          if (countdown === null) {
+            setShowRestartDialog(open)
+          }
         }}
       >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Confirm Restart</DialogTitle>
             <DialogDescription>
-              {countdown !== null
-                ? 'Server is restarting. Page will refresh automatically.'
-                : 'Are you sure you want to restart the server? The application will be briefly unavailable.'}
+              {countdown === null
+                ? 'Are you sure you want to restart the server? The application will be briefly unavailable.'
+                : 'Server is restarting. Page will refresh automatically.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -507,18 +491,20 @@ export function Sidebar() {
               onClick={handleRestart}
               disabled={restartMutation.isPending || countdown !== null}
             >
-              {countdown !== null ? (
+              {countdown === null ? (
+                restartMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Restarting...
+                  </>
+                ) : (
+                  'Restart'
+                )
+              ) : (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Restarting ({countdown}s)
                 </>
-              ) : restartMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Restarting...
-                </>
-              ) : (
-                'Restart'
               )}
             </Button>
           </DialogFooter>
@@ -529,21 +515,13 @@ export function Sidebar() {
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Confirm Logout</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to log out?
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to log out?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowLogoutDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
               Cancel
             </Button>
-            <Button
-              className="bg-amber-500 text-white hover:bg-amber-600"
-              onClick={handleLogout}
-            >
+            <Button className="bg-amber-500 text-white hover:bg-amber-600" onClick={handleLogout}>
               Logout
             </Button>
           </DialogFooter>

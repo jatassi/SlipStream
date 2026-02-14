@@ -1,24 +1,26 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
+
 import {
-  FolderOpen,
+  AlertCircle,
   ChevronRight,
   ChevronUp,
-  Scan,
-  FileVideo,
-  AlertCircle,
-  Loader2,
-  Import,
-  RefreshCw,
-  HardDrive,
   CornerDownRight,
+  FileVideo,
+  FolderOpen,
+  HardDrive,
+  Import,
+  Loader2,
   Pencil,
+  RefreshCw,
+  Scan,
 } from 'lucide-react'
+import { toast } from 'sonner'
+
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -27,32 +29,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useEpisodes, useGlobalLoading, useMovies, useSeries } from '@/hooks'
 import { useBrowseForImport } from '@/hooks/useFilesystem'
 import {
-  useScanDirectory,
   useManualImport,
   usePendingImports,
   useRetryImport,
+  useScanDirectory,
 } from '@/hooks/useImport'
-import { useMovies, useSeries, useEpisodes, useGlobalLoading } from '@/hooks'
-import { useSlots, useMultiVersionSettings } from '@/hooks/useSlots'
-import { toast } from 'sonner'
+import { useMultiVersionSettings, useSlots } from '@/hooks/useSlots'
 import type { ScannedFile, Slot } from '@/types'
 
 function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
+  if (bytes === 0) {
+    return '0 B'
+  }
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
 }
 
 function FileBrowser({
@@ -120,21 +119,18 @@ function FileBrowser({
             <CardTitle className="text-base">
               {showScanResults ? 'Scanned Files' : 'File Browser'}
             </CardTitle>
-            {showScanResults && (
+            {showScanResults ? (
               <CardDescription>
-                {scannedFiles.length} files found, {scannedFiles.filter((f) => f.suggestedMatch).length} ready to import
+                {scannedFiles.length} files found,{' '}
+                {scannedFiles.filter((f) => f.suggestedMatch).length} ready to import
               </CardDescription>
-            )}
+            ) : null}
           </div>
           <div className="flex gap-2">
             {showScanResults ? (
               <>
                 {selectedFiles.size > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={onImportSelected}
-                    disabled={isImporting}
-                  >
+                  <Button size="sm" onClick={onImportSelected} disabled={isImporting}>
                     {isImporting ? 'Importing...' : `Import ${selectedFiles.size} Selected`}
                   </Button>
                 )}
@@ -147,30 +143,39 @@ function FileBrowser({
                 <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
                   <RefreshCw className="size-4" />
                 </Button>
-                {currentPath && (
-                  <Button size="sm" onClick={() => onScanPath(currentPath)} disabled={isScanning || isLoading}>
+                {currentPath ? (
+                  <Button
+                    size="sm"
+                    onClick={() => onScanPath(currentPath)}
+                    disabled={isScanning || isLoading}
+                  >
                     {isScanning ? (
-                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 size-4 animate-spin" />
                     ) : (
-                      <Scan className="size-4 mr-2" />
+                      <Scan className="mr-2 size-4" />
                     )}
                     Scan Directory
                   </Button>
-                )}
+                ) : null}
               </>
             )}
           </div>
         </div>
         {!showScanResults && (
-          <div className="flex gap-2 mt-2">
+          <div className="mt-2 flex gap-2">
             <Input
               placeholder="Enter path..."
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePathInputNavigate()}
-              className="font-mono text-xs h-8"
+              className="h-8 font-mono text-xs"
             />
-            <Button size="sm" variant="outline" onClick={handlePathInputNavigate} className="h-8 px-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handlePathInputNavigate}
+              className="h-8 px-2"
+            >
               <ChevronRight className="size-4" />
             </Button>
           </div>
@@ -192,9 +197,9 @@ function FileBrowser({
           <div className="space-y-1">
             {[55, 40, 65, 48, 60, 42, 70, 50].map((w, i) => (
               <div key={i} className="flex items-center gap-2 p-2">
-                <Skeleton className="size-4 rounded shrink-0" />
+                <Skeleton className="size-4 shrink-0 rounded" />
                 <Skeleton className="h-4" style={{ width: `${w}%` }} />
-                {i % 3 === 0 && <Skeleton className="size-4 ml-auto shrink-0" />}
+                {i % 3 === 0 && <Skeleton className="ml-auto size-4 shrink-0" />}
               </div>
             ))}
           </div>
@@ -202,28 +207,28 @@ function FileBrowser({
           <ScrollArea className="h-[400px]">
             <div className="space-y-1">
               {/* Back button */}
-              {(currentPath || data?.parent) && (
+              {currentPath || data?.parent ? (
                 <button
                   onClick={navigateUp}
-                  className="flex items-center gap-2 w-full p-2 hover:bg-muted rounded-md text-left"
+                  className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2 text-left"
                 >
-                  <ChevronUp className="size-4 text-muted-foreground" />
+                  <ChevronUp className="text-muted-foreground size-4" />
                   <span className="text-sm">..</span>
                 </button>
-              )}
+              ) : null}
 
               {/* Drives (Windows root) */}
               {data?.drives?.map((drive) => (
                 <button
                   key={drive.letter}
-                  onClick={() => navigateTo(drive.letter + '\\')}
-                  className="flex items-center gap-2 w-full p-2 hover:bg-muted rounded-md text-left"
+                  onClick={() => navigateTo(`${drive.letter}\\`)}
+                  className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2 text-left"
                 >
-                  <HardDrive className="size-4 text-muted-foreground" />
+                  <HardDrive className="text-muted-foreground size-4" />
                   <span className="text-sm font-medium">{drive.letter}</span>
-                  {drive.label && (
-                    <span className="text-sm text-muted-foreground">({drive.label})</span>
-                  )}
+                  {drive.label ? (
+                    <span className="text-muted-foreground text-sm">({drive.label})</span>
+                  ) : null}
                 </button>
               ))}
 
@@ -232,11 +237,11 @@ function FileBrowser({
                 <button
                   key={dir.path}
                   onClick={() => navigateTo(dir.path)}
-                  className="flex items-center gap-2 w-full p-2 hover:bg-muted rounded-md text-left"
+                  className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2 text-left"
                 >
                   <FolderOpen className="size-4 text-yellow-600" />
                   <span className="text-sm">{dir.name}</span>
-                  <ChevronRight className="size-4 text-muted-foreground ml-auto" />
+                  <ChevronRight className="text-muted-foreground ml-auto size-4" />
                 </button>
               ))}
 
@@ -244,20 +249,16 @@ function FileBrowser({
               {data?.files?.map((file) => (
                 <div
                   key={file.path}
-                  className="flex items-center gap-2 w-full p-2 hover:bg-muted rounded-md"
+                  className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2"
                 >
                   <FileVideo className="size-4 text-blue-600" />
-                  <span className="text-sm flex-1 truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatFileSize(file.size)}
-                  </span>
+                  <span className="flex-1 truncate text-sm">{file.name}</span>
+                  <span className="text-muted-foreground text-xs">{formatFileSize(file.size)}</span>
                 </div>
               ))}
 
               {!data?.drives?.length && !data?.directories?.length && !data?.files?.length && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No items found
-                </p>
+                <p className="text-muted-foreground py-4 text-center text-sm">No items found</p>
               )}
             </div>
           </ScrollArea>
@@ -276,33 +277,49 @@ function EditMatchDialog({
   file: ScannedFile | null
   open: boolean
   onClose: () => void
-  onConfirm: (file: ScannedFile, match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number; targetSlotId?: number }) => void
+  onConfirm: (
+    file: ScannedFile,
+    match: {
+      mediaType: string
+      mediaId: number
+      seriesId?: number
+      seasonNum?: number
+      targetSlotId?: number
+    },
+  ) => void
 }) {
   const { data: movies } = useMovies()
   const { data: allSeries } = useSeries()
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slots } = useSlots()
 
-  const initialType = file?.suggestedMatch?.mediaType === 'movie' ? 'movie' : file?.parsedInfo?.isTV ? 'episode' : 'movie'
-  const [selectedType, setSelectedType] = useState<'movie' | 'episode'>(initialType as 'movie' | 'episode')
+  const initialType =
+    file?.suggestedMatch?.mediaType === 'movie'
+      ? 'movie'
+      : file?.parsedInfo?.isTV
+        ? 'episode'
+        : 'movie'
+  const [selectedType, setSelectedType] = useState<'movie' | 'episode'>(initialType)
   const [selectedMovieId, setSelectedMovieId] = useState<string>(
-    file?.suggestedMatch?.mediaType === 'movie' ? String(file.suggestedMatch.mediaId) : ''
+    file?.suggestedMatch?.mediaType === 'movie' ? String(file.suggestedMatch.mediaId) : '',
   )
   const [selectedSeriesId, setSelectedSeriesId] = useState<string>(
-    file?.suggestedMatch?.seriesId ? String(file.suggestedMatch.seriesId) : ''
+    file?.suggestedMatch?.seriesId ? String(file.suggestedMatch.seriesId) : '',
   )
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>(
-    file?.suggestedMatch?.mediaType === 'episode' ? String(file.suggestedMatch.mediaId) : ''
+    file?.suggestedMatch?.mediaType === 'episode' ? String(file.suggestedMatch.mediaId) : '',
   )
   const [selectedSlotId, setSelectedSlotId] = useState<string>('')
 
-  const seriesIdNum = selectedSeriesId ? parseInt(selectedSeriesId) : 0
+  const seriesIdNum = selectedSeriesId ? Number.parseInt(selectedSeriesId) : 0
   const { data: episodes } = useEpisodes(seriesIdNum)
 
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
   const enabledSlots = slots?.filter((s: Slot) => s.enabled) ?? []
 
-  if (!file) return null
+  if (!file) {
+    return null
+  }
 
   const parsed = file.parsedInfo
 
@@ -314,8 +331,8 @@ function EditMatchDialog({
       }
       onConfirm(file, {
         mediaType: 'movie',
-        mediaId: parseInt(selectedMovieId),
-        targetSlotId: selectedSlotId ? parseInt(selectedSlotId) : undefined,
+        mediaId: Number.parseInt(selectedMovieId),
+        targetSlotId: selectedSlotId ? Number.parseInt(selectedSlotId) : undefined,
       })
     } else {
       if (!selectedEpisodeId) {
@@ -324,10 +341,10 @@ function EditMatchDialog({
       }
       onConfirm(file, {
         mediaType: 'episode',
-        mediaId: parseInt(selectedEpisodeId),
-        seriesId: selectedSeriesId ? parseInt(selectedSeriesId) : undefined,
+        mediaId: Number.parseInt(selectedEpisodeId),
+        seriesId: selectedSeriesId ? Number.parseInt(selectedSeriesId) : undefined,
         seasonNum: parsed?.season,
-        targetSlotId: selectedSlotId ? parseInt(selectedSlotId) : undefined,
+        targetSlotId: selectedSlotId ? Number.parseInt(selectedSlotId) : undefined,
       })
     }
   }
@@ -343,29 +360,29 @@ function EditMatchDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="font-medium text-sm break-all">{file.fileName}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatFileSize(file.fileSize)}</p>
+          <div className="bg-muted rounded-lg p-3">
+            <p className="text-sm font-medium break-all">{file.fileName}</p>
+            <p className="text-muted-foreground mt-1 text-xs">{formatFileSize(file.fileSize)}</p>
           </div>
 
-          {parsed && (
+          {parsed ? (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-muted-foreground">Parsed Information</h4>
+                <h4 className="text-muted-foreground text-sm font-medium">Parsed Information</h4>
                 <div className="space-y-2 text-sm">
-                  {parsed.title && (
+                  {parsed.title ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Title:</span>
                       <span className="font-medium">{parsed.title}</span>
                     </div>
-                  )}
-                  {parsed.year && (
+                  ) : null}
+                  {parsed.year ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Year:</span>
                       <span>{parsed.year}</span>
                     </div>
-                  )}
-                  {parsed.isTV && (
+                  ) : null}
+                  {parsed.isTV ? (
                     <>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Season:</span>
@@ -373,54 +390,57 @@ function EditMatchDialog({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Episode:</span>
-                        <span>{parsed.episode}{parsed.endEpisode && parsed.endEpisode !== parsed.episode ? `-${parsed.endEpisode}` : ''}</span>
+                        <span>
+                          {parsed.episode}
+                          {parsed.endEpisode && parsed.endEpisode !== parsed.episode
+                            ? `-${parsed.endEpisode}`
+                            : ''}
+                        </span>
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-muted-foreground">Quality Information</h4>
+                <h4 className="text-muted-foreground text-sm font-medium">Quality Information</h4>
                 <div className="space-y-2 text-sm">
-                  {parsed.quality && (
+                  {parsed.quality ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Quality:</span>
                       <Badge variant="secondary">{parsed.quality}</Badge>
                     </div>
-                  )}
-                  {parsed.source && (
+                  ) : null}
+                  {parsed.source ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Source:</span>
                       <span>{parsed.source}</span>
                     </div>
-                  )}
-                  {parsed.codec && (
+                  ) : null}
+                  {parsed.codec ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Codec:</span>
                       <span>{parsed.codec}</span>
                     </div>
-                  )}
-                  {parsed.audioCodecs && parsed.audioCodecs.length > 0 && (
+                  ) : null}
+                  {parsed.audioCodecs && parsed.audioCodecs.length > 0 ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Audio:</span>
                       <span>{parsed.audioCodecs.join(', ')}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          <div className="border-t pt-4 space-y-4">
+          <div className="space-y-4 border-t pt-4">
             <h4 className="text-sm font-medium">Match to Library</h4>
 
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Media Type</label>
-              <Select value={selectedType} onValueChange={(v) => v && setSelectedType(v as 'movie' | 'episode')}>
-                <SelectTrigger>
-                  {selectedType === 'movie' ? 'Movie' : 'TV Episode'}
-                </SelectTrigger>
+              <label className="text-muted-foreground text-sm">Media Type</label>
+              <Select value={selectedType} onValueChange={(v) => v && setSelectedType(v)}>
+                <SelectTrigger>{selectedType === 'movie' ? 'Movie' : 'TV Episode'}</SelectTrigger>
                 <SelectContent>
                   <SelectItem value="movie">Movie</SelectItem>
                   <SelectItem value="episode">TV Episode</SelectItem>
@@ -428,9 +448,9 @@ function EditMatchDialog({
               </Select>
             </div>
 
-            {selectedType === 'movie' && movies && (
+            {selectedType === 'movie' && movies ? (
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Movie</label>
+                <label className="text-muted-foreground text-sm">Movie</label>
                 <Select value={selectedMovieId} onValueChange={(v) => v && setSelectedMovieId(v)}>
                   <SelectTrigger>
                     {selectedMovieId
@@ -449,12 +469,12 @@ function EditMatchDialog({
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            ) : null}
 
-            {selectedType === 'episode' && allSeries && (
+            {selectedType === 'episode' && allSeries ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Series</label>
+                  <label className="text-muted-foreground text-sm">Series</label>
                   <Select
                     value={selectedSeriesId}
                     onValueChange={(v) => {
@@ -464,7 +484,8 @@ function EditMatchDialog({
                   >
                     <SelectTrigger>
                       {selectedSeriesId
-                        ? allSeries.find((s) => s.id.toString() === selectedSeriesId)?.title || 'Select a series'
+                        ? allSeries.find((s) => s.id.toString() === selectedSeriesId)?.title ||
+                          'Select a series'
                         : 'Select a series'}
                     </SelectTrigger>
                     <SelectContent>
@@ -477,44 +498,55 @@ function EditMatchDialog({
                   </Select>
                 </div>
 
-                {selectedSeriesId && episodes && episodes.length > 0 && (
+                {selectedSeriesId && episodes && episodes.length > 0 ? (
                   <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">Episode</label>
-                    <Select value={selectedEpisodeId} onValueChange={(v) => v && setSelectedEpisodeId(v)}>
+                    <label className="text-muted-foreground text-sm">Episode</label>
+                    <Select
+                      value={selectedEpisodeId}
+                      onValueChange={(v) => v && setSelectedEpisodeId(v)}
+                    >
                       <SelectTrigger>
                         {selectedEpisodeId
                           ? (() => {
                               const ep = episodes.find((e) => e.id.toString() === selectedEpisodeId)
-                              return ep ? `S${String(ep.seasonNumber).padStart(2, '0')}E${String(ep.episodeNumber).padStart(2, '0')} - ${ep.title}` : 'Select an episode'
+                              return ep
+                                ? `S${String(ep.seasonNumber).padStart(2, '0')}E${String(ep.episodeNumber).padStart(2, '0')} - ${ep.title}`
+                                : 'Select an episode'
                             })()
                           : 'Select an episode'}
                       </SelectTrigger>
                       <SelectContent>
-                        {episodes
-                          .slice()
-                          .sort((a, b) => a.seasonNumber === b.seasonNumber ? a.episodeNumber - b.episodeNumber : a.seasonNumber - b.seasonNumber)
+                        {[...episodes]
+                          .sort((a, b) =>
+                            a.seasonNumber === b.seasonNumber
+                              ? a.episodeNumber - b.episodeNumber
+                              : a.seasonNumber - b.seasonNumber,
+                          )
                           .map((ep) => (
                             <SelectItem key={ep.id} value={ep.id.toString()}>
-                              S{String(ep.seasonNumber).padStart(2, '0')}E{String(ep.episodeNumber).padStart(2, '0')} - {ep.title}
+                              S{String(ep.seasonNumber).padStart(2, '0')}E
+                              {String(ep.episodeNumber).padStart(2, '0')} - {ep.title}
                             </SelectItem>
                           ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+                ) : null}
               </>
-            )}
+            ) : null}
 
-            {isMultiVersionEnabled && enabledSlots.length > 0 && (
-              <div className="space-y-2 border-t pt-4 mt-4">
+            {isMultiVersionEnabled && enabledSlots.length > 0 ? (
+              <div className="mt-4 space-y-2 border-t pt-4">
                 <h4 className="text-sm font-medium">Version Slot (Multi-Version)</h4>
-                <p className="text-xs text-muted-foreground">
-                  Optionally assign this file to a specific version slot. Leave blank for automatic assignment.
+                <p className="text-muted-foreground text-xs">
+                  Optionally assign this file to a specific version slot. Leave blank for automatic
+                  assignment.
                 </p>
                 <Select value={selectedSlotId} onValueChange={(v) => setSelectedSlotId(v || '')}>
                   <SelectTrigger>
                     {selectedSlotId
-                      ? enabledSlots.find((s: Slot) => s.id.toString() === selectedSlotId)?.name || 'Select a slot'
+                      ? enabledSlots.find((s: Slot) => s.id.toString() === selectedSlotId)?.name ||
+                        'Select a slot'
                       : 'Auto-assign (recommended)'}
                   </SelectTrigger>
                   <SelectContent>
@@ -527,7 +559,7 @@ function EditMatchDialog({
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -536,7 +568,7 @@ function EditMatchDialog({
             Cancel
           </Button>
           <Button onClick={handleConfirm}>
-            <Import className="size-4 mr-2" />
+            <Import className="mr-2 size-4" />
             Import
           </Button>
         </DialogFooter>
@@ -561,16 +593,14 @@ function ScannedFilesList({
   onImportFile: (file: ScannedFile) => void
 }) {
   const matchedFiles = files.filter((f) => f.suggestedMatch)
-  const allSelected = matchedFiles.length > 0 && matchedFiles.every((f) => selectedFiles.has(f.path))
+  const allSelected =
+    matchedFiles.length > 0 && matchedFiles.every((f) => selectedFiles.has(f.path))
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2 px-2 py-1.5 border-b">
-        <Checkbox
-          checked={allSelected}
-          onCheckedChange={onToggleAll}
-        />
-        <span className="text-xs text-muted-foreground">Select all matched files</span>
+      <div className="flex items-center gap-2 border-b px-2 py-1.5">
+        <Checkbox checked={allSelected} onCheckedChange={onToggleAll} />
+        <span className="text-muted-foreground text-xs">Select all matched files</span>
       </div>
 
       {files.map((file) => {
@@ -589,49 +619,54 @@ function ScannedFilesList({
                 disabled={!hasMatch}
                 className="mt-1"
               />
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <FileVideo className={`size-4 shrink-0 ${hasMatch ? 'text-blue-600' : 'text-muted-foreground'}`} />
-                  <span className="text-sm font-medium truncate" title={file.fileName}>
+                  <FileVideo
+                    className={`size-4 shrink-0 ${hasMatch ? 'text-blue-600' : 'text-muted-foreground'}`}
+                  />
+                  <span className="truncate text-sm font-medium" title={file.fileName}>
                     {file.fileName}
                   </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
+                  <span className="text-muted-foreground shrink-0 text-xs">
                     {formatFileSize(file.fileSize)}
                   </span>
                   {!file.valid && (
-                    <Badge variant="destructive" className="text-xs shrink-0">
-                      <AlertCircle className="size-3 mr-1" />
+                    <Badge variant="destructive" className="shrink-0 text-xs">
+                      <AlertCircle className="mr-1 size-3" />
                       Invalid
                     </Badge>
                   )}
                 </div>
 
-                {hasMatch && match && (
-                  <div className="flex items-center gap-2 mt-2 ml-6">
-                    <CornerDownRight className="size-4 text-muted-foreground shrink-0" />
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                {hasMatch && match ? (
+                  <div className="mt-2 ml-6 flex items-center gap-2">
+                    <CornerDownRight className="text-muted-foreground size-4 shrink-0" />
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {match.mediaType === 'episode' ? (
                         <>
-                          <Badge className="bg-primary">{match.seriesTitle || 'Unknown Series'}</Badge>
+                          <Badge className="bg-primary">
+                            {match.seriesTitle || 'Unknown Series'}
+                          </Badge>
                           <Badge variant="secondary">
-                            S{String(match.seasonNum ?? 0).padStart(2, '0')}E{String(match.episodeNum ?? 0).padStart(2, '0')} - "{match.mediaTitle}"
+                            S{String(match.seasonNum ?? 0).padStart(2, '0')}E
+                            {String(match.episodeNum ?? 0).padStart(2, '0')} - "{match.mediaTitle}"
                           </Badge>
                         </>
                       ) : (
                         <>
                           <Badge variant="outline">{match.mediaTitle}</Badge>
-                          {match.year && <Badge variant="secondary">{match.year}</Badge>}
+                          {match.year ? <Badge variant="secondary">{match.year}</Badge> : null}
                         </>
                       )}
                     </div>
-                    <div className="flex gap-1 ml-auto shrink-0">
+                    <div className="ml-auto flex shrink-0 gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-6 px-2"
                         onClick={() => onEditMatch(file)}
                       >
-                        <Pencil className="size-3 mr-1" />
+                        <Pencil className="mr-1 size-3" />
                         Edit Match
                       </Button>
                       <Button
@@ -640,24 +675,26 @@ function ScannedFilesList({
                         className="h-6 px-2"
                         onClick={() => onImportFile(file)}
                       >
-                        <Import className="size-3 mr-1" />
+                        <Import className="mr-1 size-3" />
                         Import
                       </Button>
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 {!hasMatch && (
-                  <div className="flex items-center gap-2 mt-2 ml-6">
-                    <CornerDownRight className="size-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm text-muted-foreground italic">No library match found</span>
+                  <div className="mt-2 ml-6 flex items-center gap-2">
+                    <CornerDownRight className="text-muted-foreground size-4 shrink-0" />
+                    <span className="text-muted-foreground text-sm italic">
+                      No library match found
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-6 px-2 ml-auto shrink-0"
+                      className="ml-auto h-6 shrink-0 px-2"
                       onClick={() => onEditMatch(file)}
                     >
-                      <Pencil className="size-3 mr-1" />
+                      <Pencil className="mr-1 size-3" />
                       Set Match
                     </Button>
                   </div>
@@ -687,8 +724,8 @@ function PendingImportsCard() {
         <CardContent>
           <div className="space-y-2">
             {Array.from({ length: 3 }, (_, i) => (
-              <div key={i} className="flex items-center justify-between p-2 border rounded-lg">
-                <div className="flex-1 min-w-0 space-y-1.5">
+              <div key={i} className="flex items-center justify-between rounded-lg border p-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-5 w-16 rounded-full" />
                 </div>
@@ -701,7 +738,9 @@ function PendingImportsCard() {
     )
   }
 
-  if (!pending || pending.length === 0) return null
+  if (!pending || pending.length === 0) {
+    return null
+  }
 
   return (
     <Card>
@@ -714,23 +753,19 @@ function PendingImportsCard() {
           {pending.map((item) => (
             <div
               key={item.id || item.filePath}
-              className="flex items-center justify-between p-2 border rounded-lg"
+              className="flex items-center justify-between rounded-lg border p-2"
             >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{item.fileName}</p>
-                <div className="flex items-center gap-2 mt-1">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{item.fileName}</p>
+                <div className="mt-1 flex items-center gap-2">
                   <Badge variant={item.status === 'failed' ? 'destructive' : 'outline'}>
                     {item.status}
                   </Badge>
-                  {item.isProcessing && (
-                    <Loader2 className="size-3 animate-spin" />
-                  )}
+                  {item.isProcessing ? <Loader2 className="size-3 animate-spin" /> : null}
                 </div>
-                {item.error && (
-                  <p className="text-xs text-red-600 mt-1">{item.error}</p>
-                )}
+                {item.error ? <p className="mt-1 text-xs text-red-600">{item.error}</p> : null}
               </div>
-              {item.status === 'failed' && item.id && (
+              {item.status === 'failed' && item.id ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -739,7 +774,7 @@ function PendingImportsCard() {
                 >
                   Retry
                 </Button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
@@ -757,22 +792,25 @@ export function ManualImportPage() {
   const scanMutation = useScanDirectory()
   const importMutation = useManualImport()
 
-  const handleScanPath = useCallback(async (path: string) => {
-    try {
-      const result = await scanMutation.mutateAsync({ path })
-      setScannedFiles(result.files)
-      const matchedPaths = result.files
-        .filter((f) => f.suggestedMatch)
-        .map((f) => f.path)
-      setSelectedFiles(new Set(matchedPaths))
-    } catch {
-      toast.error('Failed to scan directory')
-    }
-  }, [scanMutation])
+  const handleScanPath = useCallback(
+    async (path: string) => {
+      try {
+        const result = await scanMutation.mutateAsync({ path })
+        setScannedFiles(result.files)
+        const matchedPaths = result.files.filter((f) => f.suggestedMatch).map((f) => f.path)
+        setSelectedFiles(new Set(matchedPaths))
+      } catch {
+        toast.error('Failed to scan directory')
+      }
+    },
+    [scanMutation],
+  )
 
   const handleToggleFile = (path: string) => {
     const file = scannedFiles.find((f) => f.path === path)
-    if (!file?.suggestedMatch) return
+    if (!file?.suggestedMatch) {
+      return
+    }
 
     setSelectedFiles((prev) => {
       const next = new Set(prev)
@@ -787,7 +825,8 @@ export function ManualImportPage() {
 
   const handleToggleAll = () => {
     const matchedFiles = scannedFiles.filter((f) => f.suggestedMatch)
-    const allMatchedSelected = matchedFiles.length > 0 && matchedFiles.every((f) => selectedFiles.has(f.path))
+    const allMatchedSelected =
+      matchedFiles.length > 0 && matchedFiles.every((f) => selectedFiles.has(f.path))
 
     if (allMatchedSelected) {
       setSelectedFiles(new Set())
@@ -797,11 +836,11 @@ export function ManualImportPage() {
   }
 
   const handleImportSelected = async () => {
-    const filesToImport = scannedFiles.filter(
-      (f) => selectedFiles.has(f.path) && f.suggestedMatch
-    )
+    const filesToImport = scannedFiles.filter((f) => selectedFiles.has(f.path) && f.suggestedMatch)
 
-    if (filesToImport.length === 0) return
+    if (filesToImport.length === 0) {
+      return
+    }
 
     let successCount = 0
     let failCount = 0
@@ -828,7 +867,9 @@ export function ManualImportPage() {
           })
         } else {
           failCount++
-          if (result.error) lastError = result.error
+          if (result.error) {
+            lastError = result.error
+          }
         }
       } catch {
         failCount++
@@ -850,7 +891,13 @@ export function ManualImportPage() {
 
   const handleConfirmImport = async (
     file: ScannedFile,
-    match: { mediaType: string; mediaId: number; seriesId?: number; seasonNum?: number; targetSlotId?: number }
+    match: {
+      mediaType: string
+      mediaId: number
+      seriesId?: number
+      seasonNum?: number
+      targetSlotId?: number
+    },
   ) => {
     try {
       const result = await importMutation.mutateAsync({
@@ -881,7 +928,9 @@ export function ManualImportPage() {
   }
 
   const handleDirectImport = async (file: ScannedFile) => {
-    if (!file.suggestedMatch) return
+    if (!file.suggestedMatch) {
+      return
+    }
 
     const match = file.suggestedMatch
     try {
@@ -911,10 +960,7 @@ export function ManualImportPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Manual Import"
-        description="Browse and import media files manually"
-      />
+      <PageHeader title="Manual Import" description="Browse and import media files manually" />
 
       <div className="space-y-6">
         <FileBrowser

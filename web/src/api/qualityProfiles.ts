@@ -1,18 +1,17 @@
-import { apiFetch } from './client'
 import type {
-  QualityProfile,
-  CreateQualityProfileInput,
-  UpdateQualityProfileInput,
   AttributeOptions,
   CheckExclusivityResponse,
+  CreateQualityProfileInput,
+  QualityProfile,
+  UpdateQualityProfileInput,
 } from '@/types'
 
-export const qualityProfilesApi = {
-  list: () =>
-    apiFetch<QualityProfile[]>('/qualityprofiles'),
+import { apiFetch } from './client'
 
-  get: (id: number) =>
-    apiFetch<QualityProfile>(`/qualityprofiles/${id}`),
+export const qualityProfilesApi = {
+  list: () => apiFetch<QualityProfile[]>('/qualityprofiles'),
+
+  get: (id: number) => apiFetch<QualityProfile>(`/qualityprofiles/${id}`),
 
   create: (data: CreateQualityProfileInput) =>
     apiFetch<QualityProfile>('/qualityprofiles', {
@@ -26,11 +25,9 @@ export const qualityProfilesApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    apiFetch<void>(`/qualityprofiles/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<void>(`/qualityprofiles/${id}`, { method: 'DELETE' }),
 
-  getAttributes: () =>
-    apiFetch<AttributeOptions>('/qualityprofiles/attributes'),
+  getAttributes: () => apiFetch<AttributeOptions>('/qualityprofiles/attributes'),
 
   checkExclusivity: (profileIds: number[]) =>
     apiFetch<CheckExclusivityResponse>('/qualityprofiles/check-exclusivity', {
