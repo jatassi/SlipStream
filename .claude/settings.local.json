@@ -93,7 +93,15 @@
       "Bash(gh api:*)",
       "Bash(gh release delete:*)",
       "Bash(bun run lint:fix:*)",
-      "Bash(bun run format:*)"
+      "Bash(bun run format:*)",
+      "Bash(./scripts/lint/count-rule.sh:*)",
+      "Bash(./scripts/lint/file.sh:*)",
+      "Bash(/Users/jatassi/Git/SlipStream/scripts/lint/count-rule.sh:*)",
+      "Bash(/Users/jatassi/Git/SlipStream/scripts/lint/file.sh:*)",
+      "Bash(/Users/jatassi/Git/SlipStream/scripts/lint/summary.sh:*)",
+      "Bash(./scripts/lint/summary.sh:*)",
+      "Bash(bunx tsc:*)",
+      "Bash(git stash:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
