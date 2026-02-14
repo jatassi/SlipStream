@@ -50,7 +50,7 @@ jobs:
   # Stage 2: Platform builds (run in parallel)
   # ===========================================
 
-  # Windows: Native build + NSIS installer + portable ZIP
+  # Windows: Native build + WiX v5 MSI installer + portable ZIP
   build-windows:
     needs: build-frontend
     runs-on: windows-latest
@@ -78,6 +78,12 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Embed Windows resources
+        shell: bash
+        run: |
+          go install github.com/tc-hib/go-winres@latest
+          go-winres make --in scripts/windows/winres.json --out cmd/slipstream/rsrc
+
       - name: Build Windows binary
         shell: bash
         env:
@@ -99,21 +105,23 @@ jobs:
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          # Copy manifest file for side-by-side loading
-          Copy-Item scripts/windows/slipstream.manifest dist/slipstream_windows_amd64/slipstream.exe.manifest
           Compress-Archive -Path dist/slipstream_windows_amd64/* -DestinationPath "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.zip"
 
-      - name: Install NSIS
-        run: choco install nsis -y
-
-      - name: Create NSIS installer
+      - name: Install WiX v5
         run: |
-          $env:PATH = "C:\Program Files (x86)\NSIS;$env:PATH"
-          makensis /DVERSION=${{ steps.version.outputs.version }} scripts\windows\installer.nsi
+          dotnet tool install --global wix
+          wix extension add --global WixToolset.UI.wixext
+          wix extension add --global WixToolset.Util.wixext
 
-      - name: Move installer to dist
+      - name: Create MSI installer
         shell: bash
-        run: mv scripts/windows/*.exe dist/ || true
+        run: |
+          wix build scripts/windows/installer.wxs \
+            -o "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.msi" \
+            -d VERSION=${{ steps.version.outputs.version }} \
+            -bindpath dist=dist/slipstream_windows_amd64 \
+            -ext WixToolset.UI.wixext \
+            -ext WixToolset.Util.wixext
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -121,7 +129,7 @@ jobs:
           name: windows-artifacts
           path: |
             dist/*.zip
-            dist/*.exe
+            dist/*.msi
           retention-days: 1
 
   # macOS Intel (amd64) - native build with CGO for menu bar
@@ -443,7 +451,7 @@ jobs:
 
           # Windows
           cp artifacts/windows-artifacts/*.zip release/ 2>/dev/null || true
-          cp artifacts/windows-artifacts/*.exe release/ 2>/dev/null || true
+          cp artifacts/windows-artifacts/*.msi release/ 2>/dev/null || true
 
           # macOS
           cp artifacts/macos-amd64-artifacts/*.dmg release/ 2>/dev/null || true

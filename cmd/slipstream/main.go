@@ -411,7 +411,14 @@ func completeUpdate(targetPath string, port int) {
 		}
 
 		if copyErr != nil {
-			bootstrapLog(fmt.Sprintf("Failed to copy executable after %d attempts: %v", maxRetries, copyErr))
+			if runtime.GOOS == "windows" && os.IsPermission(copyErr) {
+				bootstrapLog("Permission denied — the install directory is not user-writable.")
+				bootstrapLog("This typically means SlipStream was installed with the old NSIS installer into Program Files.")
+				bootstrapLog("Please uninstall the old version and reinstall using the new MSI installer,")
+				bootstrapLog("which installs to %LOCALAPPDATA%\\Programs\\SlipStream\\ (no admin required).")
+			} else {
+				bootstrapLog(fmt.Sprintf("Failed to copy executable after %d attempts: %v", maxRetries, copyErr))
+			}
 			os.Exit(1)
 		}
 		bootstrapLog("Executable copied successfully")

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="SlipStream"
+           Manufacturer="SlipStream"
+           Version="$(VERSION)"
+           UpgradeCode="8f4e3a2b-1c5d-4e6f-9a7b-0d2e8f1c3a5b"
+           Scope="perUser">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of SlipStream is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch SlipStream" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]slipstream.exe" />
+    <CustomAction Id="LaunchApplication"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes"
+                  BinaryRef="Wix4UtilCA_X86" />
+    <InstallExecuteSequence>
+      <Custom Action="LaunchApplication" After="InstallFinalize">
+        WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+      </Custom>
+    </InstallExecuteSequence>
+
+    <!-- Install directory: %LOCALAPPDATA%\SlipStream\ (binary + data coexist) -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="SlipStream">
+        <Directory Id="DataDir" Name="data" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="StartMenuDir" Name="SlipStream" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="StartupFolder" />
+
+    <!-- Main feature: the executable (required) -->
+    <Feature Id="Main" Title="SlipStream" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="MainComponents" />
+      <ComponentRef Id="DataDirComponent" />
+    </Feature>
+
+    <!-- Start Menu shortcut (default ON) -->
+    <Feature Id="StartMenuShortcut" Title="Start Menu Shortcut" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <!-- Desktop shortcut (default OFF) -->
+    <Feature Id="DesktopShortcut" Title="Desktop Shortcut" Level="2" AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <!-- Start with Windows (default ON) -->
+    <Feature Id="StartWithWindows" Title="Start with Windows" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="StartupShortcutComponent" />
+    </Feature>
+
+    <!-- Main executable component -->
+    <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
+      <Component Id="SlipStreamExe">
+        <File Id="SlipStreamExeFile" Source="!(bindpath.dist)\slipstream.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Data directory (created on install, left behind on uninstall) -->
+    <Component Id="DataDirComponent" Directory="DataDir" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+      <CreateFolder />
+      <RegistryValue Root="HKCU" Key="Software\SlipStream" Name="DataDir" Type="string" Value="[DataDir]" KeyPath="yes" />
+    </Component>
+
+    <!-- Start Menu shortcut -->
+    <Component Id="StartMenuShortcutComponent" Directory="StartMenuDir" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
+      <Shortcut Id="StartMenuShortcut"
+                Name="SlipStream"
+                Target="[INSTALLFOLDER]slipstream.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Description="SlipStream Media Management" />
+      <RemoveFolder Id="RemoveStartMenuDir" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\SlipStream" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Desktop shortcut -->
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="c3d4e5f6-a7b8-9012-cdef-123456789012">
+      <Shortcut Id="DesktopShortcut"
+                Name="SlipStream"
+                Target="[INSTALLFOLDER]slipstream.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Description="SlipStream Media Management" />
+      <RegistryValue Root="HKCU" Key="Software\SlipStream" Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Startup folder shortcut (Start with Windows) -->
+    <Component Id="StartupShortcutComponent" Directory="StartupFolder" Guid="d4e5f6a7-b8c9-0123-defa-234567890123">
+      <Shortcut Id="StartupShortcut"
+                Name="SlipStream"
+                Target="[INSTALLFOLDER]slipstream.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Description="SlipStream Media Management" />
+      <RegistryValue Root="HKCU" Key="Software\SlipStream" Name="Startup" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+  </Package>
+</Wix>

@@ -301,7 +301,7 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 	var patterns []string
 	switch goos {
 	case "windows":
-		// Prefer portable ZIP for in-app updates (no elevation required)
+		// Prefer portable ZIP for in-app updates (binary replacement in user-writable install dir)
 		patterns = []string{
 			fmt.Sprintf("_windows_%s.zip", goarch),
 		}
