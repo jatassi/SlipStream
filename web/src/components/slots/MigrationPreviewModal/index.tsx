@@ -59,9 +59,12 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
   const [manualEdits, setManualEdits] = useState<Map<number, ManualEdit>>(new Map())
   const [assignModalOpen, setAssignModalOpen] = useState(false)
 
+  const previewMutate = previewMutation.mutate
+  const previewPending = previewMutation.isPending
+  const previewError = previewMutation.isError
   useEffect(() => {
-    if (open && !preview && !previewMutation.isPending) {
-      previewMutation.mutate(undefined, {
+    if (open && !preview && !previewPending && !previewError) {
+      previewMutate(undefined, {
         onSuccess: (data) => {
           setPreview(data)
           if (data.movies.length > 0) {
@@ -75,7 +78,7 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
         },
       })
     }
-  }, [open])
+  }, [open, preview, previewPending, previewError, previewMutate])
 
   useEffect(() => {
     if (!open) {
@@ -86,8 +89,9 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
       setSelectedFileIds(new Set())
       setManualEdits(new Map())
       setAssignModalOpen(false)
+      previewMutation.reset()
     }
-  }, [open])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadDebugData = async () => {
     setIsLoadingDebugData(true)
@@ -223,7 +227,7 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
       }
       return movies.flatMap(m => m.files.map(f => f.fileId))
     } else {
-      let shows = editedPreview.tvShows
+      const shows = editedPreview.tvShows
       if (filter === 'assigned') {
         return shows.flatMap(show =>
           show.seasons.flatMap(season =>
