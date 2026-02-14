@@ -16,7 +16,7 @@
 ======== Ready for Dogfooding ========
 [*] Logo and color palette
 [ ] Update dashboard
-[ ] Update history page
+[x] Update history page
 [x] Update active task UI
 [x] Update movies/series list pages
 [x] Update detail pages
