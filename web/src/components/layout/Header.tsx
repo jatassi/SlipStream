@@ -16,7 +16,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import { Toggle } from '@/components/ui/toggle'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
 import { useUIStore, useDevModeStore, useWebSocketStore, useProgressStore } from '@/stores'
 import { Badge } from '@/components/ui/badge'
 import { SearchBar } from '@/components/search/SearchBar'
@@ -125,58 +126,57 @@ export function Header() {
           </HoverCard>
         )}
 
-        {/* Developer Mode Toggle */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Toggle
-                  pressed={devModeEnabled}
-                  onPressedChange={handleDevModeToggle}
-                  disabled={devModeSwitching}
-                  size="sm"
-                  className={cn(
-                    devModeEnabled && 'bg-amber-600/20 text-amber-500 hover:bg-amber-600/30 hover:text-amber-400'
-                  )}
-                />
-              }
-            >
-              {devModeSwitching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Hammer className="size-4" />
-              )}
-            </TooltipTrigger>
-            <TooltipContent>
-              {devModeEnabled ? 'Developer mode enabled' : 'Developer mode disabled'}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        {/* Global Loading Toggle (dev mode only) */}
-        {devModeEnabled && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Toggle
-                    pressed={globalLoading}
-                    onPressedChange={setGlobalLoading}
-                    size="sm"
-                    className={cn(
-                      globalLoading && 'bg-purple-600/20 text-purple-500 hover:bg-purple-600/30 hover:text-purple-400'
-                    )}
-                  />
-                }
+        {/* Developer Mode */}
+        <div className="flex items-center gap-1.5">
+          {devModeEnabled ? (
+            <Popover>
+              <PopoverTrigger
+                className={cn(
+                  'inline-flex items-center justify-center rounded-md h-8 w-8 transition-colors',
+                  'text-amber-500 hover:bg-amber-600/20'
+                )}
               >
-                <LayoutTemplate className="size-4" />
-              </TooltipTrigger>
-              <TooltipContent>
-                {globalLoading ? 'Loading states forced on' : 'Force loading states'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+                {devModeSwitching ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Hammer className="size-4" />
+                )}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-0 gap-0">
+                <div className="px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Developer Tools</span>
+                </div>
+                <div className="p-2 space-y-1">
+                  <label className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors cursor-pointer">
+                    <LayoutTemplate className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1">Force Loading</span>
+                    <Switch
+                      checked={globalLoading}
+                      onCheckedChange={setGlobalLoading}
+                      size="sm"
+                    />
+                  </label>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground">
+                  <Hammer className="size-4" />
+                </TooltipTrigger>
+                <TooltipContent>Enable developer mode</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <Switch
+            checked={devModeEnabled}
+            onCheckedChange={handleDevModeToggle}
+            disabled={devModeSwitching}
+            size="sm"
+            className={cn(devModeEnabled && 'data-checked:bg-amber-500')}
+          />
+        </div>
 
         {/* Notifications */}
         <DropdownMenu>
