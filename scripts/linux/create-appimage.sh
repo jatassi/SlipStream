@@ -67,12 +67,17 @@ exec "${HERE}/usr/bin/slipstream" "$@"
 EOF
 chmod +x "$APP_DIR/AppRun"
 
-# Download appimagetool if not present
-APPIMAGETOOL="$BUILD_DIR/appimagetool"
-if [ ! -f "$APPIMAGETOOL" ]; then
-    echo "Downloading appimagetool..."
-    curl -L -o "$APPIMAGETOOL" "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-    chmod +x "$APPIMAGETOOL"
+# Use appimagetool from PATH if available, otherwise download
+if command -v appimagetool &> /dev/null; then
+    APPIMAGETOOL="$(command -v appimagetool)"
+    echo "Using cached appimagetool: $APPIMAGETOOL"
+else
+    APPIMAGETOOL="$BUILD_DIR/appimagetool"
+    if [ ! -f "$APPIMAGETOOL" ]; then
+        echo "Downloading appimagetool..."
+        curl -L -o "$APPIMAGETOOL" "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+        chmod +x "$APPIMAGETOOL"
+    fi
 fi
 
 # Create AppImage

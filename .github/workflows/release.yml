@@ -61,6 +61,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
@@ -78,10 +79,19 @@ jobs:
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Cache go-winres
+        id: cache-gowinres
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/go-winres.exe
+          key: go-winres-windows-1
+
       - name: Embed Windows resources
         shell: bash
         run: |
-          go install github.com/tc-hib/go-winres@latest
+          if ! command -v go-winres &> /dev/null; then
+            go install github.com/tc-hib/go-winres@latest
+          fi
           go-winres make --in scripts/windows/winres.json --out cmd/slipstream/rsrc
 
       - name: Build Windows binary
@@ -107,7 +117,17 @@ jobs:
         run: |
           Compress-Archive -Path dist/slipstream_windows_amd64/* -DestinationPath "dist/slipstream_${{ steps.version.outputs.version }}_windows_amd64.zip"
 
+      - name: Cache WiX toolset
+        id: cache-wix
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.dotnet/tools
+            ~/.wix
+          key: wix-windows-5.0.2
+
       - name: Install WiX v5
+        if: steps.cache-wix.outputs.cache-hit != 'true'
         run: |
           dotnet tool install --global wix --version 5.0.2
           wix extension add --global WixToolset.UI.wixext/5.0.2
@@ -144,6 +164,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
@@ -201,6 +222,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
@@ -258,6 +280,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
@@ -283,26 +306,17 @@ jobs:
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
           mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
-
-          # Build main binary (amd64)
-          GOARCH=amd64 go build -ldflags "-s -w \
+          LDFLAGS="-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
-            -o dist/slipstream_linux_amd64/slipstream ./cmd/slipstream
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'"
 
-          # Build main binary (arm64)
-          GOARCH=arm64 go build -ldflags "-s -w \
-            -X 'github.com/slipstream/slipstream/internal/config.Version=${{ steps.version.outputs.version }}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
-            -o dist/slipstream_linux_arm64/slipstream ./cmd/slipstream
-
-          # Build stub launcher (small binary that bootstraps real binary to user dir)
-          GOARCH=amd64 go build -ldflags "-s -w" -o dist/slipstream_linux_amd64/slipstream-stub ./cmd/stub
-          GOARCH=arm64 go build -ldflags "-s -w" -o dist/slipstream_linux_arm64/slipstream-stub ./cmd/stub
+          GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/slipstream_linux_amd64/slipstream ./cmd/slipstream &
+          GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/slipstream_linux_arm64/slipstream ./cmd/slipstream &
+          GOARCH=amd64 go build -ldflags "-s -w" -o dist/slipstream_linux_amd64/slipstream-stub ./cmd/stub &
+          GOARCH=arm64 go build -ldflags "-s -w" -o dist/slipstream_linux_arm64/slipstream-stub ./cmd/stub &
+          wait
 
       - name: Create portable tarballs
         run: |
@@ -311,7 +325,15 @@ jobs:
           tar -czvf "dist/slipstream_${VERSION}_linux_amd64.tar.gz" -C dist/slipstream_linux_amd64 slipstream
           tar -czvf "dist/slipstream_${VERSION}_linux_arm64.tar.gz" -C dist/slipstream_linux_arm64 slipstream
 
+      - name: Cache nfpm
+        id: cache-nfpm
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/nfpm
+          key: nfpm-linux-2.44.1
+
       - name: Install nfpm
+        if: steps.cache-nfpm.outputs.cache-hit != 'true'
         run: |
           NFPM_VERSION="2.44.1"
           curl -sL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" -o /tmp/nfpm.tar.gz
@@ -387,6 +409,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y fuse libfuse2
+
+      - name: Cache appimagetool
+        id: cache-appimagetool
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/appimagetool
+          key: appimagetool-linux-x86_64-1
+
+      - name: Install appimagetool
+        if: steps.cache-appimagetool.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o /usr/local/bin/appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x /usr/local/bin/appimagetool
 
       - name: Create AppImage
         run: |
