@@ -237,6 +237,7 @@ function PatternEditorCompact({
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
   const debouncedValue = useDebounce(localValue, 500)
   const previewMutation = usePreviewNamingPattern()
+  const previewMutate = previewMutation.mutate
 
   useEffect(() => {
     setLocalValue(value)
@@ -244,9 +245,9 @@ function PatternEditorCompact({
 
   useEffect(() => {
     if (debouncedValue) {
-      previewMutation.mutate({ pattern: debouncedValue, mediaType })
+      previewMutate({ pattern: debouncedValue, mediaType })
     }
-  }, [debouncedValue, mediaType])
+  }, [debouncedValue, mediaType, previewMutate])
 
   const handleChange = (newValue: string) => {
     setLocalValue(newValue)

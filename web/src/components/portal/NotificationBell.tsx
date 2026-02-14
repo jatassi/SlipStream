@@ -18,15 +18,16 @@ export function NotificationBell() {
   const { data: inboxData, isLoading } = useInbox(50, 0)
   const markAllRead = useMarkAllRead()
   const markRead = useMarkRead()
+  const markAllReadMutate = markAllRead.mutate
 
   const hasUnread = (unreadData?.count ?? 0) > 0
 
   // When popover opens, mark all as read
   useEffect(() => {
     if (open && hasUnread) {
-      markAllRead.mutate()
+      markAllReadMutate()
     }
-  }, [open, hasUnread])
+  }, [open, hasUnread, markAllReadMutate])
 
   const handleNotificationClick = (notification: PortalNotification) => {
     if (!notification.read) {

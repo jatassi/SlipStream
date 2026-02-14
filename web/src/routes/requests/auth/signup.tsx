@@ -24,14 +24,18 @@ export function SignupPage() {
 
   const [pin, setPin] = useState('')
 
-  const performSignup = useCallback(() => {
-    if (signupMutation.isPending) return
+  const signupMutate = signupMutation.mutate
+  const signupPending = signupMutation.isPending
+  const invitationUsername = invitation?.username
 
-    signupMutation.mutate(
+  const performSignup = useCallback(() => {
+    if (signupPending) return
+
+    signupMutate(
       { token, password: pin },
       {
         onSuccess: () => {
-          localStorage.setItem('slipstream_last_username', invitation?.username || '')
+          localStorage.setItem('slipstream_last_username', invitationUsername || '')
           toast.success('Account created successfully')
           navigate({ to: '/requests' })
         },
@@ -43,7 +47,7 @@ export function SignupPage() {
         },
       }
     )
-  }, [token, pin, signupMutation, navigate])
+  }, [token, pin, signupMutate, signupPending, invitationUsername, navigate])
 
   useEffect(() => {
     if (pin.length === 4) {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { defaultsApi } from '@/api'
+import type { EntityType, MediaType } from '@/api/defaults'
 
 export const defaultsKeys = {
   all: ['defaults'] as const,
@@ -16,24 +17,24 @@ export const useDefaults = () =>
     queryFn: () => defaultsApi.getAll(),
   })
 
-export const useDefaultsByEntityType = (entityType: string) =>
+export const useDefaultsByEntityType = (entityType: EntityType) =>
   useQuery({
     queryKey: defaultsKeys.listByEntityType(entityType),
-    queryFn: () => defaultsApi.getByEntityType(entityType as any),
+    queryFn: () => defaultsApi.getByEntityType(entityType),
   })
 
-export const useDefault = (entityType: string, mediaType: string) =>
+export const useDefault = (entityType: EntityType, mediaType: MediaType) =>
   useQuery({
     queryKey: defaultsKeys.detail(entityType, mediaType),
-    queryFn: () => defaultsApi.get(entityType as any, mediaType as any),
+    queryFn: () => defaultsApi.get(entityType, mediaType),
   })
 
 export const useSetDefault = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ entityType, mediaType, entityId }: { entityType: string; mediaType: string; entityId: number }) =>
-      defaultsApi.set(entityType as any, mediaType as any, entityId),
+    mutationFn: ({ entityType, mediaType, entityId }: { entityType: EntityType; mediaType: MediaType; entityId: number }) =>
+      defaultsApi.set(entityType, mediaType, entityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: defaultsKeys.all })
     }
@@ -42,10 +43,10 @@ export const useSetDefault = () => {
 
 export const useClearDefault = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
-    mutationFn: ({ entityType, mediaType }: { entityType: string; mediaType: string }) =>
-      defaultsApi.clear(entityType as any, mediaType as any),
+    mutationFn: ({ entityType, mediaType }: { entityType: EntityType; mediaType: MediaType }) =>
+      defaultsApi.clear(entityType, mediaType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: defaultsKeys.all })
     }

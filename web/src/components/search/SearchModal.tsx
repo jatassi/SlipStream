@@ -207,7 +207,7 @@ export function SearchModal({
     }
   }
 
-  const rawReleases = data?.releases || []
+  const rawReleases = useMemo(() => data?.releases ?? [], [data?.releases])
   const errors = data?.errors || []
   // All results now include torrent info (seeders/leechers)
   const hasTorrents = rawReleases.length > 0

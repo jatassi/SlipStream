@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDownloadingStore } from '@/stores'
 import type { QueueItem } from '@/types/queue'
 
@@ -64,34 +64,28 @@ const COMPLETION_DURATION = 2500
 export function useMediaDownloadProgress(target: MediaTarget): MediaDownloadProgress {
   const queueItems = useDownloadingStore((state) => state.queueItems)
   const [justCompleted, setJustCompleted] = useState(false)
-  const prevItemIdsRef = useRef<Set<string>>(new Set())
-  const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [prevItemCount, setPrevItemCount] = useState(0)
 
   const items = useMemo(() => matchItems(queueItems, target), [queueItems, target])
 
-  const itemIds = useMemo(
-    () => new Set(items.map((i) => i.id)),
-    [items]
-  )
+  const itemCount = items.length
 
-  // Detect completion: items we were tracking disappeared
-  useEffect(() => {
-    const prev = prevItemIdsRef.current
-    if (prev.size > 0 && itemIds.size === 0) {
-      // All tracked items have been removed — completion
+  // Detect completion: items we were tracking disappeared (render-time state adjustment)
+  if (itemCount !== prevItemCount) {
+    setPrevItemCount(itemCount)
+    if (prevItemCount > 0 && itemCount === 0) {
       setJustCompleted(true)
-      completionTimerRef.current = setTimeout(() => {
-        setJustCompleted(false)
-      }, COMPLETION_DURATION)
     }
-    prevItemIdsRef.current = itemIds
+  }
 
-    return () => {
-      if (completionTimerRef.current) {
-        clearTimeout(completionTimerRef.current)
-      }
-    }
-  }, [itemIds])
+  // Auto-reset completion flag after delay
+  useEffect(() => {
+    if (!justCompleted) return
+    const timer = setTimeout(() => {
+      setJustCompleted(false)
+    }, COMPLETION_DURATION)
+    return () => clearTimeout(timer)
+  }, [justCompleted])
 
   const isDownloading = items.length > 0
   const isPaused = isDownloading && items.every((i) => i.status === 'paused')

@@ -52,12 +52,16 @@ export function PortalDownloads() {
 
   const { data: downloads } = usePortalDownloads()
 
-  const activeDownloads = downloads?.filter(
-    d => d.status === 'downloading' || d.status === 'queued' || d.status === 'paused'
-  ) || []
+  const activeDownloads = useMemo(() =>
+    downloads?.filter(
+      d => d.status === 'downloading' || d.status === 'queued' || d.status === 'paused'
+    ) ?? []
+  , [downloads])
 
   // Maintain stable order: keep items in the order they were first seen
-  const activeKeys = new Set(activeDownloads.map(d => `${d.clientId}-${d.id}`))
+  const activeKeys = useMemo(() =>
+    new Set(activeDownloads.map(d => `${d.clientId}-${d.id}`))
+  , [activeDownloads])
 
   // Compute the new order based on current active keys
   const newOrder = useMemo(() => {

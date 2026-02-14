@@ -272,6 +272,7 @@ function useComboboxAnchor() {
   return React.useRef<HTMLDivElement | null>(null)
 }
 
+/* eslint-disable react-refresh/only-export-components */
 export {
   Combobox,
   ComboboxInput,

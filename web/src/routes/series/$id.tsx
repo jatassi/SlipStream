@@ -78,10 +78,11 @@ export function SeriesDetailPage() {
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
   const enabledSlots = slots?.filter(s => s.enabled) ?? []
 
+  const extendedSeasons = extendedData?.seasons
   const episodeRatings = useMemo(() => {
-    if (!extendedData?.seasons) return undefined
+    if (!extendedSeasons) return undefined
     const map: Record<number, Record<number, number>> = {}
-    for (const season of extendedData.seasons) {
+    for (const season of extendedSeasons) {
       if (season.episodes) {
         const seasonMap: Record<number, number> = {}
         for (const ep of season.episodes) {
@@ -95,7 +96,7 @@ export function SeriesDetailPage() {
       }
     }
     return Object.keys(map).length > 0 ? map : undefined
-  }, [extendedData?.seasons])
+  }, [extendedSeasons])
 
   const handleAssignFileToSlot = async (fileId: number, episodeId: number, slotId: number) => {
     try {

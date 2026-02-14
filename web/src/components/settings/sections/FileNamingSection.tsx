@@ -278,6 +278,7 @@ function PatternEditor({
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
   const debouncedValue = useDebounce(localValue, 500)
   const previewMutation = usePreviewNamingPattern()
+  const previewMutate = previewMutation.mutate
 
   useEffect(() => {
     setLocalValue(value)
@@ -285,9 +286,9 @@ function PatternEditor({
 
   useEffect(() => {
     if (debouncedValue) {
-      previewMutation.mutate({ pattern: debouncedValue, mediaType })
+      previewMutate({ pattern: debouncedValue, mediaType })
     }
-  }, [debouncedValue, mediaType])
+  }, [debouncedValue, mediaType, previewMutate])
 
   const handleChange = (newValue: string) => {
     setLocalValue(newValue)
@@ -422,12 +423,13 @@ function FilenameTester({
   const [filename, setFilename] = useState('')
   const debouncedFilename = useDebounce(filename, 300)
   const parseMutation = useParseFilename()
+  const parseMutate = parseMutation.mutate
 
   useEffect(() => {
     if (debouncedFilename.trim()) {
-      parseMutation.mutate({ filename: debouncedFilename })
+      parseMutate({ filename: debouncedFilename })
     }
-  }, [debouncedFilename])
+  }, [debouncedFilename, parseMutate])
 
   const result = parseMutation.data
   const showResult = filename.trim() && result

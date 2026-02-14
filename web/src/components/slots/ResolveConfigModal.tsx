@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,11 +78,14 @@ export function ResolveConfigModal({
   const [saving, setSaving] = useState(false)
 
   // Get unique profile names that have conflicts
-  const conflictingProfileNames = new Set<string>()
-  conflicts.forEach((c) => {
-    conflictingProfileNames.add(c.slotAName)
-    conflictingProfileNames.add(c.slotBName)
-  })
+  const conflictingProfileNames = useMemo(() => {
+    const names = new Set<string>()
+    conflicts.forEach((c) => {
+      names.add(c.slotAName)
+      names.add(c.slotBName)
+    })
+    return names
+  }, [conflicts])
 
   // Get conflicting attributes for highlighting
   const conflictingAttributes = new Set<string>()
@@ -93,11 +96,11 @@ export function ResolveConfigModal({
   })
 
   // Find profiles that are assigned to slots and have conflicts
-  const profilesToEdit = (profiles || []).filter((profile) => {
+  const profilesToEdit = useMemo(() => (profiles || []).filter((profile) => {
     const slot = slots?.find((s) => s.qualityProfileId === profile.id && s.enabled)
     if (!slot) return false
     return conflictingProfileNames.has(slot.name)
-  })
+  }), [profiles, slots, conflictingProfileNames])
 
   // Initialize form data when modal opens
   useEffect(() => {
@@ -120,7 +123,7 @@ export function ResolveConfigModal({
       })
       setProfileForms(forms)
     }
-  }, [open, profiles, slots])
+  }, [open, profilesToEdit])
 
   const updateProfileForm = (
     profileId: number,

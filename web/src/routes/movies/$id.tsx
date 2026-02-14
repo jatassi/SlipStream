@@ -88,7 +88,7 @@ export function MovieDetailPage() {
 
 
   const isMultiVersionEnabled = multiVersionSettings?.enabled ?? false
-  const enabledSlots = slots?.filter(s => s.enabled) ?? []
+  const enabledSlots = useMemo(() => slots?.filter(s => s.enabled) ?? [], [slots])
 
   const slotQualityProfiles = useMemo(() => {
     const map: Record<number, number> = {}
