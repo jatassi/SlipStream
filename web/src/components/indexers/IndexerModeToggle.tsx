@@ -63,7 +63,7 @@ export function IndexerModeToggle({ onModeChange }: IndexerModeToggleProps) {
                 </Badge>
               </div>
               <p className="text-muted-foreground text-sm">
-                Use SlipStream's built-in Cardigann-based indexer management. Configure indexers
+                Use SlipStream&apos;s built-in Cardigann-based indexer management. Configure indexers
                 directly within SlipStream.
               </p>
             </Label>
@@ -78,7 +78,7 @@ export function IndexerModeToggle({ onModeChange }: IndexerModeToggleProps) {
               </div>
               <p className="text-muted-foreground text-sm">
                 Connect to an external Prowlarr instance for centralized indexer management.
-                Recommended if you're already using Prowlarr.
+                Recommended if you&apos;re already using Prowlarr.
               </p>
             </Label>
           </div>

@@ -73,8 +73,8 @@ export function FormatBadges({ source, codec, attributes, className }: FormatBad
 
   return (
     <div className={cn('flex flex-wrap gap-1', className)}>
-      {badges.map((badge, i) => (
-        <Badge key={i} variant="secondary" className={cn('font-mono text-xs', badge.style)}>
+      {badges.map((badge) => (
+        <Badge key={badge.label} variant="secondary" className={cn('font-mono text-xs', badge.style)}>
           {badge.label}
         </Badge>
       ))}

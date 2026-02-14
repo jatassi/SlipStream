@@ -11,7 +11,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import {
   Table,
@@ -60,7 +59,7 @@ export function DefinitionSearchTable({
   const debouncedQuery = useDebounce(searchQuery, 300)
 
   const filteredDefinitions = useMemo(() => {
-    return (definitions || []).filter((def) => {
+    return definitions.filter((def) => {
       // Search filter
       if (debouncedQuery) {
         const query = debouncedQuery.toLowerCase()
@@ -87,7 +86,7 @@ export function DefinitionSearchTable({
   }, [definitions, debouncedQuery, protocolFilter, privacyFilter])
 
   const stats = useMemo(() => {
-    const defs = definitions || []
+    const defs = definitions
     const total = defs.length
     const torrent = defs.filter((d) => d.protocol === 'torrent').length
     const usenet = defs.filter((d) => d.protocol === 'usenet').length
@@ -126,15 +125,11 @@ export function DefinitionSearchTable({
               onValueChange={(v) => v && setProtocolFilter(v as Protocol | 'all')}
             >
               <SelectTrigger className="w-32">
-                <SelectValue>
-                  {protocolFilter === 'all'
-                    ? `All (${stats.total})`
-                    : protocolFilter === 'torrent'
-                      ? `Torrent (${stats.torrent})`
-                      : protocolFilter === 'usenet'
-                        ? `Usenet (${stats.usenet})`
-                        : protocolFilter}
-                </SelectValue>
+                {protocolFilter === 'all'
+                  ? `All (${stats.total})`
+                  : protocolFilter === 'torrent'
+                    ? `Torrent (${stats.torrent})`
+                    : `Usenet (${stats.usenet})`}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ({stats.total})</SelectItem>
@@ -148,17 +143,13 @@ export function DefinitionSearchTable({
               onValueChange={(v) => v && setPrivacyFilter(v as Privacy | 'all')}
             >
               <SelectTrigger className="w-36">
-                <SelectValue>
-                  {privacyFilter === 'all'
-                    ? 'All'
-                    : privacyFilter === 'public'
-                      ? `Public (${stats.public})`
-                      : privacyFilter === 'semi-private'
-                        ? 'Semi-Private'
-                        : privacyFilter === 'private'
-                          ? `Private (${stats.private})`
-                          : privacyFilter}
-                </SelectValue>
+                {privacyFilter === 'all'
+                  ? 'All'
+                  : privacyFilter === 'public'
+                    ? `Public (${stats.public})`
+                    : privacyFilter === 'semi-private'
+                      ? 'Semi-Private'
+                      : `Private (${stats.private})`}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>

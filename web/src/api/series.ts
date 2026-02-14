@@ -32,12 +32,12 @@ export const seriesApi = {
     }),
 
   delete: (id: number, deleteFiles?: boolean) =>
-    apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
+    apiFetch<undefined>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
 
   bulkDelete: (ids: number[], deleteFiles?: boolean) =>
     Promise.all(
       ids.map((id) =>
-        apiFetch<void>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, {
+        apiFetch<undefined>(`/series/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, {
           method: 'DELETE',
         }),
       ),
@@ -50,9 +50,9 @@ export const seriesApi = {
       ),
     ),
 
-  scan: (id: number) => apiFetch<void>(`/series/${id}/scan`, { method: 'POST' }),
+  scan: (id: number) => apiFetch<undefined>(`/series/${id}/scan`, { method: 'POST' }),
 
-  search: (id: number) => apiFetch<void>(`/series/${id}/search`, { method: 'POST' }),
+  search: (id: number) => apiFetch<undefined>(`/series/${id}/search`, { method: 'POST' }),
 
   refresh: (id: number) => apiFetch<Series>(`/series/${id}/refresh`, { method: 'POST' }),
 
@@ -100,7 +100,7 @@ export const seriesApi = {
     }),
 
   searchEpisode: (seriesId: number, seasonNumber: number, episodeNumber: number) =>
-    apiFetch<void>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}/search`, {
+    apiFetch<undefined>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}/search`, {
       method: 'POST',
     }),
 

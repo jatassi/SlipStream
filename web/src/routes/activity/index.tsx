@@ -224,7 +224,8 @@ function DownloadRow({ item }: { item: QueueItem }) {
           style={{ width: maxWidth > 0 ? maxWidth : 'auto' }}
         >
           <div ref={titleRef} className="inline-block">
-            <div
+            <button
+              type="button"
               className={cn(
                 'cursor-pointer font-medium whitespace-nowrap transition-colors',
                 isMovie && 'hover:text-movie-500',
@@ -237,7 +238,7 @@ function DownloadRow({ item }: { item: QueueItem }) {
               {titleSuffix ? (
                 <span className="text-muted-foreground ml-1.5">{titleSuffix}</span>
               ) : null}
-            </div>
+            </button>
             {showReleaseName ? (
               <div className="text-muted-foreground mt-0.5 animate-[slide-down-fade_150ms_ease-out] text-xs whitespace-nowrap">
                 {item.releaseName}
@@ -405,12 +406,9 @@ export function ActivityPage() {
       if (filter === 'movies') {
         return item.mediaType === 'movie'
       }
-      if (filter === 'series') {
-        return item.mediaType === 'series'
-      }
-      return true
+      return item.mediaType === 'series'
     })
-    .sort((a, b) => a.title.localeCompare(b.title))
+    .toSorted((a, b) => a.title.localeCompare(b.title))
 
   // Count items by media type
   const movieCount = items.filter((q) => q.mediaType === 'movie').length

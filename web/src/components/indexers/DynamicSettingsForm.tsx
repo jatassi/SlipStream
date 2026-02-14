@@ -44,7 +44,7 @@ export function DynamicSettingsForm({
         <SettingField
           key={setting.name}
           setting={setting}
-          value={values[setting.name] ?? setting.default ?? ''}
+          value={values[setting.name] ?? setting.default}
           onChange={(value) => handleChange(setting.name, value)}
           disabled={disabled}
         />

@@ -47,7 +47,11 @@ export function ExternalMovieCard({
         className,
       )}
     >
-      <div className="relative aspect-[2/3] cursor-pointer" onClick={() => setInfoOpen(true)}>
+      <button
+        type="button"
+        className="relative aspect-[2/3] cursor-pointer w-full"
+        onClick={() => setInfoOpen(true)}
+      >
         <PosterImage
           url={movie.posterUrl}
           alt={movie.title}
@@ -105,7 +109,7 @@ export function ExternalMovieCard({
             <span>{movie.year || 'Unknown year'}</span>
           </div>
         </div>
-      </div>
+      </button>
 
       <div className="p-2">
         {inLibrary ? (

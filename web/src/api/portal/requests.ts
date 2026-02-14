@@ -13,11 +13,11 @@ export const portalRequestsApi = {
       body: JSON.stringify(data),
     }),
 
-  cancel: (id: number) => portalFetch<void>(`/${id}`, { method: 'DELETE' }),
+  cancel: (id: number) => portalFetch<undefined>(`/${id}`, { method: 'DELETE' }),
 
-  watch: (id: number) => portalFetch<void>(`/${id}/watch`, { method: 'POST' }),
+  watch: (id: number) => portalFetch<undefined>(`/${id}/watch`, { method: 'POST' }),
 
-  unwatch: (id: number) => portalFetch<void>(`/${id}/watch`, { method: 'DELETE' }),
+  unwatch: (id: number) => portalFetch<undefined>(`/${id}/watch`, { method: 'DELETE' }),
 
   getWatchers: (id: number) => portalFetch<number[]>(`/${id}/watchers`),
 

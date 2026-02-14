@@ -42,14 +42,14 @@ const portalEventTriggers = [
   },
 ]
 
+const goBack = () => {
+  globalThis.history.back()
+}
+
 export function PortalSettingsPage() {
   const navigate = useNavigate()
   const logoutMutation = usePortalLogout()
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
-
-  const goBack = () => {
-    globalThis.history.back()
-  }
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {

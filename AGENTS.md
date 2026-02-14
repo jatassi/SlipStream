@@ -118,6 +118,17 @@ cd web
 bun run dev           # Start dev server
 bun run build         # Production build (runs tsc first)
 bun run lint          # ESLint
+bun run lint:fix      # ESLint with auto-fix
+bun run format        # Prettier format all files
+bun run format:check  # Prettier check (CI-friendly)
+```
+
+### Lint Helper Scripts
+```bash
+./scripts/lint/summary.sh              # Total errors + top rules
+./scripts/lint/file.sh src/path.tsx     # Lint single file (path relative to web/)
+./scripts/lint/verify.sh               # Full check: tsc + build + lint count
+./scripts/lint/count-rule.sh <rule>    # Count violations for one rule by file
 ```
 
 ## Key Patterns
@@ -375,6 +386,88 @@ function usePasskeySupport() {
   const isSupported = passkeyApi.isSupported()
   return { isSupported, isLoading: false }
 }
+```
+
+### Frontend Code Patterns
+
+#### Hook Extraction
+
+Large components must separate logic from presentation. Extract all state, queries, mutations, and handlers into a custom hook. The component becomes a thin rendering shell.
+
+- Hook file: `use-<feature>.ts` in the same directory as the component
+- Return a flat object of values and stable handler references
+- Keep the component under 50 lines — it should only contain JSX and early returns
+
+```tsx
+// use-movie-detail.ts — all logic
+export function useMovieDetail() {
+  const { id } = useParams({ from: '/movies/$id' })
+  const movieId = Number.parseInt(id)
+  const query = useMovie(movieId)
+  const deleteMutation = useDeleteMovie()
+  const handleDelete = () => { deleteMutation.mutate(movieId) }
+  return { movie: query.data, isLoading: query.isLoading, handleDelete }
+}
+
+// movie-detail-page.tsx — rendering only
+export function MovieDetailPage() {
+  const { movie, isLoading, handleDelete } = useMovieDetail()
+  if (isLoading) return <LoadingState />
+  return <MovieDetailView movie={movie} onDelete={handleDelete} />
+}
+```
+
+#### Async Error Handling
+
+Two patterns, applied uniformly:
+
+1. **Mutations** — use `onError` for user-facing feedback:
+```tsx
+useMutation({
+  mutationFn: deleteMovie,
+  onSuccess: () => {
+    void queryClient.invalidateQueries({ queryKey: movieKeys.all })
+  },
+  onError: (err) => { toast.error(err.message) },
+})
+```
+
+2. **Fire-and-forget** — `void` prefix for intentional no-await:
+```tsx
+void queryClient.invalidateQueries({ queryKey: movieKeys.all })
+```
+
+Never use `.catch(() => {})` — it swallows errors silently. Never make `onSuccess` async just to use `await` — TanStack Query doesn't await these callbacks.
+
+#### Conditional Rendering
+
+Priority order: early returns > component map > single ternary. **Never nest ternaries.**
+
+```tsx
+// BEST: early returns
+if (isLoading) return <LoadingState />
+if (isError) return <ErrorState />
+if (!data.length) return <EmptyState />
+return <Content data={data} />
+
+// GOOD: component map (when inline in JSX)
+const view = { loading: <Spinner />, error: <Error /> } as const
+return view[status] ?? <Content />
+
+// ACCEPTABLE: single flat ternary
+{isEditing ? <EditForm /> : <ReadView />}
+
+// NEVER: nested ternary
+{a ? <X /> : b ? <Y /> : <Z />}
+```
+
+#### Null Handling
+
+Use `??` (nullish coalescing) by default. Use `||` (logical OR) **only** when you intentionally need falsy coalescing (0, empty string, NaN should trigger the fallback). When keeping `||`, add a comment explaining why.
+
+```tsx
+const name = user.displayName ?? 'Anonymous'       // correct: only null/undefined
+const port = Number.parseInt(input) || 3000         // intentional ||: NaN and 0 should fallback
 ```
 
 ### Service Layer

@@ -46,8 +46,8 @@ export function FileItem({
                   <div key={rejection.slotId} className="text-xs">
                     <span className="text-muted-foreground font-medium">{rejection.slotName}:</span>
                     <ul className="mt-0.5 ml-1 list-inside list-disc">
-                      {rejection.reasons.map((reason, idx) => (
-                        <li key={idx}>{reason}</li>
+                      {rejection.reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
                       ))}
                     </ul>
                   </div>
@@ -76,8 +76,8 @@ export function FileItem({
                   <div key={rejection.slotId} className="text-xs">
                     <span className="text-muted-foreground font-medium">{rejection.slotName}:</span>
                     <ul className="mt-0.5 ml-1 list-inside list-disc">
-                      {rejection.reasons.map((reason, idx) => (
-                        <li key={idx}>{reason}</li>
+                      {rejection.reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
                       ))}
                     </ul>
                   </div>

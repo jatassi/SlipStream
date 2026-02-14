@@ -195,7 +195,7 @@ function ProfileMatchTester() {
       <div>
         <h4 className="mb-2 font-medium">Profile Matching Tester</h4>
         <p className="text-muted-foreground mb-3 text-sm">
-          Test whether a release matches a quality profile's attribute requirements.
+          Test whether a release matches a quality profile&apos;s attribute requirements.
         </p>
       </div>
 
@@ -282,20 +282,21 @@ function ProfileMatchTester() {
   )
 }
 
-function AttributeMatchCard({ label, result }: { label: string; result: AttributeMatchResult }) {
-  const getModeColor = (mode: string) => {
-    switch (mode) {
-      case 'required': {
-        return 'text-red-500'
-      }
-      case 'preferred': {
-        return 'text-blue-500'
-      }
-      default: {
-        return 'text-muted-foreground'
-      }
+const getModeColor = (mode: string) => {
+  switch (mode) {
+    case 'required': {
+      return 'text-red-500'
+    }
+    case 'preferred': {
+      return 'text-blue-500'
+    }
+    default: {
+      return 'text-muted-foreground'
     }
   }
+}
+
+function AttributeMatchCard({ label, result }: { label: string; result: AttributeMatchResult }) {
 
   return (
     <div className="bg-background rounded-md border p-3">

@@ -25,7 +25,7 @@ export const notificationsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => apiFetch<void>(`/notifications/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<undefined>(`/notifications/${id}`, { method: 'DELETE' }),
 
   test: (id: number) =>
     apiFetch<NotificationTestResult>(`/notifications/${id}/test`, { method: 'POST' }),

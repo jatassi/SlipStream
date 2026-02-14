@@ -51,7 +51,7 @@ export function TitleTreatment({
   }
 
   if (!imageUrl || error) {
-    return <>{fallback}</>
+    return fallback
   }
 
   return (

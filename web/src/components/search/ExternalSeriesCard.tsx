@@ -48,7 +48,11 @@ export function ExternalSeriesCard({
         className,
       )}
     >
-      <div className="relative aspect-[2/3] cursor-pointer" onClick={() => setInfoOpen(true)}>
+      <button
+        type="button"
+        className="relative aspect-[2/3] cursor-pointer w-full"
+        onClick={() => setInfoOpen(true)}
+      >
         <PosterImage
           url={series.posterUrl}
           alt={series.title}
@@ -118,7 +122,7 @@ export function ExternalSeriesCard({
             ) : null}
           </div>
         </div>
-      </div>
+      </button>
 
       <div className="p-2">
         {inLibrary ? (

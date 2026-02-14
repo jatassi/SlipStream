@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { formatDistanceToNow } from 'date-fns'
 import { Check, KeyRound, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -22,8 +22,22 @@ export function PasskeyManager() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const isSubmittingRef = useRef(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   const { isSupported, isLoading: isSupportLoading } = usePasskeySupport()
+
+  useEffect(() => {
+    if (isRegistering) {
+      nameInputRef.current?.focus()
+    }
+  }, [isRegistering])
+
+  useEffect(() => {
+    if (editingId !== null) {
+      editInputRef.current?.focus()
+    }
+  }, [editingId])
   const { data: credentials, isLoading } = usePasskeyCredentials()
   const registerPasskey = useRegisterPasskey()
   const deletePasskey = useDeletePasskey()
@@ -119,10 +133,10 @@ export function PasskeyManager() {
           <div className="space-y-2">
             <Label>Passkey Name</Label>
             <Input
+              ref={nameInputRef}
               placeholder="e.g., MacBook Touch ID"
               value={newPasskeyName}
               onChange={(e) => setNewPasskeyName(e.target.value)}
-              autoFocus
             />
           </div>
           <div className="space-y-2">
@@ -183,10 +197,10 @@ export function PasskeyManager() {
                   {editingId === cred.id ? (
                     <div className="flex items-center gap-2">
                       <Input
+                        ref={editInputRef}
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
                         className="h-8 w-48"
-                        autoFocus
                       />
                       <Button
                         variant="ghost"

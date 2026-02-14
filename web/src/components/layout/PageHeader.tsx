@@ -30,9 +30,9 @@ export function PageHeader({
       {/* Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <nav className="text-muted-foreground flex items-center gap-1 text-sm">
-          {breadcrumbs.map((item, index) => (
-            <span key={index} className="flex items-center gap-1">
-              {index > 0 && <ChevronRight className="size-4" />}
+          {breadcrumbs.map((item) => (
+            <span key={item.label} className="flex items-center gap-1">
+              {breadcrumbs.indexOf(item) > 0 && <ChevronRight className="size-4" />}
               {item.href ? (
                 <Link to={item.href} className="hover:text-foreground transition-colors">
                   {item.label}

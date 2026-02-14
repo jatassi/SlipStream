@@ -93,9 +93,9 @@ export function ProwlarrConfigForm() {
       setTimeout(config.timeout || 30)
       setSkipSslVerify(config.skipSslVerify || false)
       setMovieCategories(
-        config.movieCategories?.length ? config.movieCategories : DEFAULT_MOVIE_CATEGORIES,
+        config.movieCategories.length ? config.movieCategories : DEFAULT_MOVIE_CATEGORIES,
       )
-      setTvCategories(config.tvCategories?.length ? config.tvCategories : DEFAULT_TV_CATEGORIES)
+      setTvCategories(config.tvCategories.length ? config.tvCategories : DEFAULT_TV_CATEGORIES)
       setIsDirty(false)
     }
   }

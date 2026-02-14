@@ -20,7 +20,7 @@ type SearchPageProps = {
 }
 
 export function SearchPage({ q }: SearchPageProps) {
-  const query = q?.trim() || ''
+  const query = q.trim() || ''
   const [externalEnabled, setExternalEnabled] = useState(false)
 
   // Reset external search when query changes
@@ -68,7 +68,7 @@ export function SearchPage({ q }: SearchPageProps) {
   const movieRequestsByTmdbId = useMemo(() => {
     const map = new Map<number, { id: number; status: string }>()
     for (const req of requests) {
-      if (req.mediaType === 'movie' && req.tmdbId != null) {
+      if (req.mediaType === 'movie' && req.tmdbId !== null) {
         map.set(req.tmdbId, { id: req.id, status: req.status })
       }
     }
@@ -78,7 +78,7 @@ export function SearchPage({ q }: SearchPageProps) {
   const seriesRequestsByTmdbId = useMemo(() => {
     const map = new Map<number, { id: number; status: string }>()
     for (const req of requests) {
-      if ((req.mediaType === 'series' || req.mediaType === 'season') && req.tmdbId != null) {
+      if ((req.mediaType === 'series' || req.mediaType === 'season') && req.tmdbId !== null) {
         // Keep the most relevant request (prefer non-available over available for badge display)
         const existing = map.get(req.tmdbId)
         if (!existing || (existing.status === 'available' && req.status !== 'available')) {

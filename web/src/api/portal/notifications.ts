@@ -19,9 +19,9 @@ export const portalNotificationsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => portalFetch<void>(`/notifications/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => portalFetch<undefined>(`/notifications/${id}`, { method: 'DELETE' }),
 
-  test: (id: number) => portalFetch<void>(`/notifications/${id}/test`, { method: 'POST' }),
+  test: (id: number) => portalFetch<undefined>(`/notifications/${id}/test`, { method: 'POST' }),
 
   getSchema: () => portalFetch<NotifierSchema[]>('/notifications/schema'),
 }

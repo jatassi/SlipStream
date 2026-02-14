@@ -18,7 +18,7 @@ type SeriesCardProps = {
 
 function formatDate(dateStr: string, format: 'short' | 'medium' | 'long') {
   const date = new Date(dateStr)
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return null
   }
   switch (format) {
@@ -44,7 +44,7 @@ function yearFromDate(dateStr?: string): number | null {
     return null
   }
   const date = new Date(dateStr)
-  return isNaN(date.getTime()) ? null : date.getFullYear()
+  return Number.isNaN(date.getTime()) ? null : date.getFullYear()
 }
 
 export function SeriesCard({
@@ -72,7 +72,8 @@ export function SeriesCard({
         className="absolute inset-0"
       />
       {editMode ? (
-        <div
+        <button
+          type="button"
           className="absolute top-2 left-2 z-10"
           onClick={(e) => {
             e.preventDefault()
@@ -87,7 +88,7 @@ export function SeriesCard({
               selected && 'border-tv-500 data-[checked]:bg-tv-500',
             )}
           />
-        </div>
+        </button>
       ) : (
         <Badge variant="secondary" className="absolute top-2 left-2 z-10 text-xs">
           {available}/{total}
@@ -123,9 +124,10 @@ export function SeriesCard({
 
   if (editMode) {
     return (
-      <div
+      <button
+        type="button"
         className={cn(
-          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all',
+          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all w-full',
           selected
             ? 'border-tv-500 glow-tv'
             : 'border-border hover:border-tv-500/50 hover:glow-tv-sm',
@@ -134,7 +136,7 @@ export function SeriesCard({
         onClick={() => onToggleSelect?.(series.id)}
       >
         {cardContent}
-      </div>
+      </button>
     )
   }
 

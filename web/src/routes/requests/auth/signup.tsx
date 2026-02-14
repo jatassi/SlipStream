@@ -11,14 +11,10 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Label } from '@/components/ui/label'
 import { usePortalEnabled, usePortalSignup, useValidateInvitation } from '@/hooks'
 
-type SignupSearchParams = {
-  token?: string
-}
-
 export function SignupPage() {
   const navigate = useNavigate()
-  const search = useSearch({ from: '/requests/auth/signup' })
-  const token = search.token || ''
+  const searchParams = useSearch({ from: '/requests/auth/signup' })
+  const token = searchParams.token
 
   const {
     data: invitation,
@@ -43,13 +39,13 @@ export function SignupPage() {
       { token, password: pin },
       {
         onSuccess: () => {
-          localStorage.setItem('slipstream_last_username', invitationUsername || '')
+          localStorage.setItem('slipstream_last_username', invitationUsername ?? '')
           toast.success('Account created successfully')
           navigate({ to: '/requests' })
         },
         onError: (error) => {
           toast.error('Signup failed', {
-            description: error.message || 'Could not create account',
+            description: error.message,
           })
           setPin('')
         },
@@ -156,7 +152,7 @@ export function SignupPage() {
             <div className="space-y-3">
               <Label>PIN</Label>
               <div className="flex justify-center">
-                <InputOTP maxLength={4} value={pin} onChange={setPin} autoFocus>
+                <InputOTP maxLength={4} value={pin} onChange={setPin}>
                   <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
                     <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
                     <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />
@@ -166,7 +162,7 @@ export function SignupPage() {
                 </InputOTP>
               </div>
               <p className="text-muted-foreground text-center text-xs">
-                Choose a 4-digit PIN you'll remember
+                Choose a 4-digit PIN you&apos;ll remember
               </p>
             </div>
             <Button

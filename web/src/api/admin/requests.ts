@@ -48,8 +48,8 @@ export async function batchDeny(input: BatchDenyInput): Promise<Request[]> {
   })
 }
 
-export async function deleteRequest(id: number): Promise<void> {
-  return apiFetch<void>(`${BASE_PATH}/${id}`, {
+export async function deleteRequest(id: number): Promise<undefined> {
+  return apiFetch<undefined>(`${BASE_PATH}/${id}`, {
     method: 'DELETE',
   })
 }

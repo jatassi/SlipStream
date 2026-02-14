@@ -252,8 +252,8 @@ function getDetailRows(item: HistoryEntry): { label: string; value: string }[] {
       if (data.codec) {
         rows.push({ label: 'Codec', value: data.codec as string })
       }
-      if (data.size > 0) {
-        rows.push({ label: 'Size', value: formatFileSize(data.size as number) })
+      if (typeof data.size === 'number' && data.size > 0) {
+        rows.push({ label: 'Size', value: formatFileSize(data.size) })
       }
       if (data.previousFile) {
         rows.push({ label: 'Previous File', value: data.previousFile as string })
@@ -342,8 +342,8 @@ function ExpandedRow({ item }: { item: HistoryEntry }) {
     <TableRow className="bg-muted/30 hover:bg-muted/30">
       <TableCell colSpan={6} className="px-8 py-3">
         <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-          {rows.map((row, i) => (
-            <div key={i} className="contents">
+          {rows.map((row) => (
+            <div key={`${row.label}-${row.value}`} className="contents">
               <span className="text-muted-foreground font-medium">{row.label}</span>
               <span className="truncate" title={row.value}>
                 {row.value}
@@ -565,7 +565,7 @@ export function HistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Array.from({ length: 12 }, (_, i) => (
+                {Array.from({ length: 12 }, (_, i) => i).map((i) => (
                   <TableRow key={i}>
                     <TableCell className="w-8 pr-0">
                       <Skeleton className="size-3.5" />
@@ -592,7 +592,7 @@ export function HistoryPage() {
                 ))}
               </TableBody>
             </Table>
-          ) : history?.items?.length ? (
+          ) : history?.items.length ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -648,11 +648,11 @@ export function HistoryPage() {
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             <Badge
-                              variant={eventTypeColors[item.eventType] || 'outline'}
+                              variant={eventTypeColors[item.eventType]}
                               className="flex w-fit items-center"
                             >
                               <EventIcon eventType={item.eventType} />
-                              {eventTypeLabels[item.eventType] || item.eventType}
+                              {eventTypeLabels[item.eventType]}
                             </Badge>
                             {isUpgradeEvent(item.data as Record<string, unknown>) && (
                               <Badge
@@ -702,9 +702,9 @@ export function HistoryPage() {
                 className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
-            {getPaginationPages(page, history.totalPages).map((p, i) =>
+            {getPaginationPages(page, history.totalPages).map((p) =>
               p === 'ellipsis' ? (
-                <PaginationItem key={`ellipsis-${i}`}>
+                <PaginationItem key={`ellipsis-${Math.random()}`}>
                   <PaginationEllipsis />
                 </PaginationItem>
               ) : (

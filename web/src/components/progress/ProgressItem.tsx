@@ -46,7 +46,7 @@ const statusColors: Record<ActivityStatus, string> = {
 }
 
 export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
-  const ActivityIcon = activityIcons[activity.type] || FileIcon
+  const ActivityIcon = activityIcons[activity.type]
   const StatusIcon = statusIcons[activity.status]
   const isActive = activity.status === 'in_progress' || activity.status === 'pending'
   const isIndeterminate = activity.progress === -1

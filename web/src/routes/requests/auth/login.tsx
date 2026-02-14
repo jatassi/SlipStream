@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 import { Ban, KeyRound, Loader2, Trash2, User } from 'lucide-react'
@@ -29,8 +29,15 @@ export function LoginPage() {
   const [showPinForm, setShowPinForm] = useState(false)
   const [pin, setPin] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const usernameInputRef = useRef<HTMLInputElement>(null)
 
   const shouldShowPasskeyLogin = !passkeyLoading && passkeySupported && !showPinForm
+
+  useEffect(() => {
+    if (showUsernameInput) {
+      usernameInputRef.current?.focus()
+    }
+  }, [showUsernameInput])
 
   const handleSwitchUser = () => {
     setUsername('')
@@ -161,6 +168,7 @@ export function LoginPage() {
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
                     <Input
+                      ref={usernameInputRef}
                       id="username"
                       type="text"
                       placeholder="Your username"
@@ -168,7 +176,6 @@ export function LoginPage() {
                       onChange={(e) => setUsername(e.target.value)}
                       required
                       autoComplete="username"
-                      autoFocus
                     />
                   </div>
                 ) : (
@@ -215,7 +222,7 @@ export function LoginPage() {
                 </Button>
               </form>
 
-              {!passkeyLoading && passkeySupported ? (
+              {passkeySupported ? (
                 <div className="mt-4 text-center">
                   <button
                     type="button"

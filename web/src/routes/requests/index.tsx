@@ -63,7 +63,7 @@ export function RequestsListPage() {
   const [filter, setFilter] = useState<'mine' | 'all'>('mine')
   const { data: requests = [], isLoading } = useRequests({ scope: filter })
 
-  const sortedRequests = [...requests].sort(
+  const sortedRequests = requests.toSorted(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 
@@ -172,10 +172,12 @@ function RequestCard({ request, showUser, onClick }: RequestCardProps) {
   const matchingDownloads =
     downloads?.filter((d) => {
       if (request.mediaType === 'movie') {
-        return d.movieId != null && request.mediaId != null && d.movieId === request.mediaId
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        return d.movieId !== null && request.mediaId !== null && d.movieId === request.mediaId
       }
       if (request.mediaType === 'series') {
-        return d.seriesId != null && request.mediaId != null && d.seriesId === request.mediaId
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        return d.seriesId !== null && request.mediaId !== null && d.seriesId === request.mediaId
       }
       return false
     }) ?? []

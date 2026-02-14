@@ -33,6 +33,18 @@ import type { QualityProfile } from '@/types/qualityProfile'
 type ViewMode = 'missing' | 'upgradable'
 type MediaFilter = 'all' | 'movies' | 'series'
 
+const handleSearch = async (searchFn: () => Promise<unknown>) => {
+  try {
+    await searchFn()
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('409')) {
+      toast.warning('A search task is already running')
+    } else {
+      toast.error('Failed to start search')
+    }
+  }
+}
+
 export function MissingPage() {
   const [view, setView] = useState<ViewMode>('missing')
   const [filter, setFilter] = useState<MediaFilter>('all')
@@ -148,18 +160,6 @@ export function MissingPage() {
     } else {
       refetchUpgradableMovies()
       refetchUpgradableSeries()
-    }
-  }
-
-  const handleSearch = async (searchFn: () => Promise<unknown>) => {
-    try {
-      await searchFn()
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('409')) {
-        toast.warning('A search task is already running')
-      } else {
-        toast.error('Failed to start search')
-      }
     }
   }
 

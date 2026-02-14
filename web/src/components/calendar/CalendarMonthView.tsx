@@ -49,7 +49,10 @@ export function CalendarMonthView({
       if (!map.has(dateKey)) {
         map.set(dateKey, [])
       }
-      map.get(dateKey)!.push(event)
+      const dateEvents = map.get(dateKey)
+      if (dateEvents) {
+        dateEvents.push(event)
+      }
     })
     return map
   }, [events])

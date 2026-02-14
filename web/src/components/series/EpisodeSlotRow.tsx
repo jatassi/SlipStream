@@ -44,7 +44,7 @@ export function EpisodeSlotRow({
   onSlotMonitoredChange,
   isMonitorUpdating,
 }: EpisodeSlotRowProps) {
-  if (!slotStatuses || slotStatuses.length === 0) {
+  if (slotStatuses.length === 0) {
     return null
   }
 

@@ -36,7 +36,7 @@ function QueuePreview() {
     )
   }
 
-  const activeDownloads = queue?.items?.filter((q) => q.status === 'downloading') || []
+  const activeDownloads = queue?.items.filter((q) => q.status === 'downloading') ?? []
 
   return (
     <Card>
@@ -106,7 +106,7 @@ function RecentActivity() {
         </Link>
       </CardHeader>
       <CardContent>
-        {history?.items?.length ? (
+        {history?.items.length ? (
           <div className="space-y-3">
             {history.items.slice(0, 5).map((item) => (
               <div key={item.id} className="flex items-center gap-3">
@@ -147,7 +147,7 @@ export function DashboardPage() {
 
       {/* Stats grid */}
       <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <StorageCard storage={storage?.data} loading={storage?.isLoading || globalLoading} />
+        <StorageCard storage={storage.data} loading={storage.isLoading || globalLoading} />
         <HealthWidget />
       </div>
 

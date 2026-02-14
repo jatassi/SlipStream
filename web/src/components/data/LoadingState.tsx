@@ -25,7 +25,10 @@ function useFillCount(
     }
 
     function calc() {
-      const rect = el!.getBoundingClientRect()
+      if (!el) {
+        return
+      }
+      const rect = el.getBoundingClientRect()
       const availableWidth = rect.width
       const availableHeight = window.innerHeight - rect.top
 
@@ -61,7 +64,7 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
     return (
       <div ref={gridRef} className="space-y-2">
         {finalCount > 0 &&
-          Array.from({ length: finalCount }).map((_, i) => (
+          Array.from({ length: finalCount }, (_, i) => i).map((i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
       </div>
@@ -90,7 +93,7 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
   return (
     <div ref={gridRef} className={gridClassName} style={gridStyle}>
       {finalCount > 0 &&
-        Array.from({ length: finalCount }).map((_, i) => (
+        Array.from({ length: finalCount }, (_, i) => i).map((i) => (
           <div key={i} className="border-border bg-card overflow-hidden rounded-lg border">
             <div className="relative aspect-[2/3]">
               <Skeleton className="absolute inset-0 rounded-none" />

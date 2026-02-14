@@ -330,7 +330,7 @@ export function RequestQueuePage() {
       } else {
         const seasonsToSearch =
           request.requestedSeasons && request.requestedSeasons.length > 0
-            ? [...request.requestedSeasons].sort((a, b) => a - b)
+            ? request.requestedSeasons.toSorted((a, b) => a - b)
             : [1]
 
         pendingSeasonsRef.current = seasonsToSearch.slice(1)
@@ -376,7 +376,7 @@ export function RequestQueuePage() {
       } else {
         const seasonsToSearch =
           request.requestedSeasons && request.requestedSeasons.length > 0
-            ? [...request.requestedSeasons].sort((a, b) => a - b)
+            ? request.requestedSeasons.toSorted((a, b) => a - b)
             : []
 
         let totalDownloaded = 0
@@ -512,7 +512,7 @@ export function RequestQueuePage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => {
+        onValueChange={(value: string) => {
           setActiveTab(value)
           setSelectedIds(new Set())
         }}

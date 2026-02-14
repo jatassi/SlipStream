@@ -25,7 +25,7 @@ export const portalInboxApi = {
 
   unreadCount: () => portalFetch<UnreadCountResponse>('/inbox/count'),
 
-  markRead: (id: number) => portalFetch<void>(`/inbox/${id}/read`, { method: 'POST' }),
+  markRead: (id: number) => portalFetch<undefined>(`/inbox/${id}/read`, { method: 'POST' }),
 
-  markAllRead: () => portalFetch<void>('/inbox/read', { method: 'POST' }),
+  markAllRead: () => portalFetch<undefined>('/inbox/read', { method: 'POST' }),
 }

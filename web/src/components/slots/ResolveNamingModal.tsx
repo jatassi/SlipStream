@@ -345,7 +345,7 @@ function TokenBuilderDialogCompact({
       return
     }
 
-    const start = cursorPosition ?? textarea.selectionStart ?? localValue.length
+    const start = cursorPosition ?? textarea.selectionStart
     const newValue = localValue.slice(0, start) + token + localValue.slice(start)
     setLocalValue(newValue)
 

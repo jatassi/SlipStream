@@ -8,9 +8,22 @@ function getInitialAdminToken(): string | null {
   try {
     const stored = localStorage.getItem('slipstream-portal-auth')
     if (stored) {
-      const { state } = JSON.parse(stored)
-      if (state?.user?.isAdmin && state?.token) {
-        return state.token
+      const parsed: unknown = JSON.parse(stored)
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'state' in parsed &&
+        parsed.state &&
+        typeof parsed.state === 'object' &&
+        'user' in parsed.state &&
+        parsed.state.user &&
+        typeof parsed.state.user === 'object' &&
+        'isAdmin' in parsed.state.user &&
+        parsed.state.user.isAdmin &&
+        'token' in parsed.state &&
+        typeof parsed.state.token === 'string'
+      ) {
+        return parsed.state.token
       }
     }
   } catch {
@@ -57,13 +70,16 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
         globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))
       }
     }
-    let errorData = null
+    let errorData: unknown = null
     try {
-      errorData = await res.json()
+      errorData = (await res.json()) as unknown
     } catch {
       // Response might not be JSON
     }
-    throw new ApiError(res.status, errorData)
+    throw new ApiError(
+      res.status,
+      errorData as { message?: string; error?: string } | null,
+    )
   }
 
   // Handle 204 No Content
@@ -71,7 +87,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     return undefined as T
   }
 
-  return res.json()
+  return (await res.json()) as T
 }
 
 export function buildQueryString(params: object): string {

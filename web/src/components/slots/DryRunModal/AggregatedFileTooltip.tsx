@@ -15,8 +15,8 @@ export function AggregatedFileTooltip({ files }: AggregatedFileTooltipProps) {
                 <div key={rejection.slotId}>
                   <span className="text-muted-foreground font-medium">{rejection.slotName}:</span>
                   <ul className="ml-1 list-inside list-disc">
-                    {rejection.reasons.map((reason, idx) => (
-                      <li key={idx}>{reason}</li>
+                    {rejection.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
                     ))}
                   </ul>
                 </div>
@@ -34,8 +34,8 @@ export function AggregatedFileTooltip({ files }: AggregatedFileTooltipProps) {
                 <div key={rejection.slotId}>
                   <span className="text-muted-foreground font-medium">{rejection.slotName}:</span>
                   <ul className="ml-1 list-inside list-disc">
-                    {rejection.reasons.map((reason, idx) => (
-                      <li key={idx}>{reason}</li>
+                    {rejection.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
                     ))}
                   </ul>
                 </div>

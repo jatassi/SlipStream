@@ -52,5 +52,5 @@ export function PortalAuthGuard({ children }: PortalAuthGuardProps) {
     )
   }
 
-  return <>{children}</>
+  return children
 }

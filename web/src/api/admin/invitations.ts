@@ -15,8 +15,8 @@ export async function createInvitation(input: CreateInvitationRequest): Promise<
   })
 }
 
-export async function deleteInvitation(id: number): Promise<void> {
-  return apiFetch<void>(`${BASE_PATH}/${id}`, {
+export async function deleteInvitation(id: number): Promise<undefined> {
+  return apiFetch<undefined>(`${BASE_PATH}/${id}`, {
     method: 'DELETE',
   })
 }

@@ -68,7 +68,7 @@ export function EpisodeTable({
   const slotQualityProfiles = useMemo(() => {
     const map: Record<number, number> = {}
     for (const slot of enabledSlots) {
-      if (slot.qualityProfileId != null) {
+      if (slot.qualityProfileId !== null) {
         map[slot.id] = slot.qualityProfileId
       }
     }
@@ -83,7 +83,7 @@ export function EpisodeTable({
     return slot?.name ?? null
   }
 
-  const sortedEpisodes = [...episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)
+  const sortedEpisodes = episodes.toSorted((a, b) => a.episodeNumber - b.episodeNumber)
 
   const columnCount = isMultiVersionEnabled ? 9 : 7
 
@@ -218,7 +218,8 @@ function EpisodeRow({
           {episode.episodeFile ? <QualityBadge quality={episode.episodeFile.quality} /> : '-'}
         </TableCell>
         <TableCell className="px-2 py-1.5 text-center">
-          {imdbRating == null ? (
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+          {imdbRating === null || imdbRating === undefined ? (
             <span className="text-muted-foreground text-xs">-</span>
           ) : (
             <span className={cn('text-xs font-medium', getRatingColor(imdbRating))}>
@@ -232,12 +233,13 @@ function EpisodeRow({
               <Select
                 value={episode.episodeFile.slotId?.toString() ?? 'unassigned'}
                 onValueChange={(value) => {
-                  if (value && value !== 'unassigned' && onAssignFileToSlot) {
-                    onAssignFileToSlot(
-                      episode.episodeFile!.id,
-                      episode.id,
-                      Number.parseInt(value, 10),
-                    )
+                  if (
+                    value &&
+                    value !== 'unassigned' &&
+                    onAssignFileToSlot &&
+                    episode.episodeFile
+                  ) {
+                    onAssignFileToSlot(episode.episodeFile.id, episode.id, Number.parseInt(value, 10))
                   }
                 }}
                 disabled={isAssigning}

@@ -69,7 +69,7 @@ func (s *Service) GetQueue(ctx context.Context) (*QueueResponse, error) {
 		return nil, err
 	}
 
-	var items []QueueItem
+	items := []QueueItem{}
 	var clientErrors []ClientError
 
 	for _, dbClient := range clients {

@@ -196,7 +196,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
     }
 
     try {
-      if (isEditing && indexer) {
+      if (isEditing) {
         await updateMutation.mutateAsync({
           id: indexer.id,
           data: input,
@@ -363,7 +363,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
                 <div className="space-y-0.5">
                   <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
                   <p className="text-muted-foreground text-xs">
-                    {selectedDefinition?.id === 'generic-rss'
+                    {selectedDefinition.id === 'generic-rss'
                       ? 'Generic RSS feeds do not support search'
                       : 'Use this indexer when automatically searching for releases'}
                   </p>
@@ -371,12 +371,12 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
                 <Switch
                   id="autoSearchEnabled"
                   checked={
-                    selectedDefinition?.id === 'generic-rss' ? false : formData.autoSearchEnabled
+                    selectedDefinition.id === 'generic-rss' ? false : formData.autoSearchEnabled
                   }
                   onCheckedChange={(checked) =>
                     setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))
                   }
-                  disabled={selectedDefinition?.id === 'generic-rss'}
+                  disabled={selectedDefinition.id === 'generic-rss'}
                 />
               </div>
 

@@ -89,7 +89,7 @@ const searchRoute = createRoute({
     return <SearchPage q={q} />
   },
   validateSearch: (search: Record<string, unknown>) => ({
-    q: (search.q as string) || '',
+    q: (search.q ?? '') as string,
   }),
 })
 
@@ -163,6 +163,7 @@ const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
   beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw redirect({ to: '/settings/media/root-folders' })
   },
 })
@@ -172,6 +173,7 @@ const mediaSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/media',
   beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw redirect({ to: '/settings/media/root-folders' })
   },
 })
@@ -205,6 +207,7 @@ const downloadsSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/downloads',
   beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw redirect({ to: '/settings/downloads/indexers' })
   },
 })
@@ -238,6 +241,7 @@ const systemSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/system',
   beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw redirect({ to: '/settings/system/server' })
   },
 })
@@ -336,7 +340,7 @@ const portalSignupRoute = createRoute({
   path: '/requests/auth/signup',
   component: SignupPage,
   validateSearch: (search: Record<string, unknown>) => ({
-    token: (search.token as string) || '',
+    token: (search.token ?? '') as string,
   }),
 })
 
@@ -365,7 +369,7 @@ const portalSearchRoute = createRoute({
   path: '/requests/search',
   component: PortalSearchPageWrapper,
   validateSearch: (search: Record<string, unknown>) => ({
-    q: (search.q as string) || '',
+    q: (search.q ?? '') as string,
   }),
 })
 
@@ -445,7 +449,7 @@ export const router = createRouter({ routeTree })
 
 // Type declaration for router
 declare module '@tanstack/react-router' {
-  type Register = {
+  interface Register {
     router: typeof router
   }
 }

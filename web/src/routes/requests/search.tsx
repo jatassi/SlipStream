@@ -66,9 +66,18 @@ function convertToSeriesSearchResult(series: PortalSeriesSearchResult): SeriesSe
   }
 }
 
+const sortByAddedAt = <T extends { availability?: { addedAt?: string | null } }>(
+  items: T[],
+): T[] =>
+  items.toSorted((a, b) => {
+    const aDate = a.availability?.addedAt ? new Date(a.availability.addedAt).getTime() : 0
+    const bDate = b.availability?.addedAt ? new Date(b.availability.addedAt).getTime() : 0
+    return bDate - aDate
+  })
+
 export function PortalSearchPage({ q }: PortalSearchPageProps) {
   const navigate = useNavigate()
-  const query = q?.trim() || ''
+  const query = q.trim() || ''
   const { user } = usePortalAuthStore()
 
   const { data: movies = [], isLoading: loadingMovies } = usePortalMovieSearch(query)
@@ -95,15 +104,6 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 
   // Split results into library items and requestable items
   // Sort library items by addedAt descending (newest first)
-  const sortByAddedAt = <T extends { availability?: { addedAt?: string | null } }>(
-    items: T[],
-  ): T[] =>
-    [...items].sort((a, b) => {
-      const aDate = a.availability?.addedAt ? new Date(a.availability.addedAt).getTime() : 0
-      const bDate = b.availability?.addedAt ? new Date(b.availability.addedAt).getTime() : 0
-      return bDate - aDate
-    })
-
   const libraryMovies = sortByAddedAt(movies.filter((m) => m.availability?.inLibrary))
   const librarySeriesItems = sortByAddedAt(series.filter((s) => s.availability?.inLibrary))
   const requestableMovies = movies.filter((m) => !m.availability?.inLibrary)
@@ -171,7 +171,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
     }
 
     const tmdbId = selectedSeries.tmdbId || selectedSeries.id
-    const seasonsArray = [...selectedSeasons].sort((a, b) => a - b)
+    const seasonsArray = [...selectedSeasons].toSorted((a, b) => a - b)
 
     createRequest.mutate(
       {
@@ -223,7 +223,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
     <div className="mx-auto max-w-6xl space-y-8 px-6 pt-6">
       {isLoading && !hasLibraryResults && !hasRequestableResults ? (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: 12 }, (_, i) => i).map((i) => (
             <div key={i} className="bg-muted aspect-[2/3] animate-pulse rounded-lg" />
           ))}
         </div>
@@ -432,7 +432,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 
               {loadingSeasons ? (
                 <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
+                  {Array.from({ length: 3 }, (_, i) => i).map((i) => (
                     <Skeleton key={i} className="h-8 w-full" />
                   ))}
                 </div>
@@ -444,7 +444,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
                 <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
                   {seasons
                     .filter((s) => s.seasonNumber > 0)
-                    .sort((a, b) => a.seasonNumber - b.seasonNumber)
+                    .toSorted((a, b) => a.seasonNumber - b.seasonNumber)
                     .map((season) => (
                       <div key={season.seasonNumber} className="flex items-center space-x-2 py-1">
                         <Checkbox
@@ -495,5 +495,5 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
 
 export function PortalSearchPageWrapper() {
   const { q } = useSearch({ strict: false })
-  return <PortalSearchPage q={q || ''} />
+  return <PortalSearchPage q={q ?? ''} />
 }

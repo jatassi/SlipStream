@@ -21,7 +21,7 @@ const statusConfig: Record<
 }
 
 export function ProductionStatusBadge({ status, className }: ProductionStatusBadgeProps) {
-  const config = statusConfig[status] || { label: status, variant: 'secondary' as const }
+  const config = statusConfig[status]
   return (
     <Badge variant={config.variant} className={cn(className)}>
       {config.label}

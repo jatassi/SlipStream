@@ -39,12 +39,12 @@ type PasskeyLoginResponse = {
 
 export const passkeyApi = {
   isSupported: () => {
-    if (globalThis.window === undefined) {
+    if (typeof window === 'undefined') {
       return false
     }
     return (
-      globalThis.PublicKeyCredential !== undefined &&
-      typeof globalThis.PublicKeyCredential === 'function'
+      typeof PublicKeyCredential !== 'undefined' &&
+      typeof PublicKeyCredential === 'function'
     )
   },
 
@@ -56,7 +56,7 @@ export const passkeyApi = {
     })
   },
 
-  async registerPasskey(pin: string, name: string): Promise<void> {
+  async registerPasskey(pin: string, name: string): Promise<undefined> {
     const { challengeId, options } = await this.beginRegistration(pin)
 
     const credential = await startRegistration({ optionsJSON: options.publicKey })
@@ -75,8 +75,15 @@ export const passkeyApi = {
     )
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: 'Registration failed' }))
-      throw new Error(error.message || 'Registration failed')
+      const errorData: unknown = await res.json().catch(() => ({ message: 'Registration failed' }))
+      const errorMessage =
+        errorData &&
+        typeof errorData === 'object' &&
+        'message' in errorData &&
+        typeof errorData.message === 'string'
+          ? errorData.message
+          : 'Registration failed'
+      throw new Error(errorMessage)
     }
   },
 
@@ -104,24 +111,31 @@ export const passkeyApi = {
     )
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: 'Login failed' }))
-      throw new Error(error.message || 'Login failed')
+      const errorData: unknown = await res.json().catch(() => ({ message: 'Login failed' }))
+      const errorMessage =
+        errorData &&
+        typeof errorData === 'object' &&
+        'message' in errorData &&
+        typeof errorData.message === 'string'
+          ? errorData.message
+          : 'Login failed'
+      throw new Error(errorMessage)
     }
 
-    return res.json()
+    return (await res.json()) as PasskeyLoginResponse
   },
 
   // Credential management
   listCredentials: () => portalFetch<PasskeyCredential[]>('/auth/passkey/credentials'),
 
   updateCredential: (id: string, name: string) =>
-    portalFetch<void>(`/auth/passkey/credentials/${id}`, {
+    portalFetch<undefined>(`/auth/passkey/credentials/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ name }),
     }),
 
   deleteCredential: (id: string) =>
-    portalFetch<void>(`/auth/passkey/credentials/${id}`, {
+    portalFetch<undefined>(`/auth/passkey/credentials/${id}`, {
       method: 'DELETE',
     }),
 }

@@ -34,7 +34,7 @@ export const usePortalDownloadsStore = create<PortalDownloadsState>((set, get) =
   lastUpdateTime: 0,
 
   setQueue: (queue) => {
-    const items = queue ?? []
+    const items = queue
     const state = get()
     const newMatches = new Map(state.matches)
 
@@ -148,7 +148,7 @@ function normalizeTitle(title: string): string {
 function findMatchingRequest(item: QueueItem, requests: Request[]): MatchInfo | null {
   // First pass: match by internal media ID (most reliable)
   for (const req of requests) {
-    if (req.mediaId != null) {
+    if (req.mediaId !== null) {
       if (req.mediaType === 'movie' && item.movieId === req.mediaId) {
         return {
           requestId: req.id,
@@ -179,7 +179,7 @@ function findMatchingRequest(item: QueueItem, requests: Request[]): MatchInfo | 
   const itemTitleNorm = normalizeTitle(item.title)
   for (const req of requests) {
     // Match requests that don't have mediaId yet (pending or just approved)
-    if (req.mediaId == null) {
+    if (req.mediaId === null) {
       const reqTitleNorm = normalizeTitle(req.title)
       // Check if the queue item title contains the request title
       if (

@@ -7,8 +7,18 @@ function getInitialToken(): string | null {
   try {
     const stored = localStorage.getItem('slipstream-portal-auth')
     if (stored) {
-      const { state } = JSON.parse(stored)
-      return state?.token || null
+      const parsed: unknown = JSON.parse(stored)
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'state' in parsed &&
+        parsed.state &&
+        typeof parsed.state === 'object' &&
+        'token' in parsed.state &&
+        typeof parsed.state.token === 'string'
+      ) {
+        return parsed.state.token
+      }
     }
   } catch {
     // Ignore errors
@@ -44,20 +54,23 @@ export async function portalFetch<T>(path: string, options?: RequestInit): Promi
   })
 
   if (!res.ok) {
-    let errorData = null
+    let errorData: unknown = null
     try {
-      errorData = await res.json()
+      errorData = (await res.json()) as unknown
     } catch {
       // Response might not be JSON
     }
-    throw new ApiError(res.status, errorData)
+    throw new ApiError(
+      res.status,
+      errorData as { message?: string; error?: string } | null,
+    )
   }
 
   if (res.status === 204) {
     return undefined as T
   }
 
-  return res.json()
+  return (await res.json()) as T
 }
 
 export function buildQueryString(params: object): string {

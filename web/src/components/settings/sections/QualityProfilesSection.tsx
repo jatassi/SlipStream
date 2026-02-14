@@ -13,6 +13,11 @@ import { useDeleteQualityProfile, useQualityProfiles } from '@/hooks'
 import type { QualityProfile } from '@/types'
 import { PREDEFINED_QUALITIES } from '@/types'
 
+const getCutoffName = (cutoffId: number) => {
+  const quality = PREDEFINED_QUALITIES.find((q) => q.id === cutoffId)
+  return quality?.name ?? 'Unknown'
+}
+
 export function QualityProfilesSection() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<QualityProfile | null>(null)
@@ -37,11 +42,6 @@ export function QualityProfilesSection() {
     } catch {
       toast.error('Failed to delete profile')
     }
-  }
-
-  const getCutoffName = (cutoffId: number) => {
-    const quality = PREDEFINED_QUALITIES.find((q) => q.id === cutoffId)
-    return quality?.name || 'Unknown'
   }
 
   const renderProfile = (profile: QualityProfile) => {

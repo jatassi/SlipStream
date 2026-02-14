@@ -120,7 +120,7 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
   }
 
   const filteredIndexers = showOnlyEnabled ? indexers?.filter((i) => i.enable) : indexers
-  const displayedIndexers = filteredIndexers?.slice().sort((a, b) => {
+  const displayedIndexers = filteredIndexers?.toSorted((a, b) => {
     // Sort by enabled state first (enabled at top)
     if (a.enable !== b.enable) {
       return a.enable ? -1 : 1
@@ -183,7 +183,7 @@ export function ProwlarrIndexerList({ showOnlyEnabled = false }: ProwlarrIndexer
 }
 
 function IndexerRow({ indexer }: { indexer: ProwlarrIndexerWithSettings }) {
-  const statusLabel = ProwlarrIndexerStatusLabels[indexer.status] ?? 'Unknown'
+  const statusLabel = ProwlarrIndexerStatusLabels[indexer.status]
   const settings = indexer.settings
   const priority = settings?.priority ?? 25
   const contentType = settings?.contentType ?? 'both'
@@ -332,7 +332,7 @@ function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettin
 
           <div className="space-y-2">
             <Label htmlFor="contentType">Content Type</Label>
-            <Select value={contentType} onValueChange={(v) => setContentType(v!)}>
+            <Select value={contentType} onValueChange={(v) => v && setContentType(v)}>
               <SelectTrigger id="contentType">{ContentTypeLabels[contentType]}</SelectTrigger>
               <SelectContent>
                 <SelectItem value="both">Both</SelectItem>

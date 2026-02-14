@@ -71,16 +71,16 @@ export function SeasonList({
   className,
 }: SeasonListProps) {
   // Group episodes by season
-  const episodesBySeason: Record<number, Episode[]> = {}
+  const episodesBySeason: Partial<Record<number, Episode[]>> = {}
   episodes.forEach((ep) => {
     if (!episodesBySeason[ep.seasonNumber]) {
       episodesBySeason[ep.seasonNumber] = []
     }
-    episodesBySeason[ep.seasonNumber].push(ep)
+    episodesBySeason[ep.seasonNumber]?.push(ep)
   })
 
   // Sort seasons by number, with specials (season 0) at the bottom
-  const sortedSeasons = [...seasons].sort((a, b) => {
+  const sortedSeasons = seasons.toSorted((a, b) => {
     if (a.seasonNumber === 0) {
       return 1
     }
@@ -99,7 +99,10 @@ export function SeasonList({
         const seasonLabel = season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`
         const firstAirYear = seasonEpisodes
           .filter((ep) => ep.airDate)
-          .sort((a, b) => new Date(a.airDate!).getTime() - new Date(b.airDate!).getTime())[0]
+          .toSorted(
+            (a, b) =>
+              new Date(a.airDate ?? 0).getTime() - new Date(b.airDate ?? 0).getTime(),
+          )[0]
           ?.airDate?.slice(0, 4)
 
         return (
@@ -132,7 +135,8 @@ export function SeasonList({
                   {fileCount}/{totalCount}
                 </Badge>
                 <MediaStatusBadge status={computeSeasonStatus(season.statusCounts)} />
-                <div
+                <button
+                  type="button"
                   className="ml-auto flex items-center gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -152,7 +156,7 @@ export function SeasonList({
                     tmdbId={tmdbId}
                     imdbId={imdbId}
                   />
-                </div>
+                </button>
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-4">

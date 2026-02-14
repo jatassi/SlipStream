@@ -34,7 +34,7 @@ export const useProgressStore = create<ProgressState>((set, get) => ({
       // Remove existing activity with same ID, then add updated one
       const filtered = state.activities.filter((a) => a.id !== activity.id)
       const activities = [...filtered, activity]
-        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+        .toSorted((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
         .slice(0, MAX_VISIBLE_ACTIVITIES * 2) // Keep some buffer
 
       // Schedule auto-dismiss for completed activities

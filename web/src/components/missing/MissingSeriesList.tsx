@@ -134,7 +134,11 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
                   )}
                 </div>
               </div>
-              <div className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="ml-auto flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MediaSearchMonitorControls
                   mediaType="series"
                   seriesId={s.id}
@@ -149,7 +153,7 @@ export function MissingSeriesList({ series, qualityProfileNames }: MissingSeries
                   tmdbId={s.tmdbId}
                   imdbId={s.imdbId}
                 />
-              </div>
+              </button>
             </div>
           </AccordionTrigger>
 
@@ -208,7 +212,11 @@ function MissingSeasonItem({
           <Badge variant="secondary" className="text-xs">
             {season.missingEpisodes.length} missing
           </Badge>
-          <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="ml-auto flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <MediaSearchMonitorControls
               mediaType="season"
               seriesId={s.id}
@@ -225,14 +233,14 @@ function MissingSeasonItem({
               tmdbId={s.tmdbId}
               imdbId={s.imdbId}
             />
-          </div>
+          </button>
         </div>
       </AccordionTrigger>
 
       <AccordionContent className="pb-2">
         <div className="space-y-0.5">
-          {[...season.missingEpisodes]
-            .sort((a, b) => a.episodeNumber - b.episodeNumber)
+          {season.missingEpisodes
+            .toSorted((a, b) => a.episodeNumber - b.episodeNumber)
             .map((episode) => (
               <MissingEpisodeRow
                 key={episode.id}

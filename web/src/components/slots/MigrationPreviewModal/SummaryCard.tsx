@@ -16,8 +16,9 @@ export function SummaryCard({
   onClick,
 }: SummaryCardProps) {
   return (
-    <div
-      className={`hover:bg-muted/50 cursor-pointer rounded-lg border p-3 transition-colors ${
+    <button
+      type="button"
+      className={`hover:bg-muted/50 cursor-pointer rounded-lg border p-3 transition-colors w-full text-left ${
         active ? 'ring-primary bg-muted/30 ring-2' : ''
       }`}
       onClick={onClick}
@@ -27,6 +28,6 @@ export function SummaryCard({
         {label}
       </div>
       <div className={`mt-1 text-2xl font-bold ${variantStyles[variant]}`}>{value}</div>
-    </div>
+    </button>
   )
 }

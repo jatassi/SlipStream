@@ -108,7 +108,7 @@ export function MediaInfoModal({
     }
     const requestIds = new Set(matchingRequests.map((r) => r.id))
     return downloads.find((d) => {
-      if (d.tmdbId != null && d.tmdbId === tmdbId) {
+      if (d.tmdbId === tmdbId) {
         return true
       }
       if (requestIds.has(d.requestId)) {
@@ -124,7 +124,7 @@ export function MediaInfoModal({
   const isAvailable = requestStatus === 'available'
   const isPending = requestStatus === 'pending'
   const allRequestsHaveMediaId =
-    matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId != null)
+    matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId !== null)
   const isInLibrary = inLibrary || (isAvailable && allRequestsHaveMediaId)
 
   // Download progress stats
@@ -158,9 +158,9 @@ export function MediaInfoModal({
   }
 
   const director = extendedData?.credits?.directors?.[0]?.name
-  const creators = (extendedData as ExtendedSeriesResult)?.credits?.creators
-  const studio = (extendedData as ExtendedMovieResult)?.studio
-  const seasons = (extendedData as ExtendedSeriesResult)?.seasons
+  const creators = (extendedData as ExtendedSeriesResult | undefined)?.credits?.creators
+  const studio = (extendedData as ExtendedMovieResult | undefined)?.studio
+  const seasons = (extendedData as ExtendedSeriesResult | undefined)?.seasons
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -288,7 +288,7 @@ export function MediaInfoModal({
               <div>
                 <h3 className="mb-2 text-sm font-semibold">Cast</h3>
                 <div className="flex gap-3 overflow-x-auto pb-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                  {Array.from({ length: 6 }, (_, i) => i).map((i) => (
                     <div key={i} className="flex shrink-0 flex-col items-center gap-1">
                       <Skeleton className="size-16 rounded-full" />
                       <Skeleton className="h-3 w-14" />
@@ -324,7 +324,7 @@ function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
     <div className="space-y-2">
       {hasRatings ? (
         <div className="flex flex-wrap items-center gap-4">
-          {ratings.rottenTomatoes != null && (
+          {ratings.rottenTomatoes !== undefined && (
             <div className="flex items-center gap-1.5">
               {ratings.rottenTomatoes >= 60 ? (
                 <RTFreshIcon className="h-5" />
@@ -335,7 +335,7 @@ function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
               <span className="text-muted-foreground text-xs">Critics</span>
             </div>
           )}
-          {ratings.rottenAudience != null && (
+          {ratings.rottenAudience !== undefined && (
             <div className="flex items-center gap-1.5">
               {ratings.rottenAudience >= 60 ? (
                 <RTFreshIcon className="h-5" />
@@ -346,18 +346,18 @@ function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
               <span className="text-muted-foreground text-xs">Audience</span>
             </div>
           )}
-          {ratings.imdbRating != null && (
+          {ratings.imdbRating !== undefined && (
             <div className="flex items-center gap-1.5">
               <IMDbIcon className="h-4" />
               <span className="text-sm font-medium">{ratings.imdbRating.toFixed(1)}</span>
-              {ratings.imdbVotes != null && (
+              {ratings.imdbVotes !== undefined && (
                 <span className="text-muted-foreground text-xs">
                   ({ratings.imdbVotes.toLocaleString()} votes)
                 </span>
               )}
             </div>
           )}
-          {ratings.metacritic != null && (
+          {ratings.metacritic !== undefined && (
             <div className="flex items-center gap-1.5">
               <MetacriticIcon className="h-5" />
               <span className="text-sm font-medium">{ratings.metacritic}</span>
@@ -401,19 +401,19 @@ function CastList({ cast }: { cast: Person[] }) {
   )
 }
 
+const isFutureDate = (dateStr?: string) => {
+  if (!dateStr) {
+    return false
+  }
+  const date = new Date(dateStr)
+  return date > new Date()
+}
+
 function SeasonsList({ seasons }: { seasons: SeasonResult[] }) {
   const regularSeasons = seasons.filter((s) => s.seasonNumber > 0)
 
   if (regularSeasons.length === 0) {
     return null
-  }
-
-  const isFutureDate = (dateStr?: string) => {
-    if (!dateStr) {
-      return false
-    }
-    const date = new Date(dateStr)
-    return date > new Date()
   }
 
   const isSeasonFuture = (season: SeasonResult) => {

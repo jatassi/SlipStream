@@ -16,7 +16,7 @@ export const rootFoldersApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => apiFetch<void>(`/rootfolders/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<undefined>(`/rootfolders/${id}`, { method: 'DELETE' }),
 
   refresh: (id: number) => apiFetch<RootFolder>(`/rootfolders/${id}/refresh`, { method: 'POST' }),
 }

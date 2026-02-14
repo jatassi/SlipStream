@@ -54,7 +54,7 @@ export function SearchResultsSection({
 function LoadingGrid() {
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
-      {Array.from({ length: 8 }).map((_, i) => (
+      {Array.from({ length: 8 }, (_, i) => i).map((i) => (
         <div key={i} className="bg-muted aspect-[2/3] animate-pulse rounded-lg" />
       ))}
     </div>
@@ -107,7 +107,7 @@ export function ExternalSearchSection({
           <p className="text-muted-foreground mb-4">Want to add something new to your library?</p>
           <Button onClick={onEnable}>
             <Search className="mr-2 size-4" />
-            Search TMDB for "{query}"
+            Search TMDB for &quot;{query}&quot;
           </Button>
         </div>
       )}

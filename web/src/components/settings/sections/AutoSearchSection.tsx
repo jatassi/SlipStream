@@ -90,7 +90,10 @@ export function AutoSearchSection() {
               <Slider
                 value={[intervalHours]}
                 onValueChange={(value) => {
-                  const v = Array.isArray(value) ? value[0] : value
+                  const v =
+                    Array.isArray(value) && typeof value[0] === 'number'
+                      ? value[0]
+                      : intervalHours
                   setIntervalHours(v)
                 }}
                 min={1}

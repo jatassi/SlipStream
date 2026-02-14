@@ -183,7 +183,7 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
     }
 
     try {
-      if (isEditing && client) {
+      if (isEditing) {
         await updateMutation.mutateAsync({
           id: client.id,
           data: formData,
@@ -216,7 +216,7 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
           {/* Client Type */}
           <div className="space-y-2">
             <Label htmlFor="type">Client Type</Label>
-            <Select value={formData.type} onValueChange={(v) => handleTypeChange(v!)}>
+            <Select value={formData.type} onValueChange={(v) => v && handleTypeChange(v)}>
               <SelectTrigger>
                 <SelectValue>{clientTypeConfigs[formData.type].label}</SelectValue>
               </SelectTrigger>

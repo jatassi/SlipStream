@@ -18,13 +18,16 @@ export function CalendarAgendaView({ events, loading }: CalendarAgendaViewProps)
     const groups = new Map<string, CalendarEvent[]>()
 
     // Sort events by date
-    const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = events.toSorted((a, b) => a.date.localeCompare(b.date))
 
     sorted.forEach((event) => {
       if (!groups.has(event.date)) {
         groups.set(event.date, [])
       }
-      groups.get(event.date)!.push(event)
+      const dateEvents = groups.get(event.date)
+      if (dateEvents) {
+        dateEvents.push(event)
+      }
     })
 
     return [...groups.entries()]

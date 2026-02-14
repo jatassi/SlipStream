@@ -79,7 +79,7 @@ const statusConfig: Record<
 }
 
 export function MediaStatusBadge({ status, iconOnly, className }: MediaStatusBadgeProps) {
-  const config = statusConfig[status] || statusConfig.missing
+  const config = statusConfig[status]
   if (iconOnly) {
     return <span className={cn(config.iconClassName, className)}>{config.icon}</span>
   }

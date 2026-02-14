@@ -454,19 +454,19 @@ export function ColorPreviewPage() {
         <h2 className="text-lg font-semibold">Usage Reference</h2>
         <Card>
           <CardContent className="space-y-2 pt-4 font-mono text-sm">
-            <p className="text-muted-foreground">// Background colors</p>
+            <p className="text-muted-foreground">{`// Background colors`}</p>
             <p>bg-movie-500, bg-tv-500, bg-media-gradient</p>
-            <p className="text-muted-foreground mt-3">// Text colors</p>
+            <p className="text-muted-foreground mt-3">{`// Text colors`}</p>
             <p>text-movie-400, text-tv-400, text-media-gradient</p>
-            <p className="text-muted-foreground mt-3">// Borders & rings</p>
+            <p className="text-muted-foreground mt-3">{`// Borders & rings`}</p>
             <p>border-movie-500, border-tv-500, ring-movie-500, ring-tv-500</p>
-            <p className="text-muted-foreground mt-3">// With opacity</p>
+            <p className="text-muted-foreground mt-3">{`// With opacity`}</p>
             <p>bg-movie-500/20, text-tv-400/80</p>
-            <p className="text-muted-foreground mt-3">// Glow effects</p>
+            <p className="text-muted-foreground mt-3">{`// Glow effects`}</p>
             <p>glow-movie-sm, glow-movie, glow-movie-lg, glow-movie-border, glow-movie-ring</p>
             <p>glow-tv-sm, glow-tv, glow-tv-lg, glow-tv-border, glow-tv-ring</p>
             <p>glow-media-sm, glow-media, glow-media-lg</p>
-            <p className="text-muted-foreground mt-3">// Animated glows</p>
+            <p className="text-muted-foreground mt-3">{`// Animated glows`}</p>
             <p>glow-movie-pulse, glow-tv-pulse, glow-media-pulse</p>
           </CardContent>
         </Card>

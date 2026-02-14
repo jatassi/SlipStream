@@ -247,7 +247,7 @@ function TokenBuilderDialog({
       return
     }
 
-    const start = cursorPosition ?? textarea.selectionStart ?? localValue.length
+    const start = cursorPosition ?? textarea.selectionStart
     const newValue = localValue.slice(0, start) + token + localValue.slice(start)
     setLocalValue(newValue)
 
@@ -397,8 +397,8 @@ function PatternEditor({
                 Token breakdown
               </summary>
               <div className="mt-2 space-y-1">
-                {preview.tokens.map((t: TokenBreakdown, i: number) => (
-                  <div key={i} className="flex items-center gap-2 font-mono">
+                {preview.tokens.map((t: TokenBreakdown) => (
+                  <div key={`${t.token}-${t.value}`} className="flex items-center gap-2 font-mono">
                     <span className="text-muted-foreground">{t.token}</span>
                     <span className="text-muted-foreground">→</span>
                     <span className={t.empty ? 'text-yellow-600' : ''}>{t.value || '(empty)'}</span>
@@ -533,8 +533,8 @@ function FilenameTester({
                   ) : null}
                 </div>
                 <div className="grid gap-2">
-                  {result.tokens.map((token: ParsedTokenDetail, i: number) => (
-                    <div key={i} className="flex items-center gap-3 text-sm">
+                  {result.tokens.map((token: ParsedTokenDetail) => (
+                    <div key={`${token.name}-${token.value}`} className="flex items-center gap-3 text-sm">
                       <span className="text-muted-foreground min-w-[80px]">{token.name}</span>
                       <span className="bg-background rounded border px-2 py-0.5 font-mono">
                         {token.value}
@@ -691,7 +691,7 @@ export function FileNamingSection() {
                 <Label>Validation Level</Label>
                 <Select
                   value={form.validationLevel}
-                  onValueChange={(v) => updateField('validationLevel', v!)}
+                  onValueChange={(v) => v && updateField('validationLevel', v)}
                 >
                   <SelectTrigger>
                     {VALIDATION_LEVELS.find((l) => l.value === form.validationLevel)?.label}
@@ -717,7 +717,10 @@ export function FileNamingSection() {
                 <Slider
                   value={[form.minimumFileSizeMB]}
                   onValueChange={(v) =>
-                    updateField('minimumFileSizeMB', Array.isArray(v) ? v[0] : v)
+                    updateField(
+                      'minimumFileSizeMB',
+                      Array.isArray(v) && typeof v[0] === 'number' ? v[0] : form.minimumFileSizeMB,
+                    )
                   }
                   min={0}
                   max={500}
@@ -747,7 +750,7 @@ export function FileNamingSection() {
                 <Label>Match Conflict Behavior</Label>
                 <Select
                   value={form.matchConflictBehavior}
-                  onValueChange={(v) => updateField('matchConflictBehavior', v!)}
+                  onValueChange={(v) => v && updateField('matchConflictBehavior', v)}
                 >
                   <SelectTrigger>
                     {
@@ -775,7 +778,7 @@ export function FileNamingSection() {
                 <Label>Unknown Media Handling</Label>
                 <Select
                   value={form.unknownMediaBehavior}
-                  onValueChange={(v) => updateField('unknownMediaBehavior', v!)}
+                  onValueChange={(v) => v && updateField('unknownMediaBehavior', v)}
                 >
                   <SelectTrigger>
                     {
@@ -841,7 +844,7 @@ export function FileNamingSection() {
                 <Label>Colon Replacement</Label>
                 <Select
                   value={form.colonReplacement}
-                  onValueChange={(v) => updateField('colonReplacement', v!)}
+                  onValueChange={(v) => v && updateField('colonReplacement', v)}
                 >
                   <SelectTrigger>
                     {
@@ -866,7 +869,7 @@ export function FileNamingSection() {
                 </p>
                 {form.colonReplacement === 'custom' && (
                   <Input
-                    value={form.customColonReplacement || ''}
+                    value={form.customColonReplacement ?? ''}
                     onChange={(e) => updateField('customColonReplacement', e.target.value)}
                     placeholder="Enter custom replacement character"
                   />
@@ -877,7 +880,7 @@ export function FileNamingSection() {
                 <Label>Multi-Episode Style</Label>
                 <Select
                   value={form.multiEpisodeStyle}
-                  onValueChange={(v) => updateField('multiEpisodeStyle', v!)}
+                  onValueChange={(v) => v && updateField('multiEpisodeStyle', v)}
                 >
                   <SelectTrigger>
                     {MULTI_EPISODE_STYLES.find((s) => s.value === form.multiEpisodeStyle)?.label}

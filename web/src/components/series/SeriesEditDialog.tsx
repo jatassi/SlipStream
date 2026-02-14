@@ -70,7 +70,7 @@ export function SeriesEditDialog({ open, onOpenChange, series }: SeriesEditDialo
           <div className="space-y-2">
             <Label htmlFor="quality-profile">Quality Profile</Label>
             <Select
-              value={qualityProfileId?.toString() ?? ''}
+              value={qualityProfileId.toString()}
               onValueChange={(v) => v && setQualityProfileId(Number.parseInt(v, 10))}
             >
               <SelectTrigger id="quality-profile">

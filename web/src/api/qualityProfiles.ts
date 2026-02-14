@@ -25,7 +25,7 @@ export const qualityProfilesApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => apiFetch<void>(`/qualityprofiles/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<undefined>(`/qualityprofiles/${id}`, { method: 'DELETE' }),
 
   getAttributes: () => apiFetch<AttributeOptions>('/qualityprofiles/attributes'),
 

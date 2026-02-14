@@ -60,7 +60,7 @@ export function SetupPage() {
             <div className="space-y-3">
               <Label>PIN</Label>
               <div className="flex justify-center">
-                <InputOTP maxLength={4} value={pin} onChange={setPin} autoFocus>
+                <InputOTP maxLength={4} value={pin} onChange={setPin}>
                   <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
                     <InputOTPSlot index={0} className="size-12 text-xl" />
                     <InputOTPSlot index={1} className="size-12 text-xl" />
@@ -70,7 +70,7 @@ export function SetupPage() {
                 </InputOTP>
               </div>
               <p className="text-muted-foreground text-center text-xs">
-                Choose a 4-digit PIN you'll remember
+                Choose a 4-digit PIN you&apos;ll remember
               </p>
             </div>
             <Button

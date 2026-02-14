@@ -74,20 +74,20 @@ export function ServerSection({
 
   useEffect(() => {
     if (settings) {
-      onPortChange(settings.serverPort?.toString() || '8080')
-      onLogLevelChange(settings.logLevel || 'info')
+      onPortChange(settings.serverPort.toString())
+      onLogLevelChange(settings.logLevel)
       onLogRotationChange({
-        maxSizeMB: settings.logMaxSizeMB ?? 10,
-        maxBackups: settings.logMaxBackups ?? 5,
-        maxAgeDays: settings.logMaxAgeDays ?? 30,
-        compress: settings.logCompress ?? false,
+        maxSizeMB: settings.logMaxSizeMB,
+        maxBackups: settings.logMaxBackups,
+        maxAgeDays: settings.logMaxAgeDays,
+        compress: settings.logCompress,
       })
-      onExternalAccessChange(settings.externalAccessEnabled ?? false)
+      onExternalAccessChange(settings.externalAccessEnabled)
     }
   }, [settings, onPortChange, onLogLevelChange, onLogRotationChange, onExternalAccessChange])
 
   const handleCopyLogPath = async () => {
-    if (settings?.logPath && navigator.clipboard?.writeText) {
+    if (settings) {
       try {
         await navigator.clipboard.writeText(settings.logPath)
         setIsCopied(true)

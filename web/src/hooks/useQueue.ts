@@ -31,7 +31,7 @@ export function useQueue(enabled = true) {
       }
       const data = q.state.data
       const hasErrors = (data?.errors?.length ?? 0) > 0
-      const hasActiveDownloads = data?.items?.some(
+      const hasActiveDownloads = data?.items.some(
         (item) => item.status === 'downloading' || item.status === 'queued',
       )
       if (!hasActiveDownloads && !hasErrors) {

@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 const MOBILE_BREAKPOINT = 768
 
 function getIsMobile(): boolean {
-  if (globalThis.window === undefined) {
+  if (typeof window === 'undefined') {
     return false
   }
   return window.innerWidth < MOBILE_BREAKPOINT

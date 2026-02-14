@@ -162,7 +162,7 @@ export function NotificationDialog({
           name: notification.name,
           type: notification.type,
           enabled: notification.enabled,
-          settings: notification.settings || {},
+          settings: notification.settings,
           onGrab: notification.onGrab,
           onImport: notification.onImport,
           onUpgrade: notification.onUpgrade,
@@ -174,7 +174,7 @@ export function NotificationDialog({
           onHealthRestored: notification.onHealthRestored,
           onAppUpdate: notification.onAppUpdate,
           includeHealthWarnings: notification.includeHealthWarnings,
-          tags: notification.tags || [],
+          tags: notification.tags,
         })
         // If editing Plex with existing token, load servers
         if (notification.type === 'plex' && notification.settings.authToken) {
@@ -373,7 +373,7 @@ export function NotificationDialog({
 
     setIsPending(true)
     try {
-      if (isEditing && notification) {
+      if (isEditing) {
         await (onUpdate
           ? onUpdate(notification.id, formData)
           : updateMutation.mutateAsync({ id: notification.id, data: formData }))
@@ -479,7 +479,7 @@ export function NotificationDialog({
             onValueChange={(v) => handleSettingChange(field.name, v)}
           >
             <SelectTrigger>
-              {field.options?.find((o) => o.value === (value || field.default))?.label ||
+              {field.options?.find((o) => o.value === (value ?? field.default))?.label ??
                 'Select...'}
             </SelectTrigger>
             <SelectContent>
@@ -553,7 +553,7 @@ export function NotificationDialog({
       return null
     }
 
-    const currentSectionIds = (formData.settings.sectionIds as number[]) || []
+    const currentSectionIds = (formData.settings.sectionIds ?? []) as number[]
 
     return (
       <div className="space-y-2">
@@ -617,7 +617,7 @@ export function NotificationDialog({
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.type}
-              onValueChange={(v) => handleTypeChange(v!)}
+              onValueChange={(v) => v && handleTypeChange(v)}
               disabled={isEditing}
             >
               <SelectTrigger>

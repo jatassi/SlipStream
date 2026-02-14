@@ -24,7 +24,7 @@ export const queueApi = {
     }),
 
   remove: (clientId: number, id: string, deleteFiles = false) =>
-    apiFetch<void>(`/queue/${id}?clientId=${clientId}&deleteFiles=${deleteFiles}`, {
+    apiFetch<undefined>(`/queue/${id}?clientId=${clientId}&deleteFiles=${deleteFiles}`, {
       method: 'DELETE',
     }),
 

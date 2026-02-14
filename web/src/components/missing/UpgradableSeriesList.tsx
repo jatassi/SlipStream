@@ -141,7 +141,8 @@ export function UpgradableSeriesList({ series, qualityProfiles }: UpgradableSeri
                     ) : null}
                   </div>
                 </div>
-                <div
+                <button
+                  type="button"
                   className="ml-auto flex items-center gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -159,7 +160,7 @@ export function UpgradableSeriesList({ series, qualityProfiles }: UpgradableSeri
                     tmdbId={s.tmdbId}
                     imdbId={s.imdbId}
                   />
-                </div>
+                </button>
               </div>
             </AccordionTrigger>
 
@@ -222,7 +223,11 @@ function UpgradableSeasonItem({
           <Badge variant="secondary" className="text-xs">
             {season.upgradableEpisodes.length} upgradable
           </Badge>
-          <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="ml-auto flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <MediaSearchMonitorControls
               mediaType="season"
               seriesId={s.id}
@@ -239,14 +244,14 @@ function UpgradableSeasonItem({
               tmdbId={s.tmdbId}
               imdbId={s.imdbId}
             />
-          </div>
+          </button>
         </div>
       </AccordionTrigger>
 
       <AccordionContent className="pb-2">
         <div className="space-y-0.5">
-          {[...season.upgradableEpisodes]
-            .sort((a, b) => a.episodeNumber - b.episodeNumber)
+          {season.upgradableEpisodes
+            .toSorted((a, b) => a.episodeNumber - b.episodeNumber)
             .map((episode) => (
               <UpgradableEpisodeRow
                 key={episode.id}

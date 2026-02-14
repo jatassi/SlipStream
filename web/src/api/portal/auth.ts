@@ -30,7 +30,7 @@ export const portalAuthApi = {
     ),
 
   resendInvitation: (username: string) =>
-    portalFetch<void>('/auth/resend', {
+    portalFetch<undefined>('/auth/resend', {
       method: 'POST',
       body: JSON.stringify({ username }),
     }),
@@ -49,5 +49,5 @@ export const portalAuthApi = {
       body: JSON.stringify({ pin }),
     }),
 
-  logout: () => portalFetch<void>('/auth/logout', { method: 'POST' }),
+  logout: () => portalFetch<undefined>('/auth/logout', { method: 'POST' }),
 }

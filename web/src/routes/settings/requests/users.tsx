@@ -58,6 +58,18 @@ import type { AdminUpdateUserInput, Invitation, PortalUserWithQuota } from '@/ty
 
 import { RequestsNav } from './RequestsNav'
 
+const getInvitationStatus = (
+  invitation: Invitation,
+): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {
+  if (invitation.usedAt) {
+    return { label: 'Used', variant: 'secondary' }
+  }
+  if (new Date(invitation.expiresAt) < new Date()) {
+    return { label: 'Expired', variant: 'destructive' }
+  }
+  return { label: 'Pending', variant: 'default' }
+}
+
 export function RequestUsersPage() {
   const [activeTab, setActiveTab] = useState<string>('users')
   const [showUserDialog, setShowUserDialog] = useState(false)
@@ -172,36 +184,21 @@ export function RequestUsersPage() {
 
   const handleCopyLink = async (token: string) => {
     const link = getInvitationLink(token)
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(link)
-        setCopiedToken(token)
-        toast.success('Invitation link copied to clipboard')
-        setTimeout(() => setCopiedToken(null), 3000)
-        return
-      } catch {
-        // Fall through to show link
-      }
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiedToken(token)
+      toast.success('Invitation link copied to clipboard')
+      setTimeout(() => setCopiedToken(null), 3000)
+      return
+    } catch {
+      // Clipboard not available - show the link for manual copying
+      setExpandedLinkToken(token)
     }
-    // Clipboard not available - show the link for manual copying
-    setExpandedLinkToken(token)
     toast.info('Select and copy the link below')
   }
 
   const toggleLinkVisibility = (token: string) => {
     setExpandedLinkToken(expandedLinkToken === token ? null : token)
-  }
-
-  const getInvitationStatus = (
-    invitation: Invitation,
-  ): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } => {
-    if (invitation.usedAt) {
-      return { label: 'Used', variant: 'secondary' }
-    }
-    if (new Date(invitation.expiresAt) < new Date()) {
-      return { label: 'Expired', variant: 'destructive' }
-    }
-    return { label: 'Pending', variant: 'default' }
   }
 
   const getQuotaDisplay = (user: PortalUserWithQuota): string => {
@@ -569,13 +566,19 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
   const [qualityProfileId, setQualityProfileId] = useState<number | null>(user.qualityProfileId)
   const [autoApprove, setAutoApprove] = useState(user.autoApprove)
   const [useQuotaOverride, setUseQuotaOverride] = useState(
-    user.quota?.moviesLimit !== null ||
-      user.quota?.seasonsLimit !== null ||
-      user.quota?.episodesLimit !== null,
+    (user.quota && user.quota.moviesLimit !== null) ||
+      (user.quota && user.quota.seasonsLimit !== null) ||
+      (user.quota && user.quota.episodesLimit !== null),
   )
-  const [moviesLimit, setMoviesLimit] = useState(user.quota?.moviesLimit?.toString() || '')
-  const [seasonsLimit, setSeasonsLimit] = useState(user.quota?.seasonsLimit?.toString() || '')
-  const [episodesLimit, setEpisodesLimit] = useState(user.quota?.episodesLimit?.toString() || '')
+  const [moviesLimit, setMoviesLimit] = useState(
+    user.quota && user.quota.moviesLimit !== null ? user.quota.moviesLimit.toString() : '',
+  )
+  const [seasonsLimit, setSeasonsLimit] = useState(
+    user.quota && user.quota.seasonsLimit !== null ? user.quota.seasonsLimit.toString() : '',
+  )
+  const [episodesLimit, setEpisodesLimit] = useState(
+    user.quota && user.quota.episodesLimit !== null ? user.quota.episodesLimit.toString() : '',
+  )
 
   const handleSave = async () => {
     try {
@@ -653,7 +656,7 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
             <Checkbox
               id="autoApprove"
               checked={autoApprove}
-              onCheckedChange={(checked) => setAutoApprove(checked)}
+              onCheckedChange={(checked) => setAutoApprove(checked === true)}
             />
             <Label htmlFor="autoApprove">Auto-approve requests</Label>
           </div>
@@ -662,8 +665,8 @@ function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditD
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="quotaOverride"
-                checked={useQuotaOverride}
-                onCheckedChange={(checked) => setUseQuotaOverride(checked)}
+                checked={useQuotaOverride || false}
+                onCheckedChange={(checked) => setUseQuotaOverride(checked === true)}
               />
               <Label htmlFor="quotaOverride">Override quota limits</Label>
             </div>

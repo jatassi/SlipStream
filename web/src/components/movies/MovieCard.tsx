@@ -31,7 +31,8 @@ export function MovieCard({
         className="absolute inset-0"
       />
       {editMode ? (
-        <div
+        <button
+          type="button"
           className="absolute top-2 left-2 z-10"
           onClick={(e) => {
             e.preventDefault()
@@ -46,7 +47,7 @@ export function MovieCard({
               selected && 'border-movie-500 data-[checked]:bg-movie-500',
             )}
           />
-        </div>
+        </button>
       ) : null}
       <div className="absolute top-2 right-2">
         <MediaStatusBadge status={movie.status} />
@@ -64,9 +65,10 @@ export function MovieCard({
 
   if (editMode) {
     return (
-      <div
+      <button
+        type="button"
         className={cn(
-          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all',
+          'group bg-card block cursor-pointer overflow-hidden rounded-lg border-2 transition-all w-full',
           selected
             ? 'border-movie-500 glow-movie'
             : 'border-border hover:border-movie-500/50 hover:glow-movie-sm',
@@ -75,7 +77,7 @@ export function MovieCard({
         onClick={() => onToggleSelect?.(movie.id)}
       >
         {cardContent}
-      </div>
+      </button>
     )
   }
 

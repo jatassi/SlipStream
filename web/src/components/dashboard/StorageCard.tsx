@@ -119,13 +119,13 @@ export function StorageCard({ storage, loading }: StorageCardProps) {
         {/* Storage volumes */}
         <div className="space-y-3">
           {storage
-            ?.filter((volume) => volume && volume.totalSpace > 1_000_000_000) // Show volumes > 1GB
-            ?.sort((a, b) => b.totalSpace - a.totalSpace) // Sort by size
-            ?.slice(0, 3)
+            ?.filter((volume) => volume.totalSpace > 1_000_000_000) // Show volumes > 1GB
+            .toSorted((a, b) => b.totalSpace - a.totalSpace) // Sort by size
+            .slice(0, 3)
             .map((volume) => (
               <div key={volume.path} className="space-y-1">
                 {/* Only show volume label if multiple volumes */}
-                {storage?.length > 1 && (
+                {storage.length > 1 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{volume.label}</span>
                     {volume.rootFolders && volume.rootFolders.length > 0 ? (

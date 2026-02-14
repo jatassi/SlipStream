@@ -71,7 +71,7 @@ export const prowlarrApi = {
     }),
 
   deleteIndexerSettings: (indexerId: number) =>
-    apiFetch<void>(`/indexers/prowlarr/indexers/${indexerId}/settings`, {
+    apiFetch<undefined>(`/indexers/prowlarr/indexers/${indexerId}/settings`, {
       method: 'DELETE',
     }),
 

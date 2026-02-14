@@ -15,8 +15,10 @@ export function PortalHeader() {
   const isSearchPage = location.pathname === '/requests/search'
 
   // Get current search query from URL if on search page
-  const searchParams = new URLSearchParams(location.search)
-  const currentQuery = searchParams.get('q') || ''
+  const searchParams = new URLSearchParams(
+    typeof location.search === 'string' ? location.search : '',
+  )
+  const currentQuery = searchParams.get('q') ?? ''
   const [searchInput, setSearchInput] = useState(currentQuery)
   const [searchFocused, setSearchFocused] = useState(false)
 

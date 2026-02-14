@@ -160,7 +160,7 @@ export function SeriesListPage() {
       setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
     } else {
       setSortField(field as SortField)
-      setSortDirection(DEFAULT_SORT_DIRECTIONS[field] || 'asc')
+      setSortDirection(DEFAULT_SORT_DIRECTIONS[field])
     }
   }
 
@@ -197,9 +197,9 @@ export function SeriesListPage() {
   })
 
   // Sort series
-  const defaultDir = DEFAULT_SORT_DIRECTIONS[sortField] || 'asc'
+  const defaultDir = DEFAULT_SORT_DIRECTIONS[sortField]
   const dirMultiplier = sortDirection === defaultDir ? 1 : -1
-  const sortedSeries = [...filteredSeries].sort((a, b) => {
+  const sortedSeries = filteredSeries.toSorted((a, b) => {
     let result: number
     switch (sortField) {
       case 'monitored': {
@@ -483,7 +483,9 @@ export function SeriesListPage() {
               <span className="text-muted-foreground text-xs">Size</span>
               <Slider
                 value={[posterSize]}
-                onValueChange={(v) => setPosterSize(Array.isArray(v) ? v[0] : v)}
+                onValueChange={(v) =>
+                  setPosterSize(Array.isArray(v) && typeof v[0] === 'number' ? v[0] : posterSize)
+                }
                 min={100}
                 max={250}
                 step={10}

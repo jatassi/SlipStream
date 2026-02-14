@@ -24,7 +24,7 @@ export const downloadClientsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => apiFetch<void>(`/downloadclients/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<undefined>(`/downloadclients/${id}`, { method: 'DELETE' }),
 
   test: (id: number) =>
     apiFetch<DownloadClientTestResult>(`/downloadclients/${id}/test`, { method: 'POST' }),

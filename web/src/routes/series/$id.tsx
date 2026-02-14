@@ -287,43 +287,45 @@ export function SeriesDetailPage() {
                   </span>
                 ) : null}
               </div>
-              {(extendedData?.ratings?.rottenTomatoes != null ||
-                extendedData?.ratings?.imdbRating != null ||
-                extendedData?.ratings?.metacritic != null) && (
-                <div className="flex items-center gap-4 text-sm text-gray-300">
-                  {extendedData?.ratings?.rottenTomatoes != null && (
-                    <span className="flex items-center gap-1.5">
-                      {extendedData.ratings.rottenTomatoes >= 60 ? (
-                        <RTFreshIcon className="h-5" />
-                      ) : (
-                        <RTRottenIcon className="h-5" />
-                      )}
-                      <span className="font-medium">{extendedData.ratings.rottenTomatoes}%</span>
-                    </span>
-                  )}
-                  {extendedData?.ratings?.imdbRating != null && (
-                    <span className="flex items-center gap-1.5">
-                      <IMDbIcon className="h-4" />
-                      <span className="font-medium">
-                        {extendedData.ratings.imdbRating.toFixed(1)}
+              {extendedData?.ratings &&
+                (extendedData.ratings.rottenTomatoes !== undefined ||
+                  extendedData.ratings.imdbRating !== undefined ||
+                  extendedData.ratings.metacritic !== undefined) && (
+                  <div className="flex items-center gap-4 text-sm text-gray-300">
+                    {extendedData.ratings.rottenTomatoes !== undefined && (
+                      <span className="flex items-center gap-1.5">
+                        {extendedData.ratings.rottenTomatoes >= 60 ? (
+                          <RTFreshIcon className="h-5" />
+                        ) : (
+                          <RTRottenIcon className="h-5" />
+                        )}
+                        <span className="font-medium">{extendedData.ratings.rottenTomatoes}%</span>
                       </span>
-                    </span>
-                  )}
-                  {extendedData?.ratings?.metacritic != null && (
-                    <span className="flex items-center gap-1.5">
-                      <MetacriticIcon className="h-5" />
-                      <span className="font-medium">{extendedData.ratings.metacritic}</span>
-                    </span>
-                  )}
-                </div>
-              )}
+                    )}
+                    {extendedData.ratings.imdbRating !== undefined && (
+                      <span className="flex items-center gap-1.5">
+                        <IMDbIcon className="h-4" />
+                        <span className="font-medium">
+                          {extendedData.ratings.imdbRating.toFixed(1)}
+                        </span>
+                      </span>
+                    )}
+                    {extendedData.ratings.metacritic !== undefined && (
+                      <span className="flex items-center gap-1.5">
+                        <MetacriticIcon className="h-5" />
+                        <span className="font-medium">{extendedData.ratings.metacritic}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               {series.overview ? (
-                <p
-                  className={`max-w-2xl cursor-pointer text-sm text-gray-300 ${overviewExpanded ? '' : 'line-clamp-2'}`}
+                <button
+                  type="button"
+                  className={`max-w-2xl cursor-pointer text-sm text-gray-300 text-left ${overviewExpanded ? '' : 'line-clamp-2'}`}
                   onClick={() => setOverviewExpanded(!overviewExpanded)}
                 >
                   {series.overview}
-                </p>
+                </button>
               ) : null}
             </div>
           </div>

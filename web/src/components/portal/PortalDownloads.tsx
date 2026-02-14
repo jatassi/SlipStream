@@ -15,7 +15,8 @@ function DownloadRow({ download }: { download: PortalDownload }) {
 
   const title = download.requestTitle || download.title
   const season =
-    download.mediaType === 'series' && download.seasonNumber != null
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    download.mediaType === 'series' && download.seasonNumber !== null
       ? `S${download.seasonNumber}`
       : null
   const fullTitle = season ? `${title} ${season}` : title

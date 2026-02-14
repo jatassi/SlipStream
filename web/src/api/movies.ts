@@ -21,12 +21,12 @@ export const moviesApi = {
     }),
 
   delete: (id: number, deleteFiles?: boolean) =>
-    apiFetch<void>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
+    apiFetch<undefined>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, { method: 'DELETE' }),
 
   bulkDelete: (ids: number[], deleteFiles?: boolean) =>
     Promise.all(
       ids.map((id) =>
-        apiFetch<void>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, {
+        apiFetch<undefined>(`/movies/${id}${deleteFiles ? '?deleteFiles=true' : ''}`, {
           method: 'DELETE',
         }),
       ),
@@ -39,9 +39,9 @@ export const moviesApi = {
       ),
     ),
 
-  scan: (id: number) => apiFetch<void>(`/movies/${id}/scan`, { method: 'POST' }),
+  scan: (id: number) => apiFetch<undefined>(`/movies/${id}/scan`, { method: 'POST' }),
 
-  search: (id: number) => apiFetch<void>(`/movies/${id}/search`, { method: 'POST' }),
+  search: (id: number) => apiFetch<undefined>(`/movies/${id}/search`, { method: 'POST' }),
 
   refresh: (id: number) => apiFetch<Movie>(`/movies/${id}/refresh`, { method: 'POST' }),
 

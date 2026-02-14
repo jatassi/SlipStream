@@ -17,6 +17,32 @@ import {
   useUpdateRssSyncSettings,
 } from '@/hooks'
 
+const formatElapsed = (ms: number) => {
+  if (ms < 1000) {
+    return `${ms}ms`
+  }
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+const formatRelativeTime = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60_000)
+  if (diffMin < 1) {
+    return 'Just now'
+  }
+  if (diffMin < 60) {
+    return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
+  }
+  const diffHours = Math.floor(diffMin / 60)
+  if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
+  }
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`
+}
+
 export function RssSyncSection() {
   const { data: settings, isLoading, isError, refetch } = useRssSyncSettings()
   const updateMutation = useUpdateRssSyncSettings()
@@ -64,32 +90,6 @@ export function RssSyncSection() {
     return <ErrorState onRetry={refetch} />
   }
 
-  const formatElapsed = (ms: number) => {
-    if (ms < 1000) {
-      return `${ms}ms`
-    }
-    return `${(ms / 1000).toFixed(1)}s`
-  }
-
-  const formatRelativeTime = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMin = Math.floor(diffMs / 60_000)
-    if (diffMin < 1) {
-      return 'Just now'
-    }
-    if (diffMin < 60) {
-      return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
-    }
-    const diffHours = Math.floor(diffMin / 60)
-    if (diffHours < 24) {
-      return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
-    }
-    const diffDays = Math.floor(diffHours / 24)
-    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`
-  }
-
   return (
     <div className="space-y-6">
       <Card>
@@ -119,7 +119,8 @@ export function RssSyncSection() {
               <Slider
                 value={[intervalMin]}
                 onValueChange={(value) => {
-                  const v = Array.isArray(value) ? value[0] : value
+                  const v =
+                    Array.isArray(value) && typeof value[0] === 'number' ? value[0] : intervalMin
                   setIntervalMin(v)
                 }}
                 min={10}

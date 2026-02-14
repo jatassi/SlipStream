@@ -19,6 +19,8 @@ import {
   type HealthItem,
 } from '@/types/health'
 
+const getItemNameById = (items: HealthItem[], id: string) => items.find((i) => i.id === id)?.name ?? id
+
 function formatRelativeTime(dateString?: string): string {
   if (!dateString) {
     return ''
@@ -180,16 +182,15 @@ function ProwlarrTreeCard({ prowlarrItem, indexerItems }: ProwlarrTreeCardProps)
   }
 
   const handleTestAll = async () => {
-    const getItemName = (id: string) => indexerItems.find((i) => i.id === id)?.name ?? id
     try {
       const result = await testCategory.mutateAsync('indexers')
-      const passedItems = result.results?.filter((r) => r.success) ?? []
-      const failedItems = result.results?.filter((r) => !r.success) ?? []
+      const passedItems = result.results.filter((r) => r.success)
+      const failedItems = result.results.filter((r) => !r.success)
 
       const getResultText = (items: { id: string }[], success: boolean) => {
         const count = items.length
         if (indexerItems.length <= 4 && count > 0) {
-          const names = items.map((r) => getItemName(r.id)).join(', ')
+          const names = items.map((r) => getItemNameById(indexerItems, r.id)).join(', ')
           return success ? `${names} connected` : `${names} failed`
         }
         return success
@@ -329,13 +330,10 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
   const handleTestAll = async () => {
     const categoryName = getCategoryDisplayName(category)
 
-    // Get item name by ID
-    const getItemName = (id: string) => items.find((i) => i.id === id)?.name ?? id
-
     // Get descriptive text based on category and results
     const getResultText = (resultItems: { id: string; success: boolean }[], success: boolean) => {
       const count = resultItems.length
-      const names = resultItems.map((r) => getItemName(r.id))
+      const names = resultItems.map((r) => getItemNameById(items, r.id))
 
       // Enumerate names if 4 or fewer items total
       if (items.length <= 4 && count > 0) {
@@ -367,8 +365,8 @@ function HealthCategoryCard({ category, items }: HealthCategoryCardProps) {
 
     try {
       const result = await testCategory.mutateAsync(category)
-      const passedItems = result.results?.filter((r) => r.success) ?? []
-      const failedItems = result.results?.filter((r) => !r.success) ?? []
+      const passedItems = result.results.filter((r) => r.success)
+      const failedItems = result.results.filter((r) => !r.success)
 
       if (failedItems.length === 0) {
         toast.success(`${categoryName}: ${getResultText(passedItems, true)}`)
@@ -489,8 +487,8 @@ export function SystemHealthPage() {
   ]
 
   // In Prowlarr mode, we show a tree structure; in SlipStream mode, we show the regular indexers card
-  const prowlarrItem = health?.prowlarr?.[0]
-  const indexerItems = health?.indexers || []
+  const prowlarrItem = health?.prowlarr[0]
+  const indexerItems = health?.indexers ?? []
 
   return (
     <div>

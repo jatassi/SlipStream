@@ -11,7 +11,7 @@ const BREAKPOINTS = [
 ]
 
 function getColumns(): number {
-  if (globalThis.window === undefined) {
+  if (typeof window === 'undefined') {
     return 3
   }
   const width = window.innerWidth
@@ -77,25 +77,31 @@ export function ExpandableMediaGrid<T>({
   return (
     <div className="space-y-3">
       {showHeader ? (
-        <div
-          className={`flex items-center gap-2 text-sm ${themeColor || 'text-muted-foreground'} ${
-            collapsible && hasMore ? 'cursor-pointer hover:brightness-125' : ''
-          } transition-all duration-200`}
-          onClick={collapsible && hasMore ? () => setExpanded(!expanded) : undefined}
-        >
-          {collapsible && hasMore ? (
+        collapsible && hasMore ? (
+          <button
+            type="button"
+            className={`flex items-center gap-2 text-sm ${themeColor || 'text-muted-foreground'} cursor-pointer hover:brightness-125 transition-all duration-200`}
+            onClick={() => setExpanded(!expanded)}
+          >
             <ChevronRight
               className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
             />
-          ) : Icon ? (
-            <Icon
-              className={`size-4 ${icon === 'movie' ? 'icon-glow-movie' : icon === 'series' ? 'icon-glow-tv' : ''}`}
-            />
-          ) : null}
-          <span>
-            {label} ({items.length})
-          </span>
-        </div>
+            <span>
+              {label} ({items.length})
+            </span>
+          </button>
+        ) : (
+          <div className={`flex items-center gap-2 text-sm ${themeColor || 'text-muted-foreground'} transition-all duration-200`}>
+            {Icon ? (
+              <Icon
+                className={`size-4 ${icon === 'movie' ? 'icon-glow-movie' : icon === 'series' ? 'icon-glow-tv' : ''}`}
+              />
+            ) : null}
+            <span>
+              {label} ({items.length})
+            </span>
+          </div>
+        )
       ) : null}
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
@@ -105,8 +111,9 @@ export function ExpandableMediaGrid<T>({
 
         {/* Show more card */}
         {!expanded && hasMore ? (
-          <div
-            className="border-border bg-card/50 hover:bg-card/80 cursor-pointer rounded-lg border-2 border-dashed transition-colors"
+          <button
+            type="button"
+            className="border-border bg-card/50 hover:bg-card/80 cursor-pointer rounded-lg border-2 border-dashed transition-colors w-full"
             onClick={() => setExpanded(true)}
           >
             <div className="flex aspect-[2/3] items-center justify-center">
@@ -120,21 +127,22 @@ export function ExpandableMediaGrid<T>({
             <div className="p-2">
               <div className="h-8" />
             </div>
-          </div>
+          </button>
         ) : null}
       </div>
 
       {/* Show less button */}
       {expanded && hasMore && collapsible ? (
-        <div
-          className="hover:text-foreground flex cursor-pointer justify-center pt-2 transition-all duration-200"
+        <button
+          type="button"
+          className="hover:text-foreground flex cursor-pointer justify-center pt-2 transition-all duration-200 w-full"
           onClick={() => setExpanded(false)}
         >
           <div className="text-muted-foreground flex items-center gap-1 text-sm">
             <ChevronDown className="size-4 rotate-180" />
             <span>Show less</span>
           </div>
-        </div>
+        </button>
       ) : null}
     </div>
   )

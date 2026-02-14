@@ -83,8 +83,8 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
 
     try {
       const result = await testCategory.mutateAsync(category)
-      const passed = result.results?.filter((r) => r.success).length ?? 0
-      const failed = result.results?.filter((r) => !r.success).length ?? 0
+      const passed = result.results.filter((r) => r.success).length
+      const failed = result.results.filter((r) => !r.success).length
 
       if (failed === 0) {
         toast.success(`${categoryName}: ${getResultText(passed, true, true)}`)

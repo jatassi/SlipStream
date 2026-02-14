@@ -14,12 +14,9 @@ export function DownloadProgressBar({ mediaId, mediaType }: DownloadProgressBarP
   const matchingDownloads =
     downloads?.filter((d) => {
       if (mediaType === 'movie') {
-        return d.movieId != null && mediaId != null && d.movieId === mediaId
+        return d.movieId !== undefined && mediaId !== undefined && d.movieId === mediaId
       }
-      if (mediaType === 'series') {
-        return d.seriesId != null && mediaId != null && d.seriesId === mediaId
-      }
-      return false
+      return d.seriesId !== undefined && mediaId !== undefined && d.seriesId === mediaId
     }) ?? []
 
   if (matchingDownloads.length === 0) {

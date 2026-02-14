@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 type Breakpoint = 'sm' | 'md' | 'lg'
 
 function getBreakpoint(): Breakpoint {
-  if (globalThis.window === undefined) {
+  if (typeof window === 'undefined') {
     return 'lg'
   }
   const width = window.innerWidth

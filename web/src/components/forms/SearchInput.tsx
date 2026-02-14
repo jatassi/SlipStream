@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Search, X } from 'lucide-react'
 
@@ -25,12 +25,19 @@ export function SearchInput({
 }: SearchInputProps) {
   const [internalValue, setInternalValue] = useState(controlledValue || '')
   const [prevControlledValue, setPrevControlledValue] = useState(controlledValue)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Sync with controlled value during render (React-recommended pattern)
   if (controlledValue !== undefined && controlledValue !== prevControlledValue) {
     setPrevControlledValue(controlledValue)
     setInternalValue(controlledValue)
   }
+
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus()
+    }
+  }, [autoFocus])
 
   // Debounce the onChange callback
   useEffect(() => {
@@ -50,12 +57,12 @@ export function SearchInput({
     <div className={cn('relative', className)}>
       <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
       <Input
+        ref={inputRef}
         type="search"
         value={internalValue}
         onChange={(e) => setInternalValue(e.target.value)}
         placeholder={placeholder}
         className="pr-9 pl-9"
-        autoFocus={autoFocus}
       />
       {internalValue ? (
         <Button

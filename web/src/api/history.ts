@@ -11,7 +11,7 @@ export const historyApi = {
   list: (options?: ListHistoryOptions) =>
     apiFetch<HistoryResponse>(`/history${buildQueryString(options || {})}`),
 
-  clear: () => apiFetch<void>('/history', { method: 'DELETE' }),
+  clear: () => apiFetch<undefined>('/history', { method: 'DELETE' }),
 
   getSettings: () => apiFetch<HistoryRetentionSettings>('/history/settings'),
 

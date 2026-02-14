@@ -54,7 +54,9 @@ export function SeriesTable({
                   col.sortField && 'hover:text-foreground cursor-pointer select-none',
                 )}
                 style={col.minWidth ? { minWidth: col.minWidth } : undefined}
-                onClick={col.sortField && onSort ? () => onSort(col.sortField!) : undefined}
+                onClick={
+                  col.sortField && onSort ? () => col.sortField && onSort(col.sortField) : undefined
+                }
               >
                 <span className="inline-flex items-center gap-1">
                   {col.label}

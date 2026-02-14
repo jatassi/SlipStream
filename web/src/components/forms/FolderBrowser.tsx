@@ -16,6 +16,37 @@ import { useBrowseDirectory } from '@/hooks'
 import { formatBytes } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 
+const getBreadcrumbs = (path: string) => {
+  if (!path) {
+    return []
+  }
+
+  // Handle Windows paths
+  const isWindows = /^[A-Za-z]:/.test(path)
+  const parts = path.split(/[/\\]/).filter(Boolean)
+
+  const breadcrumbs: { label: string; path: string }[] = []
+  let accumulated = isWindows ? '' : '/'
+
+  for (const part of parts) {
+    if (isWindows) {
+      accumulated = accumulated ? `${accumulated}\\${part}` : part
+    } else {
+      accumulated = `${accumulated}${accumulated === '/' ? '' : '/'}${part}`
+    }
+
+    // For Windows, add : after drive letter
+    const displayPath = isWindows && breadcrumbs.length === 0 ? `${part}:\\` : accumulated
+
+    breadcrumbs.push({
+      label: part,
+      path: displayPath,
+    })
+  }
+
+  return breadcrumbs
+}
+
 type FolderBrowserProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -49,39 +80,7 @@ export function FolderBrowser({
     onOpenChange(false)
   }
 
-  // Build breadcrumb parts from path
-  const getBreadcrumbs = (path: string) => {
-    if (!path) {
-      return []
-    }
-
-    // Handle Windows paths
-    const isWindows = /^[A-Za-z]:/.test(path)
-    const parts = path.split(/[/\\]/).filter(Boolean)
-
-    const breadcrumbs: { label: string; path: string }[] = []
-    let accumulated = isWindows ? '' : '/'
-
-    for (const part of parts) {
-      accumulated = isWindows
-        ? accumulated
-          ? `${accumulated}\\${part}`
-          : part
-        : `${accumulated}${accumulated === '/' ? '' : '/'}${part}`
-
-      // For Windows, add : after drive letter
-      const displayPath = isWindows && breadcrumbs.length === 0 ? `${part}:\\` : accumulated
-
-      breadcrumbs.push({
-        label: part,
-        path: displayPath,
-      })
-    }
-
-    return breadcrumbs
-  }
-
-  const breadcrumbs = getBreadcrumbs(data?.path || currentPath)
+  const breadcrumbs = getBreadcrumbs(data?.path ?? currentPath)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,7 +178,7 @@ export function FolderBrowser({
               {data?.parent ? (
                 <button
                   className="hover:bg-accent flex w-full items-center gap-3 border-b px-3 py-2 text-left"
-                  onClick={() => handleNavigate(data.parent!)}
+                  onClick={() => data.parent && handleNavigate(data.parent)}
                 >
                   <FolderUp className="text-muted-foreground size-5" />
                   <span className="text-muted-foreground">..</span>
@@ -200,7 +199,7 @@ export function FolderBrowser({
                     </button>
                   ))}
                 </div>
-              ) : data?.path && !data?.drives ? (
+              ) : data?.path && !data.drives ? (
                 <div className="text-muted-foreground flex h-32 items-center justify-center">
                   No subdirectories
                 </div>

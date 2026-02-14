@@ -28,7 +28,7 @@ import {
 import { useCreateRootFolder, useDeleteRootFolder, useRootFolders } from '@/hooks'
 import { useClearDefault, useSetDefault } from '@/hooks/useDefaults'
 import { formatBytes } from '@/lib/formatters'
-import type { RootFolder } from '@/types'
+import type { MediaType, RootFolder } from '@/types'
 
 export function RootFoldersSection() {
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -73,7 +73,7 @@ export function RootFoldersSection() {
     }
   }
 
-  const handleSetDefault = async (id: number, mediaType: string) => {
+  const handleSetDefault = async (id: number, mediaType: MediaType) => {
     try {
       await setDefaultMutation.mutateAsync({
         entityType: 'root_folder',
@@ -86,7 +86,7 @@ export function RootFoldersSection() {
     }
   }
 
-  const handleClearDefault = async (mediaType: string) => {
+  const handleClearDefault = async (mediaType: MediaType) => {
     try {
       await clearDefaultMutation.mutateAsync({
         entityType: 'root_folder',

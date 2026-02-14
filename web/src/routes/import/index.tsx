@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEpisodes, useGlobalLoading, useMovies, useSeries } from '@/hooks'
@@ -195,11 +196,11 @@ function FileBrowser({
           </ScrollArea>
         ) : isLoading ? (
           <div className="space-y-1">
-            {[55, 40, 65, 48, 60, 42, 70, 50].map((w, i) => (
-              <div key={i} className="flex items-center gap-2 p-2">
+            {[55, 40, 65, 48, 60, 42, 70, 50].map((w) => (
+              <div key={w} className="flex items-center gap-2 p-2">
                 <Skeleton className="size-4 shrink-0 rounded" />
                 <Skeleton className="h-4" style={{ width: `${w}%` }} />
-                {i % 3 === 0 && <Skeleton className="ml-auto size-4 shrink-0" />}
+                {w % 3 === 0 && <Skeleton className="ml-auto size-4 shrink-0" />}
               </div>
             ))}
           </div>
@@ -233,7 +234,7 @@ function FileBrowser({
               ))}
 
               {/* Directories */}
-              {data?.directories?.map((dir) => (
+              {data?.directories.map((dir) => (
                 <button
                   key={dir.path}
                   onClick={() => navigateTo(dir.path)}
@@ -246,7 +247,7 @@ function FileBrowser({
               ))}
 
               {/* Video files */}
-              {data?.files?.map((file) => (
+              {data?.files.map((file) => (
                 <div
                   key={file.path}
                   className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2"
@@ -257,9 +258,12 @@ function FileBrowser({
                 </div>
               ))}
 
-              {!data?.drives?.length && !data?.directories?.length && !data?.files?.length && (
-                <p className="text-muted-foreground py-4 text-center text-sm">No items found</p>
-              )}
+              {data &&
+                !data.drives?.length &&
+                !data.directories.length &&
+                !data.files.length && (
+                  <p className="text-muted-foreground py-4 text-center text-sm">No items found</p>
+                )}
             </div>
           </ScrollArea>
         )}
@@ -438,9 +442,9 @@ function EditMatchDialog({
             <h4 className="text-sm font-medium">Match to Library</h4>
 
             <div className="space-y-2">
-              <label className="text-muted-foreground text-sm">Media Type</label>
+              <Label htmlFor="media-type">Media Type</Label>
               <Select value={selectedType} onValueChange={(v) => v && setSelectedType(v)}>
-                <SelectTrigger>{selectedType === 'movie' ? 'Movie' : 'TV Episode'}</SelectTrigger>
+                <SelectTrigger id="media-type">{selectedType === 'movie' ? 'Movie' : 'TV Episode'}</SelectTrigger>
                 <SelectContent>
                   <SelectItem value="movie">Movie</SelectItem>
                   <SelectItem value="episode">TV Episode</SelectItem>
@@ -450,9 +454,9 @@ function EditMatchDialog({
 
             {selectedType === 'movie' && movies ? (
               <div className="space-y-2">
-                <label className="text-muted-foreground text-sm">Movie</label>
+                <Label htmlFor="movie-select">Movie</Label>
                 <Select value={selectedMovieId} onValueChange={(v) => v && setSelectedMovieId(v)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="movie-select">
                     {selectedMovieId
                       ? (() => {
                           const movie = movies.find((m) => m.id.toString() === selectedMovieId)
@@ -474,15 +478,17 @@ function EditMatchDialog({
             {selectedType === 'episode' && allSeries ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-muted-foreground text-sm">Series</label>
+                  <Label htmlFor="series-select">Series</Label>
                   <Select
                     value={selectedSeriesId}
                     onValueChange={(v) => {
-                      setSelectedSeriesId(v || '')
-                      setSelectedEpisodeId('')
+                      if (v) {
+                        setSelectedSeriesId(v)
+                        setSelectedEpisodeId('')
+                      }
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="series-select">
                       {selectedSeriesId
                         ? allSeries.find((s) => s.id.toString() === selectedSeriesId)?.title ||
                           'Select a series'
@@ -500,12 +506,12 @@ function EditMatchDialog({
 
                 {selectedSeriesId && episodes && episodes.length > 0 ? (
                   <div className="space-y-2">
-                    <label className="text-muted-foreground text-sm">Episode</label>
+                    <Label htmlFor="episode-select">Episode</Label>
                     <Select
                       value={selectedEpisodeId}
                       onValueChange={(v) => v && setSelectedEpisodeId(v)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="episode-select">
                         {selectedEpisodeId
                           ? (() => {
                               const ep = episodes.find((e) => e.id.toString() === selectedEpisodeId)
@@ -516,8 +522,8 @@ function EditMatchDialog({
                           : 'Select an episode'}
                       </SelectTrigger>
                       <SelectContent>
-                        {[...episodes]
-                          .sort((a, b) =>
+                        {episodes
+                          .toSorted((a, b) =>
                             a.seasonNumber === b.seasonNumber
                               ? a.episodeNumber - b.episodeNumber
                               : a.seasonNumber - b.seasonNumber,
@@ -649,7 +655,7 @@ function ScannedFilesList({
                           </Badge>
                           <Badge variant="secondary">
                             S{String(match.seasonNum ?? 0).padStart(2, '0')}E
-                            {String(match.episodeNum ?? 0).padStart(2, '0')} - "{match.mediaTitle}"
+                            {String(match.episodeNum ?? 0).padStart(2, '0')} - &quot;{match.mediaTitle}&quot;
                           </Badge>
                         </>
                       ) : (
@@ -769,7 +775,7 @@ function PendingImportsCard() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => retryMutation.mutate(item.id!)}
+                  onClick={() => item.id && retryMutation.mutate(item.id)}
                   disabled={retryMutation.isPending}
                 >
                   Retry
@@ -847,7 +853,10 @@ export function ManualImportPage() {
     let lastError = ''
 
     for (const file of filesToImport) {
-      const match = file.suggestedMatch!
+      const match = file.suggestedMatch
+      if (!match) {
+        continue
+      }
       try {
         const result = await importMutation.mutateAsync({
           path: file.path,

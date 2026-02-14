@@ -201,7 +201,7 @@ export function groupMedia<T extends Groupable>(
 
   for (const item of items) {
     const { key, label } = getGroupKey(item, sortField, context)
-    if (currentGroup?.key !== key) {
+    if (!currentGroup || currentGroup.key !== key) {
       currentGroup = { key, label, items: [] }
       groups.push(currentGroup)
     }

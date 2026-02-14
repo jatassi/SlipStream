@@ -85,7 +85,7 @@ function cronToPlainEnglish(cron: string): string {
     dayOfWeek === '*'
   ) {
     const interval = Number.parseInt(minute.slice(2))
-    if (!isNaN(interval)) {
+    if (!Number.isNaN(interval)) {
       return interval === 1 ? 'Every minute' : `Every ${interval} minutes`
     }
   }
@@ -99,14 +99,14 @@ function cronToPlainEnglish(cron: string): string {
     dayOfWeek === '*'
   ) {
     const interval = Number.parseInt(hour.slice(2))
-    if (!isNaN(interval)) {
+    if (!Number.isNaN(interval)) {
       return interval === 1 ? 'Every hour' : `Every ${interval} hours`
     }
   }
 
   // Every hour (minute is fixed, hour is wildcard)
   if (
-    !isNaN(minuteNum) &&
+    !Number.isNaN(minuteNum) &&
     hour === '*' &&
     dayOfMonth === '*' &&
     month === '*' &&
@@ -117,8 +117,8 @@ function cronToPlainEnglish(cron: string): string {
 
   // Daily at specific time
   if (
-    !isNaN(minuteNum) &&
-    !isNaN(hourNum) &&
+    !Number.isNaN(minuteNum) &&
+    !Number.isNaN(hourNum) &&
     dayOfMonth === '*' &&
     month === '*' &&
     dayOfWeek === '*'
@@ -138,7 +138,7 @@ function cronToPlainEnglish(cron: string): string {
   ]
   if (dayOfMonth === '*' && month === '*' && dayOfWeek !== '*') {
     const dayNum = Number.parseInt(dayOfWeek)
-    if (!isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 && !isNaN(hourNum) && !isNaN(minuteNum)) {
+    if (!Number.isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 && !Number.isNaN(hourNum) && !Number.isNaN(minuteNum)) {
       return `Weekly on ${dayNames[dayNum]} at ${formatTime(hourNum, minuteNum)}`
     }
   }

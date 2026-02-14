@@ -31,7 +31,7 @@ export const indexersApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) => apiFetch<void>(`/indexers/${id}`, { method: 'DELETE' }),
+  delete: (id: number) => apiFetch<undefined>(`/indexers/${id}`, { method: 'DELETE' }),
 
   // Test operations
   test: (id: number) => apiFetch<IndexerTestResult>(`/indexers/${id}/test`, { method: 'POST' }),

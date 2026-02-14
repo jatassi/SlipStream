@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, Check, Loader2, Search } from 'lucide-react'
@@ -39,17 +39,24 @@ export function AddMoviePage() {
   // Get tmdbId from URL search params
   const searchParams = useSearch({ strict: false })
   const tmdbId = useMemo(() => {
-    const id = searchParams.tmdbId
+    const id = (searchParams as Record<string, unknown>).tmdbId
     return id ? Number(id) : undefined
-  }, [searchParams.tmdbId])
+  }, [(searchParams as Record<string, unknown>).tmdbId])
 
   const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | null>(null)
   const debouncedSearchQuery = useDebounce(searchQuery, 900)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (step === 'search') {
+      searchInputRef.current?.focus()
+    }
+  }, [step])
 
   // Fetch movie metadata if tmdbId is provided
-  const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId || 0)
+  const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId ?? 0)
 
   // Track previous values for render-time state sync
   const [prevMovieMetadata, setPrevMovieMetadata] = useState(movieMetadata)
@@ -179,11 +186,11 @@ export function AddMoviePage() {
             <div className="relative">
               <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
               <Input
+                ref={searchInputRef}
                 placeholder="Search for a movie..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
-                autoFocus
               />
             </div>
           </div>

@@ -196,11 +196,11 @@ export function LogsPage() {
           </div>
         ) : (
           <div className="space-y-px p-2">
-            {filteredEntries.map((entry, idx) => {
+            {filteredEntries.map((entry) => {
               const fields = formatFields(entry.fields)
               return (
                 <div
-                  key={`${entry.timestamp}-${idx}`}
+                  key={`${entry.timestamp}-${entry.message}-${entry.level}`}
                   className="flex gap-2 rounded px-1 hover:bg-zinc-900"
                 >
                   <span className="shrink-0 text-zinc-500">{formatTimestamp(entry.timestamp)}</span>

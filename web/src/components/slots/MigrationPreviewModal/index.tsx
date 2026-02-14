@@ -402,19 +402,16 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
     }
 
     // For "nomatch" filter, show movies with files that have no match (needsReview but NOT a conflict)
-    if (filter === 'nomatch') {
-      return editedPreview.movies
-        .map((movie) => {
-          const filteredFiles = movie.files.filter((file) => file.needsReview && !file.conflict)
-          if (filteredFiles.length === 0) {
-            return null
-          }
-          return { ...movie, files: filteredFiles }
-        })
-        .filter((m): m is MovieMigrationPreview => m !== null)
-    }
-
+    // filter === 'nomatch'
     return editedPreview.movies
+      .map((movie) => {
+        const filteredFiles = movie.files.filter((file) => file.needsReview && !file.conflict)
+        if (filteredFiles.length === 0) {
+          return null
+        }
+        return { ...movie, files: filteredFiles }
+      })
+      .filter((m): m is MovieMigrationPreview => m !== null)
   }, [editedPreview, filter])
 
   // Filter TV shows based on selected filter
@@ -491,8 +488,8 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
     }
 
     // For "nomatch" filter, show episodes with files that have no match (needsReview but NOT a conflict)
-    if (filter === 'nomatch') {
-      return editedPreview.tvShows
+    // filter === 'nomatch'
+    return editedPreview.tvShows
         .map((show) => {
           const filteredSeasons = show.seasons
             .map((season) => {
@@ -527,9 +524,6 @@ export function DryRunModal({ open, onOpenChange, onMigrationComplete }: DryRunM
           }
         })
         .filter((s): s is TVShowMigrationPreview => s !== null)
-    }
-
-    return editedPreview.tvShows
   }, [editedPreview, filter])
 
   const handleExecute = () => {

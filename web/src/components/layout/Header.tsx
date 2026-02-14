@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
@@ -151,11 +152,19 @@ export function Header() {
                   <span className="text-muted-foreground text-xs font-medium">Developer Tools</span>
                 </div>
                 <div className="space-y-1 p-2">
-                  <label className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors">
+                  <Label
+                    htmlFor="force-loading-toggle"
+                    className="hover:bg-accent flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors"
+                  >
                     <LayoutTemplate className="text-muted-foreground size-4 shrink-0" />
                     <span className="flex-1">Force Loading</span>
-                    <Switch checked={globalLoading} onCheckedChange={setGlobalLoading} size="sm" />
-                  </label>
+                    <Switch
+                      id="force-loading-toggle"
+                      checked={globalLoading}
+                      onCheckedChange={setGlobalLoading}
+                      size="sm"
+                    />
+                  </Label>
                 </div>
               </PopoverContent>
             </Popover>

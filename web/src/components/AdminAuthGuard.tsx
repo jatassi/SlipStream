@@ -56,5 +56,5 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     )
   }
 
-  return <>{children}</>
+  return children
 }

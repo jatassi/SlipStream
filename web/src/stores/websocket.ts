@@ -127,7 +127,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         return
       }
       try {
-        const message: WSMessage = JSON.parse(event.data)
+        const eventData: string = typeof event.data === 'string' ? event.data : String(event.data)
+        const message: WSMessage = JSON.parse(eventData) as WSMessage
         set({ lastMessage: message, lastMessageTime: Date.now() })
       } catch (error) {
         console.error('[WebSocket] Failed to parse message:', error)

@@ -55,7 +55,7 @@ export function DownloadsNavLink({
     () =>
       queueItems
         .map((i) => `${i.id}:${i.mediaType}`)
-        .sort()
+        .toSorted()
         .join(','),
     [queueItems],
   )

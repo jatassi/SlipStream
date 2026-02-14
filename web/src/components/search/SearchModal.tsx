@@ -302,7 +302,7 @@ export function SearchModal({
           break
         }
         case 'peers': {
-          comparison = (a.seeders ?? 0) - (b.seeders ?? 0)
+          comparison = a.seeders - b.seeders
           break
         }
       }
@@ -572,9 +572,9 @@ export function SearchModal({
                     {hasTorrents ? (
                       <TableCell>
                         <span className="text-sm">
-                          <span className="text-green-500">{release.seeders ?? 0}</span>
+                          <span className="text-green-500">{release.seeders}</span>
                           {' / '}
-                          <span className="text-red-500">{release.leechers ?? 0}</span>
+                          <span className="text-red-500">{release.leechers}</span>
                         </span>
                       </TableCell>
                     ) : null}

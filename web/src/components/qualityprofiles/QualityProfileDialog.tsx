@@ -118,9 +118,9 @@ function generateScenarios(
     return []
   }
 
-  const sorted = [...allowed].sort((a, b) => a.weight - b.weight)
+  const sorted = allowed.toSorted((a, b) => a.weight - b.weight)
   const cutoffQ = sorted.find((q) => q.id === cutoffId)
-  const cutoffWeight = cutoffQ?.weight ?? sorted.at(-1).weight
+  const cutoffWeight = cutoffQ?.weight ?? (sorted.at(-1)?.weight ?? 0)
 
   const scenarios: UpgradeScenario[] = []
   const addedKeys = new Set<string>()
@@ -133,7 +133,7 @@ function generateScenarios(
     scenarios.push(s)
   }
 
-  const resolutions = [...new Set(sorted.map((q) => q.resolution))].sort((a, b) => a - b)
+  const resolutions = [...new Set(sorted.map((q) => q.resolution))].toSorted((a, b) => a - b)
 
   for (const res of resolutions) {
     const atRes = sorted.filter((q) => q.resolution === res)
@@ -149,23 +149,27 @@ function generateScenarios(
     if (nonDisc.length >= 2) {
       const from = nonDisc[0]
       const to = nonDisc.at(-1)
-      const passes = isUpgradeByStrategy(from, to, strategy)
-      add({ from, to, allowed: passes, reason: passes ? 'Better source' : 'Same tier' })
+      if (to) {
+        const passes = isUpgradeByStrategy(from, to, strategy)
+        add({ from, to, allowed: passes, reason: passes ? 'Better source' : 'Same tier' })
+      }
     }
 
     // Non-disc → disc (e.g. WEBDL → Bluray): aggressive ✓, balanced ✓, res_only ✗
     if (nonDisc.length > 0 && disc.length > 0) {
       const from = nonDisc.at(-1)
       const to = disc[0]
-      const passes = isUpgradeByStrategy(from, to, strategy)
-      add({ from, to, allowed: passes, reason: passes ? 'Non-disc to disc' : 'Same resolution' })
+      if (from) {
+        const passes = isUpgradeByStrategy(from, to, strategy)
+        add({ from, to, allowed: passes, reason: passes ? 'Non-disc to disc' : 'Same resolution' })
+      }
     }
 
     // Within disc (e.g. Bluray → Remux): aggressive ✓, balanced ✗, res_only ✗
     if (disc.length >= 2 && disc.some((q) => q.weight < cutoffWeight)) {
       const from = disc[0]
       const to = disc.at(-1)
-      if (from.weight < cutoffWeight) {
+      if (from.weight < cutoffWeight && to) {
         const passes = isUpgradeByStrategy(from, to, strategy)
         add({ from, to, allowed: passes, reason: passes ? 'Better source' : 'Same tier' })
       }
@@ -178,7 +182,7 @@ function generateScenarios(
     const toQ = sorted.find((q) => q.resolution === resolutions[i + 1])
     const from = fromQ.at(-1)
     const to = toQ
-    if (from.weight >= cutoffWeight) {
+    if (!from || !to || from.weight >= cutoffWeight) {
       continue
     }
     add({ from, to, allowed: true, reason: 'Higher resolution' })
@@ -206,7 +210,7 @@ function generateScenarios(
   }
 
   // Sort: allowed first, then blocked
-  return scenarios.sort((a, b) => (a.allowed === b.allowed ? 0 : a.allowed ? -1 : 1))
+  return scenarios.toSorted((a, b) => (a.allowed === b.allowed ? 0 : a.allowed ? -1 : 1))
 }
 
 const defaultItems: QualityItem[] = PREDEFINED_QUALITIES.map((q) => ({
@@ -226,6 +230,42 @@ const defaultFormData: CreateQualityProfileInput = {
   videoCodecSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
   audioCodecSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
   audioChannelSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
+}
+
+const validateAttributeGroup = (
+  settings: AttributeSettings,
+  options: string[],
+): string | null => {
+  if (options.length === 0) {
+    return null
+  }
+
+  const modes = options.map((opt) => settings.items[opt] ?? 'acceptable')
+  const nonAcceptableModes = modes.filter((m) => m !== 'acceptable')
+
+  // If not all items have a non-acceptable mode set, it's valid
+  if (nonAcceptableModes.length !== options.length) {
+    return null
+  }
+
+  // Check if all are the same mode
+  const firstMode = nonAcceptableModes[0]
+  const allSame = nonAcceptableModes.every((m) => m === firstMode)
+
+  if (allSame) {
+    switch (firstMode) {
+      case 'required': {
+        return 'All items set to Required - no release can match all requirements'
+      }
+      case 'preferred': {
+        return 'All items set to Preferred - this is equivalent to Acceptable'
+      }
+      case 'notAllowed': {
+        return 'All items set to Not Allowed - no release can match'
+      }
+    }
+  }
+  return null
 }
 
 export function QualityProfileDialog({ open, onOpenChange, profile }: QualityProfileDialogProps) {
@@ -248,15 +288,15 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
         setFormData({
           name: profile.name,
           cutoff: profile.cutoff,
-          upgradesEnabled: profile.upgradesEnabled ?? true,
-          upgradeStrategy: profile.upgradeStrategy || 'balanced',
-          cutoffOverridesStrategy: profile.cutoffOverridesStrategy ?? false,
-          allowAutoApprove: profile.allowAutoApprove ?? false,
+          upgradesEnabled: profile.upgradesEnabled,
+          upgradeStrategy: profile.upgradeStrategy,
+          cutoffOverridesStrategy: profile.cutoffOverridesStrategy,
+          allowAutoApprove: profile.allowAutoApprove,
           items: profile.items,
-          hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          videoCodecSettings: profile.videoCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          audioCodecSettings: profile.audioCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          audioChannelSettings: profile.audioChannelSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
+          hdrSettings: profile.hdrSettings,
+          videoCodecSettings: profile.videoCodecSettings,
+          audioCodecSettings: profile.audioCodecSettings,
+          audioChannelSettings: profile.audioChannelSettings,
         })
       } else {
         setFormData({
@@ -284,7 +324,7 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
     }
 
     try {
-      if (isEditing && profile) {
+      if (isEditing) {
         await updateMutation.mutateAsync({
           id: profile.id,
           data: formData,
@@ -369,44 +409,7 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
 
   const disabledHdrItems = getDisabledHdrItems()
 
-  // Validate attribute groups - all items same non-any mode is invalid
-  const validateAttributeGroup = (
-    settings: AttributeSettings,
-    options: string[],
-  ): string | null => {
-    if (options.length === 0) {
-      return null
-    }
-
-    const modes = options.map((opt) => settings.items[opt] || 'acceptable')
-    const nonAcceptableModes = modes.filter((m) => m !== 'acceptable')
-
-    // If not all items have a non-acceptable mode set, it's valid
-    if (nonAcceptableModes.length !== options.length) {
-      return null
-    }
-
-    // Check if all are the same mode
-    const firstMode = nonAcceptableModes[0]
-    const allSame = nonAcceptableModes.every((m) => m === firstMode)
-
-    if (allSame) {
-      switch (firstMode) {
-        case 'required': {
-          return 'All items set to Required - no release can match all requirements'
-        }
-        case 'preferred': {
-          return 'All items set to Preferred - this is equivalent to Acceptable'
-        }
-        case 'notAllowed': {
-          return 'All items set to Not Allowed - no release can match'
-        }
-      }
-    }
-    return null
-  }
-
-  const hdrOptions = ['SDR', ...(attributeOptions?.hdrFormats || []).filter((f) => f !== 'SDR')]
+  const hdrOptions = ['SDR', ...(attributeOptions?.hdrFormats ?? []).filter((f) => f !== 'SDR')]
   const attributeValidation = {
     hdr: validateAttributeGroup(formData.hdrSettings, hdrOptions),
     videoCodec: validateAttributeGroup(
@@ -736,8 +739,8 @@ function UpgradeStrategyPreview({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1.5 pt-1.5">
-          {scenarios.map((s, i) => (
-            <ScenarioRow key={i} scenario={s} />
+          {scenarios.map((s) => (
+            <ScenarioRow key={`${s.from.id}-${s.to.id}-${s.reason}`} scenario={s} />
           ))}
         </CollapsibleContent>
       </div>
@@ -765,7 +768,7 @@ function AttributeSettingsSection({
   const [isOpen, setIsOpen] = useState(false)
 
   const getItemMode = (value: string): AttributeMode => {
-    return settings.items[value] || 'acceptable'
+    return settings.items[value] ?? 'acceptable'
   }
 
   const countByMode = (mode: AttributeMode): number => {

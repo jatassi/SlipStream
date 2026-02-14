@@ -410,21 +410,21 @@ export function VersionSlotsSection() {
                             <ul className="list-inside list-disc">
                               {validationResult.errors
                                 .filter((e) => !e.startsWith('Profile conflict'))
-                                .map((error, i) => (
-                                  <li key={i}>{error}</li>
+                                .map((error) => (
+                                  <li key={error}>{error}</li>
                                 ))}
                             </ul>
                           ) : null}
                           {validationResult.conflicts && validationResult.conflicts.length > 0 ? (
                             <div className="mt-2 space-y-3">
-                              {validationResult.conflicts.map((conflict, i) => (
-                                <div key={i}>
+                              {validationResult.conflicts.map((conflict) => (
+                                <div key={`${conflict.slotAName}-${conflict.slotBName}`}>
                                   <p className="font-medium">
                                     Conflict between {conflict.slotAName} and {conflict.slotBName}:
                                   </p>
                                   <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
-                                    {conflict.issues.map((issue, j) => (
-                                      <li key={j}>
+                                    {conflict.issues.map((issue) => (
+                                      <li key={`${issue.attribute}-${issue.message}`}>
                                         <span className="font-medium">{issue.attribute}:</span>{' '}
                                         {issue.message}
                                       </li>
@@ -503,7 +503,7 @@ export function VersionSlotsSection() {
                         </p>
                       ) : namingValidation.canProceed ? (
                         <p className="mt-2">
-                          {(namingValidation.requiredAttributes?.length ?? 0) === 0
+                          {namingValidation.requiredAttributes.length === 0
                             ? namingValidation.qualityTierExclusive
                               ? 'Profiles are distinguished by quality tier - no additional filename tokens required'
                               : 'Complete Quality Profile validation first'
@@ -514,7 +514,7 @@ export function VersionSlotsSection() {
                           <p>
                             Slots have different requirements for:{' '}
                             <span className="font-medium">
-                              {namingValidation.requiredAttributes?.join(', ') ?? ''}
+                              {namingValidation.requiredAttributes.join(', ')}
                             </span>
                           </p>
                           {!namingValidation.movieFormatValid &&
@@ -522,8 +522,8 @@ export function VersionSlotsSection() {
                             <div>
                               <p className="font-medium">Movie filename format missing tokens:</p>
                               <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
-                                {namingValidation.movieValidation.missingTokens.map((token, i) => (
-                                  <li key={i}>
+                                {namingValidation.movieValidation.missingTokens.map((token) => (
+                                  <li key={`${token.attribute}-${token.suggestedToken}`}>
                                     <span className="font-medium">{token.attribute}:</span> Add{' '}
                                     <code className="bg-muted rounded px-1">
                                       {token.suggestedToken}
@@ -539,8 +539,8 @@ export function VersionSlotsSection() {
                               <p className="font-medium">Episode filename format missing tokens:</p>
                               <ul className="mt-1 ml-4 list-inside list-disc space-y-0.5">
                                 {namingValidation.episodeValidation.missingTokens.map(
-                                  (token, i) => (
-                                    <li key={i}>
+                                  (token) => (
+                                    <li key={`${token.attribute}-${token.suggestedToken}`}>
                                       <span className="font-medium">{token.attribute}:</span> Add{' '}
                                       <code className="bg-muted rounded px-1">
                                         {token.suggestedToken}
@@ -585,7 +585,7 @@ export function VersionSlotsSection() {
         {slots?.map((slot) => {
           const usedProfileIds = slots
             .filter((s) => s.id !== slot.id && s.qualityProfileId !== null)
-            .map((s) => s.qualityProfileId!)
+            .map((s) => s.qualityProfileId as number)
           return (
             <SlotCard
               key={slot.id}
@@ -623,8 +623,8 @@ export function VersionSlotsSection() {
       <ResolveNamingModal
         open={resolveNamingOpen}
         onOpenChange={setResolveNamingOpen}
-        missingMovieTokens={namingValidation?.movieValidation?.missingTokens}
-        missingEpisodeTokens={namingValidation?.episodeValidation?.missingTokens}
+        missingMovieTokens={namingValidation?.movieValidation.missingTokens}
+        missingEpisodeTokens={namingValidation?.episodeValidation.missingTokens}
         onResolved={handleValidateNaming}
       />
 

@@ -113,17 +113,17 @@ export function ExternalMediaCard({
 
   // Item is in library if: availability says so, OR all requests are 'available'
   const allRequestsHaveMediaId =
-    matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId != null)
+    matchingRequests.length > 0 && matchingRequests.every((r) => r.mediaId !== null)
   const isInLibrary =
     inLibrary ||
-    availability?.inLibrary ||
-    (isAvailable && (allRequestsHaveMediaId || currentRequest?.mediaId != null))
+    (availability?.inLibrary ?? false) ||
+    (isAvailable && (allRequestsHaveMediaId || currentRequest?.mediaId !== null))
   const hasExistingRequest =
-    requested || availability?.existingRequestId != null || matchingRequests.length > 0
+    requested || availability?.existingRequestId !== null || matchingRequests.length > 0
   const isOwnRequest =
     requested ||
-    (availability?.existingRequestUserId != null &&
-      availability.existingRequestUserId === currentUserId) ||
+    (availability?.existingRequestUserId !== null &&
+      availability?.existingRequestUserId === currentUserId) ||
     matchingRequests.length > 0
   const canRequest =
     !requested &&
@@ -144,7 +144,7 @@ export function ExternalMediaCard({
 
     return downloads.find((d) => {
       // Match by TMDB ID
-      if (tmdbId != null && d.tmdbId != null && d.tmdbId === tmdbId) {
+      if (d.tmdbId !== undefined && d.tmdbId === tmdbId) {
         return true
       }
       // Match by any of our request IDs
@@ -153,7 +153,7 @@ export function ExternalMediaCard({
       }
       // Match by request ID from availability
       if (
-        availability?.existingRequestId != null &&
+        availability?.existingRequestId !== undefined &&
         d.requestId === availability.existingRequestId
       ) {
         return true
@@ -161,15 +161,16 @@ export function ExternalMediaCard({
       // Fall back to matching by internal media ID
       if (mediaType === 'movie') {
         return (
-          d.movieId != null && availability?.mediaId != null && d.movieId === availability.mediaId
+          d.movieId !== undefined &&
+          availability?.mediaId !== undefined &&
+          d.movieId === availability.mediaId
         )
       }
-      if (mediaType === 'series') {
-        return (
-          d.seriesId != null && availability?.mediaId != null && d.seriesId === availability.mediaId
-        )
-      }
-      return false
+      return (
+        d.seriesId !== undefined &&
+        availability?.mediaId !== undefined &&
+        d.seriesId === availability.mediaId
+      )
     })
   }, [
     downloads,
@@ -212,7 +213,11 @@ export function ExternalMediaCard({
         className,
       )}
     >
-      <div className="relative aspect-[2/3] cursor-pointer" onClick={() => setInfoOpen(true)}>
+      <button
+        type="button"
+        className="relative aspect-[2/3] cursor-pointer w-full"
+        onClick={() => setInfoOpen(true)}
+      >
         <PosterImage
           url={media.posterUrl}
           alt={title}
@@ -290,11 +295,11 @@ export function ExternalMediaCard({
             ) : null}
           </div>
         </div>
-      </div>
+      </button>
 
       <div className="p-2">
         {/* Show downloading if active download, otherwise in library */}
-        {hasActiveDownload && activeDownload ? (
+        {hasActiveDownload ? (
           <DownloadProgressBar
             mediaId={mediaType === 'movie' ? activeDownload.movieId : activeDownload.seriesId}
             mediaType={mediaType}

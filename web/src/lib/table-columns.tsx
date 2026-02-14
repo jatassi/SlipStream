@@ -55,7 +55,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     label: 'Year',
     defaultVisible: true,
     hideable: true,
-    render: (movie) => <>{movie.year || '-'}</>,
+    render: (movie) => movie.year || '-',
   },
   {
     id: 'studio',
@@ -176,20 +176,20 @@ export function createMovieActionsColumn(callbacks: {
             </DropdownMenuItem>
           </Link>
           {callbacks.onSearch ? (
-            <DropdownMenuItem onClick={() => callbacks.onSearch!(movie.id)}>
+            <DropdownMenuItem onClick={() => callbacks.onSearch?.(movie.id)}>
               <Search className="mr-2 size-4" />
               Search
             </DropdownMenuItem>
           ) : null}
           {callbacks.onRefresh ? (
-            <DropdownMenuItem onClick={() => callbacks.onRefresh!(movie.id)}>
+            <DropdownMenuItem onClick={() => callbacks.onRefresh?.(movie.id)}>
               <RefreshCw className="mr-2 size-4" />
               Refresh
             </DropdownMenuItem>
           ) : null}
           {callbacks.onDelete ? (
             <DropdownMenuItem
-              onClick={() => callbacks.onDelete!(movie.id)}
+              onClick={() => callbacks.onDelete?.(movie.id)}
               className="text-destructive"
             >
               <Trash2 className="mr-2 size-4" />
@@ -263,7 +263,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
     label: 'Seasons',
     defaultVisible: true,
     hideable: true,
-    render: (series) => <>{series.seasons?.length ?? '-'}</>,
+    render: (series) => series.seasons?.length ?? '-',
   },
   {
     id: 'episodes',
@@ -393,7 +393,7 @@ export function createSeriesActionsColumn(callbacks: {
           </Link>
           {callbacks.onDelete ? (
             <DropdownMenuItem
-              onClick={() => callbacks.onDelete!(series.id)}
+              onClick={() => callbacks.onDelete?.(series.id)}
               className="text-destructive"
             >
               <Trash2 className="mr-2 size-4" />

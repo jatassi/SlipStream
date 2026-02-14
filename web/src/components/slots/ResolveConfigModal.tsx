@@ -30,7 +30,6 @@ import type {
   CreateQualityProfileInput,
   SlotConflict,
 } from '@/types'
-import { DEFAULT_ATTRIBUTE_SETTINGS } from '@/types'
 
 type ResolveConfigModalProps = {
   open: boolean
@@ -110,14 +109,14 @@ export function ResolveConfigModal({
           name: profile.name,
           cutoff: profile.cutoff,
           items: profile.items,
-          upgradesEnabled: profile.upgradesEnabled ?? true,
-          upgradeStrategy: profile.upgradeStrategy || 'balanced',
-          cutoffOverridesStrategy: profile.cutoffOverridesStrategy ?? false,
-          allowAutoApprove: profile.allowAutoApprove ?? false,
-          hdrSettings: profile.hdrSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          videoCodecSettings: profile.videoCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          audioCodecSettings: profile.audioCodecSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
-          audioChannelSettings: profile.audioChannelSettings || { ...DEFAULT_ATTRIBUTE_SETTINGS },
+          upgradesEnabled: profile.upgradesEnabled,
+          upgradeStrategy: profile.upgradeStrategy,
+          cutoffOverridesStrategy: profile.cutoffOverridesStrategy,
+          allowAutoApprove: profile.allowAutoApprove,
+          hdrSettings: profile.hdrSettings,
+          videoCodecSettings: profile.videoCodecSettings,
+          audioCodecSettings: profile.audioCodecSettings,
+          audioChannelSettings: profile.audioChannelSettings,
         }
       })
       setProfileForms(forms)
@@ -150,9 +149,6 @@ export function ResolveConfigModal({
   ) => {
     setProfileForms((prev) => {
       const currentForm = prev[profileId]
-      if (!currentForm) {
-        return prev
-      }
 
       const currentItems = { ...currentForm[settingsField].items }
       if (mode === 'acceptable') {
@@ -185,9 +181,6 @@ export function ResolveConfigModal({
   const toggleQuality = (profileId: number, qualityId: number) => {
     setProfileForms((prev) => {
       const currentForm = prev[profileId]
-      if (!currentForm) {
-        return prev
-      }
 
       return {
         ...prev,
@@ -207,12 +200,10 @@ export function ResolveConfigModal({
       // Save all modified profiles
       for (const profile of profilesToEdit) {
         const formData = profileForms[profile.id]
-        if (formData) {
-          await updateMutation.mutateAsync({
-            id: profile.id,
-            data: formData,
-          })
-        }
+        await updateMutation.mutateAsync({
+          id: profile.id,
+          data: formData,
+        })
       }
       toast.success('All profiles updated')
       onOpenChange(false)
@@ -224,7 +215,7 @@ export function ResolveConfigModal({
     }
   }
 
-  const hdrOptions = ['SDR', ...(attributeOptions?.hdrFormats || []).filter((f) => f !== 'SDR')]
+  const hdrOptions = ['SDR', ...(attributeOptions?.hdrFormats ?? []).filter((f) => f !== 'SDR')]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -243,9 +234,6 @@ export function ResolveConfigModal({
         >
           {profilesToEdit.slice(0, 3).map((profile) => {
             const formData = profileForms[profile.id]
-            if (!formData) {
-              return null
-            }
 
             const slot = slots?.find((s) => s.qualityProfileId === profile.id)
             const allowedQualities = formData.items.filter((i) => i.allowed)
@@ -309,7 +297,7 @@ export function ResolveConfigModal({
                   <Select
                     value={formData.cutoff.toString()}
                     onValueChange={(v) =>
-                      v && updateProfileForm(profile.id, 'cutoff', Number.parseInt(v))
+                      updateProfileForm(profile.id, 'cutoff', Number.parseInt(v || '0'))
                     }
                   >
                     <SelectTrigger className="h-8 text-sm">
@@ -407,7 +395,7 @@ function CompactAttributeSection({
   const [isOpen, setIsOpen] = useState(isConflicting)
 
   const getItemMode = (value: string): AttributeMode => {
-    return settings.items[value] || 'acceptable'
+    return settings.items[value] ?? 'acceptable'
   }
 
   const countByMode = (mode: AttributeMode): number => {
@@ -463,7 +451,7 @@ function CompactAttributeSection({
               <span className="text-xs">{value}</span>
               <Select
                 value={getItemMode(value)}
-                onValueChange={(v) => v && onItemModeChange(value, v as AttributeMode)}
+                onValueChange={(v) => onItemModeChange(value, v as AttributeMode)}
               >
                 <SelectTrigger className="h-6 w-24 text-[10px]">
                   {MODE_LABELS[getItemMode(value)]}

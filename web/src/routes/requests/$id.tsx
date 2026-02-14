@@ -81,7 +81,7 @@ const STATUS_CONFIG: Record<
 export function RequestDetailPage() {
   const params = useParams({ strict: false })
   const navigate = useNavigate()
-  const requestId = Number.parseInt(params.id || '0', 10)
+  const requestId = Number.parseInt(params.id ?? '0', 10)
 
   const { user } = usePortalAuthStore()
   const globalLoading = useGlobalLoading()
@@ -98,10 +98,12 @@ export function RequestDetailPage() {
   const matchingDownloads =
     downloads?.filter((d) => {
       if (request?.mediaType === 'movie') {
-        return d.movieId != null && request.mediaId != null && d.movieId === request.mediaId
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        return d.movieId !== null && request.mediaId !== null && d.movieId === request.mediaId
       }
       if (request?.mediaType === 'series') {
-        return d.seriesId != null && request.mediaId != null && d.seriesId === request.mediaId
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        return d.seriesId !== null && request.mediaId !== null && d.seriesId === request.mediaId
       }
       return false
     }) ?? []
@@ -366,7 +368,7 @@ export function RequestDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Request</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel the request for "{request.title}"? This action cannot
+              Are you sure you want to cancel the request for &quot;{request.title}&quot;? This action cannot
               be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
