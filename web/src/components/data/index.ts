@@ -1,3 +1,3 @@
-export { EmptyState } from './EmptyState'
-export { ErrorState } from './ErrorState'
-export { LoadingState } from './LoadingState'
+export { EmptyState } from './empty-state'
+export { ErrorState } from './error-state'
+export { LoadingState } from './loading-state'

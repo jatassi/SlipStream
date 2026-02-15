@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable max-lines-per-function, react/no-unstable-nested-components, react/prop-types -- shadcn/ui primitive */
 'use client'
 
 import * as React from 'react'

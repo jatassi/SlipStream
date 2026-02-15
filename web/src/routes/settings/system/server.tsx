@@ -1,59 +1,19 @@
-import { useCallback, useState } from 'react'
-
 import { History, Save } from 'lucide-react'
-import { toast } from 'sonner'
 
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { ServerSection } from '@/components/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { useHistorySettings, useUpdateHistorySettings, useUpdateSettings } from '@/hooks'
 
-import { SystemNav } from './SystemNav'
-
-type LogRotationSettings = {
-  maxSizeMB: number
-  maxBackups: number
-  maxAgeDays: number
-  compress: boolean
-}
+import { SystemNav } from './system-nav'
+import { useHistoryRetention } from './use-history-retention'
+import { useServerPage } from './use-server-page'
 
 function HistoryRetentionCard() {
-  const { data: settings } = useHistorySettings()
-  const updateMutation = useUpdateHistorySettings()
-
-  const [enabled, setEnabled] = useState<boolean | null>(null)
-  const [days, setDays] = useState<number | null>(null)
-  const [prevSettings, setPrevSettings] = useState(settings)
-
-  if (settings !== prevSettings) {
-    setPrevSettings(settings)
-    if (settings) {
-      setEnabled(settings.enabled)
-      setDays(settings.retentionDays)
-    }
-  }
-
-  const currentEnabled = enabled ?? settings?.enabled ?? true
-  const currentDays = days ?? settings?.retentionDays ?? 365
-
-  const hasChanges =
-    settings && (currentEnabled !== settings.enabled || currentDays !== settings.retentionDays)
-
-  const handleSave = async () => {
-    try {
-      await updateMutation.mutateAsync({
-        enabled: currentEnabled,
-        retentionDays: currentDays,
-      })
-      toast.success('History retention settings saved')
-    } catch {
-      toast.error('Failed to save history retention settings')
-    }
-  }
+  const h = useHistoryRetention()
 
   return (
     <Card>
@@ -68,29 +28,15 @@ function HistoryRetentionCard() {
           <Label htmlFor="retention-enabled">Auto-cleanup old history entries</Label>
           <Switch
             id="retention-enabled"
-            checked={currentEnabled}
-            onCheckedChange={(v) => setEnabled(v)}
+            checked={h.currentEnabled}
+            onCheckedChange={(v) => h.setEnabled(v)}
           />
         </div>
-        {currentEnabled ? (
-          <div className="space-y-2">
-            <Label htmlFor="retention-days">Retention period (days)</Label>
-            <Input
-              id="retention-days"
-              type="number"
-              min={1}
-              max={3650}
-              value={currentDays}
-              onChange={(e) => setDays(Number.parseInt(e.target.value) || 1)}
-              className="w-32"
-            />
-            <p className="text-muted-foreground text-xs">
-              History entries older than this will be automatically deleted daily at 2 AM.
-            </p>
-          </div>
+        {h.currentEnabled ? (
+          <RetentionDaysInput days={h.currentDays} onChange={h.setDays} />
         ) : null}
-        {hasChanges ? (
-          <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
+        {h.hasChanges ? (
+          <Button size="sm" onClick={h.handleSave} disabled={h.isSaving}>
             <Save className="mr-1.5 size-3" />
             Save
           </Button>
@@ -100,93 +46,34 @@ function HistoryRetentionCard() {
   )
 }
 
+function RetentionDaysInput({
+  days,
+  onChange,
+}: {
+  days: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="retention-days">Retention period (days)</Label>
+      <Input
+        id="retention-days"
+        type="number"
+        min={1}
+        max={3650}
+        value={days}
+        onChange={(e) => onChange(Number.parseInt(e.target.value) || 1)}
+        className="w-32"
+      />
+      <p className="text-muted-foreground text-xs">
+        History entries older than this will be automatically deleted daily at 2 AM.
+      </p>
+    </div>
+  )
+}
+
 export function ServerPage() {
-  const updateMutation = useUpdateSettings()
-
-  const [port, setPort] = useState('')
-  const [logLevel, setLogLevel] = useState('')
-  const [logRotation, setLogRotation] = useState<LogRotationSettings>({
-    maxSizeMB: 10,
-    maxBackups: 5,
-    maxAgeDays: 30,
-    compress: false,
-  })
-  const [externalAccessEnabled, setExternalAccessEnabled] = useState(false)
-  const [initialPort, setInitialPort] = useState('')
-  const [initialLogLevel, setInitialLogLevel] = useState('')
-  const [initialLogRotation, setInitialLogRotation] = useState<LogRotationSettings | null>(null)
-  const [initialExternalAccess, setInitialExternalAccess] = useState<boolean | null>(null)
-
-  const handlePortChange = useCallback(
-    (value: string) => {
-      if (!initialPort) {
-        setInitialPort(value)
-      }
-      setPort(value)
-    },
-    [initialPort],
-  )
-
-  const handleLogLevelChange = useCallback(
-    (value: string) => {
-      if (!initialLogLevel) {
-        setInitialLogLevel(value)
-      }
-      setLogLevel(value)
-    },
-    [initialLogLevel],
-  )
-
-  const handleLogRotationChange = useCallback(
-    (value: LogRotationSettings) => {
-      if (!initialLogRotation) {
-        setInitialLogRotation(value)
-      }
-      setLogRotation(value)
-    },
-    [initialLogRotation],
-  )
-
-  const handleExternalAccessChange = useCallback(
-    (value: boolean) => {
-      if (initialExternalAccess === null) {
-        setInitialExternalAccess(value)
-      }
-      setExternalAccessEnabled(value)
-    },
-    [initialExternalAccess],
-  )
-
-  const hasChanges =
-    (port !== initialPort && initialPort !== '') ||
-    (logLevel !== initialLogLevel && initialLogLevel !== '') ||
-    (initialLogRotation !== null &&
-      (logRotation.maxSizeMB !== initialLogRotation.maxSizeMB ||
-        logRotation.maxBackups !== initialLogRotation.maxBackups ||
-        logRotation.maxAgeDays !== initialLogRotation.maxAgeDays ||
-        logRotation.compress !== initialLogRotation.compress)) ||
-    (initialExternalAccess !== null && externalAccessEnabled !== initialExternalAccess)
-
-  const handleSave = async () => {
-    try {
-      await updateMutation.mutateAsync({
-        serverPort: Number.parseInt(port),
-        logLevel,
-        logMaxSizeMB: logRotation.maxSizeMB,
-        logMaxBackups: logRotation.maxBackups,
-        logMaxAgeDays: logRotation.maxAgeDays,
-        logCompress: logRotation.compress,
-        externalAccessEnabled,
-      })
-      setInitialPort(port)
-      setInitialLogLevel(logLevel)
-      setInitialLogRotation(logRotation)
-      setInitialExternalAccess(externalAccessEnabled)
-      toast.success('Settings saved')
-    } catch {
-      toast.error('Failed to save settings')
-    }
-  }
+  const page = useServerPage()
 
   return (
     <div className="space-y-6">
@@ -195,25 +82,23 @@ export function ServerPage() {
         description="Server configuration and authentication settings"
         breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'System' }]}
         actions={
-          <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
+          <Button onClick={page.handleSave} disabled={page.isSaving || !page.hasChanges}>
             <Save className="mr-2 size-4" />
             Save Changes
           </Button>
         }
       />
-
       <SystemNav />
-
       <div className="max-w-2xl space-y-6">
         <ServerSection
-          port={port}
-          onPortChange={handlePortChange}
-          logLevel={logLevel}
-          onLogLevelChange={handleLogLevelChange}
-          logRotation={logRotation}
-          onLogRotationChange={handleLogRotationChange}
-          externalAccessEnabled={externalAccessEnabled}
-          onExternalAccessChange={handleExternalAccessChange}
+          port={page.port}
+          onPortChange={page.onPortChange}
+          logLevel={page.logLevel}
+          onLogLevelChange={page.onLogLevelChange}
+          logRotation={page.logRotation}
+          onLogRotationChange={page.onLogRotationChange}
+          externalAccessEnabled={page.externalAccessEnabled}
+          onExternalAccessChange={page.onExternalAccessChange}
         />
         <HistoryRetentionCard />
       </div>

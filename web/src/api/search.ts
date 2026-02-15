@@ -13,44 +13,29 @@ import type {
 
 import { apiFetch } from './client'
 
-// Build query string from search criteria
+function appendIfPresent(
+  params: URLSearchParams,
+  key: string,
+  value: string | number | undefined,
+): void {
+  if (value !== undefined) {
+    params.set(key, String(value))
+  }
+}
+
 function buildSearchQuery(criteria: SearchCriteria): string {
   const params = new URLSearchParams()
-
-  if (criteria.query) {
-    params.set('query', criteria.query)
-  }
-  if (criteria.type) {
-    params.set('type', criteria.type)
-  }
-  if (criteria.categories) {
-    params.set('categories', criteria.categories)
-  }
-  if (criteria.imdbId) {
-    params.set('imdbId', criteria.imdbId)
-  }
-  if (criteria.tmdbId) {
-    params.set('tmdbId', String(criteria.tmdbId))
-  }
-  if (criteria.tvdbId) {
-    params.set('tvdbId', String(criteria.tvdbId))
-  }
-  if (criteria.season) {
-    params.set('season', String(criteria.season))
-  }
-  if (criteria.episode) {
-    params.set('episode', String(criteria.episode))
-  }
-  if (criteria.year) {
-    params.set('year', String(criteria.year))
-  }
-  if (criteria.limit) {
-    params.set('limit', String(criteria.limit))
-  }
-  if (criteria.offset) {
-    params.set('offset', String(criteria.offset))
-  }
-
+  appendIfPresent(params, 'query', criteria.query)
+  appendIfPresent(params, 'type', criteria.type)
+  appendIfPresent(params, 'categories', criteria.categories)
+  appendIfPresent(params, 'imdbId', criteria.imdbId)
+  appendIfPresent(params, 'tmdbId', criteria.tmdbId)
+  appendIfPresent(params, 'tvdbId', criteria.tvdbId)
+  appendIfPresent(params, 'season', criteria.season)
+  appendIfPresent(params, 'episode', criteria.episode)
+  appendIfPresent(params, 'year', criteria.year)
+  appendIfPresent(params, 'limit', criteria.limit)
+  appendIfPresent(params, 'offset', criteria.offset)
   return params.toString()
 }
 
@@ -76,7 +61,7 @@ export const searchApi = {
         console.log('[searchApi.searchMovie] Response JSON:', JSON.stringify(result, null, 2))
         return result
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('[searchApi.searchMovie] Error:', error)
         throw error
       })
@@ -91,7 +76,7 @@ export const searchApi = {
         console.log('[searchApi.searchTV] Response:', result)
         return result
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('[searchApi.searchTV] Error:', error)
         throw error
       })

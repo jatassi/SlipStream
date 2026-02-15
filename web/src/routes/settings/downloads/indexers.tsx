@@ -1,7 +1,7 @@
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { IndexersSection } from '@/components/settings'
 
-import { DownloadsNav } from './DownloadsNav'
+import { DownloadsNav } from './downloads-nav'
 
 export function IndexersPage() {
   return (

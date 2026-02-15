@@ -9,7 +9,7 @@ export type HistoryRetentionSettings = {
 
 export const historyApi = {
   list: (options?: ListHistoryOptions) =>
-    apiFetch<HistoryResponse>(`/history${buildQueryString(options || {})}`),
+    apiFetch<HistoryResponse>(`/history${buildQueryString(options ?? {})}`),
 
   clear: () => apiFetch<undefined>('/history', { method: 'DELETE' }),
 

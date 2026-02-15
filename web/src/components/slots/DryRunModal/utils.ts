@@ -9,5 +9,5 @@ export function formatBytes(bytes: number): string {
 }
 
 export function getFileName(path: string): string {
-  return path.split('/').pop() || path.split('\\').pop() || path
+  return path.split('/').pop() ?? path.split('\\').pop() ?? path
 }

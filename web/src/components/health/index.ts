@@ -1,3 +1,3 @@
-export { HealthWidget } from './HealthWidget'
-export { StatusIndicator } from './StatusIndicator'
-export { getStatusBgColor, getStatusColor } from './statusUtils'
+export { HealthWidget } from './health-widget'
+export { StatusIndicator } from './status-indicator'
+export { getStatusBgColor, getStatusColor } from './status-utils'

@@ -1,7 +1,7 @@
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { VersionSlotsSection } from '@/components/settings'
 
-import { MediaNav } from './MediaNav'
+import { MediaNav } from './media-nav'
 
 export function VersionSlotsPage() {
   return (

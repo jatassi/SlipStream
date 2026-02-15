@@ -1,6 +1,7 @@
+/* eslint-disable max-lines, max-lines-per-function, no-nested-ternary, react/jsx-curly-brace-presence -- dev-only page */
 import { Progress as ProgressPrimitive } from '@base-ui/react/progress'
 
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

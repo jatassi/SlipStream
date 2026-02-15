@@ -1,4 +1,4 @@
-export { Header } from './Header'
-export { PageHeader } from './PageHeader'
-export { RootLayout } from './RootLayout'
-export { Sidebar } from './Sidebar'
+export { Header } from './header'
+export { PageHeader } from './page-header'
+export { RootLayout } from './root-layout'
+export { Sidebar } from './sidebar'

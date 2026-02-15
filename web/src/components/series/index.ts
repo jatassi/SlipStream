@@ -1,4 +1,4 @@
-export { EpisodeTable } from './EpisodeTable'
-export { SeasonList } from './SeasonList'
-export { SeriesCard } from './SeriesCard'
-export { SeriesGrid } from './SeriesGrid'
+export { EpisodeTable } from './episode-table'
+export { SeasonList } from './season-list'
+export { SeriesCard } from './series-card'
+export { SeriesGrid } from './series-grid'

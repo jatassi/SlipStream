@@ -1,3 +1,4 @@
+/* eslint-disable max-lines, max-lines-per-function, complexity, unicorn/no-document-cookie, @typescript-eslint/no-unused-expressions -- shadcn/ui primitive */
 import * as React from 'react'
 
 import { mergeProps } from '@base-ui/react/merge-props'

@@ -1,7 +1,7 @@
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { AutoSearchSection } from '@/components/settings'
 
-import { DownloadsNav } from './DownloadsNav'
+import { DownloadsNav } from './downloads-nav'
 
 export function AutoSearchPage() {
   return (

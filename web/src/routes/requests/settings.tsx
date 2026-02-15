@@ -1,86 +1,23 @@
 import { useState } from 'react'
 
-import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Bell, Edit, Loader2, Lock, LogOut, Plus, TestTube, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Bell, Lock } from 'lucide-react'
 
-import { EmptyState } from '@/components/data/EmptyState'
-import { ConfirmDialog } from '@/components/forms/ConfirmDialog'
-import { NotificationDialog } from '@/components/notifications/NotificationDialog'
+import { NotificationDialog } from '@/components/notifications/notification-dialog'
 import { ChangePinDialog, PasskeyManager } from '@/components/portal'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  useCreateUserNotification,
-  useDeleteUserNotification,
-  usePortalLogout,
-  useTestUserNotification,
-  useUpdateUserNotification,
-  useUserNotifications,
-  useUserNotificationSchema,
-} from '@/hooks'
-import type { CreateNotificationInput, Notification, NotifierType, UserNotification } from '@/types'
 
-const portalEventTriggers = [
-  {
-    key: 'onApproved',
-    label: 'Request Approved',
-    description: 'When your request is approved by an admin',
-  },
-  {
-    key: 'onDenied',
-    label: 'Request Denied',
-    description: 'When your request is denied by an admin',
-  },
-  {
-    key: 'onAvailable',
-    label: 'Request Available',
-    description: 'When your requested content becomes available',
-  },
-]
-
-const goBack = () => {
-  globalThis.history.back()
-}
+import { NotificationChannelsCard } from './notification-channels-card'
+import { SettingsHeader } from './settings-header'
+import { useNotificationsSection } from './use-request-settings'
 
 export function PortalSettingsPage() {
-  const navigate = useNavigate()
-  const logoutMutation = usePortalLogout()
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
-
-  const handleLogout = () => {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        navigate({ to: '/requests/auth/login' })
-      },
-    })
-  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 pt-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={goBack} className="text-xs md:text-sm">
-          <ArrowLeft className="mr-0.5 size-3 md:mr-1 md:size-4" />
-          Back
-        </Button>
-        <h1 className="flex-1 text-xl font-bold md:text-2xl">Settings</h1>
-        <Button
-          variant="destructive"
-          onClick={handleLogout}
-          disabled={logoutMutation.isPending}
-          className="text-xs md:text-sm"
-        >
-          {logoutMutation.isPending ? (
-            <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-          ) : (
-            <LogOut className="mr-1 size-3 md:mr-2 md:size-4" />
-          )}
-          Log Out
-        </Button>
-      </div>
+      <SettingsHeader />
 
       <Tabs defaultValue="security">
         <TabsList>
@@ -122,220 +59,30 @@ export function PortalSettingsPage() {
 }
 
 function NotificationsSection() {
-  const { data: notifications = [], isLoading } = useUserNotifications()
-  const { data: schemas = [] } = useUserNotificationSchema()
-  const createMutation = useCreateUserNotification()
-  const updateMutation = useUpdateUserNotification()
-  const deleteMutation = useDeleteUserNotification()
-  const testMutation = useTestUserNotification()
-
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingNotification, setEditingNotification] = useState<UserNotification | null>(null)
-
-  const getTypeName = (type: string) => {
-    return schemas.find((s) => s.type === type)?.name || type
-  }
-
-  const handleCreate = () => {
-    setEditingNotification(null)
-    setDialogOpen(true)
-  }
-
-  const handleEdit = (notification: UserNotification) => {
-    setEditingNotification(notification)
-    setDialogOpen(true)
-  }
-
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteMutation.mutateAsync(id)
-      toast.success('Notification deleted')
-    } catch {
-      toast.error('Failed to delete notification')
-    }
-  }
-
-  const handleTest = async (id: number) => {
-    try {
-      await testMutation.mutateAsync(id)
-      toast.success('Test notification sent')
-    } catch {
-      toast.error('Failed to send test notification')
-    }
-  }
-
-  const handleToggleEnabled = async (notification: UserNotification, enabled: boolean) => {
-    try {
-      await updateMutation.mutateAsync({
-        id: notification.id,
-        data: {
-          type: notification.type,
-          name: notification.name,
-          settings: notification.settings,
-          onAvailable: notification.onAvailable,
-          onApproved: notification.onApproved,
-          onDenied: notification.onDenied,
-          enabled,
-        },
-      })
-      toast.success(enabled ? 'Notification enabled' : 'Notification disabled')
-    } catch {
-      toast.error('Failed to update notification')
-    }
-  }
-
-  const handleCreateNotification = async (data: CreateNotificationInput) => {
-    const eventData = data as unknown as Record<string, unknown>
-    await createMutation.mutateAsync({
-      type: data.type,
-      name: data.name,
-      settings: data.settings,
-      onAvailable: (eventData.onAvailable as boolean | undefined) ?? true,
-      onApproved: (eventData.onApproved as boolean | undefined) ?? true,
-      onDenied: (eventData.onDenied as boolean | undefined) ?? true,
-      enabled: data.enabled ?? true,
-    })
-  }
-
-  const handleUpdateNotification = async (id: number, data: CreateNotificationInput) => {
-    const eventData = data as unknown as Record<string, unknown>
-    await updateMutation.mutateAsync({
-      id,
-      data: {
-        type: data.type,
-        name: data.name,
-        settings: data.settings,
-        onAvailable: (eventData.onAvailable as boolean | undefined) ?? true,
-        onApproved: (eventData.onApproved as boolean | undefined) ?? true,
-        onDenied: (eventData.onDenied as boolean | undefined) ?? true,
-        enabled: data.enabled ?? true,
-      },
-    })
-  }
-
-  // Convert UserNotification to Notification type for the dialog
-  const notificationForDialog: Notification | null = editingNotification
-    ? {
-        id: editingNotification.id,
-        name: editingNotification.name,
-        type: editingNotification.type as NotifierType,
-        enabled: editingNotification.enabled,
-        settings: editingNotification.settings,
-        onGrab: false,
-        onImport: false,
-        onUpgrade: false,
-        onMovieAdded: false,
-        onMovieDeleted: false,
-        onSeriesAdded: false,
-        onSeriesDeleted: false,
-        onHealthIssue: false,
-        onHealthRestored: false,
-        onAppUpdate: false,
-        includeHealthWarnings: false,
-        onAvailable: editingNotification.onAvailable,
-        onApproved: editingNotification.onApproved,
-        onDenied: editingNotification.onDenied,
-        tags: [],
-      }
-    : null
+  const state = useNotificationsSection()
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Notification Channels</CardTitle>
-              <CardDescription>Get notified when your requests become available</CardDescription>
-            </div>
-            <Button onClick={handleCreate} className="text-xs md:text-sm">
-              <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
-              Add Channel
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="text-muted-foreground size-6 animate-spin" />
-            </div>
-          ) : notifications.length === 0 ? (
-            <EmptyState
-              icon={<Bell className="size-8" />}
-              title="No notification channels"
-              description="Add a notification channel to get notified when your requests become available"
-              action={{ label: 'Add Channel', onClick: handleCreate }}
-            />
-          ) : (
-            <div className="space-y-2">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className="border-border flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="bg-muted rounded-lg p-1.5 md:p-2">
-                      <Bell className="size-4 md:size-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{notification.name}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {getTypeName(notification.type)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <Switch
-                      checked={notification.enabled}
-                      onCheckedChange={(enabled) => handleToggleEnabled(notification, enabled)}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleTest(notification.id)}
-                      disabled={testMutation.isPending}
-                      className="size-8 md:size-9"
-                    >
-                      <TestTube className="size-3 md:size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(notification)}
-                      className="size-8 md:size-9"
-                    >
-                      <Edit className="size-3 md:size-4" />
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button variant="ghost" size="icon" className="size-8 md:size-9">
-                          <Trash2 className="size-3 md:size-4" />
-                        </Button>
-                      }
-                      title="Delete notification"
-                      description={`Are you sure you want to delete "${notification.name}"?`}
-                      confirmLabel="Delete"
-                      variant="destructive"
-                      onConfirm={() => handleDelete(notification.id)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <NotificationChannelsCard
+        notifications={state.notifications}
+        isLoading={state.isLoading}
+        isTestPending={state.isTestPending}
+        getTypeName={state.getTypeName}
+        onCreate={state.handleCreate}
+        onEdit={state.handleEdit}
+        onDelete={state.handleDelete}
+        onTest={state.handleTest}
+        onToggleEnabled={state.handleToggleEnabled}
+      />
 
       <NotificationDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        notification={notificationForDialog}
-        eventTriggers={portalEventTriggers}
-        schemas={schemas}
-        onCreate={handleCreateNotification}
-        onUpdate={handleUpdateNotification}
+        open={state.dialogOpen}
+        onOpenChange={state.setDialogOpen}
+        notification={state.notificationForDialog}
+        eventTriggers={state.portalEventTriggers}
+        schemas={state.schemas}
+        onCreate={state.handleCreateNotification}
+        onUpdate={state.handleUpdateNotification}
       />
     </div>
   )

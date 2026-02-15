@@ -1,7 +1,7 @@
-import { PageHeader } from '@/components/layout/PageHeader'
+import { PageHeader } from '@/components/layout/page-header'
 import { AuthenticationSection } from '@/components/settings'
 
-import { SystemNav } from './SystemNav'
+import { SystemNav } from './system-nav'
 
 export function AuthenticationPage() {
   return (

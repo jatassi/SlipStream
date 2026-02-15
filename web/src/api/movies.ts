@@ -4,7 +4,7 @@ import { apiFetch, buildQueryString } from './client'
 
 export const moviesApi = {
   list: (options?: ListMoviesOptions) =>
-    apiFetch<Movie[]>(`/movies${buildQueryString(options || {})}`),
+    apiFetch<Movie[]>(`/movies${buildQueryString(options ?? {})}`),
 
   get: (id: number) => apiFetch<Movie>(`/movies/${id}`),
 

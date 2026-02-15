@@ -2,6 +2,27 @@ import { create } from 'zustand'
 
 import type { QueueItem } from '@/types/queue'
 
+function isEpisodeInDownload(
+  item: QueueItem,
+  params: { episodeId: number; seriesId?: number; seasonNumber?: number },
+): boolean {
+  if (item.status !== 'downloading' && item.status !== 'queued') {
+    return false
+  }
+  if (item.episodeId === params.episodeId) {
+    return true
+  }
+  if (params.seriesId && item.seriesId === params.seriesId) {
+    if (item.isCompleteSeries) {
+      return true
+    }
+    if (params.seasonNumber && item.seasonNumber === params.seasonNumber && item.isSeasonPack) {
+      return true
+    }
+  }
+  return false
+}
+
 type DownloadingState = {
   queueItems: QueueItem[]
   setQueueItems: (items: QueueItem[]) => void
@@ -40,32 +61,16 @@ export const useDownloadingStore = create<DownloadingState>((set, get) => ({
     return queueItems.some(
       (item) =>
         item.seriesId === seriesId &&
-        ((item.seasonNumber === seasonNumber && item.isSeasonPack) || item.isCompleteSeries) &&
+        ((item.seasonNumber === seasonNumber && item.isSeasonPack === true) || item.isCompleteSeries === true) &&
         (item.status === 'downloading' || item.status === 'queued'),
     )
   },
 
   isEpisodeDownloading: (episodeId, seriesId, seasonNumber) => {
     const { queueItems } = get()
-    return queueItems.some((item) => {
-      if (item.status !== 'downloading' && item.status !== 'queued') {
-        return false
-      }
-      // Direct episode match
-      if (item.episodeId === episodeId) {
-        return true
-      }
-      // Season pack or complete series covering this episode
-      if (seriesId && item.seriesId === seriesId) {
-        if (item.isCompleteSeries) {
-          return true
-        }
-        if (seasonNumber && item.seasonNumber === seasonNumber && item.isSeasonPack) {
-          return true
-        }
-      }
-      return false
-    })
+    return queueItems.some((item) =>
+      isEpisodeInDownload(item, { episodeId, seriesId, seasonNumber }),
+    )
   },
 
   isSlotDownloading: (slotId) => {

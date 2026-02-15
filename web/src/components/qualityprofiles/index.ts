@@ -1,1 +1,1 @@
-export { QualityProfileDialog } from './QualityProfileDialog'
+export { QualityProfileDialog } from './quality-profile-dialog'

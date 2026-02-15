@@ -38,19 +38,19 @@ type Request struct {
 	ID               int64      `json:"id"`
 	UserID           int64      `json:"userId"`
 	MediaType        string     `json:"mediaType"`
-	TmdbID           *int64     `json:"tmdbId,omitempty"`
-	TvdbID           *int64     `json:"tvdbId,omitempty"`
+	TmdbID           *int64     `json:"tmdbId"`
+	TvdbID           *int64     `json:"tvdbId"`
 	Title            string     `json:"title"`
-	Year             *int64     `json:"year,omitempty"`
-	SeasonNumber     *int64     `json:"seasonNumber,omitempty"`
-	EpisodeNumber    *int64     `json:"episodeNumber,omitempty"`
+	Year             *int64     `json:"year"`
+	SeasonNumber     *int64     `json:"seasonNumber"`
+	EpisodeNumber    *int64     `json:"episodeNumber"`
 	Status           string     `json:"status"`
 	MonitorType      *string    `json:"monitorType,omitempty"`
 	DeniedReason     *string    `json:"deniedReason,omitempty"`
 	ApprovedAt       *time.Time `json:"approvedAt,omitempty"`
 	ApprovedBy       *int64     `json:"approvedBy,omitempty"`
-	MediaID          *int64     `json:"mediaId,omitempty"`
-	TargetSlotID     *int64     `json:"targetSlotId,omitempty"`
+	MediaID          *int64     `json:"mediaId"`
+	TargetSlotID     *int64     `json:"targetSlotId"`
 	PosterUrl        *string    `json:"posterUrl,omitempty"`
 	RequestedSeasons []int64    `json:"requestedSeasons,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`

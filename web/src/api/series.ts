@@ -15,7 +15,7 @@ import { apiFetch, buildQueryString } from './client'
 
 export const seriesApi = {
   list: (options?: ListSeriesOptions) =>
-    apiFetch<Series[]>(`/series${buildQueryString(options || {})}`),
+    apiFetch<Series[]>(`/series${buildQueryString(options ?? {})}`),
 
   get: (id: number) => apiFetch<Series>(`/series/${id}`),
 
@@ -82,16 +82,19 @@ export const seriesApi = {
   getEpisode: (seriesId: number, seasonNumber: number, episodeNumber: number) =>
     apiFetch<Episode>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}`),
 
-  updateEpisode: (
-    seriesId: number,
-    seasonNumber: number,
-    episodeNumber: number,
-    data: UpdateEpisodeInput,
-  ) =>
-    apiFetch<Episode>(`/series/${seriesId}/seasons/${seasonNumber}/episodes/${episodeNumber}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateEpisode: (params: {
+    seriesId: number
+    seasonNumber: number
+    episodeNumber: number
+    data: UpdateEpisodeInput
+  }) =>
+    apiFetch<Episode>(
+      `/series/${params.seriesId}/seasons/${params.seasonNumber}/episodes/${params.episodeNumber}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(params.data),
+      },
+    ),
 
   updateEpisodeById: (seriesId: number, episodeId: number, data: UpdateEpisodeInput) =>
     apiFetch<Episode>(`/series/${seriesId}/episodes/${episodeId}`, {

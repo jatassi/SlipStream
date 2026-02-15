@@ -1,3 +1,3 @@
-export { MovieCard } from './MovieCard'
-export { MovieGrid } from './MovieGrid'
-export { MovieTable } from './MovieTable'
+export { MovieCard } from './movie-card'
+export { MovieGrid } from './movie-grid'
+export { MovieTable } from './movie-table'

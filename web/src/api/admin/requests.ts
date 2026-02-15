@@ -30,7 +30,7 @@ export async function approveRequest(id: number, input: ApproveRequestInput): Pr
 export async function denyRequest(id: number, input?: DenyRequestInput): Promise<Request> {
   return apiFetch<Request>(`${BASE_PATH}/${id}/deny`, {
     method: 'POST',
-    body: JSON.stringify(input || {}),
+    body: JSON.stringify(input ?? {}),
   })
 }
 

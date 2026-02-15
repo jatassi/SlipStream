@@ -1,0 +1,151 @@
+import { Info } from 'lucide-react'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { DefinitionSetting } from '@/types'
+
+type DynamicSettingsFormProps = {
+  settings: DefinitionSetting[]
+  values: Record<string, string>
+  onChange: (values: Record<string, string>) => void
+  disabled?: boolean
+}
+
+export function DynamicSettingsForm({
+  settings,
+  values,
+  onChange,
+  disabled,
+}: DynamicSettingsFormProps) {
+  const handleChange = (name: string, value: string) => {
+    onChange({ ...values, [name]: value })
+  }
+
+  if (settings.length === 0) {
+    return (
+      <p className="text-muted-foreground py-4 text-center text-sm">
+        No configuration required for this indexer.
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {settings.map((setting) => (
+        <SettingField
+          key={setting.name}
+          setting={setting}
+          value={values[setting.name] ?? setting.default}
+          onChange={(value) => handleChange(setting.name, value)}
+          disabled={disabled}
+        />
+      ))}
+    </div>
+  )
+}
+
+type SettingFieldProps = {
+  setting: DefinitionSetting
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+}
+
+const fieldRenderers: Record<string, React.FC<SettingFieldProps>> = {
+  text: TextSetting,
+  password: PasswordSetting,
+  checkbox: CheckboxSetting,
+  select: SelectSetting,
+  info: InfoSetting,
+}
+
+function SettingField(props: SettingFieldProps) {
+  const Renderer = fieldRenderers[props.setting.type] ?? TextSetting
+  return <Renderer {...props} />
+}
+
+function TextSetting({ setting, value, onChange, disabled }: SettingFieldProps) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={setting.name}>{setting.label}</Label>
+      <Input
+        id={setting.name}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      />
+    </div>
+  )
+}
+
+function PasswordSetting({ setting, value, onChange, disabled }: SettingFieldProps) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={setting.name}>{setting.label}</Label>
+      <Input
+        id={setting.name}
+        type="password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        autoComplete="off"
+      />
+    </div>
+  )
+}
+
+function CheckboxSetting({ setting, value, onChange, disabled }: SettingFieldProps) {
+  return (
+    <div className="flex items-center space-x-2">
+      <Checkbox
+        id={setting.name}
+        checked={value === 'true'}
+        onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
+        disabled={disabled}
+      />
+      <Label htmlFor={setting.name} className="cursor-pointer font-normal">
+        {setting.label}
+      </Label>
+    </div>
+  )
+}
+
+function SelectSetting({ setting, value, onChange, disabled }: SettingFieldProps) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={setting.name}>{setting.label}</Label>
+      <Select value={value} onValueChange={(v) => v && onChange(v)} disabled={disabled}>
+        <SelectTrigger id={setting.name}>
+          <SelectValue>{value && setting.options ? setting.options[value] : value}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {setting.options
+            ? Object.entries(setting.options).map(([optValue, optLabel]) => (
+                <SelectItem key={optValue} value={optValue}>
+                  {optLabel}
+                </SelectItem>
+              ))
+            : null}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function InfoSetting({ setting }: SettingFieldProps) {
+  return (
+    <Alert>
+      <Info className="size-4" />
+      <AlertDescription>{setting.label}</AlertDescription>
+    </Alert>
+  )
+}

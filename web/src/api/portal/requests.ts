@@ -3,7 +3,7 @@ import type { CreateRequestInput, PortalDownload, Request, RequestListFilters } 
 import { buildQueryString, portalFetch } from './client'
 
 export const portalRequestsApi = {
-  list: (filters?: RequestListFilters) => portalFetch<Request[]>(buildQueryString(filters || {})),
+  list: (filters?: RequestListFilters) => portalFetch<Request[]>(buildQueryString(filters ?? {})),
 
   get: (id: number) => portalFetch<Request>(`/${id}`),
 

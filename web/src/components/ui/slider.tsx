@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function, curly -- shadcn/ui primitive */
 'use client'
 
 import * as React from 'react'

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function -- ui primitive */
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Filter } from 'lucide-react'
 

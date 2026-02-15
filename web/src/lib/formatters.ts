@@ -33,6 +33,10 @@ export function formatRuntime(minutes: number): string {
   return `${hours}h ${mins}m`
 }
 
+function pluralize(count: number, singular: string): string {
+  return `${count} ${singular}${count > 1 ? 's' : ''} ago`
+}
+
 /**
  * Format date to relative time (e.g., "2 days ago")
  */
@@ -52,24 +56,12 @@ export function formatRelativeTime(date: string | Date): string {
   const months = Math.floor(days / 30)
   const years = Math.floor(days / 365)
 
-  if (years > 0) {
-    return `${years} year${years > 1 ? 's' : ''} ago`
-  }
-  if (months > 0) {
-    return `${months} month${months > 1 ? 's' : ''} ago`
-  }
-  if (weeks > 0) {
-    return `${weeks} week${weeks > 1 ? 's' : ''} ago`
-  }
-  if (days > 0) {
-    return `${days} day${days > 1 ? 's' : ''} ago`
-  }
-  if (hours > 0) {
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`
-  }
-  if (minutes > 0) {
-    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-  }
+  if (years > 0) {return pluralize(years, 'year')}
+  if (months > 0) {return pluralize(months, 'month')}
+  if (weeks > 0) {return pluralize(weeks, 'week')}
+  if (days > 0) {return pluralize(days, 'day')}
+  if (hours > 0) {return pluralize(hours, 'hour')}
+  if (minutes > 0) {return pluralize(minutes, 'minute')}
   return 'Just now'
 }
 
@@ -80,7 +72,7 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   const d = new Date(date)
   return d.toLocaleDateString(
     undefined,
-    options || {
+    options ?? {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

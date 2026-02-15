@@ -14,7 +14,163 @@ import { useAuthStatus, usePortalEnabled, usePortalLogin } from '@/hooks'
 import { usePasskeyLogin, usePasskeySupport } from '@/hooks/portal'
 import { usePortalAuthStore } from '@/stores'
 
-export function LoginPage() {
+const GRADIENT_BORDER = { borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }
+
+function AuthPageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
+      {children}
+    </div>
+  )
+}
+
+function PortalDisabledView() {
+  return (
+    <AuthPageShell>
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          <div className="space-y-4 text-center">
+            <Ban className="text-muted-foreground mx-auto size-12" />
+            <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
+            <p className="text-muted-foreground">
+              The external requests portal is currently disabled. Please contact your server administrator.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </AuthPageShell>
+  )
+}
+
+type PasskeySectionProps = {
+  onLogin: () => void
+  isPending: boolean
+  onUsePinInstead: () => void
+}
+
+function PasskeySection({ onLogin, isPending, onUsePinInstead }: PasskeySectionProps) {
+  return (
+    <div className="space-y-6">
+      <Button onClick={onLogin} disabled={isPending} className="w-full text-sm md:text-base">
+        {isPending ? (
+          <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
+        ) : (
+          <KeyRound className="mr-1 size-3 md:mr-2 md:size-4" />
+        )}
+        Sign in with Passkey
+      </Button>
+      <div className="text-center">
+        <button type="button" onClick={onUsePinInstead} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
+          Use PIN instead
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type UsernameFieldProps = {
+  showInput: boolean
+  username: string
+  onUsernameChange: (value: string) => void
+  onSwitchUser: () => void
+  inputRef: React.RefObject<HTMLInputElement | null>
+}
+
+function UsernameField({ showInput, username, onUsernameChange, onSwitchUser, inputRef }: UsernameFieldProps) {
+  if (showInput) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="username">Username</Label>
+        <Input ref={inputRef} id="username" type="text" placeholder="Your username" value={username} onChange={(e) => onUsernameChange(e.target.value)} required autoComplete="username" />
+      </div>
+    )
+  }
+  return (
+    <div className="border-border bg-muted/50 flex items-center justify-between rounded-lg border p-2 md:p-3">
+      <div className="flex items-center gap-2 md:gap-3">
+        <div className="bg-primary/10 rounded-full p-1.5 md:p-2">
+          <User className="text-primary size-4 md:size-5" />
+        </div>
+        <span className="text-sm font-medium md:text-base">{username}</span>
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onSwitchUser} className="text-xs md:text-sm">
+        Switch User
+      </Button>
+    </div>
+  )
+}
+
+type PinFormProps = {
+  username: string
+  showUsernameInput: boolean
+  onUsernameChange: (value: string) => void
+  onSwitchUser: () => void
+  usernameInputRef: React.RefObject<HTMLInputElement | null>
+  pin: string
+  onPinChange: (value: string) => void
+  onSubmit: (e: React.FormEvent) => void
+  isPending: boolean
+  passkeySupported: boolean
+  onUsePasskey: () => void
+}
+
+function PinLoginForm(props: PinFormProps) {
+  return (
+    <>
+      <form onSubmit={props.onSubmit} className="space-y-6">
+        <UsernameField showInput={props.showUsernameInput} username={props.username} onUsernameChange={props.onUsernameChange} onSwitchUser={props.onSwitchUser} inputRef={props.usernameInputRef} />
+        <div className="space-y-3">
+          <Label>PIN</Label>
+          <div className="flex justify-center">
+            <InputOTP maxLength={4} value={props.pin} onChange={props.onPinChange}>
+              <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
+                <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
+                <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />
+                <InputOTPSlot index={2} className="size-10 text-lg md:size-12 md:text-xl" />
+                <InputOTPSlot index={3} className="size-10 text-lg md:size-12 md:text-xl" />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+        </div>
+        <Button type="submit" className="w-full text-sm md:text-base" disabled={props.isPending || props.pin.length !== 4 || props.username.trim() === ''}>
+          {props.isPending ? <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" /> : null}
+          Sign In
+        </Button>
+      </form>
+      {props.passkeySupported ? (
+        <div className="mt-4 text-center">
+          <button type="button" onClick={props.onUsePasskey} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
+            Use Passkey instead
+          </button>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+type DebugDeleteProps = {
+  showDelete: boolean
+  isDeleting: boolean
+  onDelete: () => void
+}
+
+function DebugDeleteSection({ showDelete, isDeleting, onDelete }: DebugDeleteProps) {
+  if (!showDelete) {return null}
+  return (
+    <div className="border-border mt-6 border-t pt-4">
+      <Button type="button" variant="destructive" size="sm" className="w-full text-xs md:text-sm" onClick={onDelete} disabled={isDeleting}>
+        {isDeleting ? (
+          <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
+        ) : (
+          <Trash2 className="mr-1 size-3 md:mr-2 md:size-4" />
+        )}
+        Delete Admin (Debug)
+      </Button>
+    </div>
+  )
+}
+
+function useLoginPage() {
   const navigate = useNavigate()
   const { getPostLoginRedirect } = usePortalAuthStore()
   const loginMutation = usePortalLogin()
@@ -23,7 +179,7 @@ export function LoginPage() {
   const { isSupported: passkeySupported, isLoading: passkeyLoading } = usePasskeySupport()
   const portalEnabled = usePortalEnabled()
 
-  const rememberedUsername = localStorage.getItem('slipstream_last_username') || ''
+  const rememberedUsername = localStorage.getItem('slipstream_last_username') ?? ''
   const [username, setUsername] = useState(rememberedUsername)
   const [showUsernameInput, setShowUsernameInput] = useState(!rememberedUsername)
   const [showPinForm, setShowPinForm] = useState(false)
@@ -31,233 +187,75 @@ export function LoginPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const usernameInputRef = useRef<HTMLInputElement>(null)
 
-  const shouldShowPasskeyLogin = !passkeyLoading && passkeySupported && !showPinForm
-
-  useEffect(() => {
-    if (showUsernameInput) {
-      usernameInputRef.current?.focus()
-    }
-  }, [showUsernameInput])
-
-  const handleSwitchUser = () => {
-    setUsername('')
-    setPin('')
-    setShowUsernameInput(true)
-  }
-
-  const handleDeleteAdmin = async () => {
-    setIsDeleting(true)
-    try {
-      await deleteAdmin()
-      toast.success('Admin deleted')
-      await refetchAuthStatus()
-      navigate({ to: '/auth/setup' })
-    } catch {
-      toast.error('Failed to delete admin')
-    } finally {
-      setIsDeleting(false)
-    }
-  }
+  useEffect(() => { if (showUsernameInput) {usernameInputRef.current?.focus()} }, [showUsernameInput])
 
   const performLogin = useCallback(() => {
-    if (loginMutation.isPending) {
-      return
-    }
-
+    if (loginMutation.isPending) {return}
     loginMutation.mutate(
       { username, password: pin },
       {
-        onSuccess: () => {
-          localStorage.setItem('slipstream_last_username', username)
-          const redirect = getPostLoginRedirect()
-          navigate({ to: redirect })
-        },
-        onError: (error) => {
-          toast.error('Login failed', {
-            description: error.message || 'Invalid credentials',
-          })
-          setPin('')
-        },
+        onSuccess: () => { localStorage.setItem('slipstream_last_username', username); void navigate({ to: getPostLoginRedirect() }) },
+        onError: (error) => { toast.error('Login failed', { description: error.message || 'Invalid credentials' }); setPin('') },
       },
     )
   }, [username, pin, loginMutation, getPostLoginRedirect, navigate])
 
-  useEffect(() => {
-    if (pin.length === 4 && username.trim() !== '') {
-      performLogin()
-    }
-  }, [pin, username, performLogin])
+  useEffect(() => { if (pin.length === 4 && username.trim() !== '') {performLogin()} }, [pin, username, performLogin])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    performLogin()
+  return {
+    portalEnabled, passkeyLoading, passkeySupported,
+    shouldShowPasskeyLogin: !passkeyLoading && passkeySupported && !showPinForm,
+    username, setUsername, showUsernameInput, usernameInputRef,
+    pin, setPin, isDeleting, loginPending: loginMutation.isPending,
+    showDelete: !authStatus?.requiresSetup,
+    handleSwitchUser: () => { setUsername(''); setPin(''); setShowUsernameInput(true) },
+    handleSubmit: (e: React.FormEvent) => { e.preventDefault(); performLogin() },
+    handlePasskeyLogin: () => {
+      passkeyLoginMutation.mutate(undefined, { onSuccess: () => void navigate({ to: getPostLoginRedirect() }) })
+    },
+    passkeyLoginPending: passkeyLoginMutation.isPending,
+    setShowPinForm,
+    handleDeleteAdmin: async () => {
+      setIsDeleting(true)
+      try { await deleteAdmin(); toast.success('Admin deleted'); await refetchAuthStatus(); void navigate({ to: '/auth/setup' }) }
+      catch { toast.error('Failed to delete admin') }
+      finally { setIsDeleting(false) }
+    },
   }
+}
 
-  const handlePasskeyLogin = () => {
-    passkeyLoginMutation.mutate(undefined, {
-      onSuccess: () => {
-        const redirect = getPostLoginRedirect()
-        navigate({ to: redirect })
-      },
-    })
-  }
+export function LoginPage() {
+  const vm = useLoginPage()
 
-  if (!portalEnabled) {
-    return (
-      <div className="bg-background flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="space-y-4 text-center">
-              <Ban className="text-muted-foreground mx-auto size-12" />
-              <h1 className="text-xl font-semibold">Requests Portal Disabled</h1>
-              <p className="text-muted-foreground">
-                The external requests portal is currently disabled. Please contact your server
-                administrator.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  if (!vm.portalEnabled) {return <PortalDisabledView />}
 
   return (
-    <div className="bg-background flex min-h-screen items-center justify-center p-4">
-      <Card
-        className="w-full max-w-md border-t-2 border-t-transparent"
-        style={{ borderImage: 'linear-gradient(to right, var(--movie-500), var(--tv-500)) 1' }}
-      >
+    <AuthPageShell>
+      <Card className="w-full max-w-md border-t-2 border-t-transparent" style={GRADIENT_BORDER}>
         <CardHeader className="text-center">
           <CardTitle className="text-media-gradient text-2xl">Welcome Back</CardTitle>
           <CardDescription>Sign in to your SlipStream account</CardDescription>
         </CardHeader>
         <CardContent>
-          {passkeyLoading ? (
+          {vm.passkeyLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="text-muted-foreground size-6 animate-spin" />
             </div>
-          ) : shouldShowPasskeyLogin ? (
-            <div className="space-y-6">
-              <Button
-                onClick={handlePasskeyLogin}
-                disabled={passkeyLoginMutation.isPending}
-                className="w-full text-sm md:text-base"
-              >
-                {passkeyLoginMutation.isPending ? (
-                  <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-                ) : (
-                  <KeyRound className="mr-1 size-3 md:mr-2 md:size-4" />
-                )}
-                Sign in with Passkey
-              </Button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowPinForm(true)}
-                  className="text-muted-foreground hover:text-foreground text-sm hover:underline"
-                >
-                  Use PIN instead
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {showUsernameInput ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      ref={usernameInputRef}
-                      id="username"
-                      type="text"
-                      placeholder="Your username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      autoComplete="username"
-                    />
-                  </div>
-                ) : (
-                  <div className="border-border bg-muted/50 flex items-center justify-between rounded-lg border p-2 md:p-3">
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="bg-primary/10 rounded-full p-1.5 md:p-2">
-                        <User className="text-primary size-4 md:size-5" />
-                      </div>
-                      <span className="text-sm font-medium md:text-base">{username}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSwitchUser}
-                      className="text-xs md:text-sm"
-                    >
-                      Switch User
-                    </Button>
-                  </div>
-                )}
-                <div className="space-y-3">
-                  <Label>PIN</Label>
-                  <div className="flex justify-center">
-                    <InputOTP maxLength={4} value={pin} onChange={setPin}>
-                      <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
-                        <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
-                        <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />
-                        <InputOTPSlot index={2} className="size-10 text-lg md:size-12 md:text-xl" />
-                        <InputOTPSlot index={3} className="size-10 text-lg md:size-12 md:text-xl" />
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full text-sm md:text-base"
-                  disabled={loginMutation.isPending || pin.length !== 4 || username.trim() === ''}
-                >
-                  {loginMutation.isPending ? (
-                    <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-                  ) : null}
-                  Sign In
-                </Button>
-              </form>
-
-              {passkeySupported ? (
-                <div className="mt-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowPinForm(false)}
-                    className="text-muted-foreground hover:text-foreground text-sm hover:underline"
-                  >
-                    Use Passkey instead
-                  </button>
-                </div>
-              ) : null}
-            </>
-          )}
-
-          {/* Temporary debug button */}
-          {!authStatus?.requiresSetup && (
-            <div className="border-border mt-6 border-t pt-4">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="w-full text-xs md:text-sm"
-                onClick={handleDeleteAdmin}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-                ) : (
-                  <Trash2 className="mr-1 size-3 md:mr-2 md:size-4" />
-                )}
-                Delete Admin (Debug)
-              </Button>
-            </div>
-          )}
+          ) : null}
+          {!vm.passkeyLoading && vm.shouldShowPasskeyLogin ? (
+            <PasskeySection onLogin={vm.handlePasskeyLogin} isPending={vm.passkeyLoginPending} onUsePinInstead={() => vm.setShowPinForm(true)} />
+          ) : null}
+          {!vm.passkeyLoading && !vm.shouldShowPasskeyLogin ? (
+            <PinLoginForm
+              username={vm.username} showUsernameInput={vm.showUsernameInput} onUsernameChange={vm.setUsername}
+              onSwitchUser={vm.handleSwitchUser} usernameInputRef={vm.usernameInputRef}
+              pin={vm.pin} onPinChange={vm.setPin} onSubmit={vm.handleSubmit}
+              isPending={vm.loginPending} passkeySupported={vm.passkeySupported} onUsePasskey={() => vm.setShowPinForm(false)}
+            />
+          ) : null}
+          <DebugDeleteSection showDelete={vm.showDelete} isDeleting={vm.isDeleting} onDelete={vm.handleDeleteAdmin} />
         </CardContent>
       </Card>
-    </div>
+    </AuthPageShell>
   )
 }

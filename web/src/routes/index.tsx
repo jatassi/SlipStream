@@ -1,40 +1,43 @@
 import { Link } from '@tanstack/react-router'
 import { Film, Tv } from 'lucide-react'
 
-import { StorageCard } from '@/components/dashboard/StorageCard'
+import { StorageCard } from '@/components/dashboard/storage-card'
 import { HealthWidget } from '@/components/health'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { ProgressBar } from '@/components/media/ProgressBar'
+import { PageHeader } from '@/components/layout/page-header'
+import { ProgressBar } from '@/components/media/progress-bar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useGlobalLoading, useHistory, useQueue } from '@/hooks'
-import { useStorage } from '@/hooks/useStorage'
+import { useStorage } from '@/hooks/use-storage'
 import { formatRelativeTime } from '@/lib/formatters'
 import { eventTypeLabels } from '@/lib/history-utils'
+import type { HistoryEntry } from '@/types/history'
+
+function QueueLoadingSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Active Downloads</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
 
 function QueuePreview() {
   const globalLoading = useGlobalLoading()
   const { data: queue, isLoading: queryLoading } = useQueue()
   const isLoading = queryLoading || globalLoading
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Active Downloads</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-2 w-full" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    )
-  }
+  if (isLoading) {return <QueueLoadingSkeleton />}
 
   const activeDownloads = queue?.items.filter((q) => q.status === 'downloading') ?? []
 
@@ -69,31 +72,51 @@ function QueuePreview() {
   )
 }
 
+function ActivityLoadingSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Recent Activity</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="size-8 rounded" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-2 w-24" />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ActivityItem({ item }: { item: HistoryEntry }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="bg-muted flex size-8 items-center justify-center rounded">
+        {item.mediaType === 'movie' ? <Film className="size-4" /> : <Tv className="size-4" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">
+          {item.mediaTitle ?? `${item.mediaType} #${item.mediaId}`}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {eventTypeLabels[item.eventType] || item.eventType} - {formatRelativeTime(item.createdAt)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function RecentActivity() {
   const globalLoading = useGlobalLoading()
   const { data: history, isLoading: queryLoading } = useHistory({ pageSize: 10 })
   const isLoading = queryLoading || globalLoading
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="size-8 rounded" />
-              <div className="flex-1 space-y-1">
-                <Skeleton className="h-3 w-40" />
-                <Skeleton className="h-2 w-24" />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    )
-  }
+  if (isLoading) {return <ActivityLoadingSkeleton />}
 
   return (
     <Card>
@@ -109,24 +132,7 @@ function RecentActivity() {
         {history?.items.length ? (
           <div className="space-y-3">
             {history.items.slice(0, 5).map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <div className="bg-muted flex size-8 items-center justify-center rounded">
-                  {item.mediaType === 'movie' ? (
-                    <Film className="size-4" />
-                  ) : (
-                    <Tv className="size-4" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {item.mediaTitle || `${item.mediaType} #${item.mediaId}`}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {eventTypeLabels[item.eventType] || item.eventType} -{' '}
-                    {formatRelativeTime(item.createdAt)}
-                  </p>
-                </div>
-              </div>
+              <ActivityItem key={item.id} item={item} />
             ))}
           </div>
         ) : (

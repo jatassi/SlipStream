@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { Search } from 'lucide-react'
 
-import { EmptyState } from '@/components/data/EmptyState'
-import { MovieCard } from '@/components/movies/MovieCard'
+import { EmptyState } from '@/components/data/empty-state'
+import { MovieCard } from '@/components/movies/movie-card'
 import {
   ExpandableMediaGrid,
   ExternalMovieCard,
@@ -11,181 +11,130 @@ import {
   ExternalSeriesCard,
   SearchResultsSection,
 } from '@/components/search'
-import { SeriesCard } from '@/components/series/SeriesCard'
+import { SeriesCard } from '@/components/series/series-card'
 import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
-import { useAdminRequests } from '@/hooks/admin/useAdminRequests'
+import { useAdminRequests } from '@/hooks/admin/use-admin-requests'
+
+type RequestInfo = { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined
+
+type RequestEntry = { id: number; status: string }
+
+function buildMovieRequestMap(requests: { mediaType: string; tmdbId: number | null; id: number; status: string }[]) {
+  const map = new Map<number, RequestEntry>()
+  for (const req of requests) {
+    if (req.mediaType === 'movie' && req.tmdbId !== null) {
+      map.set(req.tmdbId, { id: req.id, status: req.status })
+    }
+  }
+  return map
+}
+
+function buildSeriesRequestMap(requests: { mediaType: string; tmdbId: number | null; id: number; status: string }[]) {
+  const map = new Map<number, RequestEntry>()
+  for (const req of requests) {
+    if ((req.mediaType === 'series' || req.mediaType === 'season') && req.tmdbId !== null) {
+      const existing = map.get(req.tmdbId)
+      if (!existing || (existing.status === 'available' && req.status !== 'available')) {
+        map.set(req.tmdbId, { id: req.id, status: req.status })
+      }
+    }
+  }
+  return map
+}
 
 type SearchPageProps = {
   q: string
 }
 
-export function SearchPage({ q }: SearchPageProps) {
-  const query = q.trim() || ''
+function useLibrarySearch(query: string) {
+  const searchFilter = query ? { search: query } : undefined
+  const { data: movies = [], isLoading: loadingMovies } = useMovies(searchFilter)
+  const { data: series = [], isLoading: loadingSeries } = useSeries(searchFilter)
+  return {
+    movies, series,
+    isLoading: loadingMovies || loadingSeries,
+    hasResults: movies.length > 0 || series.length > 0,
+  }
+}
+
+function deriveExternalQuery(query: string, shouldSearch: boolean): string {
+  return shouldSearch && query.length >= 2 ? query : ''
+}
+
+function useExternalSearch(query: string, library: ReturnType<typeof useLibrarySearch>) {
   const [externalEnabled, setExternalEnabled] = useState(false)
 
-  // Reset external search when query changes
-  const prevQueryRef = useRef(query)
-  if (prevQueryRef.current !== query) {
-    prevQueryRef.current = query
-    if (externalEnabled) {
-      setExternalEnabled(false)
-    }
+  const [prevQuery, setPrevQuery] = useState(query)
+  if (prevQuery !== query) {
+    setPrevQuery(query)
+    setExternalEnabled(false)
   }
 
-  // Fetch library results
-  const { data: libraryMovies = [], isLoading: loadingLibraryMovies } = useMovies(
-    query ? { search: query } : undefined,
-  )
-  const { data: librarySeries = [], isLoading: loadingLibrarySeries } = useSeries(
-    query ? { search: query } : undefined,
-  )
+  const autoEnable = !library.hasResults && !library.isLoading
+  const shouldSearch = autoEnable || externalEnabled
+  const externalQuery = deriveExternalQuery(query, shouldSearch)
+  const { data: movies = [], isLoading: loadingMovies } = useMovieSearch(externalQuery)
+  const { data: series = [], isLoading: loadingSeries } = useSeriesSearch(externalQuery)
 
-  const isLibraryLoading = loadingLibraryMovies || loadingLibrarySeries
-  const hasLibraryResults = libraryMovies.length > 0 || librarySeries.length > 0
-
-  // Auto-enable external search when no library results (after loading completes)
-  const shouldSearchExternal = (!hasLibraryResults && !isLibraryLoading) || externalEnabled
-
-  // Fetch external results (conditional)
-  const { data: externalMovies = [], isLoading: loadingExternalMovies } = useMovieSearch(
-    shouldSearchExternal && query.length >= 2 ? query : '',
-  )
-  const { data: externalSeries = [], isLoading: loadingExternalSeries } = useSeriesSearch(
-    shouldSearchExternal && query.length >= 2 ? query : '',
-  )
-
-  const isExternalLoading = loadingExternalMovies || loadingExternalSeries
-  const hasExternalResults = externalMovies.length > 0 || externalSeries.length > 0
-
-  // Get library TMDB IDs to detect "in library" state for external results
-  const libraryMovieTmdbIds = new Set(libraryMovies.map((m) => m.tmdbId))
-  const librarySeriesTmdbIds = new Set(librarySeries.map((s) => s.tmdbId))
-
-  // Fetch portal requests to show request status on external search results
   const { data: requests = [] } = useAdminRequests()
+  const movieRequests = useMemo(() => buildMovieRequestMap(requests), [requests])
+  const seriesRequests = useMemo(() => buildSeriesRequestMap(requests), [requests])
 
-  // Build lookup maps for requests by TMDB ID
-  const movieRequestsByTmdbId = useMemo(() => {
-    const map = new Map<number, { id: number; status: string }>()
-    for (const req of requests) {
-      if (req.mediaType === 'movie' && req.tmdbId !== null) {
-        map.set(req.tmdbId, { id: req.id, status: req.status })
-      }
-    }
-    return map
-  }, [requests])
+  return {
+    movies, series, shouldSearch, setExternalEnabled,
+    isLoading: loadingMovies || loadingSeries,
+    hasResults: movies.length > 0 || series.length > 0,
+    movieRequests, seriesRequests,
+  }
+}
 
-  const seriesRequestsByTmdbId = useMemo(() => {
-    const map = new Map<number, { id: number; status: string }>()
-    for (const req of requests) {
-      if ((req.mediaType === 'series' || req.mediaType === 'season') && req.tmdbId !== null) {
-        // Keep the most relevant request (prefer non-available over available for badge display)
-        const existing = map.get(req.tmdbId)
-        if (!existing || (existing.status === 'available' && req.status !== 'available')) {
-          map.set(req.tmdbId, { id: req.id, status: req.status })
-        }
-      }
-    }
-    return map
-  }, [requests])
+export function SearchPage({ q }: SearchPageProps) {
+  const query = q.trim() || ''
+  const library = useLibrarySearch(query)
+  const external = useExternalSearch(query, library)
+
+  const libraryMovieTmdbIds = new Set(library.movies.map((m) => m.tmdbId))
+  const librarySeriesTmdbIds = new Set(library.series.map((s) => s.tmdbId))
 
   if (!query) {
-    return (
-      <EmptyState
-        icon={<Search className="size-8" />}
-        title="Enter a search term"
-        description="Use the search bar above to find movies and series"
-      />
-    )
+    return <EmptyState icon={<Search className="size-8" />} title="Enter a search term" description="Use the search bar above to find movies and series" />
   }
 
   return (
     <div className="space-y-8">
-      {/* Library Results Section */}
-      <SearchResultsSection
-        title="Library"
-        isLoading={isLibraryLoading}
-        hasResults={hasLibraryResults}
-      >
+      <SearchResultsSection title="Library" isLoading={library.isLoading} hasResults={library.hasResults}>
         <div className="space-y-6">
-          <ExpandableMediaGrid
-            items={libraryMovies}
-            getKey={(movie) => movie.id}
-            label="Movies"
-            icon="movie"
-            renderItem={(movie) => <MovieCard movie={movie} />}
-          />
-          <ExpandableMediaGrid
-            items={librarySeries}
-            getKey={(series) => series.id}
-            label="Series"
-            icon="series"
-            renderItem={(series) => <SeriesCard series={series} />}
-          />
+          <ExpandableMediaGrid items={library.movies} getKey={(m) => m.id} label="Movies" icon="movie" renderItem={(m) => <MovieCard movie={m} />} />
+          <ExpandableMediaGrid items={library.series} getKey={(s) => s.id} label="Series" icon="series" renderItem={(s) => <SeriesCard series={s} />} />
         </div>
       </SearchResultsSection>
 
-      {/* External Results Section */}
       <ExternalSearchSection
         query={query}
-        enabled={shouldSearchExternal}
-        onEnable={() => setExternalEnabled(true)}
-        isLoading={isExternalLoading}
-        hasResults={hasExternalResults}
+        enabled={external.shouldSearch}
+        onEnable={() => external.setExternalEnabled(true)}
+        isLoading={external.isLoading}
+        hasResults={external.hasResults}
       >
         <div className="space-y-6">
           <ExpandableMediaGrid
-            items={externalMovies}
-            getKey={(movie) => movie.tmdbId || movie.id}
+            items={external.movies}
+            getKey={(m) => m.tmdbId || m.id}
             label="Movies"
             icon="movie"
             collapsible={false}
-            renderItem={(movie) => (
-              <ExternalMovieCard
-                movie={movie}
-                inLibrary={libraryMovieTmdbIds.has(movie.tmdbId)}
-                requestInfo={
-                  movieRequestsByTmdbId.get(movie.tmdbId) as
-                    | {
-                        id: number
-                        status:
-                          | 'pending'
-                          | 'approved'
-                          | 'denied'
-                          | 'downloading'
-                          | 'available'
-                          | 'cancelled'
-                      }
-                    | undefined
-                }
-              />
+            renderItem={(m) => (
+              <ExternalMovieCard movie={m} inLibrary={libraryMovieTmdbIds.has(m.tmdbId)} requestInfo={external.movieRequests.get(m.tmdbId) as RequestInfo} />
             )}
           />
           <ExpandableMediaGrid
-            items={externalSeries}
-            getKey={(series) => series.tmdbId || series.id}
+            items={external.series}
+            getKey={(s) => s.tmdbId || s.id}
             label="Series"
             icon="series"
             collapsible={false}
-            renderItem={(series) => (
-              <ExternalSeriesCard
-                series={series}
-                inLibrary={librarySeriesTmdbIds.has(series.tmdbId)}
-                requestInfo={
-                  seriesRequestsByTmdbId.get(series.tmdbId) as
-                    | {
-                        id: number
-                        status:
-                          | 'pending'
-                          | 'approved'
-                          | 'denied'
-                          | 'downloading'
-                          | 'available'
-                          | 'cancelled'
-                      }
-                    | undefined
-                }
-              />
+            renderItem={(s) => (
+              <ExternalSeriesCard series={s} inLibrary={librarySeriesTmdbIds.has(s.tmdbId)} requestInfo={external.seriesRequests.get(s.tmdbId) as RequestInfo} />
             )}
           />
         </div>

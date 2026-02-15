@@ -11,30 +11,36 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Label } from '@/components/ui/label'
 import { useAdminSetup } from '@/hooks'
 
+function PinInput({ pin, onPinChange }: { pin: string; onPinChange: (value: string) => void }) {
+  return (
+    <div className="space-y-3">
+      <Label>PIN</Label>
+      <div className="flex justify-center">
+        <InputOTP maxLength={4} value={pin} onChange={onPinChange}>
+          <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
+            <InputOTPSlot index={0} className="size-12 text-xl" />
+            <InputOTPSlot index={1} className="size-12 text-xl" />
+            <InputOTPSlot index={2} className="size-12 text-xl" />
+            <InputOTPSlot index={3} className="size-12 text-xl" />
+          </InputOTPGroup>
+        </InputOTP>
+      </div>
+      <p className="text-muted-foreground text-center text-xs">Choose a 4-digit PIN you&apos;ll remember</p>
+    </div>
+  )
+}
+
 export function SetupPage() {
   const navigate = useNavigate()
   const setupMutation = useAdminSetup()
-
   const [pin, setPin] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (pin.length !== 4) {
-      toast.error('PIN must be exactly 4 digits')
-      return
-    }
-
+    if (pin.length !== 4) { toast.error('PIN must be exactly 4 digits'); return }
     setupMutation.mutate(pin, {
-      onSuccess: () => {
-        toast.success('Administrator account created')
-        navigate({ to: '/' })
-      },
-      onError: (error) => {
-        toast.error('Setup failed', {
-          description: error.message || 'Failed to create administrator account',
-        })
-      },
+      onSuccess: () => { toast.success('Administrator account created'); void navigate({ to: '/' }) },
+      onError: (error) => { toast.error('Setup failed', { description: error.message || 'Failed to create administrator account' }) },
     })
   }
 
@@ -49,35 +55,10 @@ export function SetupPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                value="Administrator"
-                disabled
-                className="bg-muted"
-              />
+              <Input id="username" type="text" value="Administrator" disabled className="bg-muted" />
             </div>
-            <div className="space-y-3">
-              <Label>PIN</Label>
-              <div className="flex justify-center">
-                <InputOTP maxLength={4} value={pin} onChange={setPin}>
-                  <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
-                    <InputOTPSlot index={0} className="size-12 text-xl" />
-                    <InputOTPSlot index={1} className="size-12 text-xl" />
-                    <InputOTPSlot index={2} className="size-12 text-xl" />
-                    <InputOTPSlot index={3} className="size-12 text-xl" />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-              <p className="text-muted-foreground text-center text-xs">
-                Choose a 4-digit PIN you&apos;ll remember
-              </p>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={setupMutation.isPending || pin.length !== 4}
-            >
+            <PinInput pin={pin} onPinChange={setPin} />
+            <Button type="submit" className="w-full" disabled={setupMutation.isPending || pin.length !== 4}>
               {setupMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Create Administrator
             </Button>

@@ -38,15 +38,7 @@ type PasskeyLoginResponse = {
 }
 
 export const passkeyApi = {
-  isSupported: () => {
-    if (typeof window === 'undefined') {
-      return false
-    }
-    return (
-      typeof PublicKeyCredential !== 'undefined' &&
-      typeof PublicKeyCredential === 'function'
-    )
-  },
+  isSupported: () => 'PublicKeyCredential' in globalThis && typeof globalThis.PublicKeyCredential === 'function',
 
   // Registration flow
   async beginRegistration(pin: string): Promise<BeginRegistrationResponse> {

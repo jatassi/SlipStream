@@ -33,6 +33,6 @@ export const useArtworkStore = create<ArtworkState>((set, get) => ({
 
   getVersion: (mediaType, mediaId, artworkType) => {
     const key = makeKey(mediaType, mediaId, artworkType)
-    return get().versions.get(key) || 0
+    return get().versions.get(key) ?? 0
   },
 }))

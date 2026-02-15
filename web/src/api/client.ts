@@ -4,32 +4,40 @@ import { getPortalAuthToken } from './portal/client'
 
 const API_BASE = '/api/v1'
 
+function extractState(parsed: unknown): unknown {
+  if (!parsed || typeof parsed !== 'object' || !('state' in parsed)) {
+    return null
+  }
+  return parsed.state
+}
+
+function extractUserAndToken(
+  state: unknown,
+): { user: unknown; token: string } | null {
+  if (!state || typeof state !== 'object') {return null}
+  if (!('user' in state) || !('token' in state)) {return null}
+  if (typeof state.token !== 'string') {return null}
+  return { user: state.user, token: state.token }
+}
+
+function isAdminUser(user: unknown): boolean {
+  if (!user || typeof user !== 'object') {return false}
+  if (!('isAdmin' in user)) {return false}
+  return !!user.isAdmin
+}
+
 function getInitialAdminToken(): string | null {
   try {
     const stored = localStorage.getItem('slipstream-portal-auth')
-    if (stored) {
-      const parsed: unknown = JSON.parse(stored)
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        'state' in parsed &&
-        parsed.state &&
-        typeof parsed.state === 'object' &&
-        'user' in parsed.state &&
-        parsed.state.user &&
-        typeof parsed.state.user === 'object' &&
-        'isAdmin' in parsed.state.user &&
-        parsed.state.user.isAdmin &&
-        'token' in parsed.state &&
-        typeof parsed.state.token === 'string'
-      ) {
-        return parsed.state.token
-      }
-    }
+    if (!stored) {return null}
+    const parsed: unknown = JSON.parse(stored)
+    const state = extractState(parsed)
+    const userAndToken = extractUserAndToken(state)
+    if (!userAndToken) {return null}
+    return isAdminUser(userAndToken.user) ? userAndToken.token : null
   } catch {
-    // Ignore parse errors
+    return null
   }
-  return null
 }
 
 let adminAuthToken: string | null = getInitialAdminToken()
@@ -48,7 +56,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   }
 
   // Use admin token if available, otherwise fall back to portal token
-  const token = adminAuthToken || getPortalAuthToken()
+  const token = adminAuthToken ?? getPortalAuthToken()
   if (token) {
     headers.Authorization = `Bearer ${token}`
   }
@@ -57,14 +65,14 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     ...options,
     headers: {
       ...headers,
-      ...options?.headers,
+      ...(options?.headers as Record<string, string> | undefined),
     },
   })
 
   if (!res.ok) {
     // Handle 401 - clear auth and redirect to login
     if (res.status === 401) {
-      const hadToken = !!(adminAuthToken || getPortalAuthToken())
+      const hadToken = !!(adminAuthToken ?? getPortalAuthToken())
       adminAuthToken = null
       if (hadToken) {
         globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))

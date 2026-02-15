@@ -74,28 +74,35 @@ export const useLogsStore = create<LogsState>((set, get) => ({
 
   getFilteredEntries: () => {
     const { entries, filterLevels, searchText } = get()
-
-    return entries.filter((entry) => {
-      if (
-        filterLevels.length < ALL_LOG_LEVELS.length &&
-        !filterLevels.includes(entry.level as LogLevel)
-      ) {
-        return false
-      }
-
-      if (searchText) {
-        const lowerSearch = searchText.toLowerCase()
-        const matchesMessage = entry.message.toLowerCase().includes(lowerSearch)
-        const matchesComponent = entry.component?.toLowerCase().includes(lowerSearch)
-        const matchesFields = Object.values(entry.fields || {}).some((v) =>
-          String(v).toLowerCase().includes(lowerSearch),
-        )
-        if (!matchesMessage && !matchesComponent && !matchesFields) {
-          return false
-        }
-      }
-
-      return true
-    })
+    return filterLogEntries(entries, filterLevels, searchText)
   },
 }))
+
+function filterLogEntries(
+  entries: LogEntry[],
+  filterLevels: LogLevel[],
+  searchText: string,
+): LogEntry[] {
+  return entries.filter((entry) => {
+    if (
+      filterLevels.length < ALL_LOG_LEVELS.length &&
+      !filterLevels.includes(entry.level as LogLevel)
+    ) {
+      return false
+    }
+    if (searchText && !matchesSearch(entry, searchText)) {
+      return false
+    }
+    return true
+  })
+}
+
+function matchesSearch(entry: LogEntry, searchText: string): boolean {
+  const lowerSearch = searchText.toLowerCase()
+  const matchesMessage = entry.message.toLowerCase().includes(lowerSearch)
+  const matchesComponent = entry.component?.toLowerCase().includes(lowerSearch) ?? false
+  const matchesFields = Object.values(entry.fields ?? {}).some((v) =>
+    String(v).toLowerCase().includes(lowerSearch),
+  )
+  return matchesMessage || matchesComponent || matchesFields
+}

@@ -1,2 +1,2 @@
-export { ProgressContainer } from './ProgressContainer'
-export { ProgressItem } from './ProgressItem'
+export { ProgressContainer } from './progress-container'
+export { ProgressItem } from './progress-item'

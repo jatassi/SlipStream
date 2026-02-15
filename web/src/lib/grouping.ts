@@ -150,30 +150,48 @@ function getSizeGroup(bytes: number | undefined): { key: string; label: string }
   return { key: '7', label: 'Over 100 GB' }
 }
 
-function getGroupKey<T extends Groupable>(
-  item: T,
+function getMonitoredGroup(monitored: boolean): { key: string; label: string } {
+  return monitored
+    ? { key: 'monitored', label: 'Monitored' }
+    : { key: 'unmonitored', label: 'Not Monitored' }
+}
+
+function getQualityProfileGroup(
+  profileId: number,
+  names: Map<number, string>,
+): { key: string; label: string } {
+  const name = names.get(profileId) ?? 'Unknown'
+  return { key: String(profileId), label: name }
+}
+
+function getRootFolderGroup(
+  folderId: number | undefined,
+  names: Map<number, string>,
+): { key: string; label: string } {
+  const name = names.get(folderId ?? 0) ?? 'Unknown'
+  return { key: String(folderId ?? 0), label: name }
+}
+
+function getGroupKey(
+  item: Groupable,
   sortField: SortField,
   context: GroupingContext,
 ): { key: string; label: string } {
   switch (sortField) {
     case 'monitored': {
-      return item.monitored
-        ? { key: 'monitored', label: 'Monitored' }
-        : { key: 'unmonitored', label: 'Not Monitored' }
+      return getMonitoredGroup(item.monitored)
     }
     case 'qualityProfile': {
-      const name = context.qualityProfileNames.get(item.qualityProfileId) || 'Unknown'
-      return { key: String(item.qualityProfileId), label: name }
+      return getQualityProfileGroup(item.qualityProfileId, context.qualityProfileNames)
     }
     case 'rootFolder': {
-      const name = context.rootFolderNames.get(item.rootFolderId || 0) || 'Unknown'
-      return { key: String(item.rootFolderId || 0), label: name }
+      return getRootFolderGroup(item.rootFolderId, context.rootFolderNames)
     }
     case 'nextAirDate': {
       return getRelativeFutureDateGroup(item.nextAiring)
     }
     case 'releaseDate': {
-      return getRelativePastDateGroup(item.releaseDate || item.addedAt)
+      return getRelativePastDateGroup(item.releaseDate ?? item.addedAt)
     }
     case 'dateAdded': {
       return getRelativePastDateGroup(item.addedAt)
@@ -198,9 +216,11 @@ export function groupMedia<T extends Groupable>(
 
   const groups: MediaGroup<T>[] = []
   let currentGroup: MediaGroup<T> | null = null
+  const field = sortField as SortField
 
   for (const item of items) {
-    const { key, label } = getGroupKey(item, sortField, context)
+    const { key, label } = getGroupKey(item, field, context)
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain -- optional chain prevents TypeScript from narrowing currentGroup to non-null on line 227
     if (!currentGroup || currentGroup.key !== key) {
       currentGroup = { key, label, items: [] }
       groups.push(currentGroup)

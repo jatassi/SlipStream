@@ -1,4 +1,4 @@
-export { CalendarAgendaView } from './CalendarAgendaView'
-export { CalendarEventCard } from './CalendarEventCard'
-export { CalendarMonthView } from './CalendarMonthView'
-export { CalendarWeekView } from './CalendarWeekView'
+export { CalendarAgendaView } from './calendar-agenda-view'
+export { CalendarEventCard } from './calendar-event-card'
+export { CalendarMonthView } from './calendar-month-view'
+export { CalendarWeekView } from './calendar-week-view'

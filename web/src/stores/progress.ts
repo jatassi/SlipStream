@@ -4,14 +4,13 @@ import type { Activity, ProgressEventType } from '@/types/progress'
 
 const AUTO_DISMISS_DELAY = 3000 // 3 seconds after completion
 const MAX_VISIBLE_ACTIVITIES = 5
+const ACTIVITY_BUFFER = MAX_VISIBLE_ACTIVITIES * 2
 
 type ProgressState = {
   activities: Activity[]
-  // Derived state stored directly to avoid selector issues
   visibleActivities: Activity[]
   activeCount: number
 
-  // Actions
   handleProgressEvent: (eventType: ProgressEventType, activity: Activity) => void
   dismissActivity: (id: string) => void
 }
@@ -24,32 +23,39 @@ function computeDerivedState(activities: Activity[]) {
   return { visibleActivities, activeCount }
 }
 
+function buildUpdatedActivities(current: Activity[], incoming: Activity[]): Activity[] {
+  const incomingIds = new Set(incoming.map((a) => a.id))
+  const filtered = current.filter((a) => !incomingIds.has(a.id))
+  return [...filtered, ...incoming]
+    .toSorted((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, ACTIVITY_BUFFER)
+}
+
+const TERMINAL_EVENTS = new Set<ProgressEventType>([
+  'progress:completed',
+  'progress:error',
+  'progress:cancelled',
+])
+
+function scheduleDismissIfTerminal(
+  eventType: ProgressEventType,
+  activityId: string,
+  dismiss: (id: string) => void,
+) {
+  if (TERMINAL_EVENTS.has(eventType)) {
+    setTimeout(() => dismiss(activityId), AUTO_DISMISS_DELAY)
+  }
+}
+
 export const useProgressStore = create<ProgressState>((set, get) => ({
   activities: [],
   visibleActivities: [],
   activeCount: 0,
 
   handleProgressEvent: (eventType, activity) => {
-    set((state) => {
-      // Remove existing activity with same ID, then add updated one
-      const filtered = state.activities.filter((a) => a.id !== activity.id)
-      const activities = [...filtered, activity]
-        .toSorted((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-        .slice(0, MAX_VISIBLE_ACTIVITIES * 2) // Keep some buffer
-
-      // Schedule auto-dismiss for completed activities
-      if (
-        eventType === 'progress:completed' ||
-        eventType === 'progress:error' ||
-        eventType === 'progress:cancelled'
-      ) {
-        setTimeout(() => {
-          get().dismissActivity(activity.id)
-        }, AUTO_DISMISS_DELAY)
-      }
-
-      return { activities, ...computeDerivedState(activities) }
-    })
+    const activities = buildUpdatedActivities(get().activities, [activity])
+    set({ activities, ...computeDerivedState(activities) })
+    scheduleDismissIfTerminal(eventType, activity.id, get().dismissActivity)
   },
 
   dismissActivity: (id) => {

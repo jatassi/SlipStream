@@ -51,7 +51,7 @@ function transformMovieResult(result: BackendMovieResult): MovieSearchResult {
 function transformSeriesResult(result: BackendSeriesResult): SeriesSearchResult {
   return {
     ...result,
-    tmdbId: result.tmdbId || result.id,
+    tmdbId: result.tmdbId ?? result.id,
   }
 }
 
@@ -60,7 +60,7 @@ export const metadataApi = {
     const results = await apiFetch<BackendMovieResult[]>(
       `/metadata/movie/search?query=${encodeURIComponent(query)}`,
     )
-    return results.map(transformMovieResult)
+    return results.map((r) => transformMovieResult(r))
   },
 
   getMovie: async (tmdbId: number) => {
@@ -74,7 +74,7 @@ export const metadataApi = {
     const results = await apiFetch<BackendSeriesResult[]>(
       `/metadata/series/search?query=${encodeURIComponent(query)}`,
     )
-    return results.map(transformSeriesResult)
+    return results.map((r) => transformSeriesResult(r))
   },
 
   getSeries: async (tmdbId: number) => {

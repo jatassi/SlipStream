@@ -49,7 +49,7 @@ export async function portalFetch<T>(path: string, options?: RequestInit): Promi
     ...options,
     headers: {
       ...headers,
-      ...options?.headers,
+      ...(options?.headers as Record<string, string> | undefined),
     },
   })
 

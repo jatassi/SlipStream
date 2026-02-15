@@ -1,423 +1,56 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, Check, Loader2, Search } from 'lucide-react'
-import { toast } from 'sonner'
-
-import { EmptyState } from '@/components/data/EmptyState'
-import { LoadingState } from '@/components/data/LoadingState'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { PosterImage } from '@/components/media/PosterImage'
+import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import {
-  useAddFlowPreferences,
-  useAddSeries,
-  useDebounce,
-  useDefault,
-  useQualityProfiles,
-  useRootFoldersByType,
-  useSeriesMetadata,
-  useSeriesSearch,
-} from '@/hooks'
-import type {
-  AddSeriesInput,
-  SeriesMonitorOnAdd,
-  SeriesSearchOnAdd,
-  SeriesSearchResult,
-} from '@/types'
 
-type Step = 'search' | 'configure'
+import { AddSeriesConfigure } from './add-series-configure'
+import { AddSeriesSearch } from './add-series-search'
+import type { AddSeriesState } from './use-add-series'
+import { useAddSeriesPage } from './use-add-series'
+
+const ADD_BREADCRUMBS = [{ label: 'Series', href: '/series' }, { label: 'Add' }]
+
+function AddSeriesBody({ state }: { state: AddSeriesState }) {
+  if (state.tmdbId && state.loadingMetadata) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
+      </div>
+    )
+  }
+  if (state.step === 'search' && !state.tmdbId) {
+    return (
+      <AddSeriesSearch
+        searchQuery={state.searchQuery} onSearchChange={state.setSearchQuery} searchInputRef={state.searchInputRef}
+        searching={state.searching} searchResults={state.searchResults} onSelect={state.handleSelectSeries}
+      />
+    )
+  }
+  if (state.step === 'configure' && state.selectedSeries) {
+    return (
+      <AddSeriesConfigure
+        selectedSeries={state.selectedSeries} rootFolderId={state.rootFolderId} setRootFolderId={state.setRootFolderId}
+        rootFolders={state.rootFolders} qualityProfileId={state.qualityProfileId} setQualityProfileId={state.setQualityProfileId}
+        qualityProfiles={state.qualityProfiles} monitorOnAdd={state.monitorOnAdd} setMonitorOnAdd={state.setMonitorOnAdd}
+        searchOnAdd={state.searchOnAdd} setSearchOnAdd={state.setSearchOnAdd} seasonFolder={state.seasonFolder}
+        setSeasonFolder={state.setSeasonFolder} includeSpecials={state.includeSpecials} setIncludeSpecials={state.setIncludeSpecials}
+        isPending={state.isPending} handleBack={state.handleBack} handleAdd={state.handleAdd}
+      />
+    )
+  }
+  return null
+}
 
 export function AddSeriesPage() {
-  const navigate = useNavigate()
-  // Get tmdbId from URL search params
-  const searchParams = useSearch({ strict: false })
-  const tmdbId = useMemo(() => {
-    const id = (searchParams as Record<string, unknown>).tmdbId
-    return id ? Number(id) : undefined
-  }, [(searchParams as Record<string, unknown>).tmdbId])
-
-  const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null)
-  const debouncedSearchQuery = useDebounce(searchQuery, 900)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (step === 'search') {
-      searchInputRef.current?.focus()
-    }
-  }, [step])
-
-  // Fetch series metadata if tmdbId is provided
-  const { data: seriesMetadata, isLoading: loadingMetadata } = useSeriesMetadata(tmdbId ?? 0)
-
-  // Track previous values for render-time state sync
-  const [prevSeriesMetadata, setPrevSeriesMetadata] = useState(seriesMetadata)
-
-  // Auto-select series when metadata is loaded (React-recommended pattern)
-  if (tmdbId && seriesMetadata && seriesMetadata !== prevSeriesMetadata && !selectedSeries) {
-    setPrevSeriesMetadata(seriesMetadata)
-    setSelectedSeries({
-      id: seriesMetadata.id,
-      tmdbId: seriesMetadata.tmdbId,
-      tvdbId: seriesMetadata.tvdbId,
-      imdbId: seriesMetadata.imdbId,
-      title: seriesMetadata.title,
-      originalTitle: seriesMetadata.originalTitle,
-      year: seriesMetadata.year,
-      overview: seriesMetadata.overview,
-      posterUrl: seriesMetadata.posterUrl,
-      backdropUrl: seriesMetadata.backdropUrl,
-      runtime: seriesMetadata.runtime,
-      genres: seriesMetadata.genres,
-      status: seriesMetadata.status,
-      network: seriesMetadata.network,
-      networkLogoUrl: seriesMetadata.networkLogoUrl,
-    })
-    setStep('configure')
-  }
-
-  // Form state
-  const [rootFolderId, setRootFolderId] = useState<string>('')
-  const [qualityProfileId, setQualityProfileId] = useState<string>('')
-  const [seasonFolder, setSeasonFolder] = useState(true)
-  const [monitorOnAdd, setMonitorOnAdd] = useState<SeriesMonitorOnAdd | undefined>(undefined)
-  const [searchOnAdd, setSearchOnAdd] = useState<SeriesSearchOnAdd | undefined>(undefined)
-  const [includeSpecials, setIncludeSpecials] = useState<boolean | undefined>(undefined)
-
-  const { data: searchResults, isLoading: searching } = useSeriesSearch(debouncedSearchQuery)
-  const { data: rootFolders } = useRootFoldersByType('tv')
-  const { data: qualityProfiles } = useQualityProfiles()
-  const { data: defaultRootFolder } = useDefault('root_folder', 'tv')
-  const { data: addFlowPreferences } = useAddFlowPreferences()
-  const addMutation = useAddSeries()
-
-  // Track previous values for render-time state sync
-  const [prevAddFlowPreferences, setPrevAddFlowPreferences] = useState(addFlowPreferences)
-  const [prevDefaultRootFolder, setPrevDefaultRootFolder] = useState(defaultRootFolder)
-
-  // Initialize from preferences (React-recommended pattern)
-  if (addFlowPreferences && addFlowPreferences !== prevAddFlowPreferences) {
-    setPrevAddFlowPreferences(addFlowPreferences)
-    if (monitorOnAdd === undefined) {
-      setMonitorOnAdd(addFlowPreferences.seriesMonitorOnAdd)
-    }
-    if (searchOnAdd === undefined) {
-      setSearchOnAdd(addFlowPreferences.seriesSearchOnAdd)
-    }
-    if (includeSpecials === undefined) {
-      setIncludeSpecials(addFlowPreferences.seriesIncludeSpecials)
-    }
-  }
-
-  // Pre-populate root folder with default (React-recommended pattern)
-  if (defaultRootFolder !== prevDefaultRootFolder) {
-    setPrevDefaultRootFolder(defaultRootFolder)
-    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !rootFolderId) {
-      setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
-    }
-  }
-
-  const handleSelectSeries = (series: SeriesSearchResult) => {
-    setSelectedSeries(series)
-    setStep('configure')
-  }
-
-  const handleBack = () => {
-    if (step === 'configure') {
-      setStep('search')
-      setSelectedSeries(null)
-    } else {
-      navigate({ to: '/series' })
-    }
-  }
-
-  const handleAdd = async () => {
-    if (!selectedSeries || !rootFolderId || !qualityProfileId) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
-    const input: AddSeriesInput = {
-      title: selectedSeries.title,
-      year: selectedSeries.year,
-      tvdbId: selectedSeries.tvdbId,
-      tmdbId: selectedSeries.tmdbId,
-      imdbId: selectedSeries.imdbId,
-      overview: selectedSeries.overview,
-      runtime: selectedSeries.runtime,
-      network: selectedSeries.network,
-      networkLogoUrl: selectedSeries.networkLogoUrl,
-      rootFolderId: Number.parseInt(rootFolderId),
-      qualityProfileId: Number.parseInt(qualityProfileId),
-      monitored: monitorOnAdd !== 'none',
-      seasonFolder,
-      posterUrl: selectedSeries.posterUrl,
-      backdropUrl: selectedSeries.backdropUrl,
-      searchOnAdd: searchOnAdd ?? 'no',
-      monitorOnAdd: monitorOnAdd ?? 'future',
-      includeSpecials: includeSpecials ?? false,
-    }
-
-    try {
-      const series = await addMutation.mutateAsync(input)
-      toast.success(`Added "${series.title}"`)
-      navigate({ to: '/series/$id', params: { id: String(series.id) } })
-    } catch {
-      toast.error('Failed to add series')
-    }
-  }
-
+  const state = useAddSeriesPage()
   return (
     <div>
       <PageHeader
         title="Add Series"
-        breadcrumbs={[{ label: 'Series', href: '/series' }, { label: 'Add' }]}
-        actions={
-          <Button variant="ghost" onClick={handleBack}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back
-          </Button>
-        }
+        breadcrumbs={ADD_BREADCRUMBS}
+        actions={<Button variant="ghost" onClick={state.handleBack}><ArrowLeft className="mr-2 size-4" />Back</Button>}
       />
-
-      {/* Loading state when fetching by tmdbId */}
-      {tmdbId && loadingMetadata ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-muted-foreground size-8 animate-spin" />
-        </div>
-      ) : null}
-
-      {step === 'search' && !tmdbId && (
-        <div className="space-y-6">
-          {/* Search input */}
-          <div className="max-w-xl">
-            <div className="relative">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-              <Input
-                ref={searchInputRef}
-                placeholder="Search for a series..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          {/* Results */}
-          {searching ? (
-            <LoadingState count={4} />
-          ) : searchQuery.length < 2 ? (
-            <EmptyState
-              icon={<Search className="size-8" />}
-              title="Search for a series"
-              description="Enter at least 2 characters to search"
-            />
-          ) : searchResults?.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {searchResults.map((series) => (
-                <Card
-                  key={series.tmdbId || series.id}
-                  className="hover:border-primary cursor-pointer transition-colors"
-                  onClick={() => handleSelectSeries(series)}
-                >
-                  <div className="relative aspect-[2/3]">
-                    <PosterImage
-                      url={series.posterUrl}
-                      alt={series.title}
-                      type="series"
-                      className="absolute inset-0 rounded-t-lg"
-                    />
-                  </div>
-                  <CardContent className="p-3">
-                    <h3 className="truncate font-semibold">{series.title}</h3>
-                    <p className="text-muted-foreground text-sm">
-                      {series.year || 'Unknown year'}
-                      {series.network ? ` - ${series.network}` : null}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={<Search className="size-8" />}
-              title="No results found"
-              description="Try a different search term"
-            />
-          )}
-        </div>
-      )}
-
-      {step === 'configure' && selectedSeries ? (
-        <div className="max-w-2xl space-y-6">
-          {/* Selected series preview */}
-          <Card>
-            <CardContent className="flex gap-4 p-4">
-              <PosterImage
-                url={selectedSeries.posterUrl}
-                alt={selectedSeries.title}
-                type="series"
-                className="h-36 w-24 shrink-0 rounded"
-              />
-              <div>
-                <h2 className="text-xl font-semibold">{selectedSeries.title}</h2>
-                <p className="text-muted-foreground">
-                  {selectedSeries.year || 'Unknown year'}
-                  {selectedSeries.network ? ` - ${selectedSeries.network}` : null}
-                </p>
-                {selectedSeries.overview ? (
-                  <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
-                    {selectedSeries.overview}
-                  </p>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Configuration form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="rootFolder">Root Folder *</Label>
-                <Select value={rootFolderId} onValueChange={(v) => v && setRootFolderId(v)}>
-                  <SelectTrigger>
-                    {(rootFolderId &&
-                      rootFolders?.find((f) => f.id === Number.parseInt(rootFolderId))?.name) ||
-                      'Select a root folder'}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rootFolders?.map((folder) => (
-                      <SelectItem key={folder.id} value={String(folder.id)}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="qualityProfile">Quality Profile *</Label>
-                <Select value={qualityProfileId} onValueChange={(v) => v && setQualityProfileId(v)}>
-                  <SelectTrigger>
-                    {(qualityProfileId &&
-                      qualityProfiles?.find((p) => p.id === Number.parseInt(qualityProfileId))
-                        ?.name) ||
-                      'Select a quality profile'}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {qualityProfiles?.map((profile) => (
-                      <SelectItem key={profile.id} value={String(profile.id)}>
-                        {profile.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Monitor</Label>
-                <Select
-                  value={monitorOnAdd ?? 'future'}
-                  onValueChange={(v) => v && setMonitorOnAdd(v)}
-                >
-                  <SelectTrigger>
-                    {
-                      {
-                        all: 'All Episodes',
-                        future: 'Future Episodes Only',
-                        first_season: 'First Season Only',
-                        latest_season: 'Latest Season Only',
-                        none: 'None',
-                      }[monitorOnAdd ?? 'future']
-                    }
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Episodes</SelectItem>
-                    <SelectItem value="future">Future Episodes Only</SelectItem>
-                    <SelectItem value="first_season">First Season Only</SelectItem>
-                    <SelectItem value="latest_season">Latest Season Only</SelectItem>
-                    <SelectItem value="none">None</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">
-                  Which episodes should be monitored for automatic downloads
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Search on Add</Label>
-                <Select value={searchOnAdd ?? 'no'} onValueChange={(v) => v && setSearchOnAdd(v)}>
-                  <SelectTrigger>
-                    {
-                      {
-                        no: "Don't Search",
-                        first_episode: 'First Episode Only',
-                        first_season: 'First Season Only',
-                        latest_season: 'Latest Season Only',
-                        all: 'All Monitored Episodes',
-                      }[searchOnAdd ?? 'no']
-                    }
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no">Don&apos;t Search</SelectItem>
-                    <SelectItem value="first_episode">First Episode Only</SelectItem>
-                    <SelectItem value="first_season">First Season Only</SelectItem>
-                    <SelectItem value="latest_season">Latest Season Only</SelectItem>
-                    <SelectItem value="all">All Monitored Episodes</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">
-                  Start searching for releases immediately after adding
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Season Folder</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Organize episodes into season folders
-                  </p>
-                </div>
-                <Switch checked={seasonFolder} onCheckedChange={setSeasonFolder} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Include Specials</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Monitor and search for special episodes (Season 0)
-                  </p>
-                </div>
-                <Switch checked={includeSpecials ?? false} onCheckedChange={setIncludeSpecials} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleBack}>
-              Back
-            </Button>
-            <Button
-              onClick={handleAdd}
-              disabled={!rootFolderId || !qualityProfileId || addMutation.isPending}
-            >
-              <Check className="mr-2 size-4" />
-              Add Series
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <AddSeriesBody state={state} />
     </div>
   )
 }
