@@ -116,7 +116,8 @@
       "Bash(do echo \"=== $f ===\")",
       "Bash(./scripts/consolidation/find-importers.sh:*)",
       "Bash(done)",
-      "Bash(fi)"
+      "Bash(fi)",
+      "WebFetch(domain:golangci-lint.run)"
     ]
   },
   "enableAllProjectMcpServers": true,
