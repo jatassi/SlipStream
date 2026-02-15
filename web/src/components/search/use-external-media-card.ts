@@ -106,7 +106,7 @@ function checkHasExistingRequest(requested: boolean, matched: Request[], availab
   if (requested || matched.length > 0) {
     return true
   }
-  return availability?.existingRequestId != null
+  return availability?.existingRequestId !== undefined && availability.existingRequestId !== null
 }
 
 function checkIsOwnRequest(requested: boolean, matched: Request[], params: UseExternalMediaCardParams): boolean {
@@ -114,7 +114,7 @@ function checkIsOwnRequest(requested: boolean, matched: Request[], params: UseEx
     return true
   }
   const { availability, currentUserId } = params
-  return availability?.existingRequestUserId != null && availability.existingRequestUserId === currentUserId
+  return availability?.existingRequestUserId !== undefined && availability.existingRequestUserId !== null && availability.existingRequestUserId === currentUserId
 }
 
 function deriveFlags(ctx: DeriveContext, params: UseExternalMediaCardParams) {
