@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2, TestTube } from 'lucide-react'
+import { ExternalLink, TestTube } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { LoadingButton } from '@/components/ui/loading-button'
 
 import type { NotificationDialogProps } from './notification-dialog-types'
 import { NotificationFormBody } from './notification-form-body'
@@ -85,22 +86,16 @@ function NotificationDialogFooter({
 }) {
   return (
     <DialogFooter className="flex-col gap-2 sm:flex-row">
-      <Button variant="outline" onClick={onTest} disabled={isTesting}>
-        {isTesting ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
-        ) : (
-          <TestTube className="mr-2 size-4" />
-        )}
+      <LoadingButton loading={isTesting} icon={TestTube} variant="outline" onClick={onTest}>
         Test
-      </Button>
+      </LoadingButton>
       <div className="flex gap-2 sm:ml-auto">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={onSubmit} disabled={isPending}>
-          {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+        <LoadingButton loading={isPending} onClick={onSubmit}>
           {isEditing ? 'Save' : 'Add'}
-        </Button>
+        </LoadingButton>
       </div>
     </DialogFooter>
   )

@@ -1,4 +1,4 @@
-import { Bug, Loader2, TestTube } from 'lucide-react'
+import { Bug, TestTube } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import {
   Select,
   SelectContent,
@@ -241,8 +242,14 @@ function LeftButtons({ hook }: { hook: HookValues }) {
   const showDebug = hook.developerMode && hook.isEditing && hook.formData.type === 'transmission'
   return (
     <div className="flex gap-2">
-      <TestButton isTesting={hook.isTesting} onClick={hook.handleTest} />
-      {showDebug ? <DebugButton isAdding={hook.isAddingDebugTorrent} onClick={hook.handleDebugTorrent} /> : null}
+      <LoadingButton loading={hook.isTesting} icon={TestTube} variant="outline" onClick={hook.handleTest}>
+        Test
+      </LoadingButton>
+      {showDebug ? (
+        <LoadingButton loading={hook.isAddingDebugTorrent} icon={Bug} variant="outline" onClick={hook.handleDebugTorrent} title="Add mock download for testing">
+          Debug
+        </LoadingButton>
+      ) : null}
     </div>
   )
 }
@@ -253,55 +260,9 @@ function RightButtons({ onCancel, hook }: { onCancel: () => void; hook: HookValu
       <Button variant="outline" onClick={onCancel}>
         Cancel
       </Button>
-      <SubmitButton isPending={hook.isPending} isEditing={hook.isEditing} onClick={hook.handleSubmit} />
+      <LoadingButton loading={hook.isPending} onClick={hook.handleSubmit}>
+        {hook.isEditing ? 'Save' : 'Add'}
+      </LoadingButton>
     </div>
-  )
-}
-
-function TestButton({ isTesting, onClick }: { isTesting: boolean; onClick: () => void }) {
-  return (
-    <Button variant="outline" onClick={onClick} disabled={isTesting}>
-      {isTesting ? (
-        <Loader2 className="mr-2 size-4 animate-spin" />
-      ) : (
-        <TestTube className="mr-2 size-4" />
-      )}
-      Test
-    </Button>
-  )
-}
-
-function DebugButton({ isAdding, onClick }: { isAdding: boolean; onClick: () => void }) {
-  return (
-    <Button
-      variant="outline"
-      onClick={onClick}
-      disabled={isAdding}
-      title="Add mock download for testing"
-    >
-      {isAdding ? (
-        <Loader2 className="mr-2 size-4 animate-spin" />
-      ) : (
-        <Bug className="mr-2 size-4" />
-      )}
-      Debug
-    </Button>
-  )
-}
-
-function SubmitButton({
-  isPending,
-  isEditing,
-  onClick,
-}: {
-  isPending: boolean
-  isEditing: boolean
-  onClick: () => void
-}) {
-  return (
-    <Button onClick={onClick} disabled={isPending}>
-      {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-      {isEditing ? 'Save' : 'Add'}
-    </Button>
   )
 }

@@ -1,6 +1,7 @@
 import { ErrorState } from '@/components/data/error-state'
 import { LoadingState } from '@/components/data/loading-state'
-import { MovieEditDialog } from '@/components/movies/movie-edit-dialog'
+import { MediaEditDialog } from '@/components/media/media-edit-dialog'
+import { useUpdateMovie } from '@/hooks'
 
 import { MovieDetailActions } from './movie-detail-actions'
 import { MovieDetailContent } from './movie-detail-content'
@@ -9,6 +10,7 @@ import { useMovieDetail } from './use-movie-detail'
 
 export function MovieDetailPage() {
   const state = useMovieDetail()
+  const updateMutation = useUpdateMovie()
 
   if (state.isLoading) {
     return <LoadingState variant="detail" />
@@ -37,10 +39,13 @@ export function MovieDetailPage() {
         onDelete={state.handleDelete}
       />
       <MovieDetailContent state={state} movie={movie} />
-      <MovieEditDialog
+      <MediaEditDialog
         open={state.editDialogOpen}
         onOpenChange={state.setEditDialogOpen}
-        movie={movie}
+        item={movie}
+        updateMutation={updateMutation}
+        mediaLabel="Movie"
+        monitoredDescription="Search for releases and upgrade quality"
       />
     </div>
   )

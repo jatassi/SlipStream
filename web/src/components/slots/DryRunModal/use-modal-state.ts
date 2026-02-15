@@ -4,8 +4,8 @@ import { toast } from 'sonner'
 
 import { useDeveloperMode, useMigrationPreview } from '@/hooks'
 
-import type { FilterType } from './filter-utils'
-import type { ManualEdit, MigrationPreview } from './types'
+import type { FilterType } from '../shared/filter-utils'
+import type { ManualEdit, MigrationPreview } from '../shared/types'
 
 export type ModalStateBundle = {
   preview: MigrationPreview | null

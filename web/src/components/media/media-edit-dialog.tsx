@@ -1,8 +1,3 @@
-import { useState } from 'react'
-
-import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,71 +8,56 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useQualityProfiles, useUpdateMovie } from '@/hooks'
-import type { Movie } from '@/types'
 
-type MovieEditDialogProps = {
+import { useMediaEditDialog } from './use-media-edit-dialog'
+
+type MediaEditDialogProps<T extends { id: number; title: string; monitored: boolean; qualityProfileId: number }> = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  movie: Movie
+  item: T
+  updateMutation: {
+    mutateAsync: (args: { id: number; data: { monitored: boolean; qualityProfileId: number } }) => Promise<unknown>
+    isPending: boolean
+  }
+  mediaLabel: string
+  monitoredDescription: string
 }
 
-export function MovieEditDialog({ open, onOpenChange, movie }: MovieEditDialogProps) {
-  const [monitored, setMonitored] = useState(movie.monitored)
-  const [qualityProfileId, setQualityProfileId] = useState(movie.qualityProfileId)
-  const [prevMovie, setPrevMovie] = useState(movie)
-
-  if (movie.id !== prevMovie.id) {
-    setPrevMovie(movie)
-    setMonitored(movie.monitored)
-    setQualityProfileId(movie.qualityProfileId)
-  }
-
-  const updateMutation = useUpdateMovie()
-  const { data: profiles } = useQualityProfiles()
-  const hasChanges = monitored !== movie.monitored || qualityProfileId !== movie.qualityProfileId
-
-  const handleSubmit = async () => {
-    if (!hasChanges) {
-      onOpenChange(false)
-      return
-    }
-    try {
-      await updateMutation.mutateAsync({ id: movie.id, data: { monitored, qualityProfileId } })
-      toast.success('Movie updated')
-      onOpenChange(false)
-    } catch {
-      toast.error('Failed to update movie')
-    }
-  }
+export function MediaEditDialog<T extends { id: number; title: string; monitored: boolean; qualityProfileId: number }>({
+  open,
+  onOpenChange,
+  item,
+  updateMutation,
+  mediaLabel,
+  monitoredDescription,
+}: MediaEditDialogProps<T>) {
+  const state = useMediaEditDialog({ item, updateMutation, mediaLabel, onOpenChange })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Movie</DialogTitle>
-          <DialogDescription>{movie.title}</DialogDescription>
+          <DialogTitle>Edit {mediaLabel}</DialogTitle>
+          <DialogDescription>{item.title}</DialogDescription>
         </DialogHeader>
-        <MovieEditForm
-          profiles={profiles}
-          qualityProfileId={qualityProfileId}
-          onProfileChange={(v) => v && setQualityProfileId(Number.parseInt(v, 10))}
-          monitored={monitored}
-          onMonitoredChange={setMonitored}
+        <EditForm
+          profiles={state.profiles}
+          qualityProfileId={state.qualityProfileId}
+          onProfileChange={state.handleProfileChange}
+          monitored={state.monitored}
+          onMonitoredChange={state.setMonitored}
+          monitoredDescription={monitoredDescription}
         />
-        <MovieEditFooter
-          onCancel={() => onOpenChange(false)}
-          onSubmit={handleSubmit}
-          isPending={updateMutation.isPending}
-        />
+        <EditFooter onCancel={state.handleCancel} onSubmit={state.handleSubmit} isPending={state.isPending} />
       </DialogContent>
     </Dialog>
   )
 }
 
-function MovieEditFooter({
+function EditFooter({
   onCancel,
   onSubmit,
   isPending,
@@ -91,26 +71,27 @@ function MovieEditFooter({
       <Button variant="outline" onClick={onCancel}>
         Cancel
       </Button>
-      <Button onClick={onSubmit} disabled={isPending}>
-        {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+      <LoadingButton loading={isPending} onClick={onSubmit}>
         Save
-      </Button>
+      </LoadingButton>
     </DialogFooter>
   )
 }
 
-function MovieEditForm({
+function EditForm({
   profiles,
   qualityProfileId,
   onProfileChange,
   monitored,
   onMonitoredChange,
+  monitoredDescription,
 }: {
   profiles?: { id: number; name: string }[]
   qualityProfileId: number
   onProfileChange: (value: string) => void
   monitored: boolean
   onMonitoredChange: (value: boolean) => void
+  monitoredDescription: string
 }) {
   return (
     <div className="space-y-4 py-4">
@@ -133,7 +114,7 @@ function MovieEditForm({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label htmlFor="monitored">Monitored</Label>
-          <p className="text-muted-foreground text-sm">Search for releases and upgrade quality</p>
+          <p className="text-muted-foreground text-sm">{monitoredDescription}</p>
         </div>
         <Switch id="monitored" checked={monitored} onCheckedChange={onMonitoredChange} />
       </div>

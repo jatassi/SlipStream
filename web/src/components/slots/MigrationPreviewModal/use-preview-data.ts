@@ -4,8 +4,8 @@ import { toast } from 'sonner'
 
 import { useMigrationPreview } from '@/hooks'
 
-import { generateDebugPreview } from './debug'
-import type { MigrationPreview } from './types'
+import { generateDebugPreview } from '../shared/debug'
+import type { MigrationPreview } from '../shared/types'
 
 type TabType = 'movies' | 'tv'
 type FilterType = 'all' | 'assigned' | 'conflicts' | 'nomatch'

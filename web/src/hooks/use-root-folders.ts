@@ -1,15 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { rootFoldersApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateRootFolderInput } from '@/types'
 
+const baseKeys = createQueryKeys('rootFolders')
 export const rootFolderKeys = {
-  all: ['rootFolders'] as const,
-  lists: () => [...rootFolderKeys.all, 'list'] as const,
-  list: () => [...rootFolderKeys.lists()] as const,
-  listByType: (mediaType: 'movie' | 'tv') => [...rootFolderKeys.lists(), mediaType] as const,
-  details: () => [...rootFolderKeys.all, 'detail'] as const,
-  detail: (id: number) => [...rootFolderKeys.details(), id] as const,
+  ...baseKeys,
+  listByType: (mediaType: 'movie' | 'tv') => [...baseKeys.lists(), mediaType] as const,
 }
 
 export function useRootFolders() {

@@ -1,14 +1,27 @@
+import { useEffect } from 'react'
+
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 
 import { AddMovieConfigure } from './add-movie-configure'
-import { AddMovieSearch } from './add-movie-search'
 import { useAddMoviePage } from './use-add-movie'
 
 export function AddMoviePage() {
   const state = useAddMoviePage()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!state.tmdbId) {
+      void navigate({ to: '/search', search: { q: '' } })
+    }
+  }, [state.tmdbId, navigate])
+
+  if (!state.tmdbId) {
+    return <div />
+  }
 
   return (
     <div>
@@ -23,24 +36,13 @@ export function AddMoviePage() {
         }
       />
 
-      {state.tmdbId && state.loadingMetadata ? (
+      {state.loadingMetadata && !state.selectedMovie ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground size-8 animate-spin" />
         </div>
       ) : null}
 
-      {state.step === 'search' && !state.tmdbId && (
-        <AddMovieSearch
-          searchQuery={state.searchQuery}
-          onSearchChange={state.setSearchQuery}
-          searchInputRef={state.searchInputRef}
-          searching={state.searching}
-          searchResults={state.searchResults}
-          onSelect={state.handleSelectMovie}
-        />
-      )}
-
-      {state.step === 'configure' && state.selectedMovie ? (
+      {state.selectedMovie ? (
         <AddMovieConfigure
           selectedMovie={state.selectedMovie}
           rootFolderId={state.rootFolderId}

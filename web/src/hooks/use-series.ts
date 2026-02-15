@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { libraryApi, seriesApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   AddSeriesInput,
   BulkEpisodeMonitorInput,
@@ -15,15 +16,13 @@ import type {
 import { calendarKeys } from './use-calendar'
 import { missingKeys } from './use-missing'
 
+const baseKeys = createQueryKeys('series')
 export const seriesKeys = {
-  all: ['series'] as const,
-  lists: () => [...seriesKeys.all, 'list'] as const,
-  list: (filters: ListSeriesOptions) => [...seriesKeys.lists(), filters] as const,
-  details: () => [...seriesKeys.all, 'detail'] as const,
-  detail: (id: number) => [...seriesKeys.details(), id] as const,
-  seasons: (seriesId: number) => [...seriesKeys.detail(seriesId), 'seasons'] as const,
+  ...baseKeys,
+  list: (filters: ListSeriesOptions) => [...baseKeys.lists(), filters] as const,
+  seasons: (seriesId: number) => [...baseKeys.detail(seriesId), 'seasons'] as const,
   episodes: (seriesId: number, seasonNumber?: number) =>
-    [...seriesKeys.detail(seriesId), 'episodes', seasonNumber] as const,
+    [...baseKeys.detail(seriesId), 'episodes', seasonNumber] as const,
 }
 
 export function useSeries(options?: ListSeriesOptions) {

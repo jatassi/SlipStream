@@ -1,7 +1,7 @@
-import { Download, ExternalLink, Loader2 } from 'lucide-react'
+import { Download, ExternalLink } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { formatBytes, formatRelativeTime } from '@/lib/formatters'
 import type { TorrentInfo } from '@/types'
@@ -43,18 +43,13 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
             <ExternalLink className="size-4" />
           </a>
         ) : null}
-        <Button
+        <LoadingButton
+          loading={isGrabbing}
+          icon={Download}
           variant="ghost"
           size="icon"
           onClick={() => onGrab(release)}
-          disabled={isGrabbing}
-        >
-          {isGrabbing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Download className="size-4" />
-          )}
-        </Button>
+        />
       </div>
     </TableCell>
   )

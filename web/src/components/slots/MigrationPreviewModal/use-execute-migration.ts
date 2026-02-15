@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import { useExecuteMigration } from '@/hooks'
 
-import type { ManualEdit } from './types'
+import type { ManualEdit } from '../shared/types'
 
 export function useExecuteHandler(
   manualEdits: Map<number, ManualEdit>,

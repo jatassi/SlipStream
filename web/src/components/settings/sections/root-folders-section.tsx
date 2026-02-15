@@ -28,6 +28,7 @@ import {
 import { useCreateRootFolder, useDeleteRootFolder, useRootFolders } from '@/hooks'
 import { useClearDefault, useSetDefault } from '@/hooks/use-defaults'
 import { formatBytes } from '@/lib/formatters'
+import { withToast } from '@/lib/with-toast'
 import type { MediaType, RootFolder } from '@/types'
 
 type FolderActions = {
@@ -215,32 +216,32 @@ function useRootFolderActions() {
   const setDefaultMutation = useSetDefault()
   const clearDefaultMutation = useClearDefault()
   const handleAdd = () => {
-    void (async () => {
-      if (!newPath.trim()) { toast.error('Please enter a path'); return }
-      try {
-        await createMutation.mutateAsync({ path: newPath, name: newName.trim(), mediaType: newMediaType })
-        toast.success('Root folder added')
-        setShowAddDialog(false)
-        setNewPath('')
-        setNewName('')
-      } catch { toast.error('Failed to add root folder') }
-    })()
+    if (!newPath.trim()) { toast.error('Please enter a path'); return }
+    void withToast(async () => {
+      await createMutation.mutateAsync({ path: newPath, name: newName.trim(), mediaType: newMediaType })
+      toast.success('Root folder added')
+      setShowAddDialog(false)
+      setNewPath('')
+      setNewName('')
+    }, 'Failed to add root folder')()
   }
   const handleDelete = (id: number) => {
-    void (async () => {
-      try { await deleteMutation.mutateAsync(id); toast.success('Root folder deleted') }
-      catch { toast.error('Failed to delete root folder') }
-    })()
+    void withToast(async () => {
+      await deleteMutation.mutateAsync(id)
+      toast.success('Root folder deleted')
+    }, 'Failed to delete root folder')()
   }
   const handleSetDefault = (id: number, mediaType: MediaType) => {
-    void setDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType, entityId: id })
-      .then(() => { toast.success(`Default ${mediaType} root folder set`) })
-      .catch(() => { toast.error('Failed to set default root folder') })
+    void withToast(async () => {
+      await setDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType, entityId: id })
+      toast.success(`Default ${mediaType} root folder set`)
+    }, 'Failed to set default root folder')()
   }
   const handleClearDefault = (mediaType: MediaType) => {
-    void clearDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType })
-      .then(() => { toast.success(`Default ${mediaType} root folder cleared`) })
-      .catch(() => { toast.error('Failed to clear default root folder') })
+    void withToast(async () => {
+      await clearDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType })
+      toast.success(`Default ${mediaType} root folder cleared`)
+    }, 'Failed to clear default root folder')()
   }
   const folderActions = { onDelete: handleDelete, onSetDefault: handleSetDefault, onClearDefault: handleClearDefault } as FolderActions
   return {

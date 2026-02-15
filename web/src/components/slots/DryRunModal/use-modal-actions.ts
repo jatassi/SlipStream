@@ -4,8 +4,8 @@ import { toast } from 'sonner'
 
 import { useExecuteMigration, useSlots } from '@/hooks'
 
-import { generateDebugPreview } from './debug'
-import type { DryRunModalProps, ManualEdit } from './types'
+import { generateDebugPreview } from '../shared/debug'
+import type { DryRunModalProps, ManualEdit } from '../shared/types'
 import type { ModalStateBundle } from './use-modal-state'
 
 type SetState = React.Dispatch<React.SetStateAction<ModalStateBundle>>

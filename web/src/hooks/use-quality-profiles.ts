@@ -1,15 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { qualityProfilesApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateQualityProfileInput, QualityProfile, UpdateQualityProfileInput } from '@/types'
 
+const baseKeys = createQueryKeys('qualityProfiles')
 export const qualityProfileKeys = {
-  all: ['qualityProfiles'] as const,
-  lists: () => [...qualityProfileKeys.all, 'list'] as const,
-  list: () => [...qualityProfileKeys.lists()] as const,
-  details: () => [...qualityProfileKeys.all, 'detail'] as const,
-  detail: (id: number) => [...qualityProfileKeys.details(), id] as const,
-  attributes: () => [...qualityProfileKeys.all, 'attributes'] as const,
+  ...baseKeys,
+  attributes: () => [...baseKeys.all, 'attributes'] as const,
 }
 
 export function useQualityProfiles() {

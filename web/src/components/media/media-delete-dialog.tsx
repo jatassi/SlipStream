@@ -18,9 +18,11 @@ type Props = {
   onDeleteFilesChange: (checked: boolean) => void
   onConfirm: () => void
   isPending: boolean
+  mediaLabel: string
+  pluralMediaLabel: string
 }
 
-export function SeriesDeleteDialog({
+export function MediaDeleteDialog({
   open,
   onOpenChange,
   selectedCount,
@@ -28,23 +30,29 @@ export function SeriesDeleteDialog({
   onDeleteFilesChange,
   onConfirm,
   isPending,
+  mediaLabel,
+  pluralMediaLabel,
 }: Props) {
+  const label = selectedCount > 1 ? pluralMediaLabel : mediaLabel
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {selectedCount} Series?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Delete {selectedCount} {label}?
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. The selected series will be removed from your library.
+            This action cannot be undone. The selected {pluralMediaLabel.toLowerCase()} will be removed from your library.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex items-center gap-2 py-2">
           <Checkbox
-            id="deleteSeriesFiles"
+            id={`delete${mediaLabel}Files`}
             checked={deleteFiles}
             onCheckedChange={(checked) => onDeleteFilesChange(checked)}
           />
-          <label htmlFor="deleteSeriesFiles" className="cursor-pointer text-sm">
+          <label htmlFor={`delete${mediaLabel}Files`} className="cursor-pointer text-sm">
             Also delete files from disk
           </label>
         </div>

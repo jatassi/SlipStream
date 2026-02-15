@@ -1,15 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { downloadClientsApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateDownloadClientInput, DownloadClient, UpdateDownloadClientInput } from '@/types'
 
-export const downloadClientKeys = {
-  all: ['downloadClients'] as const,
-  lists: () => [...downloadClientKeys.all, 'list'] as const,
-  list: () => [...downloadClientKeys.lists()] as const,
-  details: () => [...downloadClientKeys.all, 'detail'] as const,
-  detail: (id: number) => [...downloadClientKeys.details(), id] as const,
-}
+export const downloadClientKeys = createQueryKeys('downloadClients')
 
 export function useDownloadClients() {
   return useQuery({

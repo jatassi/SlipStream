@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { indexersApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   CreateIndexerInput,
   DefinitionFilters,
@@ -9,14 +10,11 @@ import type {
   UpdateIndexerInput,
 } from '@/types'
 
+const baseIndexerKeys = createQueryKeys('indexers')
 export const indexerKeys = {
-  all: ['indexers'] as const,
-  lists: () => [...indexerKeys.all, 'list'] as const,
-  list: () => [...indexerKeys.lists()] as const,
-  details: () => [...indexerKeys.all, 'detail'] as const,
-  detail: (id: number) => [...indexerKeys.details(), id] as const,
-  statuses: () => [...indexerKeys.all, 'status'] as const,
-  status: (id: number) => [...indexerKeys.statuses(), id] as const,
+  ...baseIndexerKeys,
+  statuses: () => [...baseIndexerKeys.all, 'status'] as const,
+  status: (id: number) => [...baseIndexerKeys.all, 'status', id] as const,
 }
 
 export const definitionKeys = {

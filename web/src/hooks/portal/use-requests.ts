@@ -3,15 +3,14 @@ import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { portalRequestsApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import { usePortalAuthStore, usePortalDownloadsStore } from '@/stores'
 import type { CreateRequestInput, PortalDownload, QueueItem, Request, RequestListFilters } from '@/types'
 
+const baseKeys = createQueryKeys('requests')
 export const requestKeys = {
-  all: ['requests'] as const,
-  lists: () => [...requestKeys.all, 'list'] as const,
-  list: (filters?: RequestListFilters) => [...requestKeys.lists(), filters] as const,
-  details: () => [...requestKeys.all, 'detail'] as const,
-  detail: (id: number) => [...requestKeys.details(), id] as const,
+  ...baseKeys,
+  list: (filters?: RequestListFilters) => [...baseKeys.lists(), filters] as const,
 }
 
 export function useRequests(filters?: RequestListFilters) {

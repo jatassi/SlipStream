@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDeleteQualityProfile, useQualityProfiles } from '@/hooks'
+import { withToast } from '@/lib/with-toast'
 import type { QualityProfile } from '@/types'
 import { PREDEFINED_QUALITIES } from '@/types'
 
@@ -90,10 +91,10 @@ export function QualityProfilesSection() {
   const handleAddProfile = () => { setEditingProfile(null); setDialogOpen(true) }
   const handleEditProfile = (profile: QualityProfile) => { setEditingProfile(profile); setDialogOpen(true) }
 
-  const handleDelete = async (id: number) => {
-    try { await deleteMutation.mutateAsync(id); toast.success('Profile deleted') }
-    catch { toast.error('Failed to delete profile') }
-  }
+  const handleDelete = withToast(async (id: number) => {
+    await deleteMutation.mutateAsync(id)
+    toast.success('Profile deleted')
+  }, 'Failed to delete profile')
 
   return (
     <>

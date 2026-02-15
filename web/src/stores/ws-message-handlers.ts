@@ -15,6 +15,7 @@ import type { QueueResponse } from '@/types/queue'
 import { type ArtworkReadyPayload, useArtworkStore } from './artwork'
 import { type AutoSearchTaskResult, useAutoSearchStore } from './autosearch'
 import { useDevModeStore } from './devmode'
+import { useDownloadingStore } from './downloading'
 import { useLogsStore } from './logs'
 import { usePortalDownloadsStore } from './portal-downloads'
 import { useProgressStore } from './progress'
@@ -43,6 +44,7 @@ function handleQueueEvent(
 ): void {
   if (message.type === 'queue:state') {
     const queueResp = message.payload as QueueResponse
+    useDownloadingStore.getState().setQueueItems(queueResp.items)
     usePortalDownloadsStore.getState().setQueue(queueResp.items)
     queryClient.setQueryData(queueKeys.list(), queueResp)
   } else {

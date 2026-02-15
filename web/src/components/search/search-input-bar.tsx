@@ -1,7 +1,7 @@
-import { Loader2, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LoadingButton } from '@/components/ui/loading-button'
 
 export function SearchInputBar({
   query,
@@ -26,13 +26,7 @@ export function SearchInputBar({
           }
         }}
       />
-      <Button onClick={onSearch} disabled={isLoading}>
-        {isLoading ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Search className="size-4" />
-        )}
-      </Button>
+      <LoadingButton loading={isLoading} icon={Search} onClick={onSearch} />
     </div>
   )
 }

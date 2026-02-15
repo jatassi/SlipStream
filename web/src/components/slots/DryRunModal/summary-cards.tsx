@@ -1,8 +1,8 @@
 import { AlertTriangle, Check, FileVideo, HelpCircle } from 'lucide-react'
 
-import type { FilterType } from './filter-utils'
-import { SummaryCard } from './summary-card'
-import type { MigrationPreview } from './types'
+import type { FilterType } from '../shared/filter-utils'
+import { SummaryCard } from '../shared/summary-card'
+import type { MigrationPreview } from '../shared/types'
 
 type SummaryCardsProps = {
   summary: MigrationPreview['summary']

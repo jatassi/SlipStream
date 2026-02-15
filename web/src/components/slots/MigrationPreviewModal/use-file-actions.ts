@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
-import type { ManualEdit } from './types'
+import type { ManualEdit } from '../shared/types'
 
 function applyEditsToMap(
   prev: Map<number, ManualEdit>,

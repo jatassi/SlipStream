@@ -2,7 +2,7 @@ import { Ban, CheckSquare, Film, Layers, RotateCcw, Square, Tv, XCircle } from '
 
 import { Button } from '@/components/ui/button'
 
-import type { MigrationPreview } from './types'
+import type { MigrationPreview } from '../shared/types'
 
 type TabBarProps = {
   activeTab: 'movies' | 'tv'

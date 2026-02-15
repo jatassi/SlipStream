@@ -8,12 +8,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
+import type { DryRunModalProps } from '../shared/types'
 import { ConfirmModal } from './confirm-modal'
 import { MediaContent } from './media-content'
 import { ModalFooter } from './modal-footer'
 import { SummaryCards } from './summary-cards'
 import { TabBar } from './tab-bar'
-import type { DryRunModalProps } from './types'
 import { useDryRunModal } from './use-dry-run-modal'
 
 export function DryRunModal(props: DryRunModalProps) {

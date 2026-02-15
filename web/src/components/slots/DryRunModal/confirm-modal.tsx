@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-import type { MigrationPreview } from './types'
+import type { MigrationPreview } from '../shared/types'
 
 type ConfirmModalProps = {
   open: boolean

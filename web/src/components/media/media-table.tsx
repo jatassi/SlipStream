@@ -11,18 +11,17 @@ import {
 } from '@/components/ui/table'
 import type { ColumnDef, ColumnRenderContext } from '@/lib/table-columns'
 import { cn } from '@/lib/utils'
-import type { Series } from '@/types'
 
-function SortIcon({ direction }: { direction: 'asc' | 'desc' }) {
+function SortIcon({ direction }: { direction?: 'asc' | 'desc' }) {
   if (direction === 'asc') {
     return <ChevronUp className="size-3.5" />
   }
   return <ChevronDown className="size-3.5" />
 }
 
-type SeriesTableProps = {
-  series: Series[]
-  columns: ColumnDef<Series>[]
+type MediaTableProps<T extends { id: number }> = {
+  items: T[]
+  columns: ColumnDef<T>[]
   visibleColumnIds: string[]
   renderContext: ColumnRenderContext
   sortField?: string
@@ -31,10 +30,11 @@ type SeriesTableProps = {
   editMode?: boolean
   selectedIds?: Set<number>
   onToggleSelect?: (id: number) => void
+  theme: 'movie' | 'tv'
 }
 
-export function SeriesTable({
-  series,
+export function MediaTable<T extends { id: number }>({
+  items,
   columns,
   visibleColumnIds,
   renderContext,
@@ -44,13 +44,14 @@ export function SeriesTable({
   editMode,
   selectedIds,
   onToggleSelect,
-}: SeriesTableProps) {
+  theme,
+}: MediaTableProps<T>) {
   const visibleColumns = columns.filter((col) => !col.hideable || visibleColumnIds.includes(col.id))
 
   return (
     <div className="rounded-md border">
       <Table>
-        <SeriesTableHeader
+        <MediaTableHeader
           columns={visibleColumns}
           editMode={editMode}
           sortField={sortField}
@@ -58,15 +59,16 @@ export function SeriesTable({
           onSort={onSort}
         />
         <TableBody>
-          {series.map((s) => (
-            <SeriesTableRow
-              key={s.id}
-              series={s}
+          {items.map((item) => (
+            <MediaTableRow
+              key={item.id}
+              item={item}
               columns={visibleColumns}
               renderContext={renderContext}
               editMode={editMode}
-              selected={selectedIds?.has(s.id)}
+              selected={selectedIds?.has(item.id)}
               onToggleSelect={onToggleSelect}
+              theme={theme}
             />
           ))}
         </TableBody>
@@ -75,14 +77,14 @@ export function SeriesTable({
   )
 }
 
-function SeriesTableHeader({
+function MediaTableHeader<T extends { id: number }>({
   columns,
   editMode,
   sortField,
   sortDirection,
   onSort,
 }: {
-  columns: ColumnDef<Series>[]
+  columns: ColumnDef<T>[]
   editMode?: boolean
   sortField?: string
   sortDirection?: 'asc' | 'desc'
@@ -107,7 +109,7 @@ function SeriesTableHeader({
             <span className="inline-flex items-center gap-1">
               {col.label}
               {col.sortField && sortField === col.sortField ? (
-                <SortIcon direction={sortDirection ?? 'asc'} />
+                <SortIcon direction={sortDirection} />
               ) : null}
             </span>
           </TableHead>
@@ -117,34 +119,41 @@ function SeriesTableHeader({
   )
 }
 
-function SeriesTableRow({
-  series,
+function MediaTableRow<T extends { id: number }>({
+  item,
   columns,
   renderContext,
   editMode,
   selected,
   onToggleSelect,
+  theme,
 }: {
-  series: Series
-  columns: ColumnDef<Series>[]
+  item: T
+  columns: ColumnDef<T>[]
   renderContext: ColumnRenderContext
   editMode?: boolean
   selected?: boolean
   onToggleSelect?: (id: number) => void
+  theme: 'movie' | 'tv'
 }) {
+  const checkboxClassName =
+    theme === 'movie'
+      ? 'data-checked:bg-movie-500 data-checked:border-movie-500'
+      : 'data-checked:bg-tv-500 data-checked:border-tv-500'
+
   return (
     <TableRow
       data-state={selected ? 'selected' : undefined}
       className={cn(editMode && 'cursor-pointer')}
-      onClick={editMode && onToggleSelect ? () => onToggleSelect(series.id) : undefined}
+      onClick={editMode && onToggleSelect ? () => onToggleSelect(item.id) : undefined}
     >
       {editMode ? (
         <TableCell>
           <Checkbox
             checked={selected}
-            onCheckedChange={() => onToggleSelect?.(series.id)}
+            onCheckedChange={() => onToggleSelect?.(item.id)}
             onClick={(e) => e.stopPropagation()}
-            className="data-checked:bg-tv-500 data-checked:border-tv-500"
+            className={checkboxClassName}
           />
         </TableCell>
       ) : null}
@@ -154,7 +163,7 @@ function SeriesTableRow({
           className={col.cellClassName}
           style={col.minWidth ? { minWidth: col.minWidth } : undefined}
         >
-          {col.render(series, renderContext)}
+          {col.render(item, renderContext)}
         </TableCell>
       ))}
     </TableRow>

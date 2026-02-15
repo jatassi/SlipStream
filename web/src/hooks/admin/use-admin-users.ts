@@ -1,15 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as adminApi from '@/api/admin'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { AdminUpdateUserInput, QuotaLimits } from '@/types'
 
-export const adminUserKeys = {
-  all: ['admin', 'users'] as const,
-  lists: () => [...adminUserKeys.all, 'list'] as const,
-  list: () => [...adminUserKeys.lists()] as const,
-  details: () => [...adminUserKeys.all, 'detail'] as const,
-  detail: (id: number) => [...adminUserKeys.details(), id] as const,
-}
+export const adminUserKeys = createQueryKeys('admin', 'users')
 
 export function useAdminUsers() {
   return useQuery({

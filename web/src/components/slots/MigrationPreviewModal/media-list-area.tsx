@@ -1,6 +1,6 @@
-import { MoviesList } from './movies-list'
-import { TVShowsList } from './series-list'
-import type { MovieMigrationPreview, TVShowMigrationPreview } from './types'
+import { MoviesList } from '../shared/movies-list'
+import { TVShowsList } from '../shared/series-list'
+import type { MovieMigrationPreview, TVShowMigrationPreview } from '../shared/types'
 
 type MediaListAreaProps = {
   activeTab: 'movies' | 'tv'

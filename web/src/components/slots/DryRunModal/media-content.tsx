@@ -1,9 +1,9 @@
 import { ScrollArea } from '@/components/ui/scroll-area'
 
-import { AssignModal } from './assign-modal'
-import { MoviesList } from './movies-list'
-import { TVShowsList } from './series-list'
-import type { MovieMigrationPreview, Slot, TVShowMigrationPreview } from './types'
+import { AssignModal } from '../shared/assign-modal'
+import { MoviesList } from '../shared/movies-list'
+import { TVShowsList } from '../shared/series-list'
+import type { MovieMigrationPreview, Slot, TVShowMigrationPreview } from '../shared/types'
 
 type MediaContentProps = {
   activeTab: 'movies' | 'tv'

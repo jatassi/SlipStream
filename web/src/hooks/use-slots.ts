@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { slotsApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   AssignFileInput,
   ExecuteMigrationInput,
@@ -17,18 +18,15 @@ import type {
   ValidateNamingInput,
 } from '@/types'
 
+const baseSlotsKeys = createQueryKeys('slots')
 export const slotsKeys = {
-  all: ['slots'] as const,
-  lists: () => [...slotsKeys.all, 'list'] as const,
-  list: () => [...slotsKeys.lists()] as const,
-  details: () => [...slotsKeys.all, 'detail'] as const,
-  detail: (id: number) => [...slotsKeys.details(), id] as const,
-  settings: () => [...slotsKeys.all, 'settings'] as const,
-  validation: () => [...slotsKeys.all, 'validation'] as const,
-  movieAssignments: (movieId: number) => [...slotsKeys.all, 'movie', movieId] as const,
-  movieStatus: (movieId: number) => [...slotsKeys.all, 'movie', movieId, 'status'] as const,
-  episodeAssignments: (episodeId: number) => [...slotsKeys.all, 'episode', episodeId] as const,
-  episodeStatus: (episodeId: number) => [...slotsKeys.all, 'episode', episodeId, 'status'] as const,
+  ...baseSlotsKeys,
+  settings: () => [...baseSlotsKeys.all, 'settings'] as const,
+  validation: () => [...baseSlotsKeys.all, 'validation'] as const,
+  movieAssignments: (movieId: number) => [...baseSlotsKeys.all, 'movie', movieId] as const,
+  movieStatus: (movieId: number) => [...baseSlotsKeys.all, 'movie', movieId, 'status'] as const,
+  episodeAssignments: (episodeId: number) => [...baseSlotsKeys.all, 'episode', episodeId] as const,
+  episodeStatus: (episodeId: number) => [...baseSlotsKeys.all, 'episode', episodeId, 'status'] as const,
 }
 
 export function useSlots() {

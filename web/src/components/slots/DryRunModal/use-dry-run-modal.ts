@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 
-import type { FilterType } from './filter-utils'
-import { filterMovies, filterTvShows, getVisibleMovieFileIds, getVisibleTvFileIds } from './filter-utils'
-import { computeEditedPreview } from './preview-utils'
-import type { DryRunModalProps, MigrationPreview } from './types'
+import { computeEditedPreview } from '../shared/edit-utils'
+import type { FilterType } from '../shared/filter-utils'
+import { filterMovies, filterTvShows, getVisibleMovieFileIds, getVisibleTvFileIds } from '../shared/filter-utils'
+import type { DryRunModalProps, MigrationPreview } from '../shared/types'
 import { useModalActions } from './use-modal-actions'
 import { useModalState } from './use-modal-state'
 

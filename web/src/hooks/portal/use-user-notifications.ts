@@ -1,15 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { portalNotificationsApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateUserNotificationInput } from '@/types'
 
+const baseKeys = createQueryKeys('userNotifications')
 export const userNotificationKeys = {
-  all: ['userNotifications'] as const,
-  lists: () => [...userNotificationKeys.all, 'list'] as const,
-  list: () => [...userNotificationKeys.lists()] as const,
-  details: () => [...userNotificationKeys.all, 'detail'] as const,
-  detail: (id: number) => [...userNotificationKeys.details(), id] as const,
-  schema: () => [...userNotificationKeys.all, 'schema'] as const,
+  ...baseKeys,
+  schema: () => [...baseKeys.all, 'schema'] as const,
 }
 
 export function useUserNotifications() {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useIndexerMode, useSetIndexerMode } from '@/hooks'
+import { withToast } from '@/lib/with-toast'
 import type { IndexerMode } from '@/types'
 
 type IndexerModeToggleProps = {
@@ -16,15 +17,11 @@ export function IndexerModeToggle({ onModeChange }: IndexerModeToggleProps) {
   const { data: modeInfo, isLoading } = useIndexerMode()
   const setModeMutation = useSetIndexerMode()
 
-  const handleModeChange = async (mode: IndexerMode) => {
-    try {
-      await setModeMutation.mutateAsync({ mode })
-      toast.success(`Switched to ${mode === 'prowlarr' ? 'Prowlarr' : 'SlipStream'} mode`)
-      onModeChange?.(mode)
-    } catch {
-      toast.error('Failed to change indexer mode')
-    }
-  }
+  const handleModeChange = withToast(async (mode: IndexerMode) => {
+    await setModeMutation.mutateAsync({ mode })
+    toast.success(`Switched to ${mode === 'prowlarr' ? 'Prowlarr' : 'SlipStream'} mode`)
+    onModeChange?.(mode)
+  }, 'Failed to change indexer mode')
 
   if (isLoading) {
     return <LoadingCard />

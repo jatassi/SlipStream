@@ -10,12 +10,12 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
-import { AssignModal } from './assign-modal'
+import { AssignModal } from '../shared/assign-modal'
+import type { DryRunModalProps } from '../shared/types'
 import { DialogFooterActions } from './dialog-footer-content'
 import { MediaListArea } from './media-list-area'
 import { SummaryCardsGrid } from './summary-cards-grid'
 import { TabToolbar } from './tab-toolbar'
-import type { DryRunModalProps } from './types'
 import { useMigrationPreviewModal } from './use-migration-preview-modal'
 
 export function DryRunModal(props: DryRunModalProps) {

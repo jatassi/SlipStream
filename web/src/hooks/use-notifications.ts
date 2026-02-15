@@ -1,15 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { notificationsApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateNotificationInput, Notification, UpdateNotificationInput } from '@/types'
 
+const baseKeys = createQueryKeys('notifications')
 export const notificationKeys = {
-  all: ['notifications'] as const,
-  lists: () => [...notificationKeys.all, 'list'] as const,
-  list: () => [...notificationKeys.lists()] as const,
-  details: () => [...notificationKeys.all, 'detail'] as const,
-  detail: (id: number) => [...notificationKeys.details(), id] as const,
-  schemas: () => [...notificationKeys.all, 'schemas'] as const,
+  ...baseKeys,
+  schemas: () => [...baseKeys.all, 'schemas'] as const,
 }
 
 export function useNotifications() {

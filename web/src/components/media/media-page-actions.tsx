@@ -2,23 +2,27 @@ import { Pencil, Plus, RefreshCw, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
-type MoviePageActionsProps = {
+type Props = {
   isLoading: boolean
   editMode: boolean
   isRefreshing: boolean
   onRefreshAll: () => void
   onEnterEdit: () => void
   onExitEdit: () => void
+  theme: 'movie' | 'tv'
+  addLabel: string
 }
 
-export function MoviePageActions({
+export function MediaPageActions({
   isLoading,
   editMode,
   isRefreshing,
   onRefreshAll,
   onEnterEdit,
   onExitEdit,
-}: MoviePageActionsProps) {
+  theme,
+  addLabel,
+}: Props) {
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -42,11 +46,11 @@ export function MoviePageActions({
       )}
       <Button
         disabled={isLoading || editMode}
-        className="bg-movie-500 hover:bg-movie-400 border-movie-500"
+        className={theme === 'movie' ? 'bg-movie-500 hover:bg-movie-400 border-movie-500' : 'bg-tv-500 hover:bg-tv-400 border-tv-500'}
         onClick={() => document.getElementById('global-search')?.focus()}
       >
         <Plus className="mr-1 size-4" />
-        Add Movie
+        {addLabel}
       </Button>
     </div>
   )

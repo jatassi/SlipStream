@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react'
 
-import { Search } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { Plus, Search } from 'lucide-react'
 
 import { EmptyState } from '@/components/data/empty-state'
 import { MovieCard } from '@/components/movies/movie-card'
 import {
   ExpandableMediaGrid,
-  ExternalMovieCard,
+  ExternalMediaCard,
   ExternalSearchSection,
-  ExternalSeriesCard,
   SearchResultsSection,
 } from '@/components/search'
 import { SeriesCard } from '@/components/series/series-card'
 import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
 import { useAdminRequests } from '@/hooks/admin/use-admin-requests'
-
-type RequestInfo = { id: number; status: 'pending' | 'approved' | 'denied' | 'downloading' | 'available' | 'cancelled' } | undefined
+import type { AvailabilityInfo, RequestStatus } from '@/types'
 
 type RequestEntry = { id: number; status: string }
 
@@ -41,6 +40,24 @@ function buildSeriesRequestMap(requests: { mediaType: string; tmdbId: number | n
   }
   return map
 }
+
+function toAvailability(entry: RequestEntry | undefined): AvailabilityInfo | undefined {
+  if (!entry) {
+    return undefined
+  }
+  return {
+    inLibrary: false,
+    existingSlots: [],
+    canRequest: true,
+    existingRequestId: entry.id,
+    existingRequestUserId: null,
+    existingRequestStatus: entry.status as RequestStatus,
+    mediaId: null,
+    addedAt: null,
+  }
+}
+
+const ADD_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
 
 type SearchPageProps = {
   q: string
@@ -88,13 +105,63 @@ function useExternalSearch(query: string, library: ReturnType<typeof useLibraryS
   }
 }
 
+type ExternalResultsProps = {
+  external: ReturnType<typeof useExternalSearch>
+  libraryMovieTmdbIds: Set<number>
+  librarySeriesTmdbIds: Set<number>
+}
+
+function ExternalResults({ external, libraryMovieTmdbIds, librarySeriesTmdbIds }: ExternalResultsProps) {
+  const navigate = useNavigate()
+  return (
+    <div className="space-y-6">
+      <ExpandableMediaGrid
+        items={external.movies}
+        getKey={(m) => m.tmdbId || m.id}
+        label="Movies"
+        icon="movie"
+        collapsible={false}
+        renderItem={(m) => (
+          <ExternalMediaCard
+            media={m}
+            mediaType="movie"
+            inLibrary={libraryMovieTmdbIds.has(m.tmdbId)}
+            availability={toAvailability(external.movieRequests.get(m.tmdbId))}
+            onAction={() => void navigate({ to: '/movies/add', search: { tmdbId: m.tmdbId } })}
+            actionLabel="Add..."
+            actionIcon={ADD_ICON}
+          />
+        )}
+      />
+      <ExpandableMediaGrid
+        items={external.series}
+        getKey={(s) => s.tmdbId || s.id}
+        label="Series"
+        icon="series"
+        collapsible={false}
+        renderItem={(s) => (
+          <ExternalMediaCard
+            media={s}
+            mediaType="series"
+            inLibrary={librarySeriesTmdbIds.has(s.tmdbId)}
+            availability={toAvailability(external.seriesRequests.get(s.tmdbId))}
+            onAction={() => void navigate({ to: '/series/add', search: { tmdbId: s.tmdbId } })}
+            actionLabel="Add..."
+            actionIcon={ADD_ICON}
+          />
+        )}
+      />
+    </div>
+  )
+}
+
 export function SearchPage({ q }: SearchPageProps) {
   const query = q.trim() || ''
   const library = useLibrarySearch(query)
   const external = useExternalSearch(query, library)
 
-  const libraryMovieTmdbIds = new Set(library.movies.map((m) => m.tmdbId))
-  const librarySeriesTmdbIds = new Set(library.series.map((s) => s.tmdbId))
+  const libraryMovieTmdbIds = new Set(library.movies.map((m) => m.tmdbId).filter((id): id is number => id !== undefined))
+  const librarySeriesTmdbIds = new Set(library.series.map((s) => s.tmdbId).filter((id): id is number => id !== undefined))
 
   if (!query) {
     return <EmptyState icon={<Search className="size-8" />} title="Enter a search term" description="Use the search bar above to find movies and series" />
@@ -116,28 +183,7 @@ export function SearchPage({ q }: SearchPageProps) {
         isLoading={external.isLoading}
         hasResults={external.hasResults}
       >
-        <div className="space-y-6">
-          <ExpandableMediaGrid
-            items={external.movies}
-            getKey={(m) => m.tmdbId || m.id}
-            label="Movies"
-            icon="movie"
-            collapsible={false}
-            renderItem={(m) => (
-              <ExternalMovieCard movie={m} inLibrary={libraryMovieTmdbIds.has(m.tmdbId)} requestInfo={external.movieRequests.get(m.tmdbId) as RequestInfo} />
-            )}
-          />
-          <ExpandableMediaGrid
-            items={external.series}
-            getKey={(s) => s.tmdbId || s.id}
-            label="Series"
-            icon="series"
-            collapsible={false}
-            renderItem={(s) => (
-              <ExternalSeriesCard series={s} inLibrary={librarySeriesTmdbIds.has(s.tmdbId)} requestInfo={external.seriesRequests.get(s.tmdbId) as RequestInfo} />
-            )}
-          />
-        </div>
+        <ExternalResults external={external} libraryMovieTmdbIds={libraryMovieTmdbIds} librarySeriesTmdbIds={librarySeriesTmdbIds} />
       </ExternalSearchSection>
     </div>
   )

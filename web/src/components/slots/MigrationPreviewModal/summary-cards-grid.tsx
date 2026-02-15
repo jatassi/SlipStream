@@ -1,7 +1,7 @@
 import { AlertTriangle, Check, FileVideo, HelpCircle } from 'lucide-react'
 
-import { SummaryCard } from './summary-card'
-import type { MigrationPreview } from './types'
+import { SummaryCard } from '../shared/summary-card'
+import type { MigrationPreview } from '../shared/types'
 
 type FilterType = 'all' | 'assigned' | 'conflicts' | 'nomatch'
 

@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { DEFAULT_MOVIE_CATEGORIES, DEFAULT_TV_CATEGORIES, getCategoryName } from '@/types'
 
@@ -275,37 +276,16 @@ function ActionButtons({ hook }: { hook: HookValues }) {
   return (
     <CardContent className="pt-0">
       <div className="flex items-center gap-2 border-t pt-4">
-        <TestButton isPending={hook.testMutation.isPending} onClick={hook.handleTest} disabled={testDisabled} />
-        <RefreshButton isPending={hook.refreshMutation.isPending} onClick={hook.handleRefresh} disabled={refreshDisabled} />
-        <SaveButton isPending={hook.updateMutation.isPending} onClick={hook.handleSave} disabled={saveDisabled} />
+        <LoadingButton loading={hook.testMutation.isPending} icon={TestTube} variant="outline" onClick={hook.handleTest} disabled={testDisabled}>
+          Test
+        </LoadingButton>
+        <LoadingButton loading={hook.refreshMutation.isPending} icon={RefreshCw} variant="outline" onClick={hook.handleRefresh} disabled={refreshDisabled}>
+          Refresh
+        </LoadingButton>
+        <LoadingButton loading={hook.updateMutation.isPending} icon={Save} onClick={hook.handleSave} disabled={saveDisabled}>
+          Save
+        </LoadingButton>
       </div>
     </CardContent>
-  )
-}
-
-function TestButton({ isPending, onClick, disabled }: { isPending: boolean; onClick: () => void; disabled: boolean }) {
-  return (
-    <Button onClick={onClick} variant="outline" disabled={disabled}>
-      {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <TestTube className="mr-2 size-4" />}
-      Test
-    </Button>
-  )
-}
-
-function RefreshButton({ isPending, onClick, disabled }: { isPending: boolean; onClick: () => void; disabled: boolean }) {
-  return (
-    <Button onClick={onClick} variant="outline" disabled={disabled}>
-      {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <RefreshCw className="mr-2 size-4" />}
-      Refresh
-    </Button>
-  )
-}
-
-function SaveButton({ isPending, onClick, disabled }: { isPending: boolean; onClick: () => void; disabled: boolean }) {
-  return (
-    <Button onClick={onClick} disabled={disabled}>
-      {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-      Save
-    </Button>
   )
 }

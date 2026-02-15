@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as adminApi from '@/api/admin'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   ApproveRequestInput,
   BatchApproveInput,
@@ -9,12 +10,10 @@ import type {
   RequestListFilters,
 } from '@/types'
 
+const baseKeys = createQueryKeys('admin', 'requests')
 export const adminRequestKeys = {
-  all: ['admin', 'requests'] as const,
-  lists: () => [...adminRequestKeys.all, 'list'] as const,
-  list: (filters?: RequestListFilters) => [...adminRequestKeys.lists(), filters] as const,
-  details: () => [...adminRequestKeys.all, 'detail'] as const,
-  detail: (id: number) => [...adminRequestKeys.details(), id] as const,
+  ...baseKeys,
+  list: (filters?: RequestListFilters) => [...baseKeys.lists(), filters] as const,
 }
 
 export function useAdminRequests(filters?: RequestListFilters) {

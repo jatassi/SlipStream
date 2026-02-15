@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { libraryApi, moviesApi } from '@/api'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   AddMovieInput,
   CreateMovieInput,
@@ -12,12 +13,10 @@ import type {
 import { calendarKeys } from './use-calendar'
 import { missingKeys } from './use-missing'
 
+const baseKeys = createQueryKeys('movies')
 export const movieKeys = {
-  all: ['movies'] as const,
-  lists: () => [...movieKeys.all, 'list'] as const,
-  list: (filters: ListMoviesOptions) => [...movieKeys.lists(), filters] as const,
-  details: () => [...movieKeys.all, 'detail'] as const,
-  detail: (id: number) => [...movieKeys.details(), id] as const,
+  ...baseKeys,
+  list: (filters: ListMoviesOptions) => [...baseKeys.lists(), filters] as const,
 }
 
 export function useMovies(options?: ListMoviesOptions) {

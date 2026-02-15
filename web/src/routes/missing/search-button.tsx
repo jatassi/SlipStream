@@ -1,6 +1,6 @@
-import { Loader2, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { cn } from '@/lib/utils'
 
 type SearchButtonProps = {
@@ -20,10 +20,9 @@ export function SearchButton({
 }: SearchButtonProps) {
   if (isLoading) {
     return (
-      <Button disabled>
-        <Zap className="mr-2 size-4" />
+      <LoadingButton loading={false} icon={Zap} disabled>
         Search All
-      </Button>
+      </LoadingButton>
     )
   }
 
@@ -32,13 +31,8 @@ export function SearchButton({
   }
 
   return (
-    <Button disabled={isSearching} onClick={onSearch} className={cn(searchButtonStyle)}>
-      {isSearching ? (
-        <Loader2 className="mr-2 size-4 animate-spin" />
-      ) : (
-        <Zap className="mr-2 size-4" />
-      )}
+    <LoadingButton loading={isSearching} icon={Zap} onClick={onSearch} className={cn(searchButtonStyle)}>
       Search All ({searchCount})
-    </Button>
+    </LoadingButton>
   )
 }

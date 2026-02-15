@@ -115,7 +115,8 @@
       "Bash(for f in movie-table series-table movie-grid series-grid grouped-movie-grid grouped-series-grid movie-edit-dialog series-edit-dialog)",
       "Bash(do echo \"=== $f ===\")",
       "Bash(./scripts/consolidation/find-importers.sh:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(fi)"
     ]
   },
   "enableAllProjectMcpServers": true,

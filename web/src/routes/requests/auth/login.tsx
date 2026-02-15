@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { useAuthStatus, usePortalEnabled, usePortalLogin } from '@/hooks'
 import { usePasskeyLogin, usePasskeySupport } from '@/hooks/portal'
 import { usePortalAuthStore } from '@/stores'
@@ -51,14 +52,9 @@ type PasskeySectionProps = {
 function PasskeySection({ onLogin, isPending, onUsePinInstead }: PasskeySectionProps) {
   return (
     <div className="space-y-6">
-      <Button onClick={onLogin} disabled={isPending} className="w-full text-sm md:text-base">
-        {isPending ? (
-          <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-        ) : (
-          <KeyRound className="mr-1 size-3 md:mr-2 md:size-4" />
-        )}
+      <LoadingButton loading={isPending} icon={KeyRound} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onLogin} className="w-full text-sm md:text-base">
         Sign in with Passkey
-      </Button>
+      </LoadingButton>
       <div className="text-center">
         <button type="button" onClick={onUsePinInstead} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
           Use PIN instead
@@ -132,10 +128,9 @@ function PinLoginForm(props: PinFormProps) {
             </InputOTP>
           </div>
         </div>
-        <Button type="submit" className="w-full text-sm md:text-base" disabled={props.isPending || props.pin.length !== 4 || props.username.trim() === ''}>
-          {props.isPending ? <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" /> : null}
+        <LoadingButton type="submit" className="w-full text-sm md:text-base" loading={props.isPending} disabled={props.pin.length !== 4 || props.username.trim() === ''}>
           Sign In
-        </Button>
+        </LoadingButton>
       </form>
       {props.passkeySupported ? (
         <div className="mt-4 text-center">
@@ -158,14 +153,9 @@ function DebugDeleteSection({ showDelete, isDeleting, onDelete }: DebugDeletePro
   if (!showDelete) {return null}
   return (
     <div className="border-border mt-6 border-t pt-4">
-      <Button type="button" variant="destructive" size="sm" className="w-full text-xs md:text-sm" onClick={onDelete} disabled={isDeleting}>
-        {isDeleting ? (
-          <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-        ) : (
-          <Trash2 className="mr-1 size-3 md:mr-2 md:size-4" />
-        )}
+      <LoadingButton type="button" loading={isDeleting} icon={Trash2} iconClassName="mr-1 size-3 md:mr-2 md:size-4" variant="destructive" size="sm" className="w-full text-xs md:text-sm" onClick={onDelete}>
         Delete Admin (Debug)
-      </Button>
+      </LoadingButton>
     </div>
   )
 }

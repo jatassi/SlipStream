@@ -1,14 +1,13 @@
 import { useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { useAdminSetup } from '@/hooks'
 
 function PinInput({ pin, onPinChange }: { pin: string; onPinChange: (value: string) => void }) {
@@ -58,10 +57,9 @@ export function SetupPage() {
               <Input id="username" type="text" value="Administrator" disabled className="bg-muted" />
             </div>
             <PinInput pin={pin} onPinChange={setPin} />
-            <Button type="submit" className="w-full" disabled={setupMutation.isPending || pin.length !== 4}>
-              {setupMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            <LoadingButton type="submit" className="w-full" loading={setupMutation.isPending} disabled={pin.length !== 4}>
               Create Administrator
-            </Button>
+            </LoadingButton>
           </form>
         </CardContent>
       </Card>

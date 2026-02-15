@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingButton } from '@/components/ui/loading-button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import type { Indexer, Privacy, Protocol } from '@/types'
@@ -120,22 +121,16 @@ function FooterActions({
 }) {
   return (
     <DialogFooter className="flex-col gap-2 sm:flex-row">
-      <Button variant="outline" onClick={hook.handleTest} disabled={hook.isTesting}>
-        {hook.isTesting ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
-        ) : (
-          <TestTube className="mr-2 size-4" />
-        )}
+      <LoadingButton loading={hook.isTesting} icon={TestTube} variant="outline" onClick={hook.handleTest}>
         Test
-      </Button>
+      </LoadingButton>
       <div className="flex gap-2 sm:ml-auto">
         <Button variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button onClick={hook.handleSubmit} disabled={hook.isPending}>
-          {hook.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+        <LoadingButton loading={hook.isPending} onClick={hook.handleSubmit}>
           {hook.isEditing ? 'Save' : 'Add'}
-        </Button>
+        </LoadingButton>
       </div>
     </DialogFooter>
   )

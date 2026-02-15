@@ -2,9 +2,9 @@ import { useCallback, useMemo } from 'react'
 
 import { useDeveloperMode, useSlots } from '@/hooks'
 
-import { computeEditedPreview } from './edit-utils'
-import { filterMovies, filterTvShows, getVisibleMovieFileIds, getVisibleTvFileIds } from './filter-utils'
-import type { DryRunModalProps } from './types'
+import { computeEditedPreview } from '../shared/edit-utils'
+import { filterMovies, filterTvShows, getVisibleMovieFileIds, getVisibleTvFileIds } from '../shared/filter-utils'
+import type { DryRunModalProps } from '../shared/types'
 import { useExecuteHandler } from './use-execute-migration'
 import { useFileActions } from './use-file-actions'
 import { usePreviewData } from './use-preview-data'

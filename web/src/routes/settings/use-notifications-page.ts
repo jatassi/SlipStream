@@ -10,20 +10,8 @@ import {
   useTestNotification,
   useUpdateNotification,
 } from '@/hooks'
+import { withToast } from '@/lib/with-toast'
 import type { Notification } from '@/types'
-
-function withToast<T extends unknown[]>(
-  fn: (...args: T) => Promise<void>,
-  errorMsg: string,
-) {
-  return async (...args: T) => {
-    try {
-      await fn(...args)
-    } catch {
-      toast.error(errorMsg)
-    }
-  }
-}
 
 function openDialog(
   setEditing: (n: Notification | null) => void,

@@ -14,14 +14,15 @@ type Props = {
   onMonitor: (monitored: boolean) => void
   onChangeQualityProfile: (id: number) => void
   onDelete: () => void
+  theme: 'movie' | 'tv'
 }
 
-export function MovieListToolbar(props: Props) {
-  const { selectedCount, totalCount, qualityProfiles, isBulkUpdating } = props
+export function MediaListToolbar(props: Props) {
+  const { selectedCount, totalCount, qualityProfiles, isBulkUpdating, theme } = props
   const disabled = selectedCount === 0 || isBulkUpdating
 
   return (
-    <div className="bg-movie-500/10 border-movie-500/20 mb-4 flex items-center gap-4 rounded-lg border p-3">
+    <div className={`mb-4 flex items-center gap-4 rounded-lg border p-3 ${theme === 'movie' ? 'bg-movie-500/10 border-movie-500/20' : 'bg-tv-500/10 border-tv-500/20'}`}>
       <div className="flex items-center gap-2">
         <Checkbox checked={selectedCount === totalCount && totalCount > 0} onCheckedChange={props.onSelectAll} />
         <span className="text-muted-foreground text-sm">{selectedCount} of {totalCount} selected</span>

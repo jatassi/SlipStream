@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -6,32 +6,27 @@ import { toast } from 'sonner'
 import {
   useAddFlowPreferences,
   useAddMovie,
-  useDebounce,
   useDefault,
   useMovieMetadata,
-  useMovieSearch,
   useQualityProfiles,
   useRootFoldersByType,
 } from '@/hooks'
 import type { AddMovieInput, MovieSearchResult } from '@/types'
 
-type Step = 'search' | 'configure'
-
 export function useAddMoviePage() {
   const nav = useNavigation()
-  const search = useSearchStep(nav.tmdbId)
-  const queries = useQueries(nav.tmdbId, search.debouncedSearchQuery)
+  const selected = useSelectedMovie(nav.tmdbId)
+  const queries = useQueries()
   const form = useFormState()
 
-  useSyncMetadata(nav.tmdbId, queries.movieMetadata, search)
   useSyncPreferences(queries.addFlowPreferences, form)
   useSyncDefaultRootFolder(queries.defaultRootFolder, form)
 
-  const handlers = useHandlers({ nav, search, form, queries })
+  const handlers = useHandlers({ nav, selected, form, queries })
 
   return {
     ...nav,
-    ...search,
+    ...selected,
     ...queries,
     ...form,
     ...handlers,
@@ -50,33 +45,34 @@ function useNavigation() {
 
 type Navigation = ReturnType<typeof useNavigation>
 
-function useSearchStep(tmdbId: number | undefined) {
-  const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
-  const [searchQuery, setSearchQuery] = useState('')
+function useSelectedMovie(tmdbId: number | undefined) {
   const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | null>(null)
-  const debouncedSearchQuery = useDebounce(searchQuery, 900)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId ?? 0)
 
-  useEffect(() => {
-    if (step === 'search') {
-      searchInputRef.current?.focus()
-    }
-  }, [step])
-
-  return {
-    step, setStep,
-    searchQuery, setSearchQuery,
-    selectedMovie, setSelectedMovie,
-    debouncedSearchQuery,
-    searchInputRef,
+  const [prev, setPrev] = useState(movieMetadata)
+  if (tmdbId && movieMetadata && movieMetadata !== prev && !selectedMovie) {
+    setPrev(movieMetadata)
+    setSelectedMovie({
+      id: movieMetadata.id,
+      tmdbId: movieMetadata.tmdbId,
+      imdbId: movieMetadata.imdbId,
+      title: movieMetadata.title,
+      originalTitle: movieMetadata.originalTitle,
+      year: movieMetadata.year,
+      overview: movieMetadata.overview,
+      posterUrl: movieMetadata.posterUrl,
+      backdropUrl: movieMetadata.backdropUrl,
+      runtime: movieMetadata.runtime,
+      genres: movieMetadata.genres,
+    })
   }
+
+  return { selectedMovie, loadingMetadata }
 }
 
-type SearchStep = ReturnType<typeof useSearchStep>
+type SelectedMovie = ReturnType<typeof useSelectedMovie>
 
-function useQueries(tmdbId: number | undefined, debouncedSearchQuery: string) {
-  const { data: movieMetadata, isLoading: loadingMetadata } = useMovieMetadata(tmdbId ?? 0)
-  const { data: searchResults, isLoading: searching } = useMovieSearch(debouncedSearchQuery)
+function useQueries() {
   const { data: rootFolders } = useRootFoldersByType('movie')
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: defaultRootFolder } = useDefault('root_folder', 'movie')
@@ -84,8 +80,6 @@ function useQueries(tmdbId: number | undefined, debouncedSearchQuery: string) {
   const addMutation = useAddMovie()
 
   return {
-    movieMetadata, loadingMetadata,
-    searchResults, searching,
     rootFolders, qualityProfiles,
     defaultRootFolder, addFlowPreferences,
     addMutation,
@@ -110,31 +104,6 @@ function useFormState() {
 }
 
 type FormState = ReturnType<typeof useFormState>
-
-function useSyncMetadata(
-  tmdbId: number | undefined,
-  movieMetadata: Queries['movieMetadata'],
-  search: SearchStep,
-) {
-  const [prev, setPrev] = useState(movieMetadata)
-  if (tmdbId && movieMetadata && movieMetadata !== prev && !search.selectedMovie) {
-    setPrev(movieMetadata)
-    search.setSelectedMovie({
-      id: movieMetadata.id,
-      tmdbId: movieMetadata.tmdbId,
-      imdbId: movieMetadata.imdbId,
-      title: movieMetadata.title,
-      originalTitle: movieMetadata.originalTitle,
-      year: movieMetadata.year,
-      overview: movieMetadata.overview,
-      posterUrl: movieMetadata.posterUrl,
-      backdropUrl: movieMetadata.backdropUrl,
-      runtime: movieMetadata.runtime,
-      genres: movieMetadata.genres,
-    })
-    search.setStep('configure')
-  }
-}
 
 function useSyncPreferences(
   addFlowPreferences: Queries['addFlowPreferences'],
@@ -162,44 +131,34 @@ function useSyncDefaultRootFolder(
   }
 }
 
-function useHandlers({ nav, search, form, queries }: {
+function useHandlers({ nav, selected, form, queries }: {
   nav: Navigation
-  search: SearchStep
+  selected: SelectedMovie
   form: FormState
   queries: Queries
 }) {
-  const handleSelectMovie = (movie: MovieSearchResult) => {
-    search.setSelectedMovie(movie)
-    search.setStep('configure')
-  }
-
   const handleBack = () => {
-    if (search.step === 'configure') {
-      search.setStep('search')
-      search.setSelectedMovie(null)
-    } else {
-      void nav.navigate({ to: '/movies' })
-    }
+    void nav.navigate({ to: '/movies' })
   }
 
   const handleAdd = async () => {
-    if (!search.selectedMovie || !form.rootFolderId || !form.qualityProfileId) {
+    if (!selected.selectedMovie || !form.rootFolderId || !form.qualityProfileId) {
       toast.error('Please fill in all required fields')
       return
     }
 
     const input: AddMovieInput = {
-      title: search.selectedMovie.title,
-      year: search.selectedMovie.year,
-      tmdbId: search.selectedMovie.tmdbId,
-      imdbId: search.selectedMovie.imdbId,
-      overview: search.selectedMovie.overview,
-      runtime: search.selectedMovie.runtime,
+      title: selected.selectedMovie.title,
+      year: selected.selectedMovie.year,
+      tmdbId: selected.selectedMovie.tmdbId,
+      imdbId: selected.selectedMovie.imdbId,
+      overview: selected.selectedMovie.overview,
+      runtime: selected.selectedMovie.runtime,
       rootFolderId: Number.parseInt(form.rootFolderId),
       qualityProfileId: Number.parseInt(form.qualityProfileId),
       monitored: form.monitored,
-      posterUrl: search.selectedMovie.posterUrl,
-      backdropUrl: search.selectedMovie.backdropUrl,
+      posterUrl: selected.selectedMovie.posterUrl,
+      backdropUrl: selected.selectedMovie.backdropUrl,
       searchOnAdd: form.searchOnAdd ?? false,
     }
 
@@ -212,5 +171,5 @@ function useHandlers({ nav, search, form, queries }: {
     }
   }
 
-  return { handleSelectMovie, handleBack, handleAdd }
+  return { handleBack, handleAdd }
 }

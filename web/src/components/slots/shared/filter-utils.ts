@@ -5,7 +5,7 @@ import type {
   TVShowMigrationPreview,
 } from './types'
 
-type FilterType = 'all' | 'assigned' | 'conflicts' | 'nomatch'
+export type FilterType = 'all' | 'assigned' | 'conflicts' | 'nomatch'
 type Episode = TVShowMigrationPreview['seasons'][number]['episodes'][number]
 
 function isCleanlyAssigned(file: FileMigrationPreview): boolean {

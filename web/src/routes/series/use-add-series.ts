@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -6,12 +6,10 @@ import { toast } from 'sonner'
 import {
   useAddFlowPreferences,
   useAddSeries,
-  useDebounce,
   useDefault,
   useQualityProfiles,
   useRootFoldersByType,
   useSeriesMetadata,
-  useSeriesSearch,
 } from '@/hooks'
 import type {
   AddSeriesInput,
@@ -20,23 +18,20 @@ import type {
   SeriesSearchResult,
 } from '@/types'
 
-type Step = 'search' | 'configure'
-
 export function useAddSeriesPage() {
   const nav = useNavigation()
-  const search = useSearchStep(nav.tmdbId)
-  const queries = useQueries(nav.tmdbId, search.debouncedSearchQuery)
+  const selected = useSelectedSeries(nav.tmdbId)
+  const queries = useQueries()
   const form = useFormState()
 
-  useSyncMetadata(nav.tmdbId, queries.seriesMetadata, search)
   useSyncPreferences(queries.addFlowPreferences, form)
   useSyncDefaultRootFolder(queries.defaultRootFolder, form)
 
-  const handlers = useHandlers({ nav, search, form, queries })
+  const handlers = useHandlers({ nav, selected, form, queries })
 
   return {
     ...nav,
-    ...search,
+    ...selected,
     ...queries,
     ...form,
     ...handlers,
@@ -56,33 +51,38 @@ function useNavigation() {
 
 type Navigation = ReturnType<typeof useNavigation>
 
-function useSearchStep(tmdbId: number | undefined) {
-  const [step, setStep] = useState<Step>(tmdbId ? 'configure' : 'search')
-  const [searchQuery, setSearchQuery] = useState('')
+function useSelectedSeries(tmdbId: number | undefined) {
   const [selectedSeries, setSelectedSeries] = useState<SeriesSearchResult | null>(null)
-  const debouncedSearchQuery = useDebounce(searchQuery, 900)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const { data: seriesMetadata, isLoading: loadingMetadata } = useSeriesMetadata(tmdbId ?? 0)
 
-  useEffect(() => {
-    if (step === 'search') {
-      searchInputRef.current?.focus()
-    }
-  }, [step])
-
-  return {
-    step, setStep,
-    searchQuery, setSearchQuery,
-    selectedSeries, setSelectedSeries,
-    debouncedSearchQuery,
-    searchInputRef,
+  const [prev, setPrev] = useState(seriesMetadata)
+  if (tmdbId && seriesMetadata && seriesMetadata !== prev && !selectedSeries) {
+    setPrev(seriesMetadata)
+    setSelectedSeries({
+      id: seriesMetadata.id,
+      tmdbId: seriesMetadata.tmdbId,
+      tvdbId: seriesMetadata.tvdbId,
+      imdbId: seriesMetadata.imdbId,
+      title: seriesMetadata.title,
+      originalTitle: seriesMetadata.originalTitle,
+      year: seriesMetadata.year,
+      overview: seriesMetadata.overview,
+      posterUrl: seriesMetadata.posterUrl,
+      backdropUrl: seriesMetadata.backdropUrl,
+      runtime: seriesMetadata.runtime,
+      genres: seriesMetadata.genres,
+      status: seriesMetadata.status,
+      network: seriesMetadata.network,
+      networkLogoUrl: seriesMetadata.networkLogoUrl,
+    })
   }
+
+  return { selectedSeries, loadingMetadata }
 }
 
-type SearchStep = ReturnType<typeof useSearchStep>
+type SelectedSeries = ReturnType<typeof useSelectedSeries>
 
-function useQueries(tmdbId: number | undefined, debouncedSearchQuery: string) {
-  const { data: seriesMetadata, isLoading: loadingMetadata } = useSeriesMetadata(tmdbId ?? 0)
-  const { data: searchResults, isLoading: searching } = useSeriesSearch(debouncedSearchQuery)
+function useQueries() {
   const { data: rootFolders } = useRootFoldersByType('tv')
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: defaultRootFolder } = useDefault('root_folder', 'tv')
@@ -90,8 +90,6 @@ function useQueries(tmdbId: number | undefined, debouncedSearchQuery: string) {
   const addMutation = useAddSeries()
 
   return {
-    seriesMetadata, loadingMetadata,
-    searchResults, searching,
     rootFolders, qualityProfiles,
     defaultRootFolder, addFlowPreferences,
     addMutation,
@@ -120,35 +118,6 @@ function useFormState() {
 }
 
 type FormState = ReturnType<typeof useFormState>
-
-function useSyncMetadata(
-  tmdbId: number | undefined,
-  seriesMetadata: Queries['seriesMetadata'],
-  search: SearchStep,
-) {
-  const [prev, setPrev] = useState(seriesMetadata)
-  if (tmdbId && seriesMetadata && seriesMetadata !== prev && !search.selectedSeries) {
-    setPrev(seriesMetadata)
-    search.setSelectedSeries({
-      id: seriesMetadata.id,
-      tmdbId: seriesMetadata.tmdbId,
-      tvdbId: seriesMetadata.tvdbId,
-      imdbId: seriesMetadata.imdbId,
-      title: seriesMetadata.title,
-      originalTitle: seriesMetadata.originalTitle,
-      year: seriesMetadata.year,
-      overview: seriesMetadata.overview,
-      posterUrl: seriesMetadata.posterUrl,
-      backdropUrl: seriesMetadata.backdropUrl,
-      runtime: seriesMetadata.runtime,
-      genres: seriesMetadata.genres,
-      status: seriesMetadata.status,
-      network: seriesMetadata.network,
-      networkLogoUrl: seriesMetadata.networkLogoUrl,
-    })
-    search.setStep('configure')
-  }
-}
 
 function useSyncPreferences(
   addFlowPreferences: Queries['addFlowPreferences'],
@@ -182,30 +151,20 @@ function useSyncDefaultRootFolder(
   }
 }
 
-type HandlerDeps = { nav: Navigation; search: SearchStep; form: FormState; queries: Queries }
+type HandlerDeps = { nav: Navigation; selected: SelectedSeries; form: FormState; queries: Queries }
 
-function useHandlers({ nav, search, form, queries }: HandlerDeps) {
-  const handleSelectSeries = (series: SeriesSearchResult) => {
-    search.setSelectedSeries(series)
-    search.setStep('configure')
-  }
-
+function useHandlers({ nav, selected, form, queries }: HandlerDeps) {
   const handleBack = () => {
-    if (search.step === 'configure') {
-      search.setStep('search')
-      search.setSelectedSeries(null)
-    } else {
-      void nav.navigate({ to: '/series' })
-    }
+    void nav.navigate({ to: '/series' })
   }
 
   const handleAdd = async () => {
-    if (!search.selectedSeries || !form.rootFolderId || !form.qualityProfileId) {
+    if (!selected.selectedSeries || !form.rootFolderId || !form.qualityProfileId) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const input = buildAddInput(search.selectedSeries, form)
+    const input = buildAddInput(selected.selectedSeries, form)
 
     try {
       const series = await queries.addMutation.mutateAsync(input)
@@ -216,7 +175,7 @@ function useHandlers({ nav, search, form, queries }: HandlerDeps) {
     }
   }
 
-  return { handleSelectSeries, handleBack, handleAdd }
+  return { handleBack, handleAdd }
 }
 
 function buildAddInput(series: SeriesSearchResult, form: FormState): AddSeriesInput {

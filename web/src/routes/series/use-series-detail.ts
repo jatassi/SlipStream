@@ -18,6 +18,7 @@ import {
   useUpdateSeasonMonitored,
   useUpdateSeries,
 } from '@/hooks'
+import { withToast } from '@/lib/with-toast'
 import type { Episode } from '@/types'
 
 function buildEpisodeRatings(
@@ -75,41 +76,36 @@ function useSeriesMutations(seriesId: number, refetch: () => void) {
   return {
     isAssigning: assign.isPending,
     isRefreshing: refresh.isPending,
-    handleAssignFileToSlot: async (fileId: number, episodeId: number, slotId: number) => {
-      try {
-        await assign.mutateAsync({ episodeId, slotId, data: { fileId } })
-        refetch()
-        toast.success('File assigned to slot')
-      } catch { toast.error('Failed to assign file to slot') }
-    },
+    handleAssignFileToSlot: withToast(async (fileId: number, episodeId: number, slotId: number) => {
+      await assign.mutateAsync({ episodeId, slotId, data: { fileId } })
+      refetch()
+      toast.success('File assigned to slot')
+    }, 'Failed to assign file to slot'),
     handleToggleMonitored: async (series: { id: number; monitored: boolean } | undefined, newMonitored?: boolean) => {
       if (!series) {return}
       const target = newMonitored ?? !series.monitored
-      try {
+      await withToast(async () => {
         await update.mutateAsync({ id: series.id, data: { monitored: target } })
         toast.success(target ? 'Series monitored' : 'Series unmonitored')
-      } catch { toast.error('Failed to update series') }
+      }, 'Failed to update series')()
     },
-    handleRefresh: async () => {
-      try { await refresh.mutateAsync(seriesId); toast.success('Metadata refreshed') }
-      catch { toast.error('Failed to refresh metadata') }
-    },
-    handleDelete: async () => {
-      try { await remove.mutateAsync({ id: seriesId }); toast.success('Series deleted'); void navigate({ to: '/series' }) }
-      catch { toast.error('Failed to delete series') }
-    },
-    handleSeasonMonitoredChange: async (seasonNumber: number, monitored: boolean) => {
-      try {
-        await seasonMonitor.mutateAsync({ seriesId, seasonNumber, monitored })
-        toast.success(`Season ${seasonNumber} ${monitored ? 'monitored' : 'unmonitored'}`)
-      } catch { toast.error('Failed to update season') }
-    },
-    handleEpisodeMonitoredChange: async (episode: Episode, monitored: boolean) => {
-      try {
-        await episodeMonitor.mutateAsync({ seriesId, episodeId: episode.id, monitored })
-        toast.success(`${formatEpisodeCode(episode)} ${monitored ? 'monitored' : 'unmonitored'}`)
-      } catch { toast.error('Failed to update episode') }
-    },
+    handleRefresh: withToast(async () => {
+      await refresh.mutateAsync(seriesId)
+      toast.success('Metadata refreshed')
+    }, 'Failed to refresh metadata'),
+    handleDelete: withToast(async () => {
+      await remove.mutateAsync({ id: seriesId })
+      toast.success('Series deleted')
+      void navigate({ to: '/series' })
+    }, 'Failed to delete series'),
+    handleSeasonMonitoredChange: withToast(async (seasonNumber: number, monitored: boolean) => {
+      await seasonMonitor.mutateAsync({ seriesId, seasonNumber, monitored })
+      toast.success(`Season ${seasonNumber} ${monitored ? 'monitored' : 'unmonitored'}`)
+    }, 'Failed to update season'),
+    handleEpisodeMonitoredChange: withToast(async (episode: Episode, monitored: boolean) => {
+      await episodeMonitor.mutateAsync({ seriesId, episodeId: episode.id, monitored })
+      toast.success(`${formatEpisodeCode(episode)} ${monitored ? 'monitored' : 'unmonitored'}`)
+    }, 'Failed to update episode'),
   }
 }
 

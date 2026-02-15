@@ -1,8 +1,9 @@
 import { ErrorState } from '@/components/data/error-state'
 import { LoadingState } from '@/components/data/loading-state'
+import { MediaEditDialog } from '@/components/media/media-edit-dialog'
 import { SeasonList } from '@/components/series/season-list'
-import { SeriesEditDialog } from '@/components/series/series-edit-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useUpdateSeries } from '@/hooks'
 
 import { SeriesActionBar } from './series-action-bar'
 import { SeriesHeroSection } from './series-hero-section'
@@ -36,6 +37,7 @@ function SeasonsCard({ vm }: { vm: ReturnType<typeof useSeriesDetailPage> }) {
 
 export function SeriesDetailPage() {
   const vm = useSeriesDetailPage()
+  const updateMutation = useUpdateSeries()
 
   if (vm.isLoading) {return <LoadingState variant="detail" />}
   if (vm.isError || !vm.series) {return <ErrorState message="Series not found" onRetry={vm.refetch} />}
@@ -54,7 +56,14 @@ export function SeriesDetailPage() {
       <div className="space-y-6 p-6">
         <SeasonsCard vm={vm} />
       </div>
-      <SeriesEditDialog open={vm.editDialogOpen} onOpenChange={vm.setEditDialogOpen} series={series} />
+      <MediaEditDialog
+        open={vm.editDialogOpen}
+        onOpenChange={vm.setEditDialogOpen}
+        item={series}
+        updateMutation={updateMutation}
+        mediaLabel="Series"
+        monitoredDescription="Search for releases and upgrade quality for all monitored episodes"
+      />
     </div>
   )
 }
