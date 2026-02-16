@@ -37,6 +37,8 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 
 Do not start servers. Assume they're running on default ports (backend :8080, frontend :3000). Prompt user to restart as needed.
 
+**Important:** The frontend uses `bun` as its package manager and runtime. Always use `bun` instead of `npm`, `npx`, or `node` for frontend commands (e.g., `bun run`, `bun add`, `bun install`).
+
 ### Build & Test
 ```bash
 make build                # Build both backend and frontend
