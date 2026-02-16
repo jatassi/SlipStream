@@ -271,6 +271,19 @@ func (s *Service) matchSingleUnmatchedMovie(ctx context.Context, movie *movies.M
 	}
 
 	bestMatch := s.selectBestUnmatchedMovieResult(results, movie.Title, movie.Year)
+
+	if bestMatch.ID > 0 {
+		if existing, err := s.movies.GetByTmdbID(ctx, bestMatch.ID); err == nil && existing != nil {
+			s.logger.Warn().
+				Int64("movieId", movie.ID).
+				Int64("existingMovieId", existing.ID).
+				Str("title", movie.Title).
+				Int("tmdbId", bestMatch.ID).
+				Msg("Skipping duplicate unmatched movie — another movie already has this TMDB ID")
+			return
+		}
+	}
+
 	updateInput := s.buildMovieUpdateInput(ctx, bestMatch)
 
 	if _, err := s.movies.Update(ctx, movie.ID, &updateInput); err != nil {
@@ -393,6 +406,18 @@ func (s *Service) matchSingleUnmatchedSeries(ctx context.Context, series *tv.Ser
 	}
 
 	bestMatch := &results[0]
+
+	if bestMatch.TvdbID > 0 {
+		if existing := s.checkExistingSeries(ctx, bestMatch.TvdbID); existing != nil {
+			s.logger.Warn().
+				Int64("seriesId", series.ID).
+				Int64("existingSeriesId", existing.ID).
+				Str("title", series.Title).
+				Int("tvdbId", bestMatch.TvdbID).
+				Msg("Skipping duplicate unmatched series — another series already has this TVDB ID")
+			return
+		}
+	}
 
 	title := bestMatch.Title
 	year := bestMatch.Year
