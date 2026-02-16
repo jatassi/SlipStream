@@ -69,3 +69,4 @@ dist/
 nul
 /slipstream
 fetchmockdata
+bin/slipstream
