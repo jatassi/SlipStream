@@ -1,4 +1,5 @@
 export type LogEntry = {
+  id: number
   timestamp: string
   level: string
   component?: string

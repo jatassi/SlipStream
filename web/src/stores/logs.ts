@@ -5,6 +5,8 @@ import type { LogEntry, LogLevel } from '@/types/logs'
 const MAX_ENTRIES = 2000
 export const ALL_LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error']
 
+let nextId = 0
+
 type LogsState = {
   entries: LogEntry[]
   filterLevels: LogLevel[]
@@ -38,7 +40,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     }
 
     set((state) => {
-      const newEntries = [...state.entries, entry]
+      const newEntries = [...state.entries, { ...entry, id: nextId++ }]
       if (newEntries.length > MAX_ENTRIES) {
         newEntries.shift()
       }
@@ -47,7 +49,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
   },
 
   setEntries: (entries) => {
-    set({ entries: entries.slice(-MAX_ENTRIES) })
+    set({ entries: entries.slice(-MAX_ENTRIES).map((e) => ({ ...e, id: nextId++ })) })
   },
 
   toggleFilterLevel: (level) =>

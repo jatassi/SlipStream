@@ -24,7 +24,7 @@ import { useGlobalLoading } from '@/hooks'
 import { useDownloadLogFile, useLogs } from '@/hooks/use-logs'
 import { cn } from '@/lib/utils'
 import { ALL_LOG_LEVELS, useLogsStore } from '@/stores/logs'
-import type { LogLevel } from '@/types/logs'
+import type { LogEntry, LogLevel } from '@/types/logs'
 
 const LEVEL_COLORS: Record<string, string> = {
   debug: 'text-blue-400',
@@ -65,21 +65,10 @@ function formatFields(fields: Record<string, unknown> | undefined): string {
     .join(' ')
 }
 
-type LogEntry = {
-  timestamp: string
-  level: string
-  message: string
-  component?: string
-  fields?: Record<string, unknown>
-}
-
 function LogEntryRow({ entry }: { entry: LogEntry }) {
   const fields = formatFields(entry.fields)
   return (
-    <div
-      key={`${entry.timestamp}-${entry.message}-${entry.level}`}
-      className="flex gap-2 rounded px-1 hover:bg-zinc-900"
-    >
+    <div className="flex gap-2 rounded px-1 hover:bg-zinc-900">
       <span className="shrink-0 text-zinc-500">{formatTimestamp(entry.timestamp)}</span>
       <span className={cn('w-12 shrink-0 uppercase', LEVEL_COLORS[entry.level] || 'text-zinc-400')}>
         {entry.level.slice(0, 5).padEnd(5)}
@@ -185,7 +174,7 @@ function LogScrollPanel({ entries, emptyMessage, scrollRef, onScroll }: LogScrol
       ) : (
         <div className="space-y-px p-2">
           {entries.map((entry) => (
-            <LogEntryRow key={`${entry.timestamp}-${entry.message}-${entry.level}`} entry={entry} />
+            <LogEntryRow key={entry.id} entry={entry} />
           ))}
         </div>
       )}
