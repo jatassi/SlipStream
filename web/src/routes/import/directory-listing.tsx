@@ -11,8 +11,8 @@ type DriveEntry = { letter: string; label?: string }
 export type BrowseData = {
   parent?: string
   drives?: DriveEntry[]
-  directories: DirectoryEntry[]
-  files: FileEntry[]
+  directories?: DirectoryEntry[]
+  files?: FileEntry[]
 }
 
 function BackButton({ onNavigateUp }: { onNavigateUp: () => void }) {
