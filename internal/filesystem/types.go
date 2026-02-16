@@ -102,7 +102,7 @@ type ParsedInfo struct {
 	Season           int    `json:"season,omitempty"`
 	Episode          int    `json:"episode,omitempty"`
 	EndEpisode       int    `json:"endEpisode,omitempty"`
-	IsSeasonPack     bool   `json:"isSeasonPack,omitempty"`
+	IsSeasonPack     bool   `json:"isSeasonPack"`
 	IsCompleteSeries bool   `json:"isCompleteSeries,omitempty"`
 	Quality          string `json:"quality,omitempty"`
 	Source           string `json:"source,omitempty"`

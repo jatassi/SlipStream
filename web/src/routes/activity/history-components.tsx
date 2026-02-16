@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileEdit,
   Film,
+  Layers,
   PackageCheck,
   RefreshCw,
   Search,
@@ -41,6 +42,9 @@ function EventIcon({ eventType }: { eventType: HistoryEventType }) {
     import_failed: <AlertCircle className="mr-1 size-3" />,
     imported: <PackageCheck className="mr-1 size-3" />,
     file_renamed: <FileEdit className="mr-1 size-3" />,
+    slot_assigned: <Layers className="mr-1 size-3" />,
+    slot_reassigned: <Layers className="mr-1 size-3" />,
+    slot_unassigned: <Layers className="mr-1 size-3" />,
     status_changed: <RefreshCw className="mr-1 size-3" />,
   }
   return iconMap[eventType] ?? null

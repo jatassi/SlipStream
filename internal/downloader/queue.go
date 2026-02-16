@@ -45,7 +45,7 @@ type QueueItem struct {
 	SeriesID         *int64 `json:"seriesId,omitempty"`
 	SeasonNumber     *int   `json:"seasonNumber,omitempty"`
 	EpisodeID        *int64 `json:"episodeId,omitempty"`
-	IsSeasonPack     bool   `json:"isSeasonPack,omitempty"`
+	IsSeasonPack     bool   `json:"isSeasonPack"`
 	IsCompleteSeries bool   `json:"isCompleteSeries,omitempty"`
 	// Req 10.1.2: Target slot info shown inline with each queue item
 	TargetSlotID   *int64 `json:"targetSlotId,omitempty"`
@@ -293,7 +293,7 @@ func mapDownloadStatus(status types.Status) string {
 	case types.StatusQueued:
 		return statusQueued
 	case types.StatusError:
-		return "error"
+		return "failed"
 	default:
 		return statusQueued
 	}

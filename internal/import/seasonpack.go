@@ -31,8 +31,8 @@ type SeasonPackFile struct {
 	TargetSlotID   *int64  `json:"targetSlotId,omitempty"`
 	TargetSlotName string  `json:"targetSlotName,omitempty"`
 	SlotMatchScore float64 `json:"slotMatchScore,omitempty"`
-	IsSlotUpgrade  bool    `json:"isSlotUpgrade,omitempty"`
-	IsSlotNewFill  bool    `json:"isSlotNewFill,omitempty"`
+	IsSlotUpgrade  bool    `json:"isSlotUpgrade"`
+	IsSlotNewFill  bool    `json:"isSlotNewFill"`
 }
 
 // SeasonPackAnalysis contains the result of analyzing a season pack.

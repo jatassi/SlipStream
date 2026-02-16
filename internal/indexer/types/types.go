@@ -89,7 +89,7 @@ type ReleaseInfo struct {
 	// Indexer info
 	IndexerID       int64    `json:"indexerId"`
 	IndexerName     string   `json:"indexer"`
-	IndexerPriority int      `json:"indexerPriority,omitempty"` // 1-50, lower = preferred (for dedup)
+	IndexerPriority int      `json:"indexerPriority"` // 1-50, lower = preferred (for dedup)
 	Protocol        Protocol `json:"protocol"`
 
 	// External IDs
@@ -139,8 +139,8 @@ type TorrentInfo struct {
 	TargetSlotID     *int64 `json:"targetSlotId,omitempty"`
 	TargetSlotNumber *int   `json:"targetSlotNumber,omitempty"`
 	TargetSlotName   string `json:"targetSlotName,omitempty"`
-	IsSlotUpgrade    bool   `json:"isSlotUpgrade,omitempty"`
-	IsSlotNewFill    bool   `json:"isSlotNewFill,omitempty"`
+	IsSlotUpgrade    bool   `json:"isSlotUpgrade"`
+	IsSlotNewFill    bool   `json:"isSlotNewFill"`
 }
 
 // UsenetInfo extends ReleaseInfo with usenet-specific fields.

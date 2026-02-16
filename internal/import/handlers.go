@@ -263,7 +263,7 @@ type ParsedMediaInfo struct {
 	AudioEnhancements []string `json:"audioEnhancements,omitempty"`
 	Attributes        []string `json:"attributes,omitempty"`
 	IsTV              bool     `json:"isTV"`
-	IsSeasonPack      bool     `json:"isSeasonPack,omitempty"`
+	IsSeasonPack      bool     `json:"isSeasonPack"`
 }
 
 // SuggestedMatch contains a suggested library match.

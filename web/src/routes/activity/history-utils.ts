@@ -45,6 +45,9 @@ const detailTextByEvent: Partial<Record<HistoryEventType, DetailTextFn>> = {
   import_failed: (data) => str(data.error) ?? 'Import failed',
   status_changed: getStatusChangedText,
   file_renamed: getFileRenamedText,
+  slot_assigned: getSlotEventText,
+  slot_reassigned: getSlotEventText,
+  slot_unassigned: getSlotEventText,
 }
 
 export function getDetailsText(item: HistoryEntry): string {
@@ -96,35 +99,27 @@ function getFileRenamedText(
 
 export type DetailRow = { label: string; value: string }
 
+type DetailRowsFn = (data: Record<string, unknown>) => DetailRow[]
+
+const detailRowsByEvent: Partial<Record<HistoryEventType, DetailRowsFn>> = {
+  autosearch_download: getAutosearchDownloadRows,
+  autosearch_failed: getAutosearchFailedRows,
+  imported: getImportedRows,
+  import_failed: getImportFailedRows,
+  status_changed: getStatusChangedRows,
+  file_renamed: getFileRenamedRows,
+  slot_assigned: getSlotEventRows,
+  slot_reassigned: getSlotEventRows,
+  slot_unassigned: getSlotEventRows,
+}
+
 export function getDetailRows(item: HistoryEntry): DetailRow[] {
   const data = item.data as Record<string, unknown> | undefined
   if (!data) {
     return []
   }
-
-  switch (item.eventType) {
-    case 'autosearch_download': {
-      return getAutosearchDownloadRows(data)
-    }
-    case 'autosearch_failed': {
-      return getAutosearchFailedRows(data)
-    }
-    case 'imported': {
-      return getImportedRows(data)
-    }
-    case 'import_failed': {
-      return getImportFailedRows(data)
-    }
-    case 'status_changed': {
-      return getStatusChangedRows(data)
-    }
-    case 'file_renamed': {
-      return getFileRenamedRows(data)
-    }
-    default: {
-      return []
-    }
-  }
+  const fn = detailRowsByEvent[item.eventType]
+  return fn ? fn(data) : []
 }
 
 function pushIfPresent(rows: DetailRow[], label: string, value: unknown) {
@@ -188,6 +183,17 @@ function getFileRenamedRows(data: Record<string, unknown>): DetailRow[] {
   const rows: DetailRow[] = []
   pushIfPresent(rows, 'Old Path', data.source_path)
   pushIfPresent(rows, 'New Path', data.destination_path)
+  return rows
+}
+
+function getSlotEventText(data: Record<string, unknown>): string {
+  return str(data.slotName) ?? '-'
+}
+
+function getSlotEventRows(data: Record<string, unknown>): DetailRow[] {
+  const rows: DetailRow[] = []
+  pushIfPresent(rows, 'Slot', data.slotName)
+  pushIfPresent(rows, 'File', data.filePath)
   return rows
 }
 

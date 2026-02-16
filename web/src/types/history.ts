@@ -7,6 +7,9 @@ export type HistoryEventType =
   | 'autosearch_download'
   | 'autosearch_failed'
   | 'import_failed'
+  | 'slot_assigned'
+  | 'slot_reassigned'
+  | 'slot_unassigned'
   | 'status_changed'
 
 export type HistoryEntry = {

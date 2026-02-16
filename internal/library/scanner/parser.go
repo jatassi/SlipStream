@@ -18,7 +18,7 @@ type ParsedMedia struct {
 	EndSeason         int      `json:"endSeason,omitempty"`         // For multi-season packs (S01-S04)
 	Episode           int      `json:"episode,omitempty"`           // 0 for movies or season packs
 	EndEpisode        int      `json:"endEpisode,omitempty"`        // For multi-episode files
-	IsSeasonPack      bool     `json:"isSeasonPack,omitempty"`      // True for season packs (S01 without episode)
+	IsSeasonPack      bool     `json:"isSeasonPack"`                // True for season packs (S01 without episode)
 	IsCompleteSeries  bool     `json:"isCompleteSeries,omitempty"`  // True for complete series boxsets
 	Quality           string   `json:"quality,omitempty"`           // "720p", "1080p", "2160p"
 	Source            string   `json:"source,omitempty"`            // "BluRay", "WEB-DL", "HDTV"
