@@ -57,11 +57,7 @@ func (h *SettingsHandler) SetScheduler(sched *scheduler.Scheduler, service *Serv
 func (h *SettingsHandler) GetSettings(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	settings, err := h.loadSettings(ctx)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
+	settings := h.loadSettings(ctx)
 	return c.JSON(http.StatusOK, settings)
 }
 
@@ -95,13 +91,13 @@ func (h *SettingsHandler) UpdateSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, input)
 }
 
-func (h *SettingsHandler) loadSettings(ctx context.Context) (*Settings, error) {
+func (h *SettingsHandler) loadSettings(ctx context.Context) *Settings {
 	row, err := h.queries.GetSetting(ctx, settingsKey)
 	if err != nil {
 		return &Settings{
 			Enabled:     h.config.Enabled,
 			IntervalMin: h.config.IntervalMin,
-		}, nil
+		}
 	}
 
 	var settings Settings
@@ -109,10 +105,10 @@ func (h *SettingsHandler) loadSettings(ctx context.Context) (*Settings, error) {
 		return &Settings{
 			Enabled:     h.config.Enabled,
 			IntervalMin: h.config.IntervalMin,
-		}, nil
+		}
 	}
 
-	return &settings, nil
+	return &settings
 }
 
 func (h *SettingsHandler) saveSettings(ctx context.Context, settings *Settings) error {
@@ -131,17 +127,12 @@ func (h *SettingsHandler) saveSettings(ctx context.Context, settings *Settings) 
 // LoadSettingsIntoConfig loads saved RSS sync settings from database into config at startup.
 func LoadSettingsIntoConfig(ctx context.Context, queries *sqlc.Queries, cfg *config.RssSyncConfig) error {
 	row, err := queries.GetSetting(ctx, settingsKey)
-	if err != nil {
-		return nil
+	if err == nil {
+		var settings Settings
+		if err = json.Unmarshal([]byte(row.Value), &settings); err == nil {
+			cfg.Enabled = settings.Enabled
+			cfg.IntervalMin = settings.IntervalMin
+		}
 	}
-
-	var settings Settings
-	if err := json.Unmarshal([]byte(row.Value), &settings); err != nil {
-		return nil
-	}
-
-	cfg.Enabled = settings.Enabled
-	cfg.IntervalMin = settings.IntervalMin
-
 	return nil
 }

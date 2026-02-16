@@ -3,11 +3,15 @@
 package filesystem
 
 import (
+	"context"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+)
+
+const (
+	osDarwin = "darwin"
 )
 
 // listDrives returns nil on Unix systems (no drive concept)
@@ -19,7 +23,7 @@ func (s *Service) listDrives() []DriveInfo {
 func (s *Service) ListVolumes() []VolumeInfo {
 	var volumes []VolumeInfo
 
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == osDarwin {
 		volumes = s.listDarwinVolumes()
 	} else {
 		volumes = s.listLinuxVolumes()
@@ -32,8 +36,7 @@ func (s *Service) ListVolumes() []VolumeInfo {
 func (s *Service) listDarwinVolumes() []VolumeInfo {
 	var volumes []VolumeInfo
 
-	// Use df to get volume information
-	cmd := exec.Command("df", "-k")
+	cmd := exec.CommandContext(context.Background(), "df", "-k")
 	output, err := cmd.Output()
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to get volume information")
@@ -41,7 +44,7 @@ func (s *Service) listDarwinVolumes() []VolumeInfo {
 	}
 
 	lines := strings.Split(string(output), "\n")
-	for i := 1; i < len(lines); i++ { // Skip header
+	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "" {
 			continue
@@ -58,14 +61,13 @@ func (s *Service) listDarwinVolumes() []VolumeInfo {
 		availKb, _ := strconv.ParseInt(fields[3], 10, 64)
 		mountPoint := fields[len(fields)-1]
 
-		// Filter out system volumes that shouldn't be shown
 		if shouldSkipDarwinVolume(filesystem, mountPoint) {
 			continue
 		}
 
 		totalBytes := totalKb * 1024
 		freeBytes := availKb * 1024
-		_ = usedKb // Suppress unused warning
+		_ = usedKb
 
 		volumeType := "local"
 		if strings.HasPrefix(filesystem, "//") || strings.Contains(filesystem, "smb") || strings.Contains(filesystem, "nfs") {
@@ -85,78 +87,8 @@ func (s *Service) listDarwinVolumes() []VolumeInfo {
 	return volumes
 }
 
-// getDarwinVolumeLabels gets volume labels using diskutil
-func (s *Service) getDarwinVolumeLabels() map[string]string {
-	labels := make(map[string]string)
-
-	_ = labels // Suppress unused warning
-	return labels
-	return labels
-}
-
-// getDarwinVolumeLabel gets the proper volume label for a filesystem
-func (s *Service) getDarwinVolumeLabel(filesystem, mountPoint string, labels map[string]string) string {
-	// For root filesystem, try to get the actual volume name
-	if mountPoint == "/" {
-		// Try to get volume name from system profiler
-		cmd := exec.Command("system_profiler", "SPStorageDataType", "-json")
-		output, err := cmd.Output()
-		if err == nil {
-			// Simple parsing for volume name - look for "Macintosh HD" or similar
-			if strings.Contains(string(output), "Macintosh HD") {
-				return "Macintosh HD"
-			}
-			// Look for volume name pattern
-			lines := strings.Split(string(output), "\n")
-			for _, line := range lines {
-				if strings.Contains(line, "Volume Name") && strings.Contains(line, "Macintosh") {
-					// Extract the volume name
-					parts := strings.Split(line, ":")
-					if len(parts) > 1 {
-						name := strings.TrimSpace(strings.Trim(parts[1], `",`))
-						if name != "" {
-							return name
-						}
-					}
-				}
-			}
-		}
-
-		// Fallback: try diskutil info for the root device
-		if strings.HasPrefix(filesystem, "/dev/") {
-			device := strings.TrimPrefix(filesystem, "/dev/")
-			cmd := exec.Command("diskutil", "info", device)
-			output, err := cmd.Output()
-			if err == nil {
-				lines := strings.Split(string(output), "\n")
-				for _, line := range lines {
-					line = strings.TrimSpace(line)
-					if strings.HasPrefix(line, "Volume Name:") {
-						parts := strings.SplitN(line, ":", 2)
-						if len(parts) > 1 {
-							name := strings.TrimSpace(parts[1])
-							if name != "" {
-								return name
-							}
-						}
-					}
-				}
-			}
-		}
-
-		return "Macintosh HD" // Sensible default
-	}
-
-	// For other mount points, use the last component
-	if mountPoint == "/" {
-		return "Macintosh HD"
-	}
-	return filepath.Base(mountPoint)
-}
-
 // shouldSkipDarwinVolume determines if a volume should be skipped
 func shouldSkipDarwinVolume(filesystem, mountPoint string) bool {
-	// Skip system volumes that aren't relevant for media storage
 	systemVolumes := []string{
 		"/System/Volumes/VM",
 		"/System/Volumes/Preboot",
@@ -176,17 +108,14 @@ func shouldSkipDarwinVolume(filesystem, mountPoint string) bool {
 		}
 	}
 
-	// Skip APFS snapshots and system volumes
 	if strings.HasPrefix(mountPoint, "/System/Volumes/") && mountPoint != "/System/Volumes/Data" {
 		return true
 	}
 
-	// Skip small/ephemeral filesystems
 	if strings.HasPrefix(filesystem, "map") || strings.HasPrefix(filesystem, "autofs") {
 		return true
 	}
 
-	// Skip tmpfs and other virtual filesystems
 	if strings.Contains(filesystem, "tmpfs") || strings.Contains(filesystem, "devfs") {
 		return true
 	}
@@ -198,8 +127,7 @@ func shouldSkipDarwinVolume(filesystem, mountPoint string) bool {
 func (s *Service) listLinuxVolumes() []VolumeInfo {
 	var volumes []VolumeInfo
 
-	// Use df to get volume information
-	cmd := exec.Command("df", "-k", "--output=source,fstype,size,used,avail,target")
+	cmd := exec.CommandContext(context.Background(), "df", "-k", "--output=source,fstype,size,used,avail,target")
 	output, err := cmd.Output()
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to get volume information")
@@ -207,7 +135,7 @@ func (s *Service) listLinuxVolumes() []VolumeInfo {
 	}
 
 	lines := strings.Split(string(output), "\n")
-	for i := 1; i < len(lines); i++ { // Skip header
+	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "" {
 			continue
@@ -220,19 +148,19 @@ func (s *Service) listLinuxVolumes() []VolumeInfo {
 
 		filesystem := fields[0]
 		fstype := fields[1]
-		totalKb, _ := strconv.ParseInt(fields[2], 10, 64)
-		usedKb, _ := strconv.ParseInt(fields[3], 10, 64)
-		availKb, _ := strconv.ParseInt(fields[4], 10, 64)
-		mountPoint := strings.Join(fields[5:], " ") // Handle mount points with spaces
 
-		// Skip pseudo-filesystems
-		if fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "proc" || fstype == "sysfs" {
+		if shouldSkipLinuxFilesystem(fstype) {
 			continue
 		}
 
+		totalKb, _ := strconv.ParseInt(fields[2], 10, 64)
+		usedKb, _ := strconv.ParseInt(fields[3], 10, 64)
+		availKb, _ := strconv.ParseInt(fields[4], 10, 64)
+		mountPoint := strings.Join(fields[5:], " ")
+
 		totalBytes := totalKb * 1024
 		freeBytes := availKb * 1024
-		_ = usedKb // Suppress unused warning
+		_ = usedKb
 
 		volumeType := "local"
 		if strings.Contains(filesystem, "//") || strings.Contains(fstype, "nfs") || strings.Contains(fstype, "cifs") {
@@ -250,4 +178,8 @@ func (s *Service) listLinuxVolumes() []VolumeInfo {
 	}
 
 	return volumes
+}
+
+func shouldSkipLinuxFilesystem(fstype string) bool {
+	return fstype == "tmpfs" || fstype == "devtmpfs" || fstype == "proc" || fstype == "sysfs"
 }

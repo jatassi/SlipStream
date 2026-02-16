@@ -32,9 +32,10 @@ func (c *TVDBClient) SearchSeries(ctx context.Context, query string) ([]tvdb.Nor
 	query = strings.ToLower(query)
 	var results []tvdb.NormalizedSeriesResult
 
-	for _, series := range tvdbMockSeries {
+	for i := range tvdbMockSeries {
+		series := &tvdbMockSeries[i]
 		if strings.Contains(strings.ToLower(series.Title), query) {
-			results = append(results, series)
+			results = append(results, *series)
 		}
 	}
 
@@ -50,9 +51,10 @@ func (c *TVDBClient) SearchSeries(ctx context.Context, query string) ([]tvdb.Nor
 }
 
 func (c *TVDBClient) GetSeries(ctx context.Context, id int) (*tvdb.NormalizedSeriesResult, error) {
-	for _, series := range tvdbMockSeries {
+	for i := range tvdbMockSeries {
+		series := &tvdbMockSeries[i]
 		if series.ID == id || series.TvdbID == id {
-			return &series, nil
+			return series, nil
 		}
 	}
 	if len(tvdbMockSeries) > 0 {

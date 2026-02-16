@@ -1,3 +1,4 @@
+//nolint:revive // package name mirrors domain concept
 package importer
 
 import (
@@ -174,7 +175,7 @@ func (s *ImportSettings) IsValidExtension(ext string) bool {
 		ext = "." + ext
 	}
 	for _, allowed := range s.VideoExtensions {
-		if strings.ToLower(allowed) == ext {
+		if strings.EqualFold(allowed, ext) {
 			return true
 		}
 	}
@@ -202,8 +203,18 @@ func (s *Service) GetSettings(ctx context.Context) (*ImportSettings, error) {
 	return &settings, nil
 }
 
+// loadSettingsOrNil loads settings, returning nil on error.
+func (s *Service) loadSettingsOrNil(ctx context.Context) *ImportSettings {
+	settings, err := s.GetSettings(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load import settings, using defaults")
+		return nil
+	}
+	return settings
+}
+
 // UpdateSettings updates import settings in the database.
-func (s *Service) UpdateSettings(ctx context.Context, settings ImportSettings) (*ImportSettings, error) {
+func (s *Service) UpdateSettings(ctx context.Context, settings *ImportSettings) (*ImportSettings, error) {
 	extensionsStr := strings.Join(settings.VideoExtensions, ",")
 
 	params := sqlc.UpdateImportSettingsParams{
@@ -239,7 +250,8 @@ func (s *Service) UpdateSettings(ctx context.Context, settings ImportSettings) (
 
 	// Update the renamer with new settings
 	result := SettingsFromDB(dbSettings)
-	s.UpdateRenamerSettings(result.ToRenamerSettings())
+	renSettings := result.ToRenamerSettings()
+	s.UpdateRenamerSettings(&renSettings)
 
 	return &result, nil
 }
@@ -251,6 +263,7 @@ func (s *Service) RefreshSettings(ctx context.Context) error {
 		return err
 	}
 
-	s.UpdateRenamerSettings(settings.ToRenamerSettings())
+	renSettings := settings.ToRenamerSettings()
+	s.UpdateRenamerSettings(&renSettings)
 	return nil
 }

@@ -2,6 +2,7 @@ package slots
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/slipstream/slipstream/internal/library/quality"
@@ -14,8 +15,8 @@ type DevModeChecker func() bool
 // DebugHandlers provides HTTP handlers for debug/testing operations.
 // Req 20.2.5: All debug features gated behind developerMode
 type DebugHandlers struct {
-	service        *Service
-	isDevModeFunc  DevModeChecker
+	service       *Service
+	isDevModeFunc DevModeChecker
 }
 
 // NewDebugHandlers creates new debug handlers.
@@ -36,7 +37,7 @@ func (h *DebugHandlers) RegisterDebugRoutes(g *echo.Group) {
 }
 
 // requireDeveloperMode checks if developer mode is enabled.
-func (h *DebugHandlers) requireDeveloperMode(c echo.Context) error {
+func (h *DebugHandlers) requireDeveloperMode(_ echo.Context) error {
 	if h.isDevModeFunc == nil || !h.isDevModeFunc() {
 		return echo.NewHTTPError(http.StatusForbidden, "debug features require developer mode")
 	}
@@ -50,20 +51,20 @@ type ParseReleaseInput struct {
 
 // ParseReleaseOutput is the detailed output from parsing a release title.
 type ParseReleaseOutput struct {
-	Title           string   `json:"title"`
-	Year            int      `json:"year,omitempty"`
-	Season          int      `json:"season,omitempty"`
-	Episode         int      `json:"episode,omitempty"`
-	Quality         string   `json:"quality,omitempty"`
-	Source          string   `json:"source,omitempty"`
-	VideoCodec      string   `json:"videoCodec,omitempty"`
-	AudioCodecs     []string `json:"audioCodecs,omitempty"`
-	AudioChannels   []string `json:"audioChannels,omitempty"`
-	HDRFormats      []string `json:"hdrFormats,omitempty"`
-	ReleaseGroup    string   `json:"releaseGroup,omitempty"`
-	IsSeasonPack    bool     `json:"isSeasonPack"`
-	IsCompleteSeries bool    `json:"isCompleteSeries"`
-	IsTV            bool     `json:"isTv"`
+	Title            string   `json:"title"`
+	Year             int      `json:"year,omitempty"`
+	Season           int      `json:"season,omitempty"`
+	Episode          int      `json:"episode,omitempty"`
+	Quality          string   `json:"quality,omitempty"`
+	Source           string   `json:"source,omitempty"`
+	VideoCodec       string   `json:"videoCodec,omitempty"`
+	AudioCodecs      []string `json:"audioCodecs,omitempty"`
+	AudioChannels    []string `json:"audioChannels,omitempty"`
+	HDRFormats       []string `json:"hdrFormats,omitempty"`
+	ReleaseGroup     string   `json:"releaseGroup,omitempty"`
+	IsSeasonPack     bool     `json:"isSeasonPack"`
+	IsCompleteSeries bool     `json:"isCompleteSeries"`
+	IsTV             bool     `json:"isTv"`
 
 	// Computed quality score
 	QualityScore float64 `json:"qualityScore"`
@@ -155,9 +156,9 @@ type QualityMatchDetail struct {
 
 // AttributeMatchResult shows the result of matching a single attribute.
 type AttributeMatchResult struct {
-	Mode          string   `json:"mode"`            // "any", "required", "preferred"
-	ProfileValues []string `json:"profileValues"`   // Values from profile
-	ReleaseValue  string   `json:"releaseValue"`    // Value from release (or comma-separated for multi)
+	Mode          string   `json:"mode"`          // "any", "required", "preferred"
+	ProfileValues []string `json:"profileValues"` // Values from profile
+	ReleaseValue  string   `json:"releaseValue"`  // Value from release (or comma-separated for multi)
 	Matches       bool     `json:"matches"`
 	Score         float64  `json:"score"`
 	Reason        string   `json:"reason,omitempty"` // Explanation if not matching
@@ -183,24 +184,33 @@ func (h *DebugHandlers) ProfileMatch(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "qualityProfileId is required")
 	}
 
-	// Parse the release
 	parsed := scanner.ParseFilename(input.ReleaseTitle)
 	if parsed == nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse release title")
 	}
 
-	// Get the profile
 	profile, err := h.service.qualityService.Get(c.Request().Context(), input.QualityProfileID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "quality profile not found")
 	}
 
 	releaseAttrs := parsed.ToReleaseAttributes()
-	matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
+	matchResult := quality.MatchProfileAttributes(&releaseAttrs, profile)
 	qualityMatchResult := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
 	qualityScore := calculateQualityScoreForDebug(parsed)
 
-	// Overall match requires BOTH attribute match AND quality match
+	output := buildProfileMatchOutput(parsed, profile, &matchResult, qualityMatchResult, qualityScore, &releaseAttrs)
+	return c.JSON(http.StatusOK, output)
+}
+
+func buildProfileMatchOutput(
+	parsed *scanner.ParsedMedia,
+	profile *quality.Profile,
+	matchResult *quality.ProfileAttributeMatchResult,
+	qualityMatchResult quality.QualityMatchResult,
+	qualityScore float64,
+	releaseAttrs *quality.ReleaseAttributes,
+) ProfileMatchOutput {
 	allMatch := matchResult.AllMatch && qualityMatchResult.Matches
 
 	output := ProfileMatchOutput{
@@ -217,7 +227,7 @@ func (h *DebugHandlers) ProfileMatch(c echo.Context) error {
 		},
 		ProfileID:          profile.ID,
 		ProfileName:        profile.Name,
-		AllAttributesMatch: allMatch, // Now includes quality check
+		AllAttributesMatch: allMatch,
 		QualityMatch:       qualityMatchResult.Matches,
 		TotalScore:         matchResult.TotalScore,
 		QualityScore:       qualityScore,
@@ -231,34 +241,29 @@ func (h *DebugHandlers) ProfileMatch(c echo.Context) error {
 			Score:            qualityMatchResult.Score,
 			Reason:           qualityMatchResult.Reason,
 		},
+		HDRMatch: buildAttributeMatchResult(
+			profile.HDRSettings,
+			releaseAttrs.HDRFormats,
+			quality.MatchHDRAttribute(releaseAttrs.HDRFormats, profile.HDRSettings),
+		),
+		VideoCodecMatch: buildSingleAttributeMatchResult(
+			profile.VideoCodecSettings,
+			releaseAttrs.VideoCodec,
+			quality.MatchAttribute(releaseAttrs.VideoCodec, profile.VideoCodecSettings),
+		),
+		AudioCodecMatch: buildAttributeMatchResult(
+			profile.AudioCodecSettings,
+			releaseAttrs.AudioCodecs,
+			quality.MatchAudioAttribute(releaseAttrs.AudioCodecs, profile.AudioCodecSettings),
+		),
+		AudioChannelMatch: buildAttributeMatchResult(
+			profile.AudioChannelSettings,
+			releaseAttrs.AudioChannels,
+			quality.MatchAudioAttribute(releaseAttrs.AudioChannels, profile.AudioChannelSettings),
+		),
 	}
 
-	// Build detailed attribute results
-	output.HDRMatch = buildAttributeMatchResult(
-		profile.HDRSettings,
-		releaseAttrs.HDRFormats,
-		quality.MatchHDRAttribute(releaseAttrs.HDRFormats, profile.HDRSettings),
-	)
-
-	output.VideoCodecMatch = buildSingleAttributeMatchResult(
-		profile.VideoCodecSettings,
-		releaseAttrs.VideoCodec,
-		quality.MatchAttribute(releaseAttrs.VideoCodec, profile.VideoCodecSettings),
-	)
-
-	output.AudioCodecMatch = buildAttributeMatchResult(
-		profile.AudioCodecSettings,
-		releaseAttrs.AudioCodecs,
-		quality.MatchAudioAttribute(releaseAttrs.AudioCodecs, profile.AudioCodecSettings),
-	)
-
-	output.AudioChannelMatch = buildAttributeMatchResult(
-		profile.AudioChannelSettings,
-		releaseAttrs.AudioChannels,
-		quality.MatchAudioAttribute(releaseAttrs.AudioChannels, profile.AudioChannelSettings),
-	)
-
-	return c.JSON(http.StatusOK, output)
+	return output
 }
 
 // SimulateImportInput is the request body for simulating a file import.
@@ -270,30 +275,30 @@ type SimulateImportInput struct {
 
 // SimulateImportOutput is the detailed output from simulating an import.
 type SimulateImportOutput struct {
-	Release          ParseReleaseOutput        `json:"release"`
-	SlotEvaluations  []SlotEvaluationDetail    `json:"slotEvaluations"`
-	RecommendedSlot  *SlotEvaluationDetail     `json:"recommendedSlot,omitempty"`
-	RequiresSelection bool                     `json:"requiresSelection"`
-	MatchingCount    int                       `json:"matchingCount"`
-	ImportAction     string                    `json:"importAction"` // "accept", "reject", "user_choice"
-	ImportReason     string                    `json:"importReason"` // Explanation
+	Release           ParseReleaseOutput     `json:"release"`
+	SlotEvaluations   []SlotEvaluationDetail `json:"slotEvaluations"`
+	RecommendedSlot   *SlotEvaluationDetail  `json:"recommendedSlot,omitempty"`
+	RequiresSelection bool                   `json:"requiresSelection"`
+	MatchingCount     int                    `json:"matchingCount"`
+	ImportAction      string                 `json:"importAction"` // "accept", "reject", "user_choice"
+	ImportReason      string                 `json:"importReason"` // Explanation
 }
 
 // SlotEvaluationDetail provides detailed evaluation for a single slot.
 type SlotEvaluationDetail struct {
-	SlotID          int64   `json:"slotId"`
-	SlotNumber      int     `json:"slotNumber"`
-	SlotName        string  `json:"slotName"`
-	ProfileID       *int64  `json:"profileId,omitempty"`
-	ProfileName     string  `json:"profileName,omitempty"`
-	MatchScore      float64 `json:"matchScore"`
-	AttributeScore  float64 `json:"attributeScore"`
-	QualityScore    float64 `json:"qualityScore"`
-	IsEmpty         bool    `json:"isEmpty"`
-	IsUpgrade       bool    `json:"isUpgrade"`
-	CurrentQuality  string  `json:"currentQuality,omitempty"`
-	Confidence      float64 `json:"confidence"`
-	AttributesPassed bool   `json:"attributesPassed"`
+	SlotID           int64   `json:"slotId"`
+	SlotNumber       int     `json:"slotNumber"`
+	SlotName         string  `json:"slotName"`
+	ProfileID        *int64  `json:"profileId,omitempty"`
+	ProfileName      string  `json:"profileName,omitempty"`
+	MatchScore       float64 `json:"matchScore"`
+	AttributeScore   float64 `json:"attributeScore"`
+	QualityScore     float64 `json:"qualityScore"`
+	IsEmpty          bool    `json:"isEmpty"`
+	IsUpgrade        bool    `json:"isUpgrade"`
+	CurrentQuality   string  `json:"currentQuality,omitempty"`
+	Confidence       float64 `json:"confidence"`
+	AttributesPassed bool    `json:"attributesPassed"`
 }
 
 // SimulateImport simulates importing a file and shows slot assignment logic.
@@ -319,7 +324,6 @@ func (h *DebugHandlers) SimulateImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "mediaId is required")
 	}
 
-	// Parse the release
 	parsed := scanner.ParseFilename(input.ReleaseTitle)
 	if parsed == nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse release title")
@@ -329,21 +333,10 @@ func (h *DebugHandlers) SimulateImport(c echo.Context) error {
 	qualityScore := calculateQualityScoreForDebug(parsed)
 
 	output := SimulateImportOutput{
-		Release: ParseReleaseOutput{
-			Title:         parsed.Title,
-			Year:          parsed.Year,
-			Quality:       parsed.Quality,
-			Source:        parsed.Source,
-			VideoCodec:    parsed.Codec,
-			AudioCodecs:   parsed.AudioCodecs,
-			AudioChannels: parsed.AudioChannels,
-			HDRFormats:    parsed.HDRFormats,
-			QualityScore:  qualityScore,
-		},
+		Release:         buildParsedReleaseOutput(parsed, qualityScore),
 		SlotEvaluations: make([]SlotEvaluationDetail, 0),
 	}
 
-	// Get enabled slots with profiles
 	slots, err := h.service.ListEnabledWithProfiles(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -355,224 +348,236 @@ func (h *DebugHandlers) SimulateImport(c echo.Context) error {
 		return c.JSON(http.StatusOK, output)
 	}
 
-	// Evaluate against each slot
 	for _, slot := range slots {
-		detail := SlotEvaluationDetail{
-			SlotID:       slot.ID,
-			SlotNumber:   slot.SlotNumber,
-			SlotName:     slot.Name,
-			QualityScore: qualityScore,
-		}
-
-		if slot.QualityProfileID != nil {
-			detail.ProfileID = slot.QualityProfileID
-			profile, err := h.service.qualityService.Get(c.Request().Context(), *slot.QualityProfileID)
-			if err == nil {
-				detail.ProfileName = profile.Name
-
-				// Calculate attribute match (HDR, codecs, etc.)
-				matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
-				// Check if quality/resolution is allowed in profile
-				qualityMatchResult := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
-
-				// Both must pass for a full match
-				detail.AttributesPassed = matchResult.AllMatch && qualityMatchResult.Matches
-				detail.AttributeScore = matchResult.TotalScore
-				detail.MatchScore = qualityScore + matchResult.TotalScore
-				detail.Confidence = 1.0
-				if !detail.AttributesPassed {
-					detail.Confidence = 0.5
-				}
-			}
-		}
-
-		// Check current slot status
-		currentFile := h.service.getCurrentSlotFile(c.Request().Context(), input.MediaType, input.MediaID, slot.ID)
-		detail.IsEmpty = currentFile == nil
-		if currentFile != nil {
-			detail.CurrentQuality = currentFile.Quality
-			detail.IsUpgrade = detail.MatchScore > currentFile.QualityScore
-		}
-
+		detail := h.evaluateSlotForImport(c, slot, &releaseAttrs, parsed, qualityScore, input.MediaType, input.MediaID)
 		output.SlotEvaluations = append(output.SlotEvaluations, detail)
 	}
 
-	// Determine recommended slot and action
+	determineImportAction(&output)
+	return c.JSON(http.StatusOK, output)
+}
+
+func buildParsedReleaseOutput(parsed *scanner.ParsedMedia, qualityScore float64) ParseReleaseOutput {
+	return ParseReleaseOutput{
+		Title:         parsed.Title,
+		Year:          parsed.Year,
+		Quality:       parsed.Quality,
+		Source:        parsed.Source,
+		VideoCodec:    parsed.Codec,
+		AudioCodecs:   parsed.AudioCodecs,
+		AudioChannels: parsed.AudioChannels,
+		HDRFormats:    parsed.HDRFormats,
+		QualityScore:  qualityScore,
+	}
+}
+
+func (h *DebugHandlers) evaluateSlotForImport(
+	c echo.Context,
+	slot *SlotWithProfile,
+	releaseAttrs *quality.ReleaseAttributes,
+	parsed *scanner.ParsedMedia,
+	qualityScore float64,
+	mediaType string,
+	mediaID int64,
+) SlotEvaluationDetail {
+	detail := SlotEvaluationDetail{
+		SlotID:       slot.ID,
+		SlotNumber:   slot.SlotNumber,
+		SlotName:     slot.Name,
+		QualityScore: qualityScore,
+	}
+
+	if slot.QualityProfileID != nil {
+		detail.ProfileID = slot.QualityProfileID
+		profile, err := h.service.qualityService.Get(c.Request().Context(), *slot.QualityProfileID)
+		if err == nil {
+			detail.ProfileName = profile.Name
+			matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
+			qualityMatchResult := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
+			detail.AttributesPassed = matchResult.AllMatch && qualityMatchResult.Matches
+			detail.AttributeScore = matchResult.TotalScore
+			detail.MatchScore = qualityScore + matchResult.TotalScore
+			detail.Confidence = 1.0
+			if !detail.AttributesPassed {
+				detail.Confidence = 0.5
+			}
+		}
+	}
+
+	currentFile := h.service.getCurrentSlotFile(c.Request().Context(), mediaType, mediaID, slot.ID)
+	detail.IsEmpty = currentFile == nil
+	if currentFile != nil {
+		detail.CurrentQuality = currentFile.Quality
+		detail.IsUpgrade = detail.MatchScore > currentFile.QualityScore
+	}
+
+	return detail
+}
+
+func determineImportAction(output *SimulateImportOutput) {
 	var bestMatch *SlotEvaluationDetail
 	var matchingCount int
 	for i := range output.SlotEvaluations {
-		if output.SlotEvaluations[i].AttributesPassed {
-			matchingCount++
-			if bestMatch == nil || output.SlotEvaluations[i].MatchScore > bestMatch.MatchScore {
-				bestMatch = &output.SlotEvaluations[i]
-			}
+		if !output.SlotEvaluations[i].AttributesPassed {
+			continue
+		}
+		matchingCount++
+		if bestMatch == nil || output.SlotEvaluations[i].MatchScore > bestMatch.MatchScore {
+			bestMatch = &output.SlotEvaluations[i]
 		}
 	}
 
 	output.MatchingCount = matchingCount
 
-	if matchingCount == 0 {
+	switch {
+	case matchingCount == 0:
 		output.ImportAction = "reject"
 		output.ImportReason = "Release does not match any slot profile requirements"
-	} else if matchingCount > 1 {
-		// Check if scores are equal
-		var equalScores bool
-		for _, eval := range output.SlotEvaluations {
-			if eval.AttributesPassed && &eval != bestMatch && eval.MatchScore == bestMatch.MatchScore {
-				equalScores = true
-				break
-			}
-		}
-		if equalScores {
-			output.RequiresSelection = true
-			output.ImportAction = "user_choice"
-			output.ImportReason = "Multiple slots match equally - user selection required"
-		} else {
-			output.ImportAction = "accept"
-			output.ImportReason = "Best matching slot determined"
-			output.RecommendedSlot = bestMatch
-		}
-	} else {
+	case matchingCount > 1 && hasEqualTopScores(output.SlotEvaluations, bestMatch):
+		output.RequiresSelection = true
+		output.ImportAction = "user_choice"
+		output.ImportReason = "Multiple slots match equally - user selection required"
+	default:
 		output.ImportAction = "accept"
-		output.ImportReason = "Single matching slot found"
+		if matchingCount == 1 {
+			output.ImportReason = "Single matching slot found"
+		} else {
+			output.ImportReason = "Best matching slot determined"
+		}
 		output.RecommendedSlot = bestMatch
 	}
+}
 
-	return c.JSON(http.StatusOK, output)
+func hasEqualTopScores(evals []SlotEvaluationDetail, best *SlotEvaluationDetail) bool {
+	for i := range evals {
+		if evals[i].AttributesPassed && &evals[i] != best && evals[i].MatchScore == best.MatchScore {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper functions
 
-func calculateQualityScoreForDebug(parsed *scanner.ParsedMedia) float64 {
-	var score float64
-
-	switch parsed.Quality {
+func resolutionScore(q string) float64 {
+	switch q {
 	case "2160p":
-		score += 40
+		return 40
 	case "1080p":
-		score += 30
+		return 30
 	case "720p":
-		score += 20
+		return 20
 	case "480p":
-		score += 10
+		return 10
+	default:
+		return 0
 	}
+}
 
-	switch parsed.Source {
+func sourceScore(s string) float64 {
+	switch s {
 	case "Remux":
-		score += 10
+		return 10
 	case "BluRay":
-		score += 8
+		return 8
 	case "WEB-DL":
-		score += 6
+		return 6
 	case "WEBRip":
-		score += 5
+		return 5
 	case "HDTV":
-		score += 4
+		return 4
 	case "DVDRip":
-		score += 2
+		return 2
 	case "SDTV":
-		score += 1
+		return 1
+	default:
+		return 0
 	}
+}
 
-	return score
+func calculateQualityScoreForDebug(parsed *scanner.ParsedMedia) float64 {
+	return resolutionScore(parsed.Quality) + sourceScore(parsed.Source)
+}
+
+func attributeMode(settings quality.AttributeSettings) string {
+	switch {
+	case len(settings.GetRequired()) > 0:
+		return "required"
+	case len(settings.GetPreferred()) > 0:
+		return "preferred"
+	case len(settings.GetNotAllowed()) > 0:
+		return "notAllowed"
+	default:
+		return "any"
+	}
+}
+
+func collectProfileValues(settings quality.AttributeSettings) []string {
+	var vals []string
+	vals = append(vals, settings.GetRequired()...)
+	vals = append(vals, settings.GetPreferred()...)
+	vals = append(vals, settings.GetNotAllowed()...)
+	return vals
+}
+
+func mismatchReason(settings quality.AttributeSettings, releaseVal string) string {
+	if len(settings.GetNotAllowed()) > 0 {
+		return "Release contains a blocked (not allowed) value"
+	}
+	if len(settings.GetRequired()) > 0 {
+		if releaseVal == "" {
+			return "Required attribute missing from release"
+		}
+		return "Release value does not match required values"
+	}
+	return ""
 }
 
 func buildAttributeMatchResult(settings quality.AttributeSettings, releaseValues []string, result quality.AttributeMatchResult) AttributeMatchResult {
-	// Determine effective mode based on per-item settings
-	mode := "any"
-	requiredValues := settings.GetRequired()
-	preferredValues := settings.GetPreferred()
-	notAllowedValues := settings.GetNotAllowed()
-
-	if len(requiredValues) > 0 {
-		mode = "required"
-	} else if len(preferredValues) > 0 {
-		mode = "preferred"
-	} else if len(notAllowedValues) > 0 {
-		mode = "notAllowed"
-	}
-
-	releaseVal := ""
-	if len(releaseValues) > 0 {
-		for i, v := range releaseValues {
-			if i > 0 {
-				releaseVal += ", "
-			}
-			releaseVal += v
-		}
-	}
-
-	// Build profile values from all non-any items
-	var profileValues []string
-	profileValues = append(profileValues, requiredValues...)
-	profileValues = append(profileValues, preferredValues...)
-	profileValues = append(profileValues, notAllowedValues...)
+	releaseVal := strings.Join(releaseValues, ", ")
 
 	matchResult := AttributeMatchResult{
-		Mode:          mode,
-		ProfileValues: profileValues,
+		Mode:          attributeMode(settings),
+		ProfileValues: collectProfileValues(settings),
 		ReleaseValue:  releaseVal,
 		Matches:       result.Matches,
 		Score:         result.Score,
 	}
 
 	if !result.Matches {
-		if len(notAllowedValues) > 0 {
-			matchResult.Reason = "Release contains a blocked (not allowed) value"
-		} else if len(requiredValues) > 0 {
-			if releaseVal == "" {
-				matchResult.Reason = "Required attribute missing from release"
-			} else {
-				matchResult.Reason = "Release value does not match required values"
-			}
-		}
+		matchResult.Reason = mismatchReason(settings, releaseVal)
 	}
 
 	return matchResult
 }
 
 func buildSingleAttributeMatchResult(settings quality.AttributeSettings, releaseValue string, result quality.AttributeMatchResult) AttributeMatchResult {
-	// Determine effective mode based on per-item settings
-	mode := "any"
-	requiredValues := settings.GetRequired()
-	preferredValues := settings.GetPreferred()
-	notAllowedValues := settings.GetNotAllowed()
-
-	if len(requiredValues) > 0 {
-		mode = "required"
-	} else if len(preferredValues) > 0 {
-		mode = "preferred"
-	} else if len(notAllowedValues) > 0 {
-		mode = "notAllowed"
-	}
-
-	// Build profile values from all non-any items
-	var profileValues []string
-	profileValues = append(profileValues, requiredValues...)
-	profileValues = append(profileValues, preferredValues...)
-	profileValues = append(profileValues, notAllowedValues...)
-
 	matchResult := AttributeMatchResult{
-		Mode:          mode,
-		ProfileValues: profileValues,
+		Mode:          attributeMode(settings),
+		ProfileValues: collectProfileValues(settings),
 		ReleaseValue:  releaseValue,
 		Matches:       result.Matches,
 		Score:         result.Score,
 	}
 
 	if !result.Matches {
-		if len(notAllowedValues) > 0 {
-			matchResult.Reason = "Release value is blocked (not allowed)"
-		} else if len(requiredValues) > 0 {
-			if releaseValue == "" {
-				matchResult.Reason = "Required attribute missing from release"
-			} else {
-				matchResult.Reason = "Release value does not match required values"
-			}
-		}
+		matchResult.Reason = singleMismatchReason(settings, releaseValue)
 	}
 
 	return matchResult
+}
+
+func singleMismatchReason(settings quality.AttributeSettings, releaseValue string) string {
+	if len(settings.GetNotAllowed()) > 0 {
+		return "Release value is blocked (not allowed)"
+	}
+	if len(settings.GetRequired()) > 0 {
+		if releaseValue == "" {
+			return "Required attribute missing from release"
+		}
+		return "Release value does not match required values"
+	}
+	return ""
 }
 
 // GeneratePreviewInput is the request body for generating a mock migration preview.
@@ -633,7 +638,6 @@ func (h *DebugHandlers) GeneratePreview(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	// Get enabled slots
 	slots, err := h.service.ListEnabled(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -644,146 +648,153 @@ func (h *DebugHandlers) GeneratePreview(c echo.Context) error {
 		TVShows: make([]TVShowMigrationPreview, 0, len(input.TVShows)),
 	}
 
-	// Process movies - uses the same logic as real migration preview
 	for _, movie := range input.Movies {
-		var evals []FileEvaluation
-		for _, file := range movie.Files {
-			eval := h.service.evaluateFileAgainstSlots(ctx, file.Path, file.Quality, slots)
-			eval.FileID = file.FileID
-			eval.MediaID = movie.MovieID
-			eval.MediaType = "movie"
-			eval.Size = file.Size
-			evals = append(evals, eval)
-		}
-
-		assignments := h.service.resolveSlotAssignments(ctx, evals, slots)
-
-		moviePreview := MovieMigrationPreview{
-			MovieID: movie.MovieID,
-			Title:   movie.Title,
-			Year:    movie.Year,
-			Files:   make([]FileMigrationPreview, 0, len(assignments)),
-		}
-
-		for i := range assignments {
-			filePreview := assignments[i].toFileMigrationPreview()
-			if filePreview.NeedsReview || filePreview.Conflict != "" {
-				moviePreview.HasConflict = true
-				if filePreview.Conflict != "" {
-					moviePreview.Conflicts = append(moviePreview.Conflicts, filePreview.Conflict)
-				}
-			}
-			moviePreview.Files = append(moviePreview.Files, filePreview)
-		}
-
-		preview.Movies = append(preview.Movies, moviePreview)
+		preview.Movies = append(preview.Movies, h.previewMovie(c, movie, slots))
 	}
 
-	// Process TV shows
 	for _, show := range input.TVShows {
-		showPreview := TVShowMigrationPreview{
-			SeriesID: show.SeriesID,
-			Title:    show.Title,
-			Seasons:  make([]SeasonMigrationPreview, 0, len(show.Seasons)),
-		}
-
-		for _, season := range show.Seasons {
-			seasonPreview := SeasonMigrationPreview{
-				SeasonNumber: season.SeasonNumber,
-				Episodes:     make([]EpisodeMigrationPreview, 0, len(season.Episodes)),
-			}
-
-			for _, episode := range season.Episodes {
-				var evals []FileEvaluation
-				for _, file := range episode.Files {
-					eval := h.service.evaluateFileAgainstSlots(ctx, file.Path, file.Quality, slots)
-					eval.FileID = file.FileID
-					eval.MediaID = episode.EpisodeID
-					eval.MediaType = "episode"
-					eval.Size = file.Size
-					evals = append(evals, eval)
-				}
-
-				assignments := h.service.resolveSlotAssignments(ctx, evals, slots)
-
-				episodePreview := EpisodeMigrationPreview{
-					EpisodeID:     episode.EpisodeID,
-					EpisodeNumber: episode.EpisodeNumber,
-					Title:         episode.Title,
-					Files:         make([]FileMigrationPreview, 0, len(assignments)),
-				}
-
-				for i := range assignments {
-					filePreview := assignments[i].toFileMigrationPreview()
-					if filePreview.NeedsReview || filePreview.Conflict != "" {
-						episodePreview.HasConflict = true
-					}
-					episodePreview.Files = append(episodePreview.Files, filePreview)
-					seasonPreview.TotalFiles++
-					showPreview.TotalFiles++
-				}
-
-				if episodePreview.HasConflict {
-					seasonPreview.HasConflict = true
-				}
-				seasonPreview.Episodes = append(seasonPreview.Episodes, episodePreview)
-			}
-
-			if seasonPreview.HasConflict {
-				showPreview.HasConflict = true
-			}
-			showPreview.Seasons = append(showPreview.Seasons, seasonPreview)
-		}
-
-		preview.TVShows = append(preview.TVShows, showPreview)
+		preview.TVShows = append(preview.TVShows, h.previewTVShow(c, show, slots))
 	}
 
-	// Calculate summary
-	preview.Summary = calculateMigrationSummary(preview)
-
+	preview.Summary = calculateMigrationSummary(&preview)
 	return c.JSON(http.StatusOK, preview)
 }
 
+func (h *DebugHandlers) previewMovie(ctx echo.Context, movie MockMovie, slots []*Slot) MovieMigrationPreview {
+	var evals []FileEvaluation
+	for _, file := range movie.Files {
+		eval := h.service.evaluateFileAgainstSlots(ctx.Request().Context(), file.Path, file.Quality, slots)
+		eval.FileID = file.FileID
+		eval.MediaID = movie.MovieID
+		eval.MediaType = mediaTypeMovie
+		eval.Size = file.Size
+		evals = append(evals, eval)
+	}
+
+	assignments := h.service.resolveSlotAssignments(ctx.Request().Context(), evals, slots)
+
+	moviePreview := MovieMigrationPreview{
+		MovieID: movie.MovieID,
+		Title:   movie.Title,
+		Year:    movie.Year,
+		Files:   make([]FileMigrationPreview, 0, len(assignments)),
+	}
+
+	for i := range assignments {
+		filePreview := assignments[i].toFileMigrationPreview()
+		if filePreview.NeedsReview || filePreview.Conflict != "" {
+			moviePreview.HasConflict = true
+			if filePreview.Conflict != "" {
+				moviePreview.Conflicts = append(moviePreview.Conflicts, filePreview.Conflict)
+			}
+		}
+		moviePreview.Files = append(moviePreview.Files, filePreview)
+	}
+
+	return moviePreview
+}
+
+func (h *DebugHandlers) previewTVShow(ctx echo.Context, show MockTVShow, slots []*Slot) TVShowMigrationPreview {
+	showPreview := TVShowMigrationPreview{
+		SeriesID: show.SeriesID,
+		Title:    show.Title,
+		Seasons:  make([]SeasonMigrationPreview, 0, len(show.Seasons)),
+	}
+
+	for _, season := range show.Seasons {
+		seasonPreview := h.previewSeason(ctx, season, slots)
+		showPreview.TotalFiles += seasonPreview.TotalFiles
+		if seasonPreview.HasConflict {
+			showPreview.HasConflict = true
+		}
+		showPreview.Seasons = append(showPreview.Seasons, seasonPreview)
+	}
+
+	return showPreview
+}
+
+func (h *DebugHandlers) previewSeason(ctx echo.Context, season MockSeason, slots []*Slot) SeasonMigrationPreview {
+	seasonPreview := SeasonMigrationPreview{
+		SeasonNumber: season.SeasonNumber,
+		Episodes:     make([]EpisodeMigrationPreview, 0, len(season.Episodes)),
+	}
+
+	for _, episode := range season.Episodes {
+		episodePreview := h.previewEpisode(ctx, episode, slots)
+		seasonPreview.TotalFiles += len(episodePreview.Files)
+		if episodePreview.HasConflict {
+			seasonPreview.HasConflict = true
+		}
+		seasonPreview.Episodes = append(seasonPreview.Episodes, episodePreview)
+	}
+
+	return seasonPreview
+}
+
+func (h *DebugHandlers) previewEpisode(ctx echo.Context, episode MockEpisode, slots []*Slot) EpisodeMigrationPreview {
+	var evals []FileEvaluation
+	for _, file := range episode.Files {
+		eval := h.service.evaluateFileAgainstSlots(ctx.Request().Context(), file.Path, file.Quality, slots)
+		eval.FileID = file.FileID
+		eval.MediaID = episode.EpisodeID
+		eval.MediaType = mediaTypeEpisode
+		eval.Size = file.Size
+		evals = append(evals, eval)
+	}
+
+	assignments := h.service.resolveSlotAssignments(ctx.Request().Context(), evals, slots)
+
+	episodePreview := EpisodeMigrationPreview{
+		EpisodeID:     episode.EpisodeID,
+		EpisodeNumber: episode.EpisodeNumber,
+		Title:         episode.Title,
+		Files:         make([]FileMigrationPreview, 0, len(assignments)),
+	}
+
+	for i := range assignments {
+		filePreview := assignments[i].toFileMigrationPreview()
+		if filePreview.NeedsReview || filePreview.Conflict != "" {
+			episodePreview.HasConflict = true
+		}
+		episodePreview.Files = append(episodePreview.Files, filePreview)
+	}
+
+	return episodePreview
+}
+
 // calculateMigrationSummary calculates summary statistics for a migration preview.
-func calculateMigrationSummary(preview MigrationPreview) MigrationSummary {
+func calculateMigrationSummary(preview *MigrationPreview) MigrationSummary {
 	summary := MigrationSummary{
 		TotalMovies:  len(preview.Movies),
 		TotalTVShows: len(preview.TVShows),
 	}
 
-	for _, movie := range preview.Movies {
-		for _, file := range movie.Files {
-			summary.TotalFiles++
-			if file.ProposedSlotID != nil && !file.NeedsReview && file.Conflict == "" {
-				summary.FilesWithSlots++
-			}
-			if file.NeedsReview {
-				summary.FilesNeedingReview++
-			}
-			if file.Conflict != "" {
-				summary.Conflicts++
-			}
-		}
+	for i := range preview.Movies {
+		accumulateFileSummary(&summary, preview.Movies[i].Files)
 	}
 
-	for _, show := range preview.TVShows {
-		for _, season := range show.Seasons {
-			for _, episode := range season.Episodes {
-				for _, file := range episode.Files {
-					summary.TotalFiles++
-					if file.ProposedSlotID != nil && !file.NeedsReview && file.Conflict == "" {
-						summary.FilesWithSlots++
-					}
-					if file.NeedsReview {
-						summary.FilesNeedingReview++
-					}
-					if file.Conflict != "" {
-						summary.Conflicts++
-					}
-				}
+	for i := range preview.TVShows {
+		for j := range preview.TVShows[i].Seasons {
+			for k := range preview.TVShows[i].Seasons[j].Episodes {
+				accumulateFileSummary(&summary, preview.TVShows[i].Seasons[j].Episodes[k].Files)
 			}
 		}
 	}
 
 	return summary
+}
+
+func accumulateFileSummary(summary *MigrationSummary, files []FileMigrationPreview) {
+	for i := range files {
+		summary.TotalFiles++
+		if files[i].ProposedSlotID != nil && !files[i].NeedsReview && files[i].Conflict == "" {
+			summary.FilesWithSlots++
+		}
+		if files[i].NeedsReview {
+			summary.FilesNeedingReview++
+		}
+		if files[i].Conflict != "" {
+			summary.Conflicts++
+		}
+	}
 }

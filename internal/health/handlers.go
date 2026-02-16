@@ -36,9 +36,9 @@ type MetadataService interface {
 
 // Handlers provides HTTP handlers for health endpoints.
 type Handlers struct {
-	health       *Service
-	testFuncs    *TestFunctions
-	fsChecker    *FilesystemChecker
+	health    *Service
+	testFuncs *TestFunctions
+	fsChecker *FilesystemChecker
 }
 
 // TestFunctions holds the test functions for each category.
@@ -164,7 +164,7 @@ func (h *Handlers) testSingleItem(ctx context.Context, category HealthCategory, 
 	case CategoryMetadata:
 		result = h.testMetadataProvider(ctx, id)
 	case CategoryStorage:
-		result = h.testStorage(ctx, id)
+		result = h.testStorage(id)
 	default:
 		result["message"] = "unsupported category"
 	}
@@ -292,41 +292,9 @@ func (h *Handlers) testMetadataProvider(ctx context.Context, id string) map[stri
 
 	switch id {
 	case "tmdb":
-		if h.testFuncs.IsTMDBConfigured == nil || !h.testFuncs.IsTMDBConfigured() {
-			result["message"] = "TMDB not configured"
-			return result
-		}
-		if h.testFuncs.TestTMDB == nil {
-			result["message"] = "TMDB test not configured"
-			return result
-		}
-		if err := h.testFuncs.TestTMDB(ctx); err != nil {
-			h.health.SetError(CategoryMetadata, id, err.Error())
-			result["message"] = err.Error()
-			return result
-		}
-		h.health.ClearStatus(CategoryMetadata, id)
-		result["success"] = true
-		result["message"] = "API connection verified"
-
+		h.testTMDB(ctx, id, result)
 	case "tvdb":
-		if h.testFuncs.IsTVDBConfigured == nil || !h.testFuncs.IsTVDBConfigured() {
-			result["message"] = "TVDB not configured"
-			return result
-		}
-		if h.testFuncs.TestTVDB == nil {
-			result["message"] = "TVDB test not configured"
-			return result
-		}
-		if err := h.testFuncs.TestTVDB(ctx); err != nil {
-			h.health.SetError(CategoryMetadata, id, err.Error())
-			result["message"] = err.Error()
-			return result
-		}
-		h.health.ClearStatus(CategoryMetadata, id)
-		result["success"] = true
-		result["message"] = "API connection verified"
-
+		h.testTVDB(ctx, id, result)
 	default:
 		result["message"] = "unknown metadata provider"
 	}
@@ -334,7 +302,45 @@ func (h *Handlers) testMetadataProvider(ctx context.Context, id string) map[stri
 	return result
 }
 
-func (h *Handlers) testStorage(ctx context.Context, id string) map[string]interface{} {
+func (h *Handlers) testTMDB(ctx context.Context, id string, result map[string]interface{}) {
+	if h.testFuncs.IsTMDBConfigured == nil || !h.testFuncs.IsTMDBConfigured() {
+		result["message"] = "TMDB not configured"
+		return
+	}
+	if h.testFuncs.TestTMDB == nil {
+		result["message"] = "TMDB test not configured"
+		return
+	}
+	if err := h.testFuncs.TestTMDB(ctx); err != nil {
+		h.health.SetError(CategoryMetadata, id, err.Error())
+		result["message"] = err.Error()
+		return
+	}
+	h.health.ClearStatus(CategoryMetadata, id)
+	result["success"] = true
+	result["message"] = "API connection verified"
+}
+
+func (h *Handlers) testTVDB(ctx context.Context, id string, result map[string]interface{}) {
+	if h.testFuncs.IsTVDBConfigured == nil || !h.testFuncs.IsTVDBConfigured() {
+		result["message"] = "TVDB not configured"
+		return
+	}
+	if h.testFuncs.TestTVDB == nil {
+		result["message"] = "TVDB test not configured"
+		return
+	}
+	if err := h.testFuncs.TestTVDB(ctx); err != nil {
+		h.health.SetError(CategoryMetadata, id, err.Error())
+		result["message"] = err.Error()
+		return
+	}
+	h.health.ClearStatus(CategoryMetadata, id)
+	result["success"] = true
+	result["message"] = "API connection verified"
+}
+
+func (h *Handlers) testStorage(id string) map[string]interface{} {
 	result := map[string]interface{}{
 		"id":      id,
 		"success": true,

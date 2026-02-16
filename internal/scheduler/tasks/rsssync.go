@@ -25,7 +25,7 @@ func RegisterRssSyncTask(sched *scheduler.Scheduler, service *rsssync.Service, c
 
 	cronExpr := buildRssSyncCronExpr(cfg.IntervalMin)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          RssSyncTaskID,
 		Name:        "RSS Sync",
 		Description: "Fetch recent releases from RSS feeds and grab matching items",

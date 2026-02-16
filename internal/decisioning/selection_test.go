@@ -18,7 +18,7 @@ func hd1080pProfile() *quality.Profile {
 	return &p
 }
 
-func makeTorrent(title string, source string, resolution int, seeders int) types.TorrentInfo {
+func makeTorrent(title, source string, resolution, seeders int) types.TorrentInfo {
 	return types.TorrentInfo{
 		ReleaseInfo: types.ReleaseInfo{
 			Title:       title,
@@ -32,7 +32,7 @@ func makeTorrent(title string, source string, resolution int, seeders int) types
 	}
 }
 
-func scoreAndSort(releases []types.TorrentInfo, profile *quality.Profile, item SearchableItem) {
+func scoreAndSort(releases []types.TorrentInfo, profile *quality.Profile, item *SearchableItem) {
 	scorer := scoring.NewDefaultScorer()
 	ctx := scoring.ScoringContext{
 		QualityProfile: profile,
@@ -45,14 +45,17 @@ func scoreAndSort(releases []types.TorrentInfo, profile *quality.Profile, item S
 		ctx.SearchEpisode = item.EpisodeNumber
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], ctx)
+		scorer.ScoreTorrent(&releases[i], &ctx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 }
 
-var logger = zerolog.Nop()
+var logger = func() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}()
 
 // Scenario 1A: Missing movie — Bluray-1080p selected, 2160p rejected by IsAcceptable
 func TestSelectBestRelease_Scenario1A_MissingMovie(t *testing.T) {
@@ -73,8 +76,8 @@ func TestSelectBestRelease_Scenario1A_MissingMovie(t *testing.T) {
 		makeTorrent("Dune.Part.Two.2024.720p.WEB-DL.x264", "WEB-DL", 720, 60),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected a release to be selected, got nil")
@@ -106,8 +109,8 @@ func TestSelectBestRelease_Scenario2A_UpgradableMovie(t *testing.T) {
 		makeTorrent("Inception.2010.720p.WEB-DL.x264", "WEB-DL", 720, 60),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected a release to be selected, got nil")
@@ -137,8 +140,8 @@ func TestSelectBestRelease_Scenario3A_NoUpgradeAvailable(t *testing.T) {
 		makeTorrent("Inception.2010.720p.WEBRip.x264", "WEBRip", 720, 60),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best != nil {
 		t.Errorf("expected nil (no upgrade), got %s (quality ID %d)", best.Title, safeQualityID(best))
@@ -165,8 +168,8 @@ func TestSelectBestRelease_Scenario4A_MissingEpisode(t *testing.T) {
 		makeTorrent("Breaking.Bad.S03E07.720p.HDTV.x264", "HDTV", 720, 50),       // correct, lower quality
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected a release to be selected, got nil")
@@ -197,8 +200,8 @@ func TestSelectBestRelease_Scenario5A_DiscSourceUpgrade(t *testing.T) {
 		makeTorrent("Stranger.Things.S04E05.1080p.WEB-DL.x264", "WEB-DL", 1080, 70),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected a release to be selected, got nil")
@@ -229,8 +232,8 @@ func TestSelectBestRelease_Scenario6A_NonDiscUpgradeRejected(t *testing.T) {
 		makeTorrent("Stranger.Things.S04E05.1080p.WEBRip.x264", "WEBRip", 1080, 60),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best != nil {
 		t.Errorf("expected nil (non-disc not an upgrade at same resolution), got %s", best.Title)
@@ -255,8 +258,8 @@ func TestSelectBestRelease_Scenario7A_SeasonPackSelected(t *testing.T) {
 		makeTorrent("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected a season pack release, got nil")
@@ -285,8 +288,8 @@ func TestSelectBestRelease_Scenario8A_SeasonPackUpgrade(t *testing.T) {
 		makeTorrent("Breaking.Bad.S03.720p.WEB-DL.x264", "WEB-DL", 720, 80),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected season pack upgrade, got nil")
@@ -312,13 +315,13 @@ func TestSelectBestRelease_Scenario9A_IndividualEpisodeUpgrade(t *testing.T) {
 	}
 
 	releases := []types.TorrentInfo{
-		makeTorrent("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100),     // season pack — rejected for episode search
-		makeTorrent("Breaking.Bad.S03E01.1080p.BluRay.x264", "BluRay", 1080, 90),   // correct
-		makeTorrent("Breaking.Bad.S03E01.720p.WEB-DL.x264", "WEB-DL", 720, 60),     // not upgrade (balanced: same res non-disc)
+		makeTorrent("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100),   // season pack — rejected for episode search
+		makeTorrent("Breaking.Bad.S03E01.1080p.BluRay.x264", "BluRay", 1080, 90), // correct
+		makeTorrent("Breaking.Bad.S03E01.720p.WEB-DL.x264", "WEB-DL", 720, 60),   // not upgrade (balanced: same res non-disc)
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected individual episode upgrade, got nil")
@@ -346,8 +349,8 @@ func TestSelectBestRelease_Scenario10A_ContinuingSeason(t *testing.T) {
 		makeTorrent("The.Mandalorian.S03E03.1080p.WEB-DL.x264", "WEB-DL", 1080, 80), // correct
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected individual episode, got nil")
@@ -375,8 +378,8 @@ func TestSelectBestRelease_Scenario11A_SeasonPremiere(t *testing.T) {
 		makeTorrent("House.of.the.Dragon.S03E01.720p.HDTV.x264", "HDTV", 720, 60),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected episode release, got nil")
@@ -406,8 +409,8 @@ func TestSelectBestRelease_Scenario12A_UpgradableEpisodeWithUnreleased(t *testin
 		makeTorrent("Stranger.Things.S04E05.1080p.WEB-DL.x264", "WEB-DL", 1080, 70),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected disc upgrade, got nil")
@@ -435,8 +438,8 @@ func TestSelectBestRelease_Scenario14A_SeasonPackBlocked(t *testing.T) {
 		makeTorrent("The.Last.of.Us.S02E02.1080p.WEB-DL.x264", "WEB-DL", 1080, 80), // correct
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best == nil {
 		t.Fatal("expected individual episode, got nil")
@@ -463,8 +466,8 @@ func TestSelectBestRelease_SeasonSearch_NoSeasonPacks(t *testing.T) {
 		makeTorrent("Breaking.Bad.S03E02.1080p.WEB-DL.x264", "WEB-DL", 1080, 75),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best != nil {
 		t.Errorf("expected nil for season search with no season packs, got %s", best.Title)
@@ -487,8 +490,8 @@ func TestSelectBestRelease_HasFileButUnknownQuality(t *testing.T) {
 		makeTorrent("Test.Movie.2024.1080p.BluRay.x264", "BluRay", 1080, 100),
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best != nil {
 		t.Errorf("expected nil when HasFile=true but CurrentQualityID=0, got %s", best.Title)
@@ -505,7 +508,7 @@ func TestSelectBestRelease_EmptyReleases(t *testing.T) {
 		QualityProfileID: profile.ID,
 	}
 
-	best := SelectBestRelease(nil, profile, item, logger)
+	best := SelectBestRelease(nil, profile, &item, logger)
 	if best != nil {
 		t.Errorf("expected nil for empty releases, got %s", best.Title)
 	}
@@ -528,8 +531,8 @@ func TestSelectBestRelease_WrongSeason(t *testing.T) {
 		makeTorrent("Breaking.Bad.S02E07.1080p.WEB-DL.x264", "WEB-DL", 1080, 80), // wrong season
 	}
 
-	scoreAndSort(releases, profile, item)
-	best := SelectBestRelease(releases, profile, item, logger)
+	scoreAndSort(releases, profile, &item)
+	best := SelectBestRelease(releases, profile, &item, logger)
 
 	if best != nil {
 		t.Errorf("expected nil for wrong season, got %s", best.Title)

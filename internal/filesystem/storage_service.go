@@ -14,15 +14,16 @@ import (
 type StorageService struct {
 	fsService     *Service
 	rootFolderSvc *rootfolder.Service
-	logger        zerolog.Logger
+	logger        *zerolog.Logger
 }
 
 // NewStorageService creates a new storage service
-func NewStorageService(fsService *Service, rootFolderSvc *rootfolder.Service, logger zerolog.Logger) *StorageService {
+func NewStorageService(fsService *Service, rootFolderSvc *rootfolder.Service, logger *zerolog.Logger) *StorageService {
+	subLogger := logger.With().Str("component", "storage").Logger()
 	return &StorageService{
 		fsService:     fsService,
 		rootFolderSvc: rootFolderSvc,
-		logger:        logger.With().Str("component", "storage").Logger(),
+		logger:        &subLogger,
 	}
 }
 
@@ -48,9 +49,8 @@ func (s *StorageService) GetStorageInfo(ctx context.Context) ([]StorageInfo, err
 	// Get base storage information
 	if runtime.GOOS == "windows" {
 		return s.getWindowsStorageInfo(rootFolderRefs), nil
-	} else {
-		return s.getUnixStorageInfo(rootFolderRefs), nil
 	}
+	return s.getUnixStorageInfo(rootFolderRefs), nil
 }
 
 // getWindowsStorageInfo aggregates storage info for Windows drives
@@ -119,12 +119,12 @@ func (s *StorageService) getUnixStorageInfo(rootFolders []RootFolderRef) []Stora
 		}
 
 		// Only include volume if it has root folders or is main boot volume
-		if len(volumeRootFolders) == 0 && !s.isMainVolume(volume) {
+		if len(volumeRootFolders) == 0 && !s.isMainVolume(&volume) {
 			continue
 		}
 
 		// Get proper volume label
-		label := s.getVolumeLabel(volume)
+		label := s.getVolumeLabel(&volume)
 
 		storage = append(storage, StorageInfo{
 			Label:       label,
@@ -168,7 +168,7 @@ func (s *StorageService) isPathOnVolume(path, mountPoint string) bool {
 }
 
 // isMainVolume checks if this is the main boot volume
-func (s *StorageService) isMainVolume(volume VolumeInfo) bool {
+func (s *StorageService) isMainVolume(volume *VolumeInfo) bool {
 	// On macOS, the main volume is typically "/"
 	if runtime.GOOS == "darwin" {
 		return volume.MountPoint == "/"
@@ -184,7 +184,7 @@ func (s *StorageService) isMainVolume(volume VolumeInfo) bool {
 }
 
 // getVolumeLabel gets a user-friendly volume label
-func (s *StorageService) getVolumeLabel(volume VolumeInfo) string {
+func (s *StorageService) getVolumeLabel(volume *VolumeInfo) string {
 	// On macOS, use special handling for proper volume names
 	if runtime.GOOS == "darwin" {
 		if volume.MountPoint == "/" {

@@ -65,7 +65,7 @@ type StorageChecker struct {
 	healthService   *Service
 	storageProvider StorageInfoProvider
 	config          *config.HealthConfig
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 
 	mu           sync.Mutex
 	knownVolumes map[string]bool
@@ -76,13 +76,14 @@ func NewStorageChecker(
 	healthSvc *Service,
 	storageProvider StorageInfoProvider,
 	cfg *config.HealthConfig,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *StorageChecker {
+	subLogger := logger.With().Str("component", "storage-health").Logger()
 	return &StorageChecker{
 		healthService:   healthSvc,
 		storageProvider: storageProvider,
 		config:          cfg,
-		logger:          logger.With().Str("component", "storage-health").Logger(),
+		logger:          &subLogger,
 		knownVolumes:    make(map[string]bool),
 	}
 }
@@ -98,63 +99,107 @@ func (c *StorageChecker) CheckAllStorage(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Track current volumes
 	currentVolumes := make(map[string]bool)
-
-	// Get thresholds (with defaults)
-	warningThreshold := c.config.StorageWarningThreshold
-	if warningThreshold == 0 {
-		warningThreshold = 0.20 // 20%
-	}
-	errorThreshold := c.config.StorageErrorThreshold
-	if errorThreshold == 0 {
-		errorThreshold = 0.05 // 5%
-	}
+	thresholds := c.getThresholds()
 
 	for _, item := range storage {
-		// Only track volumes with root folders
 		if !item.HasRootFolder {
 			continue
 		}
 
 		currentVolumes[item.VolumeID] = true
-
-		// Register new volumes
-		if !c.knownVolumes[item.VolumeID] {
-			c.healthService.RegisterItem(CategoryStorage, item.VolumeID, item.Label)
-			c.knownVolumes[item.VolumeID] = true
-			c.logger.Debug().Str("volumeId", item.VolumeID).Str("label", item.Label).Msg("Registered storage volume with health service")
-		}
-
-		// Calculate free space percentage
-		var freePercent float64
-		if item.TotalSpace > 0 {
-			freePercent = float64(item.FreeSpace) / float64(item.TotalSpace)
-		}
-
-		// Determine status based on thresholds
-		if freePercent < errorThreshold {
-			message := fmt.Sprintf("Critically low disk space: %.1f%% free", freePercent*100)
-			c.healthService.SetError(CategoryStorage, item.VolumeID, message)
-			c.logger.Warn().Str("volumeId", item.VolumeID).Float64("freePercent", freePercent*100).Msg("Storage critically low")
-		} else if freePercent < warningThreshold {
-			message := fmt.Sprintf("Low disk space: %.1f%% free", freePercent*100)
-			c.healthService.SetWarning(CategoryStorage, item.VolumeID, message)
-			c.logger.Info().Str("volumeId", item.VolumeID).Float64("freePercent", freePercent*100).Msg("Storage low")
-		} else {
-			c.healthService.ClearStatus(CategoryStorage, item.VolumeID)
-			c.logger.Debug().Str("volumeId", item.VolumeID).Float64("freePercent", freePercent*100).Msg("Storage healthy")
-		}
+		c.registerVolumeIfNew(item)
+		c.checkVolumeHealth(item, thresholds)
 	}
 
-	// Unregister volumes that no longer have root folders
-	for volumeID := range c.knownVolumes {
-		if !currentVolumes[volumeID] {
-			c.healthService.UnregisterItem(CategoryStorage, volumeID)
-			delete(c.knownVolumes, volumeID)
-			c.logger.Debug().Str("volumeId", volumeID).Msg("Unregistered storage volume from health service")
-		}
-	}
-
+	c.unregisterRemovedVolumes(currentVolumes)
 	return nil
+}
+
+type storageThresholds struct {
+	warning float64
+	error   float64
+}
+
+func (c *StorageChecker) getThresholds() storageThresholds {
+	warning := c.config.StorageWarningThreshold
+	if warning == 0 {
+		warning = 0.20
+	}
+	errorThreshold := c.config.StorageErrorThreshold
+	if errorThreshold == 0 {
+		errorThreshold = 0.05
+	}
+	return storageThresholds{warning: warning, error: errorThreshold}
+}
+
+func (c *StorageChecker) registerVolumeIfNew(item StorageItem) {
+	if c.knownVolumes[item.VolumeID] {
+		return
+	}
+	c.healthService.RegisterItem(CategoryStorage, item.VolumeID, item.Label)
+	c.knownVolumes[item.VolumeID] = true
+	c.logger.Debug().
+		Str("volumeId", item.VolumeID).
+		Str("label", item.Label).
+		Msg("Registered storage volume with health service")
+}
+
+func (c *StorageChecker) checkVolumeHealth(item StorageItem, thresholds storageThresholds) {
+	freePercent := calculateFreePercent(item)
+
+	switch {
+	case freePercent < thresholds.error:
+		c.setVolumeError(item, freePercent)
+	case freePercent < thresholds.warning:
+		c.setVolumeWarning(item, freePercent)
+	default:
+		c.clearVolumeStatus(item, freePercent)
+	}
+}
+
+func calculateFreePercent(item StorageItem) float64 {
+	if item.TotalSpace == 0 {
+		return 0
+	}
+	return float64(item.FreeSpace) / float64(item.TotalSpace)
+}
+
+func (c *StorageChecker) setVolumeError(item StorageItem, freePercent float64) {
+	message := fmt.Sprintf("Critically low disk space: %.1f%% free", freePercent*100)
+	c.healthService.SetError(CategoryStorage, item.VolumeID, message)
+	c.logger.Warn().
+		Str("volumeId", item.VolumeID).
+		Float64("freePercent", freePercent*100).
+		Msg("Storage critically low")
+}
+
+func (c *StorageChecker) setVolumeWarning(item StorageItem, freePercent float64) {
+	message := fmt.Sprintf("Low disk space: %.1f%% free", freePercent*100)
+	c.healthService.SetWarning(CategoryStorage, item.VolumeID, message)
+	c.logger.Info().
+		Str("volumeId", item.VolumeID).
+		Float64("freePercent", freePercent*100).
+		Msg("Storage low")
+}
+
+func (c *StorageChecker) clearVolumeStatus(item StorageItem, freePercent float64) {
+	c.healthService.ClearStatus(CategoryStorage, item.VolumeID)
+	c.logger.Debug().
+		Str("volumeId", item.VolumeID).
+		Float64("freePercent", freePercent*100).
+		Msg("Storage healthy")
+}
+
+func (c *StorageChecker) unregisterRemovedVolumes(currentVolumes map[string]bool) {
+	for volumeID := range c.knownVolumes {
+		if currentVolumes[volumeID] {
+			continue
+		}
+		c.healthService.UnregisterItem(CategoryStorage, volumeID)
+		delete(c.knownVolumes, volumeID)
+		c.logger.Debug().
+			Str("volumeId", volumeID).
+			Msg("Unregistered storage volume from health service")
+	}
 }

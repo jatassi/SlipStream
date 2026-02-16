@@ -1,6 +1,7 @@
 package quality
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -66,7 +67,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	profile, err := h.service.Create(c.Request().Context(), input)
+	profile, err := h.service.Create(c.Request().Context(), &input)
 	if err != nil {
 		if errors.Is(err, ErrInvalidProfile) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -89,7 +90,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	profile, err := h.service.Update(c.Request().Context(), id, input)
+	profile, err := h.service.Update(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrProfileNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
@@ -183,46 +184,12 @@ func (h *Handlers) CheckExclusivity(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	profiles := make([]*Profile, 0, len(input.ProfileIDs))
-	for _, id := range input.ProfileIDs {
-		profile, err := h.service.Get(ctx, id)
-		if err != nil {
-			if errors.Is(err, ErrProfileNotFound) {
-				return echo.NewHTTPError(http.StatusNotFound, "profile not found: "+strconv.FormatInt(id, 10))
-			}
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		profiles = append(profiles, profile)
+	profiles, err := h.loadProfiles(ctx, input.ProfileIDs)
+	if err != nil {
+		return err
 	}
 
-	var details []ExclusivityDetail
-	allExclusive := true
-
-	for i := 0; i < len(profiles); i++ {
-		for j := i + 1; j < len(profiles); j++ {
-			profileA := profiles[i]
-			profileB := profiles[j]
-
-			result := CheckMutualExclusivity(profileA, profileB)
-			hints := GetProfileExclusivityHints(profileA, profileB)
-
-			detail := ExclusivityDetail{
-				ProfileAID:   profileA.ID,
-				ProfileAName: profileA.Name,
-				ProfileBID:   profileB.ID,
-				ProfileBName: profileB.Name,
-				AreExclusive: result.AreExclusive,
-				Conflicts:    result.ConflictingAttrs,
-				Overlaps:     result.OverlappingAttrs,
-				Hints:        hints,
-			}
-			details = append(details, detail)
-
-			if !result.AreExclusive {
-				allExclusive = false
-			}
-		}
-	}
+	details, allExclusive := compareProfilePairs(profiles)
 
 	response := CheckExclusivityResponse{
 		Valid:   allExclusive,
@@ -230,18 +197,66 @@ func (h *Handlers) CheckExclusivity(c echo.Context) error {
 	}
 
 	if !allExclusive {
-		slots := make([]SlotConfig, len(profiles))
-		for i, p := range profiles {
-			slots[i] = SlotConfig{
-				SlotNumber: i + 1,
-				SlotName:   "Slot " + strconv.Itoa(i+1),
-				Enabled:    true,
-				Profile:    p,
-			}
-		}
-		errs, _ := ValidateSlotExclusivity(slots)
-		response.Errors = errs
+		response.Errors = h.buildExclusivityErrors(profiles)
 	}
 
 	return c.JSON(http.StatusOK, response)
+}
+
+func (h *Handlers) loadProfiles(ctx context.Context, ids []int64) ([]*Profile, error) {
+	profiles := make([]*Profile, 0, len(ids))
+	for _, id := range ids {
+		profile, err := h.service.Get(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrProfileNotFound) {
+				return nil, echo.NewHTTPError(http.StatusNotFound, "profile not found: "+strconv.FormatInt(id, 10))
+			}
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		profiles = append(profiles, profile)
+	}
+	return profiles, nil
+}
+
+func compareProfilePairs(profiles []*Profile) ([]ExclusivityDetail, bool) {
+	var details []ExclusivityDetail
+	allExclusive := true
+
+	for i := 0; i < len(profiles); i++ {
+		for j := i + 1; j < len(profiles); j++ {
+			result := CheckMutualExclusivity(profiles[i], profiles[j])
+			hints := GetProfileExclusivityHints(profiles[i], profiles[j])
+
+			details = append(details, ExclusivityDetail{
+				ProfileAID:   profiles[i].ID,
+				ProfileAName: profiles[i].Name,
+				ProfileBID:   profiles[j].ID,
+				ProfileBName: profiles[j].Name,
+				AreExclusive: result.AreExclusive,
+				Conflicts:    result.ConflictingAttrs,
+				Overlaps:     result.OverlappingAttrs,
+				Hints:        hints,
+			})
+
+			if !result.AreExclusive {
+				allExclusive = false
+			}
+		}
+	}
+
+	return details, allExclusive
+}
+
+func (h *Handlers) buildExclusivityErrors(profiles []*Profile) []SlotExclusivityError {
+	slots := make([]SlotConfig, len(profiles))
+	for i, p := range profiles {
+		slots[i] = SlotConfig{
+			SlotNumber: i + 1,
+			SlotName:   "Slot " + strconv.Itoa(i+1),
+			Enabled:    true,
+			Profile:    p,
+		}
+	}
+	errs, _ := ValidateSlotExclusivity(slots)
+	return errs
 }

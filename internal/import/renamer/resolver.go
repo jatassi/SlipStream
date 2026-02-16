@@ -10,14 +10,15 @@ import (
 
 const (
 	// MaxPathLength is the Windows MAX_PATH limit.
-	MaxPathLength = 260
+	MaxPathLength      = 260
+	defaultSeriesTitle = "{Series Title}"
 )
 
 var (
-	ErrPathTooLong     = errors.New("computed path exceeds maximum length")
-	ErrInvalidToken    = errors.New("invalid token in pattern")
-	ErrEmptyPattern    = errors.New("pattern cannot be empty")
-	ErrInvalidPattern  = errors.New("invalid pattern syntax")
+	ErrPathTooLong    = errors.New("computed path exceeds maximum length")
+	ErrInvalidToken   = errors.New("invalid token in pattern")
+	ErrEmptyPattern   = errors.New("pattern cannot be empty")
+	ErrInvalidPattern = errors.New("invalid pattern syntax")
 )
 
 // Settings holds the renaming configuration.
@@ -81,8 +82,8 @@ type Resolver struct {
 }
 
 // NewResolver creates a new Resolver with the given settings.
-func NewResolver(settings Settings) *Resolver {
-	return &Resolver{settings: settings}
+func NewResolver(settings *Settings) *Resolver {
+	return &Resolver{settings: *settings}
 }
 
 // ResolveEpisodeFilename resolves the full episode filename from a pattern.
@@ -170,7 +171,7 @@ func (r *Resolver) ResolveMovieFilename(ctx *TokenContext, extension string) (st
 func (r *Resolver) ResolveSeriesFolderName(ctx *TokenContext) (string, error) {
 	pattern := r.settings.SeriesFolderFormat
 	if pattern == "" {
-		pattern = "{Series Title}"
+		pattern = defaultSeriesTitle
 	}
 
 	folder, err := r.resolvePattern(pattern, ctx)
@@ -414,9 +415,10 @@ func (r *Resolver) applyMultiEpisodeFormat(filename string, ctx *TokenContext) s
 func hasBalancedBraces(s string) bool {
 	depth := 0
 	for _, r := range s {
-		if r == '{' {
+		switch r {
+		case '{':
 			depth++
-		} else if r == '}' {
+		case '}':
 			depth--
 			if depth < 0 {
 				return false

@@ -20,11 +20,11 @@ func TestEpisodeStatus_InitialStatus_Unreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	futureDate := time.Now().AddDate(1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -52,11 +52,11 @@ func TestEpisodeStatus_InitialStatus_Missing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -84,11 +84,11 @@ func TestEpisodeStatus_AddFile_SetsAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -103,7 +103,7 @@ func TestEpisodeStatus_AddFile_SetsAvailable(t *testing.T) {
 	episodes, _ := service.ListEpisodes(ctx, series.ID, nil)
 	ep := episodes[0]
 
-	_, err := service.AddEpisodeFile(ctx, ep.ID, CreateEpisodeFileInput{
+	_, err := service.AddEpisodeFile(ctx, ep.ID, &CreateEpisodeFileInput{
 		Path: "/tv/Test/S01E01.mkv",
 		Size: 500000000,
 	})
@@ -122,11 +122,11 @@ func TestEpisodeStatus_RemoveFile_SetsMissingAndUnmonitors(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -139,7 +139,7 @@ func TestEpisodeStatus_RemoveFile_SetsMissingAndUnmonitors(t *testing.T) {
 	})
 
 	episodes, _ := service.ListEpisodes(ctx, series.ID, nil)
-	file, _ := service.AddEpisodeFile(ctx, episodes[0].ID, CreateEpisodeFileInput{
+	file, _ := service.AddEpisodeFile(ctx, episodes[0].ID, &CreateEpisodeFileInput{
 		Path: "/tv/Test/S01E01.mkv",
 		Size: 1000,
 	})
@@ -163,10 +163,10 @@ func TestEpisodeStatus_NewFields(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -194,7 +194,7 @@ func TestSeriesStatus_ProductionStatus(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -210,7 +210,7 @@ func TestSeriesStatus_ProductionStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			series, err := service.CreateSeries(ctx, CreateSeriesInput{
+			series, err := service.CreateSeries(ctx, &CreateSeriesInput{
 				Title:            "Test " + tt.name,
 				ProductionStatus: tt.productionStatus,
 			})
@@ -229,13 +229,13 @@ func TestSeriesStatus_StatusCounts(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
 	futureDate := time.Now().AddDate(1, 0, 0)
 
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -258,7 +258,7 @@ func TestSeriesStatus_StatusCounts(t *testing.T) {
 
 	// Add a file to S01E01 to make it available
 	episodes, _ := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(1))
-	_, _ = service.AddEpisodeFile(ctx, episodes[0].ID, CreateEpisodeFileInput{
+	_, _ = service.AddEpisodeFile(ctx, episodes[0].ID, &CreateEpisodeFileInput{
 		Path: "/tv/Test/S01E01.mkv",
 		Size: 1000,
 	})
@@ -298,13 +298,13 @@ func TestSeasonStatus_StatusCounts(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
 	futureDate := time.Now().AddDate(1, 0, 0)
 
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -321,7 +321,7 @@ func TestSeasonStatus_StatusCounts(t *testing.T) {
 
 	// Add file to episode 1
 	episodes, _ := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(1))
-	_, _ = service.AddEpisodeFile(ctx, episodes[0].ID, CreateEpisodeFileInput{
+	_, _ = service.AddEpisodeFile(ctx, episodes[0].ID, &CreateEpisodeFileInput{
 		Path: "/tv/Test/S01E01.mkv",
 		Size: 1000,
 	})
@@ -355,12 +355,12 @@ func TestEpisodeStatus_AirDateDatetime(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Test with full datetime including time
 	airTime := time.Date(2024, 3, 15, 21, 0, 0, 0, time.UTC)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -408,11 +408,11 @@ func TestSeriesStatus_StatusCountsAllAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Complete Series",
 		Seasons: []SeasonInput{
 			{
@@ -428,7 +428,7 @@ func TestSeriesStatus_StatusCountsAllAvailable(t *testing.T) {
 
 	episodes, _ := service.ListEpisodes(ctx, series.ID, nil)
 	for _, ep := range episodes {
-		_, _ = service.AddEpisodeFile(ctx, ep.ID, CreateEpisodeFileInput{
+		_, _ = service.AddEpisodeFile(ctx, ep.ID, &CreateEpisodeFileInput{
 			Path: "/tv/" + ep.Title + ".mkv",
 			Size: 1000,
 		})
@@ -448,11 +448,11 @@ func TestSeriesStatus_StatusCountsAllUnreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	futureDate := time.Now().AddDate(1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Upcoming Series",
 		Seasons: []SeasonInput{
 			{
@@ -480,12 +480,12 @@ func TestEpisodeStatus_DownloadLifecycle(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -519,7 +519,7 @@ func TestEpisodeStatus_DownloadLifecycle(t *testing.T) {
 	}
 
 	// Import file → should transition to available
-	_, err := service.AddEpisodeFile(ctx, ep.ID, CreateEpisodeFileInput{
+	_, err := service.AddEpisodeFile(ctx, ep.ID, &CreateEpisodeFileInput{
 		Path: "/tv/Test/S01E01.mkv",
 		Size: 500000000,
 	})
@@ -538,10 +538,10 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  quality.HD1080pProfile().Items,
@@ -550,11 +550,11 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title:            "Test Series",
 		QualityProfileID: profile.ID,
 		Seasons: []SeasonInput{
@@ -572,7 +572,7 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 
 	// Below cutoff → upgradable
 	belowCutoff := int64(4) // HDTV-720p
-	_, err = service.AddEpisodeFile(ctx, episodes[0].ID, CreateEpisodeFileInput{
+	_, err = service.AddEpisodeFile(ctx, episodes[0].ID, &CreateEpisodeFileInput{
 		Path:      "/tv/Test/S01E01.mkv",
 		Size:      500000000,
 		QualityID: &belowCutoff,
@@ -588,7 +588,7 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 
 	// At cutoff → available
 	atCutoff := int64(11) // Bluray-1080p
-	_, err = service.AddEpisodeFile(ctx, episodes[1].ID, CreateEpisodeFileInput{
+	_, err = service.AddEpisodeFile(ctx, episodes[1].ID, &CreateEpisodeFileInput{
 		Path:      "/tv/Test/S01E02.mkv",
 		Size:      500000000,
 		QualityID: &atCutoff,
@@ -608,11 +608,11 @@ func TestSeriesStatus_Season0Exclusion(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{
@@ -649,11 +649,11 @@ func TestEpisodeStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	upgradesDisabled := false
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
@@ -663,11 +663,11 @@ func TestEpisodeStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title:            "Test Series",
 		QualityProfileID: profile.ID,
 		Seasons: []SeasonInput{
@@ -683,7 +683,7 @@ func TestEpisodeStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 	episodes, _ := service.ListEpisodes(ctx, series.ID, nil)
 
 	belowCutoff := int64(4) // HDTV-720p, below cutoff 11
-	_, err = service.AddEpisodeFile(ctx, episodes[0].ID, CreateEpisodeFileInput{
+	_, err = service.AddEpisodeFile(ctx, episodes[0].ID, &CreateEpisodeFileInput{
 		Path:      "/tv/Test/S01E01.mkv",
 		Size:      500000000,
 		QualityID: &belowCutoff,
@@ -702,12 +702,12 @@ func TestEpisodeStatus_ManualRetryClearsStatusMessage(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
-	series, _ := service.CreateSeries(ctx, CreateSeriesInput{
+	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
 		Title: "Test Series",
 		Seasons: []SeasonInput{
 			{

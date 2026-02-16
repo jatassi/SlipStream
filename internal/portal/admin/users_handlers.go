@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -113,60 +114,69 @@ func (h *UsersHandlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	var user *users.User
-
-	if req.Username != nil {
-		user, err = h.usersService.Update(c.Request().Context(), id, users.UpdateInput{
-			Username: req.Username,
-		})
-		if err != nil {
-			if errors.Is(err, users.ErrUserNotFound) {
-				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			}
-			if errors.Is(err, users.ErrUsernameExists) {
-				return echo.NewHTTPError(http.StatusConflict, err.Error())
-			}
-			if errors.Is(err, users.ErrInvalidUsername) {
-				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-			}
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-	}
-
-	if req.QualityProfileID != nil {
-		user, err = h.usersService.SetQualityProfile(c.Request().Context(), id, req.QualityProfileID)
-		if err != nil {
-			if errors.Is(err, users.ErrUserNotFound) {
-				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			}
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-	}
-
-	if req.AutoApprove != nil {
-		user, err = h.usersService.SetAutoApprove(c.Request().Context(), id, *req.AutoApprove)
-		if err != nil {
-			if errors.Is(err, users.ErrUserNotFound) {
-				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			}
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
+	ctx := c.Request().Context()
+	user, err := h.applyUserUpdates(ctx, id, &req)
+	if err != nil {
+		return err
 	}
 
 	if user == nil {
-		user, err = h.usersService.Get(c.Request().Context(), id)
+		user, err = h.usersService.Get(ctx, id)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 	}
 
 	result := &UserWithQuota{User: user}
-	quotaStatus, err := h.quotaService.GetUserQuota(c.Request().Context(), user.ID)
+	quotaStatus, err := h.quotaService.GetUserQuota(ctx, user.ID)
 	if err == nil {
 		result.Quota = quotaStatus
 	}
 
 	return c.JSON(http.StatusOK, result)
+}
+
+func (h *UsersHandlers) applyUserUpdates(ctx context.Context, id int64, req *UpdateUserRequest) (*users.User, error) {
+	var user *users.User
+
+	if req.Username != nil {
+		u, err := h.usersService.Update(ctx, id, users.UpdateInput{Username: req.Username})
+		if err != nil {
+			return nil, mapUserError(err)
+		}
+		user = u
+	}
+
+	if req.QualityProfileID != nil {
+		u, err := h.usersService.SetQualityProfile(ctx, id, req.QualityProfileID)
+		if err != nil {
+			return nil, mapUserError(err)
+		}
+		user = u
+	}
+
+	if req.AutoApprove != nil {
+		u, err := h.usersService.SetAutoApprove(ctx, id, *req.AutoApprove)
+		if err != nil {
+			return nil, mapUserError(err)
+		}
+		user = u
+	}
+
+	return user, nil
+}
+
+func mapUserError(err error) *echo.HTTPError {
+	if errors.Is(err, users.ErrUserNotFound) {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	if errors.Is(err, users.ErrUsernameExists) {
+		return echo.NewHTTPError(http.StatusConflict, err.Error())
+	}
+	if errors.Is(err, users.ErrInvalidUsername) {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }
 
 // Enable enables a user account

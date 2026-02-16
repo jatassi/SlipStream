@@ -14,10 +14,10 @@ func TestHistoryService_Create(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	entry, err := service.Create(ctx, CreateInput{
+	entry, err := service.Create(ctx, &CreateInput{
 		EventType: EventTypeGrabbed,
 		MediaType: MediaTypeMovie,
 		MediaID:   1,
@@ -47,7 +47,7 @@ func TestHistoryService_LogStatusChanged(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	err := service.LogStatusChanged(ctx, MediaTypeMovie, 42, StatusChangedData{
@@ -60,7 +60,7 @@ func TestHistoryService_LogStatusChanged(t *testing.T) {
 	}
 
 	// Verify it was stored
-	resp, err := service.List(ctx, ListOptions{Page: 1, PageSize: 10})
+	resp, err := service.List(ctx, &ListOptions{Page: 1, PageSize: 10})
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestHistoryService_LogStatusChanged_Episode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	err := service.LogStatusChanged(ctx, MediaTypeEpisode, 100, StatusChangedData{
@@ -124,28 +124,28 @@ func TestHistoryService_ListFiltered(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create entries of different types
-	_, _ = service.Create(ctx, CreateInput{
+	_, _ = service.Create(ctx, &CreateInput{
 		EventType: EventTypeGrabbed,
 		MediaType: MediaTypeMovie,
 		MediaID:   1,
 	})
-	_, _ = service.Create(ctx, CreateInput{
+	_, _ = service.Create(ctx, &CreateInput{
 		EventType: EventTypeStatusChanged,
 		MediaType: MediaTypeMovie,
 		MediaID:   2,
 	})
-	_, _ = service.Create(ctx, CreateInput{
+	_, _ = service.Create(ctx, &CreateInput{
 		EventType: EventTypeStatusChanged,
 		MediaType: MediaTypeEpisode,
 		MediaID:   3,
 	})
 
 	// Filter by event type
-	resp, err := service.List(ctx, ListOptions{
+	resp, err := service.List(ctx, &ListOptions{
 		EventType: string(EventTypeStatusChanged),
 		Page:      1,
 		PageSize:  50,
@@ -158,7 +158,7 @@ func TestHistoryService_ListFiltered(t *testing.T) {
 	}
 
 	// Filter by media type
-	resp2, err := service.List(ctx, ListOptions{
+	resp2, err := service.List(ctx, &ListOptions{
 		MediaType: string(MediaTypeEpisode),
 		Page:      1,
 		PageSize:  50,
@@ -223,10 +223,10 @@ func TestHistoryService_LogAutoSearchDownload(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	err := service.LogAutoSearchDownload(ctx, MediaTypeMovie, 1, "Bluray-1080p", AutoSearchDownloadData{
+	err := service.LogAutoSearchDownload(ctx, MediaTypeMovie, 1, "Bluray-1080p", &AutoSearchDownloadData{
 		ReleaseName: "Test.Movie.2024.1080p.BluRay",
 		Indexer:     "test-indexer",
 		ClientName:  "test-client",
@@ -253,15 +253,15 @@ func TestHistoryService_DeleteAll(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	_, _ = service.Create(ctx, CreateInput{
+	_, _ = service.Create(ctx, &CreateInput{
 		EventType: EventTypeGrabbed,
 		MediaType: MediaTypeMovie,
 		MediaID:   1,
 	})
-	_, _ = service.Create(ctx, CreateInput{
+	_, _ = service.Create(ctx, &CreateInput{
 		EventType: EventTypeStatusChanged,
 		MediaType: MediaTypeEpisode,
 		MediaID:   2,
@@ -272,7 +272,7 @@ func TestHistoryService_DeleteAll(t *testing.T) {
 		t.Fatalf("DeleteAll() error = %v", err)
 	}
 
-	resp, _ := service.List(ctx, ListOptions{Page: 1, PageSize: 50})
+	resp, _ := service.List(ctx, &ListOptions{Page: 1, PageSize: 50})
 	if len(resp.Items) != 0 {
 		t.Errorf("After DeleteAll: %d items remain", len(resp.Items))
 	}
@@ -282,19 +282,19 @@ func TestHistoryService_Pagination(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create 5 entries
 	for i := 1; i <= 5; i++ {
-		_, _ = service.Create(ctx, CreateInput{
+		_, _ = service.Create(ctx, &CreateInput{
 			EventType: EventTypeGrabbed,
 			MediaType: MediaTypeMovie,
 			MediaID:   int64(i),
 		})
 	}
 
-	resp, err := service.List(ctx, ListOptions{Page: 1, PageSize: 2})
+	resp, err := service.List(ctx, &ListOptions{Page: 1, PageSize: 2})
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}

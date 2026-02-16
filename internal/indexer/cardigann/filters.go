@@ -69,33 +69,53 @@ func ApplyFilters(value string, filterList []Filter) (string, error) {
 	return ApplyFiltersWithContext(value, filterList, nil, nil)
 }
 
+// evaluateFilterArgs evaluates template expressions in filter arguments
+func evaluateFilterArgs(args []string, engine *TemplateEngine, ctx *TemplateContext) []string {
+	if engine == nil || ctx == nil {
+		return args
+	}
+
+	result := make([]string, len(args))
+	for i, arg := range args {
+		if strings.Contains(arg, "{{") {
+			evaluated, err := engine.Evaluate(arg, ctx)
+			if err == nil {
+				result[i] = evaluated
+			} else {
+				result[i] = arg
+			}
+		} else {
+			result[i] = arg
+		}
+	}
+	return result
+}
+
+// applyFilter applies a single filter to a value
+func applyFilter(value string, f Filter, engine *TemplateEngine, ctx *TemplateContext) (string, error) {
+	args := normalizeFilterArgs(f.Args)
+	args = evaluateFilterArgs(args, engine, ctx)
+
+	fn, ok := filters[f.Name]
+	if !ok {
+		return value, nil
+	}
+
+	result, err := fn(value, args)
+	if err != nil {
+		return "", fmt.Errorf("filter %s failed: %w", f.Name, err)
+	}
+	return result, nil
+}
+
 // ApplyFiltersWithContext applies filters with template evaluation support.
 func ApplyFiltersWithContext(value string, filterList []Filter, engine *TemplateEngine, ctx *TemplateContext) (string, error) {
 	result := value
 	for _, f := range filterList {
-		args := normalizeFilterArgs(f.Args)
-
-		// Evaluate template expressions in filter arguments
-		if engine != nil && ctx != nil {
-			for i, arg := range args {
-				if strings.Contains(arg, "{{") {
-					evaluated, err := engine.Evaluate(arg, ctx)
-					if err == nil {
-						args[i] = evaluated
-					}
-				}
-			}
-		}
-
-		fn, ok := filters[f.Name]
-		if !ok {
-			// Unknown filter, skip with warning
-			continue
-		}
 		var err error
-		result, err = fn(result, args)
+		result, err = applyFilter(result, f, engine, ctx)
 		if err != nil {
-			return "", fmt.Errorf("filter %s failed: %w", f.Name, err)
+			return "", err
 		}
 	}
 	return result, nil
@@ -135,9 +155,9 @@ func filterReReplace(value string, args []string) (string, error) {
 	if len(args) < 2 {
 		return value, nil
 	}
-	re, err := regexp.Compile(args[0])
-	if err != nil {
-		return value, nil // Skip invalid regex
+	re, compileErr := regexp.Compile(args[0])
+	if compileErr != nil {
+		return value, nil //nolint:nilerr // Skip invalid regex
 	}
 	return re.ReplaceAllString(value, args[1]), nil
 }
@@ -147,9 +167,9 @@ func filterSplit(value string, args []string) (string, error) {
 		return value, nil
 	}
 	sep := args[0]
-	idx, err := strconv.Atoi(args[1])
-	if err != nil {
-		return value, nil
+	idx, parseErr := strconv.Atoi(args[1])
+	if parseErr != nil {
+		return value, nil //nolint:nilerr // Invalid index, return original
 	}
 	parts := strings.Split(value, sep)
 	if idx < 0 {
@@ -212,8 +232,8 @@ func filterDateParse(value string, args []string) (string, error) {
 	}
 
 	layout := convertGoDateFormat(args[0])
-	t, err := time.Parse(layout, value)
-	if err != nil {
+	t, parseErr := time.Parse(layout, value)
+	if parseErr != nil {
 		// Try common formats
 		formats := []string{
 			time.RFC3339,
@@ -228,12 +248,12 @@ func filterDateParse(value string, args []string) (string, error) {
 			"January 2, 2006",
 		}
 		for _, f := range formats {
-			if t, err = time.Parse(f, value); err == nil {
+			if t, parseErr = time.Parse(f, value); parseErr == nil {
 				break
 			}
 		}
-		if err != nil {
-			return value, nil
+		if parseErr != nil {
+			return value, nil //nolint:nilerr // Unable to parse date, return original
 		}
 	}
 	return t.Format(time.RFC3339), nil
@@ -266,11 +286,18 @@ func convertGoDateFormat(format string) string {
 	return result
 }
 
-func filterTimeAgo(value string, args []string) (string, error) {
+var timeUnitMultiplier = map[string]time.Duration{
+	"second": time.Second,
+	"minute": time.Minute,
+	"hour":   time.Hour,
+	"day":    24 * time.Hour,
+	"week":   7 * 24 * time.Hour,
+}
+
+func filterTimeAgo(value string, _ []string) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	now := time.Now()
 
-	// Handle "today" and "yesterday"
 	if value == "today" {
 		return now.Format(time.RFC3339), nil
 	}
@@ -278,7 +305,6 @@ func filterTimeAgo(value string, args []string) (string, error) {
 		return now.AddDate(0, 0, -1).Format(time.RFC3339), nil
 	}
 
-	// Parse relative time like "2 hours ago", "3 days ago"
 	re := regexp.MustCompile(`(\d+)\s*(second|minute|hour|day|week|month|year)s?\s*ago`)
 	matches := re.FindStringSubmatch(value)
 	if len(matches) < 3 {
@@ -288,25 +314,18 @@ func filterTimeAgo(value string, args []string) (string, error) {
 	num, _ := strconv.Atoi(matches[1])
 	unit := matches[2]
 
-	var d time.Duration
-	switch unit {
-	case "second":
-		d = time.Duration(num) * time.Second
-	case "minute":
-		d = time.Duration(num) * time.Minute
-	case "hour":
-		d = time.Duration(num) * time.Hour
-	case "day":
-		d = time.Duration(num) * 24 * time.Hour
-	case "week":
-		d = time.Duration(num) * 7 * 24 * time.Hour
-	case "month":
+	if unit == "month" {
 		return now.AddDate(0, -num, 0).Format(time.RFC3339), nil
-	case "year":
+	}
+	if unit == "year" {
 		return now.AddDate(-num, 0, 0).Format(time.RFC3339), nil
 	}
 
-	return now.Add(-d).Format(time.RFC3339), nil
+	if multiplier, ok := timeUnitMultiplier[unit]; ok {
+		return now.Add(-time.Duration(num) * multiplier).Format(time.RFC3339), nil
+	}
+
+	return value, nil
 }
 
 func filterFuzzyTime(value string, args []string) (string, error) {
@@ -322,9 +341,9 @@ func filterFuzzyTime(value string, args []string) (string, error) {
 // URL processing filters
 
 func filterURLDecode(value string, args []string) (string, error) {
-	decoded, err := url.QueryUnescape(value)
-	if err != nil {
-		return value, nil
+	decoded, unescapeErr := url.QueryUnescape(value)
+	if unescapeErr != nil {
+		return value, nil //nolint:nilerr // Invalid URL encoding, return original
 	}
 	return decoded, nil
 }
@@ -375,9 +394,9 @@ func filterRegexp(value string, args []string) (string, error) {
 	if len(args) < 1 {
 		return value, nil
 	}
-	re, err := regexp.Compile(args[0])
-	if err != nil {
-		return "", nil
+	re, compileErr := regexp.Compile(args[0])
+	if compileErr != nil {
+		return "", nil //nolint:nilerr // Invalid regex, return empty
 	}
 	matches := re.FindStringSubmatch(value)
 	if len(matches) < 2 {
@@ -414,9 +433,9 @@ func filterSize(value string, args []string) (string, error) {
 		return "0", nil
 	}
 
-	num, err := strconv.ParseFloat(matches[1], 64)
-	if err != nil {
-		return "0", nil
+	num, parseErr := strconv.ParseFloat(matches[1], 64)
+	if parseErr != nil {
+		return "0", nil //nolint:nilerr // Invalid number, return zero
 	}
 
 	var multiplier float64 = 1
@@ -446,13 +465,13 @@ func filterMultiply(value string, args []string) (string, error) {
 	if len(args) < 1 {
 		return value, nil
 	}
-	num, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return value, nil
+	num, parseErr := strconv.ParseFloat(value, 64)
+	if parseErr != nil {
+		return value, nil //nolint:nilerr // Invalid number, return original
 	}
-	factor, err := strconv.ParseFloat(args[0], 64)
-	if err != nil {
-		return value, nil
+	factor, factorErr := strconv.ParseFloat(args[0], 64)
+	if factorErr != nil {
+		return value, nil //nolint:nilerr // Invalid factor, return original
 	}
 	return fmt.Sprintf("%f", num*factor), nil
 }
@@ -461,13 +480,13 @@ func filterDivide(value string, args []string) (string, error) {
 	if len(args) < 1 {
 		return value, nil
 	}
-	num, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return value, nil
+	num, parseErr := strconv.ParseFloat(value, 64)
+	if parseErr != nil {
+		return value, nil //nolint:nilerr // Invalid number, return original
 	}
-	divisor, err := strconv.ParseFloat(args[0], 64)
-	if err != nil || divisor == 0 {
-		return value, nil
+	divisor, divisorErr := strconv.ParseFloat(args[0], 64)
+	if divisorErr != nil || divisor == 0 {
+		return value, nil //nolint:nilerr // Invalid or zero divisor, return original
 	}
 	return fmt.Sprintf("%f", num/divisor), nil
 }

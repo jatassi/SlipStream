@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,9 +27,12 @@ import (
 )
 
 const (
-	githubAPIURL     = "https://api.github.com/repos/jatassi/SlipStream/releases/latest"
+	githubAPIURL       = "https://api.github.com/repos/jatassi/SlipStream/releases/latest"
 	settingAutoInstall = "update_auto_install"
+	osLinux            = "linux"
 )
+
+var ErrNoUpdateAvailable = fmt.Errorf("no update available")
 
 type State string
 
@@ -101,13 +105,13 @@ type Service struct {
 	restartChan    chan<- bool
 	port           int
 
-	mu            sync.RWMutex
-	status        Status
-	cancelFunc    context.CancelFunc
-	downloadPath  string
+	mu           sync.RWMutex
+	status       Status
+	cancelFunc   context.CancelFunc
+	downloadPath string
 }
 
-func NewService(db *sql.DB, logger zerolog.Logger, restartChan chan<- bool) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger, restartChan chan<- bool) *Service {
 	return &Service{
 		db:     db,
 		logger: logger.With().Str("service", "update").Logger(),
@@ -143,7 +147,7 @@ func (s *Service) GetSettings(ctx context.Context) (*Settings, error) {
 	queries := sqlc.New(s.db)
 	setting, err := queries.GetSetting(ctx, settingAutoInstall)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return &Settings{AutoInstall: true}, nil
 		}
 		return nil, err
@@ -180,7 +184,7 @@ func (s *Service) setState(state State, err error) {
 	s.broadcast(&status)
 }
 
-func (s *Service) setProgress(progress float64, downloadedMB, totalMB float64) {
+func (s *Service) setProgress(progress, downloadedMB, totalMB float64) {
 	s.mu.Lock()
 	s.status.Progress = progress
 	s.status.DownloadedMB = downloadedMB
@@ -215,7 +219,7 @@ func (s *Service) CheckForUpdate(ctx context.Context) (*ReleaseInfo, error) {
 		status := s.status
 		s.mu.Unlock()
 		s.broadcast(&status)
-		return nil, nil
+		return nil, ErrNoUpdateAvailable
 	}
 
 	isNewer, err := IsNewerThan(release.TagName, currentVersion)
@@ -242,11 +246,11 @@ func (s *Service) CheckForUpdate(ctx context.Context) (*ReleaseInfo, error) {
 	status := s.status
 	s.mu.Unlock()
 	s.broadcast(&status)
-	return nil, nil
+	return nil, ErrNoUpdateAvailable
 }
 
 func (s *Service) fetchLatestRelease(ctx context.Context) (*githubRelease, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -309,7 +313,7 @@ func (s *Service) findPlatformAsset(assets []githubAsset) *githubAsset {
 		patterns = []string{
 			fmt.Sprintf("_darwin_%s.dmg", goarch),
 		}
-	case "linux":
+	case osLinux:
 		if isLinuxStubPattern() {
 			// For deb/rpm stub pattern, prefer tarball (direct binary, user-writable)
 			patterns = []string{
@@ -420,12 +424,45 @@ func (s *Service) DownloadAndInstall(ctx context.Context) error {
 
 func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (string, error) {
 	s.setState(StateDownloading, nil)
+
+	resp, startTime, err := s.createDownloadRequest(ctx, release)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		s.logger.Error().Int("statusCode", resp.StatusCode).Msg("Download returned non-200 status")
+		return "", fmt.Errorf("download returned status %d", resp.StatusCode)
+	}
+
+	downloadPath, file, err := s.prepareDownloadFile(release)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	totalSize := float64(release.AssetSize)
+	totalMB := totalSize / (1024 * 1024)
+
+	downloaded, err := s.downloadLoop(ctx, resp.Body, file, downloadPath, totalSize, totalMB)
+	if err != nil {
+		return "", err
+	}
+
+	s.setProgress(100, totalMB, totalMB)
+	s.logger.Info().Str("path", downloadPath).Int64("size", downloaded).Dur("totalTime", time.Since(startTime)).Msg("Update downloaded successfully")
+
+	return downloadPath, nil
+}
+
+func (s *Service) createDownloadRequest(ctx context.Context, release *ReleaseInfo) (*http.Response, time.Time, error) {
 	s.logger.Info().Str("url", release.DownloadURL).Msg("Creating HTTP request for download")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, release.DownloadURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, release.DownloadURL, http.NoBody)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to create download request")
-		return "", fmt.Errorf("failed to create download request: %w", err)
+		return nil, time.Time{}, fmt.Errorf("failed to create download request: %w", err)
 	}
 
 	s.logger.Info().Msg("Executing HTTP request to download update")
@@ -441,9 +478,8 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 		if ctx.Err() != nil {
 			s.logger.Error().Err(ctx.Err()).Msg("Context error details")
 		}
-		return "", fmt.Errorf("failed to download update: %w", err)
+		return nil, time.Time{}, fmt.Errorf("failed to download update: %w", err)
 	}
-	defer resp.Body.Close()
 
 	s.logger.Info().
 		Int("statusCode", resp.StatusCode).
@@ -451,31 +487,30 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 		Dur("responseTime", time.Since(startTime)).
 		Msg("Received HTTP response")
 
-	if resp.StatusCode != http.StatusOK {
-		s.logger.Error().Int("statusCode", resp.StatusCode).Msg("Download returned non-200 status")
-		return "", fmt.Errorf("download returned status %d", resp.StatusCode)
-	}
+	return resp, startTime, nil
+}
 
+func (s *Service) prepareDownloadFile(release *ReleaseInfo) (string, *os.File, error) {
 	tmpDir := os.TempDir()
 	downloadPath := filepath.Join(tmpDir, "slipstream-update", release.AssetName)
 	s.logger.Info().Str("path", downloadPath).Msg("Creating download file")
 
-	if err := os.MkdirAll(filepath.Dir(downloadPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(downloadPath), 0o750); err != nil {
 		s.logger.Error().Err(err).Str("dir", filepath.Dir(downloadPath)).Msg("Failed to create download directory")
-		return "", fmt.Errorf("failed to create download directory: %w", err)
+		return "", nil, fmt.Errorf("failed to create download directory: %w", err)
 	}
 
 	file, err := os.Create(downloadPath)
 	if err != nil {
 		s.logger.Error().Err(err).Str("path", downloadPath).Msg("Failed to create download file")
-		return "", fmt.Errorf("failed to create download file: %w", err)
+		return "", nil, fmt.Errorf("failed to create download file: %w", err)
 	}
-	defer file.Close()
 
-	totalSize := float64(release.AssetSize)
-	totalMB := totalSize / (1024 * 1024)
+	return downloadPath, file, nil
+}
+
+func (s *Service) downloadLoop(ctx context.Context, reader io.Reader, writer io.Writer, downloadPath string, totalSize, totalMB float64) (int64, error) {
 	var downloaded int64
-
 	buf := make([]byte, 32*1024)
 	lastUpdate := time.Now()
 	lastLogTime := time.Now()
@@ -485,64 +520,79 @@ func (s *Service) downloadUpdate(ctx context.Context, release *ReleaseInfo) (str
 	for {
 		select {
 		case <-ctx.Done():
-			s.logger.Warn().
-				Err(ctx.Err()).
-				Int64("downloadedBytes", downloaded).
-				Float64("percentComplete", float64(downloaded)/totalSize*100).
-				Msg("Download cancelled via context")
+			s.logDownloadCancelled(downloaded, totalSize)
 			os.Remove(downloadPath)
-			return "", ctx.Err()
+			return 0, ctx.Err()
 		default:
 		}
 
-		n, err := resp.Body.Read(buf)
+		n, err := reader.Read(buf)
 		if n > 0 {
-			if _, writeErr := file.Write(buf[:n]); writeErr != nil {
+			if _, writeErr := writer.Write(buf[:n]); writeErr != nil {
 				s.logger.Error().Err(writeErr).Int64("downloadedBytes", downloaded).Msg("Failed to write to download file")
 				os.Remove(downloadPath)
-				return "", fmt.Errorf("failed to write download: %w", writeErr)
+				return 0, fmt.Errorf("failed to write download: %w", writeErr)
 			}
 			downloaded += int64(n)
-
-			if time.Since(lastUpdate) > 100*time.Millisecond {
-				progress := float64(downloaded) / totalSize * 100
-				downloadedMB := float64(downloaded) / (1024 * 1024)
-				s.setProgress(progress, downloadedMB, totalMB)
-				lastUpdate = time.Now()
-			}
-
-			if time.Since(lastLogTime) > 5*time.Second {
-				s.logger.Info().
-					Int64("downloadedBytes", downloaded).
-					Float64("percentComplete", float64(downloaded)/totalSize*100).
-					Msg("Download progress")
-				lastLogTime = time.Now()
-			}
+			lastUpdate = s.maybeUpdateProgress(downloaded, totalSize, totalMB, lastUpdate)
+			lastLogTime = s.maybeLogProgress(downloaded, totalSize, lastLogTime)
 		}
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			s.logger.Info().Int64("totalBytes", downloaded).Msg("Download complete (EOF reached)")
 			break
 		}
 		if err != nil {
-			s.logger.Error().
-				Err(err).
-				Int64("downloadedBytes", downloaded).
-				Float64("percentComplete", float64(downloaded)/totalSize*100).
-				Bool("contextCanceled", ctx.Err() != nil).
-				Msg("Error reading from response body")
+			s.logDownloadError(ctx, err, downloaded, totalSize)
 			os.Remove(downloadPath)
-			return "", fmt.Errorf("download read error: %w", err)
+			return 0, fmt.Errorf("download read error: %w", err)
 		}
 	}
 
-	s.setProgress(100, totalMB, totalMB)
-	s.logger.Info().Str("path", downloadPath).Int64("size", downloaded).Dur("totalTime", time.Since(startTime)).Msg("Update downloaded successfully")
-
-	return downloadPath, nil
+	return downloaded, nil
 }
 
-func (s *Service) backupDatabase(ctx context.Context) error {
+func (s *Service) logDownloadCancelled(downloaded int64, totalSize float64) {
+	s.logger.Warn().
+		Int64("downloadedBytes", downloaded).
+		Float64("percentComplete", float64(downloaded)/totalSize*100).
+		Msg("Download cancelled via context")
+}
+
+func (s *Service) maybeUpdateProgress(downloaded int64, totalSize, totalMB float64, lastUpdate time.Time) time.Time {
+	if time.Since(lastUpdate) <= 100*time.Millisecond {
+		return lastUpdate
+	}
+	progress := float64(downloaded) / totalSize * 100
+	downloadedMB := float64(downloaded) / (1024 * 1024)
+	s.setProgress(progress, downloadedMB, totalMB)
+	return time.Now()
+}
+
+func (s *Service) maybeLogProgress(downloaded int64, totalSize float64, lastLogTime time.Time) time.Time {
+	if time.Since(lastLogTime) <= 5*time.Second {
+		return lastLogTime
+	}
+	s.logger.Info().
+		Int64("downloadedBytes", downloaded).
+		Float64("percentComplete", float64(downloaded)/totalSize*100).
+		Msg("Download progress")
+	return time.Now()
+}
+
+func (s *Service) logDownloadError(ctx context.Context, err error, downloaded int64, totalSize float64) {
+	s.logger.Error().
+		Err(err).
+		Int64("downloadedBytes", downloaded).
+		Float64("percentComplete", float64(downloaded)/totalSize*100).
+		Bool("contextCanceled", ctx.Err() != nil).
+		Msg("Error reading from response body")
+}
+
+// backupDatabase is a placeholder for future backup functionality
+//
+//nolint:unparam // Will return errors when backup functionality is implemented
+func (s *Service) backupDatabase(_ctx context.Context) error {
 	s.logger.Info().Msg("Creating database backup before update")
 	// TODO: Implement actual database backup when backup system is built
 	// For now, just log a placeholder message
@@ -563,7 +613,7 @@ func (s *Service) installUpdate(ctx context.Context, downloadPath string) error 
 	case "darwin":
 		s.logger.Info().Msg("Installing macOS update")
 		err = s.installMacOS(ctx, downloadPath)
-	case "linux":
+	case osLinux:
 		s.logger.Info().Msg("Installing Linux update")
 		err = s.installLinux(ctx, downloadPath)
 	default:
@@ -588,91 +638,108 @@ func (s *Service) installUpdate(ctx context.Context, downloadPath string) error 
 	return nil
 }
 
-func (s *Service) installWindows(ctx context.Context, downloadPath string) error {
+func (s *Service) installWindows(_ context.Context, downloadPath string) error {
 	if !strings.HasSuffix(downloadPath, ".zip") {
 		s.logger.Error().Str("ext", filepath.Ext(downloadPath)).Msg("Unsupported Windows update format")
 		return fmt.Errorf("unsupported Windows update format: %s", filepath.Ext(downloadPath))
 	}
 
-	s.logger.Info().Str("zipPath", downloadPath).Msg("Extracting portable ZIP update")
+	currentExe, err := s.getCurrentExePath()
+	if err != nil {
+		return err
+	}
 
+	newExePath, err := s.extractWindowsUpdate(downloadPath)
+	if err != nil {
+		return err
+	}
+
+	return s.launchWindowsUpdater(newExePath, currentExe)
+}
+
+func (s *Service) getCurrentExePath() (string, error) {
 	currentExe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to get current executable path: %w", err)
+		return "", fmt.Errorf("failed to get current executable path: %w", err)
 	}
 	currentExe, err = filepath.EvalSymlinks(currentExe)
 	if err != nil {
-		return fmt.Errorf("failed to resolve executable path: %w", err)
+		return "", fmt.Errorf("failed to resolve executable path: %w", err)
 	}
+	return currentExe, nil
+}
+
+func (s *Service) extractWindowsUpdate(downloadPath string) (string, error) {
+	s.logger.Info().Str("zipPath", downloadPath).Msg("Extracting portable ZIP update")
 
 	extractDir := filepath.Dir(downloadPath)
 	newExePath := filepath.Join(extractDir, "slipstream.exe")
 
 	zipReader, err := zip.OpenReader(downloadPath)
 	if err != nil {
-		return fmt.Errorf("failed to open ZIP file: %w", err)
+		return "", fmt.Errorf("failed to open ZIP file: %w", err)
 	}
 
+	zipReader.Close()
 	var extractErr error
 	for _, f := range zipReader.File {
-		if strings.HasSuffix(f.Name, "slipstream.exe") {
-			rc, err := f.Open()
-			if err != nil {
-				extractErr = fmt.Errorf("failed to open file in ZIP: %w", err)
-				break
-			}
-
-			outFile, err := os.Create(newExePath)
-			if err != nil {
-				rc.Close()
-				extractErr = fmt.Errorf("failed to create extracted file: %w", err)
-				break
-			}
-
-			_, copyErr := io.Copy(outFile, rc)
-			outFile.Close()
-			rc.Close()
-
-			if copyErr != nil {
-				extractErr = fmt.Errorf("failed to extract file: %w", copyErr)
-				break
-			}
-
-			s.logger.Info().Str("extractedTo", newExePath).Msg("Extracted new executable")
+		if !strings.HasSuffix(f.Name, "slipstream.exe") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			extractErr = fmt.Errorf("failed to open file in ZIP: %w", err)
 			break
 		}
+
+		outFile, err := os.OpenFile(newExePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+		if err != nil {
+			rc.Close()
+			extractErr = fmt.Errorf("failed to create extracted file: %w", err)
+			break
+		}
+
+		//nolint:gosec // Size is bounded by GitHub release asset size limit
+		_, copyErr := io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+
+		if copyErr != nil {
+			extractErr = fmt.Errorf("failed to extract file: %w", copyErr)
+			break
+		}
+
+		s.logger.Info().Str("extractedTo", newExePath).Msg("Extracted new executable")
+		break
 	}
-	zipReader.Close()
 
 	if extractErr != nil {
-		return extractErr
+		return "", extractErr
 	}
 
 	if _, err := os.Stat(newExePath); os.IsNotExist(err) {
-		return fmt.Errorf("slipstream.exe not found in ZIP archive")
+		return "", fmt.Errorf("slipstream.exe not found in ZIP archive")
 	}
 
-	// On Windows, we can't replace a running executable directly.
-	// Launch the new exe with special args to complete the update.
+	return newExePath, nil
+}
+
+func (s *Service) launchWindowsUpdater(newExePath, currentExe string) error {
 	s.logger.Info().
 		Str("newExe", newExePath).
 		Str("currentExe", currentExe).
 		Int("port", s.port).
 		Msg("Launching updater to replace executable")
 
-	// On Windows, antivirus software (like Windows Defender) may scan newly extracted
-	// executables, temporarily locking them. Retry with delays to wait for the scan.
-	var cmd *exec.Cmd
-	var startErr error
 	maxRetries := 10
 	retryDelay := 500 * time.Millisecond
 
 	for i := 0; i < maxRetries; i++ {
-		cmd = exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+		cmd := exec.CommandContext(context.Background(), newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec // Validated update executable path
 		cmd.Dir = filepath.Dir(newExePath)
-		startErr = cmd.Start()
+		startErr := cmd.Start()
 		if startErr == nil {
-			break
+			return nil
 		}
 		s.logger.Warn().
 			Err(startErr).
@@ -682,12 +749,7 @@ func (s *Service) installWindows(ctx context.Context, downloadPath string) error
 		time.Sleep(retryDelay)
 	}
 
-	if startErr != nil {
-		return fmt.Errorf("failed to launch updater after %d attempts: %w", maxRetries, startErr)
-	}
-
-	s.logger.Info().Int("pid", cmd.Process.Pid).Msg("Updater process started")
-	return nil
+	return fmt.Errorf("failed to launch updater after %d attempts", maxRetries)
 }
 
 func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
@@ -722,7 +784,7 @@ func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
 	}
 
 	defer func() {
-		exec.Command("hdiutil", "detach", mountPoint, "-quiet").Run()
+		_ = exec.CommandContext(context.Background(), "hdiutil", "detach", mountPoint, "-quiet").Run()
 	}()
 
 	srcAppPath := filepath.Join(mountPoint, "SlipStream.app")
@@ -745,7 +807,7 @@ func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
 		Int("port", s.port).
 		Msg("Launching updater to replace app bundle")
 
-	cmd = exec.Command(newExePath, "--complete-update", currentAppBundle, fmt.Sprintf("%d", s.port))
+	cmd = exec.CommandContext(context.Background(), newExePath, "--complete-update", currentAppBundle, fmt.Sprintf("%d", s.port))
 	cmd.Dir = tempDir
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to launch updater: %w", err)
@@ -774,7 +836,8 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 		}
 
 		// Make the new AppImage executable
-		if err := os.Chmod(downloadPath, 0755); err != nil {
+		//nolint:gosec // Executable must be group-executable
+		if err := os.Chmod(downloadPath, 0o750); err != nil {
 			return fmt.Errorf("failed to make AppImage executable: %w", err)
 		}
 
@@ -785,7 +848,7 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 			Int("port", s.port).
 			Msg("Launching updater to replace AppImage")
 
-		cmd := exec.Command(downloadPath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+		cmd := exec.CommandContext(context.Background(), downloadPath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
 		cmd.Dir = filepath.Dir(downloadPath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to launch updater: %w", err)
@@ -803,7 +866,7 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 	}
 }
 
-func (s *Service) installLinuxTarball(ctx context.Context, downloadPath string) error {
+func (s *Service) installLinuxTarball(_ctx context.Context, downloadPath string) error {
 	s.logger.Info().Str("tarball", downloadPath).Msg("Extracting tarball for stub pattern update")
 
 	currentExe, err := os.Executable()
@@ -828,7 +891,8 @@ func (s *Service) installLinuxTarball(ctx context.Context, downloadPath string) 
 	}
 
 	// Make executable
-	if err := os.Chmod(newExePath, 0755); err != nil {
+	//nolint:gosec // Executable must be group-executable
+	if err := os.Chmod(newExePath, 0o750); err != nil {
 		return fmt.Errorf("failed to make binary executable: %w", err)
 	}
 
@@ -839,7 +903,7 @@ func (s *Service) installLinuxTarball(ctx context.Context, downloadPath string) 
 		Int("port", s.port).
 		Msg("Launching updater to replace binary")
 
-	cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+	cmd := exec.CommandContext(context.Background(), newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec // Validated update executable path
 	cmd.Dir = extractDir
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to launch updater: %w", err)
@@ -866,34 +930,44 @@ func extractTarGz(tarGzPath, destDir string) error {
 
 	for {
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return err
 		}
 
+		//nolint:gosec // Archive paths validated from trusted GitHub release
 		targetPath := filepath.Join(destDir, header.Name)
 
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(targetPath, 0755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			outFile, err := os.Create(targetPath)
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
-				return err
-			}
-			outFile.Close()
+		if err := extractTarEntry(header, tarReader, targetPath); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func extractTarEntry(header *tar.Header, reader io.Reader, targetPath string) error {
+	switch header.Typeflag {
+	case tar.TypeDir:
+		return os.MkdirAll(targetPath, 0o750)
+	case tar.TypeReg:
+		return extractTarFile(reader, targetPath)
+	}
+	return nil
+}
+
+func extractTarFile(reader io.Reader, targetPath string) error {
+	outFile, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	//nolint:gosec // Size bounded by GitHub release asset size limit
+	_, err = io.Copy(outFile, reader)
+	return err
 }
 
 func (s *Service) Cancel() error {

@@ -20,11 +20,11 @@ type userBucket struct {
 }
 
 type SearchLimiter struct {
-	mu        sync.RWMutex
-	buckets   map[int64]*userBucket
-	limit     int64
-	window    time.Duration
-	getLimit  func() int64
+	mu       sync.RWMutex
+	buckets  map[int64]*userBucket
+	limit    int64
+	window   time.Duration
+	getLimit func() int64
 }
 
 func NewSearchLimiter(limitGetter func() int64) *SearchLimiter {

@@ -51,41 +51,44 @@ func (v *Version) String() string {
 //	 0 if v == other
 //	 1 if v > other
 func (v *Version) Compare(other *Version) int {
-	if v.Major != other.Major {
-		if v.Major < other.Major {
-			return -1
-		}
-		return 1
+	if cmp := compareInt(v.Major, other.Major); cmp != 0 {
+		return cmp
 	}
-	if v.Minor != other.Minor {
-		if v.Minor < other.Minor {
-			return -1
-		}
-		return 1
+	if cmp := compareInt(v.Minor, other.Minor); cmp != 0 {
+		return cmp
 	}
-	if v.Patch != other.Patch {
-		if v.Patch < other.Patch {
-			return -1
-		}
-		return 1
+	if cmp := compareInt(v.Patch, other.Patch); cmp != 0 {
+		return cmp
 	}
+	return comparePrerelease(v.Prerelease, other.Prerelease)
+}
 
-	// Prerelease versions have lower precedence than normal versions
-	// e.g., 1.0.0-alpha < 1.0.0
-	if v.Prerelease == "" && other.Prerelease != "" {
-		return 1
-	}
-	if v.Prerelease != "" && other.Prerelease == "" {
+func compareInt(a, b int) int {
+	if a < b {
 		return -1
 	}
-	if v.Prerelease != other.Prerelease {
-		if v.Prerelease < other.Prerelease {
-			return -1
-		}
+	if a > b {
 		return 1
 	}
-
 	return 0
+}
+
+// comparePrerelease compares prerelease strings.
+// Empty prerelease (stable) has higher precedence than any prerelease version.
+func comparePrerelease(a, b string) int {
+	if a == b {
+		return 0
+	}
+	if a == "" {
+		return 1
+	}
+	if b == "" {
+		return -1
+	}
+	if a < b {
+		return -1
+	}
+	return 1
 }
 
 func (v *Version) LessThan(other *Version) bool {

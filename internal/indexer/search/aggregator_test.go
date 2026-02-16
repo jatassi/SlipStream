@@ -86,7 +86,7 @@ func TestFilterByCriteria_TV(t *testing.T) {
 			torrents := []types.TorrentInfo{
 				{ReleaseInfo: types.ReleaseInfo{Title: tt.torrentTitle}},
 			}
-			result := FilterByCriteria(torrents, tt.criteria)
+			result := FilterByCriteria(torrents, &tt.criteria)
 
 			if tt.shouldPass && len(result) == 0 {
 				t.Errorf("Expected torrent %q to pass filter for criteria %+v, but it was filtered out", tt.torrentTitle, tt.criteria)
@@ -178,7 +178,7 @@ func TestFilterByCriteria_Movie(t *testing.T) {
 			torrents := []types.TorrentInfo{
 				{ReleaseInfo: types.ReleaseInfo{Title: tt.torrentTitle}},
 			}
-			result := FilterByCriteria(torrents, tt.criteria)
+			result := FilterByCriteria(torrents, &tt.criteria)
 
 			if tt.shouldPass && len(result) == 0 {
 				t.Errorf("Expected torrent %q to pass filter for criteria %+v, but it was filtered out", tt.torrentTitle, tt.criteria)
@@ -197,7 +197,7 @@ func TestFilterByCriteria_EmptyQuery(t *testing.T) {
 	}
 	criteria := types.SearchCriteria{Query: "", Type: "tvsearch"}
 
-	result := FilterByCriteria(torrents, criteria)
+	result := FilterByCriteria(torrents, &criteria)
 
 	if len(result) != 2 {
 		t.Errorf("Expected all torrents to pass when query is empty, got %d results", len(result))
@@ -212,7 +212,7 @@ func TestFilterByCriteria_GeneralSearch(t *testing.T) {
 	}
 	criteria := types.SearchCriteria{Query: "Dark", Type: "search"}
 
-	result := FilterByCriteria(torrents, criteria)
+	result := FilterByCriteria(torrents, &criteria)
 
 	// General search type doesn't filter by TV/movie criteria
 	if len(result) != 3 {
@@ -230,7 +230,7 @@ func TestFilterByCriteria_MultipleResults(t *testing.T) {
 	}
 	criteria := types.SearchCriteria{Query: "Dark", Type: "tvsearch", Season: 1, Episode: 1}
 
-	result := FilterByCriteria(torrents, criteria)
+	result := FilterByCriteria(torrents, &criteria)
 
 	if len(result) != 3 {
 		t.Errorf("Expected 3 results (two exact matches + season pack), got %d", len(result))

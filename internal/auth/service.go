@@ -32,37 +32,17 @@ type Service struct {
 	jwtSecret []byte
 }
 
+//nolint:gosec // variable name, not a credential
 const jwtSecretSettingKey = "portal_jwt_secret"
 
 func NewService(queries *sqlc.Queries, jwtSecret string) (*Service, error) {
 	secret := []byte(jwtSecret)
 
 	if len(secret) == 0 {
-		// Try to load JWT secret from database
-		ctx := context.Background()
-		setting, err := queries.GetSetting(ctx, jwtSecretSettingKey)
-		if err == nil && setting.Value != "" {
-			// Decode hex-encoded secret from database
-			secret, err = hex.DecodeString(setting.Value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode stored JWT secret: %w", err)
-			}
-		} else if errors.Is(err, sql.ErrNoRows) || (err == nil && setting.Value == "") {
-			// Generate new secret and persist it
-			secret = make([]byte, 32)
-			if _, err := rand.Read(secret); err != nil {
-				return nil, fmt.Errorf("failed to generate JWT secret: %w", err)
-			}
-			// Store hex-encoded secret in database
-			_, err = queries.SetSetting(ctx, sqlc.SetSettingParams{
-				Key:   jwtSecretSettingKey,
-				Value: hex.EncodeToString(secret),
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to persist JWT secret: %w", err)
-			}
-		} else if err != nil {
-			return nil, fmt.Errorf("failed to load JWT secret from database: %w", err)
+		var err error
+		secret, err = loadOrGenerateSecret(queries)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -70,6 +50,41 @@ func NewService(queries *sqlc.Queries, jwtSecret string) (*Service, error) {
 		queries:   queries,
 		jwtSecret: secret,
 	}, nil
+}
+
+func loadOrGenerateSecret(queries *sqlc.Queries) ([]byte, error) {
+	ctx := context.Background()
+	setting, err := queries.GetSetting(ctx, jwtSecretSettingKey)
+
+	switch {
+	case err == nil && setting.Value != "":
+		secret, decErr := hex.DecodeString(setting.Value)
+		if decErr != nil {
+			return nil, fmt.Errorf("failed to decode stored JWT secret: %w", decErr)
+		}
+		return secret, nil
+
+	case errors.Is(err, sql.ErrNoRows) || (err == nil && setting.Value == ""):
+		return generateAndPersistSecret(queries)
+
+	default:
+		return nil, fmt.Errorf("failed to load JWT secret from database: %w", err)
+	}
+}
+
+func generateAndPersistSecret(queries *sqlc.Queries) ([]byte, error) {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, fmt.Errorf("failed to generate JWT secret: %w", err)
+	}
+	_, err := queries.SetSetting(context.Background(), sqlc.SetSettingParams{
+		Key:   jwtSecretSettingKey,
+		Value: hex.EncodeToString(secret),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist JWT secret: %w", err)
+	}
+	return secret, nil
 }
 
 func (s *Service) SetDB(queries *sqlc.Queries) {

@@ -3,6 +3,7 @@ package tmdb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,11 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 )
 
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
+
 func newTestClient(server *httptest.Server) *Client {
 	cfg := config.TMDBConfig{
 		APIKey:       "test-api-key",
@@ -19,7 +25,7 @@ func newTestClient(server *httptest.Server) *Client {
 		ImageBaseURL: "https://image.tmdb.org/t/p",
 		Timeout:      5,
 	}
-	return NewClient(cfg, zerolog.Nop())
+	return NewClient(cfg, newTestLogger())
 }
 
 func stringPtr(s string) *string {
@@ -27,7 +33,7 @@ func stringPtr(s string) *string {
 }
 
 func TestClient_Name(t *testing.T) {
-	client := NewClient(config.TMDBConfig{}, zerolog.Nop())
+	client := NewClient(config.TMDBConfig{}, newTestLogger())
 	if client.Name() != "tmdb" {
 		t.Errorf("Name() = %q, want %q", client.Name(), "tmdb")
 	}
@@ -45,7 +51,7 @@ func TestClient_IsConfigured(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient(config.TMDBConfig{APIKey: tt.apiKey}, zerolog.Nop())
+			client := NewClient(config.TMDBConfig{APIKey: tt.apiKey}, newTestLogger())
 			if got := client.IsConfigured(); got != tt.want {
 				t.Errorf("IsConfigured() = %v, want %v", got, tt.want)
 			}
@@ -168,9 +174,9 @@ func TestClient_SearchMovies_WithYear(t *testing.T) {
 }
 
 func TestClient_SearchMovies_NoAPIKey(t *testing.T) {
-	client := NewClient(config.TMDBConfig{}, zerolog.Nop())
+	client := NewClient(config.TMDBConfig{}, newTestLogger())
 	_, err := client.SearchMovies(context.Background(), "Matrix", 0)
-	if err != ErrAPIKeyMissing {
+	if !errors.Is(err, ErrAPIKeyMissing) {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrAPIKeyMissing)
 	}
 }
@@ -240,7 +246,7 @@ func TestClient_GetMovie_NotFound(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.GetMovie(context.Background(), 99999999)
-	if err != ErrMovieNotFound {
+	if !errors.Is(err, ErrMovieNotFound) {
 		t.Errorf("GetMovie() error = %v, want %v", err, ErrMovieNotFound)
 	}
 }
@@ -342,7 +348,7 @@ func TestClient_GetSeries(t *testing.T) {
 func TestClient_GetImageURL(t *testing.T) {
 	client := NewClient(config.TMDBConfig{
 		ImageBaseURL: "https://image.tmdb.org/t/p",
-	}, zerolog.Nop())
+	}, newTestLogger())
 
 	tests := []struct {
 		path string
@@ -374,7 +380,7 @@ func TestClient_RateLimited(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.SearchMovies(context.Background(), "test", 0)
-	if err != ErrRateLimited {
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrRateLimited)
 	}
 }

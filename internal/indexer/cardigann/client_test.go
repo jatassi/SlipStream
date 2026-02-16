@@ -61,7 +61,7 @@ func TestBuildEnhancedQueryKeywords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildEnhancedQueryKeywords(tt.criteria)
+			result := buildEnhancedQueryKeywords(&tt.criteria)
 			if result != tt.expected {
 				t.Errorf("buildEnhancedQueryKeywords(%+v) = %q, want %q", tt.criteria, result, tt.expected)
 			}

@@ -11,13 +11,14 @@ import (
 
 type UpdateCheckTask struct {
 	updateService *update.Service
-	logger        zerolog.Logger
+	logger        *zerolog.Logger
 }
 
-func NewUpdateCheckTask(updateService *update.Service, logger zerolog.Logger) *UpdateCheckTask {
+func NewUpdateCheckTask(updateService *update.Service, logger *zerolog.Logger) *UpdateCheckTask {
+	subLogger := logger.With().Str("task", "update-check").Logger()
 	return &UpdateCheckTask{
 		updateService: updateService,
-		logger:        logger.With().Str("task", "update-check").Logger(),
+		logger:        &subLogger,
 	}
 }
 
@@ -33,10 +34,10 @@ func (t *UpdateCheckTask) Run(ctx context.Context) error {
 	return nil
 }
 
-func RegisterUpdateCheckTask(sched *scheduler.Scheduler, updateService *update.Service, logger zerolog.Logger) error {
+func RegisterUpdateCheckTask(sched *scheduler.Scheduler, updateService *update.Service, logger *zerolog.Logger) error {
 	task := NewUpdateCheckTask(updateService, logger)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "update-check",
 		Name:        "Update Check",
 		Description: "Checks for new SlipStream versions and optionally auto-installs",

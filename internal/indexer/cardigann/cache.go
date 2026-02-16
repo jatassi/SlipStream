@@ -11,6 +11,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	fileExtYML  = ".yml"
+	fileExtYAML = ".yaml"
+)
+
 // Cache manages local caching of Cardigann definitions.
 type Cache struct {
 	definitionsDir string
@@ -18,7 +23,7 @@ type Cache struct {
 	memoryCache    map[string]*cachedDefinition
 	metadataCache  map[string]*DefinitionMetadata
 	mu             sync.RWMutex
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 }
 
 // cachedDefinition holds a parsed definition with metadata.
@@ -44,7 +49,7 @@ func DefaultCacheConfig() CacheConfig {
 }
 
 // NewCache creates a new definition cache.
-func NewCache(cfg CacheConfig, logger zerolog.Logger) (*Cache, error) {
+func NewCache(cfg *CacheConfig, logger *zerolog.Logger) (*Cache, error) {
 	if cfg.DefinitionsDir == "" {
 		cfg.DefinitionsDir = DefaultCacheConfig().DefinitionsDir
 	}
@@ -53,19 +58,20 @@ func NewCache(cfg CacheConfig, logger zerolog.Logger) (*Cache, error) {
 	}
 
 	// Ensure directories exist
-	if err := os.MkdirAll(cfg.DefinitionsDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.DefinitionsDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create definitions directory: %w", err)
 	}
-	if err := os.MkdirAll(cfg.CustomDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.CustomDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create custom directory: %w", err)
 	}
 
+	subLogger := logger.With().Str("component", "cache").Logger()
 	return &Cache{
 		definitionsDir: cfg.DefinitionsDir,
 		customDir:      cfg.CustomDir,
 		memoryCache:    make(map[string]*cachedDefinition),
 		metadataCache:  make(map[string]*DefinitionMetadata),
-		logger:         logger.With().Str("component", "cache").Logger(),
+		logger:         &subLogger,
 	}, nil
 }
 
@@ -179,7 +185,7 @@ func (c *Cache) listDirectory(dir string, isCustom bool) ([]*DefinitionMetadata,
 
 		name := entry.Name()
 		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".yml" && ext != ".yaml" {
+		if ext != fileExtYML && ext != fileExtYAML {
 			continue
 		}
 
@@ -245,7 +251,7 @@ func (c *Cache) Store(id string, data []byte) error {
 
 	// Write to disk
 	filePath := filepath.Join(c.definitionsDir, id+".yml")
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write definition: %w", err)
 	}
 
@@ -281,7 +287,7 @@ func (c *Cache) StoreCustom(id string, data []byte) error {
 
 	// Write to custom directory
 	filePath := filepath.Join(c.customDir, id+".yml")
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write custom definition: %w", err)
 	}
 
@@ -370,7 +376,7 @@ func (c *Cache) ClearDisk() error {
 
 		name := entry.Name()
 		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".yml" && ext != ".yaml" {
+		if ext != fileExtYML && ext != fileExtYAML {
 			continue
 		}
 

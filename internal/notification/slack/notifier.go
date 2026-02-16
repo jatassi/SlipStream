@@ -34,16 +34,17 @@ type Notifier struct {
 	name       string
 	settings   Settings
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // New creates a new Slack notifier
-func New(name string, settings Settings, httpClient *http.Client, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, httpClient *http.Client, logger *zerolog.Logger) *Notifier {
+	subLogger := logger.With().Str("notifier", "slack").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		settings:   settings,
+		settings:   *settings,
 		httpClient: httpClient,
-		logger:     logger.With().Str("notifier", "slack").Str("name", name).Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -61,17 +62,17 @@ func (n *Notifier) Test(ctx context.Context) error {
 		IconEmoji: n.settings.IconEmoji,
 		Channel:   n.settings.Channel,
 		Attachments: []Attachment{{
-			Color:   ColorGood,
-			Title:   "SlipStream Test Notification",
-			Text:    "This is a test notification from SlipStream.",
-			Footer:  "SlipStream",
-			Ts:      time.Now().Unix(),
+			Color:  ColorGood,
+			Title:  "SlipStream Test Notification",
+			Text:   "This is a test notification from SlipStream.",
+			Footer: "SlipStream",
+			Ts:     time.Now().Unix(),
 		}},
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	var title string
 	if event.Movie != nil {
 		title = fmt.Sprintf("Movie Grabbed - %s", event.Movie.Title)
@@ -92,7 +93,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 		fields = append(fields, Field{Title: "Group", Value: event.Release.ReleaseGroup, Short: true})
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  "#7289DA",
 		Title:  title,
 		Text:   fmt.Sprintf("`%s`", event.Release.ReleaseName),
@@ -100,10 +101,10 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 		Ts:     event.GrabbedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	var title string
 	if event.Movie != nil {
 		title = fmt.Sprintf("Movie Downloaded - %s", event.Movie.Title)
@@ -122,17 +123,17 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 		fields = append(fields, Field{Title: "Group", Value: event.ReleaseGroup, Short: true})
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  ColorGood,
 		Title:  title,
 		Fields: fields,
 		Ts:     event.ImportedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	var title string
 	if event.Movie != nil {
 		title = fmt.Sprintf("Movie Upgraded - %s", event.Movie.Title)
@@ -148,17 +149,17 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 		{Title: "New Quality", Value: event.NewQuality, Short: true},
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  ColorGood,
 		Title:  title,
 		Fields: fields,
 		Ts:     event.UpgradedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	title := fmt.Sprintf("Movie Added - %s", event.Movie.Title)
 	if event.Movie.Year > 0 {
 		title = fmt.Sprintf("Movie Added - %s (%d)", event.Movie.Title, event.Movie.Year)
@@ -169,7 +170,7 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 		text = truncate(event.Movie.Overview, 200)
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:    ColorGood,
 		Title:    title,
 		Text:     text,
@@ -177,10 +178,10 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 		Ts:       event.AddedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	title := fmt.Sprintf("Movie Deleted - %s", event.Movie.Title)
 	if event.Movie.Year > 0 {
 		title = fmt.Sprintf("Movie Deleted - %s (%d)", event.Movie.Title, event.Movie.Year)
@@ -191,17 +192,17 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 		text = "Movie removed from library and files deleted"
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color: ColorDanger,
 		Title: title,
 		Text:  text,
 		Ts:    event.DeletedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	title := fmt.Sprintf("Series Added - %s", event.Series.Title)
 	if event.Series.Year > 0 {
 		title = fmt.Sprintf("Series Added - %s (%d)", event.Series.Title, event.Series.Year)
@@ -212,7 +213,7 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 		text = truncate(event.Series.Overview, 200)
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:    ColorGood,
 		Title:    title,
 		Text:     text,
@@ -220,10 +221,10 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 		Ts:       event.AddedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	title := fmt.Sprintf("Series Deleted - %s", event.Series.Title)
 
 	text := "Series removed from library"
@@ -231,17 +232,17 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 		text = "Series removed from library and files deleted"
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color: ColorDanger,
 		Title: title,
 		Text:  text,
 		Ts:    event.DeletedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	color := ColorWarning
 	if event.Type == "error" {
 		color = ColorDanger
@@ -252,7 +253,7 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 		{Title: "Type", Value: event.Type, Short: true},
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  color,
 		Title:  "Health Issue",
 		Text:   event.Message,
@@ -260,15 +261,15 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 		Ts:     event.OccuredAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	fields := []Field{
 		{Title: "Source", Value: event.Source, Short: true},
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  ColorGood,
 		Title:  "Health Issue Resolved",
 		Text:   event.Message,
@@ -276,37 +277,37 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent
 		Ts:     event.OccuredAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	fields := []Field{
 		{Title: "Previous Version", Value: event.PreviousVersion, Short: true},
 		{Title: "New Version", Value: event.NewVersion, Short: true},
 	}
 
-	payload := n.buildPayload(Attachment{
+	payload := n.buildPayload(&Attachment{
 		Color:  ColorGood,
 		Title:  "Application Updated",
 		Fields: fields,
 		Ts:     event.UpdatedAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
-	payload := n.buildPayload(Attachment{
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
+	payload := n.buildPayload(&Attachment{
 		Color: ColorGood,
 		Title: event.Title,
 		Text:  event.Message,
 		Ts:    event.SentAt.Unix(),
 	})
 
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) buildPayload(attachment Attachment) Payload {
+func (n *Notifier) buildPayload(attachment *Attachment) Payload {
 	attachment.Footer = "SlipStream"
 	attachment.FooterIcon = "https://raw.githubusercontent.com/slipstream/slipstream/main/web/public/logo.png"
 
@@ -320,7 +321,7 @@ func (n *Notifier) buildPayload(attachment Attachment) Payload {
 	payload := Payload{
 		Username:    n.getUsername(),
 		Channel:     n.settings.Channel,
-		Attachments: []Attachment{attachment},
+		Attachments: []Attachment{*attachment},
 	}
 
 	if n.settings.IconURL != "" {
@@ -339,7 +340,7 @@ func (n *Notifier) getUsername() string {
 	return "SlipStream"
 }
 
-func (n *Notifier) send(ctx context.Context, payload Payload) error {
+func (n *Notifier) send(ctx context.Context, payload *Payload) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)

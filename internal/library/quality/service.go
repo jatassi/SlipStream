@@ -25,15 +25,16 @@ type ImportDecisionCleaner interface {
 // Service provides quality profile operations.
 type Service struct {
 	queries               *sqlc.Queries
-	logger                zerolog.Logger
+	logger                *zerolog.Logger
 	importDecisionCleaner ImportDecisionCleaner
 }
 
 // NewService creates a new quality profile service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "quality").Logger()
 	return &Service{
 		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "quality").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -92,50 +93,19 @@ func (s *Service) List(ctx context.Context) ([]*Profile, error) {
 }
 
 // Create creates a new quality profile.
-func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profile, error) {
+func (s *Service) Create(ctx context.Context, input *CreateProfileInput) (*Profile, error) {
 	if input.Name == "" {
 		return nil, ErrInvalidProfile
 	}
 
-	itemsJSON, err := SerializeItems(input.Items)
+	serialized, err := s.serializeProfileSettings(input.Items, input.HDRSettings, input.VideoCodecSettings, input.AudioCodecSettings, input.AudioChannelSettings)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize items: %w", err)
+		return nil, err
 	}
 
-	hdrJSON, err := SerializeAttributeSettings(input.HDRSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize HDR settings: %w", err)
-	}
-
-	videoCodecJSON, err := SerializeAttributeSettings(input.VideoCodecSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize video codec settings: %w", err)
-	}
-
-	audioCodecJSON, err := SerializeAttributeSettings(input.AudioCodecSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize audio codec settings: %w", err)
-	}
-
-	audioChannelJSON, err := SerializeAttributeSettings(input.AudioChannelSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
-	}
-
-	// Default to true if not specified
 	upgradesEnabled := int64(1)
 	if input.UpgradesEnabled != nil && !*input.UpgradesEnabled {
 		upgradesEnabled = 0
-	}
-
-	allowAutoApprove := int64(0)
-	if input.AllowAutoApprove {
-		allowAutoApprove = 1
-	}
-
-	cutoffOverridesStrategy := int64(0)
-	if input.CutoffOverridesStrategy {
-		cutoffOverridesStrategy = 1
 	}
 
 	upgradeStrategy := string(input.UpgradeStrategy)
@@ -146,15 +116,15 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
 		Name:                    input.Name,
 		Cutoff:                  int64(input.Cutoff),
-		Items:                   itemsJSON,
-		HdrSettings:             hdrJSON,
-		VideoCodecSettings:      videoCodecJSON,
-		AudioCodecSettings:      audioCodecJSON,
-		AudioChannelSettings:    audioChannelJSON,
+		Items:                   serialized.items,
+		HdrSettings:             serialized.hdr,
+		VideoCodecSettings:      serialized.videoCodec,
+		AudioCodecSettings:      serialized.audioCodec,
+		AudioChannelSettings:    serialized.audioChannel,
 		UpgradesEnabled:         upgradesEnabled,
-		AllowAutoApprove:        allowAutoApprove,
+		AllowAutoApprove:        boolToDBInt(input.AllowAutoApprove),
 		UpgradeStrategy:         upgradeStrategy,
-		CutoffOverridesStrategy: cutoffOverridesStrategy,
+		CutoffOverridesStrategy: boolToDBInt(input.CutoffOverridesStrategy),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -164,50 +134,56 @@ func (s *Service) Create(ctx context.Context, input CreateProfileInput) (*Profil
 	return s.rowToProfile(row)
 }
 
+type serializedSettings struct {
+	items, hdr, videoCodec, audioCodec, audioChannel string
+}
+
+func (s *Service) serializeProfileSettings(items []QualityItem, hdr, videoCodec, audioCodec, audioChannel AttributeSettings) (*serializedSettings, error) {
+	itemsJSON, err := SerializeItems(items)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize items: %w", err)
+	}
+	hdrJSON, err := SerializeAttributeSettings(hdr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize HDR settings: %w", err)
+	}
+	videoCodecJSON, err := SerializeAttributeSettings(videoCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize video codec settings: %w", err)
+	}
+	audioCodecJSON, err := SerializeAttributeSettings(audioCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio codec settings: %w", err)
+	}
+	audioChannelJSON, err := SerializeAttributeSettings(audioChannel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
+	}
+	return &serializedSettings{
+		items:        itemsJSON,
+		hdr:          hdrJSON,
+		videoCodec:   videoCodecJSON,
+		audioCodec:   audioCodecJSON,
+		audioChannel: audioChannelJSON,
+	}, nil
+}
+
+func boolToDBInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // Update updates an existing quality profile.
-func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput) (*Profile, error) {
+func (s *Service) Update(ctx context.Context, id int64, input *UpdateProfileInput) (*Profile, error) {
 	if input.Name == "" {
 		return nil, ErrInvalidProfile
 	}
 
-	itemsJSON, err := SerializeItems(input.Items)
+	serialized, err := s.serializeProfileSettings(input.Items, input.HDRSettings, input.VideoCodecSettings, input.AudioCodecSettings, input.AudioChannelSettings)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize items: %w", err)
-	}
-
-	hdrJSON, err := SerializeAttributeSettings(input.HDRSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize HDR settings: %w", err)
-	}
-
-	videoCodecJSON, err := SerializeAttributeSettings(input.VideoCodecSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize video codec settings: %w", err)
-	}
-
-	audioCodecJSON, err := SerializeAttributeSettings(input.AudioCodecSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize audio codec settings: %w", err)
-	}
-
-	audioChannelJSON, err := SerializeAttributeSettings(input.AudioChannelSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize audio channel settings: %w", err)
-	}
-
-	upgradesEnabled := int64(0)
-	if input.UpgradesEnabled {
-		upgradesEnabled = 1
-	}
-
-	allowAutoApprove := int64(0)
-	if input.AllowAutoApprove {
-		allowAutoApprove = 1
-	}
-
-	cutoffOverridesStrategy := int64(0)
-	if input.CutoffOverridesStrategy {
-		cutoffOverridesStrategy = 1
+		return nil, err
 	}
 
 	upgradeStrategy := string(input.UpgradeStrategy)
@@ -219,15 +195,15 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 		ID:                      id,
 		Name:                    input.Name,
 		Cutoff:                  int64(input.Cutoff),
-		Items:                   itemsJSON,
-		HdrSettings:             hdrJSON,
-		VideoCodecSettings:      videoCodecJSON,
-		AudioCodecSettings:      audioCodecJSON,
-		AudioChannelSettings:    audioChannelJSON,
-		UpgradesEnabled:         upgradesEnabled,
-		AllowAutoApprove:        allowAutoApprove,
+		Items:                   serialized.items,
+		HdrSettings:             serialized.hdr,
+		VideoCodecSettings:      serialized.videoCodec,
+		AudioCodecSettings:      serialized.audioCodec,
+		AudioChannelSettings:    serialized.audioChannel,
+		UpgradesEnabled:         boolToDBInt(input.UpgradesEnabled),
+		AllowAutoApprove:        boolToDBInt(input.AllowAutoApprove),
 		UpgradeStrategy:         upgradeStrategy,
-		CutoffOverridesStrategy: cutoffOverridesStrategy,
+		CutoffOverridesStrategy: boolToDBInt(input.CutoffOverridesStrategy),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -238,7 +214,6 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateProfileInput
 
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated quality profile")
 
-	// Invalidate import decisions that used this profile — files may now be eligible for import
 	if s.importDecisionCleaner != nil {
 		if err := s.importDecisionCleaner.ClearDecisionsForProfile(ctx, id); err != nil {
 			s.logger.Warn().Err(err).Int64("profileId", id).Msg("Failed to clear import decisions for profile")
@@ -298,9 +273,10 @@ func (s *Service) EnsureDefaults(ctx context.Context) error {
 		Ultra4KProfile(),
 	}
 
-	for _, p := range defaults {
+	for i := range defaults {
+		p := &defaults[i]
 		upgradesEnabled := p.UpgradesEnabled
-		_, err := s.Create(ctx, CreateProfileInput{
+		_, err := s.Create(ctx, &CreateProfileInput{
 			Name:            p.Name,
 			Cutoff:          p.Cutoff,
 			UpgradesEnabled: &upgradesEnabled,
@@ -359,11 +335,11 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		UpgradeStrategy:         upgradeStrategy,
 		CutoffOverridesStrategy: row.CutoffOverridesStrategy == 1,
 		AllowAutoApprove:        row.AllowAutoApprove == 1,
-		Items:                items,
-		HDRSettings:          hdrSettings,
-		VideoCodecSettings:   videoCodecSettings,
-		AudioCodecSettings:   audioCodecSettings,
-		AudioChannelSettings: audioChannelSettings,
+		Items:                   items,
+		HDRSettings:             hdrSettings,
+		VideoCodecSettings:      videoCodecSettings,
+		AudioCodecSettings:      audioCodecSettings,
+		AudioChannelSettings:    audioChannelSettings,
 	}
 
 	if row.CreatedAt.Valid {
@@ -384,58 +360,73 @@ func (s *Service) RecalculateStatusForProfile(ctx context.Context, profileID int
 		return 0, err
 	}
 
-	updated := 0
+	movieUpdated, err := s.recalculateMovieStatuses(ctx, profileID, profile)
+	if err != nil {
+		return 0, err
+	}
 
-	// Recalculate movies
+	episodeUpdated, err := s.recalculateEpisodeStatuses(ctx, profileID, profile)
+	if err != nil {
+		return movieUpdated, err
+	}
+
+	updated := movieUpdated + episodeUpdated
+	s.logger.Info().Int64("profileId", profileID).Int("updated", updated).
+		Msg("Recalculated media status for profile change")
+
+	return updated, nil
+}
+
+func (s *Service) recalculateMovieStatuses(ctx context.Context, profileID int64, profile *Profile) (int, error) {
 	movieRows, err := s.queries.ListMoviesWithFilesForProfile(ctx, sql.NullInt64{Int64: profileID, Valid: true})
 	if err != nil {
 		return 0, fmt.Errorf("failed to list movies for profile: %w", err)
 	}
 
+	updated := 0
 	for _, row := range movieRows {
 		if !row.CurrentQualityID.Valid {
 			continue
 		}
 		newStatus := profile.StatusForQuality(int(row.CurrentQualityID.Int64))
-		if newStatus != row.Status {
-			if err := s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
-				ID:     row.ID,
-				Status: newStatus,
-			}); err != nil {
-				s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to recalculate movie status")
-				continue
-			}
-			updated++
+		if newStatus == row.Status {
+			continue
 		}
+		if err := s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+			ID:     row.ID,
+			Status: newStatus,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to recalculate movie status")
+			continue
+		}
+		updated++
 	}
+	return updated, nil
+}
 
-	// Recalculate episodes
+func (s *Service) recalculateEpisodeStatuses(ctx context.Context, profileID int64, profile *Profile) (int, error) {
 	episodeRows, err := s.queries.ListEpisodesWithFilesForProfile(ctx, sql.NullInt64{Int64: profileID, Valid: true})
 	if err != nil {
-		return updated, fmt.Errorf("failed to list episodes for profile: %w", err)
+		return 0, fmt.Errorf("failed to list episodes for profile: %w", err)
 	}
 
+	updated := 0
 	for _, row := range episodeRows {
 		if !row.CurrentQualityID.Valid {
 			continue
 		}
 		newStatus := profile.StatusForQuality(int(row.CurrentQualityID.Int64))
-		if newStatus != row.Status {
-			if err := s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
-				ID:     row.ID,
-				Status: newStatus,
-			}); err != nil {
-				s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to recalculate episode status")
-				continue
-			}
-			updated++
+		if newStatus == row.Status {
+			continue
 		}
+		if err := s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+			ID:     row.ID,
+			Status: newStatus,
+		}); err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", row.ID).Msg("Failed to recalculate episode status")
+			continue
+		}
+		updated++
 	}
-
-	s.logger.Info().
-		Int64("profileId", profileID).
-		Int("updated", updated).
-		Msg("Recalculated media status for profile change")
-
 	return updated, nil
 }

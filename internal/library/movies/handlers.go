@@ -85,7 +85,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	movie, err := h.service.Create(c.Request().Context(), input)
+	movie, err := h.service.Create(c.Request().Context(), &input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidMovie):
@@ -113,7 +113,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	movie, err := h.service.Update(c.Request().Context(), id, input)
+	movie, err := h.service.Update(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrMovieNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
@@ -170,7 +170,7 @@ func (h *Handlers) AddFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	file, err := h.service.AddFile(c.Request().Context(), id, input)
+	file, err := h.service.AddFile(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrMovieNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")

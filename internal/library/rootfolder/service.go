@@ -17,6 +17,10 @@ import (
 	"github.com/slipstream/slipstream/internal/filesystem/mock"
 )
 
+const (
+	mediaTypeMovie = "movie"
+)
+
 var (
 	ErrRootFolderNotFound = errors.New("root folder not found")
 	ErrPathNotFound       = errors.New("path does not exist")
@@ -55,18 +59,19 @@ type HealthService interface {
 type Service struct {
 	db            *sql.DB
 	queries       *sqlc.Queries
-	logger        zerolog.Logger
+	logger        *zerolog.Logger
 	defaults      *defaults.Service
 	healthService HealthService
 }
 
 // NewService creates a new root folder service.
-func NewService(db *sql.DB, logger zerolog.Logger, defaults *defaults.Service) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger, defaultsSvc *defaults.Service) *Service {
+	subLogger := logger.With().Str("component", "rootfolder").Logger()
 	return &Service{
 		db:       db,
 		queries:  sqlc.New(db),
-		logger:   logger.With().Str("component", "rootfolder").Logger(),
-		defaults: defaults,
+		logger:   &subLogger,
+		defaults: defaultsSvc,
 	}
 }
 
@@ -160,56 +165,19 @@ func (s *Service) ListByType(ctx context.Context, mediaType string) ([]*RootFold
 
 // Create creates a new root folder.
 func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*RootFolder, error) {
-	// Validate media type
-	if input.MediaType != "movie" && input.MediaType != "tv" {
+	if input.MediaType != mediaTypeMovie && input.MediaType != "tv" {
 		return nil, ErrInvalidMediaType
 	}
 
-	var absPath string
-	var freeSpace int64
-
-	// Handle mock virtual filesystem paths
-	if mock.IsMockPath(input.Path) {
-		absPath = strings.TrimSuffix(input.Path, "/")
-		vfs := mock.GetInstance()
-		if !vfs.IsDirectory(absPath) {
-			return nil, ErrPathNotFound
-		}
-		freeSpace = 1000 * 1024 * 1024 * 1024 // 1TB mock free space
-	} else {
-		// Get absolute path
-		var err error
-		absPath, err = filepath.Abs(input.Path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path: %w", err)
-		}
-
-		// Verify path exists and is a directory
-		info, err := os.Stat(absPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, ErrPathNotFound
-			}
-			return nil, fmt.Errorf("failed to check path: %w", err)
-		}
-		if !info.IsDir() {
-			return nil, ErrPathNotDirectory
-		}
-
-		// Get free space
-		freeSpace = s.getFreeSpace(absPath)
+	absPath, freeSpace, err := s.resolveAndValidatePath(input.Path)
+	if err != nil {
+		return nil, err
 	}
 
-	// Check if path already exists
-	_, err := s.queries.GetRootFolderByPath(ctx, absPath)
-	if err == nil {
-		return nil, ErrPathAlreadyExists
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("failed to check existing path: %w", err)
+	if err := s.checkPathNotDuplicate(ctx, absPath); err != nil {
+		return nil, err
 	}
 
-	// Determine name
 	name := input.Name
 	if name == "" {
 		name = filepath.Base(absPath)
@@ -231,12 +199,58 @@ func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*Roo
 		Str("mediaType", input.MediaType).
 		Msg("Created root folder")
 
-	// Register with health service
 	if s.healthService != nil {
 		s.healthService.RegisterItemStr("rootFolders", fmt.Sprintf("%d", row.ID), absPath)
 	}
 
 	return s.rowToRootFolder(row), nil
+}
+
+func (s *Service) resolveAndValidatePath(inputPath string) (absPath string, freeSpace int64, err error) {
+	if mock.IsMockPath(inputPath) {
+		return s.resolveMockPath(inputPath)
+	}
+	return s.resolveRealPath(inputPath)
+}
+
+func (s *Service) resolveMockPath(inputPath string) (absPath string, freeSpace int64, err error) {
+	absPath = strings.TrimSuffix(inputPath, "/")
+	vfs := mock.GetInstance()
+	if !vfs.IsDirectory(absPath) {
+		return "", 0, ErrPathNotFound
+	}
+	return absPath, 1000 * 1024 * 1024 * 1024, nil
+}
+
+func (s *Service) resolveRealPath(inputPath string) (absPath string, freeSpace int64, err error) {
+	absPath, err = filepath.Abs(inputPath)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", 0, ErrPathNotFound
+		}
+		return "", 0, fmt.Errorf("failed to check path: %w", err)
+	}
+	if !info.IsDir() {
+		return "", 0, ErrPathNotDirectory
+	}
+
+	return absPath, s.getFreeSpace(absPath), nil
+}
+
+func (s *Service) checkPathNotDuplicate(ctx context.Context, absPath string) error {
+	_, err := s.queries.GetRootFolderByPath(ctx, absPath)
+	if err == nil {
+		return ErrPathAlreadyExists
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("failed to check existing path: %w", err)
+	}
+	return nil
 }
 
 // Delete deletes a root folder and all associated movies/series.
@@ -252,7 +266,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
 	queries := s.queries.WithTx(tx)
 
@@ -371,7 +385,7 @@ func (s *Service) SetDefault(ctx context.Context, id int64) error {
 	// Set default using defaults service
 	var mediaType defaults.MediaType
 	switch folder.MediaType {
-	case "movie":
+	case mediaTypeMovie:
 		mediaType = defaults.MediaTypeMovie
 	case "tv":
 		mediaType = defaults.MediaTypeTV
@@ -386,7 +400,7 @@ func (s *Service) SetDefault(ctx context.Context, id int64) error {
 func (s *Service) ClearDefault(ctx context.Context, mediaType string) error {
 	var defaultMediaType defaults.MediaType
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		defaultMediaType = defaults.MediaTypeMovie
 	case "tv":
 		defaultMediaType = defaults.MediaTypeTV

@@ -97,40 +97,8 @@ func (s *Service) processWithRetry(ctx context.Context, job ImportJob) *ImportRe
 
 	for attempt := 0; attempt <= MaxRetries; attempt++ {
 		if attempt > 0 {
-			policy := classifyError(lastErr)
-
-			switch policy {
-			case RetryNever:
-				s.logger.Debug().
-					Err(lastErr).
-					Str("path", job.SourcePath).
-					Msg("Error is not retryable")
-				return lastResult
-
-			case RetryWithBackoff:
-				delay := calculateRetryDelay(attempt)
-				s.logger.Info().
-					Err(lastErr).
-					Str("path", job.SourcePath).
-					Int("attempt", attempt).
-					Dur("delay", delay).
-					Msg("Retrying import after delay")
-
-				select {
-				case <-ctx.Done():
-					return &ImportResult{
-						SourcePath: job.SourcePath,
-						Error:      ctx.Err(),
-					}
-				case <-time.After(delay):
-				}
-
-			case RetryImmediate:
-				s.logger.Info().
-					Err(lastErr).
-					Str("path", job.SourcePath).
-					Int("attempt", attempt).
-					Msg("Retrying import immediately")
+			if aborted := s.applyRetryPolicy(ctx, job, lastErr, lastResult, attempt); aborted != nil {
+				return aborted
 			}
 		}
 
@@ -142,7 +110,6 @@ func (s *Service) processWithRetry(ctx context.Context, job ImportJob) *ImportRe
 			return result
 		}
 
-		// Log retry attempt
 		s.logger.Warn().
 			Err(err).
 			Str("path", job.SourcePath).
@@ -151,13 +118,44 @@ func (s *Service) processWithRetry(ctx context.Context, job ImportJob) *ImportRe
 			Msg("Import attempt failed")
 	}
 
-	// All retries exhausted
-	if lastResult == nil {
-		lastResult = &ImportResult{
-			SourcePath: job.SourcePath,
+	return s.finalizeRetryExhausted(job, lastResult)
+}
+
+// applyRetryPolicy evaluates the retry policy for the last error and waits if needed.
+// Returns a non-nil result if the retry loop should abort.
+func (s *Service) applyRetryPolicy(ctx context.Context, job ImportJob, lastErr error, lastResult *ImportResult, attempt int) *ImportResult {
+	policy := classifyError(lastErr)
+
+	switch policy {
+	case RetryNever:
+		s.logger.Debug().Err(lastErr).Str("path", job.SourcePath).Msg("Error is not retryable")
+		return lastResult
+
+	case RetryWithBackoff:
+		delay := calculateRetryDelay(attempt)
+		s.logger.Info().Err(lastErr).Str("path", job.SourcePath).
+			Int("attempt", attempt).Dur("delay", delay).
+			Msg("Retrying import after delay")
+
+		select {
+		case <-ctx.Done():
+			return &ImportResult{SourcePath: job.SourcePath, Error: ctx.Err()}
+		case <-time.After(delay):
 		}
+
+	case RetryImmediate:
+		s.logger.Info().Err(lastErr).Str("path", job.SourcePath).
+			Int("attempt", attempt).
+			Msg("Retrying import immediately")
 	}
 
+	return nil
+}
+
+func (s *Service) finalizeRetryExhausted(job ImportJob, lastResult *ImportResult) *ImportResult {
+	if lastResult == nil {
+		lastResult = &ImportResult{SourcePath: job.SourcePath}
+	}
 	if lastResult.Error == nil {
 		lastResult.Error = ErrImportFailed
 	}
@@ -173,11 +171,11 @@ func (s *Service) processWithRetry(ctx context.Context, job ImportJob) *ImportRe
 
 // RetryInfo contains information about retry attempts.
 type RetryInfo struct {
-	Attempt     int           `json:"attempt"`
-	MaxAttempts int           `json:"maxAttempts"`
-	LastError   string        `json:"lastError,omitempty"`
-	NextRetry   *time.Time    `json:"nextRetry,omitempty"`
-	Policy      string        `json:"policy"`
+	Attempt     int        `json:"attempt"`
+	MaxAttempts int        `json:"maxAttempts"`
+	LastError   string     `json:"lastError,omitempty"`
+	NextRetry   *time.Time `json:"nextRetry,omitempty"`
+	Policy      string     `json:"policy"`
 }
 
 // GetRetryInfo returns retry information for an error.
@@ -236,11 +234,12 @@ func (s *Service) MarkForRetry(ctx context.Context, queueMedia *QueueMedia, err 
 	queueMedia.ImportAttempts++
 	queueMedia.ErrorMessage = err.Error()
 
-	if queueMedia.ImportAttempts >= MaxRetries {
+	switch {
+	case queueMedia.ImportAttempts >= MaxRetries:
 		queueMedia.FileStatus = "failed"
-	} else if IsRetryableError(err) {
+	case IsRetryableError(err):
 		queueMedia.FileStatus = "ready" // Will be retried
-	} else {
+	default:
 		queueMedia.FileStatus = "failed"
 	}
 

@@ -1,3 +1,4 @@
+//nolint:revive // Package name 'api' is intentionally generic for the HTTP API layer
 package api
 
 import (

@@ -11,120 +11,154 @@ import (
 // SelectBestRelease picks the best acceptable release from a scored, sorted list.
 // Releases MUST be pre-sorted by score (highest first).
 // Returns nil if no acceptable release is found.
-func SelectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item SearchableItem, logger zerolog.Logger) *types.TorrentInfo {
+func SelectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item *SearchableItem, logger *zerolog.Logger) *types.TorrentInfo {
 	seasonPackCandidates := 0
 	seasonPacksFound := 0
 
 	for i := range releases {
 		release := &releases[i]
 
-		// For TV searches, verify the release matches the target season/episode
 		if item.MediaType == MediaTypeEpisode || item.MediaType == MediaTypeSeason {
-			parsed := scanner.ParseFilename(release.Title)
-
-			// Check if the release covers the target season
-			if item.SeasonNumber > 0 && parsed.Season > 0 {
-				if parsed.IsCompleteSeries && parsed.EndSeason > 0 {
-					if item.SeasonNumber < parsed.Season || item.SeasonNumber > parsed.EndSeason {
-						continue
-					}
-				} else if parsed.Season != item.SeasonNumber {
-					continue
-				}
-			}
-
-			// For specific episode searches, require exact episode match (no season packs)
-			if item.MediaType == MediaTypeEpisode && item.EpisodeNumber > 0 {
-				if parsed.Episode != item.EpisodeNumber {
-					continue
-				}
-			}
-
-			// For season pack searches, require actual season pack
-			if item.MediaType == MediaTypeSeason {
-				if !parsed.IsSeasonPack {
-					if seasonPackCandidates < 5 {
-						logger.Info().
-							Str("release", release.Title).
-							Int("parsedSeason", parsed.Season).
-							Int("parsedEpisode", parsed.Episode).
-							Bool("isSeasonPack", parsed.IsSeasonPack).
-							Msg("Rejected release for season pack search")
-					}
-					seasonPackCandidates++
-					continue
-				}
-				seasonPacksFound++
-				logger.Info().
-					Str("release", release.Title).
-					Int("parsedSeason", parsed.Season).
-					Int("parsedEndSeason", parsed.EndSeason).
-					Bool("isSeasonPack", parsed.IsSeasonPack).
-					Bool("isCompleteSeries", parsed.IsCompleteSeries).
-					Msg("Found season pack release")
+			skip, candidates, found := shouldSkipTVRelease(release, item, logger, seasonPackCandidates)
+			seasonPackCandidates += candidates
+			seasonPacksFound += found
+			if skip {
+				continue
 			}
 		}
 
-		// Determine release quality
-		releaseQualityID := 0
-		if release.ScoreBreakdown != nil {
-			releaseQualityID = release.ScoreBreakdown.QualityID
-		}
+		releaseQualityID := extractReleaseQualityID(release)
 
-		// Skip if quality is not acceptable
-		if releaseQualityID > 0 && !profile.IsAcceptable(releaseQualityID) {
-			logger.Debug().
-				Str("release", release.Title).
-				Int("qualityId", releaseQualityID).
-				Str("qualityName", release.ScoreBreakdown.QualityName).
-				Msg("Rejected - quality not acceptable")
+		if shouldSkipForQuality(release, releaseQualityID, item, profile, logger) {
 			continue
-		}
-
-		// If item already has a file, only grab upgrades
-		if item.HasFile {
-			if item.CurrentQualityID == 0 {
-				logger.Debug().
-					Str("release", release.Title).
-					Msg("Skipping release - have file but current quality unknown")
-				continue
-			}
-			if releaseQualityID == 0 {
-				logger.Debug().
-					Str("release", release.Title).
-					Int("currentQualityId", item.CurrentQualityID).
-					Msg("Skipping release with unknown quality - already have file")
-				continue
-			}
-			if !profile.IsUpgrade(item.CurrentQualityID, releaseQualityID) {
-				logger.Debug().
-					Str("release", release.Title).
-					Int("currentQualityId", item.CurrentQualityID).
-					Int("releaseQualityId", releaseQualityID).
-					Msg("Skipping release - not an upgrade")
-				continue
-			}
 		}
 
 		return release
 	}
 
-	// Log season pack search summary
-	if item.MediaType == MediaTypeSeason {
-		if seasonPacksFound == 0 && seasonPackCandidates > 0 {
-			logger.Info().
-				Int("totalReleases", len(releases)).
-				Int("individualEpisodes", seasonPackCandidates).
-				Int("seasonPacksFound", seasonPacksFound).
-				Int("targetSeason", item.SeasonNumber).
-				Msg("No season pack found - all matching releases were individual episodes")
-		} else if seasonPacksFound == 0 {
-			logger.Info().
-				Int("totalReleases", len(releases)).
-				Int("targetSeason", item.SeasonNumber).
-				Msg("No releases matched the target season")
+	logSeasonPackSummary(item, seasonPacksFound, seasonPackCandidates, len(releases), logger)
+	return nil
+}
+
+func shouldSkipTVRelease(release *types.TorrentInfo, item *SearchableItem, logger *zerolog.Logger, seasonPackCandidates int) (skip bool, candidates, found int) {
+	parsed := scanner.ParseFilename(release.Title)
+
+	if !matchesTargetSeason(parsed, item) {
+		return true, 0, 0
+	}
+
+	if item.MediaType == MediaTypeEpisode && item.EpisodeNumber > 0 {
+		if parsed.Episode != item.EpisodeNumber {
+			return true, 0, 0
 		}
 	}
 
-	return nil
+	if item.MediaType == MediaTypeSeason {
+		if !parsed.IsSeasonPack {
+			if seasonPackCandidates < 5 {
+				logger.Info().
+					Str("release", release.Title).
+					Int("parsedSeason", parsed.Season).
+					Int("parsedEpisode", parsed.Episode).
+					Bool("isSeasonPack", parsed.IsSeasonPack).
+					Msg("Rejected release for season pack search")
+			}
+			return true, 1, 0
+		}
+		logger.Info().
+			Str("release", release.Title).
+			Int("parsedSeason", parsed.Season).
+			Int("parsedEndSeason", parsed.EndSeason).
+			Bool("isSeasonPack", parsed.IsSeasonPack).
+			Bool("isCompleteSeries", parsed.IsCompleteSeries).
+			Msg("Found season pack release")
+		return false, 0, 1
+	}
+
+	return false, 0, 0
+}
+
+func matchesTargetSeason(parsed *scanner.ParsedMedia, item *SearchableItem) bool {
+	if item.SeasonNumber == 0 || parsed.Season == 0 {
+		return true
+	}
+
+	if parsed.IsCompleteSeries && parsed.EndSeason > 0 {
+		return item.SeasonNumber >= parsed.Season && item.SeasonNumber <= parsed.EndSeason
+	}
+
+	return parsed.Season == item.SeasonNumber
+}
+
+func extractReleaseQualityID(release *types.TorrentInfo) int {
+	if release.ScoreBreakdown == nil {
+		return 0
+	}
+	return release.ScoreBreakdown.QualityID
+}
+
+func shouldSkipForQuality(release *types.TorrentInfo, releaseQualityID int, item *SearchableItem, profile *quality.Profile, logger *zerolog.Logger) bool {
+	if releaseQualityID > 0 && !profile.IsAcceptable(releaseQualityID) {
+		logger.Debug().
+			Str("release", release.Title).
+			Int("qualityId", releaseQualityID).
+			Str("qualityName", release.ScoreBreakdown.QualityName).
+			Msg("Rejected - quality not acceptable")
+		return true
+	}
+
+	if !item.HasFile {
+		return false
+	}
+
+	if item.CurrentQualityID == 0 {
+		logger.Debug().
+			Str("release", release.Title).
+			Msg("Skipping release - have file but current quality unknown")
+		return true
+	}
+
+	if releaseQualityID == 0 {
+		logger.Debug().
+			Str("release", release.Title).
+			Int("currentQualityId", item.CurrentQualityID).
+			Msg("Skipping release with unknown quality - already have file")
+		return true
+	}
+
+	if !profile.IsUpgrade(item.CurrentQualityID, releaseQualityID) {
+		logger.Debug().
+			Str("release", release.Title).
+			Int("currentQualityId", item.CurrentQualityID).
+			Int("releaseQualityId", releaseQualityID).
+			Msg("Skipping release - not an upgrade")
+		return true
+	}
+
+	return false
+}
+
+func logSeasonPackSummary(item *SearchableItem, seasonPacksFound, seasonPackCandidates, totalReleases int, logger *zerolog.Logger) {
+	if item.MediaType != MediaTypeSeason {
+		return
+	}
+
+	if seasonPacksFound > 0 {
+		return
+	}
+
+	if seasonPackCandidates > 0 {
+		logger.Info().
+			Int("totalReleases", totalReleases).
+			Int("individualEpisodes", seasonPackCandidates).
+			Int("seasonPacksFound", seasonPacksFound).
+			Int("targetSeason", item.SeasonNumber).
+			Msg("No season pack found - all matching releases were individual episodes")
+		return
+	}
+
+	logger.Info().
+		Int("totalReleases", totalReleases).
+		Int("targetSeason", item.SeasonNumber).
+		Msg("No releases matched the target season")
 }

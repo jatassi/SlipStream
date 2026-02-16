@@ -2,41 +2,42 @@ package metadata
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 )
 
 func setupTestHandlers(t *testing.T) (*httptest.Server, *Handlers) {
+	t.Helper()
 	// Create mock TMDB server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/search/movie":
+		switch r.URL.Path {
+		case "/search/movie":
 			json.NewEncoder(w).Encode(tmdb.SearchMoviesResponse{
 				Results: []tmdb.MovieResult{
 					{ID: 603, Title: "The Matrix", ReleaseDate: "1999-03-30"},
 				},
 			})
-		case r.URL.Path == "/movie/603":
+		case "/movie/603":
 			poster := "/poster.jpg"
 			json.NewEncoder(w).Encode(tmdb.MovieDetails{
 				ID: 603, Title: "The Matrix", ReleaseDate: "1999-03-30",
 				PosterPath: &poster,
 			})
-		case r.URL.Path == "/search/tv":
+		case "/search/tv":
 			json.NewEncoder(w).Encode(tmdb.SearchTVResponse{
 				Results: []tmdb.TVResult{
 					{ID: 1396, Name: "Breaking Bad", FirstAirDate: "2008-01-20"},
 				},
 			})
-		case r.URL.Path == "/tv/1396":
+		case "/tv/1396":
 			json.NewEncoder(w).Encode(tmdb.TVDetails{
 				ID: 1396, Name: "Breaking Bad", FirstAirDate: "2008-01-20", Status: "Ended",
 			})
@@ -54,11 +55,11 @@ func setupTestHandlers(t *testing.T) (*httptest.Server, *Handlers) {
 		},
 	}
 
-	service := NewService(cfg, zerolog.Nop())
+	service := NewService(&cfg, newTestLogger())
 	artwork := NewArtworkDownloader(ArtworkConfig{
 		BaseDir: t.TempDir(),
 		Timeout: 5 * time.Second,
-	}, zerolog.Nop())
+	}, newTestLogger())
 
 	handlers := NewHandlers(service, artwork)
 
@@ -70,7 +71,7 @@ func TestHandlers_SearchMovies(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=Matrix", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=Matrix", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -99,7 +100,7 @@ func TestHandlers_SearchMovies_MissingQuery(t *testing.T) {
 	_, handlers := setupTestHandlers(t)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -108,8 +109,8 @@ func TestHandlers_SearchMovies_MissingQuery(t *testing.T) {
 		t.Error("Expected error for missing query")
 	}
 
-	httpErr, ok := err.(*echo.HTTPError)
-	if !ok {
+	var httpErr *echo.HTTPError
+	if !errors.As(err, &httpErr) {
 		t.Fatalf("Expected HTTPError, got %T", err)
 	}
 	if httpErr.Code != http.StatusBadRequest {
@@ -122,7 +123,7 @@ func TestHandlers_GetMovie(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/603", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/603", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -150,7 +151,7 @@ func TestHandlers_GetMovie_InvalidID(t *testing.T) {
 	_, handlers := setupTestHandlers(t)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/invalid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/invalid", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -161,8 +162,8 @@ func TestHandlers_GetMovie_InvalidID(t *testing.T) {
 		t.Error("Expected error for invalid id")
 	}
 
-	httpErr, ok := err.(*echo.HTTPError)
-	if !ok {
+	var httpErr *echo.HTTPError
+	if !errors.As(err, &httpErr) {
 		t.Fatalf("Expected HTTPError, got %T", err)
 	}
 	if httpErr.Code != http.StatusBadRequest {
@@ -175,7 +176,7 @@ func TestHandlers_SearchSeries(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/series/search?query=Breaking", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/series/search?query=Breaking", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -205,7 +206,7 @@ func TestHandlers_GetSeriesByTMDB(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/series/tmdb/1396", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/series/tmdb/1396", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -237,7 +238,7 @@ func TestHandlers_ClearCache(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodDelete, "/metadata/cache", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/metadata/cache", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -255,7 +256,7 @@ func TestHandlers_GetStatus(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/status", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -288,16 +289,16 @@ func TestHandlers_GetStatus(t *testing.T) {
 func TestHandlers_NoProvidersConfigured(t *testing.T) {
 	cfg := config.MetadataConfig{} // No API keys
 
-	service := NewService(cfg, zerolog.Nop())
+	service := NewService(&cfg, newTestLogger())
 	artwork := NewArtworkDownloader(ArtworkConfig{
 		BaseDir: t.TempDir(),
 		Timeout: 5 * time.Second,
-	}, zerolog.Nop())
+	}, newTestLogger())
 
 	handlers := NewHandlers(service, artwork)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=test", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -306,8 +307,8 @@ func TestHandlers_NoProvidersConfigured(t *testing.T) {
 		t.Error("Expected error for no providers configured")
 	}
 
-	httpErr, ok := err.(*echo.HTTPError)
-	if !ok {
+	var httpErr *echo.HTTPError
+	if !errors.As(err, &httpErr) {
 		t.Fatalf("Expected HTTPError, got %T", err)
 	}
 	if httpErr.Code != http.StatusServiceUnavailable {

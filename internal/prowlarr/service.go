@@ -20,9 +20,11 @@ import (
 // Error variables are defined in errors.go
 
 const (
-	searchCacheTTL           = 5 * time.Minute
-	capabilitiesRefreshTTL   = 15 * time.Minute
-	indexerRefreshTTL        = 15 * time.Minute
+	searchTypeMovie        = "movie"
+	searchTypeTVSearch     = "tvsearch"
+	searchCacheTTL         = 5 * time.Minute
+	capabilitiesRefreshTTL = 15 * time.Minute
+	indexerRefreshTTL      = 15 * time.Minute
 )
 
 // Service manages Prowlarr integration.
@@ -32,13 +34,13 @@ type Service struct {
 	logger      zerolog.Logger
 	rateLimiter *RateLimiter
 
-	mu            sync.RWMutex
-	client        *Client
-	config        *Config
-	capabilities  *Capabilities
-	indexers      []Indexer
-	lastCapFetch  time.Time
-	lastIdxFetch  time.Time
+	mu           sync.RWMutex
+	client       *Client
+	config       *Config
+	capabilities *Capabilities
+	indexers     []Indexer
+	lastCapFetch time.Time
+	lastIdxFetch time.Time
 
 	searchCache   map[string]*searchCacheEntry
 	searchCacheMu sync.RWMutex
@@ -50,14 +52,14 @@ type searchCacheEntry struct {
 }
 
 // NewService creates a new Prowlarr service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
 	svcLogger := logger.With().Str("component", "prowlarr-service").Logger()
 
 	return &Service{
 		db:          db,
 		queries:     sqlc.New(db),
 		logger:      svcLogger,
-		rateLimiter: NewRateLimiter(DefaultRateLimiterConfig(svcLogger)),
+		rateLimiter: NewRateLimiter(DefaultRateLimiterConfig(&svcLogger)),
 		searchCache: make(map[string]*searchCacheEntry),
 	}
 }
@@ -100,7 +102,7 @@ func (s *Service) loadConfigLocked(ctx context.Context) (*Config, error) {
 }
 
 // UpdateConfig updates the Prowlarr configuration.
-func (s *Service) UpdateConfig(ctx context.Context, input ConfigInput) (*Config, error) {
+func (s *Service) UpdateConfig(ctx context.Context, input *ConfigInput) (*Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -184,14 +186,14 @@ func (s *Service) TestConnection(ctx context.Context, url, apiKey string, timeou
 		APIKey:        apiKey,
 		Timeout:       timeout,
 		SkipSSLVerify: skipSSL,
-		Logger:        s.logger,
+		Logger:        &s.logger,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	if err := client.TestConnection(ctx); err != nil {
-		return fmt.Errorf("%w: %v", ErrConnectionFailed, err)
+		return fmt.Errorf("%w: %w", ErrConnectionFailed, err)
 	}
 
 	return nil
@@ -220,7 +222,7 @@ func (s *Service) GetClient(ctx context.Context) (*Client, error) {
 		APIKey:        config.APIKey,
 		Timeout:       config.Timeout,
 		SkipSSLVerify: config.SkipSSLVerify,
-		Logger:        s.logger,
+		Logger:        &s.logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prowlarr client: %w", err)
@@ -328,14 +330,14 @@ func (s *Service) GetConnectionStatus(ctx context.Context) (*ConnectionStatus, e
 			Connected:   false,
 			LastChecked: &now,
 			Error:       err.Error(),
-		}, nil
+		}, err
 	}
 
 	return client.GetSystemStatus(ctx)
 }
 
 // Search executes a search through Prowlarr.
-func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+func (s *Service) Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error) {
 	s.logger.Info().
 		Str("type", criteria.Type).
 		Str("query", criteria.Query).
@@ -354,7 +356,6 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]
 		return nil, ErrNotConfigured
 	}
 
-	// Check cache
 	cacheKey := s.searchCacheKey(criteria)
 	if cached := s.getFromSearchCache(cacheKey); cached != nil {
 		s.logger.Info().
@@ -370,93 +371,21 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]
 		return nil, err
 	}
 
-	// Load indexers and settings for filtering and priority
-	indexers, _ := s.GetIndexers(ctx)
-	allSettings, _ := s.GetAllIndexerSettings(ctx)
-
-	// Build indexer name -> (ID, settings) map
-	indexerNameToID := make(map[string]int)
-	for _, idx := range indexers {
-		indexerNameToID[idx.Name] = idx.ID
-	}
-
-	settingsMap := make(map[int64]*IndexerSettings)
-	for i := range allSettings {
-		settingsMap[allSettings[i].ProwlarrIndexerID] = &allSettings[i]
-	}
-
-	// Build search request with per-indexer categories if available
+	indexerNameToID, settingsMap := s.buildIndexerMaps(ctx)
 	req := s.buildSearchRequestWithSettings(criteria, config, settingsMap, indexerNameToID)
 
 	s.rateLimiter.Wait()
 
-	feed, err := client.Search(ctx, req)
+	feed, err := client.Search(ctx, &req)
 	if err != nil {
 		s.rateLimiter.RecordError()
-		return nil, fmt.Errorf("%w: %v", ErrSearchFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrSearchFailed, err)
 	}
 
 	s.rateLimiter.RecordSuccess()
 
-	// Determine content type filter based on search type
-	var contentTypeFilter ContentType
-	switch criteria.Type {
-	case "movie":
-		contentTypeFilter = ContentTypeMovies
-	case "tvsearch":
-		contentTypeFilter = ContentTypeSeries
-	default:
-		contentTypeFilter = ContentTypeBoth
-	}
-
-	// Convert to TorrentInfo with priority and filtering
-	results := make([]types.TorrentInfo, 0, len(feed.Channel.Items))
-	indexerSuccesses := make(map[int64]bool)
-
-	for _, item := range feed.Channel.Items {
-		indexerName := item.GetAttribute("indexer")
-		if indexerName == "" {
-			indexerName = "Prowlarr"
-		}
-
-		// Get indexer ID and settings
-		indexerID := indexerNameToID[indexerName]
-		settings := settingsMap[int64(indexerID)]
-
-		// Filter by content type if settings exist
-		if settings != nil && contentTypeFilter != ContentTypeBoth {
-			if settings.ContentType != ContentTypeBoth && settings.ContentType != contentTypeFilter {
-				continue
-			}
-		}
-
-		info := item.ToTorrentInfo(indexerName)
-		info.IndexerID = int64(indexerID)
-
-		// Set priority from settings (default 25 if no settings)
-		if settings != nil {
-			info.IndexerPriority = settings.Priority
-		} else {
-			info.IndexerPriority = 25
-		}
-
-		results = append(results, info)
-
-		// Track success for indexers with settings
-		if indexerID > 0 {
-			indexerSuccesses[int64(indexerID)] = true
-		}
-	}
-
-	// Record successes for indexers that returned results
-	for indexerID := range indexerSuccesses {
-		s.RecordIndexerSuccess(ctx, indexerID)
-	}
-
-	// Sort by priority (lower priority number = preferred)
+	results := s.convertFeedResults(ctx, feed, criteria, indexerNameToID, settingsMap)
 	s.sortResultsByPriority(results)
-
-	// Cache results
 	s.setSearchCache(cacheKey, results)
 
 	s.logger.Info().
@@ -467,6 +396,85 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) ([]
 		Msg("Prowlarr search completed")
 
 	return results, nil
+}
+
+func (s *Service) buildIndexerMaps(ctx context.Context) (nameToID map[string]int, settingsMap map[int64]*IndexerSettings) {
+	indexers, _ := s.GetIndexers(ctx)
+	allSettings, _ := s.GetAllIndexerSettings(ctx)
+
+	indexerNameToID := make(map[string]int)
+	for i := range indexers {
+		indexerNameToID[indexers[i].Name] = indexers[i].ID
+	}
+
+	settingsMap = make(map[int64]*IndexerSettings)
+	for i := range allSettings {
+		settingsMap[allSettings[i].ProwlarrIndexerID] = &allSettings[i]
+	}
+
+	return indexerNameToID, settingsMap
+}
+
+func contentTypeFilterForSearch(searchType string) ContentType {
+	switch searchType {
+	case searchTypeMovie:
+		return ContentTypeMovies
+	case searchTypeTVSearch:
+		return ContentTypeSeries
+	default:
+		return ContentTypeBoth
+	}
+}
+
+func (s *Service) convertFeedResults(ctx context.Context, feed *TorznabFeed, criteria *types.SearchCriteria, indexerNameToID map[string]int, settingsMap map[int64]*IndexerSettings) []types.TorrentInfo {
+	contentFilter := contentTypeFilterForSearch(criteria.Type)
+	results := make([]types.TorrentInfo, 0, len(feed.Channel.Items))
+	indexerSuccesses := make(map[int64]bool)
+
+	for i := range feed.Channel.Items {
+		item := &feed.Channel.Items[i]
+		indexerName := item.GetAttribute("indexer")
+		if indexerName == "" {
+			indexerName = "Prowlarr"
+		}
+
+		indexerID := indexerNameToID[indexerName]
+		settings := settingsMap[int64(indexerID)]
+
+		if !passesContentTypeFilter(settings, contentFilter) {
+			continue
+		}
+
+		info := item.ToTorrentInfo(indexerName)
+		info.IndexerID = int64(indexerID)
+		info.IndexerPriority = indexerPriority(settings)
+
+		results = append(results, info)
+
+		if indexerID > 0 {
+			indexerSuccesses[int64(indexerID)] = true
+		}
+	}
+
+	for indexerID := range indexerSuccesses {
+		s.RecordIndexerSuccess(ctx, indexerID)
+	}
+
+	return results
+}
+
+func passesContentTypeFilter(settings *IndexerSettings, filter ContentType) bool {
+	if settings == nil || filter == ContentTypeBoth {
+		return true
+	}
+	return settings.ContentType == ContentTypeBoth || settings.ContentType == filter
+}
+
+func indexerPriority(settings *IndexerSettings) int {
+	if settings != nil {
+		return settings.Priority
+	}
+	return 25
 }
 
 // sortResultsByPriority sorts results so lower priority numbers come first.
@@ -481,7 +489,7 @@ func (s *Service) sortResultsByPriority(results []types.TorrentInfo) {
 }
 
 // buildSearchRequestWithSettings constructs a SearchRequest using per-indexer settings.
-func (s *Service) buildSearchRequestWithSettings(criteria types.SearchCriteria, config *Config, settingsMap map[int64]*IndexerSettings, indexerNameToID map[string]int) SearchRequest {
+func (s *Service) buildSearchRequestWithSettings(criteria *types.SearchCriteria, config *Config, settingsMap map[int64]*IndexerSettings, _indexerNameToID map[string]int) SearchRequest {
 	req := SearchRequest{
 		Query:   criteria.Query,
 		Type:    criteria.Type,
@@ -504,9 +512,9 @@ func (s *Service) buildSearchRequestWithSettings(criteria types.SearchCriteria, 
 		// Add global default categories
 		var defaultCats []int
 		switch criteria.Type {
-		case "movie":
+		case searchTypeMovie:
 			defaultCats = config.MovieCategories
-		case "tvsearch":
+		case searchTypeTVSearch:
 			defaultCats = config.TVCategories
 		}
 		for _, cat := range defaultCats {
@@ -517,9 +525,9 @@ func (s *Service) buildSearchRequestWithSettings(criteria types.SearchCriteria, 
 		for _, settings := range settingsMap {
 			var indexerCats []int
 			switch criteria.Type {
-			case "movie":
+			case searchTypeMovie:
 				indexerCats = settings.MovieCategories
-			case "tvsearch":
+			case searchTypeTVSearch:
 				indexerCats = settings.TVCategories
 			}
 			for _, cat := range indexerCats {
@@ -530,35 +538,6 @@ func (s *Service) buildSearchRequestWithSettings(criteria types.SearchCriteria, 
 		req.Categories = make([]int, 0, len(categorySet))
 		for cat := range categorySet {
 			req.Categories = append(req.Categories, cat)
-		}
-	}
-
-	return req
-}
-
-// buildSearchRequest constructs a SearchRequest from SearchCriteria.
-func (s *Service) buildSearchRequest(criteria types.SearchCriteria, config *Config) SearchRequest {
-	req := SearchRequest{
-		Query:   criteria.Query,
-		Type:    criteria.Type,
-		ImdbID:  criteria.ImdbID,
-		TmdbID:  criteria.TmdbID,
-		TvdbID:  criteria.TvdbID,
-		Season:  criteria.Season,
-		Episode: criteria.Episode,
-		Limit:   criteria.Limit,
-		Offset:  criteria.Offset,
-	}
-
-	// Use criteria categories if provided, otherwise use config defaults
-	if len(criteria.Categories) > 0 {
-		req.Categories = criteria.Categories
-	} else {
-		switch criteria.Type {
-		case "movie":
-			req.Categories = config.MovieCategories
-		case "tvsearch":
-			req.Categories = config.TVCategories
 		}
 	}
 
@@ -594,7 +573,7 @@ func (s *Service) ClearSearchCache() {
 }
 
 // searchCacheKey generates a cache key for search criteria.
-func (s *Service) searchCacheKey(criteria types.SearchCriteria) string {
+func (s *Service) searchCacheKey(criteria *types.SearchCriteria) string {
 	data, _ := json.Marshal(criteria)
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:8])
@@ -684,7 +663,7 @@ func (s *Service) GetIndexerSettings(ctx context.Context, indexerID int64) (*Ind
 	row, err := s.queries.GetProwlarrIndexerSettings(ctx, indexerID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get indexer settings: %w", err)
 	}
@@ -773,9 +752,9 @@ func (s *Service) GetIndexersWithSettings(ctx context.Context) ([]IndexerWithSet
 	}
 
 	result := make([]IndexerWithSettings, 0, len(indexers))
-	for _, idx := range indexers {
-		iws := IndexerWithSettings{Indexer: idx}
-		if settings, ok := settingsMap[int64(idx.ID)]; ok {
+	for i := range indexers {
+		iws := IndexerWithSettings{Indexer: indexers[i]}
+		if settings, ok := settingsMap[int64(indexers[i].ID)]; ok {
 			iws.Settings = settings
 		}
 		result = append(result, iws)

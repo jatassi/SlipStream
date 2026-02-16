@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	maxResultsPerIndexer      = 1000
-	rssBackoffThreshold  int  = 3
+	maxResultsPerIndexer     = 1000
+	rssBackoffThreshold  int = 3
 )
 
 // IndexerFeed holds the fetched releases from a single indexer.
@@ -33,11 +33,11 @@ type FeedFetcher struct {
 	prowlarrService *prowlarr.Service
 	modeManager     *prowlarr.ModeManager
 	queries         *sqlc.Queries
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 
 	// In-memory backoff: consecutive failure counts per indexer ID.
 	// Resets on successful fetch or server restart.
-	failMu       sync.Mutex
+	failMu        sync.Mutex
 	failureCounts map[int64]int
 }
 
@@ -47,7 +47,7 @@ func NewFeedFetcher(
 	prowlarrService *prowlarr.Service,
 	modeManager *prowlarr.ModeManager,
 	queries *sqlc.Queries,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *FeedFetcher {
 	return &FeedFetcher{
 		indexerService:  indexerService,
@@ -128,7 +128,7 @@ func (f *FeedFetcher) fetchNativeIndexer(ctx context.Context, idx *sqlc.Indexer)
 
 	// Try torrent-specific search first
 	if ti, ok := client.(indexer.TorrentIndexer); ok {
-		results, err := ti.SearchTorrents(ctx, criteria)
+		results, err := ti.SearchTorrents(ctx, &criteria)
 		if err != nil {
 			feed.Error = fmt.Errorf("RSS fetch failed: %w", err)
 			f.logger.Warn().Err(err).Str("indexer", idx.Name).Msg("RSS fetch failed")
@@ -136,14 +136,15 @@ func (f *FeedFetcher) fetchNativeIndexer(ctx context.Context, idx *sqlc.Indexer)
 		}
 		feed.Releases = results
 	} else {
-		results, err := client.Search(ctx, criteria)
+		results, err := client.Search(ctx, &criteria)
 		if err != nil {
 			feed.Error = fmt.Errorf("RSS fetch failed: %w", err)
 			f.logger.Warn().Err(err).Str("indexer", idx.Name).Msg("RSS fetch failed")
 			return feed
 		}
-		for _, r := range results {
-			feed.Releases = append(feed.Releases, indexerTypes.TorrentInfo{ReleaseInfo: r})
+		for i := range results {
+			r := &results[i]
+			feed.Releases = append(feed.Releases, indexerTypes.TorrentInfo{ReleaseInfo: *r})
 		}
 	}
 
@@ -170,7 +171,7 @@ func (f *FeedFetcher) fetchProwlarr(ctx context.Context) []IndexerFeed {
 	var feeds []IndexerFeed
 
 	// Movie feed
-	movieResults, err := f.prowlarrService.Search(ctx, indexerTypes.SearchCriteria{
+	movieResults, err := f.prowlarrService.Search(ctx, &indexerTypes.SearchCriteria{
 		Type:  "movie",
 		Limit: maxResultsPerIndexer,
 	})
@@ -179,7 +180,7 @@ func (f *FeedFetcher) fetchProwlarr(ctx context.Context) []IndexerFeed {
 	}
 
 	// TV feed
-	tvResults, err := f.prowlarrService.Search(ctx, indexerTypes.SearchCriteria{
+	tvResults, err := f.prowlarrService.Search(ctx, &indexerTypes.SearchCriteria{
 		Type:  "tvsearch",
 		Limit: maxResultsPerIndexer,
 	})
@@ -192,10 +193,10 @@ func (f *FeedFetcher) fetchProwlarr(ctx context.Context) []IndexerFeed {
 	combined = append(combined, movieResults...)
 	combined = append(combined, tvResults...)
 
-	// Deduplicate by GUID/DownloadURL
 	seen := make(map[string]bool)
 	var deduped []indexerTypes.TorrentInfo
-	for _, r := range combined {
+	for i := range combined {
+		r := &combined[i]
 		key := r.DownloadURL
 		if key == "" {
 			key = r.GUID
@@ -204,7 +205,7 @@ func (f *FeedFetcher) fetchProwlarr(ctx context.Context) []IndexerFeed {
 			continue
 		}
 		seen[key] = true
-		deduped = append(deduped, r)
+		deduped = append(deduped, *r)
 	}
 
 	if len(deduped) > 0 {

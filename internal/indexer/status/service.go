@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrStatusNotFound = errors.New("indexer status not found")
+	ErrNoCookies      = errors.New("no cookies cached")
 )
 
 // HealthService is the interface for central health tracking.
@@ -29,21 +30,22 @@ type HealthService interface {
 type Service struct {
 	queries       *sqlc.Queries
 	config        BackoffConfig
-	logger        zerolog.Logger
+	logger        *zerolog.Logger
 	healthService HealthService
 }
 
 // NewService creates a new status service with default configuration.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
 	return NewServiceWithConfig(db, DefaultBackoffConfig(), logger)
 }
 
 // NewServiceWithConfig creates a new status service with custom configuration.
-func NewServiceWithConfig(db *sql.DB, config BackoffConfig, logger zerolog.Logger) *Service {
+func NewServiceWithConfig(db *sql.DB, config BackoffConfig, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "indexer-status").Logger()
 	return &Service{
 		queries: sqlc.New(db),
 		config:  config,
-		logger:  logger.With().Str("component", "indexer-status").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -63,7 +65,7 @@ func (s *Service) GetConfig() BackoffConfig {
 }
 
 // updateHealthStatus forwards status changes to the central health service.
-func (s *Service) updateHealthStatus(indexerID int64, indexerName string, escalationLevel int, isDisabled bool, message string) {
+func (s *Service) updateHealthStatus(indexerID int64, escalationLevel int, isDisabled bool, message string) {
 	if s.healthService == nil {
 		return
 	}
@@ -71,11 +73,12 @@ func (s *Service) updateHealthStatus(indexerID int64, indexerName string, escala
 	idStr := fmt.Sprintf("%d", indexerID)
 	const category = "indexers"
 
-	if isDisabled {
+	switch {
+	case isDisabled:
 		s.healthService.SetErrorStr(category, idStr, message)
-	} else if escalationLevel > 0 {
+	case escalationLevel > 0:
 		s.healthService.SetWarningStr(category, idStr, message)
-	} else {
+	default:
 		s.healthService.ClearStatusStr(category, idStr)
 	}
 }
@@ -117,7 +120,7 @@ func (s *Service) RecordSuccess(ctx context.Context, indexerID int64) error {
 		Msg("Recorded successful indexer operation")
 
 	// Forward to central health service
-	s.updateHealthStatus(indexerID, "", 0, false, "")
+	s.updateHealthStatus(indexerID, 0, false, "")
 
 	return nil
 }
@@ -193,7 +196,7 @@ func (s *Service) RecordFailure(ctx context.Context, indexerID int64, opError er
 	} else if newLevel > 0 {
 		message = fmt.Sprintf("Experienced %d failure(s): %s", newLevel, opError.Error())
 	}
-	s.updateHealthStatus(indexerID, "", newLevel, isDisabled, message)
+	s.updateHealthStatus(indexerID, newLevel, isDisabled, message)
 
 	return nil
 }
@@ -239,15 +242,16 @@ func (s *Service) GetHealth(ctx context.Context, indexerID int64, indexerName st
 	}
 
 	// Determine health status
-	if status.DisabledTill != nil && time.Now().Before(*status.DisabledTill) {
+	switch {
+	case status.DisabledTill != nil && time.Now().Before(*status.DisabledTill):
 		health.Status = HealthStatusDisabled
 		remaining := time.Until(*status.DisabledTill)
 		health.DisabledFor = &Duration{remaining}
 		health.Message = fmt.Sprintf("Disabled for %s due to repeated failures", remaining.Round(time.Minute))
-	} else if status.EscalationLevel > 0 {
+	case status.EscalationLevel > 0:
 		health.Status = HealthStatusWarning
 		health.Message = fmt.Sprintf("Experienced %d recent failure(s)", status.EscalationLevel)
-	} else {
+	default:
 		health.Status = HealthStatusHealthy
 		health.Message = "Operating normally"
 	}
@@ -360,20 +364,20 @@ func (s *Service) GetCookies(ctx context.Context, indexerID int64) (*CookieData,
 	row, err := s.queries.GetIndexerCookies(ctx, indexerID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // No cookies cached
+			return nil, ErrNoCookies
 		}
 		return nil, fmt.Errorf("failed to get cookies: %w", err)
 	}
 
 	// Check if cookies exist and are valid
 	if !row.Cookies.Valid || row.Cookies.String == "" {
-		return nil, nil
+		return nil, ErrNoCookies
 	}
 
 	// Check expiration
 	if row.CookiesExpiration.Valid && time.Now().After(row.CookiesExpiration.Time) {
 		s.logger.Debug().Int64("indexerId", indexerID).Msg("Cached cookies have expired")
-		return nil, nil
+		return nil, ErrNoCookies
 	}
 
 	data := &CookieData{

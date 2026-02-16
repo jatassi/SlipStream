@@ -2,6 +2,7 @@ package movies
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/slipstream/slipstream/internal/testutil"
@@ -11,7 +12,7 @@ func TestMovieService_Create(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
@@ -24,7 +25,7 @@ func TestMovieService_Create(t *testing.T) {
 		Monitored: true,
 	}
 
-	movie, err := service.Create(ctx, input)
+	movie, err := service.Create(ctx, &input)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -53,15 +54,15 @@ func TestMovieService_Create_EmptyTitle(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
 		Title: "",
 	}
 
-	_, err := service.Create(ctx, input)
-	if err != ErrInvalidMovie {
+	_, err := service.Create(ctx, &input)
+	if !errors.Is(err, ErrInvalidMovie) {
 		t.Errorf("Create() with empty title error = %v, want %v", err, ErrInvalidMovie)
 	}
 }
@@ -70,7 +71,7 @@ func TestMovieService_Create_DuplicateTmdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create first movie
@@ -79,7 +80,7 @@ func TestMovieService_Create_DuplicateTmdbID(t *testing.T) {
 		TmdbID: 603,
 	}
 
-	_, err := service.Create(ctx, input)
+	_, err := service.Create(ctx, &input)
 	if err != nil {
 		t.Fatalf("Create() first movie error = %v", err)
 	}
@@ -90,8 +91,8 @@ func TestMovieService_Create_DuplicateTmdbID(t *testing.T) {
 		TmdbID: 603, // Same TMDB ID
 	}
 
-	_, err = service.Create(ctx, input2)
-	if err != ErrDuplicateTmdbID {
+	_, err = service.Create(ctx, &input2)
+	if !errors.Is(err, ErrDuplicateTmdbID) {
 		t.Errorf("Create() duplicate TMDB ID error = %v, want %v", err, ErrDuplicateTmdbID)
 	}
 }
@@ -100,7 +101,7 @@ func TestMovieService_Get(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie first
@@ -110,7 +111,7 @@ func TestMovieService_Get(t *testing.T) {
 		Overview: "A thief who steals corporate secrets through dream-sharing technology.",
 	}
 
-	created, err := service.Create(ctx, input)
+	created, err := service.Create(ctx, &input)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -133,11 +134,11 @@ func TestMovieService_Get_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	_, err := service.Get(ctx, 99999)
-	if err != ErrMovieNotFound {
+	if !errors.Is(err, ErrMovieNotFound) {
 		t.Errorf("Get() non-existent movie error = %v, want %v", err, ErrMovieNotFound)
 	}
 }
@@ -146,7 +147,7 @@ func TestMovieService_GetByTmdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
@@ -155,7 +156,7 @@ func TestMovieService_GetByTmdbID(t *testing.T) {
 		TmdbID: 157336,
 	}
 
-	created, err := service.Create(ctx, input)
+	created, err := service.Create(ctx, &input)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -174,7 +175,7 @@ func TestMovieService_List(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create multiple movies
@@ -185,7 +186,7 @@ func TestMovieService_List(t *testing.T) {
 	}
 
 	for _, input := range movies {
-		_, err := service.Create(ctx, input)
+		_, err := service.Create(ctx, &input)
 		if err != nil {
 			t.Fatalf("Create() error = %v", err)
 		}
@@ -206,12 +207,12 @@ func TestMovieService_List_Pagination(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create 5 movies
 	for i := 1; i <= 5; i++ {
-		_, err := service.Create(ctx, CreateMovieInput{Title: "Movie", Year: 2020 + i})
+		_, err := service.Create(ctx, &CreateMovieInput{Title: "Movie", Year: 2020 + i})
 		if err != nil {
 			t.Fatalf("Create() error = %v", err)
 		}
@@ -242,13 +243,13 @@ func TestMovieService_List_Search(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create movies
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "The Matrix", Year: 1999})
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "Matrix Reloaded", Year: 2003})
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "Inception", Year: 2010})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "The Matrix", Year: 1999})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "Matrix Reloaded", Year: 2003})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "Inception", Year: 2010})
 
 	// Search for "Matrix"
 	list, err := service.List(ctx, ListMoviesOptions{Search: "Matrix"})
@@ -265,11 +266,11 @@ func TestMovieService_Update(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie
-	created, err := service.Create(ctx, CreateMovieInput{
+	created, err := service.Create(ctx, &CreateMovieInput{
 		Title:     "Original Title",
 		Year:      2020,
 		Monitored: false,
@@ -283,7 +284,7 @@ func TestMovieService_Update(t *testing.T) {
 	newYear := 2021
 	monitored := true
 
-	updated, err := service.Update(ctx, created.ID, UpdateMovieInput{
+	updated, err := service.Update(ctx, created.ID, &UpdateMovieInput{
 		Title:     &newTitle,
 		Year:      &newYear,
 		Monitored: &monitored,
@@ -307,11 +308,11 @@ func TestMovieService_Update_PartialUpdate(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie with multiple fields
-	created, err := service.Create(ctx, CreateMovieInput{
+	created, err := service.Create(ctx, &CreateMovieInput{
 		Title:    "Test Movie",
 		Year:     2020,
 		Overview: "Original overview",
@@ -322,7 +323,7 @@ func TestMovieService_Update_PartialUpdate(t *testing.T) {
 
 	// Update only the title
 	newTitle := "New Title"
-	updated, err := service.Update(ctx, created.ID, UpdateMovieInput{
+	updated, err := service.Update(ctx, created.ID, &UpdateMovieInput{
 		Title: &newTitle,
 	})
 	if err != nil {
@@ -345,12 +346,12 @@ func TestMovieService_Update_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	newTitle := "Test"
-	_, err := service.Update(ctx, 99999, UpdateMovieInput{Title: &newTitle})
-	if err != ErrMovieNotFound {
+	_, err := service.Update(ctx, 99999, &UpdateMovieInput{Title: &newTitle})
+	if !errors.Is(err, ErrMovieNotFound) {
 		t.Errorf("Update() non-existent movie error = %v, want %v", err, ErrMovieNotFound)
 	}
 }
@@ -359,11 +360,11 @@ func TestMovieService_Delete(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie
-	created, err := service.Create(ctx, CreateMovieInput{Title: "To Delete", Year: 2020})
+	created, err := service.Create(ctx, &CreateMovieInput{Title: "To Delete", Year: 2020})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -376,7 +377,7 @@ func TestMovieService_Delete(t *testing.T) {
 
 	// Verify it's gone
 	_, err = service.Get(ctx, created.ID)
-	if err != ErrMovieNotFound {
+	if !errors.Is(err, ErrMovieNotFound) {
 		t.Errorf("Get() after delete error = %v, want %v", err, ErrMovieNotFound)
 	}
 }
@@ -385,11 +386,11 @@ func TestMovieService_Delete_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	err := service.Delete(ctx, 99999, false)
-	if err != ErrMovieNotFound {
+	if !errors.Is(err, ErrMovieNotFound) {
 		t.Errorf("Delete() non-existent movie error = %v, want %v", err, ErrMovieNotFound)
 	}
 }
@@ -398,11 +399,11 @@ func TestMovieService_AddFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie
-	movie, err := service.Create(ctx, CreateMovieInput{Title: "Test Movie", Year: 2020})
+	movie, err := service.Create(ctx, &CreateMovieInput{Title: "Test Movie", Year: 2020})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -416,7 +417,7 @@ func TestMovieService_AddFile(t *testing.T) {
 		Resolution: "1920x1080",
 	}
 
-	file, err := service.AddFile(ctx, movie.ID, fileInput)
+	file, err := service.AddFile(ctx, movie.ID, &fileInput)
 	if err != nil {
 		t.Fatalf("AddFile() error = %v", err)
 	}
@@ -445,15 +446,15 @@ func TestMovieService_GetFiles(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie
-	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test", Year: 2020})
+	movie, _ := service.Create(ctx, &CreateMovieInput{Title: "Test", Year: 2020})
 
 	// Add multiple files
-	_, _ = service.AddFile(ctx, movie.ID, CreateMovieFileInput{Path: "/path1.mkv", Size: 1000})
-	_, _ = service.AddFile(ctx, movie.ID, CreateMovieFileInput{Path: "/path2.mkv", Size: 2000})
+	_, _ = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{Path: "/path1.mkv", Size: 1000})
+	_, _ = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{Path: "/path2.mkv", Size: 2000})
 
 	files, err := service.GetFiles(ctx, movie.ID)
 	if err != nil {
@@ -469,12 +470,12 @@ func TestMovieService_RemoveFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create a movie and add a file
-	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test", Year: 2020})
-	file, _ := service.AddFile(ctx, movie.ID, CreateMovieFileInput{Path: "/path.mkv", Size: 1000})
+	movie, _ := service.Create(ctx, &CreateMovieInput{Title: "Test", Year: 2020})
+	file, _ := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{Path: "/path.mkv", Size: 1000})
 
 	// Remove the file
 	err := service.RemoveFile(ctx, file.ID)
@@ -499,11 +500,11 @@ func TestMovieService_RemoveFile_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	err := service.RemoveFile(ctx, 99999)
-	if err != ErrMovieFileNotFound {
+	if !errors.Is(err, ErrMovieFileNotFound) {
 		t.Errorf("RemoveFile() non-existent file error = %v, want %v", err, ErrMovieFileNotFound)
 	}
 }
@@ -512,7 +513,7 @@ func TestMovieService_Count(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Initially should be 0
@@ -525,9 +526,9 @@ func TestMovieService_Count(t *testing.T) {
 	}
 
 	// Add some movies
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "Movie 1"})
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "Movie 2"})
-	_, _ = service.Create(ctx, CreateMovieInput{Title: "Movie 3"})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "Movie 1"})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "Movie 2"})
+	_, _ = service.Create(ctx, &CreateMovieInput{Title: "Movie 3"})
 
 	count, err = service.Count(ctx)
 	if err != nil {

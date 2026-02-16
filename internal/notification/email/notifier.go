@@ -40,11 +40,11 @@ type Settings struct {
 type Notifier struct {
 	name     string
 	settings Settings
-	logger   zerolog.Logger
+	logger   *zerolog.Logger
 }
 
 // New creates a new email notifier
-func New(name string, settings Settings, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, logger *zerolog.Logger) *Notifier {
 	if settings.Port == 0 {
 		settings.Port = 587
 	}
@@ -55,10 +55,11 @@ func New(name string, settings Settings, logger zerolog.Logger) *Notifier {
 			settings.Encryption = EncryptionPreferred
 		}
 	}
+	subLogger := logger.With().Str("notifier", "email").Str("name", name).Logger()
 	return &Notifier{
 		name:     name,
-		settings: settings,
-		logger:   logger.With().Str("notifier", "email").Str("name", name).Logger(),
+		settings: *settings,
+		logger:   &subLogger,
 	}
 }
 
@@ -71,10 +72,10 @@ func (n *Notifier) Name() string {
 }
 
 func (n *Notifier) Test(ctx context.Context) error {
-	return n.sendEmail(ctx, "SlipStream Test Notification", "This is a test notification from SlipStream.")
+	return n.sendEmail("SlipStream Test Notification", "This is a test notification from SlipStream.")
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	var subject, body string
 
 	if event.Movie != nil {
@@ -91,10 +92,10 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 			event.Release.Quality, event.Release.Indexer, event.DownloadClient.Name, event.Release.ReleaseName)
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	var subject, body string
 
 	if event.Movie != nil {
@@ -109,10 +110,10 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.Quality, event.DestinationPath)
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	var subject, body string
 
 	if event.Movie != nil {
@@ -127,10 +128,10 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.OldQuality, event.NewQuality)
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Movie Added - %s", event.Movie.Title)
 	if event.Movie.Year > 0 {
 		subject = fmt.Sprintf("[SlipStream] Movie Added - %s (%d)", event.Movie.Title, event.Movie.Year)
@@ -144,10 +145,10 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 		body += fmt.Sprintf("\n\n%s", event.Movie.Overview)
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Movie Deleted - %s", event.Movie.Title)
 	if event.Movie.Year > 0 {
 		subject = fmt.Sprintf("[SlipStream] Movie Deleted - %s (%d)", event.Movie.Title, event.Movie.Year)
@@ -158,10 +159,10 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 		body += "\n\nFiles were also deleted."
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Series Added - %s", event.Series.Title)
 	if event.Series.Year > 0 {
 		subject = fmt.Sprintf("[SlipStream] Series Added - %s (%d)", event.Series.Title, event.Series.Year)
@@ -172,10 +173,10 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 		body += fmt.Sprintf("\n\n%s", event.Series.Overview)
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Series Deleted - %s", event.Series.Title)
 
 	body := fmt.Sprintf("Series: %s", event.Series.Title)
@@ -183,34 +184,34 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 		body += "\n\nFiles were also deleted."
 	}
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Health Issue - %s", event.Source)
 	body := fmt.Sprintf("Source: %s\nType: %s\n\n%s", event.Source, event.Type, event.Message)
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	subject := fmt.Sprintf("[SlipStream] Health Issue Resolved - %s", event.Source)
 	body := fmt.Sprintf("Source: %s\n\n%s", event.Source, event.Message)
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	subject := "[SlipStream] Application Updated"
 	body := fmt.Sprintf("SlipStream has been updated.\n\nPrevious Version: %s\nNew Version: %s",
 		event.PreviousVersion, event.NewVersion)
 
-	return n.sendEmail(ctx, subject, body)
+	return n.sendEmail(subject, body)
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	subject := "[SlipStream] " + event.Title
-	return n.sendEmail(ctx, subject, event.Message)
+	return n.sendEmail(subject, event.Message)
 }
 
 func (n *Notifier) toHTML(plainText string) string {
@@ -240,12 +241,14 @@ p { margin: 0 0 10px 0; }
 </html>`, escaped)
 }
 
-func (n *Notifier) sendEmail(ctx context.Context, subject, body string) error {
+func (n *Notifier) sendEmail(subject, body string) error {
 	toAddrs := parseAddresses(n.settings.To)
 	ccAddrs := parseAddresses(n.settings.CC)
 	bccAddrs := parseAddresses(n.settings.BCC)
 
-	allRecipients := append(toAddrs, ccAddrs...)
+	allRecipients := make([]string, 0, len(toAddrs)+len(ccAddrs)+len(bccAddrs))
+	allRecipients = append(allRecipients, toAddrs...)
+	allRecipients = append(allRecipients, ccAddrs...)
 	allRecipients = append(allRecipients, bccAddrs...)
 
 	if len(allRecipients) == 0 {
@@ -287,51 +290,68 @@ func (n *Notifier) sendEmail(ctx context.Context, subject, body string) error {
 }
 
 func (n *Notifier) sendEmailTLS(addr string, auth smtp.Auth, recipients []string, message string) error {
-	tlsConfig := &tls.Config{
-		ServerName: n.settings.Server,
-	}
-
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	client, err := n.dialTLS(addr)
 	if err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close()
-
-	client, err := smtp.NewClient(conn, n.settings.Server)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
+		return err
 	}
 	defer client.Close()
 
+	if err := authenticateAndSetEnvelope(client, auth, n.settings.From, recipients); err != nil {
+		return err
+	}
+
+	return writeMessageData(client, message)
+}
+
+func (n *Notifier) dialTLS(addr string) (*smtp.Client, error) {
+	tlsConfig := &tls.Config{
+		ServerName: n.settings.Server,
+		MinVersion: tls.VersionTLS12,
+	}
+
+	dialer := &tls.Dialer{Config: tlsConfig}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	client, err := smtp.NewClient(conn, n.settings.Server)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	return client, nil
+}
+
+func authenticateAndSetEnvelope(client *smtp.Client, auth smtp.Auth, from string, recipients []string) error {
 	if auth != nil {
 		if err := client.Auth(auth); err != nil {
 			return fmt.Errorf("failed to authenticate: %w", err)
 		}
 	}
-
-	if err := client.Mail(n.settings.From); err != nil {
+	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("failed to set sender: %w", err)
 	}
-
 	for _, rcpt := range recipients {
 		if err := client.Rcpt(rcpt); err != nil {
 			return fmt.Errorf("failed to set recipient %s: %w", rcpt, err)
 		}
 	}
+	return nil
+}
 
+func writeMessageData(client *smtp.Client, message string) error {
 	w, err := client.Data()
 	if err != nil {
 		return fmt.Errorf("failed to get data writer: %w", err)
 	}
-
 	if _, err := w.Write([]byte(message)); err != nil {
 		return fmt.Errorf("failed to write message: %w", err)
 	}
-
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("failed to close data writer: %w", err)
 	}
-
 	return client.Quit()
 }
 

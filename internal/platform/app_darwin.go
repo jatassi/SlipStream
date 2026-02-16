@@ -3,6 +3,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -69,7 +70,7 @@ func (a *macApp) Run() error {
 		menu := appkit.NewMenu()
 
 		openItem := appkit.NewMenuItemWithAction("Open SlipStream", "", func(sender objc.Object) {
-			a.OpenBrowser(a.config.ServerURL)
+			_ = a.OpenBrowser(a.config.ServerURL)
 		})
 		menu.AddItem(openItem)
 
@@ -107,10 +108,10 @@ func (a *macApp) Run() error {
 func (a *macApp) toggleStartup() {
 	enabled, _ := IsStartupEnabled()
 	if enabled {
-		DisableStartup()
+		_ = DisableStartup()
 	} else {
 		appPath, _ := os.Executable()
-		EnableStartup(appPath)
+		_ = EnableStartup(appPath)
 	}
 
 	newEnabled, _ := IsStartupEnabled()
@@ -127,7 +128,7 @@ func (a *macApp) toggleStartup() {
 func (a *macApp) OpenBrowser(url string) error {
 	nsURL := foundation.URL_URLWithString(url)
 	if nsURL.Ptr() == nil {
-		return exec.Command("open", url).Start()
+		return exec.CommandContext(context.Background(), "open", url).Start()
 	}
 	appkit.Workspace_SharedWorkspace().OpenURL(nsURL)
 	return nil
@@ -169,7 +170,7 @@ func EnableStartup(appPath string) error {
 	}
 
 	launchAgentsDir := filepath.Join(home, "Library", "LaunchAgents")
-	if err := os.MkdirAll(launchAgentsDir, 0755); err != nil {
+	if err := os.MkdirAll(launchAgentsDir, 0o750); err != nil {
 		return fmt.Errorf("create LaunchAgents dir: %w", err)
 	}
 
@@ -197,7 +198,7 @@ func EnableStartup(appPath string) error {
 		return fmt.Errorf("write plist: %w", err)
 	}
 
-	cmd := exec.Command("launchctl", "load", plistPath)
+	cmd := exec.CommandContext(context.Background(), "launchctl", "load", plistPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("launchctl load: %w", err)
 	}
@@ -212,7 +213,7 @@ func DisableStartup() error {
 		return nil
 	}
 
-	cmd := exec.Command("launchctl", "unload", plistPath)
+	cmd := exec.CommandContext(context.Background(), "launchctl", "unload", plistPath)
 	_ = cmd.Run()
 
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {

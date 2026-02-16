@@ -11,8 +11,8 @@ const (
 
 // SearchStartedPayload is sent when a search begins.
 type SearchStartedPayload struct {
-	Query      string `json:"query,omitempty"`
-	Type       string `json:"type"`
+	Query      string  `json:"query,omitempty"`
+	Type       string  `json:"type"`
 	IndexerIDs []int64 `json:"indexerIds,omitempty"`
 }
 

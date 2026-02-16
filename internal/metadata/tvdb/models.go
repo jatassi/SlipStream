@@ -21,22 +21,22 @@ type SearchResponse struct {
 
 // SearchResult is a search result from TVDB.
 type SearchResult struct {
-	ObjectID       string   `json:"objectID"`
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Slug           string   `json:"slug"`
-	Type           string   `json:"type"` // "series", "movie", etc.
-	Year           string   `json:"year"`
-	Overview       string   `json:"overview"`
-	ImageURL       string   `json:"image_url"`
-	PrimaryType    string   `json:"primary_type"`
-	Status         string   `json:"status"`
-	FirstAirTime   string   `json:"first_air_time"`
-	Network        string   `json:"network"`
-	TvdbID         string   `json:"tvdb_id"`
-	RemoteIDs      []RemoteID `json:"remote_ids"`
-	Overviews      map[string]string `json:"overviews"`
-	Translations   map[string]string `json:"translations"`
+	ObjectID     string            `json:"objectID"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Slug         string            `json:"slug"`
+	Type         string            `json:"type"` // "series", "movie", etc.
+	Year         string            `json:"year"`
+	Overview     string            `json:"overview"`
+	ImageURL     string            `json:"image_url"`
+	PrimaryType  string            `json:"primary_type"`
+	Status       string            `json:"status"`
+	FirstAirTime string            `json:"first_air_time"`
+	Network      string            `json:"network"`
+	TvdbID       string            `json:"tvdb_id"`
+	RemoteIDs    []RemoteID        `json:"remote_ids"`
+	Overviews    map[string]string `json:"overviews"`
+	Translations map[string]string `json:"translations"`
 }
 
 // RemoteID represents an external ID.
@@ -54,27 +54,27 @@ type SeriesResponse struct {
 
 // SeriesDetail contains detailed series information.
 type SeriesDetail struct {
-	ID                 int            `json:"id"`
-	Name               string         `json:"name"`
-	Slug               string         `json:"slug"`
-	Image              string         `json:"image"`
-	FirstAired         string         `json:"firstAired"`
-	LastAired          string         `json:"lastAired"`
-	NextAired          string         `json:"nextAired"`
-	Score              float64        `json:"score"`
-	Status             SeriesStatus   `json:"status"`
-	OriginalCountry    string         `json:"originalCountry"`
-	OriginalLanguage   string         `json:"originalLanguage"`
-	DefaultSeasonType  int            `json:"defaultSeasonType"`
-	IsOrderRandomized  bool           `json:"isOrderRandomized"`
-	LastUpdated        string         `json:"lastUpdated"`
-	AverageRuntime     int            `json:"averageRuntime"`
-	Overview           string         `json:"overview"`
-	Year               string         `json:"year"`
-	Artworks           []Artwork      `json:"artworks"`
-	Genres             []Genre        `json:"genres"`
-	RemoteIDs          []SeriesRemoteID `json:"remoteIds"`
-	Aliases            []Alias        `json:"aliases"`
+	ID                int              `json:"id"`
+	Name              string           `json:"name"`
+	Slug              string           `json:"slug"`
+	Image             string           `json:"image"`
+	FirstAired        string           `json:"firstAired"`
+	LastAired         string           `json:"lastAired"`
+	NextAired         string           `json:"nextAired"`
+	Score             float64          `json:"score"`
+	Status            SeriesStatus     `json:"status"`
+	OriginalCountry   string           `json:"originalCountry"`
+	OriginalLanguage  string           `json:"originalLanguage"`
+	DefaultSeasonType int              `json:"defaultSeasonType"`
+	IsOrderRandomized bool             `json:"isOrderRandomized"`
+	LastUpdated       string           `json:"lastUpdated"`
+	AverageRuntime    int              `json:"averageRuntime"`
+	Overview          string           `json:"overview"`
+	Year              string           `json:"year"`
+	Artworks          []Artwork        `json:"artworks"`
+	Genres            []Genre          `json:"genres"`
+	RemoteIDs         []SeriesRemoteID `json:"remoteIds"`
+	Aliases           []Alias          `json:"aliases"`
 }
 
 // SeriesStatus represents the status of a series.
@@ -94,14 +94,14 @@ type Genre struct {
 
 // Artwork represents artwork for a series.
 type Artwork struct {
-	ID         int    `json:"id"`
-	Image      string `json:"image"`
-	Thumbnail  string `json:"thumbnail"`
-	Language   string `json:"language"`
-	Type       int    `json:"type"`
-	Score      float64 `json:"score"`
-	Width      int    `json:"width"`
-	Height     int    `json:"height"`
+	ID        int     `json:"id"`
+	Image     string  `json:"image"`
+	Thumbnail string  `json:"thumbnail"`
+	Language  string  `json:"language"`
+	Type      int     `json:"type"`
+	Score     float64 `json:"score"`
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
 }
 
 // SeriesRemoteID represents an external ID for a series.
@@ -129,22 +129,22 @@ type EpisodesResponse struct {
 
 // Episode represents a TV episode.
 type Episode struct {
-	ID                 int     `json:"id"`
-	SeriesID           int     `json:"seriesId"`
-	Name               string  `json:"name"`
-	Aired              string  `json:"aired"`
-	Runtime            int     `json:"runtime"`
-	Overview           string  `json:"overview"`
-	Image              string  `json:"image"`
-	ImageType          int     `json:"imageType"`
-	ProductionCode     string  `json:"productionCode"`
-	SeasonNumber       int     `json:"seasonNumber"`
-	Number             int     `json:"number"`
-	AbsoluteNumber     int     `json:"absoluteNumber"`
-	IsMovie            int     `json:"isMovie"`
-	LastUpdated        string  `json:"lastUpdated"`
-	FinaleType         string  `json:"finaleType"`
-	Year               string  `json:"year"`
+	ID             int    `json:"id"`
+	SeriesID       int    `json:"seriesId"`
+	Name           string `json:"name"`
+	Aired          string `json:"aired"`
+	Runtime        int    `json:"runtime"`
+	Overview       string `json:"overview"`
+	Image          string `json:"image"`
+	ImageType      int    `json:"imageType"`
+	ProductionCode string `json:"productionCode"`
+	SeasonNumber   int    `json:"seasonNumber"`
+	Number         int    `json:"number"`
+	AbsoluteNumber int    `json:"absoluteNumber"`
+	IsMovie        int    `json:"isMovie"`
+	LastUpdated    string `json:"lastUpdated"`
+	FinaleType     string `json:"finaleType"`
+	Year           string `json:"year"`
 }
 
 // Links contains pagination links.

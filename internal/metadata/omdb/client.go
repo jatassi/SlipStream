@@ -22,6 +22,8 @@ var (
 	ErrAPIError      = errors.New("OMDb API error")
 )
 
+const omdbNotAvailable = "N/A"
+
 // Client is an OMDb API client.
 type Client struct {
 	httpClient *http.Client
@@ -30,7 +32,7 @@ type Client struct {
 }
 
 // NewClient creates a new OMDb client.
-func NewClient(cfg config.OMDBConfig, logger zerolog.Logger) *Client {
+func NewClient(cfg config.OMDBConfig, logger *zerolog.Logger) *Client {
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
@@ -77,7 +79,7 @@ func (c *Client) GetByIMDbID(ctx context.Context, imdbID string) (*NormalizedRat
 
 	reqURL := fmt.Sprintf("%s?%s", c.config.BaseURL, params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -106,7 +108,7 @@ func (c *Client) GetByIMDbID(ctx context.Context, imdbID string) (*NormalizedRat
 		return nil, fmt.Errorf("%w: %s", ErrAPIError, omdbResp.Error)
 	}
 
-	return c.normalizeRatings(omdbResp), nil
+	return c.normalizeRatings(&omdbResp), nil
 }
 
 // GetSeasonEpisodes fetches episode ratings for a season by IMDb series ID.
@@ -115,11 +117,27 @@ func (c *Client) GetSeasonEpisodes(ctx context.Context, imdbID string, season in
 	if !c.IsConfigured() {
 		return nil, ErrAPIKeyMissing
 	}
-
 	if imdbID == "" {
 		return nil, ErrNotFound
 	}
 
+	seasonResp, err := c.fetchSeasonData(ctx, imdbID, season)
+	if err != nil {
+		return nil, err
+	}
+
+	ratings := c.parseEpisodeRatings(seasonResp.Episodes)
+
+	c.logger.Debug().
+		Str("imdbId", imdbID).
+		Int("season", season).
+		Int("episodes", len(ratings)).
+		Msg("Fetched season episode ratings from OMDb")
+
+	return ratings, nil
+}
+
+func (c *Client) fetchSeasonData(ctx context.Context, imdbID string, season int) (*SeasonEpisodesResponse, error) {
 	params := url.Values{}
 	params.Set("apikey", c.config.APIKey)
 	params.Set("i", imdbID)
@@ -128,7 +146,7 @@ func (c *Client) GetSeasonEpisodes(ctx context.Context, imdbID string, season in
 
 	reqURL := fmt.Sprintf("%s?%s", c.config.BaseURL, params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -153,67 +171,36 @@ func (c *Client) GetSeasonEpisodes(ctx context.Context, imdbID string, season in
 		return nil, fmt.Errorf("%w: %s", ErrAPIError, seasonResp.Error)
 	}
 
-	ratings := make(map[int]float64, len(seasonResp.Episodes))
-	for _, ep := range seasonResp.Episodes {
+	return &seasonResp, nil
+}
+
+func (c *Client) parseEpisodeRatings(episodes []EpisodeRating) map[int]float64 {
+	ratings := make(map[int]float64, len(episodes))
+	for _, ep := range episodes {
 		epNum, err := strconv.Atoi(ep.Episode)
 		if err != nil {
 			continue
 		}
-		if ep.ImdbRating != "" && ep.ImdbRating != "N/A" {
-			if rating, err := strconv.ParseFloat(ep.ImdbRating, 64); err == nil {
-				ratings[epNum] = rating
-			}
+		if ep.ImdbRating == "" || ep.ImdbRating == omdbNotAvailable {
+			continue
+		}
+		if rating, err := strconv.ParseFloat(ep.ImdbRating, 64); err == nil {
+			ratings[epNum] = rating
 		}
 	}
-
-	c.logger.Debug().
-		Str("imdbId", imdbID).
-		Int("season", season).
-		Int("episodes", len(ratings)).
-		Msg("Fetched season episode ratings from OMDb")
-
-	return ratings, nil
+	return ratings
 }
 
 // normalizeRatings converts OMDb response to normalized format.
-func (c *Client) normalizeRatings(resp Response) *NormalizedRatings {
+func (c *Client) normalizeRatings(resp *Response) *NormalizedRatings {
 	result := &NormalizedRatings{
 		Awards: resp.Awards,
 	}
 
-	// Parse IMDB rating
-	if resp.ImdbRating != "" && resp.ImdbRating != "N/A" {
-		if rating, err := strconv.ParseFloat(resp.ImdbRating, 64); err == nil {
-			result.ImdbRating = rating
-		}
-	}
-
-	// Parse IMDB votes (format: "1,234,567")
-	if resp.ImdbVotes != "" && resp.ImdbVotes != "N/A" {
-		votesStr := strings.ReplaceAll(resp.ImdbVotes, ",", "")
-		if votes, err := strconv.Atoi(votesStr); err == nil {
-			result.ImdbVotes = votes
-		}
-	}
-
-	// Parse Metacritic score
-	if resp.Metascore != "" && resp.Metascore != "N/A" {
-		if score, err := strconv.Atoi(resp.Metascore); err == nil {
-			result.Metacritic = score
-		}
-	}
-
-	// Parse ratings from various sources
-	for _, rating := range resp.Ratings {
-		switch rating.Source {
-		case "Rotten Tomatoes":
-			// Format: "92%"
-			scoreStr := strings.TrimSuffix(rating.Value, "%")
-			if score, err := strconv.Atoi(scoreStr); err == nil {
-				result.RottenTomatoes = score
-			}
-		}
-	}
+	c.parseImdbRating(resp.ImdbRating, result)
+	c.parseImdbVotes(resp.ImdbVotes, result)
+	c.parseMetacritic(resp.Metascore, result)
+	c.parseRottenTomatoes(resp.Ratings, result)
 
 	c.logger.Debug().
 		Str("imdbId", resp.ImdbID).
@@ -222,4 +209,45 @@ func (c *Client) normalizeRatings(resp Response) *NormalizedRatings {
 		Msg("Normalized OMDb ratings")
 
 	return result
+}
+
+func (c *Client) parseImdbRating(imdbRating string, result *NormalizedRatings) {
+	if imdbRating == "" || imdbRating == omdbNotAvailable {
+		return
+	}
+	if rating, err := strconv.ParseFloat(imdbRating, 64); err == nil {
+		result.ImdbRating = rating
+	}
+}
+
+func (c *Client) parseImdbVotes(imdbVotes string, result *NormalizedRatings) {
+	if imdbVotes == "" || imdbVotes == omdbNotAvailable {
+		return
+	}
+	votesStr := strings.ReplaceAll(imdbVotes, ",", "")
+	if votes, err := strconv.Atoi(votesStr); err == nil {
+		result.ImdbVotes = votes
+	}
+}
+
+func (c *Client) parseMetacritic(metascore string, result *NormalizedRatings) {
+	if metascore == "" || metascore == omdbNotAvailable {
+		return
+	}
+	if score, err := strconv.Atoi(metascore); err == nil {
+		result.Metacritic = score
+	}
+}
+
+func (c *Client) parseRottenTomatoes(ratings []Rating, result *NormalizedRatings) {
+	for _, rating := range ratings {
+		if rating.Source != "Rotten Tomatoes" {
+			continue
+		}
+		scoreStr := strings.TrimSuffix(rating.Value, "%")
+		if score, err := strconv.Atoi(scoreStr); err == nil {
+			result.RottenTomatoes = score
+		}
+		break
+	}
 }

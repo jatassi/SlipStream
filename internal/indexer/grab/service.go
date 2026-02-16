@@ -28,7 +28,7 @@ var (
 
 // Broadcaster interface for sending events to clients.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // QueueTrigger interface for triggering immediate queue broadcasts.
@@ -57,16 +57,16 @@ type PortalStatusTracker interface {
 
 // Service handles grabbing releases and sending them to download clients.
 type Service struct {
-	queries              *sqlc.Queries
-	downloaderService    *downloader.Service
-	indexerService       IndexerClientProvider
-	statusService        *status.Service
-	rateLimiter          *ratelimit.Limiter
-	broadcaster          Broadcaster
-	queueTrigger         QueueTrigger
-	notificationService  NotificationService
-	portalStatusTracker  PortalStatusTracker
-	logger               zerolog.Logger
+	queries             *sqlc.Queries
+	downloaderService   *downloader.Service
+	indexerService      IndexerClientProvider
+	statusService       *status.Service
+	rateLimiter         *ratelimit.Limiter
+	broadcaster         Broadcaster
+	queueTrigger        QueueTrigger
+	notificationService NotificationService
+	portalStatusTracker PortalStatusTracker
+	logger              *zerolog.Logger
 }
 
 // IndexerClientProvider provides access to indexer clients for downloading torrents.
@@ -78,12 +78,13 @@ type IndexerClientProvider interface {
 func NewService(
 	db *sql.DB,
 	downloaderService *downloader.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *Service {
+	subLogger := logger.With().Str("component", "grab").Logger()
 	return &Service{
 		queries:           sqlc.New(db),
 		downloaderService: downloaderService,
-		logger:            logger.With().Str("component", "grab").Logger(),
+		logger:            &subLogger,
 	}
 }
 
@@ -131,15 +132,15 @@ func (s *Service) SetDB(db *sql.DB) {
 // GrabRequest represents a request to grab a release.
 type GrabRequest struct {
 	Release          *types.ReleaseInfo `json:"release"`
-	ClientID         int64              `json:"clientId,omitempty"`      // Optional: specific client
-	MediaType        string             `json:"mediaType,omitempty"`     // movie, episode, season
-	MediaID          int64              `json:"mediaId,omitempty"`       // movie_id, episode_id, or series_id (for season packs)
-	SeriesID         int64              `json:"seriesId,omitempty"`      // For episodes
+	ClientID         int64              `json:"clientId,omitempty"`  // Optional: specific client
+	MediaType        string             `json:"mediaType,omitempty"` // movie, episode, season
+	MediaID          int64              `json:"mediaId,omitempty"`   // movie_id, episode_id, or series_id (for season packs)
+	SeriesID         int64              `json:"seriesId,omitempty"`  // For episodes
 	SeasonNumber     int                `json:"seasonNumber,omitempty"`
 	IsSeasonPack     bool               `json:"isSeasonPack,omitempty"`
 	IsCompleteSeries bool               `json:"isCompleteSeries,omitempty"`
-	TargetSlotID     *int64             `json:"targetSlotId,omitempty"`  // Target slot for multi-version mode
-	Source           string             `json:"source,omitempty"`        // "auto-search", "manual-search", "portal-request"
+	TargetSlotID     *int64             `json:"targetSlotId,omitempty"` // Target slot for multi-version mode
+	Source           string             `json:"source,omitempty"`       // "auto-search", "manual-search", "portal-request"
 }
 
 // GrabResult contains the result of a grab operation.
@@ -175,113 +176,42 @@ type BulkGrabResult struct {
 }
 
 // Grab downloads a release and sends it to a download client.
-func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error) {
+func (s *Service) Grab(ctx context.Context, req *GrabRequest) (*GrabResult, error) {
 	if req.Release == nil {
-		return &GrabResult{
-			Success: false,
-			Error:   "release is required",
-		}, ErrInvalidRelease
+		return &GrabResult{Success: false, Error: "release is required"}, ErrInvalidRelease
 	}
 
-	// Broadcast grab started event
 	s.broadcastGrabStarted(req.Release)
-
 	s.logger.Info().
 		Str("title", req.Release.Title).
 		Int64("indexerId", req.Release.IndexerID).
 		Str("protocol", string(req.Release.Protocol)).
 		Msg("Grabbing release")
 
-	// Check if indexer is disabled
-	if s.statusService != nil {
-		disabled, _, err := s.statusService.IsDisabled(ctx, req.Release.IndexerID)
-		if err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to check indexer status")
-		} else if disabled {
-			s.broadcastGrabCompleted(req.Release, nil, "indexer is temporarily disabled due to failures")
-			return &GrabResult{
-				Success: false,
-				Error:   "indexer is temporarily disabled due to failures",
-			}, ErrIndexerDisabled
-		}
+	if result, err := s.checkGrabPreconditions(ctx, req.Release); result != nil {
+		return result, err
 	}
 
-	// Check grab rate limit
-	if s.rateLimiter != nil {
-		limited, err := s.rateLimiter.CheckGrabLimit(ctx, req.Release.IndexerID)
-		if err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to check grab limit")
-		} else if limited {
-			s.broadcastGrabCompleted(req.Release, nil, "grab limit exceeded for this indexer")
-			return &GrabResult{
-				Success: false,
-				Error:   "grab limit exceeded for this indexer",
-			}, ErrGrabLimitExceeded
-		}
-	}
-
-	// Select download client
 	client, err := s.selectDownloadClient(ctx, req.Release.Protocol, req.ClientID)
 	if err != nil {
 		s.broadcastGrabCompleted(req.Release, nil, fmt.Sprintf("no suitable download client: %v", err))
-		return &GrabResult{
-			Success: false,
-			Error:   fmt.Sprintf("no suitable download client: %v", err),
-		}, err
+		return &GrabResult{Success: false, Error: fmt.Sprintf("no suitable download client: %v", err)}, err
 	}
 
-	// Send the download URL to the client
-	// The download client will fetch the torrent/NZB directly from the indexer
 	downloadID, err := s.sendToClient(ctx, client, req.Release, req.MediaType)
 	if err != nil {
 		s.recordFailure(ctx, req.Release.IndexerID, err)
-		s.broadcastGrabCompleted(req.Release, &GrabResult{
-			ClientID:   client.ID,
-			ClientName: client.Name,
-		}, fmt.Sprintf("failed to send to client: %v", err))
-		return &GrabResult{
-			Success:    false,
-			ClientID:   client.ID,
-			ClientName: client.Name,
-			Error:      fmt.Sprintf("failed to send to client: %v", err),
-		}, err
+		errMsg := fmt.Sprintf("failed to send to client: %v", err)
+		s.broadcastGrabCompleted(req.Release, &GrabResult{ClientID: client.ID, ClientName: client.Name}, errMsg)
+		return &GrabResult{Success: false, ClientID: client.ID, ClientName: client.Name, Error: errMsg}, err
 	}
 
-	// Record successful grab
-	s.recordSuccess(ctx, req.Release.IndexerID)
-	if s.rateLimiter != nil {
-		s.rateLimiter.RecordGrab(ctx, req.Release.IndexerID)
-	}
+	s.onGrabSuccess(ctx, req, client, downloadID)
 
-	// Record in history
-	s.recordGrabHistory(ctx, req, client, downloadID)
-
-	// Create download mapping for tracking what's downloading
-	s.createDownloadMapping(ctx, req, client.ID, downloadID)
-
-	result := &GrabResult{
-		Success:    true,
-		DownloadID: downloadID,
-		ClientID:   client.ID,
-		ClientName: client.Name,
-	}
-
-	// Broadcast grab completed event
+	result := &GrabResult{Success: true, DownloadID: downloadID, ClientID: client.ID, ClientName: client.Name}
 	s.broadcastGrabCompleted(req.Release, result, "")
-
-	// Broadcast queue updated so frontends refresh their download status
 	s.broadcastQueueUpdated()
-
-	// Send external notifications
-	if s.notificationService != nil {
-		media := &GrabMediaContext{
-			MediaType:    req.MediaType,
-			MediaID:      req.MediaID,
-			SeriesID:     req.SeriesID,
-			SeasonNumber: req.SeasonNumber,
-		}
-		s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID, req.TargetSlotID, "", media)
-	}
+	s.notifyGrab(ctx, req, client, downloadID)
 
 	s.logger.Info().
 		Str("title", req.Release.Title).
@@ -290,6 +220,52 @@ func (s *Service) Grab(ctx context.Context, req GrabRequest) (*GrabResult, error
 		Msg("Successfully grabbed release")
 
 	return result, nil
+}
+
+func (s *Service) checkGrabPreconditions(ctx context.Context, release *types.ReleaseInfo) (*GrabResult, error) {
+	if s.statusService != nil {
+		disabled, _, err := s.statusService.IsDisabled(ctx, release.IndexerID)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to check indexer status")
+		} else if disabled {
+			s.broadcastGrabCompleted(release, nil, "indexer is temporarily disabled due to failures")
+			return &GrabResult{Success: false, Error: "indexer is temporarily disabled due to failures"}, ErrIndexerDisabled
+		}
+	}
+
+	if s.rateLimiter != nil {
+		limited, err := s.rateLimiter.CheckGrabLimit(ctx, release.IndexerID)
+		if err != nil {
+			s.logger.Warn().Err(err).Msg("Failed to check grab limit")
+		} else if limited {
+			s.broadcastGrabCompleted(release, nil, "grab limit exceeded for this indexer")
+			return &GrabResult{Success: false, Error: "grab limit exceeded for this indexer"}, ErrGrabLimitExceeded
+		}
+	}
+
+	return nil, nil //nolint:nilnil // nil result means preconditions passed
+}
+
+func (s *Service) onGrabSuccess(ctx context.Context, req *GrabRequest, client *downloader.DownloadClient, downloadID string) {
+	s.recordSuccess(ctx, req.Release.IndexerID)
+	if s.rateLimiter != nil {
+		s.rateLimiter.RecordGrab(ctx, req.Release.IndexerID)
+	}
+	s.recordGrabHistory(ctx, req, client, downloadID)
+	s.createDownloadMapping(ctx, req, client.ID, downloadID)
+}
+
+func (s *Service) notifyGrab(ctx context.Context, req *GrabRequest, client *downloader.DownloadClient, downloadID string) {
+	if s.notificationService == nil {
+		return
+	}
+	media := &GrabMediaContext{
+		MediaType:    req.MediaType,
+		MediaID:      req.MediaID,
+		SeriesID:     req.SeriesID,
+		SeasonNumber: req.SeasonNumber,
+	}
+	s.notificationService.OnGrab(ctx, req.Release, client.Name, client.ID, downloadID, req.TargetSlotID, "", media)
 }
 
 // broadcastGrabStarted sends a grab started event.
@@ -332,7 +308,7 @@ func (s *Service) broadcastQueueUpdated() {
 }
 
 // GrabBulk grabs multiple releases.
-func (s *Service) GrabBulk(ctx context.Context, req BulkGrabRequest) (*BulkGrabResult, error) {
+func (s *Service) GrabBulk(ctx context.Context, req *BulkGrabRequest) (*BulkGrabResult, error) {
 	result := &BulkGrabResult{
 		TotalRequested: len(req.Releases),
 		Results:        make([]*GrabResult, 0, len(req.Releases)),
@@ -340,7 +316,7 @@ func (s *Service) GrabBulk(ctx context.Context, req BulkGrabRequest) (*BulkGrabR
 
 	for _, release := range req.Releases {
 		// Req 18.2.1: Pass target slot through to individual grabs
-		grabResult, _ := s.Grab(ctx, GrabRequest{
+		grabResult, _ := s.Grab(ctx, &GrabRequest{
 			Release:          release,
 			ClientID:         req.ClientID,
 			MediaType:        req.MediaType,
@@ -410,39 +386,38 @@ func (s *Service) clientSupportsProtocol(client *downloader.DownloadClient, prot
 
 // sendToClient sends the release to a download client.
 func (s *Service) sendToClient(ctx context.Context, client *downloader.DownloadClient, release *types.ReleaseInfo, mediaType string) (string, error) {
-	// For torrent protocol, download the torrent file using the authenticated indexer client,
-	// then pass the file content to the download client. This is necessary because private
-	// trackers require authentication cookies that the download client doesn't have.
 	if release.Protocol == types.ProtocolTorrent && s.indexerService != nil {
-		indexerClient, err := s.indexerService.GetClient(ctx, release.IndexerID)
-		if err != nil {
-			s.logger.Warn().
-				Err(err).
-				Int64("indexerId", release.IndexerID).
-				Msg("Failed to get indexer client, falling back to direct URL")
-		} else {
-			torrentData, err := indexerClient.Download(ctx, release.DownloadURL)
-			if err != nil {
-				s.logger.Warn().
-					Err(err).
-					Str("url", release.DownloadURL).
-					Msg("Failed to download torrent via indexer, falling back to direct URL")
-			} else {
-				downloadID, err := s.downloaderService.AddTorrentWithContent(ctx, client.ID, torrentData, mediaType, release.Title)
-				if err != nil {
-					return "", fmt.Errorf("failed to add download: %w", err)
-				}
-				return downloadID, nil
-			}
+		if id, err := s.sendViaIndexer(ctx, client, release, mediaType); err == nil {
+			return id, nil
 		}
 	}
 
-	// Fallback: Use direct URL (works for public trackers or magnet links)
 	downloadID, err := s.downloaderService.AddTorrent(ctx, client.ID, release.DownloadURL, mediaType, release.Title)
 	if err != nil {
 		return "", fmt.Errorf("failed to add download: %w", err)
 	}
+	return downloadID, nil
+}
 
+func (s *Service) sendViaIndexer(ctx context.Context, client *downloader.DownloadClient, release *types.ReleaseInfo, mediaType string) (string, error) {
+	indexerClient, err := s.indexerService.GetClient(ctx, release.IndexerID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("indexerId", release.IndexerID).
+			Msg("Failed to get indexer client, falling back to direct URL")
+		return "", err
+	}
+
+	torrentData, err := indexerClient.Download(ctx, release.DownloadURL)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("url", release.DownloadURL).
+			Msg("Failed to download torrent via indexer, falling back to direct URL")
+		return "", err
+	}
+
+	downloadID, err := s.downloaderService.AddTorrentWithContent(ctx, client.ID, torrentData, mediaType, release.Title)
+	if err != nil {
+		return "", fmt.Errorf("failed to add download: %w", err)
+	}
 	return downloadID, nil
 }
 
@@ -467,7 +442,7 @@ func (s *Service) recordFailure(ctx context.Context, indexerID int64, opError er
 }
 
 // recordGrabHistory records the grab in indexer history.
-func (s *Service) recordGrabHistory(ctx context.Context, req GrabRequest, client *downloader.DownloadClient, downloadID string) {
+func (s *Service) recordGrabHistory(ctx context.Context, req *GrabRequest, client *downloader.DownloadClient, downloadID string) {
 	// Check if the indexer exists locally before recording history.
 	// In Prowlarr mode, indexer IDs come from Prowlarr and don't exist in the local database.
 	if _, err := s.queries.GetIndexer(ctx, req.Release.IndexerID); err != nil {
@@ -484,7 +459,7 @@ func (s *Service) recordGrabHistory(ctx context.Context, req GrabRequest, client
 		ResultsCount: sql.NullInt64{Int64: 1, Valid: true},
 		ElapsedMs:    sql.NullInt64{},
 		Data: sql.NullString{
-			String: fmt.Sprintf(`{"downloadId":"%s","clientId":%d,"clientName":"%s","mediaType":"%s","mediaId":%d}`,
+			String: fmt.Sprintf(`{"downloadId":%q,"clientId":%d,"clientName":%q,"mediaType":%q,"mediaId":%d}`,
 				downloadID, client.ID, client.Name, req.MediaType, req.MediaID),
 			Valid: true,
 		},
@@ -538,7 +513,30 @@ type GrabHistoryItem struct {
 }
 
 // createDownloadMapping creates a mapping between a download and its library item.
-func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, clientID int64, downloadID string) {
+func (s *Service) createDownloadMapping(ctx context.Context, req *GrabRequest, clientID int64, downloadID string) {
+	params := s.buildMappingParams(req, clientID, downloadID)
+	if params == nil {
+		return
+	}
+
+	_, err := s.queries.CreateDownloadMapping(ctx, *params)
+	if err != nil {
+		s.logger.Warn().Err(err).
+			Str("downloadId", downloadID).
+			Str("mediaType", req.MediaType).
+			Int64("mediaId", req.MediaID).
+			Msg("Failed to create download mapping")
+		return
+	}
+
+	s.setMediaDownloadingStatus(ctx, req, downloadID)
+
+	if s.portalStatusTracker != nil {
+		_ = s.portalStatusTracker.OnDownloadStarted(ctx, req.MediaType, req.MediaID)
+	}
+}
+
+func (s *Service) buildMappingParams(req *GrabRequest, clientID int64, downloadID string) *sqlc.CreateDownloadMappingParams {
 	source := req.Source
 	if source == "" {
 		source = "auto-search"
@@ -549,7 +547,6 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 		Source:     source,
 	}
 
-	// Set target slot ID if provided (for multi-version mode)
 	if req.TargetSlotID != nil {
 		params.TargetSlotID = sql.NullInt64{Int64: *req.TargetSlotID, Valid: true}
 	}
@@ -575,19 +572,13 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 			params.IsCompleteSeries = 1
 		}
 	default:
-		return
+		return nil
 	}
 
-	_, err := s.queries.CreateDownloadMapping(ctx, params)
-	if err != nil {
-		s.logger.Warn().Err(err).
-			Str("downloadId", downloadID).
-			Str("mediaType", req.MediaType).
-			Int64("mediaId", req.MediaID).
-			Msg("Failed to create download mapping")
-		return
-	}
+	return &params
+}
 
+func (s *Service) setMediaDownloadingStatus(ctx context.Context, req *GrabRequest, downloadID string) {
 	activeDownloadID := sql.NullString{String: downloadID, Valid: true}
 
 	switch req.MediaType {
@@ -600,7 +591,7 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 		}); err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", req.MediaID).Msg("Failed to set movie status to downloading")
 		} else if s.broadcaster != nil {
-			_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": req.MediaID})
+			s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": req.MediaID})
 		}
 	case "episode":
 		if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
@@ -611,12 +602,7 @@ func (s *Service) createDownloadMapping(ctx context.Context, req GrabRequest, cl
 		}); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", req.MediaID).Msg("Failed to set episode status to downloading")
 		} else if s.broadcaster != nil && req.SeriesID > 0 {
-			_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": req.SeriesID})
+			s.broadcaster.Broadcast("series:updated", map[string]any{"id": req.SeriesID})
 		}
-	}
-
-	// Notify portal status tracker for request mirroring
-	if s.portalStatusTracker != nil {
-		_ = s.portalStatusTracker.OnDownloadStarted(ctx, req.MediaType, req.MediaID)
 	}
 }

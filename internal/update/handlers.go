@@ -44,7 +44,7 @@ func (h *Handlers) CheckForUpdate(c echo.Context) error {
 
 	status := h.service.GetStatus()
 	response := map[string]interface{}{
-		"status":        status,
+		"status":          status,
 		"updateAvailable": release != nil,
 	}
 	if release != nil {

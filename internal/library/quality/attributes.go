@@ -103,17 +103,17 @@ var VideoCodecs = []string{
 
 // AudioCodecs lists all supported audio codec identifiers
 var AudioCodecs = []string{
-	"TrueHD",     // Dolby TrueHD
-	"DTS-HD MA",  // DTS-HD Master Audio
-	"DTS-HD",     // DTS-HD (non-MA)
-	"DTS",        // DTS
-	"DDP",        // Dolby Digital Plus (E-AC3)
-	"DD",         // Dolby Digital (AC3)
-	"AAC",        // AAC
-	"FLAC",       // FLAC
-	"LPCM",       // Linear PCM
-	"Opus",       // Opus
-	"MP3",        // MP3
+	"TrueHD",    // Dolby TrueHD
+	"DTS-HD MA", // DTS-HD Master Audio
+	"DTS-HD",    // DTS-HD (non-MA)
+	"DTS",       // DTS
+	"DDP",       // Dolby Digital Plus (E-AC3)
+	"DD",        // Dolby Digital (AC3)
+	"AAC",       // AAC
+	"FLAC",      // FLAC
+	"LPCM",      // Linear PCM
+	"Opus",      // Opus
+	"MP3",       // MP3
 }
 
 // AudioChannels lists all supported audio channel configurations
@@ -191,47 +191,45 @@ func ParseHDRFormats(input string) []string {
 	upperInput := strings.ToUpper(input)
 	var formats []string
 
-	// Check for DV formats
-	if strings.Contains(upperInput, "DOLBY VISION") ||
-		strings.Contains(upperInput, "DOLBYVISION") ||
-		strings.Contains(upperInput, "DOVI") ||
-		strings.Contains(upperInput, "DV") {
+	if containsDolbyVision(upperInput) {
 		formats = append(formats, "DV")
 	}
 
-	// Check for HDR10+ first (more specific)
-	hasHDR10Plus := strings.Contains(upperInput, "HDR10+") || strings.Contains(upperInput, "HDR10PLUS")
+	hasHDR10Plus, hasHDR10 := detectHDR10Variants(upperInput)
 	if hasHDR10Plus {
 		formats = append(formats, "HDR10+")
+	} else if hasHDR10 {
+		formats = append(formats, "HDR10")
 	}
 
-	// Check for HDR10 (but not if it's part of HDR10+)
-	hasHDR10 := false
-	if strings.Contains(upperInput, "HDR10") {
-		// Only add HDR10 if we didn't already find HDR10+
-		if !hasHDR10Plus {
-			formats = append(formats, "HDR10")
-			hasHDR10 = true
-		}
-	}
-
-	// Check for HLG
 	if strings.Contains(upperInput, "HLG") {
 		formats = append(formats, "HLG")
 	}
 
-	// Check for generic HDR only if no specific HDR format was found
-	// and input contains HDR not as part of another format
 	if !hasHDR10 && !hasHDR10Plus && strings.Contains(upperInput, "HDR") {
 		formats = append(formats, "HDR")
 	}
 
-	// If no HDR formats found, treat as SDR
 	if len(formats) == 0 {
 		return []string{"SDR"}
 	}
 
 	return formats
+}
+
+func containsDolbyVision(upper string) bool {
+	return strings.Contains(upper, "DOLBY VISION") ||
+		strings.Contains(upper, "DOLBYVISION") ||
+		strings.Contains(upper, "DOVI") ||
+		strings.Contains(upper, "DV")
+}
+
+func detectHDR10Variants(upper string) (hasPlus, hasBase bool) {
+	hasPlus = strings.Contains(upper, "HDR10+") || strings.Contains(upper, "HDR10PLUS")
+	if !hasPlus {
+		hasBase = strings.Contains(upper, "HDR10")
+	}
+	return
 }
 
 // NormalizeVideoCodec normalizes a parsed video codec to a standard identifier
@@ -258,36 +256,26 @@ func NormalizeVideoCodec(codec string) string {
 	}
 }
 
+// audioCodecMap maps uppercase codec names to their normalized form.
+var audioCodecMap = map[string]string{
+	"TRUEHD": "TrueHD", "TRUE-HD": "TrueHD",
+	"DTS-HD MA": "DTS-HD MA", "DTSHD MA": "DTS-HD MA", "DTS-HDMA": "DTS-HD MA", "DTSHDMA": "DTS-HD MA",
+	"DTS-HD": "DTS-HD", "DTSHD": "DTS-HD",
+	"DTS": "DTS",
+	"DDP": "DDP", "DD+": "DDP", "DOLBY DIGITAL PLUS": "DDP", "EAC3": "DDP", "E-AC3": "DDP", "E-AC-3": "DDP",
+	"DD": "DD", "AC3": "DD", "AC-3": "DD", "DOLBY DIGITAL": "DD",
+	"AAC": "AAC", "FLAC": "FLAC",
+	"LPCM": "LPCM", "PCM": "LPCM",
+	"OPUS": "Opus", "MP3": "MP3",
+}
+
 // NormalizeAudioCodec normalizes a parsed audio codec to a standard identifier
 func NormalizeAudioCodec(codec string) string {
-	codec = strings.ToUpper(strings.TrimSpace(codec))
-
-	switch codec {
-	case "TRUEHD", "TRUE-HD":
-		return "TrueHD"
-	case "DTS-HD MA", "DTSHD MA", "DTS-HDMA", "DTSHDMA":
-		return "DTS-HD MA"
-	case "DTS-HD", "DTSHD":
-		return "DTS-HD"
-	case "DTS":
-		return "DTS"
-	case "DDP", "DD+", "DOLBY DIGITAL PLUS", "EAC3", "E-AC3", "E-AC-3":
-		return "DDP"
-	case "DD", "AC3", "AC-3", "DOLBY DIGITAL":
-		return "DD"
-	case "AAC":
-		return "AAC"
-	case "FLAC":
-		return "FLAC"
-	case "LPCM", "PCM":
-		return "LPCM"
-	case "OPUS":
-		return "Opus"
-	case "MP3":
-		return "MP3"
-	default:
-		return codec
+	upper := strings.ToUpper(strings.TrimSpace(codec))
+	if normalized, ok := audioCodecMap[upper]; ok {
+		return normalized
 	}
+	return upper
 }
 
 // NormalizeAudioChannels normalizes channel configuration to standard format

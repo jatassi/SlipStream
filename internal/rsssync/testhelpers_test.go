@@ -25,10 +25,10 @@ func setupTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 	tdb := testutil.NewTestDB(t)
 	q := sqlc.New(tdb.Conn)
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 
 	p := quality.HD1080pProfile()
-	created, err := qs.Create(context.Background(), quality.CreateProfileInput{
+	created, err := qs.Create(context.Background(), &quality.CreateProfileInput{
 		Name:            p.Name,
 		Cutoff:          p.Cutoff,
 		UpgradeStrategy: p.UpgradeStrategy,
@@ -51,7 +51,7 @@ func (e *testEnv) close() {
 	e.tdb.Close()
 }
 
-func (e *testEnv) createMovie(t *testing.T, title string, tmdbID int64, year int64, status string) int64 {
+func (e *testEnv) createMovie(t *testing.T, title string, tmdbID, year int64, status string) int64 {
 	t.Helper()
 	m, err := e.queries.CreateMovie(context.Background(), sqlc.CreateMovieParams{
 		Title:            title,
@@ -68,7 +68,7 @@ func (e *testEnv) createMovie(t *testing.T, title string, tmdbID int64, year int
 	return m.ID
 }
 
-func (e *testEnv) createMovieFile(t *testing.T, movieID int64, qualityID int64) {
+func (e *testEnv) createMovieFile(t *testing.T, movieID, qualityID int64) {
 	t.Helper()
 	_, err := e.queries.CreateMovieFile(context.Background(), sqlc.CreateMovieFileParams{
 		MovieID:   movieID,
@@ -98,7 +98,7 @@ func (e *testEnv) createSeries(t *testing.T, title string, tvdbID int64, prodSta
 	return s.ID
 }
 
-func (e *testEnv) createSeason(t *testing.T, seriesID int64, seasonNum int64) {
+func (e *testEnv) createSeason(t *testing.T, seriesID, seasonNum int64) {
 	t.Helper()
 	_, err := e.queries.CreateSeason(context.Background(), sqlc.CreateSeasonParams{
 		SeriesID:     seriesID,
@@ -110,7 +110,7 @@ func (e *testEnv) createSeason(t *testing.T, seriesID int64, seasonNum int64) {
 	}
 }
 
-func (e *testEnv) createEpisode(t *testing.T, seriesID int64, season, episode int64, status string) int64 {
+func (e *testEnv) createEpisode(t *testing.T, seriesID, season, episode int64, status string) int64 {
 	t.Helper()
 	ep, err := e.queries.CreateEpisode(context.Background(), sqlc.CreateEpisodeParams{
 		SeriesID:      seriesID,
@@ -126,7 +126,7 @@ func (e *testEnv) createEpisode(t *testing.T, seriesID int64, season, episode in
 	return ep.ID
 }
 
-func (e *testEnv) createEpisodeFile(t *testing.T, episodeID int64, qualityID int64) {
+func (e *testEnv) createEpisodeFile(t *testing.T, episodeID, qualityID int64) {
 	t.Helper()
 	_, err := e.queries.CreateEpisodeFile(context.Background(), sqlc.CreateEpisodeFileParams{
 		EpisodeID: episodeID,
@@ -143,7 +143,7 @@ func (e *testEnv) collectWantedItems(t *testing.T) []decisioning.SearchableItem 
 	t.Helper()
 	collector := &decisioning.Collector{
 		Queries:        e.queries,
-		Logger:         e.tdb.Logger,
+		Logger:         &e.tdb.Logger,
 		BackoffChecker: decisioning.NoBackoff{},
 	}
 	items, err := decisioning.CollectWantedItems(context.Background(), collector)
@@ -153,7 +153,7 @@ func (e *testEnv) collectWantedItems(t *testing.T) []decisioning.SearchableItem 
 	return items
 }
 
-func makeTorrentRelease(title string, source string, resolution int, seeders int) types.TorrentInfo {
+func makeTorrentRelease(title, source string, resolution, seeders int) types.TorrentInfo {
 	return types.TorrentInfo{
 		ReleaseInfo: types.ReleaseInfo{
 			Title:       title,
@@ -167,7 +167,7 @@ func makeTorrentRelease(title string, source string, resolution int, seeders int
 	}
 }
 
-func makeTorrentWithIDs(title string, source string, resolution int, seeders int, tmdbID int, tvdbID int) types.TorrentInfo {
+func makeTorrentWithIDs(title, source string, resolution, seeders, tmdbID, tvdbID int) types.TorrentInfo {
 	t := makeTorrentRelease(title, source, resolution, seeders)
 	t.TmdbID = tmdbID
 	t.TvdbID = tvdbID
@@ -178,7 +178,7 @@ func makeTorrentWithIDs(title string, source string, resolution int, seeders int
 // This is needed because CollectWantedItems collapses all-missing/all-upgradable episodes
 // into a single season item, but the Matcher requires individual episode items in the index
 // so that matchSeasonPack can find candidates and check eligibility.
-func buildEpisodeItems(seriesID int64, title string, tvdbID int, profileID int64, season int, count int, hasFile bool, qualityID int) []decisioning.SearchableItem {
+func buildEpisodeItems(seriesID int64, title string, tvdbID int, profileID int64, season, count int, hasFile bool, qualityID int) []decisioning.SearchableItem {
 	items := make([]decisioning.SearchableItem, count)
 	for i := 0; i < count; i++ {
 		items[i] = decisioning.SearchableItem{

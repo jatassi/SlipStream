@@ -10,12 +10,12 @@ import (
 
 func TestQualityMatcher(t *testing.T) {
 	tests := []struct {
-		name           string
-		source         string
-		resolution     int
-		expectedID     int
-		expectedName   string
-		minConfidence  float64
+		name          string
+		source        string
+		resolution    int
+		expectedID    int
+		expectedName  string
+		minConfidence float64
 	}{
 		{
 			name:          "BluRay 1080p exact match",
@@ -121,12 +121,12 @@ func TestScorer_HealthScore(t *testing.T) {
 	scorer := NewDefaultScorer()
 
 	tests := []struct {
-		name           string
-		seeders        int
-		leechers       int
-		freeleech      bool
-		minScore       float64
-		maxScore       float64
+		name      string
+		seeders   int
+		leechers  int
+		freeleech bool
+		minScore  float64
+		maxScore  float64
 	}{
 		{
 			name:     "No seeders",
@@ -219,7 +219,7 @@ func TestScorer_IndexerScore(t *testing.T) {
 				IndexerPriorities: map[int64]int{1: tt.priority},
 			}
 
-			score := scorer.calculateIndexerScore(torrent, ctx)
+			score := scorer.calculateIndexerScore(torrent, &ctx)
 
 			diff := score - tt.expectedScore
 			if diff < 0 {
@@ -283,7 +283,7 @@ func TestScorer_MatchScore_Year(t *testing.T) {
 				SearchYear: tt.searchYear,
 			}
 
-			score := scorer.calculateMatchScore(torrent, ctx)
+			score := scorer.calculateMatchScore(torrent, &ctx)
 
 			if score < tt.minScore {
 				t.Errorf("%s: Match score = %f, want >= %f", tt.description, score, tt.minScore)
@@ -354,7 +354,7 @@ func TestScorer_MatchScore_Episode(t *testing.T) {
 				SearchEpisode: tt.searchEpisode,
 			}
 
-			score := scorer.calculateMatchScore(torrent, ctx)
+			score := scorer.calculateMatchScore(torrent, &ctx)
 
 			if score < tt.minScore || score > tt.maxScore {
 				t.Errorf("%s: Match score = %f, want between %f and %f", tt.description, score, tt.minScore, tt.maxScore)
@@ -416,7 +416,7 @@ func TestScorer_AgeScore(t *testing.T) {
 				Now: now,
 			}
 
-			score := scorer.calculateAgeScore(torrent, ctx)
+			score := scorer.calculateAgeScore(torrent, &ctx)
 
 			if score < tt.minScore || score > tt.maxScore {
 				t.Errorf("Age score for %d days = %f, want between %f and %f", tt.daysAgo, score, tt.minScore, tt.maxScore)
@@ -481,7 +481,7 @@ func TestScorer_QualityScore_WithProfile(t *testing.T) {
 			}
 			breakdown := &types.ScoreBreakdown{}
 
-			score := scorer.calculateQualityScore(torrent, ctx, breakdown)
+			score := scorer.calculateQualityScore(torrent, &ctx, breakdown)
 
 			if tt.allowed {
 				if score < tt.minScore {
@@ -523,7 +523,7 @@ func TestScorer_FullScoring(t *testing.T) {
 		Now:               now,
 	}
 
-	scorer.ScoreTorrent(&torrent, ctx)
+	scorer.ScoreTorrent(&torrent, &ctx)
 
 	// Should have high scores across the board
 	if torrent.Score < 100 {
@@ -607,7 +607,7 @@ func TestScorer_SortByScore(t *testing.T) {
 		Now:               now,
 	}
 
-	scorer.ScoreTorrents(torrents, ctx)
+	scorer.ScoreTorrents(torrents, &ctx)
 
 	// Should be sorted by score descending
 	// 1080p BluRay freeleech should be first
@@ -692,7 +692,7 @@ func TestScorer_LanguageScore(t *testing.T) {
 				PreferredLanguage: tt.preferredLanguage,
 			}
 
-			score := scorer.calculateLanguageScore(torrent, ctx)
+			score := scorer.calculateLanguageScore(torrent, &ctx)
 
 			if tt.expectedPenalty {
 				if score >= 0 {

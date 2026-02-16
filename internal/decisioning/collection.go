@@ -8,6 +8,10 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
+const (
+	statusUpgradable = "upgradable"
+)
+
 // BackoffChecker determines whether an item should be skipped due to search backoff.
 // Returns true if the item should be skipped.
 type BackoffChecker interface {
@@ -22,7 +26,7 @@ func (NoBackoff) ShouldSkip(context.Context, string, int64, string) bool { retur
 // Collector provides database access and configuration for collecting wanted items.
 type Collector struct {
 	Queries        *sqlc.Queries
-	Logger         zerolog.Logger
+	Logger         *zerolog.Logger
 	BackoffChecker BackoffChecker
 }
 
@@ -73,7 +77,7 @@ func collectMissingMovies(ctx context.Context, c *Collector) ([]SearchableItem, 
 		if c.BackoffChecker.ShouldSkip(ctx, "movie", row.ID, "missing") {
 			continue
 		}
-		items = append(items, movieToSearchableItem(ctx, c.Queries, c.Logger, row))
+		items = append(items, movieToSearchableItem(ctx, c.Queries, row))
 	}
 	return items, nil
 }
@@ -115,26 +119,35 @@ func collectMissingEpisodes(ctx context.Context, c *Collector) ([]SearchableItem
 	}
 
 	var items []SearchableItem
-
 	for key, episodes := range seasonEpisodes {
-		if IsSeasonPackEligible(ctx, c.Queries, c.Logger, key.seriesID, int(key.seasonNumber)) {
-			if c.BackoffChecker.ShouldSkip(ctx, "series", key.seriesID, "missing") {
-				continue
-			}
-			firstEp := episodes[0]
-			item := missingEpisodeRowToSeasonItem(firstEp, int(key.seasonNumber))
-			items = append(items, item)
-		} else {
-			for _, ep := range episodes {
-				if c.BackoffChecker.ShouldSkip(ctx, "episode", ep.ID, "missing") {
-					continue
-				}
-				items = append(items, missingEpisodeRowToItem(ep))
-			}
-		}
+		items = append(items, buildMissingItems(ctx, c, key.seriesID, int(key.seasonNumber), episodes)...)
 	}
 
 	return items, nil
+}
+
+func buildMissingItems(ctx context.Context, c *Collector, seriesID int64, seasonNumber int, episodes []*sqlc.ListMissingEpisodesRow) []SearchableItem {
+	if !IsSeasonPackEligible(ctx, c.Queries, c.Logger, seriesID, seasonNumber) {
+		return buildIndividualMissingItems(ctx, c, episodes)
+	}
+
+	if c.BackoffChecker.ShouldSkip(ctx, "series", seriesID, "missing") {
+		return nil
+	}
+
+	item := missingEpisodeRowToSeasonItem(episodes[0], seasonNumber)
+	return []SearchableItem{item}
+}
+
+func buildIndividualMissingItems(ctx context.Context, c *Collector, episodes []*sqlc.ListMissingEpisodesRow) []SearchableItem {
+	var items []SearchableItem
+	for _, ep := range episodes {
+		if c.BackoffChecker.ShouldSkip(ctx, "episode", ep.ID, "missing") {
+			continue
+		}
+		items = append(items, missingEpisodeRowToItem(ep))
+	}
+	return items
 }
 
 func collectUpgradeEpisodes(ctx context.Context, c *Collector) ([]SearchableItem, error) {
@@ -155,38 +168,50 @@ func collectUpgradeEpisodes(ctx context.Context, c *Collector) ([]SearchableItem
 	}
 
 	var items []SearchableItem
-
 	for key, episodes := range seasonEpisodes {
-		if IsSeasonPackUpgradeEligible(ctx, c.Queries, c.Logger, key.seriesID, int(key.seasonNumber)) {
-			if c.BackoffChecker.ShouldSkip(ctx, "series", key.seriesID, "upgrade") {
-				continue
-			}
-
-			firstEp := episodes[0]
-			var maxQualityID int
-			for _, ep := range episodes {
-				if ep.CurrentQualityID.Valid && int(ep.CurrentQualityID.Int64) > maxQualityID {
-					maxQualityID = int(ep.CurrentQualityID.Int64)
-				}
-			}
-
-			item := upgradeEpisodeRowToSeasonItem(firstEp, int(key.seasonNumber), maxQualityID)
-			items = append(items, item)
-		} else {
-			for _, ep := range episodes {
-				if c.BackoffChecker.ShouldSkip(ctx, "episode", ep.ID, "upgrade") {
-					continue
-				}
-				items = append(items, EpisodeUpgradeCandidateToSearchableItem(ep))
-			}
-		}
+		items = append(items, buildUpgradeItems(ctx, c, key.seriesID, int(key.seasonNumber), episodes)...)
 	}
 
 	return items, nil
 }
 
+func buildUpgradeItems(ctx context.Context, c *Collector, seriesID int64, seasonNumber int, episodes []*sqlc.ListEpisodeUpgradeCandidatesRow) []SearchableItem {
+	if !IsSeasonPackUpgradeEligible(ctx, c.Queries, c.Logger, seriesID, seasonNumber) {
+		return buildIndividualUpgradeItems(ctx, c, episodes)
+	}
+
+	if c.BackoffChecker.ShouldSkip(ctx, "series", seriesID, "upgrade") {
+		return nil
+	}
+
+	maxQualityID := findMaxQualityID(episodes)
+	item := upgradeEpisodeRowToSeasonItem(episodes[0], seasonNumber, maxQualityID)
+	return []SearchableItem{item}
+}
+
+func buildIndividualUpgradeItems(ctx context.Context, c *Collector, episodes []*sqlc.ListEpisodeUpgradeCandidatesRow) []SearchableItem {
+	var items []SearchableItem
+	for _, ep := range episodes {
+		if c.BackoffChecker.ShouldSkip(ctx, "episode", ep.ID, "upgrade") {
+			continue
+		}
+		items = append(items, EpisodeUpgradeCandidateToSearchableItem(ep))
+	}
+	return items
+}
+
+func findMaxQualityID(episodes []*sqlc.ListEpisodeUpgradeCandidatesRow) int {
+	var maxQualityID int
+	for _, ep := range episodes {
+		if ep.CurrentQualityID.Valid && int(ep.CurrentQualityID.Int64) > maxQualityID {
+			maxQualityID = int(ep.CurrentQualityID.Int64)
+		}
+	}
+	return maxQualityID
+}
+
 // IsSeasonPackEligible checks if ALL episodes in a season are released, monitored, and missing.
-func IsSeasonPackEligible(ctx context.Context, queries *sqlc.Queries, logger zerolog.Logger, seriesID int64, seasonNumber int) bool {
+func IsSeasonPackEligible(ctx context.Context, queries *sqlc.Queries, logger *zerolog.Logger, seriesID int64, seasonNumber int) bool {
 	season, err := queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
 		SeriesID:     seriesID,
 		SeasonNumber: int64(seasonNumber),
@@ -218,7 +243,7 @@ func IsSeasonPackEligible(ctx context.Context, queries *sqlc.Queries, logger zer
 }
 
 // IsSeasonPackUpgradeEligible checks if ALL monitored episodes in a season are upgradable.
-func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, logger zerolog.Logger, seriesID int64, seasonNumber int) bool {
+func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, logger *zerolog.Logger, seriesID int64, seasonNumber int) bool {
 	season, err := queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
 		SeriesID:     seriesID,
 		SeasonNumber: int64(seasonNumber),
@@ -240,7 +265,7 @@ func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, log
 		if ep.Monitored != 1 {
 			continue
 		}
-		if ep.Status != "upgradable" {
+		if ep.Status != statusUpgradable {
 			return false
 		}
 		upgradableCount++
@@ -251,25 +276,37 @@ func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, log
 
 // Conversion helpers
 
-func movieToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger zerolog.Logger, movie *sqlc.Movie) SearchableItem {
+func movieToSearchableItem(ctx context.Context, queries *sqlc.Queries, movie *sqlc.Movie) SearchableItem {
 	item := SearchableItem{
 		MediaType: MediaTypeMovie,
 		MediaID:   movie.ID,
 		Title:     movie.Title,
 	}
 
-	if movie.Status == "upgradable" || movie.Status == "available" {
-		item.HasFile = true
-		files, err := queries.GetMovieFilesWithImportInfo(ctx, movie.ID)
-		if err == nil && len(files) > 0 {
-			for _, f := range files {
-				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
-					item.CurrentQualityID = int(f.QualityID.Int64)
-				}
-			}
-		}
+	setMovieFileInfo(ctx, queries, &item, movie)
+	setMovieMetadata(&item, movie)
+	return item
+}
+
+func setMovieFileInfo(ctx context.Context, queries *sqlc.Queries, item *SearchableItem, movie *sqlc.Movie) {
+	if movie.Status != "upgradable" && movie.Status != "available" {
+		return
 	}
 
+	item.HasFile = true
+	files, err := queries.GetMovieFilesWithImportInfo(ctx, movie.ID)
+	if err != nil || len(files) == 0 {
+		return
+	}
+
+	for _, f := range files {
+		if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
+			item.CurrentQualityID = int(f.QualityID.Int64)
+		}
+	}
+}
+
+func setMovieMetadata(item *SearchableItem, movie *sqlc.Movie) {
 	if movie.Year.Valid {
 		item.Year = int(movie.Year.Int64)
 	}
@@ -282,7 +319,6 @@ func movieToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger ze
 	if movie.QualityProfileID.Valid {
 		item.QualityProfileID = movie.QualityProfileID.Int64
 	}
-	return item
 }
 
 // MovieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
@@ -394,7 +430,7 @@ func missingEpisodeRowToSeasonItem(firstEp *sqlc.ListMissingEpisodesRow, seasonN
 	return item
 }
 
-func upgradeEpisodeRowToSeasonItem(firstEp *sqlc.ListEpisodeUpgradeCandidatesRow, seasonNumber int, maxQualityID int) SearchableItem {
+func upgradeEpisodeRowToSeasonItem(firstEp *sqlc.ListEpisodeUpgradeCandidatesRow, seasonNumber, maxQualityID int) SearchableItem {
 	item := SearchableItem{
 		MediaType:        MediaTypeSeason,
 		MediaID:          firstEp.SeriesID,
@@ -424,7 +460,7 @@ func upgradeEpisodeRowToSeasonItem(firstEp *sqlc.ListEpisodeUpgradeCandidatesRow
 
 // EpisodeToSearchableItem converts an episode and series to a SearchableItem.
 // Exported for use by both autosearch and RSS sync when they need ad-hoc conversion.
-func EpisodeToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger zerolog.Logger, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
+func EpisodeToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger *zerolog.Logger, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
 	item := SearchableItem{
 		MediaType:     MediaTypeEpisode,
 		MediaID:       episode.ID,
@@ -434,18 +470,30 @@ func EpisodeToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger 
 		Title:         series.Title,
 	}
 
-	if episode.Status == "upgradable" || episode.Status == "available" {
-		item.HasFile = true
-		files, err := queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
-		if err == nil && len(files) > 0 {
-			for _, f := range files {
-				if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
-					item.CurrentQualityID = int(f.QualityID.Int64)
-				}
-			}
-		}
+	setEpisodeFileInfo(ctx, queries, &item, episode)
+	setSeriesMetadata(&item, series)
+	return item
+}
+
+func setEpisodeFileInfo(ctx context.Context, queries *sqlc.Queries, item *SearchableItem, episode *sqlc.Episode) {
+	if episode.Status != "upgradable" && episode.Status != "available" {
+		return
 	}
 
+	item.HasFile = true
+	files, err := queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
+	if err != nil || len(files) == 0 {
+		return
+	}
+
+	for _, f := range files {
+		if f.QualityID.Valid && int(f.QualityID.Int64) > item.CurrentQualityID {
+			item.CurrentQualityID = int(f.QualityID.Int64)
+		}
+	}
+}
+
+func setSeriesMetadata(item *SearchableItem, series *sqlc.Series) {
 	if series.Year.Valid {
 		item.Year = int(series.Year.Int64)
 	}
@@ -461,13 +509,12 @@ func EpisodeToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger 
 	if series.QualityProfileID.Valid {
 		item.QualityProfileID = series.QualityProfileID.Int64
 	}
-	return item
 }
 
 // MovieToSearchableItem converts a movie to a SearchableItem.
 // Exported for use by both autosearch and RSS sync.
-func MovieToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger zerolog.Logger, movie *sqlc.Movie) SearchableItem {
-	return movieToSearchableItem(ctx, queries, logger, movie)
+func MovieToSearchableItem(ctx context.Context, queries *sqlc.Queries, logger *zerolog.Logger, movie *sqlc.Movie) SearchableItem {
+	return movieToSearchableItem(ctx, queries, movie)
 }
 
 // SeriesToSeasonPackItem converts a series and season number to a season pack SearchableItem.

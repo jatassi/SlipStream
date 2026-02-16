@@ -18,20 +18,21 @@ type Notifier struct {
 	settings       Settings
 	client         *Client
 	queries        *sqlc.Queries
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 	serverURL      string
 	sections       []LibrarySection
 }
 
 // New creates a new Plex notifier
-func New(name string, notificationID int64, settings Settings, client *Client, queries *sqlc.Queries, logger zerolog.Logger) *Notifier {
+func New(name string, notificationID int64, settings *Settings, client *Client, queries *sqlc.Queries, logger *zerolog.Logger) *Notifier {
+	subLogger := logger.With().Str("component", "plex-notifier").Str("name", name).Logger()
 	return &Notifier{
 		name:           name,
 		notificationID: notificationID,
-		settings:       settings,
+		settings:       *settings,
 		client:         client,
 		queries:        queries,
-		logger:         logger.With().Str("component", "plex-notifier").Str("name", name).Logger(),
+		logger:         &subLogger,
 	}
 }
 
@@ -47,7 +48,6 @@ func (n *Notifier) Test(ctx context.Context) error {
 	if n.settings.AuthToken == "" {
 		return fmt.Errorf("no auth token configured")
 	}
-
 	if n.settings.ServerID == "" {
 		return fmt.Errorf("no server selected")
 	}
@@ -61,6 +61,10 @@ func (n *Notifier) Test(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to Plex server: %w", err)
 	}
 
+	return n.verifySections(ctx, serverURL)
+}
+
+func (n *Notifier) verifySections(ctx context.Context, serverURL string) error {
 	sections, err := n.client.GetLibrarySectionsWithClientID(ctx, serverURL, n.settings.AuthToken, n.settings.ClientID)
 	if err != nil {
 		return fmt.Errorf("failed to get library sections: %w", err)
@@ -70,21 +74,18 @@ func (n *Notifier) Test(ctx context.Context) error {
 		return fmt.Errorf("no library sections configured")
 	}
 
-	foundCount := 0
+	sectionKeys := make(map[int]bool)
+	for _, section := range sections {
+		sectionKeys[section.Key] = true
+	}
+
 	for _, targetID := range n.settings.SectionIDs {
-		for _, section := range sections {
-			if section.Key == targetID {
-				foundCount++
-				break
-			}
+		if sectionKeys[targetID] {
+			return nil
 		}
 	}
 
-	if foundCount == 0 {
-		return fmt.Errorf("none of the configured library sections were found on the server")
-	}
-
-	return nil
+	return fmt.Errorf("none of the configured library sections were found on the server")
 }
 
 func (n *Notifier) getServerURL(ctx context.Context) (string, error) {
@@ -109,7 +110,7 @@ func (n *Notifier) getServerURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("server %s not found", n.settings.ServerID)
 	}
 
-	url, err := n.client.FindServerURLWithClientID(ctx, *targetServer, n.settings.AuthToken, n.settings.ClientID)
+	url, err := n.client.FindServerURLWithClientID(ctx, targetServer, n.settings.AuthToken, n.settings.ClientID)
 	if err != nil {
 		return "", err
 	}
@@ -178,46 +179,46 @@ func (n *Notifier) enqueueRefresh(ctx context.Context, path string) error {
 	return err
 }
 
-func (n *Notifier) OnGrab(_ context.Context, _ types.GrabEvent) error {
+func (n *Notifier) OnGrab(_ context.Context, _ *types.GrabEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	return n.enqueueRefresh(ctx, event.DestinationPath)
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	return n.enqueueRefresh(ctx, event.NewPath)
 }
 
-func (n *Notifier) OnMovieAdded(_ context.Context, _ types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(_ context.Context, _ *types.MovieAddedEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnMovieDeleted(_ context.Context, _ types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(_ context.Context, _ *types.MovieDeletedEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnSeriesAdded(_ context.Context, _ types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(_ context.Context, _ *types.SeriesAddedEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnSeriesDeleted(_ context.Context, _ types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(_ context.Context, _ *types.SeriesDeletedEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnHealthIssue(_ context.Context, _ types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(_ context.Context, _ *types.HealthEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnHealthRestored(_ context.Context, _ types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(_ context.Context, _ *types.HealthEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnApplicationUpdate(_ context.Context, _ types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(_ context.Context, _ *types.AppUpdateEvent) error {
 	return nil
 }
 
-func (n *Notifier) SendMessage(_ context.Context, _ types.MessageEvent) error {
+func (n *Notifier) SendMessage(_ context.Context, _ *types.MessageEvent) error {
 	return nil
 }

@@ -18,7 +18,7 @@ type TaskConfig struct {
 	ID          string
 	Name        string
 	Description string
-	Cron        string   // Cron expression: "0 0 * * *" for midnight daily
+	Cron        string // Cron expression: "0 0 * * *" for midnight daily
 	Func        TaskFunc
 	RunOnStart  bool // Execute immediately on startup
 }
@@ -45,27 +45,28 @@ type taskEntry struct {
 // Scheduler manages background scheduled tasks.
 type Scheduler struct {
 	gocron gocron.Scheduler
-	logger zerolog.Logger
+	logger *zerolog.Logger
 	tasks  map[string]*taskEntry
 	mu     sync.RWMutex
 }
 
 // New creates a new scheduler.
-func New(logger zerolog.Logger) (*Scheduler, error) {
+func New(logger *zerolog.Logger) (*Scheduler, error) {
 	gs, err := gocron.NewScheduler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gocron scheduler: %w", err)
 	}
 
+	subLogger := logger.With().Str("component", "scheduler").Logger()
 	return &Scheduler{
 		gocron: gs,
-		logger: logger.With().Str("component", "scheduler").Logger(),
+		logger: &subLogger,
 		tasks:  make(map[string]*taskEntry),
 	}, nil
 }
 
 // RegisterTask registers a new scheduled task.
-func (s *Scheduler) RegisterTask(config TaskConfig) error {
+func (s *Scheduler) RegisterTask(config *TaskConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -90,7 +91,7 @@ func (s *Scheduler) RegisterTask(config TaskConfig) error {
 	}
 
 	s.tasks[config.ID] = &taskEntry{
-		config: config,
+		config: *config,
 		job:    job,
 	}
 

@@ -3,11 +3,14 @@ package defaults
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
+
+var ErrNoDefault = errors.New("no default set")
 
 // MediaType represents the media type for defaults
 type MediaType string
@@ -62,9 +65,8 @@ func (s *Service) GetDefault(ctx context.Context, entityType EntityType, mediaTy
 	// Parse the value (should be entity ID as string)
 	entityID, err := strconv.ParseInt(setting.Value, 10, 64)
 	if err != nil {
-		// If value is empty or invalid, return nil indicating no default set
 		if setting.Value == "" {
-			return nil, nil
+			return nil, ErrNoDefault
 		}
 		return nil, fmt.Errorf("invalid entity ID in default setting: %w", err)
 	}
@@ -188,7 +190,7 @@ func (s *Service) buildKey(entityType EntityType, mediaType MediaType) string {
 }
 
 // parseKey extracts the entity type and media type from a settings key
-func (s *Service) parseKey(key string) (string, string) {
+func (s *Service) parseKey(key string) (entityType, mediaType string) {
 	// Expected format: default_{entity_type}_{media_type}
 	if len(key) < 9 || key[:8] != "default_" {
 		return "", ""
@@ -208,8 +210,8 @@ func (s *Service) parseKey(key string) (string, string) {
 		return "", ""
 	}
 
-	entityType := remaining[:lastUnderscore]
-	mediaType := remaining[lastUnderscore+1:]
+	entityType = remaining[:lastUnderscore]
+	mediaType = remaining[lastUnderscore+1:]
 
 	return entityType, mediaType
 }

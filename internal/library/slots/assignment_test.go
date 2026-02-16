@@ -1,6 +1,7 @@
 package slots
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/slipstream/slipstream/internal/library/quality"
@@ -116,7 +117,7 @@ func calculateQualityScoreStandalone(parsed *scanner.ParsedMedia) float64 {
 	case "DVDRip":
 		score += 2
 	case "SDTV":
-		score += 1
+		score++
 	}
 
 	return score
@@ -230,7 +231,7 @@ func TestBelowProfileImportLogic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkBelowProfileImportLogic(tt.emptyCount, tt.filledCount)
-			if err != tt.wantError {
+			if !errors.Is(err, tt.wantError) {
 				t.Errorf("checkBelowProfileImportLogic() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
@@ -322,7 +323,7 @@ func TestSlotMatchingWithProfiles(t *testing.T) {
 				AudioChannels: []string{"7.1"},
 			}
 
-			result := quality.MatchProfileAttributes(release, tt.profile)
+			result := quality.MatchProfileAttributes(&release, tt.profile)
 			if result.AllMatch != tt.shouldPass {
 				t.Errorf("MatchProfileAttributes() AllMatch = %v, want %v", result.AllMatch, tt.shouldPass)
 			}
@@ -371,7 +372,7 @@ func TestMultiAudioMatching(t *testing.T) {
 				AudioChannels: []string{"7.1"},
 			}
 
-			result := quality.MatchProfileAttributes(release, truHDProfile)
+			result := quality.MatchProfileAttributes(&release, truHDProfile)
 			if result.AllMatch != tt.shouldPass {
 				t.Errorf("MatchProfileAttributes() AllMatch = %v, want %v", result.AllMatch, tt.shouldPass)
 			}
@@ -437,7 +438,7 @@ func TestUnknownCodecHandling(t *testing.T) {
 				AudioChannels: []string{"7.1"},
 			}
 
-			result := quality.MatchProfileAttributes(release, tt.profile)
+			result := quality.MatchProfileAttributes(&release, tt.profile)
 			if result.AllMatch != tt.shouldPass {
 				t.Errorf("MatchProfileAttributes() AllMatch = %v, want %v", result.AllMatch, tt.shouldPass)
 			}
@@ -448,9 +449,9 @@ func TestUnknownCodecHandling(t *testing.T) {
 func TestSlotEvaluationRequiresSelection(t *testing.T) {
 	// Test that RequiresSelection is set correctly when multiple slots match equally
 	tests := []struct {
-		name             string
-		assignments      []SlotAssignment
-		wantRequires     bool
+		name              string
+		assignments       []SlotAssignment
+		wantRequires      bool
 		wantMatchingCount int
 	}{
 		{

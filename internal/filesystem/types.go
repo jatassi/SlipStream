@@ -97,17 +97,17 @@ type ScannedMediaFile struct {
 
 // ParsedInfo contains metadata parsed from the filename
 type ParsedInfo struct {
-	Title            string   `json:"title"`
-	Year             int      `json:"year,omitempty"`
-	Season           int      `json:"season,omitempty"`
-	Episode          int      `json:"episode,omitempty"`
-	EndEpisode       int      `json:"endEpisode,omitempty"`
-	IsSeasonPack     bool     `json:"isSeasonPack,omitempty"`
-	IsCompleteSeries bool     `json:"isCompleteSeries,omitempty"`
-	Quality          string   `json:"quality,omitempty"`
-	Source           string   `json:"source,omitempty"`
-	Codec            string   `json:"codec,omitempty"`
-	IsTV             bool     `json:"isTv"`
+	Title            string `json:"title"`
+	Year             int    `json:"year,omitempty"`
+	Season           int    `json:"season,omitempty"`
+	Episode          int    `json:"episode,omitempty"`
+	EndEpisode       int    `json:"endEpisode,omitempty"`
+	IsSeasonPack     bool   `json:"isSeasonPack,omitempty"`
+	IsCompleteSeries bool   `json:"isCompleteSeries,omitempty"`
+	Quality          string `json:"quality,omitempty"`
+	Source           string `json:"source,omitempty"`
+	Codec            string `json:"codec,omitempty"`
+	IsTV             bool   `json:"isTv"`
 }
 
 // MediaScanResult contains the result of scanning a directory for media files

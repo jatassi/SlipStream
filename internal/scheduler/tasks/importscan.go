@@ -18,14 +18,15 @@ type ImportScanner interface {
 // importScanTask wraps the import scanner for scheduled execution.
 type importScanTask struct {
 	scanner ImportScanner
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // newImportScanTask creates a new import scan task.
-func newImportScanTask(scanner ImportScanner, logger zerolog.Logger) *importScanTask {
+func newImportScanTask(scanner ImportScanner, logger *zerolog.Logger) *importScanTask {
+	subLogger := logger.With().Str("task", "import-scan").Logger()
 	return &importScanTask{
 		scanner: scanner,
-		logger:  logger.With().Str("task", "import-scan").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -52,14 +53,14 @@ func (t *importScanTask) run(ctx context.Context) error {
 }
 
 // RegisterImportScanTask registers the import scan task with the scheduler.
-func RegisterImportScanTask(sched *scheduler.Scheduler, scanner ImportScanner, logger zerolog.Logger) error {
+func RegisterImportScanTask(sched *scheduler.Scheduler, scanner ImportScanner, logger *zerolog.Logger) error {
 	if scanner == nil {
 		return nil
 	}
 
 	task := newImportScanTask(scanner, logger)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "import-scan",
 		Name:        "Import Scan",
 		Description: "Scans download folders for completed files ready to import",

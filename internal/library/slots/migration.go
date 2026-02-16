@@ -44,10 +44,10 @@ type TVShowMigrationPreview struct {
 
 // SeasonMigrationPreview shows the proposed migration for a single season.
 type SeasonMigrationPreview struct {
-	SeasonNumber int                      `json:"seasonNumber"`
+	SeasonNumber int                       `json:"seasonNumber"`
 	Episodes     []EpisodeMigrationPreview `json:"episodes"`
-	TotalFiles   int                      `json:"totalFiles"`
-	HasConflict  bool                     `json:"hasConflict"`
+	TotalFiles   int                       `json:"totalFiles"`
+	HasConflict  bool                      `json:"hasConflict"`
 }
 
 // EpisodeMigrationPreview shows the proposed migration for a single episode.
@@ -110,7 +110,7 @@ type SlotRejection struct {
 // - Unassigning (mark as needing review / no slot)
 type FileOverride struct {
 	FileID int64  `json:"fileId"`
-	Type   string `json:"type"` // "ignore", "assign", or "unassign"
+	Type   string `json:"type"`             // "ignore", "assign", or "unassign"
 	SlotID *int64 `json:"slotId,omitempty"` // Required when Type is "assign"
 }
 
@@ -138,6 +138,51 @@ type FileEvaluation struct {
 
 // evaluateFileAgainstSlots evaluates a single file against all slots to find the best match.
 // This is the core matching logic shared by preview and execution.
+
+// slotMatchResult holds the result of matching a file against a single slot.
+type slotMatchResult struct {
+	score     float64
+	rejection *SlotRejection
+}
+
+// matchFileToSlot evaluates a parsed file against a single slot's quality profile.
+func (s *Service) matchFileToSlot(ctx context.Context, parsed *scanner.ParsedMedia, slot *Slot) slotMatchResult {
+	if slot.QualityProfileID == nil {
+		return slotMatchResult{rejection: &SlotRejection{
+			SlotID: slot.ID, SlotName: slot.Name,
+			Reasons: []string{"No quality profile assigned"},
+		}}
+	}
+
+	profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
+	if err != nil {
+		return slotMatchResult{rejection: &SlotRejection{
+			SlotID: slot.ID, SlotName: slot.Name,
+			Reasons: []string{"Failed to load quality profile"},
+		}}
+	}
+
+	releaseAttrs := parsed.ToReleaseAttributes()
+	matchResult := quality.MatchProfileAttributes(&releaseAttrs, profile)
+	qualityMatchResult := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
+
+	if !matchResult.AllMatch || !qualityMatchResult.Matches {
+		var reasons []string
+		if !qualityMatchResult.Matches && qualityMatchResult.Reason != "" {
+			reasons = append(reasons, "Quality: "+qualityMatchResult.Reason)
+		}
+		reasons = append(reasons, matchResult.RejectionReasons()...)
+		return slotMatchResult{rejection: &SlotRejection{
+			SlotID: slot.ID, SlotName: slot.Name, Reasons: reasons,
+		}}
+	}
+
+	qualityScore := s.calculateQualityScore(parsed)
+	return slotMatchResult{score: qualityScore + matchResult.TotalScore}
+}
+
+// evaluateFileAgainstSlots evaluates a single file against all slots to find the best match.
+// This is the core matching logic shared by preview and execution.
 func (s *Service) evaluateFileAgainstSlots(ctx context.Context, path, qualityStr string, slots []*Slot) FileEvaluation {
 	eval := FileEvaluation{
 		Path:       path,
@@ -145,7 +190,6 @@ func (s *Service) evaluateFileAgainstSlots(ctx context.Context, path, qualityStr
 		Rejections: make([]SlotRejection, 0),
 	}
 
-	// Parse the file quality from the path
 	parsed := scanner.ParsePath(path)
 	if parsed == nil {
 		parsed = &scanner.ParsedMedia{Quality: qualityStr}
@@ -155,50 +199,13 @@ func (s *Service) evaluateFileAgainstSlots(ctx context.Context, path, qualityStr
 	var bestScore float64 = -1
 
 	for _, slot := range slots {
-		if slot.QualityProfileID == nil {
-			eval.Rejections = append(eval.Rejections, SlotRejection{
-				SlotID:   slot.ID,
-				SlotName: slot.Name,
-				Reasons:  []string{"No quality profile assigned"},
-			})
+		result := s.matchFileToSlot(ctx, parsed, slot)
+		if result.rejection != nil {
+			eval.Rejections = append(eval.Rejections, *result.rejection)
 			continue
 		}
-
-		profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
-		if err != nil {
-			eval.Rejections = append(eval.Rejections, SlotRejection{
-				SlotID:   slot.ID,
-				SlotName: slot.Name,
-				Reasons:  []string{"Failed to load quality profile"},
-			})
-			continue
-		}
-
-		// Calculate match - both attributes AND quality must pass
-		releaseAttrs := parsed.ToReleaseAttributes()
-		matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
-		qualityMatchResult := quality.MatchQuality(parsed.Quality, parsed.Source, profile)
-		qualityScore := s.calculateQualityScore(parsed, profile)
-		totalScore := qualityScore + matchResult.TotalScore
-
-		// Collect rejection reasons if not matching
-		if !matchResult.AllMatch || !qualityMatchResult.Matches {
-			var reasons []string
-			if !qualityMatchResult.Matches && qualityMatchResult.Reason != "" {
-				reasons = append(reasons, "Quality: "+qualityMatchResult.Reason)
-			}
-			reasons = append(reasons, matchResult.RejectionReasons()...)
-			eval.Rejections = append(eval.Rejections, SlotRejection{
-				SlotID:   slot.ID,
-				SlotName: slot.Name,
-				Reasons:  reasons,
-			})
-			continue
-		}
-
-		// This slot matches - check if it's the best
-		if totalScore > bestScore {
-			bestScore = totalScore
+		if result.score > bestScore {
+			bestScore = result.score
 			bestSlot = slot
 		}
 	}
@@ -208,8 +215,6 @@ func (s *Service) evaluateFileAgainstSlots(ctx context.Context, path, qualityStr
 		eval.BestSlotName = bestSlot.Name
 		eval.MatchScore = bestScore
 		eval.CanMatch = true
-	} else {
-		eval.CanMatch = false
 	}
 
 	return eval
@@ -224,50 +229,55 @@ type ResolvedAssignment struct {
 	Conflict         string // Non-empty if file couldn't be assigned
 }
 
+// resolveOneAssignment resolves the slot assignment for a single file evaluation,
+// trying the best slot first, then alternatives if the best is taken.
+func (s *Service) resolveOneAssignment(ctx context.Context, eval *FileEvaluation, slots []*Slot, filledSlots map[int64]int64) ResolvedAssignment {
+	assignment := ResolvedAssignment{FileEvaluation: *eval}
+
+	if !eval.CanMatch || eval.BestSlotID == nil {
+		assignment.Conflict = eval.Reason
+		return assignment
+	}
+
+	if _, taken := filledSlots[*eval.BestSlotID]; !taken {
+		assignment.AssignedSlotID = eval.BestSlotID
+		assignment.AssignedSlotName = eval.BestSlotName
+		filledSlots[*eval.BestSlotID] = eval.FileID
+		return assignment
+	}
+
+	// Best slot taken, try alternatives
+	for _, slot := range slots {
+		if _, used := filledSlots[slot.ID]; used {
+			continue
+		}
+		altEval := s.evaluateFileAgainstSlots(ctx, eval.Path, eval.Quality, []*Slot{slot})
+		if altEval.CanMatch {
+			assignment.AssignedSlotID = &slot.ID
+			assignment.AssignedSlotName = slot.Name
+			assignment.MatchScore = altEval.MatchScore
+			filledSlots[slot.ID] = eval.FileID
+			return assignment
+		}
+	}
+
+	assignment.Conflict = fmt.Sprintf("%s slot taken by higher-scored file", eval.BestSlotName)
+	return assignment
+}
+
 // resolveSlotAssignments determines optimal slot assignments for files of a single media item.
 // Sorts by score, resolves conflicts, and returns assignment decisions.
 // This is the ONLY place where assignment logic lives - used by both preview and execution.
 func (s *Service) resolveSlotAssignments(ctx context.Context, evals []FileEvaluation, slots []*Slot) []ResolvedAssignment {
-	// Sort by score descending (best matches first get priority)
 	sort.Slice(evals, func(i, j int) bool {
 		return evals[i].MatchScore > evals[j].MatchScore
 	})
 
 	assignments := make([]ResolvedAssignment, 0, len(evals))
-	filledSlots := make(map[int64]int64) // slotID -> fileID
+	filledSlots := make(map[int64]int64)
 
-	for _, eval := range evals {
-		assignment := ResolvedAssignment{FileEvaluation: eval}
-
-		if !eval.CanMatch || eval.BestSlotID == nil {
-			assignment.Conflict = eval.Reason
-		} else if _, taken := filledSlots[*eval.BestSlotID]; taken {
-			// Best slot taken by higher-scored file, try alternatives
-			foundAlt := false
-			for _, slot := range slots {
-				if _, used := filledSlots[slot.ID]; used {
-					continue
-				}
-				altEval := s.evaluateFileAgainstSlots(ctx, eval.Path, eval.Quality, []*Slot{slot})
-				if altEval.CanMatch {
-					assignment.AssignedSlotID = &slot.ID
-					assignment.AssignedSlotName = slot.Name
-					assignment.MatchScore = altEval.MatchScore
-					filledSlots[slot.ID] = eval.FileID
-					foundAlt = true
-					break
-				}
-			}
-			if !foundAlt {
-				assignment.Conflict = fmt.Sprintf("%s slot taken by higher-scored file", eval.BestSlotName)
-			}
-		} else {
-			assignment.AssignedSlotID = eval.BestSlotID
-			assignment.AssignedSlotName = eval.BestSlotName
-			filledSlots[*eval.BestSlotID] = eval.FileID
-		}
-
-		assignments = append(assignments, assignment)
+	for i := range evals {
+		assignments = append(assignments, s.resolveOneAssignment(ctx, &evals[i], slots, filledSlots))
 	}
 
 	return assignments
@@ -291,7 +301,8 @@ func (a *ResolvedAssignment) toFileMigrationPreview() FileMigrationPreview {
 
 // executeAssignments performs the actual DB assignments and returns counts.
 func (s *Service) executeAssignments(ctx context.Context, assignments []ResolvedAssignment) (assigned, queued int) {
-	for _, a := range assignments {
+	for i := range assignments {
+		a := &assignments[i]
 		if a.AssignedSlotID == nil {
 			queued++
 			continue
@@ -328,10 +339,10 @@ type ProfileChangeRequest struct {
 
 // ProfileChangeResult is the result of checking if a profile change requires action.
 type ProfileChangeResult struct {
-	RequiresPrompt      bool           `json:"requiresPrompt"`
-	AffectedFilesCount  int            `json:"affectedFilesCount"`
-	AffectedFiles       []SlotFileInfo `json:"affectedFiles,omitempty"`
-	IncompatibleCount   int            `json:"incompatibleCount"`
+	RequiresPrompt     bool           `json:"requiresPrompt"`
+	AffectedFilesCount int            `json:"affectedFilesCount"`
+	AffectedFiles      []SlotFileInfo `json:"affectedFiles,omitempty"`
+	IncompatibleCount  int            `json:"incompatibleCount"`
 }
 
 // GenerateMigrationPreview generates a preview of what would happen during migration.
@@ -352,26 +363,31 @@ func (s *Service) GenerateMigrationPreview(ctx context.Context) (*MigrationPrevi
 		return nil, fmt.Errorf("no enabled slots configured")
 	}
 
-	// Build slot lookup
-	slotMap := make(map[int64]*Slot)
-	for _, slot := range slots {
-		slotMap[slot.ID] = slot
-	}
-
-	// Process movies
 	if err := s.generateMoviePreview(ctx, preview, slots); err != nil {
 		s.logger.Warn().Err(err).Msg("Error generating movie preview")
 	}
 
-	// Process TV shows
 	if err := s.generateTVShowPreview(ctx, preview, slots); err != nil {
 		s.logger.Warn().Err(err).Msg("Error generating TV show preview")
 	}
 
-	// Calculate summary
 	s.calculateMigrationSummary(preview)
 
 	return preview, nil
+}
+
+// evaluateAndResolveFiles evaluates files and resolves slot assignments, returning preview entries.
+func (s *Service) evaluateAndResolveFiles(ctx context.Context, evals []FileEvaluation, slots []*Slot) ([]FileMigrationPreview, bool) {
+	assignments := s.resolveSlotAssignments(ctx, evals, slots)
+	files := make([]FileMigrationPreview, 0, len(assignments))
+	hasConflict := false
+	for i := range assignments {
+		files = append(files, assignments[i].toFileMigrationPreview())
+		if assignments[i].Conflict != "" {
+			hasConflict = true
+		}
+	}
+	return files, hasConflict
 }
 
 // generateMoviePreview generates the movie portion of the migration preview.
@@ -383,41 +399,30 @@ func (s *Service) generateMoviePreview(ctx context.Context, preview *MigrationPr
 
 	for _, movie := range movies {
 		files, err := s.queries.ListMovieFiles(ctx, movie.ID)
-		if err != nil {
+		if err != nil || len(files) == 0 {
 			continue
 		}
 
-		if len(files) == 0 {
-			continue
-		}
-
-		moviePreview := MovieMigrationPreview{
-			MovieID:   movie.ID,
-			Title:     movie.Title,
-			Year:      int(movie.Year.Int64),
-			Files:     make([]FileMigrationPreview, 0, len(files)),
-			Conflicts: make([]string, 0),
-		}
-
-		// Evaluate all files using shared logic
 		var evals []FileEvaluation
 		for _, file := range files {
 			eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
 			eval.FileID = file.ID
 			eval.MediaID = movie.ID
-			eval.MediaType = "movie"
+			eval.MediaType = mediaTypeMovie
 			eval.Size = file.Size
 			evals = append(evals, eval)
-			preview.Summary.TotalFiles++
 		}
+		preview.Summary.TotalFiles += len(evals)
 
-		// Resolve assignments using shared logic, then convert to preview format
-		assignments := s.resolveSlotAssignments(ctx, evals, slots)
-		for i := range assignments {
-			moviePreview.Files = append(moviePreview.Files, assignments[i].toFileMigrationPreview())
-			if assignments[i].Conflict != "" {
-				moviePreview.HasConflict = true
-			}
+		filePreviews, hasConflict := s.evaluateAndResolveFiles(ctx, evals, slots)
+
+		moviePreview := MovieMigrationPreview{
+			MovieID:     movie.ID,
+			Title:       movie.Title,
+			Year:        int(movie.Year.Int64),
+			Files:       filePreviews,
+			HasConflict: hasConflict,
+			Conflicts:   make([]string, 0),
 		}
 
 		if len(files) > len(slots) {
@@ -435,9 +440,87 @@ func (s *Service) generateMoviePreview(ctx context.Context, preview *MigrationPr
 	return nil
 }
 
+// episodeMetadata holds episode identity info for grouping during TV preview.
+type episodeMetadata struct {
+	seasonNumber  int
+	episodeNumber int
+	title         string
+}
+
+// groupEpisodeFiles collects episode files and metadata for a series.
+func (s *Service) groupEpisodeFiles(ctx context.Context, files []*sqlc.EpisodeFile) (
+	byEpisode map[int64][]*sqlc.EpisodeFile, info map[int64]episodeMetadata,
+) {
+	byEpisode = make(map[int64][]*sqlc.EpisodeFile)
+	info = make(map[int64]episodeMetadata)
+
+	for _, file := range files {
+		episode, err := s.queries.GetEpisode(ctx, file.EpisodeID)
+		if err != nil {
+			continue
+		}
+		byEpisode[file.EpisodeID] = append(byEpisode[file.EpisodeID], file)
+		info[file.EpisodeID] = episodeMetadata{
+			seasonNumber:  int(episode.SeasonNumber),
+			episodeNumber: int(episode.EpisodeNumber),
+			title:         episode.Title.String,
+		}
+	}
+	return byEpisode, info
+}
+
+// buildEpisodePreview builds the migration preview for a single episode.
+func (s *Service) buildEpisodePreview(ctx context.Context, episodeID int64, info episodeMetadata, files []*sqlc.EpisodeFile, slots []*Slot) (preview EpisodeMigrationPreview, fileCount int) {
+	preview = EpisodeMigrationPreview{
+		EpisodeID:     episodeID,
+		EpisodeNumber: info.episodeNumber,
+		Title:         info.title,
+		Files:         make([]FileMigrationPreview, 0),
+	}
+
+	var evals []FileEvaluation
+	for _, file := range files {
+		eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
+		eval.FileID = file.ID
+		eval.MediaID = episodeID
+		eval.MediaType = mediaTypeEpisode
+		eval.Size = file.Size
+		evals = append(evals, eval)
+	}
+
+	preview.Files, preview.HasConflict = s.evaluateAndResolveFiles(ctx, evals, slots)
+
+	if len(files) > len(slots) {
+		preview.HasConflict = true
+	}
+
+	return preview, len(evals)
+}
+
+// buildSeasonPreview builds the migration preview for a single season.
+func (s *Service) buildSeasonPreview(ctx context.Context, seasonNum int, episodeIDs []int64, episodeFiles map[int64][]*sqlc.EpisodeFile, episodeInfo map[int64]episodeMetadata, slots []*Slot) SeasonMigrationPreview {
+	seasonPreview := SeasonMigrationPreview{
+		SeasonNumber: seasonNum,
+		Episodes:     make([]EpisodeMigrationPreview, 0),
+	}
+
+	for _, episodeID := range episodeIDs {
+		epPreview, fileCount := s.buildEpisodePreview(ctx, episodeID, episodeInfo[episodeID], episodeFiles[episodeID], slots)
+		seasonPreview.TotalFiles += fileCount
+		if epPreview.HasConflict {
+			seasonPreview.HasConflict = true
+		}
+		seasonPreview.Episodes = append(seasonPreview.Episodes, epPreview)
+	}
+
+	sort.Slice(seasonPreview.Episodes, func(i, j int) bool {
+		return seasonPreview.Episodes[i].EpisodeNumber < seasonPreview.Episodes[j].EpisodeNumber
+	})
+	return seasonPreview
+}
+
 // generateTVShowPreview generates the TV show portion of the migration preview.
 func (s *Service) generateTVShowPreview(ctx context.Context, preview *MigrationPreview, slots []*Slot) error {
-	// Get all series with files
 	series, err := s.queries.ListSeries(ctx)
 	if err != nil {
 		return err
@@ -445,12 +528,15 @@ func (s *Service) generateTVShowPreview(ctx context.Context, preview *MigrationP
 
 	for _, show := range series {
 		files, err := s.queries.ListEpisodeFilesBySeries(ctx, show.ID)
-		if err != nil {
+		if err != nil || len(files) == 0 {
 			continue
 		}
 
-		if len(files) == 0 {
-			continue
+		episodeFiles, episodeInfo := s.groupEpisodeFiles(ctx, files)
+
+		seasonEpisodes := make(map[int][]int64)
+		for episodeID, info := range episodeInfo {
+			seasonEpisodes[info.seasonNumber] = append(seasonEpisodes[info.seasonNumber], episodeID)
 		}
 
 		tvPreview := TVShowMigrationPreview{
@@ -460,96 +546,15 @@ func (s *Service) generateTVShowPreview(ctx context.Context, preview *MigrationP
 			TotalFiles: len(files),
 		}
 
-		// Group files by season/episode
-		episodeFiles := make(map[int64][]*sqlc.EpisodeFile)
-		episodeInfo := make(map[int64]struct {
-			seasonNumber  int
-			episodeNumber int
-			title         string
-		})
-
-		for _, file := range files {
-			episode, err := s.queries.GetEpisode(ctx, file.EpisodeID)
-			if err != nil {
-				continue
-			}
-			episodeFiles[file.EpisodeID] = append(episodeFiles[file.EpisodeID], file)
-			episodeInfo[file.EpisodeID] = struct {
-				seasonNumber  int
-				episodeNumber int
-				title         string
-			}{
-				seasonNumber:  int(episode.SeasonNumber),
-				episodeNumber: int(episode.EpisodeNumber),
-				title:         episode.Title.String,
-			}
-		}
-
-		// Group by season
-		seasonEpisodes := make(map[int][]int64) // seasonNumber -> episodeIDs
-		for episodeID, info := range episodeInfo {
-			seasonEpisodes[info.seasonNumber] = append(seasonEpisodes[info.seasonNumber], episodeID)
-		}
-
-		// Build season previews
 		for seasonNum, episodeIDs := range seasonEpisodes {
-			seasonPreview := SeasonMigrationPreview{
-				SeasonNumber: seasonNum,
-				Episodes:     make([]EpisodeMigrationPreview, 0),
+			sp := s.buildSeasonPreview(ctx, seasonNum, episodeIDs, episodeFiles, episodeInfo, slots)
+			preview.Summary.TotalFiles += sp.TotalFiles
+			if sp.HasConflict {
+				tvPreview.HasConflict = true
 			}
-
-			for _, episodeID := range episodeIDs {
-				info := episodeInfo[episodeID]
-				epPreview := EpisodeMigrationPreview{
-					EpisodeID:     episodeID,
-					EpisodeNumber: info.episodeNumber,
-					Title:         info.title,
-					Files:         make([]FileMigrationPreview, 0),
-				}
-
-				// Evaluate all files using shared logic
-				var evals []FileEvaluation
-				for _, file := range episodeFiles[episodeID] {
-					eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
-					eval.FileID = file.ID
-					eval.MediaID = episodeID
-					eval.MediaType = "episode"
-					eval.Size = file.Size
-					evals = append(evals, eval)
-					seasonPreview.TotalFiles++
-					preview.Summary.TotalFiles++
-				}
-
-				// Resolve assignments using shared logic, then convert to preview format
-				assignments := s.resolveSlotAssignments(ctx, evals, slots)
-				for i := range assignments {
-					epPreview.Files = append(epPreview.Files, assignments[i].toFileMigrationPreview())
-					if assignments[i].Conflict != "" {
-						epPreview.HasConflict = true
-					}
-				}
-
-				if len(episodeFiles[episodeID]) > len(slots) {
-					epPreview.HasConflict = true
-				}
-
-				if epPreview.HasConflict {
-					seasonPreview.HasConflict = true
-					tvPreview.HasConflict = true
-				}
-
-				seasonPreview.Episodes = append(seasonPreview.Episodes, epPreview)
-			}
-
-			// Sort episodes by number
-			sort.Slice(seasonPreview.Episodes, func(i, j int) bool {
-				return seasonPreview.Episodes[i].EpisodeNumber < seasonPreview.Episodes[j].EpisodeNumber
-			})
-
-			tvPreview.Seasons = append(tvPreview.Seasons, seasonPreview)
+			tvPreview.Seasons = append(tvPreview.Seasons, sp)
 		}
 
-		// Sort seasons by number
 		sort.Slice(tvPreview.Seasons, func(i, j int) bool {
 			return tvPreview.Seasons[i].SeasonNumber < tvPreview.Seasons[j].SeasonNumber
 		})
@@ -562,38 +567,138 @@ func (s *Service) generateTVShowPreview(ctx context.Context, preview *MigrationP
 
 	return nil
 }
+func tallyFileSummary(file *FileMigrationPreview, summary *MigrationSummary) {
+	if file.ProposedSlotID != nil && !file.NeedsReview && file.Conflict == "" {
+		summary.FilesWithSlots++
+	}
+	if file.NeedsReview {
+		summary.FilesNeedingReview++
+	}
+	if file.Conflict != "" {
+		summary.Conflicts++
+	}
+}
 
 // calculateMigrationSummary calculates the summary statistics for a migration preview.
 func (s *Service) calculateMigrationSummary(preview *MigrationPreview) {
-	for _, movie := range preview.Movies {
-		for _, file := range movie.Files {
-			if file.ProposedSlotID != nil && !file.NeedsReview {
-				preview.Summary.FilesWithSlots++
-			} else {
-				preview.Summary.FilesNeedingReview++
-			}
-			if file.Conflict != "" {
-				preview.Summary.Conflicts++
-			}
+	for i := range preview.Movies {
+		for j := range preview.Movies[i].Files {
+			tallyFileSummary(&preview.Movies[i].Files[j], &preview.Summary)
 		}
 	}
-
-	for _, show := range preview.TVShows {
-		for _, season := range show.Seasons {
-			for _, episode := range season.Episodes {
-				for _, file := range episode.Files {
-					if file.ProposedSlotID != nil && !file.NeedsReview {
-						preview.Summary.FilesWithSlots++
-					} else {
-						preview.Summary.FilesNeedingReview++
-					}
-					if file.Conflict != "" {
-						preview.Summary.Conflicts++
-					}
+	for i := range preview.TVShows {
+		for j := range preview.TVShows[i].Seasons {
+			for k := range preview.TVShows[i].Seasons[j].Episodes {
+				for l := range preview.TVShows[i].Seasons[j].Episodes[k].Files {
+					tallyFileSummary(&preview.TVShows[i].Seasons[j].Episodes[k].Files[l], &preview.Summary)
 				}
 			}
 		}
 	}
+}
+
+// migrationFileInfo holds common file fields used during override evaluation.
+type migrationFileInfo struct {
+	id        int64
+	mediaID   int64
+	mediaType string
+	path      string
+	quality   string
+	size      int64
+}
+
+// applyOverride applies a file override and returns the resulting evaluation, or nil if ignored.
+func applyOverride(override FileOverride, file migrationFileInfo, slotMap map[int64]*Slot) *FileEvaluation {
+	switch override.Type {
+	case "ignore":
+		return nil
+	case "assign":
+		if override.SlotID != nil {
+			if slot, ok := slotMap[*override.SlotID]; ok {
+				return &FileEvaluation{
+					FileID: file.id, MediaID: file.mediaID, MediaType: file.mediaType,
+					Path: file.path, Quality: file.quality, Size: file.size,
+					BestSlotID: override.SlotID, BestSlotName: slot.Name,
+					MatchScore: 100, CanMatch: true,
+				}
+			}
+		}
+	case "unassign":
+		return &FileEvaluation{
+			FileID: file.id, MediaID: file.mediaID, MediaType: file.mediaType,
+			Path: file.path, Quality: file.quality, Size: file.size,
+			CanMatch: false, Reason: "Manually marked for review",
+		}
+	}
+	return nil
+}
+
+// migrateMovieFiles evaluates movie files (with overrides), resolves assignments, and executes.
+func (s *Service) migrateMovieFiles(ctx context.Context, overrideMap map[int64]FileOverride, slots []*Slot, slotMap map[int64]*Slot) (assigned, queued int, errs []string) {
+	movieFiles, err := s.queries.ListMovieFilesWithoutSlot(ctx)
+	if err != nil {
+		return 0, 0, []string{fmt.Sprintf("Failed to list movie files: %v", err)}
+	}
+
+	groups := make(map[int64][]FileEvaluation)
+	for _, file := range movieFiles {
+		fi := migrationFileInfo{id: file.ID, mediaID: file.MovieID, mediaType: mediaTypeMovie, path: file.Path, quality: file.Quality.String, size: file.Size}
+
+		if override, exists := overrideMap[file.ID]; exists {
+			if result := applyOverride(override, fi, slotMap); result != nil {
+				groups[file.MovieID] = append(groups[file.MovieID], *result)
+			}
+			continue
+		}
+
+		eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
+		eval.FileID = file.ID
+		eval.MediaID = file.MovieID
+		eval.MediaType = mediaTypeMovie
+		eval.Size = file.Size
+		groups[file.MovieID] = append(groups[file.MovieID], eval)
+	}
+
+	for _, evals := range groups {
+		a, q := s.executeAssignments(ctx, s.resolveSlotAssignments(ctx, evals, slots))
+		assigned += a
+		queued += q
+	}
+	return assigned, queued, nil
+}
+
+// migrateEpisodeFiles evaluates episode files (with overrides), resolves assignments, and executes.
+func (s *Service) migrateEpisodeFiles(ctx context.Context, overrideMap map[int64]FileOverride, slots []*Slot, slotMap map[int64]*Slot) (assigned, queued int, errs []string) {
+	episodeFiles, err := s.queries.ListEpisodeFilesWithoutSlot(ctx)
+	if err != nil {
+		return 0, 0, []string{fmt.Sprintf("Failed to list episode files: %v", err)}
+	}
+
+	groups := make(map[int64][]FileEvaluation)
+	for _, file := range episodeFiles {
+		fi := migrationFileInfo{id: file.ID, mediaID: file.EpisodeID, mediaType: mediaTypeEpisode, path: file.Path, quality: file.Quality.String, size: file.Size}
+
+		if override, exists := overrideMap[file.ID]; exists {
+			if result := applyOverride(override, fi, slotMap); result != nil {
+				groups[file.EpisodeID] = append(groups[file.EpisodeID], *result)
+			}
+			continue
+		}
+
+		eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
+		eval.FileID = file.ID
+		eval.MediaID = file.EpisodeID
+		eval.MediaType = mediaTypeEpisode
+		eval.Size = file.Size
+		groups[file.EpisodeID] = append(groups[file.EpisodeID], eval)
+	}
+
+	for _, evals := range groups {
+		a, q := s.executeAssignments(ctx, s.resolveSlotAssignments(ctx, evals, slots))
+		assigned += a
+		queued += q
+	}
+	return assigned, queued, nil
 }
 
 // ExecuteMigration executes the migration, assigning files to slots.
@@ -605,13 +710,11 @@ func (s *Service) ExecuteMigration(ctx context.Context, overrides []FileOverride
 		Errors: make([]string, 0),
 	}
 
-	// Build override lookup map
 	overrideMap := make(map[int64]FileOverride)
 	for _, o := range overrides {
 		overrideMap[o.FileID] = o
 	}
 
-	// Req 14.2.3: Validate all enabled slots have profiles
 	if err := s.ValidateSlotConfiguration(ctx); err != nil {
 		return nil, err
 	}
@@ -621,154 +724,25 @@ func (s *Service) ExecuteMigration(ctx context.Context, overrides []FileOverride
 		return nil, err
 	}
 
-	// Build slot lookup map for manual assignments
 	slotMap := make(map[int64]*Slot)
 	for _, slot := range slots {
 		slotMap[slot.ID] = slot
 	}
 
-	// Process movie files - group by movie, resolve assignments, execute
-	movieFiles, err := s.queries.ListMovieFilesWithoutSlot(ctx)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("Failed to list movie files: %v", err))
-	} else {
-		// Group files by movie
-		movieGroups := make(map[int64][]FileEvaluation)
-		for _, file := range movieFiles {
-			// Check for override
-			if override, exists := overrideMap[file.ID]; exists {
-				switch override.Type {
-				case "ignore":
-					// Skip this file entirely
-					continue
-				case "assign":
-					// Manual assignment to specific slot
-					if override.SlotID != nil {
-						if slot, ok := slotMap[*override.SlotID]; ok {
-							eval := FileEvaluation{
-								FileID:       file.ID,
-								MediaID:      file.MovieID,
-								MediaType:    "movie",
-								Path:         file.Path,
-								Quality:      file.Quality.String,
-								Size:         file.Size,
-								BestSlotID:   override.SlotID,
-								BestSlotName: slot.Name,
-								MatchScore:   100, // Manual assignment gets perfect score
-								CanMatch:     true,
-							}
-							movieGroups[file.MovieID] = append(movieGroups[file.MovieID], eval)
-							continue
-						}
-					}
-				case "unassign":
-					// Send to review queue
-					eval := FileEvaluation{
-						FileID:    file.ID,
-						MediaID:   file.MovieID,
-						MediaType: "movie",
-						Path:      file.Path,
-						Quality:   file.Quality.String,
-						Size:      file.Size,
-						CanMatch:  false,
-						Reason:    "Manually marked for review",
-					}
-					movieGroups[file.MovieID] = append(movieGroups[file.MovieID], eval)
-					continue
-				}
-			}
+	assigned, queued, errs := s.migrateMovieFiles(ctx, overrideMap, slots, slotMap)
+	result.FilesAssigned += assigned
+	result.FilesQueued += queued
+	result.Errors = append(result.Errors, errs...)
 
-			// Normal automatic evaluation
-			eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
-			eval.FileID = file.ID
-			eval.MediaID = file.MovieID
-			eval.MediaType = "movie"
-			eval.Size = file.Size
-			movieGroups[file.MovieID] = append(movieGroups[file.MovieID], eval)
-		}
-		// Resolve and execute for each movie
-		for _, evals := range movieGroups {
-			assignments := s.resolveSlotAssignments(ctx, evals, slots)
-			assigned, queued := s.executeAssignments(ctx, assignments)
-			result.FilesAssigned += assigned
-			result.FilesQueued += queued
-		}
-	}
+	assigned, queued, errs = s.migrateEpisodeFiles(ctx, overrideMap, slots, slotMap)
+	result.FilesAssigned += assigned
+	result.FilesQueued += queued
+	result.Errors = append(result.Errors, errs...)
 
-	// Process episode files - group by episode, resolve assignments, execute
-	episodeFiles, err := s.queries.ListEpisodeFilesWithoutSlot(ctx)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("Failed to list episode files: %v", err))
-	} else {
-		// Group files by episode
-		episodeGroups := make(map[int64][]FileEvaluation)
-		for _, file := range episodeFiles {
-			// Check for override
-			if override, exists := overrideMap[file.ID]; exists {
-				switch override.Type {
-				case "ignore":
-					// Skip this file entirely
-					continue
-				case "assign":
-					// Manual assignment to specific slot
-					if override.SlotID != nil {
-						if slot, ok := slotMap[*override.SlotID]; ok {
-							eval := FileEvaluation{
-								FileID:       file.ID,
-								MediaID:      file.EpisodeID,
-								MediaType:    "episode",
-								Path:         file.Path,
-								Quality:      file.Quality.String,
-								Size:         file.Size,
-								BestSlotID:   override.SlotID,
-								BestSlotName: slot.Name,
-								MatchScore:   100, // Manual assignment gets perfect score
-								CanMatch:     true,
-							}
-							episodeGroups[file.EpisodeID] = append(episodeGroups[file.EpisodeID], eval)
-							continue
-						}
-					}
-				case "unassign":
-					// Send to review queue
-					eval := FileEvaluation{
-						FileID:    file.ID,
-						MediaID:   file.EpisodeID,
-						MediaType: "episode",
-						Path:      file.Path,
-						Quality:   file.Quality.String,
-						Size:      file.Size,
-						CanMatch:  false,
-						Reason:    "Manually marked for review",
-					}
-					episodeGroups[file.EpisodeID] = append(episodeGroups[file.EpisodeID], eval)
-					continue
-				}
-			}
-
-			// Normal automatic evaluation
-			eval := s.evaluateFileAgainstSlots(ctx, file.Path, file.Quality.String, slots)
-			eval.FileID = file.ID
-			eval.MediaID = file.EpisodeID
-			eval.MediaType = "episode"
-			eval.Size = file.Size
-			episodeGroups[file.EpisodeID] = append(episodeGroups[file.EpisodeID], eval)
-		}
-		// Resolve and execute for each episode
-		for _, evals := range episodeGroups {
-			assignments := s.resolveSlotAssignments(ctx, evals, slots)
-			assigned, queued := s.executeAssignments(ctx, assignments)
-			result.FilesAssigned += assigned
-			result.FilesQueued += queued
-		}
-	}
-
-	// Mark dry-run as completed
 	if err := s.SetDryRunCompleted(ctx, true); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("Failed to mark dry-run completed: %v", err))
 	}
 
-	// Update last migration timestamp
 	_, err = s.queries.UpdateMultiVersionSettings(ctx, sqlc.UpdateMultiVersionSettingsParams{
 		Enabled:         1,
 		DryRunCompleted: 1,
@@ -792,12 +766,11 @@ func (s *Service) ExecuteMigration(ctx context.Context, overrides []FileOverride
 
 // CheckProfileChange checks if changing a slot's profile requires user action.
 // Req 15.1.1: When user changes a slot's quality profile after files are assigned, prompt for action
-func (s *Service) CheckProfileChange(ctx context.Context, slotID int64, newProfileID int64) (*ProfileChangeResult, error) {
+func (s *Service) CheckProfileChange(ctx context.Context, slotID, newProfileID int64) (*ProfileChangeResult, error) {
 	result := &ProfileChangeResult{
 		AffectedFiles: make([]SlotFileInfo, 0),
 	}
 
-	// Get files currently assigned to this slot
 	files, err := s.ListFilesInSlot(ctx, slotID)
 	if err != nil {
 		return nil, err
@@ -812,7 +785,6 @@ func (s *Service) CheckProfileChange(ctx context.Context, slotID int64, newProfi
 
 	result.AffectedFiles = files
 
-	// Check how many files would be incompatible with the new profile
 	newProfile, err := s.qualityService.Get(ctx, newProfileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new profile: %w", err)
@@ -824,15 +796,37 @@ func (s *Service) CheckProfileChange(ctx context.Context, slotID int64, newProfi
 			result.IncompatibleCount++
 			continue
 		}
-
 		releaseAttrs := parsed.ToReleaseAttributes()
-		matchResult := quality.MatchProfileAttributes(releaseAttrs, newProfile)
-		if !matchResult.AllMatch {
+		if matchResult := quality.MatchProfileAttributes(&releaseAttrs, newProfile); !matchResult.AllMatch {
 			result.IncompatibleCount++
 		}
 	}
 
 	return result, nil
+}
+
+// reevaluateSlotFiles re-evaluates files against a new profile and unassigns non-matching ones.
+func (s *Service) reevaluateSlotFiles(ctx context.Context, files []SlotFileInfo, newProfile *quality.Profile) {
+	for _, file := range files {
+		parsed := scanner.ParsePath(file.FilePath)
+		if parsed == nil {
+			if err := s.unassignFileByID(ctx, file.MediaType, file.FileID); err != nil {
+				s.logger.Warn().Err(err).Int64("fileId", file.FileID).Msg("Failed to unassign file")
+			}
+			continue
+		}
+
+		releaseAttrs := parsed.ToReleaseAttributes()
+		if matchResult := quality.MatchProfileAttributes(&releaseAttrs, newProfile); !matchResult.AllMatch {
+			if err := s.unassignFileByID(ctx, file.MediaType, file.FileID); err != nil {
+				s.logger.Warn().Err(err).Int64("fileId", file.FileID).Msg("Failed to unassign file")
+			}
+			s.logger.Info().
+				Int64("fileId", file.FileID).
+				Str("path", file.FilePath).
+				Msg("File unassigned due to profile change - moved to review queue")
+		}
+	}
 }
 
 // ChangeSlotProfile changes a slot's profile with the specified action.
@@ -843,7 +837,6 @@ func (s *Service) ChangeSlotProfile(ctx context.Context, req ProfileChangeReques
 		return slot, nil
 	}
 
-	// Get current files in slot
 	files, err := s.ListFilesInSlot(ctx, req.SlotID)
 	if err != nil {
 		return nil, err
@@ -853,64 +846,34 @@ func (s *Service) ChangeSlotProfile(ctx context.Context, req ProfileChangeReques
 		return nil, fmt.Errorf("slot has files assigned; action required")
 	}
 
-	// Get the new profile
 	newProfile, err := s.qualityService.Get(ctx, req.NewProfileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new profile: %w", err)
 	}
 
-	// Handle based on action
 	switch req.Action {
 	case ProfileChangeKeep:
-		// Just update the profile, keep all assignments
 		s.logger.Info().
 			Int64("slotId", req.SlotID).
 			Int64("newProfileId", req.NewProfileID).
 			Int("filesKept", len(files)).
 			Msg("Keeping file assignments despite profile change")
-
 	case ProfileChangeReevaluate:
-		// Re-evaluate each file and unassign those that don't match
-		for _, file := range files {
-			parsed := scanner.ParsePath(file.FilePath)
-			if parsed == nil {
-				// Can't parse - move to review queue
-				if err := s.unassignFileByID(ctx, file.MediaType, file.FileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", file.FileID).Msg("Failed to unassign file")
-				}
-				continue
-			}
-
-			releaseAttrs := parsed.ToReleaseAttributes()
-			matchResult := quality.MatchProfileAttributes(releaseAttrs, newProfile)
-			if !matchResult.AllMatch {
-				// File doesn't match new profile - unassign
-				if err := s.unassignFileByID(ctx, file.MediaType, file.FileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", file.FileID).Msg("Failed to unassign file")
-				}
-				s.logger.Info().
-					Int64("fileId", file.FileID).
-					Str("path", file.FilePath).
-					Msg("File unassigned due to profile change - moved to review queue")
-			}
-		}
+		s.reevaluateSlotFiles(ctx, files, newProfile)
 	}
 
-	// Update the slot's profile
 	return s.SetProfile(ctx, req.SlotID, &req.NewProfileID)
 }
 
 // unassignFileByID unassigns a file from its slot by file ID.
 func (s *Service) unassignFileByID(ctx context.Context, mediaType string, fileID int64) error {
 	switch mediaType {
-	case "movie":
-		// Clear from slot assignments
+	case mediaTypeMovie:
 		if err := s.queries.ClearMovieSlotFileByFileID(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
 			return err
 		}
-		// Clear slot_id from file table
 		return s.queries.ClearMovieFileSlot(ctx, fileID)
-	case "episode":
+	case mediaTypeEpisode:
 		if err := s.queries.ClearEpisodeSlotFileByFileID(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
 			return err
 		}
@@ -945,20 +908,19 @@ func (s *Service) ResolveReviewQueueItem(ctx context.Context, req ResolveReviewI
 		if req.TargetSlotID == nil {
 			return fmt.Errorf("target slot ID required for assign action")
 		}
-		// Get the media ID for this file
 		switch req.MediaType {
-		case "movie":
+		case mediaTypeMovie:
 			file, err := s.queries.GetMovieFile(ctx, req.FileID)
 			if err != nil {
 				return fmt.Errorf("failed to get movie file: %w", err)
 			}
-			return s.AssignFileToSlot(ctx, "movie", file.MovieID, *req.TargetSlotID, req.FileID)
-		case "episode":
+			return s.AssignFileToSlot(ctx, mediaTypeMovie, file.MovieID, *req.TargetSlotID, req.FileID)
+		case mediaTypeEpisode:
 			file, err := s.queries.GetEpisodeFile(ctx, req.FileID)
 			if err != nil {
 				return fmt.Errorf("failed to get episode file: %w", err)
 			}
-			return s.AssignFileToSlot(ctx, "episode", file.EpisodeID, *req.TargetSlotID, req.FileID)
+			return s.AssignFileToSlot(ctx, mediaTypeEpisode, file.EpisodeID, *req.TargetSlotID, req.FileID)
 		}
 
 	case ReviewActionDelete:
@@ -968,84 +930,75 @@ func (s *Service) ResolveReviewQueueItem(ctx context.Context, req ResolveReviewI
 		return s.fileDeleter.DeleteFile(ctx, req.MediaType, req.FileID)
 
 	case ReviewActionSkip:
-		// Do nothing - file stays in review queue
 		return nil
 	}
 
 	return fmt.Errorf("invalid action: %s", req.Action)
 }
 
-// GetReviewQueueItemDetails returns detailed information about a review queue item.
-// Req 14.3.2: Show file details, detected quality, and available slot options
-func (s *Service) GetReviewQueueItemDetails(ctx context.Context, mediaType string, fileID int64) (*ReviewQueueItemDetails, error) {
-	details := &ReviewQueueItemDetails{
-		SlotOptions: make([]SlotOption, 0),
-	}
+// reviewFileInfo holds file metadata loaded for a review queue item.
+type reviewFileInfo struct {
+	path      string
+	quality   string
+	size      int64
+	mediaID   int64
+	mediaType string
+}
 
-	var path, qualityStr string
-	var size int64
-	var mediaID int64
-
+// loadReviewFileInfo loads file metadata for a review queue item.
+func (s *Service) loadReviewFileInfo(ctx context.Context, details *ReviewQueueItemDetails, mediaType string, fileID int64) (*reviewFileInfo, error) {
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		file, err := s.queries.GetMovieFile(ctx, fileID)
 		if err != nil {
 			return nil, err
 		}
-		path = file.Path
-		qualityStr = file.Quality.String
-		size = file.Size
-		mediaID = file.MovieID
-		details.MediaType = "movie"
+		details.MediaType = mediaTypeMovie
 		details.FileID = fileID
-
-		movie, _ := s.queries.GetMovie(ctx, file.MovieID)
-		if movie != nil {
+		if movie, _ := s.queries.GetMovie(ctx, file.MovieID); movie != nil {
 			details.MediaTitle = movie.Title
 		}
+		return &reviewFileInfo{path: file.Path, quality: file.Quality.String, size: file.Size, mediaID: file.MovieID, mediaType: mediaTypeMovie}, nil
 
-	case "episode":
+	case mediaTypeEpisode:
 		file, err := s.queries.GetEpisodeFile(ctx, fileID)
 		if err != nil {
 			return nil, err
 		}
-		path = file.Path
-		qualityStr = file.Quality.String
-		size = file.Size
-		mediaID = file.EpisodeID
-		details.MediaType = "episode"
+		details.MediaType = mediaTypeEpisode
 		details.FileID = fileID
-
-		episode, _ := s.queries.GetEpisode(ctx, file.EpisodeID)
-		if episode != nil {
-			series, _ := s.queries.GetSeries(ctx, episode.SeriesID)
-			if series != nil {
+		if episode, _ := s.queries.GetEpisode(ctx, file.EpisodeID); episode != nil {
+			if series, _ := s.queries.GetSeries(ctx, episode.SeriesID); series != nil {
 				details.MediaTitle = fmt.Sprintf("%s S%02dE%02d", series.Title, episode.SeasonNumber, episode.EpisodeNumber)
 			}
 		}
+		return &reviewFileInfo{path: file.Path, quality: file.Quality.String, size: file.Size, mediaID: file.EpisodeID, mediaType: mediaTypeEpisode}, nil
 	}
+	return nil, fmt.Errorf("unknown media type: %s", mediaType)
+}
 
-	details.FilePath = path
-	details.Quality = qualityStr
-	details.Size = size
-
-	// Parse file to get detected attributes
-	if parsed := scanner.ParsePath(path); parsed != nil {
-		details.DetectedQuality = parsed.Quality
-		details.DetectedSource = parsed.Source
-		if len(parsed.HDRFormats) > 0 {
-			details.DetectedHDR = parsed.HDRFormats[0]
-		}
-		details.DetectedVideoCodec = parsed.Codec
-		if len(parsed.AudioCodecs) > 0 {
-			details.DetectedAudioCodec = parsed.AudioCodecs[0]
-		}
+// populateDetectedAttributes fills in detected quality attributes from path parsing.
+func populateDetectedAttributes(details *ReviewQueueItemDetails, path string) {
+	parsed := scanner.ParsePath(path)
+	if parsed == nil {
+		return
 	}
+	details.DetectedQuality = parsed.Quality
+	details.DetectedSource = parsed.Source
+	if len(parsed.HDRFormats) > 0 {
+		details.DetectedHDR = parsed.HDRFormats[0]
+	}
+	details.DetectedVideoCodec = parsed.Codec
+	if len(parsed.AudioCodecs) > 0 {
+		details.DetectedAudioCodec = parsed.AudioCodecs[0]
+	}
+}
 
-	// Get slot options with match scores
+// buildSlotOptions builds the available slot options for a review queue item.
+func (s *Service) buildSlotOptions(ctx context.Context, path, qualityStr, mediaType string, mediaID int64) []SlotOption {
 	slots, err := s.ListEnabled(ctx)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	parsed := scanner.ParsePath(path)
@@ -1053,6 +1006,7 @@ func (s *Service) GetReviewQueueItemDetails(ctx context.Context, mediaType strin
 		parsed = &scanner.ParsedMedia{Quality: qualityStr}
 	}
 
+	options := make([]SlotOption, 0, len(slots))
 	for _, slot := range slots {
 		if slot.QualityProfileID == nil {
 			continue
@@ -1064,44 +1018,61 @@ func (s *Service) GetReviewQueueItemDetails(ctx context.Context, mediaType strin
 			SlotName:   slot.Name,
 		}
 
-		profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
-		if err == nil {
+		if profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID); err == nil {
 			releaseAttrs := parsed.ToReleaseAttributes()
-			matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
-			qualityScore := s.calculateQualityScore(parsed, profile)
+			matchResult := quality.MatchProfileAttributes(&releaseAttrs, profile)
+			qualityScore := s.calculateQualityScore(parsed)
 			option.MatchScore = qualityScore + matchResult.TotalScore
 			option.IsCompatible = matchResult.AllMatch
 		}
 
-		// Check if slot already has a file for this media item
 		currentFile := s.getCurrentSlotFile(ctx, mediaType, mediaID, slot.ID)
 		option.IsFilled = currentFile != nil
-
-		details.SlotOptions = append(details.SlotOptions, option)
+		options = append(options, option)
 	}
 
-	// Sort by match score descending
-	sort.Slice(details.SlotOptions, func(i, j int) bool {
-		return details.SlotOptions[i].MatchScore > details.SlotOptions[j].MatchScore
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].MatchScore > options[j].MatchScore
 	})
+	return options
+}
+
+// GetReviewQueueItemDetails returns detailed information about a review queue item.
+// Req 14.3.2: Show file details, detected quality, and available slot options
+func (s *Service) GetReviewQueueItemDetails(ctx context.Context, mediaType string, fileID int64) (*ReviewQueueItemDetails, error) {
+	details := &ReviewQueueItemDetails{
+		SlotOptions: make([]SlotOption, 0),
+	}
+
+	fi, err := s.loadReviewFileInfo(ctx, details, mediaType, fileID)
+	if err != nil {
+		return nil, err
+	}
+
+	details.FilePath = fi.path
+	details.Quality = fi.quality
+	details.Size = fi.size
+
+	populateDetectedAttributes(details, fi.path)
+	details.SlotOptions = s.buildSlotOptions(ctx, fi.path, fi.quality, fi.mediaType, fi.mediaID)
 
 	return details, nil
 }
 
 // ReviewQueueItemDetails contains detailed information about a review queue item.
 type ReviewQueueItemDetails struct {
-	MediaType         string       `json:"mediaType"`
-	FileID            int64        `json:"fileId"`
-	FilePath          string       `json:"filePath"`
-	MediaTitle        string       `json:"mediaTitle"`
-	Quality           string       `json:"quality"`
-	Size              int64        `json:"size"`
-	DetectedQuality   string       `json:"detectedQuality,omitempty"`
-	DetectedSource    string       `json:"detectedSource,omitempty"`
-	DetectedHDR       string       `json:"detectedHdr,omitempty"`
-	DetectedVideoCodec string      `json:"detectedVideoCodec,omitempty"`
-	DetectedAudioCodec string      `json:"detectedAudioCodec,omitempty"`
-	SlotOptions       []SlotOption `json:"slotOptions"`
+	MediaType          string       `json:"mediaType"`
+	FileID             int64        `json:"fileId"`
+	FilePath           string       `json:"filePath"`
+	MediaTitle         string       `json:"mediaTitle"`
+	Quality            string       `json:"quality"`
+	Size               int64        `json:"size"`
+	DetectedQuality    string       `json:"detectedQuality,omitempty"`
+	DetectedSource     string       `json:"detectedSource,omitempty"`
+	DetectedHDR        string       `json:"detectedHdr,omitempty"`
+	DetectedVideoCodec string       `json:"detectedVideoCodec,omitempty"`
+	DetectedAudioCodec string       `json:"detectedAudioCodec,omitempty"`
+	SlotOptions        []SlotOption `json:"slotOptions"`
 }
 
 // SlotOption represents a slot as an option for assignment.

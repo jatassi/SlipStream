@@ -32,14 +32,14 @@ const (
 
 // Entry represents a history entry.
 type Entry struct {
-	ID         int64          `json:"id"`
-	EventType  EventType      `json:"eventType"`
-	MediaType  MediaType      `json:"mediaType"`
-	MediaID    int64          `json:"mediaId"`
-	Source     string         `json:"source,omitempty"`
-	Quality    string         `json:"quality,omitempty"`
-	Data       map[string]any `json:"data,omitempty"`
-	CreatedAt  string         `json:"createdAt"`
+	ID             int64          `json:"id"`
+	EventType      EventType      `json:"eventType"`
+	MediaType      MediaType      `json:"mediaType"`
+	MediaID        int64          `json:"mediaId"`
+	Source         string         `json:"source,omitempty"`
+	Quality        string         `json:"quality,omitempty"`
+	Data           map[string]any `json:"data,omitempty"`
+	CreatedAt      string         `json:"createdAt"`
 	MediaTitle     string         `json:"mediaTitle,omitempty"`
 	MediaQualifier string         `json:"mediaQualifier,omitempty"`
 	SeriesID       *int64         `json:"seriesId,omitempty"`

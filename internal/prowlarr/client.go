@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +17,8 @@ import (
 
 const (
 	defaultTimeout = 90 * time.Second
-	apiKeyHeader   = "X-Api-Key"
+	//nolint:gosec // header name constant, not a credential
+	apiKeyHeader = "X-Api-Key"
 )
 
 // Client provides HTTP communication with a Prowlarr server.
@@ -26,7 +26,7 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // ClientConfig contains configuration for creating a new Prowlarr client.
@@ -35,7 +35,7 @@ type ClientConfig struct {
 	APIKey        string
 	Timeout       int
 	SkipSSLVerify bool
-	Logger        zerolog.Logger
+	Logger        *zerolog.Logger
 }
 
 // NewClient creates a new Prowlarr HTTP client.
@@ -56,6 +56,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 
 	transport := &http.Transport{}
 	if cfg.SkipSSLVerify {
+		//nolint:gosec // admin-configured endpoint, TLS verification optional
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
@@ -71,7 +72,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 			Timeout:   timeout,
 			Transport: transport,
 		},
-		logger: logger,
+		logger: &logger,
 	}, nil
 }
 
@@ -107,8 +108,8 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*
 }
 
 // doJSON executes an HTTP request and decodes the JSON response.
-func (c *Client) doJSON(ctx context.Context, method, path string, body io.Reader, result interface{}) error {
-	resp, err := c.do(ctx, method, path, body)
+func (c *Client) doJSON(ctx context.Context, path string, result interface{}) error {
+	resp, err := c.do(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}
@@ -126,32 +127,6 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body io.Reader
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// doXML executes an HTTP request and decodes the XML response.
-func (c *Client) doXML(ctx context.Context, method, path string, body io.Reader, result interface{}) error {
-	resp, err := c.do(ctx, method, path, body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.logger.Error().
-			Int("status", resp.StatusCode).
-			Str("body", string(bodyBytes)).
-			Msg("request returned error status")
-		return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	if result != nil {
-		if err := xml.NewDecoder(resp.Body).Decode(result); err != nil {
-			return fmt.Errorf("failed to decode XML response: %w", err)
 		}
 	}
 
@@ -180,7 +155,7 @@ func (c *Client) TestConnection(ctx context.Context) error {
 		Version string `json:"version"`
 	}
 
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/system/status", nil, &status); err != nil {
+	if err := c.doJSON(ctx, "/api/v1/system/status", &status); err != nil {
 		return fmt.Errorf("connection test failed: %w", err)
 	}
 
@@ -199,7 +174,7 @@ func (c *Client) GetCapabilities(ctx context.Context) (*Capabilities, error) {
 	var status struct {
 		Version string `json:"version"`
 	}
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/system/status", nil, &status); err != nil {
+	if err := c.doJSON(ctx, "/api/v1/system/status", &status); err != nil {
 		return nil, fmt.Errorf("failed to fetch capabilities: %w", err)
 	}
 
@@ -236,57 +211,16 @@ func (c *Client) GetCapabilities(ctx context.Context) (*Capabilities, error) {
 	return caps, nil
 }
 
-// convertCapabilities transforms Torznab XML capabilities to our internal format.
-func (c *Client) convertCapabilities(caps *TorznabCaps) *Capabilities {
-	result := &Capabilities{
-		Server: ServerInfo{
-			Title:   caps.Server.Title,
-			Version: caps.Server.Version,
-		},
-		Limits: LimitsInfo{
-			Max:     caps.Limits.Max,
-			Default: caps.Limits.Default,
-		},
-		Searching: SearchingInfo{
-			Search:      c.convertSearchType(caps.Searching.Search),
-			TVSearch:    c.convertSearchType(caps.Searching.TVSearch),
-			MovieSearch: c.convertSearchType(caps.Searching.MovieSearch),
-		},
-		Categories: c.convertCategories(caps.Categories.Categories),
-	}
-
-	return result
-}
-
-func (c *Client) convertSearchType(st TorznabSearchType) SearchTypeInfo {
-	return SearchTypeInfo{
-		Available:       st.Available == "yes",
-		SupportedParams: strings.Split(st.SupportedParams, ","),
-	}
-}
-
-func (c *Client) convertCategories(cats []TorznabCategory) []Category {
-	result := make([]Category, 0, len(cats))
-	for _, cat := range cats {
-		result = append(result, Category{
-			ID:            cat.ID,
-			Name:          cat.Name,
-			Subcategories: c.convertCategories(cat.Subcategories),
-		})
-	}
-	return result
-}
-
 // GetIndexers fetches the list of indexers configured in Prowlarr.
 func (c *Client) GetIndexers(ctx context.Context) ([]Indexer, error) {
 	var indexers []prowlarrIndexerResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/indexer", nil, &indexers); err != nil {
+	if err := c.doJSON(ctx, "/api/v1/indexer", &indexers); err != nil {
 		return nil, fmt.Errorf("failed to fetch indexers: %w", err)
 	}
 
 	result := make([]Indexer, 0, len(indexers))
-	for _, idx := range indexers {
-		result = append(result, c.convertIndexer(idx))
+	for i := range indexers {
+		result = append(result, c.convertIndexer(&indexers[i]))
 	}
 
 	c.logger.Debug().
@@ -298,29 +232,29 @@ func (c *Client) GetIndexers(ctx context.Context) ([]Indexer, error) {
 
 // prowlarrIndexerResponse represents the Prowlarr API response for indexers.
 type prowlarrIndexerResponse struct {
-	ID           int                       `json:"id"`
-	Name         string                    `json:"name"`
-	Protocol     string                    `json:"protocol"`
-	Privacy      string                    `json:"privacy,omitempty"`
-	Priority     int                       `json:"priority"`
-	Enable       bool                      `json:"enable"`
-	Status       *prowlarrIndexerStatus    `json:"status,omitempty"`
-	Capabilities *prowlarrIndexerCaps      `json:"capabilities,omitempty"`
-	Fields       []prowlarrIndexerField    `json:"fields,omitempty"`
+	ID           int                    `json:"id"`
+	Name         string                 `json:"name"`
+	Protocol     string                 `json:"protocol"`
+	Privacy      string                 `json:"privacy,omitempty"`
+	Priority     int                    `json:"priority"`
+	Enable       bool                   `json:"enable"`
+	Status       *prowlarrIndexerStatus `json:"status,omitempty"`
+	Capabilities *prowlarrIndexerCaps   `json:"capabilities,omitempty"`
+	Fields       []prowlarrIndexerField `json:"fields,omitempty"`
 }
 
 type prowlarrIndexerStatus struct {
-	IsDisabled          bool   `json:"isDisabled"`
-	MostRecentFailure   string `json:"mostRecentFailure,omitempty"`
-	DisabledTill        string `json:"disabledTill,omitempty"`
+	IsDisabled        bool   `json:"isDisabled"`
+	MostRecentFailure string `json:"mostRecentFailure,omitempty"`
+	DisabledTill      string `json:"disabledTill,omitempty"`
 }
 
 type prowlarrIndexerCaps struct {
-	SupportsRawSearch   bool              `json:"supportsRawSearch"`
-	SearchParams        []string          `json:"searchParams,omitempty"`
-	TvSearchParams      []string          `json:"tvSearchParams,omitempty"`
-	MovieSearchParams   []string          `json:"movieSearchParams,omitempty"`
-	Categories          []prowlarrCategory `json:"categories,omitempty"`
+	SupportsRawSearch bool               `json:"supportsRawSearch"`
+	SearchParams      []string           `json:"searchParams,omitempty"`
+	TvSearchParams    []string           `json:"tvSearchParams,omitempty"`
+	MovieSearchParams []string           `json:"movieSearchParams,omitempty"`
+	Categories        []prowlarrCategory `json:"categories,omitempty"`
 }
 
 type prowlarrCategory struct {
@@ -333,7 +267,7 @@ type prowlarrIndexerField struct {
 	Value interface{} `json:"value"`
 }
 
-func (c *Client) convertIndexer(idx prowlarrIndexerResponse) Indexer {
+func (c *Client) convertIndexer(idx *prowlarrIndexerResponse) Indexer {
 	status := IndexerStatusHealthy
 	if idx.Status != nil && idx.Status.IsDisabled {
 		status = IndexerStatusDisabled
@@ -352,10 +286,7 @@ func (c *Client) convertIndexer(idx prowlarrIndexerResponse) Indexer {
 
 	fields := make([]IndexerField, 0, len(idx.Fields))
 	for _, f := range idx.Fields {
-		fields = append(fields, IndexerField{
-			Name:  f.Name,
-			Value: f.Value,
-		})
+		fields = append(fields, IndexerField(f))
 	}
 
 	return Indexer{
@@ -372,26 +303,26 @@ func (c *Client) convertIndexer(idx prowlarrIndexerResponse) Indexer {
 
 // ProwlarrSearchResult represents a single result from Prowlarr's REST API search.
 type ProwlarrSearchResult struct {
-	GUID                 string  `json:"guid"`
-	Age                  int     `json:"age"`
-	AgeHours             float64 `json:"ageHours"`
-	AgeMinutes           float64 `json:"ageMinutes"`
-	Size                 int64   `json:"size"`
-	Grabs                int     `json:"grabs"`
-	IndexerID            int     `json:"indexerId"`
-	Indexer              string  `json:"indexer"`
-	Title                string  `json:"title"`
-	SortTitle            string  `json:"sortTitle"`
-	ImdbID               int     `json:"imdbId"`
-	TmdbID               int     `json:"tmdbId"`
-	TvdbID               int     `json:"tvdbId"`
-	PublishDate          string  `json:"publishDate"`
-	DownloadURL          string  `json:"downloadUrl"`
-	InfoURL              string  `json:"infoUrl"`
-	Seeders              int     `json:"seeders"`
-	Leechers             int     `json:"leechers"`
-	Protocol             string  `json:"protocol"`
-	Categories           []struct {
+	GUID        string  `json:"guid"`
+	Age         int     `json:"age"`
+	AgeHours    float64 `json:"ageHours"`
+	AgeMinutes  float64 `json:"ageMinutes"`
+	Size        int64   `json:"size"`
+	Grabs       int     `json:"grabs"`
+	IndexerID   int     `json:"indexerId"`
+	Indexer     string  `json:"indexer"`
+	Title       string  `json:"title"`
+	SortTitle   string  `json:"sortTitle"`
+	ImdbID      int     `json:"imdbId"`
+	TmdbID      int     `json:"tmdbId"`
+	TvdbID      int     `json:"tvdbId"`
+	PublishDate string  `json:"publishDate"`
+	DownloadURL string  `json:"downloadUrl"`
+	InfoURL     string  `json:"infoUrl"`
+	Seeders     int     `json:"seeders"`
+	Leechers    int     `json:"leechers"`
+	Protocol    string  `json:"protocol"`
+	Categories  []struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
 	} `json:"categories"`
@@ -401,36 +332,8 @@ type ProwlarrSearchResult struct {
 }
 
 // Search executes a search query through Prowlarr's REST API.
-func (c *Client) Search(ctx context.Context, req SearchRequest) (*TorznabFeed, error) {
-	params := url.Values{}
-
-	if req.Query != "" {
-		params.Set("query", req.Query)
-	}
-
-	// Set search type
-	switch req.Type {
-	case "movie":
-		params.Set("type", "movie")
-	case "tvsearch":
-		params.Set("type", "tv")
-	default:
-		params.Set("type", "search")
-	}
-
-	// Add categories
-	for _, cat := range req.Categories {
-		params.Add("categories", strconv.Itoa(cat))
-	}
-
-	if req.Limit > 0 {
-		params.Set("limit", strconv.Itoa(req.Limit))
-	}
-	if req.Offset > 0 {
-		params.Set("offset", strconv.Itoa(req.Offset))
-	}
-
-	path := "/api/v1/search?" + params.Encode()
+func (c *Client) Search(ctx context.Context, req *SearchRequest) (*TorznabFeed, error) {
+	path := "/api/v1/search?" + buildSearchParams(req).Encode()
 
 	c.logger.Info().
 		Str("type", req.Type).
@@ -440,53 +343,82 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (*TorznabFeed, e
 		Msg("executing Prowlarr search request")
 
 	var results []ProwlarrSearchResult
-	if err := c.doJSON(ctx, http.MethodGet, path, nil, &results); err != nil {
+	if err := c.doJSON(ctx, path, &results); err != nil {
 		c.logger.Error().Err(err).Str("path", path).Msg("Prowlarr search request failed")
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
-	c.logger.Info().
-		Int("results", len(results)).
-		Msg("Prowlarr search completed")
+	c.logger.Info().Int("results", len(results)).Msg("Prowlarr search completed")
 
-	// Convert to TorznabFeed format for compatibility with existing code
+	return resultsToTorznabFeed(results), nil
+}
+
+func buildSearchParams(req *SearchRequest) url.Values {
+	params := url.Values{}
+	if req.Query != "" {
+		params.Set("query", req.Query)
+	}
+	switch req.Type {
+	case "movie":
+		params.Set("type", "movie")
+	case "tvsearch":
+		params.Set("type", "tv")
+	default:
+		params.Set("type", "search")
+	}
+	for _, cat := range req.Categories {
+		params.Add("categories", strconv.Itoa(cat))
+	}
+	if req.Limit > 0 {
+		params.Set("limit", strconv.Itoa(req.Limit))
+	}
+	if req.Offset > 0 {
+		params.Set("offset", strconv.Itoa(req.Offset))
+	}
+	return params
+}
+
+func resultsToTorznabFeed(results []ProwlarrSearchResult) *TorznabFeed {
 	feed := &TorznabFeed{}
 	feed.Channel.Items = make([]TorznabItem, 0, len(results))
 
-	for _, r := range results {
-		item := TorznabItem{
-			Title:       r.Title,
-			GUID:        r.GUID,
-			Link:        r.DownloadURL,
-			Size:        r.Size,
-			PubDate:     r.PublishDate,
-			Description: r.Title,
-		}
-
-		// Add attributes that the service layer expects
-		item.Attributes = append(item.Attributes,
-			TorznabAttribute{Name: "indexer", Value: r.Indexer},
-			TorznabAttribute{Name: "seeders", Value: strconv.Itoa(r.Seeders)},
-			TorznabAttribute{Name: "peers", Value: strconv.Itoa(r.Seeders + r.Leechers)},
-			TorznabAttribute{Name: "grabs", Value: strconv.Itoa(r.Grabs)},
-			TorznabAttribute{Name: "downloadvolumefactor", Value: strconv.FormatFloat(r.DownloadVolumeFactor, 'f', -1, 64)},
-			TorznabAttribute{Name: "uploadvolumefactor", Value: strconv.FormatFloat(r.UploadVolumeFactor, 'f', -1, 64)},
-		)
-
-		if r.InfoURL != "" {
-			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "comments", Value: r.InfoURL})
-		}
-		if r.InfoHash != "" {
-			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "infohash", Value: r.InfoHash})
-		}
-		if r.ImdbID > 0 {
-			item.Attributes = append(item.Attributes, TorznabAttribute{Name: "imdb", Value: fmt.Sprintf("tt%07d", r.ImdbID)})
-		}
-
-		feed.Channel.Items = append(feed.Channel.Items, item)
+	for i := range results {
+		feed.Channel.Items = append(feed.Channel.Items, resultToTorznabItem(&results[i]))
 	}
 
-	return feed, nil
+	return feed
+}
+
+func resultToTorznabItem(r *ProwlarrSearchResult) TorznabItem {
+	item := TorznabItem{
+		Title:       r.Title,
+		GUID:        r.GUID,
+		Link:        r.DownloadURL,
+		Size:        r.Size,
+		PubDate:     r.PublishDate,
+		Description: r.Title,
+	}
+
+	item.Attributes = append(item.Attributes,
+		TorznabAttribute{Name: "indexer", Value: r.Indexer},
+		TorznabAttribute{Name: "seeders", Value: strconv.Itoa(r.Seeders)},
+		TorznabAttribute{Name: "peers", Value: strconv.Itoa(r.Seeders + r.Leechers)},
+		TorznabAttribute{Name: "grabs", Value: strconv.Itoa(r.Grabs)},
+		TorznabAttribute{Name: "downloadvolumefactor", Value: strconv.FormatFloat(r.DownloadVolumeFactor, 'f', -1, 64)},
+		TorznabAttribute{Name: "uploadvolumefactor", Value: strconv.FormatFloat(r.UploadVolumeFactor, 'f', -1, 64)},
+	)
+
+	if r.InfoURL != "" {
+		item.Attributes = append(item.Attributes, TorznabAttribute{Name: "comments", Value: r.InfoURL})
+	}
+	if r.InfoHash != "" {
+		item.Attributes = append(item.Attributes, TorznabAttribute{Name: "infohash", Value: r.InfoHash})
+	}
+	if r.ImdbID > 0 {
+		item.Attributes = append(item.Attributes, TorznabAttribute{Name: "imdb", Value: fmt.Sprintf("tt%07d", r.ImdbID)})
+	}
+
+	return item
 }
 
 // Download retrieves the torrent/NZB file from Prowlarr.
@@ -527,7 +459,7 @@ func (c *Client) GetSystemStatus(ctx context.Context) (*ConnectionStatus, error)
 		Version string `json:"version"`
 	}
 
-	err := c.doJSON(ctx, http.MethodGet, "/api/v1/system/status", nil, &status)
+	err := c.doJSON(ctx, "/api/v1/system/status", &status)
 	now := time.Now()
 
 	result := &ConnectionStatus{

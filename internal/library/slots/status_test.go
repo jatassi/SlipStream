@@ -13,10 +13,10 @@ func TestMissingStatusDetermination(t *testing.T) {
 	// T18: Req 6.1.2: Unmonitored empty slots do not affect missing status
 
 	tests := []struct {
-		name           string
-		slotStatuses   []SlotStatus
+		name            string
+		slotStatuses    []SlotStatus
 		expectedMissing bool
-		testID         string
+		testID          string
 	}{
 		{
 			name: "T17/Req 6.1.1: 1 monitored empty, 1 filled → missing",
@@ -98,8 +98,8 @@ func TestUpgradeStatusDetermination(t *testing.T) {
 	// Req 6.2.2: Slot is "upgrade needed" if file exists but quality below profile cutoff
 
 	tests := []struct {
-		name              string
-		slotStatuses      []SlotStatus
+		name                 string
+		slotStatuses         []SlotStatus
 		expectedNeedsUpgrade bool
 	}{
 		{
@@ -167,8 +167,8 @@ func TestPerSlotMonitoringIndependence(t *testing.T) {
 	// Req 8.1.2: A slot can be monitored independently
 
 	tests := []struct {
-		name            string
-		slotStatuses    []SlotStatus
+		name                   string
+		slotStatuses           []SlotStatus
 		expectedMonitoredCount int
 	}{
 		{

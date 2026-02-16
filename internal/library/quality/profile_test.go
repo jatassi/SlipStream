@@ -180,15 +180,15 @@ func TestProfile_IsAcceptable(t *testing.T) {
 		qualityID int
 		want      bool
 	}{
-		{1, false},  // SDTV - 480p, not allowed
-		{2, false},  // DVD - 480p, not allowed
-		{4, true},   // HDTV-720p - allowed
-		{6, true},   // WEBDL-720p - allowed
-		{10, true},  // WEBDL-1080p - allowed
-		{11, true},  // Bluray-1080p - allowed
-		{15, false}, // WEBDL-2160p - 2160p, not allowed
-		{17, false}, // Remux-2160p - 2160p, not allowed
-		{0, false},  // Invalid ID
+		{1, false},   // SDTV - 480p, not allowed
+		{2, false},   // DVD - 480p, not allowed
+		{4, true},    // HDTV-720p - allowed
+		{6, true},    // WEBDL-720p - allowed
+		{10, true},   // WEBDL-1080p - allowed
+		{11, true},   // Bluray-1080p - allowed
+		{15, false},  // WEBDL-2160p - 2160p, not allowed
+		{17, false},  // Remux-2160p - 2160p, not allowed
+		{0, false},   // Invalid ID
 		{100, false}, // Invalid ID
 	}
 

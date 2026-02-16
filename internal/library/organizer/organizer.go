@@ -12,14 +12,15 @@ import (
 // Service provides file organization operations.
 type Service struct {
 	config NamingConfig
-	logger zerolog.Logger
+	logger *zerolog.Logger
 }
 
 // NewService creates a new organizer service.
-func NewService(config NamingConfig, logger zerolog.Logger) *Service {
+func NewService(config *NamingConfig, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "organizer").Logger()
 	return &Service{
-		config: config,
-		logger: logger.With().Str("component", "organizer").Logger(),
+		config: *config,
+		logger: &subLogger,
 	}
 }
 
@@ -29,23 +30,23 @@ func (s *Service) GetConfig() NamingConfig {
 }
 
 // SetConfig updates the naming configuration.
-func (s *Service) SetConfig(config NamingConfig) {
-	s.config = config
+func (s *Service) SetConfig(config *NamingConfig) {
+	s.config = *config
 }
 
 // GenerateMoviePath generates the full path for a movie.
-func (s *Service) GenerateMoviePath(rootPath string, tokens MovieTokens) string {
+func (s *Service) GenerateMoviePath(rootPath string, tokens *MovieTokens) string {
 	folder := s.config.FormatMovieFolder(tokens)
 	return filepath.Join(rootPath, folder)
 }
 
 // GenerateMovieFilename generates the filename for a movie (without extension).
-func (s *Service) GenerateMovieFilename(tokens MovieTokens) string {
+func (s *Service) GenerateMovieFilename(tokens *MovieTokens) string {
 	return s.config.FormatMovieFile(tokens)
 }
 
 // GenerateSeriesPath generates the path for a TV series.
-func (s *Service) GenerateSeriesPath(rootPath string, tokens SeriesTokens) string {
+func (s *Service) GenerateSeriesPath(rootPath string, tokens *SeriesTokens) string {
 	folder := s.config.FormatSeriesFolder(tokens)
 	return filepath.Join(rootPath, folder)
 }
@@ -57,7 +58,7 @@ func (s *Service) GenerateSeasonPath(seriesPath string, seasonNumber int) string
 }
 
 // GenerateEpisodeFilename generates the filename for an episode (without extension).
-func (s *Service) GenerateEpisodeFilename(tokens EpisodeTokens) string {
+func (s *Service) GenerateEpisodeFilename(tokens *EpisodeTokens) string {
 	return s.config.FormatEpisodeFile(tokens)
 }
 
@@ -70,7 +71,7 @@ func (s *Service) MoveFile(sourcePath, destPath string) error {
 
 	// Create destination directory if needed
 	destDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -109,7 +110,7 @@ func (s *Service) CopyFile(sourcePath, destPath string) error {
 func (s *Service) copyFile(sourcePath, destPath string) error {
 	// Create destination directory if needed
 	destDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -134,7 +135,9 @@ func (s *Service) copyFile(sourcePath, destPath string) error {
 	// Copy file permissions
 	sourceInfo, err := os.Stat(sourcePath)
 	if err == nil {
-		os.Chmod(destPath, sourceInfo.Mode())
+		if err := os.Chmod(destPath, sourceInfo.Mode()); err != nil {
+			s.logger.Warn().Err(err).Str("path", destPath).Msg("Failed to set file permissions")
+		}
 	}
 
 	return nil
@@ -162,7 +165,7 @@ func (s *Service) RenameFile(oldPath, newFilename string) (string, error) {
 }
 
 // OrganizeMovie moves and renames a movie file to the proper location.
-func (s *Service) OrganizeMovie(sourcePath, rootPath string, tokens MovieTokens) (string, error) {
+func (s *Service) OrganizeMovie(sourcePath, rootPath string, tokens *MovieTokens) (string, error) {
 	// Generate destination path
 	movieDir := s.GenerateMoviePath(rootPath, tokens)
 	filename := s.GenerateMovieFilename(tokens)
@@ -181,7 +184,7 @@ func (s *Service) OrganizeMovie(sourcePath, rootPath string, tokens MovieTokens)
 }
 
 // OrganizeEpisode moves and renames an episode file to the proper location.
-func (s *Service) OrganizeEpisode(sourcePath, seriesPath string, seasonNumber int, tokens EpisodeTokens) (string, error) {
+func (s *Service) OrganizeEpisode(sourcePath, seriesPath string, seasonNumber int, tokens *EpisodeTokens) (string, error) {
 	// Generate destination path
 	seasonDir := s.GenerateSeasonPath(seriesPath, seasonNumber)
 	filename := s.GenerateEpisodeFilename(tokens)
@@ -201,9 +204,9 @@ func (s *Service) OrganizeEpisode(sourcePath, seriesPath string, seasonNumber in
 
 // CleanEmptyFolders removes empty folders in a directory tree.
 func (s *Service) CleanEmptyFolders(rootPath string) error {
-	return filepath.WalkDir(rootPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil // Skip errors
+	return filepath.WalkDir(rootPath, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil //nolint:nilerr // Skip filesystem errors during walk
 		}
 
 		if !d.IsDir() || path == rootPath {
@@ -211,9 +214,9 @@ func (s *Service) CleanEmptyFolders(rootPath string) error {
 		}
 
 		// Check if directory is empty
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return nil
+		entries, readErr := os.ReadDir(path)
+		if readErr != nil {
+			return nil //nolint:nilerr // Skip unreadable directories
 		}
 
 		if len(entries) == 0 {
@@ -227,14 +230,14 @@ func (s *Service) CleanEmptyFolders(rootPath string) error {
 }
 
 // PreviewMovieRename returns what the movie filename would be without making changes.
-func (s *Service) PreviewMovieRename(tokens MovieTokens) (folder, filename string) {
+func (s *Service) PreviewMovieRename(tokens *MovieTokens) (folder, filename string) {
 	folder = s.config.FormatMovieFolder(tokens)
 	filename = s.config.FormatMovieFile(tokens)
 	return
 }
 
 // PreviewEpisodeRename returns what the episode filename would be without making changes.
-func (s *Service) PreviewEpisodeRename(tokens EpisodeTokens, seasonNumber int) (seasonFolder, filename string) {
+func (s *Service) PreviewEpisodeRename(tokens *EpisodeTokens, seasonNumber int) (seasonFolder, filename string) {
 	seasonFolder = s.config.FormatSeasonFolder(seasonNumber)
 	filename = s.config.FormatEpisodeFile(tokens)
 	return

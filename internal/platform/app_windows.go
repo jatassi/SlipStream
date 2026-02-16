@@ -3,6 +3,7 @@
 package platform
 
 import (
+	"context"
 	"embed"
 	"os"
 	"os/exec"
@@ -96,7 +97,7 @@ func (a *windowsApp) Run() error {
 }
 
 func (a *windowsApp) OpenBrowser(url string) error {
-	cmd := exec.Command("cmd", "/c", "start", "", url)
+	cmd := exec.CommandContext(context.Background(), "cmd", "/c", "start", "", url)
 	return cmd.Start()
 }
 

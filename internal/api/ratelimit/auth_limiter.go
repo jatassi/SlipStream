@@ -32,9 +32,9 @@ type AuthLimiter struct {
 	ipBuckets       map[string]*ipBucket
 	accountLockouts map[string]*accountLockout
 
-	ipLimit            int64
-	ipWindow           time.Duration
-	maxFailedAttempts  int
+	ipLimit             int64
+	ipWindow            time.Duration
+	maxFailedAttempts   int
 	baseLockoutDuration time.Duration
 }
 

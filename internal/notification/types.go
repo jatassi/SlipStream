@@ -20,9 +20,9 @@ type (
 	CustomFormat       = types.CustomFormat
 	MediaFileInfo      = types.MediaFileInfo
 	SlotInfo           = types.SlotInfo
-	GrabEvent    = types.GrabEvent
-	ImportEvent  = types.ImportEvent
-	UpgradeEvent = types.UpgradeEvent
+	GrabEvent          = types.GrabEvent
+	ImportEvent        = types.ImportEvent
+	UpgradeEvent       = types.UpgradeEvent
 	MovieAddedEvent    = types.MovieAddedEvent
 	MovieDeletedEvent  = types.MovieDeletedEvent
 	SeriesAddedEvent   = types.SeriesAddedEvent
@@ -61,16 +61,16 @@ type Config struct {
 	Enabled  bool            `json:"enabled"`
 	Settings json.RawMessage `json:"settings"`
 
-	OnGrab          bool `json:"onGrab"`
-	OnImport      bool `json:"onImport"`
-	OnUpgrade       bool `json:"onUpgrade"`
-	OnMovieAdded    bool `json:"onMovieAdded"`
-	OnMovieDeleted  bool `json:"onMovieDeleted"`
-	OnSeriesAdded   bool `json:"onSeriesAdded"`
-	OnSeriesDeleted bool `json:"onSeriesDeleted"`
-	OnHealthIssue   bool `json:"onHealthIssue"`
+	OnGrab           bool `json:"onGrab"`
+	OnImport         bool `json:"onImport"`
+	OnUpgrade        bool `json:"onUpgrade"`
+	OnMovieAdded     bool `json:"onMovieAdded"`
+	OnMovieDeleted   bool `json:"onMovieDeleted"`
+	OnSeriesAdded    bool `json:"onSeriesAdded"`
+	OnSeriesDeleted  bool `json:"onSeriesDeleted"`
+	OnHealthIssue    bool `json:"onHealthIssue"`
 	OnHealthRestored bool `json:"onHealthRestored"`
-	OnAppUpdate     bool `json:"onAppUpdate"`
+	OnAppUpdate      bool `json:"onAppUpdate"`
 
 	IncludeHealthWarnings bool    `json:"includeHealthWarnings"`
 	Tags                  []int64 `json:"tags,omitempty"`
@@ -87,7 +87,7 @@ type CreateInput struct {
 	Settings json.RawMessage `json:"settings"`
 
 	OnGrab           bool `json:"onGrab"`
-	OnImport       bool `json:"onImport"`
+	OnImport         bool `json:"onImport"`
 	OnUpgrade        bool `json:"onUpgrade"`
 	OnMovieAdded     bool `json:"onMovieAdded"`
 	OnMovieDeleted   bool `json:"onMovieDeleted"`
@@ -109,7 +109,7 @@ type UpdateInput struct {
 	Settings *json.RawMessage `json:"settings,omitempty"`
 
 	OnGrab           *bool `json:"onGrab,omitempty"`
-	OnImport       *bool `json:"onImport,omitempty"`
+	OnImport         *bool `json:"onImport,omitempty"`
 	OnUpgrade        *bool `json:"onUpgrade,omitempty"`
 	OnMovieAdded     *bool `json:"onMovieAdded,omitempty"`
 	OnMovieDeleted   *bool `json:"onMovieDeleted,omitempty"`

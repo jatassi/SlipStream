@@ -26,30 +26,30 @@ const (
 type FieldType string
 
 const (
-	FieldOverview          FieldType = "overview"
-	FieldRating            FieldType = "rating"
-	FieldGenres            FieldType = "genres"
-	FieldQuality           FieldType = "quality"
-	FieldReleaseGroup      FieldType = "releaseGroup"
-	FieldSize              FieldType = "size"
-	FieldLinks             FieldType = "links"
-	FieldPoster            FieldType = "poster"
-	FieldFanart            FieldType = "fanart"
-	FieldIndexer           FieldType = "indexer"
-	FieldDownloadClient    FieldType = "downloadClient"
-	FieldCustomFormats     FieldType = "customFormats"
-	FieldLanguages         FieldType = "languages"
-	FieldMediaInfo         FieldType = "mediaInfo"
+	FieldOverview       FieldType = "overview"
+	FieldRating         FieldType = "rating"
+	FieldGenres         FieldType = "genres"
+	FieldQuality        FieldType = "quality"
+	FieldReleaseGroup   FieldType = "releaseGroup"
+	FieldSize           FieldType = "size"
+	FieldLinks          FieldType = "links"
+	FieldPoster         FieldType = "poster"
+	FieldFanart         FieldType = "fanart"
+	FieldIndexer        FieldType = "indexer"
+	FieldDownloadClient FieldType = "downloadClient"
+	FieldCustomFormats  FieldType = "customFormats"
+	FieldLanguages      FieldType = "languages"
+	FieldMediaInfo      FieldType = "mediaInfo"
 )
 
 // Settings contains Discord-specific configuration
 type Settings struct {
-	WebhookURL     string      `json:"webhookUrl"`
-	Username       string      `json:"username,omitempty"`
-	AvatarURL      string      `json:"avatarUrl,omitempty"`
-	Author         string      `json:"author,omitempty"`
-	GrabFields     []FieldType `json:"grabFields,omitempty"`
-	ImportFields   []FieldType `json:"importFields,omitempty"`
+	WebhookURL   string      `json:"webhookUrl"`
+	Username     string      `json:"username,omitempty"`
+	AvatarURL    string      `json:"avatarUrl,omitempty"`
+	Author       string      `json:"author,omitempty"`
+	GrabFields   []FieldType `json:"grabFields,omitempty"`
+	ImportFields []FieldType `json:"importFields,omitempty"`
 }
 
 // Notifier sends notifications to Discord via webhook
@@ -57,7 +57,7 @@ type Notifier struct {
 	name       string
 	settings   Settings
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // DefaultGrabFields are shown for grab events if no fields configured
@@ -67,18 +67,19 @@ var DefaultGrabFields = []FieldType{FieldQuality, FieldIndexer, FieldDownloadCli
 var DefaultImportFields = []FieldType{FieldQuality, FieldReleaseGroup, FieldCustomFormats, FieldLanguages, FieldLinks, FieldPoster}
 
 // New creates a new Discord notifier
-func New(name string, settings Settings, httpClient *http.Client, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, httpClient *http.Client, logger *zerolog.Logger) *Notifier {
 	if len(settings.GrabFields) == 0 {
 		settings.GrabFields = DefaultGrabFields
 	}
 	if len(settings.ImportFields) == 0 {
 		settings.ImportFields = DefaultImportFields
 	}
+	subLogger := logger.With().Str("notifier", "discord").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		settings:   settings,
+		settings:   *settings,
 		httpClient: httpClient,
-		logger:     logger.With().Str("notifier", "discord").Str("name", name).Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -170,74 +171,92 @@ func (n *Notifier) formatCustomFormats(formats []types.CustomFormat) string {
 	return joinStrings(names, ", ")
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
-	var title, description string
-	var thumbnail, image *EmbedImage
-	fields := n.settings.GrabFields
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
+	embed := n.buildGrabEmbed(event)
+	return n.send(ctx, n.buildPayload(embed))
+}
 
-	if event.Movie != nil {
-		title = fmt.Sprintf("Movie Grabbed - %s", event.Movie.Title)
-		if event.Movie.Year > 0 {
-			title = fmt.Sprintf("Movie Grabbed - %s (%d)", event.Movie.Title, event.Movie.Year)
-		}
-		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
-		if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
-			thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
-		}
-		if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
-			image = &EmbedImage{URL: event.Movie.FanartURL}
-		}
-	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Grabbed - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
-		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
-	}
+func (n *Notifier) buildGrabEmbed(event *types.GrabEvent) *Embed {
+	title, description := n.buildGrabTitleAndDesc(event)
+	thumbnail, image := n.extractGrabImages(event)
+	fields := n.buildGrabFields(event)
 
-	var embedFields []EmbedField
-
-	if n.hasField(fields, FieldQuality) {
-		embedFields = append(embedFields, EmbedField{Name: "Quality", Value: event.Release.Quality, Inline: true})
-	}
-	if n.hasField(fields, FieldIndexer) && event.Release.Indexer != "" {
-		embedFields = append(embedFields, EmbedField{Name: "Indexer", Value: event.Release.Indexer, Inline: true})
-	}
-	if n.hasField(fields, FieldDownloadClient) {
-		embedFields = append(embedFields, EmbedField{Name: "Download Client", Value: event.DownloadClient.Name, Inline: true})
-	}
-	if n.hasField(fields, FieldSize) && event.Release.Size > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Size", Value: formatSize(event.Release.Size), Inline: true})
-	}
-	if n.hasField(fields, FieldReleaseGroup) && event.Release.ReleaseGroup != "" {
-		embedFields = append(embedFields, EmbedField{Name: "Release Group", Value: event.Release.ReleaseGroup, Inline: true})
-	}
-	if n.hasField(fields, FieldCustomFormats) && len(event.Release.CustomFormats) > 0 {
-		cfStr := n.formatCustomFormats(event.Release.CustomFormats)
-		if event.Release.CustomFormatScore != 0 {
-			cfStr = fmt.Sprintf("%s (%d)", cfStr, event.Release.CustomFormatScore)
-		}
-		embedFields = append(embedFields, EmbedField{Name: "Custom Formats", Value: cfStr, Inline: true})
-	}
-	if n.hasField(fields, FieldLanguages) && len(event.Release.Languages) > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Languages", Value: joinStrings(event.Release.Languages, ", "), Inline: true})
-	}
-	if n.hasField(fields, FieldLinks) {
-		if event.Movie != nil {
-			if links := n.buildLinks(event.Movie); links != "" {
-				embedFields = append(embedFields, EmbedField{Name: "Links", Value: links, Inline: false})
-			}
-		}
-	}
-
-	payload := n.buildPayload(Embed{
+	return &Embed{
 		Title:       title,
 		Description: description,
 		Color:       ColorDefault,
-		Fields:      embedFields,
+		Fields:      fields,
 		Thumbnail:   thumbnail,
 		Image:       image,
 		Timestamp:   event.GrabbedAt.UTC().Format(time.RFC3339),
-	})
+	}
+}
 
-	return n.send(ctx, payload)
+func (n *Notifier) buildGrabTitleAndDesc(event *types.GrabEvent) (title, description string) {
+	if event.Movie != nil {
+		title = formatMovieTitle("Movie Grabbed", event.Movie.Title, event.Movie.Year)
+		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
+	} else if event.Episode != nil {
+		title = fmt.Sprintf("Episode Grabbed - %s S%02dE%02d",
+			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
+	}
+	return title, description
+}
+
+func (n *Notifier) extractGrabImages(event *types.GrabEvent) (thumbnail, image *EmbedImage) {
+	if event.Movie == nil {
+		return nil, nil
+	}
+	fields := n.settings.GrabFields
+	if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
+		thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
+	}
+	if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
+		image = &EmbedImage{URL: event.Movie.FanartURL}
+	}
+	return thumbnail, image
+}
+
+func (n *Notifier) buildGrabFields(event *types.GrabEvent) []EmbedField {
+	fields := n.settings.GrabFields
+	var result []EmbedField
+
+	result = n.appendBasicGrabFields(result, fields, event)
+	result = n.appendCustomFormatsField(result, fields, event.Release.CustomFormats, event.Release.CustomFormatScore)
+	result = n.appendLanguagesField(result, fields, event.Release.Languages)
+	result = n.appendGrabLinksField(result, fields, event)
+
+	return result
+}
+
+func (n *Notifier) appendBasicGrabFields(result []EmbedField, fields []FieldType, event *types.GrabEvent) []EmbedField {
+	if n.hasField(fields, FieldQuality) {
+		result = append(result, EmbedField{Name: "Quality", Value: event.Release.Quality, Inline: true})
+	}
+	if n.hasField(fields, FieldIndexer) && event.Release.Indexer != "" {
+		result = append(result, EmbedField{Name: "Indexer", Value: event.Release.Indexer, Inline: true})
+	}
+	if n.hasField(fields, FieldDownloadClient) {
+		result = append(result, EmbedField{Name: "Download Client", Value: event.DownloadClient.Name, Inline: true})
+	}
+	if n.hasField(fields, FieldSize) && event.Release.Size > 0 {
+		result = append(result, EmbedField{Name: "Size", Value: formatSize(event.Release.Size), Inline: true})
+	}
+	if n.hasField(fields, FieldReleaseGroup) && event.Release.ReleaseGroup != "" {
+		result = append(result, EmbedField{Name: "Release Group", Value: event.Release.ReleaseGroup, Inline: true})
+	}
+	return result
+}
+
+func (n *Notifier) appendGrabLinksField(result []EmbedField, fields []FieldType, event *types.GrabEvent) []EmbedField {
+	if !n.hasField(fields, FieldLinks) || event.Movie == nil {
+		return result
+	}
+	if links := n.buildLinks(event.Movie); links != "" {
+		result = append(result, EmbedField{Name: "Links", Value: links, Inline: false})
+	}
+	return result
 }
 
 func (n *Notifier) formatMediaInfo(mi *types.MediaFileInfo) string {
@@ -265,139 +284,41 @@ func (n *Notifier) formatMediaInfo(mi *types.MediaFileInfo) string {
 	return joinStrings(parts, " / ")
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
-	var title string
-	var thumbnail, image *EmbedImage
-	fields := n.settings.ImportFields
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
+	embed := n.buildImportEmbed(event)
+	return n.send(ctx, n.buildPayload(embed))
+}
 
-	if event.Movie != nil {
-		title = fmt.Sprintf("Movie Downloaded - %s", event.Movie.Title)
-		if event.Movie.Year > 0 {
-			title = fmt.Sprintf("Movie Downloaded - %s (%d)", event.Movie.Title, event.Movie.Year)
-		}
-		if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
-			thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
-		}
-		if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
-			image = &EmbedImage{URL: event.Movie.FanartURL}
-		}
-	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Downloaded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
-	}
+func (n *Notifier) buildImportEmbed(event *types.ImportEvent) *Embed {
+	title := n.buildImportTitle(event)
+	thumbnail, image := n.extractImportImages(event)
+	fields := n.buildImportFields(event)
 
-	var embedFields []EmbedField
-
-	if n.hasField(fields, FieldQuality) {
-		embedFields = append(embedFields, EmbedField{Name: "Quality", Value: event.Quality, Inline: true})
-	}
-	if n.hasField(fields, FieldReleaseGroup) && event.ReleaseGroup != "" {
-		embedFields = append(embedFields, EmbedField{Name: "Release Group", Value: event.ReleaseGroup, Inline: true})
-	}
-	if n.hasField(fields, FieldCustomFormats) && len(event.CustomFormats) > 0 {
-		cfStr := n.formatCustomFormats(event.CustomFormats)
-		if event.CustomFormatScore != 0 {
-			cfStr = fmt.Sprintf("%s (%d)", cfStr, event.CustomFormatScore)
-		}
-		embedFields = append(embedFields, EmbedField{Name: "Custom Formats", Value: cfStr, Inline: true})
-	}
-	if n.hasField(fields, FieldLanguages) && len(event.Languages) > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Languages", Value: joinStrings(event.Languages, ", "), Inline: true})
-	}
-	if n.hasField(fields, FieldMediaInfo) && event.MediaInfo != nil {
-		if mi := n.formatMediaInfo(event.MediaInfo); mi != "" {
-			embedFields = append(embedFields, EmbedField{Name: "Media Info", Value: mi, Inline: false})
-		}
-	}
-	if n.hasField(fields, FieldLinks) {
-		if event.Movie != nil {
-			if links := n.buildLinks(event.Movie); links != "" {
-				embedFields = append(embedFields, EmbedField{Name: "Links", Value: links, Inline: false})
-			}
-		}
-	}
-
-	payload := n.buildPayload(Embed{
+	return &Embed{
 		Title:     title,
 		Color:     ColorSuccess,
-		Fields:    embedFields,
+		Fields:    fields,
 		Thumbnail: thumbnail,
 		Image:     image,
 		Timestamp: event.ImportedAt.UTC().Format(time.RFC3339),
-	})
-
-	return n.send(ctx, payload)
+	}
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
-	var title string
-	var thumbnail, image *EmbedImage
-	fields := n.settings.ImportFields
-
+func (n *Notifier) buildImportTitle(event *types.ImportEvent) string {
 	if event.Movie != nil {
-		title = fmt.Sprintf("Movie Upgraded - %s", event.Movie.Title)
-		if event.Movie.Year > 0 {
-			title = fmt.Sprintf("Movie Upgraded - %s (%d)", event.Movie.Title, event.Movie.Year)
-		}
-		if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
-			thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
-		}
-		if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
-			image = &EmbedImage{URL: event.Movie.FanartURL}
-		}
-	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Upgraded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		return formatMovieTitle("Movie Downloaded", event.Movie.Title, event.Movie.Year)
 	}
-
-	embedFields := []EmbedField{
-		{Name: "Old Quality", Value: event.OldQuality, Inline: true},
-		{Name: "New Quality", Value: event.NewQuality, Inline: true},
+	if event.Episode != nil {
+		return fmt.Sprintf("Episode Downloaded - %s S%02dE%02d",
+			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
 	}
-
-	if n.hasField(fields, FieldReleaseGroup) && event.ReleaseGroup != "" {
-		embedFields = append(embedFields, EmbedField{Name: "Release Group", Value: event.ReleaseGroup, Inline: true})
-	}
-	if n.hasField(fields, FieldCustomFormats) && len(event.CustomFormats) > 0 {
-		cfStr := n.formatCustomFormats(event.CustomFormats)
-		if event.CustomFormatScore != 0 {
-			cfStr = fmt.Sprintf("%s (%d)", cfStr, event.CustomFormatScore)
-		}
-		embedFields = append(embedFields, EmbedField{Name: "Custom Formats", Value: cfStr, Inline: true})
-	}
-	if n.hasField(fields, FieldLanguages) && len(event.Languages) > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Languages", Value: joinStrings(event.Languages, ", "), Inline: true})
-	}
-	if n.hasField(fields, FieldMediaInfo) && event.MediaInfo != nil {
-		if mi := n.formatMediaInfo(event.MediaInfo); mi != "" {
-			embedFields = append(embedFields, EmbedField{Name: "Media Info", Value: mi, Inline: false})
-		}
-	}
-	if n.hasField(fields, FieldLinks) {
-		if event.Movie != nil {
-			if links := n.buildLinks(event.Movie); links != "" {
-				embedFields = append(embedFields, EmbedField{Name: "Links", Value: links, Inline: false})
-			}
-		}
-	}
-
-	payload := n.buildPayload(Embed{
-		Title:     title,
-		Color:     ColorInfo,
-		Fields:    embedFields,
-		Thumbnail: thumbnail,
-		Image:     image,
-		Timestamp: event.UpgradedAt.UTC().Format(time.RFC3339),
-	})
-
-	return n.send(ctx, payload)
+	return ""
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
-	title := fmt.Sprintf("Movie Added - %s", event.Movie.Title)
-	if event.Movie.Year > 0 {
-		title = fmt.Sprintf("Movie Added - %s (%d)", event.Movie.Title, event.Movie.Year)
+func (n *Notifier) extractImportImages(event *types.ImportEvent) (thumbnail, image *EmbedImage) {
+	if event.Movie == nil {
+		return nil, nil
 	}
-
-	var thumbnail, image *EmbedImage
 	fields := n.settings.ImportFields
 	if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
 		thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
@@ -405,50 +326,193 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 	if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
 		image = &EmbedImage{URL: event.Movie.FanartURL}
 	}
+	return thumbnail, image
+}
 
-	var description string
-	if n.hasField(fields, FieldOverview) && event.Movie.Overview != "" {
-		description = truncate(event.Movie.Overview, 300)
+func (n *Notifier) buildImportFields(event *types.ImportEvent) []EmbedField {
+	fields := n.settings.ImportFields
+	var result []EmbedField
+
+	if n.hasField(fields, FieldQuality) {
+		result = append(result, EmbedField{Name: "Quality", Value: event.Quality, Inline: true})
+	}
+	if n.hasField(fields, FieldReleaseGroup) && event.ReleaseGroup != "" {
+		result = append(result, EmbedField{Name: "Release Group", Value: event.ReleaseGroup, Inline: true})
 	}
 
-	var embedFields []EmbedField
-	if n.hasField(fields, FieldRating) && event.Movie.Rating > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Rating", Value: fmt.Sprintf("%.1f", event.Movie.Rating), Inline: true})
+	result = n.appendCustomFormatsField(result, fields, event.CustomFormats, event.CustomFormatScore)
+	result = n.appendLanguagesField(result, fields, event.Languages)
+
+	if n.hasField(fields, FieldMediaInfo) && event.MediaInfo != nil {
+		if mi := n.formatMediaInfo(event.MediaInfo); mi != "" {
+			result = append(result, EmbedField{Name: "Media Info", Value: mi, Inline: false})
+		}
 	}
-	if n.hasField(fields, FieldGenres) && len(event.Movie.Genres) > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Genres", Value: joinStrings(event.Movie.Genres, ", "), Inline: true})
-	}
-	if n.hasField(fields, FieldLinks) {
-		if links := n.buildLinks(&event.Movie); links != "" {
-			embedFields = append(embedFields, EmbedField{Name: "Links", Value: links, Inline: false})
+	if n.hasField(fields, FieldLinks) && event.Movie != nil {
+		if links := n.buildLinks(event.Movie); links != "" {
+			result = append(result, EmbedField{Name: "Links", Value: links, Inline: false})
 		}
 	}
 
-	payload := n.buildPayload(Embed{
+	return result
+}
+
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
+	embed := n.buildUpgradeEmbed(event)
+	return n.send(ctx, n.buildPayload(embed))
+}
+
+func (n *Notifier) buildUpgradeEmbed(event *types.UpgradeEvent) *Embed {
+	title := n.buildUpgradeTitle(event)
+	thumbnail, image := n.extractUpgradeImages(event)
+	fields := n.buildUpgradeFields(event)
+
+	return &Embed{
+		Title:     title,
+		Color:     ColorInfo,
+		Fields:    fields,
+		Thumbnail: thumbnail,
+		Image:     image,
+		Timestamp: event.UpgradedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func (n *Notifier) buildUpgradeTitle(event *types.UpgradeEvent) string {
+	if event.Movie != nil {
+		return formatMovieTitle("Movie Upgraded", event.Movie.Title, event.Movie.Year)
+	}
+	if event.Episode != nil {
+		return fmt.Sprintf("Episode Upgraded - %s S%02dE%02d",
+			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+	}
+	return ""
+}
+
+func (n *Notifier) extractUpgradeImages(event *types.UpgradeEvent) (thumbnail, image *EmbedImage) {
+	if event.Movie == nil {
+		return nil, nil
+	}
+	fields := n.settings.ImportFields
+	if n.hasField(fields, FieldPoster) && event.Movie.PosterURL != "" {
+		thumbnail = &EmbedImage{URL: event.Movie.PosterURL}
+	}
+	if n.hasField(fields, FieldFanart) && event.Movie.FanartURL != "" {
+		image = &EmbedImage{URL: event.Movie.FanartURL}
+	}
+	return thumbnail, image
+}
+
+func (n *Notifier) buildUpgradeFields(event *types.UpgradeEvent) []EmbedField {
+	fields := n.settings.ImportFields
+	result := []EmbedField{
+		{Name: "Old Quality", Value: event.OldQuality, Inline: true},
+		{Name: "New Quality", Value: event.NewQuality, Inline: true},
+	}
+
+	if n.hasField(fields, FieldReleaseGroup) && event.ReleaseGroup != "" {
+		result = append(result, EmbedField{Name: "Release Group", Value: event.ReleaseGroup, Inline: true})
+	}
+
+	result = n.appendCustomFormatsField(result, fields, event.CustomFormats, event.CustomFormatScore)
+	result = n.appendLanguagesField(result, fields, event.Languages)
+
+	if n.hasField(fields, FieldMediaInfo) && event.MediaInfo != nil {
+		if mi := n.formatMediaInfo(event.MediaInfo); mi != "" {
+			result = append(result, EmbedField{Name: "Media Info", Value: mi, Inline: false})
+		}
+	}
+	if n.hasField(fields, FieldLinks) && event.Movie != nil {
+		if links := n.buildLinks(event.Movie); links != "" {
+			result = append(result, EmbedField{Name: "Links", Value: links, Inline: false})
+		}
+	}
+
+	return result
+}
+
+func (n *Notifier) appendCustomFormatsField(result []EmbedField, fields []FieldType, formats []types.CustomFormat, score int) []EmbedField {
+	if !n.hasField(fields, FieldCustomFormats) || len(formats) == 0 {
+		return result
+	}
+	cfStr := n.formatCustomFormats(formats)
+	if score != 0 {
+		cfStr = fmt.Sprintf("%s (%d)", cfStr, score)
+	}
+	return append(result, EmbedField{Name: "Custom Formats", Value: cfStr, Inline: true})
+}
+
+func (n *Notifier) appendLanguagesField(result []EmbedField, fields []FieldType, languages []string) []EmbedField {
+	if !n.hasField(fields, FieldLanguages) || len(languages) == 0 {
+		return result
+	}
+	return append(result, EmbedField{Name: "Languages", Value: joinStrings(languages, ", "), Inline: true})
+}
+
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
+	embed := n.buildMovieAddedEmbed(event)
+	return n.send(ctx, n.buildPayload(embed))
+}
+
+func (n *Notifier) buildMovieAddedEmbed(event *types.MovieAddedEvent) *Embed {
+	title := formatMovieTitle("Movie Added", event.Movie.Title, event.Movie.Year)
+	thumbnail, image := n.extractMovieImages(&event.Movie)
+	description := n.buildDescription(event.Movie.Overview)
+	fields := n.buildMediaAddedFields(event.Movie.Rating, event.Movie.Genres, n.buildLinks(&event.Movie))
+
+	return &Embed{
 		Title:       title,
 		Description: description,
 		Color:       ColorSuccess,
-		Fields:      embedFields,
+		Fields:      fields,
 		Thumbnail:   thumbnail,
 		Image:       image,
 		Timestamp:   event.AddedAt.UTC().Format(time.RFC3339),
-	})
-
-	return n.send(ctx, payload)
+	}
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
-	title := fmt.Sprintf("Movie Deleted - %s", event.Movie.Title)
-	if event.Movie.Year > 0 {
-		title = fmt.Sprintf("Movie Deleted - %s (%d)", event.Movie.Title, event.Movie.Year)
+func (n *Notifier) extractMovieImages(movie *types.MediaInfo) (thumbnail, image *EmbedImage) {
+	fields := n.settings.ImportFields
+	if n.hasField(fields, FieldPoster) && movie.PosterURL != "" {
+		thumbnail = &EmbedImage{URL: movie.PosterURL}
+	}
+	if n.hasField(fields, FieldFanart) && movie.FanartURL != "" {
+		image = &EmbedImage{URL: movie.FanartURL}
+	}
+	return thumbnail, image
+}
+
+func (n *Notifier) buildDescription(overview string) string {
+	if !n.hasField(n.settings.ImportFields, FieldOverview) || overview == "" {
+		return ""
+	}
+	return truncate(overview, 300)
+}
+
+func (n *Notifier) buildMediaAddedFields(rating float64, genres []string, links string) []EmbedField {
+	fields := n.settings.ImportFields
+	var result []EmbedField
+
+	if n.hasField(fields, FieldRating) && rating > 0 {
+		result = append(result, EmbedField{Name: "Rating", Value: fmt.Sprintf("%.1f", rating), Inline: true})
+	}
+	if n.hasField(fields, FieldGenres) && len(genres) > 0 {
+		result = append(result, EmbedField{Name: "Genres", Value: joinStrings(genres, ", "), Inline: true})
+	}
+	if n.hasField(fields, FieldLinks) && links != "" {
+		result = append(result, EmbedField{Name: "Links", Value: links, Inline: false})
 	}
 
+	return result
+}
+
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
+	title := formatMovieTitle("Movie Deleted", event.Movie.Title, event.Movie.Year)
 	description := "Movie removed from library"
 	if event.DeletedFiles {
 		description = "Movie removed from library and files deleted"
 	}
 
-	payload := n.buildPayload(Embed{
+	payload := n.buildPayload(&Embed{
 		Title:       title,
 		Description: description,
 		Color:       ColorDanger,
@@ -458,53 +522,40 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
-	title := fmt.Sprintf("Series Added - %s", event.Series.Title)
-	if event.Series.Year > 0 {
-		title = fmt.Sprintf("Series Added - %s (%d)", event.Series.Title, event.Series.Year)
-	}
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
+	embed := n.buildSeriesAddedEmbed(event)
+	return n.send(ctx, n.buildPayload(embed))
+}
 
-	var thumbnail, image *EmbedImage
-	fields := n.settings.ImportFields
-	if n.hasField(fields, FieldPoster) && event.Series.PosterURL != "" {
-		thumbnail = &EmbedImage{URL: event.Series.PosterURL}
-	}
-	if n.hasField(fields, FieldFanart) && event.Series.FanartURL != "" {
-		image = &EmbedImage{URL: event.Series.FanartURL}
-	}
+func (n *Notifier) buildSeriesAddedEmbed(event *types.SeriesAddedEvent) *Embed {
+	title := formatSeriesTitle("Series Added", event.Series.Title, event.Series.Year)
+	thumbnail, image := n.extractSeriesImages(&event.Series)
+	description := n.buildDescription(event.Series.Overview)
+	fields := n.buildMediaAddedFields(event.Series.Rating, event.Series.Genres, n.buildSeriesLinks(&event.Series))
 
-	var description string
-	if n.hasField(fields, FieldOverview) && event.Series.Overview != "" {
-		description = truncate(event.Series.Overview, 300)
-	}
-
-	var embedFields []EmbedField
-	if n.hasField(fields, FieldRating) && event.Series.Rating > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Rating", Value: fmt.Sprintf("%.1f", event.Series.Rating), Inline: true})
-	}
-	if n.hasField(fields, FieldGenres) && len(event.Series.Genres) > 0 {
-		embedFields = append(embedFields, EmbedField{Name: "Genres", Value: joinStrings(event.Series.Genres, ", "), Inline: true})
-	}
-	if n.hasField(fields, FieldLinks) {
-		if links := n.buildSeriesLinks(&event.Series); links != "" {
-			embedFields = append(embedFields, EmbedField{Name: "Links", Value: links, Inline: false})
-		}
-	}
-
-	payload := n.buildPayload(Embed{
+	return &Embed{
 		Title:       title,
 		Description: description,
 		Color:       ColorSuccess,
-		Fields:      embedFields,
+		Fields:      fields,
 		Thumbnail:   thumbnail,
 		Image:       image,
 		Timestamp:   event.AddedAt.UTC().Format(time.RFC3339),
-	})
-
-	return n.send(ctx, payload)
+	}
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) extractSeriesImages(series *types.SeriesInfo) (thumbnail, image *EmbedImage) {
+	fields := n.settings.ImportFields
+	if n.hasField(fields, FieldPoster) && series.PosterURL != "" {
+		thumbnail = &EmbedImage{URL: series.PosterURL}
+	}
+	if n.hasField(fields, FieldFanart) && series.FanartURL != "" {
+		image = &EmbedImage{URL: series.FanartURL}
+	}
+	return thumbnail, image
+}
+
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	title := fmt.Sprintf("Series Deleted - %s", event.Series.Title)
 
 	description := "Series removed from library"
@@ -512,7 +563,7 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 		description = "Series removed from library and files deleted"
 	}
 
-	payload := n.buildPayload(Embed{
+	payload := n.buildPayload(&Embed{
 		Title:       title,
 		Description: description,
 		Color:       ColorDanger,
@@ -522,7 +573,7 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	color := ColorWarning
 	if event.Type == "error" {
 		color = ColorDanger
@@ -533,23 +584,23 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 		{Name: "Type", Value: event.Type, Inline: true},
 	}
 
-	payload := n.buildPayload(Embed{
-		Title:     "Health Issue",
+	payload := n.buildPayload(&Embed{
+		Title:       "Health Issue",
 		Description: event.Message,
-		Color:     color,
-		Fields:    fields,
-		Timestamp: event.OccuredAt.UTC().Format(time.RFC3339),
+		Color:       color,
+		Fields:      fields,
+		Timestamp:   event.OccuredAt.UTC().Format(time.RFC3339),
 	})
 
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	fields := []EmbedField{
 		{Name: "Source", Value: event.Source, Inline: true},
 	}
 
-	payload := n.buildPayload(Embed{
+	payload := n.buildPayload(&Embed{
 		Title:       "Health Issue Resolved",
 		Description: event.Message,
 		Color:       ColorSuccess,
@@ -560,8 +611,8 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
-	payload := n.buildPayload(Embed{
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
+	payload := n.buildPayload(&Embed{
 		Title: "Application Updated",
 		Fields: []EmbedField{
 			{Name: "Previous Version", Value: event.PreviousVersion, Inline: true},
@@ -574,8 +625,8 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
-	payload := n.buildPayload(Embed{
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
+	payload := n.buildPayload(&Embed{
 		Title:       event.Title,
 		Description: event.Message,
 		Color:       ColorInfo,
@@ -585,7 +636,7 @@ func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) er
 	return n.send(ctx, payload)
 }
 
-func (n *Notifier) buildPayload(embed Embed) WebhookPayload {
+func (n *Notifier) buildPayload(embed *Embed) WebhookPayload {
 	authorName := "SlipStream"
 	if n.settings.Author != "" {
 		authorName = n.settings.Author
@@ -598,7 +649,7 @@ func (n *Notifier) buildPayload(embed Embed) WebhookPayload {
 	return WebhookPayload{
 		Username:  n.getUsername(),
 		AvatarURL: n.settings.AvatarURL,
-		Embeds:    []Embed{embed},
+		Embeds:    []Embed{*embed},
 	}
 }
 
@@ -645,16 +696,16 @@ type WebhookPayload struct {
 
 // Embed is a Discord embed object
 type Embed struct {
-	Title       string        `json:"title,omitempty"`
-	Description string        `json:"description,omitempty"`
-	URL         string        `json:"url,omitempty"`
-	Color       int           `json:"color,omitempty"`
-	Timestamp   string        `json:"timestamp,omitempty"`
-	Author      *EmbedAuthor  `json:"author,omitempty"`
-	Thumbnail   *EmbedImage   `json:"thumbnail,omitempty"`
-	Image       *EmbedImage   `json:"image,omitempty"`
-	Fields      []EmbedField  `json:"fields,omitempty"`
-	Footer      *EmbedFooter  `json:"footer,omitempty"`
+	Title       string       `json:"title,omitempty"`
+	Description string       `json:"description,omitempty"`
+	URL         string       `json:"url,omitempty"`
+	Color       int          `json:"color,omitempty"`
+	Timestamp   string       `json:"timestamp,omitempty"`
+	Author      *EmbedAuthor `json:"author,omitempty"`
+	Thumbnail   *EmbedImage  `json:"thumbnail,omitempty"`
+	Image       *EmbedImage  `json:"image,omitempty"`
+	Fields      []EmbedField `json:"fields,omitempty"`
+	Footer      *EmbedFooter `json:"footer,omitempty"`
 }
 
 // EmbedAuthor is the author section of an embed
@@ -682,6 +733,20 @@ type EmbedFooter struct {
 	IconURL string `json:"icon_url,omitempty"`
 }
 
+func formatMovieTitle(prefix, title string, year int) string {
+	if year > 0 {
+		return fmt.Sprintf("%s - %s (%d)", prefix, title, year)
+	}
+	return fmt.Sprintf("%s - %s", prefix, title)
+}
+
+func formatSeriesTitle(prefix, title string, year int) string {
+	if year > 0 {
+		return fmt.Sprintf("%s - %s (%d)", prefix, title, year)
+	}
+	return fmt.Sprintf("%s - %s", prefix, title)
+}
+
 func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -700,15 +765,15 @@ func joinStrings(strs []string, sep string) string {
 	return result
 }
 
-func formatSize(bytes int64) string {
+func formatSize(sizeBytes int64) string {
 	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+	if sizeBytes < unit {
+		return fmt.Sprintf("%d B", sizeBytes)
 	}
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	for n := sizeBytes / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(sizeBytes)/float64(div), "KMGTPE"[exp])
 }

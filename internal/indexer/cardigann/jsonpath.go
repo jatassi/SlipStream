@@ -108,7 +108,6 @@ func selectPath(data interface{}, path string) (interface{}, error) {
 		return nil, fmt.Errorf("nil data")
 	}
 
-	// Parse the path into segments
 	segments := parsePath(path)
 	current := data
 
@@ -117,72 +116,57 @@ func selectPath(data interface{}, path string) (interface{}, error) {
 			return nil, fmt.Errorf("null value at path segment: %s", seg)
 		}
 
-		// Handle array index
-		if idx, isIndex := parseArrayIndex(seg); isIndex {
-			arr, ok := current.([]interface{})
-			if !ok {
-				return nil, fmt.Errorf("expected array at %s", seg)
-			}
-			if idx < 0 {
-				idx = len(arr) + idx
-			}
-			if idx < 0 || idx >= len(arr) {
-				return nil, fmt.Errorf("array index out of bounds: %d", idx)
-			}
-			current = arr[idx]
-			continue
-		}
-
-		// Handle object key
-		switch v := current.(type) {
-		case map[string]interface{}:
-			val, exists := v[seg]
-			if !exists {
-				return nil, fmt.Errorf("key not found: %s", seg)
-			}
-			current = val
-		case []interface{}:
-			// Try to iterate and collect field from each element
-			// This handles paths like "results.name" where results is an array
-			return nil, fmt.Errorf("cannot access field %s on array", seg)
-		default:
-			return nil, fmt.Errorf("cannot access field %s on %T", seg, current)
+		var err error
+		current, err = navigateSegment(current, seg)
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return current, nil
 }
 
+func navigateSegment(current interface{}, seg string) (interface{}, error) {
+	if idx, isIndex := parseArrayIndex(seg); isIndex {
+		return accessArrayIndex(current, seg, idx)
+	}
+	return accessObjectKey(current, seg)
+}
+
+func accessArrayIndex(current interface{}, seg string, idx int) (interface{}, error) {
+	arr, ok := current.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expected array at %s", seg)
+	}
+	if idx < 0 {
+		idx = len(arr) + idx
+	}
+	if idx < 0 || idx >= len(arr) {
+		return nil, fmt.Errorf("array index out of bounds: %d", idx)
+	}
+	return arr[idx], nil
+}
+
+func accessObjectKey(current interface{}, seg string) (interface{}, error) {
+	m, ok := current.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("cannot access field %s on %T", seg, current)
+	}
+	val, exists := m[seg]
+	if !exists {
+		return nil, fmt.Errorf("key not found: %s", seg)
+	}
+	return val, nil
+}
+
 // parsePath splits a dot-notation path into segments.
 func parsePath(path string) []string {
 	var segments []string
 	var current strings.Builder
-
 	inBracket := false
+
 	for _, r := range path {
-		switch r {
-		case '.':
-			if !inBracket && current.Len() > 0 {
-				segments = append(segments, current.String())
-				current.Reset()
-			} else if inBracket {
-				current.WriteRune(r)
-			}
-		case '[':
-			if current.Len() > 0 {
-				segments = append(segments, current.String())
-				current.Reset()
-			}
-			inBracket = true
-		case ']':
-			if inBracket && current.Len() > 0 {
-				segments = append(segments, current.String())
-				current.Reset()
-			}
-			inBracket = false
-		default:
-			current.WriteRune(r)
-		}
+		segments, inBracket = parsePathRune(r, &current, segments, inBracket)
 	}
 
 	if current.Len() > 0 {
@@ -190,6 +174,33 @@ func parsePath(path string) []string {
 	}
 
 	return segments
+}
+
+func parsePathRune(r rune, current *strings.Builder, segments []string, inBracket bool) ([]string, bool) {
+	switch r {
+	case '.':
+		if !inBracket && current.Len() > 0 {
+			segments = append(segments, current.String())
+			current.Reset()
+		} else if inBracket {
+			current.WriteRune(r)
+		}
+	case '[':
+		if current.Len() > 0 {
+			segments = append(segments, current.String())
+			current.Reset()
+		}
+		inBracket = true
+	case ']':
+		if inBracket && current.Len() > 0 {
+			segments = append(segments, current.String())
+			current.Reset()
+		}
+		inBracket = false
+	default:
+		current.WriteRune(r)
+	}
+	return segments, inBracket
 }
 
 // parseArrayIndex checks if a segment is an array index and returns it.
@@ -278,44 +289,53 @@ func toBool(v interface{}) bool {
 	case int:
 		return val != 0
 	case string:
-		return val != "" && val != "0" && strings.ToLower(val) != "false"
+		return val != "" && val != "0" && !strings.EqualFold(val, "false")
 	default:
 		return false
 	}
 }
 
+// applyCaseMappingJSON applies case mapping to value (helper for JSON extraction)
+func applyCaseMappingJSON(value string, caseMap map[string]string) string {
+	if len(caseMap) == 0 {
+		return value
+	}
+
+	if mapped, ok := caseMap[value]; ok {
+		return mapped
+	}
+	if defaultVal, ok := caseMap["*"]; ok {
+		return defaultVal
+	}
+	return value
+}
+
+// getDefaultValueJSON returns default if value is empty (helper for JSON extraction)
+func getDefaultValueJSON(value string, field *Field) string {
+	if value == "" && field.Default != "" {
+		return field.Default
+	}
+	return value
+}
+
 // ExtractJSONField extracts a value from JSON data using a Field definition.
-func ExtractJSONField(data interface{}, field Field, ctx *TemplateContext) (string, error) {
-	// Handle static text
+func ExtractJSONField(data interface{}, field *Field, ctx *TemplateContext) (string, error) {
 	if field.Text != "" {
 		engine := NewTemplateEngine()
 		return engine.Evaluate(field.Text, ctx)
 	}
 
 	selector := NewJSONSelectorFromData(data)
-
-	// Extract using selector path
 	value, err := selector.SelectString(field.Selector)
 	if err != nil {
-		if field.Optional {
-			return field.Default, nil
-		}
-		if field.Default != "" {
+		if field.Optional || field.Default != "" {
 			return field.Default, nil
 		}
 		return "", nil
 	}
 
-	// Handle case mapping
-	if len(field.Case) > 0 {
-		if mapped, ok := field.Case[value]; ok {
-			value = mapped
-		} else if defaultVal, ok := field.Case["*"]; ok {
-			value = defaultVal
-		}
-	}
+	value = applyCaseMappingJSON(value, field.Case)
 
-	// Apply filters
 	if len(field.Filters) > 0 {
 		filtered, err := ApplyFilters(value, field.Filters)
 		if err != nil {
@@ -324,10 +344,6 @@ func ExtractJSONField(data interface{}, field Field, ctx *TemplateContext) (stri
 		value = filtered
 	}
 
-	// Use default if value is empty
-	if value == "" && field.Default != "" {
-		value = field.Default
-	}
-
+	value = getDefaultValueJSON(value, field)
 	return value, nil
 }

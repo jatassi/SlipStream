@@ -11,6 +11,10 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
+const (
+	statusAvailable = "available"
+)
+
 // CalendarEvent represents a single calendar event.
 type CalendarEvent struct {
 	ID        int64  `json:"id"`
@@ -40,15 +44,16 @@ type CalendarEvent struct {
 type Service struct {
 	db      *sql.DB
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewService creates a new calendar service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "calendar").Logger()
 	return &Service{
 		db:      db,
 		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "calendar").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -113,68 +118,61 @@ func (s *Service) getMovieEvents(ctx context.Context, start, end time.Time) ([]C
 	}
 
 	var events []CalendarEvent
-
 	for _, row := range rows {
-		// Check if movie has any files
-		hasFile := false
-		fileCount, err := s.queries.CountMovieFiles(ctx, row.ID)
-		if err == nil && fileCount > 0 {
-			hasFile = true
-		}
-
-		status := row.Status
-		if hasFile {
-			status = "available"
-		}
-
-		year := 0
-		if row.Year.Valid {
-			year = int(row.Year.Int64)
-		}
-
-		tmdbID := 0
-		if row.TmdbID.Valid {
-			tmdbID = int(row.TmdbID.Int64)
-		}
-
-		// Create event for digital/streaming release (ReleaseDate stores digital release)
-		if row.ReleaseDate.Valid {
-			dateStr := row.ReleaseDate.Time.Format("2006-01-02")
-			if dateStr >= startStr && dateStr <= endStr {
-				events = append(events, CalendarEvent{
-					ID:        row.ID,
-					Title:     row.Title,
-					MediaType: "movie",
-					EventType: "digital",
-					Date:      dateStr,
-					Status:    status,
-					Monitored: row.Monitored == 1,
-					TmdbID:    tmdbID,
-					Year:      year,
-				})
-			}
-		}
-
-		// Create event for physical/Bluray release
-		if row.PhysicalReleaseDate.Valid {
-			dateStr := row.PhysicalReleaseDate.Time.Format("2006-01-02")
-			if dateStr >= startStr && dateStr <= endStr {
-				events = append(events, CalendarEvent{
-					ID:        row.ID,
-					Title:     row.Title,
-					MediaType: "movie",
-					EventType: "physical",
-					Date:      dateStr,
-					Status:    status,
-					Monitored: row.Monitored == 1,
-					TmdbID:    tmdbID,
-					Year:      year,
-				})
-			}
-		}
+		events = append(events, s.movieRowToEvents(ctx, row, startStr, endStr)...)
 	}
-
 	return events, nil
+}
+
+func (s *Service) movieRowToEvents(ctx context.Context, row *sqlc.Movie, startStr, endStr string) []CalendarEvent {
+	status := s.resolveMovieStatus(ctx, row)
+	year := nullInt64ToInt(row.Year)
+	tmdbID := nullInt64ToInt(row.TmdbID)
+
+	var events []CalendarEvent
+	if event, ok := s.movieReleaseEvent(row, "digital", row.ReleaseDate, status, year, tmdbID, startStr, endStr); ok {
+		events = append(events, event)
+	}
+	if event, ok := s.movieReleaseEvent(row, "physical", row.PhysicalReleaseDate, status, year, tmdbID, startStr, endStr); ok {
+		events = append(events, event)
+	}
+	return events
+}
+
+func (s *Service) resolveMovieStatus(ctx context.Context, row *sqlc.Movie) string {
+	fileCount, err := s.queries.CountMovieFiles(ctx, row.ID)
+	if err == nil && fileCount > 0 {
+		return statusAvailable
+	}
+	return row.Status
+}
+
+func nullInt64ToInt(n sql.NullInt64) int {
+	if n.Valid {
+		return int(n.Int64)
+	}
+	return 0
+}
+
+func (s *Service) movieReleaseEvent(row *sqlc.Movie, eventType string, releaseDate sql.NullTime, status string, year, tmdbID int, startStr, endStr string) (CalendarEvent, bool) {
+	if !releaseDate.Valid {
+		return CalendarEvent{}, false
+	}
+	dateStr := releaseDate.Time.Format("2006-01-02")
+	if dateStr < startStr || dateStr > endStr {
+		return CalendarEvent{}, false
+	}
+	return CalendarEvent{
+		ID:        row.ID,
+		Title:     row.Title,
+		MediaType: "movie",
+		EventType: eventType,
+		Date:      dateStr,
+		Status:    status,
+		Monitored: row.Monitored == 1,
+		TmdbID:    tmdbID,
+		Year:      year,
+	}, true
 }
 
 // seasonKey is used to group episodes by series, season, and date.
@@ -247,7 +245,7 @@ func (s *Service) createSeasonReleaseEvent(ctx context.Context, key seasonKey, e
 
 	status := "missing"
 	if availableCount == len(episodes) {
-		status = "available"
+		status = statusAvailable
 	} else if availableCount > 0 {
 		status = "downloading" // Partial - some episodes available
 	}
@@ -293,7 +291,7 @@ func (s *Service) createEpisodeEvent(ctx context.Context, row *sqlc.GetEpisodesI
 
 	status := "missing"
 	if hasFile {
-		status = "available"
+		status = statusAvailable
 	}
 
 	network := ""

@@ -68,7 +68,7 @@ func (h *Handlers) Search(c echo.Context) error {
 		})
 	}
 
-	criteria := h.toCriteria(req)
+	criteria := h.toCriteria(&req)
 
 	result, err := h.service.Search(c.Request().Context(), criteria)
 	if err != nil {
@@ -106,10 +106,10 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 		})
 	}
 
-	criteria := h.toCriteria(req)
-	criteria.Type = "movie"
+	criteria := h.toCriteria(&req)
+	criteria.Type = searchTypeMovie
 
-	params := ScoredSearchParams{
+	params := &ScoredSearchParams{
 		QualityProfile: profile,
 		SearchYear:     req.Year,
 	}
@@ -150,10 +150,10 @@ func (h *Handlers) SearchTV(c echo.Context) error {
 		})
 	}
 
-	criteria := h.toCriteria(req)
-	criteria.Type = "tvsearch"
+	criteria := h.toCriteria(&req)
+	criteria.Type = searchTypeTVSearch
 
-	params := ScoredSearchParams{
+	params := &ScoredSearchParams{
 		QualityProfile: profile,
 		SearchSeason:   req.Season,
 		SearchEpisode:  req.Episode,
@@ -195,9 +195,9 @@ func (h *Handlers) SearchTorrents(c echo.Context) error {
 		})
 	}
 
-	criteria := h.toCriteria(req)
+	criteria := h.toCriteria(&req)
 
-	params := ScoredSearchParams{
+	params := &ScoredSearchParams{
 		QualityProfile: profile,
 		SearchYear:     req.Year,
 		SearchSeason:   req.Season,
@@ -215,7 +215,7 @@ func (h *Handlers) SearchTorrents(c echo.Context) error {
 }
 
 // toCriteria converts a SearchRequest to SearchCriteria.
-func (h *Handlers) toCriteria(req SearchRequest) types.SearchCriteria {
+func (h *Handlers) toCriteria(req *SearchRequest) *types.SearchCriteria {
 	criteria := types.SearchCriteria{
 		Query:   req.Query,
 		Type:    req.Type,
@@ -251,5 +251,5 @@ func (h *Handlers) toCriteria(req SearchRequest) types.SearchCriteria {
 		criteria.Limit = 100
 	}
 
-	return criteria
+	return &criteria
 }

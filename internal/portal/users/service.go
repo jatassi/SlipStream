@@ -51,13 +51,14 @@ type UpdateInput struct {
 
 type Service struct {
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
-func NewService(queries *sqlc.Queries, logger zerolog.Logger) *Service {
+func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "portal-users").Logger()
 	return &Service{
 		queries: queries,
-		logger:  logger.With().Str("component", "portal-users").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -180,16 +181,9 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Use
 		return nil, err
 	}
 
-	username := existing.Username
-	if input.Username != nil {
-		if *input.Username == "" {
-			return nil, ErrInvalidUsername
-		}
-		other, err := s.queries.GetPortalUserByUsername(ctx, *input.Username)
-		if err == nil && other != nil && other.ID != id {
-			return nil, ErrUsernameExists
-		}
-		username = *input.Username
+	username, err := s.resolveUsername(ctx, id, existing.Username, input.Username)
+	if err != nil {
+		return nil, err
 	}
 
 	displayName := existing.DisplayName
@@ -206,20 +200,39 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Use
 		return nil, err
 	}
 
-	if input.Password != nil && *input.Password != "" {
-		hash, err := portal.HashPassword(*input.Password)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.queries.UpdatePortalUserPassword(ctx, sqlc.UpdatePortalUserPasswordParams{
-			ID:           id,
-			PasswordHash: hash,
-		}); err != nil {
-			return nil, err
-		}
+	if err := s.updatePasswordIfProvided(ctx, id, input.Password); err != nil {
+		return nil, err
 	}
 
 	return toUser(user), nil
+}
+
+func (s *Service) resolveUsername(ctx context.Context, userID int64, current string, newUsername *string) (string, error) {
+	if newUsername == nil {
+		return current, nil
+	}
+	if *newUsername == "" {
+		return "", ErrInvalidUsername
+	}
+	other, err := s.queries.GetPortalUserByUsername(ctx, *newUsername)
+	if err == nil && other != nil && other.ID != userID {
+		return "", ErrUsernameExists
+	}
+	return *newUsername, nil
+}
+
+func (s *Service) updatePasswordIfProvided(ctx context.Context, userID int64, password *string) error {
+	if password == nil || *password == "" {
+		return nil
+	}
+	hash, err := portal.HashPassword(*password)
+	if err != nil {
+		return err
+	}
+	return s.queries.UpdatePortalUserPassword(ctx, sqlc.UpdatePortalUserPasswordParams{
+		ID:           userID,
+		PasswordHash: hash,
+	})
 }
 
 func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*User, error) {

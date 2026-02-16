@@ -160,12 +160,12 @@ func TestRecalculateStatusForProfile_MovieCutoffChange(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	// Create profile with cutoff=11 (Bluray-1080p)
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  HD1080pProfile().Items,
@@ -204,7 +204,7 @@ func TestRecalculateStatusForProfile_MovieCutoffChange(t *testing.T) {
 	}
 
 	// Now lower the cutoff to 4 (HDTV-720p) — quality 4 is now at cutoff → available
-	_, err = qs.Update(ctx, profile.ID, UpdateProfileInput{
+	_, err = qs.Update(ctx, profile.ID, &UpdateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          4,
 		UpgradesEnabled: true,
@@ -232,11 +232,11 @@ func TestRecalculateStatusForProfile_EpisodeCutoffChange(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  HD1080pProfile().Items,
@@ -290,7 +290,7 @@ func TestRecalculateStatusForProfile_EpisodeCutoffChange(t *testing.T) {
 	}
 
 	// Lower cutoff to 4 (HDTV-720p)
-	_, err = qs.Update(ctx, profile.ID, UpdateProfileInput{
+	_, err = qs.Update(ctx, profile.ID, &UpdateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          4,
 		UpgradesEnabled: true,
@@ -318,12 +318,12 @@ func TestRecalculateStatusForProfile_UpgradesDisabledChange(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	upgradesEnabled := true
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesEnabled,
@@ -354,7 +354,7 @@ func TestRecalculateStatusForProfile_UpgradesDisabledChange(t *testing.T) {
 	}
 
 	// Toggle upgradesEnabled → false
-	_, err = qs.Update(ctx, profile.ID, UpdateProfileInput{
+	_, err = qs.Update(ctx, profile.ID, &UpdateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: false,
@@ -382,12 +382,12 @@ func TestRecalculateStatusForProfile_UpgradesEnabledChange(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	upgradesDisabled := false
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
@@ -418,7 +418,7 @@ func TestRecalculateStatusForProfile_UpgradesEnabledChange(t *testing.T) {
 	}
 
 	// Toggle upgradesEnabled → true
-	_, err = qs.Update(ctx, profile.ID, UpdateProfileInput{
+	_, err = qs.Update(ctx, profile.ID, &UpdateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: true,
@@ -446,11 +446,11 @@ func TestRecalculateStatusForProfile_SkipsNonApplicableStatuses(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  HD1080pProfile().Items,
@@ -483,7 +483,7 @@ func TestRecalculateStatusForProfile_SkipsNonApplicableStatuses(t *testing.T) {
 	}
 
 	// Lower cutoff to 4 — would change status if the SQL WHERE allowed it
-	_, err = qs.Update(ctx, profile.ID, UpdateProfileInput{
+	_, err = qs.Update(ctx, profile.ID, &UpdateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          4,
 		UpgradesEnabled: true,
@@ -506,11 +506,11 @@ func TestRecalculateStatusForProfile_NoChangeNeeded(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := NewService(tdb.Conn, tdb.Logger)
+	qs := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, CreateProfileInput{
+	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  HD1080pProfile().Items,
@@ -541,4 +541,3 @@ func TestRecalculateStatusForProfile_NoChangeNeeded(t *testing.T) {
 		t.Errorf("RecalculateStatusForProfile updated %d, want 0 (no change needed)", updated)
 	}
 }
-

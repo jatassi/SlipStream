@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -45,13 +46,14 @@ type DevModePayload struct {
 
 // Hub manages WebSocket connections and broadcasts.
 type Hub struct {
-	clients        map[*Client]bool
-	broadcast      chan []byte
-	register       chan *Client
-	unregister     chan *Client
-	incoming       chan incomingMessage
-	mu             sync.RWMutex
-	onDevModeSet   func(enabled bool) error
+	clients      map[*Client]bool
+	broadcast    chan []byte
+	register     chan *Client
+	unregister   chan *Client
+	incoming     chan incomingMessage
+	mu           sync.RWMutex
+	onDevModeSet func(enabled bool) error
+	logger       *zerolog.Logger
 }
 
 // Client represents a WebSocket connection.
@@ -69,13 +71,15 @@ type Message struct {
 }
 
 // NewHub creates a new WebSocket hub.
-func NewHub() *Hub {
+func NewHub(logger *zerolog.Logger) *Hub {
+	subLogger := logger.With().Str("component", "websocket").Logger()
 	return &Hub{
 		clients:    make(map[*Client]bool),
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		incoming:   make(chan incomingMessage, 256),
+		logger:     &subLogger,
 	}
 }
 
@@ -126,8 +130,7 @@ func (h *Hub) handleIncoming(incoming incomingMessage) {
 		return
 	}
 
-	switch msg.Type {
-	case "devmode:set":
+	if msg.Type == "devmode:set" {
 		if h.onDevModeSet == nil {
 			return
 		}
@@ -157,7 +160,7 @@ func (h *Hub) handleIncoming(incoming incomingMessage) {
 }
 
 // Broadcast sends a message to all connected clients.
-func (h *Hub) Broadcast(msgType string, payload interface{}) error {
+func (h *Hub) Broadcast(msgType string, payload interface{}) {
 	msg := Message{
 		Type:      msgType,
 		Payload:   payload,
@@ -165,10 +168,13 @@ func (h *Hub) Broadcast(msgType string, payload interface{}) error {
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		h.logger.Error().
+			Err(err).
+			Str("msgType", msgType).
+			Msg("Failed to marshal WebSocket message")
+		return
 	}
 	h.broadcast <- data
-	return nil
 }
 
 // ClientCount returns the number of connected clients.
@@ -208,17 +214,21 @@ func (c *Client) readPump() {
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		return
+	}
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			return err
+		}
 		return nil
 	})
 
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				// Log error if needed
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) { //nolint:revive,staticcheck // Error intentionally ignored, checked but not logged
+				// Unexpected WebSocket close error (expected errors are ignored)
 			}
 			break
 		}
@@ -242,33 +252,46 @@ func (c *Client) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				// Hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+			if !c.handleSendMessage(message, ok) {
 				return
-			}
-
-			// Send each message as a separate WebSocket frame
-			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				return
-			}
-
-			// Send any queued messages as separate frames
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				if err := c.conn.WriteMessage(websocket.TextMessage, <-c.send); err != nil {
-					return
-				}
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if !c.sendPing() {
 				return
 			}
 		}
 	}
+}
+
+func (c *Client) handleSendMessage(message []byte, ok bool) bool {
+	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		return false
+	}
+	if !ok {
+		_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+		return false
+	}
+
+	if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+		return false
+	}
+
+	// Drain queued messages
+	n := len(c.send)
+	for i := 0; i < n; i++ {
+		if err := c.conn.WriteMessage(websocket.TextMessage, <-c.send); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Client) sendPing() bool {
+	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		return false
+	}
+	return c.conn.WriteMessage(websocket.PingMessage, nil) == nil
 }
 
 // UpdateStatus represents the current state of the auto-update system.

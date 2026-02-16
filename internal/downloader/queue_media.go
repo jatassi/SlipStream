@@ -12,12 +12,12 @@ import (
 type QueueMediaStatus string
 
 const (
-	QueueMediaStatusPending    QueueMediaStatus = "pending"
+	QueueMediaStatusPending     QueueMediaStatus = "pending"
 	QueueMediaStatusDownloading QueueMediaStatus = "downloading"
-	QueueMediaStatusReady      QueueMediaStatus = "ready"
-	QueueMediaStatusImporting  QueueMediaStatus = "importing"
-	QueueMediaStatusImported   QueueMediaStatus = "imported"
-	QueueMediaStatusFailed     QueueMediaStatus = "failed"
+	QueueMediaStatusReady       QueueMediaStatus = "ready"
+	QueueMediaStatusImporting   QueueMediaStatus = "importing"
+	QueueMediaStatusImported    QueueMediaStatus = "imported"
+	QueueMediaStatusFailed      QueueMediaStatus = "failed"
 )
 
 // QueueMediaEntry represents a file within a download that needs to be imported.
@@ -135,22 +135,20 @@ func (s *Service) ClearDownloadMappingSlot(ctx context.Context, clientID int64, 
 func (s *Service) HandleFailedDownload(ctx context.Context, clientID int64, downloadID string) error {
 	// Get the mapping to check if it has a slot assigned
 	mapping, err := s.GetDownloadMapping(ctx, clientID, downloadID)
-	if err != nil {
-		// Mapping may not exist, that's OK
-		return nil
-	}
+	if err == nil {
+		// If the mapping had a slot, log the failure
+		if mapping.TargetSlotID.Valid {
+			s.logger.Info().
+				Int64("clientId", clientID).
+				Str("downloadId", downloadID).
+				Int64("slotId", mapping.TargetSlotID.Int64).
+				Msg("Download failed, clearing slot assignment")
+		}
 
-	// If the mapping had a slot, log the failure
-	if mapping.TargetSlotID.Valid {
-		s.logger.Info().
-			Int64("clientId", clientID).
-			Str("downloadId", downloadID).
-			Int64("slotId", mapping.TargetSlotID.Int64).
-			Msg("Download failed, clearing slot assignment")
+		// Delete the mapping (which implicitly clears the slot)
+		return s.DeleteDownloadMapping(ctx, clientID, downloadID)
 	}
-
-	// Delete the mapping (which implicitly clears the slot)
-	return s.DeleteDownloadMapping(ctx, clientID, downloadID)
+	return nil
 }
 
 // CreateQueueMediaInput contains the input for creating a queue media entry.
@@ -301,14 +299,14 @@ func (s *Service) GetFailedQueueMediaWithMapping(ctx context.Context) ([]*sqlc.G
 
 // AddTorrentWithMapping adds a torrent and creates the download mapping in a single operation.
 // Returns the torrent ID and mapping ID.
-func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url string, input CreateDownloadMappingInput) (string, int64, error) {
+func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url string, input CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
 	// Add the torrent first
-	mediaType := "movie"
+	mediaType := mediaTypeMovie
 	if input.SeriesID != nil {
-		mediaType = "series"
+		mediaType = mediaTypeSeries
 	}
 
-	torrentID, err := s.AddTorrent(ctx, clientID, url, mediaType, "")
+	torrentID, err = s.AddTorrent(ctx, clientID, url, mediaType, "")
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to add torrent: %w", err)
 	}
@@ -328,14 +326,14 @@ func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url
 
 // AddTorrentContentWithMapping adds a torrent from content and creates the download mapping.
 // Returns the torrent ID and mapping ID.
-func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int64, content []byte, input CreateDownloadMappingInput) (string, int64, error) {
+func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int64, content []byte, input CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
 	// Add the torrent first
-	mediaType := "movie"
+	mediaType := mediaTypeMovie
 	if input.SeriesID != nil {
-		mediaType = "series"
+		mediaType = mediaTypeSeries
 	}
 
-	torrentID, err := s.AddTorrentWithContent(ctx, clientID, content, mediaType, "")
+	torrentID, err = s.AddTorrentWithContent(ctx, clientID, content, mediaType, "")
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to add torrent: %w", err)
 	}
@@ -354,7 +352,7 @@ func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int
 }
 
 // CreateQueueMediaForMovie creates a queue_media entry for a movie download.
-func (s *Service) CreateQueueMediaForMovie(ctx context.Context, mappingID int64, movieID int64) (*sqlc.QueueMedium, error) {
+func (s *Service) CreateQueueMediaForMovie(ctx context.Context, mappingID, movieID int64) (*sqlc.QueueMedium, error) {
 	return s.CreateQueueMedia(ctx, CreateQueueMediaInput{
 		DownloadMappingID: mappingID,
 		MovieID:           &movieID,
@@ -363,7 +361,7 @@ func (s *Service) CreateQueueMediaForMovie(ctx context.Context, mappingID int64,
 }
 
 // CreateQueueMediaForEpisode creates a queue_media entry for an episode download.
-func (s *Service) CreateQueueMediaForEpisode(ctx context.Context, mappingID int64, episodeID int64) (*sqlc.QueueMedium, error) {
+func (s *Service) CreateQueueMediaForEpisode(ctx context.Context, mappingID, episodeID int64) (*sqlc.QueueMedium, error) {
 	return s.CreateQueueMedia(ctx, CreateQueueMediaInput{
 		DownloadMappingID: mappingID,
 		EpisodeID:         &episodeID,

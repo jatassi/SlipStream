@@ -15,17 +15,18 @@ import (
 // StorageHealthTask handles scheduled storage health checks.
 type StorageHealthTask struct {
 	checker *health.StorageChecker
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewStorageHealthTask creates a new storage health check task.
 func NewStorageHealthTask(
 	checker *health.StorageChecker,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *StorageHealthTask {
+	subLogger := logger.With().Str("task", "storage-health").Logger()
 	return &StorageHealthTask{
 		checker: checker,
-		logger:  logger.With().Str("task", "storage-health").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -47,7 +48,7 @@ func RegisterStorageHealthTask(
 	sched *scheduler.Scheduler,
 	checker *health.StorageChecker,
 	cfg *config.HealthConfig,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) error {
 	task := NewStorageHealthTask(checker, logger)
 
@@ -59,7 +60,7 @@ func RegisterStorageHealthTask(
 	// Convert interval to cron expression using @every directive
 	cronExpr := fmt.Sprintf("@every %s", interval.String())
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "storage-health",
 		Name:        "Storage Health Check",
 		Description: "Monitors disk space usage on volumes with root folders",

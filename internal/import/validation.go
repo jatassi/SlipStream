@@ -40,9 +40,25 @@ var samplePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)/samples?/`),
 }
 
+// isValidExtensionWithSettings checks whether an extension is valid,
+// preferring custom settings when available.
+func isValidExtensionWithSettings(ext string, settings *ImportSettings) bool {
+	if settings != nil && len(settings.VideoExtensions) > 0 {
+		return settings.IsValidExtension(ext)
+	}
+	return validVideoExtensions[strings.ToLower(ext)]
+}
+
+// minimumFileSizeBytes returns the minimum file size from settings or the default.
+func minimumFileSizeBytes(settings *ImportSettings) int64 {
+	if settings != nil {
+		return settings.GetMinimumFileSizeBytes()
+	}
+	return int64(MinFileSizeBytes)
+}
+
 // validateFile validates a file for import.
-func (s *Service) validateFile(ctx context.Context, path string, settings *ImportSettings) error {
-	// Check if file exists
+func (s *Service) validateFile(_ context.Context, path string, settings *ImportSettings) error {
 	stat, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -51,31 +67,19 @@ func (s *Service) validateFile(ctx context.Context, path string, settings *Impor
 		return err
 	}
 
-	// Check if it's a regular file (not a directory)
 	if stat.IsDir() {
 		return ErrFileNotFound
 	}
 
-	// Check file extension
 	ext := strings.ToLower(filepath.Ext(path))
-	if settings != nil && len(settings.VideoExtensions) > 0 {
-		if !settings.IsValidExtension(ext) {
-			return ErrInvalidExtension
-		}
-	} else if !validVideoExtensions[ext] {
+	if !isValidExtensionWithSettings(ext, settings) {
 		return ErrInvalidExtension
 	}
 
-	// Check minimum file size (use settings if provided, otherwise use default)
-	minSize := int64(MinFileSizeBytes)
-	if settings != nil {
-		minSize = settings.GetMinimumFileSizeBytes()
-	}
-	if stat.Size() < minSize {
+	if stat.Size() < minimumFileSizeBytes(settings) {
 		return ErrFileTooSmall
 	}
 
-	// Check for sample file patterns
 	if isSampleFile(path) {
 		return ErrSampleFile
 	}
@@ -101,45 +105,29 @@ func (s *Service) ValidateForImport(ctx context.Context, path string) (*Validati
 
 	result.FileSize = stat.Size()
 
-	// Check if it's a directory
 	if stat.IsDir() {
 		result.Reason = "path is a directory"
 		return result, nil
 	}
 
-	// Load settings for validation thresholds
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to load import settings, using defaults")
 		settings = nil
 	}
 
-	// Check extension
 	ext := strings.ToLower(filepath.Ext(path))
-	if settings != nil && len(settings.VideoExtensions) > 0 {
-		if !settings.IsValidExtension(ext) {
-			result.Reason = "invalid file extension"
-			result.Extension = ext
-			return result, nil
-		}
-	} else if !validVideoExtensions[ext] {
+	result.Extension = ext
+	if !isValidExtensionWithSettings(ext, settings) {
 		result.Reason = "invalid file extension"
-		result.Extension = ext
 		return result, nil
 	}
-	result.Extension = ext
 
-	// Check minimum size (use settings if available)
-	minSize := int64(MinFileSizeBytes)
-	if settings != nil {
-		minSize = settings.GetMinimumFileSizeBytes()
-	}
-	if stat.Size() < minSize {
+	if stat.Size() < minimumFileSizeBytes(settings) {
 		result.Reason = "file too small"
 		return result, nil
 	}
 
-	// Check for sample
 	if isSampleFile(path) {
 		result.Reason = "file appears to be a sample"
 		result.IsSample = true
@@ -186,15 +174,15 @@ func GetValidExtensions() []string {
 
 // MediaInfoValidationResult contains the result of MediaInfo validation.
 type MediaInfoValidationResult struct {
-	Valid            bool    `json:"valid"`
-	HasVideoStream   bool    `json:"hasVideoStream"`
-	HasAudioStream   bool    `json:"hasAudioStream"`
-	VideoCodec       string  `json:"videoCodec,omitempty"`
-	AudioCodec       string  `json:"audioCodec,omitempty"`
-	DurationSeconds  float64 `json:"durationSeconds,omitempty"`
-	Resolution       string  `json:"resolution,omitempty"`
-	ContainerFormat  string  `json:"containerFormat,omitempty"`
-	Reason           string  `json:"reason,omitempty"`
+	Valid           bool    `json:"valid"`
+	HasVideoStream  bool    `json:"hasVideoStream"`
+	HasAudioStream  bool    `json:"hasAudioStream"`
+	VideoCodec      string  `json:"videoCodec,omitempty"`
+	AudioCodec      string  `json:"audioCodec,omitempty"`
+	DurationSeconds float64 `json:"durationSeconds,omitempty"`
+	Resolution      string  `json:"resolution,omitempty"`
+	ContainerFormat string  `json:"containerFormat,omitempty"`
+	Reason          string  `json:"reason,omitempty"`
 }
 
 // ValidateWithMediaInfo performs full validation using MediaInfo probe.
@@ -249,59 +237,4 @@ func (s *Service) ValidateWithMediaInfo(ctx context.Context, path string) (*Medi
 	// File is valid
 	result.Valid = true
 	return result, nil
-}
-
-// validateFileWithLevel validates a file according to the specified validation level.
-func (s *Service) validateFileWithLevel(ctx context.Context, path string, settings *ImportSettings) error {
-	if settings == nil {
-		return s.validateFile(ctx, path, nil)
-	}
-
-	switch settings.ValidationLevel {
-	case ValidationBasic:
-		// Just check file exists and size > 0
-		stat, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return ErrFileNotFound
-			}
-			return err
-		}
-		if stat.Size() == 0 {
-			return ErrFileTooSmall
-		}
-		return nil
-
-	case ValidationStandard:
-		// Standard validation (size, extension, sample check)
-		return s.validateFile(ctx, path, settings)
-
-	case ValidationFull:
-		// Standard validation first
-		if err := s.validateFile(ctx, path, settings); err != nil {
-			return err
-		}
-
-		// Then MediaInfo probe validation
-		result, err := s.ValidateWithMediaInfo(ctx, path)
-		if err != nil {
-			// If probe tool not available, log warning and continue
-			if err == ErrNoProbeToolAvailable {
-				s.logger.Warn().Str("path", path).Msg("MediaInfo not available for full validation, skipping probe")
-				return nil
-			}
-			return err
-		}
-
-		if !result.Valid {
-			s.logger.Warn().Str("path", path).Str("reason", result.Reason).Msg("MediaInfo validation failed")
-			return ErrInvalidExtension // Using existing error for now
-		}
-
-		return nil
-
-	default:
-		// Default to standard
-		return s.validateFile(ctx, path, settings)
-	}
 }

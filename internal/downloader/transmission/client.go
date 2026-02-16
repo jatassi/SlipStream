@@ -40,9 +40,9 @@ type Client struct {
 var _ types.TorrentClient = (*Client)(nil)
 
 // New creates a new Transmission client.
-func New(cfg Config) *Client {
+func New(cfg *Config) *Client {
 	return &Client{
-		config: cfg,
+		config: *cfg,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -50,8 +50,8 @@ func New(cfg Config) *Client {
 }
 
 // NewFromConfig creates a client from a ClientConfig.
-func NewFromConfig(cfg types.ClientConfig) *Client {
-	return New(Config{
+func NewFromConfig(cfg *types.ClientConfig) *Client {
+	return New(&Config{
 		Host:     cfg.Host,
 		Port:     cfg.Port,
 		Username: cfg.Username,
@@ -82,15 +82,16 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 // Add adds a torrent to the client.
-func (c *Client) Add(ctx context.Context, opts types.AddOptions) (string, error) {
+func (c *Client) Add(ctx context.Context, opts *types.AddOptions) (string, error) {
 	args := make(map[string]interface{})
 
 	// Set source
-	if opts.URL != "" {
+	switch {
+	case opts.URL != "":
 		args["filename"] = opts.URL
-	} else if len(opts.FileContent) > 0 {
+	case len(opts.FileContent) > 0:
 		args["metainfo"] = base64.StdEncoding.EncodeToString(opts.FileContent)
-	} else {
+	default:
 		return "", fmt.Errorf("either URL or FileContent must be provided")
 	}
 
@@ -113,15 +114,15 @@ func (c *Client) Add(ctx context.Context, opts types.AddOptions) (string, error)
 }
 
 // AddMagnet adds a torrent from a magnet URL.
-func (c *Client) AddMagnet(ctx context.Context, magnetURL string, opts types.AddOptions) (string, error) {
+func (c *Client) AddMagnet(ctx context.Context, magnetURL string, opts *types.AddOptions) (string, error) {
 	opts.URL = magnetURL
 	return c.Add(ctx, opts)
 }
 
 // AddURL adds a torrent from a URL with a subdirectory.
 // This is a convenience method that constructs the full download path.
-func (c *Client) AddURL(url string, subDir string) (string, error) {
-	opts := types.AddOptions{
+func (c *Client) AddURL(url, subDir string) (string, error) {
+	opts := &types.AddOptions{
 		URL: url,
 	}
 
@@ -142,8 +143,8 @@ func (c *Client) AddURL(url string, subDir string) (string, error) {
 	}
 
 	// Start the torrent
-	if err := c.Resume(context.Background(), id); err != nil {
-		// Non-fatal, log but continue
+	if err := c.Resume(context.Background(), id); err != nil { //nolint:revive,staticcheck // Non-fatal error, intentionally ignored
+		// Non-fatal error when starting torrent, log but continue
 	}
 
 	return id, nil
@@ -352,7 +353,8 @@ func (c *Client) ListLegacy() ([]Torrent, error) {
 	}
 
 	torrents := make([]Torrent, 0, len(items))
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		torrents = append(torrents, Torrent{
 			ID:             item.ID,
 			Name:           item.Name,
@@ -395,70 +397,69 @@ type rpcResponse struct {
 }
 
 func (c *Client) call(method string, args map[string]interface{}) (*rpcResponse, error) {
-	// Build URL
-	scheme := "http"
-	if c.config.UseSSL {
-		scheme = "https"
-	}
-	url := fmt.Sprintf("%s://%s:%d/transmission/rpc", scheme, c.config.Host, c.config.Port)
-
-	// Build request body
-	reqBody := rpcRequest{
-		Method:    method,
-		Arguments: args,
-	}
-	body, err := json.Marshal(reqBody)
+	req, err := c.buildRPCRequest(method, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, err
 	}
 
-	// Create request
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	// Add session ID if we have one
-	if c.sessionID != "" {
-		req.Header.Set(sessionIDHeader, c.sessionID)
-	}
-
-	// Add authentication if configured
-	if c.config.Username != "" {
-		auth := base64.StdEncoding.EncodeToString([]byte(c.config.Username + ":" + c.config.Password))
-		req.Header.Set("Authorization", "Basic "+auth)
-	}
-
-	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Handle 409 Conflict - need to get session ID
 	if resp.StatusCode == http.StatusConflict {
-		c.sessionID = resp.Header.Get(sessionIDHeader)
-		if c.sessionID == "" {
-			return nil, fmt.Errorf("received 409 but no session ID in response")
-		}
-		// Retry the request with the new session ID
-		return c.call(method, args)
+		return c.handleSessionConflict(resp, method, args)
 	}
 
-	// Handle unauthorized
+	return c.parseRPCResponse(resp)
+}
+
+func (c *Client) buildRPCRequest(method string, args map[string]interface{}) (*http.Request, error) {
+	scheme := "http"
+	if c.config.UseSSL {
+		scheme = "https"
+	}
+	url := fmt.Sprintf("%s://%s:%d/transmission/rpc", scheme, c.config.Host, c.config.Port)
+
+	body, err := json.Marshal(rpcRequest{Method: method, Arguments: args})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.sessionID != "" {
+		req.Header.Set(sessionIDHeader, c.sessionID)
+	}
+	if c.config.Username != "" {
+		auth := base64.StdEncoding.EncodeToString([]byte(c.config.Username + ":" + c.config.Password))
+		req.Header.Set("Authorization", "Basic "+auth)
+	}
+
+	return req, nil
+}
+
+func (c *Client) handleSessionConflict(resp *http.Response, method string, args map[string]interface{}) (*rpcResponse, error) {
+	c.sessionID = resp.Header.Get(sessionIDHeader)
+	if c.sessionID == "" {
+		return nil, fmt.Errorf("received 409 but no session ID in response")
+	}
+	return c.call(method, args)
+}
+
+func (c *Client) parseRPCResponse(resp *http.Response) (*rpcResponse, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return nil, types.ErrAuthFailed
 	}
-
-	// Handle other errors
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	// Parse response
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)

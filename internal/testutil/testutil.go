@@ -40,7 +40,7 @@ func NewTestDB(t *testing.T) *TestDB {
 	logger := zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.DebugLevel)
 
 	// Create database manager
-	manager, err := database.NewManager(dbPath, devDBPath, logger)
+	manager, err := database.NewManager(dbPath, devDBPath, &logger)
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create database manager: %v", err)
@@ -75,6 +75,7 @@ func (tdb *TestDB) Close() {
 
 // NewTestLogger creates a test logger that outputs to t.Log.
 func NewTestLogger(t *testing.T) zerolog.Logger {
+	t.Helper()
 	return zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.DebugLevel)
 }
 

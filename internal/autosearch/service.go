@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog"
-
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/history"
@@ -21,6 +20,10 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 )
 
+const (
+	statusUpgradable = "upgradable"
+)
+
 var (
 	ErrNoResults       = errors.New("no suitable releases found")
 	ErrItemNotFound    = errors.New("item not found")
@@ -30,7 +33,7 @@ var (
 
 // Broadcaster interface for sending events to clients.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // Service provides automatic release searching and grabbing functionality.
@@ -44,11 +47,11 @@ type Service struct {
 	slotsService   *slots.Service
 	grabLock       *decisioning.GrabLock
 	broadcaster    Broadcaster
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 
 	// Track currently running searches for cancellation
-	mu               sync.RWMutex
-	activeSearches   map[string]context.CancelFunc // key: "movie:123" or "episode:456"
+	mu             sync.RWMutex
+	activeSearches map[string]context.CancelFunc // key: "movie:123" or "episode:456"
 }
 
 // NewService creates a new automatic search service.
@@ -57,15 +60,16 @@ func NewService(
 	searchService search.SearchService,
 	grabService *grab.Service,
 	qualityService *quality.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *Service {
+	loggerWithComponent := logger.With().Str("component", "autosearch").Logger()
 	return &Service{
 		db:             db,
 		queries:        sqlc.New(db),
 		searchService:  searchService,
 		grabService:    grabService,
 		qualityService: qualityService,
-		logger:         logger.With().Str("component", "autosearch").Logger(),
+		logger:         &loggerWithComponent,
 		activeSearches: make(map[string]context.CancelFunc),
 	}
 }
@@ -104,7 +108,7 @@ func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchS
 	}
 
 	item := s.movieToSearchableItem(ctx, movie)
-	return s.searchAndGrab(ctx, item, source)
+	return s.searchAndGrab(ctx, &item, source)
 }
 
 // SearchEpisode searches for an episode and grabs the best release.
@@ -127,7 +131,7 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 	}
 
 	item := s.episodeToSearchableItem(ctx, episode, series)
-	result, err := s.searchAndGrab(ctx, item, source)
+	result, err := s.searchAndGrab(ctx, &item, source)
 	if err != nil {
 		return result, err
 	}
@@ -155,8 +159,8 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 }
 
 // SearchSeason searches for all missing episodes in a season with boxset prioritization.
-func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber int, source SearchSource) (*BatchSearchResult, error) {
-	// Get series details
+// getSeriesForSearch retrieves series details with error handling.
+func (s *Service) getSeriesForSearch(ctx context.Context, seriesID int64) (*sqlc.Series, error) {
 	series, err := s.queries.GetSeries(ctx, seriesID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -164,82 +168,55 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 		}
 		return nil, fmt.Errorf("failed to get series: %w", err)
 	}
+	return series, nil
+}
 
-	// Get missing episodes in this season
-	episodes, err := s.getMissingEpisodesForSeason(ctx, seriesID, seasonNumber)
-	if err != nil {
-		// If season doesn't exist yet (e.g., series just added from portal request),
-		// try a direct season pack search anyway
-		s.logger.Debug().
-			Err(err).
-			Int64("seriesId", seriesID).
-			Int("seasonNumber", seasonNumber).
-			Msg("Failed to get missing episodes, attempting direct season pack search")
-
-		packResult, searchErr := s.searchSeasonPack(ctx, series, seasonNumber, source)
-		result := &BatchSearchResult{
-			TotalSearched: 1,
-			Results:       []*SearchResult{packResult},
-		}
-		if searchErr != nil {
-			result.Failed = 1
-			return result, nil
-		}
-		if packResult.Found {
-			result.Found = 1
-		}
-		if packResult.Downloaded {
-			result.Downloaded = 1
-		}
-		return result, nil
-	}
-
-	// Check if this season is eligible for season pack search
-	eligible := s.isSeasonPackEligible(ctx, seriesID, seasonNumber)
+// tryDirectSeasonPackSearch attempts season pack search when episode data is unavailable.
+func (s *Service) tryDirectSeasonPackSearch(ctx context.Context, series *sqlc.Series, seasonNumber int, source SearchSource, originalErr error) (*BatchSearchResult, error) {
 	s.logger.Debug().
-		Int64("seriesId", seriesID).
+		Err(originalErr).
+		Int64("seriesId", series.ID).
 		Int("seasonNumber", seasonNumber).
-		Int("missingEpisodes", len(episodes)).
-		Bool("seasonPackEligible", eligible).
-		Msg("Checking season pack eligibility for season search")
+		Msg("Failed to get missing episodes, attempting direct season pack search")
 
-	if eligible {
-		// Try season pack search first
-		packResult, err := s.searchSeasonPack(ctx, series, seasonNumber, source)
-		if err == nil && packResult.Found {
-			result := &BatchSearchResult{
-				TotalSearched: 1,
-				Results:       []*SearchResult{packResult},
-			}
-			if packResult.Downloaded {
-				result.Downloaded = 1
-			}
-			result.Found = 1
-			return result, nil
-		}
+	packResult, searchErr := s.searchSeasonPack(ctx, series, seasonNumber, source)
+	result := &BatchSearchResult{
+		TotalSearched: 1,
+		Results:       []*SearchResult{packResult},
+	}
+	if searchErr != nil {
+		result.Failed = 1
+		return result, nil //nolint:nilerr // intentional: season pack search failure is non-fatal, return partial result
+	}
+	if packResult.Found {
+		result.Found = 1
+	}
+	if packResult.Downloaded {
+		result.Downloaded = 1
+	}
+	return result, nil
+}
 
-		// Season pack not found - fall back to individual episode search
-		s.logger.Info().
-			Int64("seriesId", seriesID).
-			Int("seasonNumber", seasonNumber).
-			Int("missingEpisodes", len(episodes)).
-			Msg("No season pack found, falling back to individual episode search")
+// trySeasonPackFirst attempts season pack search and returns result if successful.
+func (s *Service) trySeasonPackFirst(ctx context.Context, series *sqlc.Series, seasonNumber int, source SearchSource) (*BatchSearchResult, bool) {
+	packResult, err := s.searchSeasonPack(ctx, series, seasonNumber, source)
+	if err != nil || !packResult.Found {
+		return nil, false
 	}
 
-	// If no missing episodes found but season exists (all episodes have files),
-	// there's nothing to search for
-	if len(episodes) == 0 {
-		s.logger.Debug().
-			Int64("seriesId", seriesID).
-			Int("seasonNumber", seasonNumber).
-			Msg("No missing episodes found for season")
-		return &BatchSearchResult{
-			TotalSearched: 0,
-			Results:       []*SearchResult{},
-		}, nil
+	result := &BatchSearchResult{
+		TotalSearched: 1,
+		Found:         1,
+		Results:       []*SearchResult{packResult},
 	}
+	if packResult.Downloaded {
+		result.Downloaded = 1
+	}
+	return result, true
+}
 
-	// Use individual episode searches
+// searchEpisodesIndividually searches for episodes one by one.
+func (s *Service) searchEpisodesIndividually(ctx context.Context, episodes []*sqlc.Episode, series *sqlc.Series, source SearchSource) *BatchSearchResult {
 	result := &BatchSearchResult{
 		TotalSearched: len(episodes),
 		Results:       make([]*SearchResult, 0, len(episodes)),
@@ -247,15 +224,11 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 
 	for _, ep := range episodes {
 		item := s.episodeToSearchableItem(ctx, ep, series)
-		searchResult, err := s.searchAndGrab(ctx, item, source)
+		searchResult, err := s.searchAndGrab(ctx, &item, source)
 		if err != nil {
-			s.logger.Warn().Err(err).
-				Int64("episodeId", ep.ID).
-				Msg("Failed to search episode")
+			s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to search episode")
 			result.Failed++
-			result.Results = append(result.Results, &SearchResult{
-				Error: err.Error(),
-			})
+			result.Results = append(result.Results, &SearchResult{Error: err.Error()})
 			continue
 		}
 
@@ -268,31 +241,60 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 		}
 	}
 
-	return result, nil
+	return result
+}
+
+func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber int, source SearchSource) (*BatchSearchResult, error) {
+	series, err := s.getSeriesForSearch(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+
+	episodes, err := s.getMissingEpisodesForSeason(ctx, seriesID, seasonNumber)
+	if err != nil {
+		return s.tryDirectSeasonPackSearch(ctx, series, seasonNumber, source, err)
+	}
+
+	if len(episodes) == 0 {
+		s.logger.Debug().
+			Int64("seriesId", seriesID).
+			Int("seasonNumber", seasonNumber).
+			Msg("No missing episodes found for season")
+		return &BatchSearchResult{}, nil
+	}
+
+	if s.isSeasonPackEligible(ctx, seriesID, seasonNumber) {
+		if result, ok := s.trySeasonPackFirst(ctx, series, seasonNumber, source); ok {
+			return result, nil
+		}
+		s.logger.Info().
+			Int64("seriesId", seriesID).
+			Int("seasonNumber", seasonNumber).
+			Int("missingEpisodes", len(episodes)).
+			Msg("No season pack found, falling back to individual episode search")
+	}
+
+	return s.searchEpisodesIndividually(ctx, episodes, series, source), nil
 }
 
 // searchSeasonPack searches for a season pack release (internal method).
 func (s *Service) searchSeasonPack(ctx context.Context, series *sqlc.Series, seasonNumber int, source SearchSource) (*SearchResult, error) {
 	item := s.seriesToSeasonPackItem(series, seasonNumber)
-	return s.searchAndGrab(ctx, item, source)
+	return s.searchAndGrab(ctx, &item, source)
 }
 
 // SearchSeasonUpgrade searches for a season pack upgrade, falling back to individual episodes.
-func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seasonNumber int, currentQualityID int, source SearchSource) (*BatchSearchResult, error) {
-	series, err := s.queries.GetSeries(ctx, seriesID)
+func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seasonNumber, currentQualityID int, source SearchSource) (*BatchSearchResult, error) {
+	series, err := s.getSeriesForSearch(ctx, seriesID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrItemNotFound
-		}
-		return nil, fmt.Errorf("failed to get series: %w", err)
+		return nil, err
 	}
 
-	// Try season pack search first
 	item := s.seriesToSeasonPackItem(series, seasonNumber)
 	item.HasFile = true
 	item.CurrentQualityID = currentQualityID
 
-	packResult, err := s.searchAndGrab(ctx, item, source)
+	packResult, err := s.searchAndGrab(ctx, &item, source)
 	if err == nil && packResult.Downloaded {
 		return &BatchSearchResult{
 			TotalSearched: 1,
@@ -307,10 +309,8 @@ func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seaso
 		Int("season", seasonNumber).
 		Msg("No season pack found for upgrade, falling back to individual episodes")
 
-	// Fall back to individual upgradable episodes
 	episodes, err := s.getUpgradableEpisodesForSeason(ctx, seriesID, seasonNumber)
 	if err != nil || len(episodes) == 0 {
-		// Return the season pack result (no results found)
 		result := &BatchSearchResult{TotalSearched: 1, Results: []*SearchResult{}}
 		if packResult != nil {
 			result.Results = append(result.Results, packResult)
@@ -318,6 +318,11 @@ func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seaso
 		return result, nil
 	}
 
+	return s.searchUpgradableEpisodesIndividually(ctx, episodes, source), nil
+}
+
+// searchUpgradableEpisodesIndividually searches upgradable episodes individually.
+func (s *Service) searchUpgradableEpisodesIndividually(ctx context.Context, episodes []*sqlc.Episode, source SearchSource) *BatchSearchResult {
 	result := &BatchSearchResult{
 		TotalSearched: len(episodes),
 		Results:       make([]*SearchResult, 0, len(episodes)),
@@ -339,7 +344,7 @@ func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seaso
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 // getUpgradableEpisodesForSeason returns upgradable, monitored episodes for a season.
@@ -354,7 +359,7 @@ func (s *Service) getUpgradableEpisodesForSeason(ctx context.Context, seriesID i
 
 	upgradable := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		if row.Status == "upgradable" && row.Monitored == 1 {
+		if row.Status == statusUpgradable && row.Monitored == 1 {
 			upgradable = append(upgradable, row)
 		}
 	}
@@ -374,59 +379,41 @@ func (s *Service) searchSeasonPackByID(ctx context.Context, seriesID int64, seas
 }
 
 // SearchSeries searches for all missing episodes in a series with boxset prioritization.
-func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source SearchSource) (*BatchSearchResult, error) {
-	// Get series details
-	series, err := s.queries.GetSeries(ctx, seriesID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrItemNotFound
-		}
-		return nil, fmt.Errorf("failed to get series: %w", err)
-	}
-
-	// Get all missing episodes
-	episodes, err := s.getMissingEpisodesForSeries(ctx, seriesID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get missing episodes: %w", err)
-	}
-
-	// Group episodes by season for boxset prioritization
+// groupEpisodesBySeason groups episodes by season number.
+func groupEpisodesBySeason(episodes []*sqlc.Episode) map[int64][]*sqlc.Episode {
 	seasonEpisodes := make(map[int64][]*sqlc.Episode)
 	for _, ep := range episodes {
 		seasonEpisodes[ep.SeasonNumber] = append(seasonEpisodes[ep.SeasonNumber], ep)
 	}
+	return seasonEpisodes
+}
 
-	// Build search items with boxset prioritization
+// buildSeriesSearchItems builds search items with boxset prioritization.
+func (s *Service) buildSeriesSearchItems(ctx context.Context, series *sqlc.Series, seasonEpisodes map[int64][]*sqlc.Episode) []SearchableItem {
 	var items []SearchableItem
 
 	for seasonNum, eps := range seasonEpisodes {
-		// Check if this season is eligible for season pack search
-		eligible := s.isSeasonPackEligible(ctx, seriesID, int(seasonNum))
-		s.logger.Debug().
-			Int64("seriesId", seriesID).
-			Int64("seasonNumber", seasonNum).
-			Int("missingEpisodes", len(eps)).
-			Bool("seasonPackEligible", eligible).
-			Msg("Checking season pack eligibility")
-
-		if eligible {
-			// Use season pack search
+		if s.isSeasonPackEligible(ctx, series.ID, int(seasonNum)) {
 			items = append(items, s.seriesToSeasonPackItem(series, int(seasonNum)))
 		} else {
-			// Use individual episode searches
 			for _, ep := range eps {
 				items = append(items, s.episodeToSearchableItem(ctx, ep, series))
 			}
 		}
 	}
 
+	return items
+}
+
+// executeSeriesSearch searches all items and collects results.
+func (s *Service) executeSeriesSearch(ctx context.Context, items []SearchableItem, source SearchSource) *BatchSearchResult {
 	result := &BatchSearchResult{
 		TotalSearched: len(items),
 		Results:       make([]*SearchResult, 0, len(items)),
 	}
 
-	// Search each item
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		searchResult, err := s.searchAndGrab(ctx, item, source)
 		if err != nil {
 			s.logger.Warn().Err(err).
@@ -434,9 +421,7 @@ func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source Searc
 				Int64("mediaId", item.MediaID).
 				Msg("Failed to search item")
 			result.Failed++
-			result.Results = append(result.Results, &SearchResult{
-				Error: err.Error(),
-			})
+			result.Results = append(result.Results, &SearchResult{Error: err.Error()})
 			continue
 		}
 
@@ -449,15 +434,32 @@ func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source Searc
 		}
 	}
 
-	return result, nil
+	return result
+}
+
+func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source SearchSource) (*BatchSearchResult, error) {
+	series, err := s.getSeriesForSearch(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+
+	episodes, err := s.getMissingEpisodesForSeries(ctx, seriesID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get missing episodes: %w", err)
+	}
+
+	seasonEpisodes := groupEpisodesBySeason(episodes)
+	items := s.buildSeriesSearchItems(ctx, series, seasonEpisodes)
+
+	return s.executeSeriesSearch(ctx, items, source), nil
 }
 
 // searchAndGrab is the core function that searches for a release and grabs the best one.
-func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source SearchSource) (*SearchResult, error) {
+func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, source SearchSource) (*SearchResult, error) {
 	searchKey := fmt.Sprintf("%s:%d", item.MediaType, item.MediaID)
 
 	// Register this search and get a cancellable context
-	ctx, cancel := s.registerSearch(searchKey)
+	searchCtx, cancel := s.registerSearch(searchKey)
 	defer s.unregisterSearch(searchKey, cancel)
 
 	// Broadcast search started
@@ -470,7 +472,7 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		Msg("Starting automatic search")
 
 	// Get quality profile
-	profile, err := s.qualityService.Get(ctx, item.QualityProfileID)
+	profile, err := s.qualityService.Get(searchCtx, item.QualityProfileID)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("profileId", item.QualityProfileID).
 			Msg("Failed to get quality profile, using default")
@@ -489,42 +491,15 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		SearchEpisode:  item.EpisodeNumber,
 	}
 
-	// Execute search
-	searchResult, err := s.searchService.SearchTorrents(ctx, criteria, scoringParams)
+	// Execute search and select best release
+	bestRelease, earlyResult, err := s.findBestRelease(searchCtx, item, &criteria, &scoringParams, profile, source)
 	if err != nil {
-		s.broadcastFailed(item, err.Error())
-		s.logAutoSearchFailed(ctx, item, source, err.Error())
-		return nil, fmt.Errorf("search failed: %w", err)
+		return nil, err
+	}
+	if earlyResult != nil {
+		return earlyResult, nil
 	}
 
-	if len(searchResult.Releases) == 0 {
-		s.logger.Debug().
-			Str("title", item.Title).
-			Msg("No releases found")
-		result := &SearchResult{Found: false}
-		s.broadcastCompleted(item, result)
-		return result, nil
-	}
-
-	// Select best release (already sorted by score, highest first)
-	bestRelease := s.selectBestRelease(searchResult.Releases, profile, item)
-	if bestRelease == nil {
-		s.logger.Debug().
-			Str("title", item.Title).
-			Msg("No acceptable releases found")
-		result := &SearchResult{Found: false}
-		s.broadcastCompleted(item, result)
-		return result, nil
-	}
-
-	s.logger.Info().
-		Str("title", item.Title).
-		Str("release", bestRelease.Title).
-		Float64("score", bestRelease.Score).
-		Int("normalizedScore", bestRelease.NormalizedScore).
-		Msg("Selected best release")
-
-	// Determine if this is an upgrade
 	isUpgrade := item.HasFile && item.CurrentQualityID > 0
 
 	// Acquire grab lock to prevent concurrent grabs from RSS sync
@@ -539,24 +514,44 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		defer s.grabLock.Release(lockKey)
 	}
 
-	// Grab the release
-	grabReq := grab.GrabRequest{
-		Release:      &bestRelease.ReleaseInfo,
-		MediaType:    string(item.MediaType),
-		MediaID:      item.MediaID,
-		SeriesID:     item.SeriesID,
-		SeasonNumber: item.SeasonNumber,
-		TargetSlotID: item.TargetSlotID,
-		Source:       "auto-search",
+	return s.grabAndReport(searchCtx, item, bestRelease, source, isUpgrade)
+}
+
+func (s *Service) findBestRelease(ctx context.Context, item *SearchableItem, criteria *types.SearchCriteria, scoringParams *search.ScoredSearchParams, profile *quality.Profile, source SearchSource) (*types.TorrentInfo, *SearchResult, error) {
+	searchResult, err := s.searchService.SearchTorrents(ctx, criteria, scoringParams)
+	if err != nil {
+		s.broadcastFailed(item, err.Error())
+		s.logAutoSearchFailed(ctx, item, source, err.Error())
+		return nil, nil, fmt.Errorf("search failed: %w", err)
 	}
-	if item.MediaType == MediaTypeSeason {
-		grabReq.IsSeasonPack = true
-		// Check if this is a complete series boxset by parsing the release title
-		parsed := scanner.ParseFilename(bestRelease.Title)
-		if parsed.IsCompleteSeries {
-			grabReq.IsCompleteSeries = true
-		}
+
+	if len(searchResult.Releases) == 0 {
+		s.logger.Debug().Str("title", item.Title).Msg("No releases found")
+		result := &SearchResult{Found: false}
+		s.broadcastCompleted(item, result)
+		return nil, result, nil
 	}
+
+	bestRelease := s.selectBestRelease(searchResult.Releases, profile, item)
+	if bestRelease == nil {
+		s.logger.Debug().Str("title", item.Title).Msg("No acceptable releases found")
+		result := &SearchResult{Found: false}
+		s.broadcastCompleted(item, result)
+		return nil, result, nil
+	}
+
+	s.logger.Info().
+		Str("title", item.Title).
+		Str("release", bestRelease.Title).
+		Float64("score", bestRelease.Score).
+		Int("normalizedScore", bestRelease.NormalizedScore).
+		Msg("Selected best release")
+
+	return bestRelease, nil, nil
+}
+
+func (s *Service) grabAndReport(ctx context.Context, item *SearchableItem, bestRelease *types.TorrentInfo, source SearchSource, isUpgrade bool) (*SearchResult, error) {
+	grabReq := s.buildGrabRequest(item, bestRelease)
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
 	if err != nil {
 		s.broadcastFailed(item, err.Error())
@@ -577,7 +572,6 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		result.Error = grabResult.Error
 		s.logAutoSearchFailed(ctx, item, source, grabResult.Error)
 	} else {
-		// Log successful download or upgrade
 		s.logAutoSearchSuccess(ctx, item, source, bestRelease, grabResult, isUpgrade)
 	}
 
@@ -591,6 +585,26 @@ func (s *Service) searchAndGrab(ctx context.Context, item SearchableItem, source
 		Msg("Automatic search completed")
 
 	return result, nil
+}
+
+func (s *Service) buildGrabRequest(item *SearchableItem, bestRelease *types.TorrentInfo) *grab.GrabRequest {
+	req := &grab.GrabRequest{
+		Release:      &bestRelease.ReleaseInfo,
+		MediaType:    string(item.MediaType),
+		MediaID:      item.MediaID,
+		SeriesID:     item.SeriesID,
+		SeasonNumber: item.SeasonNumber,
+		TargetSlotID: item.TargetSlotID,
+		Source:       "auto-search",
+	}
+	if item.MediaType == MediaTypeSeason {
+		req.IsSeasonPack = true
+		parsed := scanner.ParseFilename(bestRelease.Title)
+		if parsed.IsCompleteSeries {
+			req.IsCompleteSeries = true
+		}
+	}
+	return req
 }
 
 // registerSearch registers an active search and returns a cancellable context.
@@ -642,7 +656,7 @@ func (s *Service) IsSearching(mediaType MediaType, mediaID int64) bool {
 }
 
 // buildSearchCriteria creates search criteria from a searchable item.
-func (s *Service) buildSearchCriteria(item SearchableItem) types.SearchCriteria {
+func (s *Service) buildSearchCriteria(item *SearchableItem) types.SearchCriteria {
 	criteria := types.SearchCriteria{
 		Query: item.Title,
 	}
@@ -691,16 +705,14 @@ func (s *Service) buildSearchCriteria(item SearchableItem) types.SearchCriteria 
 
 // selectBestRelease selects the best release from scored results.
 // Delegates to the shared decisioning.SelectBestRelease.
-func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item SearchableItem) *types.TorrentInfo {
+func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item *SearchableItem) *types.TorrentInfo {
 	return decisioning.SelectBestRelease(releases, profile, item, s.logger)
 }
 
-// movieToSearchableItem converts a movie database row to a SearchableItem.
 func (s *Service) movieToSearchableItem(ctx context.Context, movie *sqlc.Movie) SearchableItem {
 	return decisioning.MovieToSearchableItem(ctx, s.queries, s.logger, movie)
 }
 
-// episodeToSearchableItem converts an episode and series to a SearchableItem.
 func (s *Service) episodeToSearchableItem(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
 	return decisioning.EpisodeToSearchableItem(ctx, s.queries, s.logger, episode, series)
 }
@@ -754,7 +766,7 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 
 	missing := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		if row.Status == "missing" && row.Monitored == 1 {
+		if row.Status == statusMissing && row.Monitored == 1 {
 			missing = append(missing, row)
 		}
 	}
@@ -791,7 +803,7 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 		if !monitoredSeasons[row.SeasonNumber] {
 			continue
 		}
-		if row.Status == "missing" && row.Monitored == 1 {
+		if row.Status == statusMissing && row.Monitored == 1 {
 			missing = append(missing, row)
 		}
 	}
@@ -804,7 +816,6 @@ func (s *Service) isSeasonPackEligible(ctx context.Context, seriesID int64, seas
 	return decisioning.IsSeasonPackEligible(ctx, s.queries, s.logger, seriesID, seasonNumber)
 }
 
-// isSeasonPackUpgradeEligible checks if a season pack search should be used for upgrades.
 func (s *Service) isSeasonPackUpgradeEligible(ctx context.Context, seriesID int64, seasonNumber int) bool {
 	return decisioning.IsSeasonPackUpgradeEligible(ctx, s.queries, s.logger, seriesID, seasonNumber)
 }
@@ -832,9 +843,9 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 		return nil, fmt.Errorf("failed to count movie files: %w", err)
 	}
 
-	newStatus := "missing"
+	newStatus := statusMissing
 	if fileCount > 0 {
-		newStatus = "upgradable"
+		newStatus = statusUpgradable
 	}
 
 	// Reset status, clear active_download_id and status_message
@@ -860,7 +871,7 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 		})
 	}
 	if s.broadcaster != nil {
-		_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": movieID})
 	}
 
 	return &RetryResult{
@@ -892,9 +903,9 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 		return nil, fmt.Errorf("failed to count episode files: %w", err)
 	}
 
-	newStatus := "missing"
+	newStatus := statusMissing
 	if fileCount > 0 {
-		newStatus = "upgradable"
+		newStatus = statusUpgradable
 	}
 
 	// Reset status, clear active_download_id and status_message
@@ -925,7 +936,7 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 		})
 	}
 	if s.broadcaster != nil {
-		_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+		s.broadcaster.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
 	}
 
 	return &RetryResult{
@@ -936,7 +947,7 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 
 // Broadcast helpers
 
-func (s *Service) broadcastStarted(item SearchableItem, source SearchSource) {
+func (s *Service) broadcastStarted(item *SearchableItem, source SearchSource) {
 	if s.broadcaster == nil {
 		return
 	}
@@ -948,7 +959,7 @@ func (s *Service) broadcastStarted(item SearchableItem, source SearchSource) {
 	})
 }
 
-func (s *Service) broadcastCompleted(item SearchableItem, result *SearchResult) {
+func (s *Service) broadcastCompleted(item *SearchableItem, result *SearchResult) {
 	if s.broadcaster == nil {
 		return
 	}
@@ -967,7 +978,7 @@ func (s *Service) broadcastCompleted(item SearchableItem, result *SearchResult) 
 	s.broadcaster.Broadcast(EventAutoSearchCompleted, payload)
 }
 
-func (s *Service) broadcastFailed(item SearchableItem, errMsg string) {
+func (s *Service) broadcastFailed(item *SearchableItem, errMsg string) {
 	if s.broadcaster == nil {
 		return
 	}
@@ -981,7 +992,7 @@ func (s *Service) broadcastFailed(item SearchableItem, errMsg string) {
 
 // History logging helpers
 
-func (s *Service) logAutoSearchSuccess(ctx context.Context, item SearchableItem, source SearchSource, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
+func (s *Service) logAutoSearchSuccess(ctx context.Context, item *SearchableItem, source SearchSource, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
 	if s.historyService == nil {
 		return
 	}
@@ -1007,12 +1018,12 @@ func (s *Service) logAutoSearchSuccess(ctx context.Context, item SearchableItem,
 	if isUpgrade {
 		data.NewQuality = qualityStr
 	}
-	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, data); err != nil {
+	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, &data); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to log autosearch download event")
 	}
 }
 
-func (s *Service) logAutoSearchFailed(ctx context.Context, item SearchableItem, source SearchSource, errMsg string) {
+func (s *Service) logAutoSearchFailed(ctx context.Context, item *SearchableItem, source SearchSource, errMsg string) {
 	if s.historyService == nil {
 		return
 	}

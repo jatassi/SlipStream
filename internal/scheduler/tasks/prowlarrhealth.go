@@ -19,7 +19,7 @@ type ProwlarrHealthTask struct {
 	prowlarrService *prowlarr.Service
 	modeManager     *prowlarr.ModeManager
 	health          *health.Service
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 }
 
 // NewProwlarrHealthTask creates a new Prowlarr health check task.
@@ -27,13 +27,14 @@ func NewProwlarrHealthTask(
 	prowlarrService *prowlarr.Service,
 	modeManager *prowlarr.ModeManager,
 	healthService *health.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *ProwlarrHealthTask {
+	subLogger := logger.With().Str("task", "prowlarr-health").Logger()
 	return &ProwlarrHealthTask{
 		prowlarrService: prowlarrService,
 		modeManager:     modeManager,
 		health:          healthService,
-		logger:          logger.With().Str("task", "prowlarr-health").Logger(),
+		logger:          &subLogger,
 	}
 }
 
@@ -100,7 +101,7 @@ func RegisterProwlarrHealthTask(
 	prowlarrService *prowlarr.Service,
 	modeManager *prowlarr.ModeManager,
 	healthService *health.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) error {
 	task := NewProwlarrHealthTask(prowlarrService, modeManager, healthService, logger)
 
@@ -108,7 +109,7 @@ func RegisterProwlarrHealthTask(
 	interval := 15 * time.Minute
 	cronExpr := fmt.Sprintf("@every %s", interval.String())
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "prowlarr-health",
 		Name:        "Prowlarr Health Check",
 		Description: "Tests connectivity to Prowlarr and refreshes indexer data",

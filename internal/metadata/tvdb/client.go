@@ -29,7 +29,7 @@ var (
 type Client struct {
 	httpClient *http.Client
 	config     config.TVDBConfig
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 
 	// Token management
 	mu          sync.RWMutex
@@ -38,13 +38,14 @@ type Client struct {
 }
 
 // NewClient creates a new TVDB client.
-func NewClient(cfg config.TVDBConfig, logger zerolog.Logger) *Client {
+func NewClient(cfg config.TVDBConfig, logger *zerolog.Logger) *Client {
+	subLogger := logger.With().Str("component", "tvdb").Logger()
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
 		},
 		config: cfg,
-		logger: logger.With().Str("component", "tvdb").Logger(),
+		logger: &subLogger,
 	}
 }
 
@@ -156,7 +157,8 @@ func (c *Client) SearchSeries(ctx context.Context, query string) ([]NormalizedSe
 	}
 
 	results := make([]NormalizedSeriesResult, 0, len(response.Data))
-	for _, item := range response.Data {
+	for i := range response.Data {
+		item := &response.Data[i]
 		if item.Type == "series" {
 			results = append(results, c.searchResultToSeries(item))
 		}
@@ -187,7 +189,7 @@ func (c *Client) GetSeries(ctx context.Context, id int) (*NormalizedSeriesResult
 		return nil, err
 	}
 
-	result := c.seriesDetailToResult(response.Data)
+	result := c.seriesDetailToResult(&response.Data)
 
 	c.logger.Debug().
 		Int("id", id).
@@ -218,7 +220,8 @@ func (c *Client) GetSeriesEpisodes(ctx context.Context, id int) ([]NormalizedSea
 	// Group episodes by season
 	seasonMap := make(map[int]*NormalizedSeasonResult)
 
-	for _, ep := range response.Data.Episodes {
+	for i := range response.Data.Episodes {
+		ep := &response.Data.Episodes[i]
 		season, exists := seasonMap[ep.SeasonNumber]
 		if !exists {
 			season = &NormalizedSeasonResult{
@@ -264,7 +267,7 @@ func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Valu
 		reqURL = fmt.Sprintf("%s?%s", endpoint, params.Encode())
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -308,46 +311,16 @@ func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Valu
 }
 
 // searchResultToSeries converts a TVDB search result to a NormalizedSeriesResult.
-func (c *Client) searchResultToSeries(item SearchResult) NormalizedSeriesResult {
-	year := 0
-	if item.Year != "" {
-		year, _ = strconv.Atoi(item.Year)
-	}
+func (c *Client) searchResultToSeries(item *SearchResult) NormalizedSeriesResult {
+	year, _ := strconv.Atoi(item.Year)
+	tvdbID, _ := strconv.Atoi(item.TvdbID)
 
-	// Parse TVDB ID from the string
-	tvdbID := 0
-	if item.TvdbID != "" {
-		tvdbID, _ = strconv.Atoi(item.TvdbID)
-	}
-
-	// Get overview, preferring English
 	overview := item.Overview
 	if overview == "" && item.Overviews != nil {
-		if eng, ok := item.Overviews["eng"]; ok {
-			overview = eng
-		}
+		overview = item.Overviews["eng"]
 	}
 
-	// Extract IMDB and TMDB IDs from remote IDs
-	imdbID := ""
-	tmdbID := 0
-	for _, rid := range item.RemoteIDs {
-		switch rid.SourceName {
-		case "IMDB":
-			imdbID = rid.ID
-		case "TheMovieDB.com":
-			tmdbID, _ = strconv.Atoi(rid.ID)
-		}
-	}
-
-	// Map status
-	status := "continuing"
-	switch item.Status {
-	case "Ended":
-		status = "ended"
-	case "Upcoming":
-		status = "upcoming"
-	}
+	imdbID, tmdbID := extractExternalIDs(item.RemoteIDs)
 
 	return NormalizedSeriesResult{
 		ID:        tvdbID,
@@ -358,56 +331,22 @@ func (c *Client) searchResultToSeries(item SearchResult) NormalizedSeriesResult 
 		Overview:  overview,
 		PosterURL: item.ImageURL,
 		ImdbID:    imdbID,
-		Status:    status,
+		Status:    mapTVDBStatus(item.Status),
 		Network:   item.Network,
 	}
 }
 
 // seriesDetailToResult converts a TVDB series detail to a NormalizedSeriesResult.
-func (c *Client) seriesDetailToResult(detail SeriesDetail) NormalizedSeriesResult {
-	year := 0
-	if detail.Year != "" {
-		year, _ = strconv.Atoi(detail.Year)
-	}
+func (c *Client) seriesDetailToResult(detail *SeriesDetail) NormalizedSeriesResult {
+	year, _ := strconv.Atoi(detail.Year)
 
 	genres := make([]string, len(detail.Genres))
 	for i, g := range detail.Genres {
 		genres[i] = g.Name
 	}
 
-	// Map status
-	status := "continuing"
-	switch detail.Status.Name {
-	case "Ended":
-		status = "ended"
-	case "Upcoming":
-		status = "upcoming"
-	}
-
-	// Extract IMDB and TMDB IDs from remote IDs
-	imdbID := ""
-	tmdbID := 0
-	for _, rid := range detail.RemoteIDs {
-		switch rid.SourceName {
-		case "IMDB":
-			imdbID = rid.ID
-		case "TheMovieDB.com":
-			tmdbID, _ = strconv.Atoi(rid.ID)
-		}
-	}
-
-	// Find poster artwork
-	posterURL := detail.Image
-	backdropURL := ""
-	for _, art := range detail.Artworks {
-		// Type 1 = poster, Type 3 = background
-		if art.Type == 1 && posterURL == "" {
-			posterURL = art.Image
-		}
-		if art.Type == 3 && backdropURL == "" {
-			backdropURL = art.Image
-		}
-	}
+	imdbID, tmdbID := extractSeriesExternalIDs(detail.RemoteIDs)
+	posterURL, backdropURL := extractArtwork(detail.Image, detail.Artworks)
 
 	return NormalizedSeriesResult{
 		ID:          detail.ID,
@@ -420,7 +359,55 @@ func (c *Client) seriesDetailToResult(detail SeriesDetail) NormalizedSeriesResul
 		BackdropURL: backdropURL,
 		ImdbID:      imdbID,
 		Genres:      genres,
-		Status:      status,
+		Status:      mapTVDBStatus(detail.Status.Name),
 		Runtime:     detail.AverageRuntime,
 	}
+}
+
+func extractExternalIDs(remoteIDs []RemoteID) (imdbID string, tmdbID int) {
+	for _, rid := range remoteIDs {
+		switch rid.SourceName {
+		case "IMDB":
+			imdbID = rid.ID
+		case "TheMovieDB.com":
+			tmdbID, _ = strconv.Atoi(rid.ID)
+		}
+	}
+	return
+}
+
+func extractSeriesExternalIDs(remoteIDs []SeriesRemoteID) (imdbID string, tmdbID int) {
+	for _, rid := range remoteIDs {
+		switch rid.SourceName {
+		case "IMDB":
+			imdbID = rid.ID
+		case "TheMovieDB.com":
+			tmdbID, _ = strconv.Atoi(rid.ID)
+		}
+	}
+	return
+}
+
+func mapTVDBStatus(status string) string {
+	switch status {
+	case "Ended":
+		return "ended"
+	case "Upcoming":
+		return "upcoming"
+	default:
+		return "continuing"
+	}
+}
+
+func extractArtwork(defaultImage string, artworks []Artwork) (posterURL, backdropURL string) {
+	posterURL = defaultImage
+	for _, art := range artworks {
+		if art.Type == 1 && posterURL == "" {
+			posterURL = art.Image
+		}
+		if art.Type == 3 && backdropURL == "" {
+			backdropURL = art.Image
+		}
+	}
+	return
 }

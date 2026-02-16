@@ -2,6 +2,7 @@ package librarymanager
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -161,7 +162,7 @@ func (h *Handlers) RefreshMovie(c echo.Context) error {
 
 	movie, err := h.service.RefreshMovieMetadata(c.Request().Context(), id)
 	if err != nil {
-		if err == ErrNoMetadataProvider {
+		if errors.Is(err, ErrNoMetadataProvider) {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -180,7 +181,7 @@ func (h *Handlers) RefreshSeries(c echo.Context) error {
 
 	series, err := h.service.RefreshSeriesMetadata(c.Request().Context(), id)
 	if err != nil {
-		if err == ErrNoMetadataProvider {
+		if errors.Is(err, ErrNoMetadataProvider) {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -231,7 +232,7 @@ func (h *Handlers) AddMovie(c echo.Context) error {
 		input.AddedBy = &claims.UserID
 	}
 
-	movie, err := h.service.AddMovie(c.Request().Context(), input)
+	movie, err := h.service.AddMovie(c.Request().Context(), &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -251,7 +252,7 @@ func (h *Handlers) AddSeries(c echo.Context) error {
 		input.AddedBy = &claims.UserID
 	}
 
-	series, err := h.service.AddSeries(c.Request().Context(), input)
+	series, err := h.service.AddSeries(c.Request().Context(), &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

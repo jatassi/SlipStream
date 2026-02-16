@@ -263,47 +263,62 @@ func (vfs *VirtualFS) populateTV() {
 	// The Boys (TVDB: 355567), The Simpsons (TVDB: 71663)
 	// These exist in metadata/indexer mocks but have no files in VFS
 
-	// Create multi-version shows
 	for _, show := range multiVersionShows {
-		showPath := "/mock/tv/" + show.title
-		vfs.createDirectory(showPath)
-
-		for _, season := range show.seasons {
-			seasonPath := showPath + "/Season " + padNumber(season.num)
-			vfs.createDirectory(seasonPath)
-
-			for ep := 1; ep <= season.episodes; ep++ {
-				for _, quality := range season.qualities {
-					filename := show.title + " - S" + padNumber(season.num) + "E" + padNumber(ep) + " - " + quality + "-GROUP.mkv"
-					// Size varies by quality tier
-					var fileSize int64
-					if strings.Contains(quality, "2160p") {
-						fileSize = int64((8 + ep%3) * 1024 * 1024 * 1024) // 8-10 GB for 4K
-					} else {
-						fileSize = int64((2 + ep%3) * 1024 * 1024 * 1024) // 2-4 GB for 1080p
-					}
-					vfs.createFile(seasonPath+"/"+filename, fileSize)
-				}
-			}
-		}
+		vfs.populateMultiVersionShow(show.title, show.seasons)
 	}
 
-	// Create single-version shows
 	for _, show := range singleVersionShows {
-		showPath := "/mock/tv/" + show.title
-		vfs.createDirectory(showPath)
+		vfs.populateSingleVersionShow(show.title, show.seasons)
+	}
+}
 
-		for _, season := range show.seasons {
-			seasonPath := showPath + "/Season " + padNumber(season.num)
-			vfs.createDirectory(seasonPath)
+func (vfs *VirtualFS) populateMultiVersionShow(title string, seasons []struct {
+	num       int
+	episodes  int
+	qualities []string
+}) {
+	showPath := "/mock/tv/" + title
+	vfs.createDirectory(showPath)
 
-			for ep := 1; ep <= season.episodes; ep++ {
-				filename := show.title + " - S" + padNumber(season.num) + "E" + padNumber(ep) + " - " + season.quality + "-GROUP.mkv"
-				fileSize := int64((2 + ep%3) * 1024 * 1024 * 1024)
+	for _, season := range seasons {
+		seasonPath := showPath + "/Season " + padNumber(season.num)
+		vfs.createDirectory(seasonPath)
+
+		for ep := 1; ep <= season.episodes; ep++ {
+			for _, quality := range season.qualities {
+				filename := title + " - S" + padNumber(season.num) + "E" + padNumber(ep) + " - " + quality + "-GROUP.mkv"
+				fileSize := episodeFileSize(quality, ep)
 				vfs.createFile(seasonPath+"/"+filename, fileSize)
 			}
 		}
 	}
+}
+
+func (vfs *VirtualFS) populateSingleVersionShow(title string, seasons []struct {
+	num      int
+	episodes int
+	quality  string
+}) {
+	showPath := "/mock/tv/" + title
+	vfs.createDirectory(showPath)
+
+	for _, season := range seasons {
+		seasonPath := showPath + "/Season " + padNumber(season.num)
+		vfs.createDirectory(seasonPath)
+
+		for ep := 1; ep <= season.episodes; ep++ {
+			filename := title + " - S" + padNumber(season.num) + "E" + padNumber(ep) + " - " + season.quality + "-GROUP.mkv"
+			fileSize := int64((2 + ep%3) * 1024 * 1024 * 1024)
+			vfs.createFile(seasonPath+"/"+filename, fileSize)
+		}
+	}
+}
+
+func episodeFileSize(quality string, ep int) int64 {
+	if strings.Contains(quality, "2160p") {
+		return int64((8 + ep%3) * 1024 * 1024 * 1024)
+	}
+	return int64((2 + ep%3) * 1024 * 1024 * 1024)
 }
 
 func (vfs *VirtualFS) createDirectory(path string) {

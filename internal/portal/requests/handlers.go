@@ -22,7 +22,7 @@ type CreateRequestInput struct {
 	EpisodeNumber    *int64  `json:"episodeNumber,omitempty"`
 	MonitorType      *string `json:"monitorType,omitempty"`
 	TargetSlotID     *int64  `json:"targetSlotId,omitempty"`
-	PosterUrl        *string `json:"posterUrl,omitempty"`
+	PosterURL        *string `json:"posterUrl,omitempty"`
 	RequestedSeasons []int64 `json:"requestedSeasons,omitempty"`
 }
 
@@ -44,23 +44,23 @@ type AutoApproveProcessor interface {
 }
 
 type QueueItem struct {
-	ID             string   `json:"id"`
-	ClientID       int64    `json:"clientId"`
-	ClientName     string   `json:"clientName"`
-	Title          string   `json:"title"`
-	MediaType      string   `json:"mediaType"`
-	Status         string   `json:"status"`
-	Progress       float64  `json:"progress"`
-	Size           int64    `json:"size"`
-	DownloadedSize int64    `json:"downloadedSize"`
-	DownloadSpeed  int64    `json:"downloadSpeed"`
-	ETA            int64    `json:"eta"`
-	Season         int      `json:"season,omitempty"`
-	Episode        int      `json:"episode,omitempty"`
-	MovieID        *int64   `json:"movieId,omitempty"`
-	SeriesID       *int64   `json:"seriesId,omitempty"`
-	SeasonNumber   *int     `json:"seasonNumber,omitempty"`
-	IsSeasonPack   bool     `json:"isSeasonPack,omitempty"`
+	ID             string  `json:"id"`
+	ClientID       int64   `json:"clientId"`
+	ClientName     string  `json:"clientName"`
+	Title          string  `json:"title"`
+	MediaType      string  `json:"mediaType"`
+	Status         string  `json:"status"`
+	Progress       float64 `json:"progress"`
+	Size           int64   `json:"size"`
+	DownloadedSize int64   `json:"downloadedSize"`
+	DownloadSpeed  int64   `json:"downloadSpeed"`
+	ETA            int64   `json:"eta"`
+	Season         int     `json:"season,omitempty"`
+	Episode        int     `json:"episode,omitempty"`
+	MovieID        *int64  `json:"movieId,omitempty"`
+	SeriesID       *int64  `json:"seriesId,omitempty"`
+	SeasonNumber   *int    `json:"seasonNumber,omitempty"`
+	IsSeasonPack   bool    `json:"isSeasonPack,omitempty"`
 }
 
 type QueueGetter interface {
@@ -79,7 +79,7 @@ type Handlers struct {
 	autoApprove     AutoApproveProcessor
 	queueGetter     QueueGetter
 	mediaLookup     MediaLookup
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 }
 
 func NewHandlers(
@@ -89,8 +89,9 @@ func NewHandlers(
 	autoApprove AutoApproveProcessor,
 	queueGetter QueueGetter,
 	mediaLookup MediaLookup,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *Handlers {
+	subLogger := logger.With().Str("component", "portal-requests-handlers").Logger()
 	return &Handlers{
 		service:         service,
 		watchersService: watchersService,
@@ -98,7 +99,7 @@ func NewHandlers(
 		autoApprove:     autoApprove,
 		queueGetter:     queueGetter,
 		mediaLookup:     mediaLookup,
-		logger:          logger.With().Str("component", "portal-requests-handlers").Logger(),
+		logger:          &subLogger,
 	}
 }
 
@@ -123,12 +124,25 @@ func (h *Handlers) List(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "not authenticated")
 	}
 
+	filters := h.buildListFilters(c, claims.UserID)
+
+	requests, err := h.service.List(c.Request().Context(), filters)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	userMap := h.fetchRequestUsers(c.Request().Context(), requests)
+	results := h.enrichRequestsWithWatchStatus(c.Request().Context(), requests, userMap, claims.UserID)
+
+	return c.JSON(http.StatusOK, results)
+}
+
+func (h *Handlers) buildListFilters(c echo.Context, userID int64) ListFilters {
 	filters := ListFilters{}
 
-	// Check scope parameter - "all" returns all users' requests, "mine" (default) returns only the authenticated user's
 	scope := c.QueryParam("scope")
 	if scope != "all" {
-		filters.UserID = &claims.UserID
+		filters.UserID = &userID
 	}
 
 	if status := c.QueryParam("status"); status != "" {
@@ -138,12 +152,10 @@ func (h *Handlers) List(c echo.Context) error {
 		filters.MediaType = &mediaType
 	}
 
-	requests, err := h.service.List(c.Request().Context(), filters)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
+	return filters
+}
 
-	// Collect unique user IDs and fetch users
+func (h *Handlers) fetchRequestUsers(ctx context.Context, requests []*Request) map[int64]*RequestUser {
 	userIDs := make(map[int64]bool)
 	for _, req := range requests {
 		userIDs[req.UserID] = true
@@ -151,7 +163,7 @@ func (h *Handlers) List(c echo.Context) error {
 
 	userMap := make(map[int64]*RequestUser)
 	for userID := range userIDs {
-		if user, err := h.usersService.Get(c.Request().Context(), userID); err == nil && user != nil {
+		if user, err := h.usersService.Get(ctx, userID); err == nil && user != nil {
 			userMap[userID] = &RequestUser{
 				ID:          user.ID,
 				Username:    user.Username,
@@ -160,10 +172,14 @@ func (h *Handlers) List(c echo.Context) error {
 		}
 	}
 
+	return userMap
+}
+
+func (h *Handlers) enrichRequestsWithWatchStatus(ctx context.Context, requests []*Request, userMap map[int64]*RequestUser, currentUserID int64) []*RequestWithWatchStatus {
 	results := make([]*RequestWithWatchStatus, len(requests))
 	for i, req := range requests {
-		isWatching, _ := h.watchersService.IsWatching(c.Request().Context(), req.ID, claims.UserID)
-		watcherCount, _ := h.watchersService.CountWatchers(c.Request().Context(), req.ID)
+		isWatching, _ := h.watchersService.IsWatching(ctx, req.ID, currentUserID)
+		watcherCount, _ := h.watchersService.CountWatchers(ctx, req.ID)
 		results[i] = &RequestWithWatchStatus{
 			Request:      req,
 			User:         userMap[req.UserID],
@@ -171,8 +187,7 @@ func (h *Handlers) List(c echo.Context) error {
 			WatcherCount: watcherCount,
 		}
 	}
-
-	return c.JSON(http.StatusOK, results)
+	return results
 }
 
 // Create creates a new request
@@ -183,59 +198,75 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "not authenticated")
 	}
 
+	input, err := h.parseAndValidateCreateInput(c)
+	if err != nil {
+		return err
+	}
+
+	request, err := h.createRequest(c.Request().Context(), claims.UserID, input)
+	if err != nil {
+		return err
+	}
+
+	h.processAutoApprove(c.Request().Context(), claims.UserID, request)
+
+	return c.JSON(http.StatusCreated, request)
+}
+
+func (h *Handlers) parseAndValidateCreateInput(c echo.Context) (*CreateInput, error) {
 	var input CreateRequestInput
 	if err := c.Bind(&input); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if input.Title == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if input.MediaType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "mediaType is required")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "mediaType is required")
 	}
 
-	request, err := h.service.Create(c.Request().Context(), claims.UserID, CreateInput{
-		MediaType:        input.MediaType,
-		TmdbID:           input.TmdbID,
-		TvdbID:           input.TvdbID,
-		Title:            input.Title,
-		Year:             input.Year,
-		SeasonNumber:     input.SeasonNumber,
-		EpisodeNumber:    input.EpisodeNumber,
-		MonitorType:      input.MonitorType,
-		TargetSlotID:     input.TargetSlotID,
-		PosterUrl:        input.PosterUrl,
-		RequestedSeasons: input.RequestedSeasons,
-	})
+	createInput := CreateInput(input)
+	return &createInput, nil
+}
+
+func (h *Handlers) createRequest(ctx context.Context, userID int64, input *CreateInput) (*Request, error) {
+	request, err := h.service.Create(ctx, userID, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrAlreadyRequested):
-			return echo.NewHTTPError(http.StatusConflict, err.Error())
+			return nil, echo.NewHTTPError(http.StatusConflict, err.Error())
 		case errors.Is(err, ErrInvalidMediaType):
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		default:
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
+	return request, nil
+}
 
-	if h.autoApprove != nil {
-		user, err := h.usersService.Get(c.Request().Context(), claims.UserID)
-		if err != nil {
-			h.logger.Warn().Err(err).Int64("userID", claims.UserID).Msg("failed to get user for auto-approve")
-		} else if user != nil {
-			if err := h.autoApprove.ProcessAutoApprove(request, user); err != nil {
-				h.logger.Warn().Err(err).Int64("requestID", request.ID).Msg("auto-approve processing failed")
-			} else {
-				// Re-fetch request to get updated status after auto-approve
-				if updated, err := h.service.Get(c.Request().Context(), request.ID); err == nil {
-					request = updated
-				}
-			}
-		}
+func (h *Handlers) processAutoApprove(ctx context.Context, userID int64, request *Request) {
+	if h.autoApprove == nil {
+		return
 	}
 
-	return c.JSON(http.StatusCreated, request)
+	user, err := h.usersService.Get(ctx, userID)
+	if err != nil {
+		h.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to get user for auto-approve")
+		return
+	}
+	if user == nil {
+		return
+	}
+
+	if err := h.autoApprove.ProcessAutoApprove(request, user); err != nil {
+		h.logger.Warn().Err(err).Int64("requestID", request.ID).Msg("auto-approve processing failed")
+		return
+	}
+
+	if updated, err := h.service.Get(ctx, request.ID); err == nil {
+		*request = *updated
+	}
 }
 
 // Get returns a single request
@@ -403,19 +434,41 @@ func (h *Handlers) Downloads(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	type requestInfo struct {
-		id        int64
-		title     string
-		mediaID   *int64
-		mediaType string
+	requestMaps := h.buildRequestMaps(userRequests)
+
+	queue, err := h.queueGetter.GetQueue(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Build maps for requests with MediaID (internal library ID)
-	requestsByMovieID := make(map[int64]requestInfo)
-	requestsBySeriesID := make(map[int64]requestInfo)
-	// Build maps for requests by external IDs (tmdbID/tvdbID) for requests without MediaID
-	requestsByTmdbID := make(map[int64]requestInfo)
-	requestsByTvdbID := make(map[int64]requestInfo)
+	downloads := h.matchDownloadsToRequests(ctx, queue, requestMaps)
+
+	h.logger.Debug().Int("requestCount", len(userRequests)).Int("queueSize", len(queue)).Int("matched", len(downloads)).Msg("downloads matched")
+
+	return c.JSON(http.StatusOK, downloads)
+}
+
+type requestInfo struct {
+	id        int64
+	title     string
+	mediaID   *int64
+	mediaType string
+}
+
+type requestMaps struct {
+	byMovieID  map[int64]requestInfo
+	bySeriesID map[int64]requestInfo
+	byTmdbID   map[int64]requestInfo
+	byTvdbID   map[int64]requestInfo
+}
+
+func (h *Handlers) buildRequestMaps(userRequests []*Request) *requestMaps {
+	maps := &requestMaps{
+		byMovieID:  make(map[int64]requestInfo),
+		bySeriesID: make(map[int64]requestInfo),
+		byTmdbID:   make(map[int64]requestInfo),
+		byTvdbID:   make(map[int64]requestInfo),
+	}
 
 	for _, req := range userRequests {
 		info := requestInfo{
@@ -426,53 +479,40 @@ func (h *Handlers) Downloads(c echo.Context) error {
 		}
 
 		if req.MediaID != nil {
-			if req.MediaType == MediaTypeMovie {
-				requestsByMovieID[*req.MediaID] = info
-			} else if req.MediaType == MediaTypeSeries || req.MediaType == MediaTypeSeason {
-				requestsBySeriesID[*req.MediaID] = info
-			}
+			h.indexRequestByMediaID(maps, req.MediaType, *req.MediaID, info)
 		} else {
-			if req.MediaType == MediaTypeMovie && req.TmdbID != nil {
-				requestsByTmdbID[*req.TmdbID] = info
-			} else if (req.MediaType == MediaTypeSeries || req.MediaType == MediaTypeSeason) && req.TvdbID != nil {
-				requestsByTvdbID[*req.TvdbID] = info
-			}
+			h.indexRequestByExternalID(maps, req, info)
 		}
 	}
 
-	queue, err := h.queueGetter.GetQueue(ctx)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
+	return maps
+}
 
+func (h *Handlers) indexRequestByMediaID(maps *requestMaps, mediaType string, mediaID int64, info requestInfo) {
+	switch mediaType {
+	case MediaTypeMovie:
+		maps.byMovieID[mediaID] = info
+	case MediaTypeSeries, MediaTypeSeason:
+		maps.bySeriesID[mediaID] = info
+	}
+}
+
+func (h *Handlers) indexRequestByExternalID(maps *requestMaps, req *Request, info requestInfo) {
+	if req.MediaType == MediaTypeMovie && req.TmdbID != nil {
+		maps.byTmdbID[*req.TmdbID] = info
+	} else if (req.MediaType == MediaTypeSeries || req.MediaType == MediaTypeSeason) && req.TvdbID != nil {
+		maps.byTvdbID[*req.TvdbID] = info
+	}
+}
+
+func (h *Handlers) matchDownloadsToRequests(ctx context.Context, queue []QueueItem, maps *requestMaps) []PortalDownload {
 	var downloads []PortalDownload
-	for _, item := range queue {
-		var reqInfo requestInfo
-		var found bool
-
-		// First, try to match by internal MediaID
-		if item.MovieID != nil {
-			reqInfo, found = requestsByMovieID[*item.MovieID]
-		} else if item.SeriesID != nil {
-			reqInfo, found = requestsBySeriesID[*item.SeriesID]
-		}
-
-		// If not found and mediaLookup is available, try matching by external IDs
-		if !found && h.mediaLookup != nil {
-			if item.MovieID != nil {
-				if tmdbID, err := h.mediaLookup.GetMovieTmdbID(ctx, *item.MovieID); err == nil && tmdbID != nil {
-					reqInfo, found = requestsByTmdbID[*tmdbID]
-				}
-			} else if item.SeriesID != nil {
-				if tvdbID, err := h.mediaLookup.GetSeriesTvdbID(ctx, *item.SeriesID); err == nil && tvdbID != nil {
-					reqInfo, found = requestsByTvdbID[*tvdbID]
-				}
-			}
-		}
-
+	for i := range queue {
+		item := &queue[i]
+		reqInfo, found := h.findMatchingRequest(ctx, item, maps)
 		if found {
 			downloads = append(downloads, PortalDownload{
-				QueueItem:      item,
+				QueueItem:      *item,
 				RequestID:      reqInfo.id,
 				RequestTitle:   reqInfo.title,
 				RequestMediaID: reqInfo.mediaID,
@@ -484,7 +524,61 @@ func (h *Handlers) Downloads(c echo.Context) error {
 		downloads = []PortalDownload{}
 	}
 
-	h.logger.Debug().Int("requestCount", len(userRequests)).Int("queueSize", len(queue)).Int("matched", len(downloads)).Msg("downloads matched")
+	return downloads
+}
 
-	return c.JSON(http.StatusOK, downloads)
+func (h *Handlers) findMatchingRequest(ctx context.Context, item *QueueItem, maps *requestMaps) (requestInfo, bool) {
+	reqInfo, found := h.matchByInternalID(item, maps)
+	if found {
+		return reqInfo, true
+	}
+
+	return h.matchByExternalID(ctx, item, maps)
+}
+
+func (h *Handlers) matchByInternalID(item *QueueItem, maps *requestMaps) (requestInfo, bool) {
+	if item.MovieID != nil {
+		if info, ok := maps.byMovieID[*item.MovieID]; ok {
+			return info, true
+		}
+	}
+	if item.SeriesID != nil {
+		if info, ok := maps.bySeriesID[*item.SeriesID]; ok {
+			return info, true
+		}
+	}
+	return requestInfo{}, false
+}
+
+func (h *Handlers) matchByExternalID(ctx context.Context, item *QueueItem, maps *requestMaps) (requestInfo, bool) {
+	if h.mediaLookup == nil {
+		return requestInfo{}, false
+	}
+
+	if item.MovieID != nil {
+		return h.matchMovieByExternalID(ctx, *item.MovieID, maps)
+	}
+	if item.SeriesID != nil {
+		return h.matchSeriesByExternalID(ctx, *item.SeriesID, maps)
+	}
+
+	return requestInfo{}, false
+}
+
+func (h *Handlers) matchMovieByExternalID(ctx context.Context, movieID int64, maps *requestMaps) (requestInfo, bool) {
+	tmdbID, err := h.mediaLookup.GetMovieTmdbID(ctx, movieID)
+	if err != nil || tmdbID == nil {
+		return requestInfo{}, false
+	}
+	info, found := maps.byTmdbID[*tmdbID]
+	return info, found
+}
+
+func (h *Handlers) matchSeriesByExternalID(ctx context.Context, seriesID int64, maps *requestMaps) (requestInfo, bool) {
+	tvdbID, err := h.mediaLookup.GetSeriesTvdbID(ctx, seriesID)
+	if err != nil || tvdbID == nil {
+		return requestInfo{}, false
+	}
+	info, found := maps.byTvdbID[*tvdbID]
+	return info, found
 }

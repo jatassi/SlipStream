@@ -46,78 +46,18 @@ func IsDevBuild() bool {
 // New creates a new logger instance.
 // When running via "go run" (dev build), automatically uses debug level
 // unless a more verbose level (trace) is explicitly configured.
-func New(cfg Config) *Logger {
-	var consoleOutput io.Writer
+func New(cfg *Config) *Logger {
+	consoleOutput := newConsoleOutput(cfg.Format)
+	level := effectiveLevel(cfg.Level)
 
-	if cfg.Format == "json" {
-		consoleOutput = os.Stdout
-	} else {
-		consoleOutput = zerolog.ConsoleWriter{
-			Out:        os.Stdout,
-			TimeFormat: time.RFC3339,
-		}
-	}
-
-	level := parseLevel(cfg.Level)
-
-	// Auto-enable debug logging for dev builds (go run)
-	if IsDevBuild() && level > zerolog.DebugLevel {
-		level = zerolog.DebugLevel
-	}
-
-	var output io.Writer = consoleOutput
+	output := consoleOutput
 	var rotator *lumberjack.Logger
 	var logBroadcaster *LogBroadcaster
 
 	if cfg.Path != "" {
-		if err := os.MkdirAll(cfg.Path, 0755); err != nil {
-			// Log to bootstrap log if directory creation fails
-			bootstrapLogError("Failed to create log directory", cfg.Path, err)
-		} else {
-			logPath := filepath.Join(cfg.Path, "slipstream.log")
-
-			maxSize := cfg.MaxSizeMB
-			if maxSize <= 0 {
-				maxSize = 10
-			}
-			maxBackups := cfg.MaxBackups
-			if maxBackups <= 0 {
-				maxBackups = 5
-			}
-			maxAge := cfg.MaxAgeDays
-			if maxAge <= 0 {
-				maxAge = 30
-			}
-			compress := cfg.Compress
-
-			rotator = &lumberjack.Logger{
-				Filename:   logPath,
-				MaxSize:    maxSize,
-				MaxBackups: maxBackups,
-				MaxAge:     maxAge,
-				Compress:   compress,
-				LocalTime:  true,
-			}
-
-			// Wrap rotator with ConsoleWriter for human-readable file output (no colors)
-			fileWriter := zerolog.ConsoleWriter{
-				Out:        rotator,
-				TimeFormat: time.RFC3339,
-				NoColor:    true,
-			}
-
-			// For Windows GUI apps (non-console), only write to file since stdout doesn't exist
-			// Check if stdout is a valid file descriptor
-			if isValidStdout() {
-				output = io.MultiWriter(consoleOutput, fileWriter)
-			} else {
-				output = fileWriter
-			}
-		}
+		rotator, output = setupFileLogging(cfg, consoleOutput)
 	}
 
-	// Add broadcaster if streaming is enabled (receives JSON for parsing, then broadcasts structured data)
-	// The hub can be set later via SetBroadcastHub
 	if cfg.EnableStreaming {
 		logBroadcaster = NewLogBroadcaster(nil, cfg.BufferSize)
 		output = io.MultiWriter(output, logBroadcaster)
@@ -130,6 +70,58 @@ func New(cfg Config) *Logger {
 		Logger()
 
 	return &Logger{Logger: logger, rotator: rotator, broadcaster: logBroadcaster}
+}
+
+func newConsoleOutput(format string) io.Writer {
+	if format == "json" {
+		return os.Stdout
+	}
+	return zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: time.RFC3339,
+	}
+}
+
+func effectiveLevel(levelStr string) zerolog.Level {
+	level := parseLevel(levelStr)
+	if IsDevBuild() && level > zerolog.DebugLevel {
+		level = zerolog.DebugLevel
+	}
+	return level
+}
+
+func setupFileLogging(cfg *Config, consoleOutput io.Writer) (*lumberjack.Logger, io.Writer) {
+	if err := os.MkdirAll(cfg.Path, 0o750); err != nil {
+		bootstrapLogError("Failed to create log directory", cfg.Path, err)
+		return nil, consoleOutput
+	}
+
+	rotator := &lumberjack.Logger{
+		Filename:   filepath.Join(cfg.Path, "slipstream.log"),
+		MaxSize:    positiveOrDefault(cfg.MaxSizeMB, 10),
+		MaxBackups: positiveOrDefault(cfg.MaxBackups, 5),
+		MaxAge:     positiveOrDefault(cfg.MaxAgeDays, 30),
+		Compress:   cfg.Compress,
+		LocalTime:  true,
+	}
+
+	fileWriter := zerolog.ConsoleWriter{
+		Out:        rotator,
+		TimeFormat: time.RFC3339,
+		NoColor:    true,
+	}
+
+	if isValidStdout() {
+		return rotator, io.MultiWriter(consoleOutput, fileWriter)
+	}
+	return rotator, fileWriter
+}
+
+func positiveOrDefault(val, defaultVal int) int {
+	if val <= 0 {
+		return defaultVal
+	}
+	return val
 }
 
 // Close closes the log file if one is open.
@@ -205,7 +197,7 @@ func bootstrapLogError(msg, path string, err error) {
 	} else {
 		logPath = "slipstream_bootstrap_error.log"
 	}
-	f, openErr := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, openErr := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if openErr != nil {
 		return
 	}

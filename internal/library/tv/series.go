@@ -76,11 +76,11 @@ type Episode struct {
 
 // EpisodeFile represents an episode file on disk.
 type EpisodeFile struct {
-	ID         int64     `json:"id"`
-	EpisodeID  int64     `json:"episodeId"`
-	Path       string    `json:"path"`
-	Size       int64     `json:"size"`
-	Quality    string    `json:"quality,omitempty"`
+	ID            int64     `json:"id"`
+	EpisodeID     int64     `json:"episodeId"`
+	Path          string    `json:"path"`
+	Size          int64     `json:"size"`
+	Quality       string    `json:"quality,omitempty"`
 	VideoCodec    string    `json:"videoCodec,omitempty"`
 	AudioCodec    string    `json:"audioCodec,omitempty"`
 	AudioChannels string    `json:"audioChannels,omitempty"`

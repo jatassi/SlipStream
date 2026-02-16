@@ -1,6 +1,7 @@
 package plex
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -12,15 +13,16 @@ import (
 type Handlers struct {
 	client *Client
 	oauth  *OAuthFlow
-	logger zerolog.Logger
+	logger *zerolog.Logger
 }
 
 // NewHandlers creates a new Handlers instance
-func NewHandlers(client *Client, logger zerolog.Logger) *Handlers {
+func NewHandlers(client *Client, logger *zerolog.Logger) *Handlers {
+	subLogger := logger.With().Str("component", "plex-handlers").Logger()
 	return &Handlers{
 		client: client,
 		oauth:  NewOAuthFlow(client),
-		logger: logger.With().Str("component", "plex-handlers").Logger(),
+		logger: &subLogger,
 	}
 }
 
@@ -75,7 +77,7 @@ func (h *Handlers) CheckAuthStatus(c echo.Context) error {
 
 	result, err := h.oauth.CheckAuth(ctx, pinID)
 	if err != nil {
-		if err == ErrPINExpired {
+		if errors.Is(err, ErrPINExpired) {
 			return c.JSON(http.StatusGone, map[string]string{"error": "PIN has expired"})
 		}
 		h.logger.Error().Err(err).Int("pinId", pinID).Msg("Failed to check auth status")
@@ -113,7 +115,8 @@ func (h *Handlers) ListServers(c echo.Context) error {
 	}
 
 	response := make([]ServerResponse, 0, len(servers))
-	for _, server := range servers {
+	for i := range servers {
+		server := &servers[i]
 		var address string
 		for _, conn := range server.Connections {
 			if !conn.Relay && !conn.Local {
@@ -158,25 +161,12 @@ func (h *Handlers) ListSections(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "X-Plex-Token header is required"})
 	}
 
-	servers, err := h.client.GetResources(ctx, token)
+	targetServer, err := h.findServer(c, serverID, token)
 	if err != nil {
-		h.logger.Error().Err(err).Msg("Failed to get servers")
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get Plex servers"})
+		return err
 	}
 
-	var targetServer *PlexServer
-	for i := range servers {
-		if servers[i].ClientID == serverID {
-			targetServer = &servers[i]
-			break
-		}
-	}
-
-	if targetServer == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Server not found"})
-	}
-
-	serverURL, err := h.client.FindServerURL(ctx, *targetServer, token)
+	serverURL, err := h.client.FindServerURL(ctx, targetServer, token)
 	if err != nil {
 		h.logger.Error().Err(err).Str("serverId", serverID).Msg("Failed to connect to server")
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Failed to connect to Plex server"})
@@ -188,6 +178,26 @@ func (h *Handlers) ListSections(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get library sections"})
 	}
 
+	return c.JSON(http.StatusOK, filterMediaSections(sections))
+}
+
+func (h *Handlers) findServer(c echo.Context, serverID, token string) (*PlexServer, error) {
+	servers, err := h.client.GetResources(c.Request().Context(), token)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("Failed to get servers")
+		return nil, c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get Plex servers"})
+	}
+
+	for i := range servers {
+		if servers[i].ClientID == serverID {
+			return &servers[i], nil
+		}
+	}
+
+	return nil, c.JSON(http.StatusNotFound, map[string]string{"error": "Server not found"})
+}
+
+func filterMediaSections(sections []LibrarySection) []SectionResponse {
 	response := make([]SectionResponse, 0, len(sections))
 	for _, section := range sections {
 		if section.Type == "movie" || section.Type == "show" {
@@ -198,6 +208,5 @@ func (h *Handlers) ListSections(c echo.Context) error {
 			})
 		}
 	}
-
-	return c.JSON(http.StatusOK, response)
+	return response
 }

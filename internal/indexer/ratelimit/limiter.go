@@ -38,7 +38,7 @@ func DefaultConfig() Config {
 // Limiter tracks query/grab counts per indexer.
 type Limiter struct {
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 	config  Config
 
 	// In-memory rate limiting for immediate checks
@@ -54,10 +54,11 @@ type rateBucket struct {
 }
 
 // NewLimiter creates a new rate limiter.
-func NewLimiter(db *sql.DB, config Config, logger zerolog.Logger) *Limiter {
+func NewLimiter(db *sql.DB, config Config, logger *zerolog.Logger) *Limiter {
+	subLogger := logger.With().Str("component", "rate-limiter").Logger()
 	return &Limiter{
 		queries:     sqlc.New(db),
-		logger:      logger.With().Str("component", "rate-limiter").Logger(),
+		logger:      &subLogger,
 		config:      config,
 		queryCounts: make(map[int64]*rateBucket),
 		grabCounts:  make(map[int64]*rateBucket),
@@ -164,7 +165,7 @@ func (l *Limiter) RecordGrab(ctx context.Context, indexerID int64) {
 }
 
 // GetQueryCount returns the current query count for an indexer.
-func (l *Limiter) GetQueryCount(ctx context.Context, indexerID int64) (int, int, time.Time) {
+func (l *Limiter) GetQueryCount(ctx context.Context, indexerID int64) (count, limit int, resetTime time.Time) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -179,7 +180,7 @@ func (l *Limiter) GetQueryCount(ctx context.Context, indexerID int64) (int, int,
 }
 
 // GetGrabCount returns the current grab count for an indexer.
-func (l *Limiter) GetGrabCount(ctx context.Context, indexerID int64) (int, int, time.Time) {
+func (l *Limiter) GetGrabCount(ctx context.Context, indexerID int64) (count, limit int, resetTime time.Time) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -199,15 +200,15 @@ func (l *Limiter) GetLimits(ctx context.Context, indexerID int64) *LimitStatus {
 	grabCount, grabLimit, grabReset := l.GetGrabCount(ctx, indexerID)
 
 	return &LimitStatus{
-		IndexerID:       indexerID,
-		QueryCount:      queryCount,
-		QueryLimit:      queryLimit,
-		QueryResetTime:  queryReset,
-		GrabCount:       grabCount,
-		GrabLimit:       grabLimit,
-		GrabResetTime:   grabReset,
-		QueryLimited:    queryCount >= queryLimit,
-		GrabLimited:     grabCount >= grabLimit,
+		IndexerID:      indexerID,
+		QueryCount:     queryCount,
+		QueryLimit:     queryLimit,
+		QueryResetTime: queryReset,
+		GrabCount:      grabCount,
+		GrabLimit:      grabLimit,
+		GrabResetTime:  grabReset,
+		QueryLimited:   queryCount >= queryLimit,
+		GrabLimited:    grabCount >= grabLimit,
 	}
 }
 
@@ -261,15 +262,15 @@ func (l *Limiter) CheckDatabaseLimits(ctx context.Context, indexerID int64) (*Li
 	}
 
 	return &LimitStatus{
-		IndexerID:       indexerID,
-		QueryCount:      int(queryCount),
-		QueryLimit:      l.config.QueryLimit,
-		QueryResetTime:  time.Now().Add(l.config.QueryPeriod),
-		GrabCount:       int(grabCount),
-		GrabLimit:       l.config.GrabLimit,
-		GrabResetTime:   time.Now().Add(l.config.GrabPeriod),
-		QueryLimited:    int(queryCount) >= l.config.QueryLimit,
-		GrabLimited:     int(grabCount) >= l.config.GrabLimit,
+		IndexerID:      indexerID,
+		QueryCount:     int(queryCount),
+		QueryLimit:     l.config.QueryLimit,
+		QueryResetTime: time.Now().Add(l.config.QueryPeriod),
+		GrabCount:      int(grabCount),
+		GrabLimit:      l.config.GrabLimit,
+		GrabResetTime:  time.Now().Add(l.config.GrabPeriod),
+		QueryLimited:   int(queryCount) >= l.config.QueryLimit,
+		GrabLimited:    int(grabCount) >= l.config.GrabLimit,
 	}, nil
 }
 

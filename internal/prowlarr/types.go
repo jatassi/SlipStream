@@ -32,18 +32,18 @@ const (
 
 // Config holds Prowlarr connection and behavior configuration.
 type Config struct {
-	ID                    int64           `json:"id"`
-	Enabled               bool            `json:"enabled"`
-	URL                   string          `json:"url"`
-	APIKey                string          `json:"apiKey"`
-	MovieCategories       []int           `json:"movieCategories"`
-	TVCategories          []int           `json:"tvCategories"`
-	Timeout               int             `json:"timeout"`
-	SkipSSLVerify         bool            `json:"skipSslVerify"`
-	Capabilities          *Capabilities   `json:"capabilities,omitempty"`
-	CapabilitiesUpdatedAt *time.Time      `json:"capabilitiesUpdatedAt,omitempty"`
-	CreatedAt             time.Time       `json:"createdAt"`
-	UpdatedAt             time.Time       `json:"updatedAt"`
+	ID                    int64         `json:"id"`
+	Enabled               bool          `json:"enabled"`
+	URL                   string        `json:"url"`
+	APIKey                string        `json:"apiKey"`
+	MovieCategories       []int         `json:"movieCategories"`
+	TVCategories          []int         `json:"tvCategories"`
+	Timeout               int           `json:"timeout"`
+	SkipSSLVerify         bool          `json:"skipSslVerify"`
+	Capabilities          *Capabilities `json:"capabilities,omitempty"`
+	CapabilitiesUpdatedAt *time.Time    `json:"capabilitiesUpdatedAt,omitempty"`
+	CreatedAt             time.Time     `json:"createdAt"`
+	UpdatedAt             time.Time     `json:"updatedAt"`
 }
 
 // DefaultMovieCategories returns the default Newznab movie category IDs.
@@ -58,15 +58,15 @@ func DefaultTVCategories() []int {
 
 // Indexer represents an indexer configured in Prowlarr.
 type Indexer struct {
-	ID           int              `json:"id"`
-	Name         string           `json:"name"`
-	Protocol     types.Protocol   `json:"protocol"`
-	Privacy      types.Privacy    `json:"privacy,omitempty"`
-	Priority     int              `json:"priority"`
-	Enable       bool             `json:"enable"`
-	Status       IndexerStatus    `json:"status"`
-	Capabilities IndexerCaps      `json:"capabilities,omitempty"`
-	Fields       []IndexerField   `json:"fields,omitempty"`
+	ID           int            `json:"id"`
+	Name         string         `json:"name"`
+	Protocol     types.Protocol `json:"protocol"`
+	Privacy      types.Privacy  `json:"privacy,omitempty"`
+	Priority     int            `json:"priority"`
+	Enable       bool           `json:"enable"`
+	Status       IndexerStatus  `json:"status"`
+	Capabilities IndexerCaps    `json:"capabilities,omitempty"`
+	Fields       []IndexerField `json:"fields,omitempty"`
 }
 
 // IndexerStatus represents the health status of a Prowlarr indexer.
@@ -96,10 +96,10 @@ func (s IndexerStatus) String() string {
 
 // IndexerCaps represents the capabilities of a Prowlarr indexer.
 type IndexerCaps struct {
-	SupportsSearch bool     `json:"supportsSearch"`
-	SupportsTV     bool     `json:"supportsTvSearch"`
-	SupportsMovies bool     `json:"supportsMovieSearch"`
-	Categories     []int    `json:"categories,omitempty"`
+	SupportsSearch bool  `json:"supportsSearch"`
+	SupportsTV     bool  `json:"supportsTvSearch"`
+	SupportsMovies bool  `json:"supportsMovieSearch"`
+	Categories     []int `json:"categories,omitempty"`
 }
 
 // IndexerField represents a configuration field for a Prowlarr indexer.
@@ -197,11 +197,11 @@ type TorznabAttribute struct {
 
 // TorznabCaps represents the capabilities XML response.
 type TorznabCaps struct {
-	XMLName    xml.Name           `xml:"caps"`
-	Server     TorznabServer      `xml:"server"`
-	Limits     TorznabLimits      `xml:"limits"`
-	Searching  TorznabSearching   `xml:"searching"`
-	Categories TorznabCategories  `xml:"categories"`
+	XMLName    xml.Name          `xml:"caps"`
+	Server     TorznabServer     `xml:"server"`
+	Limits     TorznabLimits     `xml:"limits"`
+	Searching  TorznabSearching  `xml:"searching"`
+	Categories TorznabCategories `xml:"categories"`
 }
 
 // TorznabServer represents server info in capabilities.
@@ -259,7 +259,9 @@ func (item *TorznabItem) GetIntAttribute(name string, defaultVal int) int {
 	}
 	var result int
 	if _, err := json.Marshal(val); err == nil {
-		json.Unmarshal([]byte(val), &result)
+		if err := json.Unmarshal([]byte(val), &result); err != nil {
+			return defaultVal
+		}
 	}
 	return result
 }
@@ -272,7 +274,9 @@ func (item *TorznabItem) GetFloatAttribute(name string, defaultVal float64) floa
 	}
 	var result float64
 	if _, err := json.Marshal(val); err == nil {
-		json.Unmarshal([]byte(val), &result)
+		if err := json.Unmarshal([]byte(val), &result); err != nil {
+			return defaultVal
+		}
 	}
 	return result
 }
@@ -353,10 +357,10 @@ type SearchRequest struct {
 
 // SearchResponse represents aggregated search results from Prowlarr.
 type SearchResponse struct {
-	Results       []types.TorrentInfo `json:"results"`
-	TotalResults  int                 `json:"totalResults"`
-	IndexersUsed  int                 `json:"indexersUsed"`
-	Errors        []SearchError       `json:"errors,omitempty"`
+	Results      []types.TorrentInfo `json:"results"`
+	TotalResults int                 `json:"totalResults"`
+	IndexersUsed int                 `json:"indexersUsed"`
+	Errors       []SearchError       `json:"errors,omitempty"`
 }
 
 // SearchError represents an error from an indexer during search.

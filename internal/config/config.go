@@ -1,6 +1,8 @@
 package config
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -11,6 +13,12 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
+)
+
+const (
+	osWindows = "windows"
+	osDarwin  = "darwin"
+	osLinux   = "linux"
 )
 
 // Config holds all application configuration.
@@ -198,84 +206,64 @@ func Default() *Config {
 	logDir := getLogDir()
 
 	return &Config{
-		Server: ServerConfig{
-			Host: "127.0.0.1",
-			Port: 8080,
+		Server:     ServerConfig{Host: "127.0.0.1", Port: 8080},
+		Database:   DatabaseConfig{Path: filepath.Join(dataDir, "slipstream.db")},
+		Logging:    LoggingConfig{Level: "info", Format: "console", Path: logDir},
+		Auth:       AuthConfig{JWTSecret: ""},
+		Metadata:   defaultMetadataConfig(),
+		Indexer:    defaultIndexerConfig(dataDir),
+		AutoSearch: AutoSearchConfig{Enabled: true, IntervalHours: 8, BackoffThreshold: 12, BaseDelayMs: 1000},
+		RssSync:    RssSyncConfig{Enabled: true, IntervalMin: 15},
+		Health:     defaultHealthConfig(),
+		Portal:     defaultPortalConfig(),
+	}
+}
+
+func defaultMetadataConfig() MetadataConfig {
+	return MetadataConfig{
+		TMDB: TMDBConfig{
+			BaseURL:      "https://api.themoviedb.org/3",
+			ImageBaseURL: "https://image.tmdb.org/t/p",
+			Timeout:      30,
 		},
-		Database: DatabaseConfig{
-			Path: filepath.Join(dataDir, "slipstream.db"),
+		TVDB: TVDBConfig{BaseURL: "https://api4.thetvdb.com/v4", Timeout: 30},
+		OMDB: OMDBConfig{BaseURL: "https://www.omdbapi.com", Timeout: 15},
+	}
+}
+
+func defaultIndexerConfig(dataDir string) IndexerConfig {
+	return IndexerConfig{
+		Cardigann: CardigannConfig{
+			RepositoryURL:  "https://indexers.prowlarr.com",
+			Branch:         "master",
+			Version:        "11",
+			DefinitionsDir: filepath.Join(dataDir, "definitions"),
+			CustomDir:      filepath.Join(dataDir, "definitions", "custom"),
+			AutoUpdate:     true,
+			UpdateInterval: 24,
+			RequestTimeout: 60,
 		},
-		Logging: LoggingConfig{
-			Level:  "info",
-			Format: "console",
-			Path:   logDir,
-		},
-		Auth: AuthConfig{
-			JWTSecret: "", // Will be generated if empty
-		},
-		Metadata: MetadataConfig{
-			TMDB: TMDBConfig{
-				BaseURL:               "https://api.themoviedb.org/3",
-				ImageBaseURL:          "https://image.tmdb.org/t/p",
-				Timeout:               30,
-				DisableSearchOrdering: false,
-			},
-			TVDB: TVDBConfig{
-				BaseURL: "https://api4.thetvdb.com/v4",
-				Timeout: 30,
-			},
-			OMDB: OMDBConfig{
-				BaseURL: "https://www.omdbapi.com",
-				Timeout: 15,
-			},
-		},
-		Indexer: IndexerConfig{
-			Cardigann: CardigannConfig{
-				RepositoryURL:  "https://indexers.prowlarr.com",
-				Branch:         "master",
-				Version:        "11",
-				DefinitionsDir: filepath.Join(dataDir, "definitions"),
-				CustomDir:      filepath.Join(dataDir, "definitions", "custom"),
-				AutoUpdate:     true,
-				UpdateInterval: 24,
-				RequestTimeout: 60,
-			},
-			RateLimit: RateLimitConfig{
-				QueryLimit:  100,
-				QueryPeriod: 60,
-				GrabLimit:   25,
-				GrabPeriod:  60,
-			},
-			Status: StatusConfig{
-				BackoffMultiplier:     2.0,
-				MaxBackoffHours:       3,
-				InitialBackoffMinutes: 5,
-			},
-		},
-		AutoSearch: AutoSearchConfig{
-			Enabled:          true,
-			IntervalHours:    8,
-			BackoffThreshold: 12,
-			BaseDelayMs:      1000,
-		},
-		RssSync: RssSyncConfig{
-			Enabled:     true,
-			IntervalMin: 15,
-		},
-		Health: HealthConfig{
-			DownloadClientCheckInterval: 6 * time.Hour,
-			IndexerCheckInterval:        6 * time.Hour,
-			StorageCheckInterval:        1 * time.Hour,
-			StorageWarningThreshold:     0.20,
-			StorageErrorThreshold:       0.05,
-		},
-		Portal: PortalConfig{
-			JWTSecret: "",
-			WebAuthn: WebAuthnConfig{
-				RPDisplayName: "SlipStream",
-				RPID:          "localhost",
-				RPOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
-			},
+		RateLimit: RateLimitConfig{QueryLimit: 100, QueryPeriod: 60, GrabLimit: 25, GrabPeriod: 60},
+		Status:    StatusConfig{BackoffMultiplier: 2.0, MaxBackoffHours: 3, InitialBackoffMinutes: 5},
+	}
+}
+
+func defaultHealthConfig() HealthConfig {
+	return HealthConfig{
+		DownloadClientCheckInterval: 6 * time.Hour,
+		IndexerCheckInterval:        6 * time.Hour,
+		StorageCheckInterval:        1 * time.Hour,
+		StorageWarningThreshold:     0.20,
+		StorageErrorThreshold:       0.05,
+	}
+}
+
+func defaultPortalConfig() PortalConfig {
+	return PortalConfig{
+		WebAuthn: WebAuthnConfig{
+			RPDisplayName: "SlipStream",
+			RPID:          "localhost",
+			RPOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
 		},
 	}
 }
@@ -283,73 +271,80 @@ func Default() *Config {
 // Load reads configuration from file and environment variables.
 // Priority: environment variables > .env file > config file > defaults
 func Load(configPath string) (*Config, error) {
-	// Load .env file if it exists (secrets go here)
-	// Try multiple locations: current dir, configs dir
-	envFiles := []string{".env", "configs/.env"}
-	for _, envFile := range envFiles {
-		if _, err := os.Stat(envFile); err == nil {
-			_ = godotenv.Load(envFile) // Ignore error, env vars are optional
-			break
-		}
-	}
+	loadEnvFile()
 
 	v := viper.New()
-
-	// Set defaults
 	setDefaults(v)
+	configureViperPaths(v, configPath)
 
-	// Config file settings
-	if configPath != "" {
-		v.SetConfigFile(configPath)
-	} else {
-		v.SetConfigName("config")
-		v.SetConfigType("yaml")
-		v.AddConfigPath(".")
-		v.AddConfigPath("./configs")
-		// Add platform-specific config paths
-		switch runtime.GOOS {
-		case "windows":
-			if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-				v.AddConfigPath(filepath.Join(localAppData, "SlipStream"))
-			}
-		case "darwin":
-			if home, err := os.UserHomeDir(); err == nil {
-				v.AddConfigPath(filepath.Join(home, "Library", "Application Support", "SlipStream"))
-			}
-		case "linux":
-			configHome := os.Getenv("XDG_CONFIG_HOME")
-			if configHome == "" {
-				if home, err := os.UserHomeDir(); err == nil {
-					configHome = filepath.Join(home, ".config")
-				}
-			}
-			if configHome != "" {
-				v.AddConfigPath(filepath.Join(configHome, "slipstream"))
-			}
-		}
-		v.AddConfigPath("$HOME/.slipstream")
-	}
-
-	// Environment variable settings
 	v.SetEnvPrefix("SLIPSTREAM")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// Read config file (ignore if not found)
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
-		// Config file not found, using defaults + env vars
 	}
 
-	// Unmarshal into struct
 	cfg := &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	return cfg, nil
+}
+
+func loadEnvFile() {
+	envFiles := []string{".env", "configs/.env"}
+	for _, envFile := range envFiles {
+		if _, err := os.Stat(envFile); err == nil {
+			_ = godotenv.Load(envFile)
+			break
+		}
+	}
+}
+
+func configureViperPaths(v *viper.Viper, configPath string) {
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+		return
+	}
+
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
+	v.AddConfigPath(".")
+	v.AddConfigPath("./configs")
+	addPlatformConfigPaths(v)
+	v.AddConfigPath("$HOME/.slipstream")
+}
+
+func addPlatformConfigPaths(v *viper.Viper) {
+	switch runtime.GOOS {
+	case osWindows:
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			v.AddConfigPath(filepath.Join(localAppData, "SlipStream"))
+		}
+	case osDarwin:
+		if home, err := os.UserHomeDir(); err == nil {
+			v.AddConfigPath(filepath.Join(home, "Library", "Application Support", "SlipStream"))
+		}
+	case osLinux:
+		if configHome := linuxConfigHome(); configHome != "" {
+			v.AddConfigPath(filepath.Join(configHome, "slipstream"))
+		}
+	}
+}
+
+func linuxConfigHome() string {
+	if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
+		return configHome
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, ".config")
+	}
+	return ""
 }
 
 // setDefaults sets default values in viper
@@ -444,15 +439,15 @@ func (c *ServerConfig) Address() string {
 // Others: ./data
 func getDataDir() string {
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
 			return filepath.Join(localAppData, "SlipStream")
 		}
-	case "darwin":
+	case osDarwin:
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Application Support", "SlipStream")
 		}
-	case "linux":
+	case osLinux:
 		// Check if running from stub-launched pattern (~/.local/share/slipstream/bin/)
 		// If so, use that directory for data (binary and data live together)
 		if dataDir := getLinuxStubDataDir(); dataDir != "" {
@@ -507,15 +502,15 @@ func getLinuxStubDataDir() string {
 // Others: ./data/logs
 func getLogDir() string {
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
 			return filepath.Join(localAppData, "SlipStream", "logs")
 		}
-	case "darwin":
+	case osDarwin:
 		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, "Library", "Logs", "SlipStream")
 		}
-	case "linux":
+	case osLinux:
 		// Check if running from stub-launched pattern
 		if dataDir := getLinuxStubDataDir(); dataDir != "" {
 			return filepath.Join(dataDir, "logs")
@@ -536,6 +531,8 @@ func getLogDir() string {
 
 // ToManagerConfig converts IndexerConfig to cardigann.ManagerConfig compatible values.
 // Returns RepositoryConfig values, CacheConfig values, and manager settings.
+//
+//nolint:gocritic // will be simplified in Phase 7
 func (ic *IndexerConfig) ToManagerConfigValues() (
 	repoURL, branch, version, userAgent string,
 	requestTimeout time.Duration,
@@ -563,7 +560,8 @@ func FindAvailablePort(preferredPort, maxAttempts int) (int, error) {
 	for i := 0; i < maxAttempts; i++ {
 		port := preferredPort + i
 		addr := fmt.Sprintf(":%d", port)
-		listener, err := net.Listen("tcp", addr)
+		lc := &net.ListenConfig{}
+		listener, err := lc.Listen(context.Background(), "tcp", addr)
 		if err == nil {
 			listener.Close()
 			return port, nil

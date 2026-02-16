@@ -14,7 +14,7 @@ import (
 // RenamePreview represents a preview of a rename operation.
 type RenamePreview struct {
 	ID              int64  `json:"id"`
-	MediaType       string `json:"mediaType"` // "movie" or "episode"
+	MediaType       string `json:"mediaType"` // "movie" or mediaTypeEpisode
 	CurrentPath     string `json:"currentPath"`
 	CurrentFilename string `json:"currentFilename"`
 	NewPath         string `json:"newPath"`
@@ -79,7 +79,7 @@ func (s *Service) GetRenamePreviewSeries(ctx context.Context, seriesID *int64) (
 				continue
 			}
 
-			preview := s.computeEpisodeRenamePreview(ctx, series, &ep, rf.Path)
+			preview := s.computeEpisodeRenamePreview(series, &ep, rf.Path)
 			previews = append(previews, preview)
 		}
 	}
@@ -89,55 +89,71 @@ func (s *Service) GetRenamePreviewSeries(ctx context.Context, seriesID *int64) (
 
 // GetRenamePreviewMovies returns a preview of files that would be renamed for movies.
 func (s *Service) GetRenamePreviewMovies(ctx context.Context, movieID *int64) ([]RenamePreview, error) {
-	var previews []RenamePreview
-
-	// Get all movies or a specific one
-	var movieList []*movies.Movie
-	if movieID != nil {
-		movie, err := s.movies.Get(ctx, *movieID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get movie: %w", err)
-		}
-		movieList = []*movies.Movie{movie}
-	} else {
-		var err error
-		movieList, err = s.movies.List(ctx, movies.ListMoviesOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list movies: %w", err)
-		}
+	movieList, err := s.getMovieList(ctx, movieID)
+	if err != nil {
+		return nil, err
 	}
 
+	var previews []RenamePreview
 	for _, movie := range movieList {
-		if len(movie.MovieFiles) == 0 {
-			// Try to get files explicitly
-			files, err := s.movies.GetFiles(ctx, movie.ID)
-			if err != nil || len(files) == 0 {
-				continue
-			}
-			movie.MovieFiles = files
-		}
-
-		// Get root folder for path computation
-		rf, err := s.rootfolder.Get(ctx, movie.RootFolderID)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Failed to get root folder")
-			continue
-		}
-
-		for _, file := range movie.MovieFiles {
-			preview := s.computeMovieRenamePreview(ctx, movie, &file, rf.Path)
-			previews = append(previews, preview)
-		}
+		previews = append(previews, s.collectMovieRenamePreviews(ctx, movie)...)
 	}
 
 	return previews, nil
 }
 
+func (s *Service) getMovieList(ctx context.Context, movieID *int64) ([]*movies.Movie, error) {
+	if movieID != nil {
+		movie, err := s.movies.Get(ctx, *movieID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get movie: %w", err)
+		}
+		return []*movies.Movie{movie}, nil
+	}
+
+	movieList, err := s.movies.List(ctx, movies.ListMoviesOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list movies: %w", err)
+	}
+	return movieList, nil
+}
+
+func (s *Service) collectMovieRenamePreviews(ctx context.Context, movie *movies.Movie) []RenamePreview {
+	s.ensureMovieFilesLoaded(ctx, movie)
+	if len(movie.MovieFiles) == 0 {
+		return nil
+	}
+
+	rf, err := s.rootfolder.Get(ctx, movie.RootFolderID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", movie.ID).Msg("Failed to get root folder")
+		return nil
+	}
+
+	var previews []RenamePreview
+	for i := range movie.MovieFiles {
+		file := &movie.MovieFiles[i]
+		previews = append(previews, s.computeMovieRenamePreview(movie, file, rf.Path))
+	}
+	return previews
+}
+
+func (s *Service) ensureMovieFilesLoaded(ctx context.Context, movie *movies.Movie) {
+	if len(movie.MovieFiles) > 0 {
+		return
+	}
+	files, err := s.movies.GetFiles(ctx, movie.ID)
+	if err != nil {
+		return
+	}
+	movie.MovieFiles = files
+}
+
 // computeEpisodeRenamePreview computes the rename preview for a single episode.
-func (s *Service) computeEpisodeRenamePreview(ctx context.Context, series *tv.Series, ep *tv.Episode, rootPath string) RenamePreview {
+func (s *Service) computeEpisodeRenamePreview(series *tv.Series, ep *tv.Episode, rootPath string) RenamePreview {
 	preview := RenamePreview{
 		ID:              ep.EpisodeFile.ID,
-		MediaType:       "episode",
+		MediaType:       mediaTypeEpisode,
 		CurrentPath:     ep.EpisodeFile.Path,
 		CurrentFilename: filepath.Base(ep.EpisodeFile.Path),
 		Title:           ep.Title,
@@ -175,7 +191,7 @@ func (s *Service) computeEpisodeRenamePreview(ctx context.Context, series *tv.Se
 }
 
 // computeMovieRenamePreview computes the rename preview for a single movie.
-func (s *Service) computeMovieRenamePreview(ctx context.Context, movie *movies.Movie, file *movies.MovieFile, rootPath string) RenamePreview {
+func (s *Service) computeMovieRenamePreview(movie *movies.Movie, file *movies.MovieFile, rootPath string) RenamePreview {
 	preview := RenamePreview{
 		ID:              file.ID,
 		MediaType:       "movie",
@@ -246,13 +262,13 @@ func (s *Service) buildEpisodeTokenContext(series *tv.Series, ep *tv.Episode) *r
 // buildMovieTokenContext builds a token context from movie data.
 func (s *Service) buildMovieTokenContext(movie *movies.Movie, file *movies.MovieFile) *renamer.TokenContext {
 	ctx := &renamer.TokenContext{
-		MovieTitle:   movie.Title,
-		MovieYear:    movie.Year,
-		OriginalFile: filepath.Base(file.Path),
+		MovieTitle: movie.Title,
+		MovieYear:  movie.Year,
 	}
 
 	// Extract quality info from file if available
 	if file != nil {
+		ctx.OriginalFile = filepath.Base(file.Path)
 		ctx.Quality = file.Resolution
 		ctx.VideoCodec = file.VideoCodec
 		ctx.AudioCodec = file.AudioCodec
@@ -268,9 +284,10 @@ func (s *Service) ExecuteMassRename(ctx context.Context, mediaType string, fileI
 		Results: make([]RenamePreview, 0, len(fileIDs)),
 	}
 
-	if mediaType == "episode" || mediaType == "series" {
+	switch mediaType {
+	case mediaTypeEpisode, "series":
 		return s.executeMassRenameEpisodes(ctx, fileIDs, result)
-	} else if mediaType == "movie" {
+	case mediaTypeMovie:
 		return s.executeMassRenameMovies(ctx, fileIDs, result)
 	}
 
@@ -286,7 +303,7 @@ func (s *Service) executeMassRenameEpisodes(ctx context.Context, fileIDs []int64
 			result.Failed++
 			result.Results = append(result.Results, RenamePreview{
 				ID:        fileID,
-				MediaType: "episode",
+				MediaType: mediaTypeEpisode,
 				Error:     err.Error(),
 			})
 			continue
@@ -298,7 +315,7 @@ func (s *Service) executeMassRenameEpisodes(ctx context.Context, fileIDs []int64
 			result.Failed++
 			result.Results = append(result.Results, RenamePreview{
 				ID:          fileID,
-				MediaType:   "episode",
+				MediaType:   mediaTypeEpisode,
 				CurrentPath: file.Path,
 				Error:       fmt.Sprintf("failed to get root folder: %v", err),
 			})
@@ -306,7 +323,7 @@ func (s *Service) executeMassRenameEpisodes(ctx context.Context, fileIDs []int64
 		}
 
 		// Compute new path
-		preview := s.computeEpisodeRenamePreview(ctx, series, episode, rf.Path)
+		preview := s.computeEpisodeRenamePreview(series, episode, rf.Path)
 		preview.ID = fileID
 
 		if !preview.NeedsRename {
@@ -338,7 +355,7 @@ func (s *Service) executeMassRenameEpisodes(ctx context.Context, fileIDs []int64
 		result.Results = append(result.Results, preview)
 
 		// Log to history
-		s.logRenameToHistory(ctx, "episode", episode.ID, preview)
+		s.logRenameToHistory(ctx, mediaTypeEpisode, episode.ID, &preview)
 	}
 
 	return result, nil
@@ -373,7 +390,7 @@ func (s *Service) executeMassRenameMovies(ctx context.Context, fileIDs []int64, 
 		}
 
 		// Compute new path
-		preview := s.computeMovieRenamePreview(ctx, movie, file, rf.Path)
+		preview := s.computeMovieRenamePreview(movie, file, rf.Path)
 		preview.ID = fileID
 
 		if !preview.NeedsRename {
@@ -405,7 +422,7 @@ func (s *Service) executeMassRenameMovies(ctx context.Context, fileIDs []int64, 
 		result.Results = append(result.Results, preview)
 
 		// Log to history
-		s.logRenameToHistory(ctx, "movie", movie.ID, preview)
+		s.logRenameToHistory(ctx, mediaTypeMovie, movie.ID, &preview)
 	}
 
 	return result, nil
@@ -463,7 +480,7 @@ func (s *Service) renameFile(oldPath, newPath string) error {
 
 	// Create destination directory
 	destDir := filepath.Dir(newPath)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -481,12 +498,12 @@ func (s *Service) renameFile(oldPath, newPath string) error {
 }
 
 // logRenameToHistory logs a rename operation to history.
-func (s *Service) logRenameToHistory(ctx context.Context, mediaType string, mediaID int64, preview RenamePreview) {
+func (s *Service) logRenameToHistory(ctx context.Context, mediaType string, mediaID int64, preview *RenamePreview) {
 	if s.history == nil {
 		return
 	}
 
-	err := s.history.Create(ctx, HistoryInput{
+	err := s.history.Create(ctx, &HistoryInput{
 		EventType: "file_renamed",
 		MediaType: mediaType,
 		MediaID:   mediaID,

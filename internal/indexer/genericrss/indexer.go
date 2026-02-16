@@ -11,7 +11,10 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
 
-const DefinitionID = "generic-rss"
+const (
+	DefinitionID    = "generic-rss"
+	contentTypeBoth = "both"
+)
 
 // Settings holds the per-indexer configuration for a generic RSS feed.
 type Settings struct {
@@ -35,7 +38,7 @@ func NewClient(def *types.IndexerDefinition, settingsJSON map[string]string) *Cl
 		ContentType: settingsJSON["contentType"],
 	}
 	if s.ContentType == "" {
-		s.ContentType = "both"
+		s.ContentType = contentTypeBoth
 	}
 
 	return &Client{
@@ -75,24 +78,24 @@ func (c *Client) Test(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.ReleaseInfo, error) {
+func (c *Client) Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.ReleaseInfo, error) {
 	torrents, err := c.SearchTorrents(ctx, criteria)
 	if err != nil {
 		return nil, err
 	}
 	results := make([]types.ReleaseInfo, len(torrents))
-	for i, t := range torrents {
-		results[i] = t.ReleaseInfo
+	for i := range torrents {
+		results[i] = torrents[i].ReleaseInfo
 	}
 	return results, nil
 }
 
-func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+func (c *Client) SearchTorrents(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error) {
 	return c.fetchFeed(ctx)
 }
 
 func (c *Client) Download(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +113,8 @@ func (c *Client) Download(ctx context.Context, url string) ([]byte, error) {
 
 func (c *Client) Capabilities() *types.Capabilities {
 	return &types.Capabilities{
-		SupportsMovies: c.settings.ContentType == "movies" || c.settings.ContentType == "both",
-		SupportsTV:     c.settings.ContentType == "tv" || c.settings.ContentType == "both",
+		SupportsMovies: c.settings.ContentType == "movies" || c.settings.ContentType == contentTypeBoth,
+		SupportsTV:     c.settings.ContentType == "tv" || c.settings.ContentType == contentTypeBoth,
 		SupportsSearch: false,
 		SupportsRSS:    true,
 	}
@@ -122,7 +125,7 @@ func (c *Client) SupportsRSS() bool    { return true }
 
 // fetchFeed fetches and parses the RSS feed.
 func (c *Client) fetchFeed(ctx context.Context) ([]types.TorrentInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settings.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settings.URL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}

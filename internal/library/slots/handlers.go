@@ -245,10 +245,7 @@ func (h *Handlers) ValidateConfiguration(c echo.Context) error {
 	for _, c := range result.Conflicts {
 		var issues []AttributeIssueResponse
 		for _, i := range c.Issues {
-			issues = append(issues, AttributeIssueResponse{
-				Attribute: i.Attribute,
-				Message:   i.Message,
-			})
+			issues = append(issues, AttributeIssueResponse(i))
 		}
 		conflicts = append(conflicts, SlotConflictResponse{
 			SlotAName: c.SlotAName,
@@ -306,7 +303,7 @@ func (h *Handlers) ValidateNaming(c echo.Context) error {
 
 	// Validate naming formats
 	validation := ValidateSlotNaming(slotConfigs, input.MovieFileFormat, input.EpisodeFileFormat)
-	warnings := BuildNamingValidationWarnings(validation)
+	warnings := BuildNamingValidationWarnings(&validation)
 
 	response := struct {
 		SlotNamingValidation

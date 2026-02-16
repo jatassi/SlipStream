@@ -20,8 +20,8 @@ var (
 
 // Backoff configuration
 const (
-	minBackoffDuration  = 5 * time.Minute
-	maxEscalationLevel  = 5
+	minBackoffDuration = 5 * time.Minute
+	maxEscalationLevel = 5
 )
 
 // Service orchestrates notification sending and management
@@ -29,20 +29,21 @@ type Service struct {
 	db      *sql.DB
 	queries *sqlc.Queries
 	factory *Factory
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 	mu      sync.RWMutex
 }
 
 // NewService creates a new notification service
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
 	queries := sqlc.New(db)
 	factory := NewFactory(logger)
 	factory.SetQueries(queries)
+	subLogger := logger.With().Str("component", "notification").Logger()
 	return &Service{
 		db:      db,
 		queries: queries,
 		factory: factory,
-		logger:  logger.With().Str("component", "notification").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -79,7 +80,7 @@ func (s *Service) Get(ctx context.Context, id int64) (*Config, error) {
 }
 
 // Create creates a new notification
-func (s *Service) Create(ctx context.Context, input CreateInput) (*Config, error) {
+func (s *Service) Create(ctx context.Context, input *CreateInput) (*Config, error) {
 	if _, ok := GetSchema(input.Type); !ok {
 		return nil, errors.New("unsupported notification type")
 	}
@@ -97,7 +98,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Config, error
 		Enabled:               boolToInt(input.Enabled),
 		Settings:              string(settings),
 		OnGrab:                boolToInt(input.OnGrab),
-		OnImport:            boolToInt(input.OnImport),
+		OnImport:              boolToInt(input.OnImport),
 		OnUpgrade:             boolToInt(input.OnUpgrade),
 		OnMovieAdded:          boolToInt(input.OnMovieAdded),
 		OnMovieDeleted:        boolToInt(input.OnMovieDeleted),
@@ -118,12 +119,23 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Config, error
 }
 
 // Update updates an existing notification
-func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Config, error) {
+func (s *Service) Update(ctx context.Context, id int64, input *UpdateInput) (*Config, error) {
 	existing, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
+	params := s.buildUpdateParams(existing, input, id)
+	row, err := s.queries.UpdateNotification(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := s.rowToConfig(row)
+	return &cfg, nil
+}
+
+func (s *Service) buildUpdateParams(existing *Config, input *UpdateInput, id int64) sqlc.UpdateNotificationParams {
 	name := existing.Name
 	if input.Name != nil {
 		name = *input.Name
@@ -144,93 +156,38 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Con
 		settings = *input.Settings
 	}
 
-	onGrab := existing.OnGrab
-	if input.OnGrab != nil {
-		onGrab = *input.OnGrab
-	}
-
-	onImport := existing.OnImport
-	if input.OnImport != nil {
-		onImport = *input.OnImport
-	}
-
-	onUpgrade := existing.OnUpgrade
-	if input.OnUpgrade != nil {
-		onUpgrade = *input.OnUpgrade
-	}
-
-	onMovieAdded := existing.OnMovieAdded
-	if input.OnMovieAdded != nil {
-		onMovieAdded = *input.OnMovieAdded
-	}
-
-	onMovieDeleted := existing.OnMovieDeleted
-	if input.OnMovieDeleted != nil {
-		onMovieDeleted = *input.OnMovieDeleted
-	}
-
-	onSeriesAdded := existing.OnSeriesAdded
-	if input.OnSeriesAdded != nil {
-		onSeriesAdded = *input.OnSeriesAdded
-	}
-
-	onSeriesDeleted := existing.OnSeriesDeleted
-	if input.OnSeriesDeleted != nil {
-		onSeriesDeleted = *input.OnSeriesDeleted
-	}
-
-	onHealthIssue := existing.OnHealthIssue
-	if input.OnHealthIssue != nil {
-		onHealthIssue = *input.OnHealthIssue
-	}
-
-	onHealthRestored := existing.OnHealthRestored
-	if input.OnHealthRestored != nil {
-		onHealthRestored = *input.OnHealthRestored
-	}
-
-	onAppUpdate := existing.OnAppUpdate
-	if input.OnAppUpdate != nil {
-		onAppUpdate = *input.OnAppUpdate
-	}
-
-	includeHealthWarnings := existing.IncludeHealthWarnings
-	if input.IncludeHealthWarnings != nil {
-		includeHealthWarnings = *input.IncludeHealthWarnings
-	}
-
 	tags := existing.Tags
 	if input.Tags != nil {
 		tags = *input.Tags
 	}
-
 	tagsJSON, _ := json.Marshal(tags)
 
-	row, err := s.queries.UpdateNotification(ctx, sqlc.UpdateNotificationParams{
+	return sqlc.UpdateNotificationParams{
 		Name:                  name,
 		Type:                  string(notifType),
 		Enabled:               boolToInt(enabled),
 		Settings:              string(settings),
-		OnGrab:                boolToInt(onGrab),
-		OnImport:            boolToInt(onImport),
-		OnUpgrade:             boolToInt(onUpgrade),
-		OnMovieAdded:          boolToInt(onMovieAdded),
-		OnMovieDeleted:        boolToInt(onMovieDeleted),
-		OnSeriesAdded:         boolToInt(onSeriesAdded),
-		OnSeriesDeleted:       boolToInt(onSeriesDeleted),
-		OnHealthIssue:         boolToInt(onHealthIssue),
-		OnHealthRestored:      boolToInt(onHealthRestored),
-		OnAppUpdate:           boolToInt(onAppUpdate),
-		IncludeHealthWarnings: boolToInt(includeHealthWarnings),
+		OnGrab:                boolToInt(s.mergeFlag(existing.OnGrab, input.OnGrab)),
+		OnImport:              boolToInt(s.mergeFlag(existing.OnImport, input.OnImport)),
+		OnUpgrade:             boolToInt(s.mergeFlag(existing.OnUpgrade, input.OnUpgrade)),
+		OnMovieAdded:          boolToInt(s.mergeFlag(existing.OnMovieAdded, input.OnMovieAdded)),
+		OnMovieDeleted:        boolToInt(s.mergeFlag(existing.OnMovieDeleted, input.OnMovieDeleted)),
+		OnSeriesAdded:         boolToInt(s.mergeFlag(existing.OnSeriesAdded, input.OnSeriesAdded)),
+		OnSeriesDeleted:       boolToInt(s.mergeFlag(existing.OnSeriesDeleted, input.OnSeriesDeleted)),
+		OnHealthIssue:         boolToInt(s.mergeFlag(existing.OnHealthIssue, input.OnHealthIssue)),
+		OnHealthRestored:      boolToInt(s.mergeFlag(existing.OnHealthRestored, input.OnHealthRestored)),
+		OnAppUpdate:           boolToInt(s.mergeFlag(existing.OnAppUpdate, input.OnAppUpdate)),
+		IncludeHealthWarnings: boolToInt(s.mergeFlag(existing.IncludeHealthWarnings, input.IncludeHealthWarnings)),
 		Tags:                  string(tagsJSON),
 		ID:                    id,
-	})
-	if err != nil {
-		return nil, err
 	}
+}
 
-	cfg := s.rowToConfig(row)
-	return &cfg, nil
+func (s *Service) mergeFlag(existing bool, update *bool) bool {
+	if update != nil {
+		return *update
+	}
+	return existing
 }
 
 // Delete deletes a notification
@@ -245,33 +202,33 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 		return nil, err
 	}
 
-	notifier, err := s.factory.Create(*cfg)
-	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}, nil
+	notifier, createErr := s.factory.Create(cfg)
+	if createErr != nil {
+		return &TestResult{Success: false, Message: createErr.Error()}, nil //nolint:nilerr // Test failure is returned in result
 	}
 
-	if err := notifier.Test(ctx); err != nil {
-		return &TestResult{Success: false, Message: err.Error()}, nil
+	if testErr := notifier.Test(ctx); testErr != nil {
+		return &TestResult{Success: false, Message: testErr.Error()}, nil //nolint:nilerr // Test failure is returned in result
 	}
 
 	return &TestResult{Success: true, Message: "Notification test successful"}, nil
 }
 
 // TestConfig tests a notification configuration without saving
-func (s *Service) TestConfig(ctx context.Context, input CreateInput) (*TestResult, error) {
+func (s *Service) TestConfig(ctx context.Context, input *CreateInput) (*TestResult, error) {
 	cfg := Config{
 		Name:     input.Name,
 		Type:     input.Type,
 		Settings: input.Settings,
 	}
 
-	notifier, err := s.factory.Create(cfg)
-	if err != nil {
-		return &TestResult{Success: false, Message: err.Error()}, nil
+	notifier, createErr := s.factory.Create(&cfg)
+	if createErr != nil {
+		return &TestResult{Success: false, Message: createErr.Error()}, nil //nolint:nilerr // Test failure is returned in result
 	}
 
-	if err := notifier.Test(ctx); err != nil {
-		return &TestResult{Success: false, Message: err.Error()}, nil
+	if testErr := notifier.Test(ctx); testErr != nil {
+		return &TestResult{Success: false, Message: testErr.Error()}, nil //nolint:nilerr // Test failure is returned in result
 	}
 
 	return &TestResult{Success: true, Message: "Notification test successful"}, nil
@@ -294,62 +251,132 @@ func (s *Service) Dispatch(ctx context.Context, eventType EventType, event any) 
 		Int("count", len(configs)).
 		Msg("Dispatching notification event")
 
-	for _, cfg := range configs {
+	for i := range configs {
+		cfg := &configs[i]
 		go s.sendNotification(ctx, cfg, eventType, event)
 	}
 }
 
-func (s *Service) sendNotification(ctx context.Context, cfg Config, eventType EventType, event any) {
+func (s *Service) sendNotification(ctx context.Context, cfg *Config, eventType EventType, event any) {
 	notifier, err := s.factory.Create(cfg)
 	if err != nil {
 		s.logger.Error().Err(err).Str("name", cfg.Name).Msg("Failed to create notifier")
 		return
 	}
 
-	var sendErr error
-	switch eventType {
-	case EventGrab:
-		if e, ok := event.(GrabEvent); ok {
-			sendErr = notifier.OnGrab(ctx, e)
-		}
-	case EventImport:
-		if e, ok := event.(ImportEvent); ok {
-			sendErr = notifier.OnImport(ctx, e)
-		}
-	case EventUpgrade:
-		if e, ok := event.(UpgradeEvent); ok {
-			sendErr = notifier.OnUpgrade(ctx, e)
-		}
-	case EventMovieAdded:
-		if e, ok := event.(MovieAddedEvent); ok {
-			sendErr = notifier.OnMovieAdded(ctx, e)
-		}
-	case EventMovieDeleted:
-		if e, ok := event.(MovieDeletedEvent); ok {
-			sendErr = notifier.OnMovieDeleted(ctx, e)
-		}
-	case EventSeriesAdded:
-		if e, ok := event.(SeriesAddedEvent); ok {
-			sendErr = notifier.OnSeriesAdded(ctx, e)
-		}
-	case EventSeriesDeleted:
-		if e, ok := event.(SeriesDeletedEvent); ok {
-			sendErr = notifier.OnSeriesDeleted(ctx, e)
-		}
-	case EventHealthIssue:
-		if e, ok := event.(HealthEvent); ok {
-			sendErr = notifier.OnHealthIssue(ctx, e)
-		}
-	case EventHealthRestored:
-		if e, ok := event.(HealthEvent); ok {
-			sendErr = notifier.OnHealthRestored(ctx, e)
-		}
-	case EventAppUpdate:
-		if e, ok := event.(AppUpdateEvent); ok {
-			sendErr = notifier.OnApplicationUpdate(ctx, e)
-		}
-	}
+	sendErr := s.dispatchToNotifier(ctx, notifier, eventType, event)
+	s.handleNotificationResult(ctx, cfg, eventType, sendErr)
+}
 
+func (s *Service) dispatchToNotifier(ctx context.Context, notifier Notifier, eventType EventType, event any) error {
+	if eventType == EventGrab {
+		return s.dispatchGrab(ctx, notifier, event)
+	}
+	if eventType == EventImport {
+		return s.dispatchImport(ctx, notifier, event)
+	}
+	if eventType == EventUpgrade {
+		return s.dispatchUpgrade(ctx, notifier, event)
+	}
+	if eventType == EventMovieAdded {
+		return s.dispatchMovieAdded(ctx, notifier, event)
+	}
+	if eventType == EventMovieDeleted {
+		return s.dispatchMovieDeleted(ctx, notifier, event)
+	}
+	return s.dispatchRemainingEvents(ctx, notifier, eventType, event)
+}
+
+func (s *Service) dispatchRemainingEvents(ctx context.Context, notifier Notifier, eventType EventType, event any) error {
+	if eventType == EventSeriesAdded {
+		return s.dispatchSeriesAdded(ctx, notifier, event)
+	}
+	if eventType == EventSeriesDeleted {
+		return s.dispatchSeriesDeleted(ctx, notifier, event)
+	}
+	if eventType == EventHealthIssue {
+		return s.dispatchHealthIssue(ctx, notifier, event)
+	}
+	if eventType == EventHealthRestored {
+		return s.dispatchHealthRestored(ctx, notifier, event)
+	}
+	if eventType == EventAppUpdate {
+		return s.dispatchAppUpdate(ctx, notifier, event)
+	}
+	return nil
+}
+
+func (s *Service) dispatchGrab(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(GrabEvent); ok {
+		return notifier.OnGrab(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchImport(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(ImportEvent); ok {
+		return notifier.OnImport(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchUpgrade(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(UpgradeEvent); ok {
+		return notifier.OnUpgrade(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchMovieAdded(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(MovieAddedEvent); ok {
+		return notifier.OnMovieAdded(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchMovieDeleted(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(MovieDeletedEvent); ok {
+		return notifier.OnMovieDeleted(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchSeriesAdded(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(SeriesAddedEvent); ok {
+		return notifier.OnSeriesAdded(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchSeriesDeleted(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(SeriesDeletedEvent); ok {
+		return notifier.OnSeriesDeleted(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchHealthIssue(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(HealthEvent); ok {
+		return notifier.OnHealthIssue(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchHealthRestored(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(HealthEvent); ok {
+		return notifier.OnHealthRestored(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) dispatchAppUpdate(ctx context.Context, notifier Notifier, event any) error {
+	if e, ok := event.(AppUpdateEvent); ok {
+		return notifier.OnApplicationUpdate(ctx, &e)
+	}
+	return nil
+}
+
+func (s *Service) handleNotificationResult(ctx context.Context, cfg *Config, eventType EventType, sendErr error) {
 	if sendErr != nil {
 		s.logger.Error().
 			Err(sendErr).
@@ -358,14 +385,15 @@ func (s *Service) sendNotification(ctx context.Context, cfg Config, eventType Ev
 			Str("event", string(eventType)).
 			Msg("Notification failed")
 		s.recordFailure(ctx, cfg.ID)
-	} else {
-		s.logger.Info().
-			Str("name", cfg.Name).
-			Str("type", string(cfg.Type)).
-			Str("event", string(eventType)).
-			Msg("Notification sent successfully")
-		s.clearFailure(ctx, cfg.ID)
+		return
 	}
+
+	s.logger.Info().
+		Str("name", cfg.Name).
+		Str("type", string(cfg.Type)).
+		Str("event", string(eventType)).
+		Msg("Notification sent successfully")
+	s.clearFailure(ctx, cfg.ID)
 }
 
 func (s *Service) getEnabledConfigs(ctx context.Context, eventType EventType) ([]Config, error) {
@@ -378,7 +406,7 @@ func (s *Service) getEnabledConfigs(ctx context.Context, eventType EventType) ([
 	for _, row := range rows {
 		cfg := s.rowToConfig(row)
 
-		if !s.configSubscribesToEvent(cfg, eventType) {
+		if !s.configSubscribesToEvent(&cfg, eventType) {
 			continue
 		}
 
@@ -392,31 +420,20 @@ func (s *Service) getEnabledConfigs(ctx context.Context, eventType EventType) ([
 	return configs, nil
 }
 
-func (s *Service) configSubscribesToEvent(cfg Config, eventType EventType) bool {
-	switch eventType {
-	case EventGrab:
-		return cfg.OnGrab
-	case EventImport:
-		return cfg.OnImport
-	case EventUpgrade:
-		return cfg.OnUpgrade
-	case EventMovieAdded:
-		return cfg.OnMovieAdded
-	case EventMovieDeleted:
-		return cfg.OnMovieDeleted
-	case EventSeriesAdded:
-		return cfg.OnSeriesAdded
-	case EventSeriesDeleted:
-		return cfg.OnSeriesDeleted
-	case EventHealthIssue:
-		return cfg.OnHealthIssue
-	case EventHealthRestored:
-		return cfg.OnHealthRestored
-	case EventAppUpdate:
-		return cfg.OnAppUpdate
-	default:
-		return false
+func (s *Service) configSubscribesToEvent(cfg *Config, eventType EventType) bool {
+	eventMap := map[EventType]bool{
+		EventGrab:           cfg.OnGrab,
+		EventImport:         cfg.OnImport,
+		EventUpgrade:        cfg.OnUpgrade,
+		EventMovieAdded:     cfg.OnMovieAdded,
+		EventMovieDeleted:   cfg.OnMovieDeleted,
+		EventSeriesAdded:    cfg.OnSeriesAdded,
+		EventSeriesDeleted:  cfg.OnSeriesDeleted,
+		EventHealthIssue:    cfg.OnHealthIssue,
+		EventHealthRestored: cfg.OnHealthRestored,
+		EventAppUpdate:      cfg.OnAppUpdate,
 	}
+	return eventMap[eventType]
 }
 
 func (s *Service) isDisabled(ctx context.Context, id int64) bool {
@@ -438,13 +455,15 @@ func (s *Service) recordFailure(ctx context.Context, id int64) {
 	status, err := s.queries.GetNotificationStatus(ctx, id)
 	if err != nil {
 		// First failure
-		s.queries.UpsertNotificationStatus(ctx, sqlc.UpsertNotificationStatusParams{
+		if err := s.queries.UpsertNotificationStatus(ctx, sqlc.UpsertNotificationStatusParams{
 			NotificationID:    id,
 			InitialFailure:    sql.NullTime{Time: now, Valid: true},
 			MostRecentFailure: sql.NullTime{Time: now, Valid: true},
 			EscalationLevel:   1,
 			DisabledTill:      sql.NullTime{Time: now.Add(minBackoffDuration), Valid: true},
-		})
+		}); err != nil {
+			s.logger.Error().Err(err).Int64("notificationID", id).Msg("Failed to upsert notification status on first failure")
+		}
 		return
 	}
 
@@ -456,22 +475,28 @@ func (s *Service) recordFailure(ctx context.Context, id int64) {
 	backoff := minBackoffDuration * time.Duration(1<<(escalation-1))
 	disabledTill := now.Add(backoff)
 
-	s.queries.UpsertNotificationStatus(ctx, sqlc.UpsertNotificationStatusParams{
+	if err := s.queries.UpsertNotificationStatus(ctx, sqlc.UpsertNotificationStatusParams{
 		NotificationID:    id,
 		InitialFailure:    status.InitialFailure,
 		MostRecentFailure: sql.NullTime{Time: now, Valid: true},
 		EscalationLevel:   escalation,
 		DisabledTill:      sql.NullTime{Time: disabledTill, Valid: true},
-	})
+	}); err != nil {
+		s.logger.Error().Err(err).Int64("notificationID", id).Msg("Failed to upsert notification status")
+	}
 }
 
 func (s *Service) clearFailure(ctx context.Context, id int64) {
-	s.queries.ClearNotificationStatus(ctx, id)
+	if err := s.queries.ClearNotificationStatus(ctx, id); err != nil {
+		s.logger.Error().Err(err).Int64("notificationID", id).Msg("Failed to clear notification status")
+	}
 }
 
 func (s *Service) rowToConfig(row *sqlc.Notification) Config {
 	var tags []int64
-	json.Unmarshal([]byte(row.Tags), &tags)
+	if err := json.Unmarshal([]byte(row.Tags), &tags); err != nil {
+		s.logger.Warn().Err(err).Int64("notificationID", row.ID).Msg("Failed to unmarshal notification tags")
+	}
 
 	return Config{
 		ID:                    row.ID,
@@ -480,7 +505,7 @@ func (s *Service) rowToConfig(row *sqlc.Notification) Config {
 		Enabled:               row.Enabled == 1,
 		Settings:              json.RawMessage(row.Settings),
 		OnGrab:                row.OnGrab == 1,
-		OnImport:            row.OnImport == 1,
+		OnImport:              row.OnImport == 1,
 		OnUpgrade:             row.OnUpgrade == 1,
 		OnMovieAdded:          row.OnMovieAdded == 1,
 		OnMovieDeleted:        row.OnMovieDeleted == 1,
@@ -536,44 +561,44 @@ func (s *Service) DispatchHealthRestored(ctx context.Context, source, healthType
 }
 
 // DispatchDownload dispatches a download completed notification.
-func (s *Service) DispatchDownload(ctx context.Context, event ImportEvent) {
+func (s *Service) DispatchDownload(ctx context.Context, event *ImportEvent) {
 	s.Dispatch(ctx, EventImport, event)
 }
 
 // DispatchUpgrade dispatches an upgrade notification.
-func (s *Service) DispatchUpgrade(ctx context.Context, event UpgradeEvent) {
+func (s *Service) DispatchUpgrade(ctx context.Context, event *UpgradeEvent) {
 	s.Dispatch(ctx, EventUpgrade, event)
 }
 
 // DispatchMovieAdded dispatches a movie added notification.
-func (s *Service) DispatchMovieAdded(ctx context.Context, event MovieAddedEvent) {
+func (s *Service) DispatchMovieAdded(ctx context.Context, event *MovieAddedEvent) {
 	s.Dispatch(ctx, EventMovieAdded, event)
 }
 
 // DispatchMovieDeleted dispatches a movie deleted notification.
-func (s *Service) DispatchMovieDeleted(ctx context.Context, event MovieDeletedEvent) {
+func (s *Service) DispatchMovieDeleted(ctx context.Context, event *MovieDeletedEvent) {
 	s.Dispatch(ctx, EventMovieDeleted, event)
 }
 
 // DispatchSeriesAdded dispatches a series added notification.
-func (s *Service) DispatchSeriesAdded(ctx context.Context, event SeriesAddedEvent) {
+func (s *Service) DispatchSeriesAdded(ctx context.Context, event *SeriesAddedEvent) {
 	s.Dispatch(ctx, EventSeriesAdded, event)
 }
 
 // DispatchSeriesDeleted dispatches a series deleted notification.
-func (s *Service) DispatchSeriesDeleted(ctx context.Context, event SeriesDeletedEvent) {
+func (s *Service) DispatchSeriesDeleted(ctx context.Context, event *SeriesDeletedEvent) {
 	s.Dispatch(ctx, EventSeriesDeleted, event)
 }
 
 // CreateNotifierFromConfig creates a notifier from type, name, and settings.
 // This is used by portal notifications to create notifiers for user-configured channels.
-func (s *Service) CreateNotifierFromConfig(notifType, name string, settings string) (Notifier, error) {
+func (s *Service) CreateNotifierFromConfig(notifType, name, settings string) (Notifier, error) {
 	cfg := Config{
 		Type:     NotifierType(notifType),
 		Name:     name,
 		Settings: json.RawMessage(settings),
 	}
-	return s.factory.Create(cfg)
+	return s.factory.Create(&cfg)
 }
 
 // DispatchGenericMessage sends a generic text message to all enabled notifications.
@@ -585,12 +610,13 @@ func (s *Service) DispatchGenericMessage(ctx context.Context, message string) {
 		return
 	}
 
-	for _, cfg := range configs {
+	for i := range configs {
+		cfg := &configs[i]
 		if !cfg.Enabled {
 			continue
 		}
 
-		go func(cfg Config) {
+		go func(cfg *Config) {
 			notifier, err := s.factory.Create(cfg)
 			if err != nil {
 				s.logger.Warn().Err(err).Str("name", cfg.Name).Msg("failed to create notifier for generic message")
@@ -604,7 +630,7 @@ func (s *Service) DispatchGenericMessage(ctx context.Context, message string) {
 				Message:   message,
 				OccuredAt: time.Now(),
 			}
-			if err := notifier.OnHealthIssue(ctx, event); err != nil {
+			if err := notifier.OnHealthIssue(ctx, &event); err != nil {
 				s.logger.Warn().Err(err).Str("name", cfg.Name).Msg("failed to send generic message")
 			} else {
 				s.logger.Info().Str("name", cfg.Name).Str("type", string(cfg.Type)).Msg("sent generic message")

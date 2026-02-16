@@ -36,16 +36,17 @@ type HealthService interface {
 type Service struct {
 	queries       *sqlc.Queries
 	manager       *cardigann.Manager
-	logger        zerolog.Logger
+	logger        *zerolog.Logger
 	healthService HealthService
 }
 
 // NewService creates a new indexer service.
-func NewService(db *sql.DB, manager *cardigann.Manager, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, manager *cardigann.Manager, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "indexer").Logger()
 	return &Service{
 		queries: sqlc.New(db),
 		manager: manager,
-		logger:  logger.With().Str("component", "indexer").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -202,50 +203,58 @@ type UpdateIndexerInput struct {
 }
 
 // Create creates a new indexer.
-func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*IndexerDefinition, error) {
+func (s *Service) Create(ctx context.Context, input *CreateIndexerInput) (*IndexerDefinition, error) {
 	if err := s.validateInput(input); err != nil {
 		return nil, err
 	}
 
-	// Skip definition validation for mock and generic-rss indexers
-	if input.DefinitionID != MockDefinitionID && input.DefinitionID != genericrss.DefinitionID {
-		if _, err := s.manager.GetDefinition(input.DefinitionID); err != nil {
-			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, input.DefinitionID)
-		}
+	if err := s.validateDefinition(input.DefinitionID); err != nil {
+		return nil, err
 	}
 
-	// Default priority
 	if input.Priority == 0 {
 		input.Priority = 50
 	}
 
-	// Serialize categories to JSON
+	params, err := s.buildCreateParams(input)
+	if err != nil {
+		return nil, err
+	}
+
+	row, err := s.queries.CreateIndexer(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create indexer: %w", err)
+	}
+
+	s.logger.Info().Int64("id", row.ID).Str("name", input.Name).
+		Str("definition", input.DefinitionID).Msg("Created indexer")
+
+	if input.Enabled && s.healthService != nil {
+		s.healthService.RegisterItemStr("indexers", fmt.Sprintf("%d", row.ID), input.Name)
+	}
+
+	return s.rowToDefinition(row), nil
+}
+
+func (s *Service) validateDefinition(definitionID string) error {
+	if definitionID == MockDefinitionID || definitionID == genericrss.DefinitionID {
+		return nil
+	}
+	if _, err := s.manager.GetDefinition(definitionID); err != nil {
+		return fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
+	}
+	return nil
+}
+
+func (s *Service) buildCreateParams(input *CreateIndexerInput) (sqlc.CreateIndexerParams, error) {
 	categoriesJSON, err := json.Marshal(input.Categories)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize categories: %w", err)
+		return sqlc.CreateIndexerParams{}, fmt.Errorf("failed to serialize categories: %w", err)
 	}
 
-	// Serialize settings
-	settingsJSON := "{}"
-	if input.Settings != nil {
-		settingsJSON = string(input.Settings)
-		s.logger.Debug().RawJSON("settings", input.Settings).Msg("Creating indexer with settings")
-	} else {
-		s.logger.Warn().Msg("Creating indexer with nil settings")
-	}
+	settingsJSON := s.serializeSettings(input.Settings)
 
-	// Default auto-search enabled to true if not specified
-	autoSearchEnabled := true
-	if input.AutoSearchEnabled != nil {
-		autoSearchEnabled = *input.AutoSearchEnabled
-	}
-
-	rssEnabled := true
-	if input.RssEnabled != nil {
-		rssEnabled = *input.RssEnabled
-	}
-
-	row, err := s.queries.CreateIndexer(ctx, sqlc.CreateIndexerParams{
+	return sqlc.CreateIndexerParams{
 		Name:              input.Name,
 		DefinitionID:      input.DefinitionID,
 		Settings:          toNullString(settingsJSON),
@@ -254,123 +263,40 @@ func (s *Service) Create(ctx context.Context, input CreateIndexerInput) (*Indexe
 		SupportsTv:        boolToInt64(input.SupportsTV),
 		Priority:          int64(input.Priority),
 		Enabled:           boolToInt64(input.Enabled),
-		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
-		RssEnabled:        boolToInt64(rssEnabled),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create indexer: %w", err)
+		AutoSearchEnabled: boolToInt64(optBool(input.AutoSearchEnabled, true)),
+		RssEnabled:        boolToInt64(optBool(input.RssEnabled, true)),
+	}, nil
+}
+
+func (s *Service) serializeSettings(settings json.RawMessage) string {
+	if settings != nil {
+		s.logger.Debug().RawJSON("settings", settings).Msg("Creating indexer with settings")
+		return string(settings)
 	}
+	s.logger.Warn().Msg("Creating indexer with nil settings")
+	return "{}"
+}
 
-	s.logger.Info().
-		Int64("id", row.ID).
-		Str("name", input.Name).
-		Str("definition", input.DefinitionID).
-		Msg("Created indexer")
-
-	// Register with health service if enabled
-	if input.Enabled && s.healthService != nil {
-		s.healthService.RegisterItemStr("indexers", fmt.Sprintf("%d", row.ID), input.Name)
+func optBool(ptr *bool, defaultVal bool) bool {
+	if ptr != nil {
+		return *ptr
 	}
-
-	return s.rowToDefinition(row), nil
+	return defaultVal
 }
 
 // Update updates an existing indexer with partial update support.
-func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput) (*IndexerDefinition, error) {
-	// Get existing indexer first
+func (s *Service) Update(ctx context.Context, id int64, input *UpdateIndexerInput) (*IndexerDefinition, error) {
 	existing, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge input with existing values
-	name := existing.Name
-	if input.Name != nil {
-		name = *input.Name
-	}
-
-	definitionID := existing.DefinitionID
-	if input.DefinitionID != nil {
-		definitionID = *input.DefinitionID
-	}
-
-	// Validate merged values
-	if name == "" {
-		return nil, fmt.Errorf("%w: name is required", ErrInvalidIndexer)
-	}
-	if definitionID == "" {
-		return nil, fmt.Errorf("%w: definition ID is required", ErrInvalidIndexer)
-	}
-
-	// Skip definition validation for mock and generic-rss indexers
-	if definitionID != MockDefinitionID && definitionID != genericrss.DefinitionID {
-		if _, err := s.manager.GetDefinition(definitionID); err != nil {
-			return nil, fmt.Errorf("%w: %s", ErrDefinitionNotFound, definitionID)
-		}
-	}
-
-	// Merge categories
-	categories := existing.Categories
-	if input.Categories != nil {
-		categories = input.Categories
-	}
-	categoriesJSON, err := json.Marshal(categories)
+	params, err := s.buildUpdateParams(id, existing, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize categories: %w", err)
+		return nil, err
 	}
 
-	// Merge settings
-	settingsJSON := "{}"
-	if input.Settings != nil {
-		settingsJSON = string(input.Settings)
-	} else if existing.Settings != nil {
-		settingsJSON = string(existing.Settings)
-	}
-
-	// Merge boolean and numeric fields
-	supportsMovies := existing.SupportsMovies
-	if input.SupportsMovies != nil {
-		supportsMovies = *input.SupportsMovies
-	}
-
-	supportsTV := existing.SupportsTV
-	if input.SupportsTV != nil {
-		supportsTV = *input.SupportsTV
-	}
-
-	priority := existing.Priority
-	if input.Priority != nil {
-		priority = *input.Priority
-	}
-
-	enabled := existing.Enabled
-	if input.Enabled != nil {
-		enabled = *input.Enabled
-	}
-
-	autoSearchEnabled := existing.AutoSearchEnabled
-	if input.AutoSearchEnabled != nil {
-		autoSearchEnabled = *input.AutoSearchEnabled
-	}
-
-	rssEnabled := existing.RssEnabled
-	if input.RssEnabled != nil {
-		rssEnabled = *input.RssEnabled
-	}
-
-	row, err := s.queries.UpdateIndexer(ctx, sqlc.UpdateIndexerParams{
-		ID:                id,
-		Name:              name,
-		DefinitionID:      definitionID,
-		Settings:          toNullString(settingsJSON),
-		Categories:        toNullString(string(categoriesJSON)),
-		SupportsMovies:    boolToInt64(supportsMovies),
-		SupportsTv:        boolToInt64(supportsTV),
-		Priority:          int64(priority),
-		Enabled:           boolToInt64(enabled),
-		AutoSearchEnabled: boolToInt64(autoSearchEnabled),
-		RssEnabled:        boolToInt64(rssEnabled),
-	})
+	row, err := s.queries.UpdateIndexer(ctx, params)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrIndexerNotFound
@@ -378,23 +304,90 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateIndexerInput
 		return nil, fmt.Errorf("failed to update indexer: %w", err)
 	}
 
-	// Remove cached client to force recreation with new settings
 	s.manager.RemoveClient(id)
-
-	// Handle health registration for enable/disable state changes
-	if s.healthService != nil {
-		idStr := fmt.Sprintf("%d", id)
-		if enabled && !existing.Enabled {
-			// Indexer was enabled - register with health service
-			s.healthService.RegisterItemStr("indexers", idStr, name)
-		} else if !enabled && existing.Enabled {
-			// Indexer was disabled - unregister from health service
-			s.healthService.UnregisterItemStr("indexers", idStr)
-		}
-	}
+	enabled := optBool(input.Enabled, existing.Enabled)
+	name := optStr(input.Name, existing.Name)
+	s.updateHealthRegistration(id, name, enabled, existing.Enabled)
 
 	s.logger.Info().Int64("id", id).Str("name", name).Msg("Updated indexer")
 	return s.rowToDefinition(row), nil
+}
+
+func (s *Service) buildUpdateParams(id int64, existing *IndexerDefinition, input *UpdateIndexerInput) (sqlc.UpdateIndexerParams, error) {
+	name := optStr(input.Name, existing.Name)
+	definitionID := optStr(input.DefinitionID, existing.DefinitionID)
+
+	if name == "" {
+		return sqlc.UpdateIndexerParams{}, fmt.Errorf("%w: name is required", ErrInvalidIndexer)
+	}
+	if definitionID == "" {
+		return sqlc.UpdateIndexerParams{}, fmt.Errorf("%w: definition ID is required", ErrInvalidIndexer)
+	}
+
+	if err := s.validateDefinition(definitionID); err != nil {
+		return sqlc.UpdateIndexerParams{}, err
+	}
+
+	categories := existing.Categories
+	if input.Categories != nil {
+		categories = input.Categories
+	}
+	categoriesJSON, err := json.Marshal(categories)
+	if err != nil {
+		return sqlc.UpdateIndexerParams{}, fmt.Errorf("failed to serialize categories: %w", err)
+	}
+
+	settingsJSON := s.mergeSettings(input.Settings, existing.Settings)
+
+	return sqlc.UpdateIndexerParams{
+		ID:                id,
+		Name:              name,
+		DefinitionID:      definitionID,
+		Settings:          toNullString(settingsJSON),
+		Categories:        toNullString(string(categoriesJSON)),
+		SupportsMovies:    boolToInt64(optBool(input.SupportsMovies, existing.SupportsMovies)),
+		SupportsTv:        boolToInt64(optBool(input.SupportsTV, existing.SupportsTV)),
+		Priority:          int64(optInt(input.Priority, existing.Priority)),
+		Enabled:           boolToInt64(optBool(input.Enabled, existing.Enabled)),
+		AutoSearchEnabled: boolToInt64(optBool(input.AutoSearchEnabled, existing.AutoSearchEnabled)),
+		RssEnabled:        boolToInt64(optBool(input.RssEnabled, existing.RssEnabled)),
+	}, nil
+}
+
+func (s *Service) mergeSettings(input, existing json.RawMessage) string {
+	if input != nil {
+		return string(input)
+	}
+	if existing != nil {
+		return string(existing)
+	}
+	return "{}"
+}
+
+func (s *Service) updateHealthRegistration(id int64, name string, enabled, wasEnabled bool) {
+	if s.healthService == nil {
+		return
+	}
+	idStr := fmt.Sprintf("%d", id)
+	if enabled && !wasEnabled {
+		s.healthService.RegisterItemStr("indexers", idStr, name)
+	} else if !enabled && wasEnabled {
+		s.healthService.UnregisterItemStr("indexers", idStr)
+	}
+}
+
+func optStr(ptr *string, defaultVal string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return defaultVal
+}
+
+func optInt(ptr *int, defaultVal int) int {
+	if ptr != nil {
+		return *ptr
+	}
+	return defaultVal
 }
 
 // Delete deletes an indexer.
@@ -512,8 +505,9 @@ func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestR
 	}
 
 	// Get capabilities
-	caps, err := s.manager.GetCapabilities(input.DefinitionID)
-	if err != nil {
+	caps, capsErr := s.manager.GetCapabilities(input.DefinitionID)
+	if capsErr != nil {
+		//nolint:nilerr // Capabilities optional for test success
 		return &TestResult{
 			Success: true,
 			Message: "Successfully connected to indexer",
@@ -529,31 +523,34 @@ func (s *Service) TestConfig(ctx context.Context, input TestConfigInput) (*TestR
 
 // GetClient creates or retrieves an indexer client for the given indexer ID.
 func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
-	// Get the indexer definition first to check if it's a mock
 	indexer, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return mock client for mock indexers
 	if indexer.DefinitionID == MockDefinitionID {
 		return indexermock.NewClient(indexer), nil
 	}
 
-	// Return generic RSS client
 	if indexer.DefinitionID == genericrss.DefinitionID {
-		settings := make(map[string]string)
-		if indexer.Settings != nil {
-			if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
-				return nil, fmt.Errorf("failed to parse generic-rss settings: %w", err)
-			}
-		}
-		return genericrss.NewClient(indexer, settings), nil
+		return s.createGenericRSSClient(indexer)
 	}
 
-	// Check if we already have a cached Cardigann client with valid settings
+	return s.getOrCreateCardigannClient(id, indexer)
+}
+
+func (s *Service) createGenericRSSClient(indexer *IndexerDefinition) (Indexer, error) {
+	settings := make(map[string]string)
+	if indexer.Settings != nil {
+		if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
+			return nil, fmt.Errorf("failed to parse generic-rss settings: %w", err)
+		}
+	}
+	return genericrss.NewClient(indexer, settings), nil
+}
+
+func (s *Service) getOrCreateCardigannClient(id int64, indexer *IndexerDefinition) (Indexer, error) {
 	if client, ok := s.manager.GetClient(id); ok {
-		// Verify the cached client has settings - if empty, recreate it
 		if len(client.GetSettings()) > 0 {
 			s.logger.Debug().Int64("id", id).Int("settingsCount", len(client.GetSettings())).Msg("Returning cached client with settings")
 			return client, nil
@@ -562,33 +559,32 @@ func (s *Service) GetClient(ctx context.Context, id int64) (Indexer, error) {
 		s.manager.RemoveClient(id)
 	}
 
-	// Parse settings
+	settings, err := s.parseIndexerSettings(id, indexer.Settings)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := s.manager.CreateClientFromDefinition(indexer.DefinitionID, indexer.ID, indexer.Name, settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	s.manager.RegisterClient(id, client)
+	return client, nil
+}
+
+func (s *Service) parseIndexerSettings(id int64, raw json.RawMessage) (map[string]string, error) {
 	settings := make(map[string]string)
-	if indexer.Settings != nil {
-		s.logger.Debug().Int64("id", id).RawJSON("rawSettings", indexer.Settings).Msg("Parsing indexer settings")
-		if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
+	if raw != nil {
+		s.logger.Debug().Int64("id", id).RawJSON("rawSettings", raw).Msg("Parsing indexer settings")
+		if err := json.Unmarshal(raw, &settings); err != nil {
 			return nil, fmt.Errorf("failed to parse settings: %w", err)
 		}
 		s.logger.Debug().Int64("id", id).Int("settingsCount", len(settings)).Msg("Parsed indexer settings")
 	} else {
 		s.logger.Warn().Int64("id", id).Msg("Indexer has nil settings")
 	}
-
-	// Create the Cardigann client
-	client, err := s.manager.CreateClientFromDefinition(
-		indexer.DefinitionID,
-		indexer.ID,
-		indexer.Name,
-		settings,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
-	}
-
-	// Cache the client
-	s.manager.RegisterClient(id, client)
-
-	return client, nil
+	return settings, nil
 }
 
 // ListDefinitions returns all available definitions (Cardigann + built-in).
@@ -639,7 +635,7 @@ func (s *Service) GetManager() *cardigann.Manager {
 }
 
 // validateInput validates the indexer input.
-func (s *Service) validateInput(input CreateIndexerInput) error {
+func (s *Service) validateInput(input *CreateIndexerInput) error {
 	if input.Name == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidIndexer)
 	}
@@ -664,12 +660,10 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		Categories:        []int{},
 	}
 
-	// Parse settings
 	if row.Settings.Valid && row.Settings.String != "" {
 		def.Settings = json.RawMessage(row.Settings.String)
 	}
 
-	// Parse categories
 	if row.Categories.Valid && row.Categories.String != "" {
 		var categories []int
 		if err := json.Unmarshal([]byte(row.Categories.String), &categories); err == nil {
@@ -677,29 +671,7 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		}
 	}
 
-	// Get protocol and privacy from the Cardigann definition (skip for mock/generic-rss)
-	if row.DefinitionID == MockDefinitionID {
-		def.Protocol = ProtocolTorrent
-		def.Privacy = PrivacyPrivate
-		def.SupportsSearch = true
-		def.SupportsRSS = true
-	} else if row.DefinitionID == genericrss.DefinitionID {
-		def.Protocol = ProtocolTorrent
-		def.Privacy = PrivacyPrivate
-		def.SupportsSearch = false
-		def.SupportsRSS = true
-	} else if cardDef, err := s.manager.GetDefinition(row.DefinitionID); err == nil {
-		def.Protocol = Protocol(cardDef.GetProtocol())
-		def.Privacy = Privacy(cardDef.GetPrivacy())
-		def.SupportsSearch = cardDef.SupportsSearch("search")
-		def.SupportsRSS = true
-	} else {
-		// Defaults if definition not found
-		def.Protocol = ProtocolTorrent
-		def.Privacy = PrivacyPublic
-		def.SupportsSearch = true
-		def.SupportsRSS = true
-	}
+	s.setDefinitionProtocol(def, row.DefinitionID)
 
 	if row.CreatedAt.Valid {
 		def.CreatedAt = row.CreatedAt.Time
@@ -709,6 +681,33 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 	}
 
 	return def
+}
+
+func (s *Service) setDefinitionProtocol(def *IndexerDefinition, definitionID string) {
+	switch definitionID {
+	case MockDefinitionID:
+		def.Protocol = ProtocolTorrent
+		def.Privacy = PrivacyPrivate
+		def.SupportsSearch = true
+		def.SupportsRSS = true
+	case genericrss.DefinitionID:
+		def.Protocol = ProtocolTorrent
+		def.Privacy = PrivacyPrivate
+		def.SupportsSearch = false
+		def.SupportsRSS = true
+	default:
+		if cardDef, err := s.manager.GetDefinition(definitionID); err == nil {
+			def.Protocol = Protocol(cardDef.GetProtocol())
+			def.Privacy = Privacy(cardDef.GetPrivacy())
+			def.SupportsSearch = cardDef.SupportsSearch("search")
+			def.SupportsRSS = true
+		} else {
+			def.Protocol = ProtocolTorrent
+			def.Privacy = PrivacyPublic
+			def.SupportsSearch = true
+			def.SupportsRSS = true
+		}
+	}
 }
 
 // Helper functions

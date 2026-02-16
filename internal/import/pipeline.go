@@ -10,15 +10,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/slipstream/slipstream/internal/downloader"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 )
+
+var ErrNotApplicable = errors.New("not applicable")
 
 // ProcessCompletedDownload processes a completed download from the queue.
 func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *DownloadMapping) error {
@@ -27,40 +31,15 @@ func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *Downloa
 		Str("mediaType", mapping.MediaType).
 		Msg("Processing completed download")
 
-	// Check if this is a mock download (for developer mode)
 	if strings.HasPrefix(mapping.DownloadID, "mock-") {
 		return s.processMockImport(ctx, mapping)
 	}
 
-	// Get the download path from the download client
-	client, err := s.downloader.GetClient(ctx, mapping.DownloadClientID)
+	downloadPath, err := s.getDownloadPath(ctx, mapping)
 	if err != nil {
-		return fmt.Errorf("failed to get download client: %w", err)
+		return err
 	}
 
-	// Get download info to find the path
-	items, err := client.List(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list downloads: %w", err)
-	}
-
-	var downloadPath string
-	for _, item := range items {
-		if item.ID == mapping.DownloadID {
-			// Compute the actual content path by joining DownloadDir with the torrent/download name
-			// DownloadDir is the save location (e.g., D:\Downloads\Movies)
-			// Name is the torrent name (e.g., "Movie.2024.1080p" for folders, or "Movie.2024.1080p.mkv" for single files)
-			// This prevents scanning the entire category folder and importing unrelated files
-			downloadPath = filepath.Join(item.DownloadDir, item.Name)
-			break
-		}
-	}
-
-	if downloadPath == "" {
-		return fmt.Errorf("could not find download path for ID %s", mapping.DownloadID)
-	}
-
-	// Find video files in the download path
 	files, err := s.findVideoFiles(downloadPath)
 	if err != nil {
 		return fmt.Errorf("failed to find video files: %w", err)
@@ -70,20 +49,42 @@ func (s *Service) ProcessCompletedDownload(ctx context.Context, mapping *Downloa
 		return fmt.Errorf("no video files found in %s", downloadPath)
 	}
 
-	// Queue each file for import
+	s.queueFilesForImport(files, mapping)
+	return nil
+}
+
+func (s *Service) getDownloadPath(ctx context.Context, mapping *DownloadMapping) (string, error) {
+	client, err := s.downloader.GetClient(ctx, mapping.DownloadClientID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get download client: %w", err)
+	}
+
+	items, err := client.List(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to list downloads: %w", err)
+	}
+
+	for i := range items {
+		item := &items[i]
+		if item.ID == mapping.DownloadID {
+			return filepath.Join(item.DownloadDir, item.Name), nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find download path for ID %s", mapping.DownloadID)
+}
+
+func (s *Service) queueFilesForImport(files []string, mapping *DownloadMapping) {
 	for _, file := range files {
 		job := ImportJob{
 			SourcePath:      file,
 			DownloadMapping: mapping,
 			Manual:          false,
 		}
-
 		if err := s.QueueImport(job); err != nil {
 			s.logger.Warn().Err(err).Str("file", file).Msg("Failed to queue file for import")
 		}
 	}
-
-	return nil
 }
 
 // ProcessManualImport processes a manual import with a confirmed match.
@@ -108,11 +109,8 @@ var SlipStreamSubdirs = []string{"SlipStream/Movies", "SlipStream/Series", "Slip
 func (s *Service) ScanForPendingImports(ctx context.Context) error {
 	s.logger.Info().Msg("Scanning for pending imports")
 
-	// Pre-load all library file stats once for efficient hardlink detection.
-	// This avoids repeating expensive stat calls and DB queries per download file.
 	libraryStats := s.loadLibraryFileStats(ctx)
 
-	// Get all download clients
 	clients, err := s.downloader.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list download clients: %w", err)
@@ -122,64 +120,65 @@ func (s *Service) ScanForPendingImports(ctx context.Context) error {
 		if !client.Enabled {
 			continue
 		}
-
-		// Get the client interface
-		dlClient, err := s.downloader.GetClient(ctx, client.ID)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("client", client.Name).Msg("Failed to get client")
-			continue
-		}
-
-		// Get base download directory
-		baseDir, err := dlClient.GetDownloadDir(ctx)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("client", client.Name).Msg("Failed to get download dir")
-			continue
-		}
-
-		// Only scan SlipStream subdirectories, not the entire download folder
-		// This prevents importing downloads from other applications (e.g., radarr, sonarr)
-		for _, subDir := range SlipStreamSubdirs {
-			slipstreamDir := filepath.Join(baseDir, subDir)
-
-			// Check if directory exists
-			if _, err := os.Stat(slipstreamDir); os.IsNotExist(err) {
-				continue
-			}
-
-			// Scan for video files in this SlipStream subdirectory
-			files, err := s.findVideoFiles(slipstreamDir)
-			if err != nil {
-				s.logger.Warn().Err(err).Str("path", slipstreamDir).Msg("Failed to scan for files")
-				continue
-			}
-
-			for _, file := range files {
-				// Skip files already being processed
-				if s.IsProcessing(file) {
-					continue
-				}
-
-				// Skip files that have already been imported
-				if s.isFileAlreadyImported(ctx, file, libraryStats) {
-					continue
-				}
-
-				// Try to find a matching queue item
-				// For now, queue without mapping - matching will happen during processing
-				job := ImportJob{
-					SourcePath: file,
-					Manual:     false,
-				}
-
-				if err := s.QueueImport(job); err != nil {
-					s.logger.Debug().Err(err).Str("file", file).Msg("Failed to queue file")
-				}
-			}
-		}
+		s.scanClientDownloads(ctx, client, libraryStats)
 	}
 
 	return nil
+}
+
+func (s *Service) scanClientDownloads(ctx context.Context, client *downloader.DownloadClient, libraryStats []libraryFileStat) {
+	dlClient, err := s.downloader.GetClient(ctx, client.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("client", client.Name).Msg("Failed to get client")
+		return
+	}
+
+	baseDir, err := dlClient.GetDownloadDir(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("client", client.Name).Msg("Failed to get download dir")
+		return
+	}
+
+	for _, subDir := range SlipStreamSubdirs {
+		s.scanSubdirectory(ctx, baseDir, subDir, libraryStats)
+	}
+}
+
+func (s *Service) scanSubdirectory(ctx context.Context, baseDir, subDir string, libraryStats []libraryFileStat) {
+	slipstreamDir := filepath.Join(baseDir, subDir)
+
+	if _, err := os.Stat(slipstreamDir); os.IsNotExist(err) {
+		return
+	}
+
+	files, err := s.findVideoFiles(slipstreamDir)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("path", slipstreamDir).Msg("Failed to scan for files")
+		return
+	}
+
+	for _, file := range files {
+		s.processFoundFile(ctx, file, libraryStats)
+	}
+}
+
+func (s *Service) processFoundFile(ctx context.Context, file string, libraryStats []libraryFileStat) {
+	if s.IsProcessing(file) {
+		return
+	}
+
+	if s.isFileAlreadyImported(ctx, file, libraryStats) {
+		return
+	}
+
+	job := ImportJob{
+		SourcePath: file,
+		Manual:     false,
+	}
+
+	if err := s.QueueImport(job); err != nil {
+		s.logger.Debug().Err(err).Str("file", file).Msg("Failed to queue file")
+	}
 }
 
 // libraryFileStat holds a pre-loaded file stat for efficient hardlink detection.
@@ -294,279 +293,349 @@ func (s *Service) isSameFile(path1, path2 string) bool {
 
 // processImport handles the actual import of a single file.
 func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResult, error) {
-	result := &ImportResult{
-		SourcePath: job.SourcePath,
+	result := &ImportResult{SourcePath: job.SourcePath}
+
+	settings := s.loadAndApplySettings(ctx)
+
+	if err := s.prepareImport(ctx, job, result, settings); err != nil {
+		return result, err
 	}
 
-	// Load settings from database
+	isMultiVersion := s.slots != nil && s.slots.IsMultiVersionEnabled(ctx)
+	targetSlotID, slotUpgradeFile, err := s.processSlotAssignment(ctx, job, result, isMultiVersion)
+	if err != nil || result.RequiresSlotSelection {
+		return result, err
+	}
+
+	if err := s.performFileImport(ctx, job, result); err != nil {
+		return result, err
+	}
+
+	s.finalizeImport(ctx, job, result, targetSlotID, slotUpgradeFile, isMultiVersion)
+	return result, nil
+}
+
+func (s *Service) prepareImport(ctx context.Context, job ImportJob, result *ImportResult, settings *ImportSettings) error {
+	if err := s.validateFile(ctx, job.SourcePath, settings); err != nil {
+		result.Error = err
+		return err
+	}
+
+	match, err := s.resolveLibraryMatch(ctx, job, settings)
+	if err != nil {
+		result.Error = err
+		return err
+	}
+
+	if err := s.populateRootFolder(ctx, match, job.TargetSlotID); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to populate root folder, using match root folder")
+	}
+	result.Match = match
+
+	if err := s.enforceUpgradePolicy(ctx, job, match); err != nil {
+		result.Error = err
+		return err
+	}
+
+	mediaInfo := &mediainfo.MediaInfo{}
+	result.MediaInfo = mediaInfo
+
+	destPath, err := s.computeDestination(ctx, match, mediaInfo, job.SourcePath)
+	if err != nil {
+		result.Error = err
+		return err
+	}
+	result.DestinationPath = destPath
+
+	if !job.Manual && s.isSameFile(job.SourcePath, destPath) {
+		result.Error = ErrFileAlreadyInLibrary
+		return result.Error
+	}
+
+	return nil
+}
+
+func (s *Service) processSlotAssignment(ctx context.Context, job ImportJob, result *ImportResult, isMultiVersion bool) (slotID, upgradeFileID *int64, err error) {
+	targetSlotID, err := s.resolveSlotTarget(ctx, job, result.Match, result, isMultiVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+	if result.RequiresSlotSelection {
+		return nil, nil, nil
+	}
+
+	slotUpgradeFile := s.determineUpgradeStatus(ctx, result.Match, result, targetSlotID, isMultiVersion)
+	return targetSlotID, slotUpgradeFile, nil
+}
+
+func (s *Service) performFileImport(ctx context.Context, job ImportJob, result *ImportResult) error {
+	linkMode, err := s.executeImport(job.SourcePath, result.DestinationPath)
+	if err != nil {
+		result.Error = err
+		return err
+	}
+	result.LinkMode = linkMode
+
+	s.queueMediaInfoProbe(result.DestinationPath, result.Match)
+
+	if result.Match.CandidateQualityID == 0 {
+		s.resolveQualityID(ctx, result.Match, job.SourcePath)
+	}
+
+	return nil
+}
+
+func (s *Service) finalizeImport(ctx context.Context, job ImportJob, result *ImportResult, targetSlotID, slotUpgradeFile *int64, isMultiVersion bool) {
+	fileID, updateErr := s.updateLibraryWithID(ctx, result.Match, result.DestinationPath, job.SourcePath, result.MediaInfo)
+	if updateErr != nil && !errors.Is(updateErr, ErrNotApplicable) {
+		s.logger.Warn().Err(updateErr).Msg("Failed to update library records")
+	}
+
+	s.assignFileToSlot(ctx, result.Match, targetSlotID, fileID, result)
+	s.cleanupUpgradedFile(ctx, result.Match, result, slotUpgradeFile, result.DestinationPath, isMultiVersion)
+
+	if err := s.logImportHistory(ctx, result); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to log import history")
+	}
+
+	if s.health != nil {
+		s.health.ClearStatusStr("import", job.SourcePath)
+	}
+
+	result.Success = true
+}
+
+// loadAndApplySettings loads import settings and updates the renamer.
+func (s *Service) loadAndApplySettings(ctx context.Context) *ImportSettings {
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to load settings, using defaults")
 		defaultSettings := DefaultImportSettings()
 		settings = &defaultSettings
 	}
+	renamerSettings := settings.ToRenamerSettings()
+	s.UpdateRenamerSettings(&renamerSettings)
+	return settings
+}
 
-	// Update renamer with current settings from database
-	s.UpdateRenamerSettings(settings.ToRenamerSettings())
-
-	// Step 1: Validate the file
-	if err := s.validateFile(ctx, job.SourcePath, settings); err != nil {
-		result.Error = err
-		return result, err
-	}
-
-	// Step 2: Match to library
-	var match *LibraryMatch
+// resolveLibraryMatch resolves the import target, either from a confirmed match or by searching the library.
+func (s *Service) resolveLibraryMatch(ctx context.Context, job ImportJob, settings *ImportSettings) (*LibraryMatch, error) {
 	if job.ConfirmedMatch != nil {
-		match = job.ConfirmedMatch
-	} else {
-		match, err = s.matchToLibraryWithSettings(ctx, job.SourcePath, job.DownloadMapping, settings)
-		if err != nil {
-			// Handle unknown media based on settings
-			if err == ErrNoMatch {
-				switch settings.UnknownMediaBehavior {
-				case UnknownAutoAdd:
-					// TODO: Implement auto-add to library
-					// This requires: parsing filename, searching metadata providers,
-					// selecting root folder, and creating library entry
-					s.logger.Warn().
-						Str("path", job.SourcePath).
-						Msg("Auto-add not yet implemented, file will be skipped")
-					result.Error = err
-					return result, err
-
-				case UnknownIgnore:
-					fallthrough
-				default:
-					s.logger.Debug().
-						Str("path", job.SourcePath).
-						Msg("No library match found, ignoring file per settings")
-					result.Error = err
-					return result, err
-				}
-			}
-			result.Error = err
-			return result, err
-		}
+		return job.ConfirmedMatch, nil
 	}
 
-	// Ensure root folder path is properly set from the library item's root folder
-	// Req 22.2.1-22.2.3: In multi-version mode, use slot's root folder if specified
-	if err := s.populateRootFolder(ctx, match, job.TargetSlotID); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to populate root folder, using match root folder")
-	}
-	result.Match = match
-
-	// Step 2b: Check for existing file and quality comparison (single-version mode).
-	// In multi-version mode, checkForExistingFile is a no-op — slot evaluation handles upgrades.
-	if err := s.checkForExistingFile(ctx, match, job.SourcePath); err != nil {
-		if errors.Is(err, ErrNotAnUpgrade) {
-			if job.Manual {
-				s.logger.Info().
-					Str("path", job.SourcePath).
-					Int("candidateQuality", match.CandidateQualityID).
-					Int("existingQuality", match.ExistingQualityID).
-					Msg("File is not a quality upgrade, but manual import — proceeding anyway")
-			} else {
-				s.logger.Info().
-					Str("path", job.SourcePath).
-					Int("candidateQuality", match.CandidateQualityID).
-					Int("existingQuality", match.ExistingQualityID).
-					Msg("File is not a quality upgrade, rejecting")
-				s.recordImportDecision(ctx, job.SourcePath, "not_upgrade", match)
-				result.Error = err
-				return result, err
-			}
-		} else {
-			s.logger.Debug().Err(err).Msg("checkForExistingFile returned error")
-		}
-	}
-
-	// Step 3: Use empty MediaInfo initially - probe will happen after hardlink
-	// This allows the import to complete quickly using filename-parsed data
-	mediaInfo := &mediainfo.MediaInfo{}
-	result.MediaInfo = mediaInfo
-
-	// Step 4: Compute destination path
-	destPath, err := s.computeDestination(ctx, match, mediaInfo, job.SourcePath, settings)
+	match, err := s.matchToLibraryWithSettings(ctx, job.SourcePath, job.DownloadMapping, settings)
 	if err != nil {
+		if errors.Is(err, ErrNoMatch) && settings.UnknownMediaBehavior == UnknownAutoAdd {
+			s.logger.Warn().Str("path", job.SourcePath).Msg("Auto-add not yet implemented, file will be skipped")
+		} else if errors.Is(err, ErrNoMatch) {
+			s.logger.Debug().Str("path", job.SourcePath).Msg("No library match found, ignoring file per settings")
+		}
+		return nil, err
+	}
+	return match, nil
+}
+
+// enforceUpgradePolicy checks if the file is a quality upgrade (single-version mode)
+// and rejects non-upgrades for automatic imports.
+func (s *Service) enforceUpgradePolicy(ctx context.Context, job ImportJob, match *LibraryMatch) error {
+	err := s.checkForExistingFile(ctx, match, job.SourcePath)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, ErrNotAnUpgrade) {
+		s.logger.Debug().Err(err).Msg("checkForExistingFile returned error")
+		return nil
+	}
+	if job.Manual {
+		s.logger.Info().
+			Str("path", job.SourcePath).
+			Int("candidateQuality", match.CandidateQualityID).
+			Int("existingQuality", match.ExistingQualityID).
+			Msg("File is not a quality upgrade, but manual import — proceeding anyway")
+		return nil
+	}
+	s.logger.Info().
+		Str("path", job.SourcePath).
+		Int("candidateQuality", match.CandidateQualityID).
+		Int("existingQuality", match.ExistingQualityID).
+		Msg("File is not a quality upgrade, rejecting")
+	s.recordImportDecision(ctx, job.SourcePath, "not_upgrade", match)
+	return err
+}
+
+// resolveSlotTarget evaluates slot assignment for multi-version imports.
+// Returns the target slot ID and any file to upgrade, or sets RequiresSlotSelection on result.
+//
+//nolint:nilnil // nil slot ID with nil error means "no slot assignment needed"
+func (s *Service) resolveSlotTarget(ctx context.Context, job ImportJob, match *LibraryMatch, result *ImportResult, isMultiVersion bool) (targetSlotID *int64, retErr error) {
+	if !isMultiVersion {
+		return nil, nil
+	}
+
+	slotResult, slotErr := s.evaluateSlotAssignment(ctx, job, match)
+	if slotErr != nil && !errors.Is(slotErr, ErrNotApplicable) {
+		s.logger.Warn().Err(slotErr).Msg("Slot evaluation failed, continuing without slot assignment")
+		return nil, nil
+	}
+	if slotResult == nil {
+		return nil, nil
+	}
+
+	result.SlotAssignments = slotResult.Assignments
+	result.RecommendedSlotID = slotResult.RecommendedSlotID
+
+	if slotResult.RequiresSelection && job.TargetSlotID == nil && job.Manual {
+		result.RequiresSlotSelection = true
+		return nil, nil
+	}
+
+	targetSlotID = s.selectTargetSlot(job, slotResult)
+
+	if targetSlotID == nil && len(slotResult.Assignments) == 0 {
+		s.recordImportDecision(ctx, job.SourcePath, "not_acceptable", match)
+		err := ErrNotAnUpgrade
 		result.Error = err
-		return result, err
-	}
-	result.DestinationPath = destPath
-
-	// Step 4a: Check if source and destination are the same file (hardlink)
-	// This prevents re-importing files that are already in the library via auto-scan.
-	// Manual imports skip this check since the user explicitly chose to import the file.
-	if !job.Manual && s.isSameFile(job.SourcePath, destPath) {
-		s.logger.Debug().
-			Str("source", job.SourcePath).
-			Str("dest", destPath).
-			Msg("Source and destination are the same file, skipping import")
-		result.Error = ErrFileAlreadyInLibrary
-		return result, result.Error
+		return nil, err
 	}
 
-	// Step 4.5: Slot evaluation for multi-version support (Req 5.1.1-5.2.3)
-	var targetSlotID *int64
-	var slotUpgradeFile *int64 // File ID to delete if this is a per-slot upgrade
-	isMultiVersion := s.slots != nil && s.slots.IsMultiVersionEnabled(ctx)
+	return targetSlotID, nil
+}
 
+func (s *Service) selectTargetSlot(job ImportJob, slotResult *slotEvaluationResult) *int64 {
+	if job.TargetSlotID != nil {
+		return job.TargetSlotID
+	}
+	if slotResult.RecommendedSlotID != nil {
+		return slotResult.RecommendedSlotID
+	}
+	return nil
+}
+
+// determineUpgradeStatus sets upgrade flags on the result based on slot evaluation or match state.
+// Returns the slot upgrade file ID (for multi-version cleanup) or nil.
+func (s *Service) determineUpgradeStatus(ctx context.Context, match *LibraryMatch, result *ImportResult, targetSlotID *int64, isMultiVersion bool) *int64 {
 	if isMultiVersion {
-		slotResult, slotErr := s.evaluateSlotAssignment(ctx, job, match)
-		if slotErr != nil {
-			s.logger.Warn().Err(slotErr).Msg("Slot evaluation failed, continuing without slot assignment")
-		} else if slotResult != nil {
-			result.SlotAssignments = slotResult.Assignments
-			result.RecommendedSlotID = slotResult.RecommendedSlotID
-
-			// Req 5.2.1: If manual import and multiple slots match without override, require selection
-			if slotResult.RequiresSelection && job.TargetSlotID == nil && job.Manual {
-				result.RequiresSlotSelection = true
-				return result, nil // Return early for slot selection
-			}
-
-			// Determine target slot
-			if job.TargetSlotID != nil {
-				// Req 5.2.3: User override
-				targetSlotID = job.TargetSlotID
-			} else if slotResult.RecommendedSlotID != nil {
-				targetSlotID = slotResult.RecommendedSlotID
-			}
-
-			// No matching slots → record decision and reject
-			if targetSlotID == nil && len(slotResult.Assignments) == 0 {
-				s.recordImportDecision(ctx, job.SourcePath, "not_acceptable", match)
-				result.Error = ErrNotAnUpgrade
-				return result, result.Error
-			}
-		}
+		return s.determineSlotUpgrade(ctx, match, result, targetSlotID)
 	}
-
-	// Step 5: Determine upgrade status
-	if isMultiVersion {
-		// In multi-version mode, derive upgrade status from slot evaluation
-		if targetSlotID != nil {
-			for _, a := range result.SlotAssignments {
-				if a.SlotID == *targetSlotID {
-					if a.IsUpgrade {
-						result.IsUpgrade = true
-						// Get the target slot's current file for cleanup
-						if fileID := s.getSlotFileID(ctx, match, *targetSlotID); fileID != nil {
-							slotUpgradeFile = fileID
-							if filePath := s.getFilePath(ctx, match.MediaType, *fileID); filePath != "" {
-								result.PreviousFile = filePath
-							}
-						}
-					}
-					// IsNewFill → result.IsUpgrade stays false
-					break
-				}
-			}
-		}
-	} else if match.IsUpgrade {
+	if match.IsUpgrade {
 		result.IsUpgrade = true
 		result.PreviousFile = match.ExistingFile
 	}
+	return nil
+}
 
-	// Step 6: Execute import (hardlink/copy)
-	linkMode, err := s.executeImport(ctx, job.SourcePath, destPath)
-	if err != nil {
-		result.Error = err
-		return result, err
+func (s *Service) determineSlotUpgrade(ctx context.Context, match *LibraryMatch, result *ImportResult, targetSlotID *int64) *int64 {
+	if targetSlotID == nil {
+		return nil
 	}
-	result.LinkMode = linkMode
-
-	// Step 6.5: Queue async MediaInfo probe (non-blocking)
-	// Import completes immediately; MediaInfo updates DB in background
-	if s.mediainfo != nil && s.mediainfo.IsAvailable() {
-		go func(path string, m *LibraryMatch) {
-			probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer cancel()
-			probedInfo, probeErr := s.mediainfo.Probe(probeCtx, path)
-			if probeErr != nil {
-				s.logger.Warn().Err(probeErr).Str("path", path).Msg("Background MediaInfo probe failed")
-				return
-			}
-			if probedInfo == nil {
-				return
-			}
-			// Update the database record with MediaInfo
-			if m.MediaType == "movie" && m.MovieID != nil {
-				if err := s.movies.UpdateFileMediaInfo(probeCtx, *m.MovieID, probedInfo); err != nil {
-					s.logger.Warn().Err(err).Int64("movieId", *m.MovieID).Msg("Failed to update movie file MediaInfo")
-				}
-			} else if m.MediaType == "episode" && m.EpisodeID != nil {
-				if err := s.tv.UpdateEpisodeFileMediaInfo(probeCtx, *m.EpisodeID, probedInfo); err != nil {
-					s.logger.Warn().Err(err).Int64("episodeId", *m.EpisodeID).Msg("Failed to update episode file MediaInfo")
+	for _, a := range result.SlotAssignments {
+		if a.SlotID != *targetSlotID {
+			continue
+		}
+		if a.IsUpgrade {
+			result.IsUpgrade = true
+			fileID := s.getSlotFileID(ctx, match, *targetSlotID)
+			if fileID != nil {
+				if filePath := s.getFilePath(ctx, match.MediaType, *fileID); filePath != "" {
+					result.PreviousFile = filePath
 				}
 			}
-		}(destPath, match)
+			return fileID
+		}
+		break
+	}
+	return nil
+}
+
+// queueMediaInfoProbe launches a background goroutine to probe MediaInfo for the imported file.
+func (s *Service) queueMediaInfoProbe(destPath string, match *LibraryMatch) {
+	if s.mediainfo == nil || !s.mediainfo.IsAvailable() {
+		return
+	}
+	go s.runMediaInfoProbe(destPath, match)
+}
+
+func (s *Service) runMediaInfoProbe(path string, match *LibraryMatch) {
+	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	probedInfo, probeErr := s.mediainfo.Probe(probeCtx, path)
+	if probeErr != nil {
+		s.logger.Warn().Err(probeErr).Str("path", path).Msg("Background MediaInfo probe failed")
+		return
+	}
+	if probedInfo == nil {
+		return
 	}
 
-	// Step 6.7: Resolve quality ID from filename for the new file record.
-	// checkForExistingFile may have already set CandidateQualityID during upgrade comparison,
-	// but for new imports (no existing file) or multi-version mode it won't be set yet.
-	if match.CandidateQualityID == 0 {
-		s.resolveQualityID(ctx, match, job.SourcePath)
-	}
+	s.updateMediaInfoForMatch(probeCtx, match, probedInfo)
+}
 
-	// Step 7: Update library records
-	fileID, updateErr := s.updateLibraryWithID(ctx, match, destPath, job.SourcePath, mediaInfo)
-	if updateErr != nil {
-		// Import succeeded but library update failed - log warning but don't fail
-		s.logger.Warn().Err(updateErr).Msg("Failed to update library records")
-	}
-
-	// Step 7.5: Assign file to slot (if multi-version enabled)
-	if targetSlotID != nil && fileID != nil && s.slots != nil {
-		mediaID := s.getMediaIDFromMatch(match)
-		if mediaID != nil {
-			if err := s.slots.AssignFileToSlot(ctx, match.MediaType, *mediaID, *targetSlotID, *fileID); err != nil {
-				s.logger.Warn().Err(err).Int64("slotId", *targetSlotID).Msg("Failed to assign file to slot")
-			} else {
-				result.AssignedSlotID = targetSlotID
-				s.logger.Info().Int64("slotId", *targetSlotID).Int64("fileId", *fileID).Msg("File assigned to slot")
-			}
+func (s *Service) updateMediaInfoForMatch(ctx context.Context, match *LibraryMatch, probedInfo *mediainfo.MediaInfo) {
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
+		if err := s.movies.UpdateFileMediaInfo(ctx, *match.MovieID, probedInfo); err != nil {
+			s.logger.Warn().Err(err).Int64("movieId", *match.MovieID).Msg("Failed to update movie file MediaInfo")
+		}
+	} else if match.MediaType == mediaTypeEpisode && match.EpisodeID != nil {
+		if err := s.tv.UpdateEpisodeFileMediaInfo(ctx, *match.EpisodeID, probedInfo); err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", *match.EpisodeID).Msg("Failed to update episode file MediaInfo")
 		}
 	}
+}
 
-	// Step 8: Handle upgrade cleanup
-	if result.IsUpgrade && result.PreviousFile != "" {
-		// Delete old physical file
-		if err := s.organizer.DeleteUpgradedFile(result.PreviousFile, destPath); err != nil {
-			s.logger.Warn().Err(err).Str("file", result.PreviousFile).Msg("Failed to delete upgraded file")
-		}
-		// Delete old database record — in multi-version mode, delete the target slot's file
-		oldFileID := match.ExistingFileID
-		if isMultiVersion && slotUpgradeFile != nil {
-			oldFileID = slotUpgradeFile
-		}
-		if oldFileID != nil {
-			if match.MediaType == "movie" {
-				if err := s.movies.RemoveFile(ctx, *oldFileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", *oldFileID).Msg("Failed to remove old movie file record")
-				}
-			} else if match.MediaType == "episode" {
-				if err := s.tv.RemoveEpisodeFile(ctx, *oldFileID); err != nil {
-					s.logger.Warn().Err(err).Int64("fileId", *oldFileID).Msg("Failed to remove old episode file record")
-				}
-			}
-		}
+// assignFileToSlot assigns the imported file to a slot in multi-version mode.
+func (s *Service) assignFileToSlot(ctx context.Context, match *LibraryMatch, targetSlotID, fileID *int64, result *ImportResult) {
+	if targetSlotID == nil || fileID == nil || s.slots == nil {
+		return
+	}
+	mediaID := s.getMediaIDFromMatch(match)
+	if mediaID == nil {
+		return
+	}
+	if err := s.slots.AssignFileToSlot(ctx, match.MediaType, *mediaID, *targetSlotID, *fileID); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", *targetSlotID).Msg("Failed to assign file to slot")
+	} else {
+		result.AssignedSlotID = targetSlotID
+		s.logger.Info().Int64("slotId", *targetSlotID).Int64("fileId", *fileID).Msg("File assigned to slot")
+	}
+}
+
+// cleanupUpgradedFile deletes the old file and database record when an import is an upgrade.
+func (s *Service) cleanupUpgradedFile(ctx context.Context, match *LibraryMatch, result *ImportResult, slotUpgradeFile *int64, destPath string, isMultiVersion bool) {
+	if !result.IsUpgrade || result.PreviousFile == "" {
+		return
+	}
+	if err := s.organizer.DeleteUpgradedFile(result.PreviousFile, destPath); err != nil {
+		s.logger.Warn().Err(err).Str("file", result.PreviousFile).Msg("Failed to delete upgraded file")
 	}
 
-	// Step 9: Log to history
-	if err := s.logImportHistory(ctx, result); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to log import history")
+	oldFileID := s.getOldFileID(match, slotUpgradeFile, isMultiVersion)
+	if oldFileID == nil {
+		return
 	}
 
-	// Step 10: Clear health status for this path
-	if s.health != nil {
-		s.health.ClearStatusStr("import", job.SourcePath)
-	}
+	s.removeOldFileRecord(ctx, match.MediaType, *oldFileID)
+}
 
-	result.Success = true
-	return result, nil
+func (s *Service) getOldFileID(match *LibraryMatch, slotUpgradeFile *int64, isMultiVersion bool) *int64 {
+	if isMultiVersion && slotUpgradeFile != nil {
+		return slotUpgradeFile
+	}
+	return match.ExistingFileID
+}
+
+func (s *Service) removeOldFileRecord(ctx context.Context, mediaType string, fileID int64) {
+	switch mediaType {
+	case mediaTypeMovie:
+		if err := s.movies.RemoveFile(ctx, fileID); err != nil {
+			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to remove old movie file record")
+		}
+	case mediaTypeEpisode:
+		if err := s.tv.RemoveEpisodeFile(ctx, fileID); err != nil {
+			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to remove old episode file record")
+		}
+	}
 }
 
 // computeDestination computes the full destination path for the file.
@@ -575,60 +644,60 @@ func (s *Service) computeDestination(
 	match *LibraryMatch,
 	mediaInfo *mediainfo.MediaInfo,
 	sourcePath string,
-	settings *ImportSettings,
 ) (string, error) {
 	ext := filepath.Ext(sourcePath)
-
-	// Build token context from match and mediainfo
 	tokenCtx := s.buildTokenContext(ctx, match, mediaInfo, sourcePath)
 
-	var filename string
-	var folderPath string
-	var err error
+	if match.MediaType == mediaTypeMovie {
+		return s.computeMovieDestination(tokenCtx, match.RootFolder, ext)
+	}
+	return s.computeEpisodeDestination(tokenCtx, match.RootFolder, ext)
+}
 
-	if match.MediaType == "movie" {
-		// Movie: root folder / movie folder / filename
-		filename, err = s.renamer.ResolveMovieFilename(tokenCtx, ext)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve movie filename: %w", err)
-		}
-
-		movieFolder, err := s.renamer.ResolveMovieFolderName(tokenCtx)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve movie folder: %w", err)
-		}
-
-		folderPath = filepath.Join(match.RootFolder, movieFolder)
-	} else {
-		// Episode: root folder / series folder / season folder / filename
-		filename, err = s.renamer.ResolveEpisodeFilename(tokenCtx, ext)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve episode filename: %w", err)
-		}
-
-		seriesFolder, err := s.renamer.ResolveSeriesFolderName(tokenCtx)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve series folder: %w", err)
-		}
-
-		seasonFolder := s.renamer.ResolveSeasonFolderName(tokenCtx.SeasonNumber)
-		folderPath = filepath.Join(match.RootFolder, seriesFolder, seasonFolder)
+func (s *Service) computeMovieDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
+	filename, err := s.renamer.ResolveMovieFilename(tokenCtx, ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve movie filename: %w", err)
 	}
 
-	// Validate path length
+	movieFolder, err := s.renamer.ResolveMovieFolderName(tokenCtx)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve movie folder: %w", err)
+	}
+
+	folderPath := filepath.Join(rootFolder, movieFolder)
 	fullPath, err := s.renamer.ResolveFullPath(folderPath, "", filename)
 	if err != nil {
 		return "", ErrPathTooLong
 	}
+	return fullPath, nil
+}
 
+func (s *Service) computeEpisodeDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
+	filename, err := s.renamer.ResolveEpisodeFilename(tokenCtx, ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve episode filename: %w", err)
+	}
+
+	seriesFolder, err := s.renamer.ResolveSeriesFolderName(tokenCtx)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve series folder: %w", err)
+	}
+
+	seasonFolder := s.renamer.ResolveSeasonFolderName(tokenCtx.SeasonNumber)
+	folderPath := filepath.Join(rootFolder, seriesFolder, seasonFolder)
+	fullPath, err := s.renamer.ResolveFullPath(folderPath, "", filename)
+	if err != nil {
+		return "", ErrPathTooLong
+	}
 	return fullPath, nil
 }
 
 // executeImport performs the actual file import using hardlink/copy.
-func (s *Service) executeImport(ctx context.Context, source, dest string) (organizer.LinkMode, error) {
+func (s *Service) executeImport(source, dest string) (organizer.LinkMode, error) {
 	// Ensure destination directory exists
 	destDir := filepath.Dir(dest)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -644,8 +713,6 @@ func (s *Service) buildTokenContext(
 	sourcePath string,
 ) *renamer.TokenContext {
 	filename := filepath.Base(sourcePath)
-
-	// Parse path for quality/source/codec info (falls back to parent dir)
 	parsed := scanner.ParsePath(sourcePath)
 
 	tc := &renamer.TokenContext{
@@ -653,15 +720,26 @@ func (s *Service) buildTokenContext(
 		OriginalTitle: strings.TrimSuffix(filename, filepath.Ext(filename)),
 	}
 
-	// Use parsed filename data for quality info
+	s.applyParsedAttributes(tc, parsed)
+	s.applyMediaInfo(tc, mediaInfo, parsed)
+
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
+		s.applyMovieContext(ctx, tc, *match.MovieID)
+	} else if match.MediaType == mediaTypeEpisode && match.SeriesID != nil {
+		s.applySeriesContext(ctx, tc, match)
+	}
+
+	return tc
+}
+
+// applyParsedAttributes populates token context with parsed filename data.
+func (s *Service) applyParsedAttributes(tc *renamer.TokenContext, parsed *scanner.ParsedMedia) {
 	tc.Quality = parsed.Quality
 	tc.Source = parsed.Source
 	tc.Codec = parsed.Codec
 
-	// Use parsed filename for video dynamic range (HDR info from Attributes)
 	for _, attr := range parsed.Attributes {
-		switch attr {
-		case "HDR10+", "HDR10", "HDR", "DV", "Dolby Vision":
+		if s.isHDRAttribute(attr) {
 			if tc.VideoDynamicRange == "" {
 				tc.VideoDynamicRange = attr
 			} else {
@@ -670,33 +748,44 @@ func (s *Service) buildTokenContext(
 		}
 	}
 
-	// Use parsed filename for audio info
 	if len(parsed.AudioCodecs) > 0 {
 		tc.AudioCodec = strings.Join(parsed.AudioCodecs, " ")
 	}
 	if len(parsed.AudioChannels) > 0 {
 		tc.AudioChannels = strings.Join(parsed.AudioChannels, " ")
 	}
-	// Append audio enhancements to audio codec
 	if len(parsed.AudioEnhancements) > 0 {
+		enhancement := strings.Join(parsed.AudioEnhancements, " ")
 		if tc.AudioCodec != "" {
-			tc.AudioCodec += " " + strings.Join(parsed.AudioEnhancements, " ")
+			tc.AudioCodec += " " + enhancement
 		} else {
-			tc.AudioCodec = strings.Join(parsed.AudioEnhancements, " ")
+			tc.AudioCodec = enhancement
 		}
 	}
 
-	// Use parsed filename for release group, revision, and edition
 	tc.ReleaseGroup = parsed.ReleaseGroup
 	tc.Revision = parsed.Revision
 	tc.EditionTags = parsed.Edition
+}
 
-	// Override with MediaInfo data if available (more accurate than filename parsing)
+// isHDRAttribute checks if an attribute is an HDR type.
+func (s *Service) isHDRAttribute(attr string) bool {
+	switch attr {
+	case "HDR10+", "HDR10", "HDR", "DV", "Dolby Vision":
+		return true
+	default:
+		return false
+	}
+}
+
+// applyMediaInfo overrides token context with MediaInfo data (more accurate than filename parsing).
+func (s *Service) applyMediaInfo(tc *renamer.TokenContext, mediaInfo *mediainfo.MediaInfo, parsed *scanner.ParsedMedia) {
 	if mediaInfo.VideoCodec != "" {
 		tc.VideoCodec = mediaInfo.VideoCodec
 	} else {
 		tc.VideoCodec = parsed.Codec
 	}
+
 	if mediaInfo.VideoBitDepth > 0 {
 		tc.VideoBitDepth = mediaInfo.VideoBitDepth
 	}
@@ -715,53 +804,70 @@ func (s *Service) buildTokenContext(
 	if len(mediaInfo.SubtitleLanguages) > 0 {
 		tc.SubtitleLanguages = mediaInfo.SubtitleLanguages
 	}
+}
 
-	// Fill in series/movie info from library
-	if match.MediaType == "movie" && match.MovieID != nil {
-		movie, err := s.movies.Get(ctx, *match.MovieID)
-		if err == nil {
-			tc.MovieTitle = movie.Title
-			tc.MovieYear = movie.Year
-		}
-	} else if match.MediaType == "episode" && match.SeriesID != nil {
-		series, err := s.tv.GetSeries(ctx, *match.SeriesID)
-		if err == nil {
-			tc.SeriesTitle = series.Title
-			tc.SeriesYear = series.Year
-			tc.SeriesType = series.FormatType
-			if tc.SeriesType == "" {
-				tc.SeriesType = "standard"
-			}
-		}
+// applyMovieContext populates token context with movie library data.
+func (s *Service) applyMovieContext(ctx context.Context, tc *renamer.TokenContext, movieID int64) {
+	movie, err := s.movies.Get(ctx, movieID)
+	if err != nil {
+		return
+	}
+	tc.MovieTitle = movie.Title
+	tc.MovieYear = movie.Year
+}
 
-		if match.SeasonNum != nil {
-			tc.SeasonNumber = *match.SeasonNum
-		}
+// applySeriesContext populates token context with series/episode library data.
+func (s *Service) applySeriesContext(ctx context.Context, tc *renamer.TokenContext, match *LibraryMatch) {
+	if match.SeriesID == nil {
+		return
+	}
 
-		if match.EpisodeID != nil {
-			episode, err := s.tv.GetEpisode(ctx, *match.EpisodeID)
-			if err == nil {
-				tc.EpisodeNumber = episode.EpisodeNumber
-				tc.EpisodeTitle = episode.Title
-				if episode.AirDate != nil {
-					tc.AirDate = *episode.AirDate
-				}
-			}
-		}
-
-		// Handle multi-episode
-		if len(match.EpisodeIDs) > 1 {
-			tc.EpisodeNumbers = make([]int, 0, len(match.EpisodeIDs))
-			for _, epID := range match.EpisodeIDs {
-				ep, err := s.tv.GetEpisode(ctx, epID)
-				if err == nil {
-					tc.EpisodeNumbers = append(tc.EpisodeNumbers, ep.EpisodeNumber)
-				}
-			}
+	series, err := s.tv.GetSeries(ctx, *match.SeriesID)
+	if err == nil {
+		tc.SeriesTitle = series.Title
+		tc.SeriesYear = series.Year
+		tc.SeriesType = series.FormatType
+		if tc.SeriesType == "" {
+			tc.SeriesType = "standard"
 		}
 	}
 
-	return tc
+	if match.SeasonNum != nil {
+		tc.SeasonNumber = *match.SeasonNum
+	}
+
+	if match.EpisodeID != nil {
+		s.applySingleEpisodeContext(ctx, tc, *match.EpisodeID)
+	}
+
+	if len(match.EpisodeIDs) > 1 {
+		s.applyMultiEpisodeContext(ctx, tc, match.EpisodeIDs)
+	}
+}
+
+// applySingleEpisodeContext populates token context with episode data.
+func (s *Service) applySingleEpisodeContext(ctx context.Context, tc *renamer.TokenContext, episodeID int64) {
+	episode, err := s.tv.GetEpisode(ctx, episodeID)
+	if err != nil {
+		return
+	}
+	tc.EpisodeNumber = episode.EpisodeNumber
+	tc.EpisodeTitle = episode.Title
+	if episode.AirDate != nil {
+		tc.AirDate = *episode.AirDate
+	}
+}
+
+// applyMultiEpisodeContext populates token context with multi-episode data.
+func (s *Service) applyMultiEpisodeContext(ctx context.Context, tc *renamer.TokenContext, episodeIDs []int64) {
+	tc.EpisodeNumbers = make([]int, 0, len(episodeIDs))
+	for _, epID := range episodeIDs {
+		ep, err := s.tv.GetEpisode(ctx, epID)
+		if err != nil {
+			continue
+		}
+		tc.EpisodeNumbers = append(tc.EpisodeNumbers, ep.EpisodeNumber)
+	}
 }
 
 // logImportHistory logs the import to history.
@@ -771,7 +877,7 @@ func (s *Service) logImportHistory(ctx context.Context, result *ImportResult) er
 	}
 
 	var mediaID int64
-	if result.Match.MediaType == "movie" && result.Match.MovieID != nil {
+	if result.Match.MediaType == mediaTypeMovie && result.Match.MovieID != nil {
 		mediaID = *result.Match.MovieID
 	} else if result.Match.EpisodeID != nil {
 		mediaID = *result.Match.EpisodeID
@@ -798,7 +904,7 @@ func (s *Service) logImportHistory(ctx context.Context, result *ImportResult) er
 		}
 	}
 
-	return s.history.Create(ctx, HistoryInput{
+	return s.history.Create(ctx, &HistoryInput{
 		EventType: "imported",
 		MediaType: result.Match.MediaType,
 		MediaID:   mediaID,
@@ -828,9 +934,9 @@ func (s *Service) findVideoFilesWithSettings(ctx context.Context, dir string, se
 
 	var files []string
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip errors
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil //nolint:nilerr // Skip filesystem errors during walk
 		}
 
 		if info.IsDir() {
@@ -851,32 +957,6 @@ func (s *Service) findVideoFilesWithSettings(ctx context.Context, dir string, se
 	})
 
 	return files, err
-}
-
-// handleCleanup handles source file cleanup after import.
-func (s *Service) handleCleanup(ctx context.Context, sourcePath string, clientID int64) error {
-	client, err := s.downloader.Get(ctx, clientID)
-	if err != nil {
-		return err
-	}
-
-	switch client.CleanupMode {
-	case "leave":
-		// Do nothing
-		return nil
-
-	case "delete_after_import":
-		// Delete immediately
-		return os.Remove(sourcePath)
-
-	case "delete_after_seed_ratio":
-		// Check seed ratio (handled by scheduler)
-		// For now, leave the file
-		return nil
-
-	default:
-		return nil
-	}
 }
 
 // applyImportDelay waits for the configured import delay.
@@ -909,43 +989,42 @@ type slotEvaluationResult struct {
 // Req 5.1.1-5.1.5: Evaluate release against slot profiles and determine target.
 func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, match *LibraryMatch) (*slotEvaluationResult, error) {
 	if s.slots == nil {
-		return nil, nil
+		return nil, ErrNotApplicable
 	}
 
-	// Parse the path to get release attributes (falls back to parent dir)
 	parsed := scanner.ParsePath(job.SourcePath)
-
-	// Get media ID for slot evaluation
-	var mediaType string
-	var mediaID int64
-	if match.MediaType == "movie" && match.MovieID != nil {
-		mediaType = "movie"
-		mediaID = *match.MovieID
-	} else if match.MediaType == "episode" && match.EpisodeID != nil {
-		mediaType = "episode"
-		mediaID = *match.EpisodeID
-	} else {
-		return nil, nil
+	mediaType, mediaID, err := s.extractMediaInfo(match)
+	if err != nil {
+		return nil, err
 	}
 
-	// Evaluate release against all slots
 	eval, err := s.slots.EvaluateRelease(ctx, parsed, mediaType, mediaID)
 	if err != nil {
 		return nil, err
 	}
 
 	if eval == nil || len(eval.Assignments) == 0 {
-		return nil, nil
+		return nil, ErrNotApplicable
 	}
 
-	// Convert to import-level type
-	result := &slotEvaluationResult{
-		Assignments:       make([]SlotAssignment, 0, len(eval.Assignments)),
-		RequiresSelection: eval.RequiresSelection,
-	}
+	return s.convertToImportSlotResult(eval), nil
+}
 
+func (s *Service) extractMediaInfo(match *LibraryMatch) (mediaType string, mediaID int64, err error) {
+	switch {
+	case match.MediaType == mediaTypeMovie && match.MovieID != nil:
+		return mediaTypeMovie, *match.MovieID, nil
+	case match.MediaType == mediaTypeEpisode && match.EpisodeID != nil:
+		return mediaTypeEpisode, *match.EpisodeID, nil
+	default:
+		return "", 0, ErrNotApplicable
+	}
+}
+
+func (s *Service) convertToImportSlotResult(eval *slots.SlotEvaluation) *slotEvaluationResult {
+	assignments := make([]SlotAssignment, 0, len(eval.Assignments))
 	for _, a := range eval.Assignments {
-		result.Assignments = append(result.Assignments, SlotAssignment{
+		assignments = append(assignments, SlotAssignment{
 			SlotID:     a.SlotID,
 			SlotNumber: a.SlotNumber,
 			SlotName:   a.SlotName,
@@ -955,11 +1034,16 @@ func (s *Service) evaluateSlotAssignment(ctx context.Context, job ImportJob, mat
 		})
 	}
 
+	result := &slotEvaluationResult{
+		Assignments:       assignments,
+		RequiresSelection: eval.RequiresSelection,
+	}
+
 	if eval.RecommendedSlotID != 0 {
 		result.RecommendedSlotID = &eval.RecommendedSlotID
 	}
 
-	return result, nil
+	return result
 }
 
 // resolveQualityID parses the source filename and resolves a quality ID against the media's profile.
@@ -969,18 +1053,7 @@ func (s *Service) resolveQualityID(ctx context.Context, match *LibraryMatch, sou
 		return
 	}
 
-	var qualityProfileID int64
-	if match.QualityProfileID > 0 {
-		qualityProfileID = match.QualityProfileID
-	} else if match.MediaType == "movie" && match.MovieID != nil {
-		if movie, err := s.movies.Get(ctx, *match.MovieID); err == nil {
-			qualityProfileID = movie.QualityProfileID
-		}
-	} else if match.MediaType == "episode" && match.SeriesID != nil {
-		if series, err := s.tv.GetSeries(ctx, *match.SeriesID); err == nil {
-			qualityProfileID = series.QualityProfileID
-		}
-	}
+	qualityProfileID := s.getQualityProfileID(ctx, match)
 	if qualityProfileID == 0 {
 		return
 	}
@@ -998,80 +1071,113 @@ func (s *Service) resolveQualityID(ctx context.Context, match *LibraryMatch, sou
 	}
 }
 
+func (s *Service) getQualityProfileID(ctx context.Context, match *LibraryMatch) int64 {
+	if match.QualityProfileID > 0 {
+		return match.QualityProfileID
+	}
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
+		if movie, err := s.movies.Get(ctx, *match.MovieID); err == nil {
+			return movie.QualityProfileID
+		}
+	}
+	if match.MediaType == mediaTypeEpisode && match.SeriesID != nil {
+		if series, err := s.tv.GetSeries(ctx, *match.SeriesID); err == nil {
+			return series.QualityProfileID
+		}
+	}
+	return 0
+}
+
 // updateLibraryWithID updates the library and returns the created file ID.
 // sourcePath is the original file path before import (for duplicate detection).
-func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath string, sourcePath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
+func (s *Service) updateLibraryWithID(ctx context.Context, match *LibraryMatch, destPath, sourcePath string, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
 	stat, err := os.Stat(destPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat destination file: %w", err)
 	}
 
-	var qualityID *int64
-	if match.CandidateQualityID > 0 {
-		id := int64(match.CandidateQualityID)
-		qualityID = &id
-	}
-
-	// Remove existing file record before creating new one to prevent duplicates.
-	// This handles re-imports at the same quality level where upgrade cleanup doesn't run.
-	if match.ExistingFileID != nil {
-		if match.MediaType == "movie" {
-			_ = s.movies.RemoveFile(ctx, *match.ExistingFileID)
-		} else if match.MediaType == "episode" {
-			_ = s.tv.RemoveEpisodeFile(ctx, *match.ExistingFileID)
-		}
-		match.ExistingFileID = nil
-	}
+	s.removeExistingFileRecord(ctx, match)
 
 	parsed := scanner.ParsePath(sourcePath)
 	qualityStr := parsed.Quality
+	qualityID := s.getQualityIDPtr(match.CandidateQualityID)
 
-	if match.MediaType == "movie" && match.MovieID != nil {
-		file, err := s.movies.AddFile(ctx, *match.MovieID, movies.CreateMovieFileInput{
-			Path:             destPath,
-			Size:             stat.Size(),
-			Quality:          qualityStr,
-			QualityID:        qualityID,
-			VideoCodec:       mediaInfo.VideoCodec,
-			AudioCodec:       mediaInfo.AudioCodec,
-			AudioChannels:    mediaInfo.AudioChannels,
-			DynamicRange:     mediaInfo.DynamicRangeType,
-			Resolution:       mediaInfo.VideoResolution,
-			OriginalPath:     sourcePath,
-			OriginalFilename: filepath.Base(sourcePath),
-		})
-		if err != nil {
-			return nil, err
-		}
-		return &file.ID, nil
-	} else if match.MediaType == "episode" && match.EpisodeID != nil {
-		file, err := s.tv.AddEpisodeFile(ctx, *match.EpisodeID, tv.CreateEpisodeFileInput{
-			Path:             destPath,
-			Size:             stat.Size(),
-			Quality:          qualityStr,
-			QualityID:        qualityID,
-			VideoCodec:       mediaInfo.VideoCodec,
-			AudioCodec:       mediaInfo.AudioCodec,
-			AudioChannels:    mediaInfo.AudioChannels,
-			DynamicRange:     mediaInfo.DynamicRangeType,
-			Resolution:       mediaInfo.VideoResolution,
-			OriginalPath:     sourcePath,
-			OriginalFilename: filepath.Base(sourcePath),
-		})
-		if err != nil {
-			return nil, err
-		}
-		return &file.ID, nil
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
+		return s.addMovieFile(ctx, match, destPath, sourcePath, stat, qualityStr, qualityID, mediaInfo)
+	}
+	if match.MediaType == mediaTypeEpisode && match.EpisodeID != nil {
+		return s.addEpisodeFile(ctx, match, destPath, sourcePath, stat, qualityStr, qualityID, mediaInfo)
 	}
 
-	return nil, nil
+	return nil, ErrNotApplicable
+}
+
+func (s *Service) removeExistingFileRecord(ctx context.Context, match *LibraryMatch) {
+	if match.ExistingFileID == nil {
+		return
+	}
+	switch match.MediaType {
+	case mediaTypeMovie:
+		_ = s.movies.RemoveFile(ctx, *match.ExistingFileID)
+	case mediaTypeEpisode:
+		_ = s.tv.RemoveEpisodeFile(ctx, *match.ExistingFileID)
+	}
+	match.ExistingFileID = nil
+}
+
+func (s *Service) getQualityIDPtr(candidateQualityID int) *int64 {
+	if candidateQualityID > 0 {
+		id := int64(candidateQualityID)
+		return &id
+	}
+	return nil
+}
+
+func (s *Service) addMovieFile(ctx context.Context, match *LibraryMatch, destPath, sourcePath string, stat os.FileInfo, qualityStr string, qualityID *int64, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
+	file, err := s.movies.AddFile(ctx, *match.MovieID, &movies.CreateMovieFileInput{
+		Path:             destPath,
+		Size:             stat.Size(),
+		Quality:          qualityStr,
+		QualityID:        qualityID,
+		VideoCodec:       mediaInfo.VideoCodec,
+		AudioCodec:       mediaInfo.AudioCodec,
+		AudioChannels:    mediaInfo.AudioChannels,
+		DynamicRange:     mediaInfo.DynamicRangeType,
+		Resolution:       mediaInfo.VideoResolution,
+		OriginalPath:     sourcePath,
+		OriginalFilename: filepath.Base(sourcePath),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &file.ID, nil
+}
+
+func (s *Service) addEpisodeFile(ctx context.Context, match *LibraryMatch, destPath, sourcePath string, stat os.FileInfo, qualityStr string, qualityID *int64, mediaInfo *mediainfo.MediaInfo) (*int64, error) {
+	file, err := s.tv.AddEpisodeFile(ctx, *match.EpisodeID, &tv.CreateEpisodeFileInput{
+		Path:             destPath,
+		Size:             stat.Size(),
+		Quality:          qualityStr,
+		QualityID:        qualityID,
+		VideoCodec:       mediaInfo.VideoCodec,
+		AudioCodec:       mediaInfo.AudioCodec,
+		AudioChannels:    mediaInfo.AudioChannels,
+		DynamicRange:     mediaInfo.DynamicRangeType,
+		Resolution:       mediaInfo.VideoResolution,
+		OriginalPath:     sourcePath,
+		OriginalFilename: filepath.Base(sourcePath),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &file.ID, nil
 }
 
 // getMediaIDFromMatch extracts the media ID from a library match.
 func (s *Service) getMediaIDFromMatch(match *LibraryMatch) *int64 {
-	if match.MediaType == "movie" && match.MovieID != nil {
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
 		return match.MovieID
-	} else if match.MediaType == "episode" && match.EpisodeID != nil {
+	} else if match.MediaType == mediaTypeEpisode && match.EpisodeID != nil {
 		return match.EpisodeID
 	}
 	return nil
@@ -1087,45 +1193,43 @@ func (s *Service) processMockImport(ctx context.Context, mapping *DownloadMappin
 
 	vfs := fsmock.GetInstance()
 
-	switch mapping.MediaType {
-	case "movie":
-		if mapping.MovieID != nil {
-			if err := s.processMockMovieImport(ctx, mapping, vfs); err != nil {
-				return err
-			}
-		}
-	case "episode", "season":
-		if mapping.SeriesID != nil {
-			if err := s.processMockTVImport(ctx, mapping, vfs); err != nil {
-				return err
-			}
-		}
-	case "series":
-		if mapping.SeriesID != nil {
-			if err := s.processMockCompleteSeriesImport(ctx, mapping, vfs); err != nil {
-				return err
-			}
-		}
+	if err := s.processMockImportByType(ctx, mapping, vfs); err != nil {
+		return err
 	}
 
-	// Clean up: delete the download mapping so this doesn't trigger again
+	s.cleanupMockDownload(ctx, mapping)
+	return nil
+}
+
+func (s *Service) processMockImportByType(ctx context.Context, mapping *DownloadMapping, vfs *fsmock.VirtualFS) error {
+	switch mapping.MediaType {
+	case mediaTypeMovie:
+		if mapping.MovieID != nil {
+			return s.processMockMovieImport(ctx, mapping, vfs)
+		}
+	case mediaTypeEpisode, mediaSeason:
+		if mapping.SeriesID != nil {
+			return s.processMockTVImport(ctx, mapping, vfs)
+		}
+	case mediaSeries:
+		if mapping.SeriesID != nil {
+			return s.processMockCompleteSeriesImport(ctx, mapping, vfs)
+		}
+	}
+	return nil
+}
+
+func (s *Service) cleanupMockDownload(ctx context.Context, mapping *DownloadMapping) {
 	if err := s.downloader.DeleteDownloadMapping(ctx, mapping.DownloadClientID, mapping.DownloadID); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to delete download mapping after mock import")
 	}
 
-	// Clean up: remove the mock download from the client
 	client, err := s.downloader.GetClient(ctx, mapping.DownloadClientID)
 	if err == nil {
 		if err := client.Remove(ctx, mapping.DownloadID, false); err != nil {
 			s.logger.Warn().Err(err).Msg("Failed to remove mock download after import")
 		}
 	}
-
-	// Note: No need to broadcast queue:updated here - the QueueBroadcaster
-	// sends queue:state every 2 seconds which will update the UI.
-	// Broadcasting here caused a refetch loop via getQueue triggering more imports.
-
-	return nil
 }
 
 // processMockMovieImport handles mock import for movies.
@@ -1149,7 +1253,7 @@ func (s *Service) processMockMovieImport(ctx context.Context, mapping *DownloadM
 	vfs.AddFile(mockFilePath, fileSize)
 
 	// Add file record to database
-	file, err := s.movies.AddFile(ctx, *mapping.MovieID, movies.CreateMovieFileInput{
+	file, err := s.movies.AddFile(ctx, *mapping.MovieID, &movies.CreateMovieFileInput{
 		Path:       mockFilePath,
 		Size:       fileSize,
 		Quality:    "1080p",
@@ -1214,7 +1318,7 @@ func (s *Service) processMockTVImport(ctx context.Context, mapping *DownloadMapp
 	}
 
 	// Determine if this is a season pack or single episode
-	isSeasonPack := mapping.MediaType == "season" || (mapping.SeasonNumber != nil && mapping.EpisodeID == nil)
+	isSeasonPack := mapping.MediaType == mediaSeason || (mapping.SeasonNumber != nil && mapping.EpisodeID == nil)
 
 	if isSeasonPack && mapping.SeasonNumber != nil {
 		// Season pack: create files for all episodes in the season
@@ -1234,7 +1338,6 @@ func (s *Service) processMockTVImport(ctx context.Context, mapping *DownloadMapp
 func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *DownloadMapping, series *tv.Series, basePath string, vfs *fsmock.VirtualFS) error {
 	seasonNum := *mapping.SeasonNumber
 
-	// Get all episodes in the season
 	episodes, err := s.tv.ListEpisodes(ctx, *mapping.SeriesID, &seasonNum)
 	if err != nil {
 		return fmt.Errorf("failed to list episodes for season %d: %w", seasonNum, err)
@@ -1243,7 +1346,7 @@ func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *Down
 	if len(episodes) == 0 {
 		s.logger.Warn().
 			Int64("seriesId", *mapping.SeriesID).
-			Int("season", seasonNum).
+			Int(mediaSeason, seasonNum).
 			Msg("No episodes found for season pack import")
 		return nil
 	}
@@ -1251,18 +1354,30 @@ func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *Down
 	seasonPath := fmt.Sprintf("%s/Season %02d", basePath, seasonNum)
 	vfs.AddDirectory(seasonPath)
 
-	fileSize := int64(2 * 1024 * 1024 * 1024) // 2 GB per episode
+	importedCount := s.importSeasonEpisodes(ctx, mapping, series, episodes, seasonPath, seasonNum, vfs)
+
+	s.logger.Info().
+		Int64("seriesId", *mapping.SeriesID).
+		Str("title", series.Title).
+		Int(mediaSeason, seasonNum).
+		Int("episodesImported", importedCount).
+		Msg("Mock season pack import completed")
+
+	s.broadcastSeasonPackImport(mapping, series, seasonNum, importedCount)
+	return nil
+}
+
+func (s *Service) importSeasonEpisodes(ctx context.Context, mapping *DownloadMapping, series *tv.Series, episodes []tv.Episode, seasonPath string, seasonNum int, vfs *fsmock.VirtualFS) int {
+	fileSize := int64(2 * 1024 * 1024 * 1024)
 	importedCount := 0
 
 	for _, ep := range episodes {
 		mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
 			seasonPath, series.Title, seasonNum, ep.EpisodeNumber)
 
-		// Add file to virtual filesystem
 		vfs.AddFile(mockFilePath, fileSize)
 
-		// Add file record to database
-		file, err := s.tv.AddEpisodeFile(ctx, ep.ID, tv.CreateEpisodeFileInput{
+		file, err := s.tv.AddEpisodeFile(ctx, ep.ID, &tv.CreateEpisodeFileInput{
 			Path:       mockFilePath,
 			Size:       fileSize,
 			Quality:    "1080p",
@@ -1277,47 +1392,29 @@ func (s *Service) processMockSeasonPackImport(ctx context.Context, mapping *Down
 			continue
 		}
 
-		// Assign to slot if multi-version mode and target slot specified
-		if mapping.TargetSlotID != nil && s.slots != nil {
-			if err := s.slots.AssignFileToSlot(ctx, "episode", ep.ID, *mapping.TargetSlotID, file.ID); err != nil {
-				s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", ep.ID).Msg("Failed to assign episode file to slot")
-			}
-		}
-
-		// Update portal request status to available for this episode
-		if s.statusTracker != nil {
-			if err := s.statusTracker.OnEpisodeAvailable(ctx, ep.ID); err != nil {
-				s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to update request status")
-			}
-		}
-
+		s.assignMockEpisodeToSlot(ctx, mapping, ep.ID, file.ID)
+		s.updateMockEpisodeRequestStatus(ctx, ep.ID)
 		importedCount++
 	}
 
-	s.logger.Info().
-		Int64("seriesId", *mapping.SeriesID).
-		Str("title", series.Title).
-		Int("season", seasonNum).
-		Int("episodesImported", importedCount).
-		Msg("Mock season pack import completed")
+	return importedCount
+}
 
-	// Broadcast import event
-	if s.hub != nil {
-		s.hub.Broadcast("import:completed", map[string]any{
-			"mediaType":        "season",
-			"seriesId":         mapping.SeriesID,
-			"seriesTitle":      series.Title,
-			"seasonNumber":     seasonNum,
-			"episodesImported": importedCount,
-			"isMock":           true,
-		})
-		// Also broadcast series update so detail page refreshes
-		s.hub.Broadcast("series:updated", map[string]any{
-			"seriesId": mapping.SeriesID,
-		})
+func (s *Service) broadcastSeasonPackImport(mapping *DownloadMapping, series *tv.Series, seasonNum, importedCount int) {
+	if s.hub == nil {
+		return
 	}
-
-	return nil
+	s.hub.Broadcast("import:completed", map[string]any{
+		"mediaType":        mediaSeason,
+		"seriesId":         mapping.SeriesID,
+		"seriesTitle":      series.Title,
+		"seasonNumber":     seasonNum,
+		"episodesImported": importedCount,
+		"isMock":           true,
+	})
+	s.hub.Broadcast("series:updated", map[string]any{
+		"seriesId": mapping.SeriesID,
+	})
 }
 
 // processMockSingleEpisodeImport creates a file for a single episode.
@@ -1338,7 +1435,7 @@ func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *D
 	vfs.AddFile(mockFilePath, fileSize)
 
 	// Add file record to database
-	file, err := s.tv.AddEpisodeFile(ctx, *mapping.EpisodeID, tv.CreateEpisodeFileInput{
+	file, err := s.tv.AddEpisodeFile(ctx, *mapping.EpisodeID, &tv.CreateEpisodeFileInput{
 		Path:       mockFilePath,
 		Size:       fileSize,
 		Quality:    "1080p",
@@ -1361,7 +1458,7 @@ func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *D
 	s.logger.Info().
 		Int64("seriesId", *mapping.SeriesID).
 		Str("title", series.Title).
-		Int("season", episode.SeasonNumber).
+		Int(mediaSeason, episode.SeasonNumber).
 		Int("episode", episode.EpisodeNumber).
 		Str("mockPath", mockFilePath).
 		Msg("Mock episode import completed")
@@ -1402,13 +1499,11 @@ func (s *Service) processMockCompleteSeriesImport(ctx context.Context, mapping *
 		return fmt.Errorf("failed to get series for mock import: %w", err)
 	}
 
-	// Use the series' configured path or create one
 	basePath := series.Path
 	if basePath == "" {
 		basePath = fmt.Sprintf("%s/%s", fsmock.MockTVPath, series.Title)
 	}
 
-	// Get all seasons for this series
 	seasons, err := s.tv.ListSeasons(ctx, *mapping.SeriesID)
 	if err != nil {
 		return fmt.Errorf("failed to list seasons for series: %w", err)
@@ -1421,85 +1516,111 @@ func (s *Service) processMockCompleteSeriesImport(ctx context.Context, mapping *
 		return nil
 	}
 
-	fileSize := int64(2 * 1024 * 1024 * 1024) // 2 GB per episode
+	totalImported := s.importAllSeasons(ctx, mapping, series, seasons, basePath, vfs)
+	s.broadcastCompleteSeriesImport(series, seasons, totalImported, mapping)
+
+	return nil
+}
+
+func (s *Service) importAllSeasons(ctx context.Context, mapping *DownloadMapping, series *tv.Series, seasons []tv.Season, basePath string, vfs *fsmock.VirtualFS) int {
+	fileSize := int64(2 * 1024 * 1024 * 1024)
 	totalImported := 0
 
-	for _, season := range seasons {
-		seasonNum := season.SeasonNumber
-		seasonPath := fmt.Sprintf("%s/Season %02d", basePath, seasonNum)
-		vfs.AddDirectory(seasonPath)
-
-		// Get all episodes in the season
-		episodes, err := s.tv.ListEpisodes(ctx, *mapping.SeriesID, &seasonNum)
-		if err != nil {
-			s.logger.Warn().Err(err).Int("season", seasonNum).Msg("Failed to list episodes for season")
-			continue
-		}
-
-		for _, ep := range episodes {
-			mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
-				seasonPath, series.Title, seasonNum, ep.EpisodeNumber)
-
-			// Add file to virtual filesystem
-			vfs.AddFile(mockFilePath, fileSize)
-
-			// Add file record to database
-			file, err := s.tv.AddEpisodeFile(ctx, ep.ID, tv.CreateEpisodeFileInput{
-				Path:       mockFilePath,
-				Size:       fileSize,
-				Quality:    "1080p",
-				VideoCodec: "x265",
-				Resolution: "1920x1080",
-			})
-			if err != nil {
-				s.logger.Warn().Err(err).
-					Int64("episodeId", ep.ID).
-					Int("season", seasonNum).
-					Int("episode", ep.EpisodeNumber).
-					Msg("Failed to add episode file")
-				continue
-			}
-
-			// Assign to slot if multi-version mode and target slot specified
-			if mapping.TargetSlotID != nil && s.slots != nil {
-				if err := s.slots.AssignFileToSlot(ctx, "episode", ep.ID, *mapping.TargetSlotID, file.ID); err != nil {
-					s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", ep.ID).Msg("Failed to assign episode file to slot")
-				}
-			}
-
-			// Update portal request status to available for this episode
-			if s.statusTracker != nil {
-				if err := s.statusTracker.OnEpisodeAvailable(ctx, ep.ID); err != nil {
-					s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to update request status")
-				}
-			}
-
-			totalImported++
-		}
+	for i := range seasons {
+		season := &seasons[i]
+		imported := s.importMockSeason(ctx, mapping, series, season, basePath, fileSize, vfs)
+		totalImported += imported
 	}
 
 	s.logger.Info().
 		Int64("seriesId", *mapping.SeriesID).
 		Str("title", series.Title).
-		Int("seasons", len(seasons)).
-		Int("episodesImported", totalImported).
+		Int("totalImported", totalImported).
 		Msg("Mock complete series import completed")
 
-	// Broadcast import event
-	if s.hub != nil {
-		s.hub.Broadcast("import:completed", map[string]any{
-			"mediaType":        "series",
-			"seriesId":         mapping.SeriesID,
-			"seriesTitle":      series.Title,
-			"seasonsImported":  len(seasons),
-			"episodesImported": totalImported,
-			"isMock":           true,
-		})
-		// Also broadcast series update so detail page refreshes
-		s.hub.Broadcast("series:updated", map[string]any{
-			"seriesId": mapping.SeriesID,
-		})
+	return totalImported
+}
+
+func (s *Service) importMockSeason(ctx context.Context, mapping *DownloadMapping, series *tv.Series, season *tv.Season, basePath string, fileSize int64, vfs *fsmock.VirtualFS) int {
+	seasonNum := season.SeasonNumber
+	seasonPath := fmt.Sprintf("%s/Season %02d", basePath, seasonNum)
+	vfs.AddDirectory(seasonPath)
+
+	episodes, err := s.tv.ListEpisodes(ctx, *mapping.SeriesID, &seasonNum)
+	if err != nil {
+		s.logger.Warn().Err(err).Int(mediaSeason, seasonNum).Msg("Failed to list episodes for season")
+		return 0
 	}
 
-	return nil
+	imported := 0
+	for i := range episodes {
+		ep := &episodes[i]
+		if s.importMockEpisode(ctx, mapping, series, ep, seasonPath, seasonNum, fileSize, vfs) {
+			imported++
+		}
+	}
+
+	return imported
+}
+
+func (s *Service) importMockEpisode(ctx context.Context, mapping *DownloadMapping, series *tv.Series, ep *tv.Episode, seasonPath string, seasonNum int, fileSize int64, vfs *fsmock.VirtualFS) bool {
+	mockFilePath := fmt.Sprintf("%s/%s - S%02dE%02d.mkv",
+		seasonPath, series.Title, seasonNum, ep.EpisodeNumber)
+
+	vfs.AddFile(mockFilePath, fileSize)
+
+	file, err := s.tv.AddEpisodeFile(ctx, ep.ID, &tv.CreateEpisodeFileInput{
+		Path:       mockFilePath,
+		Size:       fileSize,
+		Quality:    "1080p",
+		VideoCodec: "x265",
+		Resolution: "1920x1080",
+	})
+	if err != nil {
+		s.logger.Warn().Err(err).
+			Int64("episodeId", ep.ID).
+			Int(mediaSeason, seasonNum).
+			Int("episode", ep.EpisodeNumber).
+			Msg("Failed to add episode file")
+		return false
+	}
+
+	s.assignMockEpisodeToSlot(ctx, mapping, ep.ID, file.ID)
+	s.updateMockEpisodeRequestStatus(ctx, ep.ID)
+	return true
+}
+
+func (s *Service) assignMockEpisodeToSlot(ctx context.Context, mapping *DownloadMapping, episodeID, fileID int64) {
+	if mapping.TargetSlotID == nil || s.slots == nil {
+		return
+	}
+	if err := s.slots.AssignFileToSlot(ctx, "episode", episodeID, *mapping.TargetSlotID, fileID); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", *mapping.TargetSlotID).Int64("episodeId", episodeID).Msg("Failed to assign episode file to slot")
+	}
+}
+
+func (s *Service) updateMockEpisodeRequestStatus(ctx context.Context, episodeID int64) {
+	if s.statusTracker != nil {
+		if err := s.statusTracker.OnEpisodeAvailable(ctx, episodeID); err != nil {
+			s.logger.Warn().Err(err).Int64("episodeId", episodeID).Msg("Failed to update request status")
+		}
+	}
+}
+
+func (s *Service) broadcastCompleteSeriesImport(series *tv.Series, seasons []tv.Season, totalImported int, mapping *DownloadMapping) {
+	if s.hub == nil {
+		return
+	}
+
+	s.hub.Broadcast("import:completed", map[string]any{
+		"mediaType":        mediaSeries,
+		"seriesId":         mapping.SeriesID,
+		"seriesTitle":      series.Title,
+		"seasonsImported":  len(seasons),
+		"episodesImported": totalImported,
+		"isMock":           true,
+	})
+	s.hub.Broadcast("series:updated", map[string]any{
+		"seriesId": mapping.SeriesID,
+	})
 }

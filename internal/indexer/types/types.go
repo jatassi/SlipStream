@@ -1,4 +1,6 @@
 // Package types contains shared type definitions for indexer packages.
+//
+//nolint:revive // Package name 'types' follows Go convention for shared type definitions
 package types
 
 import (
@@ -33,16 +35,16 @@ const (
 
 // IndexerDefinition represents a configured indexer.
 type IndexerDefinition struct {
-	ID             int64           `json:"id"`
-	Name           string          `json:"name"`
-	DefinitionID   string          `json:"definitionId"`           // Cardigann definition ID
-	Categories     []int           `json:"categories"`
-	Protocol       Protocol        `json:"protocol"`
-	Privacy        Privacy         `json:"privacy"`
-	SupportsMovies bool            `json:"supportsMovies"`
-	SupportsTV     bool            `json:"supportsTv"`
-	SupportsSearch bool            `json:"supportsSearch"`
-	SupportsRSS    bool            `json:"supportsRss"`
+	ID                int64           `json:"id"`
+	Name              string          `json:"name"`
+	DefinitionID      string          `json:"definitionId"` // Cardigann definition ID
+	Categories        []int           `json:"categories"`
+	Protocol          Protocol        `json:"protocol"`
+	Privacy           Privacy         `json:"privacy"`
+	SupportsMovies    bool            `json:"supportsMovies"`
+	SupportsTV        bool            `json:"supportsTv"`
+	SupportsSearch    bool            `json:"supportsSearch"`
+	SupportsRSS       bool            `json:"supportsRss"`
 	Priority          int             `json:"priority"`
 	Enabled           bool            `json:"enabled"`
 	AutoSearchEnabled bool            `json:"autoSearchEnabled"`

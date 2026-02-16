@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -73,34 +74,44 @@ func (h *SettingsHandlers) Get(c echo.Context) error {
 	}
 
 	settings := RequestSettings{
-		Enabled:             true, // Default to enabled
+		Enabled:             true,
 		DefaultMovieQuota:   *quotaDefaults.MoviesLimit,
 		DefaultSeasonQuota:  *quotaDefaults.SeasonsLimit,
 		DefaultEpisodeQuota: *quotaDefaults.EpisodesLimit,
-		SearchRateLimit:     60, // Default 60 requests per minute
+		SearchRateLimit:     60,
 	}
 
-	if setting, err := h.queries.GetSetting(ctx, SettingPortalEnabled); err == nil {
-		settings.Enabled = setting.Value != "0" && setting.Value != "false"
-	}
-
-	if setting, err := h.queries.GetSetting(ctx, SettingDefaultRootFolderID); err == nil && setting.Value != "" {
-		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
-			settings.DefaultRootFolderID = &v
-		}
-	}
-
-	if setting, err := h.queries.GetSetting(ctx, SettingAdminNotifyNewRequest); err == nil {
-		settings.AdminNotifyNew = setting.Value == "1" || setting.Value == "true"
-	}
-
-	if setting, err := h.queries.GetSetting(ctx, SettingSearchRateLimit); err == nil && setting.Value != "" {
-		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
-			settings.SearchRateLimit = v
-		}
+	settings.Enabled = h.readSettingBool(ctx, SettingPortalEnabled, true)
+	settings.DefaultRootFolderID = h.readSettingInt64Ptr(ctx, SettingDefaultRootFolderID)
+	settings.AdminNotifyNew = h.readSettingBool(ctx, SettingAdminNotifyNewRequest, false)
+	if v := h.readSettingInt64Ptr(ctx, SettingSearchRateLimit); v != nil {
+		settings.SearchRateLimit = *v
 	}
 
 	return c.JSON(http.StatusOK, settings)
+}
+
+func (h *SettingsHandlers) readSettingBool(ctx context.Context, key string, defaultVal bool) bool {
+	setting, err := h.queries.GetSetting(ctx, key)
+	if err != nil {
+		return defaultVal
+	}
+	if defaultVal {
+		return setting.Value != "0" && setting.Value != "false"
+	}
+	return setting.Value == "1" || setting.Value == "true"
+}
+
+func (h *SettingsHandlers) readSettingInt64Ptr(ctx context.Context, key string) *int64 {
+	setting, err := h.queries.GetSetting(ctx, key)
+	if err != nil || setting.Value == "" {
+		return nil
+	}
+	v, err := strconv.ParseInt(setting.Value, 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &v
 }
 
 // Update updates global request settings
@@ -113,63 +124,75 @@ func (h *SettingsHandlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
+	if err := h.applySettingsUpdate(ctx, &req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return h.Get(c)
+}
+
+func (h *SettingsHandlers) applySettingsUpdate(ctx context.Context, req *UpdateSettingsRequest) error {
 	if req.Enabled != nil {
-		value := "1"
-		if !*req.Enabled {
-			value = "0"
-		}
-		if _, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingPortalEnabled,
-			Value: value,
-		}); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		if err := h.setBoolSetting(ctx, SettingPortalEnabled, *req.Enabled); err != nil {
+			return err
 		}
 	}
 
-	if req.DefaultMovieQuota != nil || req.DefaultSeasonQuota != nil || req.DefaultEpisodeQuota != nil {
-		if err := h.quotaService.SetGlobalDefaults(ctx, quota.QuotaLimits{
-			MoviesLimit:   req.DefaultMovieQuota,
-			SeasonsLimit:  req.DefaultSeasonQuota,
-			EpisodesLimit: req.DefaultEpisodeQuota,
-		}); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
+	if err := h.updateQuotas(ctx, req); err != nil {
+		return err
 	}
 
-	if req.DefaultRootFolderID != nil {
-		value := ""
-		if *req.DefaultRootFolderID > 0 {
-			value = strconv.FormatInt(*req.DefaultRootFolderID, 10)
-		}
-		if _, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingDefaultRootFolderID,
-			Value: value,
-		}); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
+	if err := h.updateRootFolderSetting(ctx, req.DefaultRootFolderID); err != nil {
+		return err
 	}
 
 	if req.AdminNotifyNew != nil {
-		value := "0"
-		if *req.AdminNotifyNew {
-			value = "1"
-		}
-		if _, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingAdminNotifyNewRequest,
-			Value: value,
-		}); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		if err := h.setBoolSetting(ctx, SettingAdminNotifyNewRequest, *req.AdminNotifyNew); err != nil {
+			return err
 		}
 	}
 
 	if req.SearchRateLimit != nil {
-		if _, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingSearchRateLimit,
-			Value: strconv.FormatInt(*req.SearchRateLimit, 10),
-		}); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		if err := h.setStringSetting(ctx, SettingSearchRateLimit, strconv.FormatInt(*req.SearchRateLimit, 10)); err != nil {
+			return err
 		}
 	}
 
-	return h.Get(c)
+	return nil
+}
+
+func (h *SettingsHandlers) updateRootFolderSetting(ctx context.Context, rootFolderID *int64) error {
+	if rootFolderID == nil {
+		return nil
+	}
+	value := ""
+	if *rootFolderID > 0 {
+		value = strconv.FormatInt(*rootFolderID, 10)
+	}
+	return h.setStringSetting(ctx, SettingDefaultRootFolderID, value)
+}
+
+func (h *SettingsHandlers) updateQuotas(ctx context.Context, req *UpdateSettingsRequest) error {
+	if req.DefaultMovieQuota == nil && req.DefaultSeasonQuota == nil && req.DefaultEpisodeQuota == nil {
+		return nil
+	}
+	return h.quotaService.SetGlobalDefaults(ctx, quota.QuotaLimits{
+		MoviesLimit:   req.DefaultMovieQuota,
+		SeasonsLimit:  req.DefaultSeasonQuota,
+		EpisodesLimit: req.DefaultEpisodeQuota,
+	})
+}
+
+func (h *SettingsHandlers) setBoolSetting(ctx context.Context, key string, value bool) error {
+	v := "0"
+	if value {
+		v = "1"
+	}
+	_, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{Key: key, Value: v})
+	return err
+}
+
+func (h *SettingsHandlers) setStringSetting(ctx context.Context, key, value string) error {
+	_, err := h.queries.SetSetting(ctx, sqlc.SetSettingParams{Key: key, Value: value})
+	return err
 }

@@ -1,3 +1,4 @@
+//nolint:revive // Package name 'importer' used in tests to match actual package name 'import' which conflicts with Go keyword
 package importer
 
 import "testing"

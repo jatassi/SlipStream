@@ -12,7 +12,7 @@ import (
 
 // NewClient creates a new download client of the specified type.
 // Returns the client interface so callers can use polymorphism.
-func NewClient(clientType ClientType, config ClientConfig) (Client, error) {
+func NewClient(clientType ClientType, config *ClientConfig) (Client, error) {
 	switch clientType {
 	case ClientTypeTransmission:
 		return transmission.NewFromConfig(config), nil
@@ -31,7 +31,7 @@ func NewClient(clientType ClientType, config ClientConfig) (Client, error) {
 
 // NewTorrentClient creates a new torrent client of the specified type.
 // Returns the TorrentClient interface for torrent-specific operations.
-func NewTorrentClient(clientType ClientType, config ClientConfig) (TorrentClient, error) {
+func NewTorrentClient(clientType ClientType, config *ClientConfig) (TorrentClient, error) {
 	if ProtocolForClient(clientType) != ProtocolTorrent {
 		return nil, fmt.Errorf("%w: %s is not a torrent client", ErrUnsupportedClient, clientType)
 	}
@@ -52,7 +52,7 @@ func NewTorrentClient(clientType ClientType, config ClientConfig) (TorrentClient
 
 // NewUsenetClient creates a new usenet client of the specified type.
 // Returns the UsenetClient interface for usenet-specific operations.
-func NewUsenetClient(clientType ClientType, config ClientConfig) (UsenetClient, error) {
+func NewUsenetClient(clientType ClientType, config *ClientConfig) (UsenetClient, error) {
 	if ProtocolForClient(clientType) != ProtocolUsenet {
 		return nil, fmt.Errorf("%w: %s is not a usenet client", ErrUnsupportedClient, clientType)
 	}
@@ -69,7 +69,7 @@ func NewUsenetClient(clientType ClientType, config ClientConfig) (UsenetClient, 
 
 // ClientFromDownloadClient creates a Client from a DownloadClient database model.
 func ClientFromDownloadClient(dc *DownloadClient) (Client, error) {
-	config := types.ClientConfig{
+	config := &types.ClientConfig{
 		Host:     dc.Host,
 		Port:     dc.Port,
 		Username: dc.Username,
@@ -83,7 +83,7 @@ func ClientFromDownloadClient(dc *DownloadClient) (Client, error) {
 
 // TorrentClientFromDownloadClient creates a TorrentClient from a DownloadClient database model.
 func TorrentClientFromDownloadClient(dc *DownloadClient) (TorrentClient, error) {
-	config := types.ClientConfig{
+	config := &types.ClientConfig{
 		Host:     dc.Host,
 		Port:     dc.Port,
 		Username: dc.Username,

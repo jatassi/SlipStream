@@ -13,8 +13,8 @@ type OnRootFolderCreatedFunc func(folderID int64)
 
 // Handlers provides HTTP handlers for root folder operations.
 type Handlers struct {
-	service           *Service
-	onFolderCreated   OnRootFolderCreatedFunc
+	service         *Service
+	onFolderCreated OnRootFolderCreatedFunc
 }
 
 // NewHandlers creates new root folder handlers.

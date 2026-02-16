@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const undeterminedLanguage = "und"
+
 // findExecutable finds an executable by name or explicit path.
 func findExecutable(name, explicitPath string) string {
 	if explicitPath != "" {
@@ -103,23 +105,23 @@ type mediaInfoOutput struct {
 }
 
 type mediaInfoTrack struct {
-	Type                string `json:"@type"`
-	Format              string `json:"Format"`
-	FormatProfile       string `json:"Format_Profile"`
-	CodecID             string `json:"CodecID"`
-	Width               string `json:"Width"`
-	Height              string `json:"Height"`
-	BitDepth            string `json:"BitDepth"`
-	ColorPrimaries      string `json:"colour_primaries"`
+	Type                    string `json:"@type"`
+	Format                  string `json:"Format"`
+	FormatProfile           string `json:"Format_Profile"`
+	CodecID                 string `json:"CodecID"`
+	Width                   string `json:"Width"`
+	Height                  string `json:"Height"`
+	BitDepth                string `json:"BitDepth"`
+	ColorPrimaries          string `json:"colour_primaries"`
 	TransferCharacteristics string `json:"transfer_characteristics"`
-	MatrixCoefficients  string `json:"matrix_coefficients"`
-	HDRFormat           string `json:"HDR_Format"`
-	HDRFormatCompatibility string `json:"HDR_Format_Compatibility"`
-	Channels            string `json:"Channels"`
-	ChannelLayout       string `json:"ChannelLayout"`
-	Language            string `json:"Language"`
-	Duration            string `json:"Duration"`
-	FileSize            string `json:"FileSize"`
+	MatrixCoefficients      string `json:"matrix_coefficients"`
+	HDRFormat               string `json:"HDR_Format"`
+	HDRFormatCompatibility  string `json:"HDR_Format_Compatibility"`
+	Channels                string `json:"Channels"`
+	ChannelLayout           string `json:"ChannelLayout"`
+	Language                string `json:"Language"`
+	Duration                string `json:"Duration"`
+	FileSize                string `json:"FileSize"`
 }
 
 // parseMediaInfoJSON parses mediainfo JSON output.
@@ -133,75 +135,24 @@ func parseMediaInfoJSON(data []byte) (*MediaInfo, error) {
 	var audioLangs, subLangs []string
 	var firstVideo, firstAudio bool
 
-	for _, track := range output.Media.Track {
+	for i := range output.Media.Track {
+		track := &output.Media.Track[i]
 		switch track.Type {
 		case "General":
-			info.ContainerFormat = track.Format
-			if track.FileSize != "" {
-				if size, err := strconv.ParseInt(track.FileSize, 10, 64); err == nil {
-					info.FileSize = size
-				}
-			}
-			if track.Duration != "" {
-				if dur, err := parseDuration(track.Duration); err == nil {
-					info.Duration = dur
-				}
-			}
-
+			parseMediaInfoGeneral(info, track)
 		case "Video":
-			if firstVideo {
-				continue
+			if !firstVideo {
+				firstVideo = true
+				parseMediaInfoVideo(info, track)
 			}
-			firstVideo = true
-
-			info.VideoCodec = NormalizeVideoCodec(track.Format)
-			if track.CodecID != "" && info.VideoCodec == track.Format {
-				info.VideoCodec = NormalizeVideoCodec(track.CodecID)
-			}
-
-			if w, err := parseInt(track.Width); err == nil {
-				info.Width = w
-			}
-			if h, err := parseInt(track.Height); err == nil {
-				info.Height = h
-			}
-			if info.Width > 0 && info.Height > 0 {
-				info.VideoResolution = fmt.Sprintf("%dx%d", info.Width, info.Height)
-			}
-
-			if bd, err := parseInt(track.BitDepth); err == nil {
-				info.VideoBitDepth = bd
-			}
-
-			// Detect HDR
-			hdrInfo := HDRInfo{
-				BitDepth:       info.VideoBitDepth,
-				ColorPrimaries: track.ColorPrimaries,
-				TransferFunc:   track.TransferCharacteristics,
-				MatrixCoeffs:   track.MatrixCoefficients,
-				HDRFormat:      track.HDRFormat + " " + track.HDRFormatCompatibility,
-			}
-			info.DynamicRange, info.DynamicRangeType = DetectHDRType(hdrInfo)
-
 		case "Audio":
-			hasAtmos := strings.Contains(strings.ToLower(track.Format+track.FormatProfile), "atmos")
-
 			if !firstAudio {
 				firstAudio = true
-				info.AudioCodec = NormalizeAudioCodec(track.Format, hasAtmos)
-
-				channels, _ := parseInt(track.Channels)
-				info.AudioChannels = FormatChannels(channels, track.ChannelLayout)
+				parseMediaInfoFirstAudio(info, track)
 			}
-
-			if track.Language != "" && track.Language != "und" {
-				audioLangs = appendUnique(audioLangs, normalizeLanguage(track.Language))
-			}
-
+			audioLangs = collectLanguage(audioLangs, track.Language)
 		case "Text":
-			if track.Language != "" && track.Language != "und" {
-				subLangs = appendUnique(subLangs, normalizeLanguage(track.Language))
-			}
+			subLangs = collectLanguage(subLangs, track.Language)
 		}
 	}
 
@@ -209,6 +160,64 @@ func parseMediaInfoJSON(data []byte) (*MediaInfo, error) {
 	info.SubtitleLanguages = subLangs
 
 	return info, nil
+}
+
+func collectLanguage(langs []string, language string) []string {
+	if language != "" && language != undeterminedLanguage {
+		return appendUnique(langs, normalizeLanguage(language))
+	}
+	return langs
+}
+
+func parseMediaInfoGeneral(info *MediaInfo, track *mediaInfoTrack) {
+	info.ContainerFormat = track.Format
+	if track.FileSize != "" {
+		if size, err := strconv.ParseInt(track.FileSize, 10, 64); err == nil {
+			info.FileSize = size
+		}
+	}
+	if track.Duration != "" {
+		if dur, err := parseDuration(track.Duration); err == nil {
+			info.Duration = dur
+		}
+	}
+}
+
+func parseMediaInfoVideo(info *MediaInfo, track *mediaInfoTrack) {
+	info.VideoCodec = NormalizeVideoCodec(track.Format)
+	if track.CodecID != "" && info.VideoCodec == track.Format {
+		info.VideoCodec = NormalizeVideoCodec(track.CodecID)
+	}
+
+	if w, err := parseInt(track.Width); err == nil {
+		info.Width = w
+	}
+	if h, err := parseInt(track.Height); err == nil {
+		info.Height = h
+	}
+	if info.Width > 0 && info.Height > 0 {
+		info.VideoResolution = fmt.Sprintf("%dx%d", info.Width, info.Height)
+	}
+
+	if bd, err := parseInt(track.BitDepth); err == nil {
+		info.VideoBitDepth = bd
+	}
+
+	hdrInfo := HDRInfo{
+		BitDepth:       info.VideoBitDepth,
+		ColorPrimaries: track.ColorPrimaries,
+		TransferFunc:   track.TransferCharacteristics,
+		MatrixCoeffs:   track.MatrixCoefficients,
+		HDRFormat:      track.HDRFormat + " " + track.HDRFormatCompatibility,
+	}
+	info.DynamicRange, info.DynamicRangeType = DetectHDRType(&hdrInfo)
+}
+
+func parseMediaInfoFirstAudio(info *MediaInfo, track *mediaInfoTrack) {
+	hasAtmos := strings.Contains(strings.ToLower(track.Format+track.FormatProfile), "atmos")
+	info.AudioCodec = NormalizeAudioCodec(track.Format, hasAtmos)
+	channels, _ := parseInt(track.Channels)
+	info.AudioChannels = FormatChannels(channels, track.ChannelLayout)
 }
 
 // ffprobeOutput represents the JSON output from ffprobe.
@@ -225,19 +234,19 @@ type ffprobeFormat struct {
 }
 
 type ffprobeStream struct {
-	CodecType       string `json:"codec_type"`
-	CodecName       string `json:"codec_name"`
-	CodecTagString  string `json:"codec_tag_string"`
-	Width           int    `json:"width"`
-	Height          int    `json:"height"`
-	PixFmt          string `json:"pix_fmt"`
-	ColorPrimaries  string `json:"color_primaries"`
-	ColorTransfer   string `json:"color_transfer"`
-	ColorSpace      string `json:"color_space"`
-	Channels        int    `json:"channels"`
-	ChannelLayout   string `json:"channel_layout"`
-	Tags            ffprobeTags `json:"tags"`
-	SideDataList    []ffprobeSideData `json:"side_data_list"`
+	CodecType      string            `json:"codec_type"`
+	CodecName      string            `json:"codec_name"`
+	CodecTagString string            `json:"codec_tag_string"`
+	Width          int               `json:"width"`
+	Height         int               `json:"height"`
+	PixFmt         string            `json:"pix_fmt"`
+	ColorPrimaries string            `json:"color_primaries"`
+	ColorTransfer  string            `json:"color_transfer"`
+	ColorSpace     string            `json:"color_space"`
+	Channels       int               `json:"channels"`
+	ChannelLayout  string            `json:"channel_layout"`
+	Tags           ffprobeTags       `json:"tags"`
+	SideDataList   []ffprobeSideData `json:"side_data_list"`
 }
 
 type ffprobeTags struct {
@@ -256,71 +265,27 @@ func parseFFprobeJSON(data []byte) (*MediaInfo, error) {
 	}
 
 	info := &MediaInfo{}
+	parseFFprobeFormat(info, &output.Format)
+
 	var audioLangs, subLangs []string
 	var firstVideo, firstAudio bool
 
-	info.ContainerFormat = output.Format.FormatName
-	if output.Format.Size != "" {
-		if size, err := strconv.ParseInt(output.Format.Size, 10, 64); err == nil {
-			info.FileSize = size
-		}
-	}
-	if output.Format.Duration != "" {
-		if dur, err := parseFFprobeDuration(output.Format.Duration); err == nil {
-			info.Duration = dur
-		}
-	}
-
-	for _, stream := range output.Streams {
+	for i := range output.Streams {
+		stream := &output.Streams[i]
 		switch stream.CodecType {
 		case "video":
-			if firstVideo {
-				continue
+			if !firstVideo {
+				firstVideo = true
+				parseFFprobeVideo(info, stream)
 			}
-			firstVideo = true
-
-			info.VideoCodec = NormalizeVideoCodec(stream.CodecName)
-			info.Width = stream.Width
-			info.Height = stream.Height
-			if info.Width > 0 && info.Height > 0 {
-				info.VideoResolution = fmt.Sprintf("%dx%d", info.Width, info.Height)
-			}
-
-			// Detect bit depth from pixel format
-			info.VideoBitDepth = detectBitDepth(stream.PixFmt)
-
-			// Detect HDR
-			hdrInfo := HDRInfo{
-				BitDepth:       info.VideoBitDepth,
-				ColorPrimaries: stream.ColorPrimaries,
-				TransferFunc:   stream.ColorTransfer,
-				MatrixCoeffs:   stream.ColorSpace,
-			}
-
-			// Check for Dolby Vision in side data
-			for _, sd := range stream.SideDataList {
-				if strings.Contains(strings.ToLower(sd.SideDataType), "dolby vision") {
-					hdrInfo.HasDolbyVision = true
-				}
-			}
-
-			info.DynamicRange, info.DynamicRangeType = DetectHDRType(hdrInfo)
-
 		case "audio":
 			if !firstAudio {
 				firstAudio = true
-				info.AudioCodec = NormalizeAudioCodec(stream.CodecName, false)
-				info.AudioChannels = FormatChannels(stream.Channels, stream.ChannelLayout)
+				parseFFprobeFirstAudio(info, stream)
 			}
-
-			if stream.Tags.Language != "" && stream.Tags.Language != "und" {
-				audioLangs = appendUnique(audioLangs, normalizeLanguage(stream.Tags.Language))
-			}
-
+			audioLangs = collectLanguage(audioLangs, stream.Tags.Language)
 		case "subtitle":
-			if stream.Tags.Language != "" && stream.Tags.Language != "und" {
-				subLangs = appendUnique(subLangs, normalizeLanguage(stream.Tags.Language))
-			}
+			subLangs = collectLanguage(subLangs, stream.Tags.Language)
 		}
 	}
 
@@ -328,6 +293,51 @@ func parseFFprobeJSON(data []byte) (*MediaInfo, error) {
 	info.SubtitleLanguages = subLangs
 
 	return info, nil
+}
+
+func parseFFprobeFirstAudio(info *MediaInfo, stream *ffprobeStream) {
+	info.AudioCodec = NormalizeAudioCodec(stream.CodecName, false)
+	info.AudioChannels = FormatChannels(stream.Channels, stream.ChannelLayout)
+}
+
+func parseFFprobeFormat(info *MediaInfo, format *ffprobeFormat) {
+	info.ContainerFormat = format.FormatName
+	if format.Size != "" {
+		if size, err := strconv.ParseInt(format.Size, 10, 64); err == nil {
+			info.FileSize = size
+		}
+	}
+	if format.Duration != "" {
+		if dur, err := parseFFprobeDuration(format.Duration); err == nil {
+			info.Duration = dur
+		}
+	}
+}
+
+func parseFFprobeVideo(info *MediaInfo, stream *ffprobeStream) {
+	info.VideoCodec = NormalizeVideoCodec(stream.CodecName)
+	info.Width = stream.Width
+	info.Height = stream.Height
+	if info.Width > 0 && info.Height > 0 {
+		info.VideoResolution = fmt.Sprintf("%dx%d", info.Width, info.Height)
+	}
+
+	info.VideoBitDepth = detectBitDepth(stream.PixFmt)
+
+	hdrInfo := HDRInfo{
+		BitDepth:       info.VideoBitDepth,
+		ColorPrimaries: stream.ColorPrimaries,
+		TransferFunc:   stream.ColorTransfer,
+		MatrixCoeffs:   stream.ColorSpace,
+	}
+
+	for _, sd := range stream.SideDataList {
+		if strings.Contains(strings.ToLower(sd.SideDataType), "dolby vision") {
+			hdrInfo.HasDolbyVision = true
+		}
+	}
+
+	info.DynamicRange, info.DynamicRangeType = DetectHDRType(&hdrInfo)
 }
 
 // parseInt parses an int from a string, ignoring non-numeric suffixes.

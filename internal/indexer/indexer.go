@@ -15,7 +15,7 @@ type Indexer interface {
 
 	// Operations
 	Test(ctx context.Context) error
-	Search(ctx context.Context, criteria SearchCriteria) ([]ReleaseInfo, error)
+	Search(ctx context.Context, criteria *SearchCriteria) ([]ReleaseInfo, error)
 	Download(ctx context.Context, url string) ([]byte, error)
 
 	// Capabilities
@@ -27,11 +27,11 @@ type Indexer interface {
 // TorrentIndexer extends Indexer with torrent-specific methods.
 type TorrentIndexer interface {
 	Indexer
-	SearchTorrents(ctx context.Context, criteria SearchCriteria) ([]TorrentInfo, error)
+	SearchTorrents(ctx context.Context, criteria *SearchCriteria) ([]TorrentInfo, error)
 }
 
 // UsenetIndexer extends Indexer with usenet-specific methods.
 type UsenetIndexer interface {
 	Indexer
-	SearchUsenet(ctx context.Context, criteria SearchCriteria) ([]UsenetInfo, error)
+	SearchUsenet(ctx context.Context, criteria *SearchCriteria) ([]UsenetInfo, error)
 }

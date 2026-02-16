@@ -38,29 +38,29 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "tmdb":
-			fetchTMDBData(ctx, cfg.Metadata.TMDB, logger)
+			fetchTMDBData(ctx, cfg.Metadata.TMDB, &logger)
 			return
 		case "tvdb":
-			fetchTVDBData(ctx, cfg.Metadata.TVDB, logger)
+			fetchTVDBData(ctx, cfg.Metadata.TVDB, &logger)
 			return
 		case "indexer":
-			fetchIndexerData(ctx, cfg, logger)
+			fetchIndexerData(ctx, cfg, &logger)
 			return
 		}
 	}
 
 	// Default: run all
 	fmt.Println("=== FETCHING TMDB DATA ===")
-	fetchTMDBData(ctx, cfg.Metadata.TMDB, logger)
+	fetchTMDBData(ctx, cfg.Metadata.TMDB, &logger)
 
 	fmt.Println("\n\n=== FETCHING TVDB DATA ===")
-	fetchTVDBData(ctx, cfg.Metadata.TVDB, logger)
+	fetchTVDBData(ctx, cfg.Metadata.TVDB, &logger)
 
 	fmt.Println("\n\n=== FETCHING INDEXER DATA ===")
-	fetchIndexerData(ctx, cfg, logger)
+	fetchIndexerData(ctx, cfg, &logger)
 }
 
-func fetchTMDBData(ctx context.Context, cfg config.TMDBConfig, logger zerolog.Logger) {
+func fetchTMDBData(ctx context.Context, cfg config.TMDBConfig, logger *zerolog.Logger) {
 	client := tmdb.NewClient(cfg, logger)
 
 	if !client.IsConfigured() {
@@ -70,30 +70,30 @@ func fetchTMDBData(ctx context.Context, cfg config.TMDBConfig, logger zerolog.Lo
 
 	// Popular movie IDs to fetch
 	movieIDs := []int{
-		603,    // The Matrix
-		550,    // Fight Club
-		680,    // Pulp Fiction
-		155,    // The Dark Knight
-		278,    // The Shawshank Redemption
-		238,    // The Godfather
-		27205,  // Inception
-		157336, // Interstellar
-		120,    // LOTR: Fellowship
-		24428,  // The Avengers
-		299536, // Avengers: Infinity War
-		299534, // Avengers: Endgame
-		569094, // Spider-Man: Across the Spider-Verse
-		438631, // Dune
-		693134, // Dune: Part Two
-		359724, // Ford v Ferrari
-		346698, // Barbie
-		872585, // Oppenheimer
-		76600,  // Avatar: The Way of Water
-		19995,  // Avatar
-		533535, // Deadpool & Wolverine
-		545611, // Everything Everywhere All at Once
-		447365, // Guardians of the Galaxy Vol. 3
-		912649, // Venom: The Last Dance
+		603,     // The Matrix
+		550,     // Fight Club
+		680,     // Pulp Fiction
+		155,     // The Dark Knight
+		278,     // The Shawshank Redemption
+		238,     // The Godfather
+		27205,   // Inception
+		157336,  // Interstellar
+		120,     // LOTR: Fellowship
+		24428,   // The Avengers
+		299536,  // Avengers: Infinity War
+		299534,  // Avengers: Endgame
+		569094,  // Spider-Man: Across the Spider-Verse
+		438631,  // Dune
+		693134,  // Dune: Part Two
+		359724,  // Ford v Ferrari
+		346698,  // Barbie
+		872585,  // Oppenheimer
+		76600,   // Avatar: The Way of Water
+		19995,   // Avatar
+		533535,  // Deadpool & Wolverine
+		545611,  // Everything Everywhere All at Once
+		447365,  // Guardians of the Galaxy Vol. 3
+		912649,  // Venom: The Last Dance
 		1022789, // Inside Out 2
 	}
 
@@ -205,7 +205,7 @@ func fetchTMDBData(ctx context.Context, cfg config.TMDBConfig, logger zerolog.Lo
 	fmt.Println("}")
 }
 
-func fetchTVDBData(ctx context.Context, cfg config.TVDBConfig, logger zerolog.Logger) {
+func fetchTVDBData(ctx context.Context, cfg config.TVDBConfig, logger *zerolog.Logger) {
 	client := tvdb.NewClient(cfg, logger)
 
 	if !client.IsConfigured() {
@@ -257,7 +257,7 @@ func fetchTVDBData(ctx context.Context, cfg config.TVDBConfig, logger zerolog.Lo
 	fmt.Println("}")
 }
 
-func fetchIndexerData(ctx context.Context, cfg *config.Config, logger zerolog.Logger) {
+func fetchIndexerData(ctx context.Context, cfg *config.Config, logger *zerolog.Logger) {
 	// Open database
 	db, err := database.New(cfg.Database.Path)
 	if err != nil {
@@ -267,7 +267,8 @@ func fetchIndexerData(ctx context.Context, cfg *config.Config, logger zerolog.Lo
 	defer db.Close()
 
 	// Initialize cardigann manager
-	cardigannManager, err := cardigann.NewManager(cardigann.DefaultManagerConfig(), logger)
+	mgrCfg := cardigann.DefaultManagerConfig()
+	cardigannManager, err := cardigann.NewManager(&mgrCfg, logger)
 	if err != nil {
 		fmt.Printf("Failed to create cardigann manager: %v\n", err)
 		return
@@ -308,7 +309,7 @@ func fetchIndexerData(ctx context.Context, cfg *config.Config, logger zerolog.Lo
 			Type:  q.stype,
 		}
 
-		result, err := searchService.Search(ctx, criteria)
+		result, err := searchService.Search(ctx, &criteria)
 		if err != nil {
 			fmt.Printf("// ERROR: %v\n", err)
 			continue
@@ -356,9 +357,4 @@ func truncate(s string, maxLen int) string {
 		return s[:maxLen-3] + "..."
 	}
 	return s
-}
-
-func prettyJSON(v interface{}) string {
-	b, _ := json.MarshalIndent(v, "", "  ")
-	return string(b)
 }

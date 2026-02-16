@@ -2,7 +2,10 @@ package autosearch
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -105,6 +108,9 @@ func (h *SettingsHandler) UpdateSettings(c echo.Context) error {
 func (h *SettingsHandler) loadSettings(ctx context.Context) (*Settings, error) {
 	row, err := h.queries.GetSetting(ctx, settingsKey)
 	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
 		// No saved settings, return config defaults
 		return &Settings{
 			Enabled:          h.config.Enabled,
@@ -115,12 +121,7 @@ func (h *SettingsHandler) loadSettings(ctx context.Context) (*Settings, error) {
 
 	var settings Settings
 	if err := json.Unmarshal([]byte(row.Value), &settings); err != nil {
-		// Invalid JSON, return config defaults
-		return &Settings{
-			Enabled:          h.config.Enabled,
-			IntervalHours:    h.config.IntervalHours,
-			BackoffThreshold: h.config.BackoffThreshold,
-		}, nil
+		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
 	return &settings, nil
@@ -144,14 +145,16 @@ func (h *SettingsHandler) saveSettings(ctx context.Context, settings *Settings) 
 func LoadSettingsIntoConfig(ctx context.Context, queries *sqlc.Queries, cfg *config.AutoSearchConfig) error {
 	row, err := queries.GetSetting(ctx, settingsKey)
 	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
 		// No saved settings, use defaults
 		return nil
 	}
 
 	var settings Settings
 	if err := json.Unmarshal([]byte(row.Value), &settings); err != nil {
-		// Invalid JSON, use defaults
-		return nil
+		return fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
 	// Apply to config

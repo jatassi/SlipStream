@@ -14,15 +14,16 @@ import (
 type LibraryScanTask struct {
 	libraryManager *librarymanager.Service
 	rootFolders    *rootfolder.Service
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 }
 
 // NewLibraryScanTask creates a new library scan task.
-func NewLibraryScanTask(lm *librarymanager.Service, rf *rootfolder.Service, logger zerolog.Logger) *LibraryScanTask {
+func NewLibraryScanTask(lm *librarymanager.Service, rf *rootfolder.Service, logger *zerolog.Logger) *LibraryScanTask {
+	subLogger := logger.With().Str("task", "library-scan").Logger()
 	return &LibraryScanTask{
 		libraryManager: lm,
 		rootFolders:    rf,
-		logger:         logger.With().Str("task", "library-scan").Logger(),
+		logger:         &subLogger,
 	}
 }
 
@@ -76,10 +77,10 @@ func (t *LibraryScanTask) Run(ctx context.Context) error {
 }
 
 // RegisterLibraryScanTask registers the library scan task with the scheduler.
-func RegisterLibraryScanTask(sched *scheduler.Scheduler, lm *librarymanager.Service, rf *rootfolder.Service, logger zerolog.Logger) error {
+func RegisterLibraryScanTask(sched *scheduler.Scheduler, lm *librarymanager.Service, rf *rootfolder.Service, logger *zerolog.Logger) error {
 	task := NewLibraryScanTask(lm, rf, logger)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "library-scan",
 		Name:        "Library Scan",
 		Description: "Scans all root folders for new media files",

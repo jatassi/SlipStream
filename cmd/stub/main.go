@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	appName        = "slipstream"
-	packageBinary  = "/usr/share/slipstream/slipstream"
+	appName       = "slipstream"
+	packageBinary = "/usr/share/slipstream/slipstream"
 )
 
 func main() {
@@ -68,7 +68,7 @@ func bootstrap(userBinary string) error {
 
 	// Create the bin directory
 	binDir := filepath.Dir(userBinary)
-	if err := os.MkdirAll(binDir, 0755); err != nil {
+	if err := os.MkdirAll(binDir, 0o750); err != nil {
 		return fmt.Errorf("create bin directory: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func bootstrap(userBinary string) error {
 	}
 
 	// Make it executable
-	if err := os.Chmod(userBinary, 0755); err != nil {
+	if err := os.Chmod(userBinary, 0o600); err != nil {
 		return fmt.Errorf("chmod: %w", err)
 	}
 

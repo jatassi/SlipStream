@@ -65,7 +65,7 @@ func New() *Client {
 }
 
 // NewFromConfig creates a client from a ClientConfig (config is ignored for mock).
-func NewFromConfig(_ types.ClientConfig) *Client {
+func NewFromConfig(_ *types.ClientConfig) *Client {
 	return GetInstance()
 }
 
@@ -90,7 +90,7 @@ func (c *Client) Connect(_ context.Context) error {
 }
 
 // Add adds a mock download.
-func (c *Client) Add(_ context.Context, opts types.AddOptions) (string, error) {
+func (c *Client) Add(_ context.Context, opts *types.AddOptions) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -134,9 +134,9 @@ func (c *Client) Add(_ context.Context, opts types.AddOptions) (string, error) {
 }
 
 // AddMagnet adds a mock magnet download.
-func (c *Client) AddMagnet(_ context.Context, magnetURL string, opts types.AddOptions) (string, error) {
+func (c *Client) AddMagnet(_ context.Context, magnetURL string, opts *types.AddOptions) (string, error) {
 	opts.URL = magnetURL
-	return c.Add(nil, opts)
+	return c.Add(context.TODO(), opts)
 }
 
 // List returns all mock downloads with calculated progress.
@@ -361,23 +361,29 @@ func (c *Client) DownloadCount() int {
 // generateMockID generates a random mock download ID.
 func generateMockID() string {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		panic(err)
+	}
 	return "mock-" + hex.EncodeToString(bytes)
 }
 
 // generateMockInfoHash generates a random mock info hash.
 func generateMockInfoHash() string {
 	bytes := make([]byte, 20)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		panic(err)
+	}
 	return hex.EncodeToString(bytes)
 }
 
-// randInt returns a random int between 0 and max-1.
-func randInt(max int) int {
-	if max <= 0 {
+// randInt returns a random int between 0 and maxVal-1.
+func randInt(maxVal int) int {
+	if maxVal <= 0 {
 		return 0
 	}
 	bytes := make([]byte, 1)
-	rand.Read(bytes)
-	return int(bytes[0]) % max
+	if _, err := rand.Read(bytes); err != nil {
+		panic(err)
+	}
+	return int(bytes[0]) % maxVal
 }

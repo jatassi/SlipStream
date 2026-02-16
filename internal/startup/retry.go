@@ -65,7 +65,7 @@ func IsNetworkError(err error) bool {
 
 // WithRetry executes fn with exponential backoff retry for network errors only.
 // Non-network errors fail immediately without retry.
-func WithRetry(ctx context.Context, name string, cfg RetryConfig, fn func() error, logger zerolog.Logger) error {
+func WithRetry(ctx context.Context, name string, cfg RetryConfig, fn func() error, logger *zerolog.Logger) error {
 	var lastErr error
 	delay := cfg.InitialDelay
 
@@ -73,10 +73,7 @@ func WithRetry(ctx context.Context, name string, cfg RetryConfig, fn func() erro
 		err := fn()
 		if err == nil {
 			if attempt > 1 {
-				logger.Info().
-					Str("operation", name).
-					Int("attempt", attempt).
-					Msg("operation succeeded after retry")
+				logger.Info().Str("operation", name).Int("attempt", attempt).Msg("operation succeeded after retry")
 			}
 			return nil
 		}
@@ -84,40 +81,42 @@ func WithRetry(ctx context.Context, name string, cfg RetryConfig, fn func() erro
 		lastErr = err
 
 		if !IsNetworkError(err) {
-			logger.Error().
-				Err(err).
-				Str("operation", name).
-				Msg("non-network error, not retrying")
+			logger.Error().Err(err).Str("operation", name).Msg("non-network error, not retrying")
 			return err
 		}
 
-		if attempt < cfg.MaxAttempts {
-			logger.Warn().
-				Err(err).
-				Str("operation", name).
-				Int("attempt", attempt).
-				Int("maxAttempts", cfg.MaxAttempts).
-				Dur("nextRetryIn", delay).
-				Msg("network error, will retry")
+		if attempt == cfg.MaxAttempts {
+			break
+		}
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-			}
-
-			delay = time.Duration(float64(delay) * cfg.Multiplier)
-			if delay > cfg.MaxDelay {
-				delay = cfg.MaxDelay
-			}
+		delay = waitAndBackoff(ctx, logger, name, attempt, cfg, delay, err)
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 	}
 
-	logger.Error().
-		Err(lastErr).
-		Str("operation", name).
-		Int("attempts", cfg.MaxAttempts).
+	logger.Error().Err(lastErr).Str("operation", name).Int("attempts", cfg.MaxAttempts).
 		Msg("operation failed after all retries")
-
 	return lastErr
+}
+
+func waitAndBackoff(ctx context.Context, logger *zerolog.Logger, name string, attempt int, cfg RetryConfig, delay time.Duration, err error) time.Duration {
+	logger.Warn().
+		Err(err).
+		Str("operation", name).
+		Int("attempt", attempt).
+		Int("maxAttempts", cfg.MaxAttempts).
+		Dur("nextRetryIn", delay).
+		Msg("network error, will retry")
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(delay):
+	}
+
+	next := time.Duration(float64(delay) * cfg.Multiplier)
+	if next > cfg.MaxDelay {
+		next = cfg.MaxDelay
+	}
+	return next
 }

@@ -10,8 +10,8 @@ import (
 
 // Handlers provides HTTP handlers for metadata operations.
 type Handlers struct {
-	service  *Service
-	artwork  *ArtworkDownloader
+	service *Service
+	artwork *ArtworkDownloader
 }
 
 // NewHandlers creates new metadata handlers.

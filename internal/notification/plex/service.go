@@ -19,15 +19,16 @@ const (
 type RefreshService struct {
 	queries *sqlc.Queries
 	client  *Client
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewRefreshService creates a new RefreshService
-func NewRefreshService(queries *sqlc.Queries, client *Client, logger zerolog.Logger) *RefreshService {
+func NewRefreshService(queries *sqlc.Queries, client *Client, logger *zerolog.Logger) *RefreshService {
+	subLogger := logger.With().Str("component", "plex-refresh-service").Logger()
 	return &RefreshService{
 		queries: queries,
 		client:  client,
-		logger:  logger.With().Str("component", "plex-refresh-service").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -72,43 +73,54 @@ func (s *RefreshService) ProcessQueue(ctx context.Context, getSettings func(noti
 	s.logger.Info().Int("sections", len(counts)).Msg("Processing Plex refresh queue")
 
 	for _, count := range counts {
-		settings, err := getSettings(count.NotificationID)
-		if err != nil {
-			s.logger.Error().Err(err).Int64("notificationId", count.NotificationID).Msg("Failed to get notification settings")
-			continue
-		}
-
-		serverURL, err := getServerURL(ctx, settings)
-		if err != nil {
-			s.logger.Error().Err(err).Int64("notificationId", count.NotificationID).Msg("Failed to get server URL")
-			continue
-		}
-
-		if count.Count > maxPathsBeforeFullRefresh || !settings.UsePartialRefresh {
-			if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
-				s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh failed")
-			}
-		} else {
-			if err := s.doPartialRefreshes(ctx, count.NotificationID, count.ServerID, int(count.SectionKey), serverURL, settings.AuthToken, settings.ClientID); err != nil {
-				s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Partial refresh failed, attempting full refresh")
-				if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
-					s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh also failed")
-				}
-			}
-		}
-
-		if err := s.queries.ClearPlexRefreshesBySection(ctx, sqlc.ClearPlexRefreshesBySectionParams{
-			NotificationID: count.NotificationID,
-			ServerID:       count.ServerID,
-			SectionKey:     count.SectionKey,
-		}); err != nil {
-			s.logger.Error().Err(err).Msg("Failed to clear processed refresh items")
-		}
-
+		s.processSection(ctx, *count, getSettings, getServerURL)
 		time.Sleep(refreshDelayBetweenCalls)
 	}
 
 	return nil
+}
+
+func (s *RefreshService) processSection(ctx context.Context, count sqlc.CountPendingPlexRefreshesPerSectionRow, getSettings func(notificationID int64) (*Settings, error), getServerURL func(ctx context.Context, settings *Settings) (string, error)) {
+	settings, err := getSettings(count.NotificationID)
+	if err != nil {
+		s.logger.Error().Err(err).Int64("notificationId", count.NotificationID).Msg("Failed to get notification settings")
+		return
+	}
+
+	serverURL, err := getServerURL(ctx, settings)
+	if err != nil {
+		s.logger.Error().Err(err).Int64("notificationId", count.NotificationID).Msg("Failed to get server URL")
+		return
+	}
+
+	s.refreshSection(ctx, count, serverURL, settings)
+	s.clearSection(ctx, count)
+}
+
+func (s *RefreshService) refreshSection(ctx context.Context, count sqlc.CountPendingPlexRefreshesPerSectionRow, serverURL string, settings *Settings) {
+	if count.Count > maxPathsBeforeFullRefresh || !settings.UsePartialRefresh {
+		if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
+			s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh failed")
+		}
+		return
+	}
+
+	if err := s.doPartialRefreshes(ctx, count.NotificationID, count.ServerID, int(count.SectionKey), serverURL, settings.AuthToken, settings.ClientID); err != nil {
+		s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Partial refresh failed, attempting full refresh")
+		if err := s.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken, settings.ClientID); err != nil {
+			s.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh also failed")
+		}
+	}
+}
+
+func (s *RefreshService) clearSection(ctx context.Context, count sqlc.CountPendingPlexRefreshesPerSectionRow) {
+	if err := s.queries.ClearPlexRefreshesBySection(ctx, sqlc.ClearPlexRefreshesBySectionParams{
+		NotificationID: count.NotificationID,
+		ServerID:       count.ServerID,
+		SectionKey:     count.SectionKey,
+	}); err != nil {
+		s.logger.Error().Err(err).Msg("Failed to clear processed refresh items")
+	}
 }
 
 func (s *RefreshService) doFullRefresh(ctx context.Context, serverURL string, sectionKey int, token, clientID string) error {

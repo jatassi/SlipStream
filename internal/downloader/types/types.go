@@ -1,4 +1,6 @@
 // Package types defines shared types for download clients.
+//
+//nolint:revive // Package name 'types' follows Go convention for shared type definitions
 package types
 
 import (
@@ -70,7 +72,7 @@ type Client interface {
 	Connect(ctx context.Context) error
 
 	// Download operations
-	Add(ctx context.Context, opts AddOptions) (string, error)
+	Add(ctx context.Context, opts *AddOptions) (string, error)
 	List(ctx context.Context) ([]DownloadItem, error)
 	Get(ctx context.Context, id string) (*DownloadItem, error)
 	Remove(ctx context.Context, id string, deleteFiles bool) error
@@ -88,7 +90,7 @@ type TorrentClient interface {
 	Client
 
 	// Torrent-specific operations
-	AddMagnet(ctx context.Context, magnetURL string, opts AddOptions) (string, error)
+	AddMagnet(ctx context.Context, magnetURL string, opts *AddOptions) (string, error)
 	SetSeedLimits(ctx context.Context, id string, ratio float64, seedTime time.Duration) error
 	GetTorrentInfo(ctx context.Context, id string) (*TorrentInfo, error)
 }

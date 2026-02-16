@@ -15,15 +15,16 @@ import (
 type Service struct {
 	db      *sql.DB
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewService creates a new missing service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "missing").Logger()
 	return &Service{
 		db:      db,
 		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "missing").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -157,64 +158,76 @@ func (s *Service) GetMissingMovies(ctx context.Context) ([]*MissingMovie, error)
 
 // GetMissingSeries returns all series that have missing episodes, grouped hierarchically.
 func (s *Service) GetMissingSeries(ctx context.Context) ([]*MissingSeries, error) {
-	// Get all missing episodes
 	rows, err := s.queries.ListMissingEpisodes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list missing episodes: %w", err)
 	}
 
-	// Group episodes by series and season
 	seriesMap := make(map[int64]*MissingSeries)
-	seasonMap := make(map[int64]map[int]*MissingSeason) // seriesID -> seasonNumber -> season
+	seasonMap := make(map[int64]map[int]*MissingSeason)
 
 	for _, row := range rows {
 		seriesID := row.SeriesID
 		seasonNumber := int(row.SeasonNumber)
 
-		// Get or create series
-		series, exists := seriesMap[seriesID]
-		if !exists {
-			series = &MissingSeries{
-				ID:             seriesID,
-				Title:          row.SeriesTitle,
-				MissingSeasons: []*MissingSeason{},
-			}
-			if row.SeriesYear.Valid {
-				series.Year = int(row.SeriesYear.Int64)
-			}
-			if row.SeriesTvdbID.Valid {
-				series.TvdbID = int(row.SeriesTvdbID.Int64)
-			}
-			if row.SeriesTmdbID.Valid {
-				series.TmdbID = int(row.SeriesTmdbID.Int64)
-			}
-			if row.SeriesImdbID.Valid {
-				series.ImdbID = row.SeriesImdbID.String
-			}
-			if row.SeriesQualityProfileID.Valid {
-				series.QualityProfileID = row.SeriesQualityProfileID.Int64
-			}
-			seriesMap[seriesID] = series
-			seasonMap[seriesID] = make(map[int]*MissingSeason)
-		}
+		series := s.getOrCreateMissingSeries(seriesMap, seasonMap, seriesID, row)
+		season := s.getOrCreateMissingSeason(seasonMap, seriesID, seasonNumber)
 
-		// Get or create season
-		season, exists := seasonMap[seriesID][seasonNumber]
-		if !exists {
-			season = &MissingSeason{
-				SeasonNumber:    seasonNumber,
-				MissingEpisodes: []*MissingEpisode{},
-			}
-			seasonMap[seriesID][seasonNumber] = season
-		}
-
-		// Add episode
 		episode := s.rowToMissingEpisode(row)
 		season.MissingEpisodes = append(season.MissingEpisodes, episode)
 		series.MissingCount++
 	}
 
-	// Build final result with sorted seasons
+	result := s.buildMissingSeriesResult(seriesMap, seasonMap)
+	sortSeries(result)
+
+	return result, nil
+}
+
+func (s *Service) getOrCreateMissingSeries(seriesMap map[int64]*MissingSeries, seasonMap map[int64]map[int]*MissingSeason, seriesID int64, row *sqlc.ListMissingEpisodesRow) *MissingSeries {
+	if series, exists := seriesMap[seriesID]; exists {
+		return series
+	}
+
+	series := &MissingSeries{
+		ID:             seriesID,
+		Title:          row.SeriesTitle,
+		MissingSeasons: []*MissingSeason{},
+	}
+	if row.SeriesYear.Valid {
+		series.Year = int(row.SeriesYear.Int64)
+	}
+	if row.SeriesTvdbID.Valid {
+		series.TvdbID = int(row.SeriesTvdbID.Int64)
+	}
+	if row.SeriesTmdbID.Valid {
+		series.TmdbID = int(row.SeriesTmdbID.Int64)
+	}
+	if row.SeriesImdbID.Valid {
+		series.ImdbID = row.SeriesImdbID.String
+	}
+	if row.SeriesQualityProfileID.Valid {
+		series.QualityProfileID = row.SeriesQualityProfileID.Int64
+	}
+	seriesMap[seriesID] = series
+	seasonMap[seriesID] = make(map[int]*MissingSeason)
+	return series
+}
+
+func (s *Service) getOrCreateMissingSeason(seasonMap map[int64]map[int]*MissingSeason, seriesID int64, seasonNumber int) *MissingSeason {
+	if season, exists := seasonMap[seriesID][seasonNumber]; exists {
+		return season
+	}
+
+	season := &MissingSeason{
+		SeasonNumber:    seasonNumber,
+		MissingEpisodes: []*MissingEpisode{},
+	}
+	seasonMap[seriesID][seasonNumber] = season
+	return season
+}
+
+func (s *Service) buildMissingSeriesResult(seriesMap map[int64]*MissingSeries, seasonMap map[int64]map[int]*MissingSeason) []*MissingSeries {
 	result := make([]*MissingSeries, 0, len(seriesMap))
 	for seriesID, series := range seriesMap {
 		seasons := seasonMap[seriesID]
@@ -222,15 +235,10 @@ func (s *Service) GetMissingSeries(ctx context.Context) ([]*MissingSeries, error
 		for _, season := range seasons {
 			series.MissingSeasons = append(series.MissingSeasons, season)
 		}
-		// Sort seasons by season number
 		sortSeasons(series.MissingSeasons)
 		result = append(result, series)
 	}
-
-	// Sort series by title
-	sortSeries(result)
-
-	return result, nil
+	return result
 }
 
 // GetMissingCounts returns the count of missing movies and episodes.
@@ -279,46 +287,64 @@ func (s *Service) GetUpgradableSeries(ctx context.Context) ([]*UpgradableSeries,
 		seriesID := row.SeriesID
 		seasonNumber := int(row.SeasonNumber)
 
-		series, exists := seriesMap[seriesID]
-		if !exists {
-			series = &UpgradableSeries{
-				ID:                seriesID,
-				Title:             row.SeriesTitle,
-				UpgradableSeasons: []*UpgradableSeason{},
-			}
-			if row.SeriesYear.Valid {
-				series.Year = int(row.SeriesYear.Int64)
-			}
-			if row.SeriesTvdbID.Valid {
-				series.TvdbID = int(row.SeriesTvdbID.Int64)
-			}
-			if row.SeriesTmdbID.Valid {
-				series.TmdbID = int(row.SeriesTmdbID.Int64)
-			}
-			if row.SeriesImdbID.Valid {
-				series.ImdbID = row.SeriesImdbID.String
-			}
-			if row.SeriesQualityProfileID.Valid {
-				series.QualityProfileID = row.SeriesQualityProfileID.Int64
-			}
-			seriesMap[seriesID] = series
-			seasonMap[seriesID] = make(map[int]*UpgradableSeason)
-		}
-
-		season, exists := seasonMap[seriesID][seasonNumber]
-		if !exists {
-			season = &UpgradableSeason{
-				SeasonNumber:       seasonNumber,
-				UpgradableEpisodes: []*UpgradableEpisode{},
-			}
-			seasonMap[seriesID][seasonNumber] = season
-		}
+		series := s.getOrCreateUpgradableSeries(seriesMap, seasonMap, seriesID, row)
+		season := s.getOrCreateUpgradableSeason(seasonMap, seriesID, seasonNumber)
 
 		episode := s.rowToUpgradableEpisode(row)
 		season.UpgradableEpisodes = append(season.UpgradableEpisodes, episode)
 		series.UpgradableCount++
 	}
 
+	result := s.buildUpgradableSeriesResult(seriesMap, seasonMap)
+	sortUpgradableSeries(result)
+
+	return result, nil
+}
+
+func (s *Service) getOrCreateUpgradableSeries(seriesMap map[int64]*UpgradableSeries, seasonMap map[int64]map[int]*UpgradableSeason, seriesID int64, row *sqlc.ListUpgradableEpisodesWithQualityRow) *UpgradableSeries {
+	if series, exists := seriesMap[seriesID]; exists {
+		return series
+	}
+
+	series := &UpgradableSeries{
+		ID:                seriesID,
+		Title:             row.SeriesTitle,
+		UpgradableSeasons: []*UpgradableSeason{},
+	}
+	if row.SeriesYear.Valid {
+		series.Year = int(row.SeriesYear.Int64)
+	}
+	if row.SeriesTvdbID.Valid {
+		series.TvdbID = int(row.SeriesTvdbID.Int64)
+	}
+	if row.SeriesTmdbID.Valid {
+		series.TmdbID = int(row.SeriesTmdbID.Int64)
+	}
+	if row.SeriesImdbID.Valid {
+		series.ImdbID = row.SeriesImdbID.String
+	}
+	if row.SeriesQualityProfileID.Valid {
+		series.QualityProfileID = row.SeriesQualityProfileID.Int64
+	}
+	seriesMap[seriesID] = series
+	seasonMap[seriesID] = make(map[int]*UpgradableSeason)
+	return series
+}
+
+func (s *Service) getOrCreateUpgradableSeason(seasonMap map[int64]map[int]*UpgradableSeason, seriesID int64, seasonNumber int) *UpgradableSeason {
+	if season, exists := seasonMap[seriesID][seasonNumber]; exists {
+		return season
+	}
+
+	season := &UpgradableSeason{
+		SeasonNumber:       seasonNumber,
+		UpgradableEpisodes: []*UpgradableEpisode{},
+	}
+	seasonMap[seriesID][seasonNumber] = season
+	return season
+}
+
+func (s *Service) buildUpgradableSeriesResult(seriesMap map[int64]*UpgradableSeries, seasonMap map[int64]map[int]*UpgradableSeason) []*UpgradableSeries {
 	result := make([]*UpgradableSeries, 0, len(seriesMap))
 	for seriesID, series := range seriesMap {
 		seasons := seasonMap[seriesID]
@@ -329,9 +355,7 @@ func (s *Service) GetUpgradableSeries(ctx context.Context) ([]*UpgradableSeries,
 		sortUpgradableSeasons(series.UpgradableSeasons)
 		result = append(result, series)
 	}
-
-	sortUpgradableSeries(result)
-	return result, nil
+	return result
 }
 
 // GetUpgradableCounts returns counts of upgradable movies and episodes.

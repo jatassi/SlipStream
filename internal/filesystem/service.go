@@ -12,38 +12,39 @@ import (
 	"github.com/slipstream/slipstream/internal/filesystem/mock"
 )
 
+const (
+	osWindows = "windows"
+)
+
 // Service provides filesystem browsing capabilities
 type Service struct {
-	logger zerolog.Logger
+	logger *zerolog.Logger
 }
 
 // NewService creates a new filesystem service
-func NewService(logger zerolog.Logger) *Service {
+func NewService(logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "filesystem").Logger()
 	return &Service{
-		logger: logger.With().Str("component", "filesystem").Logger(),
+		logger: &subLogger,
 	}
 }
 
 // BrowseDirectory lists directories at the given path
 // If path is empty, returns root directories (drives on Windows, / on Unix)
 func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
-	// Handle empty path - return root
 	if path == "" {
 		return s.browseRoot()
 	}
 
-	// Handle mock virtual filesystem paths
 	if mock.IsMockPath(path) {
 		return s.browseMockDirectory(path)
 	}
 
-	// Validate and clean the path
 	cleanPath, err := s.validatePath(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Read directory contents
 	entries, err := os.ReadDir(cleanPath)
 	if err != nil {
 		if os.IsPermission(err) {
@@ -52,36 +53,14 @@ func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
 		return nil, ErrPathNotFound
 	}
 
-	// Filter to directories only and build result
-	var dirEntries []DirectoryEntry
-	for _, entry := range entries {
-		if entry.IsDir() {
-			// Skip hidden directories on Unix (starting with .)
-			if runtime.GOOS != "windows" && strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
-			// Skip system directories on Windows
-			if runtime.GOOS == "windows" && isWindowsSystemDir(entry.Name()) {
-				continue
-			}
+	dirEntries := s.filterDirectories(entries, cleanPath)
 
-			dirEntries = append(dirEntries, DirectoryEntry{
-				Name:  entry.Name(),
-				Path:  filepath.Join(cleanPath, entry.Name()),
-				IsDir: true,
-			})
-		}
-	}
-
-	// Sort directories alphabetically (case-insensitive)
 	sort.Slice(dirEntries, func(i, j int) bool {
 		return strings.ToLower(dirEntries[i].Name) < strings.ToLower(dirEntries[j].Name)
 	})
 
-	// Calculate parent path
 	parent := filepath.Dir(cleanPath)
 	if parent == cleanPath {
-		// We're at root
 		parent = ""
 	}
 
@@ -90,6 +69,36 @@ func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
 		Parent:  parent,
 		Entries: dirEntries,
 	}, nil
+}
+
+func (s *Service) filterDirectories(entries []os.DirEntry, cleanPath string) []DirectoryEntry {
+	var dirEntries []DirectoryEntry
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		if s.shouldSkipDirectory(entry.Name()) {
+			continue
+		}
+
+		dirEntries = append(dirEntries, DirectoryEntry{
+			Name:  entry.Name(),
+			Path:  filepath.Join(cleanPath, entry.Name()),
+			IsDir: true,
+		})
+	}
+	return dirEntries
+}
+
+func (s *Service) shouldSkipDirectory(name string) bool {
+	if runtime.GOOS != osWindows && strings.HasPrefix(name, ".") {
+		return true
+	}
+	if runtime.GOOS == osWindows && isWindowsSystemDir(name) {
+		return true
+	}
+	return false
 }
 
 func (s *Service) browseMockDirectory(path string) (*BrowseResult, error) {
@@ -127,7 +136,7 @@ func (s *Service) browseMockDirectory(path string) (*BrowseResult, error) {
 
 // browseRoot returns the root browsing result (drives on Windows, / on Unix)
 func (s *Service) browseRoot() (*BrowseResult, error) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		drives := s.listDrives()
 		return &BrowseResult{
 			Path:   "",
@@ -151,7 +160,7 @@ func (s *Service) validatePath(path string) (string, error) {
 	}
 
 	// Validate path format based on OS
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		if !isValidWindowsPath(absPath) {
 			return "", ErrInvalidPath
 		}
@@ -186,30 +195,41 @@ func isValidWindowsPath(path string) bool {
 		return false
 	}
 
-	// Check for drive letter: C:\
-	if len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
-		letter := path[0]
-		if (letter >= 'A' && letter <= 'Z') || (letter >= 'a' && letter <= 'z') {
-			return true
-		}
+	if isValidWindowsDrivePath(path) {
+		return true
 	}
 
-	// Check for UNC path: \\server\share
-	if strings.HasPrefix(path, "\\\\") {
-		parts := strings.Split(path[2:], "\\")
-		if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
-			return true
-		}
+	if isValidWindowsUNCPath(path) {
+		return true
 	}
 
 	return false
+}
+
+func isValidWindowsDrivePath(path string) bool {
+	if len(path) < 3 || path[1] != ':' {
+		return false
+	}
+	if path[2] != '\\' && path[2] != '/' {
+		return false
+	}
+	letter := path[0]
+	return (letter >= 'A' && letter <= 'Z') || (letter >= 'a' && letter <= 'z')
+}
+
+func isValidWindowsUNCPath(path string) bool {
+	if !strings.HasPrefix(path, "\\\\") {
+		return false
+	}
+	parts := strings.Split(path[2:], "\\")
+	return len(parts) >= 2 && parts[0] != "" && parts[1] != ""
 }
 
 // GetStorageInfo returns storage information for all drives/volumes
 func (s *Service) GetStorageInfo(rootFolders []RootFolderRef) ([]StorageInfo, error) {
 	var storage []StorageInfo
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		storage = s.getWindowsStorageInfo(rootFolders)
 	} else {
 		storage = s.getUnixStorageInfo(rootFolders)
@@ -327,7 +347,6 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 		return s.browseRootForImport()
 	}
 
-	// Handle mock virtual filesystem paths
 	if mock.IsMockPath(path) {
 		return s.browseMockForImport(path)
 	}
@@ -345,56 +364,7 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 		return nil, ErrPathNotFound
 	}
 
-	var dirEntries []DirectoryEntry
-	var fileEntries []FileEntry
-
-	for _, entry := range entries {
-		name := entry.Name()
-
-		// Skip hidden on Unix
-		if runtime.GOOS != "windows" && strings.HasPrefix(name, ".") {
-			continue
-		}
-		// Skip system dirs on Windows
-		if runtime.GOOS == "windows" && isWindowsSystemDir(name) {
-			continue
-		}
-
-		if entry.IsDir() {
-			// Skip sample directories
-			if strings.EqualFold(name, "sample") || strings.EqualFold(name, "samples") {
-				continue
-			}
-			dirEntries = append(dirEntries, DirectoryEntry{
-				Name:  name,
-				Path:  filepath.Join(cleanPath, name),
-				IsDir: true,
-			})
-		} else {
-			// Check if it's a video file
-			ext := strings.ToLower(filepath.Ext(name))
-			if isVideoExtension(ext) {
-				info, err := entry.Info()
-				if err != nil {
-					continue
-				}
-				fileEntries = append(fileEntries, FileEntry{
-					Name:    name,
-					Path:    filepath.Join(cleanPath, name),
-					Size:    info.Size(),
-					ModTime: info.ModTime().Unix(),
-				})
-			}
-		}
-	}
-
-	// Sort directories and files alphabetically
-	sort.Slice(dirEntries, func(i, j int) bool {
-		return strings.ToLower(dirEntries[i].Name) < strings.ToLower(dirEntries[j].Name)
-	})
-	sort.Slice(fileEntries, func(i, j int) bool {
-		return strings.ToLower(fileEntries[i].Name) < strings.ToLower(fileEntries[j].Name)
-	})
+	dirEntries, fileEntries := s.processImportEntries(entries, cleanPath)
 
 	parent := filepath.Dir(cleanPath)
 	if parent == cleanPath {
@@ -407,6 +377,75 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 		Directories: dirEntries,
 		Files:       fileEntries,
 	}, nil
+}
+
+func (s *Service) processImportEntries(entries []os.DirEntry, cleanPath string) ([]DirectoryEntry, []FileEntry) {
+	var dirEntries []DirectoryEntry
+	var fileEntries []FileEntry
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		if s.shouldSkipImportEntry(name) {
+			continue
+		}
+
+		if entry.IsDir() {
+			if !isSampleDirectory(name) {
+				dirEntries = append(dirEntries, DirectoryEntry{
+					Name:  name,
+					Path:  filepath.Join(cleanPath, name),
+					IsDir: true,
+				})
+			}
+		} else {
+			if fileEntry, ok := s.buildFileEntry(entry, name, cleanPath); ok {
+				fileEntries = append(fileEntries, fileEntry)
+			}
+		}
+	}
+
+	sort.Slice(dirEntries, func(i, j int) bool {
+		return strings.ToLower(dirEntries[i].Name) < strings.ToLower(dirEntries[j].Name)
+	})
+	sort.Slice(fileEntries, func(i, j int) bool {
+		return strings.ToLower(fileEntries[i].Name) < strings.ToLower(fileEntries[j].Name)
+	})
+
+	return dirEntries, fileEntries
+}
+
+func (s *Service) shouldSkipImportEntry(name string) bool {
+	if runtime.GOOS != osWindows && strings.HasPrefix(name, ".") {
+		return true
+	}
+	if runtime.GOOS == osWindows && isWindowsSystemDir(name) {
+		return true
+	}
+	return false
+}
+
+func isSampleDirectory(name string) bool {
+	return strings.EqualFold(name, "sample") || strings.EqualFold(name, "samples")
+}
+
+func (s *Service) buildFileEntry(entry os.DirEntry, name, cleanPath string) (FileEntry, bool) {
+	ext := strings.ToLower(filepath.Ext(name))
+	if !isVideoExtension(ext) {
+		return FileEntry{}, false
+	}
+
+	info, err := entry.Info()
+	if err != nil {
+		return FileEntry{}, false
+	}
+
+	return FileEntry{
+		Name:    name,
+		Path:    filepath.Join(cleanPath, name),
+		Size:    info.Size(),
+		ModTime: info.ModTime().Unix(),
+	}, true
 }
 
 func (s *Service) browseMockForImport(path string) (*ImportBrowseResult, error) {
@@ -465,7 +504,7 @@ func (s *Service) browseMockForImport(path string) (*ImportBrowseResult, error) 
 
 // browseRootForImport returns root for import browsing
 func (s *Service) browseRootForImport() (*ImportBrowseResult, error) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		drives := s.listDrives()
 		return &ImportBrowseResult{
 			Path:   "",
@@ -526,7 +565,6 @@ func isSamplePath(path string) bool {
 // ScanForMedia recursively scans a directory for video files and parses their metadata.
 // This is used for manual import functionality.
 func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*MediaScanResult, error) {
-	// Handle mock virtual filesystem paths
 	if mock.IsMockPath(path) {
 		return s.scanMockForMedia(path, parser)
 	}
@@ -541,46 +579,8 @@ func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*M
 		Files: make([]ScannedMediaFile, 0),
 	}
 
-	err = filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip errors
-		}
-
-		if info.IsDir() {
-			// Skip sample directories
-			baseName := strings.ToLower(info.Name())
-			if sampleDirNames[baseName] {
-				return filepath.SkipDir
-			}
-			// Skip hidden directories on Unix
-			if runtime.GOOS != "windows" && strings.HasPrefix(info.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Check if it's a video file
-		ext := strings.ToLower(filepath.Ext(filePath))
-		if !isVideoExtension(ext) {
-			return nil
-		}
-
-		scanned := ScannedMediaFile{
-			Path:      filePath,
-			Name:      info.Name(),
-			Size:      info.Size(),
-			ModTime:   info.ModTime().Unix(),
-			Extension: ext,
-			IsSample:  isSamplePath(filePath),
-		}
-
-		// Parse metadata if parser is provided
-		if parser != nil {
-			scanned.Parsed = parser(info.Name())
-		}
-
-		result.Files = append(result.Files, scanned)
-		return nil
+	err = filepath.Walk(cleanPath, func(filePath string, info os.FileInfo, walkErr error) error {
+		return s.processScanEntry(filePath, info, walkErr, parser, result)
 	})
 
 	if err != nil {
@@ -589,12 +589,60 @@ func (s *Service) ScanForMedia(path string, parser func(string) *ParsedInfo) (*M
 
 	result.TotalFiles = len(result.Files)
 
-	// Sort files by path
 	sort.Slice(result.Files, func(i, j int) bool {
 		return strings.ToLower(result.Files[i].Path) < strings.ToLower(result.Files[j].Path)
 	})
 
 	return result, nil
+}
+
+func (s *Service) processScanEntry(filePath string, info os.FileInfo, walkErr error, parser func(string) *ParsedInfo, result *MediaScanResult) error {
+	if walkErr != nil {
+		return nil //nolint:nilerr // Skip filesystem errors during walk
+	}
+
+	if info.IsDir() {
+		return s.handleScanDirectory(info)
+	}
+
+	if scanned, ok := s.buildScannedFile(filePath, info, parser); ok {
+		result.Files = append(result.Files, scanned)
+	}
+
+	return nil
+}
+
+func (s *Service) handleScanDirectory(info os.FileInfo) error {
+	baseName := strings.ToLower(info.Name())
+	if sampleDirNames[baseName] {
+		return filepath.SkipDir
+	}
+	if runtime.GOOS != osWindows && strings.HasPrefix(info.Name(), ".") {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+func (s *Service) buildScannedFile(filePath string, info os.FileInfo, parser func(string) *ParsedInfo) (ScannedMediaFile, bool) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if !isVideoExtension(ext) {
+		return ScannedMediaFile{}, false
+	}
+
+	scanned := ScannedMediaFile{
+		Path:      filePath,
+		Name:      info.Name(),
+		Size:      info.Size(),
+		ModTime:   info.ModTime().Unix(),
+		Extension: ext,
+		IsSample:  isSamplePath(filePath),
+	}
+
+	if parser != nil {
+		scanned.Parsed = parser(info.Name())
+	}
+
+	return scanned, true
 }
 
 func (s *Service) scanMockForMedia(path string, parser func(string) *ParsedInfo) (*MediaScanResult, error) {

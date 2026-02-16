@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	ErrRequestNotFound    = errors.New("request not found")
-	ErrAlreadyRequested   = errors.New("item already requested")
-	ErrCannotCancel       = errors.New("cannot cancel request")
-	ErrNotOwner           = errors.New("not the owner of this request")
-	ErrInvalidStatus      = errors.New("invalid status transition")
-	ErrInvalidMediaType   = errors.New("invalid media type")
+	ErrRequestNotFound  = errors.New("request not found")
+	ErrAlreadyRequested = errors.New("item already requested")
+	ErrCannotCancel     = errors.New("cannot cancel request")
+	ErrNotOwner         = errors.New("not the owner of this request")
+	ErrInvalidStatus    = errors.New("invalid status transition")
+	ErrInvalidMediaType = errors.New("invalid media type")
 )
 
 const (
@@ -51,7 +51,7 @@ type Request struct {
 	ApprovedBy       *int64     `json:"approvedBy,omitempty"`
 	MediaID          *int64     `json:"mediaId"`
 	TargetSlotID     *int64     `json:"targetSlotId"`
-	PosterUrl        *string    `json:"posterUrl,omitempty"`
+	PosterURL        *string    `json:"posterUrl,omitempty"`
 	RequestedSeasons []int64    `json:"requestedSeasons,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
@@ -67,7 +67,7 @@ type CreateInput struct {
 	EpisodeNumber    *int64
 	MonitorType      *string
 	TargetSlotID     *int64
-	PosterUrl        *string
+	PosterURL        *string
 	RequestedSeasons []int64
 }
 
@@ -93,17 +93,18 @@ type NotificationDispatcher interface {
 }
 
 type Service struct {
-	queries              *sqlc.Queries
-	logger               zerolog.Logger
-	broadcaster          *EventBroadcaster
-	notifDispatcher      NotificationDispatcher
-	watchersService      *WatchersService
+	queries         *sqlc.Queries
+	logger          *zerolog.Logger
+	broadcaster     *EventBroadcaster
+	notifDispatcher NotificationDispatcher
+	watchersService *WatchersService
 }
 
-func NewService(queries *sqlc.Queries, logger zerolog.Logger) *Service {
+func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "portal-requests").Logger()
 	return &Service{
 		queries: queries,
-		logger:  logger.With().Str("component", "portal-requests").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -135,13 +136,13 @@ func (s *Service) getWatcherUserIDs(ctx context.Context, requestID int64) []int6
 	return ids
 }
 
-func (s *Service) Create(ctx context.Context, userID int64, input CreateInput) (*Request, error) {
+func (s *Service) Create(ctx context.Context, userID int64, input *CreateInput) (*Request, error) {
 	if !isValidMediaType(input.MediaType) {
 		return nil, ErrInvalidMediaType
 	}
 
 	existing, err := s.checkExistingRequest(ctx, input)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	if existing != nil {
@@ -160,7 +161,7 @@ func (s *Service) Create(ctx context.Context, userID int64, input CreateInput) (
 		Status:           StatusPending,
 		MonitorType:      toNullString(input.MonitorType),
 		TargetSlotID:     toNullInt64(input.TargetSlotID),
-		PosterUrl:        toNullString(input.PosterUrl),
+		PosterUrl:        toNullString(input.PosterURL),
 		RequestedSeasons: seasonsToJSON(input.RequestedSeasons),
 	})
 	if err != nil {
@@ -215,7 +216,7 @@ func (s *Service) GetByTvdbID(ctx context.Context, tvdbID int64, mediaType strin
 	return toRequest(req), nil
 }
 
-func (s *Service) GetByTvdbIDAndSeason(ctx context.Context, tvdbID int64, seasonNumber int64) (*Request, error) {
+func (s *Service) GetByTvdbIDAndSeason(ctx context.Context, tvdbID, seasonNumber int64) (*Request, error) {
 	req, err := s.queries.GetRequestByTvdbIDAndSeason(ctx, sqlc.GetRequestByTvdbIDAndSeasonParams{
 		TvdbID:       sql.NullInt64{Int64: tvdbID, Valid: true},
 		SeasonNumber: sql.NullInt64{Int64: seasonNumber, Valid: true},
@@ -229,7 +230,7 @@ func (s *Service) GetByTvdbIDAndSeason(ctx context.Context, tvdbID int64, season
 	return toRequest(req), nil
 }
 
-func (s *Service) GetByTvdbIDAndEpisode(ctx context.Context, tvdbID int64, seasonNumber, episodeNumber int64) (*Request, error) {
+func (s *Service) GetByTvdbIDAndEpisode(ctx context.Context, tvdbID, seasonNumber, episodeNumber int64) (*Request, error) {
 	req, err := s.queries.GetRequestByTvdbIDAndEpisode(ctx, sqlc.GetRequestByTvdbIDAndEpisodeParams{
 		TvdbID:        sql.NullInt64{Int64: tvdbID, Valid: true},
 		SeasonNumber:  sql.NullInt64{Int64: seasonNumber, Valid: true},
@@ -248,18 +249,19 @@ func (s *Service) List(ctx context.Context, filters ListFilters) ([]*Request, er
 	var requests []*sqlc.Request
 	var err error
 
-	if filters.UserID != nil && filters.Status != nil {
+	switch {
+	case filters.UserID != nil && filters.Status != nil:
 		requests, err = s.queries.ListRequestsByUserAndStatus(ctx, sqlc.ListRequestsByUserAndStatusParams{
 			UserID: *filters.UserID,
 			Status: *filters.Status,
 		})
-	} else if filters.UserID != nil {
+	case filters.UserID != nil:
 		requests, err = s.queries.ListRequestsByUser(ctx, *filters.UserID)
-	} else if filters.Status != nil {
+	case filters.Status != nil:
 		requests, err = s.queries.ListRequestsByStatus(ctx, *filters.Status)
-	} else if filters.MediaType != nil {
+	case filters.MediaType != nil:
 		requests, err = s.queries.ListRequestsByMediaType(ctx, *filters.MediaType)
-	} else {
+	default:
 		requests, err = s.queries.ListRequests(ctx)
 	}
 
@@ -291,7 +293,7 @@ func (s *Service) ListPending(ctx context.Context) ([]*Request, error) {
 	return result, nil
 }
 
-func (s *Service) Cancel(ctx context.Context, id int64, userID int64) error {
+func (s *Service) Cancel(ctx context.Context, id, userID int64) error {
 	req, err := s.queries.GetRequest(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -319,7 +321,7 @@ func (s *Service) Cancel(ctx context.Context, id int64, userID int64) error {
 	return nil
 }
 
-func (s *Service) Approve(ctx context.Context, id int64, approverID int64, _ ApprovalAction) (*Request, error) {
+func (s *Service) Approve(ctx context.Context, id, approverID int64, _ ApprovalAction) (*Request, error) {
 	req, err := s.queries.ApproveRequest(ctx, sqlc.ApproveRequestParams{
 		ID:         id,
 		ApprovedBy: sql.NullInt64{Int64: approverID, Valid: true},
@@ -433,7 +435,7 @@ func (s *Service) UpdateStatus(ctx context.Context, id int64, status string) (*R
 	return result, nil
 }
 
-func (s *Service) LinkMedia(ctx context.Context, id int64, mediaID int64) (*Request, error) {
+func (s *Service) LinkMedia(ctx context.Context, id, mediaID int64) (*Request, error) {
 	req, err := s.queries.LinkRequestToMedia(ctx, sqlc.LinkRequestToMediaParams{
 		ID:      id,
 		MediaID: sql.NullInt64{Int64: mediaID, Valid: true},
@@ -479,53 +481,77 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.queries.DeleteRequest(ctx, id)
 }
 
-func (s *Service) checkExistingRequest(ctx context.Context, input CreateInput) (*Request, error) {
+func (s *Service) checkExistingRequest(ctx context.Context, input *CreateInput) (*Request, error) {
 	var req *sqlc.Request
 	var err error
 
 	switch input.MediaType {
 	case MediaTypeMovie:
-		if input.TmdbID != nil {
-			req, err = s.queries.GetRequestByTmdbID(ctx, sqlc.GetRequestByTmdbIDParams{
-				TmdbID:    sql.NullInt64{Int64: *input.TmdbID, Valid: true},
-				MediaType: MediaTypeMovie,
-			})
-		}
+		req, err = s.checkExistingMovie(ctx, input)
 	case MediaTypeSeries:
-		if input.TvdbID != nil {
-			req, err = s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
-				TvdbID:    sql.NullInt64{Int64: *input.TvdbID, Valid: true},
-				MediaType: MediaTypeSeries,
-			})
-		}
+		req, err = s.checkExistingSeries(ctx, input)
 	case MediaTypeSeason:
-		if input.TvdbID != nil && input.SeasonNumber != nil {
-			req, err = s.queries.GetRequestByTvdbIDAndSeason(ctx, sqlc.GetRequestByTvdbIDAndSeasonParams{
-				TvdbID:       sql.NullInt64{Int64: *input.TvdbID, Valid: true},
-				SeasonNumber: sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
-			})
-		}
+		req, err = s.checkExistingSeason(ctx, input)
 	case MediaTypeEpisode:
-		if input.TvdbID != nil && input.SeasonNumber != nil && input.EpisodeNumber != nil {
-			req, err = s.queries.GetRequestByTvdbIDAndEpisode(ctx, sqlc.GetRequestByTvdbIDAndEpisodeParams{
-				TvdbID:        sql.NullInt64{Int64: *input.TvdbID, Valid: true},
-				SeasonNumber:  sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
-				EpisodeNumber: sql.NullInt64{Int64: *input.EpisodeNumber, Valid: true},
-			})
-		}
+		req, err = s.checkExistingEpisode(ctx, input)
 	}
 
+	return s.handleExistingRequestResult(req, err)
+}
+
+func (s *Service) checkExistingMovie(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
+	if input.TmdbID == nil {
+		return nil, sql.ErrNoRows
+	}
+	return s.queries.GetRequestByTmdbID(ctx, sqlc.GetRequestByTmdbIDParams{
+		TmdbID:    sql.NullInt64{Int64: *input.TmdbID, Valid: true},
+		MediaType: MediaTypeMovie,
+	})
+}
+
+func (s *Service) checkExistingSeries(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
+	if input.TvdbID == nil {
+		return nil, sql.ErrNoRows
+	}
+	return s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
+		TvdbID:    sql.NullInt64{Int64: *input.TvdbID, Valid: true},
+		MediaType: MediaTypeSeries,
+	})
+}
+
+func (s *Service) checkExistingSeason(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
+	if input.TvdbID == nil || input.SeasonNumber == nil {
+		return nil, sql.ErrNoRows
+	}
+	return s.queries.GetRequestByTvdbIDAndSeason(ctx, sqlc.GetRequestByTvdbIDAndSeasonParams{
+		TvdbID:       sql.NullInt64{Int64: *input.TvdbID, Valid: true},
+		SeasonNumber: sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
+	})
+}
+
+func (s *Service) checkExistingEpisode(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
+	if input.TvdbID == nil || input.SeasonNumber == nil || input.EpisodeNumber == nil {
+		return nil, sql.ErrNoRows
+	}
+	return s.queries.GetRequestByTvdbIDAndEpisode(ctx, sqlc.GetRequestByTvdbIDAndEpisodeParams{
+		TvdbID:        sql.NullInt64{Int64: *input.TvdbID, Valid: true},
+		SeasonNumber:  sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
+		EpisodeNumber: sql.NullInt64{Int64: *input.EpisodeNumber, Valid: true},
+	})
+}
+
+func (s *Service) handleExistingRequestResult(req *sqlc.Request, err error) (*Request, error) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, sql.ErrNoRows
 		}
 		return nil, err
 	}
 
-	if req != nil {
-		return toRequest(req), nil
+	if req == nil {
+		return nil, sql.ErrNoRows
 	}
-	return nil, nil
+	return toRequest(req), nil
 }
 
 func isValidMediaType(mediaType string) bool {
@@ -591,43 +617,36 @@ func toRequest(r *sqlc.Request) *Request {
 		UpdatedAt: r.UpdatedAt,
 	}
 
-	if r.TmdbID.Valid {
-		req.TmdbID = &r.TmdbID.Int64
-	}
-	if r.TvdbID.Valid {
-		req.TvdbID = &r.TvdbID.Int64
-	}
-	if r.Year.Valid {
-		req.Year = &r.Year.Int64
-	}
-	if r.SeasonNumber.Valid {
-		req.SeasonNumber = &r.SeasonNumber.Int64
-	}
-	if r.EpisodeNumber.Valid {
-		req.EpisodeNumber = &r.EpisodeNumber.Int64
-	}
-	if r.MonitorType.Valid {
-		req.MonitorType = &r.MonitorType.String
-	}
-	if r.DeniedReason.Valid {
-		req.DeniedReason = &r.DeniedReason.String
-	}
+	assignNullableInt64(&req.TmdbID, r.TmdbID)
+	assignNullableInt64(&req.TvdbID, r.TvdbID)
+	assignNullableInt64(&req.Year, r.Year)
+	assignNullableInt64(&req.SeasonNumber, r.SeasonNumber)
+	assignNullableInt64(&req.EpisodeNumber, r.EpisodeNumber)
+	assignNullableInt64(&req.ApprovedBy, r.ApprovedBy)
+	assignNullableInt64(&req.MediaID, r.MediaID)
+	assignNullableInt64(&req.TargetSlotID, r.TargetSlotID)
+
+	assignNullableString(&req.MonitorType, r.MonitorType)
+	assignNullableString(&req.DeniedReason, r.DeniedReason)
+	assignNullableString(&req.PosterURL, r.PosterUrl)
+
 	if r.ApprovedAt.Valid {
 		req.ApprovedAt = &r.ApprovedAt.Time
 	}
-	if r.ApprovedBy.Valid {
-		req.ApprovedBy = &r.ApprovedBy.Int64
-	}
-	if r.MediaID.Valid {
-		req.MediaID = &r.MediaID.Int64
-	}
-	if r.TargetSlotID.Valid {
-		req.TargetSlotID = &r.TargetSlotID.Int64
-	}
-	if r.PosterUrl.Valid {
-		req.PosterUrl = &r.PosterUrl.String
-	}
+
 	req.RequestedSeasons = seasonsFromJSON(r.RequestedSeasons)
 
 	return req
+}
+
+func assignNullableInt64(dest **int64, src sql.NullInt64) {
+	if src.Valid {
+		*dest = &src.Int64
+	}
+}
+
+func assignNullableString(dest **string, src sql.NullString) {
+	if src.Valid {
+		*dest = &src.String
+	}
 }

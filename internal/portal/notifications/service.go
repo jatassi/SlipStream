@@ -73,20 +73,21 @@ type Service struct {
 	queries      *sqlc.Queries
 	mainNotifSvc *notification.Service
 	hub          *websocket.Hub
-	logger       zerolog.Logger
+	logger       *zerolog.Logger
 }
 
 func NewService(
 	queries *sqlc.Queries,
 	mainNotifSvc *notification.Service,
 	hub *websocket.Hub,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *Service {
+	subLogger := logger.With().Str("component", "portal-notifications").Logger()
 	return &Service{
 		queries:      queries,
 		mainNotifSvc: mainNotifSvc,
 		hub:          hub,
-		logger:       logger.With().Str("component", "portal-notifications").Logger(),
+		logger:       &subLogger,
 	}
 }
 
@@ -94,7 +95,7 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
 }
 
-func (s *Service) createInAppNotification(ctx context.Context, userID int64, requestID int64, notifType, title, message string) {
+func (s *Service) createInAppNotification(ctx context.Context, userID, requestID int64, notifType, title, message string) {
 	notif, err := s.queries.CreatePortalNotification(ctx, sqlc.CreatePortalNotificationParams{
 		UserID:    userID,
 		RequestID: sql.NullInt64{Int64: requestID, Valid: true},
@@ -130,10 +131,10 @@ func (s *Service) NotifyRequestAvailable(ctx context.Context, request *requests.
 		allUserIDs[uid] = true
 	}
 
-	message := formatAvailableMessage(event)
+	message := formatAvailableMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "available", "Request Available", message)
-		go s.sendAvailableNotification(context.Background(), userID, event)
+		go s.sendAvailableNotification(context.Background(), userID, &event)
 	}
 }
 
@@ -153,10 +154,10 @@ func (s *Service) NotifyRequestApproved(ctx context.Context, request *requests.R
 		allUserIDs[uid] = true
 	}
 
-	message := formatStatusMessage(event)
+	message := formatStatusMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "approved", "Request Approved", message)
-		go s.sendApprovedNotification(context.Background(), userID, event)
+		go s.sendApprovedNotification(context.Background(), userID, &event)
 	}
 }
 
@@ -176,14 +177,14 @@ func (s *Service) NotifyRequestDenied(ctx context.Context, request *requests.Req
 		allUserIDs[uid] = true
 	}
 
-	message := formatStatusMessage(event)
+	message := formatStatusMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "denied", "Request Denied", message)
-		go s.sendDeniedNotification(context.Background(), userID, event)
+		go s.sendDeniedNotification(context.Background(), userID, &event)
 	}
 }
 
-func (s *Service) sendApprovedNotification(ctx context.Context, userID int64, event RequestStatusEvent) {
+func (s *Service) sendApprovedNotification(ctx context.Context, userID int64, event *RequestStatusEvent) {
 	channels, err := s.queries.ListUserNotificationsForApproved(ctx, userID)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to list user notifications for approved")
@@ -209,7 +210,7 @@ func (s *Service) sendApprovedNotification(ctx context.Context, userID int64, ev
 	}
 }
 
-func (s *Service) sendDeniedNotification(ctx context.Context, userID int64, event RequestStatusEvent) {
+func (s *Service) sendDeniedNotification(ctx context.Context, userID int64, event *RequestStatusEvent) {
 	channels, err := s.queries.ListUserNotificationsForDenied(ctx, userID)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to list user notifications for denied")
@@ -235,7 +236,7 @@ func (s *Service) sendDeniedNotification(ctx context.Context, userID int64, even
 	}
 }
 
-func (s *Service) sendStatusNotification(ctx context.Context, channel *sqlc.UserNotification, event RequestStatusEvent) error {
+func (s *Service) sendStatusNotification(ctx context.Context, channel *sqlc.UserNotification, event *RequestStatusEvent) error {
 	message := formatStatusMessage(event)
 
 	notifier, err := s.createNotifier(channel)
@@ -253,10 +254,10 @@ func (s *Service) sendStatusNotification(ctx context.Context, channel *sqlc.User
 		Message: message,
 		SentAt:  event.ChangedAt,
 	}
-	return notifier.SendMessage(ctx, msgEvent)
+	return notifier.SendMessage(ctx, &msgEvent)
 }
 
-func (s *Service) sendAvailableNotification(ctx context.Context, userID int64, event RequestAvailableEvent) {
+func (s *Service) sendAvailableNotification(ctx context.Context, userID int64, event *RequestAvailableEvent) {
 	channels, err := s.queries.ListUserNotificationsForAvailable(ctx, userID)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to list user notifications")
@@ -282,7 +283,7 @@ func (s *Service) sendAvailableNotification(ctx context.Context, userID int64, e
 	}
 }
 
-func (s *Service) sendToChannel(ctx context.Context, channel *sqlc.UserNotification, event RequestAvailableEvent) error {
+func (s *Service) sendToChannel(ctx context.Context, channel *sqlc.UserNotification, event *RequestAvailableEvent) error {
 	message := formatAvailableMessage(event)
 
 	notifier, err := s.createNotifier(channel)
@@ -295,7 +296,7 @@ func (s *Service) sendToChannel(ctx context.Context, channel *sqlc.UserNotificat
 		Message: message,
 		SentAt:  event.AvailableAt,
 	}
-	return notifier.SendMessage(ctx, msgEvent)
+	return notifier.SendMessage(ctx, &msgEvent)
 }
 
 func (s *Service) createNotifier(channel *sqlc.UserNotification) (notification.Notifier, error) {
@@ -317,7 +318,7 @@ func (s *Service) NotifyAdminNewRequest(ctx context.Context, request *requests.R
 		RequestedAt: request.CreatedAt,
 	}
 
-	s.mainNotifSvc.DispatchGenericMessage(ctx, formatNewRequestMessage(event))
+	s.mainNotifSvc.DispatchGenericMessage(ctx, formatNewRequestMessage(&event))
 }
 
 func (s *Service) isAdminNotifyEnabled(ctx context.Context) (bool, error) {
@@ -452,7 +453,7 @@ type PortalNotificationListResponse struct {
 	UnreadCount   int64                 `json:"unreadCount"`
 }
 
-func (s *Service) ListPortalNotifications(ctx context.Context, userID int64, limit, offset int64) (*PortalNotificationListResponse, error) {
+func (s *Service) ListPortalNotifications(ctx context.Context, userID, limit, offset int64) (*PortalNotificationListResponse, error) {
 	notifs, err := s.queries.ListPortalNotifications(ctx, sqlc.ListPortalNotificationsParams{
 		UserID: userID,
 		Limit:  limit,
@@ -524,23 +525,24 @@ func toUserNotification(n *sqlc.UserNotification) *UserNotification {
 	}
 }
 
-func formatAvailableMessage(event RequestAvailableEvent) string {
+func formatAvailableMessage(event *RequestAvailableEvent) string {
 	msg := event.Title
 	if event.Year != nil {
 		msg += " (" + strconv.FormatInt(*event.Year, 10) + ")"
 	}
 	msg += " is now available"
-	if event.MediaType == "series" && len(event.Request.RequestedSeasons) > 0 {
+	switch {
+	case event.MediaType == "series" && len(event.Request.RequestedSeasons) > 0:
 		msg = event.Title + " " + formatSeasons(event.Request.RequestedSeasons) + " is now available"
-	} else if event.MediaType == "season" && event.Request.SeasonNumber != nil {
+	case event.MediaType == "season" && event.Request.SeasonNumber != nil:
 		msg = event.Title + " - Season " + strconv.FormatInt(*event.Request.SeasonNumber, 10) + " is now available"
-	} else if event.MediaType == "episode" && event.Request.SeasonNumber != nil && event.Request.EpisodeNumber != nil {
+	case event.MediaType == "episode" && event.Request.SeasonNumber != nil && event.Request.EpisodeNumber != nil:
 		msg = event.Title + " S" + strconv.FormatInt(*event.Request.SeasonNumber, 10) + "E" + strconv.FormatInt(*event.Request.EpisodeNumber, 10) + " is now available"
 	}
 	return msg
 }
 
-func formatNewRequestMessage(event NewRequestEvent) string {
+func formatNewRequestMessage(event *NewRequestEvent) string {
 	msg := "New request: " + event.Title
 	if event.Year != nil {
 		msg += " (" + strconv.FormatInt(*event.Year, 10) + ")"
@@ -549,24 +551,32 @@ func formatNewRequestMessage(event NewRequestEvent) string {
 	return msg
 }
 
-func formatStatusMessage(event RequestStatusEvent) string {
-	msg := "Your request for " + event.Title
-	if event.Year != nil {
-		msg += " (" + strconv.FormatInt(*event.Year, 10) + ")"
-	}
-	if event.MediaType == "series" && len(event.Request.RequestedSeasons) > 0 {
-		msg = "Your request for " + event.Title + " " + formatSeasons(event.Request.RequestedSeasons)
-	} else if event.MediaType == "season" && event.Request.SeasonNumber != nil {
-		msg = "Your request for " + event.Title + " - Season " + strconv.FormatInt(*event.Request.SeasonNumber, 10)
-	} else if event.MediaType == "episode" && event.Request.SeasonNumber != nil && event.Request.EpisodeNumber != nil {
-		msg = "Your request for " + event.Title + " S" + strconv.FormatInt(*event.Request.SeasonNumber, 10) + "E" + strconv.FormatInt(*event.Request.EpisodeNumber, 10)
-	}
-	if event.Status == "approved" {
+func formatStatusMessage(event *RequestStatusEvent) string {
+	msg := formatRequestSubject(event)
+	switch event.Status {
+	case "approved":
 		msg += " has been approved"
-	} else if event.Status == "denied" {
+	case "denied":
 		msg += " has been denied"
 	}
 	return msg
+}
+
+func formatRequestSubject(event *RequestStatusEvent) string {
+	switch {
+	case event.MediaType == "series" && len(event.Request.RequestedSeasons) > 0:
+		return "Your request for " + event.Title + " " + formatSeasons(event.Request.RequestedSeasons)
+	case event.MediaType == "season" && event.Request.SeasonNumber != nil:
+		return "Your request for " + event.Title + " - Season " + strconv.FormatInt(*event.Request.SeasonNumber, 10)
+	case event.MediaType == "episode" && event.Request.SeasonNumber != nil && event.Request.EpisodeNumber != nil:
+		return "Your request for " + event.Title + " S" + strconv.FormatInt(*event.Request.SeasonNumber, 10) + "E" + strconv.FormatInt(*event.Request.EpisodeNumber, 10)
+	default:
+		msg := "Your request for " + event.Title
+		if event.Year != nil {
+			msg += " (" + strconv.FormatInt(*event.Year, 10) + ")"
+		}
+		return msg
+	}
 }
 
 func formatSeasons(seasons []int64) string {

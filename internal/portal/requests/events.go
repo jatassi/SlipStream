@@ -11,23 +11,23 @@ const (
 )
 
 type RequestCreatedPayload struct {
-	RequestID int64  `json:"requestId"`
-	UserID    int64  `json:"userId"`
-	MediaType string `json:"mediaType"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
+	RequestID int64     `json:"requestId"`
+	UserID    int64     `json:"userId"`
+	MediaType string    `json:"mediaType"`
+	Title     string    `json:"title"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 type RequestUpdatedPayload struct {
-	RequestID    int64      `json:"requestId"`
-	UserID       int64      `json:"userId"`
-	MediaType    string     `json:"mediaType"`
-	Title        string     `json:"title"`
-	Status       string     `json:"status"`
-	PreviousStatus string   `json:"previousStatus,omitempty"`
-	MediaID      *int64     `json:"mediaId,omitempty"`
-	UpdatedAt    time.Time  `json:"updatedAt"`
+	RequestID      int64     `json:"requestId"`
+	UserID         int64     `json:"userId"`
+	MediaType      string    `json:"mediaType"`
+	Title          string    `json:"title"`
+	Status         string    `json:"status"`
+	PreviousStatus string    `json:"previousStatus,omitempty"`
+	MediaID        *int64    `json:"mediaId,omitempty"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type RequestDeletedPayload struct {
@@ -38,7 +38,7 @@ type RequestDeletedPayload struct {
 }
 
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 type EventBroadcaster struct {

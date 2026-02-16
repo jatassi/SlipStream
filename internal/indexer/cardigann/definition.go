@@ -81,17 +81,17 @@ type Setting struct {
 
 // LoginBlock defines how to authenticate with the indexer.
 type LoginBlock struct {
-	Path           string                       `yaml:"path"`
-	Method         string                       `yaml:"method"` // post, form, cookie, oneurl
-	Form           string                       `yaml:"form"`   // CSS selector for form element
-	Selectors      bool                         `yaml:"selectors"`
-	Inputs         map[string]string            `yaml:"inputs"`
-	SelectorInputs map[string]SelectorDef       `yaml:"selectorinputs"`
-	Error          []ErrorSelector              `yaml:"error"`
-	Test           TestBlock                    `yaml:"test"`
-	Captcha        *CaptchaBlock                `yaml:"captcha"`
-	Cookies        []string                     `yaml:"cookies"` // Required cookie names
-	Headers        map[string]StringOrArray     `yaml:"headers"`
+	Path           string                   `yaml:"path"`
+	Method         string                   `yaml:"method"` // post, form, cookie, oneurl
+	Form           string                   `yaml:"form"`   // CSS selector for form element
+	Selectors      bool                     `yaml:"selectors"`
+	Inputs         map[string]string        `yaml:"inputs"`
+	SelectorInputs map[string]SelectorDef   `yaml:"selectorinputs"`
+	Error          []ErrorSelector          `yaml:"error"`
+	Test           TestBlock                `yaml:"test"`
+	Captcha        *CaptchaBlock            `yaml:"captcha"`
+	Cookies        []string                 `yaml:"cookies"` // Required cookie names
+	Headers        map[string]StringOrArray `yaml:"headers"`
 }
 
 // SelectorDef defines how to extract a value using a CSS selector.
@@ -141,30 +141,30 @@ type SearchBlock struct {
 
 // SearchPath defines a search endpoint, optionally restricted to certain categories.
 type SearchPath struct {
-	Path       string          `yaml:"path"`
-	Categories []string        `yaml:"categories"`
-	Inputs     map[string]string `yaml:"inputs"`    // Path-specific inputs
-	Method     string          `yaml:"method"`     // GET or POST
-	Response   *ResponseConfig `yaml:"response"`
-	Followredirect bool        `yaml:"followredirect"`
+	Path           string            `yaml:"path"`
+	Categories     []string          `yaml:"categories"`
+	Inputs         map[string]string `yaml:"inputs"` // Path-specific inputs
+	Method         string            `yaml:"method"` // GET or POST
+	Response       *ResponseConfig   `yaml:"response"`
+	Followredirect bool              `yaml:"followredirect"`
 }
 
 // ResponseConfig specifies the response format.
 type ResponseConfig struct {
-	Type      string `yaml:"type"`      // json, xml, html (default)
+	Type             string `yaml:"type"` // json, xml, html (default)
 	NoResultsMessage string `yaml:"noresultsmessage"`
 }
 
 // RowSelector defines how to find result rows in the response.
 type RowSelector struct {
-	Selector    string       `yaml:"selector"`
-	Attribute   string       `yaml:"attribute"` // For JSON: extract this nested object from each row
-	After       int          `yaml:"after"`     // Skip N rows (e.g., header row)
-	Remove      string       `yaml:"remove"`    // Remove elements matching this selector
-	Multiple    bool         `yaml:"multiple"`
-	DateHeaders *DateHeaders `yaml:"dateheaders"`
-	Count       *CountBlock  `yaml:"count"`
-	MissingAttributeEquals string `yaml:"missingAttributeEqualsNoResults"`
+	Selector               string       `yaml:"selector"`
+	Attribute              string       `yaml:"attribute"` // For JSON: extract this nested object from each row
+	After                  int          `yaml:"after"`     // Skip N rows (e.g., header row)
+	Remove                 string       `yaml:"remove"`    // Remove elements matching this selector
+	Multiple               bool         `yaml:"multiple"`
+	DateHeaders            *DateHeaders `yaml:"dateheaders"`
+	Count                  *CountBlock  `yaml:"count"`
+	MissingAttributeEquals string       `yaml:"missingAttributeEqualsNoResults"`
 }
 
 // DateHeaders handles sites that group results by date with header rows.
@@ -207,8 +207,8 @@ type DownloadBlock struct {
 
 // DownloadSelector defines a selector for finding download links.
 type DownloadSelector struct {
-	Selector  string `yaml:"selector"`
-	Attribute string `yaml:"attribute"`
+	Selector  string   `yaml:"selector"`
+	Attribute string   `yaml:"attribute"`
 	Filters   []Filter `yaml:"filters"`
 }
 

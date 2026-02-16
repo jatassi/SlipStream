@@ -18,17 +18,17 @@ import (
 // Repository handles fetching and updating Cardigann definitions from remote sources.
 type Repository struct {
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	config     RepositoryConfig
 }
 
 // RepositoryConfig contains configuration for the definition repository.
 type RepositoryConfig struct {
-	BaseURL           string        // Default: "https://indexers.prowlarr.com"
-	Branch            string        // Default: "master"
-	Version           string        // Default: "v10"
-	RequestTimeout    time.Duration // Default: 60s
-	UserAgent         string        // Default: "SlipStream/1.0"
+	BaseURL        string        // Default: "https://indexers.prowlarr.com"
+	Branch         string        // Default: "master"
+	Version        string        // Default: "v10"
+	RequestTimeout time.Duration // Default: 60s
+	UserAgent      string        // Default: "SlipStream/1.0"
 }
 
 // DefaultRepositoryConfig returns the default repository configuration.
@@ -47,13 +47,13 @@ type DefinitionMetadata struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Type        string `json:"type"`     // public, private, semi-private
+	Type        string `json:"type"` // public, private, semi-private
 	Language    string `json:"language"`
 	Protocol    string `json:"protocol"` // torrent, usenet
 }
 
 // NewRepository creates a new definition repository.
-func NewRepository(cfg RepositoryConfig, logger zerolog.Logger) *Repository {
+func NewRepository(cfg *RepositoryConfig, logger *zerolog.Logger) *Repository {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = DefaultRepositoryConfig().BaseURL
 	}
@@ -70,12 +70,13 @@ func NewRepository(cfg RepositoryConfig, logger zerolog.Logger) *Repository {
 		cfg.UserAgent = DefaultRepositoryConfig().UserAgent
 	}
 
+	subLogger := logger.With().Str("component", "repository").Logger()
 	return &Repository{
 		httpClient: &http.Client{
 			Timeout: cfg.RequestTimeout,
 		},
-		logger: logger.With().Str("component", "repository").Logger(),
-		config: cfg,
+		logger: &subLogger,
+		config: *cfg,
 	}
 }
 
@@ -89,7 +90,7 @@ func (r *Repository) FetchDefinitionList(ctx context.Context) ([]DefinitionMetad
 	url := r.buildURL("")
 	r.logger.Debug().Str("url", url).Msg("Fetching definition list")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -120,7 +121,7 @@ func (r *Repository) FetchDefinition(ctx context.Context, id string) (*Definitio
 	url := r.buildURL(id)
 	r.logger.Debug().Str("url", url).Str("id", id).Msg("Fetching definition")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -159,7 +160,7 @@ func (r *Repository) FetchPackage(ctx context.Context) (map[string][]byte, error
 	url := r.buildURL("package.zip")
 	r.logger.Info().Str("url", url).Str("version", r.config.Version).Msg("Fetching definition package")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -245,7 +246,7 @@ func (r *Repository) FetchDefinitionRaw(ctx context.Context, id string) ([]byte,
 	url := r.buildURL(id)
 	r.logger.Debug().Str("url", url).Str("id", id).Msg("Fetching raw definition")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -1,3 +1,4 @@
+//nolint:revive // Package name 'importer' used to match actual package name 'import' which conflicts with Go keyword
 package importer
 
 import (
@@ -9,21 +10,21 @@ import (
 
 // specialsPatterns are regex patterns used to detect special episodes from filenames.
 var specialsPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)S0+E\d+`),                  // S00E01, S0E01
-	regexp.MustCompile(`(?i)Season\s*0+\s*Episode`),    // Season 0 Episode
-	regexp.MustCompile(`(?i)[.\s_-]SP\d+[.\s_-]`),      // .SP01. _SP01_ -SP01-
-	regexp.MustCompile(`(?i)[.\s_-]Special[.\s_-]`),    // .Special.
-	regexp.MustCompile(`(?i)^Special[.\s_-]`),          // Special.
-	regexp.MustCompile(`(?i)[.\s_-]Specials?[.\s_-]`),  // .Specials.
-	regexp.MustCompile(`(?i)[.\s_-]OVA[.\s_-]`),        // .OVA. (anime)
-	regexp.MustCompile(`(?i)[.\s_-]OAV[.\s_-]`),        // .OAV. (anime)
-	regexp.MustCompile(`(?i)[.\s_-]ONA[.\s_-]`),        // .ONA. (anime)
-	regexp.MustCompile(`(?i)[.\s_-]Omake[.\s_-]`),      // .Omake. (anime extras)
-	regexp.MustCompile(`(?i)[.\s_-]Picture\s*Drama`),   // Picture Drama (anime)
-	regexp.MustCompile(`(?i)[.\s_-]Movie[.\s_-]`),      // .Movie. (anime movie specials)
-	regexp.MustCompile(`(?i)[.\s_-]Pilot[.\s_-]`),      // .Pilot.
-	regexp.MustCompile(`(?i)[.\s_-]Bonus[.\s_-]`),      // .Bonus.
-	regexp.MustCompile(`(?i)[.\s_-]Extra[s]?[.\s_-]`),  // .Extra. .Extras.
+	regexp.MustCompile(`(?i)S0+E\d+`),                 // S00E01, S0E01
+	regexp.MustCompile(`(?i)Season\s*0+\s*Episode`),   // Season 0 Episode
+	regexp.MustCompile(`(?i)[.\s_-]SP\d+[.\s_-]`),     // .SP01. _SP01_ -SP01-
+	regexp.MustCompile(`(?i)[.\s_-]Special[.\s_-]`),   // .Special.
+	regexp.MustCompile(`(?i)^Special[.\s_-]`),         // Special.
+	regexp.MustCompile(`(?i)[.\s_-]Specials?[.\s_-]`), // .Specials.
+	regexp.MustCompile(`(?i)[.\s_-]OVA[.\s_-]`),       // .OVA. (anime)
+	regexp.MustCompile(`(?i)[.\s_-]OAV[.\s_-]`),       // .OAV. (anime)
+	regexp.MustCompile(`(?i)[.\s_-]ONA[.\s_-]`),       // .ONA. (anime)
+	regexp.MustCompile(`(?i)[.\s_-]Omake[.\s_-]`),     // .Omake. (anime extras)
+	regexp.MustCompile(`(?i)[.\s_-]Picture\s*Drama`),  // Picture Drama (anime)
+	regexp.MustCompile(`(?i)[.\s_-]Movie[.\s_-]`),     // .Movie. (anime movie specials)
+	regexp.MustCompile(`(?i)[.\s_-]Pilot[.\s_-]`),     // .Pilot.
+	regexp.MustCompile(`(?i)[.\s_-]Bonus[.\s_-]`),     // .Bonus.
+	regexp.MustCompile(`(?i)[.\s_-]Extras?[.\s_-]`),   // .Extra. .Extras.
 }
 
 // IsSpecialEpisode checks if an episode is a special by examining metadata and filename.
@@ -113,7 +114,7 @@ func ParseSpecialEpisodeNumber(filename string) int {
 	s00ePattern := regexp.MustCompile(`(?i)S0+E(\d+)`)
 	if match := s00ePattern.FindStringSubmatch(filename); len(match) > 1 {
 		var num int
-		_, _ = parseIntFromString(match[1], &num)
+		parseIntFromString(match[1], &num)
 		return num
 	}
 
@@ -121,7 +122,7 @@ func ParseSpecialEpisodeNumber(filename string) int {
 	spPattern := regexp.MustCompile(`(?i)SP(\d+)`)
 	if match := spPattern.FindStringSubmatch(filename); len(match) > 1 {
 		var num int
-		_, _ = parseIntFromString(match[1], &num)
+		parseIntFromString(match[1], &num)
 		return num
 	}
 
@@ -129,7 +130,7 @@ func ParseSpecialEpisodeNumber(filename string) int {
 }
 
 // parseIntFromString is a helper to parse an int from a string.
-func parseIntFromString(s string, result *int) (bool, error) {
+func parseIntFromString(s string, result *int) {
 	var n int
 	for _, c := range s {
 		if c >= '0' && c <= '9' {
@@ -139,5 +140,4 @@ func parseIntFromString(s string, result *int) (bool, error) {
 		}
 	}
 	*result = n
-	return n > 0, nil
 }

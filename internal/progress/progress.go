@@ -16,11 +16,11 @@ import (
 type ActivityType string
 
 const (
-	ActivityTypeScan           ActivityType = "scan"
-	ActivityTypeDownload       ActivityType = "download"
-	ActivityTypeImport         ActivityType = "import"
+	ActivityTypeScan            ActivityType = "scan"
+	ActivityTypeDownload        ActivityType = "download"
+	ActivityTypeImport          ActivityType = "import"
 	ActivityTypeMetadataRefresh ActivityType = "metadata-refresh"
-	ActivityTypeFileOperation  ActivityType = "file-operation"
+	ActivityTypeFileOperation   ActivityType = "file-operation"
 )
 
 // Status represents the current state of an activity.
@@ -36,15 +36,15 @@ const (
 
 // Activity represents a trackable activity with progress.
 type Activity struct {
-	ID           string                 `json:"id"`           // Unique identifier
-	Type         ActivityType           `json:"type"`         // Activity type for categorization
-	Title        string                 `json:"title"`        // Human-readable title
-	Subtitle     string                 `json:"subtitle"`     // Current phase/status description
-	Progress     int                    `json:"progress"`     // 0-100, -1 for indeterminate
-	Status       Status                 `json:"status"`       // Current status
-	StartedAt    time.Time              `json:"startedAt"`    // When activity started
-	CompletedAt  *time.Time             `json:"completedAt"`  // When activity completed (nil if ongoing)
-	Metadata     map[string]interface{} `json:"metadata"`     // Activity-specific data
+	ID          string                 `json:"id"`          // Unique identifier
+	Type        ActivityType           `json:"type"`        // Activity type for categorization
+	Title       string                 `json:"title"`       // Human-readable title
+	Subtitle    string                 `json:"subtitle"`    // Current phase/status description
+	Progress    int                    `json:"progress"`    // 0-100, -1 for indeterminate
+	Status      Status                 `json:"status"`      // Current status
+	StartedAt   time.Time              `json:"startedAt"`   // When activity started
+	CompletedAt *time.Time             `json:"completedAt"` // When activity completed (nil if ongoing)
+	Metadata    map[string]interface{} `json:"metadata"`    // Activity-specific data
 }
 
 // EventType identifies the type of progress event.
@@ -63,15 +63,16 @@ type Manager struct {
 	hub        *websocket.Hub
 	activities map[string]*Activity
 	mu         sync.RWMutex
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // NewManager creates a new progress manager.
-func NewManager(hub *websocket.Hub, logger zerolog.Logger) *Manager {
+func NewManager(hub *websocket.Hub, logger *zerolog.Logger) *Manager {
+	subLogger := logger.With().Str("component", "progress").Logger()
 	return &Manager{
 		hub:        hub,
 		activities: make(map[string]*Activity),
-		logger:     logger.With().Str("component", "progress").Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -104,7 +105,7 @@ func (m *Manager) StartActivity(id string, activityType ActivityType, title stri
 }
 
 // UpdateActivity updates an existing activity's progress.
-func (m *Manager) UpdateActivity(id string, subtitle string, progress int) {
+func (m *Manager) UpdateActivity(id, subtitle string, progress int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -120,7 +121,7 @@ func (m *Manager) UpdateActivity(id string, subtitle string, progress int) {
 }
 
 // UpdateActivityMetadata updates an activity's metadata.
-func (m *Manager) UpdateActivityMetadata(id string, key string, value interface{}) {
+func (m *Manager) UpdateActivityMetadata(id, key string, value interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -133,7 +134,7 @@ func (m *Manager) UpdateActivityMetadata(id string, key string, value interface{
 }
 
 // CompleteActivity marks an activity as completed.
-func (m *Manager) CompleteActivity(id string, subtitle string) {
+func (m *Manager) CompleteActivity(id, subtitle string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -166,7 +167,7 @@ func (m *Manager) CompleteActivity(id string, subtitle string) {
 }
 
 // FailActivity marks an activity as failed.
-func (m *Manager) FailActivity(id string, errorMsg string) {
+func (m *Manager) FailActivity(id, errorMsg string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

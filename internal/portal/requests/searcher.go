@@ -33,8 +33,8 @@ type MediaProvisionInput struct {
 }
 
 type MediaProvisioner interface {
-	EnsureMovieInLibrary(ctx context.Context, input MediaProvisionInput) (int64, error)
-	EnsureSeriesInLibrary(ctx context.Context, input MediaProvisionInput) (int64, error)
+	EnsureMovieInLibrary(ctx context.Context, input *MediaProvisionInput) (int64, error)
+	EnsureSeriesInLibrary(ctx context.Context, input *MediaProvisionInput) (int64, error)
 }
 
 type UserQualityProfileGetter interface {
@@ -47,7 +47,7 @@ type RequestSearcher struct {
 	autosearchSvc    *autosearch.Service
 	mediaProvisioner MediaProvisioner
 	userGetter       UserQualityProfileGetter
-	logger           zerolog.Logger
+	logger           *zerolog.Logger
 }
 
 func NewRequestSearcher(
@@ -55,14 +55,15 @@ func NewRequestSearcher(
 	requestsService *Service,
 	autosearchSvc *autosearch.Service,
 	mediaProvisioner MediaProvisioner,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *RequestSearcher {
+	subLogger := logger.With().Str("component", "portal-request-searcher").Logger()
 	return &RequestSearcher{
 		queries:          queries,
 		requestsService:  requestsService,
 		autosearchSvc:    autosearchSvc,
 		mediaProvisioner: mediaProvisioner,
-		logger:           logger.With().Str("component", "portal-request-searcher").Logger(),
+		logger:           &subLogger,
 	}
 }
 
@@ -83,6 +84,23 @@ func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64)
 		return nil, err
 	}
 
+	s.logRequestDetails(requestID, request)
+
+	if err := s.ensureRequestHasMediaID(ctx, requestID, request); err != nil {
+		return nil, err
+	}
+
+	result := s.executeSearch(ctx, requestID, request)
+
+	if result.Downloaded {
+		s.updateRequestStatusDownloading(ctx, requestID)
+	}
+
+	s.logSearchCompletion(requestID, result)
+	return result, nil
+}
+
+func (s *RequestSearcher) logRequestDetails(requestID int64, request *Request) {
 	s.logger.Info().
 		Int64("requestID", requestID).
 		Str("title", request.Title).
@@ -91,110 +109,130 @@ func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64)
 		Interface("tmdbID", request.TmdbID).
 		Interface("tvdbID", request.TvdbID).
 		Msg("got request details")
+}
 
-	// If MediaID is not set, try to find or create the media in library
-	if request.MediaID == nil {
-		s.logger.Info().Int64("requestID", requestID).Msg("MediaID is nil, attempting to ensure media in library")
-
-		mediaID, err := s.ensureMediaInLibrary(ctx, request)
-		if err != nil {
-			s.logger.Error().Err(err).Int64("requestID", requestID).Msg("failed to ensure media in library")
-			return nil, fmt.Errorf("failed to provision media: %w", err)
-		}
-
-		s.logger.Info().Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("ensureMediaInLibrary returned mediaID")
-
-		// Link the request to the media
-		if _, err := s.requestsService.LinkMedia(ctx, requestID, mediaID); err != nil {
-			s.logger.Error().Err(err).Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("failed to link request to media")
-			return nil, fmt.Errorf("failed to link request to media: %w", err)
-		}
-
-		// Update local request object with the new mediaID
-		request.MediaID = &mediaID
-		s.logger.Info().Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("linked request to media")
+func (s *RequestSearcher) ensureRequestHasMediaID(ctx context.Context, requestID int64, request *Request) error {
+	if request.MediaID != nil {
+		return nil
 	}
 
+	s.logger.Info().Int64("requestID", requestID).Msg("MediaID is nil, attempting to ensure media in library")
+
+	mediaID, err := s.ensureMediaInLibrary(ctx, request)
+	if err != nil {
+		s.logger.Error().Err(err).Int64("requestID", requestID).Msg("failed to ensure media in library")
+		return fmt.Errorf("failed to provision media: %w", err)
+	}
+
+	s.logger.Info().Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("ensureMediaInLibrary returned mediaID")
+
+	if _, err := s.requestsService.LinkMedia(ctx, requestID, mediaID); err != nil {
+		s.logger.Error().Err(err).Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("failed to link request to media")
+		return fmt.Errorf("failed to link request to media: %w", err)
+	}
+
+	request.MediaID = &mediaID
+	s.logger.Info().Int64("requestID", requestID).Int64("mediaID", mediaID).Msg("linked request to media")
+	return nil
+}
+
+func (s *RequestSearcher) executeSearch(ctx context.Context, requestID int64, request *Request) *SearchForRequestResult {
 	result := &SearchForRequestResult{}
 
 	switch request.MediaType {
 	case MediaTypeMovie:
-		searchResult, err := s.autosearchSvc.SearchMovie(ctx, *request.MediaID, autosearch.SearchSourceRequest)
-		if err != nil {
-			result.Error = err.Error()
-			s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("movie search failed")
-			return result, nil
-		}
-		result.Found = searchResult.Found
-		result.Downloaded = searchResult.Downloaded
-
+		s.searchMovie(ctx, requestID, request, result)
 	case MediaTypeSeries:
-		// If specific seasons were requested, search for those seasons individually
-		if len(request.RequestedSeasons) > 0 {
-			var totalFound, totalDownloaded int
-			for _, seasonNum := range request.RequestedSeasons {
-				batchResult, err := s.autosearchSvc.SearchSeason(ctx, *request.MediaID, int(seasonNum), autosearch.SearchSourceRequest)
-				if err != nil {
-					s.logger.Warn().Err(err).Int64("requestID", requestID).Int64("season", seasonNum).Msg("season search failed")
-					continue
-				}
-				totalFound += batchResult.Found
-				totalDownloaded += batchResult.Downloaded
-			}
-			result.Found = totalFound > 0
-			result.Downloaded = totalDownloaded > 0
-		} else {
-			// Search all missing episodes in the series
-			batchResult, err := s.autosearchSvc.SearchSeries(ctx, *request.MediaID, autosearch.SearchSourceRequest)
-			if err != nil {
-				result.Error = err.Error()
-				s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("series search failed")
-				return result, nil
-			}
-			result.Found = batchResult.Found > 0
-			result.Downloaded = batchResult.Downloaded > 0
-		}
-
+		s.searchSeries(ctx, requestID, request, result)
 	case MediaTypeSeason:
-		if request.SeasonNumber == nil {
-			return nil, errors.New("season number not specified")
-		}
-		batchResult, err := s.autosearchSvc.SearchSeason(ctx, *request.MediaID, int(*request.SeasonNumber), autosearch.SearchSourceRequest)
-		if err != nil {
-			result.Error = err.Error()
-			s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("season search failed")
-			return result, nil
-		}
-		result.Found = batchResult.Found > 0
-		result.Downloaded = batchResult.Downloaded > 0
-
+		s.searchSeason(ctx, requestID, request, result)
 	case MediaTypeEpisode:
-		searchResult, err := s.autosearchSvc.SearchEpisode(ctx, *request.MediaID, autosearch.SearchSourceRequest)
+		s.searchEpisode(ctx, requestID, request, result)
+	}
+
+	return result
+}
+
+func (s *RequestSearcher) searchMovie(ctx context.Context, requestID int64, request *Request, result *SearchForRequestResult) {
+	searchResult, err := s.autosearchSvc.SearchMovie(ctx, *request.MediaID, autosearch.SearchSourceRequest)
+	if err != nil {
+		result.Error = err.Error()
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("movie search failed")
+		return
+	}
+	result.Found = searchResult.Found
+	result.Downloaded = searchResult.Downloaded
+}
+
+func (s *RequestSearcher) searchSeries(ctx context.Context, requestID int64, request *Request, result *SearchForRequestResult) {
+	if len(request.RequestedSeasons) > 0 {
+		s.searchSpecificSeasons(ctx, requestID, request, result)
+		return
+	}
+
+	batchResult, err := s.autosearchSvc.SearchSeries(ctx, *request.MediaID, autosearch.SearchSourceRequest)
+	if err != nil {
+		result.Error = err.Error()
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("series search failed")
+		return
+	}
+	result.Found = batchResult.Found > 0
+	result.Downloaded = batchResult.Downloaded > 0
+}
+
+func (s *RequestSearcher) searchSpecificSeasons(ctx context.Context, requestID int64, request *Request, result *SearchForRequestResult) {
+	var totalFound, totalDownloaded int
+	for _, seasonNum := range request.RequestedSeasons {
+		batchResult, err := s.autosearchSvc.SearchSeason(ctx, *request.MediaID, int(seasonNum), autosearch.SearchSourceRequest)
 		if err != nil {
-			result.Error = err.Error()
-			s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("episode search failed")
-			return result, nil
+			s.logger.Warn().Err(err).Int64("requestID", requestID).Int64("season", seasonNum).Msg("season search failed")
+			continue
 		}
-		result.Found = searchResult.Found
-		result.Downloaded = searchResult.Downloaded
-
-	default:
-		return nil, fmt.Errorf("unsupported media type: %s", request.MediaType)
+		totalFound += batchResult.Found
+		totalDownloaded += batchResult.Downloaded
 	}
+	result.Found = totalFound > 0
+	result.Downloaded = totalDownloaded > 0
+}
 
-	if result.Downloaded {
-		if _, err := s.requestsService.UpdateStatus(ctx, requestID, StatusDownloading); err != nil {
-			s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("failed to update request status to downloading")
-		}
+func (s *RequestSearcher) searchSeason(ctx context.Context, requestID int64, request *Request, result *SearchForRequestResult) {
+	if request.SeasonNumber == nil {
+		result.Error = "season number not specified"
+		return
 	}
+	batchResult, err := s.autosearchSvc.SearchSeason(ctx, *request.MediaID, int(*request.SeasonNumber), autosearch.SearchSourceRequest)
+	if err != nil {
+		result.Error = err.Error()
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("season search failed")
+		return
+	}
+	result.Found = batchResult.Found > 0
+	result.Downloaded = batchResult.Downloaded > 0
+}
 
+func (s *RequestSearcher) searchEpisode(ctx context.Context, requestID int64, request *Request, result *SearchForRequestResult) {
+	searchResult, err := s.autosearchSvc.SearchEpisode(ctx, *request.MediaID, autosearch.SearchSourceRequest)
+	if err != nil {
+		result.Error = err.Error()
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("episode search failed")
+		return
+	}
+	result.Found = searchResult.Found
+	result.Downloaded = searchResult.Downloaded
+}
+
+func (s *RequestSearcher) updateRequestStatusDownloading(ctx context.Context, requestID int64) {
+	if _, err := s.requestsService.UpdateStatus(ctx, requestID, StatusDownloading); err != nil {
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("failed to update request status to downloading")
+	}
+}
+
+func (s *RequestSearcher) logSearchCompletion(requestID int64, result *SearchForRequestResult) {
 	s.logger.Info().
 		Int64("requestID", requestID).
 		Bool("found", result.Found).
 		Bool("downloaded", result.Downloaded).
 		Msg("search completed for request")
-
-	return result, nil
 }
 
 func (s *RequestSearcher) SearchForRequestAsync(ctx context.Context, requestID int64) {
@@ -239,7 +277,7 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 			return 0, errors.New("movie request missing tmdbID")
 		}
 		input.TmdbID = *request.TmdbID
-		return s.mediaProvisioner.EnsureMovieInLibrary(ctx, input)
+		return s.mediaProvisioner.EnsureMovieInLibrary(ctx, &input)
 
 	case MediaTypeSeries, MediaTypeSeason, MediaTypeEpisode:
 		if request.TvdbID == nil {
@@ -247,7 +285,7 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 		}
 		input.TvdbID = *request.TvdbID
 		input.RequestedSeasons = request.RequestedSeasons
-		return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, input)
+		return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, &input)
 
 	default:
 		return 0, fmt.Errorf("unsupported media type: %s", request.MediaType)

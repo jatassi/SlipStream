@@ -20,7 +20,7 @@ import (
 
 // Broadcaster interface for sending events to clients.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // Service orchestrates searches across multiple indexers.
@@ -29,14 +29,15 @@ type Service struct {
 	statusService  *status.Service
 	rateLimiter    *ratelimit.Limiter
 	broadcaster    Broadcaster
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 }
 
 // NewService creates a new search service.
-func NewService(indexerService *indexer.Service, logger zerolog.Logger) *Service {
+func NewService(indexerService *indexer.Service, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "search").Logger()
 	return &Service{
 		indexerService: indexerService,
-		logger:         logger.With().Str("component", "search").Logger(),
+		logger:         &subLogger,
 	}
 }
 
@@ -88,10 +89,37 @@ type searchTaskResult struct {
 }
 
 // Search executes a search across all enabled indexers.
-func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
+
+// getIndexerIDs extracts IDs from indexer definitions
+func getIndexerIDs(indexers []*types.IndexerDefinition) []int64 {
+	ids := make([]int64, len(indexers))
+	for i, idx := range indexers {
+		ids[i] = idx.ID
+	}
+	return ids
+}
+
+// logSearchStart logs the start of a search operation
+func (s *Service) logSearchStart(indexers []*types.IndexerDefinition, criteria *types.SearchCriteria) {
+	s.logger.Info().
+		Int("indexerCount", len(indexers)).
+		Str("query", criteria.Query).
+		Str("type", criteria.Type).
+		Msg("Starting search across indexers")
+}
+
+// logSearchComplete logs the completion of a search operation
+func (s *Service) logSearchComplete(result *SearchResult) {
+	s.logger.Info().
+		Int("totalResults", result.TotalResults).
+		Int("indexersUsed", result.IndexersUsed).
+		Int("errors", len(result.IndexerErrors)).
+		Msg("Search completed")
+}
+
+func (s *Service) Search(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
 	startTime := time.Now()
 
-	// Get enabled indexers that support the search type
 	indexers, err := s.getIndexersForSearch(ctx, criteria)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get indexers: %w", err)
@@ -105,38 +133,21 @@ func (s *Service) Search(ctx context.Context, criteria types.SearchCriteria) (*S
 		}, nil
 	}
 
-	// Broadcast search started event
-	indexerIDs := make([]int64, len(indexers))
-	for i, idx := range indexers {
-		indexerIDs[i] = idx.ID
-	}
+	indexerIDs := getIndexerIDs(indexers)
 	s.broadcastSearchStarted(criteria, indexerIDs)
+	s.logSearchStart(indexers, criteria)
 
-	s.logger.Info().
-		Int("indexerCount", len(indexers)).
-		Str("query", criteria.Query).
-		Str("type", criteria.Type).
-		Msg("Starting search across indexers")
-
-	// Dispatch parallel searches
 	result := s.dispatchSearches(ctx, indexers, criteria)
 
 	elapsed := time.Since(startTime)
-
-	// Broadcast search completed event
 	s.broadcastSearchCompleted(criteria, result, elapsed)
-
-	s.logger.Info().
-		Int("totalResults", result.TotalResults).
-		Int("indexersUsed", result.IndexersUsed).
-		Int("errors", len(result.IndexerErrors)).
-		Msg("Search completed")
+	s.logSearchComplete(result)
 
 	return result, nil
 }
 
 // broadcastSearchStarted sends a search started event.
-func (s *Service) broadcastSearchStarted(criteria types.SearchCriteria, indexerIDs []int64) {
+func (s *Service) broadcastSearchStarted(criteria *types.SearchCriteria, indexerIDs []int64) {
 	if s.broadcaster == nil {
 		return
 	}
@@ -148,7 +159,7 @@ func (s *Service) broadcastSearchStarted(criteria types.SearchCriteria, indexerI
 }
 
 // broadcastSearchCompleted sends a search completed event.
-func (s *Service) broadcastSearchCompleted(criteria types.SearchCriteria, result *SearchResult, elapsed time.Duration) {
+func (s *Service) broadcastSearchCompleted(criteria *types.SearchCriteria, result *SearchResult, elapsed time.Duration) {
 	if s.broadcaster == nil {
 		return
 	}
@@ -168,7 +179,7 @@ func (s *Service) broadcastSearchCompleted(criteria types.SearchCriteria, result
 
 // searchTorrentsInternal executes a search across all enabled torrent indexers and returns torrent-specific results.
 // This is an internal method; use SearchTorrents for scored results.
-func (s *Service) searchTorrentsInternal(ctx context.Context, criteria types.SearchCriteria) (*TorrentSearchResult, error) {
+func (s *Service) searchTorrentsInternal(ctx context.Context, criteria *types.SearchCriteria) (*TorrentSearchResult, error) {
 	// Get enabled torrent indexers
 	indexers, err := s.indexerService.ListEnabledByProtocol(ctx, indexer.ProtocolTorrent)
 	if err != nil {
@@ -208,8 +219,8 @@ func (s *Service) searchTorrentsInternal(ctx context.Context, criteria types.Sea
 }
 
 // SearchMovies searches for movie releases.
-func (s *Service) SearchMovies(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
-	criteria.Type = "movie"
+func (s *Service) SearchMovies(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
+	criteria.Type = searchTypeMovie
 	if len(criteria.Categories) == 0 {
 		criteria.Categories = indexer.MovieCategories()
 	}
@@ -217,8 +228,8 @@ func (s *Service) SearchMovies(ctx context.Context, criteria types.SearchCriteri
 }
 
 // SearchTV searches for TV releases.
-func (s *Service) SearchTV(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
-	criteria.Type = "tvsearch"
+func (s *Service) SearchTV(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
+	criteria.Type = searchTypeTVSearch
 	if len(criteria.Categories) == 0 {
 		criteria.Categories = indexer.TVCategories()
 	}
@@ -226,15 +237,15 @@ func (s *Service) SearchTV(ctx context.Context, criteria types.SearchCriteria) (
 }
 
 // getIndexersForSearch returns indexers appropriate for the search criteria.
-func (s *Service) getIndexersForSearch(ctx context.Context, criteria types.SearchCriteria) ([]*types.IndexerDefinition, error) {
+func (s *Service) getIndexersForSearch(ctx context.Context, criteria *types.SearchCriteria) ([]*types.IndexerDefinition, error) {
 	var indexers []*types.IndexerDefinition
 	var err error
 
 	// Get indexers based on search type
 	switch criteria.Type {
-	case "movie":
+	case searchTypeMovie:
 		indexers, err = s.indexerService.ListEnabledForMovies(ctx)
-	case "tvsearch":
+	case searchTypeTVSearch:
 		indexers, err = s.indexerService.ListEnabledForTV(ctx)
 	default:
 		indexers, err = s.indexerService.ListEnabled(ctx)
@@ -321,7 +332,7 @@ func (s *Service) filterRateLimitedIndexers(ctx context.Context, indexers []*typ
 }
 
 // filterBySearchSupport filters indexers to those that support the requested search type.
-func (s *Service) filterBySearchSupport(indexers []*types.IndexerDefinition, criteria types.SearchCriteria) []*types.IndexerDefinition {
+func (s *Service) filterBySearchSupport(indexers []*types.IndexerDefinition, criteria *types.SearchCriteria) []*types.IndexerDefinition {
 	filtered := make([]*types.IndexerDefinition, 0, len(indexers))
 
 	for _, idx := range indexers {
@@ -332,11 +343,11 @@ func (s *Service) filterBySearchSupport(indexers []*types.IndexerDefinition, cri
 
 		// Filter by search type
 		switch criteria.Type {
-		case "movie":
+		case searchTypeMovie:
 			if !idx.SupportsMovies {
 				continue
 			}
-		case "tvsearch":
+		case searchTypeTVSearch:
 			if !idx.SupportsTV {
 				continue
 			}
@@ -349,7 +360,7 @@ func (s *Service) filterBySearchSupport(indexers []*types.IndexerDefinition, cri
 }
 
 // dispatchSearches runs searches in parallel across indexers.
-func (s *Service) dispatchSearches(ctx context.Context, indexers []*types.IndexerDefinition, criteria types.SearchCriteria) *SearchResult {
+func (s *Service) dispatchSearches(ctx context.Context, indexers []*types.IndexerDefinition, criteria *types.SearchCriteria) *SearchResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan searchTaskResult, len(indexers))
 
@@ -376,7 +387,7 @@ func (s *Service) dispatchSearches(ctx context.Context, indexers []*types.Indexe
 }
 
 // dispatchTorrentSearches runs torrent searches in parallel across indexers.
-func (s *Service) dispatchTorrentSearches(ctx context.Context, indexers []*types.IndexerDefinition, criteria types.SearchCriteria) *TorrentSearchResult {
+func (s *Service) dispatchTorrentSearches(ctx context.Context, indexers []*types.IndexerDefinition, criteria *types.SearchCriteria) *TorrentSearchResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan searchTaskResult, len(indexers))
 
@@ -399,11 +410,11 @@ func (s *Service) dispatchTorrentSearches(ctx context.Context, indexers []*types
 		close(resultsChan)
 	}()
 
-	return s.aggregateTorrentResults(resultsChan, &criteria)
+	return s.aggregateTorrentResults(resultsChan, criteria)
 }
 
 // searchIndexer performs a search on a single indexer.
-func (s *Service) searchIndexer(ctx context.Context, def *types.IndexerDefinition, criteria types.SearchCriteria) searchTaskResult {
+func (s *Service) searchIndexer(ctx context.Context, def *types.IndexerDefinition, criteria *types.SearchCriteria) searchTaskResult {
 	result := searchTaskResult{
 		IndexerID:   def.ID,
 		IndexerName: def.Name,
@@ -480,7 +491,7 @@ func (s *Service) recordFailure(ctx context.Context, indexerID int64, opError er
 }
 
 // searchIndexerTorrents performs a torrent search on a single indexer.
-func (s *Service) searchIndexerTorrents(ctx context.Context, def *types.IndexerDefinition, criteria types.SearchCriteria) searchTaskResult {
+func (s *Service) searchIndexerTorrents(ctx context.Context, def *types.IndexerDefinition, criteria *types.SearchCriteria) searchTaskResult {
 	result := searchTaskResult{
 		IndexerID:   def.ID,
 		IndexerName: def.Name,
@@ -560,7 +571,7 @@ type ScoredSearchParams struct {
 // SearchTorrents performs a torrent search and returns results scored by desirability.
 // Results are sorted by score descending (highest score first).
 // All torrent searches include scoring - unscored searches are not supported.
-func (s *Service) SearchTorrents(ctx context.Context, criteria types.SearchCriteria, params ScoredSearchParams) (*TorrentSearchResult, error) {
+func (s *Service) SearchTorrents(ctx context.Context, criteria *types.SearchCriteria, params *ScoredSearchParams) (*TorrentSearchResult, error) {
 	// First, perform the internal search
 	result, err := s.searchTorrentsInternal(ctx, criteria)
 	if err != nil {
@@ -590,7 +601,7 @@ func (s *Service) SearchTorrents(ctx context.Context, criteria types.SearchCrite
 
 	// Score and sort torrents
 	scorer := scoring.NewDefaultScorer()
-	scorer.ScoreTorrents(result.Releases, scoringCtx)
+	scorer.ScoreTorrents(result.Releases, &scoringCtx)
 
 	s.logger.Debug().
 		Int("totalResults", len(result.Releases)).
@@ -612,4 +623,3 @@ func (s *Service) getIndexerPriorities(ctx context.Context) (map[int64]int, erro
 	}
 	return priorities, nil
 }
-

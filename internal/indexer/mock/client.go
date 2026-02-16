@@ -21,12 +21,12 @@ var _ interface {
 	Definition() *types.IndexerDefinition
 	GetSettings() map[string]string
 	Test(ctx context.Context) error
-	Search(ctx context.Context, criteria types.SearchCriteria) ([]types.ReleaseInfo, error)
+	Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.ReleaseInfo, error)
 	Download(ctx context.Context, url string) ([]byte, error)
 	Capabilities() *types.Capabilities
 	SupportsSearch() bool
 	SupportsRSS() bool
-	SearchTorrents(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error)
+	SearchTorrents(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error)
 } = (*Client)(nil)
 
 // NewClient creates a new mock indexer client.
@@ -54,20 +54,20 @@ func (c *Client) Test(ctx context.Context) error {
 	return nil // Mock indexer always succeeds
 }
 
-func (c *Client) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.ReleaseInfo, error) {
+func (c *Client) Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.ReleaseInfo, error) {
 	torrents, err := c.SearchTorrents(ctx, criteria)
 	if err != nil {
 		return nil, err
 	}
 
 	releases := make([]types.ReleaseInfo, len(torrents))
-	for i, t := range torrents {
-		releases[i] = t.ReleaseInfo
+	for i := range torrents {
+		releases[i] = torrents[i].ReleaseInfo
 	}
 	return releases, nil
 }
 
-func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+func (c *Client) SearchTorrents(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error) {
 	var releases []types.ReleaseInfo
 
 	// Try to find results by ID
@@ -90,7 +90,8 @@ func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 
 	// Convert to TorrentInfo with seeder data
 	torrents := make([]types.TorrentInfo, len(releases))
-	for i, r := range releases {
+	for i := range releases {
+		r := releases[i]
 		// Update indexer info to reflect this mock indexer
 		r.IndexerID = c.indexerDef.ID
 		r.IndexerName = c.indexerDef.Name
@@ -115,18 +116,18 @@ func (c *Client) searchByQuery(query string) []types.ReleaseInfo {
 
 	// Search through all movie results
 	for _, releases := range c.movieReleases {
-		for _, r := range releases {
-			if strings.Contains(strings.ToLower(r.Title), query) {
-				results = append(results, r)
+		for i := range releases {
+			if strings.Contains(strings.ToLower(releases[i].Title), query) {
+				results = append(results, releases[i])
 			}
 		}
 	}
 
 	// Search through all TV results
 	for _, releases := range c.tvReleases {
-		for _, r := range releases {
-			if strings.Contains(strings.ToLower(r.Title), query) {
-				results = append(results, r)
+		for i := range releases {
+			if strings.Contains(strings.ToLower(releases[i].Title), query) {
+				results = append(results, releases[i])
 			}
 		}
 	}

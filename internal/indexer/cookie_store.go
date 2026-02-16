@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
@@ -21,10 +22,10 @@ func NewCookieStore(statusService *status.Service) cardigann.CookieStore {
 func (s *statusCookieStore) GetCookies(ctx context.Context, indexerID int64) (string, error) {
 	data, err := s.statusService.GetCookies(ctx, indexerID)
 	if err != nil {
+		if errors.Is(err, status.ErrNoCookies) {
+			return "", nil
+		}
 		return "", err
-	}
-	if data == nil {
-		return "", nil
 	}
 	return data.Cookies, nil
 }

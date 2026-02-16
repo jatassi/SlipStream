@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -68,11 +69,10 @@ func (h *Handlers) Get(c echo.Context) error {
 
 	defaultEntry, err := h.service.GetDefault(c.Request().Context(), entityType, mediaType)
 	if err != nil {
+		if errors.Is(err, ErrNoDefault) {
+			return c.JSON(http.StatusOK, map[string]interface{}{"exists": false, "defaultEntry": nil})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	if defaultEntry == nil {
-		return c.JSON(http.StatusOK, map[string]interface{}{"exists": false, "defaultEntry": nil})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

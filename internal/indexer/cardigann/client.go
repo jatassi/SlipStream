@@ -25,16 +25,16 @@ type CookieStore interface {
 
 // Client implements the indexer.Indexer interface using a Cardigann definition.
 type Client struct {
-	def            *Definition
-	indexerDef     *types.IndexerDefinition
-	settings       map[string]string
-	loginHandler   *LoginHandler
-	searchEngine   *SearchEngine
-	httpClient     *http.Client
-	logger         zerolog.Logger
-	cookieStore    CookieStore
-	authenticated  bool
-	lastLogin      time.Time
+	def           *Definition
+	indexerDef    *types.IndexerDefinition
+	settings      map[string]string
+	loginHandler  *LoginHandler
+	searchEngine  *SearchEngine
+	httpClient    *http.Client
+	logger        *zerolog.Logger
+	cookieStore   CookieStore
+	authenticated bool
+	lastLogin     time.Time
 }
 
 // ClientConfig contains configuration options for creating a new Client.
@@ -42,7 +42,7 @@ type ClientConfig struct {
 	Definition  *Definition
 	IndexerDef  *types.IndexerDefinition
 	Settings    map[string]string
-	Logger      zerolog.Logger
+	Logger      *zerolog.Logger
 	CookieStore CookieStore // Optional: provides persistent cookie storage
 }
 
@@ -63,13 +63,13 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		Logger()
 
 	// Create login handler
-	loginHandler, err := NewLoginHandler(baseURL, logger)
+	loginHandler, err := NewLoginHandler(baseURL, &logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create login handler: %w", err)
 	}
 
 	// Create search engine using the authenticated HTTP client
-	searchEngine := NewSearchEngine(cfg.Definition, loginHandler.GetHTTPClient(), logger)
+	searchEngine := NewSearchEngine(cfg.Definition, loginHandler.GetHTTPClient(), &logger)
 
 	return &Client{
 		def:          cfg.Definition,
@@ -78,7 +78,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		loginHandler: loginHandler,
 		searchEngine: searchEngine,
 		httpClient:   loginHandler.GetHTTPClient(),
-		logger:       logger,
+		logger:       &logger,
 		cookieStore:  cfg.CookieStore,
 	}, nil
 }
@@ -126,7 +126,7 @@ func (c *Client) Test(ctx context.Context) error {
 }
 
 // Search executes a search query and returns results.
-func (c *Client) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.ReleaseInfo, error) {
+func (c *Client) Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.ReleaseInfo, error) {
 	// Ensure we're authenticated
 	if err := c.ensureAuthenticated(ctx); err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
@@ -136,15 +136,15 @@ func (c *Client) Search(ctx context.Context, criteria types.SearchCriteria) ([]t
 	query := c.buildSearchQuery(criteria)
 
 	// Execute search
-	results, err := c.searchEngine.Search(ctx, query, c.settings)
+	results, err := c.searchEngine.Search(ctx, &query, c.settings)
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
 	// Convert results to ReleaseInfo
 	releases := make([]types.ReleaseInfo, 0, len(results))
-	for _, result := range results {
-		release := c.convertToReleaseInfo(result)
+	for i := range results {
+		release := c.convertToReleaseInfo(&results[i])
 		releases = append(releases, release)
 	}
 
@@ -157,7 +157,7 @@ func (c *Client) Search(ctx context.Context, criteria types.SearchCriteria) ([]t
 }
 
 // SearchTorrents executes a search and returns torrent-specific results.
-func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+func (c *Client) SearchTorrents(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error) {
 	// Ensure we're authenticated
 	if err := c.ensureAuthenticated(ctx); err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
@@ -176,15 +176,15 @@ func (c *Client) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 		Msg("Executing search with enhanced query")
 
 	// Execute search
-	results, err := c.searchEngine.Search(ctx, query, c.settings)
+	results, err := c.searchEngine.Search(ctx, &query, c.settings)
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
 	// Convert results to TorrentInfo
 	torrents := make([]types.TorrentInfo, 0, len(results))
-	for _, result := range results {
-		torrent := c.convertToTorrentInfo(result)
+	for i := range results {
+		torrent := c.convertToTorrentInfo(&results[i])
 		torrents = append(torrents, torrent)
 	}
 
@@ -206,13 +206,13 @@ func (c *Client) Download(ctx context.Context, url string) ([]byte, error) {
 	// Handle download block if defined
 	if c.def.Download != nil && c.def.Download.Before != nil {
 		// Execute pre-download request
-		if err := c.executePreDownload(ctx, url); err != nil {
+		if err := c.executePreDownload(ctx); err != nil {
 			c.logger.Warn().Err(err).Msg("Pre-download request failed")
 		}
 	}
 
 	// Create download request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
@@ -401,7 +401,7 @@ func (c *Client) saveCookiesToStore(ctx context.Context) {
 }
 
 // buildSearchQuery converts SearchCriteria to a cardigann SearchQuery.
-func (c *Client) buildSearchQuery(criteria types.SearchCriteria) SearchQuery {
+func (c *Client) buildSearchQuery(criteria *types.SearchCriteria) SearchQuery {
 	query := SearchQuery{
 		Query:   buildEnhancedQueryKeywords(criteria),
 		Type:    criteria.Type,
@@ -428,7 +428,7 @@ func (c *Client) buildSearchQuery(criteria types.SearchCriteria) SearchQuery {
 
 // buildEnhancedQueryKeywords enhances the search query with season/episode for TV
 // or year for movies to improve indexer-side filtering.
-func buildEnhancedQueryKeywords(criteria types.SearchCriteria) string {
+func buildEnhancedQueryKeywords(criteria *types.SearchCriteria) string {
 	if criteria.Query == "" {
 		return ""
 	}
@@ -463,7 +463,7 @@ func (c *Client) mapCategoryToString(catID int) string {
 }
 
 // convertToReleaseInfo converts a cardigann SearchResult to types.ReleaseInfo.
-func (c *Client) convertToReleaseInfo(result SearchResult) types.ReleaseInfo {
+func (c *Client) convertToReleaseInfo(result *SearchResult) types.ReleaseInfo {
 	release := types.ReleaseInfo{
 		GUID:        result.GUID,
 		Title:       result.Title,
@@ -498,7 +498,7 @@ func (c *Client) convertToReleaseInfo(result SearchResult) types.ReleaseInfo {
 }
 
 // convertToTorrentInfo converts a cardigann SearchResult to types.TorrentInfo.
-func (c *Client) convertToTorrentInfo(result SearchResult) types.TorrentInfo {
+func (c *Client) convertToTorrentInfo(result *SearchResult) types.TorrentInfo {
 	torrent := types.TorrentInfo{
 		ReleaseInfo:          c.convertToReleaseInfo(result),
 		Seeders:              result.Seeders,
@@ -515,7 +515,7 @@ func (c *Client) convertToTorrentInfo(result SearchResult) types.TorrentInfo {
 }
 
 // executePreDownload executes a pre-download request if configured.
-func (c *Client) executePreDownload(ctx context.Context, downloadURL string) error {
+func (c *Client) executePreDownload(ctx context.Context) error {
 	before := c.def.Download.Before
 	if before == nil {
 		return nil
@@ -543,7 +543,7 @@ func (c *Client) executePreDownload(ctx context.Context, downloadURL string) err
 		method = "GET"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(method), preURL, nil)
+	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(method), preURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create pre-download request: %w", err)
 	}

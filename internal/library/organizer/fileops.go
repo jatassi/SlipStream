@@ -43,9 +43,9 @@ func (s *Service) CreateHardlink(source, dest string) error {
 
 	if err := os.Link(source, dest); err != nil {
 		if isCrossDeviceError(err) {
-			return fmt.Errorf("%w: %v", ErrCrossDevice, err)
+			return fmt.Errorf("%w: %w", ErrCrossDevice, err)
 		}
-		return fmt.Errorf("%w: %v", ErrHardlinkFailed, err)
+		return fmt.Errorf("%w: %w", ErrHardlinkFailed, err)
 	}
 
 	s.logger.Info().
@@ -73,11 +73,11 @@ func (s *Service) CreateSymlink(source, dest string) error {
 	// Use absolute path for the symlink target
 	absSource, err := filepath.Abs(source)
 	if err != nil {
-		return fmt.Errorf("%w: failed to resolve source path: %v", ErrSymlinkFailed, err)
+		return fmt.Errorf("%w: failed to resolve source path: %w", ErrSymlinkFailed, err)
 	}
 
 	if err := os.Symlink(absSource, dest); err != nil {
-		return fmt.Errorf("%w: %v", ErrSymlinkFailed, err)
+		return fmt.Errorf("%w: %w", ErrSymlinkFailed, err)
 	}
 
 	s.logger.Info().
@@ -159,7 +159,7 @@ func (s *Service) DeleteUpgradedFile(oldPath, newPath string) error {
 
 // CopyExtraFiles copies extra files (subtitles, NFO, etc.) from source directory
 // to destination directory, preserving their original names.
-func (s *Service) CopyExtraFiles(sourceDir, destDir string, mainFile string) (int, error) {
+func (s *Service) CopyExtraFiles(sourceDir, destDir, mainFile string) (int, error) {
 	s.logger.Debug().
 		Str("sourceDir", sourceDir).
 		Str("destDir", destDir).
@@ -232,7 +232,7 @@ func (s *Service) MoveSeriesFolder(oldPath, newPath string) error {
 	}
 
 	// Create parent directory for new path
-	if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(newPath), 0o750); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
@@ -273,7 +273,7 @@ func (s *Service) ensureDestDir(destPath string) error {
 
 	// Get parent directory permissions for inheritance
 	parentDir := filepath.Dir(destDir)
-	perm := os.FileMode(0755) // Default
+	perm := os.FileMode(0o755) // Default
 
 	if parentInfo, err := os.Stat(parentDir); err == nil {
 		perm = parentInfo.Mode().Perm()
@@ -312,7 +312,7 @@ func (s *Service) copyDirRecursive(src, dst string) error {
 		destPath := filepath.Join(dst, relPath)
 
 		if d.IsDir() {
-			return os.MkdirAll(destPath, 0755)
+			return os.MkdirAll(destPath, 0o750)
 		}
 
 		return s.CopyFile(path, destPath)

@@ -29,19 +29,20 @@ type Notifier struct {
 	name       string
 	settings   Settings
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // New creates a new webhook notifier
-func New(name string, settings Settings, httpClient *http.Client, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, httpClient *http.Client, logger *zerolog.Logger) *Notifier {
 	if settings.Method == "" {
 		settings.Method = "POST"
 	}
+	subLogger := logger.With().Str("notifier", "webhook").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		settings:   settings,
+		settings:   *settings,
 		httpClient: httpClient,
-		logger:     logger.With().Str("notifier", "webhook").Str("name", name).Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -61,10 +62,10 @@ func (n *Notifier) Test(ctx context.Context) error {
 		Message:        "Test notification from SlipStream",
 		Timestamp:      time.Now().UTC(),
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	payload := Payload{
 		EventType:      "grab",
 		InstanceName:   "SlipStream",
@@ -72,7 +73,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 		Timestamp:      event.GrabbedAt,
 		Movie:          n.mapMovie(event.Movie),
 		Episode:        n.mapEpisode(event.Episode),
-		Release:        n.mapRelease(event.Release),
+		Release:        n.mapRelease(&event.Release),
 		DownloadClient: &PayloadDownloadClient{
 			ID:   event.DownloadClient.ID,
 			Name: event.DownloadClient.Name,
@@ -82,10 +83,10 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 		CustomFormats: n.mapCustomFormats(event.Release.CustomFormats),
 		Languages:     event.Release.Languages,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	payload := Payload{
 		EventType:       "download",
 		InstanceName:    "SlipStream",
@@ -102,10 +103,10 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 		MediaInfo:       n.mapMediaFileInfo(event.MediaInfo),
 		Languages:       event.Languages,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	payload := Payload{
 		EventType:      "upgrade",
 		InstanceName:   "SlipStream",
@@ -120,10 +121,10 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 		MediaInfo:      n.mapMediaFileInfo(event.MediaInfo),
 		Languages:      event.Languages,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	payload := Payload{
 		EventType:      "movieAdded",
 		InstanceName:   "SlipStream",
@@ -131,10 +132,10 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 		Timestamp:      event.AddedAt,
 		Movie:          n.mapMediaInfo(&event.Movie),
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	payload := Payload{
 		EventType:      "movieDeleted",
 		InstanceName:   "SlipStream",
@@ -143,10 +144,10 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 		Movie:          n.mapMediaInfo(&event.Movie),
 		DeletedFiles:   event.DeletedFiles,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	payload := Payload{
 		EventType:      "seriesAdded",
 		InstanceName:   "SlipStream",
@@ -154,10 +155,10 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 		Timestamp:      event.AddedAt,
 		Series:         n.mapSeriesInfo(&event.Series),
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	payload := Payload{
 		EventType:      "seriesDeleted",
 		InstanceName:   "SlipStream",
@@ -166,10 +167,10 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 		Series:         n.mapSeriesInfo(&event.Series),
 		DeletedFiles:   event.DeletedFiles,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	payload := Payload{
 		EventType:      "healthIssue",
 		InstanceName:   "SlipStream",
@@ -182,10 +183,10 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 			WikiURL: event.WikiURL,
 		},
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	payload := Payload{
 		EventType:      "healthRestored",
 		InstanceName:   "SlipStream",
@@ -197,10 +198,10 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent
 			Message: event.Message,
 		},
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	payload := Payload{
 		EventType:       "applicationUpdate",
 		InstanceName:    "SlipStream",
@@ -209,10 +210,10 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 		PreviousVersion: event.PreviousVersion,
 		NewVersion:      event.NewVersion,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	payload := Payload{
 		EventType:      "message",
 		InstanceName:   "SlipStream",
@@ -220,10 +221,10 @@ func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) er
 		Timestamp:      event.SentAt,
 		Message:        event.Title + ": " + event.Message,
 	}
-	return n.send(ctx, payload)
+	return n.send(ctx, &payload)
 }
 
-func (n *Notifier) send(ctx context.Context, payload Payload) error {
+func (n *Notifier) send(ctx context.Context, payload *Payload) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
@@ -331,7 +332,7 @@ func (n *Notifier) mapEpisode(e *types.EpisodeInfo) *PayloadEpisode {
 	}
 }
 
-func (n *Notifier) mapRelease(r types.ReleaseInfo) *PayloadRelease {
+func (n *Notifier) mapRelease(r *types.ReleaseInfo) *PayloadRelease {
 	return &PayloadRelease{
 		ReleaseName:  r.ReleaseName,
 		Quality:      r.Quality,

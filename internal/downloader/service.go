@@ -103,7 +103,7 @@ type PortalStatusTracker interface {
 // Service provides download client operations.
 type Service struct {
 	queries             *sqlc.Queries
-	logger              zerolog.Logger
+	logger              *zerolog.Logger
 	healthService       HealthService
 	broadcaster         Broadcaster
 	statusChangeLogger  StatusChangeLogger
@@ -114,10 +114,11 @@ type Service struct {
 }
 
 // NewService creates a new download client service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "downloader").Logger()
 	return &Service{
 		queries:    sqlc.New(db),
-		logger:     logger.With().Str("component", "downloader").Logger(),
+		logger:     &subLogger,
 		queueCache: make(map[int64][]QueueItem),
 	}
 }
@@ -194,34 +195,28 @@ func (s *Service) List(ctx context.Context) ([]*DownloadClient, error) {
 	return clients, nil
 }
 
-// Create creates a new download client.
-func (s *Service) Create(ctx context.Context, input CreateClientInput) (*DownloadClient, error) {
-	if input.Name == "" {
-		return nil, ErrInvalidClient
-	}
-	if input.Host == "" {
-		return nil, ErrInvalidClient
-	}
-	if input.Type == "" {
-		return nil, ErrInvalidClient
-	}
+var validClientTypes = map[string]bool{
+	"qbittorrent": true, "transmission": true, "deluge": true, "rtorrent": true,
+	"sabnzbd": true, "nzbget": true, "mock": true,
+}
 
-	// Validate client type
-	validTypes := []string{"qbittorrent", "transmission", "deluge", "rtorrent", "sabnzbd", "nzbget", "mock"}
-	isValid := false
-	for _, t := range validTypes {
-		if input.Type == t {
-			isValid = true
-			break
-		}
+func validateCreateInput(input *CreateClientInput) error {
+	if input.Name == "" || input.Host == "" || input.Type == "" {
+		return ErrInvalidClient
 	}
-	if !isValid {
-		return nil, ErrUnsupportedClient
+	if !validClientTypes[input.Type] {
+		return ErrUnsupportedClient
 	}
-
-	// Default priority
 	if input.Priority == 0 {
 		input.Priority = 50
+	}
+	return nil
+}
+
+// Create creates a new download client.
+func (s *Service) Create(ctx context.Context, input *CreateClientInput) (*DownloadClient, error) {
+	if err := validateCreateInput(input); err != nil {
+		return nil, err
 	}
 
 	cleanupMode := input.CleanupMode
@@ -259,7 +254,7 @@ func (s *Service) Create(ctx context.Context, input CreateClientInput) (*Downloa
 }
 
 // Update updates an existing download client.
-func (s *Service) Update(ctx context.Context, id int64, input UpdateClientInput) (*DownloadClient, error) {
+func (s *Service) Update(ctx context.Context, id int64, input *UpdateClientInput) (*DownloadClient, error) {
 	if input.Name == "" {
 		return nil, ErrInvalidClient
 	}
@@ -318,7 +313,7 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 		return nil, err
 	}
 
-	return s.TestConfig(ctx, CreateClientInput{
+	return s.TestConfig(ctx, &CreateClientInput{
 		Name:     client.Name,
 		Type:     client.Type,
 		Host:     client.Host,
@@ -331,9 +326,9 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 }
 
 // TestConfig tests a download client connection using provided configuration.
-func (s *Service) TestConfig(ctx context.Context, input CreateClientInput) (*TestResult, error) {
+func (s *Service) TestConfig(ctx context.Context, input *CreateClientInput) (*TestResult, error) {
 	// Build config for the factory
-	config := types.ClientConfig{
+	config := &types.ClientConfig{
 		Host:     input.Host,
 		Port:     input.Port,
 		Username: input.Username,
@@ -380,6 +375,7 @@ func (s *Service) TestConfig(ctx context.Context, input CreateClientInput) (*Tes
 }
 
 // GetTransmissionClient returns a Transmission client for the given download client ID.
+//
 // Deprecated: Use GetClient or GetTorrentClient instead for better abstraction.
 func (s *Service) GetTransmissionClient(ctx context.Context, id int64) (*transmission.Client, error) {
 	cfg, err := s.Get(ctx, id)
@@ -391,7 +387,7 @@ func (s *Service) GetTransmissionClient(ctx context.Context, id int64) (*transmi
 		return nil, ErrUnsupportedClient
 	}
 
-	return transmission.New(transmission.Config{
+	return transmission.New(&transmission.Config{
 		Host:     cfg.Host,
 		Port:     cfg.Port,
 		Username: cfg.Username,
@@ -425,7 +421,7 @@ func (s *Service) GetTorrentClient(ctx context.Context, id int64) (TorrentClient
 // AddTorrent adds a torrent from a URL to a specific client.
 // mediaType should be "movie" or "series" to determine the download subdirectory.
 // name is an optional display name (used by mock client; real clients get name from torrent file).
-func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, mediaType string, name string) (string, error) {
+func (s *Service) AddTorrent(ctx context.Context, clientID int64, url, mediaType, name string) (string, error) {
 	cfg, err := s.Get(ctx, clientID)
 	if err != nil {
 		return "", err
@@ -434,9 +430,9 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 	// Determine subdirectory based on media type
 	var subDir string
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		subDir = "SlipStream/Movies"
-	case "series", "season", "episode":
+	case mediaTypeSeries, "season", "episode":
 		subDir = "SlipStream/Series"
 	default:
 		subDir = "SlipStream"
@@ -461,7 +457,7 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 	}
 
 	// Add the torrent
-	torrentID, err := client.Add(ctx, types.AddOptions{
+	torrentID, err := client.Add(ctx, &types.AddOptions{
 		URL:         url,
 		Name:        name,
 		DownloadDir: downloadDir,
@@ -484,7 +480,7 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url string, me
 // that requires authentication cookies to download the torrent file).
 // mediaType should be "movie" or "series" to determine the download subdirectory.
 // name is an optional display name (used by mock client; real clients get name from torrent file).
-func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, content []byte, mediaType string, name string) (string, error) {
+func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, content []byte, mediaType, name string) (string, error) {
 	cfg, err := s.Get(ctx, clientID)
 	if err != nil {
 		return "", err
@@ -493,9 +489,9 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 	// Determine subdirectory based on media type
 	var subDir string
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		subDir = "SlipStream/Movies"
-	case "series", "season", "episode":
+	case mediaTypeSeries, "season", "episode":
 		subDir = "SlipStream/Series"
 	default:
 		subDir = "SlipStream"
@@ -520,7 +516,7 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 	}
 
 	// Add the torrent using file content
-	torrentID, err := client.Add(ctx, types.AddOptions{
+	torrentID, err := client.Add(ctx, &types.AddOptions{
 		FileContent: content,
 		Name:        name,
 		DownloadDir: downloadDir,

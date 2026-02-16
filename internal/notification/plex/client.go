@@ -24,18 +24,19 @@ const (
 
 // Client handles communication with the Plex API
 type Client struct {
-	httpClient   *http.Client
-	logger       zerolog.Logger
-	clientID     string
-	version      string
+	httpClient *http.Client
+	logger     *zerolog.Logger
+	clientID   string
+	version    string
 }
 
 // NewClient creates a new Plex API client
-func NewClient(httpClient *http.Client, logger zerolog.Logger, version string) *Client {
+func NewClient(httpClient *http.Client, logger *zerolog.Logger, version string) *Client {
 	clientID := generateClientID()
+	subLogger := logger.With().Str("component", "plex-client").Logger()
 	return &Client{
 		httpClient: httpClient,
-		logger:     logger.With().Str("component", "plex-client").Logger(),
+		logger:     &subLogger,
 		clientID:   clientID,
 		version:    version,
 	}
@@ -50,7 +51,7 @@ func generateClientID() string {
 	return uuid.New().String()
 }
 
-func (c *Client) getHeaders(token string, clientIDOverride string) map[string]string {
+func (c *Client) getHeaders(token, clientIDOverride string) map[string]string {
 	clientID := c.clientID
 	if clientIDOverride != "" {
 		clientID = clientIDOverride
@@ -72,12 +73,12 @@ func (c *Client) getHeaders(token string, clientIDOverride string) map[string]st
 	return headers
 }
 
-func (c *Client) doRequest(ctx context.Context, method, url string, token string, body io.Reader) (*http.Response, error) {
-	return c.doRequestWithClientID(ctx, method, url, token, "", body)
+func (c *Client) doRequest(ctx context.Context, method, requestURL, token string, body io.Reader) (*http.Response, error) {
+	return c.doRequestWithClientID(ctx, method, requestURL, token, "", body)
 }
 
-func (c *Client) doRequestWithClientID(ctx context.Context, method, url string, token string, clientID string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+func (c *Client) doRequestWithClientID(ctx context.Context, method, requestURL, token, clientID string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -91,10 +92,10 @@ func (c *Client) doRequestWithClientID(ctx context.Context, method, url string, 
 
 // CreatePIN creates a new PIN for authentication
 func (c *Client) CreatePIN(ctx context.Context) (*PINResponse, error) {
-	url := fmt.Sprintf("%s/api/v2/pins", plexTVBaseURL)
+	requestURL := fmt.Sprintf("%s/api/v2/pins", plexTVBaseURL)
 
 	data := strings.NewReader("strong=true")
-	resp, err := c.doRequest(ctx, http.MethodPost, url, "", data)
+	resp, err := c.doRequest(ctx, http.MethodPost, requestURL, "", data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PIN: %w", err)
 	}
@@ -115,9 +116,9 @@ func (c *Client) CreatePIN(ctx context.Context) (*PINResponse, error) {
 
 // CheckPIN checks the status of a PIN authentication
 func (c *Client) CheckPIN(ctx context.Context, pinID int) (*PINStatus, error) {
-	url := fmt.Sprintf("%s/api/v2/pins/%d", plexTVBaseURL, pinID)
+	requestURL := fmt.Sprintf("%s/api/v2/pins/%d", plexTVBaseURL, pinID)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, "", nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, requestURL, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check PIN: %w", err)
 	}
@@ -153,9 +154,9 @@ func (c *Client) GetAuthURL(pinCode string) string {
 
 // GetResources returns all resources (servers) available to the user
 func (c *Client) GetResources(ctx context.Context, token string) ([]PlexServer, error) {
-	url := fmt.Sprintf("%s/api/v2/resources?includeHttps=1&includeRelay=1", plexTVBaseURL)
+	requestURL := fmt.Sprintf("%s/api/v2/resources?includeHttps=1&includeRelay=1", plexTVBaseURL)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, token, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, requestURL, token, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resources: %w", err)
 	}
@@ -167,19 +168,19 @@ func (c *Client) GetResources(ctx context.Context, token string) ([]PlexServer, 
 	}
 
 	var resources []struct {
-		Name              string       `json:"name"`
-		ClientIdentifier  string       `json:"clientIdentifier"`
-		AccessToken       string       `json:"accessToken"`
-		Provides          string       `json:"provides"`
-		Connections       []Connection `json:"connections"`
-		Owned             bool         `json:"owned"`
-		Home              bool         `json:"home"`
-		SourceTitle       string       `json:"sourceTitle"`
-		PublicAddress     string       `json:"publicAddress"`
-		Product           string       `json:"product"`
-		ProductVersion    string       `json:"productVersion"`
-		Platform          string       `json:"platform"`
-		PlatformVersion   string       `json:"platformVersion"`
+		Name             string       `json:"name"`
+		ClientIdentifier string       `json:"clientIdentifier"`
+		AccessToken      string       `json:"accessToken"`
+		Provides         string       `json:"provides"`
+		Connections      []Connection `json:"connections"`
+		Owned            bool         `json:"owned"`
+		Home             bool         `json:"home"`
+		SourceTitle      string       `json:"sourceTitle"`
+		PublicAddress    string       `json:"publicAddress"`
+		Product          string       `json:"product"`
+		ProductVersion   string       `json:"productVersion"`
+		Platform         string       `json:"platform"`
+		PlatformVersion  string       `json:"platformVersion"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&resources); err != nil {
@@ -187,7 +188,8 @@ func (c *Client) GetResources(ctx context.Context, token string) ([]PlexServer, 
 	}
 
 	var servers []PlexServer
-	for _, r := range resources {
+	for i := range resources {
+		r := &resources[i]
 		if !strings.Contains(r.Provides, "server") {
 			continue
 		}
@@ -218,9 +220,9 @@ func (c *Client) GetLibrarySections(ctx context.Context, serverURL, token string
 
 // GetLibrarySectionsWithClientID returns the library sections for a server using a specific client ID
 func (c *Client) GetLibrarySectionsWithClientID(ctx context.Context, serverURL, token, clientID string) ([]LibrarySection, error) {
-	url := fmt.Sprintf("%s/library/sections", serverURL)
+	requestURL := fmt.Sprintf("%s/library/sections", serverURL)
 
-	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, requestURL, token, clientID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get library sections: %w", err)
 	}
@@ -234,13 +236,13 @@ func (c *Client) GetLibrarySectionsWithClientID(ctx context.Context, serverURL, 
 	var mediaContainer struct {
 		MediaContainer struct {
 			Directory []struct {
-				Key       string `json:"key"`
-				Title     string `json:"title"`
-				Type      string `json:"type"`
-				Agent     string `json:"agent"`
-				Scanner   string `json:"scanner"`
-				Language  string `json:"language"`
-				Location  []struct {
+				Key      string `json:"key"`
+				Title    string `json:"title"`
+				Type     string `json:"type"`
+				Agent    string `json:"agent"`
+				Scanner  string `json:"scanner"`
+				Language string `json:"language"`
+				Location []struct {
 					ID   int    `json:"id"`
 					Path string `json:"path"`
 				} `json:"Location"`
@@ -282,9 +284,9 @@ func (c *Client) RefreshSection(ctx context.Context, serverURL string, sectionKe
 
 // RefreshSectionWithClientID triggers a full refresh of a library section using a specific client ID
 func (c *Client) RefreshSectionWithClientID(ctx context.Context, serverURL string, sectionKey int, token, clientID string) error {
-	url := fmt.Sprintf("%s/library/sections/%d/refresh", serverURL, sectionKey)
+	requestURL := fmt.Sprintf("%s/library/sections/%d/refresh", serverURL, sectionKey)
 
-	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, requestURL, token, clientID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to refresh section: %w", err)
 	}
@@ -328,12 +330,12 @@ func (c *Client) TestConnection(ctx context.Context, serverURL, token string) er
 
 // TestConnectionWithClientID tests the connection to a Plex server using a specific client ID
 func (c *Client) TestConnectionWithClientID(ctx context.Context, serverURL, token, clientID string) error {
-	url := fmt.Sprintf("%s/identity", serverURL)
+	requestURL := fmt.Sprintf("%s/identity", serverURL)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, url, token, clientID, nil)
+	resp, err := c.doRequestWithClientID(ctx, http.MethodGet, requestURL, token, clientID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
@@ -348,12 +350,12 @@ func (c *Client) TestConnectionWithClientID(ctx context.Context, serverURL, toke
 }
 
 // FindServerURL attempts to find a working URL for a server
-func (c *Client) FindServerURL(ctx context.Context, server PlexServer, token string) (string, error) {
+func (c *Client) FindServerURL(ctx context.Context, server *PlexServer, token string) (string, error) {
 	return c.FindServerURLWithClientID(ctx, server, token, "")
 }
 
 // FindServerURLWithClientID attempts to find a working URL for a server using a specific client ID
-func (c *Client) FindServerURLWithClientID(ctx context.Context, server PlexServer, token, clientID string) (string, error) {
+func (c *Client) FindServerURLWithClientID(ctx context.Context, server *PlexServer, token, clientID string) (string, error) {
 	for _, conn := range server.Connections {
 		if conn.Relay {
 			continue

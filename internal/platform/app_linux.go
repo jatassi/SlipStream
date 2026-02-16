@@ -3,6 +3,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,7 +46,7 @@ func (a *linuxApp) Run() error {
 }
 
 func (a *linuxApp) OpenBrowser(url string) error {
-	return exec.Command("xdg-open", url).Start()
+	return exec.CommandContext(context.Background(), "xdg-open", url).Start()
 }
 
 func (a *linuxApp) Stop() {
@@ -115,15 +116,15 @@ WantedBy=default.target
 		return fmt.Errorf("write service file: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "--user", "daemon-reload").Run(); err != nil {
+	if err := exec.CommandContext(context.Background(), "systemctl", "--user", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "--user", "enable", serviceName).Run(); err != nil {
+	if err := exec.CommandContext(context.Background(), "systemctl", "--user", "enable", serviceName).Run(); err != nil {
 		return fmt.Errorf("systemctl enable: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "--user", "start", serviceName).Run(); err != nil {
+	if err := exec.CommandContext(context.Background(), "systemctl", "--user", "start", serviceName).Run(); err != nil {
 		return fmt.Errorf("systemctl start: %w", err)
 	}
 
@@ -131,8 +132,8 @@ WantedBy=default.target
 }
 
 func DisableStartup() error {
-	_ = exec.Command("systemctl", "--user", "stop", serviceName).Run()
-	_ = exec.Command("systemctl", "--user", "disable", serviceName).Run()
+	_ = exec.CommandContext(context.Background(), "systemctl", "--user", "stop", serviceName).Run()
+	_ = exec.CommandContext(context.Background(), "systemctl", "--user", "disable", serviceName).Run()
 
 	servicePath, err := serviceFilePath()
 	if err != nil {
@@ -143,12 +144,12 @@ func DisableStartup() error {
 		return fmt.Errorf("remove service file: %w", err)
 	}
 
-	_ = exec.Command("systemctl", "--user", "daemon-reload").Run()
+	_ = exec.CommandContext(context.Background(), "systemctl", "--user", "daemon-reload").Run()
 	return nil
 }
 
 func IsStartupEnabled() (bool, error) {
-	cmd := exec.Command("systemctl", "--user", "is-enabled", serviceName)
+	cmd := exec.CommandContext(context.Background(), "systemctl", "--user", "is-enabled", serviceName)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, nil

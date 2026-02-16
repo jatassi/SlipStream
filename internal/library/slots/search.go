@@ -6,6 +6,11 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
 
+const (
+	statusMissing    = "missing"
+	statusUpgradable = "upgradable"
+)
+
 // SlotSearchInfo represents information about a slot needed for search operations.
 type SlotSearchInfo struct {
 	SlotID           int64  `json:"slotId"`
@@ -22,20 +27,20 @@ type SlotSearchInfo struct {
 
 // HasFile returns true if this slot has a file assigned.
 func (s *SlotSearchInfo) HasFile() bool {
-	return s.Status == "available" || s.Status == "upgradable"
+	return s.Status == "available" || s.Status == statusUpgradable
 }
 
 // NeedsUpgrade returns true if this slot's file is below cutoff.
 func (s *SlotSearchInfo) NeedsUpgrade() bool {
-	return s.Status == "upgradable"
+	return s.Status == statusUpgradable
 }
 
 // IsMissing returns true if this slot is empty and needs a file.
 func (s *SlotSearchInfo) IsMissing() bool {
-	return s.Status == "missing"
+	return s.Status == statusMissing
 }
 
-func slotSearchInfoFromStatus(slotStatus SlotStatus, qualityProfileID int64) SlotSearchInfo {
+func slotSearchInfoFromStatus(slotStatus *SlotStatus, qualityProfileID int64) SlotSearchInfo {
 	return SlotSearchInfo{
 		SlotID:           slotStatus.SlotID,
 		SlotNumber:       slotStatus.SlotNumber,
@@ -63,13 +68,13 @@ func (s *Service) GetMovieSlotsNeedingSearch(ctx context.Context, movieID int64)
 			continue
 		}
 
-		if slotStatus.Status == "missing" || slotStatus.Status == "upgradable" {
+		if slotStatus.Status == statusMissing || slotStatus.Status == statusUpgradable {
 			slot, err := s.Get(ctx, slotStatus.SlotID)
 			if err != nil || slot.QualityProfileID == nil {
 				continue
 			}
 
-			result = append(result, slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID))
+			result = append(result, slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID))
 		}
 	}
 
@@ -89,13 +94,13 @@ func (s *Service) GetEpisodeSlotsNeedingSearch(ctx context.Context, episodeID in
 			continue
 		}
 
-		if slotStatus.Status == "missing" || slotStatus.Status == "upgradable" {
+		if slotStatus.Status == statusMissing || slotStatus.Status == statusUpgradable {
 			slot, err := s.Get(ctx, slotStatus.SlotID)
 			if err != nil || slot.QualityProfileID == nil {
 				continue
 			}
 
-			result = append(result, slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID))
+			result = append(result, slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID))
 		}
 	}
 
@@ -103,7 +108,7 @@ func (s *Service) GetEpisodeSlotsNeedingSearch(ctx context.Context, episodeID in
 }
 
 // GetMovieSlotSearchInfo returns search info for a specific slot for a movie.
-func (s *Service) GetMovieSlotSearchInfo(ctx context.Context, movieID int64, slotID int64) (*SlotSearchInfo, error) {
+func (s *Service) GetMovieSlotSearchInfo(ctx context.Context, movieID, slotID int64) (*SlotSearchInfo, error) {
 	status, err := s.GetMovieStatus(ctx, movieID)
 	if err != nil {
 		return nil, err
@@ -122,7 +127,7 @@ func (s *Service) GetMovieSlotSearchInfo(ctx context.Context, movieID int64, slo
 			return nil, ErrSlotNoQualityProfile
 		}
 
-		info := slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID)
+		info := slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID)
 		return &info, nil
 	}
 
@@ -130,7 +135,7 @@ func (s *Service) GetMovieSlotSearchInfo(ctx context.Context, movieID int64, slo
 }
 
 // GetEpisodeSlotSearchInfo returns search info for a specific slot for an episode.
-func (s *Service) GetEpisodeSlotSearchInfo(ctx context.Context, episodeID int64, slotID int64) (*SlotSearchInfo, error) {
+func (s *Service) GetEpisodeSlotSearchInfo(ctx context.Context, episodeID, slotID int64) (*SlotSearchInfo, error) {
 	status, err := s.GetEpisodeStatus(ctx, episodeID)
 	if err != nil {
 		return nil, err
@@ -149,7 +154,7 @@ func (s *Service) GetEpisodeSlotSearchInfo(ctx context.Context, episodeID int64,
 			return nil, ErrSlotNoQualityProfile
 		}
 
-		info := slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID)
+		info := slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID)
 		return &info, nil
 	}
 
@@ -158,52 +163,42 @@ func (s *Service) GetEpisodeSlotSearchInfo(ctx context.Context, episodeID int64,
 
 // GetTargetSlotForQuality determines which slot a release with a given quality should be assigned to.
 func (s *Service) GetTargetSlotForQuality(ctx context.Context, mediaType string, mediaID int64, qualityID int) (*SlotSearchInfo, bool, error) {
-	var slots []SlotSearchInfo
-	var err error
-
-	switch mediaType {
-	case "movie":
-		slots, err = s.getMovieSlotCandidates(ctx, mediaID)
-	case "episode":
-		slots, err = s.getEpisodeSlotCandidates(ctx, mediaID)
-	default:
-		return nil, false, nil
-	}
-
+	slots, err := s.getSlotCandidatesForMedia(ctx, mediaType, mediaID)
 	if err != nil {
 		return nil, false, err
 	}
-
 	if len(slots) == 0 {
 		return nil, false, nil
 	}
 
-	var bestSlot *SlotSearchInfo
-	var isUpgrade bool
+	return selectTargetSlot(slots, qualityID)
+}
 
-	// First, prefer empty slots
+func (s *Service) getSlotCandidatesForMedia(ctx context.Context, mediaType string, mediaID int64) ([]SlotSearchInfo, error) {
+	switch mediaType {
+	case mediaTypeMovie:
+		return s.getMovieSlotCandidates(ctx, mediaID)
+	case mediaTypeEpisode:
+		return s.getEpisodeSlotCandidates(ctx, mediaID)
+	default:
+		return nil, nil
+	}
+}
+
+func selectTargetSlot(slots []SlotSearchInfo, qualityID int) (*SlotSearchInfo, bool, error) {
 	for i := range slots {
 		if slots[i].IsMissing() {
-			bestSlot = &slots[i]
-			isUpgrade = false
-			break
+			return &slots[i], false, nil
 		}
 	}
 
-	// If no empty slot, check for upgrade opportunity
-	if bestSlot == nil {
-		for i := range slots {
-			if slots[i].NeedsUpgrade() && slots[i].CurrentQualityID != nil {
-				if qualityID > int(*slots[i].CurrentQualityID) {
-					bestSlot = &slots[i]
-					isUpgrade = true
-					break
-				}
-			}
+	for i := range slots {
+		if slots[i].NeedsUpgrade() && slots[i].CurrentQualityID != nil && qualityID > int(*slots[i].CurrentQualityID) {
+			return &slots[i], true, nil
 		}
 	}
 
-	return bestSlot, isUpgrade, nil
+	return nil, false, nil
 }
 
 // getMovieSlotCandidates returns all enabled slots with their current state for a movie.
@@ -220,7 +215,7 @@ func (s *Service) getMovieSlotCandidates(ctx context.Context, movieID int64) ([]
 			continue
 		}
 
-		result = append(result, slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID))
+		result = append(result, slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID))
 	}
 
 	return result, nil
@@ -240,7 +235,7 @@ func (s *Service) getEpisodeSlotCandidates(ctx context.Context, episodeID int64)
 			continue
 		}
 
-		result = append(result, slotSearchInfoFromStatus(slotStatus, *slot.QualityProfileID))
+		result = append(result, slotSearchInfoFromStatus(&slotStatus, *slot.QualityProfileID))
 	}
 
 	return result, nil
@@ -252,18 +247,7 @@ func (s *Service) EnrichReleasesWithSlotInfo(ctx context.Context, releases []typ
 		return releases
 	}
 
-	var candidates []SlotSearchInfo
-	var err error
-
-	switch mediaType {
-	case "movie":
-		candidates, err = s.getMovieSlotCandidates(ctx, mediaID)
-	case "episode":
-		candidates, err = s.getEpisodeSlotCandidates(ctx, mediaID)
-	default:
-		return releases
-	}
-
+	candidates, err := s.getSlotCandidatesForMedia(ctx, mediaType, mediaID)
 	if err != nil || len(candidates) == 0 {
 		return releases
 	}
@@ -272,28 +256,29 @@ func (s *Service) EnrichReleasesWithSlotInfo(ctx context.Context, releases []typ
 	copy(enriched, releases)
 
 	for i := range enriched {
-		release := &enriched[i]
-
-		var qualityID int
-		if release.ScoreBreakdown != nil {
-			qualityID = release.ScoreBreakdown.QualityID
-		}
-
-		if qualityID == 0 {
-			continue
-		}
-
-		targetSlot, isUpgrade, err := s.GetTargetSlotForQuality(ctx, mediaType, mediaID, qualityID)
-		if err != nil || targetSlot == nil {
-			continue
-		}
-
-		release.TargetSlotID = &targetSlot.SlotID
-		release.TargetSlotNumber = &targetSlot.SlotNumber
-		release.TargetSlotName = targetSlot.SlotName
-		release.IsSlotUpgrade = isUpgrade
-		release.IsSlotNewFill = !isUpgrade && targetSlot.IsMissing()
+		s.enrichReleaseWithSlot(ctx, &enriched[i], mediaType, mediaID)
 	}
 
 	return enriched
+}
+
+func (s *Service) enrichReleaseWithSlot(ctx context.Context, release *types.TorrentInfo, mediaType string, mediaID int64) {
+	var qualityID int
+	if release.ScoreBreakdown != nil {
+		qualityID = release.ScoreBreakdown.QualityID
+	}
+	if qualityID == 0 {
+		return
+	}
+
+	targetSlot, isUpgrade, err := s.GetTargetSlotForQuality(ctx, mediaType, mediaID, qualityID)
+	if err != nil || targetSlot == nil {
+		return
+	}
+
+	release.TargetSlotID = &targetSlot.SlotID
+	release.TargetSlotNumber = &targetSlot.SlotNumber
+	release.TargetSlotName = targetSlot.SlotName
+	release.IsSlotUpgrade = isUpgrade
+	release.IsSlotNewFill = !isUpgrade && targetSlot.IsMissing()
 }

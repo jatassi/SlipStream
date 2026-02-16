@@ -47,13 +47,14 @@ func (c *Checker) CheckPort(ctx context.Context, port int) (*Status, error) {
 	status.FirewallName = firewallName
 
 	// Generate message based on status
-	if !status.IsListening {
+	switch {
+	case !status.IsListening:
 		status.Message = fmt.Sprintf("Port %d is not listening", port)
-	} else if !status.FirewallEnabled {
+	case !status.FirewallEnabled:
 		status.Message = "Firewall is disabled or not detected"
-	} else if status.FirewallAllows {
+	case status.FirewallAllows:
 		status.Message = fmt.Sprintf("Port %d is open in %s", port, firewallName)
-	} else {
+	default:
 		status.Message = fmt.Sprintf("Port %d may be blocked by %s", port, firewallName)
 	}
 
@@ -63,7 +64,8 @@ func (c *Checker) CheckPort(ctx context.Context, port int) (*Status, error) {
 // isPortListening checks if a port is currently listening.
 func (c *Checker) isPortListening(port int) bool {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	dialer := &net.Dialer{Timeout: 2 * time.Second}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}

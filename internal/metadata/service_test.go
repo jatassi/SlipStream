@@ -3,36 +3,36 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 )
 
 func setupTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/search/movie":
+		switch r.URL.Path {
+		case "/search/movie":
 			json.NewEncoder(w).Encode(tmdb.SearchMoviesResponse{
 				Results: []tmdb.MovieResult{
 					{ID: 603, Title: "The Matrix", ReleaseDate: "1999-03-30"},
 				},
 			})
-		case r.URL.Path == "/movie/603":
+		case "/movie/603":
 			json.NewEncoder(w).Encode(tmdb.MovieDetails{
 				ID: 603, Title: "The Matrix", ReleaseDate: "1999-03-30", Runtime: 136,
 			})
-		case r.URL.Path == "/search/tv":
+		case "/search/tv":
 			json.NewEncoder(w).Encode(tmdb.SearchTVResponse{
 				Results: []tmdb.TVResult{
 					{ID: 1396, Name: "Breaking Bad", FirstAirDate: "2008-01-20"},
 				},
 			})
-		case r.URL.Path == "/tv/1396":
+		case "/tv/1396":
 			json.NewEncoder(w).Encode(tmdb.TVDetails{
 				ID: 1396, Name: "Breaking Bad", FirstAirDate: "2008-01-20", Status: "Ended",
 			})
@@ -55,7 +55,7 @@ func TestService_SearchMovies(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	// Test without year filter (year=0)
 	results, err := svc.SearchMovies(context.Background(), "Matrix", 0)
@@ -92,7 +92,7 @@ func TestService_SearchMovies_Caching(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	// First call
 	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
@@ -123,7 +123,7 @@ func TestService_GetMovie(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	result, err := svc.GetMovie(context.Background(), 603)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestService_SearchSeries(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	results, err := svc.SearchSeries(context.Background(), "Breaking Bad")
 	if err != nil {
@@ -178,7 +178,7 @@ func TestService_GetSeriesByTMDB(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	result, err := svc.GetSeriesByTMDB(context.Background(), 1396)
 	if err != nil {
@@ -196,26 +196,26 @@ func TestService_GetSeriesByTMDB(t *testing.T) {
 func TestService_NoProviderConfigured(t *testing.T) {
 	cfg := config.MetadataConfig{} // No API keys
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
-	if err != ErrNoProvidersConfigured {
+	if !errors.Is(err, ErrNoProvidersConfigured) {
 		t.Errorf("SearchMovies() error = %v, want %v", err, ErrNoProvidersConfigured)
 	}
 
 	_, err = svc.SearchSeries(context.Background(), "Breaking Bad")
-	if err != ErrNoProvidersConfigured {
+	if !errors.Is(err, ErrNoProvidersConfigured) {
 		t.Errorf("SearchSeries() error = %v, want %v", err, ErrNoProvidersConfigured)
 	}
 }
 
 func TestService_HasProviders(t *testing.T) {
 	tests := []struct {
-		name            string
-		tmdbKey         string
-		tvdbKey         string
-		wantMovie       bool
-		wantSeries      bool
+		name       string
+		tmdbKey    string
+		tvdbKey    string
+		wantMovie  bool
+		wantSeries bool
 	}{
 		{"no providers", "", "", false, false},
 		{"tmdb only", "key", "", true, true},
@@ -229,7 +229,7 @@ func TestService_HasProviders(t *testing.T) {
 				TMDB: config.TMDBConfig{APIKey: tt.tmdbKey},
 				TVDB: config.TVDBConfig{APIKey: tt.tvdbKey},
 			}
-			svc := NewService(cfg, zerolog.Nop())
+			svc := NewService(&cfg, newTestLogger())
 
 			if got := svc.HasMovieProvider(); got != tt.wantMovie {
 				t.Errorf("HasMovieProvider() = %v, want %v", got, tt.wantMovie)
@@ -253,7 +253,7 @@ func TestService_ClearCache(t *testing.T) {
 		},
 	}
 
-	svc := NewService(cfg, zerolog.Nop())
+	svc := NewService(&cfg, newTestLogger())
 
 	// Populate cache
 	_, _ = svc.SearchMovies(context.Background(), "Matrix", 0)

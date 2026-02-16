@@ -66,7 +66,8 @@ func parseStandardRSS(data []byte, indexerID int64, indexerName string) ([]types
 	}
 
 	var results []types.TorrentInfo
-	for _, item := range feed.Channel.Items {
+	for i := range feed.Channel.Items {
+		item := &feed.Channel.Items[i]
 		downloadURL := item.Link
 		if downloadURL == "" && item.Enclosure.URL != "" {
 			downloadURL = item.Enclosure.URL
@@ -117,21 +118,21 @@ type ezrssChannel struct {
 }
 
 type ezrssItem struct {
-	Title     string          `xml:"title"`
-	Link      string          `xml:"link"`
-	GUID      string          `xml:"guid"`
-	PubDate   string          `xml:"pubDate"`
-	Enclosure rssEnclosure    `xml:"enclosure"`
-	Torrent   ezrssTorrent    `xml:"torrent"`
-	Comments  string          `xml:"comments"`
+	Title     string       `xml:"title"`
+	Link      string       `xml:"link"`
+	GUID      string       `xml:"guid"`
+	PubDate   string       `xml:"pubDate"`
+	Enclosure rssEnclosure `xml:"enclosure"`
+	Torrent   ezrssTorrent `xml:"torrent"`
+	Comments  string       `xml:"comments"`
 }
 
 type ezrssTorrent struct {
-	InfoHash  string `xml:"infoHash"`
-	MagnetURI string `xml:"magnetURI"`
-	Seeds     int    `xml:"seeds"`
-	Peers     int    `xml:"peers"`
-	ContentLength int64 `xml:"contentLength"`
+	InfoHash      string `xml:"infoHash"`
+	MagnetURI     string `xml:"magnetURI"`
+	Seeds         int    `xml:"seeds"`
+	Peers         int    `xml:"peers"`
+	ContentLength int64  `xml:"contentLength"`
 }
 
 func parseEzRSS(data []byte, indexerID int64, indexerName string) ([]types.TorrentInfo, error) {
@@ -141,52 +142,58 @@ func parseEzRSS(data []byte, indexerID int64, indexerName string) ([]types.Torre
 	}
 
 	var results []types.TorrentInfo
-	for _, item := range feed.Channel.Items {
-		// EzRSS feeds have the torrent namespace
+	for i := range feed.Channel.Items {
+		item := &feed.Channel.Items[i]
 		if item.Torrent.InfoHash == "" && item.Torrent.MagnetURI == "" {
 			continue
 		}
 
-		downloadURL := item.Torrent.MagnetURI
-		if downloadURL == "" {
-			downloadURL = item.Link
-		}
-		if downloadURL == "" && item.Enclosure.URL != "" {
-			downloadURL = item.Enclosure.URL
-		}
+		downloadURL := resolveEzRSSDownloadURL(item)
 		if downloadURL == "" {
 			continue
 		}
 
-		size := item.Torrent.ContentLength
-		if size == 0 && item.Enclosure.Length > 0 {
-			size = item.Enclosure.Length
-		}
-
-		guid := item.GUID
-		if guid == "" {
-			guid = downloadURL
-		}
-
-		results = append(results, types.TorrentInfo{
-			ReleaseInfo: types.ReleaseInfo{
-				GUID:        guid,
-				Title:       item.Title,
-				DownloadURL: downloadURL,
-				InfoURL:     item.Comments,
-				Size:        size,
-				PublishDate: parseDate(item.PubDate),
-				IndexerID:   indexerID,
-				IndexerName: indexerName,
-				Protocol:    types.ProtocolTorrent,
-			},
-			Seeders:  item.Torrent.Seeds,
-			Leechers: item.Torrent.Peers,
-			InfoHash: item.Torrent.InfoHash,
-		})
+		results = append(results, buildEzRSSTorrent(item, downloadURL, indexerID, indexerName))
 	}
 
 	return results, nil
+}
+
+func resolveEzRSSDownloadURL(item *ezrssItem) string {
+	if item.Torrent.MagnetURI != "" {
+		return item.Torrent.MagnetURI
+	}
+	if item.Link != "" {
+		return item.Link
+	}
+	return item.Enclosure.URL
+}
+
+func buildEzRSSTorrent(item *ezrssItem, downloadURL string, indexerID int64, indexerName string) types.TorrentInfo {
+	size := item.Torrent.ContentLength
+	if size == 0 && item.Enclosure.Length > 0 {
+		size = item.Enclosure.Length
+	}
+	guid := item.GUID
+	if guid == "" {
+		guid = downloadURL
+	}
+	return types.TorrentInfo{
+		ReleaseInfo: types.ReleaseInfo{
+			GUID:        guid,
+			Title:       item.Title,
+			DownloadURL: downloadURL,
+			InfoURL:     item.Comments,
+			Size:        size,
+			PublishDate: parseDate(item.PubDate),
+			IndexerID:   indexerID,
+			IndexerName: indexerName,
+			Protocol:    types.ProtocolTorrent,
+		},
+		Seeders:  item.Torrent.Seeds,
+		Leechers: item.Torrent.Peers,
+		InfoHash: item.Torrent.InfoHash,
+	}
 }
 
 // TorrentPotato (JSON)

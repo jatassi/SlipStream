@@ -25,15 +25,15 @@ type Provider interface {
 
 // MovieResult represents a movie from a metadata provider.
 type MovieResult struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Year        int      `json:"year"`
-	Overview    string   `json:"overview"`
-	PosterURL   string   `json:"posterUrl,omitempty"`
-	BackdropURL string   `json:"backdropUrl,omitempty"`
-	LogoURL     string   `json:"logoUrl,omitempty"`
-	ImdbID      string   `json:"imdbId,omitempty"`
-	Genres      []string `json:"genres,omitempty"`
+	ID            int      `json:"id"`
+	Title         string   `json:"title"`
+	Year          int      `json:"year"`
+	Overview      string   `json:"overview"`
+	PosterURL     string   `json:"posterUrl,omitempty"`
+	BackdropURL   string   `json:"backdropUrl,omitempty"`
+	LogoURL       string   `json:"logoUrl,omitempty"`
+	ImdbID        string   `json:"imdbId,omitempty"`
+	Genres        []string `json:"genres,omitempty"`
 	Runtime       int      `json:"runtime,omitempty"`
 	Studio        string   `json:"studio,omitempty"`
 	StudioLogoURL string   `json:"studioLogoUrl,omitempty"`

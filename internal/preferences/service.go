@@ -9,6 +9,8 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
+const boolTrue = "true"
+
 type Service struct {
 	queries *sqlc.Queries
 }
@@ -28,7 +30,7 @@ func (s *Service) GetAddFlowPreferences(ctx context.Context) (*AddFlowPreference
 	prefs := DefaultPreferences()
 
 	if val, err := s.getString(ctx, KeyMovieSearchOnAdd); err == nil {
-		prefs.MovieSearchOnAdd = val == "true"
+		prefs.MovieSearchOnAdd = val == boolTrue
 	}
 
 	if val, err := s.getString(ctx, KeySeriesSearchOnAdd); err == nil && ValidSeriesSearchOnAdd(val) {
@@ -40,7 +42,7 @@ func (s *Service) GetAddFlowPreferences(ctx context.Context) (*AddFlowPreference
 	}
 
 	if val, err := s.getString(ctx, KeySeriesIncludeSpecials); err == nil {
-		prefs.SeriesIncludeSpecials = val == "true"
+		prefs.SeriesIncludeSpecials = val == boolTrue
 	}
 
 	return &prefs, nil
@@ -77,7 +79,7 @@ func (s *Service) GetMovieSearchOnAdd(ctx context.Context) bool {
 	if err != nil {
 		return DefaultPreferences().MovieSearchOnAdd
 	}
-	return val == "true"
+	return val == boolTrue
 }
 
 // SetMovieSearchOnAdd updates the movie search-on-add preference
@@ -125,7 +127,7 @@ func (s *Service) GetSeriesIncludeSpecials(ctx context.Context) bool {
 	if err != nil {
 		return DefaultPreferences().SeriesIncludeSpecials
 	}
-	return val == "true"
+	return val == boolTrue
 }
 
 // SetSeriesIncludeSpecials updates the series include-specials preference

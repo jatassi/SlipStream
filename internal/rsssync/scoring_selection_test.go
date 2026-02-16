@@ -13,7 +13,10 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
 
-var nopLogger = zerolog.Nop()
+var nopLogger = func() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}()
 
 // Scenario 1B: Score+Select — Bluray-1080p selected for missing movie (2160p fails IsAcceptable)
 func TestScoreAndSelect_Scenario1B_MissingMovie(t *testing.T) {
@@ -41,13 +44,13 @@ func TestScoreAndSelect_Scenario1B_MissingMovie(t *testing.T) {
 		Now:            time.Now(),
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], sCtx)
+		scorer.ScoreTorrent(&releases[i], &sCtx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
 	if best == nil {
 		t.Fatal("expected a release to be selected")
 	}
@@ -83,13 +86,13 @@ func TestScoreAndSelect_Scenario2B_UpgradableMovie(t *testing.T) {
 		Now:            time.Now(),
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], sCtx)
+		scorer.ScoreTorrent(&releases[i], &sCtx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
 	if best == nil {
 		t.Fatal("expected a release to be selected")
 	}
@@ -124,13 +127,13 @@ func TestScoreAndSelect_Scenario3B_NoUpgrade(t *testing.T) {
 		Now:            time.Now(),
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], sCtx)
+		scorer.ScoreTorrent(&releases[i], &sCtx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
 	if best != nil {
 		t.Errorf("expected nil (no upgrade), got %s", best.Title)
 	}
@@ -177,13 +180,13 @@ func TestScoreAndSelect_Scenario5B_DiscSourceUpgrade(t *testing.T) {
 		Now:            time.Now(),
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], sCtx)
+		scorer.ScoreTorrent(&releases[i], &sCtx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
 	if best == nil {
 		t.Fatal("expected disc source upgrade")
 	}
@@ -229,13 +232,13 @@ func TestScoreAndSelect_Scenario6B_NonDiscUpgradeRejected(t *testing.T) {
 		Now:            time.Now(),
 	}
 	for i := range releases {
-		scorer.ScoreTorrent(&releases[i], sCtx)
+		scorer.ScoreTorrent(&releases[i], &sCtx)
 	}
 	sort.Slice(releases, func(i, j int) bool {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
 	if best != nil {
 		t.Errorf("expected nil (non-disc not an upgrade), got %s", best.Title)
 	}
@@ -255,7 +258,7 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 	// Build index with individual episode items for matcher to work
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, false, 0)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
 	// Feed: season pack + individual episodes
 	releases := []types.TorrentInfo{
@@ -265,8 +268,8 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 	}
 
 	var allMatches []MatchResult
-	for _, release := range releases {
-		results := matcher.Match(context.Background(), release)
+	for i := range releases {
+		results := matcher.Match(context.Background(), &releases[i])
 		allMatches = append(allMatches, results...)
 	}
 
@@ -303,7 +306,7 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 	for _, eKey := range episodeKeys {
 		g := groups[eKey]
 		if g.item.MediaType == decisioning.MediaTypeEpisode {
-			sKey := seasonKeyForEpisode(g.item)
+			sKey := seasonKeyForEpisode(&g.item)
 			found := false
 			for _, sk := range seasonKeys {
 				if sk == sKey {

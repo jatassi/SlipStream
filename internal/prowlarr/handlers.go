@@ -94,7 +94,7 @@ func (h *Handlers) UpdateConfig(c echo.Context) error {
 		input.TVCategories = DefaultTVCategories()
 	}
 
-	config, err := h.service.UpdateConfig(c.Request().Context(), input)
+	config, err := h.service.UpdateConfig(c.Request().Context(), &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -179,7 +179,7 @@ func (h *Handlers) RefreshData(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"indexers": indexers,
+		"indexers":  indexers,
 		"refreshed": true,
 	})
 }
@@ -267,16 +267,15 @@ func (h *Handlers) GetIndexerSettings(c echo.Context) error {
 
 	settings, err := h.service.GetIndexerSettings(c.Request().Context(), indexerID)
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			// Return default settings if none exist
+			return c.JSON(http.StatusOK, &IndexerSettings{
+				ProwlarrIndexerID: indexerID,
+				Priority:          25,
+				ContentType:       ContentTypeBoth,
+			})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	if settings == nil {
-		// Return default settings if none exist
-		return c.JSON(http.StatusOK, &IndexerSettings{
-			ProwlarrIndexerID: indexerID,
-			Priority:          25,
-			ContentType:       ContentTypeBoth,
-		})
 	}
 
 	return c.JSON(http.StatusOK, settings)
@@ -341,15 +340,14 @@ func (h *Handlers) ResetIndexerStats(c echo.Context) error {
 	// Return updated settings
 	settings, err := h.service.GetIndexerSettings(c.Request().Context(), indexerID)
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return c.JSON(http.StatusOK, &IndexerSettings{
+				ProwlarrIndexerID: indexerID,
+				Priority:          25,
+				ContentType:       ContentTypeBoth,
+			})
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	if settings == nil {
-		return c.JSON(http.StatusOK, &IndexerSettings{
-			ProwlarrIndexerID: indexerID,
-			Priority:          25,
-			ContentType:       ContentTypeBoth,
-		})
 	}
 
 	return c.JSON(http.StatusOK, settings)

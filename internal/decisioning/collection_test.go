@@ -14,9 +14,9 @@ import (
 // createProfile creates an HD-1080p quality profile in DB and returns its ID.
 func createProfile(t *testing.T, tdb *testutil.TestDB) int64 {
 	t.Helper()
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	p := quality.HD1080pProfile()
-	created, err := qs.Create(context.Background(), quality.CreateProfileInput{
+	created, err := qs.Create(context.Background(), &quality.CreateProfileInput{
 		Name:            p.Name,
 		Cutoff:          p.Cutoff,
 		UpgradeStrategy: p.UpgradeStrategy,
@@ -29,7 +29,7 @@ func createProfile(t *testing.T, tdb *testutil.TestDB) int64 {
 }
 
 // createMovie creates a movie in the DB.
-func createMovie(t *testing.T, q *sqlc.Queries, title string, tmdbID int64, year int64, profileID int64, status string) int64 {
+func createMovie(t *testing.T, q *sqlc.Queries, title string, tmdbID, year, profileID int64, status string) int64 {
 	t.Helper()
 	movie, err := q.CreateMovie(context.Background(), sqlc.CreateMovieParams{
 		Title:            title,
@@ -47,7 +47,7 @@ func createMovie(t *testing.T, q *sqlc.Queries, title string, tmdbID int64, year
 }
 
 // createMovieFile creates a movie file record.
-func createMovieFile(t *testing.T, q *sqlc.Queries, movieID int64, qualityID int64) {
+func createMovieFile(t *testing.T, q *sqlc.Queries, movieID, qualityID int64) {
 	t.Helper()
 	_, err := q.CreateMovieFile(context.Background(), sqlc.CreateMovieFileParams{
 		MovieID:   movieID,
@@ -61,7 +61,7 @@ func createMovieFile(t *testing.T, q *sqlc.Queries, movieID int64, qualityID int
 }
 
 // createSeries creates a series in the DB.
-func createSeries(t *testing.T, q *sqlc.Queries, title string, tvdbID int64, profileID int64, prodStatus string) int64 {
+func createSeries(t *testing.T, q *sqlc.Queries, title string, tvdbID, profileID int64, prodStatus string) int64 {
 	t.Helper()
 	series, err := q.CreateSeries(context.Background(), sqlc.CreateSeriesParams{
 		Title:            title,
@@ -79,7 +79,7 @@ func createSeries(t *testing.T, q *sqlc.Queries, title string, tvdbID int64, pro
 }
 
 // createSeason creates a season record.
-func createSeason(t *testing.T, q *sqlc.Queries, seriesID int64, seasonNum int64) {
+func createSeason(t *testing.T, q *sqlc.Queries, seriesID, seasonNum int64) {
 	t.Helper()
 	_, err := q.CreateSeason(context.Background(), sqlc.CreateSeasonParams{
 		SeriesID:     seriesID,
@@ -92,7 +92,7 @@ func createSeason(t *testing.T, q *sqlc.Queries, seriesID int64, seasonNum int64
 }
 
 // createEpisode creates an episode in the DB.
-func createEpisode(t *testing.T, q *sqlc.Queries, seriesID int64, season, episode int64, status string) int64 {
+func createEpisode(t *testing.T, q *sqlc.Queries, seriesID, season, episode int64, status string) int64 {
 	t.Helper()
 	ep, err := q.CreateEpisode(context.Background(), sqlc.CreateEpisodeParams{
 		SeriesID:      seriesID,
@@ -109,7 +109,7 @@ func createEpisode(t *testing.T, q *sqlc.Queries, seriesID int64, season, episod
 }
 
 // createEpisodeFile creates an episode file record.
-func createEpisodeFile(t *testing.T, q *sqlc.Queries, episodeID int64, qualityID int64) {
+func createEpisodeFile(t *testing.T, q *sqlc.Queries, episodeID, qualityID int64) {
 	t.Helper()
 	_, err := q.CreateEpisodeFile(context.Background(), sqlc.CreateEpisodeFileParams{
 		EpisodeID: episodeID,
@@ -136,7 +136,7 @@ func TestIsSeasonPackEligible_AllMissing(t *testing.T) {
 		createEpisode(t, q, seriesID, 3, i, "missing")
 	}
 
-	if !IsSeasonPackEligible(ctx, q, tdb.Logger, seriesID, 3) {
+	if !IsSeasonPackEligible(ctx, q, &tdb.Logger, seriesID, 3) {
 		t.Error("expected season pack eligible when all 13 episodes are missing")
 	}
 }
@@ -156,7 +156,7 @@ func TestIsSeasonPackUpgradeEligible_AllUpgradable(t *testing.T) {
 		createEpisodeFile(t, q, epID, 6) // WEBDL-720p
 	}
 
-	if !IsSeasonPackUpgradeEligible(ctx, q, tdb.Logger, seriesID, 3) {
+	if !IsSeasonPackUpgradeEligible(ctx, q, &tdb.Logger, seriesID, 3) {
 		t.Error("expected season pack upgrade eligible when all 13 episodes are upgradable")
 	}
 }
@@ -180,7 +180,7 @@ func TestIsSeasonPackUpgradeEligible_MixedUpgradableAndCutoff(t *testing.T) {
 		createEpisodeFile(t, q, epID, 11) // Bluray-1080p (at cutoff)
 	}
 
-	if IsSeasonPackUpgradeEligible(ctx, q, tdb.Logger, seriesID, 3) {
+	if IsSeasonPackUpgradeEligible(ctx, q, &tdb.Logger, seriesID, 3) {
 		t.Error("season pack upgrade should NOT be eligible when some episodes are at cutoff")
 	}
 }
@@ -202,7 +202,7 @@ func TestIsSeasonPackEligible_MissingPlusUnreleased(t *testing.T) {
 		createEpisode(t, q, seriesID, 3, i, "unreleased")
 	}
 
-	if IsSeasonPackEligible(ctx, q, tdb.Logger, seriesID, 3) {
+	if IsSeasonPackEligible(ctx, q, &tdb.Logger, seriesID, 3) {
 		t.Error("season pack should NOT be eligible when unreleased episodes present")
 	}
 }
@@ -222,7 +222,7 @@ func TestIsSeasonPackEligible_SingleMissingPlusUnreleased(t *testing.T) {
 		createEpisode(t, q, seriesID, 3, i, "unreleased")
 	}
 
-	if IsSeasonPackEligible(ctx, q, tdb.Logger, seriesID, 3) {
+	if IsSeasonPackEligible(ctx, q, &tdb.Logger, seriesID, 3) {
 		t.Error("season pack should NOT be eligible with unreleased episodes")
 	}
 }
@@ -243,7 +243,7 @@ func TestIsSeasonPackEligible_PartiallyAvailable(t *testing.T) {
 		createEpisode(t, q, seriesID, 2, i, "missing")
 	}
 
-	if IsSeasonPackEligible(ctx, q, tdb.Logger, seriesID, 2) {
+	if IsSeasonPackEligible(ctx, q, &tdb.Logger, seriesID, 2) {
 		t.Error("season pack should NOT be eligible when E01 is available")
 	}
 }
@@ -260,7 +260,7 @@ func TestIsSeasonPackEligible_SingleEpisode(t *testing.T) {
 	createSeason(t, q, seriesID, 1)
 	createEpisode(t, q, seriesID, 1, 1, "missing")
 
-	if IsSeasonPackEligible(ctx, q, tdb.Logger, seriesID, 1) {
+	if IsSeasonPackEligible(ctx, q, &tdb.Logger, seriesID, 1) {
 		t.Error("season pack should NOT be eligible with only 1 episode")
 	}
 }
@@ -277,7 +277,7 @@ func TestCollectWantedItems_MissingMovie(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -312,7 +312,7 @@ func TestCollectWantedItems_UpgradableMovie(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -353,7 +353,7 @@ func TestCollectWantedItems_AllMissingEpisodes_SeasonItem(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -364,12 +364,13 @@ func TestCollectWantedItems_AllMissingEpisodes_SeasonItem(t *testing.T) {
 	var seasonItems, episodeItems int
 	for _, item := range items {
 		if item.Title == "Breaking Bad" {
-			if item.MediaType == MediaTypeSeason {
+			switch item.MediaType {
+			case MediaTypeSeason:
 				seasonItems++
 				if item.SeasonNumber != 3 {
 					t.Errorf("expected SeasonNumber=3, got %d", item.SeasonNumber)
 				}
-			} else if item.MediaType == MediaTypeEpisode {
+			case MediaTypeEpisode:
 				episodeItems++
 			}
 		}
@@ -399,7 +400,7 @@ func TestCollectWantedItems_AllUpgradableEpisodes_SeasonItem(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -445,7 +446,7 @@ func TestCollectWantedItems_MixedUpgradableAndCutoff_IndividualItems(t *testing.
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -456,9 +457,10 @@ func TestCollectWantedItems_MixedUpgradableAndCutoff_IndividualItems(t *testing.
 	var epCount, seasonCount int
 	for _, item := range items {
 		if item.Title == "Breaking Bad" {
-			if item.MediaType == MediaTypeEpisode {
+			switch item.MediaType {
+			case MediaTypeEpisode:
 				epCount++
-			} else if item.MediaType == MediaTypeSeason {
+			case MediaTypeSeason:
 				seasonCount++
 			}
 		}
@@ -490,7 +492,7 @@ func TestCollectWantedItems_MissingPlusUnreleased_IndividualItems(t *testing.T) 
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -526,7 +528,7 @@ func TestCollectWantedItems_SingleMissingPlusUnreleased(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -560,7 +562,7 @@ func TestCollectWantedItems_FailedMovieExcluded(t *testing.T) {
 
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -593,7 +595,7 @@ func TestCollectWantedItems_SeasonTransition(t *testing.T) {
 	// Phase A: E07 unreleased → no season pack
 	collector := &Collector{
 		Queries:        q,
-		Logger:         tdb.Logger,
+		Logger:         &tdb.Logger,
 		BackoffChecker: NoBackoff{},
 	}
 	items, err := CollectWantedItems(ctx, collector)
@@ -604,9 +606,10 @@ func TestCollectWantedItems_SeasonTransition(t *testing.T) {
 	var seasonCount, epCount int
 	for _, item := range items {
 		if item.Title == "The Last of Us" {
-			if item.MediaType == MediaTypeSeason {
+			switch item.MediaType {
+			case MediaTypeSeason:
 				seasonCount++
-			} else if item.MediaType == MediaTypeEpisode {
+			case MediaTypeEpisode:
 				epCount++
 			}
 		}
@@ -641,9 +644,10 @@ func TestCollectWantedItems_SeasonTransition(t *testing.T) {
 	epCount = 0
 	for _, item := range items2 {
 		if item.Title == "The Last of Us" {
-			if item.MediaType == MediaTypeSeason {
+			switch item.MediaType {
+			case MediaTypeSeason:
 				seasonCount++
-			} else if item.MediaType == MediaTypeEpisode {
+			case MediaTypeEpisode:
 				epCount++
 			}
 		}

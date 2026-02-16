@@ -23,7 +23,7 @@ type PlexRefreshTask struct {
 	queries             *sqlc.Queries
 	notificationService *notification.Service
 	client              *plex.Client
-	logger              zerolog.Logger
+	logger              *zerolog.Logger
 }
 
 // NewPlexRefreshTask creates a new Plex refresh task
@@ -31,13 +31,14 @@ func NewPlexRefreshTask(
 	queries *sqlc.Queries,
 	notificationService *notification.Service,
 	client *plex.Client,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *PlexRefreshTask {
+	subLogger := logger.With().Str("task", "plex-refresh").Logger()
 	return &PlexRefreshTask{
 		queries:             queries,
 		notificationService: notificationService,
 		client:              client,
-		logger:              logger.With().Str("task", "plex-refresh").Logger(),
+		logger:              &subLogger,
 	}
 }
 
@@ -83,18 +84,7 @@ func (t *PlexRefreshTask) processSection(ctx context.Context, count *sqlc.CountP
 		return err
 	}
 
-	if count.Count > maxPathsBeforeFullRefresh || !settings.UsePartialRefresh {
-		if err := t.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
-			t.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh failed")
-		}
-	} else {
-		if err := t.doPartialRefreshes(ctx, count, serverURL, settings.AuthToken); err != nil {
-			t.logger.Warn().Err(err).Int64("sectionKey", count.SectionKey).Msg("Partial refresh failed, attempting full refresh")
-			if err := t.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
-				t.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh also failed")
-			}
-		}
-	}
+	t.refreshSection(ctx, count, serverURL, &settings)
 
 	if err := t.queries.ClearPlexRefreshesBySection(ctx, sqlc.ClearPlexRefreshesBySectionParams{
 		NotificationID: count.NotificationID,
@@ -106,6 +96,26 @@ func (t *PlexRefreshTask) processSection(ctx context.Context, count *sqlc.CountP
 
 	time.Sleep(refreshDelayBetweenCalls)
 	return nil
+}
+
+func (t *PlexRefreshTask) refreshSection(ctx context.Context, count *sqlc.CountPendingPlexRefreshesPerSectionRow, serverURL string, settings *plex.Settings) {
+	useFullRefresh := count.Count > maxPathsBeforeFullRefresh || !settings.UsePartialRefresh
+
+	if useFullRefresh {
+		if err := t.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
+			t.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh failed")
+		}
+		return
+	}
+
+	err := t.doPartialRefreshes(ctx, count, serverURL, settings.AuthToken)
+	if err == nil {
+		return
+	}
+	t.logger.Warn().Err(err).Int64("sectionKey", count.SectionKey).Msg("Partial refresh failed, attempting full refresh")
+	if err := t.doFullRefresh(ctx, serverURL, int(count.SectionKey), settings.AuthToken); err != nil {
+		t.logger.Error().Err(err).Int64("sectionKey", count.SectionKey).Msg("Full section refresh also failed")
+	}
 }
 
 func (t *PlexRefreshTask) getServerURL(ctx context.Context, settings *plex.Settings) (string, error) {
@@ -126,7 +136,7 @@ func (t *PlexRefreshTask) getServerURL(ctx context.Context, settings *plex.Setti
 		return "", sql.ErrNoRows
 	}
 
-	return t.client.FindServerURL(ctx, *targetServer, settings.AuthToken)
+	return t.client.FindServerURL(ctx, targetServer, settings.AuthToken)
 }
 
 func (t *PlexRefreshTask) doFullRefresh(ctx context.Context, serverURL string, sectionKey int, token string) error {
@@ -170,11 +180,11 @@ func RegisterPlexRefreshTask(
 	queries *sqlc.Queries,
 	notificationService *notification.Service,
 	client *plex.Client,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) error {
 	task := NewPlexRefreshTask(queries, notificationService, client, logger)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "plex-refresh",
 		Name:        "Plex Library Refresh",
 		Description: "Processes queued Plex library refresh requests",

@@ -1,4 +1,6 @@
 // Package types contains shared type definitions for notification packages.
+//
+//nolint:revive // Package name 'types' follows Go convention for shared type definitions
 package types
 
 import (
@@ -35,17 +37,17 @@ type Notifier interface {
 	Name() string
 	Test(ctx context.Context) error
 
-	OnGrab(ctx context.Context, event GrabEvent) error
-	OnImport(ctx context.Context, event ImportEvent) error
-	OnUpgrade(ctx context.Context, event UpgradeEvent) error
-	OnMovieAdded(ctx context.Context, event MovieAddedEvent) error
-	OnMovieDeleted(ctx context.Context, event MovieDeletedEvent) error
-	OnSeriesAdded(ctx context.Context, event SeriesAddedEvent) error
-	OnSeriesDeleted(ctx context.Context, event SeriesDeletedEvent) error
-	OnHealthIssue(ctx context.Context, event HealthEvent) error
-	OnHealthRestored(ctx context.Context, event HealthEvent) error
-	OnApplicationUpdate(ctx context.Context, event AppUpdateEvent) error
-	SendMessage(ctx context.Context, event MessageEvent) error
+	OnGrab(ctx context.Context, event *GrabEvent) error
+	OnImport(ctx context.Context, event *ImportEvent) error
+	OnUpgrade(ctx context.Context, event *UpgradeEvent) error
+	OnMovieAdded(ctx context.Context, event *MovieAddedEvent) error
+	OnMovieDeleted(ctx context.Context, event *MovieDeletedEvent) error
+	OnSeriesAdded(ctx context.Context, event *SeriesAddedEvent) error
+	OnSeriesDeleted(ctx context.Context, event *SeriesDeletedEvent) error
+	OnHealthIssue(ctx context.Context, event *HealthEvent) error
+	OnHealthRestored(ctx context.Context, event *HealthEvent) error
+	OnApplicationUpdate(ctx context.Context, event *AppUpdateEvent) error
+	SendMessage(ctx context.Context, event *MessageEvent) error
 }
 
 // EventType identifies the type of notification event
@@ -101,17 +103,17 @@ type EpisodeInfo struct {
 
 // ReleaseInfo contains release/quality information
 type ReleaseInfo struct {
-	ReleaseName        string         `json:"releaseName"`
-	Quality            string         `json:"quality"`
-	QualityVersion     int            `json:"qualityVersion,omitempty"`
-	Size               int64          `json:"size,omitempty"`
-	Indexer            string         `json:"indexer,omitempty"`
-	ReleaseGroup       string         `json:"releaseGroup,omitempty"`
-	SceneName          string         `json:"sceneName,omitempty"`
-	IndexerFlags       []string       `json:"indexerFlags,omitempty"`
-	CustomFormats      []CustomFormat `json:"customFormats,omitempty"`
-	CustomFormatScore  int            `json:"customFormatScore,omitempty"`
-	Languages          []string       `json:"languages,omitempty"`
+	ReleaseName       string         `json:"releaseName"`
+	Quality           string         `json:"quality"`
+	QualityVersion    int            `json:"qualityVersion,omitempty"`
+	Size              int64          `json:"size,omitempty"`
+	Indexer           string         `json:"indexer,omitempty"`
+	ReleaseGroup      string         `json:"releaseGroup,omitempty"`
+	SceneName         string         `json:"sceneName,omitempty"`
+	IndexerFlags      []string       `json:"indexerFlags,omitempty"`
+	CustomFormats     []CustomFormat `json:"customFormats,omitempty"`
+	CustomFormatScore int            `json:"customFormatScore,omitempty"`
+	Languages         []string       `json:"languages,omitempty"`
 }
 
 // CustomFormat represents a custom format match

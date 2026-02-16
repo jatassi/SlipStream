@@ -8,12 +8,12 @@ import (
 // Req 1.1.1: Maximum of 3 version slots supported
 // Req 1.1.2: Slots are globally defined and shared between Movies and TV Series
 type Slot struct {
-	ID               int64   `json:"id"`
-	SlotNumber       int     `json:"slotNumber"`       // 1, 2, or 3
-	Name             string  `json:"name"`             // Req 1.1.3: User-defined custom name
-	Enabled          bool    `json:"enabled"`          // Req 1.1.4: Enable/disable toggle
-	QualityProfileID *int64  `json:"qualityProfileId"` // Req 1.1.5: Assigned profile ID
-	DisplayOrder     int     `json:"displayOrder"`
+	ID               int64     `json:"id"`
+	SlotNumber       int       `json:"slotNumber"`       // 1, 2, or 3
+	Name             string    `json:"name"`             // Req 1.1.3: User-defined custom name
+	Enabled          bool      `json:"enabled"`          // Req 1.1.4: Enable/disable toggle
+	QualityProfileID *int64    `json:"qualityProfileId"` // Req 1.1.5: Assigned profile ID
+	DisplayOrder     int       `json:"displayOrder"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 

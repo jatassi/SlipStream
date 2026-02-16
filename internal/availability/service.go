@@ -13,15 +13,16 @@ import (
 type Service struct {
 	db      *sql.DB
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewService creates a new availability service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "availability").Logger()
 	return &Service{
 		db:      db,
 		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "availability").Logger(),
+		logger:  &subLogger,
 	}
 }
 

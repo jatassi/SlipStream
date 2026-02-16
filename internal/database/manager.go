@@ -16,12 +16,12 @@ type Manager struct {
 	devMode   bool
 	mu        sync.RWMutex
 	devDBPath string
-	logger    zerolog.Logger
+	logger    *zerolog.Logger
 }
 
 // NewManager creates a new database manager with the production database.
 // The development database is lazy-loaded when first needed.
-func NewManager(prodPath, devPath string, logger zerolog.Logger) (*Manager, error) {
+func NewManager(prodPath, devPath string, logger *zerolog.Logger) (*Manager, error) {
 	prodDB, err := New(prodPath)
 	if err != nil {
 		return nil, err

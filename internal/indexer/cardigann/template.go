@@ -187,8 +187,8 @@ func funcReReplace(input, pattern, replacement string) string {
 	return re.ReplaceAllString(input, replacement)
 }
 
-func funcReplace(input, old, new string) string {
-	return strings.ReplaceAll(input, old, new)
+func funcReplace(input, old, newVal string) string {
+	return strings.ReplaceAll(input, old, newVal)
 }
 
 func funcSplit(input, sep string) []string {

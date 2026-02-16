@@ -41,7 +41,7 @@ func (s *Service) SetSlotsService(slotsService *slots.Service) {
 
 // SearchMovieSlot searches for a specific slot for a movie.
 // This allows per-slot auto search from the UI.
-func (s *Service) SearchMovieSlot(ctx context.Context, movieID int64, slotID int64, source SearchSource) (*SlotSearchResult, error) {
+func (s *Service) SearchMovieSlot(ctx context.Context, movieID, slotID int64, source SearchSource) (*SlotSearchResult, error) {
 	if s.slotsService == nil {
 		return nil, fmt.Errorf("slots service not configured")
 	}
@@ -64,7 +64,7 @@ func (s *Service) SearchMovieSlot(ctx context.Context, movieID int64, slotID int
 	item.TargetSlotID = &slotID
 
 	// Use existing search infrastructure
-	result, err := s.searchAndGrab(ctx, item, source)
+	result, err := s.searchAndGrab(ctx, &item, source)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *Service) SearchMovieSlot(ctx context.Context, movieID int64, slotID int
 
 // SearchEpisodeSlot searches for a specific slot for an episode.
 // This allows per-slot auto search from the UI.
-func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID int64, slotID int64, source SearchSource) (*SlotSearchResult, error) {
+func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID, slotID int64, source SearchSource) (*SlotSearchResult, error) {
 	if s.slotsService == nil {
 		return nil, fmt.Errorf("slots service not configured")
 	}
@@ -108,7 +108,7 @@ func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID int64, slotID
 	item.TargetSlotID = &slotID
 
 	// Use existing search infrastructure
-	result, err := s.searchAndGrab(ctx, item, source)
+	result, err := s.searchAndGrab(ctx, &item, source)
 	if err != nil {
 		return nil, err
 	}
@@ -128,24 +128,10 @@ func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID int64, slotID
 // Req 7.1.3: Each slot's search is independent
 // Req 8.1.3: Auto-search only runs for monitored slots
 func (s *Service) SearchMovieSlots(ctx context.Context, movieID int64, source SearchSource) (*MultiSlotSearchResult, error) {
-	// Check if multi-version is enabled
 	if s.slotsService == nil || !s.slotsService.IsMultiVersionEnabled(ctx) {
-		// Fall back to single search
-		result, err := s.SearchMovie(ctx, movieID, source)
-		if err != nil {
-			return nil, err
-		}
-		return &MultiSlotSearchResult{
-			TotalSlots:    1,
-			SearchedSlots: 1,
-			Found:         boolToInt(result.Found),
-			Downloaded:    boolToInt(result.Downloaded),
-			Failed:        boolToInt(!result.Found && result.Error != ""),
-			Results:       []SlotSearchResult{{SearchResult: *result}},
-		}, nil
+		return s.fallbackToSingleMovieSearch(ctx, movieID, source)
 	}
 
-	// Get slots that need searching
 	slotsNeeding, err := s.slotsService.GetMovieSlotsNeedingSearch(ctx, movieID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get slots needing search: %w", err)
@@ -158,14 +144,30 @@ func (s *Service) SearchMovieSlots(ctx context.Context, movieID int64, source Se
 		}, nil
 	}
 
-	// Get movie details for search
 	movie, err := s.queries.GetMovie(ctx, movieID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get movie: %w", err)
 	}
 
-	// Search all slots in parallel
-	// Req 7.1.1: search in parallel
+	return s.searchAllMovieSlots(ctx, movie, slotsNeeding, source), nil
+}
+
+func (s *Service) fallbackToSingleMovieSearch(ctx context.Context, movieID int64, source SearchSource) (*MultiSlotSearchResult, error) {
+	result, err := s.SearchMovie(ctx, movieID, source)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiSlotSearchResult{
+		TotalSlots:    1,
+		SearchedSlots: 1,
+		Found:         boolToInt(result.Found),
+		Downloaded:    boolToInt(result.Downloaded),
+		Failed:        boolToInt(!result.Found && result.Error != ""),
+		Results:       []SlotSearchResult{{SearchResult: *result}},
+	}, nil
+}
+
+func (s *Service) searchAllMovieSlots(ctx context.Context, movie *sqlc.Movie, slotsNeeding []slots.SlotSearchInfo, source SearchSource) *MultiSlotSearchResult {
 	var wg sync.WaitGroup
 	resultChan := make(chan SlotSearchResult, len(slotsNeeding))
 
@@ -173,21 +175,22 @@ func (s *Service) SearchMovieSlots(ctx context.Context, movieID int64, source Se
 		wg.Add(1)
 		go func(slot slots.SlotSearchInfo) {
 			defer wg.Done()
-
-			slotResult := s.searchForSlot(ctx, movie, slot, source)
+			slotResult := s.searchForSlot(ctx, movie, &slot, source)
 			resultChan <- slotResult
 		}(slotInfo)
 	}
 
-	// Wait for all searches to complete
 	wg.Wait()
 	close(resultChan)
 
-	// Collect results
+	return s.collectSlotResults(resultChan, len(slotsNeeding))
+}
+
+func (s *Service) collectSlotResults(resultChan chan SlotSearchResult, totalSlots int) *MultiSlotSearchResult {
 	result := &MultiSlotSearchResult{
-		TotalSlots:    len(slotsNeeding),
-		SearchedSlots: len(slotsNeeding),
-		Results:       make([]SlotSearchResult, 0, len(slotsNeeding)),
+		TotalSlots:    totalSlots,
+		SearchedSlots: totalSlots,
+		Results:       make([]SlotSearchResult, 0, totalSlots),
 	}
 
 	for slotResult := range resultChan {
@@ -203,11 +206,11 @@ func (s *Service) SearchMovieSlots(ctx context.Context, movieID int64, source Se
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 // searchForSlot performs a search for a specific slot using its quality profile.
-func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slots.SlotSearchInfo, source SearchSource) SlotSearchResult {
+func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot *slots.SlotSearchInfo, source SearchSource) SlotSearchResult {
 	result := SlotSearchResult{
 		SlotID:        slot.SlotID,
 		SlotNumber:    slot.SlotNumber,
@@ -215,7 +218,6 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 		IsSlotUpgrade: slot.NeedsUpgrade(),
 	}
 
-	// Get the quality profile for this slot
 	profile, err := s.qualityService.Get(ctx, slot.QualityProfileID)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("profileId", slot.QualityProfileID).
@@ -224,7 +226,57 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 		return result
 	}
 
-	// Build search criteria
+	bestRelease := s.findBestReleaseForMovieSlot(ctx, movie, profile, slot, &result)
+	if bestRelease == nil {
+		return result
+	}
+
+	s.grabReleaseForMovieSlot(ctx, movie, slot, bestRelease, source, &result)
+	return result
+}
+
+func (s *Service) findBestReleaseForMovieSlot(ctx context.Context, movie *sqlc.Movie, profile *quality.Profile, slot *slots.SlotSearchInfo, result *SlotSearchResult) *types.TorrentInfo {
+	criteria := s.buildMovieSearchCriteria(movie)
+	searchYear := 0
+	if movie.Year.Valid {
+		searchYear = int(movie.Year.Int64)
+	}
+
+	scoringParams := search.ScoredSearchParams{
+		QualityProfile: profile,
+		SearchYear:     searchYear,
+	}
+
+	searchResult, err := s.searchService.SearchTorrents(ctx, &criteria, &scoringParams)
+	if err != nil {
+		result.Error = fmt.Sprintf("search failed: %v", err)
+		return nil
+	}
+
+	if len(searchResult.Releases) == 0 {
+		s.logger.Debug().Str("title", movie.Title).Int64("slotId", slot.SlotID).
+			Msg("No releases found for slot")
+		return nil
+	}
+
+	bestRelease := s.selectBestReleaseForSlot(searchResult.Releases, profile, slot)
+	if bestRelease == nil {
+		s.logger.Debug().Str("title", movie.Title).Int64("slotId", slot.SlotID).
+			Msg("No acceptable releases found for slot")
+		return nil
+	}
+
+	result.Found = true
+	result.Release = bestRelease
+
+	s.logger.Info().Str("title", movie.Title).Int64("slotId", slot.SlotID).
+		Str("slotName", slot.SlotName).Str("release", bestRelease.Title).
+		Float64("score", bestRelease.Score).Msg("Selected best release for slot")
+
+	return bestRelease
+}
+
+func (s *Service) buildMovieSearchCriteria(movie *sqlc.Movie) types.SearchCriteria {
 	criteria := types.SearchCriteria{
 		Query: movie.Title,
 		Type:  "movie",
@@ -235,55 +287,14 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 	if movie.TmdbID.Valid {
 		criteria.TmdbID = int(movie.TmdbID.Int64)
 	}
-	var searchYear int
 	if movie.Year.Valid {
 		criteria.Year = int(movie.Year.Int64)
-		searchYear = int(movie.Year.Int64)
 	}
+	return criteria
+}
 
-	scoringParams := search.ScoredSearchParams{
-		QualityProfile: profile,
-		SearchYear:     searchYear,
-	}
-
-	// Execute search
-	searchResult, err := s.searchService.SearchTorrents(ctx, criteria, scoringParams)
-	if err != nil {
-		result.Error = fmt.Sprintf("search failed: %v", err)
-		return result
-	}
-
-	if len(searchResult.Releases) == 0 {
-		s.logger.Debug().
-			Str("title", movie.Title).
-			Int64("slotId", slot.SlotID).
-			Msg("No releases found for slot")
-		return result
-	}
-
-	// Select best release for this slot
-	bestRelease := s.selectBestReleaseForSlot(searchResult.Releases, profile, slot)
-	if bestRelease == nil {
-		s.logger.Debug().
-			Str("title", movie.Title).
-			Int64("slotId", slot.SlotID).
-			Msg("No acceptable releases found for slot")
-		return result
-	}
-
-	result.Found = true
-	result.Release = bestRelease
-
-	s.logger.Info().
-		Str("title", movie.Title).
-		Int64("slotId", slot.SlotID).
-		Str("slotName", slot.SlotName).
-		Str("release", bestRelease.Title).
-		Float64("score", bestRelease.Score).
-		Msg("Selected best release for slot")
-
-	// Grab the release with target slot
-	grabReq := grab.GrabRequest{
+func (s *Service) grabReleaseForMovieSlot(ctx context.Context, movie *sqlc.Movie, slot *slots.SlotSearchInfo, bestRelease *types.TorrentInfo, source SearchSource, result *SlotSearchResult) {
+	grabReq := &grab.GrabRequest{
 		Release:      &bestRelease.ReleaseInfo,
 		MediaType:    string(MediaTypeMovie),
 		MediaID:      movie.ID,
@@ -294,12 +305,12 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
 	if err != nil {
 		result.Error = fmt.Sprintf("grab failed: %v", err)
-		s.logAutoSearchFailed(ctx, SearchableItem{
+		s.logAutoSearchFailed(ctx, &SearchableItem{
 			MediaType: MediaTypeMovie,
 			MediaID:   movie.ID,
 			Title:     movie.Title,
 		}, source, err.Error())
-		return result
+		return
 	}
 
 	result.Downloaded = grabResult.Success
@@ -310,17 +321,14 @@ func (s *Service) searchForSlot(ctx context.Context, movie *sqlc.Movie, slot slo
 	if !grabResult.Success {
 		result.Error = grabResult.Error
 	} else {
-		// Log success
-		s.logSlotSearchSuccess(ctx, MediaTypeMovie, movie.ID, slot, bestRelease, grabResult, source)
+		s.logSlotSearchSuccess(MediaTypeMovie, movie.ID, slot, bestRelease)
 	}
-
-	return result
 }
 
 // selectBestReleaseForSlot selects the best release for a specific slot.
 // Req 7.2.1: When slot has file but finds better match (upgrade), replace
 // Req 7.2.2: Standard upgrade behavior per slot
-func (s *Service) selectBestReleaseForSlot(releases []types.TorrentInfo, profile *quality.Profile, slot slots.SlotSearchInfo) *types.TorrentInfo {
+func (s *Service) selectBestReleaseForSlot(releases []types.TorrentInfo, profile *quality.Profile, slot *slots.SlotSearchInfo) *types.TorrentInfo {
 	for i := range releases {
 		release := &releases[i]
 
@@ -348,7 +356,7 @@ func (s *Service) selectBestReleaseForSlot(releases []types.TorrentInfo, profile
 }
 
 // logSlotSearchSuccess logs a successful slot-specific auto-search.
-func (s *Service) logSlotSearchSuccess(ctx context.Context, mediaType MediaType, mediaID int64, slot slots.SlotSearchInfo, release *types.TorrentInfo, grabResult *grab.GrabResult, source SearchSource) {
+func (s *Service) logSlotSearchSuccess(mediaType MediaType, mediaID int64, slot *slots.SlotSearchInfo, release *types.TorrentInfo) {
 	if s.historyService == nil {
 		return
 	}
@@ -366,24 +374,10 @@ func (s *Service) logSlotSearchSuccess(ctx context.Context, mediaType MediaType,
 
 // SearchEpisodeSlots searches for all monitored slots that need content for an episode.
 func (s *Service) SearchEpisodeSlots(ctx context.Context, episodeID int64, source SearchSource) (*MultiSlotSearchResult, error) {
-	// Check if multi-version is enabled
 	if s.slotsService == nil || !s.slotsService.IsMultiVersionEnabled(ctx) {
-		// Fall back to single search
-		result, err := s.SearchEpisode(ctx, episodeID, source)
-		if err != nil {
-			return nil, err
-		}
-		return &MultiSlotSearchResult{
-			TotalSlots:    1,
-			SearchedSlots: 1,
-			Found:         boolToInt(result.Found),
-			Downloaded:    boolToInt(result.Downloaded),
-			Failed:        boolToInt(!result.Found && result.Error != ""),
-			Results:       []SlotSearchResult{{SearchResult: *result}},
-		}, nil
+		return s.fallbackToSingleEpisodeSearch(ctx, episodeID, source)
 	}
 
-	// Get slots that need searching
 	slotsNeeding, err := s.slotsService.GetEpisodeSlotsNeedingSearch(ctx, episodeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get slots needing search: %w", err)
@@ -396,7 +390,6 @@ func (s *Service) SearchEpisodeSlots(ctx context.Context, episodeID int64, sourc
 		}, nil
 	}
 
-	// Get episode and series details
 	episode, err := s.queries.GetEpisode(ctx, episodeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episode: %w", err)
@@ -407,7 +400,25 @@ func (s *Service) SearchEpisodeSlots(ctx context.Context, episodeID int64, sourc
 		return nil, fmt.Errorf("failed to get series: %w", err)
 	}
 
-	// Search all slots in parallel
+	return s.searchAllEpisodeSlots(ctx, episode, series, slotsNeeding, source), nil
+}
+
+func (s *Service) fallbackToSingleEpisodeSearch(ctx context.Context, episodeID int64, source SearchSource) (*MultiSlotSearchResult, error) {
+	result, err := s.SearchEpisode(ctx, episodeID, source)
+	if err != nil {
+		return nil, err
+	}
+	return &MultiSlotSearchResult{
+		TotalSlots:    1,
+		SearchedSlots: 1,
+		Found:         boolToInt(result.Found),
+		Downloaded:    boolToInt(result.Downloaded),
+		Failed:        boolToInt(!result.Found && result.Error != ""),
+		Results:       []SlotSearchResult{{SearchResult: *result}},
+	}, nil
+}
+
+func (s *Service) searchAllEpisodeSlots(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series, slotsNeeding []slots.SlotSearchInfo, source SearchSource) *MultiSlotSearchResult {
 	var wg sync.WaitGroup
 	resultChan := make(chan SlotSearchResult, len(slotsNeeding))
 
@@ -415,8 +426,7 @@ func (s *Service) SearchEpisodeSlots(ctx context.Context, episodeID int64, sourc
 		wg.Add(1)
 		go func(slot slots.SlotSearchInfo) {
 			defer wg.Done()
-
-			slotResult := s.searchEpisodeForSlot(ctx, episode, series, slot, source)
+			slotResult := s.searchEpisodeForSlot(ctx, episode, series, &slot, source)
 			resultChan <- slotResult
 		}(slotInfo)
 	}
@@ -424,30 +434,11 @@ func (s *Service) SearchEpisodeSlots(ctx context.Context, episodeID int64, sourc
 	wg.Wait()
 	close(resultChan)
 
-	result := &MultiSlotSearchResult{
-		TotalSlots:    len(slotsNeeding),
-		SearchedSlots: len(slotsNeeding),
-		Results:       make([]SlotSearchResult, 0, len(slotsNeeding)),
-	}
-
-	for slotResult := range resultChan {
-		result.Results = append(result.Results, slotResult)
-		if slotResult.Found {
-			result.Found++
-		}
-		if slotResult.Downloaded {
-			result.Downloaded++
-		}
-		if slotResult.Error != "" && !slotResult.Found {
-			result.Failed++
-		}
-	}
-
-	return result, nil
+	return s.collectSlotResults(resultChan, len(slotsNeeding))
 }
 
 // searchEpisodeForSlot performs a search for a specific slot using its quality profile for an episode.
-func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series, slot slots.SlotSearchInfo, source SearchSource) SlotSearchResult {
+func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series, slot *slots.SlotSearchInfo, _ SearchSource) SlotSearchResult {
 	result := SlotSearchResult{
 		SlotID:        slot.SlotID,
 		SlotNumber:    slot.SlotNumber,
@@ -455,16 +446,25 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 		IsSlotUpgrade: slot.NeedsUpgrade(),
 	}
 
-	// Get the quality profile for this slot
 	profile, err := s.qualityService.Get(ctx, slot.QualityProfileID)
 	if err != nil {
-		s.logger.Warn().Err(err).Int64("profileId", slot.QualityProfileID).
-			Msg("Failed to get quality profile for slot")
+		s.logger.Warn().Err(err).Int64("profileId", slot.QualityProfileID).Msg("Failed to get quality profile for slot")
 		result.Error = "failed to get quality profile"
 		return result
 	}
 
-	// Build search criteria
+	bestRelease := s.findBestEpisodeRelease(ctx, episode, series, slot, profile)
+	if bestRelease == nil {
+		return result
+	}
+
+	result.Found = true
+	result.Release = bestRelease
+	s.grabEpisodeForSlot(ctx, &result, bestRelease, episode, series, slot)
+	return result
+}
+
+func (s *Service) findBestEpisodeRelease(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series, slot *slots.SlotSearchInfo, profile *quality.Profile) *types.TorrentInfo {
 	criteria := types.SearchCriteria{
 		Query:   series.Title,
 		Type:    "tvsearch",
@@ -481,38 +481,16 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 		SearchEpisode:  int(episode.EpisodeNumber),
 	}
 
-	// Execute search
-	searchResult, err := s.searchService.SearchTorrents(ctx, criteria, scoringParams)
-	if err != nil {
-		result.Error = fmt.Sprintf("search failed: %v", err)
-		return result
+	searchResult, err := s.searchService.SearchTorrents(ctx, &criteria, &scoringParams)
+	if err != nil || len(searchResult.Releases) == 0 {
+		return nil
 	}
 
-	if len(searchResult.Releases) == 0 {
-		s.logger.Debug().
-			Str("series", series.Title).
-			Int64("season", episode.SeasonNumber).
-			Int64("episode", episode.EpisodeNumber).
-			Int64("slotId", slot.SlotID).
-			Msg("No releases found for episode slot")
-		return result
-	}
+	return s.selectBestEpisodeReleaseForSlot(searchResult.Releases, profile, slot, int(episode.SeasonNumber), int(episode.EpisodeNumber))
+}
 
-	// Select best release for this slot - filter to exact episode match
-	bestRelease := s.selectBestEpisodeReleaseForSlot(searchResult.Releases, profile, slot, int(episode.SeasonNumber), int(episode.EpisodeNumber))
-	if bestRelease == nil {
-		s.logger.Debug().
-			Str("series", series.Title).
-			Int64("slotId", slot.SlotID).
-			Msg("No acceptable releases found for episode slot")
-		return result
-	}
-
-	result.Found = true
-	result.Release = bestRelease
-
-	// Grab the release with target slot
-	grabReq := grab.GrabRequest{
+func (s *Service) grabEpisodeForSlot(ctx context.Context, result *SlotSearchResult, bestRelease *types.TorrentInfo, episode *sqlc.Episode, series *sqlc.Series, slot *slots.SlotSearchInfo) {
+	grabReq := &grab.GrabRequest{
 		Release:      &bestRelease.ReleaseInfo,
 		MediaType:    string(MediaTypeEpisode),
 		MediaID:      episode.ID,
@@ -525,7 +503,7 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
 	if err != nil {
 		result.Error = fmt.Sprintf("grab failed: %v", err)
-		return result
+		return
 	}
 
 	result.Downloaded = grabResult.Success
@@ -536,12 +514,10 @@ func (s *Service) searchEpisodeForSlot(ctx context.Context, episode *sqlc.Episod
 	if !grabResult.Success {
 		result.Error = grabResult.Error
 	}
-
-	return result
 }
 
 // selectBestEpisodeReleaseForSlot selects the best release for a specific slot for an episode.
-func (s *Service) selectBestEpisodeReleaseForSlot(releases []types.TorrentInfo, profile *quality.Profile, slot slots.SlotSearchInfo, seasonNumber, episodeNumber int) *types.TorrentInfo {
+func (s *Service) selectBestEpisodeReleaseForSlot(releases []types.TorrentInfo, profile *quality.Profile, slot *slots.SlotSearchInfo, seasonNumber, episodeNumber int) *types.TorrentInfo {
 	for i := range releases {
 		release := &releases[i]
 

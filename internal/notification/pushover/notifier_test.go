@@ -8,12 +8,16 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/notification/types"
 )
+
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
 
 func newTestMovie() *types.MediaInfo {
 	return &types.MediaInfo{
@@ -66,14 +70,6 @@ func newTestRelease() types.ReleaseInfo {
 	}
 }
 
-func newTestDownloadClient() types.DownloadClientInfo {
-	return types.DownloadClientInfo{
-		ID:   1,
-		Name: "qBittorrent",
-		Type: "qbittorrent",
-	}
-}
-
 type capturedRequest struct {
 	Token    string
 	User     string
@@ -89,6 +85,7 @@ type capturedRequest struct {
 }
 
 func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -115,21 +112,21 @@ func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
 }
 
 func TestNotifier_Type(t *testing.T) {
-	n := New("test", Settings{}, nil, zerolog.Nop())
+	n := New("test", &Settings{}, nil, newTestLogger())
 	if n.Type() != types.NotifierPushover {
 		t.Errorf("expected type %s, got %s", types.NotifierPushover, n.Type())
 	}
 }
 
 func TestNotifier_Name(t *testing.T) {
-	n := New("my-pushover", Settings{}, nil, zerolog.Nop())
+	n := New("my-pushover", &Settings{}, nil, newTestLogger())
 	if n.Name() != "my-pushover" {
 		t.Errorf("expected name 'my-pushover', got %s", n.Name())
 	}
 }
 
 func TestNotifier_DefaultSettings(t *testing.T) {
-	n := New("test", Settings{}, nil, zerolog.Nop())
+	n := New("test", &Settings{}, nil, newTestLogger())
 
 	if n.settings.Retry != 60 {
 		t.Errorf("expected default retry 60, got %d", n.settings.Retry)
@@ -140,7 +137,7 @@ func TestNotifier_DefaultSettings(t *testing.T) {
 }
 
 func TestNotifier_MinimumRetry(t *testing.T) {
-	n := New("test", Settings{Retry: 10}, nil, zerolog.Nop())
+	n := New("test", &Settings{Retry: 10}, nil, newTestLogger())
 
 	if n.settings.Retry != 30 {
 		t.Errorf("expected minimum retry 30, got %d", n.settings.Retry)
@@ -156,21 +153,15 @@ func TestNotifier_Test(t *testing.T) {
 	originalURL := pushoverAPIURL
 	defer func() { _ = originalURL }() // Just to use the variable
 
-	n := &Notifier{
-		name: "test",
-		settings: Settings{
-			UserKey:  "test-user-key",
-			APIToken: "test-api-token",
-			Priority: PriorityNormal,
-		},
-		httpClient: http.DefaultClient,
-		logger:     zerolog.Nop(),
+	settings := Settings{
+		UserKey:  "test-user-key",
+		APIToken: "test-api-token",
 	}
 
 	// Test sendMessage directly with test server
 	form := url.Values{}
-	form.Set("token", n.settings.APIToken)
-	form.Set("user", n.settings.UserKey)
+	form.Set("token", settings.APIToken)
+	form.Set("user", settings.UserKey)
 	form.Set("title", "SlipStream Test")
 	form.Set("message", "This is a test notification from SlipStream.")
 	form.Set("priority", "0")
@@ -362,10 +353,8 @@ func TestNotifier_URL(t *testing.T) {
 
 func TestNotifier_OnGrab_MovieMessage(t *testing.T) {
 	event := types.GrabEvent{
-		Movie:          newTestMovie(),
-		Release:        newTestRelease(),
-		DownloadClient: newTestDownloadClient(),
-		GrabbedAt:      time.Now(),
+		Movie:   newTestMovie(),
+		Release: newTestRelease(),
 	}
 
 	title := "Movie Grabbed"
@@ -394,10 +383,8 @@ func TestNotifier_OnGrab_MovieMessage(t *testing.T) {
 
 func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 	event := types.GrabEvent{
-		Episode:        newTestEpisode(),
-		Release:        newTestRelease(),
-		DownloadClient: newTestDownloadClient(),
-		GrabbedAt:      time.Now(),
+		Episode: newTestEpisode(),
+		Release: newTestRelease(),
 	}
 
 	title := "Episode Grabbed"
@@ -417,9 +404,8 @@ func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 
 func TestNotifier_OnImport_MovieMessage(t *testing.T) {
 	event := types.ImportEvent{
-		Movie:      newTestMovie(),
-		Quality:    "Bluray-2160p",
-		ImportedAt: time.Now(),
+		Movie:   newTestMovie(),
+		Quality: "Bluray-2160p",
 	}
 
 	title := "Movie Downloaded"
@@ -442,7 +428,6 @@ func TestNotifier_OnUpgrade_MovieMessage(t *testing.T) {
 		Movie:      newTestMovie(),
 		OldQuality: "Bluray-1080p",
 		NewQuality: "Bluray-2160p",
-		UpgradedAt: time.Now(),
 	}
 
 	title := "Movie Upgraded"
@@ -466,8 +451,7 @@ func TestNotifier_OnUpgrade_MovieMessage(t *testing.T) {
 func TestNotifier_OnMovieAdded_WithTMDbURL(t *testing.T) {
 	movie := newTestMovie()
 	event := types.MovieAddedEvent{
-		Movie:   *movie,
-		AddedAt: time.Now(),
+		Movie: *movie,
 	}
 
 	tmdbURL := ""
@@ -506,13 +490,7 @@ func TestNotifier_OnMovieDeleted_Message(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := types.MovieDeletedEvent{
-				Movie:        *movie,
-				DeletedFiles: tt.deletedFiles,
-				DeletedAt:    time.Now(),
-			}
-
-			message := event.Movie.Title
+			message := movie.Title
 			if tt.deletedFiles {
 				message += "\n\nFiles were also deleted"
 			}
@@ -530,8 +508,7 @@ func TestNotifier_OnMovieDeleted_Message(t *testing.T) {
 func TestNotifier_OnSeriesAdded_WithTMDbURL(t *testing.T) {
 	series := newTestSeries()
 	event := types.SeriesAddedEvent{
-		Series:  series,
-		AddedAt: time.Now(),
+		Series: series,
 	}
 
 	tmdbURL := ""
@@ -549,11 +526,9 @@ func TestNotifier_OnSeriesAdded_WithTMDbURL(t *testing.T) {
 
 func TestNotifier_OnHealthIssue_Message(t *testing.T) {
 	event := types.HealthEvent{
-		Source:    "Indexer",
-		Type:      "error",
-		Message:   "Connection failed",
-		WikiURL:   "https://wiki.example.com/indexer-error",
-		OccuredAt: time.Now(),
+		Source:  "Indexer",
+		Message: "Connection failed",
+		WikiURL: "https://wiki.example.com/indexer-error",
 	}
 
 	title := "Health Issue"
@@ -575,10 +550,8 @@ func TestNotifier_OnHealthIssue_Message(t *testing.T) {
 
 func TestNotifier_OnHealthRestored_Message(t *testing.T) {
 	event := types.HealthEvent{
-		Source:    "Indexer",
-		Type:      "warning",
-		Message:   "Connection restored",
-		OccuredAt: time.Now(),
+		Source:  "Indexer",
+		Message: "Connection restored",
 	}
 
 	title := "Health Issue Resolved"
@@ -596,7 +569,6 @@ func TestNotifier_OnApplicationUpdate_Message(t *testing.T) {
 	event := types.AppUpdateEvent{
 		PreviousVersion: "1.0.0",
 		NewVersion:      "1.1.0",
-		UpdatedAt:       time.Now(),
 	}
 
 	title := "Application Updated"
@@ -637,7 +609,7 @@ func TestNotifier_HTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, http.NoBody)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("request error = %v", err)

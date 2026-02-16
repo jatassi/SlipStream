@@ -1,6 +1,7 @@
 package renamer
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 func TestNewResolver(t *testing.T) {
 	settings := DefaultSettings()
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 	if r == nil {
 		t.Error("NewResolver() returned nil")
 	}
@@ -39,7 +40,7 @@ func TestDefaultSettings(t *testing.T) {
 func TestResolveEpisodeFilename(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle:   "Breaking Bad",
@@ -62,7 +63,7 @@ func TestResolveEpisodeFilename(t *testing.T) {
 func TestResolveEpisodeFilename_RenameDisabled(t *testing.T) {
 	settings := DefaultSettings()
 	settings.RenameEpisodes = false
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		OriginalFile: "original.file.mkv",
@@ -81,12 +82,12 @@ func TestResolveEpisodeFilename_RenameDisabled(t *testing.T) {
 func TestResolveEpisodeFilename_EmptyPattern(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = ""
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{SeriesTitle: "Test"}
 
 	_, err := r.ResolveEpisodeFilename(ctx, ".mkv")
-	if err != ErrEmptyPattern {
+	if !errors.Is(err, ErrEmptyPattern) {
 		t.Errorf("ResolveEpisodeFilename() error = %v, want ErrEmptyPattern", err)
 	}
 }
@@ -94,7 +95,7 @@ func TestResolveEpisodeFilename_EmptyPattern(t *testing.T) {
 func TestResolveEpisodeFilename_DailyFormat(t *testing.T) {
 	settings := DefaultSettings()
 	settings.DailyEpisodeFormat = "{Series Title} - {Air-Date}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle: "The Daily Show",
@@ -116,7 +117,7 @@ func TestResolveEpisodeFilename_DailyFormat(t *testing.T) {
 func TestResolveEpisodeFilename_AnimeFormat(t *testing.T) {
 	settings := DefaultSettings()
 	settings.AnimeEpisodeFormat = "{Series Title} - {absolute:000} - {Episode Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle:    "Naruto",
@@ -139,7 +140,7 @@ func TestResolveEpisodeFilename_AnimeFormat(t *testing.T) {
 func TestResolveEpisodeFilename_WithQuality(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Quality Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle:   "Test Show",
@@ -163,7 +164,7 @@ func TestResolveEpisodeFilename_WithQuality(t *testing.T) {
 func TestResolveEpisodeFilename_ExtensionHandling(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = "{Series Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{SeriesTitle: "Test"}
 
@@ -195,7 +196,7 @@ func TestResolveEpisodeFilename_ExtensionHandling(t *testing.T) {
 func TestResolveMovieFilename(t *testing.T) {
 	settings := DefaultSettings()
 	settings.MovieFileFormat = "{Movie Title} ({Year}) - {Quality Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		MovieTitle: "The Matrix",
@@ -218,7 +219,7 @@ func TestResolveMovieFilename(t *testing.T) {
 func TestResolveMovieFilename_RenameDisabled(t *testing.T) {
 	settings := DefaultSettings()
 	settings.RenameMovies = false
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		OriginalFile: "the.matrix.1999.mkv",
@@ -237,7 +238,7 @@ func TestResolveMovieFilename_RenameDisabled(t *testing.T) {
 func TestResolveMovieFilename_WithEdition(t *testing.T) {
 	settings := DefaultSettings()
 	settings.MovieFileFormat = "{Movie Title} ({Year}) {Edition Tags}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		MovieTitle:  "Blade Runner",
@@ -261,7 +262,7 @@ func TestResolveMovieFilename_WithEdition(t *testing.T) {
 func TestResolveSeriesFolderName(t *testing.T) {
 	settings := DefaultSettings()
 	settings.SeriesFolderFormat = "{Series Title} ({Year})"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle: "Breaking Bad",
@@ -282,7 +283,7 @@ func TestResolveSeriesFolderName(t *testing.T) {
 func TestResolveSeriesFolderName_DefaultPattern(t *testing.T) {
 	settings := DefaultSettings()
 	settings.SeriesFolderFormat = ""
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{SeriesTitle: "Test Show"}
 
@@ -299,7 +300,7 @@ func TestResolveSeriesFolderName_DefaultPattern(t *testing.T) {
 func TestResolveSeasonFolderName(t *testing.T) {
 	settings := DefaultSettings()
 	settings.SeasonFolderFormat = "Season {season:00}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	tests := []struct {
 		name   string
@@ -323,7 +324,7 @@ func TestResolveSeasonFolderName(t *testing.T) {
 func TestResolveSeasonFolderName_Specials(t *testing.T) {
 	settings := DefaultSettings()
 	settings.SpecialsFolderFormat = "Extras"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	got := r.ResolveSeasonFolderName(0)
 	if got != "Extras" {
@@ -334,7 +335,7 @@ func TestResolveSeasonFolderName_Specials(t *testing.T) {
 func TestResolveSeasonFolderName_SpecialsDefault(t *testing.T) {
 	settings := DefaultSettings()
 	settings.SpecialsFolderFormat = ""
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	got := r.ResolveSeasonFolderName(0)
 	if got != "Specials" {
@@ -345,7 +346,7 @@ func TestResolveSeasonFolderName_SpecialsDefault(t *testing.T) {
 func TestResolveMovieFolderName(t *testing.T) {
 	settings := DefaultSettings()
 	settings.MovieFolderFormat = "{Movie Title} ({Year})"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		MovieTitle: "The Matrix",
@@ -366,7 +367,8 @@ func TestResolveMovieFolderName(t *testing.T) {
 // ===== FULL PATH RESOLUTION =====
 
 func TestResolveFullPath(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 
 	got, err := r.ResolveFullPath("/media/tv", "Series/Season 01", "episode.mkv")
 	if err != nil {
@@ -380,7 +382,8 @@ func TestResolveFullPath(t *testing.T) {
 }
 
 func TestResolveFullPath_TooLong(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 
 	// Create a path that exceeds 260 characters
 	longName := strings.Repeat("a", 300)
@@ -397,7 +400,8 @@ func TestResolveFullPath_TooLong(t *testing.T) {
 // ===== PATTERN VALIDATION =====
 
 func TestValidatePattern(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 
 	validPatterns := []string{
 		"{Series Title} - S{season:00}E{episode:00}",
@@ -418,7 +422,8 @@ func TestValidatePattern(t *testing.T) {
 }
 
 func TestValidatePattern_Errors(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 
 	tests := []struct {
 		name    string
@@ -472,7 +477,8 @@ func TestHasBalancedBraces(t *testing.T) {
 // ===== PREVIEW AND SAMPLE =====
 
 func TestPreviewPattern(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 	ctx := GetSampleContext()
 
 	pattern := "{Series Title} - S{season:00}E{episode:00}"
@@ -488,7 +494,8 @@ func TestPreviewPattern(t *testing.T) {
 }
 
 func TestPreviewPattern_InvalidPattern(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 	ctx := GetSampleContext()
 
 	_, err := r.PreviewPattern("{Invalid}", ctx)
@@ -520,7 +527,8 @@ func TestGetSampleContext(t *testing.T) {
 // ===== TOKEN BREAKDOWN =====
 
 func TestGetTokenBreakdown(t *testing.T) {
-	r := NewResolver(DefaultSettings())
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
 	ctx := &TokenContext{
 		SeriesTitle:   "Test Show",
 		SeasonNumber:  1,
@@ -562,7 +570,7 @@ func TestGetTokenBreakdown(t *testing.T) {
 func TestResolvePattern_EmptyTokenCleanup(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = "{Series Title} - {Episode Title} - {Quality Title}"
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	// Episode title is empty
 	ctx := &TokenContext{
@@ -611,7 +619,7 @@ func TestResolveEpisodeFilename_MultiEpisode(t *testing.T) {
 	settings := DefaultSettings()
 	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00}"
 	settings.MultiEpisodeStyle = StyleExtend
-	r := NewResolver(settings)
+	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
 		SeriesTitle:    "Test Show",
@@ -650,7 +658,7 @@ func TestResolveEpisodeFilename_CaseMode(t *testing.T) {
 			settings := DefaultSettings()
 			settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00}"
 			settings.CaseMode = tt.mode
-			r := NewResolver(settings)
+			r := NewResolver(&settings)
 
 			ctx := &TokenContext{
 				SeriesTitle:   "Test Show",

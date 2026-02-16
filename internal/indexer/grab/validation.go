@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	ErrInvalidTorrent   = errors.New("invalid torrent file")
-	ErrInvalidNZB       = errors.New("invalid NZB file")
-	ErrMagnetLink       = errors.New("content is a magnet link, not a torrent file")
-	ErrHTMLResponse     = errors.New("received HTML instead of torrent/nzb")
-	ErrEmptyContent     = errors.New("empty content")
-	ErrTooSmall         = errors.New("content too small to be valid")
+	ErrInvalidTorrent = errors.New("invalid torrent file")
+	ErrInvalidNZB     = errors.New("invalid NZB file")
+	ErrMagnetLink     = errors.New("content is a magnet link, not a torrent file")
+	ErrHTMLResponse   = errors.New("received HTML instead of torrent/nzb")
+	ErrEmptyContent   = errors.New("empty content")
+	ErrTooSmall       = errors.New("content too small to be valid")
 )
 
 // ValidateTorrent checks if the content is a valid torrent file.
@@ -61,58 +61,57 @@ func ValidateTorrent(content []byte) error {
 // ValidateNZB checks if the content is a valid NZB file.
 // Returns nil if valid, or an error describing the issue.
 func ValidateNZB(content []byte) error {
+	if err := validateNZBBasic(content); err != nil {
+		return err
+	}
+
+	if err := validateNZBStructure(content); err != nil {
+		return err
+	}
+
+	return validateNZBContent(content)
+}
+
+func validateNZBBasic(content []byte) error {
 	if len(content) == 0 {
 		return ErrEmptyContent
 	}
-
-	// Minimum size for a valid NZB
 	if len(content) < 100 {
 		return ErrTooSmall
 	}
-
-	// Check for HTML response (common error page)
 	if isHTMLContent(content) {
 		return ErrHTMLResponse
 	}
+	return nil
+}
 
-	// NZB files are XML and should contain the nzb namespace or root element
+func validateNZBStructure(content []byte) error {
 	contentStr := string(content)
-
-	// Check for XML declaration or nzb root element
 	if !strings.Contains(contentStr, "<?xml") && !strings.Contains(contentStr, "<nzb") {
 		return fmt.Errorf("%w: not an XML document", ErrInvalidNZB)
 	}
-
-	// Check for nzb root element
 	if !strings.Contains(contentStr, "<nzb") {
 		return fmt.Errorf("%w: missing nzb root element", ErrInvalidNZB)
 	}
+	return nil
+}
 
-	// Try to parse as XML to verify structure
+func validateNZBContent(content []byte) error {
 	var nzb nzbDocument
 	if err := xml.Unmarshal(content, &nzb); err != nil {
-		return fmt.Errorf("%w: XML parse error: %v", ErrInvalidNZB, err)
+		return fmt.Errorf("%w: XML parse error: %w", ErrInvalidNZB, err)
 	}
 
-	// Check for required elements
 	if len(nzb.Files) == 0 {
 		return fmt.Errorf("%w: no files in NZB", ErrInvalidNZB)
 	}
 
-	// Verify at least one file has segments
-	hasSegments := false
 	for _, file := range nzb.Files {
 		if len(file.Segments) > 0 {
-			hasSegments = true
-			break
+			return nil
 		}
 	}
-
-	if !hasSegments {
-		return fmt.Errorf("%w: no segments in NZB files", ErrInvalidNZB)
-	}
-
-	return nil
+	return fmt.Errorf("%w: no segments in NZB files", ErrInvalidNZB)
 }
 
 // ExtractMagnetURL extracts the magnet URL if content is a magnet link.
@@ -209,7 +208,7 @@ func GetContentType(content []byte) string {
 	}
 
 	// Check for NZB (XML)
-	if bytes.Contains(content[:min(len(content), 500)], []byte("<nzb")) {
+	if bytes.Contains(content[:minVal(len(content), 500)], []byte("<nzb")) {
 		return "nzb"
 	}
 
@@ -226,7 +225,7 @@ func GetContentType(content []byte) string {
 	return "unknown"
 }
 
-func min(a, b int) int {
+func minVal(a, b int) int {
 	if a < b {
 		return a
 	}

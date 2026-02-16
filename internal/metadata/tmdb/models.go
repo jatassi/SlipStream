@@ -59,19 +59,19 @@ type SearchTVResponse struct {
 
 // TVResult is a TV series from TMDB search results.
 type TVResult struct {
-	ID               int     `json:"id"`
-	Name             string  `json:"name"`
-	OriginalName     string  `json:"original_name"`
-	Overview         string  `json:"overview"`
-	FirstAirDate     string  `json:"first_air_date"`
-	PosterPath       *string `json:"poster_path"`
-	BackdropPath     *string `json:"backdrop_path"`
-	VoteAverage      float64 `json:"vote_average"`
-	VoteCount        int     `json:"vote_count"`
-	Popularity       float64 `json:"popularity"`
-	GenreIDs         []int   `json:"genre_ids"`
+	ID               int      `json:"id"`
+	Name             string   `json:"name"`
+	OriginalName     string   `json:"original_name"`
+	Overview         string   `json:"overview"`
+	FirstAirDate     string   `json:"first_air_date"`
+	PosterPath       *string  `json:"poster_path"`
+	BackdropPath     *string  `json:"backdrop_path"`
+	VoteAverage      float64  `json:"vote_average"`
+	VoteCount        int      `json:"vote_count"`
+	Popularity       float64  `json:"popularity"`
+	GenreIDs         []int    `json:"genre_ids"`
 	OriginCountry    []string `json:"origin_country"`
-	OriginalLanguage string  `json:"original_language"`
+	OriginalLanguage string   `json:"original_language"`
 }
 
 // TVDetails is the detailed TV series info from TMDB.
@@ -230,7 +230,7 @@ type ReleaseDatesResponse struct {
 
 // ReleaseDatesByRegion contains release dates for a specific country/region.
 type ReleaseDatesByRegion struct {
-	ISO3166_1    string        `json:"iso_3166_1"`
+	Iso31661     string        `json:"iso_3166_1"`
 	ReleaseDates []ReleaseDate `json:"release_dates"`
 }
 
@@ -239,7 +239,7 @@ type ReleaseDatesByRegion struct {
 type ReleaseDate struct {
 	Certification string `json:"certification"`
 	Descriptors   []any  `json:"descriptors"`
-	ISO639_1      string `json:"iso_639_1"`
+	Iso6391       string `json:"iso_639_1"`
 	Note          string `json:"note"`
 	ReleaseDate   string `json:"release_date"`
 	Type          int    `json:"type"`
@@ -303,8 +303,8 @@ type ContentRatingsResponse struct {
 
 // ContentRating represents a content rating from TMDB.
 type ContentRating struct {
-	ISO3166_1 string `json:"iso_3166_1"`
-	Rating    string `json:"rating"`
+	Iso31661 string `json:"iso_3166_1"`
+	Rating   string `json:"rating"`
 }
 
 // TVCreator represents a series creator from TMDB TV details.
@@ -332,5 +332,5 @@ type ImageResult struct {
 	Width       int     `json:"width"`
 	Height      int     `json:"height"`
 	VoteAverage float64 `json:"vote_average"`
-	ISO639_1    string  `json:"iso_639_1"`
+	Iso6391     string  `json:"iso_639_1"`
 }

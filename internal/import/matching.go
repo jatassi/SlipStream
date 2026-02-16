@@ -11,6 +11,14 @@ import (
 	"github.com/slipstream/slipstream/internal/library/tv"
 )
 
+const (
+	mediaTypeMovie   = "movie"
+	mediaTypeEpisode = "episode"
+	mediaSeason      = "season"
+	mediaSeries      = "series"
+	fileStatusFailed = "failed"
+)
+
 // matchToLibrary attempts to match a file to a library item.
 func (s *Service) matchToLibrary(ctx context.Context, path string, mapping *DownloadMapping) (*LibraryMatch, error) {
 	return s.matchToLibraryWithSettings(ctx, path, mapping, nil)
@@ -18,94 +26,106 @@ func (s *Service) matchToLibrary(ctx context.Context, path string, mapping *Down
 
 // matchToLibraryWithSettings attempts to match a file to a library item using provided settings.
 func (s *Service) matchToLibraryWithSettings(ctx context.Context, path string, mapping *DownloadMapping, settings *ImportSettings) (*LibraryMatch, error) {
-	// Load settings if not provided
 	if settings == nil {
-		loaded, err := s.GetSettings(ctx)
-		if err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to load settings for matching, using defaults")
-			defaults := DefaultImportSettings()
-			settings = &defaults
-		} else {
-			settings = loaded
-		}
+		settings = s.loadDefaultSettings(ctx)
 	}
 
-	var queueMatch *LibraryMatch
-	var parsedMatch *LibraryMatch
+	queueMatch := s.getQueueMatch(ctx, mapping)
+	parsedMatch := s.matchFromParse(ctx, path)
 
-	// Get queue match if mapping available
-	if mapping != nil {
-		queueMatch = s.matchFromMapping(ctx, mapping)
+	finalMatch, err := s.resolveMatchConflict(ctx, path, queueMatch, parsedMatch, settings)
+	if err != nil {
+		return nil, err
+	}
+	if finalMatch == nil {
+		return nil, ErrNoMatch
 	}
 
-	// Get parsed match
-	parsedMatch = s.matchFromParse(ctx, path)
+	return finalMatch, nil
+}
 
-	// Handle conflicts based on settings
-	if queueMatch != nil && parsedMatch != nil {
-		if !matchesAreCompatible(queueMatch, parsedMatch) {
-			switch settings.MatchConflictBehavior {
-			case MatchTrustQueue:
-				s.logger.Warn().
-					Str("path", path).
-					Str("behavior", "trust_queue").
-					Msg("Queue mapping doesn't match parsed info, using queue")
-				return queueMatch, nil
-
-			case MatchTrustParse:
-				s.logger.Warn().
-					Str("path", path).
-					Str("behavior", "trust_parse").
-					Msg("Queue mapping doesn't match parsed info, using parsed")
-				return parsedMatch, nil
-
-			case MatchFail:
-				s.logger.Warn().
-					Str("path", path).
-					Str("behavior", "fail").
-					Msg("Queue mapping doesn't match parsed info, failing import")
-				return nil, ErrMatchConflict
-			}
-		} else {
-			// Matches are compatible - enrich queue match with episode info from parsed match
-			// This is important for season packs where the mapping has SeriesID but not EpisodeID
-			if queueMatch.MediaType == "episode" && queueMatch.EpisodeID == nil && parsedMatch.EpisodeID != nil {
-				queueMatch.EpisodeID = parsedMatch.EpisodeID
-				queueMatch.EpisodeIDs = parsedMatch.EpisodeIDs
-				if parsedMatch.SeasonNum != nil {
-					queueMatch.SeasonNum = parsedMatch.SeasonNum
-				}
-				// Also copy upgrade info if available from parsed match
-				if parsedMatch.IsUpgrade {
-					queueMatch.IsUpgrade = parsedMatch.IsUpgrade
-					queueMatch.ExistingFile = parsedMatch.ExistingFile
-					queueMatch.ExistingFileID = parsedMatch.ExistingFileID
-				}
-			}
-		}
+func (s *Service) loadDefaultSettings(ctx context.Context) *ImportSettings {
+	loaded, err := s.GetSettings(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load settings for matching, using defaults")
+		defaults := DefaultImportSettings()
+		return &defaults
 	}
+	return loaded
+}
 
-	// If queue match exists but has no EpisodeID (e.g., season pack import),
-	// try to extract episode info directly from the filename using the known SeriesID.
-	// This handles cases where matchFromParse fails due to title mismatches
-	// (e.g., apostrophes in titles like "Schitt's Creek" not matching SQL LIKE).
-	if queueMatch != nil && queueMatch.EpisodeID == nil && queueMatch.SeriesID != nil {
-		if epMatch := s.enrichSeasonPackMatch(ctx, path, queueMatch); epMatch != nil {
-			queueMatch = epMatch
-		}
+func (s *Service) getQueueMatch(ctx context.Context, mapping *DownloadMapping) *LibraryMatch {
+	if mapping == nil {
+		return nil
 	}
+	return s.matchFromMapping(ctx, mapping)
+}
 
-	// Return queue match if available (highest confidence)
-	if queueMatch != nil {
+func (s *Service) resolveMatchConflict(ctx context.Context, path string, queueMatch, parsedMatch *LibraryMatch, settings *ImportSettings) (*LibraryMatch, error) {
+	if queueMatch == nil {
+		return parsedMatch, nil
+	}
+	if parsedMatch == nil {
 		return queueMatch, nil
 	}
 
-	// Return parsed match if available
-	if parsedMatch != nil {
-		return parsedMatch, nil
+	if !matchesAreCompatible(queueMatch, parsedMatch) {
+		return s.handleIncompatibleMatches(path, queueMatch, parsedMatch, settings)
 	}
 
-	return nil, ErrNoMatch
+	s.enrichQueueMatch(queueMatch, parsedMatch)
+
+	if queueMatch.EpisodeID == nil && queueMatch.SeriesID != nil {
+		if epMatch := s.enrichSeasonPackMatch(ctx, path, queueMatch); epMatch != nil {
+			return epMatch, nil
+		}
+	}
+
+	return queueMatch, nil
+}
+
+func (s *Service) handleIncompatibleMatches(path string, queueMatch, parsedMatch *LibraryMatch, settings *ImportSettings) (*LibraryMatch, error) {
+	switch settings.MatchConflictBehavior {
+	case MatchTrustQueue:
+		s.logger.Warn().
+			Str("path", path).
+			Str("behavior", "trust_queue").
+			Msg("Queue mapping doesn't match parsed info, using queue")
+		return queueMatch, nil
+
+	case MatchTrustParse:
+		s.logger.Warn().
+			Str("path", path).
+			Str("behavior", "trust_parse").
+			Msg("Queue mapping doesn't match parsed info, using parsed")
+		return parsedMatch, nil
+
+	case MatchFail:
+		s.logger.Warn().
+			Str("path", path).
+			Str("behavior", "fail").
+			Msg("Queue mapping doesn't match parsed info, failing import")
+		return nil, ErrMatchConflict
+	}
+	return queueMatch, nil
+}
+
+func (s *Service) enrichQueueMatch(queueMatch, parsedMatch *LibraryMatch) {
+	if queueMatch.MediaType != mediaTypeEpisode || queueMatch.EpisodeID != nil || parsedMatch.EpisodeID == nil {
+		return
+	}
+
+	queueMatch.EpisodeID = parsedMatch.EpisodeID
+	queueMatch.EpisodeIDs = parsedMatch.EpisodeIDs
+	if parsedMatch.SeasonNum != nil {
+		queueMatch.SeasonNum = parsedMatch.SeasonNum
+	}
+
+	if parsedMatch.IsUpgrade {
+		queueMatch.IsUpgrade = parsedMatch.IsUpgrade
+		queueMatch.ExistingFile = parsedMatch.ExistingFile
+		queueMatch.ExistingFileID = parsedMatch.ExistingFileID
+	}
 }
 
 // matchFromMapping creates a LibraryMatch from a queue mapping.
@@ -115,49 +135,58 @@ func (s *Service) matchFromMapping(ctx context.Context, mapping *DownloadMapping
 		Confidence: 1.0,
 	}
 
-	if mapping.MediaType == "movie" && mapping.MovieID != nil {
-		match.MediaType = "movie"
-		match.MovieID = mapping.MovieID
-
-		// Get movie to find root folder
-		movie, err := s.movies.Get(ctx, *mapping.MovieID)
-		if err == nil && movie.Path != "" {
-			match.RootFolder = filepath.Dir(movie.Path)
-			// Check if there's an existing file
-			if len(movie.MovieFiles) > 0 {
-				match.IsUpgrade = true
-				match.ExistingFile = movie.MovieFiles[0].Path
-				match.ExistingFileID = &movie.MovieFiles[0].ID
-			}
-		}
-	} else if mapping.MediaType == "episode" && mapping.SeriesID != nil {
-		match.MediaType = "episode"
-		match.SeriesID = mapping.SeriesID
-		match.SeasonNum = mapping.SeasonNumber
-		if mapping.EpisodeID != nil {
-			match.EpisodeID = mapping.EpisodeID
-		}
-
-		// Get series to find root folder
-		series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
-		if err == nil && series.Path != "" {
-			match.RootFolder = series.Path
-		}
-	} else if (mapping.MediaType == "season" || mapping.MediaType == "series") && mapping.SeriesID != nil {
-		// Season packs and complete series: treat each file as an episode import
-		// The episode ID will be determined by parsing the filename and matching to the series
-		match.MediaType = "episode"
-		match.SeriesID = mapping.SeriesID
-		match.SeasonNum = mapping.SeasonNumber
-
-		// Get series to find root folder
-		series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
-		if err == nil && series.Path != "" {
-			match.RootFolder = series.Path
-		}
+	switch {
+	case mapping.MediaType == mediaTypeMovie && mapping.MovieID != nil:
+		s.populateMovieMatch(ctx, match, mapping)
+	case mapping.MediaType == mediaTypeEpisode && mapping.SeriesID != nil:
+		s.populateEpisodeMatch(ctx, match, mapping)
+	case (mapping.MediaType == mediaSeason || mapping.MediaType == mediaSeries) && mapping.SeriesID != nil:
+		s.populateSeasonMatch(ctx, match, mapping)
 	}
 
 	return match
+}
+
+func (s *Service) populateMovieMatch(ctx context.Context, match *LibraryMatch, mapping *DownloadMapping) {
+	match.MediaType = mediaTypeMovie
+	match.MovieID = mapping.MovieID
+
+	movie, err := s.movies.Get(ctx, *mapping.MovieID)
+	if err != nil || movie.Path == "" {
+		return
+	}
+
+	match.RootFolder = filepath.Dir(movie.Path)
+	if len(movie.MovieFiles) > 0 {
+		match.IsUpgrade = true
+		match.ExistingFile = movie.MovieFiles[0].Path
+		match.ExistingFileID = &movie.MovieFiles[0].ID
+	}
+}
+
+func (s *Service) populateEpisodeMatch(ctx context.Context, match *LibraryMatch, mapping *DownloadMapping) {
+	match.MediaType = mediaTypeEpisode
+	match.SeriesID = mapping.SeriesID
+	match.SeasonNum = mapping.SeasonNumber
+	if mapping.EpisodeID != nil {
+		match.EpisodeID = mapping.EpisodeID
+	}
+
+	series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
+	if err == nil && series.Path != "" {
+		match.RootFolder = series.Path
+	}
+}
+
+func (s *Service) populateSeasonMatch(ctx context.Context, match *LibraryMatch, mapping *DownloadMapping) {
+	match.MediaType = mediaTypeEpisode
+	match.SeriesID = mapping.SeriesID
+	match.SeasonNum = mapping.SeasonNumber
+
+	series, err := s.tv.GetSeries(ctx, *mapping.SeriesID)
+	if err == nil && series.Path != "" {
+		match.RootFolder = series.Path
+	}
 }
 
 // matchFromParse attempts to match a file by parsing its filename.
@@ -189,43 +218,15 @@ var (
 
 	// Multi-episode: S01E01-E03, S01E01E02E03
 	multiEpPattern = regexp.MustCompile(`(?i)[Ss](\d{1,2})[Ee](\d{1,2})(?:[Ee-](\d{1,2}))+`)
-
-	// Daily: Show.Name.2024.01.15
-	dailyPattern = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+(\d{4})[.\s_-](\d{2})[.\s_-](\d{2})`)
-
-	// Anime: [Group] Show Name - 01, Show.Name.-.01
-	animePattern = regexp.MustCompile(`(?i)^(?:\[.+?\]\s*)?(.+?)[.\s_-]+(?:-\s*)?(\d{2,4})(?:\s*v\d)?`)
 )
 
 func (s *Service) matchTVFromParse(ctx context.Context, filename string) *LibraryMatch {
-	var seriesTitle string
-	var season, episode int
-
-	// Try standard patterns
-	if matches := tvPattern1.FindStringSubmatch(filename); len(matches) >= 4 {
-		seriesTitle = cleanTitle(matches[1])
-		season, _ = strconv.Atoi(matches[2])
-		episode, _ = strconv.Atoi(matches[3])
-	} else if matches := tvPattern2.FindStringSubmatch(filename); len(matches) >= 4 {
-		seriesTitle = cleanTitle(matches[1])
-		season, _ = strconv.Atoi(matches[2])
-		episode, _ = strconv.Atoi(matches[3])
-	} else if matches := tvPatternSpelled.FindStringSubmatch(filename); len(matches) >= 4 {
-		// Spelled out: Show.Season.1.Episode.01
-		seriesTitle = cleanTitle(matches[1])
-		season, _ = strconv.Atoi(matches[2])
-		episode, _ = strconv.Atoi(matches[3])
-	}
-
+	seriesTitle, season, episode := s.extractTVInfo(filename)
 	if seriesTitle == "" || (season == 0 && episode == 0) {
 		return nil
 	}
 
-	// Search for series in library
-	searchOpts := TVSearchOptions{
-		Title: seriesTitle,
-	}
-	series, err := s.searchSeries(ctx, searchOpts)
+	series, err := s.searchSeries(ctx, TVSearchOptions{Title: seriesTitle})
 	if err != nil || series == nil {
 		return nil
 	}
@@ -239,29 +240,51 @@ func (s *Service) matchTVFromParse(ctx context.Context, filename string) *Librar
 		RootFolder: series.Path,
 	}
 
-	// Find specific episode
-	episodes, err := s.tv.ListEpisodes(ctx, series.ID, &season)
-	if err == nil {
-		for _, ep := range episodes {
-			if ep.EpisodeNumber == episode {
-				match.EpisodeID = &ep.ID
-				if ep.EpisodeFile != nil {
-					match.IsUpgrade = true
-					match.ExistingFile = ep.EpisodeFile.Path
-					match.ExistingFileID = &ep.EpisodeFile.ID
-				}
-				break
-			}
-		}
-	}
+	s.populateEpisodeInfo(ctx, match, series.ID, season, episode)
 
-	// Check for multi-episode
 	if multiMatches := multiEpPattern.FindAllStringSubmatch(filename, -1); len(multiMatches) > 0 {
-		// Extract all episode numbers
 		match.EpisodeIDs = s.extractMultiEpisodeIDs(ctx, series.ID, season, filename)
 	}
 
 	return match
+}
+
+func (s *Service) extractTVInfo(filename string) (title string, season, episode int) {
+	if matches := tvPattern1.FindStringSubmatch(filename); len(matches) >= 4 {
+		season, _ := strconv.Atoi(matches[2])
+		episode, _ := strconv.Atoi(matches[3])
+		return cleanTitle(matches[1]), season, episode
+	}
+	if matches := tvPattern2.FindStringSubmatch(filename); len(matches) >= 4 {
+		season, _ := strconv.Atoi(matches[2])
+		episode, _ := strconv.Atoi(matches[3])
+		return cleanTitle(matches[1]), season, episode
+	}
+	if matches := tvPatternSpelled.FindStringSubmatch(filename); len(matches) >= 4 {
+		season, _ := strconv.Atoi(matches[2])
+		episode, _ := strconv.Atoi(matches[3])
+		return cleanTitle(matches[1]), season, episode
+	}
+	return "", 0, 0
+}
+
+func (s *Service) populateEpisodeInfo(ctx context.Context, match *LibraryMatch, seriesID int64, season, episode int) {
+	episodes, err := s.tv.ListEpisodes(ctx, seriesID, &season)
+	if err != nil {
+		return
+	}
+
+	for _, ep := range episodes {
+		if ep.EpisodeNumber == episode {
+			match.EpisodeID = &ep.ID
+			if ep.EpisodeFile != nil {
+				match.IsUpgrade = true
+				match.ExistingFile = ep.EpisodeFile.Path
+				match.ExistingFileID = &ep.EpisodeFile.ID
+			}
+			break
+		}
+	}
 }
 
 func (s *Service) matchMovieFromParse(ctx context.Context, filename string) *LibraryMatch {
@@ -546,18 +569,22 @@ func matchesAreCompatible(a, b *LibraryMatch) bool {
 		return false
 	}
 
-	if a.MediaType == "movie" {
-		return a.MovieID != nil && b.MovieID != nil && *a.MovieID == *b.MovieID
+	if a.MediaType == mediaTypeMovie {
+		return matchesAreCompatibleMovies(a, b)
 	}
 
-	// For episodes, check series and episode
+	return matchesAreCompatibleEpisodes(a, b)
+}
+
+func matchesAreCompatibleMovies(a, b *LibraryMatch) bool {
+	return a.MovieID != nil && b.MovieID != nil && *a.MovieID == *b.MovieID
+}
+
+func matchesAreCompatibleEpisodes(a, b *LibraryMatch) bool {
 	if a.SeriesID == nil || b.SeriesID == nil || *a.SeriesID != *b.SeriesID {
 		return false
 	}
 
-	// Season must match if both have it, unless the queue match (a) has no episode ID,
-	// indicating a batch download (season pack or complete series) where the season number
-	// is just the searched season, not a constraint on individual files.
 	if a.EpisodeID != nil && a.SeasonNum != nil && b.SeasonNum != nil && *a.SeasonNum != *b.SeasonNum {
 		return false
 	}
@@ -617,17 +644,17 @@ type MatchPreview struct {
 
 // ParsedInfo contains parsed information from a filename.
 type ParsedInfo struct {
-	Title      string   `json:"title,omitempty"`
-	Year       int      `json:"year,omitempty"`
-	Season     int      `json:"season,omitempty"`
-	Episodes   []int    `json:"episodes,omitempty"`
-	Quality    string   `json:"quality,omitempty"`
-	Source     string   `json:"source,omitempty"`
-	Codec      string   `json:"codec,omitempty"`
-	Group      string   `json:"group,omitempty"`
-	IsTV       bool     `json:"isTV"`
-	IsMovie    bool     `json:"isMovie"`
-	RawFilename string  `json:"rawFilename"`
+	Title       string `json:"title,omitempty"`
+	Year        int    `json:"year,omitempty"`
+	Season      int    `json:"season,omitempty"`
+	Episodes    []int  `json:"episodes,omitempty"`
+	Quality     string `json:"quality,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Codec       string `json:"codec,omitempty"`
+	Group       string `json:"group,omitempty"`
+	IsTV        bool   `json:"isTV"`
+	IsMovie     bool   `json:"isMovie"`
+	RawFilename string `json:"rawFilename"`
 }
 
 // GetMatchPreview returns potential matches for a file without importing.
@@ -669,30 +696,47 @@ func (s *Service) parseFilename(filename string) *ParsedInfo {
 
 	name := strings.TrimSuffix(filename, filepath.Ext(filename))
 
-	// Check for TV patterns
+	s.parseTVOrMovie(name, info)
+	s.parseQuality(name, info)
+	s.parseSource(name, info)
+	s.parseCodec(name, info)
+	s.parseReleaseGroup(name, info)
+
+	return info
+}
+
+func (s *Service) parseTVOrMovie(name string, info *ParsedInfo) {
+	if s.parseTVPattern(name, info) {
+		return
+	}
+
+	moviePattern := regexp.MustCompile(`(?i)^(.+?)[.\s_-]*[(\[]?(\d{4})[)\]]?`)
+	if matches := moviePattern.FindStringSubmatch(name); len(matches) >= 3 {
+		info.IsMovie = true
+		info.Title = cleanTitle(matches[1])
+		info.Year, _ = strconv.Atoi(matches[2])
+	}
+}
+
+func (s *Service) parseTVPattern(name string, info *ParsedInfo) bool {
 	if matches := tvPattern1.FindStringSubmatch(name); len(matches) >= 4 {
 		info.IsTV = true
 		info.Title = cleanTitle(matches[1])
 		info.Season, _ = strconv.Atoi(matches[2])
 		info.Episodes = append(info.Episodes, mustAtoi(matches[3]))
-	} else if matches := tvPattern2.FindStringSubmatch(name); len(matches) >= 4 {
+		return true
+	}
+	if matches := tvPattern2.FindStringSubmatch(name); len(matches) >= 4 {
 		info.IsTV = true
 		info.Title = cleanTitle(matches[1])
 		info.Season, _ = strconv.Atoi(matches[2])
 		info.Episodes = append(info.Episodes, mustAtoi(matches[3]))
+		return true
 	}
+	return false
+}
 
-	// Check for movie pattern
-	moviePattern := regexp.MustCompile(`(?i)^(.+?)[.\s_-]*[(\[]?(\d{4})[)\]]?`)
-	if matches := moviePattern.FindStringSubmatch(name); len(matches) >= 3 {
-		if !info.IsTV {
-			info.IsMovie = true
-			info.Title = cleanTitle(matches[1])
-			info.Year, _ = strconv.Atoi(matches[2])
-		}
-	}
-
-	// Extract quality
+func (s *Service) parseQuality(name string, info *ParsedInfo) {
 	qualityPatterns := []struct {
 		pattern *regexp.Regexp
 		quality string
@@ -710,8 +754,9 @@ func (s *Service) parseFilename(filename string) *ParsedInfo {
 			break
 		}
 	}
+}
 
-	// Extract source
+func (s *Service) parseSource(name string, info *ParsedInfo) {
 	sourcePatterns := []struct {
 		pattern *regexp.Regexp
 		source  string
@@ -729,8 +774,9 @@ func (s *Service) parseFilename(filename string) *ParsedInfo {
 			break
 		}
 	}
+}
 
-	// Extract codec
+func (s *Service) parseCodec(name string, info *ParsedInfo) {
 	codecPatterns := []struct {
 		pattern *regexp.Regexp
 		codec   string
@@ -747,14 +793,13 @@ func (s *Service) parseFilename(filename string) *ParsedInfo {
 			break
 		}
 	}
+}
 
-	// Extract release group
+func (s *Service) parseReleaseGroup(name string, info *ParsedInfo) {
 	groupPattern := regexp.MustCompile(`-([A-Za-z0-9]+)$`)
 	if matches := groupPattern.FindStringSubmatch(name); len(matches) >= 2 {
 		info.Group = matches[1]
 	}
-
-	return info
 }
 
 func mustAtoi(s string) int {

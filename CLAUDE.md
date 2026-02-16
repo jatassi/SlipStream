@@ -131,6 +131,30 @@ bun run format:check  # Prettier check (CI-friendly)
 ./scripts/lint/count-rule.sh <rule>    # Count violations for one rule by file
 ```
 
+### Linting (Go)
+```bash
+make lint             # Run golangci-lint
+make lint-fix         # Run with auto-fix
+make lint-verbose     # Run with verbose output
+make lint-new         # Lint only new/changed code vs main
+```
+
+### Go Lint Helper Scripts
+```bash
+./scripts/lint/go-summary.sh              # Total errors + top linters (uncapped)
+./scripts/lint/go-breakdown.sh            # Full per-linter and per-file breakdown
+./scripts/lint/go-breakdown.sh --linter gocritic  # Breakdown + issues for one linter
+./scripts/lint/go-file.sh <path>          # Lint single file or package
+./scripts/lint/go-verify.sh              # Full check: vet + build + test + lint count
+./scripts/lint/go-count-linter.sh <name>  # Count violations for one linter by file
+./scripts/lint/go-snapshot.sh save <name>    # Save lint counts snapshot
+./scripts/lint/go-snapshot.sh compare <name> # Compare current vs saved snapshot
+./scripts/lint/go-snapshot.sh list           # List saved snapshots
+./scripts/lint/go-test-affected.sh           # Test only packages with modified Go files
+./scripts/lint/go-check-signatures.sh save <name>    # Save exported function signatures
+./scripts/lint/go-check-signatures.sh compare <name> # Compare signatures for API regression
+```
+
 ## Key Patterns
 
 ### API Routes

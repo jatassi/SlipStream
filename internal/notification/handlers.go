@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -58,7 +59,7 @@ func (h *Handlers) Get(c echo.Context) error {
 
 	notification, err := h.service.Get(ctx, id)
 	if err != nil {
-		if err == ErrNotificationNotFound {
+		if errors.Is(err, ErrNotificationNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -85,7 +86,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "type is required"})
 	}
 
-	notification, err := h.service.Create(ctx, input)
+	notification, err := h.service.Create(ctx, &input)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -108,9 +109,9 @@ func (h *Handlers) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
 
-	notification, err := h.service.Update(ctx, id, input)
+	notification, err := h.service.Update(ctx, id, &input)
 	if err != nil {
-		if err == ErrNotificationNotFound {
+		if errors.Is(err, ErrNotificationNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -148,7 +149,7 @@ func (h *Handlers) Test(c echo.Context) error {
 
 	result, err := h.service.Test(ctx, id)
 	if err != nil {
-		if err == ErrNotificationNotFound {
+		if errors.Is(err, ErrNotificationNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -171,7 +172,7 @@ func (h *Handlers) TestNew(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "type is required"})
 	}
 
-	result, err := h.service.TestConfig(ctx, input)
+	result, err := h.service.TestConfig(ctx, &input)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

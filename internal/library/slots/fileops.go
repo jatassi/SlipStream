@@ -3,6 +3,7 @@ package slots
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
@@ -47,20 +48,20 @@ type DisableSlotResult struct {
 // Req 12.1.2: Slot becomes empty; waits for next scheduled search
 func (s *Service) OnFileDeleted(ctx context.Context, mediaType string, fileID int64) error {
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		// Clear from slot assignment table
 		if err := s.queries.ClearMovieSlotFileByFileID(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
 			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear movie slot assignment")
 		}
 		// Clear slot_id from file table (if file hasn't been deleted yet)
-		if err := s.queries.ClearMovieFileSlot(ctx, fileID); err != nil && err != sql.ErrNoRows {
+		if err := s.queries.ClearMovieFileSlot(ctx, fileID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear movie file slot_id")
 		}
-	case "episode":
+	case mediaTypeEpisode:
 		if err := s.queries.ClearEpisodeSlotFileByFileID(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
 			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear episode slot assignment")
 		}
-		if err := s.queries.ClearEpisodeFileSlot(ctx, fileID); err != nil && err != sql.ErrNoRows {
+		if err := s.queries.ClearEpisodeFileSlot(ctx, fileID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear episode file slot_id")
 		}
 	}
@@ -91,50 +92,16 @@ func (s *Service) DisableSlotWithAction(ctx context.Context, req DisableSlotRequ
 		return nil
 	}
 
-	switch req.Action {
-	case DisableActionDelete:
-		// Delete all files in this slot
-		files, err := s.ListFilesInSlot(ctx, req.SlotID)
-		if err != nil {
-			return err
-		}
-
-		// Req 12.2.2: Delete files from disk and database
-		for _, file := range files {
-			if s.fileDeleter != nil {
-				if err := s.fileDeleter.DeleteFile(ctx, file.MediaType, file.FileID); err != nil {
-					s.logger.Warn().
-						Err(err).
-						Int64("fileId", file.FileID).
-						Str("path", file.FilePath).
-						Msg("Failed to delete file during slot disable")
-				} else {
-					s.logger.Info().
-						Int64("fileId", file.FileID).
-						Str("path", file.FilePath).
-						Msg("Deleted file during slot disable")
-				}
-			} else {
-				s.logger.Warn().
-					Int64("fileId", file.FileID).
-					Str("path", file.FilePath).
-					Msg("No file deleter configured, cannot delete file during slot disable")
-			}
-		}
-
-		// Clear all slot assignments for this slot
-		if err := s.ClearSlotAssignments(ctx, req.SlotID); err != nil {
-			return err
-		}
-
-	case DisableActionKeep:
-		// Just clear slot assignments, keep files unassigned
-		if err := s.ClearSlotAssignments(ctx, req.SlotID); err != nil {
+	if req.Action == DisableActionDelete {
+		if err := s.deleteSlotFiles(ctx, req.SlotID); err != nil {
 			return err
 		}
 	}
 
-	// Now disable the slot
+	if err := s.ClearSlotAssignments(ctx, req.SlotID); err != nil {
+		return err
+	}
+
 	_, err := s.queries.UpdateVersionSlotEnabled(ctx, sqlc.UpdateVersionSlotEnabledParams{
 		ID:      req.SlotID,
 		Enabled: 0,
@@ -149,6 +116,40 @@ func (s *Service) DisableSlotWithAction(ctx context.Context, req DisableSlotRequ
 		Msg("Disabled slot with action")
 
 	return nil
+}
+
+func (s *Service) deleteSlotFiles(ctx context.Context, slotID int64) error {
+	files, err := s.ListFilesInSlot(ctx, slotID)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		s.deleteFileForSlotDisable(ctx, file)
+	}
+	return nil
+}
+
+func (s *Service) deleteFileForSlotDisable(ctx context.Context, file SlotFileInfo) {
+	if s.fileDeleter == nil {
+		s.logger.Warn().
+			Int64("fileId", file.FileID).
+			Str("path", file.FilePath).
+			Msg("No file deleter configured, cannot delete file during slot disable")
+		return
+	}
+	if err := s.fileDeleter.DeleteFile(ctx, file.MediaType, file.FileID); err != nil {
+		s.logger.Warn().
+			Err(err).
+			Int64("fileId", file.FileID).
+			Str("path", file.FilePath).
+			Msg("Failed to delete file during slot disable")
+		return
+	}
+	s.logger.Info().
+		Int64("fileId", file.FileID).
+		Str("path", file.FilePath).
+		Msg("Deleted file during slot disable")
 }
 
 // ListFilesInSlot returns all files assigned to a slot.
@@ -266,7 +267,7 @@ func (s *Service) ListReviewQueueItems(ctx context.Context) ([]ReviewQueueItem, 
 	}
 	for _, row := range movieRows {
 		items = append(items, ReviewQueueItem{
-			MediaType:  "movie",
+			MediaType:  mediaTypeMovie,
 			FileID:     row.ID,
 			FilePath:   row.Path,
 			MediaID:    row.MovieID,
@@ -283,7 +284,7 @@ func (s *Service) ListReviewQueueItems(ctx context.Context) ([]ReviewQueueItem, 
 	}
 	for _, row := range episodeRows {
 		items = append(items, ReviewQueueItem{
-			MediaType:  "episode",
+			MediaType:  mediaTypeEpisode,
 			FileID:     row.ID,
 			FilePath:   row.Path,
 			MediaID:    row.EpisodeID,

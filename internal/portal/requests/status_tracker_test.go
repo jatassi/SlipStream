@@ -32,7 +32,7 @@ type episodeInfo struct {
 	episodeNum int
 }
 
-func (m *mockEpisodeLookup) GetEpisodeInfo(_ context.Context, episodeID int64) (int64, int, int, error) {
+func (m *mockEpisodeLookup) GetEpisodeInfo(_ context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error) {
 	if info, ok := m.episodes[episodeID]; ok {
 		return info.tvdbID, info.seasonNum, info.episodeNum, nil
 	}
@@ -54,7 +54,7 @@ func createTestUser(t *testing.T, queries *sqlc.Queries) int64 {
 }
 
 // Helper to create a request and approve it.
-func createApprovedRequest(t *testing.T, svc *Service, userID int64, input CreateInput) *Request {
+func createApprovedRequest(t *testing.T, svc *Service, userID int64, input *CreateInput) *Request {
 	t.Helper()
 	ctx := context.Background()
 	req, err := svc.Create(ctx, userID, input)
@@ -76,14 +76,14 @@ func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
@@ -116,15 +116,15 @@ func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
 
 	// Create but do NOT approve - remains pending
-	req, _ := reqSvc.Create(ctx, userID, CreateInput{
+	req, _ := reqSvc.Create(ctx, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
@@ -152,14 +152,14 @@ func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
@@ -187,9 +187,9 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 	tracker.SetEpisodeLookup(&mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			200: {tvdbID: 5000, seasonNum: 1, episodeNum: 1},
@@ -199,10 +199,10 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	userID := createTestUser(t, queries)
 	episodeID := int64(200)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
-		MediaType: MediaTypeEpisode,
-		TvdbID:    testutil.Int64Ptr(5000),
-		Title:     "Test Episode",
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
+		MediaType:     MediaTypeEpisode,
+		TvdbID:        testutil.Int64Ptr(5000),
+		Title:         "Test Episode",
 		SeasonNumber:  testutil.Int64Ptr(1),
 		EpisodeNumber: testutil.Int64Ptr(1),
 	})
@@ -229,9 +229,9 @@ func TestStatusTracker_OnMovieAvailable(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	movieID := int64(100)
 	tmdbID := int64(42)
@@ -241,7 +241,7 @@ func TestStatusTracker_OnMovieAvailable(t *testing.T) {
 
 	userID := createTestUser(t, queries)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
 		TmdbID:    &tmdbID,
 		Title:     "Test Movie",
@@ -267,9 +267,9 @@ func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	episodeID := int64(200)
 	tvdbID := int64(5000)
@@ -281,7 +281,7 @@ func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
 
 	userID := createTestUser(t, queries)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:     MediaTypeEpisode,
 		TvdbID:        &tvdbID,
 		Title:         "Test Episode",
@@ -327,9 +327,9 @@ func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	tvdbID := int64(5000)
 	episodeID := int64(200)
@@ -341,7 +341,7 @@ func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing
 
 	userID := createTestUser(t, queries)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:        MediaTypeSeries,
 		TvdbID:           &tvdbID,
 		Title:            "Test Series",
@@ -395,9 +395,9 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 		Monitored:     1,
 	})
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	tvdbID := int64(5000)
 	tracker.SetEpisodeLookup(&mockEpisodeLookup{
@@ -412,7 +412,7 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 
 	userID := createTestUser(t, queries)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:        MediaTypeSeries,
 		TvdbID:           &tvdbID,
 		Title:            "Test Series",
@@ -457,14 +457,14 @@ func TestStatusTracker_OnDownloadFailed_SkipsDenied(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
 
-	req, _ := reqSvc.Create(ctx, userID, CreateInput{
+	req, _ := reqSvc.Create(ctx, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Denied Movie",
@@ -498,9 +498,9 @@ func TestStatusTracker_OnEpisodeAvailable_CompletesSeasonRequest(t *testing.T) {
 		TvdbID:           sql.NullInt64{Int64: 6000, Valid: true},
 	})
 
-	reqSvc := NewService(queries, tdb.Logger)
-	watchersSvc := NewWatchersService(queries, tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
 
 	tvdbID := int64(6000)
 	episodeID := int64(300)
@@ -516,7 +516,7 @@ func TestStatusTracker_OnEpisodeAvailable_CompletesSeasonRequest(t *testing.T) {
 
 	userID := createTestUser(t, queries)
 
-	req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:        MediaTypeSeries,
 		TvdbID:           &tvdbID,
 		Title:            "Test Series",
@@ -543,7 +543,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger)
 	userID := createTestUser(t, queries)
 
 	// Verify all valid statuses can be set
@@ -553,7 +553,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 	}
 	for _, status := range validStatuses {
 		t.Run("valid_"+status, func(t *testing.T) {
-			req, _ := reqSvc.Create(ctx, userID, CreateInput{
+			req, _ := reqSvc.Create(ctx, userID, &CreateInput{
 				MediaType: MediaTypeMovie,
 				TmdbID:    testutil.Int64Ptr(int64(100 + len(status))), // unique per test
 				Title:     "Movie " + status,
@@ -567,7 +567,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 
 	// Verify key transitions: approved → downloading → failed
 	t.Run("approved_to_downloading_to_failed", func(t *testing.T) {
-		req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+		req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 			MediaType: MediaTypeMovie,
 			TmdbID:    testutil.Int64Ptr(999),
 			Title:     "Transition Movie",
@@ -589,7 +589,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 
 	// Verify key transition: downloading → available
 	t.Run("downloading_to_available", func(t *testing.T) {
-		req := createApprovedRequest(t, reqSvc, userID, CreateInput{
+		req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 			MediaType: MediaTypeMovie,
 			TmdbID:    testutil.Int64Ptr(998),
 			Title:     "Available Movie",

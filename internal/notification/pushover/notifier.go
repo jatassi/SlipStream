@@ -43,11 +43,11 @@ type Notifier struct {
 	name       string
 	settings   Settings
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // New creates a new Pushover notifier
-func New(name string, settings Settings, httpClient *http.Client, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, httpClient *http.Client, logger *zerolog.Logger) *Notifier {
 	if settings.Retry == 0 {
 		settings.Retry = 60
 	}
@@ -57,11 +57,12 @@ func New(name string, settings Settings, httpClient *http.Client, logger zerolog
 	if settings.Retry < 30 {
 		settings.Retry = 30
 	}
+	subLogger := logger.With().Str("notifier", "pushover").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		settings:   settings,
+		settings:   *settings,
 		httpClient: httpClient,
-		logger:     logger.With().Str("notifier", "pushover").Str("name", name).Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -77,12 +78,12 @@ func (n *Notifier) Test(ctx context.Context) error {
 	return n.sendMessage(ctx, "SlipStream Test", "This is a test notification from SlipStream.", "")
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	var title, message string
 
 	if event.Movie != nil {
 		title = "Movie Grabbed"
-		message = fmt.Sprintf("%s", event.Movie.Title)
+		message = event.Movie.Title
 		if event.Movie.Year > 0 {
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
@@ -96,12 +97,12 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	var title, message string
 
 	if event.Movie != nil {
 		title = "Movie Downloaded"
-		message = fmt.Sprintf("%s", event.Movie.Title)
+		message = event.Movie.Title
 		if event.Movie.Year > 0 {
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
@@ -115,12 +116,12 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	var title, message string
 
 	if event.Movie != nil {
 		title = "Movie Upgraded"
-		message = fmt.Sprintf("%s", event.Movie.Title)
+		message = event.Movie.Title
 		if event.Movie.Year > 0 {
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
@@ -134,9 +135,9 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	title := "Movie Added"
-	message := fmt.Sprintf("%s", event.Movie.Title)
+	message := event.Movie.Title
 	if event.Movie.Year > 0 {
 		message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 	}
@@ -149,9 +150,9 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 	return n.sendMessage(ctx, title, message, tmdbURL)
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	title := "Movie Deleted"
-	message := fmt.Sprintf("%s", event.Movie.Title)
+	message := event.Movie.Title
 	if event.Movie.Year > 0 {
 		message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 	}
@@ -163,9 +164,9 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	title := "Series Added"
-	message := fmt.Sprintf("%s", event.Series.Title)
+	message := event.Series.Title
 	if event.Series.Year > 0 {
 		message = fmt.Sprintf("%s (%d)", event.Series.Title, event.Series.Year)
 	}
@@ -178,7 +179,7 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 	return n.sendMessage(ctx, title, message, tmdbURL)
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	title := "Series Deleted"
 	message := event.Series.Title
 
@@ -189,28 +190,28 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	title := "Health Issue"
 	message := fmt.Sprintf("[%s] %s", event.Source, event.Message)
 
 	return n.sendMessage(ctx, title, message, event.WikiURL)
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	title := "Health Issue Resolved"
 	message := fmt.Sprintf("[%s] %s", event.Source, event.Message)
 
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	title := "Application Updated"
 	message := fmt.Sprintf("SlipStream has been updated from %s to %s", event.PreviousVersion, event.NewVersion)
 
 	return n.sendMessage(ctx, title, message, "")
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	return n.sendMessage(ctx, event.Title, event.Message, "")
 }
 

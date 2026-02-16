@@ -10,14 +10,15 @@ import (
 
 func newTestService() *Service {
 	logger := zerolog.New(zerolog.NewTestWriter(nil)).Level(zerolog.Disabled)
-	return NewService(DefaultNamingConfig(), logger)
+	cfg := DefaultNamingConfig()
+	return NewService(&cfg, &logger)
 }
 
 func TestNewService(t *testing.T) {
 	logger := zerolog.Nop()
 	config := DefaultNamingConfig()
 
-	service := NewService(config, logger)
+	service := NewService(&config, &logger)
 
 	if service == nil {
 		t.Fatal("NewService() returned nil")
@@ -44,7 +45,7 @@ func TestService_SetConfig(t *testing.T) {
 		MovieFolderFormat: "{Title} - {Year}",
 	}
 
-	service.SetConfig(newConfig)
+	service.SetConfig(&newConfig)
 
 	if service.config.MovieFolderFormat != "{Title} - {Year}" {
 		t.Error("SetConfig() did not update config")
@@ -64,25 +65,25 @@ func TestService_GenerateMoviePath(t *testing.T) {
 			name:     "standard movie",
 			rootPath: "/movies",
 			tokens:   MovieTokens{Title: "The Matrix", Year: 1999},
-			want:     filepath.Join("/movies", "The Matrix (1999)"),
+			want:     filepath.Join("/movies", "The Matrix (1999)"), //nolint:gocritic // absolute path is intentional in test
 		},
 		{
 			name:     "movie without year",
 			rootPath: "/movies",
 			tokens:   MovieTokens{Title: "Unknown"},
-			want:     filepath.Join("/movies", "Unknown"),
+			want:     filepath.Join("/movies", "Unknown"), //nolint:gocritic // absolute path is intentional in test
 		},
 		{
 			name:     "windows path",
 			rootPath: "C:\\Movies",
 			tokens:   MovieTokens{Title: "Inception", Year: 2010},
-			want:     filepath.Join("C:\\Movies", "Inception (2010)"),
+			want:     filepath.Join("C:\\Movies", "Inception (2010)"), //nolint:gocritic // absolute path intentional in test
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := service.GenerateMoviePath(tt.rootPath, tt.tokens)
+			got := service.GenerateMoviePath(tt.rootPath, &tt.tokens)
 			if got != tt.want {
 				t.Errorf("GenerateMoviePath() = %q, want %q", got, tt.want)
 			}
@@ -94,7 +95,7 @@ func TestService_GenerateMovieFilename(t *testing.T) {
 	service := newTestService()
 
 	tokens := MovieTokens{Title: "The Matrix", Year: 1999}
-	got := service.GenerateMovieFilename(tokens)
+	got := service.GenerateMovieFilename(&tokens)
 	want := "The Matrix (1999)"
 
 	if got != want {
@@ -115,19 +116,19 @@ func TestService_GenerateSeriesPath(t *testing.T) {
 			name:     "standard series",
 			rootPath: "/tv",
 			tokens:   SeriesTokens{SeriesTitle: "Breaking Bad"},
-			want:     filepath.Join("/tv", "Breaking Bad"),
+			want:     filepath.Join("/tv", "Breaking Bad"), //nolint:gocritic // absolute path is intentional in test
 		},
 		{
 			name:     "series with special chars",
 			rootPath: "/tv",
 			tokens:   SeriesTokens{SeriesTitle: "Marvel's Agents of S.H.I.E.L.D."},
-			want:     filepath.Join("/tv", "Marvel's Agents of S.H.I.E.L.D."),
+			want:     filepath.Join("/tv", "Marvel's Agents of S.H.I.E.L.D."), //nolint:gocritic // absolute path is intentional in test
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := service.GenerateSeriesPath(tt.rootPath, tt.tokens)
+			got := service.GenerateSeriesPath(tt.rootPath, &tt.tokens)
 			if got != tt.want {
 				t.Errorf("GenerateSeriesPath() = %q, want %q", got, tt.want)
 			}
@@ -143,9 +144,9 @@ func TestService_GenerateSeasonPath(t *testing.T) {
 		seasonNumber int
 		want         string
 	}{
-		{"/tv/Breaking Bad", 1, filepath.Join("/tv/Breaking Bad", "Season 01")},
-		{"/tv/Breaking Bad", 5, filepath.Join("/tv/Breaking Bad", "Season 05")},
-		{"/tv/Breaking Bad", 10, filepath.Join("/tv/Breaking Bad", "Season 10")},
+		{"/tv/Breaking Bad", 1, filepath.Join("/tv/Breaking Bad", "Season 01")},  //nolint:gocritic // absolute path is intentional in test
+		{"/tv/Breaking Bad", 5, filepath.Join("/tv/Breaking Bad", "Season 05")},  //nolint:gocritic // absolute path is intentional in test
+		{"/tv/Breaking Bad", 10, filepath.Join("/tv/Breaking Bad", "Season 10")}, //nolint:gocritic // absolute path is intentional in test
 	}
 
 	for _, tt := range tests {
@@ -191,7 +192,7 @@ func TestService_GenerateEpisodeFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := service.GenerateEpisodeFilename(tt.tokens)
+			got := service.GenerateEpisodeFilename(&tt.tokens)
 			if got != tt.want {
 				t.Errorf("GenerateEpisodeFilename() = %q, want %q", got, tt.want)
 			}
@@ -203,7 +204,7 @@ func TestService_PreviewMovieRename(t *testing.T) {
 	service := newTestService()
 
 	tokens := MovieTokens{Title: "The Matrix", Year: 1999}
-	folder, filename := service.PreviewMovieRename(tokens)
+	folder, filename := service.PreviewMovieRename(&tokens)
 
 	if folder != "The Matrix (1999)" {
 		t.Errorf("PreviewMovieRename() folder = %q, want %q", folder, "The Matrix (1999)")
@@ -224,7 +225,7 @@ func TestService_PreviewEpisodeRename(t *testing.T) {
 		EpisodeTitle:  "Pilot",
 	}
 
-	seasonFolder, filename := service.PreviewEpisodeRename(tokens, 1)
+	seasonFolder, filename := service.PreviewEpisodeRename(&tokens, 1)
 
 	if seasonFolder != "Season 01" {
 		t.Errorf("PreviewEpisodeRename() seasonFolder = %q, want %q", seasonFolder, "Season 01")
@@ -248,7 +249,7 @@ func TestService_MoveFile(t *testing.T) {
 
 	// Create source file
 	srcPath := filepath.Join(tmpDir, "source.txt")
-	if err := os.WriteFile(srcPath, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
@@ -290,7 +291,7 @@ func TestService_CopyFile(t *testing.T) {
 
 	// Create source file
 	srcPath := filepath.Join(tmpDir, "source.txt")
-	if err := os.WriteFile(srcPath, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
@@ -332,7 +333,7 @@ func TestService_RenameFile(t *testing.T) {
 
 	// Create source file
 	srcPath := filepath.Join(tmpDir, "old_name.mkv")
-	if err := os.WriteFile(srcPath, []byte("video content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("video content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
@@ -370,7 +371,7 @@ func TestService_RenameFile_SameName(t *testing.T) {
 
 	// Create source file
 	srcPath := filepath.Join(tmpDir, "same_name.mkv")
-	if err := os.WriteFile(srcPath, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
@@ -397,16 +398,16 @@ func TestService_OrganizeMovie(t *testing.T) {
 
 	downloadDir := filepath.Join(tmpDir, "downloads")
 	movieDir := filepath.Join(tmpDir, "movies")
-	os.MkdirAll(downloadDir, 0755)
+	os.MkdirAll(downloadDir, 0o755)
 
 	// Create source file
 	srcPath := filepath.Join(downloadDir, "The.Matrix.1999.1080p.BluRay.mkv")
-	if err := os.WriteFile(srcPath, []byte("movie content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("movie content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
 	tokens := MovieTokens{Title: "The Matrix", Year: 1999}
-	destPath, err := service.OrganizeMovie(srcPath, movieDir, tokens)
+	destPath, err := service.OrganizeMovie(srcPath, movieDir, &tokens)
 	if err != nil {
 		t.Fatalf("OrganizeMovie() error = %v", err)
 	}
@@ -434,11 +435,11 @@ func TestService_OrganizeEpisode(t *testing.T) {
 
 	downloadDir := filepath.Join(tmpDir, "downloads")
 	seriesDir := filepath.Join(tmpDir, "tv", "Breaking Bad")
-	os.MkdirAll(downloadDir, 0755)
+	os.MkdirAll(downloadDir, 0o755)
 
 	// Create source file
 	srcPath := filepath.Join(downloadDir, "Breaking.Bad.S01E01.720p.mkv")
-	if err := os.WriteFile(srcPath, []byte("episode content"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("episode content"), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 
@@ -449,7 +450,7 @@ func TestService_OrganizeEpisode(t *testing.T) {
 		EpisodeTitle:  "Pilot",
 	}
 
-	destPath, err := service.OrganizeEpisode(srcPath, seriesDir, 1, tokens)
+	destPath, err := service.OrganizeEpisode(srcPath, seriesDir, 1, &tokens)
 	if err != nil {
 		t.Fatalf("OrganizeEpisode() error = %v", err)
 	}
@@ -480,12 +481,12 @@ func TestService_CleanEmptyFolders(t *testing.T) {
 	emptyDir2 := filepath.Join(tmpDir, "empty2", "nested")
 	nonEmptyDir := filepath.Join(tmpDir, "notempty")
 
-	os.MkdirAll(emptyDir1, 0755)
-	os.MkdirAll(emptyDir2, 0755)
-	os.MkdirAll(nonEmptyDir, 0755)
+	os.MkdirAll(emptyDir1, 0o755)
+	os.MkdirAll(emptyDir2, 0o755)
+	os.MkdirAll(nonEmptyDir, 0o755)
 
 	// Add a file to nonEmptyDir
-	os.WriteFile(filepath.Join(nonEmptyDir, "file.txt"), []byte("content"), 0644)
+	os.WriteFile(filepath.Join(nonEmptyDir, "file.txt"), []byte("content"), 0o644)
 
 	// Clean empty folders
 	if err := service.CleanEmptyFolders(tmpDir); err != nil {

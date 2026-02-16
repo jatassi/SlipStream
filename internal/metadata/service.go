@@ -39,18 +39,19 @@ type Service struct {
 }
 
 // NewService creates a new metadata service with real API clients.
-func NewService(cfg config.MetadataConfig, logger zerolog.Logger) *Service {
+func NewService(cfg *config.MetadataConfig, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "metadata").Logger()
 	return &Service{
 		tmdb:   tmdb.NewClient(cfg.TMDB, logger),
 		tvdb:   tvdb.NewClient(cfg.TVDB, logger),
 		omdb:   omdb.NewClient(cfg.OMDB, logger),
 		cache:  NewCache(DefaultCacheConfig()),
-		logger: logger.With().Str("component", "metadata").Logger(),
+		logger: subLogger,
 	}
 }
 
 // NewServiceWithClients creates a new metadata service with custom clients (for testing/mocking).
-func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient, logger zerolog.Logger) *Service {
+func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient, logger *zerolog.Logger) *Service {
 	return &Service{
 		tmdb:   tmdbClient,
 		tvdb:   tvdbClient,
@@ -109,7 +110,7 @@ func (s *Service) RegisterMetadataProviders() {
 }
 
 // tmdbMovieToResult converts a TMDB movie result to metadata.MovieResult.
-func tmdbMovieToResult(m tmdb.NormalizedMovieResult) MovieResult {
+func tmdbMovieToResult(m *tmdb.NormalizedMovieResult) MovieResult {
 	return MovieResult{
 		ID:            m.ID,
 		Title:         m.Title,
@@ -126,7 +127,7 @@ func tmdbMovieToResult(m tmdb.NormalizedMovieResult) MovieResult {
 }
 
 // tmdbSeriesToResult converts a TMDB series result to metadata.SeriesResult.
-func tmdbSeriesToResult(s tmdb.NormalizedSeriesResult) SeriesResult {
+func tmdbSeriesToResult(s *tmdb.NormalizedSeriesResult) SeriesResult {
 	return SeriesResult{
 		ID:             s.ID,
 		Title:          s.Title,
@@ -146,7 +147,7 @@ func tmdbSeriesToResult(s tmdb.NormalizedSeriesResult) SeriesResult {
 }
 
 // tvdbSeriesToResult converts a TVDB series result to metadata.SeriesResult.
-func tvdbSeriesToResult(s tvdb.NormalizedSeriesResult) SeriesResult {
+func tvdbSeriesToResult(s *tvdb.NormalizedSeriesResult) SeriesResult {
 	return SeriesResult{
 		ID:          s.ID,
 		Title:       s.Title,
@@ -197,8 +198,8 @@ func (s *Service) SearchMovies(ctx context.Context, query string, year int) ([]M
 
 	// Convert to metadata.MovieResult
 	results := make([]MovieResult, len(tmdbResults))
-	for i, r := range tmdbResults {
-		results[i] = tmdbMovieToResult(r)
+	for i := range tmdbResults {
+		results[i] = tmdbMovieToResult(&tmdbResults[i])
 	}
 
 	// Cache results
@@ -234,7 +235,7 @@ func (s *Service) GetMovie(ctx context.Context, tmdbID int) (*MovieResult, error
 	}
 
 	// Convert to metadata.MovieResult
-	result := tmdbMovieToResult(*tmdbResult)
+	result := tmdbMovieToResult(tmdbResult)
 
 	// Cache result
 	s.cache.Set(cacheKey, &result)
@@ -253,61 +254,75 @@ func (s *Service) SearchSeries(ctx context.Context, query string) ([]SeriesResul
 		return nil, ErrNoProvidersConfigured
 	}
 
-	// Check cache
 	cacheKey := fmt.Sprintf("series:search:%s", query)
 	if results, ok := s.cache.GetSeriesResults(cacheKey); ok {
 		s.logger.Debug().Str("query", query).Msg("Series search cache hit")
 		return results, nil
 	}
 
-	// Try TVDB first (search returns status, and episodes endpoint is more efficient)
-	var results []SeriesResult
-	var err error
-
-	if s.tvdb.IsConfigured() {
-		tvdbResults, tvdbErr := s.tvdb.SearchSeries(ctx, query)
-		if tvdbErr != nil {
-			s.logger.Warn().Err(tvdbErr).Str("query", query).Msg("TVDB series search failed, trying TMDB")
-			err = tvdbErr
-		} else {
-			results = make([]SeriesResult, len(tvdbResults))
-			for i, r := range tvdbResults {
-				results[i] = tvdbSeriesToResult(r)
-			}
-			// Enrich TVDB results with cached network logos
-			s.enrichWithNetworkLogos(ctx, results)
-		}
+	results, err := s.searchSeriesFromProviders(ctx, query)
+	if err != nil {
+		return nil, err
 	}
 
-	// Fall back to TMDB if TVDB failed or not configured
-	if len(results) == 0 && s.tmdb.IsConfigured() {
-		tmdbResults, tmdbErr := s.tmdb.SearchSeries(ctx, query)
-		if tmdbErr != nil {
-			s.logger.Error().Err(tmdbErr).Str("query", query).Msg("TMDB series search failed")
-			return nil, fmt.Errorf("series search failed: %w", tmdbErr)
-		}
-		results = make([]SeriesResult, len(tmdbResults))
-		for i, r := range tmdbResults {
-			results[i] = tmdbSeriesToResult(r)
-		}
-		err = nil
-	}
-
-	// If we still have no results but had an error, return it
-	if len(results) == 0 && err != nil {
-		return nil, fmt.Errorf("series search failed: %w", err)
-	}
-
-	// Cache results
 	if len(results) > 0 {
 		s.cache.Set(cacheKey, results)
 	}
 
-	s.logger.Info().
-		Str("query", query).
-		Int("results", len(results)).
-		Msg("Series search completed")
+	s.logger.Info().Str("query", query).Int("results", len(results)).Msg("Series search completed")
+	return results, nil
+}
 
+func (s *Service) searchSeriesFromProviders(ctx context.Context, query string) ([]SeriesResult, error) {
+	results, err := s.tryTVDBSearch(ctx, query)
+	if len(results) > 0 {
+		return results, nil
+	}
+
+	tmdbResults, tmdbErr := s.tryTMDBSeriesSearch(ctx, query)
+	if tmdbErr != nil {
+		if err != nil {
+			return nil, fmt.Errorf("series search failed: %w", err)
+		}
+		return nil, fmt.Errorf("series search failed: %w", tmdbErr)
+	}
+	return tmdbResults, nil
+}
+
+func (s *Service) tryTVDBSearch(ctx context.Context, query string) ([]SeriesResult, error) {
+	if !s.tvdb.IsConfigured() {
+		return nil, nil
+	}
+
+	tvdbResults, err := s.tvdb.SearchSeries(ctx, query)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("query", query).Msg("TVDB series search failed, trying TMDB")
+		return nil, err
+	}
+
+	results := make([]SeriesResult, len(tvdbResults))
+	for i := range tvdbResults {
+		results[i] = tvdbSeriesToResult(&tvdbResults[i])
+	}
+	s.enrichWithNetworkLogos(ctx, results)
+	return results, nil
+}
+
+func (s *Service) tryTMDBSeriesSearch(ctx context.Context, query string) ([]SeriesResult, error) {
+	if !s.tmdb.IsConfigured() {
+		return nil, ErrNoProvidersConfigured
+	}
+
+	tmdbResults, err := s.tmdb.SearchSeries(ctx, query)
+	if err != nil {
+		s.logger.Error().Err(err).Str("query", query).Msg("TMDB series search failed")
+		return nil, fmt.Errorf("series search failed: %w", err)
+	}
+
+	results := make([]SeriesResult, len(tmdbResults))
+	for i := range tmdbResults {
+		results[i] = tmdbSeriesToResult(&tmdbResults[i])
+	}
 	return results, nil
 }
 
@@ -332,7 +347,7 @@ func (s *Service) GetSeriesByTMDB(ctx context.Context, tmdbID int) (*SeriesResul
 	}
 
 	// Convert to metadata.SeriesResult
-	result := tmdbSeriesToResult(*tmdbResult)
+	result := tmdbSeriesToResult(tmdbResult)
 
 	// Ensure TMDB ID is set
 	result.TmdbID = tmdbID
@@ -376,7 +391,7 @@ func (s *Service) GetSeriesByTVDB(ctx context.Context, tvdbID int) (*SeriesResul
 	}
 
 	// Convert to metadata.SeriesResult
-	result := tvdbSeriesToResult(*tvdbResult)
+	result := tvdbSeriesToResult(tvdbResult)
 
 	// Cache result
 	s.cache.Set(cacheKey, &result)
@@ -496,19 +511,7 @@ func (s *Service) GetSeriesLogoURL(ctx context.Context, tmdbID int) (string, err
 
 // enrichWithNetworkLogos populates NetworkLogoURL from the cache for results that have a network name but no logo.
 func (s *Service) enrichWithNetworkLogos(ctx context.Context, results []SeriesResult) {
-	if s.networkLogoStore == nil {
-		return
-	}
-
-	// Collect unique network names that need logos
-	needsLogo := false
-	for _, r := range results {
-		if r.Network != "" && r.NetworkLogoURL == "" {
-			needsLogo = true
-			break
-		}
-	}
-	if !needsLogo {
+	if s.networkLogoStore == nil || !s.hasResultsNeedingLogos(results) {
 		return
 	}
 
@@ -527,8 +530,17 @@ func (s *Service) enrichWithNetworkLogos(ctx context.Context, results []SeriesRe
 	}
 }
 
+func (s *Service) hasResultsNeedingLogos(results []SeriesResult) bool {
+	for i := range results {
+		if results[i].Network != "" && results[i].NetworkLogoURL == "" {
+			return true
+		}
+	}
+	return false
+}
+
 // tmdbSeasonToResult converts a TMDB season result to metadata.SeasonResult.
-func tmdbSeasonToResult(s tmdb.NormalizedSeasonResult) SeasonResult {
+func tmdbSeasonToResult(s *tmdb.NormalizedSeasonResult) SeasonResult {
 	episodes := make([]EpisodeResult, len(s.Episodes))
 	for i, ep := range s.Episodes {
 		episodes[i] = EpisodeResult{
@@ -551,7 +563,7 @@ func tmdbSeasonToResult(s tmdb.NormalizedSeasonResult) SeasonResult {
 }
 
 // tvdbSeasonToResult converts a TVDB season result to metadata.SeasonResult.
-func tvdbSeasonToResult(s tvdb.NormalizedSeasonResult) SeasonResult {
+func tvdbSeasonToResult(s *tvdb.NormalizedSeasonResult) SeasonResult {
 	episodes := make([]EpisodeResult, len(s.Episodes))
 	for i, ep := range s.Episodes {
 		episodes[i] = EpisodeResult{
@@ -580,57 +592,78 @@ func (s *Service) GetSeriesSeasons(ctx context.Context, tmdbID, tvdbID int) ([]S
 		return nil, ErrNoProvidersConfigured
 	}
 
-	// Check cache
 	cacheKey := fmt.Sprintf("series:seasons:tmdb:%d:tvdb:%d", tmdbID, tvdbID)
 	if results, ok := s.cache.GetSeasonResults(cacheKey); ok {
 		s.logger.Debug().Int("tmdbId", tmdbID).Int("tvdbId", tvdbID).Msg("Series seasons cache hit")
 		return results, nil
 	}
 
-	var results []SeasonResult
-	var err error
-
-	// Try TVDB first (single API call for all episodes)
-	if tvdbID > 0 && s.tvdb.IsConfigured() {
-		tvdbResults, tvdbErr := s.tvdb.GetSeriesEpisodes(ctx, tvdbID)
-		if tvdbErr != nil {
-			s.logger.Warn().Err(tvdbErr).Int("tvdbId", tvdbID).Msg("TVDB get episodes failed, trying TMDB")
-			err = tvdbErr
-		} else {
-			results = make([]SeasonResult, len(tvdbResults))
-			for i, r := range tvdbResults {
-				results[i] = tvdbSeasonToResult(r)
-			}
-		}
+	results, err := s.fetchSeasonsFromProviders(ctx, tmdbID, tvdbID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Fall back to TMDB if TVDB failed or not configured
-	if len(results) == 0 && tmdbID > 0 && s.tmdb.IsConfigured() {
-		tmdbResults, tmdbErr := s.tmdb.GetAllSeasons(ctx, tmdbID)
-		if tmdbErr != nil {
-			s.logger.Error().Err(tmdbErr).Int("tmdbId", tmdbID).Msg("TMDB get seasons failed")
-			if err != nil {
-				return nil, fmt.Errorf("get series seasons failed: %w", err)
-			}
-			return nil, fmt.Errorf("get series seasons failed: %w", tmdbErr)
-		}
-		results = make([]SeasonResult, len(tmdbResults))
-		for i, r := range tmdbResults {
-			results[i] = tmdbSeasonToResult(r)
-		}
-		err = nil
-	}
-
-	// If we still have no results but had an error, return it
-	if len(results) == 0 && err != nil {
-		return nil, fmt.Errorf("get series seasons failed: %w", err)
-	}
-
-	// Cache results
 	if len(results) > 0 {
 		s.cache.Set(cacheKey, results)
 	}
 
+	s.logSeasonsFetched(tmdbID, tvdbID, results)
+	return results, nil
+}
+
+func (s *Service) fetchSeasonsFromProviders(ctx context.Context, tmdbID, tvdbID int) ([]SeasonResult, error) {
+	results, err := s.tryTVDBSeasons(ctx, tvdbID)
+	if len(results) > 0 {
+		return results, nil
+	}
+
+	tmdbResults, tmdbErr := s.tryTMDBSeasons(ctx, tmdbID)
+	if tmdbErr != nil {
+		if err != nil {
+			return nil, fmt.Errorf("get series seasons failed: %w", err)
+		}
+		return nil, fmt.Errorf("get series seasons failed: %w", tmdbErr)
+	}
+	return tmdbResults, nil
+}
+
+func (s *Service) tryTVDBSeasons(ctx context.Context, tvdbID int) ([]SeasonResult, error) {
+	if tvdbID <= 0 || !s.tvdb.IsConfigured() {
+		return nil, nil
+	}
+
+	tvdbResults, err := s.tvdb.GetSeriesEpisodes(ctx, tvdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int("tvdbId", tvdbID).Msg("TVDB get episodes failed, trying TMDB")
+		return nil, err
+	}
+
+	results := make([]SeasonResult, len(tvdbResults))
+	for i := range tvdbResults {
+		results[i] = tvdbSeasonToResult(&tvdbResults[i])
+	}
+	return results, nil
+}
+
+func (s *Service) tryTMDBSeasons(ctx context.Context, tmdbID int) ([]SeasonResult, error) {
+	if tmdbID <= 0 || !s.tmdb.IsConfigured() {
+		return nil, ErrNoProvidersConfigured
+	}
+
+	tmdbResults, err := s.tmdb.GetAllSeasons(ctx, tmdbID)
+	if err != nil {
+		s.logger.Error().Err(err).Int("tmdbId", tmdbID).Msg("TMDB get seasons failed")
+		return nil, fmt.Errorf("get series seasons failed: %w", err)
+	}
+
+	results := make([]SeasonResult, len(tmdbResults))
+	for i := range tmdbResults {
+		results[i] = tmdbSeasonToResult(&tmdbResults[i])
+	}
+	return results, nil
+}
+
+func (s *Service) logSeasonsFetched(tmdbID, tvdbID int, results []SeasonResult) {
 	totalEpisodes := 0
 	for _, season := range results {
 		totalEpisodes += len(season.Episodes)
@@ -642,8 +675,6 @@ func (s *Service) GetSeriesSeasons(ctx context.Context, tmdbID, tvdbID int) ([]S
 		Int("seasons", len(results)).
 		Int("episodes", totalEpisodes).
 		Msg("Got series seasons")
-
-	return results, nil
 }
 
 // GetExtendedMovie gets extended movie metadata including credits, ratings, and content rating.
@@ -710,70 +741,68 @@ func (s *Service) GetExtendedSeries(ctx context.Context, tmdbID int) (*ExtendedS
 		return nil, ErrNoProvidersConfigured
 	}
 
-	// Get base series details
 	series, err := s.GetSeriesByTMDB(ctx, tmdbID)
 	if err != nil {
 		return nil, err
 	}
 
-	result := &ExtendedSeriesResult{
-		SeriesResult: *series,
-	}
+	result := &ExtendedSeriesResult{SeriesResult: *series}
+	s.enrichSeriesMetadata(ctx, tmdbID, series, result)
 
-	// Fetch credits
-	credits, err := s.tmdb.GetSeriesCredits(ctx, tmdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series credits")
-	} else {
-		result.Credits = tmdbCreditsToCredits(credits)
-	}
-
-	// Fetch content rating
-	contentRating, err := s.tmdb.GetSeriesContentRating(ctx, tmdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series content rating")
-	} else {
-		result.ContentRating = contentRating
-	}
-
-	// Fetch seasons
-	seasons, err := s.GetSeriesSeasons(ctx, tmdbID, series.TvdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series seasons")
-	} else {
-		result.Seasons = seasons
-	}
-
-	// Fetch OMDb ratings if configured and IMDB ID is available
-	if series.ImdbID != "" && s.omdb != nil && s.omdb.IsConfigured() {
-		omdbRatings, err := s.omdb.GetByIMDbID(ctx, series.ImdbID)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("imdbId", series.ImdbID).Msg("Failed to get OMDb ratings")
-		} else {
-			result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
-		}
-
-		// Fetch per-episode ratings for each season
-		for i, season := range result.Seasons {
-			epRatings, err := s.omdb.GetSeasonEpisodes(ctx, series.ImdbID, season.SeasonNumber)
-			if err != nil {
-				s.logger.Debug().Err(err).Int("season", season.SeasonNumber).Msg("Failed to get episode ratings")
-				continue
-			}
-			for j := range result.Seasons[i].Episodes {
-				if rating, ok := epRatings[result.Seasons[i].Episodes[j].EpisodeNumber]; ok {
-					result.Seasons[i].Episodes[j].ImdbRating = rating
-				}
-			}
-		}
-	}
-
-	s.logger.Info().
-		Int("tmdbId", tmdbID).
-		Str("title", series.Title).
-		Msg("Got extended series metadata")
-
+	s.logger.Info().Int("tmdbId", tmdbID).Str("title", series.Title).Msg("Got extended series metadata")
 	return result, nil
+}
+
+func (s *Service) enrichSeriesMetadata(ctx context.Context, tmdbID int, series *SeriesResult, result *ExtendedSeriesResult) {
+	if credits, err := s.tmdb.GetSeriesCredits(ctx, tmdbID); err == nil {
+		result.Credits = tmdbCreditsToCredits(credits)
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series credits")
+	}
+
+	if contentRating, err := s.tmdb.GetSeriesContentRating(ctx, tmdbID); err == nil {
+		result.ContentRating = contentRating
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series content rating")
+	}
+
+	if seasons, err := s.GetSeriesSeasons(ctx, tmdbID, series.TvdbID); err == nil {
+		result.Seasons = seasons
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series seasons")
+	}
+
+	s.enrichSeriesOMDbData(ctx, series, result)
+}
+
+func (s *Service) enrichSeriesOMDbData(ctx context.Context, series *SeriesResult, result *ExtendedSeriesResult) {
+	if series.ImdbID == "" || s.omdb == nil || !s.omdb.IsConfigured() {
+		return
+	}
+
+	omdbRatings, err := s.omdb.GetByIMDbID(ctx, series.ImdbID)
+	if err != nil {
+		s.logger.Warn().Err(err).Str("imdbId", series.ImdbID).Msg("Failed to get OMDb ratings")
+		return
+	}
+
+	result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
+	s.enrichEpisodeRatings(ctx, series.ImdbID, result)
+}
+
+func (s *Service) enrichEpisodeRatings(ctx context.Context, imdbID string, result *ExtendedSeriesResult) {
+	for i, season := range result.Seasons {
+		epRatings, err := s.omdb.GetSeasonEpisodes(ctx, imdbID, season.SeasonNumber)
+		if err != nil {
+			s.logger.Debug().Err(err).Int("season", season.SeasonNumber).Msg("Failed to get episode ratings")
+			continue
+		}
+		for j := range result.Seasons[i].Episodes {
+			if rating, ok := epRatings[result.Seasons[i].Episodes[j].EpisodeNumber]; ok {
+				result.Seasons[i].Episodes[j].ImdbRating = rating
+			}
+		}
+	}
 }
 
 // tmdbCreditsToCredits converts TMDB credits to metadata.Credits.

@@ -19,7 +19,7 @@ func TestGetCacheBoundary_NoCacheExists(t *testing.T) {
 	ctx := context.Background()
 
 	// Create an indexer so indexer_status can reference it
-	createTestIndexer(t, q, 1, "TestIndexer")
+	createTestIndexer(t, q, "TestIndexer")
 
 	boundary, err := GetCacheBoundary(ctx, q, 1)
 	// sql.ErrNoRows is expected when no indexer_status row exists
@@ -37,7 +37,7 @@ func TestUpdateAndGetCacheBoundary(t *testing.T) {
 	q := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	createTestIndexer(t, q, 1, "TestIndexer")
+	createTestIndexer(t, q, "TestIndexer")
 
 	pubDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 	release := &types.TorrentInfo{
@@ -164,7 +164,7 @@ func TestUpdateCacheBoundary_NilRelease(t *testing.T) {
 }
 
 // createTestIndexer inserts a minimal indexer so indexer_status can reference it.
-func createTestIndexer(t *testing.T, q *sqlc.Queries, id int64, name string) {
+func createTestIndexer(t *testing.T, q *sqlc.Queries, name string) {
 	t.Helper()
 	_, err := q.CreateIndexer(context.Background(), sqlc.CreateIndexerParams{
 		Name:           name,

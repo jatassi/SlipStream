@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+const (
+	tokenTitle = "title"
+)
+
 // NamingConfig holds naming template configuration.
 type NamingConfig struct {
 	// Movie naming
@@ -14,31 +18,31 @@ type NamingConfig struct {
 	MovieFileFormat   string `json:"movieFileFormat"`
 
 	// TV naming
-	SeriesFolderFormat  string `json:"seriesFolderFormat"`
-	SeasonFolderFormat  string `json:"seasonFolderFormat"`
-	EpisodeFileFormat   string `json:"episodeFileFormat"`
-	MultiEpisodeFormat  string `json:"multiEpisodeFormat"`
+	SeriesFolderFormat string `json:"seriesFolderFormat"`
+	SeasonFolderFormat string `json:"seasonFolderFormat"`
+	EpisodeFileFormat  string `json:"episodeFileFormat"`
+	MultiEpisodeFormat string `json:"multiEpisodeFormat"`
 
 	// Options
-	ReplaceSpaces      bool   `json:"replaceSpaces"`
-	SpaceReplacement   string `json:"spaceReplacement"`
-	ColonReplacement   string `json:"colonReplacement"`
-	CleanSpecialChars  bool   `json:"cleanSpecialChars"`
+	ReplaceSpaces     bool   `json:"replaceSpaces"`
+	SpaceReplacement  string `json:"spaceReplacement"`
+	ColonReplacement  string `json:"colonReplacement"`
+	CleanSpecialChars bool   `json:"cleanSpecialChars"`
 }
 
 // DefaultNamingConfig returns default naming configuration.
 func DefaultNamingConfig() NamingConfig {
 	return NamingConfig{
-		MovieFolderFormat:   "{Movie Title} ({Year})",
-		MovieFileFormat:     "{Movie Title} ({Year})",
-		SeriesFolderFormat:  "{Series Title}",
-		SeasonFolderFormat:  "Season {Season:00}",
-		EpisodeFileFormat:   "{Series Title} - S{Season:00}E{Episode:00} - {Episode Title}",
-		MultiEpisodeFormat:  "{Series Title} - S{Season:00}E{Episode:00}-E{EndEpisode:00} - {Episode Title}",
-		ReplaceSpaces:       false,
-		SpaceReplacement:    ".",
-		ColonReplacement:    " -",
-		CleanSpecialChars:   true,
+		MovieFolderFormat:  "{Movie Title} ({Year})",
+		MovieFileFormat:    "{Movie Title} ({Year})",
+		SeriesFolderFormat: "{Series Title}",
+		SeasonFolderFormat: "Season {Season:00}",
+		EpisodeFileFormat:  "{Series Title} - S{Season:00}E{Episode:00} - {Episode Title}",
+		MultiEpisodeFormat: "{Series Title} - S{Season:00}E{Episode:00}-E{EndEpisode:00} - {Episode Title}",
+		ReplaceSpaces:      false,
+		SpaceReplacement:   ".",
+		ColonReplacement:   " -",
+		CleanSpecialChars:  true,
 	}
 }
 
@@ -77,28 +81,28 @@ type EpisodeTokens struct {
 var tokenPattern = regexp.MustCompile(`\{([^}:]+)(?::([^}]+))?\}`)
 
 // FormatMovieFolder formats a movie folder name using the template.
-func (c NamingConfig) FormatMovieFolder(tokens MovieTokens) string {
+func (c *NamingConfig) FormatMovieFolder(tokens *MovieTokens) string {
 	return c.formatTemplate(c.MovieFolderFormat, func(token, format string) string {
 		return c.resolveMovieToken(token, format, tokens)
 	})
 }
 
 // FormatMovieFile formats a movie filename using the template.
-func (c NamingConfig) FormatMovieFile(tokens MovieTokens) string {
+func (c *NamingConfig) FormatMovieFile(tokens *MovieTokens) string {
 	return c.formatTemplate(c.MovieFileFormat, func(token, format string) string {
 		return c.resolveMovieToken(token, format, tokens)
 	})
 }
 
 // FormatSeriesFolder formats a series folder name using the template.
-func (c NamingConfig) FormatSeriesFolder(tokens SeriesTokens) string {
+func (c *NamingConfig) FormatSeriesFolder(tokens *SeriesTokens) string {
 	return c.formatTemplate(c.SeriesFolderFormat, func(token, format string) string {
 		return c.resolveSeriesToken(token, format, tokens)
 	})
 }
 
 // FormatSeasonFolder formats a season folder name using the template.
-func (c NamingConfig) FormatSeasonFolder(seasonNumber int) string {
+func (c *NamingConfig) FormatSeasonFolder(seasonNumber int) string {
 	return c.formatTemplate(c.SeasonFolderFormat, func(token, format string) string {
 		if strings.EqualFold(token, "Season") {
 			return formatNumber(seasonNumber, format)
@@ -108,7 +112,7 @@ func (c NamingConfig) FormatSeasonFolder(seasonNumber int) string {
 }
 
 // FormatEpisodeFile formats an episode filename using the template.
-func (c NamingConfig) FormatEpisodeFile(tokens EpisodeTokens) string {
+func (c *NamingConfig) FormatEpisodeFile(tokens *EpisodeTokens) string {
 	template := c.EpisodeFileFormat
 	if tokens.EndEpisode > 0 && tokens.EndEpisode != tokens.EpisodeNumber {
 		template = c.MultiEpisodeFormat
@@ -120,7 +124,7 @@ func (c NamingConfig) FormatEpisodeFile(tokens EpisodeTokens) string {
 }
 
 // formatTemplate applies token resolution to a template string.
-func (c NamingConfig) formatTemplate(template string, resolver func(token, format string) string) string {
+func (c *NamingConfig) formatTemplate(template string, resolver func(token, format string) string) string {
 	result := tokenPattern.ReplaceAllStringFunc(template, func(match string) string {
 		submatch := tokenPattern.FindStringSubmatch(match)
 		if len(submatch) >= 2 {
@@ -140,38 +144,36 @@ func (c NamingConfig) formatTemplate(template string, resolver func(token, forma
 }
 
 // resolveMovieToken resolves a movie template token.
-func (c NamingConfig) resolveMovieToken(token, format string, tokens MovieTokens) string {
-	switch strings.ToLower(token) {
-	case "movie title", "title":
-		return tokens.Title
+func (c *NamingConfig) resolveMovieToken(token, format string, tokens *MovieTokens) string {
+	lower := strings.ToLower(token)
+
+	simpleFields := map[string]string{
+		"movie title": tokens.Title, tokenTitle: tokens.Title,
+		"quality": tokens.Quality, "resolution": tokens.Resolution,
+		"source": tokens.Source, "codec": tokens.Codec,
+		"imdb": tokens.ImdbID, "imdbid": tokens.ImdbID,
+	}
+	if v, ok := simpleFields[lower]; ok {
+		return v
+	}
+
+	switch lower {
 	case "year":
 		if tokens.Year > 0 {
 			return formatNumber(tokens.Year, format)
 		}
-		return ""
-	case "quality":
-		return tokens.Quality
-	case "resolution":
-		return tokens.Resolution
-	case "source":
-		return tokens.Source
-	case "codec":
-		return tokens.Codec
-	case "imdb", "imdbid":
-		return tokens.ImdbID
 	case "tmdb", "tmdbid":
 		if tokens.TmdbID > 0 {
 			return strconv.Itoa(tokens.TmdbID)
 		}
-		return ""
 	}
 	return ""
 }
 
 // resolveSeriesToken resolves a series template token.
-func (c NamingConfig) resolveSeriesToken(token, format string, tokens SeriesTokens) string {
+func (c *NamingConfig) resolveSeriesToken(token, format string, tokens *SeriesTokens) string {
 	switch strings.ToLower(token) {
-	case "series title", "title":
+	case "series title", tokenTitle:
 		return tokens.SeriesTitle
 	case "year":
 		if tokens.Year > 0 {
@@ -183,10 +185,20 @@ func (c NamingConfig) resolveSeriesToken(token, format string, tokens SeriesToke
 }
 
 // resolveEpisodeToken resolves an episode template token.
-func (c NamingConfig) resolveEpisodeToken(token, format string, tokens EpisodeTokens) string {
-	switch strings.ToLower(token) {
-	case "series title", "series":
-		return tokens.SeriesTitle
+func (c *NamingConfig) resolveEpisodeToken(token, format string, tokens *EpisodeTokens) string {
+	lower := strings.ToLower(token)
+
+	simpleFields := map[string]string{
+		"series title": tokens.SeriesTitle, "series": tokens.SeriesTitle,
+		"episode title": tokens.EpisodeTitle, tokenTitle: tokens.EpisodeTitle,
+		"quality": tokens.Quality, "resolution": tokens.Resolution,
+		"source": tokens.Source, "codec": tokens.Codec,
+	}
+	if v, ok := simpleFields[lower]; ok {
+		return v
+	}
+
+	switch lower {
 	case "season":
 		return formatNumber(tokens.SeasonNumber, format)
 	case "episode":
@@ -196,16 +208,6 @@ func (c NamingConfig) resolveEpisodeToken(token, format string, tokens EpisodeTo
 			return formatNumber(tokens.EndEpisode, format)
 		}
 		return formatNumber(tokens.EpisodeNumber, format)
-	case "episode title", "title":
-		return tokens.EpisodeTitle
-	case "quality":
-		return tokens.Quality
-	case "resolution":
-		return tokens.Resolution
-	case "source":
-		return tokens.Source
-	case "codec":
-		return tokens.Codec
 	}
 	return ""
 }
@@ -217,7 +219,7 @@ func formatNumber(n int, format string) string {
 	}
 
 	// Parse format like "00" for zero-padded
-	if len(format) > 0 && format[0] == '0' {
+	if format != "" && format[0] == '0' {
 		width := len(format)
 		return fmt.Sprintf("%0*d", width, n)
 	}
@@ -226,7 +228,7 @@ func formatNumber(n int, format string) string {
 }
 
 // cleanFilename cleans a filename by removing/replacing invalid characters.
-func (c NamingConfig) cleanFilename(name string) string {
+func (c *NamingConfig) cleanFilename(name string) string {
 	// Replace colons
 	if c.ColonReplacement != "" {
 		name = strings.ReplaceAll(name, ":", c.ColonReplacement)

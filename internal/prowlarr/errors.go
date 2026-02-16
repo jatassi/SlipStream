@@ -13,8 +13,8 @@ var (
 	ErrValidationFailed = errors.New("prowlarr configuration validation failed")
 
 	// Connection errors
-	ErrConnectionFailed   = errors.New("prowlarr connection failed")
-	ErrConnectionTimeout  = errors.New("prowlarr connection timed out")
+	ErrConnectionFailed      = errors.New("prowlarr connection failed")
+	ErrConnectionTimeout     = errors.New("prowlarr connection timed out")
 	ErrSSLVerificationFailed = errors.New("SSL certificate verification failed")
 
 	// Search errors
@@ -23,11 +23,14 @@ var (
 	ErrNoIndexersEnabled = errors.New("no indexers enabled in prowlarr")
 
 	// Download/Grab errors
-	ErrDownloadFailed    = errors.New("prowlarr download failed")
-	ErrDownloadNotFound  = errors.New("download not found")
+	ErrDownloadFailed   = errors.New("prowlarr download failed")
+	ErrDownloadNotFound = errors.New("download not found")
 
 	// Rate limiting errors
 	ErrRateLimited = errors.New("prowlarr rate limit exceeded")
+
+	// Not found errors
+	ErrNotFound = errors.New("not found")
 )
 
 // ProwlarrError wraps an error with additional context.

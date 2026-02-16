@@ -1,3 +1,6 @@
+// Package crypto provides encryption utilities for sensitive data.
+//
+//nolint:revive // Package name intentionally matches stdlib for domain clarity
 package crypto
 
 import (

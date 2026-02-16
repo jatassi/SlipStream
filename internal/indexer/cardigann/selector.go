@@ -78,57 +78,69 @@ func RemoveElements(sel *goquery.Selection, removeSelector string) *goquery.Sele
 	return sel
 }
 
+// selectTarget finds the target selection based on field selector
+func selectTarget(sel *goquery.Selection, field *Field) *goquery.Selection {
+	if field.Selector != "" {
+		return sel.Find(field.Selector).First()
+	}
+	return sel
+}
+
+// extractValue gets the value from selection based on field attribute
+func extractValue(targetSel *goquery.Selection, field *Field) string {
+	if field.Attribute != "" {
+		return ExtractAttribute(targetSel, field.Attribute)
+	}
+	return strings.TrimSpace(targetSel.Text())
+}
+
+// applyCaseMapping applies case mapping to value
+func applyCaseMapping(value string, caseMap map[string]string) string {
+	if len(caseMap) == 0 {
+		return value
+	}
+
+	if mapped, ok := caseMap[value]; ok {
+		return mapped
+	}
+	if defaultVal, ok := caseMap["*"]; ok {
+		return defaultVal
+	}
+	return value
+}
+
+// getDefaultValue returns the default value if value is empty
+func getDefaultValue(value string, field *Field) string {
+	if value == "" && field.Default != "" {
+		return field.Default
+	}
+	return value
+}
+
 // ExtractField extracts a value from a selection based on a Field definition.
-func ExtractField(sel *goquery.Selection, field Field, ctx *TemplateContext) (string, error) {
-	// Handle static text
+func ExtractField(sel *goquery.Selection, field *Field, ctx *TemplateContext) (string, error) {
 	if field.Text != "" {
 		engine := NewTemplateEngine()
 		return engine.Evaluate(field.Text, ctx)
 	}
 
-	// Handle selector-based extraction
-	var targetSel *goquery.Selection
-	if field.Selector != "" {
-		targetSel = sel.Find(field.Selector).First()
-	} else {
-		targetSel = sel
-	}
+	targetSel := selectTarget(sel, field)
 
-	// Check if we found the element
 	if targetSel.Length() == 0 {
-		if field.Optional {
-			return field.Default, nil
-		}
-		if field.Default != "" {
+		if field.Optional || field.Default != "" {
 			return field.Default, nil
 		}
 		return "", nil
 	}
 
-	// Remove unwanted elements before extraction
 	if field.Remove != "" {
 		targetSel = targetSel.Clone()
 		targetSel.Find(field.Remove).Remove()
 	}
 
-	// Extract the value
-	var value string
-	if field.Attribute != "" {
-		value = ExtractAttribute(targetSel, field.Attribute)
-	} else {
-		value = strings.TrimSpace(targetSel.Text())
-	}
+	value := extractValue(targetSel, field)
+	value = applyCaseMapping(value, field.Case)
 
-	// Handle case mapping
-	if len(field.Case) > 0 {
-		if mapped, ok := field.Case[value]; ok {
-			value = mapped
-		} else if defaultVal, ok := field.Case["*"]; ok {
-			value = defaultVal
-		}
-	}
-
-	// Apply filters
 	if len(field.Filters) > 0 {
 		filtered, err := ApplyFilters(value, field.Filters)
 		if err != nil {
@@ -137,16 +149,12 @@ func ExtractField(sel *goquery.Selection, field Field, ctx *TemplateContext) (st
 		value = filtered
 	}
 
-	// Use default if value is empty
-	if value == "" && field.Default != "" {
-		value = field.Default
-	}
-
+	value = getDefaultValue(value, field)
 	return value, nil
 }
 
 // ExtractRows finds all result rows in the document.
-func (s *HTMLSelector) ExtractRows(rowSelector RowSelector) []*goquery.Selection {
+func (s *HTMLSelector) ExtractRows(rowSelector *RowSelector) []*goquery.Selection {
 	var rows []*goquery.Selection
 
 	sel := s.doc.Find(rowSelector.Selector)

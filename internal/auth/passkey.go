@@ -94,7 +94,10 @@ func (s *PasskeyService) getChallenge(challengeID string) (*ChallengeData, bool)
 	if !ok {
 		return nil, false
 	}
-	data := val.(*ChallengeData)
+	data, ok := val.(*ChallengeData)
+	if !ok {
+		return nil, false
+	}
 	if time.Now().After(data.ExpiresAt) {
 		s.challenges.Delete(challengeID)
 		return nil, false
@@ -161,7 +164,7 @@ func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.Porta
 }
 
 // FinishRegistration completes passkey registration using the HTTP request
-func (s *PasskeyService) FinishRegistration(ctx context.Context, user *sqlc.PortalUser, challengeID string, name string, r *http.Request) error {
+func (s *PasskeyService) FinishRegistration(ctx context.Context, user *sqlc.PortalUser, challengeID, name string, r *http.Request) error {
 	challenge, ok := s.getChallenge(challengeID)
 	if !ok {
 		return fmt.Errorf("challenge expired or not found")
@@ -377,9 +380,13 @@ func credentialsFromDB(dbCreds []*sqlc.PasskeyCredential) []webauthn.Credential 
 	for i, c := range dbCreds {
 		var transport []protocol.AuthenticatorTransport
 		if c.Transport.Valid {
-			json.Unmarshal([]byte(c.Transport.String), &transport)
+			_ = json.Unmarshal([]byte(c.Transport.String), &transport)
 		}
 
+		// Check for integer overflow before conversion
+		if c.SignCount < 0 || c.SignCount > 4294967295 {
+			continue // Skip invalid sign count
+		}
 		creds[i] = webauthn.Credential{
 			ID:              c.CredentialID,
 			PublicKey:       c.PublicKey,
@@ -404,13 +411,13 @@ func credentialDescriptorsFromDB(dbCreds []*sqlc.PasskeyCredential) []protocol.C
 	for i, c := range dbCreds {
 		var transport []protocol.AuthenticatorTransport
 		if c.Transport.Valid {
-			json.Unmarshal([]byte(c.Transport.String), &transport)
+			_ = json.Unmarshal([]byte(c.Transport.String), &transport)
 		}
 
 		descriptors[i] = protocol.CredentialDescriptor{
-			Type:            protocol.PublicKeyCredentialType,
-			CredentialID:    c.CredentialID,
-			Transport:       transport,
+			Type:         protocol.PublicKeyCredentialType,
+			CredentialID: c.CredentialID,
+			Transport:    transport,
 		}
 	}
 	return descriptors

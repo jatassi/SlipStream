@@ -12,6 +12,10 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/users"
 )
 
+const (
+	usernameAdministrator = "Administrator"
+)
+
 // AccountLockoutChecker provides account lockout functionality.
 type AccountLockoutChecker interface {
 	IsAccountLocked(username string) bool
@@ -101,46 +105,57 @@ func (h *Handlers) RegisterRoutes(g *echo.Group, authMiddleware *portalmw.AuthMi
 
 // POST /api/v1/requests/auth/login
 func (h *Handlers) Login(c echo.Context) error {
-	var req LoginRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	req, err := h.validateLoginRequest(c)
+	if err != nil {
+		return err
 	}
 
-	if req.Username == "" || req.Password == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
+	if err := h.checkAccountLockout(req.Username); err != nil {
+		return err
 	}
 
-	// Check account lockout
-	if h.lockoutChecker != nil && h.lockoutChecker.IsAccountLocked(req.Username) {
-		remaining := h.lockoutChecker.GetLockoutRemaining(req.Username)
-		minutes := int(remaining.Minutes()) + 1
-		return echo.NewHTTPError(http.StatusTooManyRequests,
-			fmt.Sprintf("account temporarily locked due to too many failed attempts, try again in %d minute(s)", minutes))
-	}
-
-	// Check if this is an admin login (username is "Administrator")
-	if req.Username == "Administrator" {
+	if req.Username == usernameAdministrator {
 		return h.handleAdminLogin(c, req.Password)
 	}
 
-	dbUser, err := h.usersService.ValidateCredentials(c.Request().Context(), req.Username, req.Password)
-	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) {
-			if h.lockoutChecker != nil {
-				h.lockoutChecker.RecordFailedAttempt(req.Username)
-			}
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
-		}
-		if errors.Is(err, ErrUserDisabled) {
-			return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
+	return h.handlePortalUserLogin(c, req)
+}
+
+func (h *Handlers) validateLoginRequest(c echo.Context) (*LoginRequest, error) {
+	var req LoginRequest
+	if err := c.Bind(&req); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	// Clear lockout on successful login
-	if h.lockoutChecker != nil {
-		h.lockoutChecker.RecordSuccessfulLogin(req.Username)
+	if req.Username == "" || req.Password == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
 	}
+
+	return &req, nil
+}
+
+func (h *Handlers) checkAccountLockout(username string) error {
+	if h.lockoutChecker == nil {
+		return nil
+	}
+
+	if !h.lockoutChecker.IsAccountLocked(username) {
+		return nil
+	}
+
+	remaining := h.lockoutChecker.GetLockoutRemaining(username)
+	minutes := int(remaining.Minutes()) + 1
+	return echo.NewHTTPError(http.StatusTooManyRequests,
+		fmt.Sprintf("account temporarily locked due to too many failed attempts, try again in %d minute(s)", minutes))
+}
+
+func (h *Handlers) handlePortalUserLogin(c echo.Context, req *LoginRequest) error {
+	dbUser, err := h.usersService.ValidateCredentials(c.Request().Context(), req.Username, req.Password)
+	if err != nil {
+		return h.handleLoginError(err, req.Username)
+	}
+
+	h.recordSuccessfulLogin(req.Username)
 
 	token, err := h.authService.GeneratePortalToken(dbUser)
 	if err != nil {
@@ -159,25 +174,40 @@ func (h *Handlers) Login(c echo.Context) error {
 	})
 }
 
+func (h *Handlers) handleLoginError(err error, username string) error {
+	if errors.Is(err, ErrInvalidCredentials) {
+		h.recordFailedAttempt(username)
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
+	}
+	if errors.Is(err, ErrUserDisabled) {
+		return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
+}
+
+func (h *Handlers) recordFailedAttempt(username string) {
+	if h.lockoutChecker != nil {
+		h.lockoutChecker.RecordFailedAttempt(username)
+	}
+}
+
+func (h *Handlers) recordSuccessfulLogin(username string) {
+	if h.lockoutChecker != nil {
+		h.lockoutChecker.RecordSuccessfulLogin(username)
+	}
+}
+
 func (h *Handlers) handleAdminLogin(c echo.Context, password string) error {
 	ctx := c.Request().Context()
-	username := "Administrator"
+	username := usernameAdministrator
 
 	dbAdmin, err := h.usersService.GetDBAdmin(ctx)
 	if err != nil {
-		if errors.Is(err, users.ErrUserNotFound) {
-			if h.lockoutChecker != nil {
-				h.lockoutChecker.RecordFailedAttempt(username)
-			}
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
+		return h.handleAdminLookupError(err, username)
 	}
 
 	if err := ValidatePassword(dbAdmin.PasswordHash, password); err != nil {
-		if h.lockoutChecker != nil {
-			h.lockoutChecker.RecordFailedAttempt(username)
-		}
+		h.recordFailedAttempt(username)
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 	}
 
@@ -185,10 +215,7 @@ func (h *Handlers) handleAdminLogin(c echo.Context, password string) error {
 		return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
 	}
 
-	// Clear lockout on successful login
-	if h.lockoutChecker != nil {
-		h.lockoutChecker.RecordSuccessfulLogin(username)
-	}
+	h.recordSuccessfulLogin(username)
 
 	token, err := h.authService.GenerateAdminToken(dbAdmin.ID, dbAdmin.Username)
 	if err != nil {
@@ -207,34 +234,71 @@ func (h *Handlers) handleAdminLogin(c echo.Context, password string) error {
 	})
 }
 
-// POST /api/v1/requests/auth/signup
+func (h *Handlers) handleAdminLookupError(err error, username string) error {
+	if errors.Is(err, users.ErrUserNotFound) {
+		h.recordFailedAttempt(username)
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, "authentication failed")
+}
+
 func (h *Handlers) Signup(c echo.Context) error {
+	req, err := h.validateSignupRequest(c)
+	if err != nil {
+		return err
+	}
+
+	inv, err := h.validateInvitation(c, req.Token)
+	if err != nil {
+		return err
+	}
+
+	user, err := h.createUserFromInvitation(c, req, inv)
+	if err != nil {
+		return err
+	}
+
+	if err := h.invitationsService.MarkUsed(c.Request().Context(), inv.ID); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to mark invitation as used")
+	}
+
+	return h.generateSignupResponse(c, user.ID)
+}
+
+func (h *Handlers) validateSignupRequest(c echo.Context) (*SignupRequest, error) {
 	var req SignupRequest
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if req.Token == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "invitation token is required")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invitation token is required")
 	}
 	if req.Password == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "password is required")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "password is required")
 	}
 
-	inv, err := h.invitationsService.Validate(c.Request().Context(), req.Token)
+	return &req, nil
+}
+
+func (h *Handlers) validateInvitation(c echo.Context, token string) (*invitations.Invitation, error) {
+	inv, err := h.invitationsService.Validate(c.Request().Context(), token)
 	if err != nil {
 		if errors.Is(err, invitations.ErrInvitationNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "invitation not found")
+			return nil, echo.NewHTTPError(http.StatusNotFound, "invitation not found")
 		}
 		if errors.Is(err, invitations.ErrInvitationExpired) {
-			return echo.NewHTTPError(http.StatusGone, "invitation has expired")
+			return nil, echo.NewHTTPError(http.StatusGone, "invitation has expired")
 		}
 		if errors.Is(err, invitations.ErrInvitationUsed) {
-			return echo.NewHTTPError(http.StatusConflict, "invitation has already been used")
+			return nil, echo.NewHTTPError(http.StatusConflict, "invitation has already been used")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to validate invitation")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to validate invitation")
 	}
+	return inv, nil
+}
 
+func (h *Handlers) createUserFromInvitation(c echo.Context, req *SignupRequest, inv *invitations.Invitation) (*users.User, error) {
 	user, err := h.usersService.Create(c.Request().Context(), users.CreateInput{
 		Username:         inv.Username,
 		Password:         req.Password,
@@ -244,16 +308,15 @@ func (h *Handlers) Signup(c echo.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, users.ErrUsernameExists) {
-			return echo.NewHTTPError(http.StatusConflict, "username already registered")
+			return nil, echo.NewHTTPError(http.StatusConflict, "username already registered")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create user")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to create user")
 	}
+	return user, nil
+}
 
-	if err := h.invitationsService.MarkUsed(c.Request().Context(), inv.ID); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to mark invitation as used")
-	}
-
-	dbUser, err := h.usersService.GetDBUser(c.Request().Context(), user.ID)
+func (h *Handlers) generateSignupResponse(c echo.Context, userID int64) error {
+	dbUser, err := h.usersService.GetDBUser(c.Request().Context(), userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user")
 	}
@@ -263,13 +326,16 @@ func (h *Handlers) Signup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate token")
 	}
 
+	user, err := h.usersService.Get(c.Request().Context(), userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user")
+	}
+
 	return c.JSON(http.StatusCreated, LoginResponse{
 		Token: token,
 		User:  user,
 	})
 }
-
-// GET /api/v1/requests/auth/validate-invitation
 func (h *Handlers) ValidateInvitation(c echo.Context) error {
 	token := c.QueryParam("token")
 	if token == "" {

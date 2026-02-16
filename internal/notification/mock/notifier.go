@@ -24,13 +24,13 @@ type NotificationRecord struct {
 // It logs all notifications and stores them in memory for UI preview.
 type Notifier struct {
 	name   string
-	logger zerolog.Logger
+	logger *zerolog.Logger
 
-	mu           sync.RWMutex
-	records      []NotificationRecord
-	nextID       int64
-	maxRecords   int
-	broadcaster  Broadcaster
+	mu          sync.RWMutex
+	records     []NotificationRecord
+	nextID      int64
+	maxRecords  int
+	broadcaster Broadcaster
 }
 
 // Broadcaster interface for sending WebSocket events
@@ -39,10 +39,11 @@ type Broadcaster interface {
 }
 
 // New creates a new mock notifier
-func New(name string, logger zerolog.Logger) *Notifier {
+func New(name string, logger *zerolog.Logger) *Notifier {
+	subLogger := logger.With().Str("notifier", "mock").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		logger:     logger.With().Str("notifier", "mock").Str("name", name).Logger(),
+		logger:     &subLogger,
 		records:    make([]NotificationRecord, 0),
 		nextID:     1,
 		maxRecords: 100,
@@ -69,7 +70,7 @@ func (n *Notifier) Test(ctx context.Context) error {
 	return nil
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	title := "Release Grabbed"
 	var message string
 	if event.Movie != nil {
@@ -86,7 +87,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return nil
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	title := "Download Imported"
 	var message string
 	if event.Movie != nil {
@@ -100,7 +101,7 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 	return nil
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	title := "Quality Upgraded"
 	var message string
 	if event.Movie != nil {
@@ -114,7 +115,7 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 	return nil
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	title := "Movie Added"
 	message := event.Movie.Title
 	if event.Movie.Year > 0 {
@@ -125,7 +126,7 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 	return nil
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	title := "Movie Deleted"
 	message := event.Movie.Title
 	if event.DeletedFiles {
@@ -136,7 +137,7 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 	return nil
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	title := "Series Added"
 	message := event.Series.Title
 	if event.Series.Year > 0 {
@@ -147,7 +148,7 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 	return nil
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	title := "Series Deleted"
 	message := event.Series.Title
 	if event.DeletedFiles {
@@ -158,7 +159,7 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 	return nil
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	title := "Health Issue: " + event.Source
 	message := event.Message
 
@@ -166,7 +167,7 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 	return nil
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	title := "Health Restored: " + event.Source
 	message := event.Message
 
@@ -174,7 +175,7 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent
 	return nil
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	title := "Application Updated"
 	message := event.PreviousVersion + " -> " + event.NewVersion
 
@@ -182,7 +183,7 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return nil
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	n.recordNotification("message", event.Title, event.Message, event)
 	return nil
 }

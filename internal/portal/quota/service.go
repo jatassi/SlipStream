@@ -46,13 +46,14 @@ type QuotaLimits struct {
 
 type Service struct {
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
-func NewService(queries *sqlc.Queries, logger zerolog.Logger) *Service {
+func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "portal-quota").Logger()
 	return &Service{
 		queries: queries,
-		logger:  logger.With().Str("component", "portal-quota").Logger(),
+		logger:  &subLogger,
 	}
 }
 

@@ -76,7 +76,7 @@ func (c *FilesystemChecker) CheckFolderWritable(path string) error {
 
 // CheckFolderHealth combines accessibility and writability checks.
 // Returns (ok, message) where message describes the issue if not ok.
-func (c *FilesystemChecker) CheckFolderHealth(path string) (bool, string) {
+func (c *FilesystemChecker) CheckFolderHealth(path string) (ok bool, message string) {
 	// Check accessibility
 	if err := c.CheckFolderAccessible(path); err != nil {
 		return false, err.Error()

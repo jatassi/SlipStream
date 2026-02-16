@@ -6,11 +6,6 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 )
 
-// Helper to create AttributeSettings with per-item modes
-func makeAttrSettings(items map[string]quality.AttributeMode) quality.AttributeSettings {
-	return quality.AttributeSettings{Items: items}
-}
-
 // Helper to create AttributeSettings where all values have the same mode
 func makeAttrSettingsWithMode(mode quality.AttributeMode, values []string) quality.AttributeSettings {
 	items := make(map[string]quality.AttributeMode)
@@ -472,7 +467,7 @@ func TestBuildNamingValidationWarnings(t *testing.T) {
 		EpisodeValidation: NamingValidationResult{Valid: true},
 	}
 
-	warnings := BuildNamingValidationWarnings(validation)
+	warnings := BuildNamingValidationWarnings(&validation)
 
 	if len(warnings) != 1 {
 		t.Errorf("BuildNamingValidationWarnings() returned %d warnings, want 1", len(warnings))
@@ -484,7 +479,7 @@ func TestBuildNamingValidationWarnings(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+	return len(s) >= len(substr) && (s == substr || s != "" && containsSubstring(s, substr))
 }
 
 func containsSubstring(s, substr string) bool {

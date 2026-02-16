@@ -1,3 +1,6 @@
+// Package scanner provides parsing for media filenames.
+//
+//nolint:revive // Package name intentionally matches stdlib scanner for domain clarity
 package scanner
 
 import (
@@ -278,83 +281,83 @@ func TestParseFilename_TVShow_SeasonPack(t *testing.T) {
 
 func TestParseFilename_TVShow_CompleteSeries(t *testing.T) {
 	tests := []struct {
-		name             string
-		filename         string
-		wantTitle        string
-		wantSeason       int
-		wantEndSeason    int
-		wantIsTV         bool
-		wantSeasonPack   bool
+		name               string
+		filename           string
+		wantTitle          string
+		wantSeason         int
+		wantEndSeason      int
+		wantIsTV           bool
+		wantSeasonPack     bool
 		wantCompleteSeries bool
 	}{
 		{
-			name:             "COMPLETE keyword only",
-			filename:         "Mr Robot COMPLETE 1080p BluRay AV1 DDP 5 1-dAV1nci",
-			wantTitle:        "Mr Robot",
-			wantSeason:       0,
-			wantEndSeason:    0,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "COMPLETE keyword only",
+			filename:           "Mr Robot COMPLETE 1080p BluRay AV1 DDP 5 1-dAV1nci",
+			wantTitle:          "Mr Robot",
+			wantSeason:         0,
+			wantEndSeason:      0,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "Complete Series phrase",
-			filename:         "Breaking Bad Complete Series 1080p BluRay x264",
-			wantTitle:        "Breaking Bad",
-			wantSeason:       0,
-			wantEndSeason:    0,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "Complete Series phrase",
+			filename:           "Breaking Bad Complete Series 1080p BluRay x264",
+			wantTitle:          "Breaking Bad",
+			wantSeason:         0,
+			wantEndSeason:      0,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "The Complete Series phrase",
-			filename:         "The Office The Complete Series 720p WEB-DL",
-			wantTitle:        "The Office",
-			wantSeason:       0,
-			wantEndSeason:    0,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "The Complete Series phrase",
+			filename:           "The Office The Complete Series 720p WEB-DL",
+			wantTitle:          "The Office",
+			wantSeason:         0,
+			wantEndSeason:      0,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "season range S01-04 format",
-			filename:         "Mr Robot S01-04 1080p BluRay x265-RARBG",
-			wantTitle:        "Mr Robot",
-			wantSeason:       1,
-			wantEndSeason:    4,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "season range S01-04 format",
+			filename:           "Mr Robot S01-04 1080p BluRay x265-RARBG",
+			wantTitle:          "Mr Robot",
+			wantSeason:         1,
+			wantEndSeason:      4,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "season range S01-S04 format",
-			filename:         "Breaking Bad S01-S05 2160p UHD BluRay x265",
-			wantTitle:        "Breaking Bad",
-			wantSeason:       1,
-			wantEndSeason:    5,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "season range S01-S04 format",
+			filename:           "Breaking Bad S01-S05 2160p UHD BluRay x265",
+			wantTitle:          "Breaking Bad",
+			wantSeason:         1,
+			wantEndSeason:      5,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "complete series with year in parens",
-			filename:         "Mr Robot (2015) Complete Series S01-S04 1080p BluRay x265 HEVC 10bit AAC 5 1 Vyndros",
-			wantTitle:        "Mr Robot (2015) Complete Series",
-			wantSeason:       1,
-			wantEndSeason:    4,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "complete series with year in parens",
+			filename:           "Mr Robot (2015) Complete Series S01-S04 1080p BluRay x265 HEVC 10bit AAC 5 1 Vyndros",
+			wantTitle:          "Mr Robot (2015) Complete Series",
+			wantSeason:         1,
+			wantEndSeason:      4,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: true,
 		},
 		{
-			name:             "single season with Complete is NOT complete series",
-			filename:         "Mr Robot S02 Complete 1080p BluRay x264",
-			wantTitle:        "Mr Robot",
-			wantSeason:       2,
-			wantEndSeason:    0,
-			wantIsTV:         true,
-			wantSeasonPack:   true,
+			name:               "single season with Complete is NOT complete series",
+			filename:           "Mr Robot S02 Complete 1080p BluRay x264",
+			wantTitle:          "Mr Robot",
+			wantSeason:         2,
+			wantEndSeason:      0,
+			wantIsTV:           true,
+			wantSeasonPack:     true,
 			wantCompleteSeries: false,
 		},
 	}
@@ -853,6 +856,7 @@ func TestParseFilename_Fallback(t *testing.T) {
 			// Should still return a valid parsed result
 			if result == nil {
 				t.Error("ParseFilename returned nil for valid file")
+				return
 			}
 			if result.FilePath != tt.filename {
 				t.Errorf("FilePath = %q, want %q", result.FilePath, tt.filename)
@@ -1038,7 +1042,6 @@ func TestToReleaseAttributes_ProfileMatching(t *testing.T) {
 		})
 	}
 }
-
 
 func TestParseFilename_Languages(t *testing.T) {
 	tests := []struct {

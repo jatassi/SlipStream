@@ -14,6 +14,11 @@ import (
 	"github.com/slipstream/slipstream/internal/notification/types"
 )
 
+func newTestLogger() *zerolog.Logger {
+	logger := zerolog.Nop()
+	return &logger
+}
+
 func newTestMovie() *types.MediaInfo {
 	return &types.MediaInfo{
 		ID:         1,
@@ -112,6 +117,7 @@ type capturedRequest struct {
 }
 
 func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -128,21 +134,21 @@ func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
 }
 
 func TestNotifier_Type(t *testing.T) {
-	n := New("test", Settings{}, nil, zerolog.Nop())
+	n := New("test", &Settings{}, nil, newTestLogger())
 	if n.Type() != types.NotifierDiscord {
 		t.Errorf("expected type %s, got %s", types.NotifierDiscord, n.Type())
 	}
 }
 
 func TestNotifier_Name(t *testing.T) {
-	n := New("my-notifier", Settings{}, nil, zerolog.Nop())
+	n := New("my-notifier", &Settings{}, nil, newTestLogger())
 	if n.Name() != "my-notifier" {
 		t.Errorf("expected name 'my-notifier', got %s", n.Name())
 	}
 }
 
 func TestNotifier_DefaultFields(t *testing.T) {
-	n := New("test", Settings{}, nil, zerolog.Nop())
+	n := New("test", &Settings{}, nil, newTestLogger())
 	if len(n.settings.GrabFields) != len(DefaultGrabFields) {
 		t.Errorf("expected %d grab fields, got %d", len(DefaultGrabFields), len(n.settings.GrabFields))
 	}
@@ -156,11 +162,11 @@ func TestNotifier_Test(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL: server.URL,
 		Username:   "TestBot",
 		AvatarURL:  "https://example.com/avatar.png",
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	if err := n.Test(context.Background()); err != nil {
 		t.Fatalf("Test() error = %v", err)
@@ -188,10 +194,10 @@ func TestNotifier_OnGrab_Movie(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL: server.URL,
 		GrabFields: []FieldType{FieldQuality, FieldIndexer, FieldDownloadClient, FieldSize, FieldReleaseGroup, FieldCustomFormats, FieldLanguages, FieldLinks, FieldPoster, FieldFanart},
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	event := types.GrabEvent{
 		Movie:          newTestMovie(),
@@ -201,7 +207,7 @@ func TestNotifier_OnGrab_Movie(t *testing.T) {
 		GrabbedAt:      time.Now(),
 	}
 
-	if err := n.OnGrab(context.Background(), event); err != nil {
+	if err := n.OnGrab(context.Background(), &event); err != nil {
 		t.Fatalf("OnGrab() error = %v", err)
 	}
 
@@ -276,7 +282,7 @@ func TestNotifier_OnGrab_Episode(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.GrabEvent{
 		Episode:        newTestEpisode(),
@@ -285,7 +291,7 @@ func TestNotifier_OnGrab_Episode(t *testing.T) {
 		GrabbedAt:      time.Now(),
 	}
 
-	if err := n.OnGrab(context.Background(), event); err != nil {
+	if err := n.OnGrab(context.Background(), &event); err != nil {
 		t.Fatalf("OnGrab() error = %v", err)
 	}
 
@@ -306,10 +312,10 @@ func TestNotifier_OnImport_Movie(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL:   server.URL,
 		ImportFields: []FieldType{FieldQuality, FieldReleaseGroup, FieldCustomFormats, FieldLanguages, FieldMediaInfo, FieldLinks, FieldPoster},
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	event := types.ImportEvent{
 		Movie:             newTestMovie(),
@@ -327,7 +333,7 @@ func TestNotifier_OnImport_Movie(t *testing.T) {
 		ImportedAt:        time.Now(),
 	}
 
-	if err := n.OnImport(context.Background(), event); err != nil {
+	if err := n.OnImport(context.Background(), &event); err != nil {
 		t.Fatalf("OnImport() error = %v", err)
 	}
 
@@ -360,7 +366,7 @@ func TestNotifier_OnImport_Episode(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.ImportEvent{
 		Episode:    newTestEpisode(),
@@ -368,7 +374,7 @@ func TestNotifier_OnImport_Episode(t *testing.T) {
 		ImportedAt: time.Now(),
 	}
 
-	if err := n.OnImport(context.Background(), event); err != nil {
+	if err := n.OnImport(context.Background(), &event); err != nil {
 		t.Fatalf("OnImport() error = %v", err)
 	}
 
@@ -386,10 +392,10 @@ func TestNotifier_OnUpgrade_Movie(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL:   server.URL,
 		ImportFields: []FieldType{FieldQuality, FieldReleaseGroup, FieldCustomFormats, FieldLanguages, FieldMediaInfo, FieldLinks},
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	event := types.UpgradeEvent{
 		Movie:             newTestMovie(),
@@ -405,7 +411,7 @@ func TestNotifier_OnUpgrade_Movie(t *testing.T) {
 		UpgradedAt:        time.Now(),
 	}
 
-	if err := n.OnUpgrade(context.Background(), event); err != nil {
+	if err := n.OnUpgrade(context.Background(), &event); err != nil {
 		t.Fatalf("OnUpgrade() error = %v", err)
 	}
 
@@ -435,7 +441,7 @@ func TestNotifier_OnUpgrade_Episode(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.UpgradeEvent{
 		Episode:    newTestEpisode(),
@@ -444,7 +450,7 @@ func TestNotifier_OnUpgrade_Episode(t *testing.T) {
 		UpgradedAt: time.Now(),
 	}
 
-	if err := n.OnUpgrade(context.Background(), event); err != nil {
+	if err := n.OnUpgrade(context.Background(), &event); err != nil {
 		t.Fatalf("OnUpgrade() error = %v", err)
 	}
 
@@ -459,17 +465,17 @@ func TestNotifier_OnMovieAdded(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL:   server.URL,
 		ImportFields: []FieldType{FieldOverview, FieldRating, FieldGenres, FieldLinks, FieldPoster, FieldFanart},
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	event := types.MovieAddedEvent{
 		Movie:   *newTestMovie(),
 		AddedAt: time.Now(),
 	}
 
-	if err := n.OnMovieAdded(context.Background(), event); err != nil {
+	if err := n.OnMovieAdded(context.Background(), &event); err != nil {
 		t.Fatalf("OnMovieAdded() error = %v", err)
 	}
 
@@ -511,7 +517,7 @@ func TestNotifier_OnMovieDeleted(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.MovieDeletedEvent{
 		Movie:        *newTestMovie(),
@@ -519,7 +525,7 @@ func TestNotifier_OnMovieDeleted(t *testing.T) {
 		DeletedAt:    time.Now(),
 	}
 
-	if err := n.OnMovieDeleted(context.Background(), event); err != nil {
+	if err := n.OnMovieDeleted(context.Background(), &event); err != nil {
 		t.Fatalf("OnMovieDeleted() error = %v", err)
 	}
 
@@ -540,7 +546,7 @@ func TestNotifier_OnMovieDeleted_NoFiles(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.MovieDeletedEvent{
 		Movie:        *newTestMovie(),
@@ -548,7 +554,7 @@ func TestNotifier_OnMovieDeleted_NoFiles(t *testing.T) {
 		DeletedAt:    time.Now(),
 	}
 
-	if err := n.OnMovieDeleted(context.Background(), event); err != nil {
+	if err := n.OnMovieDeleted(context.Background(), &event); err != nil {
 		t.Fatalf("OnMovieDeleted() error = %v", err)
 	}
 
@@ -563,17 +569,17 @@ func TestNotifier_OnSeriesAdded(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL:   server.URL,
 		ImportFields: []FieldType{FieldOverview, FieldRating, FieldGenres, FieldLinks, FieldPoster},
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	event := types.SeriesAddedEvent{
 		Series:  newTestSeries(),
 		AddedAt: time.Now(),
 	}
 
-	if err := n.OnSeriesAdded(context.Background(), event); err != nil {
+	if err := n.OnSeriesAdded(context.Background(), &event); err != nil {
 		t.Fatalf("OnSeriesAdded() error = %v", err)
 	}
 
@@ -606,7 +612,7 @@ func TestNotifier_OnSeriesDeleted(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.SeriesDeletedEvent{
 		Series:       newTestSeries(),
@@ -614,7 +620,7 @@ func TestNotifier_OnSeriesDeleted(t *testing.T) {
 		DeletedAt:    time.Now(),
 	}
 
-	if err := n.OnSeriesDeleted(context.Background(), event); err != nil {
+	if err := n.OnSeriesDeleted(context.Background(), &event); err != nil {
 		t.Fatalf("OnSeriesDeleted() error = %v", err)
 	}
 
@@ -635,7 +641,7 @@ func TestNotifier_OnHealthIssue_Warning(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.HealthEvent{
 		Source:    "Indexer",
@@ -645,7 +651,7 @@ func TestNotifier_OnHealthIssue_Warning(t *testing.T) {
 		OccuredAt: time.Now(),
 	}
 
-	if err := n.OnHealthIssue(context.Background(), event); err != nil {
+	if err := n.OnHealthIssue(context.Background(), &event); err != nil {
 		t.Fatalf("OnHealthIssue() error = %v", err)
 	}
 
@@ -678,7 +684,7 @@ func TestNotifier_OnHealthIssue_Error(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.HealthEvent{
 		Source:    "Database",
@@ -687,7 +693,7 @@ func TestNotifier_OnHealthIssue_Error(t *testing.T) {
 		OccuredAt: time.Now(),
 	}
 
-	if err := n.OnHealthIssue(context.Background(), event); err != nil {
+	if err := n.OnHealthIssue(context.Background(), &event); err != nil {
 		t.Fatalf("OnHealthIssue() error = %v", err)
 	}
 
@@ -702,7 +708,7 @@ func TestNotifier_OnHealthRestored(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.HealthEvent{
 		Source:    "Indexer",
@@ -711,7 +717,7 @@ func TestNotifier_OnHealthRestored(t *testing.T) {
 		OccuredAt: time.Now(),
 	}
 
-	if err := n.OnHealthRestored(context.Background(), event); err != nil {
+	if err := n.OnHealthRestored(context.Background(), &event); err != nil {
 		t.Fatalf("OnHealthRestored() error = %v", err)
 	}
 
@@ -729,7 +735,7 @@ func TestNotifier_OnApplicationUpdate(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	event := types.AppUpdateEvent{
 		PreviousVersion: "1.0.0",
@@ -737,7 +743,7 @@ func TestNotifier_OnApplicationUpdate(t *testing.T) {
 		UpdatedAt:       time.Now(),
 	}
 
-	if err := n.OnApplicationUpdate(context.Background(), event); err != nil {
+	if err := n.OnApplicationUpdate(context.Background(), &event); err != nil {
 		t.Fatalf("OnApplicationUpdate() error = %v", err)
 	}
 
@@ -767,19 +773,19 @@ func TestNotifier_CustomSettings(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		WebhookURL: server.URL,
 		Username:   "CustomBot",
 		AvatarURL:  "https://example.com/custom.png",
 		Author:     "CustomAuthor",
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 
 	// Use OnGrab to test custom settings since Test() doesn't use buildPayload()
 	event := types.GrabEvent{
 		Movie:   newTestMovie(),
 		Release: newTestRelease(),
 	}
-	if err := n.OnGrab(context.Background(), event); err != nil {
+	if err := n.OnGrab(context.Background(), &event); err != nil {
 		t.Fatalf("OnGrab() error = %v", err)
 	}
 
@@ -806,7 +812,7 @@ func TestNotifier_HTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	n := New("test", Settings{WebhookURL: server.URL}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{WebhookURL: server.URL}, http.DefaultClient, newTestLogger())
 
 	err := n.Test(context.Background())
 	if err == nil {
@@ -844,10 +850,10 @@ func TestNotifier_ConfigurableFields(t *testing.T) {
 			server := setupTestServer(t, &captured)
 			defer server.Close()
 
-			n := New("test", Settings{
+			n := New("test", &Settings{
 				WebhookURL: server.URL,
 				GrabFields: tt.grabFields,
-			}, http.DefaultClient, zerolog.Nop())
+			}, http.DefaultClient, newTestLogger())
 
 			event := types.GrabEvent{
 				Movie:          newTestMovie(),
@@ -856,7 +862,7 @@ func TestNotifier_ConfigurableFields(t *testing.T) {
 				GrabbedAt:      time.Now(),
 			}
 
-			if err := n.OnGrab(context.Background(), event); err != nil {
+			if err := n.OnGrab(context.Background(), &event); err != nil {
 				t.Fatalf("OnGrab() error = %v", err)
 			}
 
@@ -876,7 +882,7 @@ func TestNotifier_ConfigurableFields(t *testing.T) {
 }
 
 func TestNotifier_BuildLinks(t *testing.T) {
-	n := New("test", Settings{}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{}, http.DefaultClient, newTestLogger())
 
 	movie := newTestMovie()
 	links := n.buildLinks(movie)
@@ -905,7 +911,7 @@ func TestNotifier_BuildLinks(t *testing.T) {
 }
 
 func TestNotifier_BuildSeriesLinks(t *testing.T) {
-	n := New("test", Settings{}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{}, http.DefaultClient, newTestLogger())
 
 	series := newTestSeries()
 	links := n.buildSeriesLinks(&series)
@@ -928,7 +934,7 @@ func TestNotifier_BuildSeriesLinks(t *testing.T) {
 }
 
 func TestNotifier_FormatMediaInfo(t *testing.T) {
-	n := New("test", Settings{}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{}, http.DefaultClient, newTestLogger())
 
 	mi := newTestMediaInfo()
 	formatted := n.formatMediaInfo(mi)
@@ -951,7 +957,7 @@ func TestNotifier_FormatMediaInfo(t *testing.T) {
 }
 
 func TestNotifier_FormatCustomFormats(t *testing.T) {
-	n := New("test", Settings{}, http.DefaultClient, zerolog.Nop())
+	n := New("test", &Settings{}, http.DefaultClient, newTestLogger())
 
 	formats := []types.CustomFormat{{ID: 1, Name: "HDR"}, {ID: 2, Name: "DV"}, {ID: 3, Name: "Atmos"}}
 	formatted := n.formatCustomFormats(formats)

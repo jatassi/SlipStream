@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,11 @@ import (
 
 	"github.com/rs/zerolog"
 )
+
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
 
 func TestArtworkDownloader_Download(t *testing.T) {
 	// Create test server that returns image data
@@ -28,7 +34,7 @@ func TestArtworkDownloader_Download(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	path, err := downloader.Download(context.Background(), server.URL+"/poster.jpg", MediaTypeMovie, 603, ArtworkTypePoster)
 	if err != nil {
@@ -60,10 +66,10 @@ func TestArtworkDownloader_Download(t *testing.T) {
 func TestArtworkDownloader_Download_InvalidURL(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	_, err := downloader.Download(context.Background(), "", MediaTypeMovie, 1, ArtworkTypePoster)
-	if err != ErrInvalidURL {
+	if !errors.Is(err, ErrInvalidURL) {
 		t.Errorf("Download() error = %v, want %v", err, ErrInvalidURL)
 	}
 }
@@ -76,7 +82,7 @@ func TestArtworkDownloader_Download_ServerError(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	_, err := downloader.Download(context.Background(), server.URL+"/poster.jpg", MediaTypeMovie, 1, ArtworkTypePoster)
 	if err == nil {
@@ -92,7 +98,7 @@ func TestArtworkDownloader_Download_Extensions(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	tests := []struct {
 		url     string
@@ -102,7 +108,7 @@ func TestArtworkDownloader_Download_Extensions(t *testing.T) {
 		{server.URL + "/image.jpeg", ".jpeg"},
 		{server.URL + "/image.png", ".png"},
 		{server.URL + "/image.webp", ".webp"},
-		{server.URL + "/image", ".jpg"}, // Default
+		{server.URL + "/image", ".jpg"},         // Default
 		{server.URL + "/image?query=1", ".jpg"}, // With query string
 	}
 
@@ -130,7 +136,7 @@ func TestArtworkDownloader_DownloadMovieArtwork(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	movie := &MovieResult{
 		ID:          603,
@@ -163,10 +169,10 @@ func TestArtworkDownloader_DownloadMovieArtwork(t *testing.T) {
 func TestArtworkDownloader_DownloadMovieArtwork_NilMovie(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	err := downloader.DownloadMovieArtwork(context.Background(), nil)
-	if err != ErrInvalidMediaType {
+	if !errors.Is(err, ErrInvalidMediaType) {
 		t.Errorf("DownloadMovieArtwork() error = %v, want %v", err, ErrInvalidMediaType)
 	}
 }
@@ -181,7 +187,7 @@ func TestArtworkDownloader_DownloadSeriesArtwork(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	series := &SeriesResult{
 		ID:          1396,
@@ -214,13 +220,13 @@ func TestArtworkDownloader_DownloadSeriesArtwork(t *testing.T) {
 func TestArtworkDownloader_GetArtworkPath(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	// Create a test file
 	dir := filepath.Join(tempDir, "movie")
-	os.MkdirAll(dir, 0755)
+	os.MkdirAll(dir, 0o755)
 	testFile := filepath.Join(dir, "603_poster.jpg")
-	os.WriteFile(testFile, []byte("test"), 0644)
+	os.WriteFile(testFile, []byte("test"), 0o644)
 
 	// Test finding existing file
 	path := downloader.GetArtworkPath(MediaTypeMovie, 603, ArtworkTypePoster)
@@ -238,13 +244,13 @@ func TestArtworkDownloader_GetArtworkPath(t *testing.T) {
 func TestArtworkDownloader_HasArtwork(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	// Create a test file
 	dir := filepath.Join(tempDir, "movie")
-	os.MkdirAll(dir, 0755)
+	os.MkdirAll(dir, 0o755)
 	testFile := filepath.Join(dir, "603_poster.jpg")
-	os.WriteFile(testFile, []byte("test"), 0644)
+	os.WriteFile(testFile, []byte("test"), 0o644)
 
 	// Test existing file
 	if !downloader.HasArtwork(MediaTypeMovie, 603, ArtworkTypePoster) {
@@ -260,15 +266,15 @@ func TestArtworkDownloader_HasArtwork(t *testing.T) {
 func TestArtworkDownloader_DeleteArtwork(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, zerolog.Nop())
+	downloader := NewArtworkDownloader(cfg, newTestLogger())
 
 	// Create test files
 	dir := filepath.Join(tempDir, "movie")
-	os.MkdirAll(dir, 0755)
+	os.MkdirAll(dir, 0o755)
 	posterFile := filepath.Join(dir, "603_poster.jpg")
 	backdropFile := filepath.Join(dir, "603_backdrop.jpg")
-	os.WriteFile(posterFile, []byte("poster"), 0644)
-	os.WriteFile(backdropFile, []byte("backdrop"), 0644)
+	os.WriteFile(posterFile, []byte("poster"), 0o644)
+	os.WriteFile(backdropFile, []byte("backdrop"), 0o644)
 
 	// Delete artwork
 	err := downloader.DeleteArtwork(MediaTypeMovie, 603)

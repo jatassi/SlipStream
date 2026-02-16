@@ -24,9 +24,9 @@ const (
 
 // Setting keys for add-flow preferences
 const (
-	KeyMovieSearchOnAdd     = "addflow_movie_search_on_add"
-	KeySeriesSearchOnAdd    = "addflow_series_search_on_add"
-	KeySeriesMonitorOnAdd   = "addflow_series_monitor_on_add"
+	KeyMovieSearchOnAdd      = "addflow_movie_search_on_add"
+	KeySeriesSearchOnAdd     = "addflow_series_search_on_add"
+	KeySeriesMonitorOnAdd    = "addflow_series_monitor_on_add"
 	KeySeriesIncludeSpecials = "addflow_series_include_specials"
 )
 

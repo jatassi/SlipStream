@@ -88,7 +88,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		RawJSON("settings", input.Settings).
 		Msg("Create indexer request received")
 
-	indexer, err := h.service.Create(c.Request().Context(), input)
+	indexer, err := h.service.Create(c.Request().Context(), &input)
 	if err != nil {
 		if errors.Is(err, ErrInvalidIndexer) || errors.Is(err, ErrDefinitionNotFound) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -112,7 +112,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	indexer, err := h.service.Update(c.Request().Context(), id, input)
+	indexer, err := h.service.Update(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrIndexerNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())

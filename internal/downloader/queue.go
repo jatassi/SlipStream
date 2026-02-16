@@ -12,6 +12,12 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
+const (
+	mediaTypeMovie  = "movie"
+	mediaTypeSeries = "series"
+	statusQueued    = "queued"
+)
+
 // QueueItem represents a download in the queue with parsed metadata.
 type QueueItem struct {
 	ID             string   `json:"id"`
@@ -54,15 +60,12 @@ type ClientError struct {
 }
 
 // QueueResponse wraps queue items together with any per-client errors.
-// When a client is unreachable, its last known items are served as stale data
-// and the error is reported so the frontend can display a warning.
 type QueueResponse struct {
 	Items  []QueueItem   `json:"items"`
 	Errors []ClientError `json:"errors,omitempty"`
 }
 
 // GetQueue returns all items from all enabled download clients.
-// On per-client failure, cached (stale) items are served and the error is reported.
 func (s *Service) GetQueue(ctx context.Context) (*QueueResponse, error) {
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
@@ -98,70 +101,81 @@ func (s *Service) GetQueue(ctx context.Context) (*QueueResponse, error) {
 }
 
 // enrichQueueItemsWithMappings populates library IDs on queue items from download_mappings.
-// Req 10.1.1: Queue shows raw downloads with mapped media
-// Req 10.1.2: Target slot info shown inline with each queue item
 func (s *Service) enrichQueueItemsWithMappings(_ context.Context, items []QueueItem) {
 	if len(items) == 0 {
 		return
 	}
 
-	// Use a fresh context with its own timeout for the database queries.
-	// The parent context may be nearly exhausted from slow download client responses,
-	// but this enrichment is non-critical and shouldn't fail the entire queue fetch.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Get all active download mappings
 	mappings, err := s.queries.ListActiveDownloadMappings(ctx)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to get download mappings")
 		return
 	}
 
-	// Build lookup map: clientID:downloadID -> mapping
-	mappingLookup := make(map[string]*sqlc.DownloadMapping)
-	for _, m := range mappings {
-		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
-		mappingLookup[key] = m
-	}
-
-	// Build slot lookup map: slotID -> slot name
+	mappingLookup := buildDownloadMappingLookup(mappings)
 	slotLookup := s.buildSlotLookup(ctx)
 
-	// Enrich each item
 	for i := range items {
-		key := fmt.Sprintf("%d:%s", items[i].ClientID, items[i].ID)
-		if mapping, ok := mappingLookup[key]; ok {
-			if mapping.MovieID.Valid {
-				movieID := mapping.MovieID.Int64
-				items[i].MovieID = &movieID
-				items[i].MediaType = "movie"
-			}
-			if mapping.SeriesID.Valid {
-				seriesID := mapping.SeriesID.Int64
-				items[i].SeriesID = &seriesID
-				items[i].MediaType = "series"
-			}
-			if mapping.SeasonNumber.Valid {
-				seasonNum := int(mapping.SeasonNumber.Int64)
-				items[i].SeasonNumber = &seasonNum
-			}
-			if mapping.EpisodeID.Valid {
-				episodeID := mapping.EpisodeID.Int64
-				items[i].EpisodeID = &episodeID
-			}
-			items[i].IsSeasonPack = mapping.IsSeasonPack == 1
-			items[i].IsCompleteSeries = mapping.IsCompleteSeries == 1
+		s.enrichSingleQueueItem(&items[i], mappingLookup, slotLookup)
+	}
+}
 
-			// Req 10.1.2: Populate target slot info
-			if mapping.TargetSlotID.Valid {
-				slotID := mapping.TargetSlotID.Int64
-				items[i].TargetSlotID = &slotID
-				if slotName, ok := slotLookup[slotID]; ok {
-					items[i].TargetSlotName = slotName
-				}
-			}
-		}
+func buildDownloadMappingLookup(mappings []*sqlc.DownloadMapping) map[string]*sqlc.DownloadMapping {
+	lookup := make(map[string]*sqlc.DownloadMapping)
+	for _, m := range mappings {
+		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
+		lookup[key] = m
+	}
+	return lookup
+}
+
+func (s *Service) enrichSingleQueueItem(item *QueueItem, mappingLookup map[string]*sqlc.DownloadMapping, slotLookup map[int64]string) {
+	key := fmt.Sprintf("%d:%s", item.ClientID, item.ID)
+	mapping, ok := mappingLookup[key]
+	if !ok {
+		return
+	}
+
+	populateQueueItemFromMapping(item, mapping)
+	populateQueueItemSlot(item, mapping, slotLookup)
+}
+
+func populateQueueItemFromMapping(item *QueueItem, mapping *sqlc.DownloadMapping) {
+	if mapping.MovieID.Valid {
+		movieID := mapping.MovieID.Int64
+		item.MovieID = &movieID
+		item.MediaType = mediaTypeMovie
+	}
+	if mapping.SeriesID.Valid {
+		seriesID := mapping.SeriesID.Int64
+		item.SeriesID = &seriesID
+		item.MediaType = mediaTypeSeries
+	}
+	if mapping.SeasonNumber.Valid {
+		seasonNum := int(mapping.SeasonNumber.Int64)
+		item.SeasonNumber = &seasonNum
+	}
+	if mapping.EpisodeID.Valid {
+		episodeID := mapping.EpisodeID.Int64
+		item.EpisodeID = &episodeID
+	}
+	item.IsSeasonPack = mapping.IsSeasonPack == 1
+	item.IsCompleteSeries = mapping.IsCompleteSeries == 1
+}
+
+func populateQueueItemSlot(item *QueueItem, mapping *sqlc.DownloadMapping, slotLookup map[int64]string) {
+	if !mapping.TargetSlotID.Valid {
+		return
+	}
+
+	slotID := mapping.TargetSlotID.Int64
+	item.TargetSlotID = &slotID
+
+	if slotName, ok := slotLookup[slotID]; ok {
+		item.TargetSlotName = slotName
 	}
 }
 
@@ -181,7 +195,6 @@ func (s *Service) buildSlotLookup(ctx context.Context) map[int64]string {
 }
 
 // getClientQueue fetches queue items from any download client using the unified interface.
-// Completed/seeding downloads are filtered out - use CheckForCompletedDownloads for import processing.
 func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName, clientType string) ([]QueueItem, error) {
 	client, err := s.GetClient(ctx, clientID)
 	if err != nil {
@@ -194,43 +207,39 @@ func (s *Service) getClientQueue(ctx context.Context, clientID int64, clientName
 	}
 
 	items := make([]QueueItem, 0, len(downloads))
-	for _, d := range downloads {
-		// Filter out completed/seeding downloads - they should not appear in the queue.
-		if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
-			continue
+	for i := range downloads {
+		d := &downloads[i]
+		if shouldIncludeInQueue(d) {
+			item := s.downloadItemToQueueItem(d, clientID, clientName, clientType)
+			items = append(items, item)
 		}
-		// Filter out fully-downloaded items regardless of reported status.
-		// Covers: stopped after seeding (StatusPaused at 100%), seeding with
-		// tracker/piece errors (StatusError at 100% — Transmission overrides
-		// seeding status to error when torrent has issues), etc.
-		if d.Progress >= 100 {
-			continue
-		}
-		item := s.downloadItemToQueueItem(d, clientID, clientName, clientType)
-		items = append(items, item)
 	}
 
 	return items, nil
 }
 
-// downloadItemToQueueItem converts a DownloadItem to a QueueItem.
-func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, clientName, clientType string) QueueItem {
-	// Parse the download name to extract metadata
-	parsed := scanner.ParseFilename(d.Name)
+func shouldIncludeInQueue(d *types.DownloadItem) bool {
+	if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+		return false
+	}
+	if d.Progress >= 100 {
+		return false
+	}
+	return true
+}
 
-	// Determine media type from download path
+// downloadItemToQueueItem converts a DownloadItem to a QueueItem.
+func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64, clientName, clientType string) QueueItem {
+	parsed := scanner.ParseFilename(d.Name)
 	mediaType := detectMediaType(d.DownloadDir)
 
-	// Use parsed title or fall back to the download name
 	title := parsed.Title
 	if title == "" {
 		title = d.Name
 	}
 
-	// Map status
 	status := mapDownloadStatus(d.Status)
 
-	// Ensure attributes is not nil
 	attributes := parsed.Attributes
 	if attributes == nil {
 		attributes = []string{}
@@ -264,10 +273,10 @@ func (s *Service) downloadItemToQueueItem(d types.DownloadItem, clientID int64, 
 func detectMediaType(path string) string {
 	pathLower := strings.ToLower(path)
 	if strings.Contains(pathLower, "slipstream/movies") || strings.Contains(pathLower, "slipstream\\movies") {
-		return "movie"
+		return mediaTypeMovie
 	}
 	if strings.Contains(pathLower, "slipstream/series") || strings.Contains(pathLower, "slipstream\\series") {
-		return "series"
+		return mediaTypeSeries
 	}
 	return "unknown"
 }
@@ -282,11 +291,11 @@ func mapDownloadStatus(status types.Status) string {
 	case types.StatusCompleted, types.StatusSeeding:
 		return "completed"
 	case types.StatusQueued:
-		return "queued"
+		return statusQueued
 	case types.StatusError:
 		return "error"
 	default:
-		return "queued"
+		return statusQueued
 	}
 }
 
@@ -302,7 +311,8 @@ func (s *Service) HasActiveDownloads(ctx context.Context, clientID int64) (bool,
 		return false, err
 	}
 
-	for _, d := range downloads {
+	for i := range downloads {
+		d := &downloads[i]
 		if d.Status == types.StatusDownloading || d.Status == types.StatusQueued {
 			return true, nil
 		}
@@ -342,7 +352,6 @@ func (s *Service) RemoveDownload(ctx context.Context, clientID int64, downloadID
 }
 
 // FastForwardMockDownload instantly completes a mock download.
-// Returns an error if the client is not a mock client.
 func (s *Service) FastForwardMockDownload(ctx context.Context, clientID int64, downloadID string) error {
 	cfg, err := s.Get(ctx, clientID)
 	if err != nil {

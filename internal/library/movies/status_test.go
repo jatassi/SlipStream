@@ -21,11 +21,11 @@ func TestMovieStatus_InitialStatus_Unreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// No release date → unreleased
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title: "Future Movie No Date",
 	})
 	if err != nil {
@@ -37,7 +37,7 @@ func TestMovieStatus_InitialStatus_Unreleased(t *testing.T) {
 
 	// Future release date → unreleased
 	futureDate := time.Now().AddDate(1, 0, 0).Format("2006-01-02")
-	movie2, err := service.Create(ctx, CreateMovieInput{
+	movie2, err := service.Create(ctx, &CreateMovieInput{
 		Title:       "Future Movie With Date",
 		ReleaseDate: futureDate,
 	})
@@ -54,11 +54,11 @@ func TestMovieStatus_InitialStatus_Missing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:       "Released Movie",
 		ReleaseDate: pastDate,
 	})
@@ -76,11 +76,11 @@ func TestMovieStatus_AddFile_SetsAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -89,7 +89,7 @@ func TestMovieStatus_AddFile_SetsAvailable(t *testing.T) {
 		t.Fatalf("Pre-condition: movie should be missing, got %q", movie.Status)
 	}
 
-	_, err := service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, err := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path: "/movies/Test Movie/test.mkv",
 		Size: 1500000000,
 	})
@@ -108,17 +108,17 @@ func TestMovieStatus_RemoveFile_SetsMissingAndUnmonitors(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 		Monitored:   true,
 	})
 
-	file, _ := service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	file, _ := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path: "/movies/test.mkv",
 		Size: 1000,
 	})
@@ -143,18 +143,18 @@ func TestMovieStatus_UpdateReleaseDateRecalculates(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create unreleased movie
-	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test Movie"})
+	movie, _ := service.Create(ctx, &CreateMovieInput{Title: "Test Movie"})
 	if movie.Status != "unreleased" {
 		t.Fatalf("Pre-condition: status = %q, want unreleased", movie.Status)
 	}
 
 	// Set release date to past → should become missing
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	updated, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+	updated, err := service.Update(ctx, movie.ID, &UpdateMovieInput{
 		ReleaseDate: &pastDate,
 	})
 	if err != nil {
@@ -166,7 +166,7 @@ func TestMovieStatus_UpdateReleaseDateRecalculates(t *testing.T) {
 
 	// Push release date to future → should become unreleased
 	futureDate := time.Now().AddDate(1, 0, 0).Format("2006-01-02")
-	updated2, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+	updated2, err := service.Update(ctx, movie.ID, &UpdateMovieInput{
 		ReleaseDate: &futureDate,
 	})
 	if err != nil {
@@ -183,15 +183,15 @@ func TestMovieStatus_UpdateReleaseDateNoEffectOnAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Available Movie",
 		ReleaseDate: pastDate,
 	})
-	_, _ = service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, _ = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path: "/movies/test.mkv",
 		Size: 1000,
 	})
@@ -203,7 +203,7 @@ func TestMovieStatus_UpdateReleaseDateNoEffectOnAvailable(t *testing.T) {
 
 	// Changing release date to future should NOT change available status
 	futureDate := time.Now().AddDate(1, 0, 0).Format("2006-01-02")
-	updated2, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+	updated2, err := service.Update(ctx, movie.ID, &UpdateMovieInput{
 		ReleaseDate: &futureDate,
 	})
 	if err != nil {
@@ -219,10 +219,10 @@ func TestMovieStatus_NewFields(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
-	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test Movie"})
+	movie, _ := service.Create(ctx, &CreateMovieInput{Title: "Test Movie"})
 
 	// Initially nil
 	if movie.StatusMessage != nil {
@@ -247,10 +247,10 @@ func TestMovieStatus_ReleaseDateParsing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:               "Test Movie",
 		ReleaseDate:         "2020-07-16",
 		PhysicalReleaseDate: "2020-12-07",
@@ -281,18 +281,18 @@ func TestMovieStatus_MultipleFileRemoval(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 		Monitored:   true,
 	})
 
-	file1, _ := service.AddFile(ctx, movie.ID, CreateMovieFileInput{Path: "/path1.mkv", Size: 1000})
-	_, _ = service.AddFile(ctx, movie.ID, CreateMovieFileInput{Path: "/path2.mkv", Size: 2000})
+	file1, _ := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{Path: "/path1.mkv", Size: 1000})
+	_, _ = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{Path: "/path2.mkv", Size: 2000})
 
 	// Remove first file - movie still has a file
 	_ = service.RemoveFile(ctx, file1.ID)
@@ -309,12 +309,12 @@ func TestMovieStatus_DownloadLifecycle_MissingToDownloading(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -342,12 +342,12 @@ func TestMovieStatus_DownloadLifecycle_DownloadingToAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -358,7 +358,7 @@ func TestMovieStatus_DownloadLifecycle_DownloadingToAvailable(t *testing.T) {
 		ActiveDownloadID: sql.NullString{String: "dl-1", Valid: true},
 	})
 
-	_, err := service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, err := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path: "/movies/test.mkv",
 		Size: 1500000000,
 	})
@@ -377,12 +377,12 @@ func TestMovieStatus_DownloadLifecycle_DownloadingToFailed(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -413,10 +413,10 @@ func TestMovieStatus_ImportWithQualityEvaluation_Upgradable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11, // Bluray-1080p
 		Items:  quality.HD1080pProfile().Items,
@@ -425,18 +425,18 @@ func TestMovieStatus_ImportWithQualityEvaluation_Upgradable(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:            "Test Movie",
 		ReleaseDate:      pastDate,
 		QualityProfileID: profile.ID,
 	})
 
 	qualityID := int64(4) // HDTV-720p (weight=4, below cutoff weight=11)
-	_, err = service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, err = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path:      "/movies/test.mkv",
 		Size:      1500000000,
 		Quality:   "HDTV-720p",
@@ -457,10 +457,10 @@ func TestMovieStatus_ImportWithQualityEvaluation_Available(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  quality.HD1080pProfile().Items,
@@ -469,18 +469,18 @@ func TestMovieStatus_ImportWithQualityEvaluation_Available(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:            "Test Movie",
 		ReleaseDate:      pastDate,
 		QualityProfileID: profile.ID,
 	})
 
 	qualityID := int64(11) // Bluray-1080p (at cutoff)
-	_, err = service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, err = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path:      "/movies/test.mkv",
 		Size:      1500000000,
 		Quality:   "Bluray-1080p",
@@ -501,12 +501,12 @@ func TestMovieStatus_DisappearedDownload(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -539,11 +539,11 @@ func TestMovieStatus_ManualRetry(t *testing.T) {
 	defer tdb.Close()
 
 	queries := sqlc.New(tdb.Conn)
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -571,10 +571,10 @@ func TestMovieStatus_UpgradableToMissingOnFileRemoval(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:   "HD-1080p",
 		Cutoff: 11,
 		Items:  quality.HD1080pProfile().Items,
@@ -583,11 +583,11 @@ func TestMovieStatus_UpgradableToMissingOnFileRemoval(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:            "Test Movie",
 		ReleaseDate:      pastDate,
 		QualityProfileID: profile.ID,
@@ -595,7 +595,7 @@ func TestMovieStatus_UpgradableToMissingOnFileRemoval(t *testing.T) {
 	})
 
 	qualityID := int64(4) // HDTV-720p, below cutoff
-	file, _ := service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	file, _ := service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path:      "/movies/test.mkv",
 		Size:      1500000000,
 		QualityID: &qualityID,
@@ -618,11 +618,11 @@ func TestMovieStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	qs := quality.NewService(tdb.Conn, tdb.Logger)
+	qs := quality.NewService(tdb.Conn, &tdb.Logger)
 	ctx := context.Background()
 
 	upgradesDisabled := false
-	profile, err := qs.Create(ctx, quality.CreateProfileInput{
+	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:            "HD-1080p",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
@@ -632,18 +632,18 @@ func TestMovieStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	service.SetQualityService(qs)
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:            "Test Movie",
 		ReleaseDate:      pastDate,
 		QualityProfileID: profile.ID,
 	})
 
 	qualityID := int64(4) // HDTV-720p, below cutoff 11
-	_, err = service.AddFile(ctx, movie.ID, CreateMovieFileInput{
+	_, err = service.AddFile(ctx, movie.ID, &CreateMovieFileInput{
 		Path:      "/movies/test.mkv",
 		Size:      1500000000,
 		Quality:   "HDTV-720p",
@@ -663,12 +663,12 @@ func TestMovieStatus_ManualRetryClearsStatusMessage(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
-	movie, _ := service.Create(ctx, CreateMovieInput{
+	movie, _ := service.Create(ctx, &CreateMovieInput{
 		Title:       "Test Movie",
 		ReleaseDate: pastDate,
 	})
@@ -720,11 +720,11 @@ func TestMovieStatus_TheatricalOnly_RecentPast_Unreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:                 "Recent Theatrical Movie",
 		TheatricalReleaseDate: theatricalDate,
 	})
@@ -741,11 +741,11 @@ func TestMovieStatus_TheatricalOnly_Over90Days_Missing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	theatricalDate := time.Now().AddDate(0, 0, -91).Format("2006-01-02")
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:                 "Old Theatrical Movie",
 		TheatricalReleaseDate: theatricalDate,
 	})
@@ -762,12 +762,12 @@ func TestMovieStatus_DigitalPast_OverridesTheatrical(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	digitalDate := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:                 "Digital Released Movie",
 		ReleaseDate:           digitalDate,
 		TheatricalReleaseDate: theatricalDate,
@@ -785,12 +785,12 @@ func TestMovieStatus_PhysicalPast_OverridesTheatrical(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	physicalDate := time.Now().AddDate(0, -1, 0).Format("2006-01-02")
 	theatricalDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:                 "Physical Released Movie",
 		PhysicalReleaseDate:   physicalDate,
 		TheatricalReleaseDate: theatricalDate,
@@ -808,10 +808,10 @@ func TestMovieStatus_NoDates_Unreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title: "No Date Movie",
 	})
 	if err != nil {
@@ -826,10 +826,10 @@ func TestMovieStatus_TheatricalDateParsing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
-	movie, err := service.Create(ctx, CreateMovieInput{
+	movie, err := service.Create(ctx, &CreateMovieInput{
 		Title:                 "Test Movie",
 		ReleaseDate:           "2020-07-16",
 		PhysicalReleaseDate:   "2020-12-07",
@@ -852,18 +852,18 @@ func TestMovieStatus_UpdateTheatricalDateRecalculates(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger)
 	ctx := context.Background()
 
 	// Create movie with no dates (unreleased)
-	movie, _ := service.Create(ctx, CreateMovieInput{Title: "Test Movie"})
+	movie, _ := service.Create(ctx, &CreateMovieInput{Title: "Test Movie"})
 	if movie.Status != "unreleased" {
 		t.Fatalf("Pre-condition: status = %q, want unreleased", movie.Status)
 	}
 
 	// Set theatrical date to >90 days ago → should become missing
 	oldTheatrical := time.Now().AddDate(0, 0, -91).Format("2006-01-02")
-	updated, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+	updated, err := service.Update(ctx, movie.ID, &UpdateMovieInput{
 		TheatricalReleaseDate: &oldTheatrical,
 	})
 	if err != nil {
@@ -875,7 +875,7 @@ func TestMovieStatus_UpdateTheatricalDateRecalculates(t *testing.T) {
 
 	// Set theatrical date to recent (within 90 days) → should become unreleased
 	recentTheatrical := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	updated2, err := service.Update(ctx, movie.ID, UpdateMovieInput{
+	updated2, err := service.Update(ctx, movie.ID, &UpdateMovieInput{
 		TheatricalReleaseDate: &recentTheatrical,
 	})
 	if err != nil {

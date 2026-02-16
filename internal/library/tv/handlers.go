@@ -92,7 +92,7 @@ func (h *Handlers) CreateSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	series, err := h.service.CreateSeries(c.Request().Context(), input)
+	series, err := h.service.CreateSeries(c.Request().Context(), &input)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidSeries):
@@ -119,7 +119,7 @@ func (h *Handlers) UpdateSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	series, err := h.service.UpdateSeries(c.Request().Context(), id, input)
+	series, err := h.service.UpdateSeries(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
@@ -332,7 +332,7 @@ func (h *Handlers) AddEpisodeFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	file, err := h.service.AddEpisodeFile(c.Request().Context(), episodeID, input)
+	file, err := h.service.AddEpisodeFile(c.Request().Context(), episodeID, &input)
 	if err != nil {
 		if errors.Is(err, ErrEpisodeNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")

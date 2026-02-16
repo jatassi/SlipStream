@@ -51,9 +51,9 @@ type HealthItem struct {
 }
 
 // MarshalJSON customizes JSON output to omit timestamp for OK status.
-func (h HealthItem) MarshalJSON() ([]byte, error) {
+func (h *HealthItem) MarshalJSON() ([]byte, error) {
 	type Alias HealthItem
-	alias := Alias(h)
+	alias := Alias(*h)
 
 	// Only include timestamp for non-OK statuses
 	if h.Status == StatusOK {

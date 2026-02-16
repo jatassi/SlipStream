@@ -498,7 +498,7 @@ func TestMatchProfileAttributes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := MatchProfileAttributes(tt.release, tt.profile)
+			result := MatchProfileAttributes(&tt.release, tt.profile)
 			if result.AllMatch != tt.wantAllMatch {
 				t.Errorf("MatchProfileAttributes() AllMatch = %v, want %v", result.AllMatch, tt.wantAllMatch)
 			}
@@ -600,7 +600,7 @@ func TestProfile_IsAttributeMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := profile.IsAttributeMatch(tt.release); got != tt.want {
+			if got := profile.IsAttributeMatch(&tt.release); got != tt.want {
 				t.Errorf("Profile.IsAttributeMatch() = %v, want %v", got, tt.want)
 			}
 		})
@@ -654,7 +654,7 @@ func TestProfile_GetAttributeScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := profile.GetAttributeScore(tt.release); got != tt.want {
+			if got := profile.GetAttributeScore(&tt.release); got != tt.want {
 				t.Errorf("Profile.GetAttributeScore() = %v, want %v", got, tt.want)
 			}
 		})

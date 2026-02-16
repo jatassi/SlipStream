@@ -21,6 +21,6 @@ func NewSearchAdapter(service *Service) *SearchAdapter {
 
 // Search executes a search through Prowlarr and returns TorrentInfo results.
 // This implements the ProwlarrSearcher interface used by the search router.
-func (a *SearchAdapter) Search(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error) {
+func (a *SearchAdapter) Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error) {
 	return a.service.Search(ctx, criteria)
 }

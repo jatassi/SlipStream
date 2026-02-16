@@ -68,43 +68,49 @@ func (h *Handlers) SearchMovies(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "query parameter is required")
 	}
 
-	var year int
-	if yearStr := c.QueryParam("year"); yearStr != "" {
-		if y, err := strconv.Atoi(yearStr); err == nil {
-			year = y
-		}
-	}
+	year := parseYearParam(c.QueryParam("year"))
 
 	results, err := h.metadataService.SearchMovies(c.Request().Context(), query, year)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var userQualityProfileID *int64
-	user, err := h.usersService.Get(c.Request().Context(), claims.UserID)
-	if err == nil && user != nil {
-		userQualityProfileID = user.QualityProfileID
+	profileID := h.getUserQualityProfileID(c.Request().Context(), claims.UserID)
+	enriched := h.enrichMovieResults(c.Request().Context(), results, profileID)
+	return c.JSON(http.StatusOK, enriched)
+}
+
+func parseYearParam(yearStr string) int {
+	if yearStr == "" {
+		return 0
 	}
+	y, err := strconv.Atoi(yearStr)
+	if err != nil {
+		return 0
+	}
+	return y
+}
 
-	enrichedResults := make([]MovieSearchResult, len(results))
-	for i, result := range results {
-		enrichedResults[i] = MovieSearchResult{
-			MovieResult: result,
-		}
+func (h *Handlers) getUserQualityProfileID(ctx context.Context, userID int64) *int64 {
+	user, err := h.usersService.Get(ctx, userID)
+	if err != nil || user == nil {
+		return nil
+	}
+	return user.QualityProfileID
+}
 
-		if result.ID > 0 {
-			availability, err := h.libraryChecker.CheckMovieAvailability(
-				c.Request().Context(),
-				int64(result.ID),
-				userQualityProfileID,
-			)
+func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64) []MovieSearchResult {
+	enriched := make([]MovieSearchResult, len(results))
+	for i := range results {
+		enriched[i] = MovieSearchResult{MovieResult: results[i]}
+		if results[i].ID > 0 {
+			availability, err := h.libraryChecker.CheckMovieAvailability(ctx, int64(results[i].ID), profileID)
 			if err == nil {
-				enrichedResults[i].Availability = availability
+				enriched[i].Availability = availability
 			}
 		}
 	}
-
-	return c.JSON(http.StatusOK, enrichedResults)
+	return enriched
 }
 
 // SearchSeries searches for series and enriches with availability
@@ -132,9 +138,10 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 	}
 
 	enrichedResults := make([]SeriesSearchResult, len(results))
-	for i, result := range results {
+	for i := range results {
+		result := &results[i]
 		enrichedResults[i] = SeriesSearchResult{
-			SeriesResult: result,
+			SeriesResult: *result,
 		}
 
 		if result.TvdbID > 0 {

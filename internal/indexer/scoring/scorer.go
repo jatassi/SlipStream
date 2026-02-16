@@ -20,18 +20,19 @@ type Scorer struct {
 }
 
 // NewScorer creates a new scorer with the given config.
-func NewScorer(config ScoringConfig) *Scorer {
-	return &Scorer{config: config}
+func NewScorer(config *ScoringConfig) *Scorer {
+	return &Scorer{config: *config}
 }
 
 // NewDefaultScorer creates a scorer with default configuration.
 func NewDefaultScorer() *Scorer {
-	return NewScorer(DefaultConfig())
+	cfg := DefaultConfig()
+	return NewScorer(&cfg)
 }
 
 // ScoreTorrent calculates the desirability score for a torrent.
 // It modifies the torrent in place, setting Score, NormalizedScore, and ScoreBreakdown.
-func (s *Scorer) ScoreTorrent(torrent *types.TorrentInfo, ctx ScoringContext) {
+func (s *Scorer) ScoreTorrent(torrent *types.TorrentInfo, ctx *ScoringContext) {
 	breakdown := &types.ScoreBreakdown{}
 
 	// Calculate each score component
@@ -63,7 +64,7 @@ func (s *Scorer) ScoreTorrent(torrent *types.TorrentInfo, ctx ScoringContext) {
 
 // ScoreTorrents scores and sorts a slice of torrents by desirability.
 // Torrents are sorted by score descending (highest first).
-func (s *Scorer) ScoreTorrents(torrents []types.TorrentInfo, ctx ScoringContext) {
+func (s *Scorer) ScoreTorrents(torrents []types.TorrentInfo, ctx *ScoringContext) {
 	for i := range torrents {
 		s.ScoreTorrent(&torrents[i], ctx)
 	}
@@ -76,7 +77,7 @@ func (s *Scorer) ScoreTorrents(torrents []types.TorrentInfo, ctx ScoringContext)
 
 // calculateQualityScore calculates the quality component of the score.
 // Returns 0-100 for allowed qualities, or DisallowedPenalty for disallowed ones.
-func (s *Scorer) calculateQualityScore(torrent *types.TorrentInfo, ctx ScoringContext, breakdown *types.ScoreBreakdown) float64 {
+func (s *Scorer) calculateQualityScore(torrent *types.TorrentInfo, ctx *ScoringContext, breakdown *types.ScoreBreakdown) float64 {
 	// Try to match quality from source and resolution
 	matchResult := MatchQuality(torrent.Source, torrent.Resolution)
 
@@ -141,7 +142,7 @@ func (s *Scorer) calculateHealthScore(torrent *types.TorrentInfo) float64 {
 
 // calculateIndexerScore calculates the indexer priority component.
 // Returns 0-20 based on indexer priority (lower priority number = higher score).
-func (s *Scorer) calculateIndexerScore(torrent *types.TorrentInfo, ctx ScoringContext) float64 {
+func (s *Scorer) calculateIndexerScore(torrent *types.TorrentInfo, ctx *ScoringContext) float64 {
 	priority := ctx.GetIndexerPriority(torrent.IndexerID)
 
 	// Priority is 1-100, lower is better
@@ -156,60 +157,73 @@ func (s *Scorer) calculateIndexerScore(torrent *types.TorrentInfo, ctx ScoringCo
 
 // calculateMatchScore calculates the content matching component.
 // Returns 0-30 based on year match and episode match.
-func (s *Scorer) calculateMatchScore(torrent *types.TorrentInfo, ctx ScoringContext) float64 {
-	var score float64
 
-	// Parse the release title to extract year and episode info
+// calculateYearScore calculates year matching score component
+func (s *Scorer) calculateYearScore(parsedYear, searchYear int) float64 {
+	if searchYear == 0 {
+		return s.config.YearMatchPoints
+	}
+
+	if parsedYear == 0 || parsedYear == searchYear {
+		return s.config.YearMatchPoints
+	}
+
+	return 0
+}
+
+// calculateEpisodeScore calculates episode matching score component
+func (s *Scorer) calculateEpisodeScore(parsed *scanner.ParsedMedia, ctx *ScoringContext) float64 {
+	if ctx.SearchSeason == 0 {
+		return 0
+	}
+
+	if parsed.Season != ctx.SearchSeason {
+		return 0
+	}
+
+	return s.scoreSeasonMatch(parsed.Episode, ctx.SearchEpisode)
+}
+
+// scoreSeasonMatch scores season match based on episode numbers
+func (s *Scorer) scoreSeasonMatch(parsedEpisode, searchEpisode int) float64 {
+	if searchEpisode > 0 {
+		return s.scoreSpecificEpisode(parsedEpisode, searchEpisode)
+	}
+	return s.scoreWholeSeason(parsedEpisode)
+}
+
+// scoreSpecificEpisode scores when looking for a specific episode
+func (s *Scorer) scoreSpecificEpisode(parsedEpisode, searchEpisode int) float64 {
+	switch parsedEpisode {
+	case searchEpisode:
+		return s.config.ExactEpisodePoints
+	case 0:
+		return s.config.SeasonPackPoints
+	default:
+		return 0
+	}
+}
+
+// scoreWholeSeason scores when looking for whole season
+func (s *Scorer) scoreWholeSeason(parsedEpisode int) float64 {
+	if parsedEpisode == 0 {
+		return s.config.ExactEpisodePoints
+	}
+	return s.config.SeasonPackPoints
+}
+
+func (s *Scorer) calculateMatchScore(torrent *types.TorrentInfo, ctx *ScoringContext) float64 {
 	parsed := scanner.ParseFilename(torrent.Title)
 
-	// Year matching (movies)
-	if ctx.SearchYear > 0 {
-		if parsed.Year == 0 {
-			// Year not present in release - no penalty, give full points
-			score += s.config.YearMatchPoints
-		} else if parsed.Year == ctx.SearchYear {
-			// Exact year match
-			score += s.config.YearMatchPoints
-		}
-		// Else: year mismatch - no points (but no penalty)
-	} else {
-		// No year filter - give full year points
-		score += s.config.YearMatchPoints
-	}
-
-	// Episode matching (TV)
-	if ctx.SearchSeason > 0 {
-		if parsed.Season == ctx.SearchSeason {
-			if ctx.SearchEpisode > 0 {
-				// Looking for specific episode
-				if parsed.Episode == ctx.SearchEpisode {
-					// Exact episode match
-					score += s.config.ExactEpisodePoints
-				} else if parsed.Episode == 0 {
-					// Season pack (no episode number) - partial points
-					score += s.config.SeasonPackPoints
-				}
-				// Else: wrong episode - no points
-			} else {
-				// Looking for whole season - season packs are good
-				if parsed.Episode == 0 {
-					// Season pack
-					score += s.config.ExactEpisodePoints
-				} else {
-					// Individual episode when looking for season - partial points
-					score += s.config.SeasonPackPoints
-				}
-			}
-		}
-		// Else: wrong season - no points
-	}
+	score := s.calculateYearScore(parsed.Year, ctx.SearchYear)
+	score += s.calculateEpisodeScore(parsed, ctx)
 
 	return score
 }
 
 // calculateAgeScore calculates the age penalty component.
 // Returns 0 to -20 based on how old the release is.
-func (s *Scorer) calculateAgeScore(torrent *types.TorrentInfo, ctx ScoringContext) float64 {
+func (s *Scorer) calculateAgeScore(torrent *types.TorrentInfo, ctx *ScoringContext) float64 {
 	now := ctx.GetNow()
 	age := now.Sub(torrent.PublishDate)
 	days := age.Hours() / 24
@@ -234,7 +248,7 @@ func (s *Scorer) calculateAgeScore(torrent *types.TorrentInfo, ctx ScoringContex
 // calculateLanguageScore calculates the language penalty component.
 // Returns 0 for matching language or releases without explicit language tags.
 // Returns a negative penalty for releases tagged with non-preferred languages.
-func (s *Scorer) calculateLanguageScore(torrent *types.TorrentInfo, ctx ScoringContext) float64 {
+func (s *Scorer) calculateLanguageScore(torrent *types.TorrentInfo, ctx *ScoringContext) float64 {
 	// No languages detected means we assume English (default)
 	if len(torrent.Languages) == 0 {
 		return 0

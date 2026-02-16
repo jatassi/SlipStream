@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	ErrNoMatchingSlot     = errors.New("no matching slot for release")
-	ErrRejectImport       = errors.New("import rejected")
-	ErrBelowAllProfiles   = errors.New("release below all profile requirements")
-	ErrMixedSlotState     = errors.New("cannot import: some slots filled, some empty")
-	ErrAllSlotsFilled     = errors.New("cannot import: all slots filled")
+	ErrNoMatchingSlot        = errors.New("no matching slot for release")
+	ErrRejectImport          = errors.New("import rejected")
+	ErrBelowAllProfiles      = errors.New("release below all profile requirements")
+	ErrMixedSlotState        = errors.New("cannot import: some slots filled, some empty")
+	ErrAllSlotsFilled        = errors.New("cannot import: all slots filled")
 	ErrSlotSelectionRequired = errors.New("slot selection required: multiple slots match")
 )
 
@@ -32,7 +32,7 @@ type SlotAssignment struct {
 	Confidence   float64 `json:"confidence"`   // How confident in the assignment (0-1)
 
 	// File info if slot is currently filled
-	CurrentFileID *int64  `json:"currentFileId,omitempty"`
+	CurrentFileID  *int64 `json:"currentFileId,omitempty"`
 	CurrentQuality string `json:"currentQuality,omitempty"`
 }
 
@@ -47,6 +47,70 @@ type SlotEvaluation struct {
 // EvaluateRelease evaluates a parsed release against all enabled slot profiles.
 // Req 5.1.1: Evaluate release against all enabled slot profiles
 // Req 5.1.2: Calculate match score for each slot's profile
+// evaluateSlotForRelease evaluates a single slot against a release
+func (s *Service) evaluateSlotForRelease(ctx context.Context, slot *Slot, parsed *scanner.ParsedMedia, releaseAttrs *quality.ReleaseAttributes, mediaType string, mediaID int64) *SlotAssignment {
+	if slot.QualityProfileID == nil {
+		return nil
+	}
+
+	profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", slot.ID).Msg("Failed to get profile for slot")
+		return nil
+	}
+
+	matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
+	qualityScore := s.calculateQualityScore(parsed)
+	totalScore := qualityScore + matchResult.TotalScore
+	currentFile := s.getCurrentSlotFile(ctx, mediaType, mediaID, slot.ID)
+
+	assignment := SlotAssignment{
+		SlotID:     slot.ID,
+		SlotNumber: slot.SlotNumber,
+		SlotName:   slot.Name,
+		MatchScore: totalScore,
+		IsNewFill:  currentFile == nil,
+	}
+
+	if currentFile != nil {
+		assignment.CurrentFileID = currentFile.FileID
+		assignment.CurrentQuality = currentFile.Quality
+		assignment.IsUpgrade = totalScore > currentFile.QualityScore
+	}
+
+	if matchResult.AllMatch {
+		assignment.Confidence = 1.0
+	} else {
+		assignment.Confidence = 0.5
+	}
+
+	return &assignment
+}
+
+// sortAssignmentsByPriority sorts assignments by score, empty slots, then slot number
+func sortAssignmentsByPriority(assignments []SlotAssignment) {
+	sort.Slice(assignments, func(i, j int) bool {
+		if assignments[i].MatchScore != assignments[j].MatchScore {
+			return assignments[i].MatchScore > assignments[j].MatchScore
+		}
+		if assignments[i].IsNewFill != assignments[j].IsNewFill {
+			return assignments[i].IsNewFill
+		}
+		return assignments[i].SlotNumber < assignments[j].SlotNumber
+	})
+}
+
+// countMatchingSlots counts assignments with high confidence
+func countMatchingSlots(assignments []SlotAssignment) int {
+	count := 0
+	for _, a := range assignments {
+		if a.Confidence >= 1.0 {
+			count++
+		}
+	}
+	return count
+}
+
 func (s *Service) EvaluateRelease(ctx context.Context, parsed *scanner.ParsedMedia, mediaType string, mediaID int64) (*SlotEvaluation, error) {
 	slots, err := s.ListEnabledWithProfiles(ctx)
 	if err != nil {
@@ -61,77 +125,18 @@ func (s *Service) EvaluateRelease(ctx context.Context, parsed *scanner.ParsedMed
 	assignments := make([]SlotAssignment, 0, len(slots))
 
 	for _, slot := range slots {
-		if slot.QualityProfileID == nil {
-			continue
+		assignment := s.evaluateSlotForRelease(ctx, &slot.Slot, parsed, &releaseAttrs, mediaType, mediaID)
+		if assignment != nil {
+			assignments = append(assignments, *assignment)
 		}
-
-		profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("slotId", slot.ID).Msg("Failed to get profile for slot")
-			continue
-		}
-
-		// Calculate match result
-		matchResult := quality.MatchProfileAttributes(releaseAttrs, profile)
-
-		// Calculate quality score based on resolution and source
-		qualityScore := s.calculateQualityScore(parsed, profile)
-
-		// Total score combines quality matching and attribute bonuses
-		totalScore := qualityScore + matchResult.TotalScore
-
-		// Get current file info for this slot
-		currentFile := s.getCurrentSlotFile(ctx, mediaType, mediaID, slot.ID)
-
-		assignment := SlotAssignment{
-			SlotID:     slot.ID,
-			SlotNumber: slot.SlotNumber,
-			SlotName:   slot.Name,
-			MatchScore: totalScore,
-			IsNewFill:  currentFile == nil,
-			Confidence: 0.0,
-		}
-
-		if currentFile != nil {
-			assignment.CurrentFileID = currentFile.FileID
-			assignment.CurrentQuality = currentFile.Quality
-			assignment.IsUpgrade = totalScore > currentFile.QualityScore
-		}
-
-		// Only include slots where the release passes attribute requirements
-		if matchResult.AllMatch {
-			assignment.Confidence = 1.0
-		} else {
-			// Partial match - lower confidence
-			assignment.Confidence = 0.5
-		}
-
-		assignments = append(assignments, assignment)
 	}
 
 	if len(assignments) == 0 {
 		return nil, ErrNoMatchingSlot
 	}
 
-	// Sort by score descending, then by empty slots, then by slot number
-	sort.Slice(assignments, func(i, j int) bool {
-		if assignments[i].MatchScore != assignments[j].MatchScore {
-			return assignments[i].MatchScore > assignments[j].MatchScore
-		}
-		// Prefer empty slots on tie
-		if assignments[i].IsNewFill != assignments[j].IsNewFill {
-			return assignments[i].IsNewFill
-		}
-		return assignments[i].SlotNumber < assignments[j].SlotNumber
-	})
-
-	// Count matching slots (high confidence)
-	matchingCount := 0
-	for _, a := range assignments {
-		if a.Confidence >= 1.0 {
-			matchingCount++
-		}
-	}
+	sortAssignmentsByPriority(assignments)
+	matchingCount := countMatchingSlots(assignments)
 
 	return &SlotEvaluation{
 		Assignments:       assignments,
@@ -219,9 +224,9 @@ type currentSlotFileInfo struct {
 }
 
 // getCurrentSlotFile gets info about the current file in a slot for a media item.
-func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, mediaID int64, slotID int64) *currentSlotFileInfo {
+func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, mediaID, slotID int64) *currentSlotFileInfo {
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		assignment, err := s.queries.GetMovieSlotAssignment(ctx, sqlc.GetMovieSlotAssignmentParams{
 			MovieID: mediaID,
 			SlotID:  slotID,
@@ -239,7 +244,7 @@ func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, medi
 			info.Quality = fq.Quality
 		}
 		return info
-	case "episode":
+	case mediaTypeEpisode:
 		assignment, err := s.queries.GetEpisodeSlotAssignment(ctx, sqlc.GetEpisodeSlotAssignmentParams{
 			EpisodeID: mediaID,
 			SlotID:    slotID,
@@ -262,43 +267,69 @@ func (s *Service) getCurrentSlotFile(ctx context.Context, mediaType string, medi
 }
 
 // calculateQualityScore calculates a quality score based on resolution and source.
-func (s *Service) calculateQualityScore(parsed *scanner.ParsedMedia, profile *quality.Profile) float64 {
-	var score float64
-
-	// Resolution scoring (major factor)
-	switch parsed.Quality {
-	case "2160p":
-		score += 40
-	case "1080p":
-		score += 30
-	case "720p":
-		score += 20
-	case "480p":
-		score += 10
+var (
+	resolutionScores = map[string]float64{
+		"2160p": 40,
+		"1080p": 30,
+		"720p":  20,
+		"480p":  10,
 	}
-
-	// Source scoring
-	switch parsed.Source {
-	case "Remux":
-		score += 10
-	case "BluRay":
-		score += 8
-	case "WEB-DL":
-		score += 6
-	case "WEBRip":
-		score += 5
-	case "HDTV":
-		score += 4
-	case "DVDRip":
-		score += 2
-	case "SDTV":
-		score += 1
+	sourceScores = map[string]float64{
+		"Remux":  10,
+		"BluRay": 8,
+		"WEB-DL": 6,
+		"WEBRip": 5,
+		"HDTV":   4,
+		"DVDRip": 2,
+		"SDTV":   1,
 	}
+)
 
-	return score
+func (s *Service) calculateQualityScore(parsed *scanner.ParsedMedia) float64 {
+	return resolutionScores[parsed.Quality] + sourceScores[parsed.Source]
 }
 
 // ListEnabledWithProfiles returns enabled slots with their full profile information.
+// buildSlotWithProfile constructs a SlotWithProfile from a database row
+func buildSlotWithProfile(row *sqlc.ListEnabledVersionSlotsWithProfilesRow) *SlotWithProfile {
+	slot := &SlotWithProfile{
+		Slot: Slot{
+			ID:           row.ID,
+			SlotNumber:   int(row.SlotNumber),
+			Name:         row.Name,
+			Enabled:      row.Enabled != 0,
+			DisplayOrder: int(row.DisplayOrder),
+		},
+	}
+
+	if row.QualityProfileID.Valid {
+		slot.QualityProfileID = &row.QualityProfileID.Int64
+	}
+	if row.CreatedAt.Valid {
+		slot.CreatedAt = row.CreatedAt.Time
+	}
+	if row.UpdatedAt.Valid {
+		slot.UpdatedAt = row.UpdatedAt.Time
+	}
+	if row.ProfileItems.Valid {
+		slot.ProfileItems = row.ProfileItems.String
+	}
+	if row.ProfileHdrSettings.Valid {
+		slot.ProfileHDRSettings = row.ProfileHdrSettings.String
+	}
+	if row.ProfileVideoCodecSettings.Valid {
+		slot.ProfileVideoCodecSettings = row.ProfileVideoCodecSettings.String
+	}
+	if row.ProfileAudioCodecSettings.Valid {
+		slot.ProfileAudioCodecSettings = row.ProfileAudioCodecSettings.String
+	}
+	if row.ProfileAudioChannelSettings.Valid {
+		slot.ProfileAudioChannelSettings = row.ProfileAudioChannelSettings.String
+	}
+
+	return slot
+}
+
 func (s *Service) ListEnabledWithProfiles(ctx context.Context) ([]*SlotWithProfile, error) {
 	rows, err := s.queries.ListEnabledVersionSlotsWithProfiles(ctx)
 	if err != nil {
@@ -307,53 +338,16 @@ func (s *Service) ListEnabledWithProfiles(ctx context.Context) ([]*SlotWithProfi
 
 	slots := make([]*SlotWithProfile, 0, len(rows))
 	for _, row := range rows {
-		slot := &SlotWithProfile{
-			Slot: Slot{
-				ID:           row.ID,
-				SlotNumber:   int(row.SlotNumber),
-				Name:         row.Name,
-				Enabled:      row.Enabled != 0,
-				DisplayOrder: int(row.DisplayOrder),
-			},
-		}
-
-		if row.QualityProfileID.Valid {
-			slot.QualityProfileID = &row.QualityProfileID.Int64
-		}
-		if row.CreatedAt.Valid {
-			slot.CreatedAt = row.CreatedAt.Time
-		}
-		if row.UpdatedAt.Valid {
-			slot.UpdatedAt = row.UpdatedAt.Time
-		}
-
-		// Profile settings for matching
-		if row.ProfileItems.Valid {
-			slot.ProfileItems = row.ProfileItems.String
-		}
-		if row.ProfileHdrSettings.Valid {
-			slot.ProfileHDRSettings = row.ProfileHdrSettings.String
-		}
-		if row.ProfileVideoCodecSettings.Valid {
-			slot.ProfileVideoCodecSettings = row.ProfileVideoCodecSettings.String
-		}
-		if row.ProfileAudioCodecSettings.Valid {
-			slot.ProfileAudioCodecSettings = row.ProfileAudioCodecSettings.String
-		}
-		if row.ProfileAudioChannelSettings.Valid {
-			slot.ProfileAudioChannelSettings = row.ProfileAudioChannelSettings.String
-		}
-
-		slots = append(slots, slot)
+		slots = append(slots, buildSlotWithProfile(row))
 	}
 
 	return slots, nil
 }
 
 // AssignFileToSlot assigns a file to a specific slot for a media item.
-func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaID int64, slotID int64, fileID int64) error {
+func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaID, slotID, fileID int64) error {
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		_, err := s.queries.UpsertMovieSlotAssignment(ctx, sqlc.UpsertMovieSlotAssignmentParams{
 			MovieID:   mediaID,
 			SlotID:    slotID,
@@ -369,7 +363,7 @@ func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaI
 			ID:     fileID,
 		})
 		return err
-	case "episode":
+	case mediaTypeEpisode:
 		_, err := s.queries.UpsertEpisodeSlotAssignment(ctx, sqlc.UpsertEpisodeSlotAssignmentParams{
 			EpisodeID: mediaID,
 			SlotID:    slotID,
@@ -390,14 +384,14 @@ func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaI
 }
 
 // UnassignFileFromSlot removes a file from a slot.
-func (s *Service) UnassignFileFromSlot(ctx context.Context, mediaType string, mediaID int64, slotID int64) error {
+func (s *Service) UnassignFileFromSlot(ctx context.Context, mediaType string, mediaID, slotID int64) error {
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		return s.queries.ClearMovieSlotFile(ctx, sqlc.ClearMovieSlotFileParams{
 			MovieID: mediaID,
 			SlotID:  slotID,
 		})
-	case "episode":
+	case mediaTypeEpisode:
 		return s.queries.ClearEpisodeSlotFile(ctx, sqlc.ClearEpisodeSlotFileParams{
 			EpisodeID: mediaID,
 			SlotID:    slotID,

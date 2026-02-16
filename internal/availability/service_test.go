@@ -19,7 +19,7 @@ func TestRefreshMovies_UnreleasedToMissing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -55,7 +55,7 @@ func TestRefreshMovies_SameDayRelease(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -86,7 +86,7 @@ func TestRefreshMovies_FutureNotChanged(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -118,7 +118,7 @@ func TestRefreshMovies_OnlyAffectsUnreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -163,7 +163,7 @@ func TestRefreshMovies_NoReleaseDateNotChanged(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -193,7 +193,7 @@ func TestRefreshEpisodes_UnreleasedToMissing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -239,7 +239,7 @@ func TestRefreshEpisodes_FutureNotChanged(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -284,7 +284,7 @@ func TestRefreshEpisodes_OnlyAffectsUnreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -328,7 +328,7 @@ func TestRefreshAll_BothMoviesAndEpisodes(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 

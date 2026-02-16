@@ -11,7 +11,7 @@ import (
 // It starts with no rate limiting and backs off when receiving 429 errors.
 type RateLimiter struct {
 	mu               sync.Mutex
-	logger           zerolog.Logger
+	logger           *zerolog.Logger
 	minDelay         time.Duration
 	maxDelay         time.Duration
 	currentDelay     time.Duration
@@ -27,13 +27,13 @@ type RateLimiterConfig struct {
 	MaxDelay         time.Duration
 	BackoffFactor    float64
 	RecoveryRequests int
-	Logger           zerolog.Logger
+	Logger           *zerolog.Logger
 }
 
 // DefaultRateLimiterConfig returns sensible defaults for Prowlarr rate limiting.
-func DefaultRateLimiterConfig(logger zerolog.Logger) RateLimiterConfig {
+func DefaultRateLimiterConfig(logger *zerolog.Logger) RateLimiterConfig {
 	return RateLimiterConfig{
-		MinDelay:         0,              // No initial delay
+		MinDelay:         0, // No initial delay
 		MaxDelay:         30 * time.Second,
 		BackoffFactor:    2.0,
 		RecoveryRequests: 5, // Reduce delay after 5 successful requests
@@ -43,8 +43,9 @@ func DefaultRateLimiterConfig(logger zerolog.Logger) RateLimiterConfig {
 
 // NewRateLimiter creates a new adaptive rate limiter.
 func NewRateLimiter(cfg RateLimiterConfig) *RateLimiter {
+	subLogger := cfg.Logger.With().Str("component", "prowlarr-ratelimiter").Logger()
 	return &RateLimiter{
-		logger:           cfg.Logger.With().Str("component", "prowlarr-ratelimiter").Logger(),
+		logger:           &subLogger,
 		minDelay:         cfg.MinDelay,
 		maxDelay:         cfg.MaxDelay,
 		currentDelay:     cfg.MinDelay,

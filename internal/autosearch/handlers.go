@@ -2,6 +2,7 @@ package autosearch
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -60,10 +61,10 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 
 	result, err := h.service.SearchMovie(c.Request().Context(), id, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
 		}
-		if err == ErrAlreadyInQueue {
+		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "movie already in download queue")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -89,10 +90,10 @@ func (h *Handlers) SearchMovieSlot(c echo.Context) error {
 
 	result, err := h.service.SearchMovieSlot(c.Request().Context(), id, slotID, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
 		}
-		if err == ErrAlreadyInQueue {
+		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "movie already in download queue")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -112,10 +113,10 @@ func (h *Handlers) SearchEpisode(c echo.Context) error {
 
 	result, err := h.service.SearchEpisode(c.Request().Context(), id, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
 		}
-		if err == ErrAlreadyInQueue {
+		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "episode already in download queue")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -141,10 +142,10 @@ func (h *Handlers) SearchEpisodeSlot(c echo.Context) error {
 
 	result, err := h.service.SearchEpisodeSlot(c.Request().Context(), id, slotID, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
 		}
-		if err == ErrAlreadyInQueue {
+		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "episode already in download queue")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -170,7 +171,7 @@ func (h *Handlers) SearchSeason(c echo.Context) error {
 
 	result, err := h.service.SearchSeason(c.Request().Context(), seriesID, seasonNumber, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "series not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -190,7 +191,7 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 
 	result, err := h.service.SearchSeries(c.Request().Context(), id, SearchSourceManual)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "series not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -363,7 +364,7 @@ func (h *Handlers) RetryMovie(c echo.Context) error {
 
 	result, err := h.service.RetryMovie(c.Request().Context(), id)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -383,7 +384,7 @@ func (h *Handlers) RetryEpisode(c echo.Context) error {
 
 	result, err := h.service.RetryEpisode(c.Request().Context(), id)
 	if err != nil {
-		if err == ErrItemNotFound {
+		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

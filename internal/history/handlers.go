@@ -51,7 +51,7 @@ func (h *Handlers) List(c echo.Context) error {
 		PageSize:  pageSize,
 	}
 
-	result, err := h.service.List(c.Request().Context(), opts)
+	result, err := h.service.List(c.Request().Context(), &opts)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

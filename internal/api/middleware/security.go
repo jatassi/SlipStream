@@ -24,21 +24,8 @@ func SameOriginCORS() echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			requestHost := c.Request().Host
-			// Strip port from request host for comparison
-			requestHostname := requestHost
-			if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
-				requestHostname = requestHost[:idx]
-			}
-
-			// Allow if origin hostname matches request hostname (any port)
-			if originURL.Hostname() == requestHostname {
-				h := c.Response().Header()
-				h.Set("Access-Control-Allow-Origin", origin)
-				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				h.Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-				h.Set("Access-Control-Allow-Credentials", "true")
-
+			if isSameOriginHost(originURL, c.Request().Host) {
+				setCORSHeaders(c, origin)
 				if c.Request().Method == http.MethodOptions {
 					return c.NoContent(http.StatusNoContent)
 				}
@@ -47,6 +34,22 @@ func SameOriginCORS() echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+func isSameOriginHost(originURL *url.URL, requestHost string) bool {
+	requestHostname := requestHost
+	if idx := strings.LastIndex(requestHost, ":"); idx != -1 {
+		requestHostname = requestHost[:idx]
+	}
+	return originURL.Hostname() == requestHostname
+}
+
+func setCORSHeaders(c echo.Context, origin string) {
+	h := c.Response().Header()
+	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	h.Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+	h.Set("Access-Control-Allow-Credentials", "true")
 }
 
 // ProxyRequestBlock rejects requests that look like they're intended for an HTTP proxy.

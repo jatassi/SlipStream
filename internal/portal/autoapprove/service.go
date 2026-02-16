@@ -28,13 +28,13 @@ type RequestSearcher interface {
 }
 
 type Service struct {
-	queries          *sqlc.Queries
-	usersService     *users.Service
-	qualityService   *quality.Service
-	quotaService     *quota.Service
-	requestsService  *requests.Service
-	requestSearcher  RequestSearcher
-	logger           zerolog.Logger
+	queries         *sqlc.Queries
+	usersService    *users.Service
+	qualityService  *quality.Service
+	quotaService    *quota.Service
+	requestsService *requests.Service
+	requestSearcher RequestSearcher
+	logger          *zerolog.Logger
 }
 
 func NewService(
@@ -43,15 +43,16 @@ func NewService(
 	qualityService *quality.Service,
 	quotaService *quota.Service,
 	requestsService *requests.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *Service {
+	subLogger := logger.With().Str("component", "portal-autoapprove").Logger()
 	return &Service{
 		queries:         queries,
 		usersService:    usersService,
 		qualityService:  qualityService,
 		quotaService:    quotaService,
 		requestsService: requestsService,
-		logger:          logger.With().Str("component", "portal-autoapprove").Logger(),
+		logger:          &subLogger,
 	}
 }
 

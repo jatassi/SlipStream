@@ -8,6 +8,11 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
+const (
+	searchTypeTVSearch = "tvsearch"
+	searchTypeMovie    = "movie"
+)
+
 // aggregateResults combines results from multiple indexers.
 func (s *Service) aggregateResults(results <-chan searchTaskResult) *SearchResult {
 	allReleases := make([]types.ReleaseInfo, 0)
@@ -80,7 +85,7 @@ func (s *Service) aggregateTorrentResults(results <-chan searchTaskResult, crite
 	// Filter by search criteria (title, season/episode for TV, year for movies)
 	if criteria != nil {
 		beforeFilter := len(deduplicated)
-		deduplicated = FilterByCriteria(deduplicated, *criteria)
+		deduplicated = FilterByCriteria(deduplicated, criteria)
 		s.logger.Info().
 			Str("query", criteria.Query).
 			Str("type", criteria.Type).
@@ -122,7 +127,8 @@ func deduplicateReleases(releases []types.ReleaseInfo) []types.ReleaseInfo {
 	seen := make(map[string]int) // GUID -> index in result slice
 	result := make([]types.ReleaseInfo, 0, len(releases))
 
-	for _, release := range releases {
+	for i := range releases {
+		release := &releases[i]
 		// Normalize GUID for comparison
 		guid := normalizeGUID(release.GUID)
 
@@ -132,11 +138,11 @@ func deduplicateReleases(releases []types.ReleaseInfo) []types.ReleaseInfo {
 			// This assumes indexers are processed in priority order
 			existing := result[existingIdx]
 			if release.IndexerID < existing.IndexerID {
-				result[existingIdx] = release
+				result[existingIdx] = *release
 			}
 		} else {
 			seen[guid] = len(result)
-			result = append(result, release)
+			result = append(result, *release)
 		}
 	}
 
@@ -155,7 +161,8 @@ func deduplicateTorrents(torrents []types.TorrentInfo) []types.TorrentInfo {
 	seen := make(map[string]int) // identifier -> index in result slice
 	result := make([]types.TorrentInfo, 0, len(torrents))
 
-	for _, torrent := range torrents {
+	for i := range torrents {
+		torrent := &torrents[i]
 		// Use InfoHash if available (more reliable), otherwise use GUID
 		var identifier string
 		if torrent.InfoHash != "" {
@@ -168,11 +175,11 @@ func deduplicateTorrents(torrents []types.TorrentInfo) []types.TorrentInfo {
 			// Duplicate found - keep the one with more seeders
 			existing := result[existingIdx]
 			if torrent.Seeders > existing.Seeders {
-				result[existingIdx] = torrent
+				result[existingIdx] = *torrent
 			}
 		} else {
 			seen[identifier] = len(result)
-			result = append(result, torrent)
+			result = append(result, *torrent)
 		}
 	}
 
@@ -212,14 +219,14 @@ func FilterByQuality(releases []types.ReleaseInfo, minSize, maxSize int64) []typ
 	}
 
 	filtered := make([]types.ReleaseInfo, 0, len(releases))
-	for _, release := range releases {
-		if minSize > 0 && release.Size < minSize {
+	for i := range releases {
+		if minSize > 0 && releases[i].Size < minSize {
 			continue
 		}
-		if maxSize > 0 && release.Size > maxSize {
+		if maxSize > 0 && releases[i].Size > maxSize {
 			continue
 		}
-		filtered = append(filtered, release)
+		filtered = append(filtered, releases[i])
 	}
 	return filtered
 }
@@ -227,17 +234,17 @@ func FilterByQuality(releases []types.ReleaseInfo, minSize, maxSize int64) []typ
 // FilterTorrentsByQuality filters torrents based on quality criteria.
 func FilterTorrentsByQuality(torrents []types.TorrentInfo, minSeeders int, minSize, maxSize int64) []types.TorrentInfo {
 	filtered := make([]types.TorrentInfo, 0, len(torrents))
-	for _, torrent := range torrents {
-		if minSeeders > 0 && torrent.Seeders < minSeeders {
+	for i := range torrents {
+		if minSeeders > 0 && torrents[i].Seeders < minSeeders {
 			continue
 		}
-		if minSize > 0 && torrent.Size < minSize {
+		if minSize > 0 && torrents[i].Size < minSize {
 			continue
 		}
-		if maxSize > 0 && torrent.Size > maxSize {
+		if maxSize > 0 && torrents[i].Size > maxSize {
 			continue
 		}
-		filtered = append(filtered, torrent)
+		filtered = append(filtered, torrents[i])
 	}
 	return filtered
 }
@@ -245,9 +252,9 @@ func FilterTorrentsByQuality(torrents []types.TorrentInfo, minSeeders int, minSi
 // FilterFreeleech returns only freeleech torrents (downloadVolumeFactor == 0).
 func FilterFreeleech(torrents []types.TorrentInfo) []types.TorrentInfo {
 	filtered := make([]types.TorrentInfo, 0)
-	for _, torrent := range torrents {
-		if torrent.DownloadVolumeFactor == 0 {
-			filtered = append(filtered, torrent)
+	for i := range torrents {
+		if torrents[i].DownloadVolumeFactor == 0 {
+			filtered = append(filtered, torrents[i])
 		}
 	}
 	return filtered
@@ -294,77 +301,94 @@ func qualityToResolution(quality string) int {
 // FilterByCriteria filters torrent results based on search criteria.
 // For TV searches: validates content type, title match, season, and episode.
 // For movie searches: validates content type, title match, and year (±1 tolerance).
-func FilterByCriteria(torrents []types.TorrentInfo, criteria types.SearchCriteria) []types.TorrentInfo {
+func FilterByCriteria(torrents []types.TorrentInfo, criteria *types.SearchCriteria) []types.TorrentInfo {
 	if criteria.Query == "" {
 		return torrents
 	}
 
 	filtered := make([]types.TorrentInfo, 0, len(torrents))
 
-	for _, torrent := range torrents {
-		parsed := scanner.ParseFilename(torrent.Title)
+	for i := range torrents {
+		parsed := scanner.ParseFilename(torrents[i].Title)
 
 		switch criteria.Type {
-		case "tvsearch":
-			if getTVFilterReason(*parsed, criteria) != "" {
+		case searchTypeTVSearch:
+			if getTVFilterReason(parsed, criteria) != "" {
 				continue
 			}
-		case "movie":
-			if getMovieFilterReason(*parsed, criteria) != "" {
+		case searchTypeMovie:
+			if getMovieFilterReason(parsed, criteria) != "" {
 				continue
 			}
 		}
 
-		filtered = append(filtered, torrent)
+		filtered = append(filtered, torrents[i])
 	}
 
 	return filtered
 }
 
 // getTVFilterReason returns the reason a TV result was filtered, or empty string if it passes.
-func getTVFilterReason(parsed scanner.ParsedMedia, criteria types.SearchCriteria) string {
+func getTVFilterReason(parsed *scanner.ParsedMedia, criteria *types.SearchCriteria) string {
 	if !parsed.IsTV {
 		return "not TV content"
 	}
 	if !TitlesMatch(parsed.Title, criteria.Query) {
 		return "title mismatch: '" + parsed.Title + "' != '" + criteria.Query + "'"
 	}
-	if criteria.Season > 0 {
-		if parsed.IsSeasonPack || parsed.IsCompleteSeries {
-			if parsed.Season > 0 && parsed.Season != criteria.Season {
-				if parsed.EndSeason > 0 {
-					if criteria.Season < parsed.Season || criteria.Season > parsed.EndSeason {
-						return "season not in pack range"
-					}
-				} else {
-					return "wrong season pack"
-				}
-			}
-		} else {
-			if parsed.Season != criteria.Season {
-				return "wrong season"
-			}
-		}
+	if reason := checkTVSeasonMatch(parsed, criteria); reason != "" {
+		return reason
 	}
-	if criteria.Episode > 0 {
-		if parsed.IsSeasonPack || parsed.IsCompleteSeries {
-			return ""
-		}
-		if parsed.Episode > 0 && parsed.Episode != criteria.Episode {
-			if parsed.EndEpisode > 0 {
-				if criteria.Episode < parsed.Episode || criteria.Episode > parsed.EndEpisode {
-					return "episode not in multi-episode range"
-				}
-			} else {
-				return "wrong episode"
-			}
-		}
+	return checkTVEpisodeMatch(parsed, criteria)
+}
+
+func checkTVSeasonMatch(parsed *scanner.ParsedMedia, criteria *types.SearchCriteria) string {
+	if criteria.Season <= 0 {
+		return ""
+	}
+	if parsed.IsSeasonPack || parsed.IsCompleteSeries {
+		return checkSeasonPackMatch(parsed, criteria)
+	}
+	if parsed.Season != criteria.Season {
+		return "wrong season"
 	}
 	return ""
 }
 
+func checkSeasonPackMatch(parsed *scanner.ParsedMedia, criteria *types.SearchCriteria) string {
+	if parsed.Season <= 0 || parsed.Season == criteria.Season {
+		return ""
+	}
+	if parsed.EndSeason > 0 {
+		if criteria.Season < parsed.Season || criteria.Season > parsed.EndSeason {
+			return "season not in pack range"
+		}
+		return ""
+	}
+	return "wrong season pack"
+}
+
+func checkTVEpisodeMatch(parsed *scanner.ParsedMedia, criteria *types.SearchCriteria) string {
+	if criteria.Episode <= 0 {
+		return ""
+	}
+	if parsed.IsSeasonPack || parsed.IsCompleteSeries {
+		return ""
+	}
+	if parsed.Episode <= 0 || parsed.Episode == criteria.Episode {
+		return ""
+	}
+	if parsed.EndEpisode > 0 {
+		if criteria.Episode < parsed.Episode || criteria.Episode > parsed.EndEpisode {
+			return "episode not in multi-episode range"
+		}
+		return ""
+	}
+	return "wrong episode"
+}
+
 // getMovieFilterReason returns the reason a movie result was filtered, or empty string if it passes.
-func getMovieFilterReason(parsed scanner.ParsedMedia, criteria types.SearchCriteria) string {
+func getMovieFilterReason(parsed *scanner.ParsedMedia, criteria *types.SearchCriteria) string {
 	if parsed.IsTV {
 		return "is TV content, not movie"
 	}
@@ -381,88 +405,4 @@ func getMovieFilterReason(parsed scanner.ParsedMedia, criteria types.SearchCrite
 		}
 	}
 	return ""
-}
-
-// matchesTVCriteria checks if a parsed media matches TV search criteria.
-func matchesTVCriteria(parsed scanner.ParsedMedia, criteria types.SearchCriteria) bool {
-	// Must be TV content
-	if !parsed.IsTV {
-		return false
-	}
-
-	// Title must match exactly
-	if !TitlesMatch(parsed.Title, criteria.Query) {
-		return false
-	}
-
-	// Season validation (if specified)
-	if criteria.Season > 0 {
-		// For season packs, check if season matches
-		if parsed.IsSeasonPack || parsed.IsCompleteSeries {
-			// Season pack: check if requested season is within range
-			if parsed.Season > 0 && parsed.Season != criteria.Season {
-				// Check if it's a multi-season pack containing our season
-				if parsed.EndSeason > 0 {
-					if criteria.Season < parsed.Season || criteria.Season > parsed.EndSeason {
-						return false
-					}
-				} else {
-					return false
-				}
-			}
-		} else {
-			// Single episode: season must match
-			if parsed.Season != criteria.Season {
-				return false
-			}
-		}
-	}
-
-	// Episode validation (if specified)
-	if criteria.Episode > 0 {
-		// Season packs always pass episode check (they contain all episodes)
-		if parsed.IsSeasonPack || parsed.IsCompleteSeries {
-			return true
-		}
-
-		// For individual episodes, check exact match or multi-episode range
-		if parsed.Episode > 0 && parsed.Episode != criteria.Episode {
-			// Check if it's a multi-episode release containing our episode
-			if parsed.EndEpisode > 0 {
-				if criteria.Episode < parsed.Episode || criteria.Episode > parsed.EndEpisode {
-					return false
-				}
-			} else {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-// matchesMovieCriteria checks if a parsed media matches movie search criteria.
-func matchesMovieCriteria(parsed scanner.ParsedMedia, criteria types.SearchCriteria) bool {
-	// Must be movie content (not TV)
-	if parsed.IsTV {
-		return false
-	}
-
-	// Title must match exactly
-	if !TitlesMatch(parsed.Title, criteria.Query) {
-		return false
-	}
-
-	// Year validation with ±1 tolerance
-	if criteria.Year > 0 && parsed.Year > 0 {
-		yearDiff := criteria.Year - parsed.Year
-		if yearDiff < 0 {
-			yearDiff = -yearDiff
-		}
-		if yearDiff > 1 {
-			return false
-		}
-	}
-
-	return true
 }

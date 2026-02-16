@@ -34,13 +34,13 @@ func TestNoiseReleasesNoMatch(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
 	noise := makeNoiseReleases()
-	for _, release := range noise {
-		results := matcher.Match(context.Background(), release)
+	for i := range noise {
+		results := matcher.Match(context.Background(), &noise[i])
 		if len(results) > 0 {
-			t.Errorf("noise release %q should not match, got %d results", release.Title, len(results))
+			t.Errorf("noise release %q should not match, got %d results", noise[i].Title, len(results))
 		}
 	}
 }
@@ -53,7 +53,7 @@ func TestMatcher_Scenario1B_MissingMovie(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
 	releases := []types.TorrentInfo{
 		makeTorrentWithIDs("Dune.Part.Two.2024.2160p.UHD.BluRay.x265", "BluRay", 2160, 150, 693134, 0),
@@ -65,8 +65,8 @@ func TestMatcher_Scenario1B_MissingMovie(t *testing.T) {
 	}
 
 	var totalMatches int
-	for _, release := range releases {
-		results := matcher.Match(context.Background(), release)
+	for i := range releases {
+		results := matcher.Match(context.Background(), &releases[i])
 		totalMatches += len(results)
 	}
 
@@ -95,25 +95,22 @@ func TestMatcher_Scenario4B_MissingEpisode(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
-	// S03E07 should match
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03E07.1080p.WEB-DL.x264", "WEB-DL", 1080, 70, 0, 81189)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 1 {
 		t.Errorf("S03E07 should match, got %d results", len(results))
 	}
 
-	// S03E08 should not match (not wanted)
 	r2 := makeTorrentWithIDs("Breaking.Bad.S03E08.1080p.WEB-DL.x264", "WEB-DL", 1080, 80, 0, 81189)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 0 {
 		t.Errorf("S03E08 should not match, got %d results", len(results))
 	}
 
-	// Season pack should not match (not all episodes missing)
 	r3 := makeTorrentWithIDs("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100, 0, 81189)
-	results = matcher.Match(context.Background(), r3)
+	results = matcher.Match(context.Background(), &r3)
 	if len(results) != 0 {
 		t.Errorf("S03 season pack should not match (mixed statuses), got %d results", len(results))
 	}
@@ -134,11 +131,10 @@ func TestMatcher_Scenario7B_AllMissing_SeasonPack(t *testing.T) {
 	// Build index with individual episode items (simulates what the index needs for matching)
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, false, 0)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
-	// Season pack should match via eligibility check
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100, 0, 81189)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 1 {
 		t.Fatalf("season pack should match, got %d results", len(results))
 	}
@@ -149,9 +145,8 @@ func TestMatcher_Scenario7B_AllMissing_SeasonPack(t *testing.T) {
 		t.Errorf("expected MediaTypeSeason, got %s", results[0].WantedItem.MediaType)
 	}
 
-	// Individual episodes should also match
 	r2 := makeTorrentWithIDs("Breaking.Bad.S03E01.1080p.WEB-DL.x264", "WEB-DL", 1080, 80, 0, 81189)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 1 {
 		t.Errorf("S03E01 should match, got %d results", len(results))
 	}
@@ -172,10 +167,10 @@ func TestMatcher_Scenario8B_AllUpgradable_SeasonPackUpgrade(t *testing.T) {
 	// Build index with individual upgrade episode items
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, true, 6)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100, 0, 81189)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 1 {
 		t.Fatalf("season pack upgrade should match, got %d results", len(results))
 	}
@@ -206,31 +201,28 @@ func TestMatcher_Scenario10B_ContinuingSeason(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
-	// Season pack should be rejected (unreleased episodes present)
 	r1 := makeTorrentWithIDs("The.Mandalorian.S03.1080p.WEB-DL.x264", "WEB-DL", 1080, 100, 0, 82856)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 0 {
 		t.Errorf("season pack should not match with unreleased episodes, got %d results", len(results))
 	}
 
-	// Individual episodes E03 and E04 should match
 	r2 := makeTorrentWithIDs("The.Mandalorian.S03E03.1080p.WEB-DL.x264", "WEB-DL", 1080, 80, 0, 82856)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 1 {
 		t.Errorf("S03E03 should match, got %d results", len(results))
 	}
 
 	r3 := makeTorrentWithIDs("The.Mandalorian.S03E04.1080p.WEB-DL.x264", "WEB-DL", 1080, 75, 0, 82856)
-	results = matcher.Match(context.Background(), r3)
+	results = matcher.Match(context.Background(), &r3)
 	if len(results) != 1 {
 		t.Errorf("S03E04 should match, got %d results", len(results))
 	}
 
-	// E07 should not match (unreleased)
 	r4 := makeTorrentWithIDs("The.Mandalorian.S03E07.1080p.WEB-DL.x264", "WEB-DL", 1080, 70, 0, 82856)
-	results = matcher.Match(context.Background(), r4)
+	results = matcher.Match(context.Background(), &r4)
 	if len(results) != 0 {
 		t.Errorf("S03E07 (unreleased) should not match, got %d results", len(results))
 	}
@@ -250,16 +242,16 @@ func TestMatcher_Scenario11B_SeasonPremiere(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("House.of.the.Dragon.S03E01.1080p.WEB-DL.x264", "WEB-DL", 1080, 90, 0, 94997)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 1 {
 		t.Errorf("S03E01 should match, got %d results", len(results))
 	}
 
 	r2 := makeTorrentWithIDs("House.of.the.Dragon.S03E02.1080p.WEB-DL.x264", "WEB-DL", 1080, 85, 0, 94997)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 0 {
 		t.Errorf("S03E02 (unreleased) should not match, got %d results", len(results))
 	}
@@ -280,18 +272,16 @@ func TestMatcher_Scenario14B_SeasonPackBlocked(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
-	// Season pack rejected
 	r1 := makeTorrentWithIDs("The.Last.of.Us.S02.1080p.WEB-DL.x264", "WEB-DL", 1080, 100, 0, 100088)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 0 {
 		t.Errorf("season pack should not match (E01 available), got %d results", len(results))
 	}
 
-	// S02E02 should match
 	r2 := makeTorrentWithIDs("The.Last.of.Us.S02E02.1080p.WEB-DL.x264", "WEB-DL", 1080, 80, 0, 100088)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 1 {
 		t.Errorf("S02E02 should match, got %d results", len(results))
 	}
@@ -305,19 +295,16 @@ func TestMatcher_Scenario15B_TitleBasedMatching(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
 
-	// Title match (no IDs) — should match
 	r1 := makeTorrentRelease("Dune.Part.Two.2024.1080p.BluRay.x264", "BluRay", 1080, 100)
-	results := matcher.Match(context.Background(), r1)
+	results := matcher.Match(context.Background(), &r1)
 	if len(results) != 1 {
 		t.Errorf("title-based match should work, got %d results", len(results))
 	}
 
-	// Different movie with overlapping name but different year — should not match via ID (no ID)
-	// Title normalization: "dune" != "dune part two" → no match
 	r2 := makeTorrentRelease("Dune.1984.720p.BluRay.x264", "BluRay", 720, 50)
-	results = matcher.Match(context.Background(), r2)
+	results = matcher.Match(context.Background(), &r2)
 	if len(results) != 0 {
 		t.Errorf("Dune.1984 should not match 'Dune Part Two', got %d results", len(results))
 	}
@@ -351,14 +338,14 @@ func TestGroupMatches(t *testing.T) {
 		t.Errorf("expected 3 groups, got %d", len(groups))
 	}
 
-	movieKey := itemKey(matches[0].WantedItem)
+	movieKey := itemKey(&matches[0].WantedItem)
 	if g, ok := groups[movieKey]; !ok {
 		t.Error("missing movie group")
 	} else if len(g.releases) != 2 {
 		t.Errorf("movie group should have 2 releases, got %d", len(g.releases))
 	}
 
-	seasonKey := itemKey(matches[3].WantedItem)
+	seasonKey := itemKey(&matches[3].WantedItem)
 	if g, ok := groups[seasonKey]; !ok {
 		t.Error("missing season group")
 	} else if !g.isSeason {
@@ -375,7 +362,7 @@ func TestSeasonKeyForEpisode(t *testing.T) {
 		SeasonNumber: 3,
 	}
 
-	key := seasonKeyForEpisode(item)
+	key := seasonKeyForEpisode(&item)
 	expected := "season:10:3"
 	if key != expected {
 		t.Errorf("expected %q, got %q", expected, key)

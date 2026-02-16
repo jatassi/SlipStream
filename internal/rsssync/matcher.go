@@ -31,19 +31,20 @@ func BuildWantedIndex(items []decisioning.SearchableItem) *WantedIndex {
 		byTvdbID: make(map[int][]decisioning.SearchableItem),
 	}
 
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		normalized := search.NormalizeTitle(item.Title)
 		if normalized != "" {
-			idx.byTitle[normalized] = append(idx.byTitle[normalized], item)
+			idx.byTitle[normalized] = append(idx.byTitle[normalized], *item)
 		}
 		if item.ImdbID != "" {
-			idx.byImdbID[item.ImdbID] = append(idx.byImdbID[item.ImdbID], item)
+			idx.byImdbID[item.ImdbID] = append(idx.byImdbID[item.ImdbID], *item)
 		}
 		if item.TmdbID != 0 {
-			idx.byTmdbID[item.TmdbID] = append(idx.byTmdbID[item.TmdbID], item)
+			idx.byTmdbID[item.TmdbID] = append(idx.byTmdbID[item.TmdbID], *item)
 		}
 		if item.TvdbID != 0 {
-			idx.byTvdbID[item.TvdbID] = append(idx.byTvdbID[item.TvdbID], item)
+			idx.byTvdbID[item.TvdbID] = append(idx.byTvdbID[item.TvdbID], *item)
 		}
 	}
 
@@ -61,11 +62,11 @@ type MatchResult struct {
 type Matcher struct {
 	index   *WantedIndex
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
 // NewMatcher creates a new Matcher.
-func NewMatcher(index *WantedIndex, queries *sqlc.Queries, logger zerolog.Logger) *Matcher {
+func NewMatcher(index *WantedIndex, queries *sqlc.Queries, logger *zerolog.Logger) *Matcher {
 	return &Matcher{
 		index:   index,
 		queries: queries,
@@ -73,9 +74,7 @@ func NewMatcher(index *WantedIndex, queries *sqlc.Queries, logger zerolog.Logger
 	}
 }
 
-// Match attempts to match a single release against the wanted index.
-// Returns nil if no match is found.
-func (m *Matcher) Match(ctx context.Context, release types.TorrentInfo) []MatchResult {
+func (m *Matcher) Match(ctx context.Context, release *types.TorrentInfo) []MatchResult {
 	parsed := scanner.ParseFilename(release.Title)
 	if parsed == nil || parsed.Title == "" {
 		return nil
@@ -88,21 +87,20 @@ func (m *Matcher) Match(ctx context.Context, release types.TorrentInfo) []MatchR
 
 	var results []MatchResult
 
-	if parsed.IsSeasonPack {
+	switch {
+	case parsed.IsSeasonPack:
 		results = m.matchSeasonPack(ctx, release, parsed, candidates)
-	} else if parsed.IsTV {
+	case parsed.IsTV:
 		results = m.matchEpisode(release, parsed, candidates)
-	} else {
+	default:
 		results = m.matchMovie(release, parsed, candidates)
 	}
 
 	return results
 }
 
-// findCandidates returns all potential wanted items for a release using ID or title lookup.
-func (m *Matcher) findCandidates(release types.TorrentInfo, parsed *scanner.ParsedMedia) []decisioning.SearchableItem {
-	// Try to extract additional IDs from InfoURL when typed fields are zero
-	extractExternalIDs(&release)
+func (m *Matcher) findCandidates(release *types.TorrentInfo, parsed *scanner.ParsedMedia) []decisioning.SearchableItem {
+	extractExternalIDs(release)
 
 	// ID-based lookup first
 	if imdbID := m.extractImdbID(release); imdbID != "" {
@@ -134,32 +132,29 @@ func (m *Matcher) findCandidates(release types.TorrentInfo, parsed *scanner.Pars
 	return nil
 }
 
-// matchMovie matches a movie release against candidates.
-// When matched by title (no external IDs), the parsed year is validated against the library year
-// to prevent matching wrong movies with the same normalized title but different years.
-func (m *Matcher) matchMovie(release types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
+func (m *Matcher) matchMovie(release *types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
 	matchedByID := release.ImdbID != 0 || release.TmdbID != 0 || release.TvdbID != 0
 	var results []MatchResult
-	for _, item := range candidates {
+	for i := range candidates {
+		item := &candidates[i]
 		if item.MediaType != decisioning.MediaTypeMovie {
 			continue
 		}
-		// For title-based matches, validate year to avoid wrong movie
 		if !matchedByID && parsed.Year > 0 && item.Year > 0 && parsed.Year != item.Year {
 			continue
 		}
 		results = append(results, MatchResult{
-			Release:    release,
-			WantedItem: item,
+			Release:    *release,
+			WantedItem: *item,
 		})
 	}
 	return results
 }
 
-// matchEpisode matches a TV episode release against candidates.
-func (m *Matcher) matchEpisode(release types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
+func (m *Matcher) matchEpisode(release *types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
 	var results []MatchResult
-	for _, item := range candidates {
+	for i := range candidates {
+		item := &candidates[i]
 		if item.MediaType != decisioning.MediaTypeEpisode {
 			continue
 		}
@@ -170,25 +165,22 @@ func (m *Matcher) matchEpisode(release types.TorrentInfo, parsed *scanner.Parsed
 			continue
 		}
 		results = append(results, MatchResult{
-			Release:    release,
-			WantedItem: item,
+			Release:    *release,
+			WantedItem: *item,
 		})
 	}
 	return results
 }
 
-// matchSeasonPack checks season pack eligibility and matches against wanted season items.
-func (m *Matcher) matchSeasonPack(ctx context.Context, release types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
+func (m *Matcher) matchSeasonPack(ctx context.Context, release *types.TorrentInfo, parsed *scanner.ParsedMedia, candidates []decisioning.SearchableItem) []MatchResult {
 	var results []MatchResult
 
-	// First check if CollectWantedItems already created season-level items for this season.
-	// This avoids redundant eligibility checks since CollectWantedItems already determines
-	// season pack eligibility during index construction.
-	for _, item := range candidates {
+	for i := range candidates {
+		item := &candidates[i]
 		if item.MediaType == decisioning.MediaTypeSeason && item.SeasonNumber == parsed.Season {
 			results = append(results, MatchResult{
-				Release:    release,
-				WantedItem: item,
+				Release:    *release,
+				WantedItem: *item,
 				IsSeason:   true,
 			})
 		}
@@ -197,16 +189,14 @@ func (m *Matcher) matchSeasonPack(ctx context.Context, release types.TorrentInfo
 		return results
 	}
 
-	// No pre-built season items — check eligibility from episode candidates.
-	// This handles edge cases where the WantedIndex was built without season items
-	// (e.g., when individual episodes span multiple series with the same tvdbID).
 	type seriesSeason struct {
 		seriesID int64
 		season   int
 	}
 	checked := make(map[seriesSeason]bool)
 
-	for _, item := range candidates {
+	for i := range candidates {
+		item := &candidates[i]
 		if item.MediaType != decisioning.MediaTypeEpisode {
 			continue
 		}
@@ -226,7 +216,7 @@ func (m *Matcher) matchSeasonPack(ctx context.Context, release types.TorrentInfo
 		}
 
 		results = append(results, MatchResult{
-			Release:    release,
+			Release:    *release,
 			WantedItem: *seasonItem,
 			IsSeason:   true,
 		})
@@ -234,9 +224,7 @@ func (m *Matcher) matchSeasonPack(ctx context.Context, release types.TorrentInfo
 	return results
 }
 
-// checkSeasonPackEligibility determines if a season pack is eligible for the given series+season.
-// Returns a synthetic season SearchableItem if eligible, nil otherwise.
-func (m *Matcher) checkSeasonPackEligibility(ctx context.Context, episodeItem decisioning.SearchableItem, season int) *decisioning.SearchableItem {
+func (m *Matcher) checkSeasonPackEligibility(ctx context.Context, episodeItem *decisioning.SearchableItem, season int) *decisioning.SearchableItem {
 	// Check all-missing eligibility
 	allMissing := decisioning.IsSeasonPackEligible(ctx, m.queries, m.logger, episodeItem.SeriesID, season)
 	if allMissing {
@@ -276,53 +264,49 @@ func (m *Matcher) checkSeasonPackEligibility(ctx context.Context, episodeItem de
 // highestQualityForSeason finds the highest CurrentQualityID among wanted episodes
 // for a given series+season in the WantedIndex.
 func (m *Matcher) highestQualityForSeason(tvdbID int, seriesID int64, season int) int {
-	highest := 0
-
-	// Look up by tvdbID directly — all episodes of a series share the same tvdbID
 	if tvdbID != 0 {
-		for _, item := range m.index.byTvdbID[tvdbID] {
-			if item.MediaType == decisioning.MediaTypeEpisode && item.SeriesID == seriesID && item.SeasonNumber == season {
-				if item.CurrentQualityID > highest {
-					highest = item.CurrentQualityID
-				}
-			}
-		}
-		return highest
+		return highestQualityInItems(m.index.byTvdbID[tvdbID], seriesID, season)
 	}
 
-	// Fall back to title-based lookup when tvdbID is missing
+	highest := 0
 	for _, items := range m.index.byTitle {
-		for _, item := range items {
-			if item.MediaType == decisioning.MediaTypeEpisode && item.SeriesID == seriesID && item.SeasonNumber == season {
-				if item.CurrentQualityID > highest {
-					highest = item.CurrentQualityID
-				}
-			}
+		if h := highestQualityInItems(items, seriesID, season); h > highest {
+			highest = h
 		}
 	}
 	return highest
 }
 
-// extractImdbID gets the IMDB ID from a torrent's attributes.
-func (m *Matcher) extractImdbID(release types.TorrentInfo) string {
+func highestQualityInItems(items []decisioning.SearchableItem, seriesID int64, season int) int {
+	highest := 0
+	for i := range items {
+		item := &items[i]
+		if item.MediaType != decisioning.MediaTypeEpisode || item.SeriesID != seriesID || item.SeasonNumber != season {
+			continue
+		}
+		if item.CurrentQualityID > highest {
+			highest = item.CurrentQualityID
+		}
+	}
+	return highest
+}
+
+func (m *Matcher) extractImdbID(release *types.TorrentInfo) string {
 	if release.ImdbID != 0 {
 		return "tt" + strconv.Itoa(release.ImdbID)
 	}
 	return ""
 }
 
-// extractTmdbID gets the TMDB ID from a torrent's attributes.
-func (m *Matcher) extractTmdbID(release types.TorrentInfo) int {
+func (m *Matcher) extractTmdbID(release *types.TorrentInfo) int {
 	return release.TmdbID
 }
 
-// extractTvdbID gets the TVDB ID from a torrent's attributes.
-func (m *Matcher) extractTvdbID(release types.TorrentInfo) int {
+func (m *Matcher) extractTvdbID(release *types.TorrentInfo) int {
 	return release.TvdbID
 }
 
-// itemKey returns a unique key for a wanted item for grouping.
-func itemKey(item decisioning.SearchableItem) string {
+func itemKey(item *decisioning.SearchableItem) string {
 	switch item.MediaType {
 	case decisioning.MediaTypeMovie:
 		return "movie:" + strconv.FormatInt(item.MediaID, 10)
@@ -335,26 +319,34 @@ func itemKey(item decisioning.SearchableItem) string {
 	}
 }
 
-// seasonKeyForEpisode returns the season key that would cover this episode item.
-func seasonKeyForEpisode(item decisioning.SearchableItem) string {
+func seasonKeyForEpisode(item *decisioning.SearchableItem) string {
 	return "season:" + strconv.FormatInt(item.SeriesID, 10) + ":" + strconv.Itoa(item.SeasonNumber)
 }
 
-// extractExternalIDs parses external IDs from torznab attributes embedded in a release.
-// This is used as a fallback when TorrentInfo's typed fields are zero.
 func extractExternalIDs(release *types.TorrentInfo) {
-	if release.ImdbID == 0 && release.InfoURL != "" {
-		// Some indexers put IMDB link in InfoURL
-		if idx := strings.Index(release.InfoURL, "tt"); idx >= 0 {
-			end := idx + 2
-			for end < len(release.InfoURL) && release.InfoURL[end] >= '0' && release.InfoURL[end] <= '9' {
-				end++
-			}
-			if end > idx+2 {
-				if v, err := strconv.Atoi(release.InfoURL[idx+2 : end]); err == nil {
-					release.ImdbID = v
-				}
-			}
-		}
+	if release.ImdbID != 0 || release.InfoURL == "" {
+		return
 	}
+	if v := parseImdbIDFromURL(release.InfoURL); v > 0 {
+		release.ImdbID = v
+	}
+}
+
+func parseImdbIDFromURL(url string) int {
+	idx := strings.Index(url, "tt")
+	if idx < 0 {
+		return 0
+	}
+	end := idx + 2
+	for end < len(url) && url[end] >= '0' && url[end] <= '9' {
+		end++
+	}
+	if end <= idx+2 {
+		return 0
+	}
+	v, err := strconv.Atoi(url[idx+2 : end])
+	if err != nil {
+		return 0
+	}
+	return v
 }

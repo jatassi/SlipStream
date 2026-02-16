@@ -21,7 +21,7 @@ type IndexerHealthTask struct {
 	prowlarrService *prowlarr.Service
 	modeManager     *prowlarr.ModeManager
 	health          *health.Service
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 }
 
 // NewIndexerHealthTask creates a new indexer health check task.
@@ -30,14 +30,15 @@ func NewIndexerHealthTask(
 	prowlarrSvc *prowlarr.Service,
 	modeMgr *prowlarr.ModeManager,
 	healthSvc *health.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *IndexerHealthTask {
+	subLogger := logger.With().Str("task", "indexer-health").Logger()
 	return &IndexerHealthTask{
 		indexer:         indexerSvc,
 		prowlarrService: prowlarrSvc,
 		modeManager:     modeMgr,
 		health:          healthSvc,
-		logger:          logger.With().Str("task", "indexer-health").Logger(),
+		logger:          &subLogger,
 	}
 }
 
@@ -80,7 +81,8 @@ func (t *IndexerHealthTask) runProwlarrHealthCheck(ctx context.Context) error {
 	// Track which indexer IDs we've seen for cleanup
 	seenIDs := make(map[string]bool)
 
-	for _, idx := range indexers {
+	for i := range indexers {
+		idx := &indexers[i]
 		idStr := fmt.Sprintf("prowlarr-%d", idx.ID)
 		seenIDs[idStr] = true
 
@@ -180,7 +182,7 @@ func RegisterIndexerHealthTask(
 	modeMgr *prowlarr.ModeManager,
 	healthSvc *health.Service,
 	cfg *config.HealthConfig,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) error {
 	task := NewIndexerHealthTask(indexerSvc, prowlarrSvc, modeMgr, healthSvc, logger)
 
@@ -192,7 +194,7 @@ func RegisterIndexerHealthTask(
 	// Convert interval to cron expression using @every directive
 	cronExpr := fmt.Sprintf("@every %s", interval.String())
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "indexer-health",
 		Name:        "Indexer Health Check",
 		Description: "Tests connectivity to all enabled indexers",

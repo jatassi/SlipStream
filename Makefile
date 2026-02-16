@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose
+.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new
 
 # Build flags for embedding values at build time (set via environment variables or make arguments)
 # Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
@@ -82,6 +82,25 @@ test-coverage-view: ## Run tests and open coverage report in browser
 	@make test-coverage
 	@echo "Opening coverage report..."
 	@start coverage/coverage.html 2>/dev/null || open coverage/coverage.html 2>/dev/null || xdg-open coverage/coverage.html 2>/dev/null || echo "Please open coverage/coverage.html manually"
+
+# Linting (Go)
+GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+
+lint: ## Run golangci-lint
+	@echo "Running golangci-lint..."
+	@$(GOLANGCI_LINT) run ./...
+
+lint-fix: ## Run golangci-lint with auto-fix
+	@echo "Running golangci-lint with auto-fix..."
+	@$(GOLANGCI_LINT) run --fix ./...
+
+lint-verbose: ## Run golangci-lint with verbose output
+	@echo "Running golangci-lint (verbose)..."
+	@$(GOLANGCI_LINT) run -v ./...
+
+lint-new: ## Lint only new/changed code vs main
+	@echo "Running golangci-lint on new code..."
+	@$(GOLANGCI_LINT) run --new-from-rev=origin/main ./...
 
 # Help
 help: ## Show this help message

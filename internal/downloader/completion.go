@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rs/zerolog"
+
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 )
@@ -35,7 +37,6 @@ type CompletedDownload struct {
 
 // CheckForCompletedDownloads finds all downloads that are complete and ready for import.
 func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDownload, error) {
-	// Get all enabled clients
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clients: %w", err)
@@ -43,7 +44,6 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 
 	s.logger.Debug().Int("clientCount", len(clients)).Msg("CheckForCompletedDownloads: found clients")
 
-	// Get all active download mappings
 	mappings, err := s.queries.ListActiveDownloadMappings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mappings: %w", err)
@@ -51,109 +51,126 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 
 	s.logger.Debug().Int("mappingCount", len(mappings)).Msg("CheckForCompletedDownloads: found mappings")
 
-	// Build lookup map: clientID:downloadID -> mapping
-	mappingLookup := make(map[string]*sqlc.DownloadMapping)
-	for _, m := range mappings {
-		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
-		mappingLookup[key] = m
-		s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: mapping key")
-	}
+	mappingLookup := buildMappingLookup(mappings, s.logger)
 
 	var completed []CompletedDownload
-
 	for _, dbClient := range clients {
-		if !IsClientTypeImplemented(dbClient.Type) {
-			s.logger.Debug().Str("type", dbClient.Type).Msg("CheckForCompletedDownloads: skipping unimplemented client type")
-			continue
-		}
-
-		client, err := s.GetClient(ctx, dbClient.ID)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to get client")
-			continue
-		}
-
-		downloads, err := client.List(ctx)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to list downloads")
-			continue
-		}
-
-		s.logger.Debug().Int64("clientId", dbClient.ID).Int("downloadCount", len(downloads)).Msg("CheckForCompletedDownloads: got downloads from client")
-
-		for _, d := range downloads {
-			s.logger.Debug().
-				Str("downloadId", d.ID).
-				Str("status", string(d.Status)).
-				Msg("CheckForCompletedDownloads: checking download")
-
-			// Check if download is complete (completed, seeding, or paused/stopped with full progress).
-			// Transmission maps "stopped" to StatusPaused — a torrent that finishes and hits its
-			// seed ratio limit will transition downloading→seeding→stopped so fast that the
-			// 2-second poll may never observe the brief seeding window.
-			isComplete := d.Status == types.StatusCompleted || d.Status == types.StatusSeeding
-			if !isComplete && d.Status == types.StatusPaused && d.Progress >= 100 {
-				isComplete = true
-			}
-			if !isComplete {
-				continue
-			}
-
-			// Look up mapping
-			key := fmt.Sprintf("%d:%s", dbClient.ID, d.ID)
-			mapping, hasMapping := mappingLookup[key]
-			if !hasMapping {
-				// No mapping = untracked download, skip
-				s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: no mapping found for completed download")
-				continue
-			}
-
-			s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: found mapping for completed download")
-
-			// Compute the actual content path by joining DownloadDir with the torrent/download name
-			// DownloadDir is the save location (e.g., D:\Downloads\Movies)
-			// Name is the torrent name (e.g., "Movie.2024.1080p" for folders, or "Movie.2024.1080p.mkv" for single files)
-			// The content path is where we should look for video files to import
-			contentPath := filepath.Join(d.DownloadDir, d.Name)
-
-			cd := CompletedDownload{
-				DownloadID:   d.ID,
-				ClientID:     dbClient.ID,
-				ClientName:   dbClient.Name,
-				DownloadPath: contentPath,
-				MediaType:    detectMediaType(d.DownloadDir),
-				Size:         d.Size,
-				MappingID:    mapping.ID,
-			}
-
-			if mapping.MovieID.Valid {
-				id := mapping.MovieID.Int64
-				cd.MovieID = &id
-			}
-			if mapping.SeriesID.Valid {
-				id := mapping.SeriesID.Int64
-				cd.SeriesID = &id
-			}
-			if mapping.SeasonNumber.Valid {
-				num := int(mapping.SeasonNumber.Int64)
-				cd.SeasonNumber = &num
-			}
-			if mapping.EpisodeID.Valid {
-				id := mapping.EpisodeID.Int64
-				cd.EpisodeID = &id
-			}
-			cd.IsSeasonPack = mapping.IsSeasonPack == 1
-			cd.IsCompleteSeries = mapping.IsCompleteSeries == 1
-			if mapping.TargetSlotID.Valid {
-				id := mapping.TargetSlotID.Int64
-				cd.TargetSlotID = &id
-			}
-
-			completed = append(completed, cd)
-		}
+		completedFromClient := s.checkClientForCompletions(ctx, dbClient, mappingLookup)
+		completed = append(completed, completedFromClient...)
 	}
 
 	return completed, nil
+}
+
+func buildMappingLookup(mappings []*sqlc.DownloadMapping, logger *zerolog.Logger) map[string]*sqlc.DownloadMapping {
+	lookup := make(map[string]*sqlc.DownloadMapping)
+	for _, m := range mappings {
+		key := fmt.Sprintf("%d:%s", m.ClientID, m.DownloadID)
+		lookup[key] = m
+		logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: mapping key")
+	}
+	return lookup
+}
+
+func (s *Service) checkClientForCompletions(ctx context.Context, dbClient *sqlc.DownloadClient, mappingLookup map[string]*sqlc.DownloadMapping) []CompletedDownload {
+	if !IsClientTypeImplemented(dbClient.Type) {
+		s.logger.Debug().Str("type", dbClient.Type).Msg("CheckForCompletedDownloads: skipping unimplemented client type")
+		return nil
+	}
+
+	client, err := s.GetClient(ctx, dbClient.ID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to get client")
+		return nil
+	}
+
+	downloads, err := client.List(ctx)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to list downloads")
+		return nil
+	}
+
+	s.logger.Debug().Int64("clientId", dbClient.ID).Int("downloadCount", len(downloads)).Msg("CheckForCompletedDownloads: got downloads from client")
+
+	var completed []CompletedDownload
+	for i := range downloads {
+		d := &downloads[i]
+		if cd := s.processDownload(d, dbClient, mappingLookup); cd != nil {
+			completed = append(completed, *cd)
+		}
+	}
+
+	return completed
+}
+
+func (s *Service) processDownload(d *types.DownloadItem, dbClient *sqlc.DownloadClient, mappingLookup map[string]*sqlc.DownloadMapping) *CompletedDownload {
+	s.logger.Debug().
+		Str("downloadId", d.ID).
+		Str("status", string(d.Status)).
+		Msg("CheckForCompletedDownloads: checking download")
+
+	if !isDownloadComplete(d) {
+		return nil
+	}
+
+	key := fmt.Sprintf("%d:%s", dbClient.ID, d.ID)
+	mapping, hasMapping := mappingLookup[key]
+	if !hasMapping {
+		s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: no mapping found for completed download")
+		return nil
+	}
+
+	s.logger.Debug().Str("key", key).Msg("CheckForCompletedDownloads: found mapping for completed download")
+
+	contentPath := filepath.Join(d.DownloadDir, d.Name)
+
+	cd := CompletedDownload{
+		DownloadID:   d.ID,
+		ClientID:     dbClient.ID,
+		ClientName:   dbClient.Name,
+		DownloadPath: contentPath,
+		MediaType:    detectMediaType(d.DownloadDir),
+		Size:         d.Size,
+		MappingID:    mapping.ID,
+	}
+
+	populateCompletedDownloadFields(&cd, mapping)
+	return &cd
+}
+
+func isDownloadComplete(d *types.DownloadItem) bool {
+	if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+		return true
+	}
+	if d.Status == types.StatusPaused && d.Progress >= 100 {
+		return true
+	}
+	return false
+}
+
+func populateCompletedDownloadFields(cd *CompletedDownload, mapping *sqlc.DownloadMapping) {
+	if mapping.MovieID.Valid {
+		id := mapping.MovieID.Int64
+		cd.MovieID = &id
+	}
+	if mapping.SeriesID.Valid {
+		id := mapping.SeriesID.Int64
+		cd.SeriesID = &id
+	}
+	if mapping.SeasonNumber.Valid {
+		num := int(mapping.SeasonNumber.Int64)
+		cd.SeasonNumber = &num
+	}
+	if mapping.EpisodeID.Valid {
+		id := mapping.EpisodeID.Int64
+		cd.EpisodeID = &id
+	}
+	cd.IsSeasonPack = mapping.IsSeasonPack == 1
+	cd.IsCompleteSeries = mapping.IsCompleteSeries == 1
+	if mapping.TargetSlotID.Valid {
+		id := mapping.TargetSlotID.Int64
+		cd.TargetSlotID = &id
+	}
 }
 
 // CheckForDisappearedDownloads detects media items with status "downloading" whose
@@ -164,8 +181,22 @@ func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
 		return fmt.Errorf("failed to list clients: %w", err)
 	}
 
-	// Collect all active download IDs across all clients
+	activeDownloadIDs := s.collectActiveDownloadIDs(ctx, clients)
+
+	if err := s.checkDisappearedMovies(ctx, activeDownloadIDs); err != nil {
+		return err
+	}
+
+	if err := s.checkDisappearedEpisodes(ctx, activeDownloadIDs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) collectActiveDownloadIDs(ctx context.Context, clients []*sqlc.DownloadClient) map[string]struct{} {
 	activeDownloadIDs := make(map[string]struct{})
+
 	for _, dbClient := range clients {
 		if !IsClientTypeImplemented(dbClient.Type) {
 			continue
@@ -183,9 +214,18 @@ func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
 			continue
 		}
 
-		for _, d := range downloads {
-			activeDownloadIDs[d.ID] = struct{}{}
+		for i := range downloads {
+			activeDownloadIDs[downloads[i].ID] = struct{}{}
 		}
+	}
+
+	return activeDownloadIDs
+}
+
+func (s *Service) checkDisappearedMovies(ctx context.Context, activeDownloadIDs map[string]struct{}) error {
+	movies, err := s.queries.ListDownloadingMovies(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list downloading movies: %w", err)
 	}
 
 	failedParams := sqlc.UpdateMovieStatusWithDetailsParams{
@@ -194,40 +234,49 @@ func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
 		StatusMessage:    sql.NullString{String: "Download removed from client", Valid: true},
 	}
 
-	// Check downloading movies
-	movies, err := s.queries.ListDownloadingMovies(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list downloading movies: %w", err)
-	}
-
 	for _, m := range movies {
-		if !m.ActiveDownloadID.Valid {
-			continue
-		}
-		downloadID := m.ActiveDownloadID.String
-		if strings.HasPrefix(downloadID, "mock-") {
-			continue
-		}
-		if _, exists := activeDownloadIDs[downloadID]; !exists {
-			failedParams.ID = m.ID
-			if err := s.queries.UpdateMovieStatusWithDetails(ctx, failedParams); err != nil {
-				s.logger.Warn().Err(err).Int64("movieId", m.ID).Msg("Failed to mark disappeared movie download as failed")
-				continue
-			}
-			s.logger.Info().Int64("movieId", m.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked movie as failed")
-			if s.statusChangeLogger != nil {
-				_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", m.ID, "downloading", "failed", "Download removed from client")
-			}
-			if s.broadcaster != nil {
-				_ = s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": m.ID})
-			}
-			if s.portalStatusTracker != nil {
-				_ = s.portalStatusTracker.OnDownloadFailed(ctx, "movie", m.ID)
-			}
+		if shouldMarkMovieAsDisappeared(m, activeDownloadIDs) {
+			s.markMovieAsDisappeared(ctx, m, failedParams)
 		}
 	}
 
-	// Check downloading episodes
+	return nil
+}
+
+func shouldMarkMovieAsDisappeared(m *sqlc.ListDownloadingMoviesRow, activeDownloadIDs map[string]struct{}) bool {
+	if !m.ActiveDownloadID.Valid {
+		return false
+	}
+	downloadID := m.ActiveDownloadID.String
+	if strings.HasPrefix(downloadID, "mock-") {
+		return false
+	}
+	_, exists := activeDownloadIDs[downloadID]
+	return !exists
+}
+
+func (s *Service) markMovieAsDisappeared(ctx context.Context, m *sqlc.ListDownloadingMoviesRow, failedParams sqlc.UpdateMovieStatusWithDetailsParams) {
+	failedParams.ID = m.ID
+	if err := s.queries.UpdateMovieStatusWithDetails(ctx, failedParams); err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", m.ID).Msg("Failed to mark disappeared movie download as failed")
+		return
+	}
+
+	downloadID := m.ActiveDownloadID.String
+	s.logger.Info().Int64("movieId", m.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked movie as failed")
+
+	if s.statusChangeLogger != nil {
+		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", m.ID, "downloading", "failed", "Download removed from client")
+	}
+	if s.broadcaster != nil {
+		s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": m.ID})
+	}
+	if s.portalStatusTracker != nil {
+		_ = s.portalStatusTracker.OnDownloadFailed(ctx, "movie", m.ID)
+	}
+}
+
+func (s *Service) checkDisappearedEpisodes(ctx context.Context, activeDownloadIDs map[string]struct{}) error {
 	episodes, err := s.queries.ListDownloadingEpisodes(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list downloading episodes: %w", err)
@@ -240,33 +289,45 @@ func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
 	}
 
 	for _, ep := range episodes {
-		if !ep.ActiveDownloadID.Valid {
-			continue
-		}
-		downloadID := ep.ActiveDownloadID.String
-		if strings.HasPrefix(downloadID, "mock-") {
-			continue
-		}
-		if _, exists := activeDownloadIDs[downloadID]; !exists {
-			epFailedParams.ID = ep.ID
-			if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, epFailedParams); err != nil {
-				s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to mark disappeared episode download as failed")
-				continue
-			}
-			s.logger.Info().Int64("episodeId", ep.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked episode as failed")
-			if s.statusChangeLogger != nil {
-				_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", ep.ID, "downloading", "failed", "Download removed from client")
-			}
-			if s.broadcaster != nil {
-				_ = s.broadcaster.Broadcast("series:updated", map[string]any{"id": ep.SeriesID})
-			}
-			if s.portalStatusTracker != nil {
-				_ = s.portalStatusTracker.OnDownloadFailed(ctx, "episode", ep.ID)
-			}
+		if shouldMarkEpisodeAsDisappeared(ep, activeDownloadIDs) {
+			s.markEpisodeAsDisappeared(ctx, ep, epFailedParams)
 		}
 	}
 
 	return nil
+}
+
+func shouldMarkEpisodeAsDisappeared(ep *sqlc.ListDownloadingEpisodesRow, activeDownloadIDs map[string]struct{}) bool {
+	if !ep.ActiveDownloadID.Valid {
+		return false
+	}
+	downloadID := ep.ActiveDownloadID.String
+	if strings.HasPrefix(downloadID, "mock-") {
+		return false
+	}
+	_, exists := activeDownloadIDs[downloadID]
+	return !exists
+}
+
+func (s *Service) markEpisodeAsDisappeared(ctx context.Context, ep *sqlc.ListDownloadingEpisodesRow, epFailedParams sqlc.UpdateEpisodeStatusWithDetailsParams) {
+	epFailedParams.ID = ep.ID
+	if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, epFailedParams); err != nil {
+		s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to mark disappeared episode download as failed")
+		return
+	}
+
+	downloadID := ep.ActiveDownloadID.String
+	s.logger.Info().Int64("episodeId", ep.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked episode as failed")
+
+	if s.statusChangeLogger != nil {
+		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", ep.ID, "downloading", "failed", "Download removed from client")
+	}
+	if s.broadcaster != nil {
+		s.broadcaster.Broadcast("series:updated", map[string]any{"id": ep.SeriesID})
+	}
+	if s.portalStatusTracker != nil {
+		_ = s.portalStatusTracker.OnDownloadFailed(ctx, "episode", ep.ID)
+	}
 }
 
 // GetDownloadPath returns the file path for a specific download.
@@ -281,7 +342,8 @@ func (s *Service) GetDownloadPath(ctx context.Context, clientID int64, downloadI
 		return "", fmt.Errorf("failed to list downloads: %w", err)
 	}
 
-	for _, d := range downloads {
+	for i := range downloads {
+		d := &downloads[i]
 		if d.ID == downloadID {
 			return d.DownloadDir, nil
 		}
@@ -302,7 +364,8 @@ func (s *Service) GetDownloadStatus(ctx context.Context, clientID int64, downloa
 		return "", fmt.Errorf("failed to list downloads: %w", err)
 	}
 
-	for _, d := range downloads {
+	for i := range downloads {
+		d := &downloads[i]
 		if d.ID == downloadID {
 			return d.Status, nil
 		}
@@ -332,43 +395,55 @@ func (s *Service) IsDownloadStalled(ctx context.Context, clientID int64, downloa
 }
 
 // GetQueueItemCount returns the number of active items in the queue across all clients.
-// Completed/seeding downloads are excluded from the count.
 func (s *Service) GetQueueItemCount(ctx context.Context) (int, error) {
-	count := 0
-
-	// Get all enabled clients
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
 		return 0, err
 	}
 
+	count := 0
 	for _, dbClient := range clients {
-		if !IsClientTypeImplemented(dbClient.Type) {
-			continue
-		}
+		clientCount := s.countQueueItemsForClient(ctx, dbClient)
+		count += clientCount
+	}
 
-		client, err := s.GetClient(ctx, dbClient.ID)
-		if err != nil {
-			continue
-		}
+	return count, nil
+}
 
-		downloads, err := client.List(ctx)
-		if err != nil {
-			continue
-		}
+func (s *Service) countQueueItemsForClient(ctx context.Context, dbClient *sqlc.DownloadClient) int {
+	if !IsClientTypeImplemented(dbClient.Type) {
+		return 0
+	}
 
-		for _, d := range downloads {
-			if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
-				continue
-			}
-			if d.Progress >= 100 {
-				continue
-			}
+	client, err := s.GetClient(ctx, dbClient.ID)
+	if err != nil {
+		return 0
+	}
+
+	downloads, err := client.List(ctx)
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	for i := range downloads {
+		d := &downloads[i]
+		if isActiveQueueItem(d) {
 			count++
 		}
 	}
 
-	return count, nil
+	return count
+}
+
+func isActiveQueueItem(d *types.DownloadItem) bool {
+	if d.Status == types.StatusCompleted || d.Status == types.StatusSeeding {
+		return false
+	}
+	if d.Progress >= 100 {
+		return false
+	}
+	return true
 }
 
 // HasQueueItems returns true if there are any items in the queue.

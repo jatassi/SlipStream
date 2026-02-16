@@ -10,7 +10,7 @@ const QuotaResetTaskID = "quota-reset"
 // RegisterQuotaResetTask registers the quota reset task with the scheduler.
 // The task runs every Monday at midnight local server time.
 func RegisterQuotaResetTask(sched *scheduler.Scheduler, quotaService *quota.Service) error {
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          QuotaResetTaskID,
 		Name:        "Quota Reset",
 		Description: "Resets weekly quotas for external request users",

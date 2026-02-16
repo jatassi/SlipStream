@@ -29,7 +29,7 @@ func (c *TMDBClient) Test(ctx context.Context) error {
 	return nil
 }
 
-func (c *TMDBClient) GetImageURL(path string, size string) string {
+func (c *TMDBClient) GetImageURL(path, size string) string {
 	if path == "" {
 		return ""
 	}
@@ -40,10 +40,11 @@ func (c *TMDBClient) SearchMovies(ctx context.Context, query string, year int) (
 	query = strings.ToLower(query)
 	var results []tmdb.NormalizedMovieResult
 
-	for _, movie := range mockMovies {
+	for i := range mockMovies {
+		movie := &mockMovies[i]
 		if strings.Contains(strings.ToLower(movie.Title), query) {
 			if year == 0 || movie.Year == year {
-				results = append(results, movie)
+				results = append(results, *movie)
 			}
 		}
 	}
@@ -60,9 +61,10 @@ func (c *TMDBClient) SearchMovies(ctx context.Context, query string, year int) (
 }
 
 func (c *TMDBClient) GetMovie(ctx context.Context, id int) (*tmdb.NormalizedMovieResult, error) {
-	for _, movie := range mockMovies {
+	for i := range mockMovies {
+		movie := &mockMovies[i]
 		if movie.ID == id {
-			return &movie, nil
+			return movie, nil
 		}
 	}
 	if len(mockMovies) > 0 {
@@ -72,7 +74,8 @@ func (c *TMDBClient) GetMovie(ctx context.Context, id int) (*tmdb.NormalizedMovi
 }
 
 func (c *TMDBClient) GetMovieReleaseDates(ctx context.Context, id int) (digital, physical, theatrical string, err error) {
-	for _, movie := range mockMovies {
+	for i := range mockMovies {
+		movie := &mockMovies[i]
 		if movie.ID == id {
 			return movie.DigitalReleaseDate, movie.PhysicalReleaseDate, movie.ReleaseDate, nil
 		}
@@ -84,9 +87,10 @@ func (c *TMDBClient) SearchSeries(ctx context.Context, query string) ([]tmdb.Nor
 	query = strings.ToLower(query)
 	var results []tmdb.NormalizedSeriesResult
 
-	for _, series := range mockSeries {
+	for i := range mockSeries {
+		series := &mockSeries[i]
 		if strings.Contains(strings.ToLower(series.Title), query) {
-			results = append(results, series)
+			results = append(results, *series)
 		}
 	}
 
@@ -102,9 +106,10 @@ func (c *TMDBClient) SearchSeries(ctx context.Context, query string) ([]tmdb.Nor
 }
 
 func (c *TMDBClient) GetSeries(ctx context.Context, id int) (*tmdb.NormalizedSeriesResult, error) {
-	for _, series := range mockSeries {
+	for i := range mockSeries {
+		series := &mockSeries[i]
 		if series.ID == id || series.TmdbID == id {
-			return &series, nil
+			return series, nil
 		}
 	}
 	if len(mockSeries) > 0 {
@@ -260,18 +265,18 @@ var mockSeriesRatings = map[int]string{
 }
 
 var mockMovieStudios = map[int]string{
-	603:    "Warner Bros. Pictures",   // The Matrix
-	550:    "Fox 2000 Pictures",       // Fight Club
-	680:    "Miramax",                 // Pulp Fiction
-	155:    "Warner Bros. Pictures",   // The Dark Knight
+	603:    "Warner Bros. Pictures",     // The Matrix
+	550:    "Fox 2000 Pictures",         // Fight Club
+	680:    "Miramax",                   // Pulp Fiction
+	155:    "Warner Bros. Pictures",     // The Dark Knight
 	278:    "Castle Rock Entertainment", // The Shawshank Redemption
-	238:    "Paramount Pictures",      // The Godfather
-	27205:  "Warner Bros. Pictures",   // Inception
-	157336: "Paramount Pictures",      // Interstellar
-	438631: "Legendary Pictures",      // Dune
-	693134: "Legendary Pictures",      // Dune: Part Two
-	346698: "Warner Bros. Pictures",   // Barbie
-	872585: "Universal Pictures",      // Oppenheimer
+	238:    "Paramount Pictures",        // The Godfather
+	27205:  "Warner Bros. Pictures",     // Inception
+	157336: "Paramount Pictures",        // Interstellar
+	438631: "Legendary Pictures",        // Dune
+	693134: "Legendary Pictures",        // Dune: Part Two
+	346698: "Warner Bros. Pictures",     // Barbie
+	872585: "Universal Pictures",        // Oppenheimer
 }
 
 type mockSeriesWithSeasons struct {
@@ -482,7 +487,7 @@ var mockSeriesSeasons = []mockSeriesWithSeasons{
 			{SeasonNumber: 5, Name: "Season 5", Overview: "The War of the Five Kings, once thought to be drawing to a close, is instead ...", AirDate: "2015-04-12", Episodes: []tmdb.NormalizedEpisodeResult{
 				{EpisodeNumber: 1, SeasonNumber: 5, Title: "The Wars to Come", Overview: "Cersei and Jaime adjust to a world without Tywin. Varys reveals a conspiracy to Tyrion. Dany face...", AirDate: "2015-04-12", Runtime: 53},
 				{EpisodeNumber: 2, SeasonNumber: 5, Title: "The House of Black and White", Overview: "Arya arrives in Braavos. Podrick and Brienne run into trouble on the road. Cersei fears for her d...", AirDate: "2015-04-19", Runtime: 56},
-				{EpisodeNumber: 3, SeasonNumber: 5, Title: "High Sparrow", Overview: "In Braavos, Arya sees the Many-Faced God. In King's Landing, Queen Margaery enjoys her new husban...", AirDate: "2015-04-26", Runtime: 60},
+				{EpisodeNumber: 3, SeasonNumber: 5, Title: "High Sparrow", Overview: "In Braavos, Arya sees the Many-Faced God. In King's Landing, Queen Margaery enjoys her new husband...", AirDate: "2015-04-26", Runtime: 60},
 				{EpisodeNumber: 4, SeasonNumber: 5, Title: "Sons of the Harpy", Overview: "The Faith Militant grow increasingly aggressive. Jaime and Bronn head south. Ellaria and the Sand...", AirDate: "2015-05-03", Runtime: 51},
 				{EpisodeNumber: 5, SeasonNumber: 5, Title: "Kill the Boy", Overview: "Dany makes a difficult decision in Meereen. Jon recruits the help of an unexpected ally. Brienne ...", AirDate: "2015-05-10", Runtime: 57},
 				{EpisodeNumber: 6, SeasonNumber: 5, Title: "Unbowed, Unbent, Unbroken", Overview: "Arya trains. Jorah and Tyrion run into slavers. Trystane and Myrcella make plans. Jaime and Bronn...", AirDate: "2015-05-17", Runtime: 54},

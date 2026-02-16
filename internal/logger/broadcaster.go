@@ -9,7 +9,7 @@ const defaultBufferSize = 1000
 
 // Broadcaster is the interface for broadcasting messages.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // LogEntry represents a parsed log entry for streaming.
@@ -53,9 +53,9 @@ func (b *LogBroadcaster) SetHub(hub Broadcaster) {
 func (b *LogBroadcaster) Write(p []byte) (n int, err error) {
 	n = len(p)
 
-	entry, err := b.parseLogEntry(p)
-	if err != nil {
-		return n, nil // Silently ignore parse errors
+	entry, parseErr := b.parseLogEntry(p)
+	if parseErr != nil {
+		return n, nil //nolint:nilerr // Silently ignore malformed log entries
 	}
 
 	b.buffer.Push(entry)

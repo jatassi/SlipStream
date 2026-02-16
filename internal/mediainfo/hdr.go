@@ -16,29 +16,35 @@ type HDRInfo struct {
 }
 
 // DetectHDRType determines the HDR type from video stream properties.
-func DetectHDRType(info HDRInfo) (dynamicRange, dynamicRangeType string) {
-	// Detect specific HDR formats first
+func DetectHDRType(info *HDRInfo) (dynamicRange, dynamicRangeType string) {
 	hasDV := info.HasDolbyVision || containsDolbyVision(info.HDRFormat)
 	hasHDR10 := info.HasHDR10 || containsHDR10(info.TransferFunc, info.ColorPrimaries)
 	hasHDR10Plus := info.HasHDR10Plus || containsHDR10Plus(info.HDRFormat)
 	hasHLG := info.HasHLG || containsHLG(info.TransferFunc)
 
-	// Determine combined type
+	hdrType := classifyHDR(hasDV, hasHDR10, hasHDR10Plus, hasHLG, info.BitDepth, info.ColorPrimaries, info.TransferFunc)
+	if hdrType == "" {
+		return "", ""
+	}
+	return string(HDRTypeGenericHDR), hdrType
+}
+
+func classifyHDR(hasDV, hasHDR10, hasHDR10Plus, hasHLG bool, bitDepth int, primaries, transfer string) string {
 	switch {
 	case hasDV && hasHDR10:
-		return "HDR", string(HDRTypeDVHDR10)
+		return string(HDRTypeDVHDR10)
 	case hasDV:
-		return "HDR", string(HDRTypeDolbyVision)
+		return string(HDRTypeDolbyVision)
 	case hasHDR10Plus:
-		return "HDR", string(HDRTypeHDR10Plus)
+		return string(HDRTypeHDR10Plus)
 	case hasHDR10:
-		return "HDR", string(HDRTypeHDR10)
+		return string(HDRTypeHDR10)
 	case hasHLG:
-		return "HDR", string(HDRTypeHLG)
-	case info.BitDepth >= 10 && isHDRColorSpace(info.ColorPrimaries, info.TransferFunc):
-		return "HDR", string(HDRTypeGenericHDR)
+		return string(HDRTypeHLG)
+	case bitDepth >= 10 && isHDRColorSpace(primaries, transfer):
+		return string(HDRTypeGenericHDR)
 	default:
-		return "", ""
+		return ""
 	}
 }
 
@@ -91,7 +97,7 @@ func isHDRColorSpace(primaries, transfer string) bool {
 // FormatHDRSimple returns a simple HDR indicator.
 func FormatHDRSimple(dynamicRange string) string {
 	if dynamicRange != "" {
-		return "HDR"
+		return string(HDRTypeGenericHDR)
 	}
 	return ""
 }

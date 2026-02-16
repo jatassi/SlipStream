@@ -110,9 +110,9 @@ func TestHandleColon_Smart(t *testing.T) {
 		pos   int
 		want  string
 	}{
-		{"word before space after", "Title: Subtitle", 5, " -"},   // prev=word, next=space -> " -"
-		{"space before word after", "Title :Subtitle", 6, "-"},    // prev=space (not word) -> "-"
-		{"word before word after", "Title:Subtitle", 5, " - "},    // prev=word, next=word -> " - "
+		{"word before space after", "Title: Subtitle", 5, " -"}, // prev=word, next=space -> " -"
+		{"space before word after", "Title :Subtitle", 6, "-"},  // prev=space (not word) -> "-"
+		{"word before word after", "Title:Subtitle", 5, " - "},  // prev=word, next=word -> " - "
 		{"at start", ":test", 0, "-"},
 		{"at end", "test:", 4, "-"},
 		{"between punctuation", "a::b", 2, "-"},
@@ -132,12 +132,12 @@ func TestHandleColon_Smart(t *testing.T) {
 
 func TestReplaceIllegalCharacters(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		replace    bool
-		colonMode  ColonReplacement
+		name        string
+		input       string
+		replace     bool
+		colonMode   ColonReplacement
 		customColon string
-		want       string
+		want        string
 	}{
 		{
 			name:      "replace mode - removes chars",
@@ -247,12 +247,12 @@ func TestCleanTitle(t *testing.T) {
 
 func TestSanitizeFilename(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      string
-		replace    bool
-		colonMode  ColonReplacement
+		name        string
+		input       string
+		replace     bool
+		colonMode   ColonReplacement
 		customColon string
-		want       string
+		want        string
 	}{
 		{
 			name:      "basic sanitization",

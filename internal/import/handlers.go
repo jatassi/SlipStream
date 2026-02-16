@@ -1,7 +1,9 @@
 package importer
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -64,17 +66,17 @@ func (h *Handlers) GetImportStatus(c echo.Context) error {
 
 // PendingImport represents a file pending import.
 type PendingImport struct {
-	ID          int64   `json:"id,omitempty"`
-	FilePath    string  `json:"filePath"`
-	FileName    string  `json:"fileName"`
-	FileSize    int64   `json:"fileSize"`
-	Status      string  `json:"status"`
-	MediaType   *string `json:"mediaType,omitempty"`
-	MediaID     *int64  `json:"mediaId,omitempty"`
-	MediaTitle  *string `json:"mediaTitle,omitempty"`
-	Error       *string `json:"error,omitempty"`
-	Attempts    int     `json:"attempts"`
-	IsProcessing bool   `json:"isProcessing"`
+	ID           int64   `json:"id,omitempty"`
+	FilePath     string  `json:"filePath"`
+	FileName     string  `json:"fileName"`
+	FileSize     int64   `json:"fileSize"`
+	Status       string  `json:"status"`
+	MediaType    *string `json:"mediaType,omitempty"`
+	MediaID      *int64  `json:"mediaId,omitempty"`
+	MediaTitle   *string `json:"mediaTitle,omitempty"`
+	Error        *string `json:"error,omitempty"`
+	Attempts     int     `json:"attempts"`
+	IsProcessing bool    `json:"isProcessing"`
 }
 
 // GetPendingImports returns files pending import.
@@ -91,11 +93,11 @@ func (h *Handlers) GetPendingImports(c echo.Context) error {
 	pending := make([]PendingImport, 0, len(rows))
 	for _, row := range rows {
 		item := PendingImport{
-			ID:        row.ID,
-			FilePath:  row.FilePath.String,
-			FileName:  filepath.Base(row.FilePath.String),
-			Status:    row.FileStatus,
-			Attempts:  int(row.ImportAttempts),
+			ID:           row.ID,
+			FilePath:     row.FilePath.String,
+			FileName:     filepath.Base(row.FilePath.String),
+			Status:       row.FileStatus,
+			Attempts:     int(row.ImportAttempts),
 			IsProcessing: h.service.IsProcessing(row.FilePath.String),
 		}
 
@@ -106,11 +108,11 @@ func (h *Handlers) GetPendingImports(c echo.Context) error {
 		// Add media info if available
 		if row.MovieID.Valid {
 			item.MediaID = &row.MovieID.Int64
-			mediaType := "movie"
+			mediaType := mediaTypeMovie
 			item.MediaType = &mediaType
 		} else if row.EpisodeID.Valid {
 			item.MediaID = &row.EpisodeID.Int64
-			mediaType := "episode"
+			mediaType := mediaTypeEpisode
 			item.MediaType = &mediaType
 		}
 
@@ -168,18 +170,28 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "path is required")
 	}
 
-	if req.MediaType == "" || (req.MediaType != "movie" && req.MediaType != "episode") {
+	if req.MediaType == "" || (req.MediaType != mediaTypeMovie && req.MediaType != mediaTypeEpisode) {
 		return echo.NewHTTPError(http.StatusBadRequest, "mediaType must be 'movie' or 'episode'")
 	}
 
-	// Build library match
+	match := h.buildManualMatch(&req)
+
+	if err := h.service.populateRootFolder(ctx, match, req.TargetSlotID); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to determine root folder: "+err.Error())
+	}
+
+	result, err := h.service.ProcessManualImport(ctx, req.Path, match, req.TargetSlotID)
+	return c.JSON(http.StatusOK, h.buildManualImportResponse(req.Path, result, err))
+}
+
+func (h *Handlers) buildManualMatch(req *ManualImportRequest) *LibraryMatch {
 	match := &LibraryMatch{
 		MediaType:  req.MediaType,
 		Confidence: 1.0,
 		Source:     "manual",
 	}
 
-	if req.MediaType == "movie" {
+	if req.MediaType == mediaTypeMovie {
 		match.MovieID = &req.MediaID
 	} else {
 		match.EpisodeID = &req.MediaID
@@ -187,24 +199,18 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 		match.SeasonNum = req.SeasonNum
 	}
 
-	// Get root folder from library item (or slot's root folder in multi-version mode)
-	// Req 22.2.1-22.2.3: In multi-version mode, use slot's root folder if specified
-	if err := h.service.populateRootFolder(ctx, match, req.TargetSlotID); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to determine root folder: "+err.Error())
-	}
+	return match
+}
 
-	// Process the import synchronously (upgrade check happens inside processImport,
-	// and manual imports bypass the rejection)
-	result, err := h.service.ProcessManualImport(ctx, req.Path, match, req.TargetSlotID)
-
+func (h *Handlers) buildManualImportResponse(sourcePath string, result *ImportResult, err error) ManualImportResponse {
 	resp := ManualImportResponse{
-		SourcePath: req.Path,
+		SourcePath: sourcePath,
 	}
 
 	if err != nil {
 		resp.Success = false
 		resp.Error = err.Error()
-		return c.JSON(http.StatusOK, resp)
+		return resp
 	}
 
 	resp.Success = result.Success
@@ -215,23 +221,15 @@ func (h *Handlers) ManualImport(c echo.Context) error {
 	resp.RecommendedSlotID = result.RecommendedSlotID
 	resp.AssignedSlotID = result.AssignedSlotID
 
-	// Convert slot assignments to response format
 	for _, sa := range result.SlotAssignments {
-		resp.SlotAssignments = append(resp.SlotAssignments, ManualImportSlotAssignment{
-			SlotID:     sa.SlotID,
-			SlotNumber: sa.SlotNumber,
-			SlotName:   sa.SlotName,
-			MatchScore: sa.MatchScore,
-			IsUpgrade:  sa.IsUpgrade,
-			IsNewFill:  sa.IsNewFill,
-		})
+		resp.SlotAssignments = append(resp.SlotAssignments, ManualImportSlotAssignment(sa))
 	}
 
 	if result.Error != nil {
 		resp.Error = result.Error.Error()
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return resp
 }
 
 // PreviewImportRequest contains the request body for import preview.
@@ -241,13 +239,13 @@ type PreviewImportRequest struct {
 
 // PreviewImportResponse contains the response for an import preview.
 type PreviewImportResponse struct {
-	Path           string           `json:"path"`
-	FileName       string           `json:"fileName"`
-	FileSize       int64            `json:"fileSize"`
-	Valid          bool             `json:"valid"`
-	ValidationError string          `json:"validationError,omitempty"`
-	ParsedInfo     *ParsedMediaInfo `json:"parsedInfo,omitempty"`
-	SuggestedMatch *SuggestedMatch  `json:"suggestedMatch,omitempty"`
+	Path            string           `json:"path"`
+	FileName        string           `json:"fileName"`
+	FileSize        int64            `json:"fileSize"`
+	Valid           bool             `json:"valid"`
+	ValidationError string           `json:"validationError,omitempty"`
+	ParsedInfo      *ParsedMediaInfo `json:"parsedInfo,omitempty"`
+	SuggestedMatch  *SuggestedMatch  `json:"suggestedMatch,omitempty"`
 }
 
 // ParsedMediaInfo contains parsed information from a filename.
@@ -300,7 +298,6 @@ func (h *Handlers) PreviewManualImport(c echo.Context) error {
 		FileName: filepath.Base(req.Path),
 	}
 
-	// Validate the file
 	validation, err := h.service.ValidateForImport(ctx, req.Path)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -313,65 +310,13 @@ func (h *Handlers) PreviewManualImport(c echo.Context) error {
 		return c.JSON(http.StatusOK, resp)
 	}
 
-	// Parse the filename
 	parsed := parseFilename(filepath.Base(req.Path))
 	if parsed != nil {
-		resp.ParsedInfo = &ParsedMediaInfo{
-			Title:             parsed.Title,
-			Year:              parsed.Year,
-			Quality:           parsed.Quality,
-			Source:            parsed.Source,
-			Codec:             parsed.Codec,
-			AudioCodecs:       parsed.AudioCodecs,
-			AudioChannels:     parsed.AudioChannels,
-			AudioEnhancements: parsed.AudioEnhancements,
-			Attributes:        parsed.Attributes,
-			IsTV:              parsed.IsTV,
-			IsSeasonPack:      parsed.IsSeasonPack,
-		}
+		resp.ParsedInfo = parsedMediaInfoFromParsed(parsed)
 
-		if parsed.IsTV {
-			resp.ParsedInfo.Season = parsed.Season
-			resp.ParsedInfo.Episode = parsed.Episode
-			resp.ParsedInfo.EndEpisode = parsed.EndEpisode
-		}
-
-		// Try to find a matching library item
-		match, err := h.service.matchToLibrary(ctx, req.Path, nil)
-		if err == nil && match != nil {
-			suggested := &SuggestedMatch{
-				MediaType:  match.MediaType,
-				Confidence: match.Confidence,
-			}
-
-			if match.MediaType == "movie" && match.MovieID != nil {
-				suggested.MediaID = *match.MovieID
-				movie, err := h.service.movies.Get(ctx, *match.MovieID)
-				if err == nil {
-					suggested.MediaTitle = movie.Title
-					suggested.Year = movie.Year
-				}
-			} else if match.MediaType == "episode" && match.EpisodeID != nil {
-				suggested.MediaID = *match.EpisodeID
-				suggested.SeriesID = match.SeriesID
-				suggested.SeasonNum = match.SeasonNum
-
-				if match.SeriesID != nil {
-					series, err := h.service.tv.GetSeries(ctx, *match.SeriesID)
-					if err == nil {
-						suggested.SeriesTitle = &series.Title
-					}
-				}
-
-				episode, err := h.service.tv.GetEpisode(ctx, *match.EpisodeID)
-				if err == nil {
-					suggested.MediaTitle = episode.Title
-					epNum := episode.EpisodeNumber
-					suggested.EpisodeNum = &epNum
-				}
-			}
-
-			resp.SuggestedMatch = suggested
+		match, matchErr := h.service.matchToLibrary(ctx, req.Path, nil)
+		if matchErr == nil && match != nil {
+			resp.SuggestedMatch = h.buildSuggestedMatch(ctx, match)
 		}
 	}
 
@@ -388,16 +333,15 @@ func (h *Handlers) RetryImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
-	// Get the queue_media record
 	qm, err := h.queries.GetQueueMedia(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "import record not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	if qm.FileStatus != "failed" {
+	if qm.FileStatus != fileStatusFailed {
 		return echo.NewHTTPError(http.StatusBadRequest, "can only retry failed imports")
 	}
 
@@ -405,7 +349,6 @@ func (h *Handlers) RetryImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "no file path for this import")
 	}
 
-	// Reset the status and queue for reimport
 	_, err = h.queries.UpdateQueueMediaStatus(ctx, sqlc.UpdateQueueMediaStatusParams{
 		ID:         id,
 		FileStatus: "pending",
@@ -414,7 +357,19 @@ func (h *Handlers) RetryImport(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Build the job
+	job := h.buildRetryJob(qm)
+
+	if err := h.service.QueueImport(job); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "import queued for retry",
+	})
+}
+
+func (h *Handlers) buildRetryJob(qm *sqlc.QueueMedium) ImportJob {
 	job := ImportJob{
 		SourcePath: qm.FilePath.String,
 		Manual:     false,
@@ -434,15 +389,7 @@ func (h *Handlers) RetryImport(c echo.Context) error {
 		job.QueueMedia.EpisodeID = &qm.EpisodeID.Int64
 	}
 
-	// Queue the import
-	if err := h.service.QueueImport(job); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "import queued for retry",
-	})
+	return job
 }
 
 // ScanDirectoryRequest contains the request body for directory scanning.
@@ -452,21 +399,21 @@ type ScanDirectoryRequest struct {
 
 // ScannedFile represents a video file found during scanning.
 type ScannedFile struct {
-	Path           string           `json:"path"`
-	FileName       string           `json:"fileName"`
-	FileSize       int64            `json:"fileSize"`
-	Valid          bool             `json:"valid"`
-	ValidationError string          `json:"validationError,omitempty"`
-	ParsedInfo     *ParsedMediaInfo `json:"parsedInfo,omitempty"`
-	SuggestedMatch *SuggestedMatch  `json:"suggestedMatch,omitempty"`
+	Path            string           `json:"path"`
+	FileName        string           `json:"fileName"`
+	FileSize        int64            `json:"fileSize"`
+	Valid           bool             `json:"valid"`
+	ValidationError string           `json:"validationError,omitempty"`
+	ParsedInfo      *ParsedMediaInfo `json:"parsedInfo,omitempty"`
+	SuggestedMatch  *SuggestedMatch  `json:"suggestedMatch,omitempty"`
 }
 
 // ScanDirectoryResponse contains the response for a directory scan.
 type ScanDirectoryResponse struct {
-	Path   string        `json:"path"`
-	Files  []ScannedFile `json:"files"`
-	Total  int           `json:"total"`
-	Valid  int           `json:"valid"`
+	Path  string        `json:"path"`
+	Files []ScannedFile `json:"files"`
+	Total int           `json:"total"`
+	Valid int           `json:"valid"`
 }
 
 // ScanDirectory scans a directory for importable video files.
@@ -483,7 +430,6 @@ func (h *Handlers) ScanDirectory(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "path is required")
 	}
 
-	// Find video files
 	files, err := h.service.findVideoFiles(req.Path)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -496,95 +442,45 @@ func (h *Handlers) ScanDirectory(c echo.Context) error {
 	}
 
 	for _, path := range files {
-		file := ScannedFile{
-			Path:     path,
-			FileName: filepath.Base(path),
-		}
-
-		// Validate the file
-		validation, err := h.service.ValidateForImport(ctx, path)
-		if err != nil {
-			file.Valid = false
-			file.ValidationError = err.Error()
-		} else {
-			file.FileSize = validation.FileSize
-			file.Valid = validation.Valid
-			if !validation.Valid {
-				file.ValidationError = validation.Reason
-			}
-		}
-
+		file := h.scanSingleFile(ctx, path)
 		if file.Valid {
 			resp.Valid++
 		}
-
-		// Always parse filename and attempt matching (even for invalid files)
-		// This lets users see potential matches before having valid files
-		parsed := parseFilename(filepath.Base(path))
-		if parsed != nil {
-			file.ParsedInfo = &ParsedMediaInfo{
-				Title:             parsed.Title,
-				Year:              parsed.Year,
-				Quality:           parsed.Quality,
-				Source:            parsed.Source,
-				Codec:             parsed.Codec,
-				AudioCodecs:       parsed.AudioCodecs,
-				AudioChannels:     parsed.AudioChannels,
-				AudioEnhancements: parsed.AudioEnhancements,
-				Attributes:        parsed.Attributes,
-				IsTV:              parsed.IsTV,
-				IsSeasonPack:      parsed.IsSeasonPack,
-			}
-
-			if parsed.IsTV {
-				file.ParsedInfo.Season = parsed.Season
-				file.ParsedInfo.Episode = parsed.Episode
-				file.ParsedInfo.EndEpisode = parsed.EndEpisode
-			}
-
-			// Try to find a matching library item
-			match, err := h.service.matchToLibrary(ctx, path, nil)
-			if err == nil && match != nil {
-				suggested := &SuggestedMatch{
-					MediaType:  match.MediaType,
-					Confidence: match.Confidence,
-				}
-
-				if match.MediaType == "movie" && match.MovieID != nil {
-					suggested.MediaID = *match.MovieID
-					movie, err := h.service.movies.Get(ctx, *match.MovieID)
-					if err == nil {
-						suggested.MediaTitle = movie.Title
-						suggested.Year = movie.Year
-					}
-				} else if match.MediaType == "episode" && match.EpisodeID != nil {
-					suggested.MediaID = *match.EpisodeID
-					suggested.SeriesID = match.SeriesID
-					suggested.SeasonNum = match.SeasonNum
-
-					if match.SeriesID != nil {
-						series, err := h.service.tv.GetSeries(ctx, *match.SeriesID)
-						if err == nil {
-							suggested.SeriesTitle = &series.Title
-						}
-					}
-
-					episode, err := h.service.tv.GetEpisode(ctx, *match.EpisodeID)
-					if err == nil {
-						suggested.MediaTitle = episode.Title
-						epNum := episode.EpisodeNumber
-						suggested.EpisodeNum = &epNum
-					}
-				}
-
-				file.SuggestedMatch = suggested
-			}
-		}
-
 		resp.Files = append(resp.Files, file)
 	}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handlers) scanSingleFile(ctx context.Context, path string) ScannedFile {
+	file := ScannedFile{
+		Path:     path,
+		FileName: filepath.Base(path),
+	}
+
+	validation, err := h.service.ValidateForImport(ctx, path)
+	if err != nil {
+		file.Valid = false
+		file.ValidationError = err.Error()
+	} else {
+		file.FileSize = validation.FileSize
+		file.Valid = validation.Valid
+		if !validation.Valid {
+			file.ValidationError = validation.Reason
+		}
+	}
+
+	parsed := parseFilename(filepath.Base(path))
+	if parsed != nil {
+		file.ParsedInfo = parsedMediaInfoFromParsed(parsed)
+
+		match, matchErr := h.service.matchToLibrary(ctx, path, nil)
+		if matchErr == nil && match != nil {
+			file.SuggestedMatch = h.buildSuggestedMatch(ctx, match)
+		}
+	}
+
+	return file
 }
 
 // RenamePreviewRequest contains query parameters for rename preview.
@@ -600,7 +496,7 @@ func (h *Handlers) GetRenamePreview(c echo.Context) error {
 
 	mediaType := c.QueryParam("type")
 	if mediaType == "" {
-		mediaType = "series" // Default to series
+		mediaType = mediaSeries
 	}
 
 	var mediaID *int64
@@ -616,9 +512,9 @@ func (h *Handlers) GetRenamePreview(c echo.Context) error {
 	var err error
 
 	switch mediaType {
-	case "series", "episode":
+	case mediaSeries, mediaTypeEpisode:
 		previews, err = h.service.GetRenamePreviewSeries(ctx, mediaID)
-	case "movie":
+	case mediaTypeMovie:
 		previews, err = h.service.GetRenamePreviewMovies(ctx, mediaID)
 	default:
 		return echo.NewHTTPError(http.StatusBadRequest, "type must be 'series' or 'movie'")
@@ -632,9 +528,9 @@ func (h *Handlers) GetRenamePreview(c echo.Context) error {
 	needsRenameOnly := c.QueryParam("needsRename") == "true"
 	if needsRenameOnly {
 		filtered := make([]RenamePreview, 0)
-		for _, p := range previews {
-			if p.NeedsRename {
-				filtered = append(filtered, p)
+		for i := range previews {
+			if previews[i].NeedsRename {
+				filtered = append(filtered, previews[i])
 			}
 		}
 		previews = filtered
@@ -719,9 +615,9 @@ func (h *SettingsHandlers) RegisterSettingsRoutes(g *echo.Group) {
 // ImportSettingsResponse represents the import settings API response.
 type ImportSettingsResponse struct {
 	// Validation settings
-	ValidationLevel    string   `json:"validationLevel"`
-	MinimumFileSizeMB  int64    `json:"minimumFileSizeMB"`
-	VideoExtensions    []string `json:"videoExtensions"`
+	ValidationLevel   string   `json:"validationLevel"`
+	MinimumFileSizeMB int64    `json:"minimumFileSizeMB"`
+	VideoExtensions   []string `json:"videoExtensions"`
 
 	// Matching settings
 	MatchConflictBehavior string `json:"matchConflictBehavior"`
@@ -841,19 +737,31 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	// Ensure settings exist
 	if err := h.queries.EnsureImportSettingsExist(ctx); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Get current settings
 	current, err := h.queries.GetImportSettings(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Build update params merging current with requested changes
-	params := sqlc.UpdateImportSettingsParams{
+	params := h.buildUpdateParams(current)
+	h.applySettingUpdates(&params, &req)
+
+	updated, err := h.queries.UpdateImportSettings(ctx, params)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	h.syncRenamerSettings(updated)
+
+	resp := h.buildSettingsResponse(updated)
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *SettingsHandlers) buildUpdateParams(current *sqlc.ImportSetting) sqlc.UpdateImportSettingsParams {
+	return sqlc.UpdateImportSettingsParams{
 		ValidationLevel:          current.ValidationLevel,
 		MinimumFileSizeMb:        current.MinimumFileSizeMb,
 		VideoExtensions:          current.VideoExtensions,
@@ -874,8 +782,15 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 		MovieFolderFormat:        current.MovieFolderFormat,
 		MovieFileFormat:          current.MovieFileFormat,
 	}
+}
 
-	// Apply updates
+func (h *SettingsHandlers) applySettingUpdates(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
+	h.applyGeneralSettings(params, req)
+	h.applyEpisodeNamingSettings(params, req)
+	h.applyMovieNamingSettings(params, req)
+}
+
+func (h *SettingsHandlers) applyGeneralSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
 	if req.ValidationLevel != nil {
 		params.ValidationLevel = *req.ValidationLevel
 	}
@@ -891,9 +806,6 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 	if req.UnknownMediaBehavior != nil {
 		params.UnknownMediaBehavior = *req.UnknownMediaBehavior
 	}
-	if req.RenameEpisodes != nil {
-		params.RenameEpisodes = *req.RenameEpisodes
-	}
 	if req.ReplaceIllegalCharacters != nil {
 		params.ReplaceIllegalCharacters = *req.ReplaceIllegalCharacters
 	}
@@ -902,6 +814,12 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 	}
 	if req.CustomColonReplacement != nil {
 		params.CustomColonReplacement = sql.NullString{String: *req.CustomColonReplacement, Valid: true}
+	}
+}
+
+func (h *SettingsHandlers) applyEpisodeNamingSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
+	if req.RenameEpisodes != nil {
+		params.RenameEpisodes = *req.RenameEpisodes
 	}
 	if req.StandardEpisodeFormat != nil {
 		params.StandardEpisodeFormat = *req.StandardEpisodeFormat
@@ -924,6 +842,9 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 	if req.MultiEpisodeStyle != nil {
 		params.MultiEpisodeStyle = *req.MultiEpisodeStyle
 	}
+}
+
+func (h *SettingsHandlers) applyMovieNamingSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
 	if req.RenameMovies != nil {
 		params.RenameMovies = *req.RenameMovies
 	}
@@ -933,34 +854,32 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 	if req.MovieFileFormat != nil {
 		params.MovieFileFormat = *req.MovieFileFormat
 	}
+}
 
-	// Update in database
-	updated, err := h.queries.UpdateImportSettings(ctx, params)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+func (h *SettingsHandlers) syncRenamerSettings(updated *sqlc.ImportSetting) {
+	if h.service == nil {
+		return
 	}
 
-	// Update the renamer in the import service
-	if h.service != nil {
-		h.service.UpdateRenamerSettings(renamer.Settings{
-			RenameEpisodes:           updated.RenameEpisodes,
-			ReplaceIllegalCharacters: updated.ReplaceIllegalCharacters,
-			ColonReplacement:         renamer.ColonReplacement(updated.ColonReplacement),
-			CustomColonReplacement:   updated.CustomColonReplacement.String,
-			StandardEpisodeFormat:    updated.StandardEpisodeFormat,
-			DailyEpisodeFormat:       updated.DailyEpisodeFormat,
-			AnimeEpisodeFormat:       updated.AnimeEpisodeFormat,
-			SeriesFolderFormat:       updated.SeriesFolderFormat,
-			SeasonFolderFormat:       updated.SeasonFolderFormat,
-			SpecialsFolderFormat:     updated.SpecialsFolderFormat,
-			MultiEpisodeStyle:        renamer.MultiEpisodeStyle(updated.MultiEpisodeStyle),
-			RenameMovies:             updated.RenameMovies,
-			MovieFolderFormat:        updated.MovieFolderFormat,
-			MovieFileFormat:          updated.MovieFileFormat,
-		})
-	}
+	h.service.UpdateRenamerSettings(&renamer.Settings{
+		RenameEpisodes:           updated.RenameEpisodes,
+		ReplaceIllegalCharacters: updated.ReplaceIllegalCharacters,
+		ColonReplacement:         renamer.ColonReplacement(updated.ColonReplacement),
+		CustomColonReplacement:   updated.CustomColonReplacement.String,
+		StandardEpisodeFormat:    updated.StandardEpisodeFormat,
+		DailyEpisodeFormat:       updated.DailyEpisodeFormat,
+		AnimeEpisodeFormat:       updated.AnimeEpisodeFormat,
+		SeriesFolderFormat:       updated.SeriesFolderFormat,
+		SeasonFolderFormat:       updated.SeasonFolderFormat,
+		SpecialsFolderFormat:     updated.SpecialsFolderFormat,
+		MultiEpisodeStyle:        renamer.MultiEpisodeStyle(updated.MultiEpisodeStyle),
+		RenameMovies:             updated.RenameMovies,
+		MovieFolderFormat:        updated.MovieFolderFormat,
+		MovieFileFormat:          updated.MovieFileFormat,
+	})
+}
 
-	// Return updated settings
+func (h *SettingsHandlers) buildSettingsResponse(updated *sqlc.ImportSetting) ImportSettingsResponse {
 	resp := ImportSettingsResponse{
 		ValidationLevel:          updated.ValidationLevel,
 		MinimumFileSizeMB:        updated.MinimumFileSizeMb,
@@ -986,7 +905,7 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 		resp.CustomColonReplacement = updated.CustomColonReplacement.String
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return resp
 }
 
 // PatternPreviewRequest contains the request body for pattern preview.
@@ -997,11 +916,11 @@ type PatternPreviewRequest struct {
 
 // PatternPreviewResponse contains the response for pattern preview.
 type PatternPreviewResponse struct {
-	Pattern  string             `json:"pattern"`
-	Preview  string             `json:"preview"`
-	Valid    bool               `json:"valid"`
-	Error    string             `json:"error,omitempty"`
-	Tokens   []TokenBreakdown   `json:"tokens,omitempty"`
+	Pattern string           `json:"pattern"`
+	Preview string           `json:"preview"`
+	Valid   bool             `json:"valid"`
+	Error   string           `json:"error,omitempty"`
+	Tokens  []TokenBreakdown `json:"tokens,omitempty"`
 }
 
 // TokenBreakdown provides detailed token info for debugging.
@@ -1025,7 +944,7 @@ func (h *SettingsHandlers) PreviewNamingPattern(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "pattern is required")
 	}
 
-	resolver := renamer.NewResolver(renamer.DefaultSettings())
+	resolver := renamer.NewResolver(defaultRenamerSettings())
 	sampleCtx := renamer.GetSampleContext()
 
 	resp := PatternPreviewResponse{
@@ -1091,7 +1010,7 @@ func (h *SettingsHandlers) ValidateNamingPattern(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "pattern is required")
 	}
 
-	resolver := renamer.NewResolver(renamer.DefaultSettings())
+	resolver := renamer.NewResolver(defaultRenamerSettings())
 
 	resp := PatternValidateResponse{
 		Pattern: req.Pattern,
@@ -1154,7 +1073,19 @@ func (h *SettingsHandlers) ParseFilename(c echo.Context) error {
 		return c.JSON(http.StatusOK, resp)
 	}
 
-	resp.ParsedInfo = &ParsedMediaInfo{
+	resp.ParsedInfo = parsedMediaInfoFromParsed(parsed)
+	resp.Tokens = buildParsedTokens(parsed)
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func defaultRenamerSettings() *renamer.Settings {
+	s := renamer.DefaultSettings()
+	return &s
+}
+
+func parsedMediaInfoFromParsed(parsed *scanner.ParsedMedia) *ParsedMediaInfo {
+	info := &ParsedMediaInfo{
 		Title:             parsed.Title,
 		Year:              parsed.Year,
 		Quality:           parsed.Quality,
@@ -1169,99 +1100,122 @@ func (h *SettingsHandlers) ParseFilename(c echo.Context) error {
 	}
 
 	if parsed.IsTV {
-		resp.ParsedInfo.Season = parsed.Season
-		resp.ParsedInfo.Episode = parsed.Episode
-		resp.ParsedInfo.EndEpisode = parsed.EndEpisode
+		info.Season = parsed.Season
+		info.Episode = parsed.Episode
+		info.EndEpisode = parsed.EndEpisode
 	}
 
-	// Build token breakdown for display
+	return info
+}
+
+func (h *Handlers) buildSuggestedMatch(ctx context.Context, match *LibraryMatch) *SuggestedMatch {
+	suggested := &SuggestedMatch{
+		MediaType:  match.MediaType,
+		Confidence: match.Confidence,
+	}
+
+	if match.MediaType == "movie" && match.MovieID != nil {
+		h.populateMovieSuggestion(ctx, suggested, *match.MovieID)
+		return suggested
+	}
+
+	if match.MediaType == "episode" && match.EpisodeID != nil {
+		h.populateEpisodeSuggestion(ctx, suggested, match)
+	}
+
+	return suggested
+}
+
+func (h *Handlers) populateMovieSuggestion(ctx context.Context, suggested *SuggestedMatch, movieID int64) {
+	suggested.MediaID = movieID
+	movie, err := h.service.movies.Get(ctx, movieID)
+	if err == nil {
+		suggested.MediaTitle = movie.Title
+		suggested.Year = movie.Year
+	}
+}
+
+func (h *Handlers) populateEpisodeSuggestion(ctx context.Context, suggested *SuggestedMatch, match *LibraryMatch) {
+	suggested.MediaID = *match.EpisodeID
+	suggested.SeriesID = match.SeriesID
+	suggested.SeasonNum = match.SeasonNum
+
+	if match.SeriesID != nil {
+		series, err := h.service.tv.GetSeries(ctx, *match.SeriesID)
+		if err == nil {
+			suggested.SeriesTitle = &series.Title
+		}
+	}
+
+	episode, err := h.service.tv.GetEpisode(ctx, *match.EpisodeID)
+	if err == nil {
+		suggested.MediaTitle = episode.Title
+		epNum := episode.EpisodeNumber
+		suggested.EpisodeNum = &epNum
+	}
+}
+
+func buildParsedTokens(parsed *scanner.ParsedMedia) []ParsedTokenDetail {
+	var tokens []ParsedTokenDetail
+
 	if parsed.Title != "" {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Title",
-			Value: parsed.Title,
-		})
+		tokens = append(tokens, ParsedTokenDetail{Name: "Title", Value: parsed.Title})
 	}
 
 	if parsed.Year > 0 {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Year",
-			Value: strconv.Itoa(parsed.Year),
-		})
+		tokens = append(tokens, ParsedTokenDetail{Name: "Year", Value: strconv.Itoa(parsed.Year)})
 	}
 
 	if parsed.IsTV {
-		if parsed.Season > 0 {
-			resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-				Name:  "Season",
-				Value: strconv.Itoa(parsed.Season),
-			})
-		}
-		if parsed.Episode > 0 {
-			epValue := strconv.Itoa(parsed.Episode)
-			if parsed.EndEpisode > 0 && parsed.EndEpisode != parsed.Episode {
-				epValue += "-" + strconv.Itoa(parsed.EndEpisode)
-			}
-			resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-				Name:  "Episode",
-				Value: epValue,
-			})
-		}
-		if parsed.IsSeasonPack {
-			resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-				Name:  "Type",
-				Value: "Season Pack",
-			})
-		}
+		tokens = append(tokens, buildTVTokens(parsed)...)
 	}
 
 	if parsed.Quality != "" {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Quality",
-			Value: parsed.Quality,
-		})
+		tokens = append(tokens, ParsedTokenDetail{Name: "Quality", Value: parsed.Quality})
 	}
 
 	if parsed.Source != "" {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Source",
-			Value: parsed.Source,
-		})
+		tokens = append(tokens, ParsedTokenDetail{Name: "Source", Value: parsed.Source})
 	}
 
 	if parsed.Codec != "" {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Video Codec",
-			Value: parsed.Codec,
-		})
+		tokens = append(tokens, ParsedTokenDetail{Name: "Video Codec", Value: parsed.Codec})
 	}
 
-	for _, attr := range parsed.Attributes {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Video Attribute",
-			Value: attr,
-		})
+	tokens = append(tokens, buildSliceTokens("Video Attribute", parsed.Attributes)...)
+	tokens = append(tokens, buildSliceTokens("Audio Codec", parsed.AudioCodecs)...)
+	tokens = append(tokens, buildSliceTokens("Audio Channels", parsed.AudioChannels)...)
+	tokens = append(tokens, buildSliceTokens("Audio Enhancement", parsed.AudioEnhancements)...)
+
+	return tokens
+}
+
+func buildTVTokens(parsed *scanner.ParsedMedia) []ParsedTokenDetail {
+	var tokens []ParsedTokenDetail
+
+	if parsed.Season > 0 {
+		tokens = append(tokens, ParsedTokenDetail{Name: "Season", Value: strconv.Itoa(parsed.Season)})
 	}
 
-	for _, codec := range parsed.AudioCodecs {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Audio Codec",
-			Value: codec,
-		})
+	if parsed.Episode > 0 {
+		epValue := strconv.Itoa(parsed.Episode)
+		if parsed.EndEpisode > 0 && parsed.EndEpisode != parsed.Episode {
+			epValue += "-" + strconv.Itoa(parsed.EndEpisode)
+		}
+		tokens = append(tokens, ParsedTokenDetail{Name: "Episode", Value: epValue})
 	}
 
-	for _, channels := range parsed.AudioChannels {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Audio Channels",
-			Value: channels,
-		})
+	if parsed.IsSeasonPack {
+		tokens = append(tokens, ParsedTokenDetail{Name: "Type", Value: "Season Pack"})
 	}
 
-	for _, enhancement := range parsed.AudioEnhancements {
-		resp.Tokens = append(resp.Tokens, ParsedTokenDetail{
-			Name:  "Audio Enhancement",
-			Value: enhancement,
-		})
-	}
+	return tokens
+}
 
-	return c.JSON(http.StatusOK, resp)
+func buildSliceTokens(name string, values []string) []ParsedTokenDetail {
+	var tokens []ParsedTokenDetail
+	for _, v := range values {
+		tokens = append(tokens, ParsedTokenDetail{Name: name, Value: v})
+	}
+	return tokens
 }

@@ -7,12 +7,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/notification/types"
 )
+
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
 
 func newTestMovie() *types.MediaInfo {
 	return &types.MediaInfo{
@@ -58,24 +62,6 @@ func newTestSeries() types.SeriesInfo {
 	}
 }
 
-func newTestRelease() types.ReleaseInfo {
-	return types.ReleaseInfo{
-		ReleaseName:  "The.Matrix.1999.2160p.UHD.BluRay.x265-GROUP",
-		Quality:      "Bluray-2160p",
-		Size:         45000000000,
-		Indexer:      "TestIndexer",
-		ReleaseGroup: "GROUP",
-	}
-}
-
-func newTestDownloadClient() types.DownloadClientInfo {
-	return types.DownloadClientInfo{
-		ID:   1,
-		Name: "qBittorrent",
-		Type: "qbittorrent",
-	}
-}
-
 type capturedRequest struct {
 	ChatID              string `json:"chat_id"`
 	Text                string `json:"text"`
@@ -85,6 +71,7 @@ type capturedRequest struct {
 }
 
 func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -104,21 +91,21 @@ func setupTestServer(t *testing.T, captured *capturedRequest) *httptest.Server {
 }
 
 func TestNotifier_Type(t *testing.T) {
-	n := New("test", Settings{}, nil, zerolog.Nop())
+	n := New("test", &Settings{}, nil, newTestLogger())
 	if n.Type() != types.NotifierTelegram {
 		t.Errorf("expected type %s, got %s", types.NotifierTelegram, n.Type())
 	}
 }
 
 func TestNotifier_Name(t *testing.T) {
-	n := New("my-notifier", Settings{}, nil, zerolog.Nop())
+	n := New("my-notifier", &Settings{}, nil, newTestLogger())
 	if n.Name() != "my-notifier" {
 		t.Errorf("expected name 'my-notifier', got %s", n.Name())
 	}
 }
 
 func TestNotifier_DefaultMetadataLinks(t *testing.T) {
-	n := New("test", Settings{IncludeLinks: true}, nil, zerolog.Nop())
+	n := New("test", &Settings{IncludeLinks: true}, nil, newTestLogger())
 	if len(n.settings.MetadataLinks) != len(DefaultMetadataLinks) {
 		t.Errorf("expected %d default metadata links, got %d", len(DefaultMetadataLinks), len(n.settings.MetadataLinks))
 	}
@@ -129,10 +116,10 @@ func TestNotifier_Test(t *testing.T) {
 	server := setupTestServer(t, &captured)
 	defer server.Close()
 
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		BotToken: "test-token",
 		ChatID:   "123456789",
-	}, http.DefaultClient, zerolog.Nop())
+	}, http.DefaultClient, newTestLogger())
 	n.settings.BotToken = "" // Clear token so we can use test server
 
 	// Create a custom notifier that uses the test server URL
@@ -143,7 +130,7 @@ func TestNotifier_Test(t *testing.T) {
 			ChatID:   "123456789",
 		},
 		httpClient: http.DefaultClient,
-		logger:     zerolog.Nop(),
+		logger:     newTestLogger(),
 	}
 
 	// Override the sendMessage to use test server
@@ -257,10 +244,7 @@ func TestNotifier_TopicID(t *testing.T) {
 
 func TestNotifier_OnGrab_MovieMessage(t *testing.T) {
 	event := types.GrabEvent{
-		Movie:          newTestMovie(),
-		Release:        newTestRelease(),
-		DownloadClient: newTestDownloadClient(),
-		GrabbedAt:      time.Now(),
+		Movie: newTestMovie(),
 	}
 
 	// Build the expected message format
@@ -287,10 +271,7 @@ func TestNotifier_OnGrab_MovieMessage(t *testing.T) {
 
 func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 	event := types.GrabEvent{
-		Episode:        newTestEpisode(),
-		Release:        newTestRelease(),
-		DownloadClient: newTestDownloadClient(),
-		GrabbedAt:      time.Now(),
+		Episode: newTestEpisode(),
 	}
 
 	// Build expected message content
@@ -308,10 +289,8 @@ func TestNotifier_OnGrab_EpisodeMessage(t *testing.T) {
 
 func TestNotifier_OnImport_Movie(t *testing.T) {
 	event := types.ImportEvent{
-		Movie:        newTestMovie(),
-		Quality:      "Bluray-2160p",
-		ReleaseGroup: "GROUP",
-		ImportedAt:   time.Now(),
+		Movie:   newTestMovie(),
+		Quality: "Bluray-2160p",
 	}
 
 	// Verify event is properly constructed
@@ -325,10 +304,8 @@ func TestNotifier_OnImport_Movie(t *testing.T) {
 
 func TestNotifier_OnUpgrade(t *testing.T) {
 	event := types.UpgradeEvent{
-		Movie:      newTestMovie(),
 		OldQuality: "Bluray-1080p",
 		NewQuality: "Bluray-2160p",
-		UpgradedAt: time.Now(),
 	}
 
 	if event.OldQuality != "Bluray-1080p" {
@@ -341,8 +318,7 @@ func TestNotifier_OnUpgrade(t *testing.T) {
 
 func TestNotifier_OnMovieAdded(t *testing.T) {
 	event := types.MovieAddedEvent{
-		Movie:   *newTestMovie(),
-		AddedAt: time.Now(),
+		Movie: *newTestMovie(),
 	}
 
 	if event.Movie.Title != "The Matrix" {
@@ -355,9 +331,7 @@ func TestNotifier_OnMovieAdded(t *testing.T) {
 
 func TestNotifier_OnMovieDeleted(t *testing.T) {
 	event := types.MovieDeletedEvent{
-		Movie:        *newTestMovie(),
 		DeletedFiles: true,
-		DeletedAt:    time.Now(),
 	}
 
 	if !event.DeletedFiles {
@@ -367,8 +341,7 @@ func TestNotifier_OnMovieDeleted(t *testing.T) {
 
 func TestNotifier_OnSeriesAdded(t *testing.T) {
 	event := types.SeriesAddedEvent{
-		Series:  newTestSeries(),
-		AddedAt: time.Now(),
+		Series: newTestSeries(),
 	}
 
 	if event.Series.Title != "Breaking Bad" {
@@ -378,9 +351,7 @@ func TestNotifier_OnSeriesAdded(t *testing.T) {
 
 func TestNotifier_OnSeriesDeleted(t *testing.T) {
 	event := types.SeriesDeletedEvent{
-		Series:       newTestSeries(),
 		DeletedFiles: true,
-		DeletedAt:    time.Now(),
 	}
 
 	if !event.DeletedFiles {
@@ -390,10 +361,7 @@ func TestNotifier_OnSeriesDeleted(t *testing.T) {
 
 func TestNotifier_OnHealthIssue(t *testing.T) {
 	event := types.HealthEvent{
-		Source:    "Indexer",
-		Type:      "error",
-		Message:   "Connection failed",
-		OccuredAt: time.Now(),
+		Type: "error",
 	}
 
 	if event.Type != "error" {
@@ -403,10 +371,7 @@ func TestNotifier_OnHealthIssue(t *testing.T) {
 
 func TestNotifier_OnHealthRestored(t *testing.T) {
 	event := types.HealthEvent{
-		Source:    "Indexer",
-		Type:      "warning",
-		Message:   "Connection restored",
-		OccuredAt: time.Now(),
+		Source: "Indexer",
 	}
 
 	if event.Source != "Indexer" {
@@ -418,7 +383,6 @@ func TestNotifier_OnApplicationUpdate(t *testing.T) {
 	event := types.AppUpdateEvent{
 		PreviousVersion: "1.0.0",
 		NewVersion:      "1.1.0",
-		UpdatedAt:       time.Now(),
 	}
 
 	if event.PreviousVersion != "1.0.0" {
@@ -430,10 +394,10 @@ func TestNotifier_OnApplicationUpdate(t *testing.T) {
 }
 
 func TestNotifier_HasLink(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		IncludeLinks:  true,
 		MetadataLinks: []MetadataLink{MetadataLinkTMDb, MetadataLinkIMDb},
-	}, nil, zerolog.Nop())
+	}, nil, newTestLogger())
 
 	if !n.hasLink(MetadataLinkTMDb) {
 		t.Error("expected hasLink(TMDb) to be true")
@@ -450,14 +414,14 @@ func TestNotifier_HasLink(t *testing.T) {
 }
 
 func TestNotifier_WriteLinks_Movie(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		IncludeLinks:  true,
 		MetadataLinks: []MetadataLink{MetadataLinkTMDb, MetadataLinkIMDb, MetadataLinkTrakt},
-	}, nil, zerolog.Nop())
+	}, nil, newTestLogger())
 
 	movie := newTestMovie()
 	var sb strings.Builder
-	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID, "movie")
+	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID)
 
 	result := sb.String()
 	if !strings.Contains(result, "TMDb") {
@@ -481,10 +445,10 @@ func TestNotifier_WriteLinks_Movie(t *testing.T) {
 }
 
 func TestNotifier_WriteLinks_Series(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		IncludeLinks:  true,
 		MetadataLinks: []MetadataLink{MetadataLinkTMDb, MetadataLinkIMDb, MetadataLinkTVDb, MetadataLinkTrakt},
-	}, nil, zerolog.Nop())
+	}, nil, newTestLogger())
 
 	series := newTestSeries()
 	var sb strings.Builder
@@ -512,13 +476,13 @@ func TestNotifier_WriteLinks_Series(t *testing.T) {
 }
 
 func TestNotifier_WriteLinks_Disabled(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		IncludeLinks: false,
-	}, nil, zerolog.Nop())
+	}, nil, newTestLogger())
 
 	movie := newTestMovie()
 	var sb strings.Builder
-	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID, "movie")
+	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID)
 
 	result := sb.String()
 	if result != "" {
@@ -527,14 +491,14 @@ func TestNotifier_WriteLinks_Disabled(t *testing.T) {
 }
 
 func TestNotifier_WriteLinks_OnlyConfigured(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		IncludeLinks:  true,
 		MetadataLinks: []MetadataLink{MetadataLinkTMDb}, // Only TMDb
-	}, nil, zerolog.Nop())
+	}, nil, newTestLogger())
 
 	movie := newTestMovie()
 	var sb strings.Builder
-	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID, "movie")
+	n.writeLinks(&sb, movie.TMDbID, movie.IMDbID, movie.TraktID)
 
 	result := sb.String()
 	if !strings.Contains(result, "TMDb") {
@@ -560,7 +524,12 @@ func TestNotifier_HTTPError(t *testing.T) {
 	defer server.Close()
 
 	// Test error response parsing
-	resp, err := http.Post(server.URL, "application/json", strings.NewReader(`{}`))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("create request error = %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("request error = %v", err)
 	}
@@ -587,9 +556,7 @@ func TestNotifier_HTTPError(t *testing.T) {
 
 func TestNotifier_HTMLEscaping(t *testing.T) {
 	movie := &types.MediaInfo{
-		ID:    1,
 		Title: "Test <Movie> & \"Quotes\"",
-		Year:  2024,
 	}
 
 	// Verify the title contains special characters
@@ -607,9 +574,6 @@ func TestNotifier_HTMLEscaping(t *testing.T) {
 func TestNotifier_OverviewTruncation(t *testing.T) {
 	longOverview := strings.Repeat("A", 250)
 	movie := &types.MediaInfo{
-		ID:       1,
-		Title:    "Test Movie",
-		Year:     2024,
 		Overview: longOverview,
 	}
 

@@ -18,28 +18,28 @@ import (
 
 // Broadcaster defines the interface for sending WebSocket messages.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // Service provides history management functionality.
 type Service struct {
 	db          *sql.DB
 	queries     *sqlc.Queries
-	logger      zerolog.Logger
+	logger      *zerolog.Logger
 	broadcaster Broadcaster
 }
 
 // NewService creates a new history service.
-func NewService(db *sql.DB, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "history").Logger()
 	return &Service{
 		db:      db,
 		queries: sqlc.New(db),
-		logger:  logger.With().Str("component", "history").Logger(),
+		logger:  &subLogger,
 	}
 }
 
 // SetDB updates the database connection used by this service.
-// This is called when switching between production and development databases.
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
@@ -51,7 +51,7 @@ func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
 }
 
 // Create creates a new history entry.
-func (s *Service) Create(ctx context.Context, input CreateInput) (*Entry, error) {
+func (s *Service) Create(ctx context.Context, input *CreateInput) (*Entry, error) {
 	var dataJSON sql.NullString
 	if input.Data != nil {
 		bytes, err := json.Marshal(input.Data)
@@ -77,94 +77,32 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Entry, error)
 	s.enrichEntry(ctx, entry)
 
 	if s.broadcaster != nil {
-		_ = s.broadcaster.Broadcast("history:added", entry)
+		s.broadcaster.Broadcast("history:added", entry)
 	}
 
 	return entry, nil
 }
 
 // List lists history entries with pagination and filtering.
-func (s *Service) List(ctx context.Context, opts ListOptions) (*ListResponse, error) {
-	if opts.Page < 1 {
-		opts.Page = 1
-	}
-	if opts.PageSize < 1 {
-		opts.PageSize = 50
-	}
-	if opts.PageSize > 100 {
-		opts.PageSize = 100
-	}
+func (s *Service) List(ctx context.Context, opts *ListOptions) (*ListResponse, error) {
+	normalized := normalizeListOptions(opts)
+	offset := int64((normalized.Page - 1) * normalized.PageSize)
+	limit := int64(normalized.PageSize)
 
-	offset := int64((opts.Page - 1) * opts.PageSize)
-	limit := int64(opts.PageSize)
+	hasFilters := normalized.EventType != "" || normalized.MediaType != "" || normalized.After != "" || normalized.Before != ""
 
 	var rows []*sqlc.History
-	var err error
 	var totalCount int64
-
-	hasFilters := opts.EventType != "" || opts.MediaType != "" || opts.After != "" || opts.Before != ""
+	var err error
 
 	if hasFilters {
-		eventFilter := opts.EventType
-		mediaFilter := opts.MediaType
-		afterFilter := opts.After
-		beforeFilter := opts.Before
-
-		afterTime := sql.NullTime{}
-		if afterFilter != "" {
-			if t, err := time.Parse(time.RFC3339, afterFilter); err == nil {
-				afterTime = sql.NullTime{Time: t, Valid: true}
-			}
-		}
-		beforeTime := sql.NullTime{}
-		if beforeFilter != "" {
-			if t, err := time.Parse(time.RFC3339, beforeFilter); err == nil {
-				beforeTime = sql.NullTime{Time: t, Valid: true}
-			}
-		}
-
-		rows, err = s.queries.ListHistoryFiltered(ctx, sqlc.ListHistoryFilteredParams{
-			Column1:     eventFilter,
-			Column2:     sql.NullString{String: eventFilter, Valid: eventFilter != ""},
-			Column3:     mediaFilter,
-			MediaType:   mediaFilter,
-			Column5:     afterFilter,
-			CreatedAt:   afterTime,
-			Column7:     beforeFilter,
-			CreatedAt_2: beforeTime,
-			Limit:       limit,
-			Offset:      offset,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		totalCount, err = s.queries.CountHistoryFiltered(ctx, sqlc.CountHistoryFilteredParams{
-			Column1:     eventFilter,
-			Column2:     sql.NullString{String: eventFilter, Valid: eventFilter != ""},
-			Column3:     mediaFilter,
-			MediaType:   mediaFilter,
-			Column5:     afterFilter,
-			CreatedAt:   afterTime,
-			Column7:     beforeFilter,
-			CreatedAt_2: beforeTime,
-		})
-		if err != nil {
-			return nil, err
-		}
+		rows, totalCount, err = s.listWithFilters(ctx, &normalized, limit, offset)
 	} else {
-		rows, err = s.queries.ListHistoryPaginated(ctx, sqlc.ListHistoryPaginatedParams{
-			Limit:  limit,
-			Offset: offset,
-		})
-		if err != nil {
-			return nil, err
-		}
+		rows, totalCount, err = s.listAll(ctx, limit, offset)
+	}
 
-		totalCount, err = s.queries.CountHistory(ctx)
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	entries := make([]*Entry, 0, len(rows))
@@ -174,18 +112,96 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (*ListResponse, er
 		entries = append(entries, entry)
 	}
 
-	totalPages := int(totalCount) / opts.PageSize
-	if int(totalCount)%opts.PageSize > 0 {
+	totalPages := int(totalCount) / normalized.PageSize
+	if int(totalCount)%normalized.PageSize > 0 {
 		totalPages++
 	}
 
 	return &ListResponse{
 		Items:      entries,
-		Page:       opts.Page,
-		PageSize:   opts.PageSize,
+		Page:       normalized.Page,
+		PageSize:   normalized.PageSize,
 		TotalCount: totalCount,
 		TotalPages: totalPages,
 	}, nil
+}
+
+func normalizeListOptions(opts *ListOptions) ListOptions {
+	if opts.Page < 1 {
+		opts.Page = 1
+	}
+	if opts.PageSize < 1 {
+		opts.PageSize = 50
+	}
+	if opts.PageSize > 100 {
+		opts.PageSize = 100
+	}
+	return *opts
+}
+
+func (s *Service) listAll(ctx context.Context, limit, offset int64) ([]*sqlc.History, int64, error) {
+	rows, err := s.queries.ListHistoryPaginated(ctx, sqlc.ListHistoryPaginatedParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	totalCount, err := s.queries.CountHistory(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rows, totalCount, nil
+}
+
+func (s *Service) listWithFilters(ctx context.Context, opts *ListOptions, limit, offset int64) ([]*sqlc.History, int64, error) {
+	afterTime := parseTimeFilter(opts.After)
+	beforeTime := parseTimeFilter(opts.Before)
+
+	rows, err := s.queries.ListHistoryFiltered(ctx, sqlc.ListHistoryFilteredParams{
+		Column1:     opts.EventType,
+		Column2:     sql.NullString{String: opts.EventType, Valid: opts.EventType != ""},
+		Column3:     opts.MediaType,
+		MediaType:   opts.MediaType,
+		Column5:     opts.After,
+		CreatedAt:   afterTime,
+		Column7:     opts.Before,
+		CreatedAt_2: beforeTime,
+		Limit:       limit,
+		Offset:      offset,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	totalCount, err := s.queries.CountHistoryFiltered(ctx, sqlc.CountHistoryFilteredParams{
+		Column1:     opts.EventType,
+		Column2:     sql.NullString{String: opts.EventType, Valid: opts.EventType != ""},
+		Column3:     opts.MediaType,
+		MediaType:   opts.MediaType,
+		Column5:     opts.After,
+		CreatedAt:   afterTime,
+		Column7:     opts.Before,
+		CreatedAt_2: beforeTime,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rows, totalCount, nil
+}
+
+func parseTimeFilter(filter string) sql.NullTime {
+	if filter == "" {
+		return sql.NullTime{}
+	}
+	t, err := time.Parse(time.RFC3339, filter)
+	if err != nil {
+		return sql.NullTime{}
+	}
+	return sql.NullTime{Time: t, Valid: true}
 }
 
 // ListByMedia lists history for a specific media item.
@@ -243,50 +259,104 @@ func (s *Service) rowToEntry(row *sqlc.History) *Entry {
 
 // enrichEntry adds media title, series ID, and year to the entry.
 func (s *Service) enrichEntry(ctx context.Context, entry *Entry) {
+	s.enrichMediaInfo(ctx, entry)
+	s.enrichQualityInfo(entry)
+}
+
+func (s *Service) enrichMediaInfo(ctx context.Context, entry *Entry) {
 	switch entry.MediaType {
 	case MediaTypeMovie:
-		movie, err := s.queries.GetMovie(ctx, entry.MediaID)
-		if err == nil {
-			entry.MediaTitle = movie.Title
-			if movie.Year.Valid && movie.Year.Int64 > 0 {
-				year := movie.Year.Int64
-				entry.Year = &year
-			}
-		}
+		s.enrichMovieInfo(ctx, entry)
 	case MediaTypeEpisode:
-		episode, err := s.queries.GetEpisode(ctx, entry.MediaID)
-		if err == nil {
-			seriesID := episode.SeriesID
-			entry.SeriesID = &seriesID
-			series, err := s.queries.GetSeries(ctx, seriesID)
-			if err == nil {
-				entry.MediaTitle = series.Title
-				entry.MediaQualifier = fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
-			}
-		}
+		s.enrichEpisodeInfo(ctx, entry)
+	}
+}
+
+func (s *Service) enrichMovieInfo(ctx context.Context, entry *Entry) {
+	movie, err := s.queries.GetMovie(ctx, entry.MediaID)
+	if err != nil {
+		return
 	}
 
-	// Backfill quality names for imported upgrade events that lack them
-	if entry.EventType == EventTypeImported && entry.Data != nil {
-		isUpgrade, _ := entry.Data["isUpgrade"].(bool)
-		_, hasPrev := entry.Data["previousQuality"]
-		_, hasNew := entry.Data["newQuality"]
-		if isUpgrade && (!hasPrev || !hasNew) {
-			if !hasPrev {
-				if prev, _ := entry.Data["previousFile"].(string); prev != "" {
-					if name := qualityNameFromPath(prev); name != "" {
-						entry.Data["previousQuality"] = name
-					}
-				}
-			}
-			if !hasNew {
-				if dest, _ := entry.Data["destinationPath"].(string); dest != "" {
-					if name := qualityNameFromPath(dest); name != "" {
-						entry.Data["newQuality"] = name
-					}
-				}
-			}
-		}
+	entry.MediaTitle = movie.Title
+	if movie.Year.Valid && movie.Year.Int64 > 0 {
+		year := movie.Year.Int64
+		entry.Year = &year
+	}
+}
+
+func (s *Service) enrichEpisodeInfo(ctx context.Context, entry *Entry) {
+	episode, err := s.queries.GetEpisode(ctx, entry.MediaID)
+	if err != nil {
+		return
+	}
+
+	seriesID := episode.SeriesID
+	entry.SeriesID = &seriesID
+
+	series, err := s.queries.GetSeries(ctx, seriesID)
+	if err != nil {
+		return
+	}
+
+	entry.MediaTitle = series.Title
+	entry.MediaQualifier = fmt.Sprintf("S%02dE%02d", episode.SeasonNumber, episode.EpisodeNumber)
+}
+
+func (s *Service) enrichQualityInfo(entry *Entry) {
+	if !shouldEnrichQuality(entry) {
+		return
+	}
+
+	backfillMissingQualityFields(entry)
+}
+
+func shouldEnrichQuality(entry *Entry) bool {
+	if entry.EventType != EventTypeImported || entry.Data == nil {
+		return false
+	}
+
+	isUpgrade, _ := entry.Data["isUpgrade"].(bool)
+	if !isUpgrade {
+		return false
+	}
+
+	_, hasPrev := entry.Data["previousQuality"]
+	_, hasNew := entry.Data["newQuality"]
+	return !hasPrev || !hasNew
+}
+
+func backfillMissingQualityFields(entry *Entry) {
+	_, hasPrev := entry.Data["previousQuality"]
+	if !hasPrev {
+		tryBackfillPreviousQuality(entry)
+	}
+
+	_, hasNew := entry.Data["newQuality"]
+	if !hasNew {
+		tryBackfillNewQuality(entry)
+	}
+}
+
+func tryBackfillPreviousQuality(entry *Entry) {
+	prev, _ := entry.Data["previousFile"].(string)
+	if prev == "" {
+		return
+	}
+
+	if name := qualityNameFromPath(prev); name != "" {
+		entry.Data["previousQuality"] = name
+	}
+}
+
+func tryBackfillNewQuality(entry *Entry) {
+	dest, _ := entry.Data["destinationPath"].(string)
+	if dest == "" {
+		return
+	}
+
+	if name := qualityNameFromPath(dest); name != "" {
+		entry.Data["newQuality"] = name
 	}
 }
 
@@ -301,14 +371,14 @@ func qualityNameFromPath(path string) string {
 }
 
 // LogAutoSearchDownload logs a successful autosearch download.
-func (s *Service) LogAutoSearchDownload(ctx context.Context, mediaType MediaType, mediaID int64, quality string, data AutoSearchDownloadData) error {
+func (s *Service) LogAutoSearchDownload(ctx context.Context, mediaType MediaType, mediaID int64, quality string, data *AutoSearchDownloadData) error {
 	dataMap, err := ToJSON(data)
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to marshal autosearch download data")
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeAutoSearchDownload,
 		MediaType: mediaType,
 		MediaID:   mediaID,
@@ -327,7 +397,7 @@ func (s *Service) LogAutoSearchFailed(ctx context.Context, mediaType MediaType, 
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeAutoSearchFailed,
 		MediaType: mediaType,
 		MediaID:   mediaID,
@@ -337,7 +407,6 @@ func (s *Service) LogAutoSearchFailed(ctx context.Context, mediaType MediaType, 
 	return err
 }
 
-
 // LogStatusChanged logs a status transition not covered by existing event types.
 func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, mediaID int64, data StatusChangedData) error {
 	dataMap, err := ToJSON(data)
@@ -346,7 +415,7 @@ func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, med
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeStatusChanged,
 		MediaType: mediaType,
 		MediaID:   mediaID,
@@ -356,7 +425,6 @@ func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, med
 }
 
 // LogSlotAssigned logs when a file is assigned to a slot.
-// Req 17.1.1: Log all slot-related events
 func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
 	dataMap, err := ToJSON(data)
 	if err != nil {
@@ -364,7 +432,7 @@ func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, medi
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeSlotAssigned,
 		MediaType: mediaType,
 		MediaID:   mediaID,
@@ -375,7 +443,6 @@ func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, medi
 }
 
 // LogSlotReassigned logs when a file is moved to a different slot.
-// Req 17.1.1: Log all slot-related events
 func (s *Service) LogSlotReassigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
 	dataMap, err := ToJSON(data)
 	if err != nil {
@@ -383,7 +450,7 @@ func (s *Service) LogSlotReassigned(ctx context.Context, mediaType MediaType, me
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeSlotReassigned,
 		MediaType: mediaType,
 		MediaID:   mediaID,
@@ -394,7 +461,6 @@ func (s *Service) LogSlotReassigned(ctx context.Context, mediaType MediaType, me
 }
 
 // LogSlotUnassigned logs when a file is removed from a slot.
-// Req 17.1.1: Log all slot-related events
 func (s *Service) LogSlotUnassigned(ctx context.Context, mediaType MediaType, mediaID int64, data SlotEventData) error {
 	dataMap, err := ToJSON(data)
 	if err != nil {
@@ -402,7 +468,7 @@ func (s *Service) LogSlotUnassigned(ctx context.Context, mediaType MediaType, me
 		dataMap = nil
 	}
 
-	_, err = s.Create(ctx, CreateInput{
+	_, err = s.Create(ctx, &CreateInput{
 		EventType: EventTypeSlotUnassigned,
 		MediaType: mediaType,
 		MediaID:   mediaID,

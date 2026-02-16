@@ -13,13 +13,13 @@ import (
 )
 
 var (
-	ErrSlotNotFound           = errors.New("slot not found")
-	ErrSlotNoQualityProfile   = errors.New("slot has no quality profile configured")
-	ErrInvalidSlot            = errors.New("invalid slot configuration")
-	ErrSlotHasFiles           = errors.New("slot has files assigned")
-	ErrDryRunRequired         = errors.New("dry-run preview is required before enabling multi-version")
-	ErrProfilesNotExclusive   = errors.New("assigned profiles are not mutually exclusive")
-	ErrMissingProfileForSlot  = errors.New("enabled slot must have a quality profile assigned")
+	ErrSlotNotFound          = errors.New("slot not found")
+	ErrSlotNoQualityProfile  = errors.New("slot has no quality profile configured")
+	ErrInvalidSlot           = errors.New("invalid slot configuration")
+	ErrSlotHasFiles          = errors.New("slot has files assigned")
+	ErrDryRunRequired        = errors.New("dry-run preview is required before enabling multi-version")
+	ErrProfilesNotExclusive  = errors.New("assigned profiles are not mutually exclusive")
+	ErrMissingProfileForSlot = errors.New("enabled slot must have a quality profile assigned")
 )
 
 // FileDeleter deletes files from disk and database.
@@ -62,7 +62,7 @@ func (s *Service) SetRootFolderProvider(provider RootFolderProvider) {
 }
 
 // NewService creates a new slot service.
-func NewService(db *sql.DB, qualityService *quality.Service, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, qualityService *quality.Service, logger *zerolog.Logger) *Service {
 	return &Service{
 		queries:        sqlc.New(db),
 		qualityService: qualityService,
@@ -371,9 +371,9 @@ func (s *Service) GetRootFolderForSlot(ctx context.Context, slotID int64, mediaT
 
 	var rootFolderID *int64
 	switch mediaType {
-	case "movie":
+	case mediaTypeMovie:
 		rootFolderID = slot.MovieRootFolderID
-	case "episode", "tv":
+	case mediaTypeEpisode, "tv":
 		rootFolderID = slot.TVRootFolderID
 	default:
 		return "", nil
@@ -407,27 +407,40 @@ func (s *Service) GetSlotFileCount(ctx context.Context, slotID int64) (int64, er
 
 // GetSlotFileID returns the file ID assigned to a specific slot for a media item.
 // Returns 0 if no file is assigned.
+// getMovieSlotFileID retrieves the file ID for a movie slot assignment
+func (s *Service) getMovieSlotFileID(ctx context.Context, movieID, slotID int64) (int64, error) {
+	rows, err := s.queries.ListMovieSlotAssignments(ctx, movieID)
+	if err != nil {
+		return 0, err
+	}
+	for _, row := range rows {
+		if row.SlotID == slotID && row.FileID.Valid {
+			return row.FileID.Int64, nil
+		}
+	}
+	return 0, nil
+}
+
+// getEpisodeSlotFileID retrieves the file ID for an episode slot assignment
+func (s *Service) getEpisodeSlotFileID(ctx context.Context, episodeID, slotID int64) (int64, error) {
+	rows, err := s.queries.ListEpisodeSlotAssignments(ctx, episodeID)
+	if err != nil {
+		return 0, err
+	}
+	for _, row := range rows {
+		if row.SlotID == slotID && row.FileID.Valid {
+			return row.FileID.Int64, nil
+		}
+	}
+	return 0, nil
+}
+
 func (s *Service) GetSlotFileID(ctx context.Context, mediaType string, mediaID, slotID int64) (int64, error) {
-	if mediaType == "movie" {
-		rows, err := s.queries.ListMovieSlotAssignments(ctx, mediaID)
-		if err != nil {
-			return 0, err
-		}
-		for _, row := range rows {
-			if row.SlotID == slotID && row.FileID.Valid {
-				return row.FileID.Int64, nil
-			}
-		}
-	} else if mediaType == "episode" {
-		rows, err := s.queries.ListEpisodeSlotAssignments(ctx, mediaID)
-		if err != nil {
-			return 0, err
-		}
-		for _, row := range rows {
-			if row.SlotID == slotID && row.FileID.Valid {
-				return row.FileID.Int64, nil
-			}
-		}
+	switch mediaType {
+	case mediaTypeMovie:
+		return s.getMovieSlotFileID(ctx, mediaID, slotID)
+	case mediaTypeEpisode:
+		return s.getEpisodeSlotFileID(ctx, mediaID, slotID)
 	}
 	return 0, nil
 }
@@ -467,8 +480,76 @@ func (s *Service) ValidateSlotConfiguration(ctx context.Context) error {
 
 // ValidateSlotConfigurationFull validates the current slot configuration
 // and returns all validation errors.
+// validateSlotProfiles checks that all slots have valid profiles and returns them
+func (s *Service) validateSlotProfiles(ctx context.Context, slots []*Slot) ([]*quality.Profile, []*Slot, []string) {
+	var validationErrors []string
+	var profiles []*quality.Profile
+	var slotsWithProfiles []*Slot
+
+	for _, slot := range slots {
+		if slot.QualityProfileID == nil {
+			validationErrors = append(validationErrors, fmt.Sprintf("Slot %q does not have a quality profile assigned", slot.Name))
+			continue
+		}
+		profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
+		if err != nil {
+			validationErrors = append(validationErrors, fmt.Sprintf("Failed to get profile for slot %q: %v", slot.Name, err))
+			continue
+		}
+		profiles = append(profiles, profile)
+		slotsWithProfiles = append(slotsWithProfiles, slot)
+	}
+
+	return profiles, slotsWithProfiles, validationErrors
+}
+
+// checkSlotExclusivity validates mutual exclusivity between slot profiles
+func (s *Service) checkSlotExclusivity(profiles []*quality.Profile, slotsWithProfiles []*Slot) (conflicts []SlotConflict, errMsgs []string) {
+	if len(profiles) < 2 {
+		return nil, nil
+	}
+
+	slotConfigs := make([]quality.SlotConfig, len(profiles))
+	for i, p := range profiles {
+		slotConfigs[i] = quality.SlotConfig{
+			SlotNumber: slotsWithProfiles[i].SlotNumber,
+			SlotName:   slotsWithProfiles[i].Name,
+			Enabled:    true,
+			Profile:    p,
+		}
+	}
+
+	exclusivityErrs, valid := quality.ValidateSlotExclusivity(slotConfigs)
+	if valid {
+		return nil, nil
+	}
+
+	s.logger.Warn().Interface("errors", exclusivityErrs).Msg("Slot profiles are not mutually exclusive")
+
+	conflicts = make([]SlotConflict, 0)
+	errMsgs = make([]string, 0)
+	for i := range exclusivityErrs {
+		e := &exclusivityErrs[i]
+		var issues []AttributeIssue
+		for _, issue := range e.Issues {
+			issues = append(issues, AttributeIssue{
+				Attribute: issue.Attribute,
+				Message:   issue.Message,
+			})
+		}
+		conflicts = append(conflicts, SlotConflict{
+			SlotAName: e.SlotAName,
+			SlotBName: e.SlotBName,
+			Issues:    issues,
+		})
+		errMsgs = append(errMsgs, fmt.Sprintf("Profile conflict between %s and %s", e.SlotAName, e.SlotBName))
+	}
+
+	return conflicts, errMsgs
+}
+
 func (s *Service) ValidateSlotConfigurationFull(ctx context.Context) ValidationResult {
-	var errors []string
+	var validationErrors []string
 
 	slots, err := s.ListEnabled(ctx)
 	if err != nil {
@@ -476,63 +557,18 @@ func (s *Service) ValidateSlotConfigurationFull(ctx context.Context) ValidationR
 	}
 
 	if len(slots) < 1 {
-		errors = append(errors, "At least one slot must be enabled")
+		validationErrors = append(validationErrors, "At least one slot must be enabled")
 	}
 
-	// Check each enabled slot has a profile and collect profiles for exclusivity check
-	var profiles []*quality.Profile
-	var slotsWithProfiles []*Slot
-	for _, slot := range slots {
-		if slot.QualityProfileID == nil {
-			errors = append(errors, fmt.Sprintf("Slot %q does not have a quality profile assigned", slot.Name))
-			continue
-		}
-		profile, err := s.qualityService.Get(ctx, *slot.QualityProfileID)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Failed to get profile for slot %q: %v", slot.Name, err))
-			continue
-		}
-		profiles = append(profiles, profile)
-		slotsWithProfiles = append(slotsWithProfiles, slot)
-	}
+	profiles, slotsWithProfiles, profileErrors := s.validateSlotProfiles(ctx, slots)
+	validationErrors = append(validationErrors, profileErrors...)
 
-	// Check mutual exclusivity between all enabled slots with profiles
-	var conflicts []SlotConflict
-	if len(profiles) >= 2 {
-		slotConfigs := make([]quality.SlotConfig, len(profiles))
-		for i, p := range profiles {
-			slotConfigs[i] = quality.SlotConfig{
-				SlotNumber: slotsWithProfiles[i].SlotNumber,
-				SlotName:   slotsWithProfiles[i].Name,
-				Enabled:    true,
-				Profile:    p,
-			}
-		}
-		exclusivityErrs, valid := quality.ValidateSlotExclusivity(slotConfigs)
-		if !valid {
-			s.logger.Warn().Interface("errors", exclusivityErrs).Msg("Slot profiles are not mutually exclusive")
-			for _, e := range exclusivityErrs {
-				// Convert quality.AttributeIssue to slots.AttributeIssue
-				var issues []AttributeIssue
-				for _, issue := range e.Issues {
-					issues = append(issues, AttributeIssue{
-						Attribute: issue.Attribute,
-						Message:   issue.Message,
-					})
-				}
-				conflicts = append(conflicts, SlotConflict{
-					SlotAName: e.SlotAName,
-					SlotBName: e.SlotBName,
-					Issues:    issues,
-				})
-				errors = append(errors, fmt.Sprintf("Profile conflict between %s and %s", e.SlotAName, e.SlotBName))
-			}
-		}
-	}
+	conflicts, exclusivityErrors := s.checkSlotExclusivity(profiles, slotsWithProfiles)
+	validationErrors = append(validationErrors, exclusivityErrors...)
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
+		Valid:     len(validationErrors) == 0,
+		Errors:    validationErrors,
 		Conflicts: conflicts,
 	}
 }

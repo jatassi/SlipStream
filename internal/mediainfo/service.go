@@ -11,9 +11,9 @@ import (
 
 // Config holds MediaInfo service configuration.
 type Config struct {
-	MediaInfoPath string // Path to mediainfo binary (empty = search PATH)
-	FFprobePath   string // Path to ffprobe binary (empty = search PATH)
-	CacheEnabled  bool   // Enable caching of probe results
+	MediaInfoPath string        // Path to mediainfo binary (empty = search PATH)
+	FFprobePath   string        // Path to ffprobe binary (empty = search PATH)
+	CacheEnabled  bool          // Enable caching of probe results
 	CacheTTL      time.Duration // How long to keep cached results
 }
 
@@ -36,7 +36,7 @@ type cacheEntry struct {
 // Service provides media file information extraction.
 type Service struct {
 	config Config
-	logger zerolog.Logger
+	logger *zerolog.Logger
 	cache  map[string]*cacheEntry
 	mu     sync.RWMutex
 
@@ -45,10 +45,11 @@ type Service struct {
 }
 
 // NewService creates a new MediaInfo service.
-func NewService(config Config, logger zerolog.Logger) *Service {
+func NewService(config Config, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "mediainfo").Logger()
 	s := &Service{
 		config: config,
-		logger: logger.With().Str("component", "mediainfo").Logger(),
+		logger: &subLogger,
 		cache:  make(map[string]*cacheEntry),
 	}
 

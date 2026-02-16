@@ -11,14 +11,13 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
-	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
 // NotificationDispatcher defines the interface for series notifications.
 type NotificationDispatcher interface {
-	DispatchSeriesAdded(ctx context.Context, series SeriesNotificationInfo, addedAt time.Time)
-	DispatchSeriesDeleted(ctx context.Context, series SeriesNotificationInfo, deletedFiles bool, deletedAt time.Time)
+	DispatchSeriesAdded(ctx context.Context, series *SeriesNotificationInfo, addedAt time.Time)
+	DispatchSeriesDeleted(ctx context.Context, series *SeriesNotificationInfo, deletedFiles bool, deletedAt time.Time)
 }
 
 // SeriesNotificationInfo contains series info for notifications.
@@ -57,7 +56,7 @@ type Service struct {
 	db                 *sql.DB
 	queries            *sqlc.Queries
 	hub                *websocket.Hub
-	logger             zerolog.Logger
+	logger             *zerolog.Logger
 	fileDeleteHandler  FileDeleteHandler
 	statusChangeLogger StatusChangeLogger
 	notifier           NotificationDispatcher
@@ -86,12 +85,13 @@ func (s *Service) SetQualityService(qs *quality.Service) {
 }
 
 // NewService creates a new TV service.
-func NewService(db *sql.DB, hub *websocket.Hub, logger zerolog.Logger) *Service {
+func NewService(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "tv").Logger()
 	return &Service{
 		db:      db,
 		queries: sqlc.New(db),
 		hub:     hub,
-		logger:  logger.With().Str("component", "tv").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -151,18 +151,19 @@ func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Se
 	}
 	offset := int64((opts.Page - 1) * opts.PageSize)
 
-	if opts.Search != "" {
+	switch {
+	case opts.Search != "":
 		searchTerm := "%" + opts.Search + "%"
 		rows, err = s.queries.SearchSeries(ctx, sqlc.SearchSeriesParams{
 			SearchTerm: searchTerm,
 			Lim:        int64(opts.PageSize),
 			Off:        offset,
 		})
-	} else if opts.RootFolderID != nil {
+	case opts.RootFolderID != nil:
 		rows, err = s.queries.ListSeriesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
-	} else if opts.Monitored != nil && *opts.Monitored {
+	case opts.Monitored != nil && *opts.Monitored:
 		rows, err = s.queries.ListMonitoredSeries(ctx)
-	} else {
+	default:
 		rows, err = s.queries.ListSeriesPaginated(ctx, sqlc.ListSeriesPaginatedParams{
 			Limit:  int64(opts.PageSize),
 			Offset: offset,
@@ -196,7 +197,7 @@ func (s *Service) ListUnmatchedByRootFolder(ctx context.Context, rootFolderID in
 }
 
 // CreateSeries creates a new series.
-func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*Series, error) {
+func (s *Service) CreateSeries(ctx context.Context, input *CreateSeriesInput) (*Series, error) {
 	if input.Title == "" {
 		return nil, ErrInvalidSeries
 	}
@@ -248,39 +249,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 		return nil, fmt.Errorf("failed to create series: %w", err)
 	}
 
-	// Create seasons and episodes if provided
-	for _, seasonInput := range input.Seasons {
-		_, err := s.queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
-			SeriesID:     row.ID,
-			SeasonNumber: int64(seasonInput.SeasonNumber),
-			Monitored:    boolToInt(seasonInput.Monitored),
-		})
-		if err != nil {
-			s.logger.Warn().Err(err).Int("season", seasonInput.SeasonNumber).Msg("Failed to create season")
-			continue
-		}
-
-		for _, episodeInput := range seasonInput.Episodes {
-			var airDate sql.NullTime
-			if episodeInput.AirDate != nil {
-				airDate = sql.NullTime{Time: *episodeInput.AirDate, Valid: true}
-			}
-			status := computeEpisodeStatus(episodeInput.AirDate)
-			_, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
-				SeriesID:      row.ID,
-				SeasonNumber:  int64(seasonInput.SeasonNumber),
-				EpisodeNumber: int64(episodeInput.EpisodeNumber),
-				Title:         sql.NullString{String: episodeInput.Title, Valid: episodeInput.Title != ""},
-				Overview:      sql.NullString{String: episodeInput.Overview, Valid: episodeInput.Overview != ""},
-				AirDate:       airDate,
-				Monitored:     boolToInt(episodeInput.Monitored),
-				Status:        status,
-			})
-			if err != nil {
-				s.logger.Warn().Err(err).Int("episode", episodeInput.EpisodeNumber).Msg("Failed to create episode")
-			}
-		}
-	}
+	s.createSeasonsAndEpisodes(ctx, row.ID, input.Seasons)
 
 	series := s.rowToSeries(row)
 	s.enrichSeriesWithCounts(ctx, series)
@@ -293,7 +262,7 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 
 	// Dispatch notification
 	if s.notifier != nil {
-		s.notifier.DispatchSeriesAdded(ctx, SeriesNotificationInfo{
+		s.notifier.DispatchSeriesAdded(ctx, &SeriesNotificationInfo{
 			ID:       series.ID,
 			Title:    series.Title,
 			Year:     series.Year,
@@ -308,134 +277,20 @@ func (s *Service) CreateSeries(ctx context.Context, input CreateSeriesInput) (*S
 }
 
 // UpdateSeries updates an existing series.
-func (s *Service) UpdateSeries(ctx context.Context, id int64, input UpdateSeriesInput) (*Series, error) {
+func (s *Service) UpdateSeries(ctx context.Context, id int64, input *UpdateSeriesInput) (*Series, error) {
 	current, err := s.GetSeries(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply updates
-	title := current.Title
-	if input.Title != nil {
-		title = *input.Title
-	}
-	sortTitle := generateSortTitle(title)
+	params := s.buildSeriesUpdateParams(id, current, input)
 
-	year := current.Year
-	if input.Year != nil {
-		year = *input.Year
-	}
-
-	tvdbID := current.TvdbID
-	if input.TvdbID != nil {
-		tvdbID = *input.TvdbID
-	}
-
-	tmdbID := current.TmdbID
-	if input.TmdbID != nil {
-		tmdbID = *input.TmdbID
-	}
-
-	imdbID := current.ImdbID
-	if input.ImdbID != nil {
-		imdbID = *input.ImdbID
-	}
-
-	overview := current.Overview
-	if input.Overview != nil {
-		overview = *input.Overview
-	}
-
-	runtime := current.Runtime
-	if input.Runtime != nil {
-		runtime = *input.Runtime
-	}
-
-	path := current.Path
-	if input.Path != nil {
-		path = *input.Path
-	}
-
-	rootFolderID := current.RootFolderID
-	if input.RootFolderID != nil {
-		rootFolderID = *input.RootFolderID
-	}
-
-	qualityProfileID := current.QualityProfileID
-	if input.QualityProfileID != nil {
-		qualityProfileID = *input.QualityProfileID
-	}
-
-	monitored := current.Monitored
-	if input.Monitored != nil {
-		monitored = *input.Monitored
-	}
-
-	seasonFolder := current.SeasonFolder
-	if input.SeasonFolder != nil {
-		seasonFolder = *input.SeasonFolder
-	}
-
-	productionStatus := current.ProductionStatus
-	if input.ProductionStatus != nil {
-		productionStatus = *input.ProductionStatus
-	}
-
-	formatType := current.FormatType
-	if input.FormatType != nil {
-		formatType = *input.FormatType
-	}
-
-	network := current.Network
-	if input.Network != nil {
-		network = *input.Network
-	}
-
-	networkLogoURL := current.NetworkLogoURL
-	if input.NetworkLogoURL != nil {
-		networkLogoURL = *input.NetworkLogoURL
-	}
-
-	row, err := s.queries.UpdateSeries(ctx, sqlc.UpdateSeriesParams{
-		ID:               id,
-		Title:            title,
-		SortTitle:        sortTitle,
-		Year:             sql.NullInt64{Int64: int64(year), Valid: year > 0},
-		TvdbID:           sql.NullInt64{Int64: int64(tvdbID), Valid: tvdbID > 0},
-		TmdbID:           sql.NullInt64{Int64: int64(tmdbID), Valid: tmdbID > 0},
-		ImdbID:           sql.NullString{String: imdbID, Valid: imdbID != ""},
-		Overview:         sql.NullString{String: overview, Valid: overview != ""},
-		Runtime:          sql.NullInt64{Int64: int64(runtime), Valid: runtime > 0},
-		Path:             sql.NullString{String: path, Valid: path != ""},
-		RootFolderID:     sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
-		QualityProfileID: sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
-		Monitored:        boolToInt(monitored),
-		SeasonFolder:     boolToInt(seasonFolder),
-		ProductionStatus: productionStatus,
-		Network:          sql.NullString{String: network, Valid: network != ""},
-		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
-		NetworkLogoUrl:   sql.NullString{String: networkLogoURL, Valid: networkLogoURL != ""},
-	})
+	row, err := s.queries.UpdateSeries(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update series: %w", err)
 	}
 
-	// Cascade monitoring changes to seasons and episodes
-	if input.Monitored != nil && *input.Monitored != current.Monitored {
-		monitoredInt := boolToInt(monitored)
-		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: monitoredInt,
-			SeriesID:  id,
-		}); err != nil {
-			s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to seasons")
-		}
-		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: monitoredInt,
-			SeriesID:  id,
-		}); err != nil {
-			s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to episodes")
-		}
-	}
+	s.cascadeMonitoringChanges(ctx, id, current, input)
 
 	series := s.rowToSeries(row)
 	s.logger.Info().Int64("id", id).Str("title", series.Title).Msg("Updated series")
@@ -491,7 +346,7 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 
 	// Dispatch notification
 	if s.notifier != nil {
-		s.notifier.DispatchSeriesDeleted(ctx, SeriesNotificationInfo{
+		s.notifier.DispatchSeriesDeleted(ctx, &SeriesNotificationInfo{
 			ID:       series.ID,
 			Title:    series.Title,
 			Year:     series.Year,
@@ -503,670 +358,6 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 	}
 
 	return nil
-}
-
-// ListSeasons returns all seasons for a series.
-func (s *Service) ListSeasons(ctx context.Context, seriesID int64) ([]Season, error) {
-	rows, err := s.queries.ListSeasonsBySeries(ctx, seriesID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list seasons: %w", err)
-	}
-
-	seasons := make([]Season, len(rows))
-	for i, row := range rows {
-		seasons[i] = s.rowToSeason(row)
-		s.enrichSeasonWithCounts(ctx, &seasons[i], seriesID)
-	}
-	return seasons, nil
-}
-
-// UpdateSeasonMonitored updates the monitored status of a season.
-func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, seasonNumber int, monitored bool) (*Season, error) {
-	// Get season by series and number
-	row, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrSeasonNotFound
-		}
-		return nil, fmt.Errorf("failed to get season: %w", err)
-	}
-
-	updated, err := s.queries.UpdateSeason(ctx, sqlc.UpdateSeasonParams{
-		ID:        row.ID,
-		Monitored: boolToInt(monitored),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to update season: %w", err)
-	}
-
-	// Cascade monitoring to all episodes in this season
-	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    boolToInt(monitored),
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	}); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Int("seasonNumber", seasonNumber).Msg("Failed to cascade monitoring to episodes")
-	}
-
-	season := s.rowToSeason(updated)
-	return &season, nil
-}
-
-// BulkMonitor applies a monitoring preset to a series.
-func (s *Service) BulkMonitor(ctx context.Context, seriesID int64, input BulkMonitorInput) error {
-	// Verify series exists
-	_, err := s.GetSeries(ctx, seriesID)
-	if err != nil {
-		return err
-	}
-
-	switch input.MonitorType {
-	case MonitorTypeAll:
-		// Monitor all seasons and episodes
-		if input.IncludeSpecials {
-			if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-				Monitored: 1,
-				SeriesID:  seriesID,
-			}); err != nil {
-				return fmt.Errorf("failed to monitor seasons: %w", err)
-			}
-			if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-				Monitored: 1,
-				SeriesID:  seriesID,
-			}); err != nil {
-				return fmt.Errorf("failed to monitor episodes: %w", err)
-			}
-		} else {
-			if err := s.queries.UpdateSeasonsMonitoredExcludingSpecials(ctx, sqlc.UpdateSeasonsMonitoredExcludingSpecialsParams{
-				Monitored: 1,
-				SeriesID:  seriesID,
-			}); err != nil {
-				return fmt.Errorf("failed to monitor seasons: %w", err)
-			}
-			if err := s.queries.UpdateEpisodesMonitoredExcludingSpecials(ctx, sqlc.UpdateEpisodesMonitoredExcludingSpecialsParams{
-				Monitored: 1,
-				SeriesID:  seriesID,
-			}); err != nil {
-				return fmt.Errorf("failed to monitor episodes: %w", err)
-			}
-			// Explicitly unmonitor specials
-			if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-				Monitored:    0,
-				SeriesID:     seriesID,
-				SeasonNumber: 0,
-			}); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("failed to unmonitor specials season: %w", err)
-			}
-			if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-				Monitored:    0,
-				SeriesID:     seriesID,
-				SeasonNumber: 0,
-			}); err != nil {
-				return fmt.Errorf("failed to unmonitor specials: %w", err)
-			}
-		}
-
-	case MonitorTypeNone:
-		// Unmonitor all seasons and episodes
-		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor seasons: %w", err)
-		}
-		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor episodes: %w", err)
-		}
-
-	case MonitorTypeFuture:
-		// Monitor only unreleased episodes
-		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor episodes: %w", err)
-		}
-		if err := s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
-			Monitored: 1,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor future episodes: %w", err)
-		}
-		// Update season monitoring based on whether they have future episodes
-		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor seasons: %w", err)
-		}
-		if err := s.queries.UpdateFutureSeasonsMonitored(ctx, sqlc.UpdateFutureSeasonsMonitoredParams{
-			Monitored:  1,
-			SeriesID:   seriesID,
-			SeriesID_2: seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor future seasons: %w", err)
-		}
-		if !input.IncludeSpecials {
-			if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-				Monitored:    0,
-				SeriesID:     seriesID,
-				SeasonNumber: 0,
-			}); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("failed to unmonitor specials season: %w", err)
-			}
-			if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-				Monitored:    0,
-				SeriesID:     seriesID,
-				SeasonNumber: 0,
-			}); err != nil {
-				return fmt.Errorf("failed to unmonitor specials: %w", err)
-			}
-		}
-
-	case MonitorTypeFirstSeason:
-		// Monitor only first season
-		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor episodes: %w", err)
-		}
-		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor seasons: %w", err)
-		}
-		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-			Monitored:    1,
-			SeriesID:     seriesID,
-			SeasonNumber: 1,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor first season: %w", err)
-		}
-		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-			Monitored:    1,
-			SeriesID:     seriesID,
-			SeasonNumber: 1,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor first season episodes: %w", err)
-		}
-
-	case MonitorTypeLatest:
-		// Monitor only latest season
-		latestResult, err := s.queries.GetLatestSeasonNumber(ctx, seriesID)
-		if err != nil {
-			return fmt.Errorf("failed to get latest season: %w", err)
-		}
-		var latestSeason int64
-		switch v := latestResult.(type) {
-		case int64:
-			latestSeason = v
-		case int:
-			latestSeason = int64(v)
-		case nil:
-			return nil // No seasons to monitor
-		default:
-			return nil // No seasons to monitor
-		}
-		if latestSeason == 0 {
-			return nil // No seasons to monitor
-		}
-
-		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor episodes: %w", err)
-		}
-		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: 0,
-			SeriesID:  seriesID,
-		}); err != nil {
-			return fmt.Errorf("failed to unmonitor seasons: %w", err)
-		}
-		if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-			Monitored:    1,
-			SeriesID:     seriesID,
-			SeasonNumber: latestSeason,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor latest season: %w", err)
-		}
-		if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-			Monitored:    1,
-			SeriesID:     seriesID,
-			SeasonNumber: latestSeason,
-		}); err != nil {
-			return fmt.Errorf("failed to monitor latest season episodes: %w", err)
-		}
-
-	default:
-		return fmt.Errorf("unknown monitor type: %s", input.MonitorType)
-	}
-
-	s.logger.Info().
-		Int64("seriesId", seriesID).
-		Str("monitorType", string(input.MonitorType)).
-		Bool("includeSpecials", input.IncludeSpecials).
-		Msg("Applied bulk monitoring")
-
-	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
-	}
-
-	return nil
-}
-
-// BulkMonitorEpisodes updates the monitored status of multiple episodes.
-func (s *Service) BulkMonitorEpisodes(ctx context.Context, seriesID int64, input BulkEpisodeMonitorInput) error {
-	// Verify series exists
-	_, err := s.GetSeries(ctx, seriesID)
-	if err != nil {
-		return err
-	}
-
-	if len(input.EpisodeIDs) == 0 {
-		return nil
-	}
-
-	if err := s.queries.UpdateEpisodesMonitoredByIDs(ctx, sqlc.UpdateEpisodesMonitoredByIDsParams{
-		Monitored: boolToInt(input.Monitored),
-		Ids:       input.EpisodeIDs,
-	}); err != nil {
-		return fmt.Errorf("failed to update episodes: %w", err)
-	}
-
-	s.logger.Info().
-		Int64("seriesId", seriesID).
-		Int("episodeCount", len(input.EpisodeIDs)).
-		Bool("monitored", input.Monitored).
-		Msg("Applied bulk episode monitoring")
-
-	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
-	}
-
-	return nil
-}
-
-// GetMonitoringStats returns monitoring statistics for a series.
-func (s *Service) GetMonitoringStats(ctx context.Context, seriesID int64) (*MonitoringStats, error) {
-	row, err := s.queries.GetSeriesMonitoringStats(ctx, sqlc.GetSeriesMonitoringStatsParams{
-		SeriesID:   seriesID,
-		SeriesID_2: seriesID,
-		SeriesID_3: seriesID,
-		SeriesID_4: seriesID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get monitoring stats: %w", err)
-	}
-
-	return &MonitoringStats{
-		TotalSeasons:      row.TotalSeasons,
-		MonitoredSeasons:  row.MonitoredSeasons,
-		TotalEpisodes:     row.TotalEpisodes,
-		MonitoredEpisodes: row.MonitoredEpisodes,
-	}, nil
-}
-
-// ListEpisodes returns episodes for a series, optionally filtered by season.
-func (s *Service) ListEpisodes(ctx context.Context, seriesID int64, seasonNumber *int) ([]Episode, error) {
-	var rows []*sqlc.Episode
-	var err error
-
-	if seasonNumber != nil {
-		rows, err = s.queries.ListEpisodesBySeason(ctx, sqlc.ListEpisodesBySeasonParams{
-			SeriesID:     seriesID,
-			SeasonNumber: int64(*seasonNumber),
-		})
-	} else {
-		rows, err = s.queries.ListEpisodesBySeries(ctx, seriesID)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to list episodes: %w", err)
-	}
-
-	episodes := make([]Episode, len(rows))
-	for i, row := range rows {
-		episodes[i] = s.rowToEpisode(row)
-		files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, row.ID)
-		if len(files) > 0 {
-			ef := s.rowToEpisodeFile(files[0])
-			episodes[i].EpisodeFile = &ef
-		}
-	}
-	return episodes, nil
-}
-
-// GetEpisode retrieves an episode by ID.
-func (s *Service) GetEpisode(ctx context.Context, id int64) (*Episode, error) {
-	row, err := s.queries.GetEpisode(ctx, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrEpisodeNotFound
-		}
-		return nil, fmt.Errorf("failed to get episode: %w", err)
-	}
-
-	episode := s.rowToEpisode(row)
-
-	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, id)
-	if len(files) > 0 {
-		ef := s.rowToEpisodeFile(files[0])
-		episode.EpisodeFile = &ef
-	}
-
-	return &episode, nil
-}
-
-// GetEpisodeByNumber retrieves an episode by series ID, season number, and episode number.
-func (s *Service) GetEpisodeByNumber(ctx context.Context, seriesID int64, seasonNumber, episodeNumber int) (*Episode, error) {
-	row, err := s.queries.GetEpisodeByNumber(ctx, sqlc.GetEpisodeByNumberParams{
-		SeriesID:      seriesID,
-		SeasonNumber:  int64(seasonNumber),
-		EpisodeNumber: int64(episodeNumber),
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrEpisodeNotFound
-		}
-		return nil, fmt.Errorf("failed to get episode by number: %w", err)
-	}
-
-	episode := s.rowToEpisode(row)
-
-	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, episode.ID)
-	if len(files) > 0 {
-		ef := s.rowToEpisodeFile(files[0])
-		episode.EpisodeFile = &ef
-	}
-
-	return &episode, nil
-}
-
-// UpdateEpisode updates an episode.
-func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpisodeInput) (*Episode, error) {
-	current, err := s.GetEpisode(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	title := current.Title
-	if input.Title != nil {
-		title = *input.Title
-	}
-
-	overview := current.Overview
-	if input.Overview != nil {
-		overview = *input.Overview
-	}
-
-	airDate := current.AirDate
-	if input.AirDate != nil {
-		airDate = input.AirDate
-	}
-
-	monitored := current.Monitored
-	if input.Monitored != nil {
-		monitored = *input.Monitored
-	}
-
-	var airDateSQL sql.NullTime
-	if airDate != nil {
-		airDateSQL = sql.NullTime{Time: *airDate, Valid: true}
-	}
-
-	row, err := s.queries.UpdateEpisode(ctx, sqlc.UpdateEpisodeParams{
-		ID:        id,
-		Title:     sql.NullString{String: title, Valid: title != ""},
-		Overview:  sql.NullString{String: overview, Valid: overview != ""},
-		AirDate:   airDateSQL,
-		Monitored: boolToInt(monitored),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to update episode: %w", err)
-	}
-
-	episode := s.rowToEpisode(row)
-	return &episode, nil
-}
-
-// CreateEpisode creates a new episode in the database.
-// This is used during season pack imports when episodes don't exist in metadata.
-func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumber, episodeNumber int, title string) (*Episode, error) {
-	// Check if season exists, create if not
-	_, err := s.queries.GetSeasonByNumber(ctx, sqlc.GetSeasonByNumberParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Create the season first
-			_, err = s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
-				SeriesID:     seriesID,
-				SeasonNumber: int64(seasonNumber),
-				Monitored:    1,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create season: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to check season: %w", err)
-		}
-	}
-
-	// Create the episode with status "missing" since we have a file for it (it will become "available" once the file is linked)
-	row, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
-		SeriesID:      seriesID,
-		SeasonNumber:  int64(seasonNumber),
-		EpisodeNumber: int64(episodeNumber),
-		Title:         sql.NullString{String: title, Valid: title != ""},
-		Monitored:     1,
-		Status:        "missing",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create episode: %w", err)
-	}
-
-	s.logger.Info().
-		Int64("seriesId", seriesID).
-		Int("season", seasonNumber).
-		Int("episode", episodeNumber).
-		Str("title", title).
-		Msg("Created episode from season pack import")
-
-	episode := s.rowToEpisode(row)
-	return &episode, nil
-}
-
-// AddEpisodeFile adds a file to an episode.
-func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input CreateEpisodeFileInput) (*EpisodeFile, error) {
-	episode, err := s.GetEpisode(ctx, episodeID)
-	if err != nil {
-		return nil, err
-	}
-
-	qualityID := sql.NullInt64{}
-	if input.QualityID != nil {
-		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
-	}
-
-	var row *sqlc.EpisodeFile
-
-	// Use CreateEpisodeFileWithImportInfo when original path is provided (for import tracking)
-	if input.OriginalPath != "" {
-		row, err = s.queries.CreateEpisodeFileWithImportInfo(ctx, sqlc.CreateEpisodeFileWithImportInfoParams{
-			EpisodeID:        episodeID,
-			Path:             input.Path,
-			Size:             input.Size,
-			Quality:          sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-			QualityID:        qualityID,
-			VideoCodec:       sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-			AudioCodec:       sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-			AudioChannels:    sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
-			DynamicRange:     sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
-			Resolution:       sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
-			OriginalPath:     sql.NullString{String: input.OriginalPath, Valid: true},
-			OriginalFilename: sql.NullString{String: input.OriginalFilename, Valid: input.OriginalFilename != ""},
-			ImportedAt:       sql.NullTime{Time: time.Now(), Valid: true},
-		})
-	} else {
-		row, err = s.queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
-			EpisodeID:     episodeID,
-			Path:          input.Path,
-			Size:          input.Size,
-			Quality:       sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-			QualityID:     qualityID,
-			VideoCodec:    sql.NullString{String: input.VideoCodec, Valid: input.VideoCodec != ""},
-			AudioCodec:    sql.NullString{String: input.AudioCodec, Valid: input.AudioCodec != ""},
-			AudioChannels: sql.NullString{String: input.AudioChannels, Valid: input.AudioChannels != ""},
-			DynamicRange:  sql.NullString{String: input.DynamicRange, Valid: input.DynamicRange != ""},
-			Resolution:    sql.NullString{String: input.Resolution, Valid: input.Resolution != ""},
-		})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to create episode file: %w", err)
-	}
-
-	status := "available"
-	if qualityID.Valid && s.qualityProfiles != nil {
-		if series, seriesErr := s.GetSeries(ctx, episode.SeriesID); seriesErr == nil {
-			if profile, profileErr := s.qualityProfiles.Get(ctx, series.QualityProfileID); profileErr == nil {
-				status = profile.StatusForQuality(int(qualityID.Int64))
-			}
-		}
-	}
-	_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
-		ID:     episodeID,
-		Status: status,
-	})
-
-	file := s.rowToEpisodeFile(row)
-	s.logger.Info().Int64("episodeId", episodeID).Str("path", input.Path).Msg("Added episode file")
-
-	return &file, nil
-}
-
-// GetEpisodeFileByPath retrieves an episode file by its path.
-// Returns nil, nil if the file doesn't exist.
-func (s *Service) GetEpisodeFileByPath(ctx context.Context, path string) (*EpisodeFile, error) {
-	row, err := s.queries.GetEpisodeFileByPath(ctx, path)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get episode file by path: %w", err)
-	}
-	file := s.rowToEpisodeFile(row)
-	return &file, nil
-}
-
-// GetEpisodeFile returns the primary file for an episode.
-// Returns nil, nil if no file exists.
-func (s *Service) GetEpisodeFile(ctx context.Context, episodeID int64) (*EpisodeFile, error) {
-	rows, err := s.queries.ListEpisodeFilesByEpisode(ctx, episodeID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list episode files: %w", err)
-	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	file := s.rowToEpisodeFile(rows[0])
-	return &file, nil
-}
-
-// RemoveEpisodeFile removes a file from an episode.
-// Req 12.1.1: Deleting file from slot does NOT trigger automatic search
-// Req 12.1.2: Slot becomes empty; waits for next scheduled search
-func (s *Service) RemoveEpisodeFile(ctx context.Context, fileID int64) error {
-	row, err := s.queries.GetEpisodeFile(ctx, fileID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrEpisodeFileNotFound
-		}
-		return fmt.Errorf("failed to get episode file: %w", err)
-	}
-
-	// Clear slot assignment before deleting file (Req 12.1.1)
-	if s.fileDeleteHandler != nil {
-		if err := s.fileDeleteHandler.OnFileDeleted(ctx, "episode", fileID); err != nil {
-			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear slot assignment")
-		}
-	}
-
-	if err := s.queries.DeleteEpisodeFile(ctx, fileID); err != nil {
-		return fmt.Errorf("failed to delete episode file: %w", err)
-	}
-
-	// Clear import decisions that referenced this file — previously rejected files may now be eligible
-	if err := s.queries.DeleteImportDecisionsByExistingFile(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
-		s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear import decisions for removed file")
-	}
-
-	// Transition episode to missing and unmonitor after manual file deletion
-	count, _ := s.queries.CountEpisodeFiles(ctx, row.EpisodeID)
-	if count == 0 {
-		episode, _ := s.queries.GetEpisode(ctx, row.EpisodeID)
-		oldStatus := ""
-		if episode != nil {
-			oldStatus = episode.Status
-		}
-		_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
-			ID:     row.EpisodeID,
-			Status: "missing",
-		})
-		_ = s.queries.UpdateEpisodeMonitored(ctx, sqlc.UpdateEpisodeMonitoredParams{
-			ID:        row.EpisodeID,
-			Monitored: 0,
-		})
-		if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != "missing" {
-			_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", row.EpisodeID, oldStatus, "missing", "File removed")
-		}
-		if s.hub != nil && episode != nil {
-			_ = s.hub.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
-		}
-	}
-
-	s.logger.Info().Int64("fileId", fileID).Int64("episodeId", row.EpisodeID).Msg("Removed episode file")
-	return nil
-}
-
-// GetEpisodeFileByID retrieves an episode file by its ID.
-func (s *Service) GetEpisodeFileByID(ctx context.Context, fileID int64) (*EpisodeFile, error) {
-	row, err := s.queries.GetEpisodeFile(ctx, fileID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrEpisodeFileNotFound
-		}
-		return nil, fmt.Errorf("failed to get episode file: %w", err)
-	}
-	file := s.rowToEpisodeFile(row)
-	return &file, nil
-}
-
-// UpdateEpisodeFilePath updates the path of an episode file.
-func (s *Service) UpdateEpisodeFilePath(ctx context.Context, fileID int64, newPath string) error {
-	return s.queries.UpdateEpisodeFilePath(ctx, sqlc.UpdateEpisodeFilePathParams{
-		Path: newPath,
-		ID:   fileID,
-	})
-}
-
-// UpdateEpisodeFileMediaInfo updates the MediaInfo fields of an episode file.
-func (s *Service) UpdateEpisodeFileMediaInfo(ctx context.Context, episodeID int64, info *mediainfo.MediaInfo) error {
-	return s.queries.UpdateEpisodeFileMediaInfo(ctx, sqlc.UpdateEpisodeFileMediaInfoParams{
-		VideoCodec: sql.NullString{String: info.VideoCodec, Valid: info.VideoCodec != ""},
-		AudioCodec: sql.NullString{String: info.AudioCodec, Valid: info.AudioCodec != ""},
-		Resolution: sql.NullString{String: info.VideoResolution, Valid: info.VideoResolution != ""},
-		EpisodeID:  episodeID,
-	})
 }
 
 // Count returns the total number of series.
@@ -1183,23 +374,6 @@ func (s *Service) GetSeriesIDByTvdbID(ctx context.Context, tvdbID int64) (int64,
 	return series.ID, nil
 }
 
-// AreSeasonsComplete checks if all monitored, released episodes in the specified seasons have files.
-func (s *Service) AreSeasonsComplete(ctx context.Context, seriesID int64, seasonNumbers []int64) (bool, error) {
-	if len(seasonNumbers) == 0 {
-		return true, nil
-	}
-
-	count, err := s.queries.CountMissingEpisodesBySeasons(ctx, sqlc.CountMissingEpisodesBySeasonsParams{
-		SeriesID:      seriesID,
-		SeasonNumbers: seasonNumbers,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to count missing episodes: %w", err)
-	}
-
-	return count == 0, nil
-}
-
 // rowToSeries converts a database row to a Series.
 func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	series := &Series{
@@ -1211,6 +385,16 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 		ProductionStatus: row.ProductionStatus,
 	}
 
+	s.mapSeriesNullableFields(series, row)
+	return series
+}
+
+func (s *Service) mapSeriesNullableFields(series *Series, row *sqlc.Series) {
+	s.mapSeriesCoreFields(series, row)
+	s.mapSeriesDisplayFields(series, row)
+}
+
+func (s *Service) mapSeriesCoreFields(series *Series, row *sqlc.Series) {
 	if row.Year.Valid {
 		series.Year = int(row.Year.Int64)
 	}
@@ -1238,6 +422,9 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 	if row.QualityProfileID.Valid {
 		series.QualityProfileID = row.QualityProfileID.Int64
 	}
+}
+
+func (s *Service) mapSeriesDisplayFields(series *Series, row *sqlc.Series) {
 	if row.AddedAt.Valid {
 		series.AddedAt = row.AddedAt.Time
 	}
@@ -1257,8 +444,6 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 		v := row.AddedBy.Int64
 		series.AddedBy = &v
 	}
-
-	return series
 }
 
 // getSeriesRowToSeries converts a GetSeriesWithAddedByRow (with JOIN) to a Series.
@@ -1292,93 +477,6 @@ func (s *Service) getSeriesRowToSeries(row *sqlc.GetSeriesWithAddedByRow) *Serie
 	return series
 }
 
-// rowToSeason converts a database row to a Season.
-func (s *Service) rowToSeason(row *sqlc.Season) Season {
-	season := Season{
-		ID:           row.ID,
-		SeriesID:     row.SeriesID,
-		SeasonNumber: int(row.SeasonNumber),
-		Monitored:    row.Monitored == 1,
-	}
-	if row.Overview.Valid {
-		season.Overview = row.Overview.String
-	}
-	if row.PosterUrl.Valid {
-		season.PosterURL = row.PosterUrl.String
-	}
-	return season
-}
-
-// rowToEpisode converts a database row to an Episode.
-func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
-	ep := Episode{
-		ID:            row.ID,
-		SeriesID:      row.SeriesID,
-		SeasonNumber:  int(row.SeasonNumber),
-		EpisodeNumber: int(row.EpisodeNumber),
-		Monitored:     row.Monitored == 1,
-		Status:        row.Status,
-	}
-
-	if row.Title.Valid {
-		ep.Title = row.Title.String
-	}
-	if row.Overview.Valid {
-		ep.Overview = row.Overview.String
-	}
-	if row.AirDate.Valid {
-		ep.AirDate = &row.AirDate.Time
-	}
-	if row.StatusMessage.Valid {
-		msg := row.StatusMessage.String
-		ep.StatusMessage = &msg
-	}
-	if row.ActiveDownloadID.Valid {
-		dlID := row.ActiveDownloadID.String
-		ep.ActiveDownloadID = &dlID
-	}
-
-	return ep
-}
-
-// rowToEpisodeFile converts a database row to an EpisodeFile.
-func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
-	f := EpisodeFile{
-		ID:        row.ID,
-		EpisodeID: row.EpisodeID,
-		Path:      row.Path,
-		Size:      row.Size,
-	}
-
-	if row.Quality.Valid {
-		f.Quality = row.Quality.String
-	}
-	if row.VideoCodec.Valid {
-		f.VideoCodec = row.VideoCodec.String
-	}
-	if row.AudioCodec.Valid {
-		f.AudioCodec = row.AudioCodec.String
-	}
-	if row.AudioChannels.Valid {
-		f.AudioChannels = row.AudioChannels.String
-	}
-	if row.DynamicRange.Valid {
-		f.DynamicRange = row.DynamicRange.String
-	}
-	if row.Resolution.Valid {
-		f.Resolution = row.Resolution.String
-	}
-	if row.CreatedAt.Valid {
-		f.CreatedAt = row.CreatedAt.Time
-	}
-	if row.SlotID.Valid {
-		slotID := row.SlotID.Int64
-		f.SlotID = &slotID
-	}
-
-	return f
-}
-
 // enrichSeriesWithCounts populates the StatusCounts and air date fields on a series by querying episode statuses.
 func (s *Service) enrichSeriesWithCounts(ctx context.Context, series *Series) {
 	counts, err := s.queries.GetEpisodeStatusCountsBySeries(ctx, series.ID)
@@ -1397,26 +495,6 @@ func (s *Service) enrichSeriesWithCounts(ctx context.Context, series *Series) {
 	series.FirstAired = toTimePtr(counts.FirstAired)
 	series.LastAired = toTimePtr(counts.LastAired)
 	series.NextAiring = toTimePtr(counts.NextAiring)
-}
-
-// enrichSeasonWithCounts populates the StatusCounts field on a season by querying episode statuses.
-func (s *Service) enrichSeasonWithCounts(ctx context.Context, season *Season, seriesID int64) {
-	counts, err := s.queries.GetEpisodeStatusCountsBySeason(ctx, sqlc.GetEpisodeStatusCountsBySeasonParams{
-		SeriesID:     seriesID,
-		SeasonNumber: int64(season.SeasonNumber),
-	})
-	if err != nil {
-		return
-	}
-	season.StatusCounts = StatusCounts{
-		Unreleased:  toInt(counts.Unreleased),
-		Missing:     toInt(counts.Missing),
-		Downloading: toInt(counts.Downloading),
-		Failed:      toInt(counts.Failed),
-		Upgradable:  toInt(counts.Upgradable),
-		Available:   toInt(counts.Available),
-		Total:       int(counts.Total),
-	}
 }
 
 // toInt safely converts a COALESCE result (interface{}) to int.
@@ -1517,7 +595,6 @@ type EpisodeMetadata struct {
 // UpdateSeasonsFromMetadata updates all seasons and episodes from metadata.
 func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64, seasons []SeasonMetadata) error {
 	for _, seasonMeta := range seasons {
-		// Upsert season with metadata
 		_, err := s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
 			SeriesID:     seriesID,
 			SeasonNumber: int64(seasonMeta.SeasonNumber),
@@ -1534,40 +611,7 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 			continue
 		}
 
-		// Upsert episodes for this season
-		for _, epMeta := range seasonMeta.Episodes {
-			var airDate sql.NullTime
-			if epMeta.AirDate != "" {
-				if t, err := parseAirDate(epMeta.AirDate); err == nil {
-					airDate = sql.NullTime{Time: t, Valid: true}
-				}
-			}
-
-			var airDatePtr *time.Time
-			if airDate.Valid {
-				airDatePtr = &airDate.Time
-			}
-			status := computeEpisodeStatus(airDatePtr)
-
-			_, err := s.queries.UpsertEpisode(ctx, sqlc.UpsertEpisodeParams{
-				SeriesID:      seriesID,
-				SeasonNumber:  int64(epMeta.SeasonNumber),
-				EpisodeNumber: int64(epMeta.EpisodeNumber),
-				Title:         sql.NullString{String: epMeta.Title, Valid: epMeta.Title != ""},
-				Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
-				AirDate:       airDate,
-				Monitored:     1,
-				Status:        status,
-			})
-			if err != nil {
-				s.logger.Warn().
-					Err(err).
-					Int64("seriesId", seriesID).
-					Int("seasonNumber", epMeta.SeasonNumber).
-					Int("episodeNumber", epMeta.EpisodeNumber).
-					Msg("Failed to upsert episode")
-			}
-		}
+		s.upsertEpisodesForSeason(ctx, seriesID, seasonMeta.Episodes)
 	}
 
 	s.logger.Info().
@@ -1576,4 +620,142 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		Msg("Updated seasons from metadata")
 
 	return nil
+}
+
+func (s *Service) upsertEpisodesForSeason(ctx context.Context, seriesID int64, episodes []EpisodeMetadata) {
+	for _, epMeta := range episodes {
+		var airDate sql.NullTime
+		if epMeta.AirDate != "" {
+			if t, err := parseAirDate(epMeta.AirDate); err == nil {
+				airDate = sql.NullTime{Time: t, Valid: true}
+			}
+		}
+
+		var airDatePtr *time.Time
+		if airDate.Valid {
+			airDatePtr = &airDate.Time
+		}
+		status := computeEpisodeStatus(airDatePtr)
+
+		_, err := s.queries.UpsertEpisode(ctx, sqlc.UpsertEpisodeParams{
+			SeriesID:      seriesID,
+			SeasonNumber:  int64(epMeta.SeasonNumber),
+			EpisodeNumber: int64(epMeta.EpisodeNumber),
+			Title:         sql.NullString{String: epMeta.Title, Valid: epMeta.Title != ""},
+			Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
+			AirDate:       airDate,
+			Monitored:     1,
+			Status:        status,
+		})
+		if err != nil {
+			s.logger.Warn().
+				Err(err).
+				Int64("seriesId", seriesID).
+				Int("seasonNumber", epMeta.SeasonNumber).
+				Int("episodeNumber", epMeta.EpisodeNumber).
+				Msg("Failed to upsert episode")
+		}
+	}
+}
+
+func (s *Service) createSeasonsAndEpisodes(ctx context.Context, seriesID int64, seasons []SeasonInput) {
+	for _, seasonInput := range seasons {
+		_, err := s.queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
+			SeriesID:     seriesID,
+			SeasonNumber: int64(seasonInput.SeasonNumber),
+			Monitored:    boolToInt(seasonInput.Monitored),
+		})
+		if err != nil {
+			s.logger.Warn().Err(err).Int("season", seasonInput.SeasonNumber).Msg("Failed to create season")
+			continue
+		}
+
+		for _, episodeInput := range seasonInput.Episodes {
+			var airDate sql.NullTime
+			if episodeInput.AirDate != nil {
+				airDate = sql.NullTime{Time: *episodeInput.AirDate, Valid: true}
+			}
+			status := computeEpisodeStatus(episodeInput.AirDate)
+			_, err := s.queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+				SeriesID:      seriesID,
+				SeasonNumber:  int64(seasonInput.SeasonNumber),
+				EpisodeNumber: int64(episodeInput.EpisodeNumber),
+				Title:         sql.NullString{String: episodeInput.Title, Valid: episodeInput.Title != ""},
+				Overview:      sql.NullString{String: episodeInput.Overview, Valid: episodeInput.Overview != ""},
+				AirDate:       airDate,
+				Monitored:     boolToInt(episodeInput.Monitored),
+				Status:        status,
+			})
+			if err != nil {
+				s.logger.Warn().Err(err).Int("episode", episodeInput.EpisodeNumber).Msg("Failed to create episode")
+			}
+		}
+	}
+}
+
+func (s *Service) buildSeriesUpdateParams(id int64, current *Series, input *UpdateSeriesInput) sqlc.UpdateSeriesParams {
+	title := resolveField(current.Title, input.Title)
+	year := resolveField(current.Year, input.Year)
+	tvdbID := resolveField(current.TvdbID, input.TvdbID)
+	tmdbID := resolveField(current.TmdbID, input.TmdbID)
+	imdbID := resolveField(current.ImdbID, input.ImdbID)
+	overview := resolveField(current.Overview, input.Overview)
+	runtime := resolveField(current.Runtime, input.Runtime)
+	path := resolveField(current.Path, input.Path)
+	rootFolderID := resolveField(current.RootFolderID, input.RootFolderID)
+	qualityProfileID := resolveField(current.QualityProfileID, input.QualityProfileID)
+	monitored := resolveField(current.Monitored, input.Monitored)
+	seasonFolder := resolveField(current.SeasonFolder, input.SeasonFolder)
+	productionStatus := resolveField(current.ProductionStatus, input.ProductionStatus)
+	formatType := resolveField(current.FormatType, input.FormatType)
+	network := resolveField(current.Network, input.Network)
+	networkLogoURL := resolveField(current.NetworkLogoURL, input.NetworkLogoURL)
+
+	return sqlc.UpdateSeriesParams{
+		ID:               id,
+		Title:            title,
+		SortTitle:        generateSortTitle(title),
+		Year:             sql.NullInt64{Int64: int64(year), Valid: year > 0},
+		TvdbID:           sql.NullInt64{Int64: int64(tvdbID), Valid: tvdbID > 0},
+		TmdbID:           sql.NullInt64{Int64: int64(tmdbID), Valid: tmdbID > 0},
+		ImdbID:           sql.NullString{String: imdbID, Valid: imdbID != ""},
+		Overview:         sql.NullString{String: overview, Valid: overview != ""},
+		Runtime:          sql.NullInt64{Int64: int64(runtime), Valid: runtime > 0},
+		Path:             sql.NullString{String: path, Valid: path != ""},
+		RootFolderID:     sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
+		QualityProfileID: sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
+		Monitored:        boolToInt(monitored),
+		SeasonFolder:     boolToInt(seasonFolder),
+		ProductionStatus: productionStatus,
+		Network:          sql.NullString{String: network, Valid: network != ""},
+		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
+		NetworkLogoUrl:   sql.NullString{String: networkLogoURL, Valid: networkLogoURL != ""},
+	}
+}
+
+func resolveField[T any](current T, input *T) T {
+	if input != nil {
+		return *input
+	}
+	return current
+}
+
+func (s *Service) cascadeMonitoringChanges(ctx context.Context, id int64, current *Series, input *UpdateSeriesInput) {
+	if input.Monitored == nil || *input.Monitored == current.Monitored {
+		return
+	}
+
+	monitoredInt := boolToInt(*input.Monitored)
+	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
+		Monitored: monitoredInt,
+		SeriesID:  id,
+	}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to seasons")
+	}
+	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
+		Monitored: monitoredInt,
+		SeriesID:  id,
+	}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to episodes")
+	}
 }

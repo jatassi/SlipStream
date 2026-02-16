@@ -92,11 +92,11 @@ func (h *Handlers) Grab(c echo.Context) error {
 	}
 
 	// Convert DTO to internal type
-	release := h.dtoToRelease(req.Release)
+	release := h.dtoToRelease(&req.Release)
 
 	// Req 18.2.1, 18.2.2: API grab requests accept optional target_slot parameter
 	// If omitted, auto-detect happens upstream in autosearch or caller provides it
-	result, err := h.service.Grab(c.Request().Context(), GrabRequest{
+	result, err := h.service.Grab(c.Request().Context(), &GrabRequest{
 		Release:          release,
 		ClientID:         req.ClientID,
 		MediaType:        req.MediaType,
@@ -134,12 +134,12 @@ func (h *Handlers) GrabBulk(c echo.Context) error {
 
 	// Convert DTOs to internal types
 	releases := make([]*types.ReleaseInfo, 0, len(req.Releases))
-	for _, dto := range req.Releases {
-		releases = append(releases, h.dtoToRelease(dto))
+	for i := range req.Releases {
+		releases = append(releases, h.dtoToRelease(&req.Releases[i]))
 	}
 
 	// Req 18.2.1: Bulk grab also accepts optional target_slot parameter
-	result, err := h.service.GrabBulk(c.Request().Context(), BulkGrabRequest{
+	result, err := h.service.GrabBulk(c.Request().Context(), &BulkGrabRequest{
 		Releases:         releases,
 		ClientID:         req.ClientID,
 		MediaType:        req.MediaType,
@@ -193,7 +193,7 @@ func (h *Handlers) GetHistory(c echo.Context) error {
 }
 
 // dtoToRelease converts a ReleaseDTO to a types.ReleaseInfo.
-func (h *Handlers) dtoToRelease(dto ReleaseDTO) *types.ReleaseInfo {
+func (h *Handlers) dtoToRelease(dto *ReleaseDTO) *types.ReleaseInfo {
 	return &types.ReleaseInfo{
 		GUID:        dto.GUID,
 		Title:       dto.Title,

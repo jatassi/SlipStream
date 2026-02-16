@@ -17,19 +17,20 @@ import (
 type DownloadClientHealthTask struct {
 	downloader *downloader.Service
 	health     *health.Service
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // NewDownloadClientHealthTask creates a new download client health check task.
 func NewDownloadClientHealthTask(
 	downloaderSvc *downloader.Service,
 	healthSvc *health.Service,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) *DownloadClientHealthTask {
+	subLogger := logger.With().Str("task", "download-client-health").Logger()
 	return &DownloadClientHealthTask{
 		downloader: downloaderSvc,
 		health:     healthSvc,
-		logger:     logger.With().Str("task", "download-client-health").Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -97,7 +98,7 @@ func RegisterDownloadClientHealthTask(
 	downloaderSvc *downloader.Service,
 	healthSvc *health.Service,
 	cfg *config.HealthConfig,
-	logger zerolog.Logger,
+	logger *zerolog.Logger,
 ) error {
 	task := NewDownloadClientHealthTask(downloaderSvc, healthSvc, logger)
 
@@ -109,7 +110,7 @@ func RegisterDownloadClientHealthTask(
 	// Convert interval to cron expression using @every directive
 	cronExpr := fmt.Sprintf("@every %s", interval.String())
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          "download-client-health",
 		Name:        "Download Client Health Check",
 		Description: "Tests connectivity to all download clients",

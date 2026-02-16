@@ -31,13 +31,13 @@ var DefaultMetadataLinks = []MetadataLink{MetadataLinkTMDb, MetadataLinkIMDb}
 
 // Settings contains Telegram-specific configuration
 type Settings struct {
-	BotToken             string         `json:"botToken"`
-	ChatID               string         `json:"chatId"`
-	TopicID              int64          `json:"topicId,omitempty"`
-	Silent               bool           `json:"silent,omitempty"`
-	IncludeLinks         bool           `json:"includeLinks,omitempty"`
-	MetadataLinks        []MetadataLink `json:"metadataLinks,omitempty"`
-	IncludeAppNameInTitle bool          `json:"includeAppNameInTitle,omitempty"`
+	BotToken              string         `json:"botToken"`
+	ChatID                string         `json:"chatId"`
+	TopicID               int64          `json:"topicId,omitempty"`
+	Silent                bool           `json:"silent,omitempty"`
+	IncludeLinks          bool           `json:"includeLinks,omitempty"`
+	MetadataLinks         []MetadataLink `json:"metadataLinks,omitempty"`
+	IncludeAppNameInTitle bool           `json:"includeAppNameInTitle,omitempty"`
 }
 
 // Notifier sends notifications via Telegram bot
@@ -45,19 +45,20 @@ type Notifier struct {
 	name       string
 	settings   Settings
 	httpClient *http.Client
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 }
 
 // New creates a new Telegram notifier
-func New(name string, settings Settings, httpClient *http.Client, logger zerolog.Logger) *Notifier {
+func New(name string, settings *Settings, httpClient *http.Client, logger *zerolog.Logger) *Notifier {
 	if settings.IncludeLinks && len(settings.MetadataLinks) == 0 {
 		settings.MetadataLinks = DefaultMetadataLinks
 	}
+	subLogger := logger.With().Str("notifier", "telegram").Str("name", name).Logger()
 	return &Notifier{
 		name:       name,
-		settings:   settings,
+		settings:   *settings,
 		httpClient: httpClient,
-		logger:     logger.With().Str("notifier", "telegram").Str("name", name).Logger(),
+		logger:     &subLogger,
 	}
 }
 
@@ -74,7 +75,7 @@ func (n *Notifier) Test(ctx context.Context) error {
 	return n.sendMessage(ctx, message)
 }
 
-func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
+func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>🎬 Release Grabbed</b>\n\n")
 
@@ -84,7 +85,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
 		}
 		sb.WriteString("\n")
-		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID, "movie")
+		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
 		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
 			html.EscapeString(event.Episode.SeriesTitle),
@@ -100,7 +101,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event types.GrabEvent) error {
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error {
+func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Download Complete</b>\n\n")
 
@@ -110,7 +111,7 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
 		}
 		sb.WriteString("\n")
-		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID, "movie")
+		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
 		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
 			html.EscapeString(event.Episode.SeriesTitle),
@@ -126,7 +127,7 @@ func (n *Notifier) OnImport(ctx context.Context, event types.ImportEvent) error 
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) error {
+func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>⬆️ Quality Upgraded</b>\n\n")
 
@@ -136,7 +137,7 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
 		}
 		sb.WriteString("\n")
-		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID, "movie")
+		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
 		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
 			html.EscapeString(event.Episode.SeriesTitle),
@@ -149,7 +150,7 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event types.UpgradeEvent) erro
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent) error {
+func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>➕ Movie Added</b>\n\n")
 
@@ -159,7 +160,7 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 	}
 	sb.WriteString("\n")
 
-	n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID, "movie")
+	n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 
 	if event.Movie.Overview != "" {
 		overview := event.Movie.Overview
@@ -172,7 +173,7 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event types.MovieAddedEvent
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedEvent) error {
+func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeletedEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>🗑️ Movie Deleted</b>\n\n")
 
@@ -189,7 +190,7 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event types.MovieDeletedE
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEvent) error {
+func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>➕ Series Added</b>\n\n")
 
@@ -212,7 +213,7 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event types.SeriesAddedEve
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDeletedEvent) error {
+func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDeletedEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>🗑️ Series Deleted</b>\n\n")
 
@@ -226,7 +227,7 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event types.SeriesDelete
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) error {
 	emoji := "⚠️"
 	if event.Type == "error" {
 		emoji = "❌"
@@ -240,7 +241,7 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event types.HealthEvent) e
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent) error {
+func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Health Issue Resolved</b>\n\n")
 	sb.WriteString(fmt.Sprintf("Source: %s\n", event.Source))
@@ -249,7 +250,7 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event types.HealthEvent
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdateEvent) error {
+func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>🔄 Application Updated</b>\n\n")
 	sb.WriteString(fmt.Sprintf("Version: %s → %s", event.PreviousVersion, event.NewVersion))
@@ -257,7 +258,7 @@ func (n *Notifier) OnApplicationUpdate(ctx context.Context, event types.AppUpdat
 	return n.sendMessage(ctx, sb.String())
 }
 
-func (n *Notifier) SendMessage(ctx context.Context, event types.MessageEvent) error {
+func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("<b>%s</b>\n\n", html.EscapeString(event.Title)))
 	sb.WriteString(html.EscapeString(event.Message))
@@ -274,54 +275,15 @@ func (n *Notifier) hasLink(link MetadataLink) bool {
 	return false
 }
 
-func (n *Notifier) writeLinks(sb *strings.Builder, tmdbID int64, imdbID string, traktID int64, mediaType string) {
-	if !n.settings.IncludeLinks {
-		return
-	}
-
-	var links []string
-	if n.hasLink(MetadataLinkTMDb) && tmdbID > 0 {
-		links = append(links, fmt.Sprintf("<a href=\"https://www.themoviedb.org/%s/%d\">TMDb</a>", mediaType, tmdbID))
-	}
-	if n.hasLink(MetadataLinkIMDb) && imdbID != "" {
-		links = append(links, fmt.Sprintf("<a href=\"https://www.imdb.com/title/%s\">IMDb</a>", imdbID))
-	}
-	if n.hasLink(MetadataLinkTrakt) && traktID > 0 {
-		traktType := "movies"
-		if mediaType == "tv" {
-			traktType = "shows"
-		}
-		links = append(links, fmt.Sprintf("<a href=\"https://trakt.tv/%s/%d\">Trakt</a>", traktType, traktID))
-	}
-
-	if len(links) > 0 {
-		sb.WriteString(strings.Join(links, " | "))
-		sb.WriteString("\n")
+func (n *Notifier) writeLinks(sb *strings.Builder, tmdbID int64, imdbID string, traktID int64) {
+	if text := n.buildLinks(movieLinkEntries(tmdbID, imdbID, traktID)); text != "" {
+		sb.WriteString(text)
 	}
 }
 
-func (n *Notifier) writeSeriesLinks(sb *strings.Builder, tmdbID int64, imdbID string, tvdbID int64, traktID int64) {
-	if !n.settings.IncludeLinks {
-		return
-	}
-
-	var links []string
-	if n.hasLink(MetadataLinkTMDb) && tmdbID > 0 {
-		links = append(links, fmt.Sprintf("<a href=\"https://www.themoviedb.org/tv/%d\">TMDb</a>", tmdbID))
-	}
-	if n.hasLink(MetadataLinkIMDb) && imdbID != "" {
-		links = append(links, fmt.Sprintf("<a href=\"https://www.imdb.com/title/%s\">IMDb</a>", imdbID))
-	}
-	if n.hasLink(MetadataLinkTVDb) && tvdbID > 0 {
-		links = append(links, fmt.Sprintf("<a href=\"https://thetvdb.com/series/%d\">TVDb</a>", tvdbID))
-	}
-	if n.hasLink(MetadataLinkTrakt) && traktID > 0 {
-		links = append(links, fmt.Sprintf("<a href=\"https://trakt.tv/shows/%d\">Trakt</a>", traktID))
-	}
-
-	if len(links) > 0 {
-		sb.WriteString(strings.Join(links, " | "))
-		sb.WriteString("\n")
+func (n *Notifier) writeSeriesLinks(sb *strings.Builder, tmdbID int64, imdbID string, tvdbID, traktID int64) {
+	if text := n.buildLinks(seriesLinkEntries(tmdbID, imdbID, tvdbID, traktID)); text != "" {
+		sb.WriteString(text)
 	}
 }
 

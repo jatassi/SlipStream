@@ -80,13 +80,14 @@ func toTitleCaseSimple(s string) string {
 	capitalizeNext := true
 
 	for i, r := range runes {
-		if unicode.IsSpace(r) || r == '-' || r == '_' || r == '.' {
+		switch {
+		case unicode.IsSpace(r) || r == '-' || r == '_' || r == '.':
 			result[i] = r
 			capitalizeNext = true
-		} else if capitalizeNext {
+		case capitalizeNext:
 			result[i] = unicode.ToUpper(r)
 			capitalizeNext = false
-		} else {
+		default:
 			result[i] = unicode.ToLower(r)
 		}
 	}
@@ -95,7 +96,7 @@ func toTitleCaseSimple(s string) string {
 }
 
 // ApplySeparator replaces spaces with the specified separator.
-func ApplySeparator(s string, separator string) string {
+func ApplySeparator(s, separator string) string {
 	if separator == "" || separator == " " {
 		return s
 	}

@@ -4,29 +4,29 @@ import "time"
 
 // Movie represents a movie in the library.
 type Movie struct {
-	ID               int64      `json:"id"`
-	Title            string     `json:"title"`
-	SortTitle        string     `json:"sortTitle"`
-	Year             int        `json:"year,omitempty"`
-	TmdbID           int        `json:"tmdbId,omitempty"`
-	ImdbID           string     `json:"imdbId,omitempty"`
-	Overview         string     `json:"overview,omitempty"`
-	Runtime          int        `json:"runtime,omitempty"`
-	Path             string     `json:"path,omitempty"`
-	RootFolderID     int64      `json:"rootFolderId,omitempty"`
-	QualityProfileID int64      `json:"qualityProfileId,omitempty"`
-	Monitored        bool       `json:"monitored"`
-	Status           string     `json:"status"`
-	StatusMessage    *string    `json:"statusMessage"`
-	ActiveDownloadID *string    `json:"activeDownloadId"`
-	AddedAt          time.Time  `json:"addedAt"`
-	UpdatedAt        time.Time  `json:"updatedAt,omitempty"`
-	SizeOnDisk       int64      `json:"sizeOnDisk,omitempty"`
+	ID               int64       `json:"id"`
+	Title            string      `json:"title"`
+	SortTitle        string      `json:"sortTitle"`
+	Year             int         `json:"year,omitempty"`
+	TmdbID           int         `json:"tmdbId,omitempty"`
+	ImdbID           string      `json:"imdbId,omitempty"`
+	Overview         string      `json:"overview,omitempty"`
+	Runtime          int         `json:"runtime,omitempty"`
+	Path             string      `json:"path,omitempty"`
+	RootFolderID     int64       `json:"rootFolderId,omitempty"`
+	QualityProfileID int64       `json:"qualityProfileId,omitempty"`
+	Monitored        bool        `json:"monitored"`
+	Status           string      `json:"status"`
+	StatusMessage    *string     `json:"statusMessage"`
+	ActiveDownloadID *string     `json:"activeDownloadId"`
+	AddedAt          time.Time   `json:"addedAt"`
+	UpdatedAt        time.Time   `json:"updatedAt,omitempty"`
+	SizeOnDisk       int64       `json:"sizeOnDisk,omitempty"`
 	MovieFiles       []MovieFile `json:"movieFiles,omitempty"`
 
-	ReleaseDate            *time.Time `json:"releaseDate,omitempty"`
-	PhysicalReleaseDate    *time.Time `json:"physicalReleaseDate,omitempty"`
-	TheatricalReleaseDate  *time.Time `json:"theatricalReleaseDate,omitempty"`
+	ReleaseDate           *time.Time `json:"releaseDate,omitempty"`
+	PhysicalReleaseDate   *time.Time `json:"physicalReleaseDate,omitempty"`
+	TheatricalReleaseDate *time.Time `json:"theatricalReleaseDate,omitempty"`
 
 	Studio        string `json:"studio,omitempty"`
 	TvdbID        int    `json:"tvdbId,omitempty"`
@@ -38,11 +38,11 @@ type Movie struct {
 
 // MovieFile represents a movie file on disk.
 type MovieFile struct {
-	ID         int64     `json:"id"`
-	MovieID    int64     `json:"movieId"`
-	Path       string    `json:"path"`
-	Size       int64     `json:"size"`
-	Quality    string    `json:"quality,omitempty"`
+	ID            int64     `json:"id"`
+	MovieID       int64     `json:"movieId"`
+	Path          string    `json:"path"`
+	Size          int64     `json:"size"`
+	Quality       string    `json:"quality,omitempty"`
 	VideoCodec    string    `json:"videoCodec,omitempty"`
 	AudioCodec    string    `json:"audioCodec,omitempty"`
 	AudioChannels string    `json:"audioChannels,omitempty"`

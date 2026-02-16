@@ -19,23 +19,23 @@ type ModeProvider interface {
 
 // ProwlarrSearcher provides search functionality through Prowlarr.
 type ProwlarrSearcher interface {
-	Search(ctx context.Context, criteria types.SearchCriteria) ([]types.TorrentInfo, error)
+	Search(ctx context.Context, criteria *types.SearchCriteria) ([]types.TorrentInfo, error)
 }
 
-// Router routes searches to the appropriate backend based on the current indexer mode.
 // It implements SearchService to provide a drop-in replacement for the standard service.
 type Router struct {
 	slipstreamService *Service
 	prowlarrSearcher  ProwlarrSearcher
 	modeProvider      ModeProvider
-	logger            zerolog.Logger
+	logger            *zerolog.Logger
 }
 
 // NewRouter creates a new search router.
-func NewRouter(slipstreamService *Service, logger zerolog.Logger) *Router {
+func NewRouter(slipstreamService *Service, logger *zerolog.Logger) *Router {
+	subLogger := logger.With().Str("component", "search-router").Logger()
 	return &Router{
 		slipstreamService: slipstreamService,
-		logger:            logger.With().Str("component", "search-router").Logger(),
+		logger:            &subLogger,
 	}
 }
 
@@ -50,7 +50,7 @@ func (r *Router) SetModeProvider(provider ModeProvider) {
 }
 
 // Search routes the search to the appropriate backend.
-func (r *Router) Search(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
+func (r *Router) Search(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
 	isProwlarr, err := r.isProwlarrMode(ctx)
 	if err != nil {
 		r.logger.Warn().Err(err).Msg("Failed to check indexer mode, defaulting to SlipStream")
@@ -65,7 +65,7 @@ func (r *Router) Search(ctx context.Context, criteria types.SearchCriteria) (*Se
 }
 
 // SearchTorrents routes the torrent search to the appropriate backend with scoring.
-func (r *Router) SearchTorrents(ctx context.Context, criteria types.SearchCriteria, params ScoredSearchParams) (*TorrentSearchResult, error) {
+func (r *Router) SearchTorrents(ctx context.Context, criteria *types.SearchCriteria, params *ScoredSearchParams) (*TorrentSearchResult, error) {
 	isProwlarr, err := r.isProwlarrMode(ctx)
 	if err != nil {
 		r.logger.Warn().Err(err).Msg("Failed to check indexer mode, defaulting to SlipStream")
@@ -87,7 +87,7 @@ func (r *Router) SearchTorrents(ctx context.Context, criteria types.SearchCriter
 }
 
 // SearchMovies routes movie searches to the appropriate backend.
-func (r *Router) SearchMovies(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
+func (r *Router) SearchMovies(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
 	isProwlarr, err := r.isProwlarrMode(ctx)
 	if err != nil {
 		r.logger.Warn().Err(err).Msg("Failed to check indexer mode, defaulting to SlipStream")
@@ -95,7 +95,7 @@ func (r *Router) SearchMovies(ctx context.Context, criteria types.SearchCriteria
 	}
 
 	if isProwlarr && r.prowlarrSearcher != nil {
-		criteria.Type = "movie"
+		criteria.Type = searchTypeMovie
 		return r.searchViaProwlarr(ctx, criteria)
 	}
 
@@ -103,7 +103,7 @@ func (r *Router) SearchMovies(ctx context.Context, criteria types.SearchCriteria
 }
 
 // SearchTV routes TV searches to the appropriate backend.
-func (r *Router) SearchTV(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
+func (r *Router) SearchTV(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
 	isProwlarr, err := r.isProwlarrMode(ctx)
 	if err != nil {
 		r.logger.Warn().Err(err).Msg("Failed to check indexer mode, defaulting to SlipStream")
@@ -111,7 +111,7 @@ func (r *Router) SearchTV(ctx context.Context, criteria types.SearchCriteria) (*
 	}
 
 	if isProwlarr && r.prowlarrSearcher != nil {
-		criteria.Type = "tvsearch"
+		criteria.Type = searchTypeTVSearch
 		return r.searchViaProwlarr(ctx, criteria)
 	}
 
@@ -127,7 +127,7 @@ func (r *Router) isProwlarrMode(ctx context.Context) (bool, error) {
 }
 
 // searchViaProwlarr executes a search through Prowlarr and converts to SearchResult.
-func (r *Router) searchViaProwlarr(ctx context.Context, criteria types.SearchCriteria) (*SearchResult, error) {
+func (r *Router) searchViaProwlarr(ctx context.Context, criteria *types.SearchCriteria) (*SearchResult, error) {
 	r.logger.Debug().
 		Str("query", criteria.Query).
 		Str("type", criteria.Type).
@@ -144,13 +144,13 @@ func (r *Router) searchViaProwlarr(ctx context.Context, criteria types.SearchCri
 				IndexerName: "Prowlarr",
 				Error:       err.Error(),
 			}},
-		}, nil
+		}, err
 	}
 
 	// Convert TorrentInfo to ReleaseInfo
 	releases := make([]types.ReleaseInfo, len(torrents))
-	for i, t := range torrents {
-		releases[i] = t.ReleaseInfo
+	for i := range torrents {
+		releases[i] = torrents[i].ReleaseInfo
 	}
 
 	return &SearchResult{
@@ -161,7 +161,7 @@ func (r *Router) searchViaProwlarr(ctx context.Context, criteria types.SearchCri
 }
 
 // searchTorrentsViaProwlarr executes a torrent search through Prowlarr with scoring.
-func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria types.SearchCriteria, params ScoredSearchParams) (*TorrentSearchResult, error) {
+func (r *Router) searchTorrentsViaProwlarr(ctx context.Context, criteria *types.SearchCriteria, params *ScoredSearchParams) (*TorrentSearchResult, error) {
 	r.logger.Info().
 		Str("query", criteria.Query).
 		Str("type", criteria.Type).
@@ -248,7 +248,7 @@ func (r *Router) qualityToResolution(quality string) int {
 }
 
 // filterByCriteria filters torrent results based on search criteria.
-func (r *Router) filterByCriteria(torrents []types.TorrentInfo, criteria types.SearchCriteria) []types.TorrentInfo {
+func (r *Router) filterByCriteria(torrents []types.TorrentInfo, criteria *types.SearchCriteria) []types.TorrentInfo {
 	if criteria.Query == "" {
 		return torrents
 	}
@@ -257,7 +257,7 @@ func (r *Router) filterByCriteria(torrents []types.TorrentInfo, criteria types.S
 }
 
 // scoreTorrents applies SlipStream's scoring algorithm to Prowlarr results.
-func (r *Router) scoreTorrents(torrents []types.TorrentInfo, params ScoredSearchParams) {
+func (r *Router) scoreTorrents(torrents []types.TorrentInfo, params *ScoredSearchParams) {
 	if params.QualityProfile == nil {
 		// Sort by seeders if no quality profile
 		sort.Slice(torrents, func(i, j int) bool {
@@ -278,7 +278,7 @@ func (r *Router) scoreTorrents(torrents []types.TorrentInfo, params ScoredSearch
 
 	// Score and sort torrents
 	scorer := scoring.NewDefaultScorer()
-	scorer.ScoreTorrents(torrents, scoringCtx)
+	scorer.ScoreTorrents(torrents, &scoringCtx)
 }
 
 // GetSlipStreamService returns the underlying SlipStream search service.

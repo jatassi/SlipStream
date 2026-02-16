@@ -124,43 +124,48 @@ func (c *Cache) Len() int {
 
 // evictOldest removes the oldest 10% of items (must be called with lock held).
 func (c *Cache) evictOldest() {
-	// Simple eviction: remove expired items first
+	c.removeExpiredItems()
+	if len(c.items) < c.maxItems {
+		return
+	}
+	c.removeOldestByExpiry()
+}
+
+func (c *Cache) removeExpiredItems() {
 	now := time.Now()
 	for key, item := range c.items {
 		if now.After(item.expiresAt) {
 			delete(c.items, key)
 		}
 	}
+}
 
-	// If still at capacity, remove oldest 10%
-	if len(c.items) >= c.maxItems {
-		toRemove := c.maxItems / 10
-		if toRemove < 1 {
-			toRemove = 1
+func (c *Cache) removeOldestByExpiry() {
+	toRemove := c.maxItems / 10
+	if toRemove < 1 {
+		toRemove = 1
+	}
+
+	var oldest []string
+	var oldestTimes []time.Time
+
+	for key, item := range c.items {
+		if len(oldest) < toRemove {
+			oldest = append(oldest, key)
+			oldestTimes = append(oldestTimes, item.expiresAt)
+			continue
 		}
-
-		var oldest []string
-		var oldestTimes []time.Time
-
-		for key, item := range c.items {
-			if len(oldest) < toRemove {
-				oldest = append(oldest, key)
-				oldestTimes = append(oldestTimes, item.expiresAt)
-			} else {
-				// Find if this item is older than any in our list
-				for i, t := range oldestTimes {
-					if item.expiresAt.Before(t) {
-						oldest[i] = key
-						oldestTimes[i] = item.expiresAt
-						break
-					}
-				}
+		for i, t := range oldestTimes {
+			if item.expiresAt.Before(t) {
+				oldest[i] = key
+				oldestTimes[i] = item.expiresAt
+				break
 			}
 		}
+	}
 
-		for _, key := range oldest {
-			delete(c.items, key)
-		}
+	for _, key := range oldest {
+		delete(c.items, key)
 	}
 }
 

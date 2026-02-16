@@ -14,9 +14,9 @@ func newTestSearcher(t *testing.T) (*ScheduledSearcher, *sqlc.Queries) {
 	tdb := testutil.NewTestDB(t)
 	t.Cleanup(tdb.Close)
 
-	svc := NewService(tdb.Conn, nil, nil, nil, tdb.Logger)
+	svc := NewService(tdb.Conn, nil, nil, nil, &tdb.Logger)
 	cfg := &config.AutoSearchConfig{BackoffThreshold: 5, BaseDelayMs: 100}
-	searcher := NewScheduledSearcher(svc, cfg, tdb.Logger)
+	searcher := NewScheduledSearcher(svc, cfg, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	return searcher, queries
 }
@@ -128,7 +128,7 @@ func TestIncrementFailureCount(t *testing.T) {
 		ctx := context.Background()
 
 		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 10}
-		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "movie", ItemID: 10, SearchType: "missing",
@@ -149,7 +149,7 @@ func TestIncrementFailureCount(t *testing.T) {
 		ctx := context.Background()
 
 		item := SearchableItem{MediaType: MediaTypeEpisode, MediaID: 20}
-		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "episode", ItemID: 20, SearchType: "missing",
@@ -168,7 +168,7 @@ func TestIncrementFailureCount(t *testing.T) {
 
 		// MediaTypeSeason should map to item_type="series" in the DB
 		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: 30}
-		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "series", ItemID: 30, SearchType: "missing",
@@ -189,9 +189,9 @@ func TestIncrementFailureCount(t *testing.T) {
 		ctx := context.Background()
 
 		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 40}
-		searcher.incrementFailureCount(ctx, item, "missing")
-		searcher.incrementFailureCount(ctx, item, "missing")
-		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
+		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "movie", ItemID: 40, SearchType: "missing",
@@ -213,10 +213,10 @@ func TestResetFailureCount(t *testing.T) {
 		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 50}
 		// Build up failures
 		for i := 0; i < 5; i++ {
-			searcher.incrementFailureCount(ctx, item, "missing")
+			searcher.incrementFailureCount(ctx, &item, "missing")
 		}
 
-		searcher.resetFailureCount(ctx, item, "missing")
+		searcher.resetFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "movie", ItemID: 50, SearchType: "missing",
@@ -234,10 +234,10 @@ func TestResetFailureCount(t *testing.T) {
 		ctx := context.Background()
 
 		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: 60}
-		searcher.incrementFailureCount(ctx, item, "upgrade")
-		searcher.incrementFailureCount(ctx, item, "upgrade")
+		searcher.incrementFailureCount(ctx, &item, "upgrade")
+		searcher.incrementFailureCount(ctx, &item, "upgrade")
 
-		searcher.resetFailureCount(ctx, item, "upgrade")
+		searcher.resetFailureCount(ctx, &item, "upgrade")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "series", ItemID: 60, SearchType: "upgrade",
@@ -257,12 +257,12 @@ func TestResetFailureCount(t *testing.T) {
 		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 70}
 		// Increment both search types
 		for i := 0; i < 3; i++ {
-			searcher.incrementFailureCount(ctx, item, "missing")
-			searcher.incrementFailureCount(ctx, item, "upgrade")
+			searcher.incrementFailureCount(ctx, &item, "missing")
+			searcher.incrementFailureCount(ctx, &item, "upgrade")
 		}
 
 		// Reset only "missing"
-		searcher.resetFailureCount(ctx, item, "missing")
+		searcher.resetFailureCount(ctx, &item, "missing")
 
 		missingStatus, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ItemType: "movie", ItemID: 70, SearchType: "missing",
@@ -296,7 +296,7 @@ func TestBackoffIDConsistency(t *testing.T) {
 
 		// Push past threshold via incrementFailureCount
 		for i := 0; i < 6; i++ {
-			searcher.incrementFailureCount(ctx, item, "missing")
+			searcher.incrementFailureCount(ctx, &item, "missing")
 		}
 
 		// shouldSkipItem checks "series" + seriesID — must match what increment wrote
@@ -319,7 +319,7 @@ func TestBackoffIDConsistency(t *testing.T) {
 		// Push season (series-level) backoff past threshold
 		seasonItem := SearchableItem{MediaType: MediaTypeSeason, MediaID: seriesID}
 		for i := 0; i < 6; i++ {
-			searcher.incrementFailureCount(ctx, seasonItem, "missing")
+			searcher.incrementFailureCount(ctx, &seasonItem, "missing")
 		}
 
 		// Episode-level check for a different ID should not be affected

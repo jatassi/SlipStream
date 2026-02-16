@@ -27,15 +27,15 @@ type Client struct {
 var _ types.UsenetClient = (*Client)(nil)
 
 // New creates a new SABnzbd client.
-func New(cfg Config) *Client {
+func New(cfg *Config) *Client {
 	return &Client{
-		config: cfg,
+		config: *cfg,
 	}
 }
 
 // NewFromConfig creates a client from a ClientConfig.
-func NewFromConfig(cfg types.ClientConfig) *Client {
-	return New(Config{
+func NewFromConfig(cfg *types.ClientConfig) *Client {
+	return New(&Config{
 		Host:     cfg.Host,
 		Port:     cfg.Port,
 		APIKey:   cfg.APIKey,
@@ -68,7 +68,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 // Add adds an NZB to the client.
 // STUB: Returns not implemented error.
-func (c *Client) Add(ctx context.Context, opts types.AddOptions) (string, error) {
+func (c *Client) Add(ctx context.Context, opts *types.AddOptions) (string, error) {
 	return "", types.ErrNotImplemented
 }
 

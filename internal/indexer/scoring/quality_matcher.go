@@ -68,67 +68,45 @@ func NormalizeSource(source string) string {
 func MatchQuality(source string, resolution int) MatchResult {
 	normalizedSource := NormalizeSource(source)
 
-	// If we have both source and resolution, try exact match
 	if normalizedSource != "" && resolution > 0 {
-		for _, q := range quality.PredefinedQualities {
-			if q.Source == normalizedSource && q.Resolution == resolution {
-				return MatchResult{
-					QualityID:  q.ID,
-					Quality:    &q,
-					Confidence: 1.0,
-				}
-			}
+		if result, ok := matchExact(normalizedSource, resolution); ok {
+			return result
 		}
 	}
 
-	// If we only have resolution, find best match for that resolution
 	if resolution > 0 {
-		// Find the highest quality for this resolution as a fallback
-		var bestMatch *quality.Quality
-		for i := range quality.PredefinedQualities {
-			q := &quality.PredefinedQualities[i]
-			if q.Resolution == resolution {
-				if bestMatch == nil || q.Weight > bestMatch.Weight {
-					bestMatch = q
-				}
-			}
-		}
-		if bestMatch != nil {
-			return MatchResult{
-				QualityID:  bestMatch.ID,
-				Quality:    bestMatch,
-				Confidence: 0.7, // Lower confidence since we're guessing source
-			}
+		if best := bestQualityByField(func(q *quality.Quality) bool { return q.Resolution == resolution }); best != nil {
+			return MatchResult{QualityID: best.ID, Quality: best, Confidence: 0.7}
 		}
 	}
 
-	// If we only have source, find best match for that source
 	if normalizedSource != "" {
-		// Find the highest resolution for this source as a fallback
-		var bestMatch *quality.Quality
-		for i := range quality.PredefinedQualities {
-			q := &quality.PredefinedQualities[i]
-			if q.Source == normalizedSource {
-				if bestMatch == nil || q.Weight > bestMatch.Weight {
-					bestMatch = q
-				}
-			}
-		}
-		if bestMatch != nil {
-			return MatchResult{
-				QualityID:  bestMatch.ID,
-				Quality:    bestMatch,
-				Confidence: 0.5, // Lower confidence since we're guessing resolution
-			}
+		if best := bestQualityByField(func(q *quality.Quality) bool { return q.Source == normalizedSource }); best != nil {
+			return MatchResult{QualityID: best.ID, Quality: best, Confidence: 0.5}
 		}
 	}
 
-	// No match found
-	return MatchResult{
-		QualityID:  0,
-		Quality:    nil,
-		Confidence: 0,
+	return MatchResult{}
+}
+
+func matchExact(source string, resolution int) (MatchResult, bool) {
+	for _, q := range quality.PredefinedQualities {
+		if q.Source == source && q.Resolution == resolution {
+			return MatchResult{QualityID: q.ID, Quality: &q, Confidence: 1.0}, true
+		}
 	}
+	return MatchResult{}, false
+}
+
+func bestQualityByField(matches func(q *quality.Quality) bool) *quality.Quality {
+	var best *quality.Quality
+	for i := range quality.PredefinedQualities {
+		q := &quality.PredefinedQualities[i]
+		if matches(q) && (best == nil || q.Weight > best.Weight) {
+			best = q
+		}
+	}
+	return best
 }
 
 // EstimateQualityWeightFromResolution provides a rough quality weight estimate

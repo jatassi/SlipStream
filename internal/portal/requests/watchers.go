@@ -23,13 +23,14 @@ type Watcher struct {
 
 type WatchersService struct {
 	queries *sqlc.Queries
-	logger  zerolog.Logger
+	logger  *zerolog.Logger
 }
 
-func NewWatchersService(queries *sqlc.Queries, logger zerolog.Logger) *WatchersService {
+func NewWatchersService(queries *sqlc.Queries, logger *zerolog.Logger) *WatchersService {
+	subLogger := logger.With().Str("component", "portal-watchers").Logger()
 	return &WatchersService{
 		queries: queries,
-		logger:  logger.With().Str("component", "portal-watchers").Logger(),
+		logger:  &subLogger,
 	}
 }
 

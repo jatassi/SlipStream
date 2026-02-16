@@ -20,7 +20,7 @@ type Manager struct {
 	cache          *Cache
 	clients        map[int64]*Client
 	clientsMu      sync.RWMutex
-	logger         zerolog.Logger
+	logger         *zerolog.Logger
 	lastUpdate     time.Time
 	lastAttempt    time.Time // Tracks last update attempt (even if failed)
 	updateMu       sync.Mutex
@@ -49,18 +49,19 @@ func DefaultManagerConfig() ManagerConfig {
 }
 
 // NewManager creates a new definition manager.
-func NewManager(cfg ManagerConfig, logger zerolog.Logger) (*Manager, error) {
-	repo := NewRepository(cfg.Repository, logger)
-	cache, err := NewCache(cfg.Cache, logger)
+func NewManager(cfg *ManagerConfig, logger *zerolog.Logger) (*Manager, error) {
+	repo := NewRepository(&cfg.Repository, logger)
+	cache, err := NewCache(&cfg.Cache, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cache: %w", err)
 	}
 
+	subLogger := logger.With().Str("component", "manager").Logger()
 	return &Manager{
 		repo:           repo,
 		cache:          cache,
 		clients:        make(map[int64]*Client),
-		logger:         logger.With().Str("component", "manager").Logger(),
+		logger:         &subLogger,
 		autoUpdate:     cfg.AutoUpdate,
 		updateInterval: cfg.UpdateInterval,
 	}, nil
@@ -185,36 +186,39 @@ func (m *Manager) SearchDefinitions(query string, filters DefinitionFilters) ([]
 	var results []*DefinitionMetadata
 
 	for _, meta := range all {
-		// Apply text search
-		if query != "" {
-			nameMatch := strings.Contains(strings.ToLower(meta.Name), query)
-			descMatch := strings.Contains(strings.ToLower(meta.Description), query)
-			idMatch := strings.Contains(strings.ToLower(meta.ID), query)
-			if !nameMatch && !descMatch && !idMatch {
-				continue
-			}
-		}
-
-		// Apply filters
-		if filters.Protocol != "" && meta.Protocol != filters.Protocol {
+		if !matchesTextQuery(meta, query) || !matchesFilters(meta, &filters) {
 			continue
 		}
-		if filters.Privacy != "" && meta.Type != filters.Privacy {
-			continue
-		}
-		if filters.Language != "" && meta.Language != filters.Language {
-			continue
-		}
-
 		results = append(results, meta)
 	}
 
-	// Sort by name
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Name < results[j].Name
 	})
 
 	return results, nil
+}
+
+func matchesTextQuery(meta *DefinitionMetadata, query string) bool {
+	if query == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(meta.Name), query) ||
+		strings.Contains(strings.ToLower(meta.Description), query) ||
+		strings.Contains(strings.ToLower(meta.ID), query)
+}
+
+func matchesFilters(meta *DefinitionMetadata, filters *DefinitionFilters) bool {
+	if filters.Protocol != "" && meta.Protocol != filters.Protocol {
+		return false
+	}
+	if filters.Privacy != "" && meta.Type != filters.Privacy {
+		return false
+	}
+	if filters.Language != "" && meta.Language != filters.Language {
+		return false
+	}
+	return true
 }
 
 // DefinitionFilters contains filter options for searching definitions.
@@ -237,11 +241,7 @@ func (m *Manager) GetSettingsSchema(id string) ([]Setting, error) {
 func (m *Manager) CreateClient(indexerDef *types.IndexerDefinition, settings map[string]string) (*Client, error) {
 	// Get the Cardigann definition
 	// The definition_id is stored in the Settings JSON
-	var defID string
-
-	// For now, we'll use the indexer name to look up the definition
-	// In the new schema, we'll have a dedicated definition_id field
-	defID = strings.ToLower(strings.ReplaceAll(indexerDef.Name, " ", ""))
+	var defID = strings.ToLower(strings.ReplaceAll(indexerDef.Name, " ", ""))
 
 	def, err := m.cache.Get(defID)
 	if err != nil {
@@ -402,7 +402,7 @@ func (m *Manager) loadLastUpdateTime() {
 func (m *Manager) saveLastUpdateTime() {
 	filePath := filepath.Join(m.cache.GetDefinitionsDir(), lastUpdateFileName)
 	data := m.lastUpdate.Format(time.RFC3339)
-	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(data), 0o600); err != nil {
 		m.logger.Warn().Err(err).Msg("Failed to save last update time")
 	}
 }

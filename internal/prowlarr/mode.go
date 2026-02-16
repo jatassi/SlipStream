@@ -2,18 +2,19 @@ package prowlarr
 
 import (
 	"context"
+	"errors"
 )
 
 // ModeManager provides indexer mode management with developer mode awareness.
 type ModeManager struct {
-	service    *Service
+	service     *Service
 	devModeFunc func() bool
 }
 
 // NewModeManager creates a new mode manager.
 func NewModeManager(service *Service, devModeFunc func() bool) *ModeManager {
 	return &ModeManager{
-		service:    service,
+		service:     service,
 		devModeFunc: devModeFunc,
 	}
 }
@@ -75,7 +76,7 @@ func (m *ModeManager) GetModeInfo(ctx context.Context) (*ModeInfo, error) {
 	devMode := m.devModeFunc != nil && m.devModeFunc()
 
 	prowlarrEnabled, err := m.service.IsEnabled(ctx)
-	if err != nil && err != ErrNotConfigured {
+	if err != nil && !errors.Is(err, ErrNotConfigured) {
 		return nil, err
 	}
 

@@ -10,6 +10,11 @@ import (
 	"github.com/slipstream/slipstream/internal/notification/types"
 )
 
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
+
 func newTestMovie() types.MediaInfo {
 	return types.MediaInfo{
 		ID:        1,
@@ -70,40 +75,40 @@ func newTestDownloadClient() types.DownloadClientInfo {
 }
 
 func TestNotifier_Type(t *testing.T) {
-	n := New("test", Settings{}, zerolog.Nop())
+	n := New("test", &Settings{}, newTestLogger())
 	if n.Type() != types.NotifierEmail {
 		t.Errorf("expected type %s, got %s", types.NotifierEmail, n.Type())
 	}
 }
 
 func TestNotifier_Name(t *testing.T) {
-	n := New("my-email", Settings{}, zerolog.Nop())
+	n := New("my-email", &Settings{}, newTestLogger())
 	if n.Name() != "my-email" {
 		t.Errorf("expected name 'my-email', got %s", n.Name())
 	}
 }
 
 func TestNotifier_DefaultPort(t *testing.T) {
-	n := New("test", Settings{}, zerolog.Nop())
+	n := New("test", &Settings{}, newTestLogger())
 	if n.settings.Port != 587 {
 		t.Errorf("expected default port 587, got %d", n.settings.Port)
 	}
 }
 
 func TestNotifier_DefaultEncryption(t *testing.T) {
-	n := New("test", Settings{}, zerolog.Nop())
+	n := New("test", &Settings{}, newTestLogger())
 	if n.settings.Encryption != EncryptionPreferred {
 		t.Errorf("expected default encryption preferred, got %s", n.settings.Encryption)
 	}
 
-	n2 := New("test", Settings{UseTLS: true}, zerolog.Nop())
+	n2 := New("test", &Settings{UseTLS: true}, newTestLogger())
 	if n2.settings.Encryption != EncryptionAlways {
 		t.Errorf("expected encryption always when UseTLS is true, got %s", n2.settings.Encryption)
 	}
 }
 
 func TestNotifier_ToHTML(t *testing.T) {
-	n := New("test", Settings{UseHTML: true}, zerolog.Nop())
+	n := New("test", &Settings{UseHTML: true}, newTestLogger())
 
 	tests := []struct {
 		name     string
@@ -162,7 +167,7 @@ func TestNotifier_ToHTML(t *testing.T) {
 }
 
 func TestNotifier_ToHTML_NoRawHTML(t *testing.T) {
-	n := New("test", Settings{UseHTML: true}, zerolog.Nop())
+	n := New("test", &Settings{UseHTML: true}, newTestLogger())
 
 	input := "<script>alert('xss')</script>"
 	result := n.toHTML(input)
@@ -212,7 +217,7 @@ func TestNotifier_OnGrab_Subject_Movie(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Movie Grabbed - The Matrix (1999)"
-	actualSubject := buildGrabSubject(event)
+	actualSubject := buildGrabSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -228,7 +233,7 @@ func TestNotifier_OnGrab_Subject_Episode(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Episode Grabbed - Breaking Bad S05E16"
-	actualSubject := buildGrabSubject(event)
+	actualSubject := buildGrabSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -244,7 +249,7 @@ func TestNotifier_OnImport_Subject_Movie(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Movie Downloaded - The Matrix (1999)"
-	actualSubject := buildDownloadSubject(event)
+	actualSubject := buildDownloadSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -261,7 +266,7 @@ func TestNotifier_OnUpgrade_Subject_Movie(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Movie Upgraded - The Matrix (1999)"
-	actualSubject := buildUpgradeSubject(event)
+	actualSubject := buildUpgradeSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -276,7 +281,7 @@ func TestNotifier_OnMovieAdded_Subject(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Movie Added - The Matrix (1999)"
-	actualSubject := buildMovieAddedSubject(event)
+	actualSubject := buildMovieAddedSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -292,7 +297,7 @@ func TestNotifier_OnMovieDeleted_Subject(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Movie Deleted - The Matrix (1999)"
-	actualSubject := buildMovieDeletedSubject(event)
+	actualSubject := buildMovieDeletedSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -307,7 +312,7 @@ func TestNotifier_OnSeriesAdded_Subject(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Series Added - Breaking Bad (2008)"
-	actualSubject := buildSeriesAddedSubject(event)
+	actualSubject := buildSeriesAddedSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -323,7 +328,7 @@ func TestNotifier_OnHealthIssue_Subject(t *testing.T) {
 	}
 
 	expectedSubject := "[SlipStream] Health Issue - Indexer"
-	actualSubject := buildHealthIssueSubject(event)
+	actualSubject := buildHealthIssueSubject(&event)
 
 	if actualSubject != expectedSubject {
 		t.Errorf("expected subject %q, got %q", expectedSubject, actualSubject)
@@ -350,7 +355,7 @@ func TestEncryptionModeConstants(t *testing.T) {
 }
 
 func TestNotifier_Settings(t *testing.T) {
-	n := New("test", Settings{
+	n := New("test", &Settings{
 		Server:     "smtp.example.com",
 		Port:       465,
 		UseTLS:     true,
@@ -362,7 +367,7 @@ func TestNotifier_Settings(t *testing.T) {
 		CC:         "cc@example.com",
 		BCC:        "bcc@example.com",
 		UseHTML:    true,
-	}, zerolog.Nop())
+	}, newTestLogger())
 
 	if n.settings.Server != "smtp.example.com" {
 		t.Errorf("expected server, got %s", n.settings.Server)
@@ -387,7 +392,7 @@ func TestNotifier_GrabBody_Movie(t *testing.T) {
 		GrabbedAt:      time.Now(),
 	}
 
-	body := buildGrabBody(event)
+	body := buildGrabBody(&event)
 
 	if !strings.Contains(body, "The Matrix") {
 		t.Error("expected body to contain movie title")
@@ -415,7 +420,7 @@ func TestNotifier_DownloadBody_Movie(t *testing.T) {
 		ImportedAt:      time.Now(),
 	}
 
-	body := buildDownloadBody(event)
+	body := buildDownloadBody(&event)
 
 	if !strings.Contains(body, "The Matrix") {
 		t.Error("expected body to contain movie title")
@@ -437,7 +442,7 @@ func TestNotifier_UpgradeBody_Movie(t *testing.T) {
 		UpgradedAt: time.Now(),
 	}
 
-	body := buildUpgradeBody(event)
+	body := buildUpgradeBody(&event)
 
 	if !strings.Contains(body, "The Matrix") {
 		t.Error("expected body to contain movie title")
@@ -479,7 +484,7 @@ func TestNotifier_MovieDeletedBody(t *testing.T) {
 				DeletedAt:    time.Now(),
 			}
 
-			body := buildMovieDeletedBody(event)
+			body := buildMovieDeletedBody(&event)
 
 			if tt.contains != "" && !strings.Contains(body, tt.contains) {
 				t.Errorf("expected body to contain %q", tt.contains)
@@ -499,7 +504,7 @@ func TestNotifier_HealthBody(t *testing.T) {
 		OccuredAt: time.Now(),
 	}
 
-	body := buildHealthBody(event)
+	body := buildHealthBody(&event)
 
 	if !strings.Contains(body, "Indexer") {
 		t.Error("expected body to contain source")
@@ -530,7 +535,7 @@ func TestNotifier_AppUpdateBody(t *testing.T) {
 }
 
 // Helper functions to build subjects/bodies for testing
-func buildGrabSubject(event types.GrabEvent) string {
+func buildGrabSubject(event *types.GrabEvent) string {
 	if event.Movie != nil {
 		if event.Movie.Year > 0 {
 			return "[SlipStream] Movie Grabbed - " + event.Movie.Title + " (" + string(rune('0'+event.Movie.Year/1000)) + string(rune('0'+(event.Movie.Year%1000)/100)) + string(rune('0'+(event.Movie.Year%100)/10)) + string(rune('0'+event.Movie.Year%10)) + ")"
@@ -542,7 +547,7 @@ func buildGrabSubject(event types.GrabEvent) string {
 	return ""
 }
 
-func buildDownloadSubject(event types.ImportEvent) string {
+func buildDownloadSubject(event *types.ImportEvent) string {
 	if event.Movie != nil {
 		if event.Movie.Year > 0 {
 			return "[SlipStream] Movie Downloaded - " + event.Movie.Title + " (" + itoa(event.Movie.Year) + ")"
@@ -552,7 +557,7 @@ func buildDownloadSubject(event types.ImportEvent) string {
 	return ""
 }
 
-func buildUpgradeSubject(event types.UpgradeEvent) string {
+func buildUpgradeSubject(event *types.UpgradeEvent) string {
 	if event.Movie != nil {
 		if event.Movie.Year > 0 {
 			return "[SlipStream] Movie Upgraded - " + event.Movie.Title + " (" + itoa(event.Movie.Year) + ")"
@@ -562,53 +567,53 @@ func buildUpgradeSubject(event types.UpgradeEvent) string {
 	return ""
 }
 
-func buildMovieAddedSubject(event types.MovieAddedEvent) string {
+func buildMovieAddedSubject(event *types.MovieAddedEvent) string {
 	if event.Movie.Year > 0 {
 		return "[SlipStream] Movie Added - " + event.Movie.Title + " (" + itoa(event.Movie.Year) + ")"
 	}
 	return "[SlipStream] Movie Added - " + event.Movie.Title
 }
 
-func buildMovieDeletedSubject(event types.MovieDeletedEvent) string {
+func buildMovieDeletedSubject(event *types.MovieDeletedEvent) string {
 	if event.Movie.Year > 0 {
 		return "[SlipStream] Movie Deleted - " + event.Movie.Title + " (" + itoa(event.Movie.Year) + ")"
 	}
 	return "[SlipStream] Movie Deleted - " + event.Movie.Title
 }
 
-func buildSeriesAddedSubject(event types.SeriesAddedEvent) string {
+func buildSeriesAddedSubject(event *types.SeriesAddedEvent) string {
 	if event.Series.Year > 0 {
 		return "[SlipStream] Series Added - " + event.Series.Title + " (" + itoa(event.Series.Year) + ")"
 	}
 	return "[SlipStream] Series Added - " + event.Series.Title
 }
 
-func buildHealthIssueSubject(event types.HealthEvent) string {
+func buildHealthIssueSubject(event *types.HealthEvent) string {
 	return "[SlipStream] Health Issue - " + event.Source
 }
 
-func buildGrabBody(event types.GrabEvent) string {
+func buildGrabBody(event *types.GrabEvent) string {
 	if event.Movie != nil {
 		return "Movie: " + event.Movie.Title + "\nQuality: " + event.Release.Quality + "\nIndexer: " + event.Release.Indexer + "\nClient: " + event.DownloadClient.Name + "\n\nRelease: " + event.Release.ReleaseName
 	}
 	return ""
 }
 
-func buildDownloadBody(event types.ImportEvent) string {
+func buildDownloadBody(event *types.ImportEvent) string {
 	if event.Movie != nil {
 		return "Movie: " + event.Movie.Title + "\nQuality: " + event.Quality + "\n\nPath: " + event.DestinationPath
 	}
 	return ""
 }
 
-func buildUpgradeBody(event types.UpgradeEvent) string {
+func buildUpgradeBody(event *types.UpgradeEvent) string {
 	if event.Movie != nil {
 		return "Movie: " + event.Movie.Title + "\nOld Quality: " + event.OldQuality + "\nNew Quality: " + event.NewQuality
 	}
 	return ""
 }
 
-func buildMovieDeletedBody(event types.MovieDeletedEvent) string {
+func buildMovieDeletedBody(event *types.MovieDeletedEvent) string {
 	body := "Movie: " + event.Movie.Title
 	if event.DeletedFiles {
 		body += "\n\nFiles were also deleted."
@@ -616,7 +621,7 @@ func buildMovieDeletedBody(event types.MovieDeletedEvent) string {
 	return body
 }
 
-func buildHealthBody(event types.HealthEvent) string {
+func buildHealthBody(event *types.HealthEvent) string {
 	return "Source: " + event.Source + "\nType: " + event.Type + "\n\n" + event.Message
 }
 

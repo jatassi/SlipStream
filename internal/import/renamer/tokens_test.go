@@ -50,8 +50,8 @@ func TestToken_SeriesTitle(t *testing.T) {
 		want    string
 	}{
 		{"basic", "{Series Title}", "Breaking Bad"},
-		{"with separator dot", "{.Series Title}", "Breaking.Bad"},       // Separator prefix at start
-		{"with separator dash", "{-Series Title}", "Breaking-Bad"},      // Separator prefix at start
+		{"with separator dot", "{.Series Title}", "Breaking.Bad"},        // Separator prefix at start
+		{"with separator dash", "{-Series Title}", "Breaking-Bad"},       // Separator prefix at start
 		{"with separator underscore", "{_Series Title}", "Breaking_Bad"}, // Separator prefix at start
 	}
 

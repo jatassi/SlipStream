@@ -9,8 +9,8 @@ import (
 type UpgradeStrategy string
 
 const (
-	StrategyAggressive    UpgradeStrategy = "aggressive"
-	StrategyBalanced      UpgradeStrategy = "balanced"
+	StrategyAggressive     UpgradeStrategy = "aggressive"
+	StrategyBalanced       UpgradeStrategy = "balanced"
 	StrategyResolutionOnly UpgradeStrategy = "resolution_only"
 )
 
@@ -74,8 +74,8 @@ type Profile struct {
 	CutoffOverridesStrategy bool            `json:"cutoffOverridesStrategy"` // Always grab cutoff quality even if strategy would block it
 	AllowAutoApprove        bool            `json:"allowAutoApprove"`        // Whether requests using this profile can be auto-approved
 	Items                   []QualityItem   `json:"items"`                   // Ordered list of qualities
-	CreatedAt        time.Time       `json:"createdAt"`
-	UpdatedAt        time.Time       `json:"updatedAt"`
+	CreatedAt               time.Time       `json:"createdAt"`
+	UpdatedAt               time.Time       `json:"updatedAt"`
 
 	// Req 2.1.1-2.1.4: Profile-level attribute settings
 	HDRSettings          AttributeSettings `json:"hdrSettings"`
@@ -294,11 +294,7 @@ func (p *Profile) IsUpgrade(currentQualityID, candidateQualityID int) bool {
 	}
 
 	candidateQuality, ok := GetQualityByID(candidateQualityID)
-	if !ok {
-		return false
-	}
-
-	if !p.IsAcceptable(candidateQualityID) {
+	if !ok || !p.IsAcceptable(candidateQualityID) {
 		return false
 	}
 
@@ -306,22 +302,28 @@ func (p *Profile) IsUpgrade(currentQualityID, candidateQualityID int) bool {
 		return true
 	}
 
+	return p.isStrategyUpgrade(currentQuality, candidateQuality)
+}
+
+func (p *Profile) isStrategyUpgrade(current, candidate Quality) bool {
 	switch p.UpgradeStrategy {
 	case StrategyResolutionOnly:
-		return candidateQuality.Resolution > currentQuality.Resolution
-
+		return candidate.Resolution > current.Resolution
 	case StrategyBalanced:
-		if candidateQuality.Resolution > currentQuality.Resolution {
-			return true
-		}
-		if candidateQuality.Resolution == currentQuality.Resolution {
-			return IsDiscSource(candidateQuality.Source) && !IsDiscSource(currentQuality.Source)
-		}
-		return false
-
-	default: // aggressive (and fallback for empty/unrecognized)
-		return candidateQuality.Weight > currentQuality.Weight
+		return isBalancedUpgrade(current, candidate)
+	default:
+		return candidate.Weight > current.Weight
 	}
+}
+
+func isBalancedUpgrade(current, candidate Quality) bool {
+	if candidate.Resolution > current.Resolution {
+		return true
+	}
+	if candidate.Resolution == current.Resolution {
+		return IsDiscSource(candidate.Source) && !IsDiscSource(current.Source)
+	}
+	return false
 }
 
 // getCutoffWeight returns the weight of the cutoff quality.

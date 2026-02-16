@@ -66,7 +66,7 @@ func TestFormatMovieFolder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.FormatMovieFolder(tt.tokens)
+			got := config.FormatMovieFolder(&tt.tokens)
 			if got != tt.want {
 				t.Errorf("FormatMovieFolder() = %q, want %q", got, tt.want)
 			}
@@ -96,7 +96,7 @@ func TestFormatMovieFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.FormatMovieFile(tt.tokens)
+			got := config.FormatMovieFile(&tt.tokens)
 			if got != tt.want {
 				t.Errorf("FormatMovieFile() = %q, want %q", got, tt.want)
 			}
@@ -118,7 +118,7 @@ func TestFormatMovieFile_CustomFormat(t *testing.T) {
 		Source:  "BluRay",
 	}
 
-	got := config.FormatMovieFile(tokens)
+	got := config.FormatMovieFile(&tokens)
 	want := "The Dark Knight (2008) [1080p] [BluRay]"
 
 	if got != want {
@@ -148,7 +148,7 @@ func TestFormatSeriesFolder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.FormatSeriesFolder(tt.tokens)
+			got := config.FormatSeriesFolder(&tt.tokens)
 			if got != tt.want {
 				t.Errorf("FormatSeriesFolder() = %q, want %q", got, tt.want)
 			}
@@ -164,7 +164,7 @@ func TestFormatSeriesFolder_CustomFormat(t *testing.T) {
 	}
 
 	tokens := SeriesTokens{SeriesTitle: "Game of Thrones", Year: 2011}
-	got := config.FormatSeriesFolder(tokens)
+	got := config.FormatSeriesFolder(&tokens)
 	want := "Game of Thrones (2011)"
 
 	if got != want {
@@ -250,7 +250,7 @@ func TestFormatEpisodeFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := config.FormatEpisodeFile(tt.tokens)
+			got := config.FormatEpisodeFile(&tt.tokens)
 			if got != tt.want {
 				t.Errorf("FormatEpisodeFile() = %q, want %q", got, tt.want)
 			}
@@ -269,7 +269,7 @@ func TestFormatEpisodeFile_MultiEpisode(t *testing.T) {
 		EpisodeTitle:  "Winter Is Coming",
 	}
 
-	got := config.FormatEpisodeFile(tokens)
+	got := config.FormatEpisodeFile(&tokens)
 	want := "Game of Thrones - S01E01-E02 - Winter Is Coming"
 
 	if got != want {
@@ -289,7 +289,7 @@ func TestFormatEpisodeFile_SameEndEpisode(t *testing.T) {
 		EpisodeTitle:  "Episode",
 	}
 
-	got := config.FormatEpisodeFile(tokens)
+	got := config.FormatEpisodeFile(&tokens)
 	want := "Show - S01E05 - Episode"
 
 	if got != want {
@@ -425,7 +425,7 @@ func TestResolveMovieToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.token, func(t *testing.T) {
-			got := config.resolveMovieToken(tt.token, tt.format, tokens)
+			got := config.resolveMovieToken(tt.token, tt.format, &tokens)
 			if got != tt.want {
 				t.Errorf("resolveMovieToken(%q, %q) = %q, want %q", tt.token, tt.format, got, tt.want)
 			}
@@ -440,13 +440,13 @@ func TestResolveMovieToken_EmptyValues(t *testing.T) {
 		Year:  0, // No year
 	}
 
-	got := config.resolveMovieToken("Year", "", tokens)
+	got := config.resolveMovieToken("Year", "", &tokens)
 	if got != "" {
 		t.Errorf("resolveMovieToken(Year) with year=0 = %q, want empty string", got)
 	}
 
 	tokens.TmdbID = 0
-	got = config.resolveMovieToken("TmdbID", "", tokens)
+	got = config.resolveMovieToken("TmdbID", "", &tokens)
 	if got != "" {
 		t.Errorf("resolveMovieToken(TmdbID) with tmdbId=0 = %q, want empty string", got)
 	}
@@ -471,7 +471,7 @@ func TestResolveSeriesToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.token, func(t *testing.T) {
-			got := config.resolveSeriesToken(tt.token, "", tokens)
+			got := config.resolveSeriesToken(tt.token, "", &tokens)
 			if got != tt.want {
 				t.Errorf("resolveSeriesToken(%q) = %q, want %q", tt.token, got, tt.want)
 			}
@@ -516,7 +516,7 @@ func TestResolveEpisodeToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.token, func(t *testing.T) {
-			got := config.resolveEpisodeToken(tt.token, tt.format, tokens)
+			got := config.resolveEpisodeToken(tt.token, tt.format, &tokens)
 			if got != tt.want {
 				t.Errorf("resolveEpisodeToken(%q, %q) = %q, want %q", tt.token, tt.format, got, tt.want)
 			}
@@ -534,7 +534,7 @@ func TestResolveEpisodeToken_NoEndEpisode(t *testing.T) {
 	}
 
 	// When EndEpisode is 0, it should return EpisodeNumber
-	got := config.resolveEpisodeToken("EndEpisode", "00", tokens)
+	got := config.resolveEpisodeToken("EndEpisode", "00", &tokens)
 	want := "05"
 
 	if got != want {

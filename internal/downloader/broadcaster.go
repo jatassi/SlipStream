@@ -17,7 +17,7 @@ const (
 
 // Broadcaster defines the interface for broadcasting messages.
 type Broadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // QueueTrigger defines the interface for triggering immediate queue broadcasts.
@@ -37,7 +37,7 @@ type QueueBroadcaster struct {
 	service           *Service
 	hub               Broadcaster
 	completionHandler CompletionHandler
-	logger            zerolog.Logger
+	logger            *zerolog.Logger
 	stopCh            chan struct{}
 	stoppedCh         chan struct{}
 	triggerCh         chan struct{}
@@ -48,11 +48,12 @@ type QueueBroadcaster struct {
 }
 
 // NewQueueBroadcaster creates a new queue broadcaster.
-func NewQueueBroadcaster(service *Service, hub Broadcaster, logger zerolog.Logger) *QueueBroadcaster {
+func NewQueueBroadcaster(service *Service, hub Broadcaster, logger *zerolog.Logger) *QueueBroadcaster {
+	subLogger := logger.With().Str("component", "queue-broadcaster").Logger()
 	return &QueueBroadcaster{
 		service: service,
 		hub:     hub,
-		logger:  logger.With().Str("component", "queue-broadcaster").Logger(),
+		logger:  &subLogger,
 	}
 }
 
@@ -179,9 +180,7 @@ func (b *QueueBroadcaster) broadcast() bool {
 		return false
 	}
 
-	if err := b.hub.Broadcast("queue:state", resp); err != nil {
-		b.logger.Warn().Err(err).Msg("Failed to broadcast queue state")
-	}
+	b.hub.Broadcast("queue:state", resp)
 
 	// Check for completed downloads and trigger import processing
 	b.checkForCompletions(ctx)
@@ -191,8 +190,9 @@ func (b *QueueBroadcaster) broadcast() bool {
 		b.logger.Debug().Err(err).Msg("Failed to check for disappeared downloads")
 	}
 
-	for _, item := range resp.Items {
-		if item.Status == "downloading" || item.Status == "queued" {
+	for i := range resp.Items {
+		item := &resp.Items[i]
+		if item.Status == string(QueueMediaStatusDownloading) || item.Status == "queued" {
 			return true
 		}
 	}

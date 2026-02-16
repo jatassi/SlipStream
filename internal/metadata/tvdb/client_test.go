@@ -3,6 +3,7 @@ package tvdb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,13 +14,18 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 )
 
+func newTestLogger() *zerolog.Logger {
+	l := zerolog.Nop()
+	return &l
+}
+
 func newTestClient(server *httptest.Server) *Client {
 	cfg := config.TVDBConfig{
 		APIKey:  "test-api-key",
 		BaseURL: server.URL,
 		Timeout: 5,
 	}
-	client := NewClient(cfg, zerolog.Nop())
+	client := NewClient(cfg, newTestLogger())
 	// Pre-set a valid token to skip authentication in tests
 	client.token = "test-token"
 	client.tokenExpiry = time.Now().Add(24 * time.Hour)
@@ -27,7 +33,7 @@ func newTestClient(server *httptest.Server) *Client {
 }
 
 func TestClient_Name(t *testing.T) {
-	client := NewClient(config.TVDBConfig{}, zerolog.Nop())
+	client := NewClient(config.TVDBConfig{}, newTestLogger())
 	if client.Name() != "tvdb" {
 		t.Errorf("Name() = %q, want %q", client.Name(), "tvdb")
 	}
@@ -45,7 +51,7 @@ func TestClient_IsConfigured(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient(config.TVDBConfig{APIKey: tt.apiKey}, zerolog.Nop())
+			client := NewClient(config.TVDBConfig{APIKey: tt.apiKey}, newTestLogger())
 			if got := client.IsConfigured(); got != tt.want {
 				t.Errorf("IsConfigured() = %v, want %v", got, tt.want)
 			}
@@ -117,9 +123,9 @@ func TestClient_SearchSeries(t *testing.T) {
 }
 
 func TestClient_SearchSeries_NoAPIKey(t *testing.T) {
-	client := NewClient(config.TVDBConfig{}, zerolog.Nop())
+	client := NewClient(config.TVDBConfig{}, newTestLogger())
 	_, err := client.SearchSeries(context.Background(), "Breaking Bad")
-	if err != ErrAPIKeyMissing {
+	if !errors.Is(err, ErrAPIKeyMissing) {
 		t.Errorf("SearchSeries() error = %v, want %v", err, ErrAPIKeyMissing)
 	}
 }
@@ -207,13 +213,13 @@ func TestClient_GetSeries_NotFound(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.GetSeries(context.Background(), 99999999)
-	if err != ErrSeriesNotFound {
+	if !errors.Is(err, ErrSeriesNotFound) {
 		t.Errorf("GetSeries() error = %v, want %v", err, ErrSeriesNotFound)
 	}
 }
 
 func TestClient_SearchMovies_ReturnsEmpty(t *testing.T) {
-	client := NewClient(config.TVDBConfig{APIKey: "test"}, zerolog.Nop())
+	client := NewClient(config.TVDBConfig{APIKey: "test"}, newTestLogger())
 	results, err := client.SearchMovies(context.Background(), "Matrix")
 	if err != nil {
 		t.Errorf("SearchMovies() error = %v", err)
@@ -224,7 +230,7 @@ func TestClient_SearchMovies_ReturnsEmpty(t *testing.T) {
 }
 
 func TestClient_GetMovie_ReturnsError(t *testing.T) {
-	client := NewClient(config.TVDBConfig{APIKey: "test"}, zerolog.Nop())
+	client := NewClient(config.TVDBConfig{APIKey: "test"}, newTestLogger())
 	_, err := client.GetMovie(context.Background(), 123)
 	if err == nil {
 		t.Error("GetMovie() should return error for TVDB")
@@ -261,7 +267,7 @@ func TestClient_Authenticate(t *testing.T) {
 		BaseURL: server.URL,
 		Timeout: 5,
 	}
-	client := NewClient(cfg, zerolog.Nop())
+	client := NewClient(cfg, newTestLogger())
 
 	// First call should trigger authentication
 	_, err := client.SearchSeries(context.Background(), "test")
@@ -290,10 +296,10 @@ func TestClient_AuthenticationFailed(t *testing.T) {
 		BaseURL: server.URL,
 		Timeout: 5,
 	}
-	client := NewClient(cfg, zerolog.Nop())
+	client := NewClient(cfg, newTestLogger())
 
 	_, err := client.SearchSeries(context.Background(), "test")
-	if err != ErrAuthFailed {
+	if !errors.Is(err, ErrAuthFailed) {
 		t.Errorf("SearchSeries() error = %v, want %v", err, ErrAuthFailed)
 	}
 }
@@ -306,7 +312,7 @@ func TestClient_RateLimited(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.SearchSeries(context.Background(), "test")
-	if err != ErrRateLimited {
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("SearchSeries() error = %v, want %v", err, ErrRateLimited)
 	}
 }

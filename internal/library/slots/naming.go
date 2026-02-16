@@ -98,23 +98,26 @@ func GetConflictingAttributes(slots []quality.SlotConfig) []DifferentiatorAttrib
 				continue
 			}
 
-			// Check each attribute for conflicts between the two profiles
-			// Use the same logic as mutual exclusivity check: required vs notAllowed conflicts
-			if quality.HasAttributeConflict(slotA.Profile.HDRSettings, slotB.Profile.HDRSettings) {
-				conflicts = appendIfMissing(conflicts, DifferentiatorHDR)
-			}
-			if quality.HasAttributeConflict(slotA.Profile.VideoCodecSettings, slotB.Profile.VideoCodecSettings) {
-				conflicts = appendIfMissing(conflicts, DifferentiatorVideoCodec)
-			}
-			if quality.HasAttributeConflict(slotA.Profile.AudioCodecSettings, slotB.Profile.AudioCodecSettings) {
-				conflicts = appendIfMissing(conflicts, DifferentiatorAudioCodec)
-			}
-			if quality.HasAttributeConflict(slotA.Profile.AudioChannelSettings, slotB.Profile.AudioChannelSettings) {
-				conflicts = appendIfMissing(conflicts, DifferentiatorAudioChannels)
-			}
+			conflicts = detectProfileConflicts(slotA.Profile, slotB.Profile, conflicts)
 		}
 	}
 
+	return conflicts
+}
+
+func detectProfileConflicts(a, b *quality.Profile, conflicts []DifferentiatorAttribute) []DifferentiatorAttribute {
+	if quality.HasAttributeConflict(a.HDRSettings, b.HDRSettings) {
+		conflicts = appendIfMissing(conflicts, DifferentiatorHDR)
+	}
+	if quality.HasAttributeConflict(a.VideoCodecSettings, b.VideoCodecSettings) {
+		conflicts = appendIfMissing(conflicts, DifferentiatorVideoCodec)
+	}
+	if quality.HasAttributeConflict(a.AudioCodecSettings, b.AudioCodecSettings) {
+		conflicts = appendIfMissing(conflicts, DifferentiatorAudioCodec)
+	}
+	if quality.HasAttributeConflict(a.AudioChannelSettings, b.AudioChannelSettings) {
+		conflicts = appendIfMissing(conflicts, DifferentiatorAudioChannels)
+	}
 	return conflicts
 }
 
@@ -236,14 +239,14 @@ func getSuggestedToken(attr DifferentiatorAttribute) string {
 // SlotNamingValidation performs full naming validation for slot configuration.
 // Returns validation results for both movie and episode filename formats.
 type SlotNamingValidation struct {
-	MovieFormatValid        bool                      `json:"movieFormatValid"`
-	EpisodeFormatValid      bool                      `json:"episodeFormatValid"`
-	MovieValidation         NamingValidationResult    `json:"movieValidation"`
-	EpisodeValidation       NamingValidationResult    `json:"episodeValidation"`
-	RequiredAttributes      []DifferentiatorAttribute `json:"requiredAttributes"`
-	CanProceed              bool                      `json:"canProceed"`              // True if validation passes or user acknowledged
-	QualityTierExclusive    bool                      `json:"qualityTierExclusive"`    // Profiles are exclusive via quality tiers only
-	NoEnabledSlots          bool                      `json:"noEnabledSlots"`          // No enabled slots with profiles found
+	MovieFormatValid     bool                      `json:"movieFormatValid"`
+	EpisodeFormatValid   bool                      `json:"episodeFormatValid"`
+	MovieValidation      NamingValidationResult    `json:"movieValidation"`
+	EpisodeValidation    NamingValidationResult    `json:"episodeValidation"`
+	RequiredAttributes   []DifferentiatorAttribute `json:"requiredAttributes"`
+	CanProceed           bool                      `json:"canProceed"`           // True if validation passes or user acknowledged
+	QualityTierExclusive bool                      `json:"qualityTierExclusive"` // Profiles are exclusive via quality tiers only
+	NoEnabledSlots       bool                      `json:"noEnabledSlots"`       // No enabled slots with profiles found
 }
 
 // ValidateSlotNaming validates naming formats against slot configuration
@@ -300,7 +303,7 @@ func ValidateSlotNaming(slots []quality.SlotConfig, movieFormat, episodeFormat s
 }
 
 // BuildNamingValidationWarnings creates user-friendly warning messages
-func BuildNamingValidationWarnings(validation SlotNamingValidation) []string {
+func BuildNamingValidationWarnings(validation *SlotNamingValidation) []string {
 	var warnings []string
 
 	if !validation.MovieFormatValid {

@@ -108,15 +108,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "type is required")
 	}
 
-	notif, err := h.service.CreateUserNotification(c.Request().Context(), claims.UserID, CreateNotificationInput{
-		Type:        req.Type,
-		Name:        req.Name,
-		Settings:    req.Settings,
-		OnAvailable: req.OnAvailable,
-		OnApproved:  req.OnApproved,
-		OnDenied:    req.OnDenied,
-		Enabled:     req.Enabled,
-	})
+	notif, err := h.service.CreateUserNotification(c.Request().Context(), claims.UserID, CreateNotificationInput(req))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -151,15 +143,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	notif, err := h.service.UpdateUserNotification(c.Request().Context(), id, CreateNotificationInput{
-		Type:        req.Type,
-		Name:        req.Name,
-		Settings:    req.Settings,
-		OnAvailable: req.OnAvailable,
-		OnApproved:  req.OnApproved,
-		OnDenied:    req.OnDenied,
-		Enabled:     req.Enabled,
-	})
+	notif, err := h.service.UpdateUserNotification(c.Request().Context(), id, CreateNotificationInput(req))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

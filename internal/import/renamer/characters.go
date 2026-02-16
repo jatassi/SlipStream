@@ -18,6 +18,8 @@ const (
 	ColonSpaceDashSpace ColonReplacement = "space_dash_space"
 	ColonSmart          ColonReplacement = "smart"
 	ColonCustom         ColonReplacement = "custom"
+
+	separatorDash = " - "
 )
 
 // ReplaceIllegalCharacters replaces or removes illegal filesystem characters.
@@ -62,7 +64,7 @@ func handleColon(s string, pos int, mode ColonReplacement, custom string) string
 	case ColonSpaceDash:
 		return " -"
 	case ColonSpaceDashSpace:
-		return " - "
+		return separatorDash
 	case ColonSmart:
 		return smartColonReplace(s, pos)
 	case ColonCustom:
@@ -104,7 +106,7 @@ func smartColonReplace(s string, pos int) string {
 		if nextIsSpace {
 			return " -"
 		}
-		return " - "
+		return separatorDash
 	}
 
 	// Otherwise just use dash

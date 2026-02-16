@@ -14,22 +14,22 @@ import (
 type CompletionStatus string
 
 const (
-	CompletionReady      CompletionStatus = "ready"
-	CompletionStillOpen  CompletionStatus = "still_open"
-	CompletionRecent     CompletionStatus = "recent"
-	CompletionNotFound   CompletionStatus = "not_found"
-	CompletionTooSmall   CompletionStatus = "too_small"
-	CompletionNotVideo   CompletionStatus = "not_video"
+	CompletionReady     CompletionStatus = "ready"
+	CompletionStillOpen CompletionStatus = "still_open"
+	CompletionRecent    CompletionStatus = "recent"
+	CompletionNotFound  CompletionStatus = "not_found"
+	CompletionTooSmall  CompletionStatus = "too_small"
+	CompletionNotVideo  CompletionStatus = "not_video"
 )
 
 // FileCompletionResult contains the result of a file completion check.
 type FileCompletionResult struct {
-	Path       string           `json:"path"`
-	Status     CompletionStatus `json:"status"`
-	FileSize   int64            `json:"fileSize"`
-	ModTime    time.Time        `json:"modTime"`
-	SecondsSinceModify float64  `json:"secondsSinceModify"`
-	Reason     string           `json:"reason,omitempty"`
+	Path               string           `json:"path"`
+	Status             CompletionStatus `json:"status"`
+	FileSize           int64            `json:"fileSize"`
+	ModTime            time.Time        `json:"modTime"`
+	SecondsSinceModify float64          `json:"secondsSinceModify"`
+	Reason             string           `json:"reason,omitempty"`
 }
 
 // MinAgeSeconds is the minimum age in seconds since last modification.
@@ -43,11 +43,10 @@ func (s *Service) CheckFileCompletion(ctx context.Context, path string) *FileCom
 
 	stat, err := os.Stat(path)
 	if err != nil {
+		result.Status = CompletionNotFound
 		if os.IsNotExist(err) {
-			result.Status = CompletionNotFound
 			result.Reason = "file not found"
 		} else {
-			result.Status = CompletionNotFound
 			result.Reason = err.Error()
 		}
 		return result
@@ -57,50 +56,23 @@ func (s *Service) CheckFileCompletion(ctx context.Context, path string) *FileCom
 	result.ModTime = stat.ModTime()
 	result.SecondsSinceModify = time.Since(stat.ModTime()).Seconds()
 
-	// Load settings for validation thresholds
-	settings, settingsErr := s.GetSettings(ctx)
-	if settingsErr != nil {
-		s.logger.Warn().Err(settingsErr).Msg("Failed to load import settings for completion check, using defaults")
-		settings = nil
-	}
+	settings := s.loadSettingsOrNil(ctx)
 
-	// Check extension
-	ext := filepath.Ext(path)
-	if settings != nil && len(settings.VideoExtensions) > 0 {
-		if !settings.IsValidExtension(ext) {
-			result.Status = CompletionNotVideo
-			result.Reason = "not a video file"
-			return result
-		}
-	} else if !IsValidVideoExtension(ext) {
+	if !isValidExtensionWithSettings(filepath.Ext(path), settings) {
 		result.Status = CompletionNotVideo
 		result.Reason = "not a video file"
 		return result
 	}
 
-	// Check size (use settings if available)
-	minSize := int64(MinFileSizeBytes)
-	if settings != nil {
-		minSize = settings.GetMinimumFileSizeBytes()
-	}
-	if stat.Size() < minSize {
+	if stat.Size() < minimumFileSizeBytes(settings) {
 		result.Status = CompletionTooSmall
 		result.Reason = "file too small"
 		return result
 	}
 
-	// Check if file was recently modified
 	if result.SecondsSinceModify < MinAgeSeconds {
 		result.Status = CompletionRecent
 		result.Reason = "file was recently modified"
-		return result
-	}
-
-	// Check if file is still open by trying to get an exclusive lock
-	// This is a platform-specific check
-	if isFileStillOpen(path) {
-		result.Status = CompletionStillOpen
-		result.Reason = "file appears to still be open"
 		return result
 	}
 
@@ -137,31 +109,15 @@ func (s *Service) WaitForCompletion(ctx context.Context, path string, timeout ti
 	}
 }
 
-// isFileStillOpen attempts to detect if a file is still being written to.
-// This is a best-effort check that may not work on all platforms.
-func isFileStillOpen(path string) bool {
-	// Try to open the file exclusively
-	// On most systems, this will fail if another process has the file open for writing
-
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_EXCL, 0)
-	if err != nil {
-		// Could indicate file is in use, but could also be permission issues
-		// Check if it's specifically a "file in use" type error
-		return false // Assume not open to avoid blocking imports
-	}
-	file.Close()
-	return false
-}
-
 // DetectDownloadCompletion checks if a download folder is complete.
 // This handles season packs and multi-file downloads.
 type DownloadCompletionResult struct {
-	Path           string                   `json:"path"`
-	IsComplete     bool                     `json:"isComplete"`
-	TotalFiles     int                      `json:"totalFiles"`
-	ReadyFiles     int                      `json:"readyFiles"`
-	PendingFiles   int                      `json:"pendingFiles"`
-	FileResults    []*FileCompletionResult  `json:"fileResults,omitempty"`
+	Path         string                  `json:"path"`
+	IsComplete   bool                    `json:"isComplete"`
+	TotalFiles   int                     `json:"totalFiles"`
+	ReadyFiles   int                     `json:"readyFiles"`
+	PendingFiles int                     `json:"pendingFiles"`
+	FileResults  []*FileCompletionResult `json:"fileResults,omitempty"`
 }
 
 // CheckDownloadCompletion checks if all files in a download folder are complete.
@@ -197,16 +153,16 @@ func (s *Service) CheckDownloadCompletion(ctx context.Context, downloadPath stri
 
 // Archive detection extensions
 var archiveExtensions = map[string]bool{
-	".rar":  true,
-	".zip":  true,
-	".7z":   true,
-	".tar":  true,
-	".gz":   true,
-	".bz2":  true,
-	".xz":   true,
-	".r00":  true, // RAR multi-part
-	".r01":  true,
-	".r02":  true,
+	".rar":         true,
+	".zip":         true,
+	".7z":          true,
+	".tar":         true,
+	".gz":          true,
+	".bz2":         true,
+	".xz":          true,
+	".r00":         true, // RAR multi-part
+	".r01":         true,
+	".r02":         true,
 	".part001.rar": true, // Newer RAR multi-part naming
 	".part01.rar":  true,
 }
@@ -230,9 +186,9 @@ func (s *Service) AnalyzeForArchives(ctx context.Context, downloadPath string) (
 		VideoFiles:   make([]string, 0),
 	}
 
-	err := filepath.Walk(downloadPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip errors
+	err := filepath.Walk(downloadPath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil //nolint:nilerr // Skip filesystem errors during walk
 		}
 
 		if info.IsDir() {
@@ -376,24 +332,24 @@ func (s *Service) GetExtractedVideoFiles(ctx context.Context, downloadPath strin
 type DownloadStatus string
 
 const (
-	DownloadStatusActive    DownloadStatus = "active"
-	DownloadStatusComplete  DownloadStatus = "complete"
-	DownloadStatusStalled   DownloadStatus = "stalled"
-	DownloadStatusPaused    DownloadStatus = "paused"
-	DownloadStatusError     DownloadStatus = "error"
-	DownloadStatusNotFound  DownloadStatus = "not_found"
+	DownloadStatusActive   DownloadStatus = "active"
+	DownloadStatusComplete DownloadStatus = "complete"
+	DownloadStatusStalled  DownloadStatus = "stalled"
+	DownloadStatusPaused   DownloadStatus = "paused"
+	DownloadStatusError    DownloadStatus = "error"
+	DownloadStatusNotFound DownloadStatus = "not_found"
 )
 
 // DownloadStatusResult contains information about a download's status.
 type DownloadStatusResult struct {
-	ClientID     int64          `json:"clientId"`
-	DownloadID   string         `json:"downloadId"`
-	Status       DownloadStatus `json:"status"`
-	Progress     float64        `json:"progress"`
-	IsComplete   bool           `json:"isComplete"`
-	IsStalled    bool           `json:"isStalled"`
-	CanImport    bool           `json:"canImport"`
-	Reason       string         `json:"reason,omitempty"`
+	ClientID   int64          `json:"clientId"`
+	DownloadID string         `json:"downloadId"`
+	Status     DownloadStatus `json:"status"`
+	Progress   float64        `json:"progress"`
+	IsComplete bool           `json:"isComplete"`
+	IsStalled  bool           `json:"isStalled"`
+	CanImport  bool           `json:"canImport"`
+	Reason     string         `json:"reason,omitempty"`
 }
 
 // CheckDownloadStatus checks the status of a download via the download client.
@@ -407,17 +363,18 @@ func (s *Service) CheckDownloadStatus(ctx context.Context, clientID int64, downl
 	if err != nil {
 		result.Status = DownloadStatusError
 		result.Reason = "failed to get download client"
-		return result, nil
+		return result, err
 	}
 
 	items, err := client.List(ctx)
 	if err != nil {
 		result.Status = DownloadStatusError
 		result.Reason = "failed to list downloads"
-		return result, nil
+		return result, err
 	}
 
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		if item.ID == downloadID {
 			result.Progress = item.Progress
 
@@ -454,7 +411,7 @@ func (s *Service) CheckDownloadStatus(ctx context.Context, clientID int64, downl
 
 // IsDownloadReadyForImport checks if a download is complete and ready for import.
 // Returns false if the download is stalled, paused, or has errors.
-func (s *Service) IsDownloadReadyForImport(ctx context.Context, clientID int64, downloadID string) (bool, string) {
+func (s *Service) IsDownloadReadyForImport(ctx context.Context, clientID int64, downloadID string) (ready bool, reason string) {
 	status, err := s.CheckDownloadStatus(ctx, clientID, downloadID)
 	if err != nil {
 		return false, "failed to check download status"
@@ -487,30 +444,25 @@ func (s *Service) MonitorForCompletion(ctx context.Context, path string, callbac
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			stat, err := os.Stat(path)
-			if err != nil {
-				continue
-			}
-
-			if stat.IsDir() {
-				// Check download folder
-				result, err := s.CheckDownloadCompletion(ctx, path)
-				if err != nil {
-					continue
-				}
-
-				if result.IsComplete {
-					callback(path)
-					return
-				}
-			} else {
-				// Check single file
-				result := s.CheckFileCompletion(ctx, path)
-				if result.Status == CompletionReady {
-					callback(path)
-					return
-				}
+			if s.isPathComplete(ctx, path) {
+				callback(path)
+				return
 			}
 		}
 	}
+}
+
+func (s *Service) isPathComplete(ctx context.Context, path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	if stat.IsDir() {
+		result, err := s.CheckDownloadCompletion(ctx, path)
+		return err == nil && result.IsComplete
+	}
+
+	result := s.CheckFileCompletion(ctx, path)
+	return result.Status == CompletionReady
 }

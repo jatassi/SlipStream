@@ -57,7 +57,7 @@ func DefaultArtworkConfig() ArtworkConfig {
 
 // ArtworkBroadcaster is an interface for broadcasting artwork events.
 type ArtworkBroadcaster interface {
-	Broadcast(msgType string, payload interface{}) error
+	Broadcast(msgType string, payload interface{})
 }
 
 // ArtworkReadyPayload is the payload sent when artwork is ready.
@@ -71,18 +71,19 @@ type ArtworkReadyPayload struct {
 type ArtworkDownloader struct {
 	config      ArtworkConfig
 	httpClient  *http.Client
-	logger      zerolog.Logger
+	logger      *zerolog.Logger
 	broadcaster ArtworkBroadcaster
 }
 
 // NewArtworkDownloader creates a new ArtworkDownloader.
-func NewArtworkDownloader(cfg ArtworkConfig, logger zerolog.Logger) *ArtworkDownloader {
+func NewArtworkDownloader(cfg ArtworkConfig, logger *zerolog.Logger) *ArtworkDownloader {
+	subLogger := logger.With().Str("component", "artwork").Logger()
 	return &ArtworkDownloader{
 		config: cfg,
 		httpClient: &http.Client{
 			Timeout: cfg.Timeout,
 		},
-		logger: logger.With().Str("component", "artwork").Logger(),
+		logger: &subLogger,
 	}
 }
 
@@ -101,9 +102,7 @@ func (d *ArtworkDownloader) notifyArtworkReady(mediaType MediaType, mediaID int,
 		MediaID:     mediaID,
 		ArtworkType: string(artworkType),
 	}
-	if err := d.broadcaster.Broadcast("artwork:ready", payload); err != nil {
-		d.logger.Warn().Err(err).Msg("Failed to broadcast artwork ready event")
-	}
+	d.broadcaster.Broadcast("artwork:ready", payload)
 }
 
 // Download downloads artwork from a URL and saves it locally.
@@ -126,13 +125,13 @@ func (d *ArtworkDownloader) Download(ctx context.Context, url string, mediaType 
 	destPath := filepath.Join(dir, filename)
 
 	// Create directory if needed
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		d.logger.Error().Err(err).Str("dir", dir).Msg("Failed to create artwork directory")
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Download the file
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -140,7 +139,7 @@ func (d *ArtworkDownloader) Download(ctx context.Context, url string, mediaType 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
 		d.logger.Error().Err(err).Str("url", url).Msg("Artwork download failed")
-		return "", fmt.Errorf("%w: %v", ErrDownloadFailed, err)
+		return "", fmt.Errorf("%w: %w", ErrDownloadFailed, err)
 	}
 	defer resp.Body.Close()
 
@@ -180,51 +179,25 @@ func (d *ArtworkDownloader) DownloadMovieArtwork(ctx context.Context, movie *Mov
 		return ErrInvalidMediaType
 	}
 
-	// Download poster
-	if movie.PosterURL != "" {
-		path, err := d.Download(ctx, movie.PosterURL, MediaTypeMovie, movie.ID, ArtworkTypePoster)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie poster")
-		} else {
-			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie poster")
-			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypePoster)
-		}
-	}
-
-	// Download backdrop
-	if movie.BackdropURL != "" {
-		path, err := d.Download(ctx, movie.BackdropURL, MediaTypeMovie, movie.ID, ArtworkTypeBackdrop)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie backdrop")
-		} else {
-			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie backdrop")
-			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeBackdrop)
-		}
-	}
-
-	// Download logo if URL provided
-	if movie.LogoURL != "" {
-		path, err := d.Download(ctx, movie.LogoURL, MediaTypeMovie, movie.ID, ArtworkTypeLogo)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download movie logo")
-		} else {
-			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded movie logo")
-			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeLogo)
-		}
-	}
-
-	// Download studio logo if URL provided
-	if movie.StudioLogoURL != "" {
-		path, err := d.Download(ctx, movie.StudioLogoURL, MediaTypeMovie, movie.ID, ArtworkTypeStudioLogo)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("movieId", movie.ID).Msg("Failed to download studio logo")
-		} else {
-			d.logger.Debug().Str("path", path).Int("movieId", movie.ID).Msg("Downloaded studio logo")
-			d.notifyArtworkReady(MediaTypeMovie, movie.ID, ArtworkTypeStudioLogo)
-		}
-	}
+	d.downloadArtworkIfExists(ctx, movie.PosterURL, MediaTypeMovie, movie.ID, ArtworkTypePoster, "movie poster")
+	d.downloadArtworkIfExists(ctx, movie.BackdropURL, MediaTypeMovie, movie.ID, ArtworkTypeBackdrop, "movie backdrop")
+	d.downloadArtworkIfExists(ctx, movie.LogoURL, MediaTypeMovie, movie.ID, ArtworkTypeLogo, "movie logo")
+	d.downloadArtworkIfExists(ctx, movie.StudioLogoURL, MediaTypeMovie, movie.ID, ArtworkTypeStudioLogo, "studio logo")
 
 	return nil
+}
+
+func (d *ArtworkDownloader) downloadArtworkIfExists(ctx context.Context, url string, mediaType MediaType, mediaID int, artworkType ArtworkType, logName string) {
+	if url == "" {
+		return
+	}
+	path, err := d.Download(ctx, url, mediaType, mediaID, artworkType)
+	if err != nil {
+		d.logger.Warn().Err(err).Int("movieId", mediaID).Msgf("Failed to download %s", logName)
+		return
+	}
+	d.logger.Debug().Str("path", path).Int("movieId", mediaID).Msgf("Downloaded %s", logName)
+	d.notifyArtworkReady(mediaType, mediaID, artworkType)
 }
 
 // DownloadSeriesArtwork downloads both poster and backdrop for a series.
@@ -234,60 +207,19 @@ func (d *ArtworkDownloader) DownloadSeriesArtwork(ctx context.Context, series *S
 		return ErrInvalidMediaType
 	}
 
-	// Determine which ID to use - prefer TmdbID, fall back to ID
 	artworkID := series.TmdbID
 	if artworkID == 0 {
 		artworkID = series.ID
 	}
-
 	if artworkID == 0 {
 		d.logger.Warn().Str("title", series.Title).Msg("No valid ID for series artwork download")
 		return ErrInvalidMediaType
 	}
 
-	// Download poster
-	if series.PosterURL != "" {
-		path, err := d.Download(ctx, series.PosterURL, MediaTypeSeries, artworkID, ArtworkTypePoster)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series poster")
-		} else {
-			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series poster")
-			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypePoster)
-		}
-	}
-
-	// Download backdrop
-	if series.BackdropURL != "" {
-		path, err := d.Download(ctx, series.BackdropURL, MediaTypeSeries, artworkID, ArtworkTypeBackdrop)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series backdrop")
-		} else {
-			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series backdrop")
-			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeBackdrop)
-		}
-	}
-
-	// Download logo if URL provided
-	if series.LogoURL != "" {
-		path, err := d.Download(ctx, series.LogoURL, MediaTypeSeries, artworkID, ArtworkTypeLogo)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download series logo")
-		} else {
-			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded series logo")
-			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeLogo)
-		}
-	}
-
-	// Download network logo if URL provided
-	if series.NetworkLogoURL != "" {
-		path, err := d.Download(ctx, series.NetworkLogoURL, MediaTypeSeries, artworkID, ArtworkTypeStudioLogo)
-		if err != nil {
-			d.logger.Warn().Err(err).Int("tmdbId", artworkID).Msg("Failed to download network logo")
-		} else {
-			d.logger.Debug().Str("path", path).Int("tmdbId", artworkID).Msg("Downloaded network logo")
-			d.notifyArtworkReady(MediaTypeSeries, artworkID, ArtworkTypeStudioLogo)
-		}
-	}
+	d.downloadArtworkIfExists(ctx, series.PosterURL, MediaTypeSeries, artworkID, ArtworkTypePoster, "series poster")
+	d.downloadArtworkIfExists(ctx, series.BackdropURL, MediaTypeSeries, artworkID, ArtworkTypeBackdrop, "series backdrop")
+	d.downloadArtworkIfExists(ctx, series.LogoURL, MediaTypeSeries, artworkID, ArtworkTypeLogo, "series logo")
+	d.downloadArtworkIfExists(ctx, series.NetworkLogoURL, MediaTypeSeries, artworkID, ArtworkTypeStudioLogo, "network logo")
 
 	return nil
 }

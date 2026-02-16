@@ -21,20 +21,21 @@ import (
 
 // Factory creates Notifier instances from Config
 type Factory struct {
-	httpClient  *http.Client
-	logger      zerolog.Logger
-	queries     *sqlc.Queries
-	plexClient  *plex.Client
-	version     string
+	httpClient *http.Client
+	logger     *zerolog.Logger
+	queries    *sqlc.Queries
+	plexClient *plex.Client
+	version    string
 }
 
 // NewFactory creates a new notification factory
-func NewFactory(logger zerolog.Logger) *Factory {
+func NewFactory(logger *zerolog.Logger) *Factory {
+	subLogger := logger.With().Str("component", "notification-factory").Logger()
 	return &Factory{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		logger: logger.With().Str("component", "notification-factory").Logger(),
+		logger: &subLogger,
 	}
 }
 
@@ -54,7 +55,7 @@ func (f *Factory) SetVersion(version string) {
 }
 
 // Create creates a Notifier instance from a Config
-func (f *Factory) Create(cfg Config) (Notifier, error) {
+func (f *Factory) Create(cfg *Config) (Notifier, error) {
 	switch cfg.Type {
 	case NotifierDiscord:
 		return f.createDiscord(cfg)
@@ -77,59 +78,59 @@ func (f *Factory) Create(cfg Config) (Notifier, error) {
 	}
 }
 
-func (f *Factory) createDiscord(cfg Config) (Notifier, error) {
+func (f *Factory) createDiscord(cfg *Config) (Notifier, error) {
 	var settings discord.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid discord settings: %w", err)
 	}
-	return discord.New(cfg.Name, settings, f.httpClient, f.logger), nil
+	return discord.New(cfg.Name, &settings, f.httpClient, f.logger), nil
 }
 
-func (f *Factory) createTelegram(cfg Config) (Notifier, error) {
+func (f *Factory) createTelegram(cfg *Config) (Notifier, error) {
 	var settings telegram.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid telegram settings: %w", err)
 	}
-	return telegram.New(cfg.Name, settings, f.httpClient, f.logger), nil
+	return telegram.New(cfg.Name, &settings, f.httpClient, f.logger), nil
 }
 
-func (f *Factory) createWebhook(cfg Config) (Notifier, error) {
+func (f *Factory) createWebhook(cfg *Config) (Notifier, error) {
 	var settings webhook.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid webhook settings: %w", err)
 	}
-	return webhook.New(cfg.Name, settings, f.httpClient, f.logger), nil
+	return webhook.New(cfg.Name, &settings, f.httpClient, f.logger), nil
 }
 
-func (f *Factory) createEmail(cfg Config) (Notifier, error) {
+func (f *Factory) createEmail(cfg *Config) (Notifier, error) {
 	var settings email.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid email settings: %w", err)
 	}
-	return email.New(cfg.Name, settings, f.logger), nil
+	return email.New(cfg.Name, &settings, f.logger), nil
 }
 
-func (f *Factory) createSlack(cfg Config) (Notifier, error) {
+func (f *Factory) createSlack(cfg *Config) (Notifier, error) {
 	var settings slack.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid slack settings: %w", err)
 	}
-	return slack.New(cfg.Name, settings, f.httpClient, f.logger), nil
+	return slack.New(cfg.Name, &settings, f.httpClient, f.logger), nil
 }
 
-func (f *Factory) createPushover(cfg Config) (Notifier, error) {
+func (f *Factory) createPushover(cfg *Config) (Notifier, error) {
 	var settings pushover.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid pushover settings: %w", err)
 	}
-	return pushover.New(cfg.Name, settings, f.httpClient, f.logger), nil
+	return pushover.New(cfg.Name, &settings, f.httpClient, f.logger), nil
 }
 
-func (f *Factory) createMock(cfg Config) Notifier {
+func (f *Factory) createMock(cfg *Config) Notifier {
 	return mock.New(cfg.Name, f.logger)
 }
 
-func (f *Factory) createPlex(cfg Config) (Notifier, error) {
+func (f *Factory) createPlex(cfg *Config) (Notifier, error) {
 	var settings plex.Settings
 	if err := json.Unmarshal(cfg.Settings, &settings); err != nil {
 		return nil, fmt.Errorf("invalid plex settings: %w", err)
@@ -143,5 +144,5 @@ func (f *Factory) createPlex(cfg Config) (Notifier, error) {
 		return nil, fmt.Errorf("database queries not configured for Plex notifier")
 	}
 
-	return plex.New(cfg.Name, cfg.ID, settings, f.plexClient, f.queries, f.logger), nil
+	return plex.New(cfg.Name, cfg.ID, &settings, f.plexClient, f.queries, f.logger), nil
 }

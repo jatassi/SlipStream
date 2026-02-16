@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	seriesTypeDaily = "daily"
+)
+
 // TokenContext contains all metadata available for token resolution.
 type TokenContext struct {
 	// Series info
@@ -84,7 +88,7 @@ func parseTokenContent(raw, content string) Token {
 
 	// Check for separator prefix (first character before token name)
 	// e.g., {Series.Title} -> separator=".", name="Series Title"
-	if len(content) > 0 {
+	if content != "" {
 		switch content[0] {
 		case '.':
 			token.Separator = "."
@@ -129,8 +133,26 @@ func (t *Token) Resolve(ctx *TokenContext) string {
 func (t *Token) resolveValue(ctx *TokenContext) string {
 	name := strings.ToLower(t.Name)
 
+	switch {
+	case strings.HasPrefix(name, "series "):
+		return t.resolveSeriesToken(name, ctx)
+	case strings.HasPrefix(name, "episode"):
+		return t.resolveEpisodeToken(name, ctx)
+	case strings.HasPrefix(name, "air"):
+		return t.resolveAirDate(name, ctx)
+	case strings.HasPrefix(name, "quality "):
+		return t.resolveQualityToken(name, ctx)
+	case strings.HasPrefix(name, "mediainfo"):
+		return t.resolveMediaInfoToken(name, ctx)
+	case strings.HasPrefix(name, "movie "):
+		return t.resolveMovieToken(name, ctx)
+	default:
+		return t.resolveSimpleToken(name, ctx)
+	}
+}
+
+func (t *Token) resolveSeriesToken(name string, ctx *TokenContext) string {
 	switch name {
-	// Series tokens
 	case "series title":
 		return ctx.SeriesTitle
 	case "series titleyear":
@@ -140,63 +162,74 @@ func (t *Token) resolveValue(ctx *TokenContext) string {
 		return ctx.SeriesTitle
 	case "series cleantitle":
 		return CleanTitle(ctx.SeriesTitle)
-	case "series cleantitleyear":
+	default: // series cleantitleyear
 		clean := CleanTitle(ctx.SeriesTitle)
 		if ctx.SeriesYear > 0 {
 			return fmt.Sprintf("%s %d", clean, ctx.SeriesYear)
 		}
 		return clean
+	}
+}
 
-	// Season tokens
-	case "season":
-		return t.formatNumber(ctx.SeasonNumber)
-
-	// Episode tokens
+func (t *Token) resolveEpisodeToken(name string, ctx *TokenContext) string {
+	switch name {
 	case "episode":
 		if len(ctx.EpisodeNumbers) > 1 {
-			// Multi-episode: handled separately by multi-episode formatter
 			return t.formatNumber(ctx.EpisodeNumbers[0])
 		}
 		return t.formatNumber(ctx.EpisodeNumber)
+	case "episode title", "episode cleantitle":
+		return t.resolveEpisodeTitle(name, ctx)
+	default:
+		return ""
+	}
+}
 
-	// Air date tokens
-	case "air-date":
-		if ctx.AirDate.IsZero() {
-			return ""
-		}
+func (t *Token) resolveAirDate(name string, ctx *TokenContext) string {
+	if ctx.AirDate.IsZero() {
+		return ""
+	}
+	if name == "air-date" {
 		return ctx.AirDate.Format("2006-01-02")
-	case "air date":
-		if ctx.AirDate.IsZero() {
-			return ""
-		}
-		return ctx.AirDate.Format("2006 01 02")
+	}
+	return ctx.AirDate.Format("2006 01 02")
+}
 
-	// Episode title tokens
-	case "episode title":
-		title := ctx.EpisodeTitle
-		// Daily show fallback: use air date if no title
-		if title == "" && ctx.SeriesType == "daily" && !ctx.AirDate.IsZero() {
-			title = ctx.AirDate.Format("January 2, 2006")
-		}
-		return t.applyTruncation(title)
-	case "episode cleantitle":
-		title := ctx.EpisodeTitle
-		if title == "" && ctx.SeriesType == "daily" && !ctx.AirDate.IsZero() {
-			title = ctx.AirDate.Format("January 2, 2006")
-		}
-		return t.applyTruncation(CleanTitle(title))
+func (t *Token) resolveEpisodeTitle(name string, ctx *TokenContext) string {
+	title := ctx.EpisodeTitle
+	if title == "" && ctx.SeriesType == seriesTypeDaily && !ctx.AirDate.IsZero() {
+		title = ctx.AirDate.Format("January 2, 2006")
+	}
+	if name == "episode cleantitle" {
+		title = CleanTitle(title)
+	}
+	return t.applyTruncation(title)
+}
 
-	// Quality tokens
-	case "quality full":
+func (t *Token) resolveQualityToken(name string, ctx *TokenContext) string {
+	if name == "quality full" {
 		return t.buildQualityFull(ctx)
-	case "quality title":
-		return t.buildQualityTitle(ctx)
+	}
+	return t.buildQualityTitle(ctx)
+}
 
-	// MediaInfo tokens
+func (t *Token) resolveMediaInfoToken(name string, ctx *TokenContext) string {
+	switch name {
 	case "mediainfo simple":
 		return t.buildMediaInfoSimple(ctx)
 	case "mediainfo full":
 		return t.buildMediaInfoFull(ctx)
+	case "mediainfo audiolanguages":
+		return t.formatLanguages(ctx.AudioLanguages)
+	case "mediainfo subtitlelanguages":
+		return t.formatLanguages(ctx.SubtitleLanguages)
+	default:
+		return t.resolveMediaInfoField(name, ctx)
+	}
+}
+
+func (t *Token) resolveMediaInfoField(name string, ctx *TokenContext) string {
+	switch name {
 	case "mediainfo videocodec":
 		return ctx.VideoCodec
 	case "mediainfo videobitdepth":
@@ -204,26 +237,23 @@ func (t *Token) resolveValue(ctx *TokenContext) string {
 			return strconv.Itoa(ctx.VideoBitDepth)
 		}
 		return ""
-	case "mediainfo videodynamicrange":
-		if ctx.VideoDynamicRange != "" && ctx.VideoDynamicRange != "SDR" {
+	case "mediainfo videodynamicrange", "mediainfo videodynamicrangetype":
+		if ctx.VideoDynamicRange == "" || ctx.VideoDynamicRange == "SDR" {
+			return ""
+		}
+		if name == "mediainfo videodynamicrange" {
 			return "HDR"
 		}
-		return ""
-	case "mediainfo videodynamicrangetype":
-		if ctx.VideoDynamicRange != "" && ctx.VideoDynamicRange != "SDR" {
-			return ctx.VideoDynamicRange
-		}
-		return ""
+		return ctx.VideoDynamicRange
 	case "mediainfo audiocodec":
 		return ctx.AudioCodec
-	case "mediainfo audiochannels":
+	default: // mediainfo audiochannels
 		return ctx.AudioChannels
-	case "mediainfo audiolanguages":
-		return t.formatLanguages(ctx.AudioLanguages)
-	case "mediainfo subtitlelanguages":
-		return t.formatLanguages(ctx.SubtitleLanguages)
+	}
+}
 
-	// Other tokens
+func (t *Token) resolveOtherToken(name string, ctx *TokenContext) string {
+	switch name {
 	case "release group":
 		return ctx.ReleaseGroup
 	case "custom formats":
@@ -239,20 +269,27 @@ func (t *Token) resolveValue(ctx *TokenContext) string {
 		return ctx.Revision
 	case "edition tags":
 		return ctx.EditionTags
+	default:
+		return ""
+	}
+}
 
-	// Anime tokens
-	case "absolute":
+func (t *Token) resolveAnimeToken(name string, ctx *TokenContext) string {
+	if name == "absolute" {
 		if ctx.AbsoluteNumber > 0 {
 			return t.formatNumber(ctx.AbsoluteNumber)
 		}
 		return ""
-	case "version":
-		if ctx.ReleaseVersion > 1 {
-			return fmt.Sprintf("v%d", ctx.ReleaseVersion)
-		}
-		return ""
+	}
+	// version
+	if ctx.ReleaseVersion > 1 {
+		return fmt.Sprintf("v%d", ctx.ReleaseVersion)
+	}
+	return ""
+}
 
-	// Movie tokens
+func (t *Token) resolveMovieToken(name string, ctx *TokenContext) string {
+	switch name {
 	case "movie title":
 		return ctx.MovieTitle
 	case "movie titleyear":
@@ -262,12 +299,19 @@ func (t *Token) resolveValue(ctx *TokenContext) string {
 		return ctx.MovieTitle
 	case "movie cleantitle":
 		return CleanTitle(ctx.MovieTitle)
-	case "movie cleantitleyear":
+	default: // movie cleantitleyear
 		clean := CleanTitle(ctx.MovieTitle)
 		if ctx.MovieYear > 0 {
 			return fmt.Sprintf("%s %d", clean, ctx.MovieYear)
 		}
 		return clean
+	}
+}
+
+func (t *Token) resolveSimpleToken(name string, ctx *TokenContext) string {
+	switch name {
+	case "season":
+		return t.formatNumber(ctx.SeasonNumber)
 	case "year":
 		if ctx.MovieYear > 0 {
 			return strconv.Itoa(ctx.MovieYear)
@@ -276,22 +320,25 @@ func (t *Token) resolveValue(ctx *TokenContext) string {
 			return strconv.Itoa(ctx.SeriesYear)
 		}
 		return ""
-
-	// Custom format specific token: {Custom Format:Name}
-	// After parsing, name="custom format" and modifier="Name"
+	case "absolute", "version":
+		return t.resolveAnimeToken(name, ctx)
 	case "custom format":
-		if t.Modifier != "" {
-			for _, cf := range ctx.CustomFormats {
-				if strings.EqualFold(cf, t.Modifier) {
-					return cf
-				}
-			}
-		}
-		return ""
-
+		return t.resolveCustomFormat(ctx)
 	default:
-		return "" // Unknown token
+		return t.resolveOtherToken(name, ctx)
 	}
+}
+
+func (t *Token) resolveCustomFormat(ctx *TokenContext) string {
+	if t.Modifier == "" {
+		return ""
+	}
+	for _, cf := range ctx.CustomFormats {
+		if strings.EqualFold(cf, t.Modifier) {
+			return cf
+		}
+	}
+	return ""
 }
 
 // formatNumber formats a number with the specified padding from the modifier.
@@ -432,38 +479,44 @@ func (t *Token) filterLanguages(langs []string) []string {
 		return langs
 	}
 
-	// Check for exclusion filter (prefix -)
 	if strings.HasPrefix(t.Modifier, "-") {
-		exclude := strings.ToUpper(strings.TrimPrefix(t.Modifier, "-"))
-		result := make([]string, 0, len(langs))
-		for _, lang := range langs {
-			if !strings.EqualFold(lang, exclude) {
-				result = append(result, lang)
-			}
-		}
-		return result
+		return t.filterLanguagesExclude(langs)
 	}
 
-	// Check for inclusion filter (comma or + separated)
 	if strings.Contains(t.Modifier, "+") || strings.Contains(t.Modifier, ",") {
-		includes := strings.FieldsFunc(t.Modifier, func(r rune) bool {
-			return r == '+' || r == ','
-		})
-		includeMap := make(map[string]bool)
-		for _, inc := range includes {
-			includeMap[strings.ToUpper(strings.TrimSpace(inc))] = true
-		}
-
-		result := make([]string, 0, len(langs))
-		for _, lang := range langs {
-			if includeMap[strings.ToUpper(lang)] {
-				result = append(result, lang)
-			}
-		}
-		return result
+		return t.filterLanguagesInclude(langs)
 	}
 
 	return langs
+}
+
+func (t *Token) filterLanguagesExclude(langs []string) []string {
+	exclude := strings.ToUpper(strings.TrimPrefix(t.Modifier, "-"))
+	result := make([]string, 0, len(langs))
+	for _, lang := range langs {
+		if !strings.EqualFold(lang, exclude) {
+			result = append(result, lang)
+		}
+	}
+	return result
+}
+
+func (t *Token) filterLanguagesInclude(langs []string) []string {
+	includes := strings.FieldsFunc(t.Modifier, func(r rune) bool {
+		return r == '+' || r == ','
+	})
+	includeMap := make(map[string]bool)
+	for _, inc := range includes {
+		includeMap[strings.ToUpper(strings.TrimSpace(inc))] = true
+	}
+
+	result := make([]string, 0, len(langs))
+	for _, lang := range langs {
+		if includeMap[strings.ToUpper(lang)] {
+			result = append(result, lang)
+		}
+	}
+	return result
 }
 
 // GetAllTokenNames returns all supported token names for validation.
@@ -503,7 +556,7 @@ func IsValidTokenName(name string) bool {
 	}
 
 	for _, valid := range GetAllTokenNames() {
-		if strings.ToLower(valid) == lower {
+		if strings.EqualFold(valid, lower) {
 			return true
 		}
 	}

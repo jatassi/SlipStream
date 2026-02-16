@@ -28,7 +28,7 @@ func RegisterAutoSearchTask(sched *scheduler.Scheduler, searcher *autosearch.Sch
 
 	cronExpr := buildAutoSearchCronExpr(cfg.IntervalHours)
 
-	return sched.RegisterTask(scheduler.TaskConfig{
+	return sched.RegisterTask(&scheduler.TaskConfig{
 		ID:          AutoSearchTaskID,
 		Name:        "Automatic Search",
 		Description: "Searches for missing monitored items and downloads best available releases",

@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 )
+
+var ErrNoCacheBoundary = errors.New("no cache boundary")
 
 // ProwlarrAggregatedID is a sentinel value indicating the Prowlarr aggregated feed.
 // Cache boundaries for Prowlarr are stored in the settings table (not indexer_status)
@@ -40,7 +43,7 @@ func GetCacheBoundary(ctx context.Context, queries *sqlc.Queries, indexerID int6
 		return nil, err
 	}
 	if !row.LastRssReleaseUrl.Valid || row.LastRssReleaseUrl.String == "" {
-		return nil, nil
+		return nil, ErrNoCacheBoundary
 	}
 	return &CacheBoundary{
 		URL:  row.LastRssReleaseUrl.String,
@@ -80,17 +83,17 @@ func IsAtCacheBoundary(release *types.TorrentInfo, boundary *CacheBoundary) bool
 }
 
 func getProwlarrCacheBoundary(ctx context.Context, queries *sqlc.Queries) (*CacheBoundary, error) {
-	row, err := queries.GetSetting(ctx, prowlarrCacheKey)
-	if err != nil {
-		return nil, nil
+	row, getErr := queries.GetSetting(ctx, prowlarrCacheKey)
+	if getErr != nil {
+		return nil, ErrNoCacheBoundary
 	}
 
 	var cached prowlarrCacheJSON
-	if err := json.Unmarshal([]byte(row.Value), &cached); err != nil {
-		return nil, nil
+	if unmarshalErr := json.Unmarshal([]byte(row.Value), &cached); unmarshalErr != nil {
+		return nil, ErrNoCacheBoundary
 	}
 	if cached.URL == "" {
-		return nil, nil
+		return nil, ErrNoCacheBoundary
 	}
 
 	boundary := &CacheBoundary{URL: cached.URL}

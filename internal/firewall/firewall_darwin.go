@@ -12,8 +12,8 @@ import (
 // macOS has two firewalls: Application Firewall (socketfilterfw) and pf (packet filter).
 // We check the Application Firewall as it's the user-facing one.
 // Returns: firewallEnabled, portAllowed, firewallName, error
-func checkFirewall(ctx context.Context, port int) (bool, bool, string, error) {
-	firewallName := "macOS Firewall"
+func checkFirewall(ctx context.Context, port int) (firewallEnabled, portAllowed bool, firewallName string, err error) {
+	firewallName = "macOS Firewall"
 
 	// Check Application Firewall status using socketfilterfw
 	enabled, err := isMacOSFirewallEnabled(ctx)

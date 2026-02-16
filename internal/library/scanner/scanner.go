@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -27,11 +28,11 @@ type ScanResult struct {
 
 // ScanProgress is sent during scanning to report progress.
 type ScanProgress struct {
-	RootFolderID int64  `json:"rootFolderId"`
-	CurrentPath  string `json:"currentPath"`
-	FilesScanned int    `json:"filesScanned"`
-	MoviesFound  int    `json:"moviesFound"`
-	EpisodesFound int   `json:"episodesFound"`
+	RootFolderID  int64  `json:"rootFolderId"`
+	CurrentPath   string `json:"currentPath"`
+	FilesScanned  int    `json:"filesScanned"`
+	MoviesFound   int    `json:"moviesFound"`
+	EpisodesFound int    `json:"episodesFound"`
 }
 
 // ProgressCallback is called during scanning to report progress.
@@ -39,19 +40,20 @@ type ProgressCallback func(progress ScanProgress)
 
 // Service provides media file scanning operations.
 type Service struct {
-	logger zerolog.Logger
+	logger *zerolog.Logger
 }
 
 // NewService creates a new scanner service.
-func NewService(logger zerolog.Logger) *Service {
+func NewService(logger *zerolog.Logger) *Service {
+	subLogger := logger.With().Str("component", "scanner").Logger()
 	return &Service{
-		logger: logger.With().Str("component", "scanner").Logger(),
+		logger: &subLogger,
 	}
 }
 
 // ScanFolder scans a root folder for media files.
 // mediaType should be "movie" or "tv".
-func (s *Service) ScanFolder(ctx context.Context, folderPath string, mediaType string, progressCb ProgressCallback) (*ScanResult, error) {
+func (s *Service) ScanFolder(ctx context.Context, folderPath, mediaType string, progressCb ProgressCallback) (*ScanResult, error) {
 	result := &ScanResult{
 		RootPath: folderPath,
 		Movies:   make([]ParsedMedia, 0),
@@ -64,76 +66,13 @@ func (s *Service) ScanFolder(ctx context.Context, folderPath string, mediaType s
 		Str("mediaType", mediaType).
 		Msg("Starting folder scan")
 
-	// Walk the directory tree
-	err := filepath.WalkDir(folderPath, func(path string, d os.DirEntry, err error) error {
-		// Check for cancellation
+	err := filepath.WalkDir(folderPath, func(path string, d os.DirEntry, walkErr error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-
-		if err != nil {
-			result.Errors = append(result.Errors, ScanError{
-				Path:  path,
-				Error: err.Error(),
-			})
-			return nil // Continue scanning
-		}
-
-		// Skip directories
-		if d.IsDir() {
-			return nil
-		}
-
-		// Check if it's a video file
-		if !IsVideoFile(d.Name()) {
-			return nil
-		}
-
-		// Skip sample files
-		if IsSampleFile(d.Name()) {
-			result.Skipped++
-			return nil
-		}
-
-		result.TotalFiles++
-
-		// Get file info for size
-		info, err := d.Info()
-		if err != nil {
-			result.Errors = append(result.Errors, ScanError{
-				Path:  path,
-				Error: err.Error(),
-			})
-			return nil
-		}
-
-		// Parse the file
-		parsed := ParsePath(path)
-		parsed.FileSize = info.Size()
-
-		// Categorize based on scan type or detection
-		if mediaType == "movie" || (!parsed.IsTV && mediaType == "") {
-			parsed.IsTV = false
-			result.Movies = append(result.Movies, *parsed)
-		} else if mediaType == "tv" || parsed.IsTV {
-			parsed.IsTV = true
-			result.Episodes = append(result.Episodes, *parsed)
-		}
-
-		// Report progress
-		if progressCb != nil {
-			progressCb(ScanProgress{
-				RootFolderID:  result.RootFolderID,
-				CurrentPath:   path,
-				FilesScanned:  result.TotalFiles,
-				MoviesFound:   len(result.Movies),
-				EpisodesFound: len(result.Episodes),
-			})
-		}
-
-		return nil
+		return s.processEntry(path, d, walkErr, mediaType, result, progressCb)
 	})
 
 	if err != nil {
@@ -150,6 +89,56 @@ func (s *Service) ScanFolder(ctx context.Context, folderPath string, mediaType s
 		Msg("Folder scan completed")
 
 	return result, nil
+}
+
+func (s *Service) processEntry(path string, d os.DirEntry, walkErr error, mediaType string, result *ScanResult, progressCb ProgressCallback) error {
+	if walkErr != nil {
+		result.Errors = append(result.Errors, ScanError{Path: path, Error: walkErr.Error()})
+		return nil //nolint:nilerr // Record error but continue scanning
+	}
+
+	if d.IsDir() || !IsVideoFile(d.Name()) {
+		return nil
+	}
+
+	if IsSampleFile(d.Name()) {
+		result.Skipped++
+		return nil
+	}
+
+	result.TotalFiles++
+
+	info, infoErr := d.Info()
+	if infoErr != nil {
+		result.Errors = append(result.Errors, ScanError{Path: path, Error: infoErr.Error()})
+		return nil //nolint:nilerr // Record error but continue scanning
+	}
+
+	parsed := ParsePath(path)
+	parsed.FileSize = info.Size()
+	categorizeMedia(parsed, mediaType, result)
+
+	if progressCb != nil {
+		progressCb(ScanProgress{
+			RootFolderID:  result.RootFolderID,
+			CurrentPath:   path,
+			FilesScanned:  result.TotalFiles,
+			MoviesFound:   len(result.Movies),
+			EpisodesFound: len(result.Episodes),
+		})
+	}
+
+	return nil
+}
+
+func categorizeMedia(parsed *ParsedMedia, mediaType string, result *ScanResult) {
+	if mediaType == "movie" || (!parsed.IsTV && mediaType == "") {
+		parsed.IsTV = false
+		result.Movies = append(result.Movies, *parsed)
+	} else if mediaType == "tv" || parsed.IsTV {
+		parsed.IsTV = true
+		result.Episodes = append(result.Episodes, *parsed)
+	}
 }
 
 // ScanFile scans a single file and returns parsed information.
@@ -173,9 +162,9 @@ func (s *Service) DetectMediaType(folderPath string) (string, error) {
 	movieCount := 0
 	tvCount := 0
 
-	err := filepath.WalkDir(folderPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
+	err := filepath.WalkDir(folderPath, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil //nolint:nilerr // Skip errors and directories during type detection
 		}
 
 		if !IsVideoFile(d.Name()) {
@@ -196,7 +185,7 @@ func (s *Service) DetectMediaType(folderPath string) (string, error) {
 		return nil
 	})
 
-	if err != nil && err != filepath.SkipAll {
+	if err != nil && !errors.Is(err, filepath.SkipAll) {
 		return "", err
 	}
 

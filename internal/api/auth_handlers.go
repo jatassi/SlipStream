@@ -1,3 +1,6 @@
+// Package api provides HTTP handlers for the SlipStream API.
+//
+//nolint:revive // Package name 'api' is intentionally generic for the HTTP API layer
 package api
 
 import (

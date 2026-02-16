@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
@@ -29,7 +30,7 @@ func DefaultRetentionSettings() RetentionSettings {
 func (s *Service) GetRetentionSettings(ctx context.Context) (RetentionSettings, error) {
 	row, err := s.queries.GetSetting(ctx, settingsKey)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return DefaultRetentionSettings(), nil
 		}
 		return RetentionSettings{}, err
@@ -37,7 +38,7 @@ func (s *Service) GetRetentionSettings(ctx context.Context) (RetentionSettings, 
 
 	var settings RetentionSettings
 	if err := json.Unmarshal([]byte(row.Value), &settings); err != nil {
-		return DefaultRetentionSettings(), nil
+		return DefaultRetentionSettings(), nil //nolint:nilerr // Invalid JSON, use defaults
 	}
 	return settings, nil
 }

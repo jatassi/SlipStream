@@ -20,12 +20,12 @@ const (
 
 // IndexerError represents a categorized error from an indexer operation.
 type IndexerError struct {
-	Code       string // Error category code
-	Message    string // Human-readable message
-	IndexerID  int64  // ID of the affected indexer (0 if not applicable)
+	Code        string // Error category code
+	Message     string // Human-readable message
+	IndexerID   int64  // ID of the affected indexer (0 if not applicable)
 	IndexerName string // Name of the affected indexer
-	Retryable  bool   // Whether the operation can be retried
-	Cause      error  // Underlying error
+	Retryable   bool   // Whether the operation can be retried
+	Cause       error  // Underlying error
 }
 
 // Error implements the error interface.
@@ -100,7 +100,7 @@ func NewDownloadError(indexerID int64, indexerName string, cause error) *Indexer
 }
 
 // NewConfigError creates a configuration error.
-func NewConfigError(indexerID int64, indexerName string, message string) *IndexerError {
+func NewConfigError(indexerID int64, indexerName, message string) *IndexerError {
 	return &IndexerError{
 		Code:        ErrCodeConfiguration,
 		Message:     message,
@@ -134,7 +134,7 @@ func NewNetworkError(indexerID int64, indexerName string, cause error) *IndexerE
 }
 
 // NewParseError creates a parsing error.
-func NewParseError(indexerID int64, indexerName string, message string, cause error) *IndexerError {
+func NewParseError(indexerID int64, indexerName, message string, cause error) *IndexerError {
 	return &IndexerError{
 		Code:        ErrCodeParse,
 		Message:     message,
