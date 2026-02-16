@@ -12,7 +12,7 @@ export function useFileNamingSection() {
 
   const [form, setForm] = useState<ImportSettings | null>(null)
   const [activeTab, setActiveTab] = useState('validation')
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
 
   if (settings !== prevSettings) {
     setPrevSettings(settings)

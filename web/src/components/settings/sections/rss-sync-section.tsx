@@ -148,7 +148,7 @@ export function RssSyncSection() {
 
   const [enabled, setEnabled] = useState(true)
   const [intervalMin, setIntervalMin] = useState(15)
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
 
   if (settings !== prevSettings) {
     setPrevSettings(settings)

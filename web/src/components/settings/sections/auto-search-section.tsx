@@ -102,7 +102,7 @@ export function AutoSearchSection() {
   const [enabled, setEnabled] = useState(true)
   const [intervalHours, setIntervalHours] = useState(1)
   const [backoffThreshold, setBackoffThreshold] = useState(12)
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
 
   if (settings !== prevSettings) {
     setPrevSettings(settings)

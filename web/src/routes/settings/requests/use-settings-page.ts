@@ -131,7 +131,7 @@ export function useRequestSettingsPage() {
 
   const [formData, setFormData] = useState<Partial<RequestSettings>>({})
   const [hasChanges, setHasChanges] = useState(false)
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
   const portalEnabled = formData.enabled ?? settings?.enabled ?? true
 
   syncFormFromSettings({ settings, prevSettings, setFormData, setHasChanges, setPrevSettings })

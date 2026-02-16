@@ -30,7 +30,7 @@ export function useHistoryRetention() {
 
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [days, setDays] = useState<number | null>(null)
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
 
   if (settings !== prevSettings) {
     setPrevSettings(settings)

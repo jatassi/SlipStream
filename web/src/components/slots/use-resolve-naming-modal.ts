@@ -71,7 +71,7 @@ export function useResolveNamingModal({
   const [form, setForm] = useState<Partial<ImportSettings>>({})
   const [saving, setSaving] = useState(false)
   const [prevOpen, setPrevOpen] = useState(open)
-  const [prevSettings, setPrevSettings] = useState(settings)
+  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
 
   if (open !== prevOpen || settings !== prevSettings) {
     setPrevOpen(open)

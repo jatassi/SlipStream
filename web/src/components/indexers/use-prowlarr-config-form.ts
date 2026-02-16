@@ -121,7 +121,7 @@ function useProwlarrFormState() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
-  const [prevConfig, setPrevConfig] = useState(config)
+  const [prevConfig, setPrevConfig] = useState<typeof config>(undefined)
 
   if (config !== prevConfig) {
     setPrevConfig(config)
