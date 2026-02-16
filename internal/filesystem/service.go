@@ -380,8 +380,8 @@ func (s *Service) BrowseForImport(path string) (*ImportBrowseResult, error) {
 }
 
 func (s *Service) processImportEntries(entries []os.DirEntry, cleanPath string) ([]DirectoryEntry, []FileEntry) {
-	var dirEntries []DirectoryEntry
-	var fileEntries []FileEntry
+	dirEntries := make([]DirectoryEntry, 0)
+	fileEntries := make([]FileEntry, 0)
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -460,8 +460,8 @@ func (s *Service) browseMockForImport(path string) (*ImportBrowseResult, error) 
 		return nil, err
 	}
 
-	var dirEntries []DirectoryEntry
-	var fileEntries []FileEntry
+	dirEntries := make([]DirectoryEntry, 0)
+	fileEntries := make([]FileEntry, 0)
 
 	for _, f := range files {
 		name := f.Name
@@ -507,8 +507,10 @@ func (s *Service) browseRootForImport() (*ImportBrowseResult, error) {
 	if runtime.GOOS == osWindows {
 		drives := s.listDrives()
 		return &ImportBrowseResult{
-			Path:   "",
-			Drives: drives,
+			Path:        "",
+			Drives:      drives,
+			Directories: make([]DirectoryEntry, 0),
+			Files:       make([]FileEntry, 0),
 		}, nil
 	}
 

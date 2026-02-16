@@ -98,7 +98,7 @@ export function DirectoryListing(props: {
   onNavigateUp: () => void
 }) {
   const { data } = props
-  const isEmpty = data && (data.drives?.length ?? 0) === 0 && data.directories.length === 0 && data.files.length === 0
+  const isEmpty = data && (data.drives?.length ?? 0) === 0 && (data.directories?.length ?? 0) === 0 && (data.files?.length ?? 0) === 0
 
   return (
     <ScrollArea className="h-[400px]">
