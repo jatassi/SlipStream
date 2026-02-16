@@ -679,8 +679,8 @@ func (s *Service) extractWindowsUpdate(downloadPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open ZIP file: %w", err)
 	}
+	defer zipReader.Close()
 
-	zipReader.Close()
 	var extractErr error
 	for _, f := range zipReader.File {
 		if !strings.HasSuffix(f.Name, "slipstream.exe") {
