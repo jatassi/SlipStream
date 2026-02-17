@@ -25,6 +25,7 @@ export type SourceRootFolder = {
 export type SourceQualityProfile = {
   id: number
   name: string
+  inUse: boolean
 }
 
 export type ImportMappings = {

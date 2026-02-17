@@ -41,6 +41,7 @@ function WizardStepRenderer({ wizard }: { wizard: WizardState }) {
 
     return (
       <MappingStep
+        sourceType={wizard.sourceType}
         sourceRootFolders={wizard.sourceRootFolders}
         sourceQualityProfiles={wizard.sourceQualityProfiles}
         onMappingsComplete={wizard.handleMappingsComplete}

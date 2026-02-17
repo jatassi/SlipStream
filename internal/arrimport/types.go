@@ -26,8 +26,9 @@ type SourceRootFolder struct {
 
 // SourceQualityProfile represents a quality profile from the source application.
 type SourceQualityProfile struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	InUse bool   `json:"inUse"`
 }
 
 // SourceMovie represents a movie from the source (Radarr).

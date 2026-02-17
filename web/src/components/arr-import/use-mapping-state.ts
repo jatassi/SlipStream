@@ -66,11 +66,33 @@ function buildQualityProfileAutoMapping(
   return autoMapping
 }
 
+function buildInitialProfileEnabled(profiles: SourceQualityProfile[]): Record<number, boolean> {
+  const enabled: Record<number, boolean> = {}
+  for (const profile of profiles) {
+    enabled[profile.id] = profile.inUse
+  }
+  return enabled
+}
+
 type UseMappingStateOptions = {
   sourceRootFolders: SourceRootFolder[]
   sourceQualityProfiles: SourceQualityProfile[]
   targetRootFolders: { id: number; path: string }[] | undefined
   targetQualityProfiles: { id: number; name: string }[] | undefined
+}
+
+function buildEnabledProfileMapping(
+  profiles: SourceQualityProfile[],
+  profileEnabled: Record<number, boolean>,
+  qualityProfileMapping: Record<number, number>,
+): Record<number, number> {
+  const filtered: Record<number, number> = {}
+  for (const profile of profiles) {
+    if (profileEnabled[profile.id] && profile.id in qualityProfileMapping) {
+      filtered[profile.id] = qualityProfileMapping[profile.id]
+    }
+  }
+  return filtered
 }
 
 export function useMappingState({
@@ -81,6 +103,9 @@ export function useMappingState({
 }: UseMappingStateOptions) {
   const [rootFolderMapping, setRootFolderMapping] = useState<Record<string, number>>({})
   const [qualityProfileMapping, setQualityProfileMapping] = useState<Record<number, number>>({})
+  const [profileEnabled, setProfileEnabled] = useState<Record<number, boolean>>(() =>
+    buildInitialProfileEnabled(sourceQualityProfiles),
+  )
 
   const [prevTargetRootFolders, setPrevTargetRootFolders] = useState(targetRootFolders)
   const [prevTargetQualityProfiles, setPrevTargetQualityProfiles] = useState(targetQualityProfiles)
@@ -95,27 +120,24 @@ export function useMappingState({
   if (targetQualityProfiles !== prevTargetQualityProfiles) {
     setPrevTargetQualityProfiles(targetQualityProfiles)
     if (targetQualityProfiles) {
-      setQualityProfileMapping(buildQualityProfileAutoMapping(sourceQualityProfiles, targetQualityProfiles))
+      setQualityProfileMapping(
+        buildQualityProfileAutoMapping(sourceQualityProfiles, targetQualityProfiles),
+      )
     }
   }
 
   const allRootFoldersMapped = sourceRootFolders.every((folder) => folder.path in rootFolderMapping)
-  const allProfilesMapped = sourceQualityProfiles.every((profile) => profile.id in qualityProfileMapping)
+  const allProfilesMapped = sourceQualityProfiles.every(
+    (profile) => !profileEnabled[profile.id] || profile.id in qualityProfileMapping,
+  )
 
   const handleNext = (onMappingsComplete: (mappings: ImportMappings) => void) => {
     if (!allRootFoldersMapped || !allProfilesMapped) {
       return
     }
-    onMappingsComplete({ rootFolderMapping, qualityProfileMapping })
+    const filtered = buildEnabledProfileMapping(sourceQualityProfiles, profileEnabled, qualityProfileMapping)
+    onMappingsComplete({ rootFolderMapping, qualityProfileMapping: filtered })
   }
 
-  return {
-    rootFolderMapping,
-    setRootFolderMapping,
-    qualityProfileMapping,
-    setQualityProfileMapping,
-    allRootFoldersMapped,
-    allProfilesMapped,
-    handleNext,
-  }
+  return { rootFolderMapping, setRootFolderMapping, qualityProfileMapping, setQualityProfileMapping, profileEnabled, setProfileEnabled, allRootFoldersMapped, allProfilesMapped, handleNext }
 }

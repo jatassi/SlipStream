@@ -85,7 +85,45 @@ func (r *sqliteReader) ReadQualityProfiles(ctx context.Context) ([]SourceQuality
 		}
 		profiles = append(profiles, p)
 	}
-	return profiles, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	inUse, err := r.profileIDsInUse(ctx)
+	if err != nil {
+		return profiles, nil
+	}
+	for i := range profiles {
+		if inUse[profiles[i].ID] {
+			profiles[i].InUse = true
+		}
+	}
+	return profiles, nil
+}
+
+// profileIDsInUse returns the set of quality profile IDs referenced by media items.
+func (r *sqliteReader) profileIDsInUse(ctx context.Context) (map[int64]bool, error) {
+	table := "Movies"
+	if r.sourceType == SourceTypeSonarr {
+		table = "Series"
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT DISTINCT QualityProfileId FROM "+table) //nolint:gosec // table name is from a trusted constant
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make(map[int64]bool)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids[id] = true
+	}
+	return ids, rows.Err()
 }
 
 // ReadMovies reads movies from a Radarr database.

@@ -113,11 +113,40 @@ func (r *apiReader) ReadQualityProfiles(ctx context.Context) ([]SourceQualityPro
 		return nil, fmt.Errorf("failed to parse quality profiles: %w", err)
 	}
 
+	inUse := r.profileIDsInUse(ctx)
+
 	profiles := make([]SourceQualityProfile, len(apiProfiles))
 	for i, p := range apiProfiles {
-		profiles[i] = SourceQualityProfile{ID: p.ID, Name: p.Name}
+		profiles[i] = SourceQualityProfile{ID: p.ID, Name: p.Name, InUse: inUse[p.ID]}
 	}
 	return profiles, nil
+}
+
+// profileIDsInUse fetches media items and returns which quality profile IDs are referenced.
+func (r *apiReader) profileIDsInUse(ctx context.Context) map[int64]bool {
+	ids := make(map[int64]bool)
+
+	endpoint := "/api/v3/movie"
+	if r.sourceType == SourceTypeSonarr {
+		endpoint = "/api/v3/series"
+	}
+
+	data, err := r.doRequest(ctx, endpoint)
+	if err != nil {
+		return ids
+	}
+
+	var items []struct {
+		QualityProfileID int64 `json:"qualityProfileId"`
+	}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return ids
+	}
+
+	for _, item := range items {
+		ids[item.QualityProfileID] = true
+	}
+	return ids
 }
 
 type apiMovie struct {
