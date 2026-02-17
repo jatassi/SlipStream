@@ -30,6 +30,7 @@ import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
 import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
 import { IndexersPage } from '@/routes/settings/downloads/indexers'
 import { RssSyncPage } from '@/routes/settings/downloads/rss-sync'
+import { ArrImportPage } from '@/routes/settings/media/arr-import'
 import { FileNamingPage } from '@/routes/settings/media/file-naming'
 import { QualityProfilesPage } from '@/routes/settings/media/quality-profiles'
 import { RootFoldersPage } from '@/routes/settings/media/root-folders'
@@ -99,6 +100,7 @@ export const rootFoldersRoute = route('/settings/media/root-folders', RootFolder
 export const qualityProfilesRoute = route('/settings/media/quality-profiles', QualityProfilesPage)
 export const versionSlotsRoute = route('/settings/media/version-slots', VersionSlotsPage)
 export const fileNamingRoute = route('/settings/media/file-naming', FileNamingPage)
+export const arrImportRoute = route('/settings/media/arr-import', ArrImportPage)
 export const downloadsSettingsRoute = redirectRoute('/settings/downloads', '/settings/downloads/indexers')
 export const indexersRoute = route('/settings/downloads/indexers', IndexersPage)
 export const downloadClientsRoute = route('/settings/downloads/clients', DownloadClientsPage)

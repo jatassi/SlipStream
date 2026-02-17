@@ -8,6 +8,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/api/handlers"
 	apimw "github.com/slipstream/slipstream/internal/api/middleware"
+	"github.com/slipstream/slipstream/internal/arrimport"
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/calendar"
@@ -324,6 +325,9 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 
 	importHandlers := importer.NewHandlers(s.importService, s.startupDB)
 	importHandlers.RegisterRoutes(protected.Group("/import"))
+
+	arrImportHandlers := arrimport.NewHandlers(s.arrImportService)
+	arrImportHandlers.RegisterRoutes(protected.Group("/arrimport"))
 
 	s.importSettingsHandlers = importer.NewSettingsHandlers(s.startupDB, s.importService)
 	s.importSettingsHandlers.RegisterSettingsRoutes(settings)

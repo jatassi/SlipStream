@@ -4,6 +4,7 @@ import {
   activityRoute,
   addMovieRoute,
   addSeriesRoute,
+  arrImportRoute,
   authenticationRoute,
   authSetupRoute,
   autoSearchRoute,
@@ -73,6 +74,7 @@ const routeTree = rootRoute.addChildren([
   qualityProfilesRoute,
   versionSlotsRoute,
   fileNamingRoute,
+  arrImportRoute,
   // Downloads settings
   downloadsSettingsRoute,
   indexersRoute,

@@ -7,6 +7,14 @@ When making changes to this file, ALWAYS make the same update to CLAUDE.md in th
 
 Handlers -> Services -> sqlc queries. Services are injected during server setup in `internal/server/`.
 
+## Logging
+
+Use `github.com/rs/zerolog` (`*zerolog.Logger`) for all logging. Do NOT use `log/slog`. Zerolog syntax:
+```go
+s.logger.Info().Str("key", val).Int("count", n).Msg("message")
+s.logger.Warn().Err(err).Str("key", val).Msg("something failed")
+```
+
 ## Database
 
 SQLite, WAL mode, Goose migrations (embedded), sqlc-generated queries. After modifying `internal/database/queries/*.sql`, run:

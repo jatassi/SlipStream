@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/arrimport"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/history"
@@ -18,6 +19,7 @@ import (
 	indexerTypes "github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
@@ -25,6 +27,7 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/autoapprove"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
+	"github.com/slipstream/slipstream/internal/websocket"
 )
 
 type portalAutoApproveAdapter struct {
@@ -727,4 +730,60 @@ func (l *statusTrackerSeriesLookup) GetSeriesIDByTvdbID(ctx context.Context, tvd
 
 func (l *statusTrackerSeriesLookup) AreSeasonsComplete(ctx context.Context, seriesID int64, seasonNumbers []int64) (bool, error) {
 	return l.tvSvc.AreSeasonsComplete(ctx, seriesID, seasonNumbers)
+}
+
+// arrImportRootFolderAdapter adapts rootfolder.Service to arrimport.RootFolderService
+type arrImportRootFolderAdapter struct {
+	svc *rootfolder.Service
+}
+
+func (a *arrImportRootFolderAdapter) List(ctx context.Context) ([]*arrimport.RootFolder, error) {
+	folders, err := a.svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*arrimport.RootFolder, len(folders))
+	for i, f := range folders {
+		result[i] = &arrimport.RootFolder{
+			ID:        f.ID,
+			Name:      f.Name,
+			Path:      f.Path,
+			MediaType: f.MediaType,
+		}
+	}
+	return result, nil
+}
+
+// arrImportQualityAdapter adapts quality.Service to arrimport.QualityService
+type arrImportQualityAdapter struct {
+	svc *quality.Service
+}
+
+func (a *arrImportQualityAdapter) List(ctx context.Context) ([]*arrimport.QualityProfile, error) {
+	profiles, err := a.svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*arrimport.QualityProfile, len(profiles))
+	for i, p := range profiles {
+		result[i] = &arrimport.QualityProfile{
+			ID:   p.ID,
+			Name: p.Name,
+		}
+	}
+	return result, nil
+}
+
+// arrImportHubAdapter adapts websocket.Hub to the BroadcastJSON interface
+type arrImportHubAdapter struct {
+	hub *websocket.Hub
+}
+
+func (a *arrImportHubAdapter) BroadcastJSON(v interface{}) {
+	// The arrimport service expects to broadcast progress updates
+	// Hub.Broadcast takes (msgType string, payload interface{})
+	// We'll use a generic message type for arr import progress
+	a.hub.Broadcast("arrImportProgress", v)
 }

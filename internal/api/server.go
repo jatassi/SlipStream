@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	authratelimit "github.com/slipstream/slipstream/internal/api/ratelimit"
+	"github.com/slipstream/slipstream/internal/arrimport"
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
@@ -129,6 +130,7 @@ type Server struct {
 	organizerService       *organizer.Service
 	mediainfoService       *mediainfo.Service
 	slotsService           *slots.Service
+	arrImportService       *arrimport.Service
 	notificationService    *notification.Service
 	plexHandlers           *plex.Handlers
 	plexClient             *plex.Client
@@ -452,6 +454,19 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.importService.SetQualityService(s.qualityService)
 	s.importService.SetSlotsService(s.slotsService)
 	s.qualityService.SetImportDecisionCleaner(s.importService)
+
+	// Initialize arr import service (for migrating from Radarr/Sonarr)
+	s.arrImportService = arrimport.NewService(
+		db,
+		s.movieService,
+		s.tvService,
+		&arrImportRootFolderAdapter{svc: s.rootFolderService},
+		&arrImportQualityAdapter{svc: s.qualityService},
+		s.progressManager,
+		&arrImportHubAdapter{hub: hub},
+		logger,
+	)
+	s.arrImportService.SetSlotsService(s.slotsService)
 
 	// Initialize notification service
 	s.notificationService = notification.NewService(db, logger)

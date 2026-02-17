@@ -146,7 +146,8 @@
       "Bash(gh search code:*)",
       "Bash(gh pr view:*)",
       "Bash(scripts/verify-client-registration.sh:*)",
-      "Bash(bash scripts/verify-client-registration.sh:*)"
+      "Bash(bash scripts/verify-client-registration.sh:*)",
+      "Bash(git remote:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

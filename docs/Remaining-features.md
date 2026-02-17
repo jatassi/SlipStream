@@ -21,10 +21,10 @@
 [x] Update movies/series list pages
 [x] Update detail pages
 [x] Update missing page
-[ ] Support for more download clients and indexers (directly refer to *arr codebases)
+[x] Support for more download clients and indexers (directly refer to *arr codebases)
 [ ] Config backup & restore
 [x] Simplification, Refactor, Enhanced Test Suite, Security Audit
-[ ] Onboarding wizard (Sonarr/Radarr migration)
+[*] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========
 [ ] Transcode during import (integrate with slots - FFMPEG frontend)
 [ ] TRaSH Guides import support (maybe load as default?)

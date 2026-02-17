@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { FileInput, FolderOpen, Layers, Sliders } from 'lucide-react'
+import { ArrowRightLeft, FileInput, FolderOpen, Layers, Sliders } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -8,6 +8,7 @@ const mediaNavItems = [
   { title: 'Quality Profiles', href: '/settings/media/quality-profiles', icon: Sliders },
   { title: 'Version Slots', href: '/settings/media/version-slots', icon: Layers },
   { title: 'Import & Naming', href: '/settings/media/file-naming', icon: FileInput },
+  { title: 'Migrate from *arr', href: '/settings/media/arr-import', icon: ArrowRightLeft },
 ]
 
 export function MediaNav() {
