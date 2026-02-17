@@ -29,9 +29,10 @@ func NewService(logger *zerolog.Logger) *Service {
 	}
 }
 
-// BrowseDirectory lists directories at the given path
-// If path is empty, returns root directories (drives on Windows, / on Unix)
-func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
+// BrowseDirectory lists directories at the given path.
+// If path is empty, returns root directories (drives on Windows, / on Unix).
+// Optional extensions parameter includes files matching those extensions (e.g., ".db", ".sqlite").
+func (s *Service) BrowseDirectory(path string, extensions ...string) (*BrowseResult, error) {
 	if path == "" {
 		return s.browseRoot()
 	}
@@ -54,6 +55,11 @@ func (s *Service) BrowseDirectory(path string) (*BrowseResult, error) {
 	}
 
 	dirEntries := s.filterDirectories(entries, cleanPath)
+
+	if len(extensions) > 0 {
+		fileEntries := s.filterFilesByExtension(entries, cleanPath, extensions)
+		dirEntries = append(dirEntries, fileEntries...)
+	}
 
 	sort.Slice(dirEntries, func(i, j int) bool {
 		return strings.ToLower(dirEntries[i].Name) < strings.ToLower(dirEntries[j].Name)
@@ -89,6 +95,27 @@ func (s *Service) filterDirectories(entries []os.DirEntry, cleanPath string) []D
 		})
 	}
 	return dirEntries
+}
+
+func (s *Service) filterFilesByExtension(entries []os.DirEntry, basePath string, extensions []string) []DirectoryEntry {
+	var fileEntries []DirectoryEntry
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		for _, allowed := range extensions {
+			if ext == allowed {
+				fileEntries = append(fileEntries, DirectoryEntry{
+					Name:  entry.Name(),
+					Path:  filepath.Join(basePath, entry.Name()),
+					IsDir: false,
+				})
+				break
+			}
+		}
+	}
+	return fileEntries
 }
 
 func (s *Service) shouldSkipDirectory(name string) bool {

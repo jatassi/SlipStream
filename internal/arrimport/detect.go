@@ -57,12 +57,12 @@ func radarrPaths(home string) []string {
 		}
 	case "windows":
 		appdata := os.Getenv("APPDATA")
-		if appdata == "" {
-			return nil
+		var paths []string
+		if appdata != "" {
+			paths = append(paths, filepath.Join(appdata, "Radarr", "radarr.db"))
 		}
-		return []string{
-			filepath.Join(appdata, "Radarr", "radarr.db"),
-		}
+		paths = append(paths, `C:\ProgramData\Radarr\radarr.db`)
+		return paths
 	default:
 		return nil
 	}
@@ -83,12 +83,12 @@ func sonarrPaths(home string) []string {
 		}
 	case "windows":
 		appdata := os.Getenv("APPDATA")
-		if appdata == "" {
-			return nil
+		var paths []string
+		if appdata != "" {
+			paths = append(paths, filepath.Join(appdata, "Sonarr", "sonarr.db"))
 		}
-		return []string{
-			filepath.Join(appdata, "Sonarr", "sonarr.db"),
-		}
+		paths = append(paths, `C:\ProgramData\Sonarr\sonarr.db`)
+		return paths
 	default:
 		return nil
 	}

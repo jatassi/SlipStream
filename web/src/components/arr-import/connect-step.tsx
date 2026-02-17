@@ -60,6 +60,7 @@ export function ConnectStep({ sourceType, onSourceTypeChange, onConnected }: Con
         onOpenChange={setBrowserOpen}
         initialPath={dbPath}
         onSelect={setDbPath}
+        fileExtensions={['.db']}
       />
     </div>
   )

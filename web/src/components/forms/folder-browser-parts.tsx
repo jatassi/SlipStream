@@ -1,4 +1,4 @@
-import { ChevronRight, Folder, FolderUp, HardDrive } from 'lucide-react'
+import { ChevronRight, Database, File, Folder, FolderUp, HardDrive } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/formatters'
@@ -122,24 +122,40 @@ export function ParentButton({
 export function EntriesList({
   entries,
   onNavigate,
+  onFileSelect,
+  selectedFile,
 }: {
-  entries: { path: string; name: string }[]
+  entries: { path: string; name: string; isDir: boolean }[]
   onNavigate: (path: string) => void
+  onFileSelect?: (path: string) => void
+  selectedFile: string
 }) {
   return (
     <div className="p-1">
       {entries.map((entry) => (
         <button
           key={entry.path}
-          className="hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-left"
-          onClick={() => onNavigate(entry.path)}
+          className={`hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
+            !entry.isDir && selectedFile === entry.path ? 'bg-accent' : ''
+          }`}
+          onClick={() => (entry.isDir ? onNavigate(entry.path) : onFileSelect?.(entry.path))}
         >
-          <Folder className="size-5 text-blue-500" />
+          <EntryIcon name={entry.name} isDir={entry.isDir} />
           <span className="truncate">{entry.name}</span>
         </button>
       ))}
     </div>
   )
+}
+
+function EntryIcon({ name, isDir }: { name: string; isDir: boolean }) {
+  if (isDir) {
+    return <Folder className="size-5 shrink-0 text-blue-500" />
+  }
+  if (name.endsWith('.db')) {
+    return <Database className="size-5 shrink-0 text-amber-500" />
+  }
+  return <File className="text-muted-foreground size-5 shrink-0" />
 }
 
 export function EmptyMessage() {

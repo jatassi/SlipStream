@@ -3,6 +3,7 @@ package filesystem
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -43,12 +44,26 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.POST("/scan", h.ScanForMedia)
 }
 
-// Browse handles GET /api/v1/filesystem/browse?path=
-// Returns list of directories at the given path
+// Browse handles GET /api/v1/filesystem/browse?path=&extensions=.db,.sqlite
+// Returns list of directories at the given path, optionally including files matching extensions
 func (h *Handlers) Browse(c echo.Context) error {
 	path := c.QueryParam("path")
+	extensions := c.QueryParam("extensions")
 
-	result, err := h.service.BrowseDirectory(path)
+	var extList []string
+	if extensions != "" {
+		for _, ext := range strings.Split(extensions, ",") {
+			ext = strings.TrimSpace(ext)
+			if ext != "" {
+				if !strings.HasPrefix(ext, ".") {
+					ext = "." + ext
+				}
+				extList = append(extList, strings.ToLower(ext))
+			}
+		}
+	}
+
+	result, err := h.service.BrowseDirectory(path, extList...)
 	if err != nil {
 		return h.mapError(err)
 	}
