@@ -48,7 +48,7 @@ func (h *Handlers) Connect(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }
 
 // GetSourceRootFolders returns root folders from the connected source.
@@ -106,5 +106,5 @@ func (h *Handlers) Disconnect(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }
