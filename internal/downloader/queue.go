@@ -66,33 +66,56 @@ type QueueResponse struct {
 }
 
 // GetQueue returns all items from all enabled download clients.
+// Clients are polled concurrently, each with its own 5-second timeout.
 func (s *Service) GetQueue(ctx context.Context) (*QueueResponse, error) {
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	items := []QueueItem{}
-	var clientErrors []ClientError
+	type clientResult struct {
+		clientID int64
+		items    []QueueItem
+		err      error
+		name     string
+	}
 
+	var count int
+	for _, c := range clients {
+		if IsClientTypeImplemented(c.Type) {
+			count++
+		}
+	}
+
+	results := make(chan clientResult, count)
 	for _, dbClient := range clients {
 		if !IsClientTypeImplemented(dbClient.Type) {
 			continue
 		}
+		go func(dc *sqlc.DownloadClient) {
+			clientCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			items, err := s.getClientQueue(clientCtx, dc.ID, dc.Name, dc.Type)
+			results <- clientResult{clientID: dc.ID, items: items, err: err, name: dc.Name}
+		}(dbClient)
+	}
 
-		clientItems, err := s.getClientQueue(ctx, dbClient.ID, dbClient.Name, dbClient.Type)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Str("name", dbClient.Name).Msg("Failed to get queue from client, serving cached data")
+	items := []QueueItem{}
+	var clientErrors []ClientError
+	for range count {
+		r := <-results
+		if r.err != nil {
+			s.logger.Warn().Err(r.err).Int64("clientId", r.clientID).Str("name", r.name).Msg("Failed to get queue from client, serving cached data")
 			clientErrors = append(clientErrors, ClientError{
-				ClientID:   dbClient.ID,
-				ClientName: dbClient.Name,
-				Message:    err.Error(),
+				ClientID:   r.clientID,
+				ClientName: r.name,
+				Message:    r.err.Error(),
 			})
-			items = append(items, s.getCachedQueue(dbClient.ID)...)
+			items = append(items, s.getCachedQueue(r.clientID)...)
 			continue
 		}
-		s.setCachedQueue(dbClient.ID, clientItems)
-		items = append(items, clientItems...)
+		s.setCachedQueue(r.clientID, r.items)
+		items = append(items, r.items...)
 	}
 
 	s.enrichQueueItemsWithMappings(ctx, items)
@@ -292,8 +315,10 @@ func mapDownloadStatus(status types.Status) string {
 		return "completed"
 	case types.StatusQueued:
 		return statusQueued
+	case types.StatusWarning:
+		return "warning"
 	case types.StatusError:
-		return "failed"
+		return string(QueueMediaStatusFailed)
 	default:
 		return statusQueued
 	}

@@ -4,6 +4,7 @@ import { Download, Edit, TestTube, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { DownloadClientDialog } from '@/components/downloadclients/download-client-dialog'
+import { clientTypeConfigs } from '@/components/downloadclients/use-download-client-dialog'
 import { ConfirmDialog } from '@/components/forms/confirm-dialog'
 import { ListSection } from '@/components/settings/list-section'
 import { Badge } from '@/components/ui/badge'
@@ -16,14 +17,7 @@ import {
   useTestDownloadClient,
   useUpdateDownloadClient,
 } from '@/hooks'
-import type { DownloadClient } from '@/types'
-
-const clientTypeLabels: Record<string, string> = {
-  qbittorrent: 'qBittorrent',
-  transmission: 'Transmission',
-  sabnzbd: 'SABnzbd',
-  nzbget: 'NZBGet',
-}
+import type { DownloadClient, DownloadClientType } from '@/types'
 
 type ClientCardActions = {
   onToggleEnabled: (id: number, enabled: boolean) => void
@@ -33,7 +27,15 @@ type ClientCardActions = {
   isTestPending: boolean
 }
 
+function getClientTypeLabel(type: string): string {
+  if (type in clientTypeConfigs) {
+    return clientTypeConfigs[type as DownloadClientType].label
+  }
+  return type
+}
+
 function ClientCardInfo({ client }: { client: DownloadClient }) {
+  const urlBase = client.urlBase && client.urlBase !== '/' ? client.urlBase : ''
   return (
     <div className="flex items-center gap-4">
       <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
@@ -42,11 +44,11 @@ function ClientCardInfo({ client }: { client: DownloadClient }) {
       <div>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{client.name}</CardTitle>
-          <Badge variant="outline">{clientTypeLabels[client.type] || client.type}</Badge>
+          <Badge variant="outline">{getClientTypeLabel(client.type)}</Badge>
           <Badge variant="secondary">Priority {client.priority}</Badge>
         </div>
         <CardDescription className="text-xs">
-          {client.useSsl ? 'https' : 'http'}://{client.host}:{client.port}
+          {client.useSsl ? 'https' : 'http'}://{client.host}:{client.port}{urlBase}
         </CardDescription>
       </div>
     </div>

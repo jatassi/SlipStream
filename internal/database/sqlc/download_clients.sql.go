@@ -23,10 +23,10 @@ func (q *Queries) CountDownloadClients(ctx context.Context) (int64, error) {
 
 const createDownloadClient = `-- name: CreateDownloadClient :one
 INSERT INTO download_clients (
-    name, type, host, port, username, password, use_ssl, category, priority, enabled,
-    import_delay_seconds, cleanup_mode, seed_ratio_target
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
+    name, type, host, port, username, password, use_ssl, api_key, category, url_base,
+    priority, enabled, import_delay_seconds, cleanup_mode, seed_ratio_target
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, type, host, port, username, password, use_ssl, api_key, category, url_base, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
 `
 
 type CreateDownloadClientParams struct {
@@ -37,7 +37,9 @@ type CreateDownloadClientParams struct {
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
 	UseSsl             int64           `json:"use_ssl"`
+	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
+	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
 	Enabled            int64           `json:"enabled"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
@@ -54,7 +56,9 @@ func (q *Queries) CreateDownloadClient(ctx context.Context, arg CreateDownloadCl
 		arg.Username,
 		arg.Password,
 		arg.UseSsl,
+		arg.ApiKey,
 		arg.Category,
+		arg.UrlBase,
 		arg.Priority,
 		arg.Enabled,
 		arg.ImportDelaySeconds,
@@ -71,7 +75,9 @@ func (q *Queries) CreateDownloadClient(ctx context.Context, arg CreateDownloadCl
 		&i.Username,
 		&i.Password,
 		&i.UseSsl,
+		&i.ApiKey,
 		&i.Category,
+		&i.UrlBase,
 		&i.Priority,
 		&i.Enabled,
 		&i.CreatedAt,
@@ -93,7 +99,7 @@ func (q *Queries) DeleteDownloadClient(ctx context.Context, id int64) error {
 }
 
 const getDownloadClient = `-- name: GetDownloadClient :one
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE id = ? LIMIT 1
+SELECT id, name, type, host, port, username, password, use_ssl, api_key, category, url_base, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetDownloadClient(ctx context.Context, id int64) (*DownloadClient, error) {
@@ -108,7 +114,9 @@ func (q *Queries) GetDownloadClient(ctx context.Context, id int64) (*DownloadCli
 		&i.Username,
 		&i.Password,
 		&i.UseSsl,
+		&i.ApiKey,
 		&i.Category,
+		&i.UrlBase,
 		&i.Priority,
 		&i.Enabled,
 		&i.CreatedAt,
@@ -121,7 +129,7 @@ func (q *Queries) GetDownloadClient(ctx context.Context, id int64) (*DownloadCli
 }
 
 const listDownloadClients = `-- name: ListDownloadClients :many
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients ORDER BY priority, name
+SELECT id, name, type, host, port, username, password, use_ssl, api_key, category, url_base, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients ORDER BY priority, name
 `
 
 func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, error) {
@@ -142,7 +150,9 @@ func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, e
 			&i.Username,
 			&i.Password,
 			&i.UseSsl,
+			&i.ApiKey,
 			&i.Category,
+			&i.UrlBase,
 			&i.Priority,
 			&i.Enabled,
 			&i.CreatedAt,
@@ -165,7 +175,7 @@ func (q *Queries) ListDownloadClients(ctx context.Context) ([]*DownloadClient, e
 }
 
 const listEnabledDownloadClients = `-- name: ListEnabledDownloadClients :many
-SELECT id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE enabled = 1 ORDER BY priority, name
+SELECT id, name, type, host, port, username, password, use_ssl, api_key, category, url_base, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target FROM download_clients WHERE enabled = 1 ORDER BY priority, name
 `
 
 func (q *Queries) ListEnabledDownloadClients(ctx context.Context) ([]*DownloadClient, error) {
@@ -186,7 +196,9 @@ func (q *Queries) ListEnabledDownloadClients(ctx context.Context) ([]*DownloadCl
 			&i.Username,
 			&i.Password,
 			&i.UseSsl,
+			&i.ApiKey,
 			&i.Category,
+			&i.UrlBase,
 			&i.Priority,
 			&i.Enabled,
 			&i.CreatedAt,
@@ -217,7 +229,9 @@ UPDATE download_clients SET
     username = ?,
     password = ?,
     use_ssl = ?,
+    api_key = ?,
     category = ?,
+    url_base = ?,
     priority = ?,
     enabled = ?,
     import_delay_seconds = ?,
@@ -225,7 +239,7 @@ UPDATE download_clients SET
     seed_ratio_target = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, type, host, port, username, password, use_ssl, category, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
+RETURNING id, name, type, host, port, username, password, use_ssl, api_key, category, url_base, priority, enabled, created_at, updated_at, import_delay_seconds, cleanup_mode, seed_ratio_target
 `
 
 type UpdateDownloadClientParams struct {
@@ -236,7 +250,9 @@ type UpdateDownloadClientParams struct {
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
 	UseSsl             int64           `json:"use_ssl"`
+	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
+	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
 	Enabled            int64           `json:"enabled"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
@@ -254,7 +270,9 @@ func (q *Queries) UpdateDownloadClient(ctx context.Context, arg UpdateDownloadCl
 		arg.Username,
 		arg.Password,
 		arg.UseSsl,
+		arg.ApiKey,
 		arg.Category,
+		arg.UrlBase,
 		arg.Priority,
 		arg.Enabled,
 		arg.ImportDelaySeconds,
@@ -272,7 +290,9 @@ func (q *Queries) UpdateDownloadClient(ctx context.Context, arg UpdateDownloadCl
 		&i.Username,
 		&i.Password,
 		&i.UseSsl,
+		&i.ApiKey,
 		&i.Category,
+		&i.UrlBase,
 		&i.Priority,
 		&i.Enabled,
 		&i.CreatedAt,

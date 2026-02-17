@@ -76,6 +76,15 @@ func (c *Client) Test(ctx context.Context) error {
 	return err
 }
 
+// GetSessionInfo returns the session-get arguments from the Transmission RPC.
+func (c *Client) GetSessionInfo() (map[string]interface{}, error) {
+	resp, err := c.call("session-get", nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Arguments, nil
+}
+
 // Connect establishes a connection (for Transmission, this just validates the connection).
 func (c *Client) Connect(ctx context.Context) error {
 	return c.Test(ctx)
@@ -498,7 +507,7 @@ func (c *Client) mapToDownloadItem(torrent map[string]interface{}) types.Downloa
 	// Check for errors
 	if errNum := getInt(torrent, "error"); errNum > 0 {
 		item.Error = getString(torrent, "errorString")
-		item.Status = types.StatusError
+		item.Status = types.StatusWarning
 	}
 
 	return item

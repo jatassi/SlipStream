@@ -23,7 +23,7 @@
 [x] Update missing page
 [ ] Support for more download clients and indexers (directly refer to *arr codebases)
 [ ] Config backup & restore
-[*] Simplification, Refactor, Enhanced Test Suite, Security Audit
+[x] Simplification, Refactor, Enhanced Test Suite, Security Audit
 [ ] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========
 [ ] Transcode during import (integrate with slots - FFMPEG frontend)

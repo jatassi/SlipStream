@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { DownloadClient } from '@/types'
+import type { DownloadClient, DownloadClientType } from '@/types'
 
 import { clientTypeConfigs, useDownloadClientDialog } from './use-download-client-dialog'
 
@@ -50,8 +50,10 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
           <NameInput hook={hook} />
           <HostPortInputs hook={hook} />
           <SslToggle hook={hook} />
-          <UsernameInput hook={hook} />
-          <PasswordInput hook={hook} />
+          {hook.config.supportsUrlBase ? <UrlBaseInput hook={hook} /> : null}
+          {hook.config.supportsUsername ? <UsernameInput hook={hook} /> : null}
+          {hook.config.supportsPassword ? <PasswordInput hook={hook} /> : null}
+          {hook.config.supportsApiKey ? <ApiKeyInput hook={hook} /> : null}
           {hook.config.supportsCategory ? <CategoryInput hook={hook} /> : null}
           <PriorityInput hook={hook} />
           <EnabledToggle hook={hook} />
@@ -71,15 +73,21 @@ function ClientTypeSelect({ hook }: { hook: HookValues }) {
   return (
     <div className="space-y-2">
       <Label htmlFor="type">Client Type</Label>
-      <Select value={hook.formData.type} onValueChange={(v) => v && hook.handleTypeChange(v)}>
+      <Select
+        value={hook.formData.type}
+        onValueChange={(v) => v && hook.handleTypeChange(v as DownloadClientType)}
+      >
         <SelectTrigger>
           <SelectValue>{clientTypeConfigs[hook.formData.type].label}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="transmission">Transmission</SelectItem>
-          <SelectItem value="qbittorrent">qBittorrent</SelectItem>
-          <SelectItem value="sabnzbd">SABnzbd</SelectItem>
-          <SelectItem value="nzbget">NZBGet</SelectItem>
+          {(Object.entries(clientTypeConfigs) as [DownloadClientType, { label: string }][]).map(
+            ([value, config]) => (
+              <SelectItem key={value} value={value}>
+                {config.label}
+              </SelectItem>
+            ),
+          )}
         </SelectContent>
       </Select>
     </div>
@@ -140,14 +148,29 @@ function SslToggle({ hook }: { hook: HookValues }) {
   )
 }
 
+function UrlBaseInput({ hook }: { hook: HookValues }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="urlBase">
+        URL Base
+        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+      </Label>
+      <Input
+        id="urlBase"
+        placeholder="/"
+        value={hook.formData.urlBase}
+        onChange={(e) => hook.setFormData((prev) => ({ ...prev, urlBase: e.target.value }))}
+      />
+    </div>
+  )
+}
+
 function UsernameInput({ hook }: { hook: HookValues }) {
   return (
     <div className="space-y-2">
       <Label htmlFor="username">
         {hook.config.usernameLabel}
-        {!hook.config.usernameRequired && (
-          <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-        )}
+        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
       </Label>
       <Input
         id="username"
@@ -163,13 +186,32 @@ function PasswordInput({ hook }: { hook: HookValues }) {
     <div className="space-y-2">
       <Label htmlFor="password">
         {hook.config.passwordLabel}
-        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+        {!hook.config.passwordRequired && (
+          <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+        )}
       </Label>
       <Input
         id="password"
         type="password"
         value={hook.formData.password}
         onChange={(e) => hook.setFormData((prev) => ({ ...prev, password: e.target.value }))}
+      />
+    </div>
+  )
+}
+
+function ApiKeyInput({ hook }: { hook: HookValues }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="apiKey">
+        {hook.config.apiKeyLabel}
+        <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+      </Label>
+      <Input
+        id="apiKey"
+        type="password"
+        value={hook.formData.apiKey}
+        onChange={(e) => hook.setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
       />
     </div>
   )
@@ -239,7 +281,7 @@ function ActionButtons({ hook, onCancel }: { hook: HookValues; onCancel: () => v
 }
 
 function LeftButtons({ hook }: { hook: HookValues }) {
-  const showDebug = hook.developerMode && hook.isEditing && hook.formData.type === 'transmission'
+  const showDebug = hook.developerMode && hook.isEditing
   return (
     <div className="flex gap-2">
       <LoadingButton loading={hook.isTesting} icon={TestTube} variant="outline" onClick={hook.handleTest}>

@@ -6,6 +6,9 @@ package types
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,19 +32,31 @@ const (
 type ClientType string
 
 const (
-	ClientTypeTransmission ClientType = "transmission"
-	ClientTypeQBittorrent  ClientType = "qbittorrent"
-	ClientTypeDeluge       ClientType = "deluge"
-	ClientTypeRTorrent     ClientType = "rtorrent"
-	ClientTypeSABnzbd      ClientType = "sabnzbd"
-	ClientTypeNZBGet       ClientType = "nzbget"
-	ClientTypeMock         ClientType = "mock" // Mock client for developer mode
+	ClientTypeTransmission    ClientType = "transmission"
+	ClientTypeQBittorrent     ClientType = "qbittorrent"
+	ClientTypeDeluge          ClientType = "deluge"
+	ClientTypeRTorrent        ClientType = "rtorrent"
+	ClientTypeVuze            ClientType = "vuze"
+	ClientTypeAria2           ClientType = "aria2"
+	ClientTypeFlood           ClientType = "flood"
+	ClientTypeUTorrent        ClientType = "utorrent"
+	ClientTypeHadouken        ClientType = "hadouken"
+	ClientTypeDownloadStation ClientType = "downloadstation"
+	ClientTypeFreeboxDownload ClientType = "freeboxdownload"
+	ClientTypeRQBit           ClientType = "rqbit"
+	ClientTypeTribler         ClientType = "tribler"
+	ClientTypeSABnzbd         ClientType = "sabnzbd"
+	ClientTypeNZBGet          ClientType = "nzbget"
+	ClientTypeMock            ClientType = "mock" // Mock client for developer mode
 )
 
 // ProtocolForClient returns the protocol for a given client type.
 func ProtocolForClient(clientType ClientType) Protocol {
 	switch clientType {
-	case ClientTypeTransmission, ClientTypeQBittorrent, ClientTypeDeluge, ClientTypeRTorrent, ClientTypeMock:
+	case ClientTypeTransmission, ClientTypeQBittorrent, ClientTypeDeluge, ClientTypeRTorrent,
+		ClientTypeVuze, ClientTypeAria2, ClientTypeFlood, ClientTypeUTorrent,
+		ClientTypeHadouken, ClientTypeDownloadStation, ClientTypeFreeboxDownload,
+		ClientTypeRQBit, ClientTypeTribler, ClientTypeMock:
 		return ProtocolTorrent
 	case ClientTypeSABnzbd, ClientTypeNZBGet:
 		return ProtocolUsenet
@@ -57,8 +72,9 @@ type ClientConfig struct {
 	Username string
 	Password string
 	UseSSL   bool
-	APIKey   string // For clients that use API keys (SABnzbd)
+	APIKey   string // For clients that use API keys (SABnzbd, Tribler, Aria2 secret token)
 	Category string // Default category/label for downloads
+	URLBase  string // Custom URL path (e.g., "/transmission/", "/gui/")
 }
 
 // Client defines the common interface for all download clients.
@@ -151,6 +167,7 @@ const (
 	StatusPaused      Status = "paused"
 	StatusCompleted   Status = "completed"
 	StatusSeeding     Status = "seeding"
+	StatusWarning     Status = "warning"
 	StatusError       Status = "error"
 	StatusUnknown     Status = "unknown"
 )
@@ -187,4 +204,50 @@ type UsenetHistoryItem struct {
 	CompletedAt time.Time `json:"completedAt"`
 	DownloadDir string    `json:"downloadDir"`
 	Error       string    `json:"error,omitempty"`
+}
+
+// CompareVersions parses semver-like versions (major.minor.patch) and returns
+// true if current >= minimum. Supports versions with or without "v" prefix.
+func CompareVersions(current, minimum string) (bool, error) {
+	currentParts, err := parseVersion(current)
+	if err != nil {
+		return false, fmt.Errorf("invalid current version %q: %w", current, err)
+	}
+	minimumParts, err := parseVersion(minimum)
+	if err != nil {
+		return false, fmt.Errorf("invalid minimum version %q: %w", minimum, err)
+	}
+
+	if currentParts[0] != minimumParts[0] {
+		return currentParts[0] > minimumParts[0], nil
+	}
+	if currentParts[1] != minimumParts[1] {
+		return currentParts[1] > minimumParts[1], nil
+	}
+	if currentParts[2] != minimumParts[2] {
+		return currentParts[2] > minimumParts[2], nil
+	}
+	return true, nil
+}
+
+func parseVersion(v string) ([3]int, error) {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.SplitN(v, ".", 3)
+	var result [3]int
+	for i, p := range parts {
+		if i >= 3 {
+			break
+		}
+		// Strip any suffix after digits (e.g., "1beta" -> "1")
+		numStr := strings.TrimRight(p, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-+")
+		if numStr == "" {
+			return result, fmt.Errorf("non-numeric version component %q", p)
+		}
+		n, err := strconv.Atoi(numStr)
+		if err != nil {
+			return result, fmt.Errorf("invalid version component %q: %w", p, err)
+		}
+		result[i] = n
+	}
+	return result, nil
 }

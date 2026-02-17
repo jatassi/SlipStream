@@ -28,19 +28,29 @@ const (
 	ProtocolTorrent = types.ProtocolTorrent
 	ProtocolUsenet  = types.ProtocolUsenet
 
-	ClientTypeTransmission = types.ClientTypeTransmission
-	ClientTypeQBittorrent  = types.ClientTypeQBittorrent
-	ClientTypeDeluge       = types.ClientTypeDeluge
-	ClientTypeRTorrent     = types.ClientTypeRTorrent
-	ClientTypeSABnzbd      = types.ClientTypeSABnzbd
-	ClientTypeNZBGet       = types.ClientTypeNZBGet
-	ClientTypeMock         = types.ClientTypeMock
+	ClientTypeTransmission    = types.ClientTypeTransmission
+	ClientTypeQBittorrent     = types.ClientTypeQBittorrent
+	ClientTypeDeluge          = types.ClientTypeDeluge
+	ClientTypeRTorrent        = types.ClientTypeRTorrent
+	ClientTypeVuze            = types.ClientTypeVuze
+	ClientTypeAria2           = types.ClientTypeAria2
+	ClientTypeFlood           = types.ClientTypeFlood
+	ClientTypeUTorrent        = types.ClientTypeUTorrent
+	ClientTypeHadouken        = types.ClientTypeHadouken
+	ClientTypeDownloadStation = types.ClientTypeDownloadStation
+	ClientTypeFreeboxDownload = types.ClientTypeFreeboxDownload
+	ClientTypeRQBit           = types.ClientTypeRQBit
+	ClientTypeTribler         = types.ClientTypeTribler
+	ClientTypeSABnzbd         = types.ClientTypeSABnzbd
+	ClientTypeNZBGet          = types.ClientTypeNZBGet
+	ClientTypeMock            = types.ClientTypeMock
 
 	StatusQueued      = types.StatusQueued
 	StatusDownloading = types.StatusDownloading
 	StatusPaused      = types.StatusPaused
 	StatusCompleted   = types.StatusCompleted
 	StatusSeeding     = types.StatusSeeding
+	StatusWarning     = types.StatusWarning
 	StatusError       = types.StatusError
 	StatusUnknown     = types.StatusUnknown
 )

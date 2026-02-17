@@ -3,26 +3,59 @@ package downloader
 import (
 	"fmt"
 
+	"github.com/slipstream/slipstream/internal/downloader/aria2"
+	"github.com/slipstream/slipstream/internal/downloader/deluge"
+	"github.com/slipstream/slipstream/internal/downloader/downloadstation"
+	"github.com/slipstream/slipstream/internal/downloader/flood"
+	"github.com/slipstream/slipstream/internal/downloader/freeboxdownload"
+	"github.com/slipstream/slipstream/internal/downloader/hadouken"
 	"github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/downloader/qbittorrent"
+	"github.com/slipstream/slipstream/internal/downloader/rqbit"
+	"github.com/slipstream/slipstream/internal/downloader/rtorrent"
 	"github.com/slipstream/slipstream/internal/downloader/sabnzbd"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
+	"github.com/slipstream/slipstream/internal/downloader/tribler"
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/downloader/utorrent"
+	"github.com/slipstream/slipstream/internal/downloader/vuze"
 )
 
 // NewClient creates a new download client of the specified type.
 // Returns the client interface so callers can use polymorphism.
-func NewClient(clientType ClientType, config *ClientConfig) (Client, error) {
+func NewClient(clientType ClientType, config *ClientConfig) (Client, error) { //nolint:gocyclo // switch over all client types
 	switch clientType {
 	case ClientTypeTransmission:
 		return transmission.NewFromConfig(config), nil
 	case ClientTypeQBittorrent:
 		return qbittorrent.NewFromConfig(config), nil
+	case ClientTypeDeluge:
+		return deluge.NewFromConfig(config), nil
+	case ClientTypeVuze:
+		return vuze.NewFromConfig(config), nil
+	case ClientTypeFlood:
+		return flood.NewFromConfig(config), nil
+	case ClientTypeAria2:
+		return aria2.NewFromConfig(config), nil
 	case ClientTypeSABnzbd:
 		return sabnzbd.NewFromConfig(config), nil
+	case ClientTypeRTorrent:
+		return rtorrent.NewFromConfig(config), nil
+	case ClientTypeUTorrent:
+		return utorrent.NewFromConfig(config), nil
+	case ClientTypeHadouken:
+		return hadouken.NewFromConfig(config), nil
+	case ClientTypeDownloadStation:
+		return downloadstation.NewFromConfig(config), nil
+	case ClientTypeFreeboxDownload:
+		return freeboxdownload.NewFromConfig(config), nil
+	case ClientTypeRQBit:
+		return rqbit.NewFromConfig(config), nil
+	case ClientTypeTribler:
+		return tribler.NewFromConfig(config), nil
 	case ClientTypeMock:
 		return mock.NewFromConfig(config), nil
-	case ClientTypeDeluge, ClientTypeRTorrent, ClientTypeNZBGet:
+	case ClientTypeNZBGet:
 		return nil, fmt.Errorf("%w: %s client not yet implemented", ErrUnsupportedClient, clientType)
 	default:
 		return nil, fmt.Errorf("%w: unknown client type %s", ErrUnsupportedClient, clientType)
@@ -31,7 +64,7 @@ func NewClient(clientType ClientType, config *ClientConfig) (Client, error) {
 
 // NewTorrentClient creates a new torrent client of the specified type.
 // Returns the TorrentClient interface for torrent-specific operations.
-func NewTorrentClient(clientType ClientType, config *ClientConfig) (TorrentClient, error) {
+func NewTorrentClient(clientType ClientType, config *ClientConfig) (TorrentClient, error) { //nolint:gocyclo // switch over all client types
 	if ProtocolForClient(clientType) != ProtocolTorrent {
 		return nil, fmt.Errorf("%w: %s is not a torrent client", ErrUnsupportedClient, clientType)
 	}
@@ -41,10 +74,30 @@ func NewTorrentClient(clientType ClientType, config *ClientConfig) (TorrentClien
 		return transmission.NewFromConfig(config), nil
 	case ClientTypeQBittorrent:
 		return qbittorrent.NewFromConfig(config), nil
+	case ClientTypeDeluge:
+		return deluge.NewFromConfig(config), nil
+	case ClientTypeVuze:
+		return vuze.NewFromConfig(config), nil
+	case ClientTypeFlood:
+		return flood.NewFromConfig(config), nil
+	case ClientTypeAria2:
+		return aria2.NewFromConfig(config), nil
+	case ClientTypeRTorrent:
+		return rtorrent.NewFromConfig(config), nil
+	case ClientTypeUTorrent:
+		return utorrent.NewFromConfig(config), nil
+	case ClientTypeHadouken:
+		return hadouken.NewFromConfig(config), nil
+	case ClientTypeDownloadStation:
+		return downloadstation.NewFromConfig(config), nil
+	case ClientTypeFreeboxDownload:
+		return freeboxdownload.NewFromConfig(config), nil
+	case ClientTypeRQBit:
+		return rqbit.NewFromConfig(config), nil
+	case ClientTypeTribler:
+		return tribler.NewFromConfig(config), nil
 	case ClientTypeMock:
 		return mock.NewFromConfig(config), nil
-	case ClientTypeDeluge, ClientTypeRTorrent:
-		return nil, fmt.Errorf("%w: %s client not yet implemented", ErrUnsupportedClient, clientType)
 	default:
 		return nil, fmt.Errorf("%w: unknown torrent client type %s", ErrUnsupportedClient, clientType)
 	}
@@ -69,30 +122,25 @@ func NewUsenetClient(clientType ClientType, config *ClientConfig) (UsenetClient,
 
 // ClientFromDownloadClient creates a Client from a DownloadClient database model.
 func ClientFromDownloadClient(dc *DownloadClient) (Client, error) {
-	config := &types.ClientConfig{
-		Host:     dc.Host,
-		Port:     dc.Port,
-		Username: dc.Username,
-		Password: dc.Password,
-		UseSSL:   dc.UseSSL,
-		Category: dc.Category,
-	}
-
-	return NewClient(ClientType(dc.Type), config)
+	return NewClient(ClientType(dc.Type), downloadClientToConfig(dc))
 }
 
 // TorrentClientFromDownloadClient creates a TorrentClient from a DownloadClient database model.
 func TorrentClientFromDownloadClient(dc *DownloadClient) (TorrentClient, error) {
-	config := &types.ClientConfig{
+	return NewTorrentClient(ClientType(dc.Type), downloadClientToConfig(dc))
+}
+
+func downloadClientToConfig(dc *DownloadClient) *types.ClientConfig {
+	return &types.ClientConfig{
 		Host:     dc.Host,
 		Port:     dc.Port,
 		Username: dc.Username,
 		Password: dc.Password,
 		UseSSL:   dc.UseSSL,
+		APIKey:   dc.APIKey,
 		Category: dc.Category,
+		URLBase:  dc.URLBase,
 	}
-
-	return NewTorrentClient(ClientType(dc.Type), config)
 }
 
 // SupportedClientTypes returns a list of all supported client types.
@@ -102,6 +150,15 @@ func SupportedClientTypes() []ClientType {
 		ClientTypeQBittorrent,
 		ClientTypeDeluge,
 		ClientTypeRTorrent,
+		ClientTypeVuze,
+		ClientTypeAria2,
+		ClientTypeFlood,
+		ClientTypeUTorrent,
+		ClientTypeHadouken,
+		ClientTypeDownloadStation,
+		ClientTypeFreeboxDownload,
+		ClientTypeRQBit,
+		ClientTypeTribler,
 		ClientTypeSABnzbd,
 		ClientTypeNZBGet,
 	}
@@ -111,6 +168,19 @@ func SupportedClientTypes() []ClientType {
 func ImplementedClientTypes() []ClientType {
 	return []ClientType{
 		ClientTypeTransmission,
+		ClientTypeQBittorrent,
+		ClientTypeDeluge,
+		ClientTypeRTorrent,
+		ClientTypeVuze,
+		ClientTypeFlood,
+		ClientTypeAria2,
+		ClientTypeUTorrent,
+		ClientTypeHadouken,
+		ClientTypeDownloadStation,
+		ClientTypeFreeboxDownload,
+		ClientTypeRQBit,
+		ClientTypeTribler,
+		ClientTypeSABnzbd,
 		ClientTypeMock,
 	}
 }

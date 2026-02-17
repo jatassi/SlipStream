@@ -6,7 +6,7 @@ export type QueueItem = {
   title: string
   releaseName: string
   mediaType: 'movie' | 'series' | 'unknown'
-  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed'
+  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning'
   progress: number
   size: number
   downloadedSize: number
@@ -49,4 +49,5 @@ export type QueueStats = {
   pausedCount: number
   completedCount: number
   failedCount: number
+  warningCount: number
 }

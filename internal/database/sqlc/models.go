@@ -62,7 +62,9 @@ type DownloadClient struct {
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
 	UseSsl             int64           `json:"use_ssl"`
+	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
+	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
 	Enabled            int64           `json:"enabled"`
 	CreatedAt          time.Time       `json:"created_at"`

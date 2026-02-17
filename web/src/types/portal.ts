@@ -282,7 +282,7 @@ export type PortalDownload = {
   clientName: string
   title: string
   mediaType: 'movie' | 'series' | 'unknown'
-  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed'
+  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning'
   progress: number
   size: number
   downloadedSize: number

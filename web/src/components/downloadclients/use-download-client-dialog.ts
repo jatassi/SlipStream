@@ -14,45 +14,44 @@ import type { CreateDownloadClientInput, DownloadClient, DownloadClientType } fr
 type ClientTypeConfig = {
   label: string
   defaultPort: number
+  defaultUrlBase: string
+  defaultSsl: boolean
   supportsCategory: boolean
+  supportsUrlBase: boolean
+  supportsApiKey: boolean
+  supportsUsername: boolean
+  supportsPassword: boolean
   usernameLabel: string
   passwordLabel: string
-  usernameRequired: boolean
+  apiKeyLabel: string
+  passwordRequired: boolean
+}
+
+const configDefaults: ClientTypeConfig = {
+  label: '', defaultPort: 8080, defaultUrlBase: '/', defaultSsl: false,
+  supportsCategory: false, supportsUrlBase: true, supportsApiKey: false,
+  supportsUsername: true, supportsPassword: true,
+  usernameLabel: 'Username', passwordLabel: 'Password', apiKeyLabel: '', passwordRequired: false,
+}
+
+function cfg(overrides: Partial<ClientTypeConfig> & Pick<ClientTypeConfig, 'label' | 'defaultPort'>): ClientTypeConfig {
+  return { ...configDefaults, ...overrides }
 }
 
 export const clientTypeConfigs: Record<DownloadClientType, ClientTypeConfig> = {
-  transmission: {
-    label: 'Transmission',
-    defaultPort: 9091,
-    supportsCategory: false,
-    usernameLabel: 'Username',
-    passwordLabel: 'Password',
-    usernameRequired: false,
-  },
-  qbittorrent: {
-    label: 'qBittorrent',
-    defaultPort: 8080,
-    supportsCategory: true,
-    usernameLabel: 'Username',
-    passwordLabel: 'Password',
-    usernameRequired: false,
-  },
-  sabnzbd: {
-    label: 'SABnzbd',
-    defaultPort: 8080,
-    supportsCategory: true,
-    usernameLabel: 'Username',
-    passwordLabel: 'API Key',
-    usernameRequired: false,
-  },
-  nzbget: {
-    label: 'NZBGet',
-    defaultPort: 6789,
-    supportsCategory: true,
-    usernameLabel: 'Username',
-    passwordLabel: 'Password',
-    usernameRequired: true,
-  },
+  transmission: cfg({ label: 'Transmission', defaultPort: 9091, defaultUrlBase: '/transmission/' }),
+  qbittorrent: cfg({ label: 'qBittorrent', defaultPort: 8080, supportsCategory: true, supportsApiKey: true, apiKeyLabel: 'API Key' }),
+  deluge: cfg({ label: 'Deluge', defaultPort: 8112, supportsCategory: true, supportsUsername: false, passwordRequired: true }),
+  rtorrent: cfg({ label: 'rTorrent', defaultPort: 8080, defaultUrlBase: '/RPC2', supportsCategory: true }),
+  vuze: cfg({ label: 'Vuze', defaultPort: 9091, defaultUrlBase: '/transmission/' }),
+  flood: cfg({ label: 'Flood', defaultPort: 3000, supportsCategory: true, passwordRequired: true }),
+  aria2: cfg({ label: 'Aria2', defaultPort: 6800, defaultUrlBase: '/jsonrpc', supportsApiKey: true, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '', apiKeyLabel: 'Secret Token' }),
+  utorrent: cfg({ label: 'uTorrent', defaultPort: 8080, defaultUrlBase: '/gui/', supportsCategory: true }),
+  hadouken: cfg({ label: 'Hadouken', defaultPort: 7070, supportsCategory: true }),
+  downloadstation: cfg({ label: 'Download Station', defaultPort: 5000, supportsUrlBase: false, passwordRequired: true }),
+  freeboxdownload: cfg({ label: 'Freebox Download', defaultPort: 443, defaultUrlBase: '/api/v1/', defaultSsl: true, supportsApiKey: true, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '', apiKeyLabel: 'App Token' }),
+  rqbit: cfg({ label: 'rqbit', defaultPort: 3030, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '' }),
+  tribler: cfg({ label: 'Tribler', defaultPort: 20_100, supportsApiKey: true, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '', apiKeyLabel: 'API Key' }),
 }
 
 const defaultFormData: CreateDownloadClientInput = {
@@ -63,7 +62,9 @@ const defaultFormData: CreateDownloadClientInput = {
   username: '',
   password: '',
   useSsl: false,
+  apiKey: '',
   category: '',
+  urlBase: '/transmission/',
   priority: 50,
   enabled: true,
 }
@@ -77,7 +78,9 @@ function createFormDataFromClient(client: DownloadClient): CreateDownloadClientI
     username: client.username ?? '',
     password: client.password ?? '',
     useSsl: client.useSsl,
+    apiKey: client.apiKey ?? '',
     category: client.category ?? '',
+    urlBase: client.urlBase ?? '',
     priority: client.priority,
     enabled: client.enabled,
   }
@@ -141,9 +144,12 @@ function useClientFormState(open: boolean, client: DownloadClient | null | undef
 
   const handleTypeChange = (type: DownloadClientType) => {
     const config = clientTypeConfigs[type]
+    const prevConfig = clientTypeConfigs[formData.type]
     setFormData((prev) => ({
       ...prev, type,
-      port: prev.port === clientTypeConfigs[prev.type].defaultPort ? config.defaultPort : prev.port,
+      port: prev.port === prevConfig.defaultPort ? config.defaultPort : prev.port,
+      urlBase: prev.urlBase === prevConfig.defaultUrlBase ? config.defaultUrlBase : prev.urlBase,
+      useSsl: prev.useSsl === prevConfig.defaultSsl ? config.defaultSsl : prev.useSsl,
     }))
   }
 

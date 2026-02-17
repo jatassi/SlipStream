@@ -31,7 +31,9 @@ type DownloadClient struct {
 	Username           string    `json:"username,omitempty"`
 	Password           string    `json:"password,omitempty"`
 	UseSSL             bool      `json:"useSsl"`
+	APIKey             string    `json:"apiKey,omitempty"`
 	Category           string    `json:"category,omitempty"`
+	URLBase            string    `json:"urlBase,omitempty"`
 	Priority           int       `json:"priority"`
 	Enabled            bool      `json:"enabled"`
 	CreatedAt          time.Time `json:"createdAt"`
@@ -50,7 +52,9 @@ type CreateClientInput struct {
 	Username           string   `json:"username,omitempty"`
 	Password           string   `json:"password,omitempty"`
 	UseSSL             bool     `json:"useSsl"`
+	APIKey             string   `json:"apiKey,omitempty"`
 	Category           string   `json:"category,omitempty"`
+	URLBase            string   `json:"urlBase,omitempty"`
 	Priority           int      `json:"priority"`
 	Enabled            bool     `json:"enabled"`
 	ImportDelaySeconds int      `json:"importDelaySeconds"`
@@ -67,7 +71,9 @@ type UpdateClientInput struct {
 	Username           string   `json:"username,omitempty"`
 	Password           string   `json:"password,omitempty"`
 	UseSSL             bool     `json:"useSsl"`
+	APIKey             string   `json:"apiKey,omitempty"`
 	Category           string   `json:"category,omitempty"`
+	URLBase            string   `json:"urlBase,omitempty"`
 	Priority           int      `json:"priority"`
 	Enabled            bool     `json:"enabled"`
 	ImportDelaySeconds int      `json:"importDelaySeconds"`
@@ -111,6 +117,9 @@ type Service struct {
 
 	queueCacheMu sync.RWMutex
 	queueCache   map[int64][]QueueItem
+
+	clientPoolMu sync.RWMutex
+	clientPool   map[int64]Client
 }
 
 // NewService creates a new download client service.
@@ -120,6 +129,7 @@ func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
 		queries:    sqlc.New(db),
 		logger:     &subLogger,
 		queueCache: make(map[int64][]QueueItem),
+		clientPool: make(map[int64]Client),
 	}
 }
 
@@ -147,6 +157,10 @@ func (s *Service) SetHealthService(hs HealthService) {
 // This is called when switching between production and development databases.
 func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
+
+	s.clientPoolMu.Lock()
+	s.clientPool = make(map[int64]Client)
+	s.clientPoolMu.Unlock()
 }
 
 // RegisterExistingClients registers all existing download clients with the health service.
@@ -197,7 +211,9 @@ func (s *Service) List(ctx context.Context) ([]*DownloadClient, error) {
 
 var validClientTypes = map[string]bool{
 	"qbittorrent": true, "transmission": true, "deluge": true, "rtorrent": true,
-	"sabnzbd": true, "nzbget": true, "mock": true,
+	"vuze": true, "aria2": true, "flood": true, "utorrent": true,
+	"hadouken": true, "downloadstation": true, "freeboxdownload": true,
+	"rqbit": true, "tribler": true, "mock": true,
 }
 
 func validateCreateInput(input *CreateClientInput) error {
@@ -232,7 +248,9 @@ func (s *Service) Create(ctx context.Context, input *CreateClientInput) (*Downlo
 		Username:           toNullString(input.Username),
 		Password:           toNullString(input.Password),
 		UseSsl:             boolToInt64(input.UseSSL),
+		ApiKey:             toNullString(input.APIKey),
 		Category:           toNullString(input.Category),
+		UrlBase:            input.URLBase,
 		Priority:           int64(input.Priority),
 		Enabled:            boolToInt64(input.Enabled),
 		ImportDelaySeconds: int64(input.ImportDelaySeconds),
@@ -273,7 +291,9 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateClientInput
 		Username:           toNullString(input.Username),
 		Password:           toNullString(input.Password),
 		UseSsl:             boolToInt64(input.UseSSL),
+		ApiKey:             toNullString(input.APIKey),
 		Category:           toNullString(input.Category),
+		UrlBase:            input.URLBase,
 		Priority:           int64(input.Priority),
 		Enabled:            boolToInt64(input.Enabled),
 		ImportDelaySeconds: int64(input.ImportDelaySeconds),
@@ -287,6 +307,10 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateClientInput
 		return nil, fmt.Errorf("failed to update download client: %w", err)
 	}
 
+	s.clientPoolMu.Lock()
+	delete(s.clientPool, id)
+	s.clientPoolMu.Unlock()
+
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated download client")
 	return s.rowToClient(row), nil
 }
@@ -296,6 +320,10 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err := s.queries.DeleteDownloadClient(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete download client: %w", err)
 	}
+
+	s.clientPoolMu.Lock()
+	delete(s.clientPool, id)
+	s.clientPoolMu.Unlock()
 
 	// Unregister from health service
 	if s.healthService != nil {
@@ -327,14 +355,15 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 
 // TestConfig tests a download client connection using provided configuration.
 func (s *Service) TestConfig(ctx context.Context, input *CreateClientInput) (*TestResult, error) {
-	// Build config for the factory
 	config := &types.ClientConfig{
 		Host:     input.Host,
 		Port:     input.Port,
 		Username: input.Username,
 		Password: input.Password,
 		UseSSL:   input.UseSSL,
+		APIKey:   input.APIKey,
 		Category: input.Category,
+		URLBase:  input.URLBase,
 	}
 
 	// Check if this client type is implemented
@@ -397,14 +426,38 @@ func (s *Service) GetTransmissionClient(ctx context.Context, id int64) (*transmi
 }
 
 // GetClient returns a Client interface for the given download client ID.
-// This allows using the polymorphic interface for any supported client type.
+// Clients are cached in a pool to preserve auth sessions across poll cycles.
 func (s *Service) GetClient(ctx context.Context, id int64) (Client, error) {
+	s.clientPoolMu.RLock()
+	if c, ok := s.clientPool[id]; ok {
+		s.clientPoolMu.RUnlock()
+		return c, nil
+	}
+	s.clientPoolMu.RUnlock()
+
 	cfg, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return ClientFromDownloadClient(cfg)
+	c, err := ClientFromDownloadClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	s.clientPoolMu.Lock()
+	s.clientPool[id] = c
+	s.clientPoolMu.Unlock()
+
+	return c, nil
+}
+
+// EvictClient removes a client from the instance pool, forcing a fresh
+// instance to be created on the next GetClient call.
+func (s *Service) EvictClient(id int64) {
+	s.clientPoolMu.Lock()
+	delete(s.clientPool, id)
+	s.clientPoolMu.Unlock()
 }
 
 // GetTorrentClient returns a TorrentClient interface for the given download client ID.
@@ -555,9 +608,13 @@ func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 	if row.Password.Valid {
 		client.Password = row.Password.String
 	}
+	if row.ApiKey.Valid {
+		client.APIKey = row.ApiKey.String
+	}
 	if row.Category.Valid {
 		client.Category = row.Category.String
 	}
+	client.URLBase = row.UrlBase
 	client.CreatedAt = row.CreatedAt
 	client.UpdatedAt = row.UpdatedAt
 	if row.SeedRatioTarget.Valid {

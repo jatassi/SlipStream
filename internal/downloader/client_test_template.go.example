@@ -1,0 +1,354 @@
+// THIS IS A TEMPLATE — not compiled. Copy into a client package and adapt.
+// Delete this comment block and the .example extension after copying.
+//
+// Replace all occurrences of:
+//   - PKGNAME     → package name (e.g., qbittorrent)
+//   - CLIENTNAME  → display name (e.g., qBittorrent)
+//   - CLIENTTYPE  → types.ClientTypeXxx constant (e.g., types.ClientTypeQBittorrent)
+//   - /api/path   → actual API endpoints for this client
+//   - authHandler → actual auth flow for this client
+
+package PKGNAME
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
+	"sync/atomic"
+	"testing"
+
+	"github.com/slipstream/slipstream/internal/downloader/types"
+)
+
+// newTestClient creates a Client pointed at the test server.
+// Parse host and port from the httptest.Server URL.
+func newTestClient(t *testing.T, serverURL string) *Client {
+	t.Helper()
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("parse server URL: %v", err)
+	}
+	port, _ := strconv.Atoi(u.Port())
+	return NewFromConfig(&types.ClientConfig{
+		Host:     u.Hostname(),
+		Port:     port,
+		Username: "testuser",
+		Password: "testpass",
+	})
+}
+
+// --- Basic identity tests ---
+
+func TestClient_Type(t *testing.T) {
+	c := &Client{}
+	if c.Type() != CLIENTTYPE {
+		t.Errorf("Type() = %v, want %v", c.Type(), CLIENTTYPE)
+	}
+}
+
+func TestClient_Protocol(t *testing.T) {
+	c := &Client{}
+	if c.Protocol() != types.ProtocolTorrent {
+		t.Errorf("Protocol() = %v, want %v", c.Protocol(), types.ProtocolTorrent)
+	}
+}
+
+// --- Connection tests ---
+
+func TestClient_Test_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Handle auth endpoint if needed, then handle the "test" endpoint.
+		// Example for REST API:
+		switch r.URL.Path {
+		case "/api/path/version":
+			w.Write([]byte(`"v4.5.0"`))
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	if err := c.Test(context.Background()); err != nil {
+		t.Fatalf("Test() error = %v", err)
+	}
+}
+
+func TestClient_Test_AuthFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	err := c.Test(context.Background())
+	if err != types.ErrAuthFailed {
+		t.Fatalf("Test() error = %v, want ErrAuthFailed", err)
+	}
+}
+
+// --- List tests ---
+
+func TestClient_List(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Return a JSON response matching the client's actual API format.
+		// This example shows a generic JSON array — replace with real format.
+		switch r.URL.Path {
+		case "/api/path/torrents":
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"hash":     "abc123",
+					"name":     "Test.Movie.2024.1080p",
+					"state":    "downloading",
+					"progress": 0.45,
+					"size":     int64(1500000000),
+					"dlspeed":  int64(5000000),
+					"eta":      int64(300),
+					"save_path": "/downloads/",
+				},
+				{
+					"hash":     "def456",
+					"name":     "Test.Series.S01E01",
+					"state":    "pausedDL",
+					"progress": 0.0,
+					"size":     int64(500000000),
+					"dlspeed":  int64(0),
+					"eta":      int64(0),
+					"save_path": "/downloads/",
+				},
+			})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	items, err := c.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Fatalf("List() returned %d items, want 2", len(items))
+	}
+
+	// Verify first item (downloading)
+	if items[0].ID != "abc123" {
+		t.Errorf("items[0].ID = %q, want %q", items[0].ID, "abc123")
+	}
+	if items[0].Status != types.StatusDownloading {
+		t.Errorf("items[0].Status = %v, want %v", items[0].Status, types.StatusDownloading)
+	}
+	if items[0].Progress != 45.0 { // 0.45 * 100
+		t.Errorf("items[0].Progress = %v, want 45.0", items[0].Progress)
+	}
+
+	// Verify second item (paused)
+	if items[1].Status != types.StatusPaused {
+		t.Errorf("items[1].Status = %v, want %v", items[1].Status, types.StatusPaused)
+	}
+}
+
+func TestClient_List_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/path/torrents":
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	items, err := c.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if items == nil {
+		t.Fatal("List() returned nil, want empty slice")
+	}
+	if len(items) != 0 {
+		t.Errorf("List() returned %d items, want 0", len(items))
+	}
+}
+
+// --- Add tests ---
+
+func TestClient_Add_URL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/path/add":
+			// TODO: Verify the request body contains the URL
+			w.WriteHeader(http.StatusOK)
+			// TODO: Return the torrent ID in the client's response format
+			json.NewEncoder(w).Encode(map[string]string{"hash": "newhash123"})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	id, err := c.Add(context.Background(), &types.AddOptions{
+		URL:         "magnet:?xt=urn:btih:abc123",
+		DownloadDir: "/downloads/test",
+	})
+	if err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	if id == "" {
+		t.Fatal("Add() returned empty ID")
+	}
+}
+
+// --- Pause/Resume/Remove tests ---
+
+func TestClient_Pause(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	if err := c.Pause(context.Background(), "abc123"); err != nil {
+		t.Fatalf("Pause() error = %v", err)
+	}
+}
+
+func TestClient_Resume(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	if err := c.Resume(context.Background(), "abc123"); err != nil {
+		t.Fatalf("Resume() error = %v", err)
+	}
+}
+
+func TestClient_Remove(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	if err := c.Remove(context.Background(), "abc123", false); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+}
+
+// --- GetDownloadDir test ---
+
+func TestClient_GetDownloadDir(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/path/preferences":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"save_path": "/downloads/complete",
+			})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+	dir, err := c.GetDownloadDir(context.Background())
+	if err != nil {
+		t.Fatalf("GetDownloadDir() error = %v", err)
+	}
+	if dir != "/downloads/complete" {
+		t.Errorf("GetDownloadDir() = %q, want %q", dir, "/downloads/complete")
+	}
+}
+
+// --- Session management tests ---
+// These are CRITICAL for client pool compatibility.
+
+func TestClient_SessionReuse(t *testing.T) {
+	var authCount int64
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/path/login": // TODO: replace with actual auth endpoint
+			atomic.AddInt64(&authCount, 1)
+			// TODO: Set auth cookie/token in response
+			w.WriteHeader(http.StatusOK)
+		case "/api/path/torrents":
+			// TODO: Verify auth header/cookie is present
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+
+	// First call — should authenticate
+	_, err := c.List(context.Background())
+	if err != nil {
+		t.Fatalf("First List() error = %v", err)
+	}
+
+	// Second call — should reuse session
+	_, err = c.List(context.Background())
+	if err != nil {
+		t.Fatalf("Second List() error = %v", err)
+	}
+
+	count := atomic.LoadInt64(&authCount)
+	if count != 1 {
+		t.Errorf("Auth was called %d times, want 1 (session should be reused)", count)
+	}
+}
+
+func TestClient_SessionReauth(t *testing.T) {
+	var authCount int64
+	var listCount int64
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/path/login":
+			atomic.AddInt64(&authCount, 1)
+			w.WriteHeader(http.StatusOK)
+		case "/api/path/torrents":
+			call := atomic.AddInt64(&listCount, 1)
+			if call == 2 {
+				// Second list call: simulate expired session
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	c := newTestClient(t, server.URL)
+
+	// First call — success
+	_, err := c.List(context.Background())
+	if err != nil {
+		t.Fatalf("First List() error = %v", err)
+	}
+
+	// Second call — gets 401, should re-auth and retry
+	_, err = c.List(context.Background())
+	if err != nil {
+		t.Fatalf("Second List() error = %v (should have re-authed and retried)", err)
+	}
+
+	count := atomic.LoadInt64(&authCount)
+	if count != 2 {
+		t.Errorf("Auth was called %d times, want 2 (initial + re-auth)", count)
+	}
+}

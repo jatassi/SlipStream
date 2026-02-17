@@ -1,4 +1,17 @@
-export type DownloadClientType = 'qbittorrent' | 'transmission' | 'sabnzbd' | 'nzbget'
+export type DownloadClientType =
+  | 'transmission'
+  | 'qbittorrent'
+  | 'deluge'
+  | 'rtorrent'
+  | 'vuze'
+  | 'flood'
+  | 'aria2'
+  | 'utorrent'
+  | 'hadouken'
+  | 'downloadstation'
+  | 'freeboxdownload'
+  | 'rqbit'
+  | 'tribler'
 
 export type DownloadClient = {
   id: number
@@ -9,7 +22,9 @@ export type DownloadClient = {
   username?: string
   password?: string
   useSsl: boolean
+  apiKey?: string
   category?: string
+  urlBase?: string
   priority: number
   enabled: boolean
   createdAt: string
@@ -24,7 +39,9 @@ export type CreateDownloadClientInput = {
   username?: string
   password?: string
   useSsl?: boolean
+  apiKey?: string
   category?: string
+  urlBase?: string
   priority?: number
   enabled?: boolean
 }
@@ -37,7 +54,9 @@ export type UpdateDownloadClientInput = {
   username?: string
   password?: string
   useSsl?: boolean
+  apiKey?: string
   category?: string
+  urlBase?: string
   priority?: number
   enabled?: boolean
 }

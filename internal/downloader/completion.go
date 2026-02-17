@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -36,6 +38,7 @@ type CompletedDownload struct {
 }
 
 // CheckForCompletedDownloads finds all downloads that are complete and ready for import.
+// Clients are polled concurrently, each with its own 5-second timeout.
 func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDownload, error) {
 	clients, err := s.queries.ListEnabledDownloadClients(ctx)
 	if err != nil {
@@ -53,12 +56,29 @@ func (s *Service) CheckForCompletedDownloads(ctx context.Context) ([]CompletedDo
 
 	mappingLookup := buildMappingLookup(mappings, s.logger)
 
+	var mu sync.Mutex
 	var completed []CompletedDownload
+	var wg sync.WaitGroup
+
 	for _, dbClient := range clients {
-		completedFromClient := s.checkClientForCompletions(ctx, dbClient, mappingLookup)
-		completed = append(completed, completedFromClient...)
+		if !IsClientTypeImplemented(dbClient.Type) {
+			continue
+		}
+		wg.Add(1)
+		go func(dc *sqlc.DownloadClient) {
+			defer wg.Done()
+			clientCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			completedFromClient := s.checkClientForCompletions(clientCtx, dc, mappingLookup)
+			if len(completedFromClient) > 0 {
+				mu.Lock()
+				completed = append(completed, completedFromClient...)
+				mu.Unlock()
+			}
+		}(dbClient)
 	}
 
+	wg.Wait()
 	return completed, nil
 }
 
@@ -195,30 +215,41 @@ func (s *Service) CheckForDisappearedDownloads(ctx context.Context) error {
 }
 
 func (s *Service) collectActiveDownloadIDs(ctx context.Context, clients []*sqlc.DownloadClient) map[string]struct{} {
+	var mu sync.Mutex
 	activeDownloadIDs := make(map[string]struct{})
+	var wg sync.WaitGroup
 
 	for _, dbClient := range clients {
 		if !IsClientTypeImplemented(dbClient.Type) {
 			continue
 		}
+		wg.Add(1)
+		go func(dc *sqlc.DownloadClient) {
+			defer wg.Done()
+			clientCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
 
-		client, err := s.GetClient(ctx, dbClient.ID)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to get client for disappearance check")
-			continue
-		}
+			client, err := s.GetClient(clientCtx, dc.ID)
+			if err != nil {
+				s.logger.Warn().Err(err).Int64("clientId", dc.ID).Msg("Failed to get client for disappearance check")
+				return
+			}
 
-		downloads, err := client.List(ctx)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("clientId", dbClient.ID).Msg("Failed to list downloads for disappearance check")
-			continue
-		}
+			downloads, err := client.List(clientCtx)
+			if err != nil {
+				s.logger.Warn().Err(err).Int64("clientId", dc.ID).Msg("Failed to list downloads for disappearance check")
+				return
+			}
 
-		for i := range downloads {
-			activeDownloadIDs[downloads[i].ID] = struct{}{}
-		}
+			mu.Lock()
+			for i := range downloads {
+				activeDownloadIDs[downloads[i].ID] = struct{}{}
+			}
+			mu.Unlock()
+		}(dbClient)
 	}
 
+	wg.Wait()
 	return activeDownloadIDs
 }
 
@@ -391,7 +422,7 @@ func (s *Service) IsDownloadStalled(ctx context.Context, clientID int64, downloa
 		return false, err
 	}
 
-	return status == types.StatusPaused || status == types.StatusError, nil
+	return status == types.StatusPaused || status == types.StatusError || status == types.StatusWarning, nil
 }
 
 // GetQueueItemCount returns the number of active items in the queue across all clients.
