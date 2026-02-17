@@ -139,7 +139,14 @@
       "Bash(diff:*)",
       "Bash(make build:*)",
       "Bash(make dev:*)",
-      "Bash(make lint-fix:*)"
+      "Bash(make lint-fix:*)",
+      "Bash(bun info:*)",
+      "Bash(bun pm ls:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh search code:*)",
+      "Bash(gh pr view:*)",
+      "Bash(scripts/verify-client-registration.sh:*)",
+      "Bash(bash scripts/verify-client-registration.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
