@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 )
 
@@ -165,7 +166,7 @@ func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumbe
 		EpisodeNumber: int64(episodeNumber),
 		Title:         sql.NullString{String: title, Valid: title != ""},
 		Monitored:     1,
-		Status:        "missing",
+		Status:        status.Missing,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create episode: %w", err)
@@ -231,17 +232,17 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input *Cr
 		return nil, fmt.Errorf("failed to create episode file: %w", err)
 	}
 
-	status := "available"
+	epStatus := status.Available
 	if qualityID.Valid && s.qualityProfiles != nil {
 		if series, seriesErr := s.GetSeries(ctx, episode.SeriesID); seriesErr == nil {
 			if profile, profileErr := s.qualityProfiles.Get(ctx, series.QualityProfileID); profileErr == nil {
-				status = profile.StatusForQuality(int(qualityID.Int64))
+				epStatus = profile.StatusForQuality(int(qualityID.Int64))
 			}
 		}
 	}
 	_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
 		ID:     episodeID,
-		Status: status,
+		Status: epStatus,
 	})
 
 	file := s.rowToEpisodeFile(row)
@@ -381,14 +382,14 @@ func (s *Service) transitionEpisodeToMissingAfterFileRemoval(ctx context.Context
 	}
 	_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
 		ID:     episodeID,
-		Status: "missing",
+		Status: status.Missing,
 	})
 	_ = s.queries.UpdateEpisodeMonitored(ctx, sqlc.UpdateEpisodeMonitoredParams{
 		ID:        episodeID,
 		Monitored: 0,
 	})
-	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != "missing" {
-		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", episodeID, oldStatus, "missing", "File removed")
+	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != status.Missing {
+		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", episodeID, oldStatus, status.Missing, "File removed")
 	}
 	if s.hub != nil && episode != nil {
 		s.hub.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})

@@ -255,16 +255,18 @@ func mapSeriesStatus(status int) string {
 	}
 }
 
+const seriesTypeStandard = "standard"
+
 func mapSonarrSeriesType(raw string) string {
 	switch raw {
-	case "0", "standard":
-		return "standard"
+	case "0", seriesTypeStandard:
+		return seriesTypeStandard
 	case "1", "daily":
 		return "daily"
 	case "2", "anime":
 		return "anime"
 	default:
-		return "standard"
+		return seriesTypeStandard
 	}
 }
 
@@ -595,4 +597,166 @@ func deriveRootFolderPath(mediaPath string, rootFolders []SourceRootFolder) stri
 		}
 	}
 	return ""
+}
+
+func (r *sqliteReader) ReadDownloadClients(ctx context.Context) ([]SourceDownloadClient, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT Id, Name, Implementation, Settings, Enable, Priority, RemoveCompletedDownloads, RemoveFailedDownloads FROM DownloadClients`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query download clients: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []SourceDownloadClient
+	for rows.Next() {
+		var c SourceDownloadClient
+		var enabled, removeCompleted, removeFailed int
+		if err := rows.Scan(&c.ID, &c.Name, &c.Implementation, &c.Settings, &enabled, &c.Priority, &removeCompleted, &removeFailed); err != nil {
+			return nil, fmt.Errorf("failed to scan download client: %w", err)
+		}
+		c.Enabled = enabled != 0
+		c.RemoveCompletedDownloads = removeCompleted != 0
+		c.RemoveFailedDownloads = removeFailed != 0
+		clients = append(clients, c)
+	}
+	return clients, rows.Err()
+}
+
+func (r *sqliteReader) ReadIndexers(ctx context.Context) ([]SourceIndexer, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT Id, Name, Implementation, Settings, EnableRss, EnableAutomaticSearch, EnableInteractiveSearch, Priority FROM Indexers`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query indexers: %w", err)
+	}
+	defer rows.Close()
+
+	var indexers []SourceIndexer
+	for rows.Next() {
+		var idx SourceIndexer
+		var rss, autoSearch, interactive int
+		if err := rows.Scan(&idx.ID, &idx.Name, &idx.Implementation, &idx.Settings, &rss, &autoSearch, &interactive, &idx.Priority); err != nil {
+			return nil, fmt.Errorf("failed to scan indexer: %w", err)
+		}
+		idx.EnableRss = rss != 0
+		idx.EnableAutomaticSearch = autoSearch != 0
+		idx.EnableInteractiveSearch = interactive != 0
+		indexers = append(indexers, idx)
+	}
+	return indexers, rows.Err()
+}
+
+func (r *sqliteReader) ReadNotifications(ctx context.Context) ([]SourceNotification, error) {
+	// G7: notification columns differ between Sonarr and Radarr
+	var query string
+	switch r.sourceType {
+	case SourceTypeSonarr:
+		query = `SELECT Id, Name, Implementation, Settings, OnGrab, OnDownload, OnUpgrade,
+			OnHealthIssue, IncludeHealthWarnings, OnHealthRestored, OnApplicationUpdate,
+			OnSeriesAdd, OnSeriesDelete
+			FROM Notifications`
+	case SourceTypeRadarr:
+		query = `SELECT Id, Name, Implementation, Settings, OnGrab, OnDownload, OnUpgrade,
+			OnHealthIssue, IncludeHealthWarnings, OnHealthRestored, OnApplicationUpdate,
+			OnMovieAdded, OnMovieDelete
+			FROM Notifications`
+	default:
+		return nil, fmt.Errorf("unsupported source type: %s", r.sourceType)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var notifications []SourceNotification
+	for rows.Next() {
+		var n SourceNotification
+		var onGrab, onDownload, onUpgrade, onHealthIssue, includeHealthWarnings, onHealthRestored, onAppUpdate int
+		var extra1, extra2 int
+
+		if err := rows.Scan(&n.ID, &n.Name, &n.Implementation, &n.Settings,
+			&onGrab, &onDownload, &onUpgrade,
+			&onHealthIssue, &includeHealthWarnings, &onHealthRestored, &onAppUpdate,
+			&extra1, &extra2,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan notification: %w", err)
+		}
+
+		n.OnGrab = onGrab != 0
+		n.OnDownload = onDownload != 0
+		n.OnUpgrade = onUpgrade != 0
+		n.OnHealthIssue = onHealthIssue != 0
+		n.IncludeHealthWarnings = includeHealthWarnings != 0
+		n.OnHealthRestored = onHealthRestored != 0
+		n.OnApplicationUpdate = onAppUpdate != 0
+
+		switch r.sourceType {
+		case SourceTypeSonarr:
+			n.OnSeriesAdd = extra1 != 0
+			n.OnSeriesDelete = extra2 != 0
+		case SourceTypeRadarr:
+			n.OnMovieAdded = extra1 != 0
+			n.OnMovieDelete = extra2 != 0
+		}
+
+		notifications = append(notifications, n)
+	}
+	return notifications, rows.Err()
+}
+
+func (r *sqliteReader) ReadQualityProfilesFull(ctx context.Context) ([]SourceQualityProfileFull, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT Id, Name, Cutoff, UpgradeAllowed, Items FROM QualityProfiles`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query quality profiles: %w", err)
+	}
+	defer rows.Close()
+
+	var profiles []SourceQualityProfileFull
+	for rows.Next() {
+		var p SourceQualityProfileFull
+		var upgradeAllowed int
+		if err := rows.Scan(&p.ID, &p.Name, &p.Cutoff, &upgradeAllowed, &p.Items); err != nil {
+			return nil, fmt.Errorf("failed to scan quality profile: %w", err)
+		}
+		p.UpgradeAllowed = upgradeAllowed != 0
+		profiles = append(profiles, p)
+	}
+	return profiles, rows.Err()
+}
+
+func (r *sqliteReader) ReadNamingConfig(ctx context.Context) (*SourceNamingConfig, error) {
+	// G8: naming config columns differ between Sonarr and Radarr
+	var nc SourceNamingConfig
+	switch r.sourceType {
+	case SourceTypeSonarr:
+		var renameEpisodes, replaceIllegal int
+		err := r.db.QueryRowContext(ctx, `SELECT RenameEpisodes, ReplaceIllegalCharacters, ColonReplacementFormat,
+			MultiEpisodeStyle, StandardEpisodeFormat, DailyEpisodeFormat,
+			AnimeEpisodeFormat, SeriesFolderFormat, SeasonFolderFormat, SpecialsFolderFormat
+			FROM NamingConfig WHERE Id = 1`).Scan(
+			&renameEpisodes, &replaceIllegal, &nc.ColonReplacementFormat,
+			&nc.MultiEpisodeStyle, &nc.StandardEpisodeFormat, &nc.DailyEpisodeFormat,
+			&nc.AnimeEpisodeFormat, &nc.SeriesFolderFormat, &nc.SeasonFolderFormat, &nc.SpecialsFolderFormat,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query naming config: %w", err)
+		}
+		nc.RenameEpisodes = renameEpisodes != 0
+		nc.ReplaceIllegalCharacters = replaceIllegal != 0
+	case SourceTypeRadarr:
+		var renameMovies, replaceIllegal int
+		err := r.db.QueryRowContext(ctx, `SELECT RenameMovies, ReplaceIllegalCharacters, ColonReplacementFormat,
+			StandardMovieFormat, MovieFolderFormat
+			FROM NamingConfig WHERE Id = 1`).Scan(
+			&renameMovies, &replaceIllegal, &nc.ColonReplacementFormat,
+			&nc.StandardMovieFormat, &nc.MovieFolderFormat,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query naming config: %w", err)
+		}
+		nc.RenameMovies = renameMovies != 0
+		nc.ReplaceIllegalCharacters = replaceIllegal != 0
+	default:
+		return nil, fmt.Errorf("unsupported source type: %s", r.sourceType)
+	}
+	return &nc, nil
 }

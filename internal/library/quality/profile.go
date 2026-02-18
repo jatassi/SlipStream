@@ -3,6 +3,8 @@ package quality
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/slipstream/slipstream/internal/library/status"
 )
 
 // UpgradeStrategy controls how quality upgrades are evaluated.
@@ -264,12 +266,12 @@ func (p *Profile) IsAtOrAboveCutoff(qualityID int) bool {
 // or "available" if below cutoff but upgrades disabled.
 func (p *Profile) StatusForQuality(qualityID int) string {
 	if p.IsAtOrAboveCutoff(qualityID) {
-		return "available"
+		return status.Available
 	}
 	if p.UpgradesEnabled {
-		return "upgradable"
+		return status.Upgradable
 	}
-	return "available"
+	return status.Available
 }
 
 // IsAcceptable checks if a quality is acceptable for this profile.
