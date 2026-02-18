@@ -175,7 +175,7 @@ function getMonitorColor(monitored: boolean, theme: 'movie' | 'tv'): string {
 
 function getCardClassName(isSelectable: boolean, selected: boolean, isMovie: boolean): string {
   if (!isSelectable) {
-    return 'border-border cursor-default opacity-60'
+    return 'border-border cursor-default'
   }
   if (!selected) {
     return isMovie ? 'border-border cursor-pointer hover:border-movie-500/50' : 'border-border cursor-pointer hover:border-tv-500/50'
@@ -188,12 +188,13 @@ function PreviewCard({ item, isMovie, selected, onToggleSelect, profileName }: {
   const theme = isMovie ? 'movie' : 'tv'
 
   return (
-    <button type="button" disabled={!isSelectable} onClick={onToggleSelect} className={cn('group bg-card block overflow-hidden rounded-lg border-2 transition-all text-left w-full', getCardClassName(isSelectable, selected, isMovie))}>
+    <button type="button" disabled={!isSelectable} onClick={onToggleSelect} className={cn('group bg-card block overflow-hidden rounded-lg border-2 transition-all text-left w-full [content-visibility:auto] [contain-intrinsic-size:auto_200px]', getCardClassName(isSelectable, selected, isMovie))}>
       <div className="relative aspect-[2/3]">
         <PreviewPoster item={item} isMovie={isMovie} />
         {isSelectable ? <SelectionCheckbox selected={selected} theme={theme} /> : null}
         <StatusBadge status={item.status} />
         <PreviewOverlay item={item} isMovie={isMovie} profileName={profileName} />
+        {isSelectable ? null : <div className="pointer-events-none absolute inset-0 z-[5] bg-black/40" />}
       </div>
     </button>
   )
