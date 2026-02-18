@@ -31,6 +31,8 @@ export type SourceQualityProfile = {
 export type ImportMappings = {
   rootFolderMapping: Record<string, number>
   qualityProfileMapping: Record<number, number>
+  selectedMovieTmdbIds?: number[]
+  selectedSeriesTvdbIds?: number[]
 }
 
 export type MoviePreview = {
@@ -39,6 +41,9 @@ export type MoviePreview = {
   tmdbId: number
   hasFile: boolean
   quality: string
+  monitored: boolean
+  qualityProfileId: number
+  posterUrl?: string
   status: 'new' | 'duplicate' | 'skip'
   skipReason?: string
 }
@@ -47,8 +52,12 @@ export type SeriesPreview = {
   title: string
   year: number
   tvdbId: number
+  tmdbId: number
   episodeCount: number
   fileCount: number
+  monitored: boolean
+  qualityProfileId: number
+  posterUrl?: string
   status: 'new' | 'duplicate' | 'skip'
   skipReason?: string
 }
@@ -79,6 +88,7 @@ export type ImportReport = {
   seriesCreated: number
   seriesSkipped: number
   seriesErrored: number
+  totalFiles: number
   filesImported: number
   errors: string[]
 }

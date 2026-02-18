@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+import { Link } from '@tanstack/react-router'
 import { AlertCircle, CheckCircle2, Film, Loader2, Tv } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -5,16 +8,34 @@ import { Button } from '@/components/ui/button'
 import { Progress, ProgressLabel, ProgressValue } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useImportProgress } from '@/hooks/use-arr-import'
-import type { ImportReport } from '@/types/arr-import'
+import { cn } from '@/lib/utils'
+import type { ImportReport, SourceType } from '@/types/arr-import'
+import type { Activity } from '@/types/progress'
 
 type ImportStepProps = {
   onDone: () => void
+  sourceType: SourceType
 }
 
-function SummaryCard({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
+function SummaryCard({
+  label,
+  value,
+  icon: Icon,
+  alert,
+}: {
+  label: string
+  value: number
+  icon: React.ElementType
+  alert?: boolean
+}) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-4">
-      <Icon className="size-5 text-muted-foreground" />
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-lg border p-4',
+        alert ? 'border-destructive bg-destructive/10' : 'border-border bg-muted/50',
+      )}
+    >
+      <Icon className={cn('size-5', alert ? 'text-destructive' : 'text-muted-foreground')} />
       <div>
         <div className="text-2xl font-semibold">{value}</div>
         <div className="text-sm text-muted-foreground">{label}</div>
@@ -23,7 +44,17 @@ function SummaryCard({ label, value, icon: Icon }: { label: string; value: numbe
   )
 }
 
-function InProgressView({ title, subtitle, progressValue }: { title: string; subtitle?: string; progressValue: number }) {
+function InProgressView({
+  title,
+  subtitle,
+  progressValue,
+  sourceType,
+}: {
+  title: string
+  subtitle?: string
+  progressValue: number
+  sourceType: SourceType
+}) {
   const isIndeterminate = progressValue === -1
 
   return (
@@ -35,7 +66,11 @@ function InProgressView({ title, subtitle, progressValue }: { title: string; sub
           {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
         <div className="w-full max-w-md">
-          <Progress value={isIndeterminate ? null : progressValue} variant="media" className="w-full">
+          <Progress
+            value={isIndeterminate ? null : progressValue}
+            variant={sourceType === 'radarr' ? 'movie' : 'tv'}
+            className="w-full"
+          >
             <ProgressLabel>Import Progress</ProgressLabel>
             <ProgressValue />
           </Progress>
@@ -45,7 +80,20 @@ function InProgressView({ title, subtitle, progressValue }: { title: string; sub
   )
 }
 
-function CompletionView({ onDone }: { onDone: () => void }) {
+function ViewLibraryLink({ sourceType }: { sourceType: SourceType }) {
+  const isMovie = sourceType === 'radarr'
+  return (
+    <Button
+      render={<Link to={isMovie ? '/movies' : '/series'} />}
+      size="lg"
+      className={isMovie ? 'bg-movie-500 hover:bg-movie-600' : 'bg-tv-500 hover:bg-tv-600'}
+    >
+      {isMovie ? 'View Movies' : 'View Series'}
+    </Button>
+  )
+}
+
+function CompletionView({ onDone, sourceType }: { onDone: () => void; sourceType: SourceType }) {
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-12">
       <CheckCircle2 className="size-12 text-green-500" />
@@ -53,9 +101,12 @@ function CompletionView({ onDone }: { onDone: () => void }) {
         <h3 className="text-lg font-semibold">Import Complete</h3>
         <p className="text-sm text-muted-foreground">The import has finished successfully.</p>
       </div>
-      <Button onClick={onDone} size="lg">
-        Done
-      </Button>
+      <div className="flex items-center gap-3">
+        <ViewLibraryLink sourceType={sourceType} />
+        <Button onClick={onDone} size="lg" variant="outline">
+          Done
+        </Button>
+      </div>
     </div>
   )
 }
@@ -105,10 +156,17 @@ function SeriesSummary({ report }: { report: ImportReport }) {
   )
 }
 
-function ReportView({ report, onDone }: { report: ImportReport; onDone: () => void }) {
+function ReportView({
+  report,
+  onDone,
+  sourceType,
+}: {
+  report: ImportReport
+  onDone: () => void
+  sourceType: SourceType
+}) {
   const hasErrors = report.errors.length > 0
-  const totalMovies = report.moviesCreated + report.moviesSkipped + report.moviesErrored
-  const isMovieImport = totalMovies > 0
+  const isMovieImport = sourceType === 'radarr'
 
   return (
     <div className="space-y-6">
@@ -126,14 +184,20 @@ function ReportView({ report, onDone }: { report: ImportReport; onDone: () => vo
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           {isMovieImport ? <MovieSummary report={report} /> : <SeriesSummary report={report} />}
-          <SummaryCard label="Files Imported" value={report.filesImported} icon={CheckCircle2} />
+          <SummaryCard
+            label={`Files Imported (${report.filesImported}/${report.totalFiles})`}
+            value={report.filesImported}
+            icon={report.filesImported < report.totalFiles ? AlertCircle : CheckCircle2}
+            alert={report.filesImported < report.totalFiles}
+          />
         </div>
       </div>
 
       {hasErrors ? <ErrorList errors={report.errors} /> : null}
 
-      <div className="flex justify-end">
-        <Button onClick={onDone} size="lg">
+      <div className="flex justify-end gap-3">
+        <ViewLibraryLink sourceType={sourceType} />
+        <Button onClick={onDone} size="lg" variant="outline">
           Done
         </Button>
       </div>
@@ -141,24 +205,42 @@ function ReportView({ report, onDone }: { report: ImportReport; onDone: () => vo
   )
 }
 
-export function ImportStep({ onDone }: ImportStepProps) {
-  const progress = useImportProgress()
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled'])
 
-  if (!progress || progress.status === 'pending' || progress.status === 'in_progress') {
+function useImportResult() {
+  const progress = useImportProgress()
+  const [finished, setFinished] = useState<Activity | null>(null)
+  const [prevProgress, setPrevProgress] = useState(progress)
+
+  if (progress !== prevProgress) {
+    setPrevProgress(progress)
+    if (progress && TERMINAL_STATUSES.has(progress.status)) {
+      setFinished(progress)
+    }
+  }
+
+  return { progress, finished }
+}
+
+export function ImportStep({ onDone, sourceType }: ImportStepProps) {
+  const { progress, finished } = useImportResult()
+
+  if (!finished) {
     return (
       <InProgressView
         title={progress?.title ?? 'Importing...'}
         subtitle={progress?.subtitle}
         progressValue={progress?.progress ?? -1}
+        sourceType={sourceType}
       />
     )
   }
 
-  const report = progress.metadata.report as ImportReport | undefined
+  const report = finished.metadata.report as ImportReport | undefined
 
   if (!report) {
-    return <CompletionView onDone={onDone} />
+    return <CompletionView onDone={onDone} sourceType={sourceType} />
   }
 
-  return <ReportView report={report} onDone={onDone} />
+  return <ReportView report={report} onDone={onDone} sourceType={sourceType} />
 }

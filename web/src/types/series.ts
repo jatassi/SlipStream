@@ -148,8 +148,6 @@ export type ListSeriesOptions = {
   search?: string
   monitored?: boolean
   rootFolderId?: number
-  page?: number
-  pageSize?: number
 }
 
 // Bulk monitoring types

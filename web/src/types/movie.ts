@@ -79,6 +79,4 @@ export type ListMoviesOptions = {
   search?: string
   monitored?: boolean
   rootFolderId?: number
-  page?: number
-  pageSize?: number
 }

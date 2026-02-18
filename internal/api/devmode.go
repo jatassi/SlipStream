@@ -589,7 +589,7 @@ func (s *Server) populateMockMedia() {
 	defaultProfileID := profiles[0].ID
 
 	// Check if we already have mock movies
-	existingMovies, _ := s.movieService.List(ctx, movies.ListMoviesOptions{PageSize: 1})
+	existingMovies, _ := s.movieService.List(ctx, movies.ListMoviesOptions{})
 	if len(existingMovies) > 0 {
 		s.logger.Info().Int("count", len(existingMovies)).Msg("Dev database already has movies")
 		return

@@ -455,6 +455,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.importService.SetSlotsService(s.slotsService)
 	s.qualityService.SetImportDecisionCleaner(s.importService)
 
+	// Initialize progress manager for tracking activities (must be before arrimport)
+	s.progressManager = progress.NewManager(hub, logger)
+
 	// Initialize arr import service (for migrating from Radarr/Sonarr)
 	s.arrImportService = arrimport.NewService(
 		db,
@@ -626,9 +629,6 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		serverDebugLog("Scheduler tasks registered")
 	}
 
-	// Initialize progress manager for tracking activities
-	s.progressManager = progress.NewManager(hub, logger)
-
 	// Initialize library manager service (orchestrates scanning and file matching)
 	s.libraryManagerService = librarymanager.NewService(
 		db,
@@ -650,6 +650,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Wire up series refresher for pre-search metadata updates
 	s.scheduledSearcher.SetSeriesRefresher(s.libraryManagerService)
+
+	// Wire up metadata refresh for arr-import (fetches artwork/metadata after creating items)
+	s.arrImportService.SetMetadataRefresher(&arrImportMetadataRefresherAdapter{svc: s.libraryManagerService})
 
 	s.registerLibraryDependentTasks(cfg, logger)
 

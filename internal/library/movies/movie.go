@@ -104,8 +104,6 @@ type ListMoviesOptions struct {
 	Search       string `json:"search,omitempty"`
 	Monitored    *bool  `json:"monitored,omitempty"`
 	RootFolderID *int64 `json:"rootFolderId,omitempty"`
-	Page         int    `json:"page,omitempty"`
-	PageSize     int    `json:"pageSize,omitempty"`
 }
 
 // CreateMovieFileInput contains fields for creating a movie file.

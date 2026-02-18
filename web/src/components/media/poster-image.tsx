@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Film, Tv } from 'lucide-react'
 
@@ -16,6 +16,7 @@ type PosterImageProps = {
   type?: 'movie' | 'series'
   version?: string | null
   className?: string
+  onAllFailed?: () => void
 }
 
 function selectArtworkId(tmdbId?: number | null, tvdbId?: number | null): number | null {
@@ -24,7 +25,7 @@ function selectArtworkId(tmdbId?: number | null, tvdbId?: number | null): number
   return null
 }
 
-function buildImageUrl(
+function buildImageUrls(
   params: {
     artworkId: number | null
     type: 'movie' | 'series'
@@ -34,19 +35,35 @@ function buildImageUrl(
     path?: string | null
     size: keyof typeof POSTER_SIZES
   },
-): string | null {
+): string[] {
+  const urls: string[] = []
+
   if (params.artworkId) {
     const baseUrl = getLocalArtworkUrl(params.type, params.artworkId, 'poster')
-    if (params.artworkVersion > 0) {return `${baseUrl}?v=${params.artworkVersion}`}
-    if (params.version) {return `${baseUrl}?v=${params.version}`}
-    return baseUrl
+    if (params.artworkVersion > 0) {
+      urls.push(`${baseUrl}?v=${params.artworkVersion}`)
+    } else if (params.version) {
+      urls.push(`${baseUrl}?v=${params.version}`)
+    } else {
+      urls.push(baseUrl)
+    }
   }
-  if (params.url) {return params.url}
-  if (params.path) {return `${POSTER_SIZES[params.size]}${params.path}`}
-  return null
+
+  if (params.url) {urls.push(params.url)}
+  if (params.path) {urls.push(`${POSTER_SIZES[params.size]}${params.path}`)}
+
+  return urls
 }
 
-function FallbackIcon({ type, className }: { type: 'movie' | 'series'; className?: string }) {
+function FallbackIcon({ type, className, onMount }: { type: 'movie' | 'series'; className?: string; onMount?: () => void }) {
+  const calledRef = useRef(false)
+  useEffect(() => {
+    if (onMount && !calledRef.current) {
+      calledRef.current = true
+      onMount()
+    }
+  }, [onMount])
+
   return (
     <div className={cn('bg-muted text-muted-foreground flex items-center justify-center', className)}>
       {type === 'movie' ? <Film className="size-12" /> : <Tv className="size-12" />}
@@ -54,24 +71,26 @@ function FallbackIcon({ type, className }: { type: 'movie' | 'series'; className
   )
 }
 
-export function PosterImage({ path, url, tmdbId, tvdbId, alt, size = 'w342', type = 'movie', version, className }: PosterImageProps) {
-  const [error, setError] = useState(false)
+export function PosterImage({ path, url, tmdbId, tvdbId, alt, size = 'w342', type = 'movie', version, className, onAllFailed }: PosterImageProps) {
   const [loading, setLoading] = useState(true)
-  const [prevImageUrl, setPrevImageUrl] = useState<string | null>(null)
+  const [attemptIndex, setAttemptIndex] = useState(0)
+  const [prevUrlsKey, setPrevUrlsKey] = useState('')
 
   const artworkId = selectArtworkId(tmdbId, tvdbId)
   const artworkVersion = useArtworkStore((state) =>
     artworkId ? state.getVersion(type, artworkId, 'poster') : 0,
   )
-  const imageUrl = buildImageUrl({ artworkId, type, artworkVersion, version, url, path, size })
+  const urls = buildImageUrls({ artworkId, type, artworkVersion, version, url, path, size })
+  const urlsKey = urls.join('|')
 
-  if (imageUrl !== prevImageUrl) {
-    setPrevImageUrl(imageUrl)
-    setError(false)
+  if (urlsKey !== prevUrlsKey) {
+    setPrevUrlsKey(urlsKey)
+    setAttemptIndex(0)
     setLoading(true)
   }
 
-  if (!imageUrl || error) {return <FallbackIcon type={type} className={className} />}
+  const imageUrl = urls[attemptIndex]
+  if (!imageUrl) {return <FallbackIcon type={type} className={className} onMount={onAllFailed} />}
 
   return (
     <div className={cn('relative overflow-hidden', className)}>
@@ -80,7 +99,7 @@ export function PosterImage({ path, url, tmdbId, tvdbId, alt, size = 'w342', typ
         src={imageUrl}
         alt={alt}
         onLoad={() => setLoading(false)}
-        onError={() => setError(true)}
+        onError={() => setAttemptIndex((i) => i + 1)}
         className={cn('size-full object-cover transition-opacity', loading ? 'opacity-0' : 'opacity-100')}
       />
     </div>

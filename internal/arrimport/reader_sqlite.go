@@ -13,8 +13,9 @@ import (
 )
 
 type sqliteReader struct {
-	db         *sql.DB
-	sourceType SourceType
+	db           *sql.DB
+	sourceType   SourceType
+	qualityNames map[int]string
 }
 
 func newSQLiteReader(cfg ConnectionConfig) (*sqliteReader, error) {
@@ -137,11 +138,13 @@ func (r *sqliteReader) ReadMovies(ctx context.Context) ([]SourceMovie, error) {
 		return nil, err
 	}
 
+	qualityNames := r.getQualityNames(ctx)
+
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT m.Id, m.Path, m.QualityProfileId, m.Monitored, m.Added, m.MovieFileId,
 		       mm.Title, mm.SortTitle, mm.Year, mm.TmdbId, mm.ImdbId, mm.Overview,
 		       mm.Runtime, mm.Status, mm.Studio, mm.Certification,
-		       mm.InCinemas, mm.PhysicalRelease, mm.DigitalRelease
+		       mm.InCinemas, mm.PhysicalRelease, mm.DigitalRelease, mm.Images
 		FROM Movies m
 		JOIN MovieMetadata mm ON m.MovieMetadataId = mm.Id
 	`)
@@ -159,12 +162,13 @@ func (r *sqliteReader) ReadMovies(ctx context.Context) ([]SourceMovie, error) {
 		var inCinemasStr, physicalReleaseStr, digitalReleaseStr sql.NullString
 		var imdbID sql.NullString
 		var overview, studio, certification sql.NullString
+		var imagesJSON sql.NullString
 
 		if err := rows.Scan(
 			&m.ID, &m.Path, &m.QualityProfileID, &m.Monitored, &addedStr, &movieFileID,
 			&m.Title, &m.SortTitle, &m.Year, &m.TmdbID, &imdbID, &overview,
 			&m.Runtime, &status, &studio, &certification,
-			&inCinemasStr, &physicalReleaseStr, &digitalReleaseStr,
+			&inCinemasStr, &physicalReleaseStr, &digitalReleaseStr, &imagesJSON,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan movie: %w", err)
 		}
@@ -184,10 +188,11 @@ func (r *sqliteReader) ReadMovies(ctx context.Context) ([]SourceMovie, error) {
 		m.PhysicalRelease = parseDateTime(physicalReleaseStr.String)
 		m.DigitalRelease = parseDateTime(digitalReleaseStr.String)
 		m.RootFolderPath = deriveRootFolderPath(m.Path, rootFolders)
+		m.PosterURL = extractPosterURL(imagesJSON.String)
 		m.HasFile = movieFileID > 0
 
 		if m.HasFile {
-			file, err := r.readMovieFile(ctx, movieFileID)
+			file, err := r.readMovieFile(ctx, movieFileID, m.Path, qualityNames)
 			if err == nil {
 				m.File = file
 			}
@@ -198,23 +203,25 @@ func (r *sqliteReader) ReadMovies(ctx context.Context) ([]SourceMovie, error) {
 	return movies, rows.Err()
 }
 
-func (r *sqliteReader) readMovieFile(ctx context.Context, fileID int64) (*SourceMovieFile, error) {
+func (r *sqliteReader) readMovieFile(ctx context.Context, fileID int64, moviePath string, qualityNames map[int]string) (*SourceMovieFile, error) {
 	var f SourceMovieFile
 	var qualityJSON, mediaInfoJSON sql.NullString
 	var originalFilePath sql.NullString
 	var dateAddedStr string
+	var relativePath string
 
 	err := r.db.QueryRowContext(ctx, `
-		SELECT Id, Path, Size, Quality, MediaInfo, OriginalFilePath, DateAdded
+		SELECT Id, RelativePath, Size, Quality, MediaInfo, OriginalFilePath, DateAdded
 		FROM MovieFiles WHERE Id = ?
-	`, fileID).Scan(&f.ID, &f.Path, &f.Size, &qualityJSON, &mediaInfoJSON, &originalFilePath, &dateAddedStr)
+	`, fileID).Scan(&f.ID, &relativePath, &f.Size, &qualityJSON, &mediaInfoJSON, &originalFilePath, &dateAddedStr)
 	if err != nil {
 		return nil, err
 	}
 
+	f.Path = resolveFilePath(moviePath, relativePath)
 	f.OriginalFilePath = originalFilePath.String
 	f.DateAdded = parseDateTime(dateAddedStr)
-	parseQualityJSON(qualityJSON.String, &f.QualityID, &f.QualityName)
+	parseQualityJSON(qualityJSON.String, &f.QualityID, &f.QualityName, qualityNames)
 	parseMediaInfoJSON(mediaInfoJSON.String, &f.VideoCodec, &f.AudioCodec, &f.Resolution, &f.AudioChannels, &f.DynamicRange)
 
 	return &f, nil
@@ -226,6 +233,7 @@ type sqliteSeriesRow struct {
 	status        int
 	addedStr      string
 	seasonsJSON   sql.NullString
+	imagesJSON    sql.NullString
 	imdbID        sql.NullString
 	overview      sql.NullString
 	network       sql.NullString
@@ -247,16 +255,30 @@ func mapSeriesStatus(status int) string {
 	}
 }
 
+func mapSonarrSeriesType(raw string) string {
+	switch raw {
+	case "0", "standard":
+		return "standard"
+	case "1", "daily":
+		return "daily"
+	case "2", "anime":
+		return "anime"
+	default:
+		return "standard"
+	}
+}
+
 func (row *sqliteSeriesRow) toSourceSeries(rootFolders []SourceRootFolder) SourceSeries {
 	row.s.Status = mapSeriesStatus(row.status)
 	row.s.TmdbID = int(row.tmdbID.Int64)
 	row.s.ImdbID = row.imdbID.String
 	row.s.Overview = row.overview.String
 	row.s.Network = row.network.String
-	row.s.SeriesType = row.seriesType.String
+	row.s.SeriesType = mapSonarrSeriesType(row.seriesType.String)
 	row.s.Certification = row.certification.String
 	row.s.Added = parseDateTime(row.addedStr)
 	row.s.RootFolderPath = deriveRootFolderPath(row.s.Path, rootFolders)
+	row.s.PosterURL = extractPosterURL(row.imagesJSON.String)
 
 	if row.seasonsJSON.Valid {
 		var seasons []SourceSeason
@@ -282,7 +304,7 @@ func (r *sqliteReader) ReadSeries(ctx context.Context) ([]SourceSeries, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT Id, Title, SortTitle, Year, TvdbId, TmdbId, ImdbId, Overview,
 		       Runtime, Path, QualityProfileId, Monitored, SeasonFolder,
-		       Status, Network, SeriesType, Certification, Added, Seasons
+		       Status, Network, SeriesType, Certification, Added, Seasons, Images
 		FROM Series
 	`)
 	if err != nil {
@@ -298,6 +320,7 @@ func (r *sqliteReader) ReadSeries(ctx context.Context) ([]SourceSeries, error) {
 			&row.tmdbID, &row.imdbID, &row.overview,
 			&row.s.Runtime, &row.s.Path, &row.s.QualityProfileID, &row.s.Monitored, &row.s.SeasonFolder,
 			&row.status, &row.network, &row.seriesType, &row.certification, &row.addedStr, &row.seasonsJSON,
+			&row.imagesJSON,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan series: %w", err)
 		}
@@ -357,6 +380,8 @@ func (r *sqliteReader) ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]
 		return []SourceEpisodeFile{}, nil
 	}
 
+	qualityNames := r.getQualityNames(ctx)
+
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT Id, SeriesId, SeasonNumber, RelativePath, Size, Quality, MediaInfo,
 		       OriginalFilePath, DateAdded
@@ -383,7 +408,7 @@ func (r *sqliteReader) ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]
 
 		f.OriginalFilePath = originalFilePath.String
 		f.DateAdded = parseDateTime(dateAddedStr)
-		parseQualityJSON(qualityJSON.String, &f.QualityID, &f.QualityName)
+		parseQualityJSON(qualityJSON.String, &f.QualityID, &f.QualityName, qualityNames)
 		parseMediaInfoJSON(mediaInfoJSON.String, &f.VideoCodec, &f.AudioCodec, &f.Resolution, &f.AudioChannels, &f.DynamicRange)
 
 		files = append(files, f)
@@ -391,22 +416,101 @@ func (r *sqliteReader) ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]
 	return files, rows.Err()
 }
 
+// sourceImage represents an image entry from Radarr/Sonarr.
+type sourceImage struct {
+	CoverType string `json:"coverType"`
+	URL       string `json:"url"`
+	RemoteURL string `json:"remoteUrl"`
+}
+
+// extractPosterURL finds the poster image URL from a Radarr/Sonarr images array.
+func extractPosterURL(imagesJSON string) string {
+	if imagesJSON == "" {
+		return ""
+	}
+	var images []sourceImage
+	if err := json.Unmarshal([]byte(imagesJSON), &images); err != nil {
+		return ""
+	}
+	for _, img := range images {
+		if img.CoverType == "poster" {
+			if img.RemoteURL != "" {
+				return img.RemoteURL
+			}
+			return img.URL
+		}
+	}
+	return ""
+}
+
+// getQualityNames returns a cached quality definitions lookup map.
+func (r *sqliteReader) getQualityNames(ctx context.Context) map[int]string {
+	if r.qualityNames != nil {
+		return r.qualityNames
+	}
+	m := make(map[int]string)
+	rows, err := r.db.QueryContext(ctx, "SELECT Quality, Title FROM QualityDefinitions")
+	if err != nil {
+		return m
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+		var title string
+		if err := rows.Scan(&id, &title); err == nil {
+			m[id] = title
+		}
+	}
+	r.qualityNames = m
+	return m
+}
+
 // parseQualityJSON extracts quality ID and name from the JSON quality column.
-// Structure: {"quality":{"id":7,"name":"Bluray-1080p","source":"bluray","resolution":1080},...}
-func parseQualityJSON(jsonStr string, qualityID *int, qualityName *string) {
+// Handles three formats:
+//   - Nested object: {"quality":{"id":7,"name":"Bluray-1080p",...},...}
+//   - Integer ID:    {"quality":31,...} (Radarr v5+, name resolved via qualityNames map)
+//   - Flat object:   {"id":7,"name":"Bluray-1080p"}
+func parseQualityJSON(jsonStr string, qualityID *int, qualityName *string, qualityNames map[int]string) {
 	if jsonStr == "" {
 		return
 	}
+
 	var wrapper struct {
-		Quality struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-		} `json:"quality"`
+		Quality json.RawMessage `json:"quality"`
 	}
-	if err := json.Unmarshal([]byte(jsonStr), &wrapper); err == nil {
-		*qualityID = wrapper.Quality.ID
-		*qualityName = wrapper.Quality.Name
+	if err := json.Unmarshal([]byte(jsonStr), &wrapper); err == nil && len(wrapper.Quality) > 0 {
+		id, name := parseQualityField(wrapper.Quality, qualityNames)
+		*qualityID = id
+		*qualityName = name
+		return
 	}
+
+	var flat struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &flat); err == nil && flat.Name != "" {
+		*qualityID = flat.ID
+		*qualityName = flat.Name
+	}
+}
+
+// parseQualityField parses the "quality" field which can be an object or an integer.
+func parseQualityField(raw json.RawMessage, qualityNames map[int]string) (qualityID int, qualityName string) {
+	var obj struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &obj); err == nil && obj.Name != "" {
+		return obj.ID, obj.Name
+	}
+
+	var intID int
+	if err := json.Unmarshal(raw, &intID); err == nil && intID > 0 && qualityNames != nil {
+		return intID, qualityNames[intID]
+	}
+
+	return 0, ""
 }
 
 // parseMediaInfoJSON extracts media info fields from the JSON column.
@@ -464,11 +568,26 @@ func parseDateTime(s string) time.Time {
 	return time.Time{}
 }
 
+// resolveFilePath constructs a full file path from a parent directory and a relative path.
+// Handles Windows-origin paths where the relative path may use backslash separators.
+func resolveFilePath(parentPath, relativePath string) string {
+	if strings.HasPrefix(relativePath, "/") || (len(relativePath) >= 2 && relativePath[1] == ':') {
+		return relativePath
+	}
+	sep := "/"
+	if strings.Contains(parentPath, "\\") {
+		sep = "\\"
+	}
+	return strings.TrimRight(parentPath, "/\\") + sep + relativePath
+}
+
 // deriveRootFolderPath finds the root folder path that is a prefix of the given path.
+// Handles both Unix (/) and Windows (\) path separators since source databases
+// may originate from either OS.
 func deriveRootFolderPath(mediaPath string, rootFolders []SourceRootFolder) string {
 	for _, rf := range rootFolders {
 		rfPath := rf.Path
-		if !strings.HasSuffix(rfPath, "/") {
+		if !strings.HasSuffix(rfPath, "/") && !strings.HasSuffix(rfPath, "\\") {
 			rfPath += "/"
 		}
 		if strings.HasPrefix(mediaPath, rfPath) {

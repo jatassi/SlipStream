@@ -20,7 +20,7 @@ import {
 import type { DownloadClient, DownloadClientType } from '@/types'
 
 type ClientCardActions = {
-  onToggleEnabled: (id: number, enabled: boolean) => void
+  onToggleEnabled: (client: DownloadClient, enabled: boolean) => void
   onTest: (id: number) => void
   onEdit: (client: DownloadClient) => void
   onDelete: (id: number) => void
@@ -61,7 +61,7 @@ function ClientCard({ client, actions }: { client: DownloadClient; actions: Clie
       <CardHeader className="flex flex-row items-center justify-between py-4">
         <ClientCardInfo client={client} />
         <div className="flex items-center gap-4">
-          <Switch checked={client.enabled} onCheckedChange={(checked) => actions.onToggleEnabled(client.id, checked)} />
+          <Switch checked={client.enabled} onCheckedChange={(checked) => actions.onToggleEnabled(client, checked)} />
           <Button variant="outline" size="sm" onClick={() => actions.onTest(client.id)} disabled={actions.isTestPending}>
             <TestTube className="mr-1 size-4" />
             Test
@@ -92,10 +92,13 @@ function useDownloadClientActions() {
   const testMutation = useTestDownloadClient()
   const updateMutation = useUpdateDownloadClient()
 
-  const handleToggleEnabled = (id: number, enabled: boolean) => {
+  const handleToggleEnabled = (client: DownloadClient, enabled: boolean) => {
+    const { id, createdAt: _ca, updatedAt: _ua, ...data } = client
     void (async () => {
-      try { await updateMutation.mutateAsync({ id, data: { enabled } }); toast.success(enabled ? 'Client enabled' : 'Client disabled') }
-      catch { toast.error('Failed to update client') }
+      try {
+        await updateMutation.mutateAsync({ id, data: { ...data, enabled } })
+        toast.success(enabled ? 'Client enabled' : 'Client disabled')
+      } catch { toast.error('Failed to update client') }
     })()
   }
 

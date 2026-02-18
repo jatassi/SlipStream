@@ -150,26 +150,27 @@ func (r *apiReader) profileIDsInUse(ctx context.Context) map[int64]bool {
 }
 
 type apiMovie struct {
-	ID               int64  `json:"id"`
-	Title            string `json:"title"`
-	SortTitle        string `json:"sortTitle"`
-	Year             int    `json:"year"`
-	TmdbID           int    `json:"tmdbId"`
-	ImdbID           string `json:"imdbId"`
-	Overview         string `json:"overview"`
-	Runtime          int    `json:"runtime"`
-	Path             string `json:"path"`
-	RootFolderPath   string `json:"rootFolderPath"`
-	QualityProfileID int64  `json:"qualityProfileId"`
-	Monitored        bool   `json:"monitored"`
-	Status           string `json:"status"`
-	Studio           string `json:"studio"`
-	Certification    string `json:"certification"`
-	InCinemas        string `json:"inCinemas"`
-	PhysicalRelease  string `json:"physicalRelease"`
-	DigitalRelease   string `json:"digitalRelease"`
-	Added            string `json:"added"`
-	HasFile          bool   `json:"hasFile"`
+	ID               int64         `json:"id"`
+	Title            string        `json:"title"`
+	SortTitle        string        `json:"sortTitle"`
+	Year             int           `json:"year"`
+	TmdbID           int           `json:"tmdbId"`
+	ImdbID           string        `json:"imdbId"`
+	Overview         string        `json:"overview"`
+	Runtime          int           `json:"runtime"`
+	Path             string        `json:"path"`
+	RootFolderPath   string        `json:"rootFolderPath"`
+	QualityProfileID int64         `json:"qualityProfileId"`
+	Monitored        bool          `json:"monitored"`
+	Status           string        `json:"status"`
+	Studio           string        `json:"studio"`
+	Certification    string        `json:"certification"`
+	InCinemas        string        `json:"inCinemas"`
+	PhysicalRelease  string        `json:"physicalRelease"`
+	DigitalRelease   string        `json:"digitalRelease"`
+	Added            string        `json:"added"`
+	HasFile          bool          `json:"hasFile"`
+	Images           []sourceImage `json:"images"`
 	MovieFile        *struct {
 		ID               int64  `json:"id"`
 		Path             string `json:"path"`
@@ -244,6 +245,7 @@ func convertAPIMovie(am *apiMovie, rootFolders []SourceRootFolder) SourceMovie {
 		DigitalRelease:   parseDateTime(am.DigitalRelease),
 		Added:            parseDateTime(am.Added),
 		HasFile:          am.HasFile,
+		PosterURL:        apiPosterURL(am.Images),
 	}
 
 	if m.RootFolderPath == "" {
@@ -271,25 +273,26 @@ func convertAPIMovie(am *apiMovie, rootFolders []SourceRootFolder) SourceMovie {
 }
 
 type apiSeriesItem struct {
-	ID               int64  `json:"id"`
-	Title            string `json:"title"`
-	SortTitle        string `json:"sortTitle"`
-	Year             int    `json:"year"`
-	TvdbID           int    `json:"tvdbId"`
-	TmdbID           int    `json:"tmdbId"`
-	ImdbID           string `json:"imdbId"`
-	Overview         string `json:"overview"`
-	Runtime          int    `json:"runtime"`
-	Path             string `json:"path"`
-	RootFolderPath   string `json:"rootFolderPath"`
-	QualityProfileID int64  `json:"qualityProfileId"`
-	Monitored        bool   `json:"monitored"`
-	SeasonFolder     bool   `json:"seasonFolder"`
-	Status           string `json:"status"`
-	Network          string `json:"network"`
-	SeriesType       string `json:"seriesType"`
-	Certification    string `json:"certification"`
-	Added            string `json:"added"`
+	ID               int64         `json:"id"`
+	Title            string        `json:"title"`
+	SortTitle        string        `json:"sortTitle"`
+	Year             int           `json:"year"`
+	TvdbID           int           `json:"tvdbId"`
+	TmdbID           int           `json:"tmdbId"`
+	ImdbID           string        `json:"imdbId"`
+	Overview         string        `json:"overview"`
+	Runtime          int           `json:"runtime"`
+	Path             string        `json:"path"`
+	RootFolderPath   string        `json:"rootFolderPath"`
+	QualityProfileID int64         `json:"qualityProfileId"`
+	Monitored        bool          `json:"monitored"`
+	SeasonFolder     bool          `json:"seasonFolder"`
+	Status           string        `json:"status"`
+	Network          string        `json:"network"`
+	SeriesType       string        `json:"seriesType"`
+	Certification    string        `json:"certification"`
+	Added            string        `json:"added"`
+	Images           []sourceImage `json:"images"`
 	Seasons          []struct {
 		SeasonNumber int  `json:"seasonNumber"`
 		Monitored    bool `json:"monitored"`
@@ -344,9 +347,10 @@ func convertAPISeries(as *apiSeriesItem, rootFolders []SourceRootFolder) SourceS
 		SeasonFolder:     as.SeasonFolder,
 		Status:           as.Status,
 		Network:          as.Network,
-		SeriesType:       as.SeriesType,
+		SeriesType:       mapSonarrSeriesType(as.SeriesType),
 		Certification:    as.Certification,
 		Added:            parseDateTime(as.Added),
+		PosterURL:        apiPosterURL(as.Images),
 	}
 
 	if s.RootFolderPath == "" {
@@ -470,6 +474,18 @@ func (r *apiReader) ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]Sou
 		}
 	}
 	return files, nil
+}
+
+func apiPosterURL(images []sourceImage) string {
+	for _, img := range images {
+		if img.CoverType == "poster" {
+			if img.RemoteURL != "" {
+				return img.RemoteURL
+			}
+			return img.URL
+		}
+	}
+	return ""
 }
 
 func formatAudioChannels(channels float64) string {

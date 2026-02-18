@@ -203,7 +203,7 @@ func TestMovieService_List(t *testing.T) {
 	}
 }
 
-func TestMovieService_List_Pagination(t *testing.T) {
+func TestMovieService_List_ReturnsAll(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
@@ -218,24 +218,13 @@ func TestMovieService_List_Pagination(t *testing.T) {
 		}
 	}
 
-	// Get first page
-	list, err := service.List(ctx, ListMoviesOptions{Page: 1, PageSize: 2})
+	list, err := service.List(ctx, ListMoviesOptions{})
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 
-	if len(list) != 2 {
-		t.Errorf("List() page 1 returned %d movies, want 2", len(list))
-	}
-
-	// Get second page
-	list2, err := service.List(ctx, ListMoviesOptions{Page: 2, PageSize: 2})
-	if err != nil {
-		t.Fatalf("List() page 2 error = %v", err)
-	}
-
-	if len(list2) != 2 {
-		t.Errorf("List() page 2 returned %d movies, want 2", len(list2))
+	if len(list) != 5 {
+		t.Errorf("List() returned %d movies, want 5", len(list))
 	}
 }
 

@@ -50,6 +50,14 @@ export function getAdminAuthToken(): string | null {
   return adminAuthToken
 }
 
+function handleUnauthorized(): void {
+  const hadToken = !!(adminAuthToken ?? getPortalAuthToken())
+  adminAuthToken = null
+  if (hadToken) {
+    globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))
+  }
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -70,13 +78,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   })
 
   if (!res.ok) {
-    // Handle 401 - clear auth and redirect to login
     if (res.status === 401) {
-      const hadToken = !!(adminAuthToken ?? getPortalAuthToken())
-      adminAuthToken = null
-      if (hadToken) {
-        globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))
-      }
+      handleUnauthorized()
     }
     let errorData: unknown = null
     try {
@@ -90,8 +93,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     )
   }
 
-  // Handle 204 No Content
-  if (res.status === 204) {
+  // Handle empty responses (204 No Content, 202 Accepted with no body)
+  if (res.status === 204 || res.status === 202) {
     return undefined as T
   }
 

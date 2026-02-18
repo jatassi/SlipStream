@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path"
-	"strings"
+	"slices"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -19,14 +20,15 @@ import (
 
 // Executor handles the actual import of media from a source into SlipStream.
 type Executor struct {
-	db              *sql.DB
-	reader          Reader
-	sourceType      SourceType
-	movieService    MovieService
-	tvService       TVService
-	slotsService    SlotsService
-	progressManager *progress.Manager
-	logger          *zerolog.Logger
+	db                *sql.DB
+	reader            Reader
+	sourceType        SourceType
+	movieService      MovieService
+	tvService         TVService
+	slotsService      SlotsService
+	metadataRefresher MetadataRefresher
+	progressManager   *progress.Manager
+	logger            *zerolog.Logger
 }
 
 // NewExecutor creates a new import executor.
@@ -37,27 +39,30 @@ func NewExecutor(
 	movieService MovieService,
 	tvService TVService,
 	slotsService SlotsService,
+	metadataRefresher MetadataRefresher,
 	progressManager *progress.Manager,
 	logger *zerolog.Logger,
 ) *Executor {
 	return &Executor{
-		db:              db,
-		reader:          reader,
-		sourceType:      sourceType,
-		movieService:    movieService,
-		tvService:       tvService,
-		slotsService:    slotsService,
-		progressManager: progressManager,
-		logger:          logger,
+		db:                db,
+		reader:            reader,
+		sourceType:        sourceType,
+		movieService:      movieService,
+		tvService:         tvService,
+		slotsService:      slotsService,
+		metadataRefresher: metadataRefresher,
+		progressManager:   progressManager,
+		logger:            logger,
 	}
 }
 
 // Run executes the full import process.
 func (e *Executor) Run(ctx context.Context, mappings ImportMappings) {
-	report := &ImportReport{}
+	report := &ImportReport{Errors: []string{}}
 	_ = e.progressManager.StartActivity("arrimport", progress.ActivityTypeImport, "Library Import")
 
 	defer func() {
+		e.progressManager.UpdateActivityMetadata("arrimport", "report", report)
 		if len(report.Errors) > 0 {
 			e.progressManager.FailActivity("arrimport", fmt.Sprintf("Completed with %d errors", len(report.Errors)))
 		} else {
@@ -107,6 +112,11 @@ func (e *Executor) importMovie(ctx context.Context, movie *SourceMovie, mappings
 		return
 	}
 
+	if len(mappings.SelectedMovieTmdbIDs) > 0 && !slices.Contains(mappings.SelectedMovieTmdbIDs, movie.TmdbID) {
+		report.MoviesSkipped++
+		return
+	}
+
 	if e.movieExists(ctx, movie, report) {
 		return
 	}
@@ -130,6 +140,7 @@ func (e *Executor) importMovie(ctx context.Context, movie *SourceMovie, mappings
 
 	e.preserveMovieAddedAt(ctx, movie.Added, createdMovie.ID)
 	e.initMovieSlots(ctx, createdMovie.ID)
+	e.refreshMovieMetadata(ctx, createdMovie.ID, movie.Title)
 
 	if movie.HasFile && movie.File != nil {
 		e.importMovieFile(ctx, createdMovie, movie.File, report)
@@ -204,6 +215,12 @@ func (e *Executor) initMovieSlots(ctx context.Context, movieID int64) {
 }
 
 func (e *Executor) importMovieFile(ctx context.Context, createdMovie *movies.Movie, file *SourceMovieFile, report *ImportReport) {
+	report.TotalFiles++
+	if _, err := os.Stat(file.Path); err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("file not found for movie %q: %s", createdMovie.Title, file.Path))
+		return
+	}
+
 	qualityID := MapQualityID(e.sourceType, file.QualityID, file.QualityName)
 
 	var originalFilename string
@@ -226,7 +243,7 @@ func (e *Executor) importMovieFile(ctx context.Context, createdMovie *movies.Mov
 
 	createdFile, err := e.movieService.AddFile(ctx, createdMovie.ID, fileInput)
 	if err != nil {
-		e.logger.Warn().Int64("movieId", createdMovie.ID).Str("path", file.Path).Err(err).Msg("failed to add movie file")
+		report.Errors = append(report.Errors, fmt.Sprintf("failed to add file for movie %q: %v", createdMovie.Title, err))
 		return
 	}
 	report.FilesImported++
@@ -269,6 +286,11 @@ func (e *Executor) importSeries(ctx context.Context, series *SourceSeries, mappi
 		return
 	}
 
+	if len(mappings.SelectedSeriesTvdbIDs) > 0 && !slices.Contains(mappings.SelectedSeriesTvdbIDs, series.TvdbID) {
+		report.SeriesSkipped++
+		return
+	}
+
 	if e.seriesExists(ctx, series, report) {
 		return
 	}
@@ -281,7 +303,7 @@ func (e *Executor) importSeries(ctx context.Context, series *SourceSeries, mappi
 		return
 	}
 
-	episodes, files := e.readSeriesData(ctx, series.ID)
+	episodes, files := e.readSeriesData(ctx, series, report)
 	fileIDToEpisode := buildFileEpisodeLookup(episodes)
 	seasonInputs := buildSeasonInputs(series.Seasons, episodes)
 
@@ -295,6 +317,7 @@ func (e *Executor) importSeries(ctx context.Context, series *SourceSeries, mappi
 	}
 
 	e.preserveSeriesAddedAt(ctx, series.Added, createdSeries.ID)
+	e.refreshSeriesMetadata(ctx, createdSeries.ID, series.Title)
 	e.importEpisodeFiles(ctx, createdSeries.ID, series.Path, files, fileIDToEpisode, report)
 
 	report.SeriesCreated++
@@ -315,16 +338,18 @@ func (e *Executor) seriesExists(ctx context.Context, series *SourceSeries, repor
 	return false
 }
 
-func (e *Executor) readSeriesData(ctx context.Context, seriesID int64) ([]SourceEpisode, []SourceEpisodeFile) {
-	episodes, err := e.reader.ReadEpisodes(ctx, seriesID)
+func (e *Executor) readSeriesData(ctx context.Context, series *SourceSeries, report *ImportReport) ([]SourceEpisode, []SourceEpisodeFile) {
+	episodes, err := e.reader.ReadEpisodes(ctx, series.ID)
 	if err != nil {
-		e.logger.Warn().Int64("seriesId", seriesID).Err(err).Msg("failed to read episodes")
+		e.logger.Warn().Int64("seriesId", series.ID).Err(err).Msg("failed to read episodes")
+		report.Errors = append(report.Errors, fmt.Sprintf("failed to read episodes for %q: %v", series.Title, err))
 		episodes = []SourceEpisode{}
 	}
 
-	files, err := e.reader.ReadEpisodeFiles(ctx, seriesID)
+	files, err := e.reader.ReadEpisodeFiles(ctx, series.ID)
 	if err != nil {
-		e.logger.Warn().Int64("seriesId", seriesID).Err(err).Msg("failed to read episode files")
+		e.logger.Warn().Int64("seriesId", series.ID).Err(err).Msg("failed to read episode files")
+		report.Errors = append(report.Errors, fmt.Sprintf("failed to read episode files for %q: %v", series.Title, err))
 		files = []SourceEpisodeFile{}
 	}
 
@@ -416,7 +441,7 @@ func (e *Executor) importEpisodeFiles(
 
 		slipEpisode, err := e.tvService.GetEpisodeByNumber(ctx, seriesID, sourceEp.SeasonNumber, sourceEp.EpisodeNumber)
 		if err != nil {
-			e.logger.Warn().Int64("seriesId", seriesID).Int("season", sourceEp.SeasonNumber).Int("episode", sourceEp.EpisodeNumber).Err(err).Msg("episode not found for file")
+			report.Errors = append(report.Errors, fmt.Sprintf("episode not found for file S%02dE%02d: %v", sourceEp.SeasonNumber, sourceEp.EpisodeNumber, err))
 			continue
 		}
 
@@ -427,7 +452,14 @@ func (e *Executor) importEpisodeFiles(
 func (e *Executor) importSingleEpisodeFile(
 	ctx context.Context, episode *tv.Episode, file *SourceEpisodeFile, seriesPath string, report *ImportReport,
 ) {
-	filePath := resolveEpisodeFilePath(seriesPath, file.RelativePath)
+	report.TotalFiles++
+	filePath := resolveFilePath(seriesPath, file.RelativePath)
+
+	if _, err := os.Stat(filePath); err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("file not found for S%02dE%02d: %s", episode.SeasonNumber, episode.EpisodeNumber, filePath))
+		return
+	}
+
 	qualityID := MapQualityID(e.sourceType, file.QualityID, file.QualityName)
 
 	var originalFilename string
@@ -450,7 +482,7 @@ func (e *Executor) importSingleEpisodeFile(
 
 	createdFile, err := e.tvService.AddEpisodeFile(ctx, episode.ID, fileInput)
 	if err != nil {
-		e.logger.Warn().Int64("episodeId", episode.ID).Str("path", filePath).Err(err).Msg("failed to add episode file")
+		report.Errors = append(report.Errors, fmt.Sprintf("failed to add file for S%02dE%02d: %v", episode.SeasonNumber, episode.EpisodeNumber, err))
 		return
 	}
 	report.FilesImported++
@@ -461,14 +493,22 @@ func (e *Executor) importSingleEpisodeFile(
 	e.assignSlot(ctx, filePath, "episode", episode.ID, createdFile.ID)
 }
 
-// resolveEpisodeFilePath constructs the full file path for an episode file.
-// For SQLite sources, RelativePath is relative to the series folder.
-// For API sources, RelativePath may already be an absolute path.
-func resolveEpisodeFilePath(seriesPath, relativePath string) string {
-	if strings.HasPrefix(relativePath, "/") {
-		return relativePath
+func (e *Executor) refreshMovieMetadata(ctx context.Context, movieID int64, title string) {
+	if e.metadataRefresher == nil {
+		return
 	}
-	return seriesPath + "/" + relativePath
+	if err := e.metadataRefresher.RefreshMovieMetadata(ctx, movieID); err != nil {
+		e.logger.Warn().Err(err).Int64("movieId", movieID).Str("title", title).Msg("failed to refresh movie metadata")
+	}
+}
+
+func (e *Executor) refreshSeriesMetadata(ctx context.Context, seriesID int64, title string) {
+	if e.metadataRefresher == nil {
+		return
+	}
+	if err := e.metadataRefresher.RefreshSeriesMetadata(ctx, seriesID); err != nil {
+		e.logger.Warn().Err(err).Int64("seriesId", seriesID).Str("title", title).Msg("failed to refresh series metadata")
+	}
 }
 
 func formatDate(t time.Time) string {

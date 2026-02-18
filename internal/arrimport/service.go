@@ -56,6 +56,12 @@ type QualityProfile struct {
 	Name string
 }
 
+// MetadataRefresher refreshes metadata for imported media.
+type MetadataRefresher interface {
+	RefreshMovieMetadata(ctx context.Context, movieID int64) error
+	RefreshSeriesMetadata(ctx context.Context, seriesID int64) error
+}
+
 // SlotsService defines the interface for slot operations.
 type SlotsService interface {
 	IsMultiVersionEnabled(ctx context.Context) bool
@@ -74,6 +80,7 @@ type Service struct {
 	rootFolderService RootFolderService
 	qualityService    QualityService
 	slotsService      SlotsService
+	metadataRefresher MetadataRefresher
 	progressManager   *progress.Manager
 	hub               interface{ BroadcastJSON(v interface{}) }
 	logger            *zerolog.Logger
@@ -106,6 +113,11 @@ func NewService(
 // SetSlotsService sets the optional slots service for multi-version support.
 func (s *Service) SetSlotsService(svc SlotsService) {
 	s.slotsService = svc
+}
+
+// SetMetadataRefresher sets the optional metadata refresher for post-import metadata fetch.
+func (s *Service) SetMetadataRefresher(refresher MetadataRefresher) {
+	s.metadataRefresher = refresher
 }
 
 // Connect establishes a connection to the source application.
@@ -197,10 +209,13 @@ func (s *Service) previewMovies(ctx context.Context, reader Reader, preview *Imp
 
 	for i := range sourceMovies {
 		moviePreview := MoviePreview{
-			Title:   sourceMovies[i].Title,
-			Year:    sourceMovies[i].Year,
-			TmdbID:  sourceMovies[i].TmdbID,
-			HasFile: sourceMovies[i].HasFile,
+			Title:            sourceMovies[i].Title,
+			Year:             sourceMovies[i].Year,
+			TmdbID:           sourceMovies[i].TmdbID,
+			HasFile:          sourceMovies[i].HasFile,
+			Monitored:        sourceMovies[i].Monitored,
+			QualityProfileID: sourceMovies[i].QualityProfileID,
+			PosterURL:        sourceMovies[i].PosterURL,
 		}
 
 		if sourceMovies[i].File != nil {
@@ -251,9 +266,13 @@ func (s *Service) previewSeries(ctx context.Context, reader Reader, preview *Imp
 
 	for i := range seriesList {
 		seriesPreview := SeriesPreview{
-			Title:  seriesList[i].Title,
-			Year:   seriesList[i].Year,
-			TvdbID: seriesList[i].TvdbID,
+			Title:            seriesList[i].Title,
+			Year:             seriesList[i].Year,
+			TvdbID:           seriesList[i].TvdbID,
+			TmdbID:           seriesList[i].TmdbID,
+			Monitored:        seriesList[i].Monitored,
+			QualityProfileID: seriesList[i].QualityProfileID,
+			PosterURL:        seriesList[i].PosterURL,
 		}
 
 		if seriesList[i].TvdbID == 0 {
@@ -318,8 +337,8 @@ func (s *Service) Execute(ctx context.Context, mappings ImportMappings) error {
 	sourceType := s.sourceType
 	s.mu.Unlock()
 
-	executor := NewExecutor(s.db, reader, sourceType, s.movieService, s.tvService, s.slotsService, s.progressManager, s.logger)
-	go executor.Run(ctx, mappings)
+	executor := NewExecutor(s.db, reader, sourceType, s.movieService, s.tvService, s.slotsService, s.metadataRefresher, s.progressManager, s.logger)
+	go executor.Run(context.Background(), mappings)
 
 	return nil
 }

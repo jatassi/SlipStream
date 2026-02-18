@@ -162,8 +162,6 @@ type ListSeriesOptions struct {
 	Search       string `json:"search,omitempty"`
 	Monitored    *bool  `json:"monitored,omitempty"`
 	RootFolderID *int64 `json:"rootFolderId,omitempty"`
-	Page         int    `json:"page,omitempty"`
-	PageSize     int    `json:"pageSize,omitempty"`
 }
 
 // CreateEpisodeFileInput contains fields for creating an episode file.

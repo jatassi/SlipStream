@@ -473,7 +473,7 @@ func (s *Service) RefreshAllMovies(ctx context.Context) error {
 		return err
 	}
 
-	allMovies, err := s.movies.List(ctx, movies.ListMoviesOptions{PageSize: 10000})
+	allMovies, err := s.movies.List(ctx, movies.ListMoviesOptions{})
 	if err != nil {
 		s.failActivity(activity, err.Error())
 		return fmt.Errorf("failed to list movies: %w", err)
@@ -555,7 +555,7 @@ func (s *Service) RefreshAllSeries(ctx context.Context) error {
 		return err
 	}
 
-	allSeries, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{PageSize: 10000})
+	allSeries, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{})
 	if err != nil {
 		s.failActivity(activity, err.Error())
 		return fmt.Errorf("failed to list series: %w", err)

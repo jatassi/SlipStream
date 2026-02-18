@@ -34,6 +34,7 @@ go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
 - `CreateSeriesParams.ProductionStatus` is a required `string` field ("ended", "continuing", etc.)
 - `LinkRequestToMedia` SQL sets `status = 'available'` as a side effect — reset after if testing download lifecycle
 - Portal requests require a portal user first (FK on `requests.user_id` -> `portal_users.id`)
+- Nil slices serialize to JSON `null`, not `[]` — always initialize slice fields that reach the frontend (e.g., `Errors: []string{}`)
 
 ## Auto Search & Upgrade Pipeline
 

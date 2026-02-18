@@ -160,32 +160,20 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 	var rows []*sqlc.Movie
 	var err error
 
-	// Default pagination
-	if opts.PageSize <= 0 {
-		opts.PageSize = 100
-	}
-	if opts.Page <= 0 {
-		opts.Page = 1
-	}
-	offset := int64((opts.Page - 1) * opts.PageSize)
-
 	switch {
 	case opts.Search != "":
 		searchTerm := "%" + opts.Search + "%"
 		rows, err = s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
 			SearchTerm: searchTerm,
-			Lim:        int64(opts.PageSize),
-			Off:        offset,
+			Lim:        1000,
+			Off:        0,
 		})
 	case opts.RootFolderID != nil:
 		rows, err = s.queries.ListMoviesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
 	case opts.Monitored != nil && *opts.Monitored:
 		rows, err = s.queries.ListMonitoredMovies(ctx)
 	default:
-		rows, err = s.queries.ListMoviesPaginated(ctx, sqlc.ListMoviesPaginatedParams{
-			Limit:  int64(opts.PageSize),
-			Offset: offset,
-		})
+		rows, err = s.queries.ListMovies(ctx)
 	}
 
 	if err != nil {

@@ -53,6 +53,7 @@ type SourceMovie struct {
 	Certification    string           `json:"certification"`
 	Added            time.Time        `json:"added"`
 	HasFile          bool             `json:"hasFile"`
+	PosterURL        string           `json:"posterUrl,omitempty"`
 	File             *SourceMovieFile `json:"movieFile,omitempty"`
 }
 
@@ -93,6 +94,7 @@ type SourceSeries struct {
 	SeriesType       string         `json:"seriesType"`
 	Certification    string         `json:"certification"`
 	Added            time.Time      `json:"added"`
+	PosterURL        string         `json:"posterUrl,omitempty"`
 	Seasons          []SourceSeason `json:"seasons"`
 }
 
@@ -136,8 +138,10 @@ type SourceEpisodeFile struct {
 
 // ImportMappings holds the user's mapping choices for the import.
 type ImportMappings struct {
-	RootFolderMapping     map[string]int64 `json:"rootFolderMapping"`     // source path -> SS root folder ID
-	QualityProfileMapping map[int64]int64  `json:"qualityProfileMapping"` // source profile ID -> SS profile ID
+	RootFolderMapping     map[string]int64 `json:"rootFolderMapping"`
+	QualityProfileMapping map[int64]int64  `json:"qualityProfileMapping"`
+	SelectedMovieTmdbIDs  []int            `json:"selectedMovieTmdbIds,omitempty"`
+	SelectedSeriesTvdbIDs []int            `json:"selectedSeriesTvdbIds,omitempty"`
 }
 
 // ImportPreview contains the preview results before executing an import.
@@ -149,24 +153,31 @@ type ImportPreview struct {
 
 // MoviePreview represents a movie in the import preview.
 type MoviePreview struct {
-	Title      string `json:"title"`
-	Year       int    `json:"year"`
-	TmdbID     int    `json:"tmdbId"`
-	HasFile    bool   `json:"hasFile"`
-	Quality    string `json:"quality"`
-	Status     string `json:"status"` // "new", "duplicate", "skip"
-	SkipReason string `json:"skipReason,omitempty"`
+	Title            string `json:"title"`
+	Year             int    `json:"year"`
+	TmdbID           int    `json:"tmdbId"`
+	HasFile          bool   `json:"hasFile"`
+	Quality          string `json:"quality"`
+	Monitored        bool   `json:"monitored"`
+	QualityProfileID int64  `json:"qualityProfileId"`
+	PosterURL        string `json:"posterUrl,omitempty"`
+	Status           string `json:"status"` // "new", "duplicate", "skip"
+	SkipReason       string `json:"skipReason,omitempty"`
 }
 
 // SeriesPreview represents a series in the import preview.
 type SeriesPreview struct {
-	Title        string `json:"title"`
-	Year         int    `json:"year"`
-	TvdbID       int    `json:"tvdbId"`
-	EpisodeCount int    `json:"episodeCount"`
-	FileCount    int    `json:"fileCount"`
-	Status       string `json:"status"` // "new", "duplicate", "skip"
-	SkipReason   string `json:"skipReason,omitempty"`
+	Title            string `json:"title"`
+	Year             int    `json:"year"`
+	TvdbID           int    `json:"tvdbId"`
+	TmdbID           int    `json:"tmdbId"`
+	EpisodeCount     int    `json:"episodeCount"`
+	FileCount        int    `json:"fileCount"`
+	Monitored        bool   `json:"monitored"`
+	QualityProfileID int64  `json:"qualityProfileId"`
+	PosterURL        string `json:"posterUrl,omitempty"`
+	Status           string `json:"status"` // "new", "duplicate", "skip"
+	SkipReason       string `json:"skipReason,omitempty"`
 }
 
 // ImportSummary contains aggregate counts for the import preview.
@@ -191,6 +202,7 @@ type ImportReport struct {
 	SeriesCreated int      `json:"seriesCreated"`
 	SeriesSkipped int      `json:"seriesSkipped"`
 	SeriesErrored int      `json:"seriesErrored"`
+	TotalFiles    int      `json:"totalFiles"`
 	FilesImported int      `json:"filesImported"`
 	Errors        []string `json:"errors"`
 }

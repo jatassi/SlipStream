@@ -44,12 +44,6 @@ func (h *Handlers) ListSeries(c echo.Context) error {
 		Search: c.QueryParam("search"),
 	}
 
-	if page := c.QueryParam("page"); page != "" {
-		opts.Page, _ = strconv.Atoi(page)
-	}
-	if pageSize := c.QueryParam("pageSize"); pageSize != "" {
-		opts.PageSize, _ = strconv.Atoi(pageSize)
-	}
 	if monitored := c.QueryParam("monitored"); monitored == "true" {
 		m := true
 		opts.Monitored = &m

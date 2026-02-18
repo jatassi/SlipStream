@@ -17,9 +17,7 @@ export function ArrImportPage() {
 
       <MediaNav />
 
-      <div className="rounded-lg border border-border bg-card p-6">
-        <ArrImportWizard />
-      </div>
+      <ArrImportWizard />
     </div>
   )
 }

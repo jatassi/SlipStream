@@ -776,6 +776,21 @@ func (a *arrImportQualityAdapter) List(ctx context.Context) ([]*arrimport.Qualit
 	return result, nil
 }
 
+// arrImportMetadataRefresherAdapter adapts librarymanager.Service to arrimport.MetadataRefresher
+type arrImportMetadataRefresherAdapter struct {
+	svc *librarymanager.Service
+}
+
+func (a *arrImportMetadataRefresherAdapter) RefreshMovieMetadata(ctx context.Context, movieID int64) error {
+	_, err := a.svc.RefreshMovieMetadata(ctx, movieID)
+	return err
+}
+
+func (a *arrImportMetadataRefresherAdapter) RefreshSeriesMetadata(ctx context.Context, seriesID int64) error {
+	_, err := a.svc.RefreshSeriesMetadata(ctx, seriesID)
+	return err
+}
+
 // arrImportHubAdapter adapts websocket.Hub to the BroadcastJSON interface
 type arrImportHubAdapter struct {
 	hub *websocket.Hub

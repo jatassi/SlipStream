@@ -142,32 +142,20 @@ func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Se
 	var rows []*sqlc.Series
 	var err error
 
-	// Default pagination
-	if opts.PageSize <= 0 {
-		opts.PageSize = 100
-	}
-	if opts.Page <= 0 {
-		opts.Page = 1
-	}
-	offset := int64((opts.Page - 1) * opts.PageSize)
-
 	switch {
 	case opts.Search != "":
 		searchTerm := "%" + opts.Search + "%"
 		rows, err = s.queries.SearchSeries(ctx, sqlc.SearchSeriesParams{
 			SearchTerm: searchTerm,
-			Lim:        int64(opts.PageSize),
-			Off:        offset,
+			Lim:        1000,
+			Off:        0,
 		})
 	case opts.RootFolderID != nil:
 		rows, err = s.queries.ListSeriesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
 	case opts.Monitored != nil && *opts.Monitored:
 		rows, err = s.queries.ListMonitoredSeries(ctx)
 	default:
-		rows, err = s.queries.ListSeriesPaginated(ctx, sqlc.ListSeriesPaginatedParams{
-			Limit:  int64(opts.PageSize),
-			Offset: offset,
-		})
+		rows, err = s.queries.ListSeries(ctx)
 	}
 
 	if err != nil {

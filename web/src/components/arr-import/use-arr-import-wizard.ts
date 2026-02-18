@@ -24,6 +24,7 @@ type WizardState = {
   sourceRootFolders: SourceRootFolder[]
   sourceQualityProfiles: SourceQualityProfile[]
   isLoadingSourceData: boolean
+  completedSteps: Set<WizardStep>
 }
 
 const initialState: WizardState = {
@@ -34,6 +35,7 @@ const initialState: WizardState = {
   sourceRootFolders: [],
   sourceQualityProfiles: [],
   isLoadingSourceData: false,
+  completedSteps: new Set(),
 }
 
 type SetState = React.Dispatch<React.SetStateAction<WizardState>>
@@ -56,11 +58,58 @@ function createHandleConnected(
           sourceRootFolders: rootFolders,
           sourceQualityProfiles: qualityProfiles,
           currentStep: 'mapping',
+          completedSteps: new Set([...s.completedSteps, 'connect']),
         }))
       }
     } finally {
       setState((s) => ({ ...s, isLoadingSourceData: false }))
     }
+  }
+}
+
+function completeStep(setState: SetState, step: WizardStep) {
+  setState((s) => ({ ...s, completedSteps: new Set([...s.completedSteps, step]) }))
+}
+
+function createHandleMappingsComplete(
+  setState: SetState,
+  previewMutate: ReturnType<typeof usePreview>['mutate'],
+) {
+  return (newMappings: ImportMappings) => {
+    setState((s) => ({ ...s, mappings: newMappings }))
+    previewMutate(newMappings, {
+      onSuccess: (previewData) => {
+        setState((s) => ({
+          ...s,
+          preview: previewData,
+          currentStep: 'preview',
+          completedSteps: new Set([...s.completedSteps, 'mapping']),
+        }))
+      },
+    })
+  }
+}
+
+function createHandleStartImport(
+  state: WizardState,
+  setState: SetState,
+  importMutate: ReturnType<typeof useExecuteImport>['mutate'],
+) {
+  return (selectedIds: number[]) => {
+    if (!state.mappings) {
+      return
+    }
+    const isMovie = state.sourceType === 'radarr'
+    const mappingsWithSelection: ImportMappings = {
+      ...state.mappings,
+      ...(isMovie ? { selectedMovieTmdbIds: selectedIds } : { selectedSeriesTvdbIds: selectedIds }),
+    }
+    importMutate(mappingsWithSelection, {
+      onSuccess: () => {
+        completeStep(setState, 'preview')
+        setState((s) => ({ ...s, currentStep: 'importing' }))
+      },
+    })
   }
 }
 
@@ -73,30 +122,10 @@ export function useArrImportWizard() {
   const executeImportMutation = useExecuteImport()
   const disconnectMutation = useDisconnect()
 
-  const handleConnected = createHandleConnected(setState, refetchRootFolders, refetchQualityProfiles)
-
-  const handleMappingsComplete = (newMappings: ImportMappings) => {
-    setState((s) => ({ ...s, mappings: newMappings }))
-    previewMutation.mutate(newMappings, {
-      onSuccess: (previewData) => {
-        setState((s) => ({ ...s, preview: previewData, currentStep: 'preview' }))
-      },
-    })
-  }
-
-  const handleStartImport = () => {
-    if (!state.mappings) {
-      return
+  const goToStep = (step: WizardStep) => {
+    if (state.completedSteps.has(step)) {
+      setState((s) => ({ ...s, currentStep: step }))
     }
-    executeImportMutation.mutate(state.mappings, {
-      onSuccess: () => setState((s) => ({ ...s, currentStep: 'importing' })),
-    })
-  }
-
-  const handleDone = () => {
-    disconnectMutation.mutate(undefined, {
-      onSettled: () => setState(initialState),
-    })
   }
 
   return {
@@ -104,9 +133,10 @@ export function useArrImportWizard() {
     setSourceType: (type: SourceType) => setState((s) => ({ ...s, sourceType: type })),
     isLoadingPreview: previewMutation.isPending,
     isImporting: executeImportMutation.isPending,
-    handleConnected,
-    handleMappingsComplete,
-    handleStartImport,
-    handleDone,
+    handleConnected: createHandleConnected(setState, refetchRootFolders, refetchQualityProfiles),
+    handleMappingsComplete: createHandleMappingsComplete(setState, previewMutation.mutate),
+    handleStartImport: createHandleStartImport(state, setState, executeImportMutation.mutate),
+    handleDone: () => disconnectMutation.mutate(undefined, { onSettled: () => setState(initialState) }),
+    goToStep,
   }
 }
