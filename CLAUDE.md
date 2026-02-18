@@ -92,3 +92,10 @@ Toggle via hammer icon in header. Switches to separate dev database (`slipstream
 ## External Requests Portal
 
 Separate auth from admin: admin uses session/cookies, portal users use JWT/localStorage. Request lifecycle: `pending` -> `approved` -> `downloading` -> `available` (or `denied`/`cancelled`). Quality profiles with `allowAutoApprove` skip the approval queue.
+
+## Production Debugging
+
+Logs and database from a production SlipStream instance are available for debugging purposes. You may only read from the database. Do not access these files unless the user explicitly mentions an error happening in production or otherwise instructs you to access them.
+
+- `/Volumes/Users/jacks/AppData/Local/SlipStream/slipstream.db`
+- `/Volumes/Users/jacks/AppData/Local/SlipStream/logs/slipstream.log`
