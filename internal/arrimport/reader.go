@@ -14,6 +14,11 @@ type Reader interface {
 	ReadSeries(ctx context.Context) ([]SourceSeries, error)
 	ReadEpisodes(ctx context.Context, seriesID int64) ([]SourceEpisode, error)
 	ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]SourceEpisodeFile, error)
+	ReadDownloadClients(ctx context.Context) ([]SourceDownloadClient, error)
+	ReadIndexers(ctx context.Context) ([]SourceIndexer, error)
+	ReadNotifications(ctx context.Context) ([]SourceNotification, error)
+	ReadQualityProfilesFull(ctx context.Context) ([]SourceQualityProfileFull, error)
+	ReadNamingConfig(ctx context.Context) (*SourceNamingConfig, error)
 	Close() error
 }
 

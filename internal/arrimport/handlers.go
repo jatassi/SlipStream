@@ -24,6 +24,8 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/source/qualityprofiles", h.GetSourceQualityProfiles)
 	g.POST("/preview", h.Preview)
 	g.POST("/execute", h.Execute)
+	g.GET("/config/preview", h.GetConfigPreview)
+	g.POST("/config/import", h.ExecuteConfigImport)
 	g.DELETE("/session", h.Disconnect)
 }
 
@@ -98,6 +100,31 @@ func (h *Handlers) Execute(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusAccepted)
+}
+
+// GetConfigPreview returns a preview of importable config entities from the source.
+func (h *Handlers) GetConfigPreview(c echo.Context) error {
+	preview, err := h.service.GetConfigPreview(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, preview)
+}
+
+// ExecuteConfigImport imports selected config entities from the source.
+func (h *Handlers) ExecuteConfigImport(c echo.Context) error {
+	var selections ConfigImportSelections
+	if err := c.Bind(&selections); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	report, err := h.service.ExecuteConfigImport(c.Request().Context(), &selections)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, report)
 }
 
 // Disconnect closes the connection to the source and clears session state.

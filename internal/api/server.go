@@ -654,6 +654,15 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	// Wire up metadata refresh for arr-import (fetches artwork/metadata after creating items)
 	s.arrImportService.SetMetadataRefresher(&arrImportMetadataRefresherAdapter{svc: s.libraryManagerService})
 
+	// Wire up config import services for arr-import
+	s.arrImportService.SetConfigImportServices(
+		s.downloaderService,
+		s.indexerService,
+		s.notificationService,
+		s.qualityService,
+		s.importService,
+	)
+
 	s.registerLibraryDependentTasks(cfg, logger)
 
 	// Initialize update service (after scheduler so we can register the task)

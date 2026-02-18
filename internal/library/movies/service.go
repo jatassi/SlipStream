@@ -305,6 +305,28 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateMovieInput)
 	return movie, nil
 }
 
+// BulkUpdateMonitored updates the monitored flag for multiple movies at once.
+func (s *Service) BulkUpdateMonitored(ctx context.Context, input BulkMonitorInput) error {
+	if len(input.IDs) == 0 {
+		return nil
+	}
+
+	if err := s.queries.UpdateMoviesMonitoredByIDs(ctx, sqlc.UpdateMoviesMonitoredByIDsParams{
+		Monitored: boolToInt(input.Monitored),
+		Ids:       input.IDs,
+	}); err != nil {
+		return fmt.Errorf("failed to bulk update movie monitored: %w", err)
+	}
+
+	s.logger.Info().Int("count", len(input.IDs)).Bool("monitored", input.Monitored).Msg("Bulk updated movie monitored status")
+
+	if s.hub != nil {
+		s.hub.Broadcast("library:updated", nil)
+	}
+
+	return nil
+}
+
 // Delete deletes a movie.
 func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error {
 	movie, err := s.Get(ctx, id)

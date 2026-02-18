@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import {
   useBulkDeleteSeries,
+  useBulkMonitorSeries,
   useBulkUpdateSeries,
   useGlobalLoading,
   useQualityProfiles,
@@ -113,12 +114,13 @@ function useQueryLayer() {
   const { data: rootFolders } = useRootFolders()
   const bulkDeleteMutation = useBulkDeleteSeries()
   const bulkUpdateMutation = useBulkUpdateSeries()
+  const bulkMonitorMutation = useBulkMonitorSeries()
   const refreshAllMutation = useRefreshAllSeries()
 
   return {
     seriesList, isLoading, isError, refetch,
     qualityProfiles, rootFolders,
-    bulkDeleteMutation, bulkUpdateMutation, refreshAllMutation,
+    bulkDeleteMutation, bulkUpdateMutation, bulkMonitorMutation, refreshAllMutation,
   }
 }
 
@@ -224,8 +226,8 @@ function useBulkHandlers({ local, queries, onExitEditMode }: BulkDeps) {
   }
 
   const handleBulkMonitor = (monitored: boolean) => {
-    queries.bulkUpdateMutation.mutate(
-      { ids: selectedArray(), data: { monitored } },
+    queries.bulkMonitorMutation.mutate(
+      { ids: selectedArray(), monitored },
       {
         onSuccess: () => {
           toast.success(`${local.selectedIds.size} series ${monitored ? 'monitored' : 'unmonitored'}`)

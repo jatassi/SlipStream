@@ -548,6 +548,16 @@ JOIN series s ON e.series_id = s.id
 WHERE s.root_folder_id = ?
   AND e.status IN ('available', 'upgradable');
 
+-- Bulk monitoring by series IDs (for bulk edit mode)
+-- name: UpdateSeriesMonitoredByIDs :exec
+UPDATE series SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (sqlc.slice('ids'));
+
+-- name: UpdateSeasonMonitoredBySeriesIDs :exec
+UPDATE seasons SET monitored = ? WHERE series_id IN (sqlc.slice('ids'));
+
+-- name: UpdateAllEpisodesMonitoredBySeriesIDs :exec
+UPDATE episodes SET monitored = ? WHERE series_id IN (sqlc.slice('ids'));
+
 -- Quality profile recalculation: find episodes with files to evaluate against new cutoff
 -- name: ListEpisodesWithFilesForProfile :many
 SELECT e.id, e.status, ef.id as file_id, ef.quality_id as current_quality_id

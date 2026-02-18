@@ -22,6 +22,7 @@ func NewHandlers(service *Service) *Handlers {
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.ListSeries)
 	g.POST("", h.CreateSeries)
+	g.PUT("/monitor", h.BulkMonitorSeries)
 	g.GET("/:id", h.GetSeries)
 	g.PUT("/:id", h.UpdateSeries)
 	g.DELETE("/:id", h.DeleteSeries)
@@ -35,6 +36,20 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.PUT("/:id/episodes/:episodeId", h.UpdateEpisode)
 	g.POST("/:id/episodes/:episodeId/files", h.AddEpisodeFile)
 	g.DELETE("/:id/episodes/:episodeId/files/:fileId", h.RemoveEpisodeFile)
+}
+
+// BulkMonitorSeries updates the monitored flag for multiple series.
+// PUT /api/v1/series/monitor
+func (h *Handlers) BulkMonitorSeries(c echo.Context) error {
+	var input BulkSeriesMonitorInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := h.service.BulkUpdateSeriesMonitored(c.Request().Context(), input); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // ListSeries returns all series with optional filtering.

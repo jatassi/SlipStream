@@ -99,6 +99,18 @@ export function useBulkDeleteSeries() {
   })
 }
 
+export function useBulkMonitorSeries() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
+      seriesApi.bulkMonitorSeries(ids, monitored),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: seriesKeys.all })
+      void queryClient.invalidateQueries({ queryKey: missingKeys.all })
+    },
+  })
+}
+
 export function useBulkUpdateSeries() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -157,6 +157,12 @@ type UpdateEpisodeInput struct {
 	Monitored *bool      `json:"monitored,omitempty"`
 }
 
+// BulkSeriesMonitorInput contains fields for bulk monitor/unmonitor of multiple series.
+type BulkSeriesMonitorInput struct {
+	IDs       []int64 `json:"ids"`
+	Monitored bool    `json:"monitored"`
+}
+
 // ListSeriesOptions contains options for listing series.
 type ListSeriesOptions struct {
 	Search       string `json:"search,omitempty"`

@@ -99,6 +99,12 @@ type UpdateMovieInput struct {
 	TheatricalReleaseDate *string `json:"theatricalReleaseDate,omitempty"` // Theatrical release date
 }
 
+// BulkMonitorInput contains fields for bulk monitor/unmonitor.
+type BulkMonitorInput struct {
+	IDs       []int64 `json:"ids"`
+	Monitored bool    `json:"monitored"`
+}
+
 // ListMoviesOptions contains options for listing movies.
 type ListMoviesOptions struct {
 	Search       string `json:"search,omitempty"`

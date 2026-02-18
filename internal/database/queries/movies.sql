@@ -267,6 +267,9 @@ JOIN movie_files mf ON mf.id = (
 WHERE m.status = 'upgradable' AND m.monitored = 1
 ORDER BY m.release_date DESC;
 
+-- name: UpdateMoviesMonitoredByIDs :exec
+UPDATE movies SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (sqlc.slice('ids'));
+
 -- Quality profile recalculation: find movies with files to evaluate against new cutoff
 -- name: ListMoviesWithFilesForProfile :many
 SELECT m.id, m.status, mf.id as file_id, mf.quality_id as current_quality_id

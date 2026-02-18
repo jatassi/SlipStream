@@ -93,6 +93,18 @@ export function useBulkDeleteMovies() {
   })
 }
 
+export function useBulkMonitorMovies() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
+      moviesApi.bulkMonitor(ids, monitored),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: movieKeys.all })
+      void queryClient.invalidateQueries({ queryKey: missingKeys.all })
+    },
+  })
+}
+
 export function useBulkUpdateMovies() {
   const queryClient = useQueryClient()
   return useMutation({

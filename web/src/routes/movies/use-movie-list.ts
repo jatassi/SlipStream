@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import {
   useBulkDeleteMovies,
+  useBulkMonitorMovies,
   useBulkUpdateMovies,
   useDeleteMovie,
   useGlobalLoading,
@@ -113,13 +114,14 @@ function useQueryLayer() {
   const deleteMutation = useDeleteMovie()
   const bulkDeleteMutation = useBulkDeleteMovies()
   const bulkUpdateMutation = useBulkUpdateMovies()
+  const bulkMonitorMutation = useBulkMonitorMovies()
   const refreshAllMutation = useRefreshAllMovies()
 
   return {
     movies, isLoading, isError, refetch,
     qualityProfiles, rootFolders,
     searchMutation, deleteMutation,
-    bulkDeleteMutation, bulkUpdateMutation, refreshAllMutation,
+    bulkDeleteMutation, bulkUpdateMutation, bulkMonitorMutation, refreshAllMutation,
   }
 }
 
@@ -256,8 +258,8 @@ function useBulkHandlers({ local, queries, onExitEditMode }: BulkDeps) {
   }
 
   const handleBulkMonitor = (monitored: boolean) => {
-    queries.bulkUpdateMutation.mutate(
-      { ids: selectedArray(), data: { monitored } },
+    queries.bulkMonitorMutation.mutate(
+      { ids: selectedArray(), monitored },
       {
         onSuccess: () => {
           toast.success(`${movieLabel(local.selectedIds.size)} ${monitored ? 'monitored' : 'unmonitored'}`)

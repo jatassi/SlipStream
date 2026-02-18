@@ -494,3 +494,144 @@ func formatAudioChannels(channels float64) string {
 	}
 	return strconv.FormatFloat(channels, 'f', -1, 64)
 }
+
+// apiField represents a single field in Sonarr/Radarr's provider settings array.
+type apiField struct {
+	Name  string `json:"name"`
+	Value any    `json:"value"`
+}
+
+func fieldsToJSON(fields []apiField) json.RawMessage {
+	m := make(map[string]any)
+	for _, f := range fields {
+		if f.Value != nil {
+			m[f.Name] = f.Value
+		}
+	}
+	b, _ := json.Marshal(m)
+	return b
+}
+
+func (r *apiReader) ReadDownloadClients(ctx context.Context) ([]SourceDownloadClient, error) {
+	body, err := r.doRequest(ctx, "/api/v3/downloadclient")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch download clients: %w", err)
+	}
+
+	var resp []struct {
+		ID                       int64      `json:"id"`
+		Name                     string     `json:"name"`
+		Implementation           string     `json:"implementation"`
+		Fields                   []apiField `json:"fields"`
+		Enable                   bool       `json:"enable"` // G17: not "enabled"
+		Priority                 int        `json:"priority"`
+		RemoveCompletedDownloads bool       `json:"removeCompletedDownloads"`
+		RemoveFailedDownloads    bool       `json:"removeFailedDownloads"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse download clients: %w", err)
+	}
+
+	clients := make([]SourceDownloadClient, 0, len(resp))
+	for _, item := range resp {
+		clients = append(clients, SourceDownloadClient{
+			ID:                       item.ID,
+			Name:                     item.Name,
+			Implementation:           item.Implementation,
+			Settings:                 fieldsToJSON(item.Fields),
+			Enabled:                  item.Enable,
+			Priority:                 item.Priority,
+			RemoveCompletedDownloads: item.RemoveCompletedDownloads,
+			RemoveFailedDownloads:    item.RemoveFailedDownloads,
+		})
+	}
+	return clients, nil
+}
+
+func (r *apiReader) ReadIndexers(ctx context.Context) ([]SourceIndexer, error) {
+	body, err := r.doRequest(ctx, "/api/v3/indexer")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch indexers: %w", err)
+	}
+
+	var resp []struct {
+		ID                      int64      `json:"id"`
+		Name                    string     `json:"name"`
+		Implementation          string     `json:"implementation"`
+		Fields                  []apiField `json:"fields"`
+		EnableRss               bool       `json:"enableRss"`
+		EnableAutomaticSearch   bool       `json:"enableAutomaticSearch"`
+		EnableInteractiveSearch bool       `json:"enableInteractiveSearch"`
+		Priority                int        `json:"priority"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse indexers: %w", err)
+	}
+
+	indexers := make([]SourceIndexer, 0, len(resp))
+	for _, item := range resp {
+		indexers = append(indexers, SourceIndexer{
+			ID:                      item.ID,
+			Name:                    item.Name,
+			Implementation:          item.Implementation,
+			Settings:                fieldsToJSON(item.Fields),
+			EnableRss:               item.EnableRss,
+			EnableAutomaticSearch:   item.EnableAutomaticSearch,
+			EnableInteractiveSearch: item.EnableInteractiveSearch,
+			Priority:                item.Priority,
+		})
+	}
+	return indexers, nil
+}
+
+func (r *apiReader) ReadNotifications(ctx context.Context) ([]SourceNotification, error) {
+	body, err := r.doRequest(ctx, "/api/v3/notification")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch notifications: %w", err)
+	}
+
+	// Use SourceNotification directly — json.Unmarshal fills matching fields, leaves others as zero.
+	// The API returns event fields in camelCase matching the struct tags.
+	// Sonarr: onSeriesAdd/onSeriesDelete will populate, Radarr: onMovieAdded/onMovieDelete will populate.
+	var resp []struct {
+		SourceNotification
+		Fields []apiField `json:"fields"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse notifications: %w", err)
+	}
+
+	notifications := make([]SourceNotification, 0, len(resp))
+	for _, item := range resp {
+		n := item.SourceNotification
+		n.Settings = fieldsToJSON(item.Fields)
+		notifications = append(notifications, n)
+	}
+	return notifications, nil
+}
+
+func (r *apiReader) ReadQualityProfilesFull(ctx context.Context) ([]SourceQualityProfileFull, error) {
+	body, err := r.doRequest(ctx, "/api/v3/qualityprofile")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch quality profiles: %w", err)
+	}
+
+	var profiles []SourceQualityProfileFull
+	if err := json.Unmarshal(body, &profiles); err != nil {
+		return nil, fmt.Errorf("failed to parse quality profiles: %w", err)
+	}
+	return profiles, nil
+}
+
+func (r *apiReader) ReadNamingConfig(ctx context.Context) (*SourceNamingConfig, error) {
+	body, err := r.doRequest(ctx, "/api/v3/config/naming")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch naming config: %w", err)
+	}
+
+	var nc SourceNamingConfig
+	if err := json.Unmarshal(body, &nc); err != nil {
+		return nil, fmt.Errorf("failed to parse naming config: %w", err)
+	}
+	return &nc, nil
+}

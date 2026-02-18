@@ -2451,6 +2451,31 @@ func (q *Queries) UpdateAllEpisodesMonitoredBySeries(ctx context.Context, arg Up
 	return err
 }
 
+const updateAllEpisodesMonitoredBySeriesIDs = `-- name: UpdateAllEpisodesMonitoredBySeriesIDs :exec
+UPDATE episodes SET monitored = ? WHERE series_id IN (/*SLICE:ids*/?)
+`
+
+type UpdateAllEpisodesMonitoredBySeriesIDsParams struct {
+	Monitored int64   `json:"monitored"`
+	Ids       []int64 `json:"ids"`
+}
+
+func (q *Queries) UpdateAllEpisodesMonitoredBySeriesIDs(ctx context.Context, arg UpdateAllEpisodesMonitoredBySeriesIDsParams) error {
+	query := updateAllEpisodesMonitoredBySeriesIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
 const updateEpisode = `-- name: UpdateEpisode :one
 UPDATE episodes SET
     title = ?,
@@ -2836,6 +2861,31 @@ func (q *Queries) UpdateSeasonMonitoredBySeries(ctx context.Context, arg UpdateS
 	return err
 }
 
+const updateSeasonMonitoredBySeriesIDs = `-- name: UpdateSeasonMonitoredBySeriesIDs :exec
+UPDATE seasons SET monitored = ? WHERE series_id IN (/*SLICE:ids*/?)
+`
+
+type UpdateSeasonMonitoredBySeriesIDsParams struct {
+	Monitored int64   `json:"monitored"`
+	Ids       []int64 `json:"ids"`
+}
+
+func (q *Queries) UpdateSeasonMonitoredBySeriesIDs(ctx context.Context, arg UpdateSeasonMonitoredBySeriesIDsParams) error {
+	query := updateSeasonMonitoredBySeriesIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
 const updateSeasonsMonitoredExcluding = `-- name: UpdateSeasonsMonitoredExcluding :exec
 UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number NOT IN (/*SLICE:excludeSeasons*/?)
 `
@@ -3007,6 +3057,32 @@ func (q *Queries) UpdateSeriesFormatType(ctx context.Context, arg UpdateSeriesFo
 		&i.AddedBy,
 	)
 	return &i, err
+}
+
+const updateSeriesMonitoredByIDs = `-- name: UpdateSeriesMonitoredByIDs :exec
+UPDATE series SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (/*SLICE:ids*/?)
+`
+
+type UpdateSeriesMonitoredByIDsParams struct {
+	Monitored int64   `json:"monitored"`
+	Ids       []int64 `json:"ids"`
+}
+
+// Bulk monitoring by series IDs (for bulk edit mode)
+func (q *Queries) UpdateSeriesMonitoredByIDs(ctx context.Context, arg UpdateSeriesMonitoredByIDsParams) error {
+	query := updateSeriesMonitoredByIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
 }
 
 const updateSeriesNetwork = `-- name: UpdateSeriesNetwork :exec

@@ -39,6 +39,12 @@ export const moviesApi = {
       ),
     ),
 
+  bulkMonitor: (ids: number[], monitored: boolean) =>
+    apiFetch<{ status: string }>('/movies/monitor', {
+      method: 'PUT',
+      body: JSON.stringify({ ids, monitored }),
+    }),
+
   scan: (id: number) => apiFetch<undefined>(`/movies/${id}/scan`, { method: 'POST' }),
 
   search: (id: number) => apiFetch<undefined>(`/movies/${id}/search`, { method: 'POST' }),

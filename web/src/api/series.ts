@@ -50,6 +50,12 @@ export const seriesApi = {
       ),
     ),
 
+  bulkMonitorSeries: (ids: number[], monitored: boolean) =>
+    apiFetch<{ status: string }>('/series/monitor', {
+      method: 'PUT',
+      body: JSON.stringify({ ids, monitored }),
+    }),
+
   scan: (id: number) => apiFetch<undefined>(`/series/${id}/scan`, { method: 'POST' }),
 
   search: (id: number) => apiFetch<undefined>(`/series/${id}/search`, { method: 'POST' }),

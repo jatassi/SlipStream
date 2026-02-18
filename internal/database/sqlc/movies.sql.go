@@ -8,6 +8,7 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const countMissingMovies = `-- name: CountMissingMovies :one
@@ -1889,6 +1890,31 @@ func (q *Queries) UpdateMovieStatusWithDetails(ctx context.Context, arg UpdateMo
 		arg.StatusMessage,
 		arg.ID,
 	)
+	return err
+}
+
+const updateMoviesMonitoredByIDs = `-- name: UpdateMoviesMonitoredByIDs :exec
+UPDATE movies SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (/*SLICE:ids*/?)
+`
+
+type UpdateMoviesMonitoredByIDsParams struct {
+	Monitored int64   `json:"monitored"`
+	Ids       []int64 `json:"ids"`
+}
+
+func (q *Queries) UpdateMoviesMonitoredByIDs(ctx context.Context, arg UpdateMoviesMonitoredByIDsParams) error {
+	query := updateMoviesMonitoredByIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Monitored)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
 }
 

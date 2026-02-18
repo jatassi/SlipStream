@@ -22,12 +22,27 @@ func NewHandlers(service *Service) *Handlers {
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.List)
 	g.POST("", h.Create)
+	g.PUT("/monitor", h.BulkMonitor)
 	g.GET("/:id", h.Get)
 	g.PUT("/:id", h.Update)
 	g.DELETE("/:id", h.Delete)
 	g.GET("/:id/files", h.ListFiles)
 	g.POST("/:id/files", h.AddFile)
 	g.DELETE("/:id/files/:fileId", h.RemoveFile)
+}
+
+// BulkMonitor updates the monitored flag for multiple movies.
+// PUT /api/v1/movies/monitor
+func (h *Handlers) BulkMonitor(c echo.Context) error {
+	var input BulkMonitorInput
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := h.service.BulkUpdateMonitored(c.Request().Context(), input); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // List returns all movies with optional filtering.

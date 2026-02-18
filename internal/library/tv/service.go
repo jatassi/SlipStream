@@ -290,6 +290,45 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input *UpdateSerie
 	return series, nil
 }
 
+// BulkUpdateSeriesMonitored updates the monitored flag for multiple series,
+// cascading the change to all their seasons and episodes.
+func (s *Service) BulkUpdateSeriesMonitored(ctx context.Context, input BulkSeriesMonitorInput) error {
+	if len(input.IDs) == 0 {
+		return nil
+	}
+
+	monitored := boolToInt(input.Monitored)
+
+	if err := s.queries.UpdateSeriesMonitoredByIDs(ctx, sqlc.UpdateSeriesMonitoredByIDsParams{
+		Monitored: monitored,
+		Ids:       input.IDs,
+	}); err != nil {
+		return fmt.Errorf("failed to bulk update series monitored: %w", err)
+	}
+
+	if err := s.queries.UpdateSeasonMonitoredBySeriesIDs(ctx, sqlc.UpdateSeasonMonitoredBySeriesIDsParams{
+		Monitored: monitored,
+		Ids:       input.IDs,
+	}); err != nil {
+		return fmt.Errorf("failed to bulk update season monitored: %w", err)
+	}
+
+	if err := s.queries.UpdateAllEpisodesMonitoredBySeriesIDs(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesIDsParams{
+		Monitored: monitored,
+		Ids:       input.IDs,
+	}); err != nil {
+		return fmt.Errorf("failed to bulk update episode monitored: %w", err)
+	}
+
+	s.logger.Info().Int("count", len(input.IDs)).Bool("monitored", input.Monitored).Msg("Bulk updated series monitored status")
+
+	if s.hub != nil {
+		s.hub.Broadcast("library:updated", nil)
+	}
+
+	return nil
+}
+
 // DeleteSeries deletes a series and all its seasons/episodes.
 func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) error {
 	series, err := s.GetSeries(ctx, id)

@@ -7,6 +7,8 @@ When making changes to this file, ALWAYS make the same update to AGENTS.md in th
 
 SlipStream is a unified media management system (similar to Sonarr/Radarr) with a Go backend and React frontend. It manages movies and TV shows, integrates with metadata providers (TMDB/TVDB), and supports torrent/usenet download clients. Still under initial development — prioritize clean code over backward compatibility.
 
+**Cross-platform:** Targets Windows, macOS, Linux and all mainstream browsers. Handle both `\` and `/` path separators — external data (e.g., Radarr/Sonarr DBs) may originate from a different OS. Avoid platform- or browser-specific APIs without fallbacks.
+
 ## Scoped Documentation
 
 - `web/CLAUDE.md` — Frontend patterns, design system, component gotchas
