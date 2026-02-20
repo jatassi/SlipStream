@@ -14,7 +14,7 @@
 [x] remove external access warning (confirm modal instead)
 [x] check for update fix
 [x] requests queue should listen
-[ ] loading states for movie/series detail pages
+[x] loading states for movie/series detail pages
 [ ] scheduled tasks - next run and last run columns show same value
 [ ] add count to upgradable tab on Missing page (simple total)
 [ ] just hide passkeys components entirely in portal if no secure environment

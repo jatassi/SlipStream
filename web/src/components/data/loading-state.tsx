@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 type LoadingStateProps = {
-  variant?: 'card' | 'list' | 'detail'
+  variant?: 'card' | 'list'
   count?: number
   posterSize?: number
   theme?: 'movie' | 'tv'
@@ -67,17 +67,6 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
           Array.from({ length: finalCount }, (_, i) => i).map((i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
-      </div>
-    )
-  }
-
-  if (variant === 'detail') {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-8 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-4 w-2/3" />
       </div>
     )
   }

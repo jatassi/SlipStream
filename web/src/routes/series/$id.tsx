@@ -1,11 +1,11 @@
 import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
 import { MediaEditDialog } from '@/components/media/media-edit-dialog'
 import { SeasonList } from '@/components/series/season-list'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useUpdateSeries } from '@/hooks'
 
 import { SeriesActionBar } from './series-action-bar'
+import { SeriesDetailSkeleton } from './series-detail-skeleton'
 import { SeriesHeroSection } from './series-hero-section'
 import { useSeriesDetailPage } from './use-series-detail'
 
@@ -39,7 +39,7 @@ export function SeriesDetailPage() {
   const vm = useSeriesDetailPage()
   const updateMutation = useUpdateSeries()
 
-  if (vm.isLoading) {return <LoadingState variant="detail" />}
+  if (vm.isLoading) {return <SeriesDetailSkeleton />}
   if (vm.isError || !vm.series) {return <ErrorState message="Series not found" onRetry={vm.refetch} />}
 
   const { series } = vm

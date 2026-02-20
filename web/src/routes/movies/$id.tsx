@@ -1,11 +1,11 @@
 import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
 import { MediaEditDialog } from '@/components/media/media-edit-dialog'
 import { useUpdateMovie } from '@/hooks'
 
 import { MovieDetailActions } from './movie-detail-actions'
 import { MovieDetailContent } from './movie-detail-content'
 import { MovieDetailHero } from './movie-detail-hero'
+import { MovieDetailSkeleton } from './movie-detail-skeleton'
 import { useMovieDetail } from './use-movie-detail'
 
 export function MovieDetailPage() {
@@ -13,7 +13,7 @@ export function MovieDetailPage() {
   const updateMutation = useUpdateMovie()
 
   if (state.isLoading) {
-    return <LoadingState variant="detail" />
+    return <MovieDetailSkeleton />
   }
   if (state.isError || !state.movie) {
     return <ErrorState message="Movie not found" onRetry={state.refetch} />
