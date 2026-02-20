@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -655,6 +656,16 @@ func (s *Service) CheckAndProcessCompletedDownloads(ctx context.Context) error {
 }
 
 func (s *Service) processCompletedEntry(ctx context.Context, cd *downloader.CompletedDownload) {
+	if cd.NextImportRetryAt != nil && time.Now().Before(*cd.NextImportRetryAt) {
+		s.logger.Debug().
+			Int64("clientId", cd.ClientID).
+			Str("downloadId", cd.DownloadID).
+			Int64("attempt", cd.ImportAttempts).
+			Time("retryAt", *cd.NextImportRetryAt).
+			Msg("Skipping import attempt, backoff not elapsed")
+		return
+	}
+
 	s.broadcastDownloadCompleted(cd)
 
 	mapping := s.completedDownloadToMapping(cd)
@@ -704,12 +715,14 @@ func (s *Service) handleCompletedImportFailure(ctx context.Context, cd *download
 				fmt.Sprintf("Import failed after %d attempts: %s", attempts, importErr.Error()))
 		}
 	} else {
+		backoff := downloader.ImportRetryBackoff(attempts)
 		s.logger.Warn().Err(importErr).
 			Int64("clientId", cd.ClientID).
 			Str("downloadId", cd.DownloadID).
 			Int64("attempt", attempts).
 			Int64("maxAttempts", downloader.MaxCompletionRetries).
-			Msg("Import failed, will retry on next poll cycle")
+			Dur("retryIn", backoff).
+			Msg("Import failed, will retry after backoff")
 	}
 }
 

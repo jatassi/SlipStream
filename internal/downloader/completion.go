@@ -35,6 +35,10 @@ type CompletedDownload struct {
 
 	// Internal mapping reference
 	MappingID int64
+
+	// Import retry tracking
+	ImportAttempts    int64
+	NextImportRetryAt *time.Time
 }
 
 // CheckForCompletedDownloads finds all downloads that are complete and ready for import.
@@ -190,6 +194,11 @@ func populateCompletedDownloadFields(cd *CompletedDownload, mapping *sqlc.Downlo
 	if mapping.TargetSlotID.Valid {
 		id := mapping.TargetSlotID.Int64
 		cd.TargetSlotID = &id
+	}
+	cd.ImportAttempts = mapping.ImportAttempts
+	if mapping.NextImportRetryAt.Valid {
+		t := mapping.NextImportRetryAt.Time
+		cd.NextImportRetryAt = &t
 	}
 }
 

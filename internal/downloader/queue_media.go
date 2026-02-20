@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
@@ -155,13 +156,57 @@ func (s *Service) HandleFailedDownload(ctx context.Context, clientID int64, down
 // be retried for import before it is marked as permanently failed.
 const MaxCompletionRetries = 5
 
+// importRetryBackoffs defines the delay before each retry attempt.
+// Index 0 = delay after 1st failure, index 1 = delay after 2nd failure, etc.
+var importRetryBackoffs = [...]time.Duration{
+	1 * time.Minute,
+	5 * time.Minute,
+	15 * time.Minute,
+	60 * time.Minute,
+}
+
+// ImportRetryBackoff returns the backoff duration for the given attempt number
+// (1-indexed, i.e. the value returned by IncrementDownloadMappingAttempts).
+func ImportRetryBackoff(attempt int64) time.Duration {
+	idx := int(attempt) - 1
+	if idx < 0 {
+		return 0
+	}
+	if idx >= len(importRetryBackoffs) {
+		return importRetryBackoffs[len(importRetryBackoffs)-1]
+	}
+	return importRetryBackoffs[idx]
+}
+
 // IncrementMappingImportAttempts increments the import attempt counter on a
-// download mapping and records the error message. Returns the new attempt count.
+// download mapping, records the error message, and sets the next retry time
+// using exponential backoff. Returns the new attempt count.
 func (s *Service) IncrementMappingImportAttempts(ctx context.Context, clientID int64, downloadID, errMsg string) (int64, error) {
+	// We need to compute the retry time based on the new attempt count.
+	// First increment, then compute backoff from the returned count.
+	// But we need to set the time in the same query. So we pre-compute
+	// for attempt+1 by reading the current count from the mapping.
+	//
+	// Simpler: always pass the max backoff. After the query returns,
+	// if attempts < max we know the exact backoff. But we already set it.
+	// Instead, read the mapping first to get current attempts.
+	mapping, err := s.queries.GetDownloadMapping(ctx, sqlc.GetDownloadMappingParams{
+		ClientID:   clientID,
+		DownloadID: downloadID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get download mapping: %w", err)
+	}
+
+	nextAttempt := mapping.ImportAttempts + 1
+	backoff := ImportRetryBackoff(nextAttempt)
+	nextRetryAt := time.Now().Add(backoff)
+
 	attempts, err := s.queries.IncrementDownloadMappingAttempts(ctx, sqlc.IncrementDownloadMappingAttemptsParams{
-		LastImportError: sql.NullString{String: errMsg, Valid: errMsg != ""},
-		ClientID:        clientID,
-		DownloadID:      downloadID,
+		LastImportError:   sql.NullString{String: errMsg, Valid: errMsg != ""},
+		NextImportRetryAt: sql.NullTime{Time: nextRetryAt, Valid: true},
+		ClientID:          clientID,
+		DownloadID:        downloadID,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to increment mapping import attempts: %w", err)

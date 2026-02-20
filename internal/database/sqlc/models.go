@@ -75,20 +75,21 @@ type DownloadClient struct {
 }
 
 type DownloadMapping struct {
-	ID               int64          `json:"id"`
-	ClientID         int64          `json:"client_id"`
-	DownloadID       string         `json:"download_id"`
-	MovieID          sql.NullInt64  `json:"movie_id"`
-	SeriesID         sql.NullInt64  `json:"series_id"`
-	SeasonNumber     sql.NullInt64  `json:"season_number"`
-	EpisodeID        sql.NullInt64  `json:"episode_id"`
-	IsSeasonPack     int64          `json:"is_season_pack"`
-	IsCompleteSeries int64          `json:"is_complete_series"`
-	CreatedAt        time.Time      `json:"created_at"`
-	TargetSlotID     sql.NullInt64  `json:"target_slot_id"`
-	Source           string         `json:"source"`
-	ImportAttempts   int64          `json:"import_attempts"`
-	LastImportError  sql.NullString `json:"last_import_error"`
+	ID                int64          `json:"id"`
+	ClientID          int64          `json:"client_id"`
+	DownloadID        string         `json:"download_id"`
+	MovieID           sql.NullInt64  `json:"movie_id"`
+	SeriesID          sql.NullInt64  `json:"series_id"`
+	SeasonNumber      sql.NullInt64  `json:"season_number"`
+	EpisodeID         sql.NullInt64  `json:"episode_id"`
+	IsSeasonPack      int64          `json:"is_season_pack"`
+	IsCompleteSeries  int64          `json:"is_complete_series"`
+	CreatedAt         time.Time      `json:"created_at"`
+	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
+	Source            string         `json:"source"`
+	ImportAttempts    int64          `json:"import_attempts"`
+	LastImportError   sql.NullString `json:"last_import_error"`
+	NextImportRetryAt sql.NullTime   `json:"next_import_retry_at"`
 }
 
 type Episode struct {

@@ -15,7 +15,8 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     target_slot_id = excluded.target_slot_id,
     source = excluded.source,
     import_attempts = 0,
-    last_import_error = NULL
+    last_import_error = NULL,
+    next_import_retry_at = NULL
 RETURNING *;
 
 -- name: GetDownloadMapping :one
@@ -93,6 +94,7 @@ DELETE FROM download_mappings WHERE series_id = ?;
 -- name: IncrementDownloadMappingAttempts :one
 UPDATE download_mappings
 SET import_attempts = import_attempts + 1,
-    last_import_error = ?
+    last_import_error = ?,
+    next_import_retry_at = ?
 WHERE client_id = ? AND download_id = ?
 RETURNING import_attempts;
