@@ -1,9 +1,8 @@
 [x] Duplicate series creation issue after sonarr import
-[ ] Handle rar releases
 [x] Season pack tagged as movie in history and showing as S03E00 in notifications
 [x] Excessive download client polling (maybe linked to below)
 [x] Retrying import for failed downloads over and over again
-[ ] A Knight of the Seven Kingdoms - SundefinedEx
+[x] A Knight of the Seven Kingdoms - SundefinedEx
 [ ] Better markdown formatting for release notes (bullet points)
 [ ] Themeing for calendar page
 [ ] Hide dev mode toggle
