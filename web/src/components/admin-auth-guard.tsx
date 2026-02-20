@@ -32,7 +32,7 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     if (!isAuthenticated || !user?.isAdmin) {
       // Save the current URL for redirect after login
       if (location.pathname !== '/requests/auth/login' && location.pathname !== '/auth/setup') {
-        setRedirectUrl(`${location.pathname}${location.searchStr}`)
+        setRedirectUrl(location.pathname)
       }
       void navigate({ to: '/requests/auth/login' })
     }

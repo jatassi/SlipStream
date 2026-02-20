@@ -87,17 +87,21 @@ function useDevModeSync() {
 
 function useUnauthorizedHandler() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     const handleUnauthorized = () => {
-      const { logout } = usePortalAuthStore.getState()
+      const { setRedirectUrl, logout } = usePortalAuthStore.getState()
+      if (!isPublicPath(location.pathname)) {
+        setRedirectUrl(location.pathname)
+      }
       logout()
       void navigate({ to: '/requests/auth/login' })
     }
 
     globalThis.addEventListener('auth:unauthorized', handleUnauthorized)
     return () => globalThis.removeEventListener('auth:unauthorized', handleUnauthorized)
-  }, [navigate])
+  }, [navigate, location.pathname])
 }
 
 function getAuthRedirect(opts: {
@@ -145,14 +149,12 @@ function useAuthRedirect() {
     }
 
     if (redirect === '/requests/auth/login') {
-      setRedirectUrl(`${location.pathname}${location.searchStr}`)
+      setRedirectUrl(location.pathname)
     }
 
     void navigate({ to: redirect })
   }, [
     location.pathname,
-    location.search,
-    location.searchStr,
     authStatus,
     isLoadingAuthStatus,
     isAuthenticated,

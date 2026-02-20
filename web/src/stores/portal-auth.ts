@@ -39,7 +39,7 @@ export const usePortalAuthStore = create<PortalAuthState>()(
       logout: () => {
         setPortalAuthToken(null)
         setAdminAuthToken(null)
-        set({ token: null, user: null, isAuthenticated: false, redirectUrl: null })
+        set({ token: null, user: null, isAuthenticated: false })
       },
 
       setUser: (user) => {
@@ -54,9 +54,9 @@ export const usePortalAuthStore = create<PortalAuthState>()(
         const state = get()
         // Admin users redirect to saved URL or dashboard
         if (state.user?.isAdmin) {
-          if (state.redirectUrl) {
-            const redirect = state.redirectUrl
-            set({ redirectUrl: null })
+          const redirect = state.redirectUrl
+          set({ redirectUrl: null })
+          if (redirect && redirect.startsWith('/') && !redirect.startsWith('/requests/auth/') && redirect !== '/auth/setup') {
             return redirect
           }
           return '/'
@@ -71,6 +71,7 @@ export const usePortalAuthStore = create<PortalAuthState>()(
         token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        redirectUrl: state.redirectUrl,
       }),
     },
   ),
