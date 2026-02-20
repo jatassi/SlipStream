@@ -494,9 +494,14 @@ func (s *Service) logGrabSuccess(ctx context.Context, item *decisioning.Searchab
 		return
 	}
 
-	mediaType := history.MediaTypeMovie
-	if item.MediaType == decisioning.MediaTypeEpisode || item.MediaType == decisioning.MediaTypeSeason {
+	var mediaType history.MediaType
+	switch item.MediaType {
+	case decisioning.MediaTypeSeason, decisioning.MediaTypeSeries:
+		mediaType = history.MediaTypeSeason
+	case decisioning.MediaTypeEpisode:
 		mediaType = history.MediaTypeEpisode
+	default:
+		mediaType = history.MediaTypeMovie
 	}
 
 	qualityStr := ""
@@ -529,9 +534,14 @@ func (s *Service) logGrabFailed(ctx context.Context, item *decisioning.Searchabl
 		return
 	}
 
-	mediaType := history.MediaTypeMovie
-	if item.MediaType == decisioning.MediaTypeEpisode || item.MediaType == decisioning.MediaTypeSeason {
+	var mediaType history.MediaType
+	switch item.MediaType {
+	case decisioning.MediaTypeSeason, decisioning.MediaTypeSeries:
+		mediaType = history.MediaTypeSeason
+	case decisioning.MediaTypeEpisode:
 		mediaType = history.MediaTypeEpisode
+	default:
+		mediaType = history.MediaTypeMovie
 	}
 
 	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.MediaID, history.AutoSearchFailedData{

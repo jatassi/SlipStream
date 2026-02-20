@@ -87,10 +87,9 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
+		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.SeasonNumber,
-			event.Episode.EpisodeNumber))
+			event.Episode.FormatEpisodeLabel()))
 	}
 
 	sb.WriteString(fmt.Sprintf("\n<code>%s</code>\n", html.EscapeString(event.Release.ReleaseName)))
@@ -113,10 +112,9 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
+		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.SeasonNumber,
-			event.Episode.EpisodeNumber))
+			event.Episode.FormatEpisodeLabel()))
 	}
 
 	sb.WriteString(fmt.Sprintf("\n📊 Quality: %s", event.Quality))
@@ -139,10 +137,9 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> S%02dE%02d\n",
+		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.SeasonNumber,
-			event.Episode.EpisodeNumber))
+			event.Episode.FormatEpisodeLabel()))
 	}
 
 	sb.WriteString(fmt.Sprintf("\n📊 %s → %s", event.OldQuality, event.NewQuality))

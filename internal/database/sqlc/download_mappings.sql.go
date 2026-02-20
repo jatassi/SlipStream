@@ -41,8 +41,10 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     is_season_pack = excluded.is_season_pack,
     is_complete_series = excluded.is_complete_series,
     target_slot_id = excluded.target_slot_id,
-    source = excluded.source
-RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source
+    source = excluded.source,
+    import_attempts = 0,
+    last_import_error = NULL
+RETURNING id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source, import_attempts, last_import_error
 `
 
 type CreateDownloadMappingParams struct {
@@ -85,6 +87,8 @@ func (q *Queries) CreateDownloadMapping(ctx context.Context, arg CreateDownloadM
 		&i.CreatedAt,
 		&i.TargetSlotID,
 		&i.Source,
+		&i.ImportAttempts,
+		&i.LastImportError,
 	)
 	return &i, err
 }
@@ -135,7 +139,7 @@ func (q *Queries) DeleteOldDownloadMappings(ctx context.Context) error {
 }
 
 const getDownloadMapping = `-- name: GetDownloadMapping :one
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source, import_attempts, last_import_error FROM download_mappings
 WHERE client_id = ? AND download_id = ?
 `
 
@@ -160,12 +164,14 @@ func (q *Queries) GetDownloadMapping(ctx context.Context, arg GetDownloadMapping
 		&i.CreatedAt,
 		&i.TargetSlotID,
 		&i.Source,
+		&i.ImportAttempts,
+		&i.LastImportError,
 	)
 	return &i, err
 }
 
 const getDownloadMappingsByClientDownloadIDs = `-- name: GetDownloadMappingsByClientDownloadIDs :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source, import_attempts, last_import_error FROM download_mappings
 WHERE (client_id, download_id) IN (/*SLICE:client_download_ids*//*SLICE:client_download_ids*/?)
 `
 
@@ -191,6 +197,8 @@ func (q *Queries) GetDownloadMappingsByClientDownloadIDs(ctx context.Context) ([
 			&i.CreatedAt,
 			&i.TargetSlotID,
 			&i.Source,
+			&i.ImportAttempts,
+			&i.LastImportError,
 		); err != nil {
 			return nil, err
 		}
@@ -206,7 +214,7 @@ func (q *Queries) GetDownloadMappingsByClientDownloadIDs(ctx context.Context) ([
 }
 
 const getDownloadMappingsBySlot = `-- name: GetDownloadMappingsBySlot :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source, import_attempts, last_import_error FROM download_mappings
 WHERE target_slot_id = ?
 ORDER BY created_at DESC
 `
@@ -234,6 +242,8 @@ func (q *Queries) GetDownloadMappingsBySlot(ctx context.Context, targetSlotID sq
 			&i.CreatedAt,
 			&i.TargetSlotID,
 			&i.Source,
+			&i.ImportAttempts,
+			&i.LastImportError,
 		); err != nil {
 			return nil, err
 		}
@@ -319,6 +329,27 @@ func (q *Queries) GetDownloadingSeriesData(ctx context.Context) ([]*GetDownloadi
 	return items, nil
 }
 
+const incrementDownloadMappingAttempts = `-- name: IncrementDownloadMappingAttempts :one
+UPDATE download_mappings
+SET import_attempts = import_attempts + 1,
+    last_import_error = ?
+WHERE client_id = ? AND download_id = ?
+RETURNING import_attempts
+`
+
+type IncrementDownloadMappingAttemptsParams struct {
+	LastImportError sql.NullString `json:"last_import_error"`
+	ClientID        int64          `json:"client_id"`
+	DownloadID      string         `json:"download_id"`
+}
+
+func (q *Queries) IncrementDownloadMappingAttempts(ctx context.Context, arg IncrementDownloadMappingAttemptsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, incrementDownloadMappingAttempts, arg.LastImportError, arg.ClientID, arg.DownloadID)
+	var import_attempts int64
+	err := row.Scan(&import_attempts)
+	return import_attempts, err
+}
+
 const isEpisodeDownloading = `-- name: IsEpisodeDownloading :one
 SELECT EXISTS(
     SELECT 1 FROM download_mappings
@@ -393,7 +424,7 @@ func (q *Queries) IsSeriesDownloading(ctx context.Context, seriesID sql.NullInt6
 }
 
 const listActiveDownloadMappings = `-- name: ListActiveDownloadMappings :many
-SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source FROM download_mappings
+SELECT id, client_id, download_id, movie_id, series_id, season_number, episode_id, is_season_pack, is_complete_series, created_at, target_slot_id, source, import_attempts, last_import_error FROM download_mappings
 ORDER BY created_at DESC
 `
 
@@ -419,6 +450,8 @@ func (q *Queries) ListActiveDownloadMappings(ctx context.Context) ([]*DownloadMa
 			&i.CreatedAt,
 			&i.TargetSlotID,
 			&i.Source,
+			&i.ImportAttempts,
+			&i.LastImportError,
 		); err != nil {
 			return nil, err
 		}

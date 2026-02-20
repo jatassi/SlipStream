@@ -515,6 +515,7 @@ func (a *grabNotificationAdapter) populateSeasonInfo(ctx context.Context, event 
 	ep := &notification.EpisodeInfo{
 		SeriesID:     media.SeriesID,
 		SeasonNumber: media.SeasonNumber,
+		IsSeasonPack: true,
 	}
 	if series, err := a.tv.GetSeries(ctx, media.SeriesID); err == nil {
 		ep.SeriesTitle = series.Title

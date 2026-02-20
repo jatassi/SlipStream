@@ -28,6 +28,7 @@ type MediaType string
 const (
 	MediaTypeMovie   MediaType = "movie"
 	MediaTypeEpisode MediaType = "episode"
+	MediaTypeSeason  MediaType = "season"
 )
 
 // Entry represents a history entry.

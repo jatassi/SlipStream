@@ -86,10 +86,16 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 		body = fmt.Sprintf("Movie: %s\nQuality: %s\nIndexer: %s\nClient: %s\n\nRelease: %s",
 			event.Movie.Title, event.Release.Quality, event.Release.Indexer, event.DownloadClient.Name, event.Release.ReleaseName)
 	} else if event.Episode != nil {
-		subject = fmt.Sprintf("[SlipStream] Episode Grabbed - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
-		body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nQuality: %s\nIndexer: %s\nClient: %s\n\nRelease: %s",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber,
-			event.Release.Quality, event.Release.Indexer, event.DownloadClient.Name, event.Release.ReleaseName)
+		subject = fmt.Sprintf("[SlipStream] %s - %s", event.Episode.FormatEventLabel("Grabbed"), event.Episode.FormatTitle())
+		if event.Episode.IsSeasonPack {
+			body = fmt.Sprintf("Series: %s\nSeason: %d\nQuality: %s\nIndexer: %s\nClient: %s\n\nRelease: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber,
+				event.Release.Quality, event.Release.Indexer, event.DownloadClient.Name, event.Release.ReleaseName)
+		} else {
+			body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nQuality: %s\nIndexer: %s\nClient: %s\n\nRelease: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber,
+				event.Release.Quality, event.Release.Indexer, event.DownloadClient.Name, event.Release.ReleaseName)
+		}
 	}
 
 	return n.sendEmail(subject, body)
@@ -105,9 +111,14 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 		}
 		body = fmt.Sprintf("Movie: %s\nQuality: %s\n\nPath: %s", event.Movie.Title, event.Quality, event.DestinationPath)
 	} else if event.Episode != nil {
-		subject = fmt.Sprintf("[SlipStream] Episode Downloaded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
-		body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nQuality: %s\n\nPath: %s",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.Quality, event.DestinationPath)
+		subject = fmt.Sprintf("[SlipStream] %s - %s", event.Episode.FormatEventLabel("Downloaded"), event.Episode.FormatTitle())
+		if event.Episode.IsSeasonPack {
+			body = fmt.Sprintf("Series: %s\nSeason: %d\nQuality: %s\n\nPath: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Quality, event.DestinationPath)
+		} else {
+			body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nQuality: %s\n\nPath: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.Quality, event.DestinationPath)
+		}
 	}
 
 	return n.sendEmail(subject, body)
@@ -123,9 +134,14 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 		}
 		body = fmt.Sprintf("Movie: %s\nOld Quality: %s\nNew Quality: %s", event.Movie.Title, event.OldQuality, event.NewQuality)
 	} else if event.Episode != nil {
-		subject = fmt.Sprintf("[SlipStream] Episode Upgraded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
-		body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nOld Quality: %s\nNew Quality: %s",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.OldQuality, event.NewQuality)
+		subject = fmt.Sprintf("[SlipStream] %s - %s", event.Episode.FormatEventLabel("Upgraded"), event.Episode.FormatTitle())
+		if event.Episode.IsSeasonPack {
+			body = fmt.Sprintf("Series: %s\nSeason: %d\nOld Quality: %s\nNew Quality: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.OldQuality, event.NewQuality)
+		} else {
+			body = fmt.Sprintf("Series: %s\nSeason: %d Episode: %d\nOld Quality: %s\nNew Quality: %s",
+				event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber, event.OldQuality, event.NewQuality)
+		}
 	}
 
 	return n.sendEmail(subject, body)

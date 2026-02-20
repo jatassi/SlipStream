@@ -151,6 +151,24 @@ func (s *Service) HandleFailedDownload(ctx context.Context, clientID int64, down
 	return nil
 }
 
+// MaxCompletionRetries is the maximum number of times a completed download will
+// be retried for import before it is marked as permanently failed.
+const MaxCompletionRetries = 5
+
+// IncrementMappingImportAttempts increments the import attempt counter on a
+// download mapping and records the error message. Returns the new attempt count.
+func (s *Service) IncrementMappingImportAttempts(ctx context.Context, clientID int64, downloadID, errMsg string) (int64, error) {
+	attempts, err := s.queries.IncrementDownloadMappingAttempts(ctx, sqlc.IncrementDownloadMappingAttemptsParams{
+		LastImportError: sql.NullString{String: errMsg, Valid: errMsg != ""},
+		ClientID:        clientID,
+		DownloadID:      downloadID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to increment mapping import attempts: %w", err)
+	}
+	return attempts, nil
+}
+
 // CreateQueueMediaInput contains the input for creating a queue media entry.
 type CreateQueueMediaInput struct {
 	DownloadMappingID int64

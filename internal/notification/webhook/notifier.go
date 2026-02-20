@@ -329,6 +329,7 @@ func (n *Notifier) mapEpisode(e *types.EpisodeInfo) *PayloadEpisode {
 		EpisodeNumber: e.EpisodeNumber,
 		EpisodeTitle:  e.EpisodeTitle,
 		AirDate:       e.AirDate,
+		IsSeasonPack:  e.IsSeasonPack,
 	}
 }
 
@@ -462,6 +463,7 @@ type PayloadEpisode struct {
 	EpisodeNumber int    `json:"episodeNumber"`
 	EpisodeTitle  string `json:"episodeTitle,omitempty"`
 	AirDate       string `json:"airDate,omitempty"`
+	IsSeasonPack  bool   `json:"isSeasonPack,omitempty"`
 }
 
 type PayloadRelease struct {

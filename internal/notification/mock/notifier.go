@@ -79,7 +79,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 			message += " (" + string(rune(event.Movie.Year)) + ")"
 		}
 	} else if event.Episode != nil {
-		message = event.Episode.SeriesTitle + " S" + padZero(event.Episode.SeasonNumber) + "E" + padZero(event.Episode.EpisodeNumber)
+		message = event.Episode.FormatTitle()
 	}
 	message += " - " + event.Release.Quality
 
@@ -93,7 +93,7 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 	if event.Movie != nil {
 		message = event.Movie.Title
 	} else if event.Episode != nil {
-		message = event.Episode.SeriesTitle + " S" + padZero(event.Episode.SeasonNumber) + "E" + padZero(event.Episode.EpisodeNumber)
+		message = event.Episode.FormatTitle()
 	}
 	message += " - " + event.Quality
 
@@ -107,7 +107,7 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 	if event.Movie != nil {
 		message = event.Movie.Title
 	} else if event.Episode != nil {
-		message = event.Episode.SeriesTitle + " S" + padZero(event.Episode.SeasonNumber) + "E" + padZero(event.Episode.EpisodeNumber)
+		message = event.Episode.FormatTitle()
 	}
 	message += " - " + event.OldQuality + " -> " + event.NewQuality
 
@@ -239,13 +239,6 @@ func (n *Notifier) recordNotification(eventType, title, message string, data any
 	if broadcaster != nil {
 		broadcaster.Broadcast("notification:mock", record)
 	}
-}
-
-func padZero(n int) string {
-	if n < 10 {
-		return "0" + itoa(n)
-	}
-	return itoa(n)
 }
 
 func itoa(n int) string {

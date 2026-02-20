@@ -197,8 +197,7 @@ func (n *Notifier) buildGrabTitleAndDesc(event *types.GrabEvent) (title, descrip
 		title = formatMovieTitle("Movie Grabbed", event.Movie.Title, event.Movie.Year)
 		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
 	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Grabbed - %s S%02dE%02d",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Grabbed"), event.Episode.FormatTitle())
 		description = fmt.Sprintf("`%s`", event.Release.ReleaseName)
 	}
 	return title, description
@@ -309,8 +308,7 @@ func (n *Notifier) buildImportTitle(event *types.ImportEvent) string {
 		return formatMovieTitle("Movie Downloaded", event.Movie.Title, event.Movie.Year)
 	}
 	if event.Episode != nil {
-		return fmt.Sprintf("Episode Downloaded - %s S%02dE%02d",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		return fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Downloaded"), event.Episode.FormatTitle())
 	}
 	return ""
 }
@@ -382,8 +380,7 @@ func (n *Notifier) buildUpgradeTitle(event *types.UpgradeEvent) string {
 		return formatMovieTitle("Movie Upgraded", event.Movie.Title, event.Movie.Year)
 	}
 	if event.Episode != nil {
-		return fmt.Sprintf("Episode Upgraded - %s S%02dE%02d",
-			event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		return fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Upgraded"), event.Episode.FormatTitle())
 	}
 	return ""
 }

@@ -997,9 +997,14 @@ func (s *Service) logAutoSearchSuccess(ctx context.Context, item *SearchableItem
 		return
 	}
 
-	mediaType := history.MediaTypeMovie
-	if item.MediaType == MediaTypeEpisode {
+	var mediaType history.MediaType
+	switch item.MediaType {
+	case MediaTypeSeason, MediaTypeSeries:
+		mediaType = history.MediaTypeSeason
+	case MediaTypeEpisode:
 		mediaType = history.MediaTypeEpisode
+	default:
+		mediaType = history.MediaTypeMovie
 	}
 
 	qualityStr := ""
@@ -1028,9 +1033,14 @@ func (s *Service) logAutoSearchFailed(ctx context.Context, item *SearchableItem,
 		return
 	}
 
-	mediaType := history.MediaTypeMovie
-	if item.MediaType == MediaTypeEpisode {
+	var mediaType history.MediaType
+	switch item.MediaType {
+	case MediaTypeSeason, MediaTypeSeries:
+		mediaType = history.MediaTypeSeason
+	case MediaTypeEpisode:
 		mediaType = history.MediaTypeEpisode
+	default:
+		mediaType = history.MediaTypeMovie
 	}
 
 	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.MediaID, history.AutoSearchFailedData{

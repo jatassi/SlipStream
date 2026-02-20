@@ -13,7 +13,9 @@ ON CONFLICT (client_id, download_id) DO UPDATE SET
     is_season_pack = excluded.is_season_pack,
     is_complete_series = excluded.is_complete_series,
     target_slot_id = excluded.target_slot_id,
-    source = excluded.source
+    source = excluded.source,
+    import_attempts = 0,
+    last_import_error = NULL
 RETURNING *;
 
 -- name: GetDownloadMapping :one
@@ -87,3 +89,10 @@ DELETE FROM download_mappings WHERE movie_id = ?;
 -- name: DeleteDownloadMappingsBySeriesID :exec
 -- Clean up download mappings when a series is deleted
 DELETE FROM download_mappings WHERE series_id = ?;
+
+-- name: IncrementDownloadMappingAttempts :one
+UPDATE download_mappings
+SET import_attempts = import_attempts + 1,
+    last_import_error = ?
+WHERE client_id = ? AND download_id = ?
+RETURNING import_attempts;

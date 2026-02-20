@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -659,10 +660,7 @@ func (s *Service) processCompletedEntry(ctx context.Context, cd *downloader.Comp
 	mapping := s.completedDownloadToMapping(cd)
 
 	if err := s.ProcessCompletedDownload(ctx, mapping); err != nil {
-		s.logger.Warn().Err(err).
-			Int64("clientId", cd.ClientID).
-			Str("downloadId", cd.DownloadID).
-			Msg("Failed to process completed download")
+		s.handleCompletedImportFailure(ctx, cd, err)
 		return
 	}
 
@@ -676,6 +674,84 @@ func (s *Service) processCompletedEntry(ctx context.Context, cd *downloader.Comp
 			Int64("clientId", cd.ClientID).
 			Str("downloadId", cd.DownloadID).
 			Msg("Deleted download mapping after processing completed download")
+	}
+}
+
+func (s *Service) handleCompletedImportFailure(ctx context.Context, cd *downloader.CompletedDownload, importErr error) {
+	attempts, err := s.downloader.IncrementMappingImportAttempts(ctx, cd.ClientID, cd.DownloadID, importErr.Error())
+	if err != nil {
+		s.logger.Warn().Err(err).
+			Int64("clientId", cd.ClientID).
+			Str("downloadId", cd.DownloadID).
+			Msg("Failed to increment import attempt counter")
+		return
+	}
+
+	if attempts >= downloader.MaxCompletionRetries {
+		s.logger.Error().Err(importErr).
+			Int64("clientId", cd.ClientID).
+			Str("downloadId", cd.DownloadID).
+			Int64("attempts", attempts).
+			Msg("Import permanently failed after max retries, cleaning up mapping")
+
+		s.markCompletionMediaFailed(ctx, cd, importErr)
+
+		_ = s.downloader.DeleteDownloadMapping(ctx, cd.ClientID, cd.DownloadID)
+
+		if s.health != nil {
+			s.health.SetWarningStr("import",
+				cd.DownloadID,
+				fmt.Sprintf("Import failed after %d attempts: %s", attempts, importErr.Error()))
+		}
+	} else {
+		s.logger.Warn().Err(importErr).
+			Int64("clientId", cd.ClientID).
+			Str("downloadId", cd.DownloadID).
+			Int64("attempt", attempts).
+			Int64("maxAttempts", downloader.MaxCompletionRetries).
+			Msg("Import failed, will retry on next poll cycle")
+	}
+}
+
+func (s *Service) markCompletionMediaFailed(ctx context.Context, cd *downloader.CompletedDownload, importErr error) {
+	statusMsg := sql.NullString{String: importErr.Error(), Valid: true}
+
+	switch {
+	case cd.MovieID != nil:
+		s.setMovieStatusFailed(ctx, *cd.MovieID, statusMsg)
+	case cd.EpisodeID != nil:
+		mapping := &DownloadMapping{
+			EpisodeID: cd.EpisodeID,
+			SeriesID:  cd.SeriesID,
+		}
+		s.setEpisodeStatusFailed(ctx, mapping, statusMsg)
+	case cd.SeriesID != nil && cd.IsSeasonPack:
+		s.setSeasonStatusFailed(ctx, cd, statusMsg)
+	}
+}
+
+func (s *Service) setSeasonStatusFailed(ctx context.Context, cd *downloader.CompletedDownload, statusMsg sql.NullString) {
+	if cd.SeriesID == nil || cd.SeasonNumber == nil {
+		return
+	}
+	episodes, err := s.tv.ListEpisodes(ctx, *cd.SeriesID, cd.SeasonNumber)
+	if err != nil {
+		s.logger.Warn().Err(err).
+			Int64("seriesId", *cd.SeriesID).
+			Int("season", *cd.SeasonNumber).
+			Msg("Failed to get episodes for season pack failure marking")
+		return
+	}
+	for _, ep := range episodes {
+		_ = s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
+			Status:           "failed",
+			ActiveDownloadID: sql.NullString{},
+			StatusMessage:    statusMsg,
+			ID:               ep.ID,
+		})
+	}
+	if s.hub != nil {
+		s.hub.Broadcast("series:updated", map[string]any{"id": *cd.SeriesID})
 	}
 }
 

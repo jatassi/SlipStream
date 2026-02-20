@@ -88,8 +88,8 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = "Episode Grabbed"
-		message = fmt.Sprintf("%s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = event.Episode.FormatEventLabel("Grabbed")
+		message = event.Episode.FormatTitle()
 	}
 
 	message += fmt.Sprintf("\n\nQuality: %s\nIndexer: %s", event.Release.Quality, event.Release.Indexer)
@@ -107,8 +107,8 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = "Episode Downloaded"
-		message = fmt.Sprintf("%s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = event.Episode.FormatEventLabel("Downloaded")
+		message = event.Episode.FormatTitle()
 	}
 
 	message += fmt.Sprintf("\n\nQuality: %s", event.Quality)
@@ -126,8 +126,8 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 			message = fmt.Sprintf("%s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = "Episode Upgraded"
-		message = fmt.Sprintf("%s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = event.Episode.FormatEventLabel("Upgraded")
+		message = event.Episode.FormatTitle()
 	}
 
 	message += fmt.Sprintf("\n\n%s → %s", event.OldQuality, event.NewQuality)

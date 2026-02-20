@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -99,6 +100,28 @@ type EpisodeInfo struct {
 	EpisodeNumber int    `json:"episodeNumber"`
 	EpisodeTitle  string `json:"episodeTitle,omitempty"`
 	AirDate       string `json:"airDate,omitempty"`
+	IsSeasonPack  bool   `json:"isSeasonPack,omitempty"`
+}
+
+// FormatEpisodeLabel returns "Season N" for season packs or "S01E05" for individual episodes.
+func (e *EpisodeInfo) FormatEpisodeLabel() string {
+	if e.IsSeasonPack {
+		return fmt.Sprintf("Season %d", e.SeasonNumber)
+	}
+	return fmt.Sprintf("S%02dE%02d", e.SeasonNumber, e.EpisodeNumber)
+}
+
+// FormatTitle returns "{Series} Season N" for season packs or "{Series} S01E05" for individual episodes.
+func (e *EpisodeInfo) FormatTitle() string {
+	return fmt.Sprintf("%s %s", e.SeriesTitle, e.FormatEpisodeLabel())
+}
+
+// FormatEventLabel returns "Season Pack {action}" for season packs or "Episode {action}" for individual episodes.
+func (e *EpisodeInfo) FormatEventLabel(action string) string {
+	if e.IsSeasonPack {
+		return fmt.Sprintf("Season Pack %s", action)
+	}
+	return fmt.Sprintf("Episode %s", action)
 }
 
 // ReleaseInfo contains release/quality information

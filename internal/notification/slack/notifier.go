@@ -80,7 +80,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 			title = fmt.Sprintf("Movie Grabbed - %s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Grabbed - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Grabbed"), event.Episode.FormatTitle())
 	}
 
 	fields := []Field{
@@ -112,7 +112,7 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 			title = fmt.Sprintf("Movie Downloaded - %s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Downloaded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Downloaded"), event.Episode.FormatTitle())
 	}
 
 	fields := []Field{
@@ -141,7 +141,7 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 			title = fmt.Sprintf("Movie Upgraded - %s (%d)", event.Movie.Title, event.Movie.Year)
 		}
 	} else if event.Episode != nil {
-		title = fmt.Sprintf("Episode Upgraded - %s S%02dE%02d", event.Episode.SeriesTitle, event.Episode.SeasonNumber, event.Episode.EpisodeNumber)
+		title = fmt.Sprintf("%s - %s", event.Episode.FormatEventLabel("Upgraded"), event.Episode.FormatTitle())
 	}
 
 	fields := []Field{
