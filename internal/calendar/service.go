@@ -32,8 +32,8 @@ type CalendarEvent struct {
 	// Episode-specific
 	SeriesID      int64  `json:"seriesId,omitempty"`
 	SeriesTitle   string `json:"seriesTitle,omitempty"`
-	SeasonNumber  int    `json:"seasonNumber,omitempty"`
-	EpisodeNumber int    `json:"episodeNumber,omitempty"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	EpisodeNumber int    `json:"episodeNumber"`
 	Network       string `json:"network,omitempty"`
 
 	// Streaming services with early release (Apple TV+)
@@ -187,8 +187,8 @@ type seasonKey struct {
 // into a single "Season X" entry (Netflix-style release handling).
 func (s *Service) getEpisodeEvents(ctx context.Context, start, end time.Time) ([]CalendarEvent, error) {
 	rows, err := s.queries.GetEpisodesInDateRange(ctx, sqlc.GetEpisodesInDateRangeParams{
-		FromAirDate: sql.NullTime{Time: start, Valid: true},
-		ToAirDate:   sql.NullTime{Time: end, Valid: true},
+		AirDate:   sql.NullTime{Time: start, Valid: true},
+		AirDate_2: sql.NullTime{Time: end, Valid: true},
 	})
 	if err != nil {
 		return nil, err

@@ -251,6 +251,7 @@ SELECT
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 WHERE e.air_date BETWEEN ? AND ?
+    AND e.season_number > 0
 ORDER BY e.air_date, s.title, e.season_number, e.episode_number;
 
 -- name: UpdateSeriesNetwork :exec

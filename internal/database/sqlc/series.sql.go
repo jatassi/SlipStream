@@ -913,12 +913,13 @@ SELECT
 FROM episodes e
 JOIN series s ON e.series_id = s.id
 WHERE e.air_date BETWEEN ? AND ?
+    AND e.season_number > 0
 ORDER BY e.air_date, s.title, e.season_number, e.episode_number
 `
 
 type GetEpisodesInDateRangeParams struct {
-	FromAirDate sql.NullTime `json:"from_air_date"`
-	ToAirDate   sql.NullTime `json:"to_air_date"`
+	AirDate   sql.NullTime `json:"air_date"`
+	AirDate_2 sql.NullTime `json:"air_date_2"`
 }
 
 type GetEpisodesInDateRangeRow struct {
@@ -938,7 +939,7 @@ type GetEpisodesInDateRangeRow struct {
 
 // Calendar queries
 func (q *Queries) GetEpisodesInDateRange(ctx context.Context, arg GetEpisodesInDateRangeParams) ([]*GetEpisodesInDateRangeRow, error) {
-	rows, err := q.db.QueryContext(ctx, getEpisodesInDateRange, arg.FromAirDate, arg.ToAirDate)
+	rows, err := q.db.QueryContext(ctx, getEpisodesInDateRange, arg.AirDate, arg.AirDate_2)
 	if err != nil {
 		return nil, err
 	}
