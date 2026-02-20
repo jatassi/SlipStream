@@ -62,7 +62,7 @@ func NewService(config Config, logger *zerolog.Logger) *Service {
 // selectProbeMethod determines the best available probe method.
 func (s *Service) selectProbeMethod() func(context.Context, string) (*MediaInfo, error) {
 	// Try mediainfo first
-	if path := findExecutable("mediainfo", s.config.MediaInfoPath); path != "" {
+	if path := findExecutable("mediainfo", s.config.MediaInfoPath, s.logger); path != "" {
 		s.logger.Info().Str("path", path).Msg("Using mediainfo CLI")
 		return func(ctx context.Context, p string) (*MediaInfo, error) {
 			return s.probeWithMediaInfo(ctx, p, path)
@@ -70,7 +70,7 @@ func (s *Service) selectProbeMethod() func(context.Context, string) (*MediaInfo,
 	}
 
 	// Try ffprobe as fallback
-	if path := findExecutable("ffprobe", s.config.FFprobePath); path != "" {
+	if path := findExecutable("ffprobe", s.config.FFprobePath, s.logger); path != "" {
 		s.logger.Info().Str("path", path).Msg("Using ffprobe CLI")
 		return func(ctx context.Context, p string) (*MediaInfo, error) {
 			return s.probeWithFFprobe(ctx, p, path)

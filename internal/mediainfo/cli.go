@@ -11,22 +11,29 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 const undeterminedLanguage = "und"
 
 // findExecutable finds an executable by name or explicit path.
-func findExecutable(name, explicitPath string) string {
+func findExecutable(name, explicitPath string, logger *zerolog.Logger) string {
 	if explicitPath != "" {
 		if _, err := os.Stat(explicitPath); err == nil {
+			logger.Debug().Str("name", name).Str("path", explicitPath).Msg("Found executable at explicit path")
 			return explicitPath
 		}
+		logger.Debug().Str("name", name).Str("path", explicitPath).Msg("Explicit path not found")
 	}
 
 	// Try PATH lookup
-	if path, err := exec.LookPath(name); err == nil {
+	path, err := exec.LookPath(name)
+	if err == nil {
+		logger.Debug().Str("name", name).Str("path", path).Msg("Found executable via PATH")
 		return path
 	}
+	logger.Debug().Err(err).Str("name", name).Str("PATH", os.Getenv("PATH")).Msg("LookPath failed")
 
 	// Platform-specific common locations
 	var commonPaths []string
@@ -42,18 +49,26 @@ func findExecutable(name, explicitPath string) string {
 			"/usr/local/bin/" + name,
 		}
 	case "windows":
+		exe := name + ".exe"
 		commonPaths = []string{
-			`C:\Program Files\MediaInfo\` + name + ".exe",
-			`C:\Program Files (x86)\MediaInfo\` + name + ".exe",
+			`C:\Program Files\MediaInfo\` + exe,
+			`C:\Program Files (x86)\MediaInfo\` + exe,
+			`C:\Program Files\MediaInfo CLI\` + exe,
+			`C:\Program Files (x86)\MediaInfo CLI\` + exe,
+		}
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			commonPaths = append(commonPaths, localAppData+`\MediaInfo\`+exe)
 		}
 	}
 
 	for _, p := range commonPaths {
 		if _, err := os.Stat(p); err == nil {
+			logger.Debug().Str("name", name).Str("path", p).Msg("Found executable at common path")
 			return p
 		}
 	}
 
+	logger.Debug().Str("name", name).Strs("tried", commonPaths).Msg("Executable not found at any common path")
 	return ""
 }
 
