@@ -11,28 +11,29 @@ type CalendarEventCardProps = {
   className?: string
 }
 
-const eventTypeColors: Record<string, string> = {
-  digital: 'border-l-blue-500',
-  physical: 'border-l-emerald-500',
-  airDate: 'border-l-purple-500',
-}
+type MediaType = 'movie' | 'episode'
 
-const statusColors: Record<string, string> = {
-  available: 'bg-primary/10',
-  downloading: 'bg-secondary/10',
-  missing: 'bg-muted/50',
+const mediaTypeStyles: Record<MediaType, { border: string; bg: string; icon: string; hover: string; badgeAccent: string }> = {
+  movie: {
+    border: 'border-l-movie-500',
+    bg: 'bg-movie-500/10',
+    icon: 'text-movie-400',
+    hover: 'hover:bg-movie-500/15',
+    badgeAccent: 'border-movie-500/50 text-movie-600 dark:text-movie-400',
+  },
+  episode: {
+    border: 'border-l-tv-500',
+    bg: 'bg-tv-500/10',
+    icon: 'text-tv-400',
+    hover: 'hover:bg-tv-500/15',
+    badgeAccent: 'border-tv-500/50 text-tv-600 dark:text-tv-400',
+  },
 }
 
 const eventTypeLabels: Record<string, string> = {
   digital: 'Release',
   physical: 'Bluray',
   airDate: 'Air',
-}
-
-const eventTypeBadgeColors: Record<string, string> = {
-  digital: 'border-blue-500/50 text-blue-600',
-  physical: 'border-emerald-500/50 text-emerald-600',
-  airDate: 'border-purple-500/50 text-purple-600',
 }
 
 function EpisodeDetails({ event, compact }: { event: CalendarEvent; compact?: boolean }) {
@@ -48,9 +49,10 @@ function EpisodeDetails({ event, compact }: { event: CalendarEvent; compact?: bo
 }
 
 function EventBadges({ event }: { event: CalendarEvent }) {
+  const styles = mediaTypeStyles[event.mediaType]
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1">
-      <Badge variant="outline" className={cn('h-4 px-1 text-[10px]', eventTypeBadgeColors[event.eventType])}>
+      <Badge variant="outline" className={cn('h-4 px-1 text-[10px]', styles.badgeAccent)}>
         {eventTypeLabels[event.eventType]}
       </Badge>
       {event.network ? <Badge variant="secondary" className="h-4 px-1 text-[10px]">{event.network}</Badge> : null}
@@ -62,19 +64,20 @@ function EventBadges({ event }: { event: CalendarEvent }) {
 
 export function CalendarEventCard({ event, compact, className }: CalendarEventCardProps) {
   const href = event.mediaType === 'movie' ? `/movies/${event.id}` : `/series/${event.seriesId}`
+  const styles = mediaTypeStyles[event.mediaType]
 
   return (
-    <Link to={href} className={cn('group block overflow-hidden rounded-lg transition-all supports-[backdrop-filter]:backdrop-blur-sm border-l-4', eventTypeColors[event.eventType], statusColors[event.status], 'hover:bg-accent/20', className)}>
+    <Link to={href} className={cn('group block overflow-hidden rounded-lg border-l-4 transition-all supports-[backdrop-filter]:backdrop-blur-sm', styles.border, styles.bg, styles.hover, className)}>
       <div className={cn('flex gap-2 p-2', compact && 'p-1')}>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            {event.mediaType === 'movie' ? <Film className="text-muted-foreground size-3 shrink-0" /> : <Tv className="text-muted-foreground size-3 shrink-0" />}
+            {event.mediaType === 'movie' ? <Film className={cn('size-3 shrink-0', styles.icon)} /> : <Tv className={cn('size-3 shrink-0', styles.icon)} />}
             <span className={cn('truncate font-medium', compact ? 'text-xs' : 'text-sm')}>
               {event.mediaType === 'episode' ? event.seriesTitle : event.title}
             </span>
           </div>
           {event.mediaType === 'episode' && <EpisodeDetails event={event} compact={compact} />}
-          <EventBadges event={event} />
+          {!compact && <EventBadges event={event} />}
         </div>
       </div>
     </Link>
