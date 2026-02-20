@@ -63,50 +63,51 @@ func isPortAllowedInWindowsFirewall(ctx context.Context, port int) (bool, error)
 		"name=all", "dir=in", "protocol=tcp")
 	output, err := cmd.Output()
 	if err != nil {
-		// If the command fails, we can't determine status
 		return false, err
 	}
 
-	// Parse output looking for rules that allow this port
+	// Parse output looking for rules that allow this port.
+	// Fields appear in order: Rule Name, Enabled, ..., LocalPort, ..., Action.
+	// We must collect all fields per rule before evaluating, since Action comes
+	// after LocalPort in the netsh output.
+	type rule struct {
+		enabled bool
+		action  string
+		port    string
+	}
+
 	lines := strings.Split(string(output), "\n")
-	var currentRuleEnabled bool
-	var currentRuleAction string
+	var current rule
+
+	evalRule := func() bool {
+		return current.enabled &&
+			portMatches(current.port, portStr) &&
+			strings.Contains(strings.ToLower(current.action), "allow")
+	}
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		lineLower := strings.ToLower(line)
 
-		// Track rule enabled state
-		if strings.HasPrefix(lineLower, "enabled:") {
-			currentRuleEnabled = strings.Contains(lineLower, "yes")
-		}
-
-		// Track rule action
-		if strings.HasPrefix(lineLower, "action:") {
-			currentRuleAction = line
-		}
-
-		// Check local port
-		if strings.HasPrefix(lineLower, "localport:") {
-			ports := strings.TrimPrefix(lineLower, "localport:")
-			ports = strings.TrimSpace(ports)
-
-			// Check if this rule applies to our port
-			if portMatches(ports, portStr) && currentRuleEnabled {
-				if strings.Contains(strings.ToLower(currentRuleAction), "allow") {
-					return true, nil
-				}
-			}
-		}
-
-		// Reset on new rule
 		if strings.HasPrefix(lineLower, "rule name:") {
-			currentRuleEnabled = false
-			currentRuleAction = ""
+			if evalRule() {
+				return true, nil
+			}
+			current = rule{}
+			continue
+		}
+
+		if strings.HasPrefix(lineLower, "enabled:") {
+			current.enabled = strings.Contains(lineLower, "yes")
+		} else if strings.HasPrefix(lineLower, "action:") {
+			current.action = line
+		} else if strings.HasPrefix(lineLower, "localport:") {
+			current.port = strings.TrimSpace(strings.TrimPrefix(lineLower, "localport:"))
 		}
 	}
 
-	return false, nil
+	// Evaluate the last rule
+	return evalRule(), nil
 }
 
 // portMatches checks if a port specification includes the target port.

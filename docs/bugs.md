@@ -10,7 +10,7 @@
 [x] mask pin as you type
 [x] downloads left nav item slightly misaligned
 [x] mediainfo not being detected
-[ ] port closed warning not accurate
+[x] port closed warning not accurate
 [ ] remove external access warning (confirm modal instead)
 [ ] check for update fix
 [ ] requests queue should listen
