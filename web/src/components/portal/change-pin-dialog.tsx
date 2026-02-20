@@ -161,7 +161,7 @@ function PinInputSection({
         {isProcessing ? (
           <Loader2 className="text-muted-foreground size-12 animate-spin" />
         ) : (
-          <InputOTP maxLength={4} value={value} onChange={onChange}>
+          <InputOTP mask maxLength={4} value={value} onChange={onChange}>
             <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
               <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
               <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />

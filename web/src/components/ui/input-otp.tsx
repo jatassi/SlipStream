@@ -5,24 +5,30 @@ import { MinusIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
+const InputOTPMaskContext = React.createContext(false)
+
 function InputOTP({
   className,
   containerClassName,
+  mask,
   ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string
+  mask?: boolean
 }) {
   return (
-    <OTPInput
-      data-slot="input-otp"
-      containerClassName={cn(
-        'cn-input-otp flex items-center has-disabled:opacity-50',
-        containerClassName,
-      )}
-      spellCheck={false}
-      className={cn('disabled:cursor-not-allowed', className)}
-      {...props}
-    />
+    <InputOTPMaskContext.Provider value={mask ?? false}>
+      <OTPInput
+        data-slot="input-otp"
+        containerClassName={cn(
+          'cn-input-otp flex items-center has-disabled:opacity-50',
+          containerClassName,
+        )}
+        spellCheck={false}
+        className={cn('disabled:cursor-not-allowed', className)}
+        {...props}
+      />
+    </InputOTPMaskContext.Provider>
   )
 }
 
@@ -39,6 +45,8 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+const MASK_DELAY_MS = 300
+
 function InputOTPSlot({
   index,
   className,
@@ -47,8 +55,25 @@ function InputOTPSlot({
   index: number
 }) {
   const inputOTPContext = React.useContext(OTPInputContext)
+  const mask = React.useContext(InputOTPMaskContext)
   const slot = inputOTPContext.slots[index]
   const { char, hasFakeCaret, isActive } = slot
+
+  const [masked, setMasked] = React.useState(false)
+  const [prevChar, setPrevChar] = React.useState(char)
+
+  if (char !== prevChar) {
+    setPrevChar(char)
+    if (masked) { setMasked(false) }
+  }
+
+  React.useEffect(() => {
+    if (!mask || !char) { return }
+    const timer = setTimeout(() => setMasked(true), MASK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [mask, char])
+
+  const displayChar = mask && char && masked ? '\u25CF' : char
 
   return (
     <div
@@ -60,7 +85,7 @@ function InputOTPSlot({
       )}
       {...props}
     >
-      {char}
+      {displayChar}
       {hasFakeCaret ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="animate-caret-blink bg-foreground bg-foreground h-4 w-px duration-1000" />

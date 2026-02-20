@@ -7,7 +7,7 @@
 [x] Themeing for calendar page
 [x] Hide dev mode toggle
 [x] admin login redirect issue
-[ ] mask pin as you type
+[x] mask pin as you type
 [ ] downloads left nav item slightly misaligned
 [ ] mediainfo not being detected
 [ ] port closed warning not accurate

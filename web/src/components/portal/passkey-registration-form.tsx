@@ -42,7 +42,7 @@ export function PasskeyRegistrationForm({
             <Loader2 className="text-muted-foreground h-10 w-10 animate-spin" />
           ) : (
             <InputOTP
-              maxLength={4}
+              mask maxLength={4}
               value={pin}
               onChange={onPinChange}
               disabled={!newPasskeyName.trim()}

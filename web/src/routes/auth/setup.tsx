@@ -15,7 +15,7 @@ function PinInput({ pin, onPinChange }: { pin: string; onPinChange: (value: stri
     <div className="space-y-3">
       <Label>PIN</Label>
       <div className="flex justify-center">
-        <InputOTP maxLength={4} value={pin} onChange={onPinChange}>
+        <InputOTP mask maxLength={4} value={pin} onChange={onPinChange}>
           <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
             <InputOTPSlot index={0} className="size-12 text-xl" />
             <InputOTPSlot index={1} className="size-12 text-xl" />

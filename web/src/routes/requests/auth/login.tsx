@@ -118,7 +118,7 @@ function PinLoginForm(props: PinFormProps) {
         <div className="space-y-3">
           <Label>PIN</Label>
           <div className="flex justify-center">
-            <InputOTP maxLength={4} value={props.pin} onChange={props.onPinChange}>
+            <InputOTP mask maxLength={4} value={props.pin} onChange={props.onPinChange}>
               <InputOTPGroup className="gap-2 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border md:gap-2.5">
                 <InputOTPSlot index={0} className="size-10 text-lg md:size-12 md:text-xl" />
                 <InputOTPSlot index={1} className="size-10 text-lg md:size-12 md:text-xl" />
