@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 )
 
@@ -196,6 +197,21 @@ func (s *Scheduler) RunNow(taskID string) error {
 	return nil
 }
 
+// nextRunFromCron computes the next run time from a cron expression.
+// This is used instead of gocron's NextRun() which can return stale values
+// (the time of the most recent execution rather than the actual next future run).
+func nextRunFromCron(cronExpr string) *time.Time {
+	schedule, err := cron.ParseStandard(cronExpr)
+	if err != nil {
+		return nil
+	}
+	next := schedule.Next(time.Now())
+	if next.IsZero() {
+		return nil
+	}
+	return &next
+}
+
 // ListTasks returns information about all registered tasks.
 func (s *Scheduler) ListTasks() []TaskInfo {
 	s.mu.RLock()
@@ -209,13 +225,8 @@ func (s *Scheduler) ListTasks() []TaskInfo {
 			Description: entry.config.Description,
 			Cron:        entry.config.Cron,
 			LastRun:     entry.lastRun,
+			NextRun:     nextRunFromCron(entry.config.Cron),
 			Running:     entry.running,
-		}
-
-		// Get next run time from gocron
-		nextRun, err := entry.job.NextRun()
-		if err == nil {
-			info.NextRun = &nextRun
 		}
 
 		tasks = append(tasks, info)
@@ -240,12 +251,8 @@ func (s *Scheduler) GetTask(taskID string) (*TaskInfo, error) {
 		Description: entry.config.Description,
 		Cron:        entry.config.Cron,
 		LastRun:     entry.lastRun,
+		NextRun:     nextRunFromCron(entry.config.Cron),
 		Running:     entry.running,
-	}
-
-	nextRun, err := entry.job.NextRun()
-	if err == nil {
-		info.NextRun = &nextRun
 	}
 
 	return info, nil
