@@ -20,7 +20,7 @@ export function getIconClassName({ theme, hasDownloads }: Omit<ThemeFlags, 'allP
     hasDownloads && 'text-white',
     hasDownloads && theme === 'movie' && 'icon-glow-movie',
     hasDownloads && theme === 'tv' && 'icon-glow-tv',
-    !hasDownloads && 'text-muted-foreground',
+    !hasDownloads && 'text-foreground',
   )
 }
 

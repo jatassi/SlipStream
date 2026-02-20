@@ -8,7 +8,7 @@
 [x] Hide dev mode toggle
 [x] admin login redirect issue
 [x] mask pin as you type
-[ ] downloads left nav item slightly misaligned
+[x] downloads left nav item slightly misaligned
 [ ] mediainfo not being detected
 [ ] port closed warning not accurate
 [ ] remove external access warning (confirm modal instead)

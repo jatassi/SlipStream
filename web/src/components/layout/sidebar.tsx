@@ -1,3 +1,5 @@
+import React from 'react'
+
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, Film } from 'lucide-react'
 
@@ -45,7 +47,7 @@ function NavSection({
   return (
     <div className="space-y-1">
       {items.map((item) => (
-        <div key={item.href}>
+        <React.Fragment key={item.href}>
           {includeDownloads && item.href === '/import' ? (
             <DownloadsNavLink collapsed={collapsed} />
           ) : null}
@@ -54,7 +56,7 @@ function NavSection({
             collapsed={collapsed}
             badge={item.href === '/missing' ? <MissingBadge /> : undefined}
           />
-        </div>
+        </React.Fragment>
       ))}
     </div>
   )
