@@ -11,7 +11,7 @@
 [x] downloads left nav item slightly misaligned
 [x] mediainfo not being detected
 [x] port closed warning not accurate
-[ ] remove external access warning (confirm modal instead)
+[x] remove external access warning (confirm modal instead)
 [ ] check for update fix
 [ ] requests queue should listen
 [ ] loading states for movie/series detail pages

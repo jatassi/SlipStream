@@ -1,9 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Check, Copy } from 'lucide-react'
 
 import { ErrorState } from '@/components/data/error-state'
 import { LoadingState } from '@/components/data/loading-state'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import {
   InputGroup,
@@ -77,21 +87,40 @@ function ExternalAccessField({
   enabled: boolean
   onChange: (v: boolean) => void
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const handleToggle = (checked: boolean) => {
+    if (checked) {
+      setConfirmOpen(true)
+    } else {
+      onChange(false)
+    }
+  }
+
   return (
     <div className="space-y-2">
       <Label htmlFor="externalAccess">External Access</Label>
       <div className="flex items-center gap-2">
-        <Switch id="externalAccess" checked={enabled} onCheckedChange={onChange} />
+        <Switch id="externalAccess" checked={enabled} onCheckedChange={handleToggle} />
         <span className="text-muted-foreground text-sm">{enabled ? 'Enabled' : 'Disabled'}</span>
       </div>
       <p className="text-muted-foreground text-sm">
         {enabled ? 'Server is accessible from other devices on your network' : 'Server is only accessible from this machine (localhost)'}
       </p>
-      {enabled ? (
-        <p className="text-sm text-amber-600 dark:text-amber-500">
-          Warning: Enabling external access exposes your server to other devices on your network. Ensure you have proper authentication enabled.
-        </p>
-      ) : null}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enable External Access</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will expose your server to other devices on your network. Ensure you have proper authentication enabled before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onChange(true)}>Enable</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
