@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/pathutil"
 )
 
 // ParsedMedia represents a media file parsed from a filename.
@@ -513,7 +514,7 @@ func ParsePath(fullPath string) *ParsedMedia {
 	tryInheritYearFromFolder(parsed, folderName)
 	tryInheritQualityFromFolder(parsed, folderName)
 
-	parsed.FilePath = fullPath
+	parsed.FilePath = pathutil.NormalizePath(fullPath)
 	return parsed
 }
 

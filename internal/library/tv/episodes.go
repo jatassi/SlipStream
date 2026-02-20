@@ -10,6 +10,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/pathutil"
 )
 
 // ListEpisodes returns episodes for a series, optionally filtered by season.
@@ -254,6 +255,7 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input *Cr
 // GetEpisodeFileByPath retrieves an episode file by its path.
 // Returns sql.ErrNoRows if the file doesn't exist.
 func (s *Service) GetEpisodeFileByPath(ctx context.Context, path string) (*EpisodeFile, error) {
+	path = pathutil.NormalizePath(path)
 	row, err := s.queries.GetEpisodeFileByPath(ctx, path)
 	if err != nil {
 		return nil, err

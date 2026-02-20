@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/slipstream/slipstream/internal/pathutil"
 	_ "modernc.org/sqlite" // SQLite driver
 )
 
@@ -572,15 +573,16 @@ func parseDateTime(s string) time.Time {
 
 // resolveFilePath constructs a full file path from a parent directory and a relative path.
 // Handles Windows-origin paths where the relative path may use backslash separators.
+// Always returns forward-slash normalized paths.
 func resolveFilePath(parentPath, relativePath string) string {
 	if strings.HasPrefix(relativePath, "/") || (len(relativePath) >= 2 && relativePath[1] == ':') {
-		return relativePath
+		return pathutil.NormalizePath(relativePath)
 	}
 	sep := "/"
 	if strings.Contains(parentPath, "\\") {
 		sep = "\\"
 	}
-	return strings.TrimRight(parentPath, "/\\") + sep + relativePath
+	return pathutil.NormalizePath(strings.TrimRight(parentPath, "/\\") + sep + relativePath)
 }
 
 // deriveRootFolderPath finds the root folder path that is a prefix of the given path.

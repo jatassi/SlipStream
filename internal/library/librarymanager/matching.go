@@ -33,13 +33,19 @@ func (s *Service) matchOrCreateMovie(
 		return movie, created, nil, err
 	}
 
-	bestMatch := s.findBestMovieMatch(ctx, results, parsed)
+	bestMatch := s.findBestMovieMatch(results, parsed)
+
+	if bestMatch != nil && bestMatch.ID > 0 {
+		if existing, existErr := s.movies.GetByTmdbID(ctx, bestMatch.ID); existErr == nil && existing != nil {
+			return existing, false, nil, nil
+		}
+	}
+
 	movie, created, err := s.createMovieFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
 	return movie, created, bestMatch, err
 }
 
 func (s *Service) findBestMovieMatch(
-	ctx context.Context,
 	results []metadata.MovieResult,
 	parsed *scanner.ParsedMedia,
 ) *metadata.MovieResult {
@@ -50,22 +56,22 @@ func (s *Service) findBestMovieMatch(
 	parsedTitleNorm := normalizeTitle(parsed.Title)
 
 	if match := s.findExactTitleYearMatch(results, parsed.Year, parsedTitleNorm); match != nil {
-		return s.checkExistingMovie(ctx, match)
+		return match
 	}
 
 	if match := s.findPrefixMatch(results, parsed.Year, parsedTitleNorm); match != nil {
-		return s.checkExistingMovie(ctx, match)
+		return match
 	}
 
 	if match := s.findSimilarTitleMatch(results, parsed.Year, parsedTitleNorm); match != nil {
-		return s.checkExistingMovie(ctx, match)
+		return match
 	}
 
 	if match := s.findYearMatch(results, parsed.Year); match != nil {
-		return s.checkExistingMovie(ctx, match)
+		return match
 	}
 
-	return s.checkExistingMovie(ctx, &results[0])
+	return &results[0]
 }
 
 func (s *Service) findExactTitleYearMatch(
@@ -138,17 +144,6 @@ func (s *Service) findYearMatch(results []metadata.MovieResult, year int) *metad
 	return nil
 }
 
-func (s *Service) checkExistingMovie(ctx context.Context, match *metadata.MovieResult) *metadata.MovieResult {
-	if match == nil {
-		return nil
-	}
-	existing, err := s.movies.GetByTmdbID(ctx, match.ID)
-	if err == nil && existing != nil {
-		return nil
-	}
-	return match
-}
-
 // matchOrCreateSeries finds an existing series or creates a new one from parsed media.
 // Returns the series, whether it was created, the metadata used (if any), and any error.
 func (s *Service) matchOrCreateSeries(
@@ -170,6 +165,13 @@ func (s *Service) matchOrCreateSeries(
 	}
 
 	bestMatch := s.findBestSeriesMatch(ctx, results)
+
+	if bestMatch != nil && bestMatch.TvdbID > 0 {
+		if existing := s.checkExistingSeries(ctx, bestMatch.TvdbID); existing != nil {
+			return existing, false, nil, nil
+		}
+	}
+
 	series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, bestMatch)
 	return series, created, bestMatch, err
 }
@@ -180,10 +182,6 @@ func (s *Service) findBestSeriesMatch(ctx context.Context, results []metadata.Se
 	}
 
 	bestMatch := &results[0]
-
-	if existingSeries := s.checkExistingSeries(ctx, bestMatch.TvdbID); existingSeries != nil {
-		return nil
-	}
 
 	if bestMatch.Status == "" {
 		bestMatch = s.enrichSeriesStatus(ctx, bestMatch)
@@ -273,13 +271,7 @@ func (s *Service) matchSingleUnmatchedMovie(ctx context.Context, movie *movies.M
 	bestMatch := s.selectBestUnmatchedMovieResult(results, movie.Title, movie.Year)
 
 	if bestMatch.ID > 0 {
-		if existing, err := s.movies.GetByTmdbID(ctx, bestMatch.ID); err == nil && existing != nil {
-			s.logger.Warn().
-				Int64("movieId", movie.ID).
-				Int64("existingMovieId", existing.ID).
-				Str("title", movie.Title).
-				Int("tmdbId", bestMatch.ID).
-				Msg("Skipping duplicate unmatched movie — another movie already has this TMDB ID")
+		if s.handleDuplicateUnmatchedMovie(ctx, movie, bestMatch) {
 			return
 		}
 	}
@@ -302,6 +294,35 @@ func (s *Service) matchSingleUnmatchedMovie(ctx context.Context, movie *movies.M
 		Str("title", bestMatch.Title).
 		Int("tmdbId", bestMatch.ID).
 		Msg("Matched unmatched movie")
+}
+
+// handleDuplicateUnmatchedMovie checks if a movie with the same TMDB ID already exists.
+// If so, deletes the orphan if it has no files, or logs a warning. Returns true if handled.
+func (s *Service) handleDuplicateUnmatchedMovie(ctx context.Context, movie *movies.Movie, bestMatch *metadata.MovieResult) bool {
+	existing, err := s.movies.GetByTmdbID(ctx, bestMatch.ID)
+	if err != nil || existing == nil {
+		return false
+	}
+
+	fileCount, countErr := s.queries.CountMovieFiles(ctx, movie.ID)
+	if countErr == nil && fileCount == 0 {
+		_ = s.queries.DeleteMovieFilesByMovie(ctx, movie.ID)
+		_ = s.queries.DeleteMovie(ctx, movie.ID)
+		s.logger.Info().
+			Int64("movieId", movie.ID).
+			Int64("existingMovieId", existing.ID).
+			Str("title", movie.Title).
+			Int("tmdbId", bestMatch.ID).
+			Msg("Deleted orphan duplicate movie")
+	} else {
+		s.logger.Warn().
+			Int64("movieId", movie.ID).
+			Int64("existingMovieId", existing.ID).
+			Str("title", movie.Title).
+			Int("tmdbId", bestMatch.ID).
+			Msg("Skipping duplicate unmatched movie — has files, needs manual review")
+	}
+	return true
 }
 
 func (s *Service) selectBestUnmatchedMovieResult(results []metadata.MovieResult, title string, year int) *metadata.MovieResult {
@@ -409,12 +430,24 @@ func (s *Service) matchSingleUnmatchedSeries(ctx context.Context, series *tv.Ser
 
 	if bestMatch.TvdbID > 0 {
 		if existing := s.checkExistingSeries(ctx, bestMatch.TvdbID); existing != nil {
-			s.logger.Warn().
-				Int64("seriesId", series.ID).
-				Int64("existingSeriesId", existing.ID).
-				Str("title", series.Title).
-				Int("tvdbId", bestMatch.TvdbID).
-				Msg("Skipping duplicate unmatched series — another series already has this TVDB ID")
+			epCount, countErr := s.queries.CountEpisodesBySeries(ctx, series.ID)
+			if countErr == nil && epCount == 0 {
+				_ = s.queries.DeleteSeasonsBySeries(ctx, series.ID)
+				_ = s.queries.DeleteSeries(ctx, series.ID)
+				s.logger.Info().
+					Int64("seriesId", series.ID).
+					Int64("existingSeriesId", existing.ID).
+					Str("title", series.Title).
+					Int("tvdbId", bestMatch.TvdbID).
+					Msg("Deleted orphan duplicate series")
+			} else {
+				s.logger.Warn().
+					Int64("seriesId", series.ID).
+					Int64("existingSeriesId", existing.ID).
+					Str("title", series.Title).
+					Int("tvdbId", bestMatch.TvdbID).
+					Msg("Skipping duplicate unmatched series — has episodes, needs manual review")
+			}
 			return
 		}
 	}

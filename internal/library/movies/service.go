@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -12,6 +13,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -212,7 +214,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 	}
 
 	sortTitle := generateSortTitle(input.Title)
-	path := input.Path
+	path := pathutil.NormalizePath(input.Path)
 
 	releaseDate, physicalReleaseDate, theatricalReleaseDate := parseReleaseDates(input.ReleaseDate, input.PhysicalReleaseDate, input.TheatricalReleaseDate)
 
@@ -473,6 +475,7 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 // GetFileByPath retrieves a movie file by its path.
 // Returns sql.ErrNoRows if the file doesn't exist.
 func (s *Service) GetFileByPath(ctx context.Context, path string) (*MovieFile, error) {
+	path = pathutil.NormalizePath(path)
 	row, err := s.queries.GetMovieFileByPath(ctx, path)
 	if err != nil {
 		return nil, err
@@ -843,7 +846,7 @@ func GenerateMoviePath(rootPath, title string, year int) string {
 	if year > 0 {
 		folderName = fmt.Sprintf("%s (%d)", title, year)
 	}
-	return rootPath + "/" + folderName
+	return filepath.ToSlash(filepath.Join(rootPath, folderName))
 }
 
 func boolToInt(b bool) int64 {

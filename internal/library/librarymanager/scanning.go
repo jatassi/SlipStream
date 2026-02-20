@@ -16,6 +16,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/progress"
 )
 
@@ -423,6 +424,7 @@ func (s *Service) findRootFolderForPath(ctx context.Context, filePath string) (*
 	if err != nil {
 		return nil, err
 	}
+	absPath = pathutil.NormalizePath(absPath)
 
 	folders, err := s.rootfolders.List(ctx)
 	if err != nil {
@@ -430,7 +432,8 @@ func (s *Service) findRootFolderForPath(ctx context.Context, filePath string) (*
 	}
 
 	for _, folder := range folders {
-		if strings.HasPrefix(absPath, folder.Path) {
+		folderPath := pathutil.NormalizePath(folder.Path)
+		if strings.HasPrefix(absPath, folderPath) {
 			return folder, nil
 		}
 	}

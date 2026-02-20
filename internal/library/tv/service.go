@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -189,6 +191,8 @@ func (s *Service) CreateSeries(ctx context.Context, input *CreateSeriesInput) (*
 	if input.Title == "" {
 		return nil, ErrInvalidSeries
 	}
+
+	input.Path = pathutil.NormalizePath(input.Path)
 
 	// Check for duplicate TVDB ID
 	if input.TvdbID > 0 {
@@ -565,13 +569,13 @@ func computeEpisodeStatus(airDate *time.Time) string {
 // GenerateSeriesPath generates a path for a series.
 // Returns a path with forward slashes for consistency across platforms.
 func GenerateSeriesPath(rootPath, title string) string {
-	return rootPath + "/" + title
+	return filepath.ToSlash(filepath.Join(rootPath, title))
 }
 
 // GenerateSeasonPath generates a path for a season folder.
 // Returns a path with forward slashes for consistency across platforms.
 func GenerateSeasonPath(seriesPath string, seasonNumber int) string {
-	return seriesPath + "/" + fmt.Sprintf("Season %02d", seasonNumber)
+	return filepath.ToSlash(filepath.Join(seriesPath, fmt.Sprintf("Season %02d", seasonNumber)))
 }
 
 func boolToInt(b bool) int64 {

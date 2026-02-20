@@ -15,6 +15,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/progress"
 )
 
@@ -190,7 +191,7 @@ func (e *Executor) buildMovieInput(movie *SourceMovie, rootFolderID, qualityProf
 		ImdbID:                movie.ImdbID,
 		Overview:              movie.Overview,
 		Runtime:               movie.Runtime,
-		Path:                  movie.Path,
+		Path:                  pathutil.NormalizePath(movie.Path),
 		RootFolderID:          rootFolderID,
 		QualityProfileID:      qualityProfileID,
 		Monitored:             movie.Monitored,
@@ -410,7 +411,7 @@ func (e *Executor) buildSeriesInput(series *SourceSeries, rootFolderID, qualityP
 		ImdbID:           series.ImdbID,
 		Overview:         series.Overview,
 		Runtime:          series.Runtime,
-		Path:             series.Path,
+		Path:             pathutil.NormalizePath(series.Path),
 		RootFolderID:     rootFolderID,
 		QualityProfileID: qualityProfileID,
 		Monitored:        series.Monitored,
