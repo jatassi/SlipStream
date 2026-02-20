@@ -18,7 +18,7 @@ function SeasonsCard({ vm }: { vm: ReturnType<typeof useSeriesDetailPage> }) {
         <CardTitle>Seasons & Episodes</CardTitle>
       </CardHeader>
       <CardContent>
-        {series.seasons && series.seasons.length > 0 ? (
+        {series.seasons.length > 0 ? (
           <SeasonList
             seriesId={series.id} seriesTitle={series.title} qualityProfileId={series.qualityProfileId}
             tvdbId={series.tvdbId} tmdbId={series.tmdbId} imdbId={series.imdbId} seasons={series.seasons}

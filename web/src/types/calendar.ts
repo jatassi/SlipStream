@@ -14,12 +14,12 @@ export type CalendarEvent = {
   // Episode-specific
   seriesId?: number
   seriesTitle?: string
-  seasonNumber?: number
-  episodeNumber?: number
+  seasonNumber: number
+  episodeNumber: number
   network?: string
 
   // Streaming services with early release (Apple TV+)
-  earlyAccess?: boolean
+  earlyAccess: boolean
 }
 
 export type CalendarRequest = {

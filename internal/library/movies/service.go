@@ -558,11 +558,12 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 // rowToMovie converts a database row to a Movie.
 func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 	m := &Movie{
-		ID:        row.ID,
-		Title:     row.Title,
-		SortTitle: row.SortTitle,
-		Monitored: row.Monitored == 1,
-		Status:    row.Status,
+		ID:         row.ID,
+		Title:      row.Title,
+		SortTitle:  row.SortTitle,
+		Monitored:  row.Monitored == 1,
+		Status:     row.Status,
+		MovieFiles: []MovieFile{},
 	}
 
 	s.mapMovieNullableFields(m, row)

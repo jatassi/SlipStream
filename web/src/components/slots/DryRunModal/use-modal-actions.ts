@@ -142,7 +142,7 @@ function useExecuteHandler({ manualEdits, executeMutation, patch, props }: Execu
           toast.success(`Multi-version mode enabled! ${result.filesAssigned} files assigned to slots.`)
           closeAndReport()
         } else {
-          closeAndReport(result.errors?.join('. ') ?? 'Migration completed with errors')
+          closeAndReport(result.errors.join('. ') || 'Migration completed with errors')
         }
       },
       onError: (error) => {

@@ -61,7 +61,7 @@ type SearchResult struct {
 	Releases      []types.ReleaseInfo  `json:"releases"`
 	TotalResults  int                  `json:"total"`
 	IndexersUsed  int                  `json:"indexersSearched"`
-	IndexerErrors []SearchIndexerError `json:"errors,omitempty"`
+	IndexerErrors []SearchIndexerError `json:"errors"`
 }
 
 // TorrentSearchResult contains aggregated torrent search results.
@@ -69,7 +69,7 @@ type TorrentSearchResult struct {
 	Releases      []types.TorrentInfo  `json:"releases"`
 	TotalResults  int                  `json:"total"`
 	IndexersUsed  int                  `json:"indexersSearched"`
-	IndexerErrors []SearchIndexerError `json:"errors,omitempty"`
+	IndexerErrors []SearchIndexerError `json:"errors"`
 }
 
 // SearchIndexerError represents an error from a specific indexer during search.

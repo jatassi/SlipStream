@@ -299,7 +299,7 @@ export type MovieMigrationPreview = {
   year?: number
   files: FileMigrationPreview[]
   hasConflict: boolean
-  conflicts?: string[]
+  conflicts: string[]
 }
 
 export type EpisodeMigrationPreview = {
@@ -344,7 +344,7 @@ export type MigrationResult = {
   success: boolean
   filesAssigned: number
   filesQueued: number
-  errors?: string[]
+  errors: string[]
   completedAt: string
 }
 

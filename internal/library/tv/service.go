@@ -414,6 +414,7 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 		Monitored:        row.Monitored == 1,
 		SeasonFolder:     row.SeasonFolder == 1,
 		ProductionStatus: row.ProductionStatus,
+		Seasons:          []Season{},
 	}
 
 	s.mapSeriesNullableFields(series, row)

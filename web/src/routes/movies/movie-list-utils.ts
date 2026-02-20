@@ -66,11 +66,11 @@ function compareByDateAdded(a: Movie, b: Movie): number {
 }
 
 function compareByRootFolder(a: Movie, b: Movie): number {
-  return (a.rootFolderId ?? 0) - (b.rootFolderId ?? 0) || compareByTitle(a, b)
+  return a.rootFolderId - b.rootFolderId || compareByTitle(a, b)
 }
 
 function compareBySizeOnDisk(a: Movie, b: Movie): number {
-  return (b.sizeOnDisk ?? 0) - (a.sizeOnDisk ?? 0)
+  return b.sizeOnDisk - a.sizeOnDisk
 }
 
 type Comparator = (a: Movie, b: Movie, config: SortConfig) => number

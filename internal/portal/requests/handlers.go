@@ -55,12 +55,12 @@ type QueueItem struct {
 	DownloadedSize int64   `json:"downloadedSize"`
 	DownloadSpeed  int64   `json:"downloadSpeed"`
 	ETA            int64   `json:"eta"`
-	Season         int     `json:"season,omitempty"`
-	Episode        int     `json:"episode,omitempty"`
+	Season         int     `json:"season"`
+	Episode        int     `json:"episode"`
 	MovieID        *int64  `json:"movieId,omitempty"`
 	SeriesID       *int64  `json:"seriesId,omitempty"`
 	SeasonNumber   *int    `json:"seasonNumber,omitempty"`
-	IsSeasonPack   bool    `json:"isSeasonPack,omitempty"`
+	IsSeasonPack   bool    `json:"isSeasonPack"`
 }
 
 type QueueGetter interface {

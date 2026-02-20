@@ -29,7 +29,7 @@ export function MovieDetailContent({ state, movie }: MovieDetailContentProps) {
         />
       ) : null}
       <MovieDetailFiles
-        files={movie.movieFiles ?? []}
+        files={movie.movieFiles}
         isMultiVersionEnabled={state.isMultiVersionEnabled}
         expandedFileId={state.expandedFileId}
         enabledSlots={state.enabledSlots}

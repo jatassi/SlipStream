@@ -17,8 +17,8 @@ export type QueueItem = {
   codec?: string
   attributes: string[]
   hdrFormats?: string[]
-  season?: number
-  episode?: number
+  season: number
+  episode: number
   downloadPath: string
   // Library mapping - populated when download is initiated via auto-search
   movieId?: number

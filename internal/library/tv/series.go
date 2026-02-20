@@ -25,8 +25,8 @@ type Series struct {
 	Overview         string       `json:"overview,omitempty"`
 	Runtime          int          `json:"runtime,omitempty"`
 	Path             string       `json:"path,omitempty"`
-	RootFolderID     int64        `json:"rootFolderId,omitempty"`
-	QualityProfileID int64        `json:"qualityProfileId,omitempty"`
+	RootFolderID     int64        `json:"rootFolderId"`
+	QualityProfileID int64        `json:"qualityProfileId"`
 	Monitored        bool         `json:"monitored"`
 	SeasonFolder     bool         `json:"seasonFolder"`
 	ProductionStatus string       `json:"productionStatus"`
@@ -34,8 +34,8 @@ type Series struct {
 	NetworkLogoURL   string       `json:"networkLogoUrl,omitempty"`
 	AddedAt          time.Time    `json:"addedAt"`
 	UpdatedAt        time.Time    `json:"updatedAt,omitempty"`
-	SizeOnDisk       int64        `json:"sizeOnDisk,omitempty"`
-	Seasons          []Season     `json:"seasons,omitempty"`
+	SizeOnDisk       int64        `json:"sizeOnDisk"`
+	Seasons          []Season     `json:"seasons"`
 	StatusCounts     StatusCounts `json:"statusCounts"`
 	FormatType       string       `json:"formatType,omitempty"`
 	FirstAired       *time.Time   `json:"firstAired,omitempty"`

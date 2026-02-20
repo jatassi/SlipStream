@@ -101,7 +101,7 @@ export type Request = {
   mediaId: number | null
   targetSlotId: number | null
   posterUrl: string | null
-  requestedSeasons: number[] | null
+  requestedSeasons: number[]
   createdAt: string
   updatedAt: string
   user?: PortalUser

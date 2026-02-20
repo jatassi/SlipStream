@@ -63,7 +63,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
     label: 'Seasons',
     defaultVisible: true,
     hideable: true,
-    render: (series) => series.seasons?.length ?? '-',
+    render: (series) => series.seasons.length || '-', // 0 seasons shows '-'
   },
   {
     id: 'episodes',
@@ -119,7 +119,7 @@ export const SERIES_COLUMNS: ColumnDef<Series>[] = [
     hideable: true,
     render: (series, ctx) => (
       <span className="text-muted-foreground">
-        {ctx.rootFolderNames.get(series.rootFolderId ?? 0) ?? '-'}
+        {ctx.rootFolderNames.get(series.rootFolderId) ?? '-'}
       </span>
     ),
   },

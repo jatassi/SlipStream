@@ -108,7 +108,7 @@ function RequestMeta({ request }: { request: Request }) {
 function SeriesSeasonInfo({ request }: { request: Request }) {
   return (
     <>
-      {request.requestedSeasons && request.requestedSeasons.length > 0 ? (
+      {request.requestedSeasons.length > 0 ? (
         <span>
           {request.requestedSeasons.length <= 3
             ? `S${request.requestedSeasons.join(', S')}`

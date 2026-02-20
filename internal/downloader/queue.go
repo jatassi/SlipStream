@@ -37,8 +37,8 @@ type QueueItem struct {
 	Source         string   `json:"source,omitempty"`
 	Codec          string   `json:"codec,omitempty"`
 	Attributes     []string `json:"attributes"` // HDR, Atmos, REMUX, etc.
-	Season         int      `json:"season,omitempty"`
-	Episode        int      `json:"episode,omitempty"`
+	Season         int      `json:"season"`
+	Episode        int      `json:"episode"`
 	DownloadPath   string   `json:"downloadPath"`
 	// Library mapping - populated from download_mappings table
 	MovieID          *int64 `json:"movieId,omitempty"`

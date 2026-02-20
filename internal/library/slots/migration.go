@@ -29,7 +29,7 @@ type MovieMigrationPreview struct {
 	Year        int                    `json:"year,omitempty"`
 	Files       []FileMigrationPreview `json:"files"`
 	HasConflict bool                   `json:"hasConflict"`
-	Conflicts   []string               `json:"conflicts,omitempty"`
+	Conflicts   []string               `json:"conflicts"`
 }
 
 // TVShowMigrationPreview shows the proposed migration for a TV series.
@@ -92,7 +92,7 @@ type MigrationResult struct {
 	Success       bool      `json:"success"`
 	FilesAssigned int       `json:"filesAssigned"`
 	FilesQueued   int       `json:"filesQueued"`
-	Errors        []string  `json:"errors,omitempty"`
+	Errors        []string  `json:"errors"`
 	CompletedAt   time.Time `json:"completedAt"`
 }
 

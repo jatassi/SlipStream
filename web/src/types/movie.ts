@@ -11,7 +11,7 @@ export type Movie = {
   studio?: string
   contentRating?: string
   path?: string
-  rootFolderId?: number
+  rootFolderId: number
   qualityProfileId: number
   monitored: boolean
   status: 'unreleased' | 'missing' | 'downloading' | 'failed' | 'upgradable' | 'available'
@@ -19,8 +19,8 @@ export type Movie = {
   activeDownloadId?: string | null
   addedAt: string
   updatedAt?: string
-  sizeOnDisk?: number
-  movieFiles?: MovieFile[]
+  sizeOnDisk: number
+  movieFiles: MovieFile[]
   releaseDate?: string
   physicalReleaseDate?: string
   theatricalReleaseDate?: string

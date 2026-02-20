@@ -125,7 +125,7 @@ function openSearchModal({ request, libraryMedia, setSearchModal, pendingSeasons
 }
 
 function getSeasonsToSearch(request: Request, fallback: number[]): number[] {
-  if (request.requestedSeasons && request.requestedSeasons.length > 0) {
+  if (request.requestedSeasons.length > 0) {
     return request.requestedSeasons.toSorted((a, b) => a - b)
   }
   return fallback

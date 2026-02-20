@@ -13,16 +13,16 @@ type Movie struct {
 	Overview         string      `json:"overview,omitempty"`
 	Runtime          int         `json:"runtime,omitempty"`
 	Path             string      `json:"path,omitempty"`
-	RootFolderID     int64       `json:"rootFolderId,omitempty"`
-	QualityProfileID int64       `json:"qualityProfileId,omitempty"`
+	RootFolderID     int64       `json:"rootFolderId"`
+	QualityProfileID int64       `json:"qualityProfileId"`
 	Monitored        bool        `json:"monitored"`
 	Status           string      `json:"status"`
 	StatusMessage    *string     `json:"statusMessage"`
 	ActiveDownloadID *string     `json:"activeDownloadId"`
 	AddedAt          time.Time   `json:"addedAt"`
 	UpdatedAt        time.Time   `json:"updatedAt,omitempty"`
-	SizeOnDisk       int64       `json:"sizeOnDisk,omitempty"`
-	MovieFiles       []MovieFile `json:"movieFiles,omitempty"`
+	SizeOnDisk       int64       `json:"sizeOnDisk"`
+	MovieFiles       []MovieFile `json:"movieFiles"`
 
 	ReleaseDate           *time.Time `json:"releaseDate,omitempty"`
 	PhysicalReleaseDate   *time.Time `json:"physicalReleaseDate,omitempty"`

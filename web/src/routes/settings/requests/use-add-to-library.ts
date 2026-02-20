@@ -103,7 +103,7 @@ async function addSeries(
 
 function buildSeasonInputs(request: Request): SeasonInput[] {
   const seasons: SeasonInput[] = []
-  if (request.requestedSeasons && request.requestedSeasons.length > 0) {
+  if (request.requestedSeasons.length > 0) {
     for (const seasonNum of request.requestedSeasons) {
       seasons.push({ seasonNumber: seasonNum, monitored: true })
     }

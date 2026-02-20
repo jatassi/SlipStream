@@ -42,7 +42,7 @@ function EpisodeDetails({ event, compact }: { event: CalendarEvent; compact?: bo
   }
   return (
     <p className="text-muted-foreground mt-0.5 truncate text-xs">
-      {isSeason ? `${event.episodeNumber} episodes` : `S${event.seasonNumber?.toString().padStart(2, '0')}E${event.episodeNumber?.toString().padStart(2, '0')} - ${event.title}`}
+      {isSeason ? `${event.episodeNumber} episodes` : `S${event.seasonNumber.toString().padStart(2, '0')}E${event.episodeNumber.toString().padStart(2, '0')} - ${event.title}`}
     </p>
   )
 }

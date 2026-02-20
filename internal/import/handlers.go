@@ -150,8 +150,8 @@ type ManualImportResponse struct {
 	LinkMode              string                       `json:"linkMode,omitempty"`
 	IsUpgrade             bool                         `json:"isUpgrade"`
 	Error                 string                       `json:"error,omitempty"`
-	RequiresSlotSelection bool                         `json:"requiresSlotSelection,omitempty"`
-	SlotAssignments       []ManualImportSlotAssignment `json:"slotAssignments,omitempty"`
+	RequiresSlotSelection bool                         `json:"requiresSlotSelection"`
+	SlotAssignments       []ManualImportSlotAssignment `json:"slotAssignments"`
 	RecommendedSlotID     *int64                       `json:"recommendedSlotId,omitempty"`
 	AssignedSlotID        *int64                       `json:"assignedSlotId,omitempty"`
 }
@@ -204,7 +204,8 @@ func (h *Handlers) buildManualMatch(req *ManualImportRequest) *LibraryMatch {
 
 func (h *Handlers) buildManualImportResponse(sourcePath string, result *ImportResult, err error) ManualImportResponse {
 	resp := ManualImportResponse{
-		SourcePath: sourcePath,
+		SourcePath:      sourcePath,
+		SlotAssignments: []ManualImportSlotAssignment{},
 	}
 
 	if err != nil {
@@ -252,8 +253,8 @@ type PreviewImportResponse struct {
 type ParsedMediaInfo struct {
 	Title             string   `json:"title,omitempty"`
 	Year              int      `json:"year,omitempty"`
-	Season            int      `json:"season,omitempty"`
-	Episode           int      `json:"episode,omitempty"`
+	Season            int      `json:"season"`
+	Episode           int      `json:"episode"`
 	EndEpisode        int      `json:"endEpisode,omitempty"`
 	Quality           string   `json:"quality,omitempty"`
 	Source            string   `json:"source,omitempty"`

@@ -37,7 +37,7 @@ type CalendarEvent struct {
 	Network       string `json:"network,omitempty"`
 
 	// Streaming services with early release (Apple TV+)
-	EarlyAccess bool `json:"earlyAccess,omitempty"`
+	EarlyAccess bool `json:"earlyAccess"`
 }
 
 // Service provides calendar operations.

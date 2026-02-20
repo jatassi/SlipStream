@@ -71,7 +71,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     hideable: true,
     render: (movie, ctx) => (
       <span className="text-muted-foreground">
-        {ctx.rootFolderNames.get(movie.rootFolderId ?? 0) ?? '-'}
+        {ctx.rootFolderNames.get(movie.rootFolderId) ?? '-'}
       </span>
     ),
   },

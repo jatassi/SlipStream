@@ -52,7 +52,7 @@ type Request struct {
 	MediaID          *int64     `json:"mediaId"`
 	TargetSlotID     *int64     `json:"targetSlotId"`
 	PosterURL        *string    `json:"posterUrl,omitempty"`
-	RequestedSeasons []int64    `json:"requestedSeasons,omitempty"`
+	RequestedSeasons []int64    `json:"requestedSeasons"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 }
@@ -597,11 +597,14 @@ func seasonsToJSON(seasons []int64) sql.NullString {
 
 func seasonsFromJSON(s sql.NullString) []int64 {
 	if !s.Valid || s.String == "" {
-		return nil
+		return []int64{}
 	}
 	var seasons []int64
 	if err := json.Unmarshal([]byte(s.String), &seasons); err != nil {
-		return nil
+		return []int64{}
+	}
+	if seasons == nil {
+		return []int64{}
 	}
 	return seasons
 }

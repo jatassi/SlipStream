@@ -119,8 +119,8 @@ export type ManualImportResponse = {
   linkMode?: string
   isUpgrade: boolean
   error?: string
-  requiresSlotSelection?: boolean
-  slotAssignments?: ImportSlotAssignment[]
+  requiresSlotSelection: boolean
+  slotAssignments: ImportSlotAssignment[]
   recommendedSlotId?: number
   assignedSlotId?: number
 }
@@ -129,8 +129,8 @@ export type ManualImportResponse = {
 export type ParsedMediaInfo = {
   title?: string
   year?: number
-  season?: number
-  episode?: number
+  season: number
+  episode: number
   endEpisode?: number
   quality?: string
   source?: string

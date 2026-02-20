@@ -98,7 +98,7 @@ export type SearchResult = {
   releases: ReleaseInfo[]
   total: number
   indexersSearched: number
-  errors?: SearchIndexerError[]
+  errors: SearchIndexerError[]
 }
 
 // Torrent search result
@@ -106,7 +106,7 @@ export type TorrentSearchResult = {
   releases: TorrentInfo[]
   total: number
   indexersSearched: number
-  errors?: SearchIndexerError[]
+  errors: SearchIndexerError[]
 }
 
 // Grab request to send release to download client

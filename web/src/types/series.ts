@@ -21,7 +21,7 @@ export type Series = {
   network?: string
   networkLogoUrl?: string
   path?: string
-  rootFolderId?: number
+  rootFolderId: number
   qualityProfileId: number
   monitored: boolean
   seasonFolder: boolean
@@ -32,8 +32,8 @@ export type Series = {
   nextAiring?: string
   addedAt: string
   updatedAt?: string
-  sizeOnDisk?: number
-  seasons?: Season[]
+  sizeOnDisk: number
+  seasons: Season[]
   addedBy?: number
   addedByUsername?: string
 }
