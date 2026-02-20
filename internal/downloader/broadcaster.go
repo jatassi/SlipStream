@@ -234,7 +234,11 @@ func (b *QueueBroadcaster) checkForCompletions(ctx context.Context) {
 	b.processingImports = true
 	b.mu.Unlock()
 
-	b.logger.Info().Int("count", len(completed)).Msg("Detected completed downloads, triggering import")
+	paths := make([]string, len(completed))
+	for i := range completed {
+		paths[i] = completed[i].DownloadPath
+	}
+	b.logger.Info().Int("count", len(completed)).Strs("paths", paths).Msg("Detected completed downloads, triggering import")
 
 	// Trigger import processing asynchronously to not block the broadcast loop
 	go func() {
