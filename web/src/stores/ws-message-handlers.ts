@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 
+import { adminRequestKeys } from '@/hooks/admin/use-admin-requests'
 import { inboxKeys } from '@/hooks/portal/use-inbox'
 import { requestKeys } from '@/hooks/portal/use-requests'
 import { systemHealthKeys } from '@/hooks/use-health'
@@ -111,6 +112,7 @@ function handleRequestEvent(ctx: DispatchContext): void {
   }
   ctx.requestTimeoutRef.current = setTimeout(() => {
     void ctx.queryClient.invalidateQueries({ queryKey: requestKeys.all })
+    void ctx.queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
     ctx.requestTimeoutRef.current = null
   }, ctx.requestDebounceMs)
 }
