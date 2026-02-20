@@ -1,4 +1,4 @@
-import { useScheduledTasks } from '@/hooks'
+import { useScheduledTasks, useStatus } from '@/hooks'
 import { useDevModeStore, useProgressStore, useUIStore, useWebSocketStore } from '@/stores'
 
 export function useHeader() {
@@ -10,6 +10,7 @@ export function useHeader() {
     setSwitching,
   } = useDevModeStore()
   const { send } = useWebSocketStore()
+  const { data: status } = useStatus()
   const { data: tasks } = useScheduledTasks()
   const activities = useProgressStore((state) => state.visibleActivities)
   const activeCount = useProgressStore((state) => state.activeCount)
@@ -33,6 +34,7 @@ export function useHeader() {
     dismissNotification,
     globalLoading,
     setGlobalLoading,
+    isDevBuild: status?.isDevBuild ?? false,
     devModeEnabled,
     devModeSwitching,
     handleDevModeToggle,

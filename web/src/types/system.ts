@@ -8,6 +8,7 @@ export type SystemStatus = {
   episodeCount: number
   queueCount: number
   developerMode: boolean
+  isDevBuild: boolean
   portalEnabled: boolean
   mediainfoAvailable: boolean
   actualPort?: number

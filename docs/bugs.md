@@ -3,9 +3,9 @@
 [x] Excessive download client polling (maybe linked to below)
 [x] Retrying import for failed downloads over and over again
 [x] A Knight of the Seven Kingdoms - SundefinedEx
-[ ] Better markdown formatting for release notes (bullet points)
-[ ] Themeing for calendar page
-[ ] Hide dev mode toggle
+[x] Better markdown formatting for release notes (bullet points)
+[x] Themeing for calendar page
+[x] Hide dev mode toggle
 [ ] admin login redirect issue
 [ ] mask pin as you type
 [ ] downloads left nav item slightly misaligned

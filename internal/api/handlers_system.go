@@ -13,6 +13,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/logger"
 )
 
 // --- Handler implementations ---
@@ -42,6 +43,7 @@ func (s *Server) getStatus(c echo.Context) error {
 		"movieCount":         movieCount,
 		"seriesCount":        seriesCount,
 		"developerMode":      s.dbManager.IsDevMode(),
+		"isDevBuild":         logger.IsDevBuild(),
 		"portalEnabled":      portalEnabled,
 		"requiresSetup":      !adminExists,
 		"requiresAuth":       true,

@@ -11,6 +11,7 @@ export function Header() {
     dismissNotification,
     globalLoading,
     setGlobalLoading,
+    isDevBuild,
     devModeEnabled,
     devModeSwitching,
     handleDevModeToggle,
@@ -42,13 +43,15 @@ export function Header() {
           />
         ) : null}
 
-        <HeaderDevMode
-          devModeEnabled={devModeEnabled}
-          devModeSwitching={devModeSwitching}
-          onToggle={handleDevModeToggle}
-          globalLoading={globalLoading}
-          onGlobalLoadingChange={setGlobalLoading}
-        />
+        {isDevBuild ? (
+          <HeaderDevMode
+            devModeEnabled={devModeEnabled}
+            devModeSwitching={devModeSwitching}
+            onToggle={handleDevModeToggle}
+            globalLoading={globalLoading}
+            onGlobalLoadingChange={setGlobalLoading}
+          />
+        ) : null}
 
         <HeaderNotifications notifications={notifications} onDismiss={dismissNotification} />
       </div>
