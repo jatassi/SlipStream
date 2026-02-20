@@ -69,11 +69,27 @@ fi
 echo "Creating DMG..."
 DMG_PATH="$PROJECT_ROOT/dist/$DMG_NAME"
 
+# Retry wrapper for hdiutil commands which intermittently fail with "Resource busy"
+hdiutil_retry() {
+    local max_attempts=3
+    local attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if hdiutil "$@"; then
+            return 0
+        fi
+        echo "hdiutil failed (attempt $attempt/$max_attempts), retrying in 5s..."
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    echo "hdiutil failed after $max_attempts attempts"
+    return 1
+}
+
 # Create temporary DMG
-hdiutil create -volname "$APP_NAME" -srcfolder "$BUILD_DIR" -ov -format UDRW "$BUILD_DIR/temp.dmg"
+hdiutil_retry create -volname "$APP_NAME" -srcfolder "$BUILD_DIR" -ov -format UDRW "$BUILD_DIR/temp.dmg"
 
 # Convert to compressed DMG
-hdiutil convert "$BUILD_DIR/temp.dmg" -format UDZO -o "$DMG_PATH"
+hdiutil_retry convert "$BUILD_DIR/temp.dmg" -format UDZO -o "$DMG_PATH"
 
 # Clean up
 rm -rf "$BUILD_DIR"
