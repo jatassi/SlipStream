@@ -226,11 +226,14 @@ type AutoCheckOptions = {
   checkForUpdate: ReturnType<typeof useCheckForUpdate>
 }
 
+const ACTIVE_STATES = new Set<UpdateState>(['checking', 'downloading', 'installing', 'restarting'])
+
 function useAutoCheck({ debugMode, updateStatus, checkForUpdate }: AutoCheckOptions) {
   const hasAutoChecked = useRef(false)
   useEffect(() => {
     if (hasAutoChecked.current) {return}
-    if (debugMode || updateStatus?.state !== 'idle') {return}
+    if (debugMode || !updateStatus) {return}
+    if (ACTIVE_STATES.has(updateStatus.state)) {return}
     hasAutoChecked.current = true
     checkForUpdate.mutate()
   }, [debugMode, updateStatus, checkForUpdate])

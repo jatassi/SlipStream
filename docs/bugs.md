@@ -12,7 +12,7 @@
 [x] mediainfo not being detected
 [x] port closed warning not accurate
 [x] remove external access warning (confirm modal instead)
-[ ] check for update fix
+[x] check for update fix
 [ ] requests queue should listen
 [ ] loading states for movie/series detail pages
 [ ] scheduled tasks - next run and last run columns show same value
