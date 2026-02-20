@@ -55,7 +55,7 @@ function ReleaseNotes({ notes }: { notes: string }) {
         )}
       >
         <Markdown
-          className="prose prose-sm prose-invert [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground/80 [&_strong]:text-foreground [&_p]:text-foreground/80 [&_code]:bg-muted max-w-none [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h2:first-child]:mt-0 [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_li]:my-0.5 [&_p]:my-1.5 [&_strong]:font-semibold [&_ul]:my-1.5 [&_ul]:pl-4"
+          className="prose prose-sm prose-invert max-w-none [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h2:first-child]:mt-0 [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-semibold [&_li]:text-foreground/80 [&_li]:my-0.5 [&_p]:text-foreground/80 [&_p]:my-1.5 [&_strong]:text-foreground [&_strong]:font-semibold [&_ul]:my-1.5 [&_ul]:pl-4 [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs"
           options={{ overrides: markdownOverrides }}
         >
           {displayedContent}
