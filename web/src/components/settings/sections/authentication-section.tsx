@@ -5,9 +5,11 @@ import { Lock } from 'lucide-react'
 import { ChangePinDialog, PasskeyManager } from '@/components/portal'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { usePasskeySupport } from '@/hooks/portal'
 
 export function AuthenticationSection() {
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
+  const { isSupported: passkeySupported } = usePasskeySupport()
 
   return (
     <div className="space-y-6">
@@ -20,9 +22,11 @@ export function AuthenticationSection() {
         </Button>
       </div>
 
-      <div className="border-t pt-6">
-        <PasskeyManager />
-      </div>
+      {passkeySupported ? (
+        <div className="border-t pt-6">
+          <PasskeyManager />
+        </div>
+      ) : null}
 
       <ChangePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} />
     </div>

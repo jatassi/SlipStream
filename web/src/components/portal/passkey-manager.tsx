@@ -14,14 +14,6 @@ function LoadingView() {
   )
 }
 
-function UnsupportedView() {
-  return (
-    <div className="border-border text-muted-foreground rounded-lg border p-4">
-      Passkeys require a secure connection (HTTPS).
-    </div>
-  )
-}
-
 function PasskeyHeader({
   isRegistering,
   onAddClick,
@@ -54,7 +46,7 @@ export function PasskeyManager() {
     return <LoadingView />
   }
   if (!hook.isSupported) {
-    return <UnsupportedView />
+    return null
   }
 
   return (
