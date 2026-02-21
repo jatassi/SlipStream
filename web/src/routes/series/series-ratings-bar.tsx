@@ -1,11 +1,26 @@
 import { IMDbIcon, MetacriticIcon, RTFreshIcon, RTRottenIcon } from '@/components/media/rating-icons'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { ExternalRatings } from '@/types'
 
 type SeriesRatingsBarProps = {
-  ratings: ExternalRatings
+  ratings?: ExternalRatings
+  isLoading?: boolean
 }
 
-export function SeriesRatingsBar({ ratings }: SeriesRatingsBarProps) {
+export function SeriesRatingsBar({ ratings, isLoading }: SeriesRatingsBarProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-5 w-14 rounded bg-white/10" />
+        <Skeleton className="h-5 w-12 rounded bg-white/10" />
+      </div>
+    )
+  }
+
+  if (!ratings) {
+    return null
+  }
+
   const hasAny =
     ratings.rottenTomatoes !== undefined ||
     ratings.imdbRating !== undefined ||

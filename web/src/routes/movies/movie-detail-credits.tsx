@@ -1,13 +1,21 @@
 import { User } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { Credits, Person } from '@/types'
+
+const SKELETON_ITEMS = [1, 2, 3, 4, 5, 6]
 
 type MovieDetailCreditsProps = {
   credits?: Credits
+  isLoading?: boolean
 }
 
-export function MovieDetailCredits({ credits }: MovieDetailCreditsProps) {
+export function MovieDetailCredits({ credits, isLoading }: MovieDetailCreditsProps) {
+  if (isLoading) {
+    return <CreditsSkeleton />
+  }
+
   if (!credits) {
     return null
   }
@@ -46,6 +54,27 @@ export function MovieDetailCredits({ credits }: MovieDetailCreditsProps) {
         </Card>
       ) : null}
     </>
+  )
+}
+
+function CreditsSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-16" />
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-4 overflow-hidden">
+          {SKELETON_ITEMS.map((i) => (
+            <div key={i} className="flex w-20 shrink-0 flex-col items-center gap-1">
+              <Skeleton className="size-16 rounded-full" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

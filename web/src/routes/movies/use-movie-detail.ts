@@ -64,7 +64,7 @@ export function useMovieDetail() {
   const globalLoading = useGlobalLoading()
   const { data: movie, isLoading: queryLoading, isError, refetch } = useMovie(movieId)
   const isLoading = queryLoading || globalLoading
-  const { data: extendedData } = useExtendedMovieMetadata(movie?.tmdbId ?? 0)
+  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedMovieMetadata(movie?.tmdbId ?? 0)
   const { data: qualityProfiles } = useQualityProfiles()
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
@@ -82,7 +82,7 @@ export function useMovieDetail() {
 
   return {
     movie, movieId, isLoading, isError, refetch,
-    extendedData, qualityProfileName,
+    extendedData, isExtendedDataLoading, qualityProfileName,
     editDialogOpen, setEditDialogOpen,
     overviewExpanded,
     toggleOverviewExpanded: () => setOverviewExpanded((prev) => !prev),

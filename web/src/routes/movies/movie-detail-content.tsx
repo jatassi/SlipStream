@@ -38,7 +38,7 @@ export function MovieDetailContent({ state, movie }: MovieDetailContentProps) {
         onAssignFileToSlot={state.handleAssignFileToSlot}
         getSlotName={state.getSlotName}
       />
-      <MovieDetailCredits credits={state.extendedData?.credits} />
+      <MovieDetailCredits credits={state.extendedData?.credits} isLoading={state.isExtendedDataLoading} />
     </div>
   )
 }

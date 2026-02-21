@@ -46,8 +46,9 @@ export function SeriesDetailPage() {
   return (
     <div className="-m-6">
       <SeriesHeroSection
-        series={series} extendedData={vm.extendedData} qualityProfileName={vm.qualityProfileName}
-        overviewExpanded={vm.overviewExpanded} onToggleOverview={() => vm.setOverviewExpanded(!vm.overviewExpanded)}
+        series={series} extendedData={vm.extendedData} isExtendedDataLoading={vm.isExtendedDataLoading}
+        qualityProfileName={vm.qualityProfileName} overviewExpanded={vm.overviewExpanded}
+        onToggleOverview={() => vm.setOverviewExpanded(!vm.overviewExpanded)}
       />
       <SeriesActionBar
         series={series} isRefreshing={vm.isRefreshing} onToggleMonitored={vm.handleToggleMonitored}

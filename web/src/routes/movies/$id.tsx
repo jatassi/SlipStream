@@ -26,6 +26,7 @@ export function MovieDetailPage() {
       <MovieDetailHero
         movie={movie}
         extendedData={state.extendedData}
+        isExtendedDataLoading={state.isExtendedDataLoading}
         qualityProfileName={state.qualityProfileName}
         overviewExpanded={state.overviewExpanded}
         onToggleOverview={state.toggleOverviewExpanded}

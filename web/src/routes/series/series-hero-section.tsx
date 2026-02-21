@@ -15,6 +15,7 @@ import { SeriesRatingsBar } from './series-ratings-bar'
 type SeriesHeroSectionProps = {
   series: Series
   extendedData: ExtendedSeriesResult | undefined
+  isExtendedDataLoading: boolean
   qualityProfileName: string | undefined
   overviewExpanded: boolean
   onToggleOverview: () => void
@@ -35,13 +36,13 @@ function HeroBadges({ series, qualityProfileName }: { series: Series; qualityPro
   )
 }
 
-function HeroContent({ series, extendedData, qualityProfileName, overviewExpanded, onToggleOverview }: SeriesHeroSectionProps) {
+function HeroContent({ series, extendedData, isExtendedDataLoading, qualityProfileName, overviewExpanded, onToggleOverview }: SeriesHeroSectionProps) {
   return (
     <div className="flex-1 space-y-2">
       <HeroBadges series={series} qualityProfileName={qualityProfileName} />
       <TitleTreatment tmdbId={series.tmdbId} tvdbId={series.tvdbId} type="series" alt={series.title} version={series.updatedAt} fallback={<h1 className="text-3xl font-bold text-white">{series.title}</h1>} />
-      <SeriesMetadataInfo series={series} extendedData={extendedData} />
-      {extendedData?.ratings ? <SeriesRatingsBar ratings={extendedData.ratings} /> : null}
+      <SeriesMetadataInfo series={series} extendedData={extendedData} isExtendedDataLoading={isExtendedDataLoading} />
+      <SeriesRatingsBar ratings={extendedData?.ratings} isLoading={isExtendedDataLoading} />
       {series.overview ? (
         <button type="button" className={`max-w-2xl cursor-pointer text-sm text-gray-300 text-left ${overviewExpanded ? '' : 'line-clamp-2'}`} onClick={onToggleOverview}>
           {series.overview}

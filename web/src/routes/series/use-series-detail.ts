@@ -46,7 +46,7 @@ function useSeriesQueries(seriesId: number) {
   const globalLoading = useGlobalLoading()
   const { data: series, isLoading: queryLoading, isError, refetch } = useSeriesDetail(seriesId)
   const isLoading = queryLoading || globalLoading
-  const { data: extendedData } = useExtendedSeriesMetadata(series?.tmdbId ?? 0)
+  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedSeriesMetadata(series?.tmdbId ?? 0)
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: episodes } = useEpisodes(seriesId)
   const { data: multiVersionSettings } = useMultiVersionSettings()
@@ -54,7 +54,7 @@ function useSeriesQueries(seriesId: number) {
 
   return {
     series, isLoading, isError, refetch,
-    extendedData, qualityProfiles, episodes,
+    extendedData, isExtendedDataLoading, qualityProfiles, episodes,
     isMultiVersionEnabled: multiVersionSettings?.enabled ?? false,
     enabledSlots: slots?.filter((s) => s.enabled) ?? [],
   }

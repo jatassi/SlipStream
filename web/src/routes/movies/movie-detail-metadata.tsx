@@ -7,6 +7,7 @@ import {
   UserStar,
 } from 'lucide-react'
 
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, formatRuntime } from '@/lib/formatters'
 import type { ExtendedMovieResult, Movie } from '@/types'
 
@@ -46,6 +47,8 @@ const ITEM_CONFIG: { key: keyof ReturnType<typeof deriveValues>; icon: typeof Ca
   { key: 'addedAt', icon: CalendarPlus },
 ]
 
+const EXTENDED_KEYS = new Set(['director', 'genres'])
+
 function buildMetadataItems(movie: Movie, extendedData?: ExtendedMovieResult) {
   const values = deriveValues(movie, extendedData)
   const items: { key: string; icon: typeof Calendar; value: string }[] = []
@@ -61,9 +64,10 @@ function buildMetadataItems(movie: Movie, extendedData?: ExtendedMovieResult) {
 type MetadataRowProps = {
   movie: Movie
   extendedData?: ExtendedMovieResult
+  isExtendedDataLoading?: boolean
 }
 
-export function MetadataRow({ movie, extendedData }: MetadataRowProps) {
+export function MetadataRow({ movie, extendedData, isExtendedDataLoading }: MetadataRowProps) {
   const items = buildMetadataItems(movie, extendedData)
 
   return (
@@ -79,6 +83,12 @@ export function MetadataRow({ movie, extendedData }: MetadataRowProps) {
           {value}
         </span>
       ))}
+      {isExtendedDataLoading && !items.some((i) => EXTENDED_KEYS.has(i.key)) ? (
+        <>
+          <Skeleton className="h-4 w-20 rounded bg-white/10" />
+          <Skeleton className="h-4 w-24 rounded bg-white/10" />
+        </>
+      ) : null}
     </div>
   )
 }

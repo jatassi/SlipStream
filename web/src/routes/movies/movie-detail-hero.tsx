@@ -14,6 +14,7 @@ import { MovieRatings } from './movie-detail-ratings'
 type MovieDetailHeroProps = {
   movie: Movie
   extendedData?: ExtendedMovieResult
+  isExtendedDataLoading: boolean
   qualityProfileName?: string
   overviewExpanded: boolean
   onToggleOverview: () => void
@@ -83,6 +84,7 @@ function StudioSection({ movie }: { movie: Movie }) {
 function HeroInfo({
   movie,
   extendedData,
+  isExtendedDataLoading,
   qualityProfileName,
   overviewExpanded,
   onToggleOverview,
@@ -105,8 +107,8 @@ function HeroInfo({
         version={movie.updatedAt}
         fallback={<h1 className="text-3xl font-bold text-white">{movie.title}</h1>}
       />
-      <MetadataRow movie={movie} extendedData={extendedData} />
-      <MovieRatings ratings={extendedData?.ratings} />
+      <MetadataRow movie={movie} extendedData={extendedData} isExtendedDataLoading={isExtendedDataLoading} />
+      <MovieRatings ratings={extendedData?.ratings} isLoading={isExtendedDataLoading} />
       {movie.overview ? (
         <button
           type="button"
