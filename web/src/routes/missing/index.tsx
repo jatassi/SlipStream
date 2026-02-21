@@ -59,6 +59,7 @@ export function MissingPage() {
         totalCount={page.totalCount}
         movieCount={page.movieCount}
         episodeCount={page.episodeCount}
+        upgradableTotalCount={page.upgradableTotalCount}
         onViewChange={page.setView}
       >
         <TabContent page={page} />

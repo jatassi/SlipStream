@@ -14,6 +14,7 @@ type MediaTabsProps = {
   totalCount: number
   movieCount: number
   episodeCount: number
+  upgradableTotalCount: number
   onViewChange: (view: ViewMode) => void
   children: React.ReactNode
 }
@@ -33,6 +34,7 @@ export function MediaTabs({
   totalCount,
   movieCount,
   episodeCount,
+  upgradableTotalCount,
   onViewChange,
   children,
 }: MediaTabsProps) {
@@ -55,7 +57,7 @@ export function MediaTabs({
             {!isLoading && <CountBadge count={episodeCount} className="text-muted-foreground" />}
           </TabsTrigger>
         </TabsList>
-        <ViewToggle isMissingView={isMissingView} onViewChange={onViewChange} />
+        <ViewToggle isMissingView={isMissingView} upgradableTotalCount={upgradableTotalCount} isLoading={isLoading} onViewChange={onViewChange} />
       </div>
       {children}
     </Tabs>

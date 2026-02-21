@@ -187,6 +187,8 @@ export function useMissingPage() {
   const episodeCount = isMissingView ? counts.missingEpisodeCount : counts.upgradableEpisodeCount
   const { isLoading, isError } = deriveViewState(queries, isMissingView, globalLoading)
 
+  const upgradableTotalCount = counts.upgradableMovieCount + counts.upgradableEpisodeCount
+
   return {
     view,
     setView,
@@ -199,6 +201,7 @@ export function useMissingPage() {
     movieCount,
     episodeCount,
     totalCount: movieCount + episodeCount,
+    upgradableTotalCount,
     searchCount: getSearchCount(filter, movieCount, episodeCount),
     searchButtonStyle: getSearchButtonStyle(filter, movieCount, episodeCount),
     handleRefetch: () => refetchQueries(queries, isMissingView),
