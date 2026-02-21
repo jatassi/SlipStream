@@ -58,22 +58,24 @@ func isWindowsFirewallEnabled(ctx context.Context) (bool, error) {
 func isPortAllowedInWindowsFirewall(ctx context.Context, port int) (bool, error) {
 	portStr := strconv.Itoa(port)
 
-	// Query inbound rules for TCP port
+	// Query all inbound rules. The "protocol=tcp" filter is not a documented
+	// parameter for "show rule" and silently returns no results on some Windows
+	// versions, so we filter by protocol ourselves during parsing.
 	cmd := exec.CommandContext(ctx, "netsh", "advfirewall", "firewall", "show", "rule",
-		"name=all", "dir=in", "protocol=tcp")
+		"name=all", "dir=in")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
 	}
 
-	// Parse output looking for rules that allow this port.
-	// Fields appear in order: Rule Name, Enabled, ..., LocalPort, ..., Action.
-	// We must collect all fields per rule before evaluating, since Action comes
-	// after LocalPort in the netsh output.
+	// Parse output looking for rules that allow this port over TCP.
+	// Fields appear in order: Rule Name, Enabled, ..., Protocol, LocalPort, ..., Action.
+	// We collect all fields per rule then evaluate at each rule boundary.
 	type rule struct {
-		enabled bool
-		action  string
-		port    string
+		enabled  bool
+		action   string
+		port     string
+		protocol string
 	}
 
 	lines := strings.Split(string(output), "\n")
@@ -81,6 +83,7 @@ func isPortAllowedInWindowsFirewall(ctx context.Context, port int) (bool, error)
 
 	evalRule := func() bool {
 		return current.enabled &&
+			(current.protocol == "tcp" || current.protocol == "any") &&
 			portMatches(current.port, portStr) &&
 			strings.Contains(strings.ToLower(current.action), "allow")
 	}
@@ -101,6 +104,8 @@ func isPortAllowedInWindowsFirewall(ctx context.Context, port int) (bool, error)
 			current.enabled = strings.Contains(lineLower, "yes")
 		} else if strings.HasPrefix(lineLower, "action:") {
 			current.action = line
+		} else if strings.HasPrefix(lineLower, "protocol:") {
+			current.protocol = strings.TrimSpace(strings.TrimPrefix(lineLower, "protocol:"))
 		} else if strings.HasPrefix(lineLower, "localport:") {
 			current.port = strings.TrimSpace(strings.TrimPrefix(lineLower, "localport:"))
 		}
