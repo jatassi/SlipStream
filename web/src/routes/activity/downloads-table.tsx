@@ -8,7 +8,22 @@ import type { QueueItem } from '@/types'
 import { DownloadRow } from './download-row'
 import { TitleWidthContext } from './title-width-context'
 
+const RELEASE_NAME_KEY = 'downloads-show-release-name'
+
+function useReleaseName() {
+  const [show, setShow] = useState(() => localStorage.getItem(RELEASE_NAME_KEY) === 'true')
+  const toggle = useCallback(() => {
+    setShow((prev) => {
+      const next = !prev
+      localStorage.setItem(RELEASE_NAME_KEY, String(next))
+      return next
+    })
+  }, [])
+  return { show, toggle }
+}
+
 export function DownloadsTable({ items }: { items: QueueItem[] }) {
+  const releaseName = useReleaseName()
   const [widths, setWidths] = useState<Map<string, number>>(new Map())
 
   const registerWidth = useCallback((id: string, width: number) => {
@@ -44,7 +59,12 @@ export function DownloadsTable({ items }: { items: QueueItem[] }) {
     <TitleWidthContext.Provider value={{ registerWidth, unregisterWidth, maxWidth }}>
       <div className="divide-border divide-y">
         {items.map((item) => (
-          <DownloadRow key={`${item.clientId}-${item.id}`} item={item} />
+          <DownloadRow
+            key={`${item.clientId}-${item.id}`}
+            item={item}
+            showReleaseName={releaseName.show}
+            onToggleReleaseName={releaseName.toggle}
+          />
         ))}
       </div>
     </TitleWidthContext.Provider>

@@ -18,4 +18,4 @@
 [x] scheduled tasks - next run and last run columns show same value
 [x] add count to upgradable tab on Missing page (simple total)
 [x] just hide passkeys components entirely in portal if no secure environment
-[ ] release show/hide on downloads page should be sticky
+[x] release show/hide on downloads page should be sticky

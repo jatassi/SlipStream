@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 import type { QueueItem } from '@/types'
@@ -85,8 +85,13 @@ function TitleCell({
   )
 }
 
-export function DownloadRow({ item }: { item: QueueItem }) {
-  const [showReleaseName, setShowReleaseName] = useState(false)
+type DownloadRowProps = {
+  item: QueueItem
+  showReleaseName: boolean
+  onToggleReleaseName: () => void
+}
+
+export function DownloadRow({ item, showReleaseName, onToggleReleaseName }: DownloadRowProps) {
   const row = useDownloadRow(item)
   const { titleRef, maxWidth } = useTitleWidth(`${item.clientId}-${item.id}`, showReleaseName)
 
@@ -113,7 +118,7 @@ export function DownloadRow({ item }: { item: QueueItem }) {
           titleSuffix={row.titleSuffix}
           releaseName={item.releaseName}
           showReleaseName={showReleaseName}
-          onToggleReleaseName={() => setShowReleaseName(!showReleaseName)}
+          onToggleReleaseName={onToggleReleaseName}
         />
         <DownloadRowProgress item={item} isMovie={row.isMovie} isSeries={row.isSeries} progressText={row.progressText} />
       </div>
