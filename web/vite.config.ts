@@ -11,6 +11,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ["lucide-react"],
+  },
   server: {
     host: true,
     port: 3000,

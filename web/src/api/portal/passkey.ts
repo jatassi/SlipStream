@@ -6,9 +6,7 @@ import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 
 import type { PortalUser } from '@/types'
 
-import { getPortalAuthToken, portalFetch } from './client'
-
-const API_BASE = '/api/v1/requests'
+import { portalFetch } from './client'
 
 type BeginRegistrationResponse = {
   challengeId: string
@@ -53,30 +51,13 @@ export const passkeyApi = {
 
     const credential = await startRegistration({ optionsJSON: options.publicKey })
 
-    const authToken = getPortalAuthToken()
-    const res = await fetch(
-      `${API_BASE}/auth/passkey/register/finish?challengeId=${encodeURIComponent(challengeId)}&name=${encodeURIComponent(name)}`,
+    return portalFetch<undefined>(
+      `/auth/passkey/register/finish?challengeId=${encodeURIComponent(challengeId)}&name=${encodeURIComponent(name)}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
         body: JSON.stringify(credential),
       },
     )
-
-    if (!res.ok) {
-      const errorData: unknown = await res.json().catch(() => ({ message: 'Registration failed' }))
-      const errorMessage =
-        errorData &&
-        typeof errorData === 'object' &&
-        'message' in errorData &&
-        typeof errorData.message === 'string'
-          ? errorData.message
-          : 'Registration failed'
-      throw new Error(errorMessage)
-    }
   },
 
   // Login flow
@@ -91,30 +72,13 @@ export const passkeyApi = {
 
     const credential = await startAuthentication({ optionsJSON: options.publicKey })
 
-    const res = await fetch(
-      `${API_BASE}/auth/passkey/login/finish?challengeId=${encodeURIComponent(challengeId)}`,
+    return portalFetch<PasskeyLoginResponse>(
+      `/auth/passkey/login/finish?challengeId=${encodeURIComponent(challengeId)}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(credential),
       },
     )
-
-    if (!res.ok) {
-      const errorData: unknown = await res.json().catch(() => ({ message: 'Login failed' }))
-      const errorMessage =
-        errorData &&
-        typeof errorData === 'object' &&
-        'message' in errorData &&
-        typeof errorData.message === 'string'
-          ? errorData.message
-          : 'Login failed'
-      throw new Error(errorMessage)
-    }
-
-    return (await res.json()) as PasskeyLoginResponse
   },
 
   // Credential management
