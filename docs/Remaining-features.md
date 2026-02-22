@@ -22,12 +22,12 @@
 [x] Update missing page
 [x] Support for more download clients and indexers (directly refer to *arr codebases)
 [x] Library in Portal
-[ ] Config backup & restore
 [x] React Doctor findings
 [x] Deps update
 [x] Simplification, Refactor, Enhanced Test Suite, Security Audit
 [*] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========
+[ ] Config backup & restore
 [ ] Update dashboard
 [ ] Transcode during import (integrate with slots - FFMPEG frontend)
 [ ] TRaSH Guides import support (maybe load as default?)
