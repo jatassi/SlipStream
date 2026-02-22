@@ -175,6 +175,14 @@ func (c *TMDBClient) GetSeriesLogoURL(ctx context.Context, id int) (string, erro
 	return fmt.Sprintf("https://image.tmdb.org/t/p/w500/mock_series_logo_%d.png", id), nil
 }
 
+func (c *TMDBClient) GetMovieTrailerURL(ctx context.Context, id int) (string, error) {
+	return fmt.Sprintf("https://www.youtube.com/watch?v=mock_movie_%d", id), nil
+}
+
+func (c *TMDBClient) GetSeriesTrailerURL(ctx context.Context, id int) (string, error) {
+	return fmt.Sprintf("https://www.youtube.com/watch?v=mock_series_%d", id), nil
+}
+
 var defaultMovieCredits = tmdb.NormalizedCredits{
 	Directors: []tmdb.NormalizedPerson{{ID: 1, Name: "Christopher Nolan", PhotoURL: "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg"}},
 	Writers:   []tmdb.NormalizedPerson{{ID: 2, Name: "Jonathan Nolan", Role: "Screenplay", PhotoURL: "https://image.tmdb.org/t/p/w185/dummy.jpg"}},

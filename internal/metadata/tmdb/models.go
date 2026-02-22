@@ -321,6 +321,20 @@ type ProductionCompany struct {
 	LogoPath *string `json:"logo_path"`
 }
 
+// VideosResponse is the response from TMDB /movie/{id}/videos or /tv/{id}/videos.
+type VideosResponse struct {
+	Results []Video `json:"results"`
+}
+
+// Video represents a video (trailer, teaser, etc.) from TMDB.
+type Video struct {
+	Key      string `json:"key"`
+	Site     string `json:"site"`
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Official bool   `json:"official"`
+}
+
 // ImagesResponse is the response from TMDB /movie/{id}/images or /tv/{id}/images.
 type ImagesResponse struct {
 	Logos []ImageResult `json:"logos"`

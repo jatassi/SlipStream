@@ -31,6 +31,7 @@ export type MediaInfoState = {
   director: string | undefined
   creators: { name: string }[] | undefined
   studio: string | undefined
+  trailerUrl: string | undefined
   seasons: ExtendedSeriesResult['seasons'] | undefined
   enrichedSeasons: EnrichedSeason[] | undefined
   handleAdd: () => void

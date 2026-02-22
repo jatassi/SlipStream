@@ -1,4 +1,4 @@
-import { Check, Clock } from 'lucide-react'
+import { Check, Clock, Play } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { PortalDownload } from '@/types'
@@ -16,25 +16,30 @@ type MediaActionButtonProps = {
   actionLabel: string
   actionIcon: React.ReactNode
   handleAdd: () => void
+  trailerUrl?: string
 }
 
-export function MediaActionButton({
-  hasActiveDownload,
-  activeDownload,
-  isInLibrary,
-  isAvailable,
-  isApproved,
-  isPending,
-  onAction,
-  actionLabel,
-  actionIcon,
-  handleAdd,
-}: MediaActionButtonProps) {
-  if (hasActiveDownload && activeDownload) {
-    return <DownloadStatusCard download={activeDownload} />
+export function MediaActionButton(props: MediaActionButtonProps) {
+  if (props.hasActiveDownload && props.activeDownload) {
+    return <DownloadStatusCard download={props.activeDownload} />
   }
 
-  if ((isInLibrary || isAvailable) && !onAction) {
+  const actionButton = resolveActionButton(props)
+
+  if (!actionButton && !props.trailerUrl) {
+    return null
+  }
+
+  return (
+    <div className="flex gap-2">
+      {actionButton}
+      <TrailerButton url={props.trailerUrl} />
+    </div>
+  )
+}
+
+function resolveActionButton(props: MediaActionButtonProps) {
+  if ((props.isInLibrary || props.isAvailable) && !props.onAction) {
     return (
       <Button variant="secondary" size="sm" disabled>
         <Check className="mr-2 size-4" />
@@ -42,8 +47,7 @@ export function MediaActionButton({
       </Button>
     )
   }
-
-  if (isApproved) {
+  if (props.isApproved) {
     return (
       <Button variant="secondary" size="sm" disabled>
         <Check className="mr-2 size-4" />
@@ -51,8 +55,7 @@ export function MediaActionButton({
       </Button>
     )
   }
-
-  if (isPending) {
+  if (props.isPending) {
     return (
       <Button variant="secondary" size="sm" disabled>
         <Clock className="mr-2 size-4" />
@@ -60,15 +63,29 @@ export function MediaActionButton({
       </Button>
     )
   }
-
-  if (onAction) {
+  if (props.onAction) {
     return (
-      <Button variant="default" size="sm" onClick={handleAdd}>
-        {actionIcon}
-        {actionLabel}
+      <Button variant="default" size="sm" onClick={props.handleAdd}>
+        {props.actionIcon}
+        {props.actionLabel}
       </Button>
     )
   }
-
   return null
+}
+
+function TrailerButton({ url }: { url?: string }) {
+  if (!url) {
+    return null
+  }
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+    >
+      <Play className="mr-2 size-4" />
+      Trailer
+    </Button>
+  )
 }

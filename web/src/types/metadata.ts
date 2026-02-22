@@ -94,6 +94,7 @@ export type ExtendedMovieResult = {
   contentRating?: string
   studio?: string
   ratings?: ExternalRatings
+  trailerUrl?: string
 } & MovieSearchResult
 
 export type ExtendedSeriesResult = {
@@ -101,4 +102,5 @@ export type ExtendedSeriesResult = {
   contentRating?: string
   ratings?: ExternalRatings
   seasons?: SeasonResult[]
+  trailerUrl?: string
 } & SeriesSearchResult

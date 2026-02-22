@@ -34,6 +34,8 @@ type TMDBClient interface {
 	GetMovieStudio(ctx context.Context, id int) (string, error)
 	GetMovieLogoURL(ctx context.Context, id int) (string, error)
 	GetSeriesLogoURL(ctx context.Context, id int) (string, error)
+	GetMovieTrailerURL(ctx context.Context, id int) (string, error)
+	GetSeriesTrailerURL(ctx context.Context, id int) (string, error)
 }
 
 // TVDBClient defines the interface for TVDB API operations.

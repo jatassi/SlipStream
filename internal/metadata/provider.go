@@ -112,6 +112,7 @@ type ExtendedMovieResult struct {
 	ContentRating string           `json:"contentRating,omitempty"`
 	Studio        string           `json:"studio,omitempty"`
 	Ratings       *ExternalRatings `json:"ratings,omitempty"`
+	TrailerURL    string           `json:"trailerUrl,omitempty"`
 }
 
 // ExtendedSeriesResult extends SeriesResult with credits, ratings, seasons, and content rating.
@@ -121,4 +122,5 @@ type ExtendedSeriesResult struct {
 	ContentRating string           `json:"contentRating,omitempty"`
 	Ratings       *ExternalRatings `json:"ratings,omitempty"`
 	Seasons       []SeasonResult   `json:"seasons,omitempty"`
+	TrailerURL    string           `json:"trailerUrl,omitempty"`
 }

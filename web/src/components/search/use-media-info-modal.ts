@@ -63,6 +63,7 @@ function deriveExtendedFields(extendedData: ExtendedMovieResult | ExtendedSeries
     creators: (extendedData as ExtendedSeriesResult | undefined)?.credits?.creators,
     studio: (extendedData as ExtendedMovieResult | undefined)?.studio,
     seasons: (extendedData as ExtendedSeriesResult | undefined)?.seasons,
+    trailerUrl: extendedData?.trailerUrl,
   }
 }
 

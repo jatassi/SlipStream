@@ -1043,6 +1043,63 @@ func (c *Client) pickBestLogo(logos []ImageResult) string {
 	return c.GetImageURL(best.FilePath, "w500")
 }
 
+// GetMovieTrailerURL fetches the YouTube trailer URL for a movie.
+func (c *Client) GetMovieTrailerURL(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/movie/%d/videos", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response VideosResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		return "", err
+	}
+
+	return c.pickTrailerURL(response.Results), nil
+}
+
+// GetSeriesTrailerURL fetches the YouTube trailer URL for a TV series.
+func (c *Client) GetSeriesTrailerURL(ctx context.Context, id int) (string, error) {
+	if !c.IsConfigured() {
+		return "", ErrAPIKeyMissing
+	}
+
+	endpoint := fmt.Sprintf("%s/tv/%d/videos", c.config.BaseURL, id)
+	params := url.Values{}
+	params.Set("api_key", c.config.APIKey)
+
+	var response VideosResponse
+	if err := c.doRequest(ctx, endpoint, params, &response); err != nil {
+		if errors.Is(err, ErrMovieNotFound) {
+			return "", ErrSeriesNotFound
+		}
+		return "", err
+	}
+
+	return c.pickTrailerURL(response.Results), nil
+}
+
+// pickTrailerURL selects the best YouTube trailer URL from a list of videos.
+// Prefers official trailers, falls back to any trailer.
+func (c *Client) pickTrailerURL(videos []Video) string {
+	var fallback string
+	for _, v := range videos {
+		if v.Site != "YouTube" || v.Type != "Trailer" {
+			continue
+		}
+		if v.Official {
+			return fmt.Sprintf("https://www.youtube.com/watch?v=%s", v.Key)
+		}
+		if fallback == "" {
+			fallback = fmt.Sprintf("https://www.youtube.com/watch?v=%s", v.Key)
+		}
+	}
+	return fallback
+}
+
 // GetMovieStudio returns the primary production company for a movie.
 func (c *Client) GetMovieStudio(ctx context.Context, id int) (string, error) {
 	if !c.IsConfigured() {

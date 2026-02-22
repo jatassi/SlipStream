@@ -683,56 +683,50 @@ func (s *Service) GetExtendedMovie(ctx context.Context, tmdbID int) (*ExtendedMo
 		return nil, ErrNoProvidersConfigured
 	}
 
-	// Get base movie details
 	movie, err := s.GetMovie(ctx, tmdbID)
 	if err != nil {
 		return nil, err
 	}
 
-	result := &ExtendedMovieResult{
-		MovieResult: *movie,
-	}
+	result := &ExtendedMovieResult{MovieResult: *movie}
+	s.enrichMovieMetadata(ctx, tmdbID, movie, result)
 
-	// Fetch credits
-	credits, err := s.tmdb.GetMovieCredits(ctx, tmdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie credits")
-	} else {
+	s.logger.Info().Int("tmdbId", tmdbID).Str("title", movie.Title).Msg("Got extended movie metadata")
+	return result, nil
+}
+
+func (s *Service) enrichMovieMetadata(ctx context.Context, tmdbID int, movie *MovieResult, result *ExtendedMovieResult) {
+	if credits, err := s.tmdb.GetMovieCredits(ctx, tmdbID); err == nil {
 		result.Credits = tmdbCreditsToCredits(credits)
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie credits")
 	}
 
-	// Fetch content rating
-	contentRating, err := s.tmdb.GetMovieContentRating(ctx, tmdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie content rating")
-	} else {
+	if contentRating, err := s.tmdb.GetMovieContentRating(ctx, tmdbID); err == nil {
 		result.ContentRating = contentRating
-	}
-
-	// Fetch studio
-	studio, err := s.tmdb.GetMovieStudio(ctx, tmdbID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie studio")
 	} else {
-		result.Studio = studio
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie content rating")
 	}
 
-	// Fetch OMDb ratings if configured and IMDB ID is available
+	if studio, err := s.tmdb.GetMovieStudio(ctx, tmdbID); err == nil {
+		result.Studio = studio
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie studio")
+	}
+
+	if trailerURL, err := s.tmdb.GetMovieTrailerURL(ctx, tmdbID); err == nil {
+		result.TrailerURL = trailerURL
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get movie trailer URL")
+	}
+
 	if movie.ImdbID != "" && s.omdb != nil && s.omdb.IsConfigured() {
-		omdbRatings, err := s.omdb.GetByIMDbID(ctx, movie.ImdbID)
-		if err != nil {
-			s.logger.Warn().Err(err).Str("imdbId", movie.ImdbID).Msg("Failed to get OMDb ratings")
-		} else {
+		if omdbRatings, err := s.omdb.GetByIMDbID(ctx, movie.ImdbID); err == nil {
 			result.Ratings = omdbRatingsToExternalRatings(omdbRatings)
+		} else {
+			s.logger.Warn().Err(err).Str("imdbId", movie.ImdbID).Msg("Failed to get OMDb ratings")
 		}
 	}
-
-	s.logger.Info().
-		Int("tmdbId", tmdbID).
-		Str("title", movie.Title).
-		Msg("Got extended movie metadata")
-
-	return result, nil
 }
 
 // GetExtendedSeries gets extended series metadata including credits, ratings, seasons, and content rating.
@@ -770,6 +764,12 @@ func (s *Service) enrichSeriesMetadata(ctx context.Context, tmdbID int, series *
 		result.Seasons = seasons
 	} else {
 		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series seasons")
+	}
+
+	if trailerURL, err := s.tmdb.GetSeriesTrailerURL(ctx, tmdbID); err == nil {
+		result.TrailerURL = trailerURL
+	} else {
+		s.logger.Warn().Err(err).Int("tmdbId", tmdbID).Msg("Failed to get series trailer URL")
 	}
 
 	s.enrichSeriesOMDbData(ctx, series, result)
