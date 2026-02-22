@@ -115,4 +115,3 @@ export type NotifierSchema = {
   fields: SettingsField[]
 }
 
-export type NotificationProviderSchema = NotifierSchema

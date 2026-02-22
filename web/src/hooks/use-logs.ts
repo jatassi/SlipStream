@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { logsApi } from '@/api/logs'
 import { useLogsStore } from '@/stores/logs'
 
-export const logsKeys = {
+const logsKeys = {
   all: ['logs'] as const,
   recent: () => [...logsKeys.all, 'recent'] as const,
 }

@@ -1,5 +1,3 @@
-export { DefinitionSearchTable } from './definition-search-table'
-export { DynamicSettingsForm } from './dynamic-settings-form'
 export { IndexerDialog } from './indexer-dialog'
 export { IndexerModeToggle } from './indexer-mode-toggle'
 export { ProwlarrConfigForm } from './prowlarr-config-form'

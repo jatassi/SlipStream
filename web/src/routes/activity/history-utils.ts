@@ -97,7 +97,7 @@ function getFileRenamedText(
   return source ?? '-'
 }
 
-export type DetailRow = { label: string; value: string }
+type DetailRow = { label: string; value: string }
 
 type DetailRowsFn = (data: Record<string, unknown>) => DetailRow[]
 
@@ -206,7 +206,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
-export type PaginationEntry = number | 'ellipsis-start' | 'ellipsis-end'
+type PaginationEntry = number | 'ellipsis-start' | 'ellipsis-end'
 
 export function getPaginationPages(current: number, total: number): PaginationEntry[] {
   if (total <= 7) {

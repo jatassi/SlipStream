@@ -81,20 +81,6 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
 }
 
 /**
- * Format date and time
- */
-export function formatDateTime(date: string | Date): string {
-  const d = new Date(date)
-  return d.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-/**
  * Format download speed
  */
 export function formatSpeed(bytesPerSecond: number): string {
@@ -123,30 +109,6 @@ export function formatEta(seconds: number): string {
     return `${minutes}m ${secs}s`
   }
   return `${secs}s`
-}
-
-/**
- * Format percentage
- */
-export function formatPercent(value: number, decimals = 1): string {
-  return `${value.toFixed(decimals)}%`
-}
-
-/**
- * Format episode number (e.g., S01E05)
- */
-export function formatEpisodeNumber(season: number, episode: number): string {
-  return `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-}
-
-/**
- * Format series title with season/episode info
- */
-export function formatSeriesTitle(seriesName: string, season?: number, episode?: number): string {
-  if (!season || !episode) {
-    return seriesName
-  }
-  return `${seriesName} - ${formatEpisodeNumber(season, episode)}`
 }
 
 /**

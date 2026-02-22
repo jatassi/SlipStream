@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { rssSyncApi } from '@/api'
 import type { RssSyncSettings } from '@/types'
 
-export const rssSyncKeys = {
+const rssSyncKeys = {
   all: ['rsssync'] as const,
   settings: () => [...rssSyncKeys.all, 'settings'] as const,
   status: () => [...rssSyncKeys.all, 'status'] as const,

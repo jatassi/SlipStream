@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { passkeyApi } from '@/api/portal/passkey'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 
-export const passkeyKeys = {
+const passkeyKeys = {
   all: ['passkey'] as const,
   credentials: () => [...passkeyKeys.all, 'credentials'] as const,
 }

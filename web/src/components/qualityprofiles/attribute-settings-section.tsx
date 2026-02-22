@@ -9,6 +9,8 @@ import type { AttributeMode, AttributeSettings } from '@/types'
 
 import { MODE_LABELS, MODE_OPTIONS } from './constants'
 
+const EMPTY_ITEMS: string[] = []
+
 type AttributeSettingsSectionProps = {
   label: string
   settings: AttributeSettings
@@ -26,7 +28,7 @@ export function AttributeSettingsSection({
   label,
   settings,
   options,
-  disabledItems = [],
+  disabledItems = EMPTY_ITEMS,
   warning,
   onItemModeChange,
 }: AttributeSettingsSectionProps) {

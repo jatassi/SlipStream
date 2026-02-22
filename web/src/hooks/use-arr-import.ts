@@ -8,7 +8,7 @@ import type { ConnectionConfig, ImportMappings, SourceType } from '@/types/arr-i
 export type WizardStep = 'connect' | 'mapping' | 'preview' | 'importing' | 'report'
 
 const baseKeys = createQueryKeys('arrimport')
-export const arrImportKeys = {
+const arrImportKeys = {
   ...baseKeys,
   detectDB: (sourceType: SourceType) => [...baseKeys.all, 'detect-db', sourceType] as const,
   sourceRootFolders: () => [...baseKeys.all, 'source', 'rootfolders'] as const,

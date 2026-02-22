@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as adminApi from '@/api/admin'
 import type { CreateInvitationRequest } from '@/types'
 
-export const adminInvitationKeys = {
+const adminInvitationKeys = {
   all: ['admin', 'invitations'] as const,
   lists: () => [...adminInvitationKeys.all, 'list'] as const,
   list: () => [...adminInvitationKeys.lists()] as const,

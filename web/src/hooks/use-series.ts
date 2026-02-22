@@ -4,12 +4,8 @@ import { libraryApi, seriesApi } from '@/api'
 import { createQueryKeys } from '@/lib/query-keys'
 import type {
   AddSeriesInput,
-  BulkEpisodeMonitorInput,
-  BulkMonitorInput,
-  CreateSeriesInput,
   ListSeriesOptions,
   Series,
-  UpdateEpisodeInput,
   UpdateSeriesInput,
 } from '@/types'
 
@@ -37,17 +33,6 @@ export function useSeriesDetail(id: number) {
     queryKey: seriesKeys.detail(id),
     queryFn: () => seriesApi.get(id),
     enabled: !!id,
-  })
-}
-
-export function useCreateSeries() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (data: CreateSeriesInput) => seriesApi.create(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.all })
-      void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
-    },
   })
 }
 
@@ -123,22 +108,6 @@ export function useBulkUpdateSeries() {
   })
 }
 
-export function useScanSeries() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => seriesApi.scan(id),
-    onSuccess: (_, id) => {
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.detail(id) })
-    },
-  })
-}
-
-export function useSearchSeries() {
-  return useMutation({
-    mutationFn: (id: number) => seriesApi.search(id),
-  })
-}
-
 export function useRefreshSeries() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -160,14 +129,6 @@ export function useRefreshAllSeries() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: seriesKeys.all })
     },
-  })
-}
-
-export function useSeasons(seriesId: number) {
-  return useQuery({
-    queryKey: seriesKeys.seasons(seriesId),
-    queryFn: () => seriesApi.getSeasons(seriesId),
-    enabled: !!seriesId,
   })
 }
 
@@ -198,27 +159,6 @@ export function useUpdateSeasonMonitored() {
   })
 }
 
-export function useUpdateEpisode() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      seriesId,
-      seasonNumber,
-      episodeNumber,
-      data,
-    }: {
-      seriesId: number
-      seasonNumber: number
-      episodeNumber: number
-      data: UpdateEpisodeInput
-    }) =>
-      seriesApi.updateEpisode({ seriesId, seasonNumber, episodeNumber, data }),
-    onSuccess: (_, { seriesId }) => {
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.detail(seriesId) })
-    },
-  })
-}
-
 export function useUpdateEpisodeMonitored() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -239,50 +179,3 @@ export function useUpdateEpisodeMonitored() {
   })
 }
 
-export function useSearchEpisode() {
-  return useMutation({
-    mutationFn: ({
-      seriesId,
-      seasonNumber,
-      episodeNumber,
-    }: {
-      seriesId: number
-      seasonNumber: number
-      episodeNumber: number
-    }) => seriesApi.searchEpisode(seriesId, seasonNumber, episodeNumber),
-  })
-}
-
-// Bulk monitoring hooks
-export function useBulkMonitor() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ seriesId, data }: { seriesId: number; data: BulkMonitorInput }) =>
-      seriesApi.bulkMonitor(seriesId, data),
-    onSuccess: (_, { seriesId }) => {
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.detail(seriesId) })
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.seasons(seriesId) })
-      void queryClient.invalidateQueries({ queryKey: [...seriesKeys.detail(seriesId), 'episodes'] })
-    },
-  })
-}
-
-export function useBulkMonitorEpisodes() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ seriesId, data }: { seriesId: number; data: BulkEpisodeMonitorInput }) =>
-      seriesApi.bulkMonitorEpisodes(seriesId, data),
-    onSuccess: (_, { seriesId }) => {
-      void queryClient.invalidateQueries({ queryKey: seriesKeys.detail(seriesId) })
-      void queryClient.invalidateQueries({ queryKey: [...seriesKeys.detail(seriesId), 'episodes'] })
-    },
-  })
-}
-
-export function useMonitoringStats(seriesId: number) {
-  return useQuery({
-    queryKey: [...seriesKeys.detail(seriesId), 'monitoringStats'],
-    queryFn: () => seriesApi.getMonitoringStats(seriesId),
-    enabled: !!seriesId,
-  })
-}

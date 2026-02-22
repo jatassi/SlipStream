@@ -11,7 +11,6 @@ import type {
   SetEnabledInput,
   SetMonitoredInput,
   SetProfileInput,
-  SimulateImportInput,
   Slot,
   UpdateMultiVersionSettingsInput,
   UpdateSlotInput,
@@ -19,7 +18,7 @@ import type {
 } from '@/types'
 
 const baseSlotsKeys = createQueryKeys('slots')
-export const slotsKeys = {
+const slotsKeys = {
   ...baseSlotsKeys,
   settings: () => [...baseSlotsKeys.all, 'settings'] as const,
   validation: () => [...baseSlotsKeys.all, 'validation'] as const,
@@ -33,14 +32,6 @@ export function useSlots() {
   return useQuery({
     queryKey: slotsKeys.list(),
     queryFn: () => slotsApi.list(),
-  })
-}
-
-export function useSlot(id: number) {
-  return useQuery({
-    queryKey: slotsKeys.detail(id),
-    queryFn: () => slotsApi.get(id),
-    enabled: !!id,
   })
 }
 
@@ -103,15 +94,6 @@ export function useValidateSlotConfiguration() {
   })
 }
 
-// Movie slot assignment hooks
-export function useMovieSlotAssignments(movieId: number) {
-  return useQuery({
-    queryKey: slotsKeys.movieAssignments(movieId),
-    queryFn: () => slotsApi.getMovieSlotAssignments(movieId),
-    enabled: !!movieId,
-  })
-}
-
 export function useAssignMovieFile() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -130,26 +112,7 @@ export function useAssignMovieFile() {
   })
 }
 
-export function useUnassignMovieSlot() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ movieId, slotId }: { movieId: number; slotId: number }) =>
-      slotsApi.unassignMovieSlot(movieId, slotId),
-    onSuccess: (_, { movieId }) => {
-      void queryClient.invalidateQueries({ queryKey: slotsKeys.movieAssignments(movieId) })
-    },
-  })
-}
-
 // Episode slot assignment hooks
-export function useEpisodeSlotAssignments(episodeId: number) {
-  return useQuery({
-    queryKey: slotsKeys.episodeAssignments(episodeId),
-    queryFn: () => slotsApi.getEpisodeSlotAssignments(episodeId),
-    enabled: !!episodeId,
-  })
-}
-
 export function useAssignEpisodeFile() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -162,17 +125,6 @@ export function useAssignEpisodeFile() {
       slotId: number
       data: AssignFileInput
     }) => slotsApi.assignEpisodeFile(episodeId, slotId, data),
-    onSuccess: (_, { episodeId }) => {
-      void queryClient.invalidateQueries({ queryKey: slotsKeys.episodeAssignments(episodeId) })
-    },
-  })
-}
-
-export function useUnassignEpisodeSlot() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ episodeId, slotId }: { episodeId: number; slotId: number }) =>
-      slotsApi.unassignEpisodeSlot(episodeId, slotId),
     onSuccess: (_, { episodeId }) => {
       void queryClient.invalidateQueries({ queryKey: slotsKeys.episodeAssignments(episodeId) })
     },
@@ -248,12 +200,6 @@ export function useParseRelease() {
 export function useProfileMatch() {
   return useMutation({
     mutationFn: (data: ProfileMatchInput) => slotsApi.profileMatch(data),
-  })
-}
-
-export function useSimulateImport() {
-  return useMutation({
-    mutationFn: (data: SimulateImportInput) => slotsApi.simulateImport(data),
   })
 }
 

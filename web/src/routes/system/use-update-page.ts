@@ -43,7 +43,7 @@ const DEBUG_STATE_CONFIG: Record<UpdateState, DebugConfig> = {
   },
 }
 
-export const MOCK_RELEASE_NOTES = `## What's New in SlipStream 2.0.0
+const MOCK_RELEASE_NOTES = `## What's New in SlipStream 2.0.0
 
 ### Features
 - **Enhanced Search**: Completely redesigned search with improved accuracy and speed

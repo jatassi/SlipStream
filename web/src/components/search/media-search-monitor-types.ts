@@ -1,7 +1,7 @@
 import type { SearchModal } from './search-modal'
 
 export type MediaTheme = 'movie' | 'tv'
-export type ControlSize = 'lg' | 'sm' | 'xs' | 'responsive'
+type ControlSize = 'lg' | 'sm' | 'xs' | 'responsive'
 export type ResolvedSize = 'lg' | 'sm' | 'xs'
 
 type BaseProps = {

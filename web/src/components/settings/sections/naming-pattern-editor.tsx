@@ -54,13 +54,15 @@ type PatternEditorProps = {
 
 function usePatternPreview(value: string, mediaType: 'movie' | 'episode' | 'folder') {
   const [localValue, setLocalValue] = useState(value)
+  const [prevValue, setPrevValue] = useState(value)
   const debouncedValue = useDebounce(localValue, 500)
   const previewMutation = usePreviewNamingPattern()
   const previewMutate = previewMutation.mutate
 
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value)
     setLocalValue(value)
-  }, [value])
+  }
 
   useEffect(() => {
     if (debouncedValue) {

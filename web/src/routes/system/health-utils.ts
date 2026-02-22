@@ -1,6 +1,6 @@
 import type { HealthCategory, HealthItem, HealthStatus } from '@/types/health'
 
-export function getItemNameById(items: HealthItem[], id: string) {
+function getItemNameById(items: HealthItem[], id: string) {
   return items.find((i) => i.id === id)?.name ?? id
 }
 
@@ -59,7 +59,7 @@ const CATEGORY_NOUNS: Record<string, { singular: string; plural: string }> = {
 
 const DEFAULT_NOUNS = { singular: 'connection', plural: 'connections' }
 
-export type ResultTextParams = {
+type ResultTextParams = {
   category: HealthCategory | 'prowlarr_indexers'
   allItems: HealthItem[]
   resultItems: { id: string }[]

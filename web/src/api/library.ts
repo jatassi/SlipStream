@@ -2,12 +2,12 @@ import type { AddMovieInput, AddSeriesInput, Movie, Series } from '@/types'
 
 import { apiFetch } from './client'
 
-export type ScanResponse = {
+type ScanResponse = {
   message: string
   rootFolderIds: number[]
 }
 
-export type ScanStatus = {
+type ScanStatus = {
   rootFolderId: number
   active: boolean
   activityId?: string

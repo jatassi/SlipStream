@@ -10,20 +10,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatBytes, formatDate } from '@/lib/formatters'
-import type { Series, StatusCounts } from '@/types/series'
+import type { Series } from '@/types/series'
 
 import type { ColumnDef } from './column-types'
-
-export function getAggregateStatus(
-  counts: StatusCounts,
-): 'downloading' | 'failed' | 'missing' | 'upgradable' | 'available' | 'unreleased' {
-  if (counts.downloading > 0) {return 'downloading'}
-  if (counts.failed > 0) {return 'failed'}
-  if (counts.missing > 0) {return 'missing'}
-  if (counts.upgradable > 0) {return 'upgradable'}
-  if (counts.available > 0) {return 'available'}
-  return 'unreleased'
-}
 
 export const SERIES_COLUMNS: ColumnDef<Series>[] = [
   {

@@ -4,19 +4,9 @@ import { portalAuthApi } from '@/api'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 import type { LoginRequest, SignupRequest, UpdateProfileRequest } from '@/types'
 
-export const portalAuthKeys = {
+const portalAuthKeys = {
   all: ['portalAuth'] as const,
   profile: () => [...portalAuthKeys.all, 'profile'] as const,
-}
-
-export function usePortalProfile() {
-  const { isAuthenticated } = usePortalAuthStore()
-
-  return useQuery({
-    queryKey: portalAuthKeys.profile(),
-    queryFn: () => portalAuthApi.getProfile(),
-    enabled: isAuthenticated,
-  })
 }
 
 export function usePortalLogin() {
@@ -81,12 +71,6 @@ export function useValidateInvitation(token: string) {
     queryFn: () => portalAuthApi.validateInvitation(token),
     enabled: !!token,
     retry: false,
-  })
-}
-
-export function useResendInvitation() {
-  return useMutation({
-    mutationFn: (email: string) => portalAuthApi.resendInvitation(email),
   })
 }
 

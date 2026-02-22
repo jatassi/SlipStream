@@ -8,7 +8,7 @@ import type {
   SetModeInput,
 } from '@/types'
 
-export const prowlarrKeys = {
+const prowlarrKeys = {
   all: ['prowlarr'] as const,
   config: () => [...prowlarrKeys.all, 'config'] as const,
   indexers: () => [...prowlarrKeys.all, 'indexers'] as const,
@@ -41,22 +41,6 @@ export function useUpdateProwlarrConfig() {
 export function useTestProwlarrConnection() {
   return useMutation({
     mutationFn: (data: ProwlarrTestInput) => prowlarrApi.testConnection(data),
-  })
-}
-
-// Indexer hooks (read-only from Prowlarr)
-export function useProwlarrIndexers() {
-  return useQuery({
-    queryKey: prowlarrKeys.indexers(),
-    queryFn: () => prowlarrApi.getIndexers(),
-  })
-}
-
-// Capabilities
-export function useProwlarrCapabilities() {
-  return useQuery({
-    queryKey: prowlarrKeys.capabilities(),
-    queryFn: () => prowlarrApi.getCapabilities(),
   })
 }
 
@@ -109,31 +93,12 @@ export function useProwlarrIndexersWithSettings() {
   })
 }
 
-export function useProwlarrIndexerSettings(indexerId: number) {
-  return useQuery({
-    queryKey: prowlarrKeys.indexerSettings(indexerId),
-    queryFn: () => prowlarrApi.getIndexerSettings(indexerId),
-    enabled: indexerId > 0,
-  })
-}
-
 export function useUpdateProwlarrIndexerSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ indexerId, data }: { indexerId: number; data: ProwlarrIndexerSettingsInput }) =>
       prowlarrApi.updateIndexerSettings(indexerId, data),
     onSuccess: (_, { indexerId }) => {
-      void queryClient.invalidateQueries({ queryKey: prowlarrKeys.indexersWithSettings() })
-      void queryClient.invalidateQueries({ queryKey: prowlarrKeys.indexerSettings(indexerId) })
-    },
-  })
-}
-
-export function useDeleteProwlarrIndexerSettings() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (indexerId: number) => prowlarrApi.deleteIndexerSettings(indexerId),
-    onSuccess: (_, indexerId) => {
       void queryClient.invalidateQueries({ queryKey: prowlarrKeys.indexersWithSettings() })
       void queryClient.invalidateQueries({ queryKey: prowlarrKeys.indexerSettings(indexerId) })
     },

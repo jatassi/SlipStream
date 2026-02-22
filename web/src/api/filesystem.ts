@@ -2,7 +2,7 @@ import type { BrowseResult } from '@/types'
 
 import { apiFetch } from './client'
 
-export type ImportBrowseResult = {
+type ImportBrowseResult = {
   path: string
   parent?: string
   directories: { name: string; path: string; isDir: boolean }[]

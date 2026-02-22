@@ -8,7 +8,6 @@ import { useDownloadingStore, usePortalDownloadsStore } from '@/stores'
 export const queueKeys = {
   all: ['queue'] as const,
   list: () => [...queueKeys.all, 'list'] as const,
-  stats: () => [...queueKeys.all, 'stats'] as const,
 }
 
 const WS_TIMEOUT_MS = 10_000
@@ -58,23 +57,6 @@ export function useQueue(enabled = true) {
   }, [query.data, setQueueItems, setPortalQueue])
 
   return query
-}
-
-export function useQueueStats() {
-  return useQuery({
-    queryKey: queueKeys.stats(),
-    queryFn: () => queueApi.stats(),
-    // Fallback polling: only poll if we have active downloads and
-    // haven't received a WebSocket update in 10 seconds
-    refetchInterval: (q) => {
-      const hasActiveDownloads = (q.state.data?.totalCount ?? 0) > 0
-      if (!hasActiveDownloads) {
-        return false
-      }
-      const timeSinceUpdate = Date.now() - usePortalDownloadsStore.getState().lastUpdateTime
-      return timeSinceUpdate > WS_TIMEOUT_MS ? FALLBACK_POLL_MS : false
-    },
-  })
 }
 
 type QueueItemParams = {

@@ -4,20 +4,12 @@ import { downloadClientsApi } from '@/api'
 import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateDownloadClientInput, DownloadClient, UpdateDownloadClientInput } from '@/types'
 
-export const downloadClientKeys = createQueryKeys('downloadClients')
+const downloadClientKeys = createQueryKeys('downloadClients')
 
 export function useDownloadClients() {
   return useQuery({
     queryKey: downloadClientKeys.list(),
     queryFn: () => downloadClientsApi.list(),
-  })
-}
-
-export function useDownloadClient(id: number) {
-  return useQuery({
-    queryKey: downloadClientKeys.detail(id),
-    queryFn: () => downloadClientsApi.get(id),
-    enabled: !!id,
   })
 }
 

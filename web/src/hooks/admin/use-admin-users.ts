@@ -2,22 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as adminApi from '@/api/admin'
 import { createQueryKeys } from '@/lib/query-keys'
-import type { AdminUpdateUserInput, QuotaLimits } from '@/types'
+import type { AdminUpdateUserInput } from '@/types'
 
-export const adminUserKeys = createQueryKeys('admin', 'users')
+const adminUserKeys = createQueryKeys('admin', 'users')
 
 export function useAdminUsers() {
   return useQuery({
     queryKey: adminUserKeys.list(),
     queryFn: () => adminApi.listUsers(),
-  })
-}
-
-export function useAdminUser(id: number) {
-  return useQuery({
-    queryKey: adminUserKeys.detail(id),
-    queryFn: () => adminApi.getUser(id),
-    enabled: !!id,
   })
 }
 
@@ -65,14 +57,3 @@ export function useDeleteAdminUser() {
   })
 }
 
-export function useSetUserQuota() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, quota }: { id: number; quota: QuotaLimits }) =>
-      adminApi.setUserQuota(id, quota),
-    onSuccess: (user) => {
-      void queryClient.invalidateQueries({ queryKey: adminUserKeys.all })
-      queryClient.setQueryData(adminUserKeys.detail(user.id), user)
-    },
-  })
-}

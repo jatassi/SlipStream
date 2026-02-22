@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { filesystemApi } from '@/api'
 
-export const filesystemKeys = {
+const filesystemKeys = {
   all: ['filesystem'] as const,
   browse: (path?: string, extensions?: string[]) =>
     [...filesystemKeys.all, 'browse', path, extensions] as const,

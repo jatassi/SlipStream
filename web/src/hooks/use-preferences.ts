@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 
-import { type AddFlowPreferences, preferencesApi } from '@/api/preferences'
+import { preferencesApi } from '@/api/preferences'
 
-export const preferencesKeys = {
+const preferencesKeys = {
   all: ['preferences'] as const,
   addFlow: () => [...preferencesKeys.all, 'addflow'] as const,
 }
@@ -14,12 +14,3 @@ export function useAddFlowPreferences() {
   })
 }
 
-export function useUpdateAddFlowPreferences() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (prefs: Partial<AddFlowPreferences>) => preferencesApi.setAddFlowPreferences(prefs),
-    onSuccess: (data) => {
-      queryClient.setQueryData(preferencesKeys.addFlow(), data)
-    },
-  })
-}

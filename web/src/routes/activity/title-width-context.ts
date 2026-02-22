@@ -1,6 +1,6 @@
 import { createContext } from 'react'
 
-export type TitleWidthContextType = {
+type TitleWidthContextType = {
   registerWidth: (id: string, width: number) => void
   unregisterWidth: (id: string) => void
   maxWidth: number

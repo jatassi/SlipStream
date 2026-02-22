@@ -15,7 +15,6 @@
 [x] Update mechanism, Production-Readiness
 ======== Ready for Dogfooding ========
 [*] Logo and color palette
-[ ] Update dashboard
 [x] Update history page
 [x] Update active task UI
 [x] Update movies/series list pages
@@ -24,10 +23,11 @@
 [x] Support for more download clients and indexers (directly refer to *arr codebases)
 [x] Library in Portal
 [ ] Config backup & restore
-[ ] React Doctor findings
-[ ] Deps update
+[x] React Doctor findings
+[x] Deps update
 [x] Simplification, Refactor, Enhanced Test Suite, Security Audit
 [*] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========
+[ ] Update dashboard
 [ ] Transcode during import (integrate with slots - FFMPEG frontend)
 [ ] TRaSH Guides import support (maybe load as default?)

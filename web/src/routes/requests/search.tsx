@@ -12,7 +12,7 @@ type PortalSearchPageProps = {
   q: string
 }
 
-export function PortalSearchPage({ q }: PortalSearchPageProps) {
+function PortalSearchPage({ q }: PortalSearchPageProps) {
   const query = q.trim() || ''
   const s = useRequestSearch(query)
 

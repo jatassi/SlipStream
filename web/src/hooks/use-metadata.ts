@@ -2,15 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 
 import { metadataApi } from '@/api'
 
-export const metadataKeys = {
+const metadataKeys = {
   all: ['metadata'] as const,
   movieSearch: (query: string) => [...metadataKeys.all, 'movie', 'search', query] as const,
   movie: (tmdbId: number) => [...metadataKeys.all, 'movie', tmdbId] as const,
-  movieImages: (tmdbId: number) => [...metadataKeys.all, 'movie', tmdbId, 'images'] as const,
   movieExtended: (tmdbId: number) => [...metadataKeys.all, 'movie', tmdbId, 'extended'] as const,
   seriesSearch: (query: string) => [...metadataKeys.all, 'series', 'search', query] as const,
   series: (tmdbId: number) => [...metadataKeys.all, 'series', tmdbId] as const,
-  seriesImages: (tmdbId: number) => [...metadataKeys.all, 'series', tmdbId, 'images'] as const,
   seriesExtended: (tmdbId: number) => [...metadataKeys.all, 'series', tmdbId, 'extended'] as const,
 }
 
@@ -31,14 +29,6 @@ export function useMovieMetadata(tmdbId: number) {
   })
 }
 
-export function useMovieImages(tmdbId: number) {
-  return useQuery({
-    queryKey: metadataKeys.movieImages(tmdbId),
-    queryFn: () => metadataApi.getMovieImages(tmdbId),
-    enabled: !!tmdbId,
-  })
-}
-
 export function useSeriesSearch(query: string) {
   return useQuery({
     queryKey: metadataKeys.seriesSearch(query),
@@ -52,14 +42,6 @@ export function useSeriesMetadata(tmdbId: number) {
   return useQuery({
     queryKey: metadataKeys.series(tmdbId),
     queryFn: () => metadataApi.getSeries(tmdbId),
-    enabled: !!tmdbId,
-  })
-}
-
-export function useSeriesImages(tmdbId: number) {
-  return useQuery({
-    queryKey: metadataKeys.seriesImages(tmdbId),
-    queryFn: () => metadataApi.getSeriesImages(tmdbId),
     enabled: !!tmdbId,
   })
 }

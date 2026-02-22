@@ -5,7 +5,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateNotificationInput, Notification, UpdateNotificationInput } from '@/types'
 
 const baseKeys = createQueryKeys('notifications')
-export const notificationKeys = {
+const notificationKeys = {
   ...baseKeys,
   schemas: () => [...baseKeys.all, 'schemas'] as const,
 }
@@ -14,14 +14,6 @@ export function useNotifications() {
   return useQuery({
     queryKey: notificationKeys.list(),
     queryFn: () => notificationsApi.list(),
-  })
-}
-
-export function useNotification(id: number) {
-  return useQuery({
-    queryKey: notificationKeys.detail(id),
-    queryFn: () => notificationsApi.get(id),
-    enabled: !!id,
   })
 }
 

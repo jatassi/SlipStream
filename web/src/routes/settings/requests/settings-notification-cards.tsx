@@ -14,7 +14,7 @@ type FormChangeHandler = <K extends keyof RequestSettings>(
   value: RequestSettings[K],
 ) => void
 
-export type NotificationsCardProps = {
+type NotificationsCardProps = {
   notifications: Notification[] | undefined
   formData: Partial<RequestSettings>
   onChange: FormChangeHandler

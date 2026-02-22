@@ -20,7 +20,7 @@ export type MediaGroup<T> = {
   items: T[]
 }
 
-export type GroupingContext = {
+type GroupingContext = {
   qualityProfileNames: Map<number, string>
   rootFolderNames: Map<number, string>
 }

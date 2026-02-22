@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { RootFolder, Slot } from '@/types'
 
-export type SlotCardProps = {
+type SlotCardProps = {
   slot: Slot
   profiles: { id: number; name: string }[]
   usedProfileIds: number[]

@@ -4,7 +4,6 @@ import { libraryApi, moviesApi } from '@/api'
 import { createQueryKeys } from '@/lib/query-keys'
 import type {
   AddMovieInput,
-  CreateMovieInput,
   ListMoviesOptions,
   Movie,
   UpdateMovieInput,
@@ -31,17 +30,6 @@ export function useMovie(id: number) {
     queryKey: movieKeys.detail(id),
     queryFn: () => moviesApi.get(id),
     enabled: !!id,
-  })
-}
-
-export function useCreateMovie() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (data: CreateMovieInput) => moviesApi.create(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: movieKeys.all })
-      void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
-    },
   })
 }
 
@@ -113,16 +101,6 @@ export function useBulkUpdateMovies() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: movieKeys.all })
       void queryClient.invalidateQueries({ queryKey: missingKeys.all })
-    },
-  })
-}
-
-export function useScanMovie() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => moviesApi.scan(id),
-    onSuccess: (_, id) => {
-      void queryClient.invalidateQueries({ queryKey: movieKeys.detail(id) })
     },
   })
 }

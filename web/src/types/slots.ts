@@ -76,27 +76,6 @@ export type ValidateConfigurationResponse = {
   conflicts?: SlotConflict[]
 }
 
-// Slot Assignment types
-export type SlotAssignment = {
-  slotId: number
-  slotNumber: number
-  slotName: string
-  matchScore: number
-  isUpgrade: boolean
-  isNewFill: boolean
-  needsUpgrade: boolean
-  confidence: number
-  currentFileId?: number
-  currentQuality?: string
-}
-
-export type SlotEvaluation = {
-  assignments: SlotAssignment[]
-  recommendedSlotId: number
-  requiresSelection: boolean
-  matchingCount: number
-}
-
 export type MovieSlotAssignment = {
   id: number
   movieId: number
@@ -302,7 +281,7 @@ export type MovieMigrationPreview = {
   conflicts: string[]
 }
 
-export type EpisodeMigrationPreview = {
+type EpisodeMigrationPreview = {
   episodeId: number
   episodeNumber: number
   title?: string
@@ -376,7 +355,7 @@ export type MockMovie = {
   files: MockFile[]
 }
 
-export type MockEpisode = {
+type MockEpisode = {
   episodeId: number
   episodeNumber: number
   title?: string

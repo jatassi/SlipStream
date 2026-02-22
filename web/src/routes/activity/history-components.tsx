@@ -110,7 +110,7 @@ function MediaTitle({ item }: { item: HistoryEntry }) {
   return <span>{content}</span>
 }
 
-export function ExpandedRow({ item }: { item: HistoryEntry }) {
+function ExpandedRow({ item }: { item: HistoryEntry }) {
   const rows = getDetailRows(item)
   if (rows.length === 0) {
     return null
@@ -180,7 +180,7 @@ type HistoryRowProps = {
   onToggle: (id: number, hasDetails: boolean) => void
 }
 
-export function HistoryRow({ item, isExpanded, onToggle }: HistoryRowProps) {
+function HistoryRow({ item, isExpanded, onToggle }: HistoryRowProps) {
   const hasDetails = getDetailRows(item).length > 0
   const isMovie = item.mediaType === 'movie'
 

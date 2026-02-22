@@ -1,5 +1,5 @@
 // TMDB image base URL (used for search results before download)
-export const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p'
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
 export const POSTER_SIZES = {
   w92: `${TMDB_IMAGE_BASE}/w92`,
@@ -19,7 +19,7 @@ export const BACKDROP_SIZES = {
 }
 
 // Local artwork API base URL
-export const ARTWORK_API_BASE = '/api/v1/metadata/artwork'
+const ARTWORK_API_BASE = '/api/v1/metadata/artwork'
 
 // Build local artwork URL
 export function getLocalArtworkUrl(
@@ -30,20 +30,3 @@ export function getLocalArtworkUrl(
   return `${ARTWORK_API_BASE}/${type}/${tmdbId}/${artworkType}`
 }
 
-// Status colors
-export const STATUS_COLORS = {
-  available: 'text-green-500',
-  downloading: 'text-yellow-500',
-  missing: 'text-red-500',
-  continuing: 'text-green-500',
-  ended: 'text-muted-foreground',
-  upcoming: 'text-blue-500',
-} as const
-
-// Quality resolution labels
-export const RESOLUTION_LABELS: Record<number, string> = {
-  480: 'SD',
-  720: 'HD',
-  1080: 'Full HD',
-  2160: '4K',
-}

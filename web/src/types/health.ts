@@ -59,16 +59,6 @@ export type TestItemResult = {
   message: string
 }
 
-// HealthUpdatePayload is the WebSocket payload for health updates
-export type HealthUpdatePayload = {
-  category: HealthCategory
-  id: string
-  name: string
-  status: HealthStatus
-  message?: string
-  timestamp?: string
-}
-
 // Helper to get display name for category
 export function getCategoryDisplayName(category: HealthCategory): string {
   const names: Record<HealthCategory, string> = {
@@ -96,14 +86,3 @@ export function getCategorySettingsPath(category: HealthCategory): string {
   }
   return paths[category]
 }
-
-// All categories in display order
-export const ALL_HEALTH_CATEGORIES: HealthCategory[] = [
-  'downloadClients',
-  'indexers',
-  'prowlarr',
-  'rootFolders',
-  'metadata',
-  'storage',
-  'import',
-]

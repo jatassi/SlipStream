@@ -8,7 +8,7 @@ import type { Request } from '@/types'
 import { RequestActions } from './request-actions'
 import { STATUS_CONFIG } from './status-config'
 
-export type RequestRowProps = {
+type RequestRowProps = {
   request: Request
   selected: boolean
   isProcessing: boolean

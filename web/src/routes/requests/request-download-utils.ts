@@ -1,7 +1,7 @@
 import { formatEta } from '@/lib/formatters'
 import type { PortalDownload, Request } from '@/types'
 
-export type DownloadProgress = {
+type DownloadProgress = {
   progress: number
   statusLabel: string
 }

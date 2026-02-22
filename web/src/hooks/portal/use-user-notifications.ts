@@ -5,7 +5,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateUserNotificationInput } from '@/types'
 
 const baseKeys = createQueryKeys('userNotifications')
-export const userNotificationKeys = {
+const userNotificationKeys = {
   ...baseKeys,
   schema: () => [...baseKeys.all, 'schema'] as const,
 }
@@ -14,14 +14,6 @@ export function useUserNotifications() {
   return useQuery({
     queryKey: userNotificationKeys.list(),
     queryFn: () => portalNotificationsApi.list(),
-  })
-}
-
-export function useUserNotification(id: number) {
-  return useQuery({
-    queryKey: userNotificationKeys.detail(id),
-    queryFn: () => portalNotificationsApi.get(id),
-    enabled: !!id,
   })
 }
 

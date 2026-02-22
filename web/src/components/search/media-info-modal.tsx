@@ -11,8 +11,6 @@ import { RatingsDisplay } from './ratings-display'
 import { SeasonsList } from './seasons-list'
 import { useMediaInfoModal } from './use-media-info-modal'
 
-export type { MediaInfoModalProps, MediaInfoState } from './media-info-modal-types'
-
 export function MediaInfoModal({
   open,
   onOpenChange,

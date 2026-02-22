@@ -246,14 +246,6 @@ export type PortalSeriesSearchResult = {
   availability?: AvailabilityInfo
 }
 
-export type SeasonInfo = {
-  seasonNumber: number
-  name: string
-  overview?: string
-  posterUrl?: string
-  airDate?: string
-}
-
 export type EnrichedEpisode = {
   episodeNumber: number
   seasonNumber: number
@@ -303,20 +295,6 @@ export type AdminUpdateUserInput = {
   qualityProfileId?: number | null
   autoApprove?: boolean
   quotaOverride?: QuotaLimits
-}
-
-// Auto-approve result
-export type AutoApproveResult = {
-  autoApproved: boolean
-  quotaExceeded: boolean
-  searchStarted: boolean
-  searchFound: boolean
-  searchError?: string
-}
-
-export type CreateRequestResponse = {
-  request: Request
-  autoApprove: AutoApproveResult
 }
 
 // Portal download (queue item filtered to user's requests)

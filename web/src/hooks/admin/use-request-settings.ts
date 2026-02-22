@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as adminApi from '@/api/admin'
 import type { RequestSettings } from '@/types'
 
-export const requestSettingsKeys = {
+const requestSettingsKeys = {
   all: ['admin', 'requestSettings'] as const,
   settings: () => [...requestSettingsKeys.all, 'settings'] as const,
 }

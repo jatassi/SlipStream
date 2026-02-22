@@ -22,7 +22,7 @@ export type MatchParams = {
   targetSlotId?: number
 }
 
-export function matchToRequest(path: string, match: MatchParams): ManualImportRequest {
+function matchToRequest(path: string, match: MatchParams): ManualImportRequest {
   return {
     path,
     mediaType: match.mediaType as 'movie' | 'episode',

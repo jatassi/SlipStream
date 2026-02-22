@@ -30,7 +30,7 @@ export function filterSeries(
   })
 }
 
-export type SortConfig = {
+type SortConfig = {
   sortField: SortField
   sortDirection: 'asc' | 'desc'
   profileNameMap: Map<number, string>

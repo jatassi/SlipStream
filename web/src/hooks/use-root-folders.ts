@@ -5,7 +5,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateRootFolderInput } from '@/types'
 
 const baseKeys = createQueryKeys('rootFolders')
-export const rootFolderKeys = {
+const rootFolderKeys = {
   ...baseKeys,
   listByType: (mediaType: 'movie' | 'tv') => [...baseKeys.lists(), mediaType] as const,
 }
@@ -21,14 +21,6 @@ export function useRootFoldersByType(mediaType: 'movie' | 'tv') {
   return useQuery({
     queryKey: rootFolderKeys.listByType(mediaType),
     queryFn: () => rootFoldersApi.listByType(mediaType),
-  })
-}
-
-export function useRootFolder(id: number) {
-  return useQuery({
-    queryKey: rootFolderKeys.detail(id),
-    queryFn: () => rootFoldersApi.get(id),
-    enabled: !!id,
   })
 }
 
@@ -53,12 +45,3 @@ export function useDeleteRootFolder() {
   })
 }
 
-export function useRefreshRootFolder() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => rootFoldersApi.refresh(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: rootFolderKeys.all })
-    },
-  })
-}

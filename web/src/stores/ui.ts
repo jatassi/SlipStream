@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 
 import { getDefaultVisibleColumns, MOVIE_COLUMNS, SERIES_COLUMNS } from '@/lib/table-columns'
 
-export type Notification = {
+type Notification = {
   id: string
   type: 'info' | 'success' | 'warning' | 'error'
   title: string

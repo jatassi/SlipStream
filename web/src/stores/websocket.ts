@@ -7,8 +7,6 @@ import { createConnect, createDisconnect, createSend } from './ws-connection'
 import { type DispatchContext, dispatchWSMessage } from './ws-message-handlers'
 import type { WebSocketState } from './ws-types'
 
-export type { WSMessage } from './ws-types'
-
 const REQUEST_INVALIDATE_DEBOUNCE_MS = 500
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({

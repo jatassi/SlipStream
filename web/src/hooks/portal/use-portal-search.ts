@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { portalSearchApi } from '@/api'
 
-export const portalSearchKeys = {
+const portalSearchKeys = {
   all: ['portalSearch'] as const,
   movies: (query: string) => [...portalSearchKeys.all, 'movies', query] as const,
   series: (query: string) => [...portalSearchKeys.all, 'series', query] as const,

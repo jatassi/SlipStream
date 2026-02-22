@@ -10,7 +10,7 @@ import { CardPoster } from './card-poster'
 import { MediaInfoModal } from './media-info-modal'
 import { useExternalMediaCard } from './use-external-media-card'
 
-export type ExternalMediaCardProps = {
+type ExternalMediaCardProps = {
   media: MovieSearchResult | SeriesSearchResult
   mediaType: 'movie' | 'series'
   inLibrary?: boolean

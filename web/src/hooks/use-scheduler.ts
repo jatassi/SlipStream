@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { schedulerApi } from '@/api'
 
-export const schedulerKeys = {
+const schedulerKeys = {
   all: ['scheduler'] as const,
   tasks: () => [...schedulerKeys.all, 'tasks'] as const,
-  task: (id: string) => [...schedulerKeys.all, 'task', id] as const,
 }
 
 export function useScheduledTasks() {
@@ -13,14 +12,6 @@ export function useScheduledTasks() {
     queryKey: schedulerKeys.tasks(),
     queryFn: () => schedulerApi.listTasks(),
     refetchInterval: 60_000, // Refresh every 60 seconds to update running status
-  })
-}
-
-export function useScheduledTask(id: string) {
-  return useQuery({
-    queryKey: schedulerKeys.task(id),
-    queryFn: () => schedulerApi.getTask(id),
-    enabled: !!id,
   })
 }
 

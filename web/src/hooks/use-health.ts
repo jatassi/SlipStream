@@ -7,7 +7,6 @@ export const systemHealthKeys = {
   all: ['systemHealth'] as const,
   list: () => [...systemHealthKeys.all, 'list'] as const,
   summary: () => [...systemHealthKeys.all, 'summary'] as const,
-  category: (category: HealthCategory) => [...systemHealthKeys.all, 'category', category] as const,
 }
 
 // Fetch all health items
@@ -23,15 +22,6 @@ export function useSystemHealthSummary() {
   return useQuery({
     queryKey: systemHealthKeys.summary(),
     queryFn: () => healthApi.getSummary(),
-  })
-}
-
-// Fetch health items for a specific category
-export function useSystemHealthCategory(category: HealthCategory) {
-  return useQuery({
-    queryKey: systemHealthKeys.category(category),
-    queryFn: () => healthApi.getCategory(category),
-    enabled: !!category,
   })
 }
 

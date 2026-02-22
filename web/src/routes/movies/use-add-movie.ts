@@ -33,8 +33,6 @@ export function useAddMoviePage() {
   }
 }
 
-export type AddMovieState = ReturnType<typeof useAddMoviePage>
-
 function useNavigation() {
   const navigate = useNavigate()
   const searchParams: { tmdbId?: number } = useSearch({ strict: false })

@@ -131,5 +131,3 @@ export const passkeyApi = {
       method: 'DELETE',
     }),
 }
-
-export type { PasskeyCredential, PasskeyLoginResponse }

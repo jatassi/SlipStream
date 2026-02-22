@@ -27,7 +27,7 @@ export type HistoryEntry = {
   year?: number
 }
 
-export type AutoSearchDownloadData = {
+type AutoSearchDownloadData = {
   releaseName?: string
   indexer?: string
   clientName?: string
@@ -38,13 +38,13 @@ export type AutoSearchDownloadData = {
   newQuality?: string
 }
 
-export type AutoSearchFailedData = {
+type AutoSearchFailedData = {
   error?: string
   indexer?: string
   source?: string
 }
 
-export type ImportEventData = {
+type ImportEventData = {
   sourcePath?: string
   destinationPath?: string
   originalFilename?: string
@@ -62,13 +62,13 @@ export type ImportEventData = {
   linkMode?: string
 }
 
-export type StatusChangedData = {
+type StatusChangedData = {
   from?: string
   to?: string
   reason?: string
 }
 
-export type FileRenamedData = {
+type FileRenamedData = {
   source_path?: string
   destination_path?: string
   old_filename?: string

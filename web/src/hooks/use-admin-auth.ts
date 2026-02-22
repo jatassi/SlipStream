@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as authApi from '@/api/auth'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 
-export const adminAuthKeys = {
+const adminAuthKeys = {
   all: ['adminAuth'] as const,
   status: () => [...adminAuthKeys.all, 'status'] as const,
 }

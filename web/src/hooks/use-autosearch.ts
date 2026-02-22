@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { autosearchApi } from '@/api'
 import type {
-  AutoSearchMediaType,
   AutoSearchResult,
   AutoSearchSettings,
   BatchAutoSearchResult,
@@ -11,10 +10,8 @@ import type {
 
 import { queueKeys } from './use-queue'
 
-export const autosearchKeys = {
+const autosearchKeys = {
   all: ['autosearch'] as const,
-  status: (mediaType: AutoSearchMediaType, mediaId: number) =>
-    [...autosearchKeys.all, 'status', mediaType, mediaId] as const,
   settings: () => [...autosearchKeys.all, 'settings'] as const,
 }
 
@@ -90,15 +87,6 @@ export function useAutoSearchSeries() {
         void queryClient.invalidateQueries({ queryKey: queueKeys.all })
       }
     },
-  })
-}
-
-export function useAutoSearchStatus(mediaType: AutoSearchMediaType, mediaId: number) {
-  return useQuery({
-    queryKey: autosearchKeys.status(mediaType, mediaId),
-    queryFn: () => autosearchApi.getStatus(mediaType, mediaId),
-    enabled: !!mediaId,
-    staleTime: 5000,
   })
 }
 

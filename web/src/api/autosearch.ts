@@ -9,7 +9,7 @@ import type {
 
 import { apiFetch } from './client'
 
-export type BulkSearchStartedResponse = {
+type BulkSearchStartedResponse = {
   message: string
 }
 

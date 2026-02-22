@@ -1,5 +1,4 @@
 export { ChangePinDialog } from './change-pin-dialog'
 export { PasskeyManager } from './passkey-manager'
 export { PortalAuthGuard } from './portal-auth-guard'
-export { PortalHeader } from './portal-header'
 export { PortalLayout } from './portal-layout'

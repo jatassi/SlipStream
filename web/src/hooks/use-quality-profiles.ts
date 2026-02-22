@@ -5,7 +5,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateQualityProfileInput, QualityProfile, UpdateQualityProfileInput } from '@/types'
 
 const baseKeys = createQueryKeys('qualityProfiles')
-export const qualityProfileKeys = {
+const qualityProfileKeys = {
   ...baseKeys,
   attributes: () => [...baseKeys.all, 'attributes'] as const,
 }
@@ -14,14 +14,6 @@ export function useQualityProfiles() {
   return useQuery({
     queryKey: qualityProfileKeys.list(),
     queryFn: () => qualityProfilesApi.list(),
-  })
-}
-
-export function useQualityProfile(id: number) {
-  return useQuery({
-    queryKey: qualityProfileKeys.detail(id),
-    queryFn: () => qualityProfilesApi.get(id),
-    enabled: !!id,
   })
 }
 
@@ -65,8 +57,3 @@ export function useQualityProfileAttributes() {
   })
 }
 
-export function useCheckProfileExclusivity() {
-  return useMutation({
-    mutationFn: (profileIds: number[]) => qualityProfilesApi.checkExclusivity(profileIds),
-  })
-}

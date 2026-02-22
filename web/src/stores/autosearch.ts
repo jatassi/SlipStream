@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type AutoSearchTaskState = {
+type AutoSearchTaskState = {
   isRunning: boolean
   totalItems: number
   currentItem: number

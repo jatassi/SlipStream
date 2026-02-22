@@ -10,12 +10,12 @@ export type PortalNotification = {
   createdAt: string
 }
 
-export type PortalNotificationListResponse = {
+type PortalNotificationListResponse = {
   notifications: PortalNotification[]
   unreadCount: number
 }
 
-export type UnreadCountResponse = {
+type UnreadCountResponse = {
   count: number
 }
 

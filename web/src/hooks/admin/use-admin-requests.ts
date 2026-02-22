@@ -4,7 +4,6 @@ import * as adminApi from '@/api/admin'
 import { createQueryKeys } from '@/lib/query-keys'
 import type {
   ApproveRequestInput,
-  BatchApproveInput,
   BatchDenyInput,
   DenyRequestInput,
   RequestListFilters,
@@ -20,14 +19,6 @@ export function useAdminRequests(filters?: RequestListFilters) {
   return useQuery({
     queryKey: adminRequestKeys.list(filters),
     queryFn: () => adminApi.listRequests(filters),
-  })
-}
-
-export function useAdminRequest(id: number) {
-  return useQuery({
-    queryKey: adminRequestKeys.detail(id),
-    queryFn: () => adminApi.getRequest(id),
-    enabled: !!id,
   })
 }
 
@@ -47,16 +38,6 @@ export function useDenyRequest() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number; input?: DenyRequestInput }) =>
       adminApi.denyRequest(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
-    },
-  })
-}
-
-export function useBatchApproveRequests() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (input: BatchApproveInput) => adminApi.batchApprove(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
     },

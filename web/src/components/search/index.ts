@@ -1,5 +1,4 @@
 export { ExpandableMediaGrid } from './expandable-media-grid'
 export { ExternalMediaCard } from './external-media-card'
-export { MediaInfoModal } from './media-info-modal'
 export { MediaSearchMonitorControls } from './media-search-monitor-controls'
 export { ExternalSearchSection, SearchResultsSection } from './search-results-section'

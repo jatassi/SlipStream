@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 
-export type DefaultEntry = {
+type DefaultEntry = {
   key: string
   entityType: string
   mediaType: string

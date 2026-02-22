@@ -2,8 +2,4 @@
 export type { ColumnDef, ColumnRenderContext } from './column-types'
 export { DEFAULT_SORT_DIRECTIONS,getDefaultVisibleColumns } from './column-utils'
 export { createMovieActionsColumn,MOVIE_COLUMNS } from './movie-columns'
-export {
-  createSeriesActionsColumn,
-  getAggregateStatus,
-  SERIES_COLUMNS,
-} from './series-columns'
+export { createSeriesActionsColumn, SERIES_COLUMNS } from './series-columns'

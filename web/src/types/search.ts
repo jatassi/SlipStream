@@ -78,14 +78,6 @@ export type TorrentInfo = {
   isSlotNewFill?: boolean
 } & ReleaseInfo
 
-// Usenet-specific release info
-export type UsenetInfo = {
-  grabs?: number
-  usenetAge?: number
-  poster?: string
-  group?: string
-} & ReleaseInfo
-
 // Error from a specific indexer during search
 export type SearchIndexerError = {
   indexerId: number

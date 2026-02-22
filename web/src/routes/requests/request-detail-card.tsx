@@ -20,7 +20,7 @@ import type { Request } from '@/types'
 import { RequestDownloadProgress } from './request-download-progress'
 import type { StatusConfigEntry } from './request-status-config'
 
-export type DownloadState = {
+type DownloadState = {
   hasActive: boolean
   progress: number
   speed: number

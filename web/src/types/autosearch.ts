@@ -2,8 +2,6 @@ import type { TorrentInfo } from './search'
 
 export type AutoSearchMediaType = 'movie' | 'episode' | 'season' | 'series'
 
-export type AutoSearchSource = 'manual' | 'scheduled' | 'add'
-
 export type AutoSearchResult = {
   found: boolean
   downloaded: boolean

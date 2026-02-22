@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { updateApi } from '@/api'
 
-export const updateKeys = {
+const updateKeys = {
   all: ['update'] as const,
   status: () => [...updateKeys.all, 'status'] as const,
-  settings: () => [...updateKeys.all, 'settings'] as const,
 }
 
 export function useUpdateStatus() {
@@ -19,13 +18,6 @@ export function useUpdateStatus() {
       }
       return 60_000
     },
-  })
-}
-
-export function useAutoInstallSettings() {
-  return useQuery({
-    queryKey: updateKeys.settings(),
-    queryFn: () => updateApi.getSettings(),
   })
 }
 
@@ -51,24 +43,3 @@ export function useInstallUpdate() {
   })
 }
 
-export function useCancelUpdate() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: () => updateApi.cancel(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: updateKeys.status() })
-    },
-  })
-}
-
-export function useUpdateAutoInstall() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (autoInstall: boolean) => updateApi.updateSettings({ autoInstall }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: updateKeys.settings() })
-    },
-  })
-}

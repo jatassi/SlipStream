@@ -8,6 +8,8 @@ import { useDebounce } from '@/hooks/use-debounce'
 
 import { TokenBuilderDialog } from './token-builder-dialog'
 
+const EMPTY_TOKENS: string[] = []
+
 type PatternEditorProps = {
   label: string
   value: string
@@ -56,7 +58,7 @@ export function PatternEditor({
   value,
   onChange,
   mediaType,
-  highlightTokens = [],
+  highlightTokens = EMPTY_TOKENS,
 }: PatternEditorProps) {
   const [localValue, setLocalValue] = useState(value)
   const [prevValue, setPrevValue] = useState(value)

@@ -17,7 +17,7 @@ export type MediaTarget =
       seasonNumber?: number
     }
 
-export type MediaDownloadProgress = {
+type MediaDownloadProgress = {
   isDownloading: boolean
   isPaused: boolean
   progress: number
@@ -165,6 +165,3 @@ export function useMediaDownloadProgress(target: MediaTarget): MediaDownloadProg
   }, [items, justCompleted])
 }
 
-export function clearCompletionEarly(setJustCompleted: (v: boolean) => void) {
-  setJustCompleted(false)
-}

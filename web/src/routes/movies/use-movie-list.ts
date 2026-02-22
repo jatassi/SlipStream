@@ -43,7 +43,7 @@ export type SortField =
   | 'rootFolder'
   | 'sizeOnDisk'
 
-export const ALL_FILTERS: FilterStatus[] = [
+const ALL_FILTERS: FilterStatus[] = [
   'monitored',
   'unreleased',
   'missing',

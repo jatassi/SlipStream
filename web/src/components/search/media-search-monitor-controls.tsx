@@ -9,8 +9,6 @@ import { SearchModal } from './search-modal'
 import { SearchingState } from './searching-state'
 import { useMediaSearchMonitor } from './use-media-search-monitor'
 
-export type { MediaSearchMonitorControlsProps } from './media-search-monitor-types'
-
 const GAP_BY_SIZE: Record<ResolvedSize, string> = {
   lg: 'gap-2',
   sm: 'gap-1.5',
