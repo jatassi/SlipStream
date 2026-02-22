@@ -111,12 +111,17 @@ func (c *LibraryChecker) checkMovieInLibrary(ctx context.Context, tmdbID int64, 
 		c.logger.Warn().Err(err).Int64("movieID", movie.ID).Msg("failed to get movie slots")
 	} else {
 		result.ExistingSlots = slots
-		result.CanRequest = c.canRequestWithSlots(slots, userQualityProfileID)
 	}
 
-	if !c.movieHasFiles(ctx, movie.ID, result.ExistingSlots) {
+	hasFiles := c.movieHasFiles(ctx, movie.ID, result.ExistingSlots)
+	switch {
+	case !hasFiles:
 		result.InLibrary = false
 		result.CanRequest = true
+	case len(slots) > 0:
+		result.CanRequest = c.canRequestWithSlots(slots, userQualityProfileID)
+	default:
+		result.CanRequest = false
 	}
 
 	return nil
