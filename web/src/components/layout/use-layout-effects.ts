@@ -34,14 +34,12 @@ function useWebSocketLifecycle() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[WebSocket] Page visible, forcing reconnect')
         connect(true)
       }
     }
 
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
-        console.log('[WebSocket] Page restored from bfcache, forcing reconnect')
         connect(true)
       }
     }

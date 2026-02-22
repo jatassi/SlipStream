@@ -154,11 +154,6 @@ export function usePortalDownloads(): {
   }, [requests, setUserRequests])
 
   const downloads = useMemo((): PortalDownload[] => {
-    console.log('[usePortalDownloads] Computing downloads', {
-      queueLength: queue.length,
-      matchesSize: matches.size,
-      isAuthenticated,
-    })
     const result: PortalDownload[] = []
     for (const item of queue) {
       const match = matches.get(item.id)
@@ -166,9 +161,8 @@ export function usePortalDownloads(): {
         result.push(buildPortalDownload(item, match))
       }
     }
-    console.log('[usePortalDownloads] Downloads computed', { count: result.length })
     return result
-  }, [queue, matches, isAuthenticated])
+  }, [queue, matches])
 
   return {
     data: isAuthenticated ? downloads : undefined,

@@ -21,13 +21,7 @@ function shouldForceReconnect(
   lastMessageTime: number,
 ): boolean {
   const isStale = lastMessageTime > 0 && Date.now() - lastMessageTime > 60_000
-  if (force || isStale) {
-    console.log(
-      `WebSocket force reconnect (force=${force}, stale=${isStale})`,
-    )
-    return true
-  }
-  return false
+  return force || isStale
 }
 
 function handleExistingSocket(
@@ -57,26 +51,15 @@ function attachListeners(
   ws.addEventListener('open', () => {
     if (get().socket === ws) {
       set({ connected: true, reconnecting: false, lastMessageTime: Date.now() })
-      console.log('[WebSocket] Connected successfully')
     }
   })
 
-  ws.addEventListener('close', (event) => {
+  ws.addEventListener('close', () => {
     if (get().socket !== ws) {
-      console.log('[WebSocket] Old socket closed (ignored)')
       return
     }
     set({ socket: null, connected: false })
-    console.log('[WebSocket] Disconnected', {
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-    })
     scheduleReconnect(get, set)
-  })
-
-  ws.addEventListener('error', (error) => {
-    console.error('[WebSocket] Error:', error)
   })
 
   ws.addEventListener('message', (event) => {
@@ -86,8 +69,8 @@ function attachListeners(
         typeof event.data === 'string' ? event.data : String(event.data)
       const message: WSMessage = JSON.parse(eventData) as WSMessage
       set({ lastMessage: message, lastMessageTime: Date.now() })
-    } catch (error) {
-      console.error('[WebSocket] Failed to parse message:', error)
+    } catch {
+      // Ignore malformed messages
     }
   })
 }
@@ -117,7 +100,6 @@ export function createConnect(
       if (alreadyConnected) {return}
     }
 
-    console.log('[WebSocket] Connecting to', WS_URL)
     const ws = new WebSocket(WS_URL)
     attachListeners(ws, get, set)
     set({ socket: ws, reconnecting: false })

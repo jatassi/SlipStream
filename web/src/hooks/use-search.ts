@@ -19,26 +19,11 @@ export function useIndexerMovieSearch(
 ) {
   const defaultEnabled =
     !!criteria.qualityProfileId && (!!criteria.query || !!criteria.tmdbId || !!criteria.imdbId)
-  const finalEnabled = options?.enabled ?? defaultEnabled
-
-  console.log(
-    '[useIndexerMovieSearch] criteria:',
-    criteria,
-    'options.enabled:',
-    options?.enabled,
-    'defaultEnabled:',
-    defaultEnabled,
-    'finalEnabled:',
-    finalEnabled,
-  )
 
   return useQuery({
     queryKey: searchKeys.movieResults(criteria),
-    queryFn: () => {
-      console.log('[useIndexerMovieSearch] queryFn executing!')
-      return searchApi.searchMovie(criteria)
-    },
-    enabled: finalEnabled,
+    queryFn: () => searchApi.searchMovie(criteria),
+    enabled: options?.enabled ?? defaultEnabled,
     staleTime: 30_000,
   })
 }

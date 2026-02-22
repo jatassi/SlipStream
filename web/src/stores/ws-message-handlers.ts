@@ -202,7 +202,6 @@ export function dispatchWSMessage(
   message: WSMessage,
   ctx: DispatchContext,
 ): void {
-  console.log('[WS Event]', message.type, message.payload)
   const handler = handlerMap[message.type]
   handler?.(message, ctx)
 }
