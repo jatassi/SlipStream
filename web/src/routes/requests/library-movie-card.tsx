@@ -8,18 +8,11 @@ import { convertToMovieSearchResult } from './search-utils'
 
 type LibraryMovieCardProps = {
   movie: PortalMovieSearchResult
-  currentUserId?: number
-  onAction?: () => void
-  onViewRequest?: (id: number) => void
 }
 
-export function LibraryMovieCard({
-  movie,
-  onAction,
-}: LibraryMovieCardProps) {
+export function LibraryMovieCard({ movie }: LibraryMovieCardProps) {
   const [infoOpen, setInfoOpen] = useState(false)
   const media = convertToMovieSearchResult(movie)
-  const canRequest = movie.availability?.canRequest ?? false
 
   return (
     <>
@@ -51,9 +44,6 @@ export function LibraryMovieCard({
         media={media}
         mediaType="movie"
         inLibrary
-        onAction={canRequest ? onAction : undefined}
-        actionLabel="Request"
-        disabledLabel="In Library"
       />
     </>
   )

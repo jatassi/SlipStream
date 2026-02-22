@@ -80,9 +80,6 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
           movies={s.movies}
           loading={s.loadingMovies}
           posterSize={posterSize}
-          currentUserId={s.user?.id}
-          onAction={s.handleMovieRequest}
-          onViewRequest={s.goToRequest}
         />
       </TabsContent>
 
@@ -132,16 +129,10 @@ function MoviesTab({
   movies,
   loading,
   posterSize,
-  currentUserId,
-  onAction,
-  onViewRequest,
 }: {
   movies: PortalMovieSearchResult[]
   loading: boolean
   posterSize: number
-  currentUserId?: number
-  onAction: (movie: PortalMovieSearchResult) => void
-  onViewRequest: (id: number) => void
 }) {
   if (loading) {
     return <GridSkeleton posterSize={posterSize} />
@@ -165,9 +156,6 @@ function MoviesTab({
         <LibraryMovieCard
           key={movie.id}
           movie={movie}
-          currentUserId={currentUserId}
-          onAction={() => onAction(movie)}
-          onViewRequest={onViewRequest}
         />
       )}
     />
