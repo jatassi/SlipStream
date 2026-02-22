@@ -114,14 +114,7 @@ func (c *LibraryChecker) checkMovieInLibrary(ctx context.Context, tmdbID int64, 
 		result.CanRequest = c.canRequestWithSlots(slots, userQualityProfileID)
 	}
 
-	hasAnyFile := false
-	for _, slot := range result.ExistingSlots {
-		if slot.HasFile {
-			hasAnyFile = true
-			break
-		}
-	}
-	if !hasAnyFile {
+	if !c.movieHasFiles(ctx, movie.ID, result.ExistingSlots) {
 		result.InLibrary = false
 		result.CanRequest = true
 	}
@@ -408,6 +401,19 @@ func (c *LibraryChecker) checkExistingEpisodeRequest(ctx context.Context, tvdbID
 	}
 
 	return nil
+}
+
+func (c *LibraryChecker) movieHasFiles(ctx context.Context, movieID int64, slots []SlotInfo) bool {
+	for _, slot := range slots {
+		if slot.HasFile {
+			return true
+		}
+	}
+	count, err := c.queries.CountMovieFiles(ctx, movieID)
+	if err != nil {
+		return false
+	}
+	return count > 0
 }
 
 func (c *LibraryChecker) getMovieSlots(ctx context.Context, movieID int64) ([]SlotInfo, error) {
