@@ -80,7 +80,7 @@ export type IndexerCapabilities = {
 }
 
 // CategoryMapping maps indexer categories to standard categories
-export type CategoryMapping = {
+type CategoryMapping = {
   id: number
   name: string
   description?: string

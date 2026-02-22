@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-export type ProductionStatus = 'continuing' | 'ended' | 'upcoming'
+type ProductionStatus = 'continuing' | 'ended' | 'upcoming'
 
 type ProductionStatusBadgeProps = {
   status: ProductionStatus

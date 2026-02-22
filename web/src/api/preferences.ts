@@ -1,14 +1,14 @@
 import { apiFetch } from './client'
 
-export type AddFlowPreferences = {
+type AddFlowPreferences = {
   movieSearchOnAdd: boolean
   seriesSearchOnAdd: SeriesSearchOnAdd
   seriesMonitorOnAdd: SeriesMonitorOnAdd
   seriesIncludeSpecials: boolean
 }
 
-export type SeriesSearchOnAdd = 'no' | 'first_episode' | 'first_season' | 'latest_season' | 'all'
-export type SeriesMonitorOnAdd = 'none' | 'first_season' | 'latest_season' | 'future' | 'all'
+type SeriesSearchOnAdd = 'no' | 'first_episode' | 'first_season' | 'latest_season' | 'all'
+type SeriesMonitorOnAdd = 'none' | 'first_season' | 'latest_season' | 'future' | 'all'
 
 export const preferencesApi = {
   getAddFlowPreferences: () => apiFetch<AddFlowPreferences>('/preferences/addflow'),

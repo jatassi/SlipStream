@@ -65,19 +65,6 @@ export type PatternPreviewResponse = {
   tokens?: TokenBreakdown[]
 }
 
-export type PatternValidateResponse = {
-  pattern: string
-  valid: boolean
-  error?: string
-  tokens?: string[]
-}
-
-// Import status types
-export type ImportStatus = {
-  queueLength: number
-  processingCount: number
-}
-
 // Pending import types
 export type PendingImport = {
   id?: number
@@ -156,16 +143,6 @@ export type SuggestedMatch = {
   seriesTitle?: string
 }
 
-export type PreviewImportResponse = {
-  path: string
-  fileName: string
-  fileSize: number
-  valid: boolean
-  validationError?: string
-  parsedInfo?: ParsedMediaInfo
-  suggestedMatch?: SuggestedMatch
-}
-
 // Scan directory types
 export type ScannedFile = {
   path: string
@@ -182,46 +159,6 @@ export type ScanDirectoryResponse = {
   files: ScannedFile[]
   total: number
   valid: number
-}
-
-// Rename preview types
-export type RenamePreview = {
-  fileId: number
-  mediaType: string
-  mediaId: number
-  mediaTitle: string
-  currentPath: string
-  currentFileName: string
-  newPath: string
-  newFileName: string
-  needsRename: boolean
-  error?: string
-}
-
-export type RenamePreviewResponse = {
-  total: number
-  previews: RenamePreview[]
-}
-
-export type ExecuteRenameRequest = {
-  mediaType: string
-  fileIds: number[]
-}
-
-export type ExecuteRenameResponse = {
-  total: number
-  succeeded: number
-  failed: number
-  skipped: number
-  results: RenameResult[]
-}
-
-export type RenameResult = {
-  fileId: number
-  success: boolean
-  oldPath: string
-  newPath: string
-  error?: string
 }
 
 // Filename parsing types

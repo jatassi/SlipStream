@@ -1,6 +1,5 @@
 import type {
   ApproveRequestInput,
-  BatchApproveInput,
   BatchDenyInput,
   DenyRequestInput,
   Request,
@@ -16,10 +15,6 @@ export async function listRequests(filters?: RequestListFilters): Promise<Reques
   return apiFetch<Request[]>(`${BASE_PATH}${query}`)
 }
 
-export async function getRequest(id: number): Promise<Request> {
-  return apiFetch<Request>(`${BASE_PATH}/${id}`)
-}
-
 export async function approveRequest(id: number, input: ApproveRequestInput): Promise<Request> {
   return apiFetch<Request>(`${BASE_PATH}/${id}/approve`, {
     method: 'POST',
@@ -31,13 +26,6 @@ export async function denyRequest(id: number, input?: DenyRequestInput): Promise
   return apiFetch<Request>(`${BASE_PATH}/${id}/deny`, {
     method: 'POST',
     body: JSON.stringify(input ?? {}),
-  })
-}
-
-export async function batchApprove(input: BatchApproveInput): Promise<Request[]> {
-  return apiFetch<Request[]>(`${BASE_PATH}/batch/approve`, {
-    method: 'POST',
-    body: JSON.stringify(input),
   })
 }
 

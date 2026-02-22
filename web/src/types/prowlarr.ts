@@ -126,9 +126,9 @@ export const DEFAULT_MOVIE_CATEGORIES = [2000, 2010, 2020, 2030, 2040, 2045, 205
 // Default Newznab TV category IDs
 export const DEFAULT_TV_CATEGORIES = [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5060, 5070, 5080]
 
-// Standard Newznab categories for reference
-export const NEWZNAB_CATEGORIES = {
-  movies: {
+// Helper to get category name from ID
+export function getCategoryName(categoryId: number): string {
+  const allCategories: Record<number, string> = {
     2000: 'Movies',
     2010: 'Movies/Foreign',
     2020: 'Movies/Other',
@@ -137,8 +137,6 @@ export const NEWZNAB_CATEGORIES = {
     2045: 'Movies/UHD',
     2050: 'Movies/BluRay',
     2060: 'Movies/3D',
-  },
-  tv: {
     5000: 'TV',
     5010: 'TV/WEB-DL',
     5020: 'TV/Foreign',
@@ -149,50 +147,8 @@ export const NEWZNAB_CATEGORIES = {
     5060: 'TV/Sport',
     5070: 'TV/Anime',
     5080: 'TV/Documentary',
-  },
-} as const
-
-// Helper to get category name from ID
-export function getCategoryName(categoryId: number): string {
-  const allCategories: Record<number, string> = {
-    ...NEWZNAB_CATEGORIES.movies,
-    ...NEWZNAB_CATEGORIES.tv,
   }
   return allCategories[categoryId] ?? `Category ${categoryId}`
-}
-
-// Helper to check if a category is a movie category
-export function isMovieCategory(categoryId: number): boolean {
-  return categoryId >= 2000 && categoryId < 3000
-}
-
-// Helper to check if a category is a TV category
-export function isTvCategory(categoryId: number): boolean {
-  return categoryId >= 5000 && categoryId < 6000
-}
-
-// Helper to get status badge variant based on indexer status
-export function getIndexerStatusVariant(
-  status: ProwlarrIndexerStatus,
-): 'default' | 'warning' | 'destructive' {
-  switch (status) {
-    case 0: {
-      // Healthy
-      return 'default'
-    }
-    case 1: {
-      // Warning
-      return 'warning'
-    }
-    case 2: // Disabled
-    case 3: {
-      // Failed
-      return 'destructive'
-    }
-    default: {
-      return 'default'
-    }
-  }
 }
 
 // ContentType represents what content types an indexer should be used for

@@ -53,4 +53,3 @@ function Slider({ value, defaultValue, onValueChange, min = 0, max = 100, step =
 }
 
 export { Slider }
-export type { SliderProps }
