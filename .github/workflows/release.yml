@@ -21,32 +21,9 @@ env:
 
 jobs:
   # ===========================================
-  # Stage 1: Frontend build + release preparation (parallel)
+  # Stage 1: Build frontend + resolve version
   # ===========================================
   build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install frontend dependencies
-        run: bun install --cwd web
-
-      - name: Build frontend
-        run: bun run --cwd web build
-
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: web/dist
-          retention-days: 1
-
-  prepare:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -85,13 +62,31 @@ jobs:
             gh release create "$TAG" --title "SlipStream $TAG" --notes ""
           fi
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install frontend dependencies
+        run: bun install --cwd web
+
+      - name: Build frontend
+        run: bun run --cwd web build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+          retention-days: 1
+
   # ===========================================
   # Stage 2: Platform builds (parallel, upload to release on completion)
   # ===========================================
 
   # Windows: Native build + WiX v5 MSI installer + portable ZIP
   build-windows:
-    needs: [build-frontend, prepare]
+    needs: build-frontend
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +128,7 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_windows_amd64
           go build -ldflags "-s -w -H windowsgui \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
@@ -145,7 +140,7 @@ jobs:
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          $version = "${{ needs.prepare.outputs.version }}"
+          $version = "${{ needs.build-frontend.outputs.version }}"
           Compress-Archive -Path dist/slipstream_windows_amd64/* -DestinationPath "dist/slipstream_${version}_windows_amd64.zip"
 
       - name: Cache WiX toolset
@@ -167,7 +162,7 @@ jobs:
       - name: Create MSI installer
         shell: bash
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION="${{ needs.build-frontend.outputs.version }}"
           wix build scripts/windows/installer.wxs \
             -o "dist/slipstream_${VERSION}_windows_amd64.msi" \
             -d VERSION=${VERSION} \
@@ -180,12 +175,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare.outputs.tag }}" \
+          gh release upload "${{ needs.build-frontend.outputs.tag }}" \
             dist/*.zip dist/*.msi --clobber
 
   # macOS Intel (amd64) - native build with CGO for menu bar
   build-macos-amd64:
-    needs: [build-frontend, prepare]
+    needs: build-frontend
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
@@ -211,7 +206,7 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_darwin_amd64
           go build -ldflags "-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
@@ -223,18 +218,18 @@ jobs:
       - name: Create DMG
         run: |
           chmod +x scripts/macos/create-dmg.sh
-          ./scripts/macos/create-dmg.sh ${{ needs.prepare.outputs.version }} amd64
+          ./scripts/macos/create-dmg.sh ${{ needs.build-frontend.outputs.version }} amd64
 
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare.outputs.tag }}" \
+          gh release upload "${{ needs.build-frontend.outputs.tag }}" \
             dist/*.dmg --clobber
 
   # macOS Apple Silicon (arm64) - native build with CGO for menu bar
   build-macos-arm64:
-    needs: [build-frontend, prepare]
+    needs: build-frontend
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -260,7 +255,7 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_darwin_arm64
           go build -ldflags "-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
@@ -272,18 +267,18 @@ jobs:
       - name: Create DMG
         run: |
           chmod +x scripts/macos/create-dmg.sh
-          ./scripts/macos/create-dmg.sh ${{ needs.prepare.outputs.version }} arm64
+          ./scripts/macos/create-dmg.sh ${{ needs.build-frontend.outputs.version }} arm64
 
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare.outputs.tag }}" \
+          gh release upload "${{ needs.build-frontend.outputs.tag }}" \
             dist/*.dmg --clobber
 
   # Linux: Build binaries + deb/rpm packages + AppImage
   build-linux:
-    needs: [build-frontend, prepare]
+    needs: build-frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -308,7 +303,7 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
           LDFLAGS="-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
@@ -324,7 +319,7 @@ jobs:
 
       - name: Create portable tarballs
         run: |
-          VERSION=${{ needs.prepare.outputs.version }}
+          VERSION=${{ needs.build-frontend.outputs.version }}
           # Create tarballs with just the binary (for auto-updates)
           tar -czvf "dist/slipstream_${VERSION}_linux_amd64.tar.gz" -C dist/slipstream_linux_amd64 slipstream
           tar -czvf "dist/slipstream_${VERSION}_linux_arm64.tar.gz" -C dist/slipstream_linux_arm64 slipstream
@@ -347,7 +342,7 @@ jobs:
 
       - name: Create deb/rpm packages
         run: |
-          VERSION=${{ needs.prepare.outputs.version }}
+          VERSION=${{ needs.build-frontend.outputs.version }}
 
           # Create nfpm config for amd64
           # Uses stub launcher pattern: stub in /usr/bin, real binary in /usr/share
@@ -430,11 +425,11 @@ jobs:
       - name: Create AppImage
         run: |
           chmod +x scripts/linux/create-appimage.sh
-          ./scripts/linux/create-appimage.sh ${{ needs.prepare.outputs.version }} amd64
+          ./scripts/linux/create-appimage.sh ${{ needs.build-frontend.outputs.version }} amd64
 
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare.outputs.tag }}" \
+          gh release upload "${{ needs.build-frontend.outputs.tag }}" \
             dist/*.deb dist/*.rpm dist/*.AppImage --clobber
