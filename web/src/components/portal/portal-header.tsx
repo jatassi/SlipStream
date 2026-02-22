@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import type { NavigateOptions } from '@tanstack/react-router'
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
-import { ArrowRight, Search, Settings } from 'lucide-react'
+import { ArrowRight, Library, Search, Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,20 @@ function SearchForm({
   )
 }
 
+function LibraryLink({ active }: { active: boolean }) {
+  return (
+    <Link
+      to="/requests/library"
+      className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
+        active ? 'text-white icon-glow-media' : 'text-foreground/80 hover:text-foreground'
+      }`}
+    >
+      <Library className="size-4" />
+      <span className="hidden sm:inline">Library</span>
+    </Link>
+  )
+}
+
 function LogoLink({ isSearchPage }: { isSearchPage: boolean }) {
   return (
     <Link
@@ -69,6 +83,7 @@ export function PortalHeader() {
   const location = useLocation()
 
   const isSearchPage = location.pathname === '/requests/search'
+  const isLibraryPage = location.pathname === '/requests/library'
 
   const searchParams = new URLSearchParams(
     typeof location.search === 'string' ? location.search : '',
@@ -92,7 +107,7 @@ export function PortalHeader() {
     <header className="border-border bg-card flex h-14 items-center justify-between border-b px-6">
       <LogoLink isSearchPage={isSearchPage} />
 
-      {isSearchPage ? (
+      {isSearchPage || isLibraryPage ? (
         <SearchForm
           searchInput={searchInput}
           searchFocused={searchFocused}
@@ -103,6 +118,7 @@ export function PortalHeader() {
       ) : null}
 
       <div className="flex items-center gap-1 md:gap-2">
+        <LibraryLink active={isLibraryPage} />
         <NotificationBell />
 
         <Button

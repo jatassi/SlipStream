@@ -324,6 +324,9 @@
   .icon-glow-tv-lg {
     filter: drop-shadow(0 0 6px var(--tv-500)) drop-shadow(0 0 10px var(--tv-500));
   }
+  .icon-glow-media {
+    filter: drop-shadow(-4px 0 5px var(--movie-500)) drop-shadow(4px 0 5px var(--tv-500));
+  }
 
   /* Hover variants for icon glows */
   .group:hover .group-hover\:icon-glow-movie,
