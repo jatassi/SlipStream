@@ -23,7 +23,7 @@ function SearchForm({
   onSubmit: (e: React.FormEvent) => void
 }) {
   return (
-    <form onSubmit={onSubmit} className="mx-2 max-w-xl flex-1 sm:mx-8">
+    <form onSubmit={onSubmit} className="mx-2 min-w-0 flex-1 sm:mx-8 sm:max-w-xl">
       <div
         className={`relative rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}
       >
@@ -48,7 +48,7 @@ function SearchForm({
   )
 }
 
-function LibraryLink({ active }: { active: boolean }) {
+function LibraryLink({ active, hideText }: { active: boolean; hideText: boolean }) {
   return (
     <Link
       to="/requests/library"
@@ -56,13 +56,13 @@ function LibraryLink({ active }: { active: boolean }) {
         active ? 'text-white icon-glow-media' : 'text-foreground/80 hover:text-foreground'
       }`}
     >
-      <Library className="size-4" />
-      <span className="hidden sm:inline">Library</span>
+      <Library className="size-4 md:size-5" />
+      {!hideText && <span>Library</span>}
     </Link>
   )
 }
 
-function LogoLink({ isSearchPage }: { isSearchPage: boolean }) {
+function LogoLink({ isHomePage }: { isHomePage: boolean }) {
   return (
     <Link
       to="/requests"
@@ -71,7 +71,7 @@ function LogoLink({ isSearchPage }: { isSearchPage: boolean }) {
       <div className="bg-media-gradient glow-media-sm flex size-7 items-center justify-center rounded text-xs font-bold text-white md:size-8 md:text-sm">
         SS
       </div>
-      <span className={`text-media-gradient ${isSearchPage ? 'hidden sm:inline' : ''}`}>
+      <span className={`text-media-gradient ${isHomePage ? '' : 'hidden sm:inline'}`}>
         SlipStream
       </span>
     </Link>
@@ -82,6 +82,7 @@ export function PortalHeader() {
   const navigate = useNavigate()
   const location = useLocation()
 
+  const isHomePage = location.pathname === '/requests'
   const isSearchPage = location.pathname === '/requests/search'
   const isLibraryPage = location.pathname === '/requests/library'
 
@@ -104,8 +105,8 @@ export function PortalHeader() {
   }
 
   return (
-    <header className="border-border bg-card flex h-14 items-center justify-between border-b px-6">
-      <LogoLink isSearchPage={isSearchPage} />
+    <header className="border-border bg-card flex h-14 items-center justify-between border-b px-3 sm:px-6">
+      <LogoLink isHomePage={isHomePage} />
 
       {isSearchPage || isLibraryPage ? (
         <SearchForm
@@ -118,7 +119,7 @@ export function PortalHeader() {
       ) : null}
 
       <div className="flex items-center gap-1 md:gap-2">
-        <LibraryLink active={isLibraryPage} />
+        <LibraryLink active={isLibraryPage} hideText={isSearchPage} />
         <NotificationBell />
 
         <Button

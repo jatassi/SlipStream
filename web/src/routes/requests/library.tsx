@@ -32,6 +32,7 @@ function GridSkeleton({ posterSize = 150 }: { posterSize?: number }) {
 
 function PosterSizeSlider() {
   const { posterSize, setPosterSize } = useUIStore()
+  const isMobile = globalThis.matchMedia('(max-width: 639px)').matches
   return (
     <div className="ml-auto flex items-center gap-2">
       <span className="text-muted-foreground text-xs">Size</span>
@@ -40,8 +41,8 @@ function PosterSizeSlider() {
         onValueChange={(v) => setPosterSize(v[0])}
         min={100}
         max={250}
-        step={10}
-        className="w-24"
+        step={isMobile ? 25 : 10}
+        className="w-16 sm:w-24"
       />
     </div>
   )
@@ -52,11 +53,11 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
 
   return (
     <Tabs value={s.activeTab} onValueChange={(v) => s.setActiveTab(v as 'movies' | 'series')}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <TabsList>
           <TabsTrigger
             value="movies"
-            className="data-active:glow-movie px-4 data-active:bg-white data-active:text-black"
+            className="data-active:glow-movie px-2 data-active:bg-white data-active:text-black sm:px-4"
           >
             <Film className="mr-1.5 size-4" />
             Movies
@@ -64,7 +65,7 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
           </TabsTrigger>
           <TabsTrigger
             value="series"
-            className="data-active:glow-tv px-4 data-active:bg-white data-active:text-black"
+            className="data-active:glow-tv px-2 data-active:bg-white data-active:text-black sm:px-4"
           >
             <Tv className="mr-1.5 size-4" />
             Series
@@ -104,7 +105,7 @@ export function PortalLibraryPage() {
   const s = usePortalLibrary()
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 pt-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-3 pt-6 sm:px-6">
       <LibraryTabs s={s} />
 
       <SeriesRequestDialog
