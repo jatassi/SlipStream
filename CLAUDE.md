@@ -99,3 +99,7 @@ Logs and database from a production SlipStream instance are available for debugg
 
 - `/Volumes/Users/jacks/AppData/Local/SlipStream/slipstream.db`
 - `/Volumes/Users/jacks/AppData/Local/SlipStream/logs/slipstream.log`
+
+## Subagents
+
+When launching subagents, prefer launching in backgrounded mode unless task requires syncronous output. When lauching subagents to perform targeted code changes, prefer using Sonnet.
