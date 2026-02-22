@@ -34,7 +34,7 @@ export function MediaActionButton({
     return <DownloadStatusCard download={activeDownload} />
   }
 
-  if (isInLibrary || isAvailable) {
+  if ((isInLibrary || isAvailable) && !onAction) {
     return (
       <Button variant="secondary" size="sm" disabled>
         <Check className="mr-2 size-4" />

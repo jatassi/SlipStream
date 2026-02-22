@@ -143,7 +143,7 @@ func (h *Handlers) ListSeries(c echo.Context) error {
 			Overview:       s.Overview,
 			Network:        s.Network,
 			NetworkLogoURL: s.NetworkLogoURL,
-			PosterURL:      fmt.Sprintf("/api/v1/metadata/artwork/tv/%d/poster", s.TmdbID),
+			PosterURL:      fmt.Sprintf("/api/v1/metadata/artwork/series/%d/poster", s.TmdbID),
 		}
 
 		if s.TvdbID > 0 {
