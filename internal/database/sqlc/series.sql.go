@@ -569,7 +569,7 @@ SELECT
     e.episode_number,
     e.monitored,
     CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END as aired,
-    CASE WHEN EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL) THEN 1 ELSE 0 END as has_file
+    CASE WHEN EXISTS (SELECT 1 FROM episode_files ef WHERE ef.episode_id = e.id) THEN 1 ELSE 0 END as has_file
 FROM episodes e
 WHERE e.series_id = ? AND e.season_number = ?
 ORDER BY e.episode_number
@@ -1347,7 +1347,7 @@ SELECT
     COUNT(e.id) as total_episodes,
     COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END), 0) as aired_episodes,
     COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now')
-        AND EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL)
+        AND EXISTS (SELECT 1 FROM episode_files ef WHERE ef.episode_id = e.id)
         THEN 1 ELSE 0 END), 0) as aired_with_files,
     COALESCE(SUM(CASE WHEN (e.air_date IS NULL OR substr(e.air_date, 1, 10) > date('now'))
         AND e.monitored = 1 THEN 1 ELSE 0 END), 0) as unaired_monitored
