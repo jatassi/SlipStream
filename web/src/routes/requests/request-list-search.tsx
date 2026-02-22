@@ -8,7 +8,7 @@ type SearchSectionProps = {
   setSearchQuery: (q: string) => void
   searchFocused: boolean
   setSearchFocused: (f: boolean) => void
-  onSearch: (e: React.FormEvent) => void
+  onSearch: (e: React.SyntheticEvent) => void
 }
 
 export function SearchSection({

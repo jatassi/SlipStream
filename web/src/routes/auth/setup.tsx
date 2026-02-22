@@ -34,7 +34,7 @@ export function SetupPage() {
   const setupMutation = useAdminSetup()
   const [pin, setPin] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (pin.length !== 4) { toast.error('PIN must be exactly 4 digits'); return }
     setupMutation.mutate(pin, {

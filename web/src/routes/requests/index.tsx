@@ -38,7 +38,7 @@ export function RequestsListPage() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       void navigate({ to: '/requests/search', search: { q: searchQuery.trim() } })

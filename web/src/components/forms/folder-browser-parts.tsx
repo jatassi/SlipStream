@@ -12,7 +12,7 @@ export function PathInput({
   inputPath: string
   setInputPath: (path: string) => void
   hasDrives: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: React.SyntheticEvent) => void
 }) {
   return (
     <form onSubmit={onSubmit} className="flex gap-2">

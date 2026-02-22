@@ -33,7 +33,7 @@ function formatProgressText(downloadedSize: number, totalSize: number): string {
   const totalParts = /^([\d.]+)\s*(.+)$/.exec(totalFormatted)
   const downloadedParts = /^([\d.]+)\s*(.+)$/.exec(downloadedFormatted)
 
-  if (totalParts && downloadedParts && totalParts[2] === downloadedParts[2]) {
+  if (totalParts && totalParts[2] === downloadedParts?.[2]) {
     return `${downloadedParts[1]}/${totalParts[1]} ${totalParts[2]}`
   }
   return `${downloadedFormatted}/${totalFormatted}`

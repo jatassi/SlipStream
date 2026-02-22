@@ -70,7 +70,7 @@ export function useFolderBrowser(opts: FolderBrowserOptions) {
     showFiles,
     handleNavigate,
     handleFileSelect: showFiles ? handleFileSelect : undefined,
-    handleInputSubmit: (e: React.FormEvent) => {
+    handleInputSubmit: (e: React.SyntheticEvent) => {
       e.preventDefault()
       setCurrentPath(inputPath)
       setSelectedFile('')

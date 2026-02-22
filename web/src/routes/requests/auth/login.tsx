@@ -104,7 +104,7 @@ type PinFormProps = {
   usernameInputRef: React.RefObject<HTMLInputElement | null>
   pin: string
   onPinChange: (value: string) => void
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: React.SyntheticEvent) => void
   isPending: boolean
   passkeySupported: boolean
   onUsePasskey: () => void
@@ -199,7 +199,7 @@ function useLoginPage() {
     pin, setPin, isDeleting, loginPending: loginMutation.isPending,
     showDelete: !authStatus?.requiresSetup,
     handleSwitchUser: () => { setUsername(''); setPin(''); setShowUsernameInput(true) },
-    handleSubmit: (e: React.FormEvent) => { e.preventDefault(); performLogin() },
+    handleSubmit: (e: React.SyntheticEvent) => { e.preventDefault(); performLogin() },
     handlePasskeyLogin: () => {
       passkeyLoginMutation.mutate(undefined, { onSuccess: () => void navigate({ to: getPostLoginRedirect() }) })
     },

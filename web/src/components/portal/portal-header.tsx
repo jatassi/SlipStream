@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import type { NavigateOptions } from '@tanstack/react-router'
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
@@ -20,7 +20,7 @@ function SearchForm({
   searchFocused: boolean
   onInputChange: (value: string) => void
   onFocusChange: (focused: boolean) => void
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: React.SyntheticEvent) => void
 }) {
   return (
     <form onSubmit={onSubmit} className="mx-2 min-w-0 flex-1 sm:mx-8 sm:max-w-xl">
@@ -92,12 +92,14 @@ export function PortalHeader() {
   const currentQuery = searchParams.get('q') ?? ''
   const [searchInput, setSearchInput] = useState(currentQuery)
   const [searchFocused, setSearchFocused] = useState(false)
+  const [prevQuery, setPrevQuery] = useState(currentQuery)
 
-  useEffect(() => {
+  if (currentQuery !== prevQuery) {
+    setPrevQuery(currentQuery)
     setSearchInput(currentQuery)
-  }, [currentQuery])
+  }
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (searchInput.trim()) {
       void navigate({ to: '/requests/search', search: { q: searchInput.trim() } } as NavigateOptions)
