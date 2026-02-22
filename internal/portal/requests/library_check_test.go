@@ -272,7 +272,7 @@ func TestCheckSeriesAvailability_ZeroFiles(t *testing.T) {
 	})
 
 	checker := NewLibraryChecker(q, &tdb.Logger)
-	result, err := checker.CheckSeriesAvailability(ctx, 1000, nil)
+	result, err := checker.CheckSeriesAvailability(ctx, 1000, 0, nil)
 	if err != nil {
 		t.Fatalf("CheckSeriesAvailability error = %v", err)
 	}
@@ -307,7 +307,7 @@ func TestCheckSeriesAvailability_PartiallyAvailable(t *testing.T) {
 	})
 
 	checker := NewLibraryChecker(q, &tdb.Logger)
-	result, err := checker.CheckSeriesAvailability(ctx, 1001, nil)
+	result, err := checker.CheckSeriesAvailability(ctx, 1001, 0, nil)
 	if err != nil {
 		t.Fatalf("CheckSeriesAvailability error = %v", err)
 	}
@@ -357,7 +357,7 @@ func TestCheckSeriesAvailability_FullyAvailable(t *testing.T) {
 	})
 
 	checker := NewLibraryChecker(q, &tdb.Logger)
-	result, err := checker.CheckSeriesAvailability(ctx, 1002, nil)
+	result, err := checker.CheckSeriesAvailability(ctx, 1002, 0, nil)
 	if err != nil {
 		t.Fatalf("CheckSeriesAvailability error = %v", err)
 	}
@@ -382,7 +382,7 @@ func TestSeasonAvailable_UnairedNotMonitored(t *testing.T) {
 	})
 
 	checker := NewLibraryChecker(q, &tdb.Logger)
-	result, err := checker.CheckSeriesAvailability(ctx, 1003, nil)
+	result, err := checker.CheckSeriesAvailability(ctx, 1003, 0, nil)
 	if err != nil {
 		t.Fatalf("CheckSeriesAvailability error = %v", err)
 	}
@@ -432,7 +432,7 @@ func TestGetCoveredSeasons_CrossType(t *testing.T) {
 	}
 
 	checker := NewLibraryChecker(q, &tdb.Logger)
-	covered, err := checker.GetCoveredSeasons(ctx, 2000, userID)
+	covered, err := checker.GetCoveredSeasons(ctx, 2000, 0, userID)
 	if err != nil {
 		t.Fatalf("GetCoveredSeasons error = %v", err)
 	}

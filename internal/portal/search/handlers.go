@@ -103,6 +103,14 @@ func (h *Handlers) SearchMovies(c echo.Context) error {
 	return c.JSON(http.StatusOK, enriched)
 }
 
+func parseIntParam(s string) int {
+	if s == "" {
+		return 0
+	}
+	v, _ := strconv.Atoi(s)
+	return v
+}
+
 func parseYearParam(yearStr string) int {
 	if yearStr == "" {
 		return 0
@@ -136,6 +144,26 @@ func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.Mo
 	return enriched
 }
 
+func (h *Handlers) enrichSeriesResults(ctx context.Context, results []metadata.SeriesResult, profileID *int64) []SeriesSearchResult {
+	enriched := make([]SeriesSearchResult, len(results))
+	for i := range results {
+		result := &results[i]
+		enriched[i] = SeriesSearchResult{SeriesResult: *result}
+
+		tmdbID := result.TmdbID
+		if tmdbID == 0 {
+			tmdbID = result.ID
+		}
+		if result.TvdbID > 0 || tmdbID > 0 {
+			availability, err := h.libraryChecker.CheckSeriesAvailability(ctx, int64(result.TvdbID), int64(tmdbID), profileID)
+			if err == nil {
+				enriched[i].Availability = availability
+			}
+		}
+	}
+	return enriched
+}
+
 // SearchSeries searches for series and enriches with availability
 // GET /api/v1/requests/search/series?query=...
 func (h *Handlers) SearchSeries(c echo.Context) error {
@@ -154,32 +182,9 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var userQualityProfileID *int64
-	user, err := h.usersService.Get(c.Request().Context(), claims.UserID)
-	if err == nil && user != nil {
-		userQualityProfileID = user.QualityProfileID
-	}
-
-	enrichedResults := make([]SeriesSearchResult, len(results))
-	for i := range results {
-		result := &results[i]
-		enrichedResults[i] = SeriesSearchResult{
-			SeriesResult: *result,
-		}
-
-		if result.TvdbID > 0 {
-			availability, err := h.libraryChecker.CheckSeriesAvailability(
-				c.Request().Context(),
-				int64(result.TvdbID),
-				userQualityProfileID,
-			)
-			if err == nil {
-				enrichedResults[i].Availability = availability
-			}
-		}
-	}
-
-	return c.JSON(http.StatusOK, enrichedResults)
+	profileID := h.getUserQualityProfileID(c.Request().Context(), claims.UserID)
+	enriched := h.enrichSeriesResults(c.Request().Context(), results, profileID)
+	return c.JSON(http.StatusOK, enriched)
 }
 
 // GetSeriesSeasons returns the seasons for a series enriched with library availability data
@@ -190,17 +195,8 @@ func (h *Handlers) GetSeriesSeasons(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "not authenticated")
 	}
 
-	var tmdbID, tvdbID int
-	if tmdbIDStr := c.QueryParam("tmdbId"); tmdbIDStr != "" {
-		if id, err := strconv.Atoi(tmdbIDStr); err == nil {
-			tmdbID = id
-		}
-	}
-	if tvdbIDStr := c.QueryParam("tvdbId"); tvdbIDStr != "" {
-		if id, err := strconv.Atoi(tvdbIDStr); err == nil {
-			tvdbID = id
-		}
-	}
+	tmdbID := parseIntParam(c.QueryParam("tmdbId"))
+	tvdbID := parseIntParam(c.QueryParam("tvdbId"))
 
 	if tmdbID == 0 && tvdbID == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "either tmdbId or tvdbId is required")
@@ -212,19 +208,14 @@ func (h *Handlers) GetSeriesSeasons(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
+	availMap, _ := h.libraryChecker.GetSeasonAvailabilityMap(ctx, int64(tvdbID), int64(tmdbID))
+	coveredMap, _ := h.libraryChecker.GetCoveredSeasons(ctx, int64(tvdbID), int64(tmdbID), claims.UserID)
 
-	var availMap map[int]requests.SeasonAvailability
-	var coveredMap map[int]requests.CoveredSeason
-	if tvdbID > 0 {
-		availMap, _ = h.libraryChecker.GetSeasonAvailabilityMap(ctx, int64(tvdbID))
-		coveredMap, _ = h.libraryChecker.GetCoveredSeasons(ctx, int64(tvdbID), claims.UserID)
-	}
-
-	enriched := h.enrichSeasons(ctx, seasons, int64(tvdbID), availMap, coveredMap)
+	enriched := h.enrichSeasons(ctx, seasons, int64(tvdbID), int64(tmdbID), availMap, coveredMap)
 	return c.JSON(http.StatusOK, enriched)
 }
 
-func (h *Handlers) enrichSeasons(ctx context.Context, seasons []metadata.SeasonResult, tvdbID int64, availMap map[int]requests.SeasonAvailability, coveredMap map[int]requests.CoveredSeason) []EnrichedSeasonResult {
+func (h *Handlers) enrichSeasons(ctx context.Context, seasons []metadata.SeasonResult, tvdbID, tmdbID int64, availMap map[int]requests.SeasonAvailability, coveredMap map[int]requests.CoveredSeason) []EnrichedSeasonResult {
 	enriched := make([]EnrichedSeasonResult, len(seasons))
 	for i, season := range seasons {
 		esr := EnrichedSeasonResult{
@@ -247,18 +238,18 @@ func (h *Handlers) enrichSeasons(ctx context.Context, seasons []metadata.SeasonR
 			esr.ExistingRequestIsWatching = &cs.IsWatching
 		}
 
-		esr.Episodes = h.enrichEpisodes(ctx, &seasons[i], tvdbID, availMap)
+		esr.Episodes = h.enrichEpisodes(ctx, &seasons[i], tvdbID, tmdbID, availMap)
 		enriched[i] = esr
 	}
 	return enriched
 }
 
-func (h *Handlers) enrichEpisodes(ctx context.Context, season *metadata.SeasonResult, tvdbID int64, availMap map[int]requests.SeasonAvailability) []EnrichedEpisodeResult {
+func (h *Handlers) enrichEpisodes(ctx context.Context, season *metadata.SeasonResult, tvdbID, tmdbID int64, availMap map[int]requests.SeasonAvailability) []EnrichedEpisodeResult {
 	episodes := make([]EnrichedEpisodeResult, len(season.Episodes))
 
 	var epAvailMap map[int]requests.EpisodeAvailability
-	if _, inLibrary := availMap[season.SeasonNumber]; inLibrary && tvdbID > 0 {
-		epRows, err := h.libraryChecker.GetEpisodeAvailabilityForSeason(ctx, tvdbID, season.SeasonNumber)
+	if _, inLibrary := availMap[season.SeasonNumber]; inLibrary && (tvdbID > 0 || tmdbID > 0) {
+		epRows, err := h.libraryChecker.GetEpisodeAvailabilityForSeason(ctx, tvdbID, tmdbID, season.SeasonNumber)
 		if err == nil {
 			epAvailMap = make(map[int]requests.EpisodeAvailability, len(epRows))
 			for _, ea := range epRows {

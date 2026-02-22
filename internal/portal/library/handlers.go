@@ -146,8 +146,8 @@ func (h *Handlers) ListSeries(c echo.Context) error {
 			PosterURL:      fmt.Sprintf("/api/v1/metadata/artwork/series/%d/poster", s.TmdbID),
 		}
 
-		if s.TvdbID > 0 {
-			availability, err := h.libraryChecker.CheckSeriesAvailability(ctx, int64(s.TvdbID), profileID)
+		if s.TvdbID > 0 || s.TmdbID > 0 {
+			availability, err := h.libraryChecker.CheckSeriesAvailability(ctx, int64(s.TvdbID), int64(s.TmdbID), profileID)
 			if err == nil {
 				result.Availability = availability
 			}

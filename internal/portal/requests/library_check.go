@@ -162,27 +162,46 @@ func (c *LibraryChecker) checkExistingMovieRequest(ctx context.Context, tmdbID, 
 	return nil
 }
 
-func (c *LibraryChecker) CheckSeriesAvailability(ctx context.Context, tvdbID int64, userQualityProfileID *int64) (*AvailabilityResult, error) {
+func (c *LibraryChecker) CheckSeriesAvailability(ctx context.Context, tvdbID, tmdbID int64, userQualityProfileID *int64) (*AvailabilityResult, error) {
 	result := &AvailabilityResult{
 		InLibrary:     false,
 		ExistingSlots: []SlotInfo{},
 		CanRequest:    true,
 	}
 
-	series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-
-	if err == nil && series.ID > 0 {
+	series := c.findSeries(ctx, tvdbID, tmdbID)
+	if series != nil && series.ID > 0 {
 		c.populateSeriesAvailability(ctx, series, result)
+		// Use the DB series' TVDB ID for request lookup (may differ from search result)
+		if series.TvdbID.Valid && series.TvdbID.Int64 > 0 {
+			tvdbID = series.TvdbID.Int64
+		}
 	}
 
-	if err := c.checkExistingSeriesRequest(ctx, tvdbID, result); err != nil {
-		return nil, err
+	if tvdbID > 0 {
+		if err := c.checkExistingSeriesRequest(ctx, tvdbID, result); err != nil {
+			return nil, err
+		}
 	}
 
 	return result, nil
+}
+
+// findSeries looks up a series by TVDB ID first, falling back to TMDB ID.
+func (c *LibraryChecker) findSeries(ctx context.Context, tvdbID, tmdbID int64) *sqlc.Series {
+	if tvdbID > 0 {
+		series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+		if err == nil && series.ID > 0 {
+			return series
+		}
+	}
+	if tmdbID > 0 {
+		series, err := c.queries.GetSeriesByTmdbID(ctx, sql.NullInt64{Int64: tmdbID, Valid: true})
+		if err == nil && series.ID > 0 {
+			return series
+		}
+	}
+	return nil
 }
 
 func (c *LibraryChecker) populateSeriesAvailability(ctx context.Context, series *sqlc.Series, result *AvailabilityResult) {
@@ -467,10 +486,10 @@ func (c *LibraryChecker) getSeasonAvailability(ctx context.Context, seriesID int
 	return result, nil
 }
 
-func (c *LibraryChecker) GetSeasonAvailabilityMap(ctx context.Context, tvdbID int64) (map[int]SeasonAvailability, error) {
-	series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
-	if err != nil {
-		return nil, err
+func (c *LibraryChecker) GetSeasonAvailabilityMap(ctx context.Context, tvdbID, tmdbID int64) (map[int]SeasonAvailability, error) {
+	series := c.findSeries(ctx, tvdbID, tmdbID)
+	if series == nil {
+		return nil, sql.ErrNoRows
 	}
 
 	avail, err := c.getSeasonAvailability(ctx, series.ID)
@@ -485,7 +504,11 @@ func (c *LibraryChecker) GetSeasonAvailabilityMap(ctx context.Context, tvdbID in
 	return m, nil
 }
 
-func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, currentUserID int64) (map[int]CoveredSeason, error) {
+func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, tmdbID, currentUserID int64) (map[int]CoveredSeason, error) {
+	tvdbID = c.resolveTvdbID(ctx, tvdbID, tmdbID)
+	if tvdbID == 0 {
+		return map[int]CoveredSeason{}, nil
+	}
 	reqs, err := c.queries.FindRequestsCoveringSeasons(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
 	if err != nil {
 		return nil, err
@@ -493,25 +516,9 @@ func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, currentU
 
 	result := make(map[int]CoveredSeason)
 	for _, r := range reqs {
-		isWatching := false
-		watchingVal, err := c.queries.IsWatchingRequest(ctx, sqlc.IsWatchingRequestParams{
-			RequestID: r.ID,
-			UserID:    currentUserID,
-		})
-		if err == nil {
-			isWatching = watchingVal != 0
-		}
-
-		covered := CoveredSeason{
-			RequestID:  r.ID,
-			UserID:     r.UserID,
-			Status:     r.Status,
-			IsWatching: isWatching,
-		}
-
+		covered := c.toCoveredSeason(ctx, r, currentUserID)
 		if r.MediaType == MediaTypeSeries {
-			seasons := seasonsFromJSON(r.RequestedSeasons)
-			for _, sn := range seasons {
+			for _, sn := range seasonsFromJSON(r.RequestedSeasons) {
 				result[int(sn)] = covered
 			}
 		} else if r.MediaType == MediaTypeSeason && r.SeasonNumber.Valid {
@@ -522,6 +529,36 @@ func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, currentU
 	return result, nil
 }
 
+func (c *LibraryChecker) resolveTvdbID(ctx context.Context, tvdbID, tmdbID int64) int64 {
+	if tvdbID > 0 {
+		return tvdbID
+	}
+	if tmdbID > 0 {
+		series := c.findSeries(ctx, 0, tmdbID)
+		if series != nil && series.TvdbID.Valid {
+			return series.TvdbID.Int64
+		}
+	}
+	return 0
+}
+
+func (c *LibraryChecker) toCoveredSeason(ctx context.Context, r *sqlc.Request, currentUserID int64) CoveredSeason {
+	isWatching := false
+	watchingVal, err := c.queries.IsWatchingRequest(ctx, sqlc.IsWatchingRequestParams{
+		RequestID: r.ID,
+		UserID:    currentUserID,
+	})
+	if err == nil {
+		isWatching = watchingVal != 0
+	}
+	return CoveredSeason{
+		RequestID:  r.ID,
+		UserID:     r.UserID,
+		Status:     r.Status,
+		IsWatching: isWatching,
+	}
+}
+
 type EpisodeAvailability struct {
 	EpisodeNumber int  `json:"episodeNumber"`
 	HasFile       bool `json:"hasFile"`
@@ -529,10 +566,10 @@ type EpisodeAvailability struct {
 	Aired         bool `json:"aired"`
 }
 
-func (c *LibraryChecker) GetEpisodeAvailabilityForSeason(ctx context.Context, tvdbID int64, seasonNumber int) ([]EpisodeAvailability, error) {
-	series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
-	if err != nil {
-		return nil, err
+func (c *LibraryChecker) GetEpisodeAvailabilityForSeason(ctx context.Context, tvdbID, tmdbID int64, seasonNumber int) ([]EpisodeAvailability, error) {
+	series := c.findSeries(ctx, tvdbID, tmdbID)
+	if series == nil {
+		return nil, sql.ErrNoRows
 	}
 
 	rows, err := c.queries.GetEpisodeAvailabilityForSeason(ctx, sqlc.GetEpisodeAvailabilityForSeasonParams{
