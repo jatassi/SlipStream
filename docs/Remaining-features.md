@@ -22,11 +22,10 @@
 [x] Update detail pages
 [x] Update missing page
 [x] Support for more download clients and indexers (directly refer to *arr codebases)
-[ ] Library in Portal
+[x] Library in Portal
 [ ] Config backup & restore
 [ ] React Doctor findings
 [ ] Deps update
-
 [x] Simplification, Refactor, Enhanced Test Suite, Security Audit
 [*] Onboarding wizard (Sonarr/Radarr migration)
 ======== Ready for Beta Release ========

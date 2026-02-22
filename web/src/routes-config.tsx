@@ -20,6 +20,7 @@ import { RequestDetailPage } from '@/routes/requests/$id'
 import { LoginPage } from '@/routes/requests/auth/login'
 import { SignupPage } from '@/routes/requests/auth/signup'
 import { RequestsListPage } from '@/routes/requests/index'
+import { PortalLibraryPage } from '@/routes/requests/library'
 import { PortalSearchPageWrapper } from '@/routes/requests/search'
 import { PortalSettingsPage } from '@/routes/requests/settings'
 import { SearchPage } from '@/routes/search/index'
@@ -150,6 +151,7 @@ const portalRoute = <P extends string>(path: P, component: () => React.JSX.Eleme
 export const requestsListRoute = portalRoute('/requests', RequestsListPage)
 export const requestDetailRoute = portalRoute('/requests/$id', RequestDetailPage)
 export const portalSettingsRoute = portalRoute('/requests/settings', PortalSettingsPage)
+export const portalLibraryRoute = portalRoute('/requests/library', PortalLibraryPage)
 
 export const portalSearchRoute = createRoute({
   getParentRoute: () => portalLayoutRoute,

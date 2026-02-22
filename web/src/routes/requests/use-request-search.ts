@@ -11,7 +11,7 @@ import {
   useWatchRequest,
 } from '@/hooks'
 import { usePortalAuthStore } from '@/stores'
-import type { EnrichedSeason, PortalMovieSearchResult, PortalSeriesSearchResult } from '@/types'
+import type { PortalMovieSearchResult, PortalSeriesSearchResult } from '@/types'
 
 import { sortByAddedAt } from './search-utils'
 
@@ -80,7 +80,7 @@ function useSeriesDialog() {
     seasons, loadingSeasons,
     handleSeriesRequestClick, toggleSeasonSelection,
     selectAllSeasons: () => setSelectedSeasons(new Set(
-      (seasons as EnrichedSeason[]).filter(
+      seasons.filter(
         (s) => s.seasonNumber > 0 && !s.available && !s.existingRequestId,
       ).map((s) => s.seasonNumber),
     )),

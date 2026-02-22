@@ -32,6 +32,7 @@ import (
 	"github.com/slipstream/slipstream/internal/missing"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/portal/admin"
+	portallibrary "github.com/slipstream/slipstream/internal/portal/library"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	portalsearch "github.com/slipstream/slipstream/internal/portal/search"
@@ -392,6 +393,12 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	searchGroup.Use(s.portalSearchLimiter.Middleware())
 	searchHandlers.RegisterRoutes(searchGroup, s.portalAuthMiddleware)
 
+	// Portal library browse
+	libraryHandlers := portallibrary.NewHandlers(s.movieService, s.tvService, s.portalLibraryChecker, s.portalUsersService)
+	libraryGroup := requestsGroup.Group("/library")
+	libraryGroup.Use(s.portalAuthMiddleware.AnyAuth())
+	libraryHandlers.RegisterRoutes(libraryGroup)
+
 	// Portal request handlers
 	requestHandlers := requests.NewHandlers(
 		s.portalRequestsService,
@@ -412,7 +419,10 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	portalInboxHandlers := portalnotifs.NewInboxHandlers(s.portalNotificationsService)
 	portalInboxHandlers.RegisterRoutes(requestsGroup.Group("/inbox"), s.portalAuthMiddleware)
 
-	// Admin routes (admin users only)
+	s.setupPortalAdminRoutes(api)
+}
+
+func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 	adminGroup := api.Group("/admin/requests")
 
 	// Admin user management

@@ -2,13 +2,14 @@ import { useMemo } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 
-import { usePortalDownloads } from '@/hooks'
+import { usePortalDownloads, useSeriesSeasons } from '@/hooks'
 import { useExtendedMovieMetadata, useExtendedSeriesMetadata } from '@/hooks/use-metadata'
 import type {
   ExtendedMovieResult,
   ExtendedSeriesResult,
   PortalDownload,
   Request,
+  SeriesSearchResult,
 } from '@/types'
 
 import type { MediaInfoModalProps, MediaInfoState } from './media-info-modal-types'
@@ -33,11 +34,20 @@ export function useMediaInfoModal(params: HookParams): MediaInfoState {
     [downloads, tmdbId, matchingRequests],
   )
 
+  const tvdbId = mediaType === 'series' ? (media as SeriesSearchResult).tvdbId : undefined
+  const { data: enrichedSeasons } = useSeriesSeasons(
+    mediaType === 'series' && open && inLibrary ? tmdbId : undefined,
+    mediaType === 'series' && open && inLibrary ? tvdbId : undefined,
+  )
+
   const handleAdd = makeHandleAdd({ onAction, onOpenChange, mediaType, tmdbId, navigate })
   const derived = deriveExtendedFields(extendedData)
   const libraryStatus = computeLibraryStatus({ aggregateStatus, activeDownload, matchingRequests, inLibrary })
 
-  return { extendedData, isLoading, handleAdd, ...derived, ...libraryStatus }
+  return {
+    extendedData, isLoading, handleAdd, ...derived, ...libraryStatus,
+    enrichedSeasons,
+  }
 }
 
 function useExtendedData(mediaType: 'movie' | 'series', open: boolean, tmdbId: number) {

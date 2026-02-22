@@ -26,6 +26,7 @@ import {
   moviesRoute,
   notificationsRoute,
   portalLayoutRoute,
+  portalLibraryRoute,
   portalLoginRoute,
   portalSearchRoute,
   portalSettingsRoute,
@@ -105,6 +106,7 @@ const routeTree = rootRoute.addChildren([
   portalLayoutRoute.addChildren([
     requestsListRoute,
     portalSearchRoute,
+    portalLibraryRoute,
     requestDetailRoute,
     portalSettingsRoute,
   ]),

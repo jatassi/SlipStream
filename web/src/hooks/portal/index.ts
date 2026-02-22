@@ -1,6 +1,7 @@
 export * from './use-inbox'
 export * from './use-passkey'
 export * from './use-portal-auth'
+export * from './use-portal-library'
 export * from './use-portal-search'
 export * from './use-requests'
 export * from './use-user-notifications'

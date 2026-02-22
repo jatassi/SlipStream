@@ -6,6 +6,7 @@ export type {
   UnreadCountResponse,
 } from './inbox'
 export { portalInboxApi } from './inbox'
+export { portalLibraryApi } from './library'
 export { portalNotificationsApi } from './notifications'
 export type { PasskeyCredential, PasskeyLoginResponse } from './passkey'
 export { passkeyApi } from './passkey'

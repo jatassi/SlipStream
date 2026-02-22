@@ -23,6 +23,7 @@ type MovieDetailHeroProps = {
 export function MovieDetailHero({
   movie,
   extendedData,
+  isExtendedDataLoading,
   qualityProfileName,
   overviewExpanded,
   onToggleOverview,
@@ -51,6 +52,7 @@ export function MovieDetailHero({
           <HeroInfo
             movie={movie}
             extendedData={extendedData}
+            isExtendedDataLoading={isExtendedDataLoading}
             qualityProfileName={qualityProfileName}
             overviewExpanded={overviewExpanded}
             onToggleOverview={onToggleOverview}

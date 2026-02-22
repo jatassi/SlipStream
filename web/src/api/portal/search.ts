@@ -1,4 +1,4 @@
-import type { PortalMovieSearchResult, PortalSeriesSearchResult, SeasonInfo } from '@/types'
+import type { EnrichedSeason, PortalMovieSearchResult, PortalSeriesSearchResult } from '@/types'
 
 import { buildQueryString, portalFetch } from './client'
 
@@ -10,5 +10,5 @@ export const portalSearchApi = {
     portalFetch<PortalSeriesSearchResult[]>(`/search/series${buildQueryString({ query })}`),
 
   getSeriesSeasons: (tmdbId?: number, tvdbId?: number) =>
-    portalFetch<SeasonInfo[]>(`/search/series/seasons${buildQueryString({ tmdbId, tvdbId })}`),
+    portalFetch<EnrichedSeason[]>(`/search/series/seasons${buildQueryString({ tmdbId, tvdbId })}`),
 }

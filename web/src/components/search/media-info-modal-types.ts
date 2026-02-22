@@ -1,4 +1,5 @@
 import type {
+  EnrichedSeason,
   ExtendedMovieResult,
   ExtendedSeriesResult,
   MovieSearchResult,
@@ -31,5 +32,6 @@ export type MediaInfoState = {
   creators: { name: string }[] | undefined
   studio: string | undefined
   seasons: ExtendedSeriesResult['seasons'] | undefined
+  enrichedSeasons: EnrichedSeason[] | undefined
   handleAdd: () => void
 }

@@ -52,6 +52,7 @@ function toAvailability(entry: RequestEntry | undefined): AvailabilityInfo | und
     existingRequestId: entry.id,
     existingRequestUserId: null,
     existingRequestStatus: entry.status as RequestStatus,
+    existingRequestIsWatching: null,
     mediaId: null,
     addedAt: null,
   }

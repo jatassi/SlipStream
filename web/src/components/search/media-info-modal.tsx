@@ -55,7 +55,7 @@ export function MediaInfoModal({
             />
 
             {mediaType === 'series' && state.seasons && state.seasons.length > 0 ? (
-              <SeasonsList seasons={state.seasons} />
+              <SeasonsList seasons={state.seasons} enrichedSeasons={state.enrichedSeasons} />
             ) : null}
           </div>
         </ScrollArea>
