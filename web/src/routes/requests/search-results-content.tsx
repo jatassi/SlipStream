@@ -12,6 +12,7 @@ type SearchResultsContentProps = {
   hasRequestableResults: boolean
   libraryMovies: PortalMovieSearchResult[]
   librarySeriesItems: PortalSeriesSearchResult[]
+  partialSeries: PortalSeriesSearchResult[]
   requestableMovies: PortalMovieSearchResult[]
   requestableSeries: PortalSeriesSearchResult[]
   currentUserId?: number
@@ -28,6 +29,7 @@ export function SearchResultsContent({
   hasRequestableResults,
   libraryMovies,
   librarySeriesItems,
+  partialSeries,
   requestableMovies,
   requestableSeries,
   currentUserId,
@@ -43,7 +45,9 @@ export function SearchResultsContent({
           isLoading={isLoading}
           libraryMovies={libraryMovies}
           librarySeriesItems={librarySeriesItems}
+          partialSeries={partialSeries}
           currentUserId={currentUserId}
+          onSeriesRequestClick={onSeriesRequestClick}
           onViewRequest={onViewRequest}
         />
       ) : null}
@@ -69,7 +73,9 @@ type LibrarySectionProps = {
   isLoading: boolean
   libraryMovies: PortalMovieSearchResult[]
   librarySeriesItems: PortalSeriesSearchResult[]
+  partialSeries: PortalSeriesSearchResult[]
   currentUserId?: number
+  onSeriesRequestClick: (item: PortalSeriesSearchResult) => void
   onViewRequest: (id: number) => void
 }
 
@@ -77,9 +83,12 @@ function LibrarySection({
   isLoading,
   libraryMovies,
   librarySeriesItems,
+  partialSeries,
   currentUserId,
+  onSeriesRequestClick,
   onViewRequest,
 }: LibrarySectionProps) {
+  const partialTmdbIds = new Set(partialSeries.map((s) => s.tmdbId))
   return (
     <SearchResultsSection title="In Library" isLoading={isLoading} hasResults>
       <div className="space-y-6">
@@ -91,6 +100,8 @@ function LibrarySection({
         <SeriesGrid
           items={librarySeriesItems}
           currentUserId={currentUserId}
+          onAction={onSeriesRequestClick}
+          partialTmdbIds={partialTmdbIds}
           onViewRequest={onViewRequest}
         />
       </div>

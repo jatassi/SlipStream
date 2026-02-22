@@ -586,3 +586,30 @@ WHERE series_id = ?
   AND season_number = ?
   AND monitored = 1
   AND status NOT IN ('failed', 'unreleased');
+
+-- name: GetSeriesSeasonAvailabilitySummary :many
+SELECT
+    sea.season_number,
+    sea.monitored,
+    COUNT(e.id) as total_episodes,
+    COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END), 0) as aired_episodes,
+    COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now')
+        AND EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL)
+        THEN 1 ELSE 0 END), 0) as aired_with_files,
+    COALESCE(SUM(CASE WHEN (e.air_date IS NULL OR substr(e.air_date, 1, 10) > date('now'))
+        AND e.monitored = 1 THEN 1 ELSE 0 END), 0) as unaired_monitored
+FROM seasons sea
+LEFT JOIN episodes e ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+WHERE sea.series_id = ? AND sea.season_number > 0
+GROUP BY sea.season_number, sea.monitored
+ORDER BY sea.season_number;
+
+-- name: GetEpisodeAvailabilityForSeason :many
+SELECT
+    e.episode_number,
+    e.monitored,
+    CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END as aired,
+    CASE WHEN EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL) THEN 1 ELSE 0 END as has_file
+FROM episodes e
+WHERE e.series_id = ? AND e.season_number = ?
+ORDER BY e.episode_number;

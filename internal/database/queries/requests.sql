@@ -146,3 +146,10 @@ LIMIT 1;
 SELECT * FROM requests
 WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved')
 ORDER BY created_at DESC;
+
+-- name: FindRequestsCoveringSeasons :many
+SELECT * FROM requests
+WHERE tvdb_id = ?
+  AND media_type IN ('series', 'season')
+  AND status NOT IN ('denied', 'available')
+ORDER BY created_at DESC;

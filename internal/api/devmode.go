@@ -118,6 +118,7 @@ func (s *Server) updateServicesDB() {
 	s.portalWatchersService.SetDB(db)
 	s.portalStatusTracker.SetDB(db)
 	s.portalLibraryChecker.SetDB(db)
+	s.adminRequestLibraryChecker.SetDB(db)
 	s.adminSettingsHandlers.SetDB(queries)
 
 	s.logger.Info().Msg("Updated all services with new database connection")

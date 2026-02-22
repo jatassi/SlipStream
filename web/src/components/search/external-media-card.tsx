@@ -24,6 +24,7 @@ export type ExternalMediaCardProps = {
   actionIcon?: React.ReactNode
   disabledLabel?: string
   requestedLabel?: string
+  canRequest?: boolean
 }
 
 const HOVER_CLASSES = {
@@ -66,6 +67,8 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
         network={getSeriesField(media, mediaType, 'network')}
         networkLogoUrl={getSeriesField(media, mediaType, 'networkLogoUrl')}
         hasActiveDownload={s.hasActiveDownload} isInLibrary={s.isInLibrary}
+        canRequest={props.canRequest ?? s.canRequest}
+        seasonAvailability={props.availability?.seasonAvailability}
         hasExistingRequest={s.hasExistingRequest} isAvailable={s.isAvailable} isApproved={s.isApproved}
         onClick={() => setInfoOpen(true)}
       />
@@ -73,6 +76,7 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
         <CardActionButton
           mediaType={mediaType} hasActiveDownload={s.hasActiveDownload}
           activeDownloadMediaId={s.activeDownloadMediaId} isInLibrary={s.isInLibrary}
+          canRequest={props.canRequest ?? s.canRequest}
           hasExistingRequest={s.hasExistingRequest} isAvailable={s.isAvailable}
           isApproved={s.isApproved} isOwnRequest={s.isOwnRequest} viewRequestId={s.viewRequestId}
           onAction={props.onAction} onViewRequest={props.onViewRequest}
@@ -81,7 +85,7 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
       </div>
       <MediaInfoModal
         open={infoOpen} onOpenChange={setInfoOpen} media={media} mediaType={mediaType}
-        inLibrary={s.isInLibrary} onAction={s.canRequest && !s.isInLibrary ? props.onAction : undefined}
+        inLibrary={s.isInLibrary} onAction={(s.canRequest || props.canRequest) ? props.onAction : undefined}
         actionLabel={actionLabel} actionIcon={actionIcon} disabledLabel={disabledLabel}
       />
     </div>

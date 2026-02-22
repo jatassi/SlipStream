@@ -192,6 +192,16 @@ export type CreateUserNotificationInput = {
 }
 
 // Search with availability
+export type SeasonAvailabilityInfo = {
+  seasonNumber: number
+  available: boolean
+  hasAnyFiles: boolean
+  airedEpisodesWithFiles: number
+  totalAiredEpisodes: number
+  totalEpisodes: number
+  monitored: boolean
+}
+
 export type AvailabilityInfo = {
   inLibrary: boolean
   existingSlots: SlotInfo[]
@@ -199,8 +209,10 @@ export type AvailabilityInfo = {
   existingRequestId: number | null
   existingRequestUserId: number | null
   existingRequestStatus: RequestStatus | null
+  existingRequestIsWatching: boolean | null
   mediaId: number | null
   addedAt: string | null
+  seasonAvailability?: SeasonAvailabilityInfo[]
 }
 
 export type SlotInfo = {
@@ -240,6 +252,38 @@ export type SeasonInfo = {
   overview?: string
   posterUrl?: string
   airDate?: string
+}
+
+export type EnrichedEpisode = {
+  episodeNumber: number
+  seasonNumber: number
+  title: string
+  overview?: string
+  airDate?: string
+  runtime?: number
+  imdbRating?: number
+  hasFile: boolean
+  monitored: boolean
+  aired: boolean
+}
+
+export type EnrichedSeason = {
+  seasonNumber: number
+  name: string
+  overview?: string
+  posterUrl?: string
+  airDate?: string
+  episodes?: EnrichedEpisode[]
+  inLibrary: boolean
+  available: boolean
+  monitored: boolean
+  airedEpisodesWithFiles: number
+  totalAiredEpisodes: number
+  episodeCount: number
+  existingRequestId?: number
+  existingRequestUserId?: number
+  existingRequestStatus?: RequestStatus
+  existingRequestIsWatching?: boolean
 }
 
 // Request settings

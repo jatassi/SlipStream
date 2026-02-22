@@ -96,11 +96,9 @@ func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context
 }
 
 func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Context, input *requests.MediaProvisionInput) (int64, error) {
-	// First, try to find existing series by TVDB ID
 	existing, err := a.tvService.GetSeriesByTvdbID(ctx, int(input.TvdbID))
 	if err == nil && existing != nil {
-		a.logger.Debug().Int64("tvdbID", input.TvdbID).Int64("seriesID", existing.ID).Msg("found existing series in library")
-		return existing.ID, nil
+		return a.applyMonitoringToExistingSeries(ctx, existing.ID, input)
 	}
 
 	// Series not in library - get default settings and create it
@@ -148,6 +146,17 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 	return series.ID, nil
 }
 
+func (a *portalMediaProvisionerAdapter) applyMonitoringToExistingSeries(ctx context.Context, seriesID int64, input *requests.MediaProvisionInput) (int64, error) {
+	a.logger.Debug().Int64("tvdbID", input.TvdbID).Int64("seriesID", seriesID).Msg("found existing series in library")
+	if len(input.RequestedSeasons) > 0 {
+		a.applyRequestedSeasonsMonitoringAdditive(ctx, seriesID, input.RequestedSeasons)
+	}
+	if input.MonitorFuture {
+		a.applyMonitorFuture(ctx, seriesID)
+	}
+	return seriesID, nil
+}
+
 // applyRequestedSeasonsMonitoring unmonitors all seasons except the requested ones.
 func (a *portalMediaProvisionerAdapter) applyRequestedSeasonsMonitoring(ctx context.Context, seriesID int64, requestedSeasons []int64) error {
 	// Get all seasons for the series
@@ -191,6 +200,30 @@ func (a *portalMediaProvisionerAdapter) applyRequestedSeasonsMonitoring(ctx cont
 		Msg("applied requested seasons monitoring")
 
 	return nil
+}
+
+func (a *portalMediaProvisionerAdapter) applyRequestedSeasonsMonitoringAdditive(ctx context.Context, seriesID int64, requestedSeasons []int64) {
+	for _, sn := range requestedSeasons {
+		if _, err := a.tvService.UpdateSeasonMonitored(ctx, seriesID, int(sn), true); err != nil {
+			a.logger.Warn().Err(err).Int64("seriesID", seriesID).Int64("seasonNumber", sn).Msg("failed to monitor requested season")
+		}
+	}
+}
+
+func (a *portalMediaProvisionerAdapter) applyMonitorFuture(ctx context.Context, seriesID int64) {
+	if err := a.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
+		Monitored: 1,
+		SeriesID:  seriesID,
+	}); err != nil {
+		a.logger.Warn().Err(err).Int64("seriesID", seriesID).Msg("failed to monitor future episodes")
+	}
+	if err := a.queries.UpdateFutureSeasonsMonitored(ctx, sqlc.UpdateFutureSeasonsMonitoredParams{
+		Monitored:  1,
+		SeriesID:   seriesID,
+		SeriesID_2: seriesID,
+	}); err != nil {
+		a.logger.Warn().Err(err).Int64("seriesID", seriesID).Msg("failed to monitor future seasons")
+	}
 }
 
 func (a *portalMediaProvisionerAdapter) getDefaultSettings(ctx context.Context, mediaType string) (rootFolderID, qualityProfileID int64, err error) {
@@ -802,4 +835,35 @@ func (a *arrImportHubAdapter) BroadcastJSON(v interface{}) {
 	// Hub.Broadcast takes (msgType string, payload interface{})
 	// We'll use a generic message type for arr import progress
 	a.hub.Broadcast("arrImportProgress", v)
+}
+
+// adminRequestLibraryCheckerAdapter adapts sqlc.Queries to admin.RequestLibraryChecker.
+type adminRequestLibraryCheckerAdapter struct {
+	queries *sqlc.Queries
+}
+
+func (a *adminRequestLibraryCheckerAdapter) CheckMovieInLibrary(ctx context.Context, tmdbID int64) (inLibrary bool, mediaID *int64, err error) {
+	movie, lookupErr := a.queries.GetMovieByTmdbID(ctx, sql.NullInt64{Int64: tmdbID, Valid: true})
+	if lookupErr != nil {
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			return false, nil, nil
+		}
+		return false, nil, lookupErr
+	}
+	return true, &movie.ID, nil
+}
+
+func (a *adminRequestLibraryCheckerAdapter) CheckSeriesInLibrary(ctx context.Context, tvdbID int64) (inLibrary bool, mediaID *int64, err error) {
+	series, lookupErr := a.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	if lookupErr != nil {
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			return false, nil, nil
+		}
+		return false, nil, lookupErr
+	}
+	return true, &series.ID, nil
+}
+
+func (a *adminRequestLibraryCheckerAdapter) SetDB(db *sql.DB) {
+	a.queries = sqlc.New(db)
 }

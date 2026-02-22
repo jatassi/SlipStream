@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/slipstream/slipstream/internal/metadata"
@@ -26,6 +27,28 @@ type MovieSearchResult struct {
 type SeriesSearchResult struct {
 	metadata.SeriesResult
 	Availability *requests.AvailabilityResult `json:"availability,omitempty"`
+}
+
+type EnrichedEpisodeResult struct {
+	metadata.EpisodeResult
+	HasFile   bool `json:"hasFile"`
+	Monitored bool `json:"monitored"`
+	Aired     bool `json:"aired"`
+}
+
+type EnrichedSeasonResult struct {
+	metadata.SeasonResult
+	Episodes                  []EnrichedEpisodeResult `json:"episodes,omitempty"`
+	InLibrary                 bool                    `json:"inLibrary"`
+	Available                 bool                    `json:"available"`
+	Monitored                 bool                    `json:"monitored"`
+	AiredEpisodesWithFiles    int                     `json:"airedEpisodesWithFiles"`
+	TotalAiredEpisodes        int                     `json:"totalAiredEpisodes"`
+	EpisodeCount              int                     `json:"episodeCount"`
+	ExistingRequestID         *int64                  `json:"existingRequestId,omitempty"`
+	ExistingRequestUserID     *int64                  `json:"existingRequestUserId,omitempty"`
+	ExistingRequestStatus     *string                 `json:"existingRequestStatus,omitempty"`
+	ExistingRequestIsWatching *bool                   `json:"existingRequestIsWatching,omitempty"`
 }
 
 type Handlers struct {
@@ -76,7 +99,7 @@ func (h *Handlers) SearchMovies(c echo.Context) error {
 	}
 
 	profileID := h.getUserQualityProfileID(c.Request().Context(), claims.UserID)
-	enriched := h.enrichMovieResults(c.Request().Context(), results, profileID)
+	enriched := h.enrichMovieResults(c.Request().Context(), results, profileID, claims.UserID)
 	return c.JSON(http.StatusOK, enriched)
 }
 
@@ -99,12 +122,12 @@ func (h *Handlers) getUserQualityProfileID(ctx context.Context, userID int64) *i
 	return user.QualityProfileID
 }
 
-func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64) []MovieSearchResult {
+func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64, currentUserID int64) []MovieSearchResult {
 	enriched := make([]MovieSearchResult, len(results))
 	for i := range results {
 		enriched[i] = MovieSearchResult{MovieResult: results[i]}
 		if results[i].ID > 0 {
-			availability, err := h.libraryChecker.CheckMovieAvailability(ctx, int64(results[i].ID), profileID)
+			availability, err := h.libraryChecker.CheckMovieAvailability(ctx, int64(results[i].ID), profileID, currentUserID)
 			if err == nil {
 				enriched[i].Availability = availability
 			}
@@ -159,7 +182,7 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 	return c.JSON(http.StatusOK, enrichedResults)
 }
 
-// GetSeriesSeasons returns the seasons for a series
+// GetSeriesSeasons returns the seasons for a series enriched with library availability data
 // GET /api/v1/requests/search/series/seasons?tmdbId=...&tvdbId=...
 func (h *Handlers) GetSeriesSeasons(c echo.Context) error {
 	claims := portalmw.GetPortalUser(c)
@@ -188,5 +211,88 @@ func (h *Handlers) GetSeriesSeasons(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, seasons)
+	ctx := c.Request().Context()
+
+	var availMap map[int]requests.SeasonAvailability
+	var coveredMap map[int]requests.CoveredSeason
+	if tvdbID > 0 {
+		availMap, _ = h.libraryChecker.GetSeasonAvailabilityMap(ctx, int64(tvdbID))
+		coveredMap, _ = h.libraryChecker.GetCoveredSeasons(ctx, int64(tvdbID), claims.UserID)
+	}
+
+	enriched := h.enrichSeasons(ctx, seasons, int64(tvdbID), availMap, coveredMap)
+	return c.JSON(http.StatusOK, enriched)
+}
+
+func (h *Handlers) enrichSeasons(ctx context.Context, seasons []metadata.SeasonResult, tvdbID int64, availMap map[int]requests.SeasonAvailability, coveredMap map[int]requests.CoveredSeason) []EnrichedSeasonResult {
+	enriched := make([]EnrichedSeasonResult, len(seasons))
+	for i, season := range seasons {
+		esr := EnrichedSeasonResult{
+			SeasonResult: season,
+			EpisodeCount: len(season.Episodes),
+		}
+
+		if sa, ok := availMap[season.SeasonNumber]; ok {
+			esr.InLibrary = sa.HasAnyFiles
+			esr.Available = sa.Available
+			esr.Monitored = sa.Monitored
+			esr.AiredEpisodesWithFiles = sa.AiredEpisodesWithFiles
+			esr.TotalAiredEpisodes = sa.TotalAiredEpisodes
+		}
+
+		if cs, ok := coveredMap[season.SeasonNumber]; ok {
+			esr.ExistingRequestID = &cs.RequestID
+			esr.ExistingRequestUserID = &cs.UserID
+			esr.ExistingRequestStatus = &cs.Status
+			esr.ExistingRequestIsWatching = &cs.IsWatching
+		}
+
+		esr.Episodes = h.enrichEpisodes(ctx, &seasons[i], tvdbID, availMap)
+		enriched[i] = esr
+	}
+	return enriched
+}
+
+func (h *Handlers) enrichEpisodes(ctx context.Context, season *metadata.SeasonResult, tvdbID int64, availMap map[int]requests.SeasonAvailability) []EnrichedEpisodeResult {
+	episodes := make([]EnrichedEpisodeResult, len(season.Episodes))
+
+	var epAvailMap map[int]requests.EpisodeAvailability
+	if _, inLibrary := availMap[season.SeasonNumber]; inLibrary && tvdbID > 0 {
+		epRows, err := h.libraryChecker.GetEpisodeAvailabilityForSeason(ctx, tvdbID, season.SeasonNumber)
+		if err == nil {
+			epAvailMap = make(map[int]requests.EpisodeAvailability, len(epRows))
+			for _, ea := range epRows {
+				epAvailMap[ea.EpisodeNumber] = ea
+			}
+		}
+	}
+
+	for i, ep := range season.Episodes {
+		enriched := EnrichedEpisodeResult{
+			EpisodeResult: ep,
+		}
+
+		if ea, ok := epAvailMap[ep.EpisodeNumber]; ok {
+			enriched.HasFile = ea.HasFile
+			enriched.Monitored = ea.Monitored
+			enriched.Aired = ea.Aired
+		} else if ep.AirDate != "" {
+			enriched.Aired = isAired(ep.AirDate)
+		}
+
+		episodes[i] = enriched
+	}
+
+	return episodes
+}
+
+func isAired(airDate string) bool {
+	if len(airDate) < 10 {
+		return false
+	}
+	t, err := time.Parse("2006-01-02", airDate[:10])
+	if err != nil {
+		return false
+	}
+	return !t.After(time.Now().Truncate(24 * time.Hour))
 }

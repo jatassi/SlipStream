@@ -55,6 +55,7 @@ type SeriesGridProps = {
   collapsible?: boolean
   isRequested?: (tmdbId: number) => boolean
   onAction?: (item: PortalSeriesSearchResult) => void
+  partialTmdbIds?: Set<number>
   onViewRequest: (id: number) => void
 }
 
@@ -64,6 +65,7 @@ export function SeriesGrid({
   collapsible,
   isRequested,
   onAction,
+  partialTmdbIds,
   onViewRequest,
 }: SeriesGridProps) {
   return (
@@ -73,20 +75,24 @@ export function SeriesGrid({
       label="Series"
       icon="series"
       collapsible={collapsible}
-      renderItem={(item) => (
-        <ExternalMediaCard
-          media={convertToSeriesSearchResult(item)}
-          mediaType="series"
-          availability={item.availability}
-          requested={isRequested?.(item.tmdbId || item.id)}
-          currentUserId={currentUserId}
-          onAction={onAction ? () => onAction(item) : undefined}
-          onViewRequest={onViewRequest}
-          actionLabel="Request"
-          actionIcon={ACTION_ICON}
-          disabledLabel="In Library"
-        />
-      )}
+      renderItem={(item) => {
+        const isPartial = partialTmdbIds?.has(item.tmdbId) ?? false
+        return (
+          <ExternalMediaCard
+            media={convertToSeriesSearchResult(item)}
+            mediaType="series"
+            availability={item.availability}
+            requested={isRequested?.(item.tmdbId || item.id)}
+            currentUserId={currentUserId}
+            onAction={onAction ? () => onAction(item) : undefined}
+            onViewRequest={onViewRequest}
+            actionLabel="Request"
+            actionIcon={ACTION_ICON}
+            disabledLabel="In Library"
+            canRequest={isPartial}
+          />
+        )
+      }}
     />
   )
 }

@@ -224,6 +224,58 @@ func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (*Requ
 	return &i, err
 }
 
+const findRequestsCoveringSeasons = `-- name: FindRequestsCoveringSeasons :many
+SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ?
+  AND media_type IN ('series', 'season')
+  AND status NOT IN ('denied', 'available')
+ORDER BY created_at DESC
+`
+
+func (q *Queries) FindRequestsCoveringSeasons(ctx context.Context, tvdbID sql.NullInt64) ([]*Request, error) {
+	rows, err := q.db.QueryContext(ctx, findRequestsCoveringSeasons, tvdbID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Request{}
+	for rows.Next() {
+		var i Request
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.MediaType,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.Title,
+			&i.Year,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.Status,
+			&i.MonitorType,
+			&i.DeniedReason,
+			&i.ApprovedAt,
+			&i.ApprovedBy,
+			&i.MediaID,
+			&i.TargetSlotID,
+			&i.PosterUrl,
+			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getActiveRequestByTmdbID = `-- name: GetActiveRequestByTmdbID :one
 SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tmdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'cancelled')

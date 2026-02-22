@@ -46,6 +46,7 @@ export function PortalSearchPage({ q }: PortalSearchPageProps) {
         onDeselectAll={s.deselectAllSeasons}
         onSubmit={s.handleSubmitSeriesRequest}
         isSubmitting={s.isSubmitting}
+        onWatchRequest={s.handleWatchRequest}
       />
     </div>
   )
@@ -79,6 +80,7 @@ function SearchBody({ query, state: s }: SearchBodyProps) {
       hasRequestableResults={s.hasRequestableResults}
       libraryMovies={s.libraryMovies}
       librarySeriesItems={s.librarySeriesItems}
+      partialSeries={s.partialSeries}
       requestableMovies={s.requestableMovies}
       requestableSeries={s.requestableSeries}
       currentUserId={s.user?.id}

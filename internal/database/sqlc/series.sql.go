@@ -564,6 +564,57 @@ func (q *Queries) GetEpisode(ctx context.Context, id int64) (*Episode, error) {
 	return &i, err
 }
 
+const getEpisodeAvailabilityForSeason = `-- name: GetEpisodeAvailabilityForSeason :many
+SELECT
+    e.episode_number,
+    e.monitored,
+    CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END as aired,
+    CASE WHEN EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL) THEN 1 ELSE 0 END as has_file
+FROM episodes e
+WHERE e.series_id = ? AND e.season_number = ?
+ORDER BY e.episode_number
+`
+
+type GetEpisodeAvailabilityForSeasonParams struct {
+	SeriesID     int64 `json:"series_id"`
+	SeasonNumber int64 `json:"season_number"`
+}
+
+type GetEpisodeAvailabilityForSeasonRow struct {
+	EpisodeNumber int64 `json:"episode_number"`
+	Monitored     int64 `json:"monitored"`
+	Aired         int64 `json:"aired"`
+	HasFile       int64 `json:"has_file"`
+}
+
+func (q *Queries) GetEpisodeAvailabilityForSeason(ctx context.Context, arg GetEpisodeAvailabilityForSeasonParams) ([]*GetEpisodeAvailabilityForSeasonRow, error) {
+	rows, err := q.db.QueryContext(ctx, getEpisodeAvailabilityForSeason, arg.SeriesID, arg.SeasonNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetEpisodeAvailabilityForSeasonRow{}
+	for rows.Next() {
+		var i GetEpisodeAvailabilityForSeasonRow
+		if err := rows.Scan(
+			&i.EpisodeNumber,
+			&i.Monitored,
+			&i.Aired,
+			&i.HasFile,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEpisodeByNumber = `-- name: GetEpisodeByNumber :one
 SELECT id, series_id, season_number, episode_number, title, overview, air_date, monitored, status, active_download_id, status_message FROM episodes
 WHERE series_id = ? AND season_number = ? AND episode_number = ?
@@ -1287,6 +1338,63 @@ func (q *Queries) GetSeriesMonitoringStats(ctx context.Context, arg GetSeriesMon
 		&i.MonitoredEpisodes,
 	)
 	return &i, err
+}
+
+const getSeriesSeasonAvailabilitySummary = `-- name: GetSeriesSeasonAvailabilitySummary :many
+SELECT
+    sea.season_number,
+    sea.monitored,
+    COUNT(e.id) as total_episodes,
+    COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now') THEN 1 ELSE 0 END), 0) as aired_episodes,
+    COALESCE(SUM(CASE WHEN e.air_date IS NOT NULL AND substr(e.air_date, 1, 10) <= date('now')
+        AND EXISTS (SELECT 1 FROM episode_slot_assignments esa WHERE esa.episode_id = e.id AND esa.file_id IS NOT NULL)
+        THEN 1 ELSE 0 END), 0) as aired_with_files,
+    COALESCE(SUM(CASE WHEN (e.air_date IS NULL OR substr(e.air_date, 1, 10) > date('now'))
+        AND e.monitored = 1 THEN 1 ELSE 0 END), 0) as unaired_monitored
+FROM seasons sea
+LEFT JOIN episodes e ON e.series_id = sea.series_id AND e.season_number = sea.season_number
+WHERE sea.series_id = ? AND sea.season_number > 0
+GROUP BY sea.season_number, sea.monitored
+ORDER BY sea.season_number
+`
+
+type GetSeriesSeasonAvailabilitySummaryRow struct {
+	SeasonNumber     int64       `json:"season_number"`
+	Monitored        int64       `json:"monitored"`
+	TotalEpisodes    int64       `json:"total_episodes"`
+	AiredEpisodes    interface{} `json:"aired_episodes"`
+	AiredWithFiles   interface{} `json:"aired_with_files"`
+	UnairedMonitored interface{} `json:"unaired_monitored"`
+}
+
+func (q *Queries) GetSeriesSeasonAvailabilitySummary(ctx context.Context, seriesID int64) ([]*GetSeriesSeasonAvailabilitySummaryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSeriesSeasonAvailabilitySummary, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetSeriesSeasonAvailabilitySummaryRow{}
+	for rows.Next() {
+		var i GetSeriesSeasonAvailabilitySummaryRow
+		if err := rows.Scan(
+			&i.SeasonNumber,
+			&i.Monitored,
+			&i.TotalEpisodes,
+			&i.AiredEpisodes,
+			&i.AiredWithFiles,
+			&i.UnairedMonitored,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSeriesWithAddedBy = `-- name: GetSeriesWithAddedBy :one

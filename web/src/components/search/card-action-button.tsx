@@ -12,6 +12,7 @@ type CardActionButtonProps = {
   hasActiveDownload: boolean
   activeDownloadMediaId?: number
   isInLibrary: boolean
+  canRequest: boolean
   hasExistingRequest: boolean
   isAvailable: boolean
   isApproved: boolean
@@ -28,8 +29,24 @@ export function CardActionButton(props: CardActionButtonProps) {
   if (props.hasActiveDownload) {
     return <DownloadProgressBar mediaId={props.activeDownloadMediaId} mediaType={props.mediaType} />
   }
-  if (props.isInLibrary) {
+  if (props.isInLibrary && !props.canRequest) {
     return <StatusButton icon={<Check className={ICON_CLASS} />} label="In Library" />
+  }
+  if (props.isInLibrary && props.canRequest) {
+    return (
+      <Button
+        variant="default"
+        size="sm"
+        className={BTN_CLASS}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation()
+          props.onAction?.()
+        }}
+      >
+        {props.actionIcon}
+        {props.actionLabel}
+      </Button>
+    )
   }
   if (props.hasExistingRequest) {
     return <ExistingRequestButton {...props} />

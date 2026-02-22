@@ -160,6 +160,7 @@ type Server struct {
 	portalWatchersService      *requests.WatchersService
 	portalStatusTracker        *requests.StatusTracker
 	portalLibraryChecker       *requests.LibraryChecker
+	adminRequestLibraryChecker *adminRequestLibraryCheckerAdapter
 	adminSettingsHandlers      *admin.SettingsHandlers
 
 	// Security
@@ -532,6 +533,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.portalStatusTracker.SetSeriesLookup(&statusTrackerSeriesLookup{tvSvc: s.tvService})
 	s.portalStatusTracker.SetNotificationDispatcher(s.portalNotificationsService)
 	s.portalLibraryChecker = requests.NewLibraryChecker(queries, logger)
+	s.adminRequestLibraryChecker = &adminRequestLibraryCheckerAdapter{queries: queries}
 	s.importService.SetStatusTracker(s.portalStatusTracker)
 	s.grabService.SetPortalStatusTracker(s.portalStatusTracker)
 	s.downloaderService.SetPortalStatusTracker(s.portalStatusTracker)

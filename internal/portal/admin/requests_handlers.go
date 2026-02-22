@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -38,9 +39,23 @@ type RequestSearcher interface {
 	SearchForRequestAsync(requestID int64)
 }
 
+// RequestLibraryChecker checks whether requested media exists in the library.
+type RequestLibraryChecker interface {
+	CheckMovieInLibrary(ctx context.Context, tmdbID int64) (inLibrary bool, mediaID *int64, err error)
+	CheckSeriesInLibrary(ctx context.Context, tvdbID int64) (inLibrary bool, mediaID *int64, err error)
+}
+
+// AdminRequestDetail wraps a request with additional admin-only library status fields.
+type AdminRequestDetail struct {
+	*requests.Request
+	InLibrary      bool   `json:"inLibrary"`
+	LibraryMediaID *int64 `json:"libraryMediaId,omitempty"`
+}
+
 type RequestsHandlers struct {
 	requestsService *requests.Service
 	requestSearcher RequestSearcher
+	libraryChecker  RequestLibraryChecker
 }
 
 func NewRequestsHandlers(requestsService *requests.Service, requestSearcher RequestSearcher) *RequestsHandlers {
@@ -48,6 +63,10 @@ func NewRequestsHandlers(requestsService *requests.Service, requestSearcher Requ
 		requestsService: requestsService,
 		requestSearcher: requestSearcher,
 	}
+}
+
+func (h *RequestsHandlers) SetLibraryChecker(checker RequestLibraryChecker) {
+	h.libraryChecker = checker
 }
 
 func (h *RequestsHandlers) RegisterRoutes(g *echo.Group, authMiddleware *portalmw.AuthMiddleware) {
@@ -106,7 +125,58 @@ func (h *RequestsHandlers) Get(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, request)
+	detail := &AdminRequestDetail{Request: request}
+	h.populateLibraryInfo(c.Request().Context(), request, detail)
+
+	return c.JSON(http.StatusOK, detail)
+}
+
+// populateLibraryInfo enriches the detail response with library presence data.
+func (h *RequestsHandlers) populateLibraryInfo(ctx context.Context, req *requests.Request, detail *AdminRequestDetail) {
+	if h.libraryChecker == nil {
+		return
+	}
+
+	switch req.MediaType {
+	case requests.MediaTypeMovie:
+		h.populateMovieLibraryInfo(ctx, req, detail)
+	case requests.MediaTypeSeries, requests.MediaTypeSeason:
+		h.populateSeriesLibraryInfo(ctx, req, detail)
+	}
+}
+
+func (h *RequestsHandlers) populateMovieLibraryInfo(ctx context.Context, req *requests.Request, detail *AdminRequestDetail) {
+	if req.MediaID != nil {
+		detail.InLibrary = true
+		detail.LibraryMediaID = req.MediaID
+		return
+	}
+	if req.TmdbID == nil {
+		return
+	}
+	inLibrary, mediaID, err := h.libraryChecker.CheckMovieInLibrary(ctx, *req.TmdbID)
+	if err != nil {
+		return
+	}
+	detail.InLibrary = inLibrary
+	detail.LibraryMediaID = mediaID
+}
+
+func (h *RequestsHandlers) populateSeriesLibraryInfo(ctx context.Context, req *requests.Request, detail *AdminRequestDetail) {
+	if req.MediaID != nil {
+		detail.InLibrary = true
+		detail.LibraryMediaID = req.MediaID
+		return
+	}
+	if req.TvdbID == nil {
+		return
+	}
+	inLibrary, mediaID, err := h.libraryChecker.CheckSeriesInLibrary(ctx, *req.TvdbID)
+	if err != nil {
+		return
+	}
+	detail.InLibrary = inLibrary
+	detail.LibraryMediaID = mediaID
 }
 
 // Approve approves a request

@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Check, Clock, Eye, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import type { SeasonInfo } from '@/types'
+import type { EnrichedSeason } from '@/types'
 
 type SeriesRequestDialogProps = {
   open: boolean
@@ -21,7 +21,7 @@ type SeriesRequestDialogProps = {
   seriesTitle?: string
   monitorFuture: boolean
   onMonitorFutureChange: (value: boolean) => void
-  seasons: SeasonInfo[]
+  seasons: EnrichedSeason[]
   loadingSeasons: boolean
   selectedSeasons: Set<number>
   onToggleSeason: (seasonNumber: number) => void
@@ -29,11 +29,13 @@ type SeriesRequestDialogProps = {
   onDeselectAll: () => void
   onSubmit: () => void
   isSubmitting: boolean
+  onWatchRequest?: (requestId: number) => void
 }
 
-function SeasonsSelector({ seasons, loadingSeasons, selectedSeasons, onToggleSeason, onSelectAll, onDeselectAll, monitorFuture }: {
-  seasons: SeasonInfo[]; loadingSeasons: boolean; selectedSeasons: Set<number>
+function SeasonsSelector({ seasons, loadingSeasons, selectedSeasons, onToggleSeason, onSelectAll, onDeselectAll, monitorFuture, onWatchRequest }: {
+  seasons: EnrichedSeason[]; loadingSeasons: boolean; selectedSeasons: Set<number>
   onToggleSeason: (n: number) => void; onSelectAll: () => void; onDeselectAll: () => void; monitorFuture: boolean
+  onWatchRequest?: (requestId: number) => void
 }) {
   const buttonsDisabled = loadingSeasons || seasons.length === 0
   return (
@@ -45,7 +47,7 @@ function SeasonsSelector({ seasons, loadingSeasons, selectedSeasons, onToggleSea
           <Button variant="ghost" size="sm" onClick={onDeselectAll} disabled={buttonsDisabled}>None</Button>
         </div>
       </div>
-      <SeasonsList seasons={seasons} loading={loadingSeasons} selectedSeasons={selectedSeasons} onToggle={onToggleSeason} />
+      <SeasonsList seasons={seasons} loading={loadingSeasons} selectedSeasons={selectedSeasons} onToggle={onToggleSeason} onWatchRequest={onWatchRequest} />
       {selectedSeasons.size === 0 && monitorFuture ? (
         <p className="text-muted-foreground text-xs">
           No seasons selected. Series will be added to library and only future episodes will be monitored.
@@ -72,7 +74,8 @@ export function SeriesRequestDialog(props: SeriesRequestDialogProps) {
           </div>
           <SeasonsSelector
             seasons={props.seasons} loadingSeasons={props.loadingSeasons} selectedSeasons={props.selectedSeasons}
-            onToggleSeason={props.onToggleSeason} onSelectAll={props.onSelectAll} onDeselectAll={props.onDeselectAll} monitorFuture={props.monitorFuture}
+            onToggleSeason={props.onToggleSeason} onSelectAll={props.onSelectAll} onDeselectAll={props.onDeselectAll}
+            monitorFuture={props.monitorFuture} onWatchRequest={props.onWatchRequest}
           />
         </div>
         <DialogFooter>
@@ -88,13 +91,14 @@ export function SeriesRequestDialog(props: SeriesRequestDialogProps) {
 }
 
 type SeasonsListProps = {
-  seasons: SeasonInfo[]
+  seasons: EnrichedSeason[]
   loading: boolean
   selectedSeasons: Set<number>
   onToggle: (seasonNumber: number) => void
+  onWatchRequest?: (requestId: number) => void
 }
 
-function SeasonsList({ seasons, loading, selectedSeasons, onToggle }: SeasonsListProps) {
+function SeasonsList({ seasons, loading, selectedSeasons, onToggle, onWatchRequest }: SeasonsListProps) {
   if (loading) {
     return (
       <div className="space-y-2">
@@ -118,23 +122,70 @@ function SeasonsList({ seasons, loading, selectedSeasons, onToggle }: SeasonsLis
   return (
     <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
       {sorted.map((season) => (
-        <div key={season.seasonNumber} className="flex items-center space-x-2 py-1">
-          <Checkbox
-            id={`season-${season.seasonNumber}`}
-            checked={selectedSeasons.has(season.seasonNumber)}
-            onCheckedChange={() => onToggle(season.seasonNumber)}
-          />
-          <Label
-            htmlFor={`season-${season.seasonNumber}`}
-            className="flex-1 cursor-pointer text-sm"
-          >
-            Season {season.seasonNumber}
-            {season.name && season.name !== `Season ${season.seasonNumber}` ? (
-              <span className="text-muted-foreground ml-1">({season.name})</span>
-            ) : null}
-          </Label>
-        </div>
+        <SeasonRow
+          key={season.seasonNumber}
+          season={season}
+          selected={selectedSeasons.has(season.seasonNumber)}
+          onToggle={onToggle}
+          onWatchRequest={onWatchRequest}
+        />
       ))}
     </div>
   )
+}
+
+function getSeasonLabel(season: EnrichedSeason): string {
+  if (season.name && season.name !== `Season ${season.seasonNumber}`) {
+    return `Season ${season.seasonNumber} (${season.name})`
+  }
+  return `Season ${season.seasonNumber}`
+}
+
+function AvailableSeasonRow({ season }: { season: EnrichedSeason }) {
+  return (
+    <div className="flex items-center space-x-2 py-1 opacity-60">
+      <Check className="size-4 text-green-500" />
+      <span className="flex-1 text-sm">{getSeasonLabel(season)}</span>
+      <span className="text-muted-foreground text-xs">Available</span>
+    </div>
+  )
+}
+
+function RequestedSeasonRow({ season, onWatchRequest }: { season: EnrichedSeason; onWatchRequest?: (id: number) => void }) {
+  const requestId = season.existingRequestId
+  return (
+    <div className="flex items-center space-x-2 py-1 opacity-60">
+      <Clock className="size-4 text-yellow-500" />
+      <span className="flex-1 text-sm">{getSeasonLabel(season)}</span>
+      <span className="text-muted-foreground text-xs">Requested</span>
+      {onWatchRequest && requestId && !season.existingRequestIsWatching ? (
+        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onWatchRequest(requestId) }}>
+          <Eye className="mr-1 size-3" />
+          Watch
+        </Button>
+      ) : null}
+      {season.existingRequestIsWatching ? <span className="text-muted-foreground text-xs">Watching</span> : null}
+    </div>
+  )
+}
+
+function SelectableSeasonRow({ season, selected, onToggle }: { season: EnrichedSeason; selected: boolean; onToggle: (n: number) => void }) {
+  return (
+    <div className="flex items-center space-x-2 py-1">
+      <Checkbox id={`season-${season.seasonNumber}`} checked={selected} onCheckedChange={() => onToggle(season.seasonNumber)} />
+      <Label htmlFor={`season-${season.seasonNumber}`} className="flex-1 cursor-pointer text-sm">{getSeasonLabel(season)}</Label>
+      {season.inLibrary && season.totalAiredEpisodes > 0 ? (
+        <span className="text-muted-foreground text-xs">{season.airedEpisodesWithFiles}/{season.totalAiredEpisodes} eps</span>
+      ) : null}
+    </div>
+  )
+}
+
+function SeasonRow({ season, selected, onToggle, onWatchRequest }: {
+  season: EnrichedSeason; selected: boolean
+  onToggle: (n: number) => void; onWatchRequest?: (id: number) => void
+}) {
+  if (season.available) { return <AvailableSeasonRow season={season} /> }
+  if (season.existingRequestId) { return <RequestedSeasonRow season={season} onWatchRequest={onWatchRequest} /> }
+  return <SelectableSeasonRow season={season} selected={selected} onToggle={onToggle} />
 }

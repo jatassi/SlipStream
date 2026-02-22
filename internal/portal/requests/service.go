@@ -513,20 +513,48 @@ func (s *Service) checkExistingSeries(ctx context.Context, input *CreateInput) (
 	if input.TvdbID == nil {
 		return nil, sql.ErrNoRows
 	}
-	return s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
+
+	// Same-type check first
+	req, err := s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
 		TvdbID:    sql.NullInt64{Int64: *input.TvdbID, Valid: true},
 		MediaType: MediaTypeSeries,
 	})
+	if err == nil && req != nil {
+		return req, nil
+	}
+
+	// Cross-type check: if ALL requested seasons are already covered by existing requests
+	if len(input.RequestedSeasons) > 0 {
+		coveredReq, err := s.checkCrossTypeCoverage(ctx, *input.TvdbID, input.RequestedSeasons)
+		if err == nil && coveredReq != nil {
+			return coveredReq, nil
+		}
+	}
+
+	return nil, sql.ErrNoRows
 }
 
 func (s *Service) checkExistingSeason(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
 	if input.TvdbID == nil || input.SeasonNumber == nil {
 		return nil, sql.ErrNoRows
 	}
-	return s.queries.GetRequestByTvdbIDAndSeason(ctx, sqlc.GetRequestByTvdbIDAndSeasonParams{
+
+	// Same-type check first
+	req, err := s.queries.GetRequestByTvdbIDAndSeason(ctx, sqlc.GetRequestByTvdbIDAndSeasonParams{
 		TvdbID:       sql.NullInt64{Int64: *input.TvdbID, Valid: true},
 		SeasonNumber: sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
 	})
+	if err == nil && req != nil {
+		return req, nil
+	}
+
+	// Cross-type check: is this season covered by an existing series request?
+	coveredReq, err := s.checkCrossTypeCoverage(ctx, *input.TvdbID, []int64{*input.SeasonNumber})
+	if err == nil && coveredReq != nil {
+		return coveredReq, nil
+	}
+
+	return nil, sql.ErrNoRows
 }
 
 func (s *Service) checkExistingEpisode(ctx context.Context, input *CreateInput) (*sqlc.Request, error) {
@@ -538,6 +566,45 @@ func (s *Service) checkExistingEpisode(ctx context.Context, input *CreateInput) 
 		SeasonNumber:  sql.NullInt64{Int64: *input.SeasonNumber, Valid: true},
 		EpisodeNumber: sql.NullInt64{Int64: *input.EpisodeNumber, Valid: true},
 	})
+}
+
+func (s *Service) checkCrossTypeCoverage(ctx context.Context, tvdbID int64, requestedSeasons []int64) (*sqlc.Request, error) {
+	reqs, err := s.queries.FindRequestsCoveringSeasons(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	coveredSeasons, coveringReq := buildCoveredSeasonsMap(reqs)
+
+	for _, sn := range requestedSeasons {
+		if !coveredSeasons[sn] {
+			return nil, sql.ErrNoRows
+		}
+	}
+
+	if coveringReq != nil {
+		return coveringReq, nil
+	}
+
+	return nil, sql.ErrNoRows
+}
+
+func buildCoveredSeasonsMap(reqs []*sqlc.Request) (map[int64]bool, *sqlc.Request) {
+	coveredSeasons := make(map[int64]bool)
+	var coveringReq *sqlc.Request
+	for _, r := range reqs {
+		if r.MediaType == MediaTypeSeries {
+			for _, sn := range seasonsFromJSON(r.RequestedSeasons) {
+				coveredSeasons[sn] = true
+			}
+		} else if r.MediaType == MediaTypeSeason && r.SeasonNumber.Valid {
+			coveredSeasons[r.SeasonNumber.Int64] = true
+		}
+		if coveringReq == nil {
+			coveringReq = r
+		}
+	}
+	return coveredSeasons, coveringReq
 }
 
 func (s *Service) handleExistingRequestResult(req *sqlc.Request, err error) (*Request, error) {

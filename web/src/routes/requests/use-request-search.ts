@@ -8,9 +8,10 @@ import {
   usePortalMovieSearch,
   usePortalSeriesSearch,
   useSeriesSeasons,
+  useWatchRequest,
 } from '@/hooks'
 import { usePortalAuthStore } from '@/stores'
-import type { PortalMovieSearchResult, PortalSeriesSearchResult } from '@/types'
+import type { EnrichedSeason, PortalMovieSearchResult, PortalSeriesSearchResult } from '@/types'
 
 import { sortByAddedAt } from './search-utils'
 
@@ -25,13 +26,21 @@ function useSearchResults(query: string) {
   const { data: series = [], isLoading: loadingSeries } = usePortalSeriesSearch(query)
 
   const libraryMovies = sortByAddedAt(movies.filter((m) => m.availability?.inLibrary))
-  const librarySeriesItems = sortByAddedAt(series.filter((s) => s.availability?.inLibrary))
   const requestableMovies = movies.filter((m) => !m.availability?.inLibrary)
+
+  const fullyAvailableSeries = sortByAddedAt(
+    series.filter((s) => s.availability?.inLibrary && !s.availability.canRequest),
+  )
+  const partialSeries = sortByAddedAt(
+    series.filter((s) => s.availability?.inLibrary && s.availability.canRequest),
+  )
   const requestableSeries = series.filter((s) => !s.availability?.inLibrary)
+
+  const librarySeriesItems = [...fullyAvailableSeries, ...partialSeries]
 
   return {
     isLoading: loadingMovies || loadingSeries,
-    libraryMovies, librarySeriesItems, requestableMovies, requestableSeries,
+    libraryMovies, librarySeriesItems, partialSeries, requestableMovies, requestableSeries,
     hasLibraryResults: libraryMovies.length > 0 || librarySeriesItems.length > 0,
     hasRequestableResults: requestableMovies.length > 0 || requestableSeries.length > 0,
   }
@@ -70,7 +79,11 @@ function useSeriesDialog() {
     selectedSeasons, setSelectedSeasons,
     seasons, loadingSeasons,
     handleSeriesRequestClick, toggleSeasonSelection,
-    selectAllSeasons: () => setSelectedSeasons(new Set(seasons.map((s) => s.seasonNumber))),
+    selectAllSeasons: () => setSelectedSeasons(new Set(
+      (seasons as EnrichedSeason[]).filter(
+        (s) => s.seasonNumber > 0 && !s.available && !s.existingRequestId,
+      ).map((s) => s.seasonNumber),
+    )),
     deselectAllSeasons: () => setSelectedSeasons(new Set()),
   }
 }
@@ -78,11 +91,17 @@ function useSeriesDialog() {
 function buildSeriesRequestPayload(dialog: ReturnType<typeof useSeriesDialog>) {
   if (!dialog.selectedSeries) {return undefined}
   const seasonsArray = [...dialog.selectedSeasons].toSorted((a, b) => a - b)
-  return {
-    mediaType: 'series' as const, tmdbId: dialog.selectedSeries.tmdbId || dialog.selectedSeries.id,
+  const common = {
+    tmdbId: dialog.selectedSeries.tmdbId || dialog.selectedSeries.id,
     tvdbId: dialog.selectedSeries.tvdbId ?? undefined,
     title: dialog.selectedSeries.title, year: dialog.selectedSeries.year ?? undefined,
     monitorFuture: dialog.monitorFuture, posterUrl: dialog.selectedSeries.posterUrl ?? undefined,
+  }
+  if (seasonsArray.length === 1) {
+    return { ...common, mediaType: 'season' as const, seasonNumber: seasonsArray[0] }
+  }
+  return {
+    ...common, mediaType: 'series' as const,
     requestedSeasons: seasonsArray.length > 0 ? seasonsArray : undefined,
   }
 }
@@ -91,6 +110,7 @@ export function useRequestSearch(query: string) {
   const navigate = useNavigate()
   const { user } = usePortalAuthStore()
   const createRequest = useCreateRequest()
+  const watchRequest = useWatchRequest()
   const [requestedTmdbIds, setRequestedTmdbIds] = useState<Set<number>>(new Set())
 
   const results = useSearchResults(query)
@@ -122,8 +142,16 @@ export function useRequestSearch(query: string) {
     })
   }
 
+  const handleWatchRequest = (requestId: number) => {
+    watchRequest.mutate(requestId, {
+      onSuccess: () => toast.success('Now watching request'),
+      onError: (error) => toast.error('Failed to watch request', { description: error.message }),
+    })
+  }
+
   return {
     user, ...results, isRequested, handleMovieRequest, handleSubmitSeriesRequest,
+    handleWatchRequest,
     goToRequest: (id: number) => void navigate({ to: '/requests/$id', params: { id: String(id) } }),
     ...dialog, isSubmitting: createRequest.isPending,
   }

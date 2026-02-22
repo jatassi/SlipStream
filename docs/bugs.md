@@ -6,7 +6,7 @@
 [x] Better markdown formatting for release notes (bullet points)
 [x] Themeing for calendar page
 [x] Hide dev mode toggle
-[x] admin login redirect issue
+[ ] admin login redirect issue
 [x] mask pin as you type
 [x] downloads left nav item slightly misaligned
 [x] mediainfo not being detected

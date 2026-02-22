@@ -1,7 +1,9 @@
 import { NetworkLogo } from '@/components/media/network-logo'
 import { PosterImage } from '@/components/media/poster-image'
 import { Badge } from '@/components/ui/badge'
+import type { SeasonAvailabilityInfo } from '@/types'
 
+import { SeasonAvailabilityBadge } from './season-availability-badge'
 import { StatusBadge } from './status-badge'
 
 type CardPosterProps = {
@@ -13,6 +15,8 @@ type CardPosterProps = {
   networkLogoUrl?: string
   hasActiveDownload: boolean
   isInLibrary: boolean
+  canRequest?: boolean
+  seasonAvailability?: SeasonAvailabilityInfo[]
   hasExistingRequest: boolean
   isAvailable: boolean
   isApproved: boolean
@@ -28,23 +32,31 @@ export function CardPoster({
   networkLogoUrl,
   hasActiveDownload,
   isInLibrary,
+  canRequest,
+  seasonAvailability,
   hasExistingRequest,
   isAvailable,
   isApproved,
   onClick,
 }: CardPosterProps) {
+  const showSeasonBadge = isInLibrary && canRequest && seasonAvailability && seasonAvailability.length > 0
+
   return (
     <button type="button" className="relative aspect-[2/3] w-full cursor-pointer text-left" onClick={onClick}>
       <PosterImage url={posterUrl} alt={title} type={mediaType} className="absolute inset-0" />
 
       <div className="absolute top-2 left-2 flex flex-col gap-1">
-        <StatusBadge
-          hasActiveDownload={hasActiveDownload}
-          isInLibrary={isInLibrary}
-          hasExistingRequest={hasExistingRequest}
-          isAvailable={isAvailable}
-          isApproved={isApproved}
-        />
+        {showSeasonBadge ? (
+          <SeasonAvailabilityBadge seasonAvailability={seasonAvailability} />
+        ) : (
+          <StatusBadge
+            hasActiveDownload={hasActiveDownload}
+            isInLibrary={isInLibrary}
+            hasExistingRequest={hasExistingRequest}
+            isAvailable={isAvailable}
+            isApproved={isApproved}
+          />
+        )}
       </div>
 
       {mediaType === 'series' && (

@@ -16,15 +16,34 @@ type SlotInfo struct {
 	QualityID *int64 `json:"qualityId,omitempty"`
 }
 
+type SeasonAvailability struct {
+	SeasonNumber           int  `json:"seasonNumber"`
+	Available              bool `json:"available"`
+	HasAnyFiles            bool `json:"hasAnyFiles"`
+	AiredEpisodesWithFiles int  `json:"airedEpisodesWithFiles"`
+	TotalAiredEpisodes     int  `json:"totalAiredEpisodes"`
+	TotalEpisodes          int  `json:"totalEpisodes"`
+	Monitored              bool `json:"monitored"`
+}
+
+type CoveredSeason struct {
+	RequestID  int64
+	UserID     int64
+	Status     string
+	IsWatching bool
+}
+
 type AvailabilityResult struct {
-	InLibrary             bool       `json:"inLibrary"`
-	ExistingSlots         []SlotInfo `json:"existingSlots,omitempty"`
-	CanRequest            bool       `json:"canRequest"`
-	ExistingRequestID     *int64     `json:"existingRequestId,omitempty"`
-	ExistingRequestUserID *int64     `json:"existingRequestUserId,omitempty"`
-	ExistingRequestStatus *string    `json:"existingRequestStatus,omitempty"`
-	MediaID               *int64     `json:"mediaId,omitempty"`
-	AddedAt               *string    `json:"addedAt,omitempty"`
+	InLibrary                 bool                 `json:"inLibrary"`
+	ExistingSlots             []SlotInfo           `json:"existingSlots,omitempty"`
+	CanRequest                bool                 `json:"canRequest"`
+	ExistingRequestID         *int64               `json:"existingRequestId,omitempty"`
+	ExistingRequestUserID     *int64               `json:"existingRequestUserId,omitempty"`
+	ExistingRequestStatus     *string              `json:"existingRequestStatus,omitempty"`
+	ExistingRequestIsWatching *bool                `json:"existingRequestIsWatching,omitempty"`
+	MediaID                   *int64               `json:"mediaId,omitempty"`
+	AddedAt                   *string              `json:"addedAt,omitempty"`
+	SeasonAvailability        []SeasonAvailability `json:"seasonAvailability,omitempty"`
 }
 
 type LibraryChecker struct {
@@ -44,7 +63,7 @@ func (c *LibraryChecker) SetDB(db *sql.DB) {
 	c.queries = sqlc.New(db)
 }
 
-func (c *LibraryChecker) CheckMovieAvailability(ctx context.Context, tmdbID int64, userQualityProfileID *int64) (*AvailabilityResult, error) {
+func (c *LibraryChecker) CheckMovieAvailability(ctx context.Context, tmdbID int64, userQualityProfileID *int64, currentUserID ...int64) (*AvailabilityResult, error) {
 	result := &AvailabilityResult{
 		InLibrary:     false,
 		ExistingSlots: []SlotInfo{},
@@ -55,7 +74,11 @@ func (c *LibraryChecker) CheckMovieAvailability(ctx context.Context, tmdbID int6
 		return nil, err
 	}
 
-	if err := c.checkExistingMovieRequest(ctx, tmdbID, result); err != nil {
+	var uid int64
+	if len(currentUserID) > 0 {
+		uid = currentUserID[0]
+	}
+	if err := c.checkExistingMovieRequest(ctx, tmdbID, uid, result); err != nil {
 		return nil, err
 	}
 
@@ -91,10 +114,22 @@ func (c *LibraryChecker) checkMovieInLibrary(ctx context.Context, tmdbID int64, 
 		result.CanRequest = c.canRequestWithSlots(slots, userQualityProfileID)
 	}
 
+	hasAnyFile := false
+	for _, slot := range result.ExistingSlots {
+		if slot.HasFile {
+			hasAnyFile = true
+			break
+		}
+	}
+	if !hasAnyFile {
+		result.InLibrary = false
+		result.CanRequest = true
+	}
+
 	return nil
 }
 
-func (c *LibraryChecker) checkExistingMovieRequest(ctx context.Context, tmdbID int64, result *AvailabilityResult) error {
+func (c *LibraryChecker) checkExistingMovieRequest(ctx context.Context, tmdbID, currentUserID int64, result *AvailabilityResult) error {
 	existingReq, err := c.queries.GetActiveRequestByTmdbID(ctx, sqlc.GetActiveRequestByTmdbIDParams{
 		TmdbID:    sql.NullInt64{Int64: tmdbID, Valid: true},
 		MediaType: MediaTypeMovie,
@@ -111,6 +146,17 @@ func (c *LibraryChecker) checkExistingMovieRequest(ctx context.Context, tmdbID i
 		result.ExistingRequestUserID = &existingReq.UserID
 		result.ExistingRequestStatus = &existingReq.Status
 		result.CanRequest = false
+
+		if currentUserID > 0 {
+			watchingVal, err := c.queries.IsWatchingRequest(ctx, sqlc.IsWatchingRequestParams{
+				RequestID: existingReq.ID,
+				UserID:    currentUserID,
+			})
+			if err == nil {
+				isWatching := watchingVal != 0
+				result.ExistingRequestIsWatching = &isWatching
+			}
+		}
 	}
 
 	return nil
@@ -128,33 +174,64 @@ func (c *LibraryChecker) CheckSeriesAvailability(ctx context.Context, tvdbID int
 		return nil, err
 	}
 
-	// Only mark as in library if we found a series (no error and valid ID)
 	if err == nil && series.ID > 0 {
-		result.InLibrary = true
-		result.MediaID = &series.ID
-		if series.AddedAt.Valid {
-			addedAtStr := series.AddedAt.Time.Format("2006-01-02T15:04:05Z")
-			result.AddedAt = &addedAtStr
-		}
-		result.CanRequest = c.canRequestWithSlots(result.ExistingSlots, userQualityProfileID)
+		c.populateSeriesAvailability(ctx, series, result)
 	}
 
-	// Use GetActiveRequestByTvdbID to find any active request (including 'available' status)
+	if err := c.checkExistingSeriesRequest(ctx, tvdbID, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *LibraryChecker) populateSeriesAvailability(ctx context.Context, series *sqlc.Series, result *AvailabilityResult) {
+	result.MediaID = &series.ID
+	if series.AddedAt.Valid {
+		addedAtStr := series.AddedAt.Time.Format("2006-01-02T15:04:05Z")
+		result.AddedAt = &addedAtStr
+	}
+
+	seasonAvail, err := c.getSeasonAvailability(ctx, series.ID)
+	if err != nil {
+		c.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to get season availability")
+	}
+	result.SeasonAvailability = seasonAvail
+
+	hasAnyFiles := false
+	allAvailable := true
+	for _, sa := range seasonAvail {
+		if sa.HasAnyFiles {
+			hasAnyFiles = true
+		}
+		if !sa.Available {
+			allAvailable = false
+		}
+	}
+
+	if hasAnyFiles {
+		result.InLibrary = true
+		result.CanRequest = !allAvailable
+	}
+}
+
+func (c *LibraryChecker) checkExistingSeriesRequest(ctx context.Context, tvdbID int64, result *AvailabilityResult) error {
 	existingReq, err := c.queries.GetActiveRequestByTvdbID(ctx, sqlc.GetActiveRequestByTvdbIDParams{
 		TvdbID:    sql.NullInt64{Int64: tvdbID, Valid: true},
 		MediaType: MediaTypeSeries,
 	})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
+		return err
 	}
 	if err == nil && existingReq != nil {
 		result.ExistingRequestID = &existingReq.ID
 		result.ExistingRequestUserID = &existingReq.UserID
 		result.ExistingRequestStatus = &existingReq.Status
-		result.CanRequest = false
+		if !result.InLibrary || !result.CanRequest {
+			result.CanRequest = false
+		}
 	}
-
-	return result, nil
+	return nil
 }
 
 func (c *LibraryChecker) CheckSeasonAvailability(ctx context.Context, tvdbID, seasonNumber int64, userQualityProfileID *int64) (*AvailabilityResult, error) {
@@ -356,6 +433,139 @@ func (c *LibraryChecker) getEpisodeSlots(ctx context.Context, episodeID int64) (
 	}
 
 	return slots, nil
+}
+
+func (c *LibraryChecker) getSeasonAvailability(ctx context.Context, seriesID int64) ([]SeasonAvailability, error) {
+	rows, err := c.queries.GetSeriesSeasonAvailabilitySummary(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]SeasonAvailability, 0, len(rows))
+	for _, row := range rows {
+		airedEps := toInt(row.AiredEpisodes)
+		airedWithFiles := toInt(row.AiredWithFiles)
+		unairedMonitored := toInt(row.UnairedMonitored)
+		totalEps := int(row.TotalEpisodes)
+		unairedCount := totalEps - airedEps
+
+		available := airedEps > 0 &&
+			airedWithFiles == airedEps &&
+			(unairedCount == 0 || unairedMonitored == unairedCount)
+
+		result = append(result, SeasonAvailability{
+			SeasonNumber:           int(row.SeasonNumber),
+			Available:              available,
+			HasAnyFiles:            airedWithFiles > 0,
+			AiredEpisodesWithFiles: airedWithFiles,
+			TotalAiredEpisodes:     airedEps,
+			TotalEpisodes:          totalEps,
+			Monitored:              row.Monitored == 1,
+		})
+	}
+
+	return result, nil
+}
+
+func (c *LibraryChecker) GetSeasonAvailabilityMap(ctx context.Context, tvdbID int64) (map[int]SeasonAvailability, error) {
+	series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	avail, err := c.getSeasonAvailability(ctx, series.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[int]SeasonAvailability, len(avail))
+	for _, sa := range avail {
+		m[sa.SeasonNumber] = sa
+	}
+	return m, nil
+}
+
+func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, currentUserID int64) (map[int]CoveredSeason, error) {
+	reqs, err := c.queries.FindRequestsCoveringSeasons(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]CoveredSeason)
+	for _, r := range reqs {
+		isWatching := false
+		watchingVal, err := c.queries.IsWatchingRequest(ctx, sqlc.IsWatchingRequestParams{
+			RequestID: r.ID,
+			UserID:    currentUserID,
+		})
+		if err == nil {
+			isWatching = watchingVal != 0
+		}
+
+		covered := CoveredSeason{
+			RequestID:  r.ID,
+			UserID:     r.UserID,
+			Status:     r.Status,
+			IsWatching: isWatching,
+		}
+
+		if r.MediaType == MediaTypeSeries {
+			seasons := seasonsFromJSON(r.RequestedSeasons)
+			for _, sn := range seasons {
+				result[int(sn)] = covered
+			}
+		} else if r.MediaType == MediaTypeSeason && r.SeasonNumber.Valid {
+			result[int(r.SeasonNumber.Int64)] = covered
+		}
+	}
+
+	return result, nil
+}
+
+type EpisodeAvailability struct {
+	EpisodeNumber int  `json:"episodeNumber"`
+	HasFile       bool `json:"hasFile"`
+	Monitored     bool `json:"monitored"`
+	Aired         bool `json:"aired"`
+}
+
+func (c *LibraryChecker) GetEpisodeAvailabilityForSeason(ctx context.Context, tvdbID int64, seasonNumber int) ([]EpisodeAvailability, error) {
+	series, err := c.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := c.queries.GetEpisodeAvailabilityForSeason(ctx, sqlc.GetEpisodeAvailabilityForSeasonParams{
+		SeriesID:     series.ID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]EpisodeAvailability, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, EpisodeAvailability{
+			EpisodeNumber: int(row.EpisodeNumber),
+			HasFile:       row.HasFile != 0,
+			Monitored:     row.Monitored != 0,
+			Aired:         row.Aired != 0,
+		})
+	}
+	return result, nil
+}
+
+func toInt(v interface{}) int {
+	switch val := v.(type) {
+	case int64:
+		return int(val)
+	case float64:
+		return int(val)
+	case int:
+		return val
+	default:
+		return 0
+	}
 }
 
 func (c *LibraryChecker) canRequestWithSlots(slots []SlotInfo, userQualityProfileID *int64) bool {

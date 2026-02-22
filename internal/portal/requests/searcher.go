@@ -30,6 +30,7 @@ type MediaProvisionInput struct {
 	QualityProfileID *int64  // Optional: user's assigned quality profile
 	RequestedSeasons []int64 // Optional: specific seasons to monitor (empty = all seasons)
 	AddedBy          *int64  // Optional: portal user ID who triggered the add
+	MonitorFuture    bool    // If true, monitor future/unaired episodes and seasons
 }
 
 type MediaProvisioner interface {
@@ -285,9 +286,14 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 		}
 		input.TvdbID = *request.TvdbID
 		input.RequestedSeasons = request.RequestedSeasons
+		input.MonitorFuture = isMonitorFuture(request.MonitorType)
 		return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, &input)
 
 	default:
 		return 0, fmt.Errorf("unsupported media type: %s", request.MediaType)
 	}
+}
+
+func isMonitorFuture(monitorType *string) bool {
+	return monitorType != nil && *monitorType == "future"
 }

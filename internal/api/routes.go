@@ -444,6 +444,7 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 		s.portalRequestsService,
 		&portalRequestSearcherAdapter{searcher: s.portalRequestSearcher},
 	)
+	adminRequestHandlers.SetLibraryChecker(s.adminRequestLibraryChecker)
 	adminRequestHandlers.RegisterRoutes(adminGroup, s.portalAuthMiddleware)
 
 	// Admin settings
