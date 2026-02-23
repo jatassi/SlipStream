@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import { Toaster } from '@/components/ui/sonner'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 import { Header } from './header'
 import { Sidebar } from './sidebar'
@@ -31,6 +32,7 @@ function LoadingScreen() {
 }
 
 function LayoutContent({ children }: RootLayoutProps) {
+  useDocumentTitle()
   const layout = useLayoutEffects()
 
   if (layout.isPublicRoute) {
