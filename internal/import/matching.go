@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rs/zerolog"
+
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/tv"
 )
@@ -85,6 +87,8 @@ func (s *Service) resolveMatchConflict(ctx context.Context, path string, queueMa
 }
 
 func (s *Service) handleIncompatibleMatches(path string, queueMatch, parsedMatch *LibraryMatch, settings *ImportSettings) (*LibraryMatch, error) {
+	s.logMatchConflictDetails(path, queueMatch, parsedMatch)
+
 	switch settings.MatchConflictBehavior {
 	case MatchTrustQueue:
 		s.logger.Warn().
@@ -108,6 +112,33 @@ func (s *Service) handleIncompatibleMatches(path string, queueMatch, parsedMatch
 		return nil, ErrMatchConflict
 	}
 	return queueMatch, nil
+}
+
+func (s *Service) logMatchConflictDetails(path string, queueMatch, parsedMatch *LibraryMatch) {
+	event := s.logger.Warn().Str("path", path)
+	event = appendMatchFields(event, queueMatch, "queue")
+	event = appendMatchFields(event, parsedMatch, "parse")
+	event.Msg("Match conflict details")
+}
+
+func appendMatchFields(event *zerolog.Event, match *LibraryMatch, prefix string) *zerolog.Event {
+	if match == nil {
+		return event
+	}
+	event = event.Str(prefix+"MediaType", match.MediaType)
+	if match.MovieID != nil {
+		event = event.Int64(prefix+"MovieID", *match.MovieID)
+	}
+	if match.SeriesID != nil {
+		event = event.Int64(prefix+"SeriesID", *match.SeriesID)
+	}
+	if match.EpisodeID != nil {
+		event = event.Int64(prefix+"EpisodeID", *match.EpisodeID)
+	}
+	if match.SeasonNum != nil {
+		event = event.Int(prefix+"Season", *match.SeasonNum)
+	}
+	return event
 }
 
 func (s *Service) enrichQueueMatch(queueMatch, parsedMatch *LibraryMatch) {
@@ -342,13 +373,9 @@ type MovieSearchOptions struct {
 func (s *Service) searchSeries(ctx context.Context, opts TVSearchOptions) (*SeriesInfo, error) {
 	normalizedTitle := normalizeTitle(opts.Title)
 
-	// Use the first word of the cleaned title for broader SQL matching
-	// This handles cases where DB has "Show: Subtitle" but we're searching for "show subtitle"
-	searchTerm := cleanTitle(opts.Title)
-	words := strings.Fields(searchTerm)
-	if len(words) > 0 {
-		searchTerm = words[0]
-	}
+	// Use the first significant word of the cleaned title for broader SQL matching.
+	// Skip common articles ("a", "an", "the") since they match nearly everything.
+	searchTerm := firstSignificantWord(cleanTitle(opts.Title))
 
 	// Search in library using first word for broader matching
 	series, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{
@@ -396,13 +423,9 @@ type MovieInfo struct {
 func (s *Service) searchMovie(ctx context.Context, opts MovieSearchOptions) (*MovieWithFiles, error) {
 	normalizedTitle := normalizeTitle(opts.Title)
 
-	// Use the first word of the cleaned title for broader SQL matching
-	// This handles cases where DB has "Tron: Ares" but we're searching for "tron ares"
-	searchTerm := cleanTitle(opts.Title)
-	words := strings.Fields(searchTerm)
-	if len(words) > 0 {
-		searchTerm = words[0]
-	}
+	// Use the first significant word of the cleaned title for broader SQL matching.
+	// Skip common articles ("a", "an", "the") since they match nearly everything.
+	searchTerm := firstSignificantWord(cleanTitle(opts.Title))
 
 	// Search in library using first word for broader matching
 	moviesList, err := s.movies.List(ctx, movies.ListMoviesOptions{
@@ -482,6 +505,22 @@ func (s *Service) extractMultiEpisodeIDs(ctx context.Context, seriesID int64, se
 	}
 
 	return ids
+}
+
+// firstSignificantWord returns the first non-article word from a title for use as a SQL search term.
+// Articles like "a", "an", "the" are too generic and match nearly every title via LIKE.
+func firstSignificantWord(title string) string {
+	words := strings.Fields(title)
+	for _, w := range words {
+		lower := strings.ToLower(w)
+		if lower != "a" && lower != "an" && lower != "the" {
+			return w
+		}
+	}
+	if len(words) > 0 {
+		return words[0]
+	}
+	return title
 }
 
 // cleanTitle cleans a title from a filename.

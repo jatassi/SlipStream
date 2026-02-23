@@ -78,7 +78,7 @@ func DefaultImportSettings() ImportSettings {
 		MinimumFileSizeMB: 100,
 		VideoExtensions:   []string{".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".m2ts", ".webm"},
 
-		MatchConflictBehavior: MatchFail,
+		MatchConflictBehavior: MatchTrustQueue,
 		UnknownMediaBehavior:  UnknownIgnore,
 
 		RenameEpisodes:           true,

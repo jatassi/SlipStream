@@ -53,6 +53,33 @@ func TestNormalizeTitle(t *testing.T) {
 	}
 }
 
+func TestFirstSignificantWord(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"A Knight of the Seven Kingdoms", "Knight"},
+		{"The Walking Dead", "Walking"},
+		{"An American Werewolf", "American"},
+		{"Breaking Bad", "Breaking"},
+		{"a quiet place", "quiet"},
+		{"the the the", "the"}, // all articles, fallback to first word
+		{"A", "A"},             // single article, fallback
+		{"", ""},               // empty string
+		{"The 100", "100"},     // article followed by number
+		{"An", "An"},           // single article, fallback
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := firstSignificantWord(tt.input)
+			if got != tt.expected {
+				t.Errorf("firstSignificantWord(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCalculateTitleSimilarity(t *testing.T) {
 	tests := []struct {
 		name     string
