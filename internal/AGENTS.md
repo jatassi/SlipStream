@@ -15,6 +15,8 @@ s.logger.Info().Str("key", val).Int("count", n).Msg("message")
 s.logger.Warn().Err(err).Str("key", val).Msg("something failed")
 ```
 
+**Component tags:** Every logger must have a `Str("component", "xxx")` tag identifying its top-level subsystem (e.g., `api`, `database`, `scheduler`, `cardigann`, `startup`, `updater`). Use `Str("service", "xxx")` for sub-granularity within a component. Pre-zerolog bootstrap logs use `[component]` prefix in the format string (e.g., `[bootstrap]`, `[api]`).
+
 ## Database
 
 SQLite, WAL mode, Goose migrations (embedded), sqlc-generated queries. After modifying `internal/database/queries/*.sql`, run:
