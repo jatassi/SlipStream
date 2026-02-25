@@ -36,6 +36,14 @@ export function getPortalAuthToken(): string | null {
   return authToken
 }
 
+function handleUnauthorized(): void {
+  const hadToken = !!authToken
+  authToken = null
+  if (hadToken) {
+    globalThis.dispatchEvent(new CustomEvent('auth:unauthorized'))
+  }
+}
+
 export async function portalFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -54,6 +62,9 @@ export async function portalFetch<T>(path: string, options?: RequestInit): Promi
   })
 
   if (!res.ok) {
+    if (res.status === 401) {
+      handleUnauthorized()
+    }
     let errorData: unknown = null
     try {
       errorData = (await res.json()) as unknown
