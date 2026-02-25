@@ -217,7 +217,7 @@ function RequestMetadataGrid({ request }: { request: Request }) {
           <User className="size-3 md:size-4" /> Requested By
         </p>
         <p className="text-sm font-medium md:text-base">
-          {request.user?.displayName ?? request.user?.username ?? 'Unknown'}
+          {request.user?.username ?? 'Unknown'}
         </p>
       </div>
       <div className="space-y-1">

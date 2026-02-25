@@ -210,7 +210,7 @@ function RequestCardBody(props: {
       {showUser && request.user ? (
         <div className="text-muted-foreground mb-0.5 flex items-center gap-1 text-xs">
           <User className="size-3" />
-          <span>{request.user.displayName ?? request.user.username}</span>
+          <span>{request.user.username}</span>
         </div>
       ) : null}
       <div className="leading-snug">

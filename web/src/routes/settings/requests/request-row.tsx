@@ -98,7 +98,7 @@ function RequestMeta({ request }: { request: Request }) {
       {request.user ? (
         <>
           <span>•</span>
-          <span>by {request.user.displayName ?? request.user.username}</span>
+          <span>by {request.user.username}</span>
         </>
       ) : null}
     </div>

@@ -393,16 +393,15 @@ type PortalNotification struct {
 }
 
 type PortalUser struct {
-	ID               int64          `json:"id"`
-	Username         string         `json:"username"`
-	PasswordHash     string         `json:"password_hash"`
-	DisplayName      sql.NullString `json:"display_name"`
-	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	AutoApprove      int64          `json:"auto_approve"`
-	Enabled          int64          `json:"enabled"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
-	IsAdmin          int64          `json:"is_admin"`
+	ID               int64         `json:"id"`
+	Username         string        `json:"username"`
+	PasswordHash     string        `json:"password_hash"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	AutoApprove      int64         `json:"auto_approve"`
+	Enabled          int64         `json:"enabled"`
+	CreatedAt        time.Time     `json:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at"`
+	IsAdmin          int64         `json:"is_admin"`
 }
 
 type ProwlarrConfig struct {

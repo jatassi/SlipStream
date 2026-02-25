@@ -27,9 +27,8 @@ type CreateRequestInput struct {
 }
 
 type RequestUser struct {
-	ID          int64  `json:"id"`
-	Username    string `json:"username"`
-	DisplayName string `json:"displayName"`
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
 }
 
 type RequestWithWatchStatus struct {
@@ -165,9 +164,8 @@ func (h *Handlers) fetchRequestUsers(ctx context.Context, requests []*Request) m
 	for userID := range userIDs {
 		if user, err := h.usersService.Get(ctx, userID); err == nil && user != nil {
 			userMap[userID] = &RequestUser{
-				ID:          user.ID,
-				Username:    user.Username,
-				DisplayName: user.DisplayName,
+				ID:       user.ID,
+				Username: user.Username,
 			}
 		}
 	}
@@ -296,9 +294,8 @@ func (h *Handlers) Get(c echo.Context) error {
 	var reqUser *RequestUser
 	if user, err := h.usersService.Get(c.Request().Context(), request.UserID); err == nil && user != nil {
 		reqUser = &RequestUser{
-			ID:          user.ID,
-			Username:    user.Username,
-			DisplayName: user.DisplayName,
+			ID:       user.ID,
+			Username: user.Username,
 		}
 	}
 

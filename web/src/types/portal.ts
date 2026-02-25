@@ -2,7 +2,6 @@
 export type PortalUser = {
   id: number
   username: string
-  displayName: string | null
   qualityProfileId: number | null
   autoApprove: boolean
   enabled: boolean
@@ -30,7 +29,6 @@ export type LoginResponse = {
 export type SignupRequest = {
   token: string
   password: string
-  displayName?: string
 }
 
 export type SignupResponse = {
@@ -40,7 +38,6 @@ export type SignupResponse = {
 
 export type UpdateProfileRequest = {
   username?: string
-  displayName?: string
   password?: string
 }
 

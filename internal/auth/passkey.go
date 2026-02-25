@@ -134,7 +134,6 @@ func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.Porta
 	webAuthnUser := &WebAuthnUser{
 		ID:          user.ID,
 		Username:    user.Username,
-		DisplayName: user.DisplayName.String,
 		Credentials: credentialsFromDB(dbCreds),
 	}
 
@@ -179,7 +178,6 @@ func (s *PasskeyService) FinishRegistration(ctx context.Context, user *sqlc.Port
 	webAuthnUser := &WebAuthnUser{
 		ID:          user.ID,
 		Username:    user.Username,
-		DisplayName: user.DisplayName.String,
 		Credentials: credentialsFromDB(dbCreds),
 	}
 
@@ -266,7 +264,6 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, challengeID string, r 
 			return &WebAuthnUser{
 				ID:          user.ID,
 				Username:    user.Username,
-				DisplayName: user.DisplayName.String,
 				Credentials: credentialsFromDB(dbCreds),
 			}, nil
 		},
@@ -348,7 +345,6 @@ func (s *PasskeyService) DeleteCredential(ctx context.Context, credID string, us
 type WebAuthnUser struct {
 	ID          int64
 	Username    string
-	DisplayName string
 	Credentials []webauthn.Credential
 }
 
@@ -361,9 +357,6 @@ func (u *WebAuthnUser) WebAuthnName() string {
 }
 
 func (u *WebAuthnUser) WebAuthnDisplayName() string {
-	if u.DisplayName != "" {
-		return u.DisplayName
-	}
 	return u.Username
 }
 

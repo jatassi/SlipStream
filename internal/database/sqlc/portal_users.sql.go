@@ -45,25 +45,23 @@ func (q *Queries) CountPortalUsers(ctx context.Context) (int64, error) {
 
 const createAdminUser = `-- name: CreateAdminUser :one
 INSERT INTO portal_users (
-    username, password_hash, display_name, is_admin, auto_approve, enabled
-) VALUES (?, ?, ?, 1, 1, 1)
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+    username, password_hash, is_admin, auto_approve, enabled
+) VALUES (?, ?, 1, 1, 1)
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type CreateAdminUserParams struct {
-	Username     string         `json:"username"`
-	PasswordHash string         `json:"password_hash"`
-	DisplayName  sql.NullString `json:"display_name"`
+	Username     string `json:"username"`
+	PasswordHash string `json:"password_hash"`
 }
 
 func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (*PortalUser, error) {
-	row := q.db.QueryRowContext(ctx, createAdminUser, arg.Username, arg.PasswordHash, arg.DisplayName)
+	row := q.db.QueryRowContext(ctx, createAdminUser, arg.Username, arg.PasswordHash)
 	var i PortalUser
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -76,25 +74,23 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 
 const createPortalUser = `-- name: CreatePortalUser :one
 INSERT INTO portal_users (
-    username, password_hash, display_name, quality_profile_id, auto_approve, enabled
-) VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+    username, password_hash, quality_profile_id, auto_approve, enabled
+) VALUES (?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type CreatePortalUserParams struct {
-	Username         string         `json:"username"`
-	PasswordHash     string         `json:"password_hash"`
-	DisplayName      sql.NullString `json:"display_name"`
-	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	AutoApprove      int64          `json:"auto_approve"`
-	Enabled          int64          `json:"enabled"`
+	Username         string        `json:"username"`
+	PasswordHash     string        `json:"password_hash"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	AutoApprove      int64         `json:"auto_approve"`
+	Enabled          int64         `json:"enabled"`
 }
 
 func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserParams) (*PortalUser, error) {
 	row := q.db.QueryRowContext(ctx, createPortalUser,
 		arg.Username,
 		arg.PasswordHash,
-		arg.DisplayName,
 		arg.QualityProfileID,
 		arg.AutoApprove,
 		arg.Enabled,
@@ -104,7 +100,6 @@ func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserPara
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -117,20 +112,19 @@ func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserPara
 
 const createPortalUserWithID = `-- name: CreatePortalUserWithID :one
 INSERT INTO portal_users (
-    id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, is_admin
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+    id, username, password_hash, quality_profile_id, auto_approve, enabled, is_admin
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type CreatePortalUserWithIDParams struct {
-	ID               int64          `json:"id"`
-	Username         string         `json:"username"`
-	PasswordHash     string         `json:"password_hash"`
-	DisplayName      sql.NullString `json:"display_name"`
-	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	AutoApprove      int64          `json:"auto_approve"`
-	Enabled          int64          `json:"enabled"`
-	IsAdmin          int64          `json:"is_admin"`
+	ID               int64         `json:"id"`
+	Username         string        `json:"username"`
+	PasswordHash     string        `json:"password_hash"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	AutoApprove      int64         `json:"auto_approve"`
+	Enabled          int64         `json:"enabled"`
+	IsAdmin          int64         `json:"is_admin"`
 }
 
 // Used for copying users to dev database while preserving IDs
@@ -139,7 +133,6 @@ func (q *Queries) CreatePortalUserWithID(ctx context.Context, arg CreatePortalUs
 		arg.ID,
 		arg.Username,
 		arg.PasswordHash,
-		arg.DisplayName,
 		arg.QualityProfileID,
 		arg.AutoApprove,
 		arg.Enabled,
@@ -150,7 +143,6 @@ func (q *Queries) CreatePortalUserWithID(ctx context.Context, arg CreatePortalUs
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -171,7 +163,7 @@ func (q *Queries) DeletePortalUser(ctx context.Context, id int64) error {
 }
 
 const getAdminUser = `-- name: GetAdminUser :one
-SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE is_admin = 1 LIMIT 1
+SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE is_admin = 1 LIMIT 1
 `
 
 func (q *Queries) GetAdminUser(ctx context.Context) (*PortalUser, error) {
@@ -181,7 +173,6 @@ func (q *Queries) GetAdminUser(ctx context.Context) (*PortalUser, error) {
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -193,7 +184,7 @@ func (q *Queries) GetAdminUser(ctx context.Context) (*PortalUser, error) {
 }
 
 const getPortalUser = `-- name: GetPortalUser :one
-SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE id = ? LIMIT 1
+SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalUser(ctx context.Context, id int64) (*PortalUser, error) {
@@ -203,7 +194,6 @@ func (q *Queries) GetPortalUser(ctx context.Context, id int64) (*PortalUser, err
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -215,7 +205,7 @@ func (q *Queries) GetPortalUser(ctx context.Context, id int64) (*PortalUser, err
 }
 
 const getPortalUserByUsername = `-- name: GetPortalUserByUsername :one
-SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE username = ? LIMIT 1
+SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalUserByUsername(ctx context.Context, username string) (*PortalUser, error) {
@@ -225,7 +215,6 @@ func (q *Queries) GetPortalUserByUsername(ctx context.Context, username string) 
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -248,7 +237,7 @@ func (q *Queries) GetPortalUserUsername(ctx context.Context, id int64) (string, 
 }
 
 const listEnabledPortalUsers = `-- name: ListEnabledPortalUsers :many
-SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE enabled = 1 ORDER BY display_name
+SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE enabled = 1 ORDER BY username
 `
 
 func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, error) {
@@ -264,7 +253,6 @@ func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, er
 			&i.ID,
 			&i.Username,
 			&i.PasswordHash,
-			&i.DisplayName,
 			&i.QualityProfileID,
 			&i.AutoApprove,
 			&i.Enabled,
@@ -286,7 +274,7 @@ func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, er
 }
 
 const listPortalUsers = `-- name: ListPortalUsers :many
-SELECT id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users ORDER BY created_at DESC
+SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users ORDER BY created_at DESC
 `
 
 func (q *Queries) ListPortalUsers(ctx context.Context) ([]*PortalUser, error) {
@@ -302,7 +290,6 @@ func (q *Queries) ListPortalUsers(ctx context.Context) ([]*PortalUser, error) {
 			&i.ID,
 			&i.Username,
 			&i.PasswordHash,
-			&i.DisplayName,
 			&i.QualityProfileID,
 			&i.AutoApprove,
 			&i.Enabled,
@@ -326,26 +313,23 @@ func (q *Queries) ListPortalUsers(ctx context.Context) ([]*PortalUser, error) {
 const updatePortalUser = `-- name: UpdatePortalUser :one
 UPDATE portal_users SET
     username = ?,
-    display_name = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type UpdatePortalUserParams struct {
-	Username    string         `json:"username"`
-	DisplayName sql.NullString `json:"display_name"`
-	ID          int64          `json:"id"`
+	Username string `json:"username"`
+	ID       int64  `json:"id"`
 }
 
 func (q *Queries) UpdatePortalUser(ctx context.Context, arg UpdatePortalUserParams) (*PortalUser, error) {
-	row := q.db.QueryRowContext(ctx, updatePortalUser, arg.Username, arg.DisplayName, arg.ID)
+	row := q.db.QueryRowContext(ctx, updatePortalUser, arg.Username, arg.ID)
 	var i PortalUser
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -361,7 +345,7 @@ UPDATE portal_users SET
     auto_approve = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type UpdatePortalUserAutoApproveParams struct {
@@ -376,7 +360,6 @@ func (q *Queries) UpdatePortalUserAutoApprove(ctx context.Context, arg UpdatePor
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -392,7 +375,7 @@ UPDATE portal_users SET
     enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type UpdatePortalUserEnabledParams struct {
@@ -407,7 +390,6 @@ func (q *Queries) UpdatePortalUserEnabled(ctx context.Context, arg UpdatePortalU
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
@@ -440,7 +422,7 @@ UPDATE portal_users SET
     quality_profile_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, display_name, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
 `
 
 type UpdatePortalUserQualityProfileParams struct {
@@ -455,7 +437,6 @@ func (q *Queries) UpdatePortalUserQualityProfile(ctx context.Context, arg Update
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.DisplayName,
 		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,

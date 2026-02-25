@@ -33,7 +33,7 @@ export function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: Us
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>
-            Configure settings for {user.displayName ?? user.username}
+            Configure settings for {user.username}
           </DialogDescription>
         </DialogHeader>
         <EditUserFormBody state={state} qualityProfiles={qualityProfiles} />

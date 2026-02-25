@@ -384,7 +384,6 @@ func (s *Server) copyPortalUsersToDevDB(profileIDMapping map[int64]int64) {
 			ID:               user.ID,
 			Username:         user.Username,
 			PasswordHash:     user.PasswordHash,
-			DisplayName:      user.DisplayName,
 			QualityProfileID: qualityProfileID,
 			AutoApprove:      user.AutoApprove,
 			Enabled:          user.Enabled,

@@ -24,7 +24,6 @@ var (
 type User struct {
 	ID               int64     `json:"id"`
 	Username         string    `json:"username"`
-	DisplayName      string    `json:"displayName"`
 	QualityProfileID *int64    `json:"qualityProfileId"`
 	AutoApprove      bool      `json:"autoApprove"`
 	IsAdmin          bool      `json:"isAdmin"`
@@ -36,7 +35,6 @@ type User struct {
 type CreateInput struct {
 	Username         string
 	Password         string
-	DisplayName      string
 	QualityProfileID *int64
 	AutoApprove      bool
 }
@@ -44,9 +42,8 @@ type CreateInput struct {
 type CreateUserInput = CreateInput
 
 type UpdateInput struct {
-	Username    *string
-	Password    *string
-	DisplayName *string
+	Username *string
+	Password *string
 }
 
 type Service struct {
@@ -84,11 +81,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 		return nil, err
 	}
 
-	displayName := input.DisplayName
-	if displayName == "" {
-		displayName = input.Username
-	}
-
 	var autoApprove int64
 	if input.AutoApprove {
 		autoApprove = 1
@@ -102,7 +94,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 	user, err := s.queries.CreatePortalUser(ctx, sqlc.CreatePortalUserParams{
 		Username:         input.Username,
 		PasswordHash:     hash,
-		DisplayName:      sql.NullString{String: displayName, Valid: true},
 		AutoApprove:      autoApprove,
 		QualityProfileID: qualityProfileID,
 		Enabled:          1,
@@ -186,15 +177,9 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateInput) (*Use
 		return nil, err
 	}
 
-	displayName := existing.DisplayName
-	if input.DisplayName != nil {
-		displayName = sql.NullString{String: *input.DisplayName, Valid: *input.DisplayName != ""}
-	}
-
 	user, err := s.queries.UpdatePortalUser(ctx, sqlc.UpdatePortalUserParams{
-		ID:          id,
-		Username:    username,
-		DisplayName: displayName,
+		ID:       id,
+		Username: username,
 	})
 	if err != nil {
 		return nil, err
@@ -347,7 +332,6 @@ func (s *Service) CreateAdmin(ctx context.Context, password string) (*User, erro
 	user, err := s.queries.CreateAdminUser(ctx, sqlc.CreateAdminUserParams{
 		Username:     "Administrator",
 		PasswordHash: hash,
-		DisplayName:  sql.NullString{String: "Administrator", Valid: true},
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to create admin user")
@@ -403,15 +387,9 @@ func toUser(u *sqlc.PortalUser) *User {
 		qpID = &u.QualityProfileID.Int64
 	}
 
-	displayName := ""
-	if u.DisplayName.Valid {
-		displayName = u.DisplayName.String
-	}
-
 	return &User{
 		ID:               u.ID,
 		Username:         u.Username,
-		DisplayName:      displayName,
 		QualityProfileID: qpID,
 		AutoApprove:      u.AutoApprove == 1,
 		IsAdmin:          u.IsAdmin == 1,

@@ -19,8 +19,6 @@ type UserCardProps = {
 }
 
 export function UserCard({ user, qualityProfiles, togglePending, onToggleEnabled, onEdit, onDelete }: UserCardProps) {
-  const displayName = user.displayName ?? user.username
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between py-4">
@@ -30,19 +28,18 @@ export function UserCard({ user, qualityProfiles, togglePending, onToggleEnabled
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base">{displayName}</CardTitle>
+              <CardTitle className="text-base">{user.username}</CardTitle>
               {user.autoApprove ? <Badge>Auto-Approve</Badge> : null}
               {user.enabled ? null : <Badge variant="destructive">Disabled</Badge>}
             </div>
             <CardDescription className="text-xs">
-              {user.username} • Profile: {getProfileName(user.qualityProfileId, qualityProfiles)} •
+              Profile: {getProfileName(user.qualityProfileId, qualityProfiles)} •
               Quota: {getQuotaDisplay(user)}
             </CardDescription>
           </div>
         </div>
         <UserCardActions
           user={user}
-          displayName={displayName}
           togglePending={togglePending}
           onToggleEnabled={onToggleEnabled}
           onEdit={onEdit}
@@ -55,14 +52,13 @@ export function UserCard({ user, qualityProfiles, togglePending, onToggleEnabled
 
 type UserCardActionsProps = {
   user: PortalUserWithQuota
-  displayName: string
   togglePending: boolean
   onToggleEnabled: (user: PortalUserWithQuota) => void
   onEdit: (user: PortalUserWithQuota) => void
   onDelete: (id: number) => void
 }
 
-function UserCardActions({ user, displayName, togglePending, onToggleEnabled, onEdit, onDelete }: UserCardActionsProps) {
+function UserCardActions({ user, togglePending, onToggleEnabled, onEdit, onDelete }: UserCardActionsProps) {
   return (
     <div className="flex items-center gap-4">
       <Switch
@@ -80,7 +76,7 @@ function UserCardActions({ user, displayName, togglePending, onToggleEnabled, on
           </Button>
         }
         title="Delete user"
-        description={`Are you sure you want to delete "${displayName}"? Their requests will be preserved.`}
+        description={`Are you sure you want to delete "${user.username}"? Their requests will be preserved.`}
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={() => onDelete(user.id)}

@@ -41,9 +41,8 @@ type LoginResponse struct {
 }
 
 type SignupRequest struct {
-	Token       string `json:"token"`
-	Password    string `json:"password"`
-	DisplayName string `json:"displayName,omitempty"`
+	Token    string `json:"token"`
+	Password string `json:"password"`
 }
 
 type ResendRequest struct {
@@ -57,9 +56,8 @@ type ValidateInvitationResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	Username    *string `json:"username,omitempty"`
-	Password    *string `json:"password,omitempty"`
-	DisplayName *string `json:"displayName,omitempty"`
+	Username *string `json:"username,omitempty"`
+	Password *string `json:"password,omitempty"`
 }
 
 type VerifyPinRequest struct {
@@ -302,7 +300,6 @@ func (h *Handlers) createUserFromInvitation(c echo.Context, req *SignupRequest, 
 	user, err := h.usersService.Create(c.Request().Context(), users.CreateInput{
 		Username:         inv.Username,
 		Password:         req.Password,
-		DisplayName:      req.DisplayName,
 		QualityProfileID: inv.QualityProfileID,
 		AutoApprove:      inv.AutoApprove,
 	})
@@ -425,9 +422,8 @@ func (h *Handlers) UpdateProfile(c echo.Context) error {
 	}
 
 	user, err := h.usersService.Update(c.Request().Context(), claims.UserID, users.UpdateInput{
-		Username:    req.Username,
-		Password:    req.Password,
-		DisplayName: req.DisplayName,
+		Username: req.Username,
+		Password: req.Password,
 	})
 	if err != nil {
 		if errors.Is(err, users.ErrUserNotFound) {
