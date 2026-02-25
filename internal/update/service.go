@@ -32,8 +32,6 @@ const (
 	osLinux            = "linux"
 )
 
-var ErrNoUpdateAvailable = fmt.Errorf("no update available")
-
 type State string
 
 const (
@@ -219,7 +217,7 @@ func (s *Service) CheckForUpdate(ctx context.Context) (*ReleaseInfo, error) {
 		status := s.status
 		s.mu.Unlock()
 		s.broadcast(&status)
-		return nil, ErrNoUpdateAvailable
+		return nil, nil //nolint:nilnil // nil release with no error means "no update available"
 	}
 
 	isNewer, err := IsNewerThan(release.TagName, currentVersion)
@@ -241,12 +239,17 @@ func (s *Service) CheckForUpdate(ctx context.Context) (*ReleaseInfo, error) {
 		return releaseInfo, nil
 	}
 
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
 	s.status.State = StateUpToDate
 	s.status.LatestRelease = nil
 	status := s.status
 	s.mu.Unlock()
 	s.broadcast(&status)
-	return nil, ErrNoUpdateAvailable
+	s.logger.Info().
+		Str("currentVersion", currentVersion).
+		Str("latestVersion", latestVersion).
+		Msg("Already on the latest version")
+	return nil, nil //nolint:nilnil // nil release with no error means "no update available"
 }
 
 func (s *Service) fetchLatestRelease(ctx context.Context) (*githubRelease, error) {

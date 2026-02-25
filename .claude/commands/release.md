@@ -71,3 +71,4 @@ If a commit touches multiple areas, place it under the most significant one. If 
 - Version is injected at build time via ldflags (no version file to update)
 - Do not watch the pipeline - it will complete asynchronously
 - The GitHub release is created by this skill with notes; the CI pipeline uploads build artifacts to the existing release
+- Don't ask for permission to kick off the pipeline or validation on correctness of release note
