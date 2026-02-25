@@ -56,7 +56,7 @@ func NewManager(cfg *ManagerConfig, logger *zerolog.Logger) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create cache: %w", err)
 	}
 
-	subLogger := logger.With().Str("component", "manager").Logger()
+	subLogger := logger.With().Str("component", "cardigann").Str("service", "manager").Logger()
 	return &Manager{
 		repo:           repo,
 		cache:          cache,

@@ -65,7 +65,7 @@ func NewCache(cfg *CacheConfig, logger *zerolog.Logger) (*Cache, error) {
 		return nil, fmt.Errorf("failed to create custom directory: %w", err)
 	}
 
-	subLogger := logger.With().Str("component", "cache").Logger()
+	subLogger := logger.With().Str("component", "cardigann").Str("service", "cache").Logger()
 	return &Cache{
 		definitionsDir: cfg.DefinitionsDir,
 		customDir:      cfg.CustomDir,

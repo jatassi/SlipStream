@@ -39,7 +39,7 @@ func NewLoginHandler(baseURL string, logger *zerolog.Logger) (*LoginHandler, err
 		return nil, fmt.Errorf("failed to create cookie jar: %w", err)
 	}
 
-	subLogger := logger.With().Str("component", "login").Logger()
+	subLogger := logger.With().Str("component", "cardigann").Str("service", "login").Logger()
 	return &LoginHandler{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,

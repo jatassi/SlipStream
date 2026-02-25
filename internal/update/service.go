@@ -112,7 +112,7 @@ type Service struct {
 func NewService(db *sql.DB, logger *zerolog.Logger, restartChan chan<- bool) *Service {
 	return &Service{
 		db:     db,
-		logger: logger.With().Str("service", "update").Logger(),
+		logger: logger.With().Str("component", "updater").Logger(),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},

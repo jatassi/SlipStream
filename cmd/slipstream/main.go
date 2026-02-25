@@ -69,7 +69,41 @@ func bootstrapLog(msg string) {
 	defer f.Close()
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	fmt.Fprintf(f, "[%s] %s\n", timestamp, msg)
+	fmt.Fprintf(f, "[%s] [bootstrap] %s\n", timestamp, msg)
+}
+
+// updaterLog writes diagnostic messages during the self-update process.
+func updaterLog(msg string) {
+	var logDir string
+	switch runtime.GOOS {
+	case osWindows:
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			logDir = filepath.Join(localAppData, "SlipStream", "logs")
+		}
+	case osDarwin:
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, "Library", "Logs", "SlipStream")
+		}
+	default:
+		if home, _ := os.UserHomeDir(); home != "" {
+			logDir = filepath.Join(home, ".config", "slipstream", "logs")
+		}
+	}
+	if logDir == "" {
+		logDir = "./logs"
+	}
+
+	_ = os.MkdirAll(logDir, 0o750)
+	logFile := filepath.Join(logDir, "bootstrap.log")
+
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Fprintf(f, "[%s] [updater] %s\n", timestamp, msg)
 }
 
 func main() {
@@ -319,27 +353,27 @@ func spawnNewProcess() error {
 }
 
 func completeUpdate(targetPath string, port int) {
-	bootstrapLog("=== Update completion starting ===")
-	bootstrapLog(fmt.Sprintf("Target path: %s", targetPath))
-	bootstrapLog(fmt.Sprintf("Port to wait for: %d", port))
+	updaterLog("=== Update completion starting ===")
+	updaterLog(fmt.Sprintf("Target path: %s", targetPath))
+	updaterLog(fmt.Sprintf("Port to wait for: %d", port))
 
 	currentExe, err := os.Executable()
 	if err != nil {
-		bootstrapLog(fmt.Sprintf("Failed to get current executable: %v", err))
+		updaterLog(fmt.Sprintf("Failed to get current executable: %v", err))
 		os.Exit(1)
 	}
 	currentExe, _ = filepath.EvalSymlinks(currentExe)
-	bootstrapLog(fmt.Sprintf("Current executable: %s", currentExe))
+	updaterLog(fmt.Sprintf("Current executable: %s", currentExe))
 
 	// Wait for the old process to exit by polling the port
 	// Check multiple ports since the app may have fallen back to a different port
-	bootstrapLog("Waiting for old process to release port...")
+	updaterLog("Waiting for old process to release port...")
 	portsToCheck := []int{port, port + 1, port + 2, port + 3, port + 4}
 	allPortsFree := waitForAllPortsFree(portsToCheck, 60*time.Second)
 	if !allPortsFree {
-		bootstrapLog("Warning: Timed out waiting for all ports to be free, proceeding anyway")
+		updaterLog("Warning: Timed out waiting for all ports to be free, proceeding anyway")
 	} else {
-		bootstrapLog("All ports are free, old process has exited")
+		updaterLog("All ports are free, old process has exited")
 	}
 
 	if strings.HasSuffix(targetPath, ".app") {
@@ -351,30 +385,30 @@ func completeUpdate(targetPath string, port int) {
 	// Clean up temp files
 	scheduleCleanup(currentExe)
 
-	bootstrapLog("Update complete, exiting updater")
+	updaterLog("Update complete, exiting updater")
 	os.Exit(0)
 }
 
 func completeAppBundleUpdate(currentExe, targetPath string) {
-	bootstrapLog("Copying new app bundle to target location...")
+	updaterLog("Copying new app bundle to target location...")
 
 	currentAppBundle := findContainingAppBundle(currentExe)
 	if currentAppBundle == "" {
-		bootstrapLog(fmt.Sprintf("Failed to find app bundle for: %s", currentExe))
+		updaterLog(fmt.Sprintf("Failed to find app bundle for: %s", currentExe))
 		os.Exit(1)
 	}
 
 	if err := os.RemoveAll(targetPath); err != nil {
-		bootstrapLog(fmt.Sprintf("Failed to remove old app bundle: %v", err))
+		updaterLog(fmt.Sprintf("Failed to remove old app bundle: %v", err))
 		os.Exit(1)
 	}
 
 	cmd := exec.CommandContext(context.Background(), "cp", "-R", currentAppBundle, targetPath)
 	if err := cmd.Run(); err != nil {
-		bootstrapLog(fmt.Sprintf("Failed to copy app bundle: %v", err))
+		updaterLog(fmt.Sprintf("Failed to copy app bundle: %v", err))
 		os.Exit(1)
 	}
-	bootstrapLog("App bundle copied successfully")
+	updaterLog("App bundle copied successfully")
 
 	newExePath := filepath.Join(targetPath, "Contents", "MacOS", "slipstream")
 	launchUpdatedApp(newExePath, filepath.Dir(targetPath))
@@ -390,14 +424,14 @@ func findContainingAppBundle(exePath string) string {
 }
 
 func completeSingleFileUpdate(currentExe, targetPath string) {
-	bootstrapLog("Copying new executable to target location...")
+	updaterLog("Copying new executable to target location...")
 
 	copyErr := copyWithRetry(currentExe, targetPath)
 	if copyErr != nil {
 		reportCopyFailure(copyErr)
 		os.Exit(1)
 	}
-	bootstrapLog("Executable copied successfully")
+	updaterLog("Executable copied successfully")
 
 	launchUpdatedApp(targetPath, filepath.Dir(targetPath))
 }
@@ -416,7 +450,7 @@ func copyWithRetry(src, dst string) error {
 
 		if attempt < maxRetries {
 			delay := time.Duration(attempt) * 500 * time.Millisecond
-			bootstrapLog(fmt.Sprintf("Copy attempt %d failed: %v, retrying in %v...", attempt, copyErr, delay))
+			updaterLog(fmt.Sprintf("Copy attempt %d failed: %v, retrying in %v...", attempt, copyErr, delay))
 			time.Sleep(delay)
 		}
 	}
@@ -427,10 +461,10 @@ func prepareTargetForCopy(targetPath string, attempt int) {
 	if runtime.GOOS == osWindows {
 		oldExePath := targetPath + ".old"
 		if err := os.Rename(targetPath, oldExePath); err == nil {
-			bootstrapLog("Old executable renamed successfully")
+			updaterLog("Old executable renamed successfully")
 			os.Remove(oldExePath)
 		} else if attempt == 1 {
-			bootstrapLog(fmt.Sprintf("Could not rename old executable: %v", err))
+			updaterLog(fmt.Sprintf("Could not rename old executable: %v", err))
 		}
 	} else {
 		os.Remove(targetPath)
@@ -439,24 +473,24 @@ func prepareTargetForCopy(targetPath string, attempt int) {
 
 func reportCopyFailure(copyErr error) {
 	if runtime.GOOS == osWindows && os.IsPermission(copyErr) {
-		bootstrapLog("Permission denied — the install directory is not user-writable.")
-		bootstrapLog("This typically means SlipStream was installed with the old NSIS installer into Program Files.")
-		bootstrapLog("Please uninstall the old version and reinstall using the new MSI installer,")
-		bootstrapLog("which installs to %LOCALAPPDATA%\\SlipStream\\ (no admin required).")
+		updaterLog("Permission denied — the install directory is not user-writable.")
+		updaterLog("This typically means SlipStream was installed with the old NSIS installer into Program Files.")
+		updaterLog("Please uninstall the old version and reinstall using the new MSI installer,")
+		updaterLog("which installs to %LOCALAPPDATA%\\SlipStream\\ (no admin required).")
 	} else {
-		bootstrapLog(fmt.Sprintf("Failed to copy executable after retries: %v", copyErr))
+		updaterLog(fmt.Sprintf("Failed to copy executable after retries: %v", copyErr))
 	}
 }
 
 func launchUpdatedApp(exePath, workDir string) {
-	bootstrapLog(fmt.Sprintf("Launching updated application: %s", exePath))
+	updaterLog(fmt.Sprintf("Launching updated application: %s", exePath))
 	cmd := exec.CommandContext(context.Background(), exePath)
 	cmd.Dir = workDir
 	if err := cmd.Start(); err != nil {
-		bootstrapLog(fmt.Sprintf("Failed to launch updated application: %v", err))
+		updaterLog(fmt.Sprintf("Failed to launch updated application: %v", err))
 		os.Exit(1)
 	}
-	bootstrapLog(fmt.Sprintf("Updated application launched (PID: %d)", cmd.Process.Pid))
+	updaterLog(fmt.Sprintf("Updated application launched (PID: %d)", cmd.Process.Pid))
 }
 
 func waitForAllPortsFree(ports []int, timeout time.Duration) bool {
@@ -470,7 +504,7 @@ func waitForAllPortsFree(ports []int, timeout time.Duration) bool {
 			if err == nil {
 				conn.Close()
 				allFree = false
-				bootstrapLog(fmt.Sprintf("Port %d still in use", port))
+				updaterLog(fmt.Sprintf("Port %d still in use", port))
 				break
 			}
 		}
@@ -490,21 +524,21 @@ func scheduleCleanup(currentExe string) {
 		return
 	}
 
-	bootstrapLog(fmt.Sprintf("Scheduling cleanup of temp directory: %s", tempDir))
+	updaterLog(fmt.Sprintf("Scheduling cleanup of temp directory: %s", tempDir))
 
 	switch runtime.GOOS {
 	case osWindows:
 		// On Windows, use cmd /c with a delay to delete after this process exits
 		cleanupCmd := exec.CommandContext(context.Background(), "cmd", "/c", "timeout", "/t", "5", "/nobreak", ">nul", "&&", "rd", "/s", "/q", tempDir)
 		if err := cleanupCmd.Start(); err != nil {
-			bootstrapLog(fmt.Sprintf("Failed to start cleanup command: %v", err))
+			updaterLog(fmt.Sprintf("Failed to start cleanup command: %v", err))
 		}
 	case osDarwin, osLinux:
 		// On Unix, we can delete the directory in a background process
 		//nolint:gosec // command args are not user-controlled, tempDir is generated by os.MkdirTemp
 		cleanupCmd := exec.CommandContext(context.Background(), "sh", "-c", fmt.Sprintf("sleep 5 && rm -rf '%s'", tempDir))
 		if err := cleanupCmd.Start(); err != nil {
-			bootstrapLog(fmt.Sprintf("Failed to start cleanup command: %v", err))
+			updaterLog(fmt.Sprintf("Failed to start cleanup command: %v", err))
 		}
 	}
 }

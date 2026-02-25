@@ -23,7 +23,7 @@ func NewStorageHealthTask(
 	checker *health.StorageChecker,
 	logger *zerolog.Logger,
 ) *StorageHealthTask {
-	subLogger := logger.With().Str("task", "storage-health").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "storage-health").Logger()
 	return &StorageHealthTask{
 		checker: checker,
 		logger:  &subLogger,

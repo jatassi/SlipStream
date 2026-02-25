@@ -32,7 +32,7 @@ func NewIndexerHealthTask(
 	healthSvc *health.Service,
 	logger *zerolog.Logger,
 ) *IndexerHealthTask {
-	subLogger := logger.With().Str("task", "indexer-health").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "indexer-health").Logger()
 	return &IndexerHealthTask{
 		indexer:         indexerSvc,
 		prowlarrService: prowlarrSvc,

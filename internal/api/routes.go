@@ -434,12 +434,13 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 	adminInvitationHandlers.RegisterRoutes(adminGroup.Group("/invitations"), s.portalAuthMiddleware)
 
 	// Admin request management
+	mpLogger := s.logger.With().Str("service", "media-provisioner").Logger()
 	s.portalMediaProvisioner = &portalMediaProvisionerAdapter{
 		queries:        sqlc.New(s.startupDB),
 		movieService:   s.movieService,
 		tvService:      s.tvService,
 		libraryManager: s.libraryManagerService,
-		logger:         s.logger,
+		logger:         &mpLogger,
 	}
 	s.portalRequestSearcher = requests.NewRequestSearcher(
 		sqlc.New(s.startupDB),

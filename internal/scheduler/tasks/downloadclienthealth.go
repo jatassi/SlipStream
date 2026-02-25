@@ -26,7 +26,7 @@ func NewDownloadClientHealthTask(
 	healthSvc *health.Service,
 	logger *zerolog.Logger,
 ) *DownloadClientHealthTask {
-	subLogger := logger.With().Str("task", "download-client-health").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "download-client-health").Logger()
 	return &DownloadClientHealthTask{
 		downloader: downloaderSvc,
 		health:     healthSvc,

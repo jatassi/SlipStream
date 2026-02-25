@@ -15,7 +15,7 @@ type UpdateCheckTask struct {
 }
 
 func NewUpdateCheckTask(updateService *update.Service, logger *zerolog.Logger) *UpdateCheckTask {
-	subLogger := logger.With().Str("task", "update-check").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "update-check").Logger()
 	return &UpdateCheckTask{
 		updateService: updateService,
 		logger:        &subLogger,

@@ -38,7 +38,7 @@ func serverDebugLog(msg string) {
 	defer f.Close()
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	fmt.Fprintf(f, "[%s] [NewServer] %s\n", timestamp, msg)
+	fmt.Fprintf(f, "[%s] [api] %s\n", timestamp, msg)
 }
 
 // InitializeNetworkServices initializes services that require network connectivity.

@@ -19,7 +19,7 @@ type LibraryScanTask struct {
 
 // NewLibraryScanTask creates a new library scan task.
 func NewLibraryScanTask(lm *librarymanager.Service, rf *rootfolder.Service, logger *zerolog.Logger) *LibraryScanTask {
-	subLogger := logger.With().Str("task", "library-scan").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "library-scan").Logger()
 	return &LibraryScanTask{
 		libraryManager: lm,
 		rootFolders:    rf,

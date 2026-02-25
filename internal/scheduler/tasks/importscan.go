@@ -23,7 +23,7 @@ type importScanTask struct {
 
 // newImportScanTask creates a new import scan task.
 func newImportScanTask(scanner ImportScanner, logger *zerolog.Logger) *importScanTask {
-	subLogger := logger.With().Str("task", "import-scan").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "import-scan").Logger()
 	return &importScanTask{
 		scanner: scanner,
 		logger:  &subLogger,

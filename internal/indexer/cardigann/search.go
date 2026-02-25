@@ -54,7 +54,7 @@ type SearchResult struct {
 
 // NewSearchEngine creates a new search engine for a definition.
 func NewSearchEngine(def *Definition, httpClient *http.Client, logger *zerolog.Logger) *SearchEngine {
-	subLogger := logger.With().Str("component", "search").Str("indexer", def.ID).Logger()
+	subLogger := logger.With().Str("component", "cardigann").Str("service", "search").Str("indexer", def.ID).Logger()
 	return &SearchEngine{
 		def:            def,
 		templateEngine: NewTemplateEngine(),

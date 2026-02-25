@@ -29,7 +29,7 @@ func NewProwlarrHealthTask(
 	healthService *health.Service,
 	logger *zerolog.Logger,
 ) *ProwlarrHealthTask {
-	subLogger := logger.With().Str("task", "prowlarr-health").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "prowlarr-health").Logger()
 	return &ProwlarrHealthTask{
 		prowlarrService: prowlarrService,
 		modeManager:     modeManager,

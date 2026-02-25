@@ -27,10 +27,11 @@ func NewManager(prodPath, devPath string, logger *zerolog.Logger) (*Manager, err
 		return nil, err
 	}
 
+	dbLogger := logger.With().Str("component", "database").Logger()
 	return &Manager{
 		prodDB:    prodDB,
 		devDBPath: devPath,
-		logger:    logger,
+		logger:    &dbLogger,
 	}, nil
 }
 

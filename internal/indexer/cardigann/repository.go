@@ -70,7 +70,7 @@ func NewRepository(cfg *RepositoryConfig, logger *zerolog.Logger) *Repository {
 		cfg.UserAgent = DefaultRepositoryConfig().UserAgent
 	}
 
-	subLogger := logger.With().Str("component", "repository").Logger()
+	subLogger := logger.With().Str("component", "cardigann").Str("service", "repository").Logger()
 	return &Repository{
 		httpClient: &http.Client{
 			Timeout: cfg.RequestTimeout,

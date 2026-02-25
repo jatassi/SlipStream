@@ -66,6 +66,8 @@ func IsNetworkError(err error) bool {
 // WithRetry executes fn with exponential backoff retry for network errors only.
 // Non-network errors fail immediately without retry.
 func WithRetry(ctx context.Context, name string, cfg RetryConfig, fn func() error, logger *zerolog.Logger) error {
+	retryLogger := logger.With().Str("component", "startup").Logger()
+	logger = &retryLogger
 	var lastErr error
 	delay := cfg.InitialDelay
 

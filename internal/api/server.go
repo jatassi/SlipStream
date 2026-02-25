@@ -201,11 +201,12 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	db := dbManager.Conn()
 
 	serverDebugLog("Creating Server struct...")
+	apiLogger := logger.With().Str("component", "api").Logger()
 	s := &Server{
 		echo:        e,
 		dbManager:   dbManager,
 		hub:         hub,
-		logger:      logger,
+		logger:      &apiLogger,
 		cfg:         cfg,
 		startupDB:   db,
 		restartChan: restartChan,

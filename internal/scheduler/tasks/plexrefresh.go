@@ -33,7 +33,7 @@ func NewPlexRefreshTask(
 	client *plex.Client,
 	logger *zerolog.Logger,
 ) *PlexRefreshTask {
-	subLogger := logger.With().Str("task", "plex-refresh").Logger()
+	subLogger := logger.With().Str("component", "scheduler").Str("task", "plex-refresh").Logger()
 	return &PlexRefreshTask{
 		queries:             queries,
 		notificationService: notificationService,
