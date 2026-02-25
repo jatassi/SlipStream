@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -80,7 +81,7 @@ function DenyDialog({
               : 'Optionally provide a reason for denying this request.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-2">
             <Label>Reason (Optional)</Label>
             <Textarea
@@ -89,7 +90,7 @@ function DenyDialog({
               onChange={(e) => onReasonChange(e.target.value)}
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

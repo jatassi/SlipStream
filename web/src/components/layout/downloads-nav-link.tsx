@@ -36,7 +36,7 @@ export function DownloadsNavLink({
 
   const linkElement = (
     <Link
-      to="/activity"
+      to="/downloads"
       className={cn(
         getBaseClassName({ collapsed, indented, popover }),
         getHoverClassName(themeFlags),

@@ -1,20 +1,22 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Lock, Server } from 'lucide-react'
+import { Download, Globe, Rss, Zap } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const systemNavItems = [
-  { title: 'Server', href: '/settings/system/server', icon: Server },
-  { title: 'Authentication', href: '/settings/system/authentication', icon: Lock },
+const downloadPipelineNavItems = [
+  { title: 'Indexers', href: '/settings/download-pipeline/indexers', icon: Globe },
+  { title: 'Download Clients', href: '/settings/download-pipeline/clients', icon: Download },
+  { title: 'Auto Search', href: '/settings/download-pipeline/auto-search', icon: Zap },
+  { title: 'RSS Sync', href: '/settings/download-pipeline/rss-sync', icon: Rss },
 ]
 
-export function SystemNav() {
+export function DownloadPipelineNav() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
   return (
     <nav className="mb-6 flex gap-1 border-b">
-      {systemNavItems.map((item) => {
+      {downloadPipelineNavItems.map((item) => {
         const isActive = currentPath === item.href
         return (
           <Link

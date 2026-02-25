@@ -1,9 +1,9 @@
 import { PageHeader } from '@/components/layout/page-header'
-import { IndexersSection } from '@/components/settings'
+import { RssSyncSection } from '@/components/settings'
 
-import { DownloadsNav } from './downloads-nav'
+import { DownloadPipelineNav } from './download-pipeline-nav'
 
-export function IndexersPage() {
+export function RssSyncPage() {
   return (
     <div className="space-y-6">
       <PageHeader
@@ -15,9 +15,9 @@ export function IndexersPage() {
         ]}
       />
 
-      <DownloadsNav />
+      <DownloadPipelineNav />
 
-      <IndexersSection />
+      <RssSyncSection />
     </div>
   )
 }

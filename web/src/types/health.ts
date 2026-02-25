@@ -76,13 +76,13 @@ export function getCategoryDisplayName(category: HealthCategory): string {
 // Helper to get settings path for category
 export function getCategorySettingsPath(category: HealthCategory): string {
   const paths: Record<HealthCategory, string> = {
-    downloadClients: '/settings/downloadclients',
-    indexers: '/settings/indexers',
-    prowlarr: '/settings/indexers',
-    rootFolders: '/settings/mediamanagement',
-    metadata: '/settings/metadata',
-    storage: '/settings/mediamanagement',
-    import: '/settings/import',
+    downloadClients: '/settings/download-pipeline/clients',
+    indexers: '/settings/download-pipeline/indexers',
+    prowlarr: '/settings/download-pipeline/indexers',
+    rootFolders: '/settings/media/root-folders',
+    metadata: '/settings/media/root-folders',
+    storage: '/settings/media/root-folders',
+    import: '/import',
   }
   return paths[category]
 }

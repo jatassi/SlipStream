@@ -12,8 +12,9 @@ import {
   devColorsRoute,
   devControlsRoute,
   downloadClientsRoute,
-  downloadsSettingsRoute,
+  downloadPipelineRoute,
   fileNamingRoute,
+  generalSettingsRoute,
   healthRoute,
   historyRoute,
   indexersRoute,
@@ -45,7 +46,7 @@ import {
   seriesRoute,
   serverRoute,
   settingsRoute,
-  systemSettingsRoute,
+  systemRoute,
   tasksRoute,
   updateRoute,
   versionSlotsRoute,
@@ -76,26 +77,28 @@ const routeTree = rootRoute.addChildren([
   versionSlotsRoute,
   fileNamingRoute,
   arrImportRoute,
-  // Downloads settings
-  downloadsSettingsRoute,
+  // Download Pipeline settings
+  downloadPipelineRoute,
   indexersRoute,
   downloadClientsRoute,
   autoSearchRoute,
   rssSyncRoute,
-  // System settings
-  systemSettingsRoute,
+  // General settings (Server + Auth + Notifications)
+  generalSettingsRoute,
   serverRoute,
   authenticationRoute,
-  // Other settings
   notificationsRoute,
+  // Requests Admin
   requestQueueRoute,
   requestUsersRoute,
   requestSettingsRoute,
-  manualImportRoute,
-  tasksRoute,
+  // System
+  systemRoute,
   healthRoute,
+  tasksRoute,
   logsRoute,
   updateRoute,
+  manualImportRoute,
   // Dev routes
   devColorsRoute,
   devControlsRoute,

@@ -4,12 +4,12 @@ import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-
 
 import { RootLayout } from '@/components/layout/root-layout'
 import { PortalAuthGuard, PortalLayout } from '@/components/portal'
-import { HistoryPage } from '@/routes/activity/history'
-import { ActivityPage } from '@/routes/activity/index'
 import { SetupPage } from '@/routes/auth/setup'
 import { CalendarPage } from '@/routes/calendar/index'
 import { ColorPreviewPage } from '@/routes/dev/colors'
 import { ControlsShowcasePage } from '@/routes/dev/controls'
+import { ActivityPage } from '@/routes/downloads/index'
+import { HistoryPage } from '@/routes/history/history'
 import { ManualImportPage } from '@/routes/import/index'
 import { DashboardPage } from '@/routes/index'
 import { MissingPage } from '@/routes/missing/index'
@@ -23,25 +23,25 @@ import { RequestsListPage } from '@/routes/requests/index'
 import { PortalLibraryPage } from '@/routes/requests/library'
 import { PortalSearchPageWrapper } from '@/routes/requests/search'
 import { PortalSettingsPage } from '@/routes/requests/settings'
+import { RequestQueuePage } from '@/routes/requests-admin/index'
+import { RequestSettingsPage } from '@/routes/requests-admin/settings'
+import { RequestUsersPage } from '@/routes/requests-admin/users'
 import { SearchPage } from '@/routes/search/index'
 import { SeriesDetailPage } from '@/routes/series/$id'
 import { AddSeriesPage } from '@/routes/series/add'
 import { SeriesListPage } from '@/routes/series/index'
-import { AutoSearchPage } from '@/routes/settings/downloads/auto-search'
-import { DownloadClientsPage } from '@/routes/settings/downloads/clients'
-import { IndexersPage } from '@/routes/settings/downloads/indexers'
-import { RssSyncPage } from '@/routes/settings/downloads/rss-sync'
+import { AutoSearchPage } from '@/routes/settings/download-pipeline/auto-search'
+import { DownloadClientsPage } from '@/routes/settings/download-pipeline/clients'
+import { IndexersPage } from '@/routes/settings/download-pipeline/indexers'
+import { RssSyncPage } from '@/routes/settings/download-pipeline/rss-sync'
+import { AuthenticationPage } from '@/routes/settings/general/authentication'
+import { NotificationsPage } from '@/routes/settings/general/notifications'
+import { ServerPage } from '@/routes/settings/general/server'
 import { ArrImportPage } from '@/routes/settings/media/arr-import'
 import { FileNamingPage } from '@/routes/settings/media/file-naming'
 import { QualityProfilesPage } from '@/routes/settings/media/quality-profiles'
 import { RootFoldersPage } from '@/routes/settings/media/root-folders'
 import { VersionSlotsPage } from '@/routes/settings/media/version-slots'
-import { NotificationsPage } from '@/routes/settings/notifications'
-import { RequestQueuePage } from '@/routes/settings/requests/index'
-import { RequestSettingsPage } from '@/routes/settings/requests/settings'
-import { RequestUsersPage } from '@/routes/settings/requests/users'
-import { AuthenticationPage } from '@/routes/settings/system/authentication'
-import { ServerPage } from '@/routes/settings/system/server'
 import { SystemHealthPage } from '@/routes/system/health'
 import { LogsPage } from '@/routes/system/logs'
 import { TasksPage } from '@/routes/system/tasks'
@@ -92,9 +92,11 @@ export const seriesDetailRoute = route('/series/$id', SeriesDetailPage)
 export const addSeriesRoute = route('/series/add', AddSeriesPage)
 export const calendarRoute = route('/calendar', CalendarPage)
 export const missingRoute = route('/missing', MissingPage)
-export const activityRoute = route('/activity', ActivityPage)
-export const historyRoute = route('/activity/history', HistoryPage)
+export const activityRoute = route('/downloads', ActivityPage)
+export const historyRoute = route('/history', HistoryPage)
 
+
+// Settings — Media
 export const settingsRoute = redirectRoute('/settings', '/settings/media/root-folders')
 export const mediaSettingsRoute = redirectRoute('/settings/media', '/settings/media/root-folders')
 export const rootFoldersRoute = route('/settings/media/root-folders', RootFoldersPage)
@@ -102,26 +104,40 @@ export const qualityProfilesRoute = route('/settings/media/quality-profiles', Qu
 export const versionSlotsRoute = route('/settings/media/version-slots', VersionSlotsPage)
 export const fileNamingRoute = route('/settings/media/file-naming', FileNamingPage)
 export const arrImportRoute = route('/settings/media/arr-import', ArrImportPage)
-export const downloadsSettingsRoute = redirectRoute('/settings/downloads', '/settings/downloads/indexers')
-export const indexersRoute = route('/settings/downloads/indexers', IndexersPage)
-export const downloadClientsRoute = route('/settings/downloads/clients', DownloadClientsPage)
-export const autoSearchRoute = route('/settings/downloads/auto-search', AutoSearchPage)
-export const rssSyncRoute = route('/settings/downloads/rss-sync', RssSyncPage)
-export const systemSettingsRoute = redirectRoute('/settings/system', '/settings/system/server')
-export const serverRoute = route('/settings/system/server', ServerPage)
-export const authenticationRoute = route('/settings/system/authentication', AuthenticationPage)
-export const updateRoute = route('/system/update', UpdatePage)
-export const notificationsRoute = route('/settings/notifications', NotificationsPage)
-export const requestQueueRoute = route('/settings/requests', RequestQueuePage)
-export const requestUsersRoute = route('/settings/requests/users', RequestUsersPage)
-export const requestSettingsRoute = route('/settings/requests/settings', RequestSettingsPage)
-export const manualImportRoute = route('/import', ManualImportPage)
-export const tasksRoute = route('/system/tasks', TasksPage)
+
+// Settings — Download Pipeline
+export const downloadPipelineRoute = redirectRoute('/settings/download-pipeline', '/settings/download-pipeline/indexers')
+export const indexersRoute = route('/settings/download-pipeline/indexers', IndexersPage)
+export const downloadClientsRoute = route('/settings/download-pipeline/clients', DownloadClientsPage)
+export const autoSearchRoute = route('/settings/download-pipeline/auto-search', AutoSearchPage)
+export const rssSyncRoute = route('/settings/download-pipeline/rss-sync', RssSyncPage)
+
+// Settings — General (Server + Auth + Notifications)
+export const generalSettingsRoute = redirectRoute('/settings/general', '/settings/general/server')
+export const serverRoute = route('/settings/general/server', ServerPage)
+export const authenticationRoute = route('/settings/general/authentication', AuthenticationPage)
+export const notificationsRoute = route('/settings/general/notifications', NotificationsPage)
+
+// Requests Admin
+export const requestQueueRoute = route('/requests-admin', RequestQueuePage)
+export const requestUsersRoute = route('/requests-admin/users', RequestUsersPage)
+export const requestSettingsRoute = route('/requests-admin/settings', RequestSettingsPage)
+
+// System
+export const systemRoute = redirectRoute('/system', '/system/health')
 export const healthRoute = route('/system/health', SystemHealthPage)
+export const tasksRoute = route('/system/tasks', TasksPage)
 export const logsRoute = route('/system/logs', LogsPage)
+export const updateRoute = route('/system/update', UpdatePage)
+
+export const manualImportRoute = route('/import', ManualImportPage)
+
+
+// Dev
 export const devColorsRoute = route('/dev/colors', ColorPreviewPage)
 export const devControlsRoute = route('/dev/controls', ControlsShowcasePage)
 
+// Portal
 export const portalLoginRoute = route('/requests/auth/login', LoginPage)
 
 export const portalSignupRoute = createRoute({

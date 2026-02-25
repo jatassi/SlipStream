@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
-import { SystemNav } from './system-nav'
+import { GeneralNav } from './general-nav'
 import { useHistoryRetention } from './use-history-retention'
 import { useServerPage } from './use-server-page'
 
@@ -78,9 +78,9 @@ export function ServerPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="System"
-        description="Server configuration and authentication settings"
-        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'System' }]}
+        title="General"
+        description="Server configuration, authentication, and notification settings"
+        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'General' }]}
         actions={
           <Button onClick={page.handleSave} disabled={page.isSaving || !page.hasChanges}>
             <Save className="mr-2 size-4" />
@@ -88,7 +88,7 @@ export function ServerPage() {
           </Button>
         }
       />
-      <SystemNav />
+      <GeneralNav />
       <div className="max-w-2xl space-y-6">
         <ServerSection
           port={page.port}

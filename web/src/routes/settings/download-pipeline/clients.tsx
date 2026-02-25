@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/layout/page-header'
 import { DownloadClientsSection } from '@/components/settings'
 
-import { DownloadsNav } from './downloads-nav'
+import { DownloadPipelineNav } from './download-pipeline-nav'
 
 export function DownloadClientsPage() {
   return (
@@ -15,7 +15,7 @@ export function DownloadClientsPage() {
         ]}
       />
 
-      <DownloadsNav />
+      <DownloadPipelineNav />
 
       <DownloadClientsSection />
     </div>

@@ -17,10 +17,14 @@ type CollapsibleNavSectionProps = {
   onAction?: (action: string) => void
 }
 
+function isItemActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 function CollapsedPopoverMenu({ group, onAction }: CollapsibleNavSectionProps) {
   const router = useRouterState()
   const isAnyChildActive = group.items.some(
-    (item) => !isActionItem(item) && router.location.pathname === item.href,
+    (item) => !isActionItem(item) && isItemActive(router.location.pathname, item.href),
   )
 
   return (
@@ -48,7 +52,7 @@ function CollapsedPopoverMenu({ group, onAction }: CollapsibleNavSectionProps) {
               className={cn(
                 'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                 'hover:bg-accent hover:text-accent-foreground',
-                router.location.pathname === item.href &&
+                isItemActive(router.location.pathname, item.href) &&
                   'bg-accent text-accent-foreground font-medium',
               )}
             >
@@ -68,7 +72,7 @@ function ExpandedCollapsibleMenu({ group, onAction }: CollapsibleNavSectionProps
 
   const isExpanded = expandedMenus[group.id] ?? false
   const isAnyChildActive = group.items.some(
-    (item) => !isActionItem(item) && router.location.pathname === item.href,
+    (item) => !isActionItem(item) && isItemActive(router.location.pathname, item.href),
   )
 
   return (

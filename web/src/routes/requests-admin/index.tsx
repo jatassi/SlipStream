@@ -29,10 +29,7 @@ export function RequestQueuePage() {
       <PageHeader
         title="External Requests"
         description="Manage portal users and content requests"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'External Requests' },
-        ]}
+        breadcrumbs={[{ label: 'Requests' }]}
         actions={page.developerMode ? <TestRequestButton /> : null}
       />
 
@@ -114,7 +111,7 @@ function PortalDisabledAlert() {
       <AlertDescription>
         The external requests portal is currently disabled. Portal users cannot submit new requests
         or access the portal. You can re-enable it in the{' '}
-        <a href="/settings/requests/settings" className="font-medium underline">
+        <a href="/requests-admin/settings" className="font-medium underline">
           Settings
         </a>{' '}
         tab.

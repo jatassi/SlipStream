@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -39,7 +40,9 @@ export function InviteDialog(props: InviteDialogProps) {
             become their username.
           </DialogDescription>
         </DialogHeader>
-        <InviteFormBody {...props} />
+        <DialogBody>
+          <InviteFormBody {...props} />
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>
             Cancel

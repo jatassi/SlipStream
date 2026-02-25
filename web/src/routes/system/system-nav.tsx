@@ -1,21 +1,22 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ListTodo, Settings2, Users } from 'lucide-react'
+import { ArrowUpCircle, Clock, HeartPulse, ScrollText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const requestsNavItems = [
-  { title: 'Queue', href: '/settings/requests', icon: ListTodo },
-  { title: 'Users', href: '/settings/requests/users', icon: Users },
-  { title: 'Settings', href: '/settings/requests/settings', icon: Settings2 },
+const systemNavItems = [
+  { title: 'Health', href: '/system/health', icon: HeartPulse },
+  { title: 'Tasks', href: '/system/tasks', icon: Clock },
+  { title: 'Logs', href: '/system/logs', icon: ScrollText },
+  { title: 'Update', href: '/system/update', icon: ArrowUpCircle },
 ]
 
-export function RequestsNav() {
+export function SystemNav() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
   return (
     <nav className="mb-6 flex gap-1 border-b">
-      {requestsNavItems.map((item) => {
+      {systemNavItems.map((item) => {
         const isActive = currentPath === item.href
         return (
           <Link

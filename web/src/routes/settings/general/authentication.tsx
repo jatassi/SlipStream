@@ -1,18 +1,18 @@
 import { PageHeader } from '@/components/layout/page-header'
 import { AuthenticationSection } from '@/components/settings'
 
-import { SystemNav } from './system-nav'
+import { GeneralNav } from './general-nav'
 
 export function AuthenticationPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="System"
-        description="Server configuration and authentication settings"
-        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'System' }]}
+        title="General"
+        description="Server configuration, authentication, and notification settings"
+        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'General' }]}
       />
 
-      <SystemNav />
+      <GeneralNav />
 
       <div className="max-w-2xl">
         <AuthenticationSection />

@@ -40,10 +40,7 @@ export function RequestUsersPage() {
       <PageHeader
         title="External Requests"
         description="Manage portal users and content requests"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'External Requests' },
-        ]}
+        breadcrumbs={[{ label: 'Requests' }]}
         actions={
           <Button onClick={state.handleOpenInvite}>
             <UserPlus className="mr-2 size-4" />
@@ -71,7 +68,7 @@ function PortalDisabledAlert({ enabled }: { enabled: boolean }) {
       <AlertDescription>
         The external requests portal is currently disabled. Portal users cannot submit new requests
         or access the portal. You can re-enable it in the{' '}
-        <a href="/settings/requests/settings" className="font-medium underline">
+        <a href="/requests-admin/settings" className="font-medium underline">
           Settings
         </a>{' '}
         tab.

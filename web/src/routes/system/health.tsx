@@ -4,10 +4,11 @@ import { PageHeader } from '@/components/layout/page-header'
 
 import { HealthCategoryCard } from './health-category-card'
 import { ProwlarrTreeCard } from './prowlarr-tree-card'
+import { SystemNav } from './system-nav'
 import { useHealthPage } from './use-health-page'
 
-const PAGE_TITLE = 'System Health'
-const PAGE_DESCRIPTION = 'Monitor the health of your system components'
+const PAGE_TITLE = 'System'
+const PAGE_DESCRIPTION = 'Monitor system health, tasks, logs, and updates'
 
 export function SystemHealthPage() {
   const {
@@ -22,8 +23,9 @@ export function SystemHealthPage() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="space-y-6">
         <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+        <SystemNav />
         <LoadingState variant="list" count={5} />
       </div>
     )
@@ -31,8 +33,9 @@ export function SystemHealthPage() {
 
   if (error) {
     return (
-      <div>
+      <div className="space-y-6">
         <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+        <SystemNav />
         <ErrorState title="Failed to load health status" />
       </div>
     )
@@ -45,8 +48,10 @@ export function SystemHealthPage() {
   )
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+
+      <SystemNav />
 
       <div className="space-y-4">
         <HealthCategoryCard category="downloadClients" items={downloadClients} />

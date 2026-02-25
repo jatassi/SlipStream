@@ -114,7 +114,7 @@ function ProwlarrCardHeader({ worstStatus, totalItems, onTestAll, testPending, d
           <FlaskConical className={cn('mr-1 size-4', testPending && 'animate-pulse')} />
           Test All
         </Button>
-        <Link to="/settings/downloads">
+        <Link to="/settings/download-pipeline">
           <Button variant="ghost" size="sm" title="Settings">
             <Settings className="mr-1 size-4" />
             Settings
@@ -139,7 +139,7 @@ function ProwlarrCardContent({ prowlarrItem, indexerItems, onTestProwlarr, isPen
         <div className="text-muted-foreground py-4 text-center text-sm">
           Prowlarr not configured.{' '}
           <Link
-            to="/settings/downloads"
+            to="/settings/download-pipeline"
             className="text-primary inline-flex items-center gap-1 hover:underline"
           >
             Configure <ExternalLink className="size-3" />

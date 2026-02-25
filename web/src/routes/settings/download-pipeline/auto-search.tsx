@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/layout/page-header'
 import { AutoSearchSection } from '@/components/settings'
 
-import { DownloadsNav } from './downloads-nav'
+import { DownloadPipelineNav } from './download-pipeline-nav'
 
 export function AutoSearchPage() {
   return (
@@ -15,7 +15,7 @@ export function AutoSearchPage() {
         ]}
       />
 
-      <DownloadsNav />
+      <DownloadPipelineNav />
 
       <AutoSearchSection />
     </div>

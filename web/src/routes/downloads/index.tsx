@@ -223,7 +223,7 @@ export function ActivityPage() {
           state.isLoading ? <Skeleton className="h-4 w-44" /> : 'Monitor active downloads'
         }
         actions={
-          <Link to="/activity/history">
+          <Link to="/history">
             <Button variant="outline">View History</Button>
           </Link>
         }

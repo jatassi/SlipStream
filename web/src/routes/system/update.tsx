@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { UpdateState } from '@/types/update'
 
+import { SystemNav } from './system-nav'
 import { UpdateStateDisplay } from './update-state-display'
 import { useUpdatePage } from './use-update-page'
 
@@ -78,16 +79,17 @@ export function UpdatePage() {
   const page = useUpdatePage()
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Software Update"
-        description="Check for and install SlipStream updates"
+        title="System"
+        description="Monitor system health, tasks, logs, and updates"
         actions={
           page.developerMode ? (
             <DebugButton state={page.state} onClick={page.cycleDebugState} />
           ) : null
         }
       />
+      <SystemNav />
       <div className="max-w-lg">
         <Card>
           <CardContent className="py-1">

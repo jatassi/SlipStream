@@ -3,6 +3,7 @@ export type NavItem = {
   href: string
   icon: React.ElementType
   theme?: 'movie' | 'tv'
+  activePrefix?: string
 }
 
 export type ActionItem = {

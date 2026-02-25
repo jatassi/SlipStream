@@ -109,7 +109,7 @@ export function useDownloadsNav() {
   const queueItems = useDownloadingStore((state) => state.queueItems)
 
   const isActive =
-    router.location.pathname === '/activity' || router.location.pathname.startsWith('/activity/')
+    router.location.pathname === '/downloads' || router.location.pathname.startsWith('/downloads/')
 
   const stats = useMemo(() => computeDownloadStats(queueItems), [queueItems])
   const completionFlash = useCompletionFlash(queueItems)

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -36,7 +37,9 @@ export function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: Us
             Configure settings for {user.username}
           </DialogDescription>
         </DialogHeader>
-        <EditUserFormBody state={state} qualityProfiles={qualityProfiles} />
+        <DialogBody>
+          <EditUserFormBody state={state} qualityProfiles={qualityProfiles} />
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

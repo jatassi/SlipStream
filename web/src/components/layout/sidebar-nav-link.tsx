@@ -52,8 +52,9 @@ function getLinkClassName(opts: { collapsed: boolean; indented: boolean; theme: 
 
 export function NavLink({ item, collapsed, indented = false, badge }: NavLinkProps) {
   const router = useRouterState()
+  const matchBase = item.activePrefix ?? item.href
   const isActive =
-    router.location.pathname === item.href || router.location.pathname.startsWith(`${item.href}/`)
+    router.location.pathname === matchBase || router.location.pathname.startsWith(`${matchBase}/`)
 
   const iconClassName = getIconClassName(item.theme, isActive)
   const linkClassName = getLinkClassName({ collapsed, indented, theme: item.theme, isActive })

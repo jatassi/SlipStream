@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 import { ALL_LOG_LEVELS, useLogsStore } from '@/stores/logs'
 import type { LogEntry, LogLevel } from '@/types/logs'
 
+import { SystemNav } from './system-nav'
+
 const LEVEL_COLORS: Record<string, string> = {
   debug: 'text-blue-400',
   info: 'text-green-400',
@@ -215,8 +217,9 @@ export function LogsPage() {
 
   if (isLoading) {
     return (
-      <div>
-        <PageHeader title="System Logs" description="Real-time log streaming" />
+      <div className="space-y-6">
+        <PageHeader title="System" description="Monitor system health, tasks, logs, and updates" />
+        <SystemNav />
         <LoadingState variant="list" count={10} />
       </div>
     )
@@ -224,7 +227,8 @@ export function LogsPage() {
 
   return (
     <div className="flex h-[calc(100vh-120px)] flex-col">
-      <PageHeader title="System Logs" description="Real-time log streaming" />
+      <PageHeader title="System" description="Monitor system health, tasks, logs, and updates" />
+      <SystemNav />
       <LogsToolbar
         searchText={store.searchText}
         onSearchChange={store.setSearchText}

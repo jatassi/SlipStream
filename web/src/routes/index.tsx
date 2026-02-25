@@ -45,7 +45,7 @@ function QueuePreview() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Active Downloads</CardTitle>
-        <Link to="/activity">
+        <Link to="/downloads">
           <Button variant="ghost" size="sm">
             View all
           </Button>
@@ -122,7 +122,7 @@ function RecentActivity() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Recent Activity</CardTitle>
-        <Link to="/activity/history">
+        <Link to="/history">
           <Button variant="ghost" size="sm">
             View all
           </Button>

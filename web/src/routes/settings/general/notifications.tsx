@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import { Bell, Edit, TestTube, Trash2 } from 'lucide-react'
 
 import { ErrorState } from '@/components/data/error-state'
@@ -12,6 +14,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Switch } from '@/components/ui/switch'
 import type { Notification } from '@/types'
 
+import { GeneralNav } from './general-nav'
 import { useNotificationsPage } from './use-notifications-page'
 
 const EVENT_FLAGS = [
@@ -96,34 +99,41 @@ function NotificationCard(props: NotificationCardProps) {
   )
 }
 
+function NotificationsLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="General"
+        description="Server configuration, authentication, and notification settings"
+        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'General' }]}
+      />
+      <GeneralNav />
+      {children}
+    </div>
+  )
+}
+
 export function NotificationsPage() {
   const state = useNotificationsPage()
 
   if (state.isLoading) {
     return (
-      <div>
-        <PageHeader title="Notifications" />
+      <NotificationsLayout>
         <LoadingState variant="list" count={3} />
-      </div>
+      </NotificationsLayout>
     )
   }
 
   if (state.isError) {
     return (
-      <div>
-        <PageHeader title="Notifications" />
+      <NotificationsLayout>
         <ErrorState onRetry={state.refetch} />
-      </div>
+      </NotificationsLayout>
     )
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Notifications"
-        description="Configure notification channels for events"
-        breadcrumbs={[{ label: 'Settings', href: '/settings' }, { label: 'Notifications' }]}
-      />
+    <NotificationsLayout>
 
       <div className="space-y-4">
         {state.notifications?.map((notification) => (
@@ -146,6 +156,6 @@ export function NotificationsPage() {
         onOpenChange={state.setShowDialog}
         notification={state.editingNotification}
       />
-    </div>
+    </NotificationsLayout>
   )
 }

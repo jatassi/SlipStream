@@ -2,8 +2,12 @@ import { ErrorState } from '@/components/data/error-state'
 import { LoadingState } from '@/components/data/loading-state'
 import { PageHeader } from '@/components/layout/page-header'
 
+import { SystemNav } from './system-nav'
 import { TaskTable } from './task-table'
 import { useTasksPage } from './use-tasks-page'
+
+const PAGE_TITLE = 'System'
+const PAGE_DESCRIPTION = 'Monitor system health, tasks, logs, and updates'
 
 export function TasksPage() {
   const { tasks, isLoading, isError, refetch, isRunPending, handleRunTask } =
@@ -11,8 +15,9 @@ export function TasksPage() {
 
   if (isLoading) {
     return (
-      <div>
-        <PageHeader title="Scheduled Tasks" />
+      <div className="space-y-6">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+        <SystemNav />
         <LoadingState variant="list" />
       </div>
     )
@@ -20,19 +25,18 @@ export function TasksPage() {
 
   if (isError) {
     return (
-      <div>
-        <PageHeader title="Scheduled Tasks" />
+      <div className="space-y-6">
+        <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+        <SystemNav />
         <ErrorState onRetry={refetch} />
       </div>
     )
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Scheduled Tasks"
-        description="Automated background tasks that run on a schedule"
-      />
+    <div className="space-y-6">
+      <PageHeader title={PAGE_TITLE} description={PAGE_DESCRIPTION} />
+      <SystemNav />
       <TaskTable tasks={tasks} isRunPending={isRunPending} onRun={handleRunTask} />
     </div>
   )
