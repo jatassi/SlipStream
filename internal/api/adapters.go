@@ -136,14 +136,43 @@ func (a *portalMediaProvisionerAdapter) EnsureSeriesInLibrary(ctx context.Contex
 		}
 	}
 
-	// Apply requested seasons monitoring if specific seasons were requested
-	if len(input.RequestedSeasons) > 0 {
-		if err := a.applyRequestedSeasonsMonitoring(ctx, series.ID, input.RequestedSeasons); err != nil {
-			a.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to apply requested seasons monitoring")
-		}
+	if err := a.applyPortalRequestMonitoring(ctx, series.ID, input); err != nil {
+		a.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to apply portal request monitoring")
 	}
 
 	return series.ID, nil
+}
+
+// applyPortalRequestMonitoring handles all monitoring scenarios for new series from portal requests.
+func (a *portalMediaProvisionerAdapter) applyPortalRequestMonitoring(ctx context.Context, seriesID int64, input *requests.MediaProvisionInput) error {
+	if len(input.RequestedSeasons) > 0 {
+		if err := a.applyRequestedSeasonsMonitoring(ctx, seriesID, input.RequestedSeasons); err != nil {
+			return err
+		}
+		if input.MonitorFuture {
+			a.applyMonitorFuture(ctx, seriesID)
+		}
+	} else if input.MonitorFuture {
+		if err := a.tvService.BulkMonitor(ctx, seriesID, tv.BulkMonitorInput{
+			MonitorType:     tv.MonitorTypeFuture,
+			IncludeSpecials: false,
+		}); err != nil {
+			return fmt.Errorf("failed to apply monitor future: %w", err)
+		}
+	}
+
+	// Always unmonitor specials (Season 0) as a safety net
+	a.unmonitorSpecials(ctx, seriesID)
+
+	return nil
+}
+
+func (a *portalMediaProvisionerAdapter) unmonitorSpecials(ctx context.Context, seriesID int64) {
+	if _, err := a.tvService.UpdateSeasonMonitored(ctx, seriesID, 0, false); err != nil {
+		if !errors.Is(err, tv.ErrSeasonNotFound) {
+			a.logger.Warn().Err(err).Int64("seriesID", seriesID).Msg("failed to unmonitor specials")
+		}
+	}
 }
 
 func (a *portalMediaProvisionerAdapter) applyMonitoringToExistingSeries(ctx context.Context, seriesID int64, input *requests.MediaProvisionInput) (int64, error) {

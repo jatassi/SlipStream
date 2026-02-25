@@ -261,16 +261,7 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 		AddedBy: &request.UserID,
 	}
 
-	// Get user's assigned quality profile
-	if s.userGetter != nil {
-		qpID, err := s.userGetter.GetQualityProfileID(ctx, request.UserID)
-		if err != nil {
-			s.logger.Warn().Err(err).Int64("userID", request.UserID).Msg("failed to get user's quality profile, using default")
-		} else if qpID != nil {
-			input.QualityProfileID = qpID
-			s.logger.Debug().Int64("userID", request.UserID).Int64("qualityProfileID", *qpID).Msg("using user's assigned quality profile")
-		}
-	}
+	s.resolveQualityProfile(ctx, &input, request.UserID)
 
 	switch request.MediaType {
 	case MediaTypeMovie:
@@ -281,17 +272,37 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 		return s.mediaProvisioner.EnsureMovieInLibrary(ctx, &input)
 
 	case MediaTypeSeries, MediaTypeSeason, MediaTypeEpisode:
-		if request.TvdbID == nil {
-			return 0, errors.New("series request missing tvdbID")
-		}
-		input.TvdbID = *request.TvdbID
-		input.RequestedSeasons = request.RequestedSeasons
-		input.MonitorFuture = isMonitorFuture(request.MonitorType)
-		return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, &input)
+		return s.ensureSeriesInLibrary(ctx, request, &input)
 
 	default:
 		return 0, fmt.Errorf("unsupported media type: %s", request.MediaType)
 	}
+}
+
+func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *MediaProvisionInput, userID int64) {
+	if s.userGetter == nil {
+		return
+	}
+	qpID, err := s.userGetter.GetQualityProfileID(ctx, userID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to get user's quality profile, using default")
+	} else if qpID != nil {
+		input.QualityProfileID = qpID
+		s.logger.Debug().Int64("userID", userID).Int64("qualityProfileID", *qpID).Msg("using user's assigned quality profile")
+	}
+}
+
+func (s *RequestSearcher) ensureSeriesInLibrary(ctx context.Context, request *Request, input *MediaProvisionInput) (int64, error) {
+	if request.TvdbID == nil {
+		return 0, errors.New("series request missing tvdbID")
+	}
+	input.TvdbID = *request.TvdbID
+	input.RequestedSeasons = request.RequestedSeasons
+	if request.MediaType == MediaTypeSeason && request.SeasonNumber != nil {
+		input.RequestedSeasons = []int64{*request.SeasonNumber}
+	}
+	input.MonitorFuture = isMonitorFuture(request.MonitorType)
+	return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, input)
 }
 
 func isMonitorFuture(monitorType *string) bool {
