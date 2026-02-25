@@ -12,6 +12,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
@@ -218,9 +219,9 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 
 	releaseDate, physicalReleaseDate, theatricalReleaseDate := parseReleaseDates(input.ReleaseDate, input.PhysicalReleaseDate, input.TheatricalReleaseDate)
 
-	status := "unreleased"
+	st := status.Unreleased
 	if isMovieReleased(releaseDate, physicalReleaseDate, theatricalReleaseDate) {
-		status = "missing"
+		st = status.Missing
 	}
 
 	var addedBy sql.NullInt64
@@ -240,7 +241,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 		RootFolderID:          sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
 		QualityProfileID:      sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
 		Monitored:             boolToInt(input.Monitored),
-		Status:                status,
+		Status:                st,
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
@@ -455,15 +456,15 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 		return nil, fmt.Errorf("failed to create movie file: %w", err)
 	}
 
-	status := "available"
+	st := status.Available
 	if qualityID.Valid && s.qualityProfiles != nil {
 		if profile, profileErr := s.qualityProfiles.Get(ctx, movie.QualityProfileID); profileErr == nil {
-			status = profile.StatusForQuality(int(qualityID.Int64))
+			st = profile.StatusForQuality(int(qualityID.Int64))
 		}
 	}
 	_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 		ID:     movieID,
-		Status: status,
+		Status: st,
 	})
 
 	file := s.rowToMovieFile(row)
@@ -727,12 +728,12 @@ func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *Update
 	physicalReleaseDate := s.parseOrKeepDate(input.PhysicalReleaseDate, current.PhysicalReleaseDate)
 	theatricalReleaseDate := s.parseOrKeepDate(input.TheatricalReleaseDate, current.TheatricalReleaseDate)
 
-	status := current.Status
+	st := current.Status
 	released := isMovieReleased(releaseDate, physicalReleaseDate, theatricalReleaseDate)
-	if status == "unreleased" && released {
-		status = "missing"
-	} else if status == "missing" && !released {
-		status = "unreleased"
+	if st == status.Unreleased && released {
+		st = status.Missing
+	} else if st == status.Missing && !released {
+		st = status.Unreleased
 	}
 
 	return sqlc.UpdateMovieParams{
@@ -748,7 +749,7 @@ func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *Update
 		RootFolderID:          sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
 		QualityProfileID:      sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
 		Monitored:             boolToInt(monitored),
-		Status:                status,
+		Status:                st,
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
 		TheatricalReleaseDate: theatricalReleaseDate,
@@ -788,14 +789,14 @@ func (s *Service) transitionMovieToMissingAfterFileRemoval(ctx context.Context, 
 	}
 	_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 		ID:     movieID,
-		Status: "missing",
+		Status: status.Missing,
 	})
 	_ = s.queries.UpdateMovieMonitored(ctx, sqlc.UpdateMovieMonitoredParams{
 		ID:        movieID,
 		Monitored: 0,
 	})
-	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != "missing" {
-		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", movieID, oldStatus, "missing", "File removed")
+	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != status.Missing {
+		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", movieID, oldStatus, status.Missing, "File removed")
 	}
 	if s.hub != nil {
 		s.hub.Broadcast("movie:updated", map[string]any{"movieId": movieID})
