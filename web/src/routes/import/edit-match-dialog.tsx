@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -102,7 +103,7 @@ function EditMatchDialogContent({ file, onClose, onConfirm }: {
 
   return (
     <>
-      <div className="space-y-4 py-4">
+      <DialogBody className="space-y-4 py-4">
         <div className="bg-muted rounded-lg p-3">
           <p className="text-sm font-medium break-all">{file.fileName}</p>
           <p className="text-muted-foreground mt-1 text-xs">{formatFileSize(file.fileSize)}</p>
@@ -115,7 +116,7 @@ function EditMatchDialogContent({ file, onClose, onConfirm }: {
           selectedEpisodeId={s.selectedEpisodeId} onEpisodeChange={s.setSelectedEpisodeId}
           selectedSlotId={s.selectedSlotId} onSlotChange={s.setSelectedSlotId}
         />
-      </div>
+      </DialogBody>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancel</Button>
         <Button onClick={handleConfirm}><Import className="mr-2 size-4" />Import</Button>

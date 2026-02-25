@@ -5,6 +5,7 @@ import { Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -63,29 +64,25 @@ function SlotSelectField({
   )
 }
 
-export function AssignModal({
-  open,
-  onOpenChange,
-  slots,
-  selectedCount,
-  onAssign,
-}: AssignModalProps) {
+function useAssignModal(open: boolean, slots: Slot[], onAssign: AssignModalProps['onAssign']) {
   const [selectedSlotId, setSelectedSlotId] = useState<string>('')
   const [prevOpen, setPrevOpen] = useState(open)
 
   if (open !== prevOpen) {
     setPrevOpen(open)
-    if (!open) {
-      setSelectedSlotId('')
-    }
+    if (!open) {setSelectedSlotId('')}
   }
 
   const handleAssign = () => {
     const slot = findSlot(slots, selectedSlotId)
-    if (slot) {
-      onAssign(slot.id, slot.name)
-    }
+    if (slot) {onAssign(slot.id, slot.name)}
   }
+
+  return { selectedSlotId, setSelectedSlotId, handleAssign }
+}
+
+export function AssignModal({ open, onOpenChange, slots, selectedCount, onAssign }: AssignModalProps) {
+  const s = useAssignModal(open, slots, onAssign)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,20 +90,15 @@ export function AssignModal({
         <DialogHeader>
           <DialogTitle>Assign to Slot</DialogTitle>
           <DialogDescription>
-            Select a slot to assign {selectedCount} selected file{selectedCount === 1 ? '' : 's'}{' '}
-            to
+            Select a slot to assign {selectedCount} selected file{selectedCount === 1 ? '' : 's'} to
           </DialogDescription>
         </DialogHeader>
-        <SlotSelectField
-          slots={slots}
-          selectedSlotId={selectedSlotId}
-          onValueChange={setSelectedSlotId}
-        />
+        <DialogBody>
+          <SlotSelectField slots={slots} selectedSlotId={s.selectedSlotId} onValueChange={s.setSelectedSlotId} />
+        </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleAssign} disabled={!selectedSlotId}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={s.handleAssign} disabled={!s.selectedSlotId}>
             <Layers className="mr-2 size-4" />
             Assign
           </Button>

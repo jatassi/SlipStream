@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -52,8 +53,8 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
       <DialogContent
         className={
           hook.step === 'select'
-            ? 'flex h-[600px] flex-col overflow-hidden sm:max-w-3xl'
-            : 'flex h-[80vh] flex-col overflow-hidden sm:max-w-2xl'
+            ? 'h-[600px] sm:max-w-3xl'
+            : 'h-[80vh] sm:max-w-2xl'
         }
       >
         <DialogHeader>
@@ -61,13 +62,13 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
         </DialogHeader>
 
         {hook.step === 'select' && (
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <DialogBody className="overflow-hidden">
             <DefinitionSearchTable
               definitions={hook.definitions}
               isLoading={hook.isLoadingDefinitions}
               onSelect={hook.handleDefinitionSelect}
             />
-          </div>
+          </DialogBody>
         )}
 
         {hook.step === 'configure' && hook.selectedDefinition ? <ConfigureStep hook={hook} privacyIcons={privacyIcons} privacyColors={privacyColors} protocolColors={protocolColors} /> : null}
@@ -152,7 +153,8 @@ function ConfigureStep({
   }
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <DialogBody className="overflow-hidden">
+      <ScrollArea className="size-full">
       <div className="space-y-4 py-4 pr-4">
         <DefinitionBanner
           definition={hook.selectedDefinition}
@@ -169,7 +171,8 @@ function ConfigureStep({
         <AutoSearchToggle hook={hook} definition={hook.selectedDefinition} />
         <RssToggle hook={hook} />
       </div>
-    </ScrollArea>
+      </ScrollArea>
+    </DialogBody>
   )
 }
 

@@ -3,6 +3,7 @@ import { Bug, TestTube } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -45,7 +46,7 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <DialogBody className="space-y-4 py-4">
           <ClientTypeSelect hook={hook} />
           <NameInput hook={hook} />
           <HostPortInputs hook={hook} />
@@ -57,7 +58,7 @@ export function DownloadClientDialog({ open, onOpenChange, client }: DownloadCli
           {hook.config.supportsCategory ? <CategoryInput hook={hook} /> : null}
           <PriorityInput hook={hook} />
           <EnabledToggle hook={hook} />
-        </div>
+        </DialogBody>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <ActionButtons hook={hook} onCancel={() => onOpenChange(false)} />

@@ -25,7 +25,7 @@ export function MediaInfoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[85vh] flex-col overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent className="h-[85vh] p-0 sm:max-w-2xl">
         <DialogTitle className="sr-only">{media.title}</DialogTitle>
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-4 p-4">

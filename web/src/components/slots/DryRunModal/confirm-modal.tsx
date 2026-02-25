@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -29,8 +30,10 @@ export function ConfirmModal(props: ConfirmModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <ConfirmHeader />
-        <MigrationInfoAlert />
-        {editedPreview ? <ConfirmStats summary={editedPreview.summary} ignoredCount={ignoredCount} /> : null}
+        <DialogBody className="space-y-4">
+          <MigrationInfoAlert />
+          {editedPreview ? <ConfirmStats summary={editedPreview.summary} ignoredCount={ignoredCount} /> : null}
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExecuting}>
             Back

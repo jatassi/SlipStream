@@ -1,6 +1,7 @@
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -46,7 +47,7 @@ export function MediaDeleteDialog({
             This action cannot be undone. The selected {pluralMediaLabel.toLowerCase()} will be removed from your library.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex items-center gap-2 py-2">
+        <AlertDialogBody className="flex items-center gap-2 py-2">
           <Checkbox
             id={`delete${mediaLabel}Files`}
             checked={deleteFiles}
@@ -55,7 +56,7 @@ export function MediaDeleteDialog({
           <label htmlFor={`delete${mediaLabel}Files`} className="cursor-pointer text-sm">
             Also delete files from disk
           </label>
-        </div>
+        </AlertDialogBody>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm} disabled={isPending}>

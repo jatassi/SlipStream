@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -67,7 +68,7 @@ export function SeriesRequestDialog(props: SeriesRequestDialogProps) {
           <DialogTitle>Request {props.seriesTitle}</DialogTitle>
           <DialogDescription>Select which seasons to request and whether to monitor future episodes</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="monitorFuture" className="text-sm font-medium">Monitor future episodes</Label>
             <Switch id="monitorFuture" checked={props.monitorFuture} onCheckedChange={props.onMonitorFutureChange} />
@@ -77,7 +78,7 @@ export function SeriesRequestDialog(props: SeriesRequestDialogProps) {
             onToggleSeason={props.onToggleSeason} onSelectAll={props.onSelectAll} onDeselectAll={props.onDeselectAll}
             monitorFuture={props.monitorFuture} onWatchRequest={props.onWatchRequest}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>Cancel</Button>
           <Button onClick={props.onSubmit} disabled={submitDisabled}>

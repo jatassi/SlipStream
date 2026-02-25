@@ -3,6 +3,7 @@ import { Loader2, RotateCcw, Settings, TrendingDown, TrendingUp } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -35,7 +36,7 @@ export function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWit
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <DialogBody className="space-y-4 py-4">
           <PriorityField priority={dialog.priority} onChange={dialog.handlePriorityChange} />
           <ContentTypeField
             contentType={dialog.contentType}
@@ -46,7 +47,7 @@ export function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWit
             onReset={dialog.handleResetStats}
             isResetting={dialog.isResetting}
           />
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>

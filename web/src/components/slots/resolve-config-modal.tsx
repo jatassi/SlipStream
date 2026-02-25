@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -26,7 +27,7 @@ export function ResolveConfigModal(props: ResolveConfigModalProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
+      <DialogContent className="sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Resolve Profile Conflicts</DialogTitle>
           <DialogDescription>
@@ -35,7 +36,9 @@ export function ResolveConfigModal(props: ResolveConfigModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <ProfileGrid {...state} />
+        <DialogBody>
+          <ProfileGrid {...state} />
+        </DialogBody>
 
         <SaveFooter
           saving={state.saving}

@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -31,7 +32,7 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
             {state.isEditing ? 'Edit Quality Profile' : 'Add Quality Profile'}
@@ -41,7 +42,9 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
           </DialogDescription>
         </DialogHeader>
 
-        <DialogBody state={state} showPreview={showPreview} />
+        <DialogBody>
+          <ProfileFormBody state={state} showPreview={showPreview} />
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -60,12 +63,12 @@ export function QualityProfileDialog({ open, onOpenChange, profile }: QualityPro
   )
 }
 
-type DialogBodyProps = {
+type ProfileFormBodyProps = {
   state: ReturnType<typeof useQualityProfileDialog>
   showPreview: boolean
 }
 
-function DialogBody({ state, showPreview }: DialogBodyProps) {
+function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
   const { formData, cutoffOptions, updateField, toggleQuality, updateItemMode } = state
 
   return (

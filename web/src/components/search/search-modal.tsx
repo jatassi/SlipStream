@@ -48,7 +48,7 @@ export function SearchModal(props: SearchModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-6xl">
+      <DialogContent className="h-[85vh] sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>{state.title}</DialogTitle>
           <DialogDescription>

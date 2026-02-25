@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -107,7 +108,7 @@ export function ResolveNamingModal(props: ResolveNamingModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Resolve Naming Format Issues</DialogTitle>
           <DialogDescription>
@@ -116,7 +117,7 @@ export function ResolveNamingModal(props: ResolveNamingModalProps) {
             <MissingTokensHint tokens={state.stillMissingTokens} />
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-6 py-4 md:grid-cols-2">
+        <DialogBody className="grid gap-6 py-4 md:grid-cols-2">
           <EpisodeFormatsColumn
             form={state.form}
             updateField={state.updateField}
@@ -130,7 +131,7 @@ export function ResolveNamingModal(props: ResolveNamingModalProps) {
             missingInMovie={state.missingInMovie}
             stillMissingTokens={state.stillMissingTokens}
           />
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

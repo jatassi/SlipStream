@@ -4,6 +4,7 @@ import { Loader2, XCircle } from 'lucide-react'
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -87,56 +88,45 @@ function useAutoCompletePin({
   }, [confirmPin, step, handlers])
 }
 
-export function ChangePinDialog({ open, onOpenChange }: ChangePinDialogProps) {
-  const {
-    step,
-    currentPin,
-    setCurrentPin,
-    newPin,
-    setNewPin,
-    confirmPin,
-    setConfirmPin,
-    error,
-    isProcessing,
-    resetWizard,
-    handleCurrentPinComplete,
-    handleNewPinComplete,
-    handleConfirmPinComplete,
-  } = useChangePin(() => onOpenChange(false))
+function useChangePinDialog(onOpenChange: (open: boolean) => void) {
+  const state = useChangePin(() => onOpenChange(false))
 
   const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen)
-    if (!newOpen) {
-      resetWizard()
-    }
+    if (!newOpen) {state.resetWizard()}
   }
 
   useAutoCompletePin({
-    currentPin,
-    newPin,
-    confirmPin,
-    step,
-    handlers: { handleCurrentPinComplete, handleNewPinComplete, handleConfirmPinComplete },
+    currentPin: state.currentPin,
+    newPin: state.newPin,
+    confirmPin: state.confirmPin,
+    step: state.step,
+    handlers: {
+      handleCurrentPinComplete: state.handleCurrentPinComplete,
+      handleNewPinComplete: state.handleNewPinComplete,
+      handleConfirmPinComplete: state.handleConfirmPinComplete,
+    },
   })
 
-  const pinValue = { current: currentPin, new: newPin, confirm: confirmPin }[step]
-  const pinSetter = { current: setCurrentPin, new: setNewPin, confirm: setConfirmPin }[step]
+  const pinValue = { current: state.currentPin, new: state.newPin, confirm: state.confirmPin }[state.step]
+  const pinSetter = { current: state.setCurrentPin, new: state.setNewPin, confirm: state.setConfirmPin }[state.step]
+
+  return { step: state.step, pinValue, pinSetter, error: state.error, isProcessing: state.isProcessing, handleOpenChange }
+}
+
+export function ChangePinDialog({ open, onOpenChange }: ChangePinDialogProps) {
+  const s = useChangePinDialog(onOpenChange)
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={s.handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{STEP_TITLES[step].title}</DialogTitle>
-          <DialogDescription>{STEP_TITLES[step].description}</DialogDescription>
+          <DialogTitle>{STEP_TITLES[s.step].title}</DialogTitle>
+          <DialogDescription>{STEP_TITLES[s.step].description}</DialogDescription>
         </DialogHeader>
-
-        <PinInputSection
-          isProcessing={isProcessing}
-          value={pinValue}
-          onChange={pinSetter}
-          error={error}
-          step={step}
-        />
+        <DialogBody>
+          <PinInputSection isProcessing={s.isProcessing} value={s.pinValue} onChange={s.pinSetter} error={s.error} step={s.step} />
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -45,7 +46,8 @@ export function FolderBrowser({
           <DialogTitle>{s.showFiles ? 'Browse Files' : 'Browse Folders'}</DialogTitle>
         </DialogHeader>
 
-        <PathInput
+        <DialogBody>
+          <PathInput
           inputPath={s.inputPath}
           setInputPath={s.setInputPath}
           hasDrives={!!s.data?.drives}
@@ -64,6 +66,7 @@ export function FolderBrowser({
           selectedFile={s.selectedFile}
         />
         {s.selectedPath ? <SelectedPath path={s.selectedPath} /> : null}
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

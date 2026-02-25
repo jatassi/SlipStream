@@ -21,7 +21,7 @@ export function DryRunModal(props: DryRunModalProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-4xl">
+      <DialogContent className="max-h-[90vh] sm:max-w-4xl">
         <ModalHeader />
         <ModalBody state={s} />
         <ModalFooter

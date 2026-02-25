@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -43,7 +44,8 @@ export function MediaEditDialog<T extends { id: number; title: string; monitored
           <DialogTitle>Edit {mediaLabel}</DialogTitle>
           <DialogDescription>{item.title}</DialogDescription>
         </DialogHeader>
-        <EditForm
+        <DialogBody>
+          <EditForm
           profiles={state.profiles}
           qualityProfileId={state.qualityProfileId}
           onProfileChange={state.handleProfileChange}
@@ -51,6 +53,7 @@ export function MediaEditDialog<T extends { id: number; title: string; monitored
           onMonitoredChange={state.setMonitored}
           monitoredDescription={monitoredDescription}
         />
+        </DialogBody>
         <EditFooter onCancel={state.handleCancel} onSubmit={state.handleSubmit} isPending={state.isPending} />
       </DialogContent>
     </Dialog>

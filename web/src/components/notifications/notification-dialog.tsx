@@ -3,6 +3,7 @@ import { ExternalLink, TestTube } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -20,13 +21,15 @@ export function NotificationDialog(props: NotificationDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <NotificationDialogHeader
           isEditing={state.isEditing}
           description={state.currentSchema?.description}
           infoUrl={state.currentSchema?.infoUrl}
         />
-        <NotificationFormBody state={state} />
+        <DialogBody>
+          <NotificationFormBody state={state} />
+        </DialogBody>
         <NotificationDialogFooter
           isTesting={state.isTesting}
           isPending={state.isPending}

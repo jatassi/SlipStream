@@ -5,6 +5,7 @@ import { Code2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -65,7 +66,7 @@ function TokenCategoryList({
   onInsert: (token: string) => void
 }) {
   return (
-    <div className="flex-1 space-y-4 overflow-y-auto py-2">
+    <div className="space-y-4 py-2">
       {categories.map((category) => (
         <div key={category} className="space-y-2">
           <h4 className="text-muted-foreground text-sm font-medium capitalize">
@@ -114,13 +115,15 @@ export function TokenBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] flex-col sm:max-w-2xl">
+      <DialogContent className="max-h-[80vh] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Token Builder</DialogTitle>
           <DialogDescription>Click a token to insert it into your format pattern</DialogDescription>
         </DialogHeader>
-        <TokenCategoryList categories={TOKEN_CATEGORIES_BY_CONTEXT[tokenContext]} onInsert={insertToken} />
-        <div className="space-y-2 border-t pt-2">
+        <DialogBody>
+          <TokenCategoryList categories={TOKEN_CATEGORIES_BY_CONTEXT[tokenContext]} onInsert={insertToken} />
+        </DialogBody>
+        <div className="shrink-0 space-y-2 border-t pt-2">
           <Label>Format Pattern</Label>
           <Textarea
             ref={textareaRef}

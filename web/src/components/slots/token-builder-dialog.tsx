@@ -6,6 +6,7 @@ import { Code2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -177,14 +178,14 @@ export function TokenBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[70vh] flex-col sm:max-w-xl">
+      <DialogContent className="max-h-[70vh] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit Pattern</DialogTitle>
           <DialogDescription>
             Click a token to insert it. Highlighted tokens are recommended.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 space-y-3 overflow-y-auto py-2">
+        <DialogBody className="space-y-3 py-2">
           {categories.map((category) => (
             <TokenCategorySection
               key={category}
@@ -193,7 +194,7 @@ export function TokenBuilderDialog({
               onInsert={state.handleInsertToken}
             />
           ))}
-        </div>
+        </DialogBody>
         <PatternTextarea
           textareaRef={state.textareaRef}
           value={state.localValue}

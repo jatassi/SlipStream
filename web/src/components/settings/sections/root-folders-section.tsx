@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -194,7 +195,9 @@ function AddFolderDialog({
         <DialogHeader>
           <DialogTitle>Add Root Folder</DialogTitle>
         </DialogHeader>
-        <AddFolderFormBody state={state} onNameChange={onNameChange} onPathChange={onPathChange} onMediaTypeChange={onMediaTypeChange} onBrowse={onBrowse} />
+        <DialogBody>
+          <AddFolderFormBody state={state} onNameChange={onNameChange} onPathChange={onPathChange} onMediaTypeChange={onMediaTypeChange} onBrowse={onBrowse} />
+        </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={onAdd} disabled={isPending}>Add</Button>
