@@ -18,9 +18,10 @@ type UserWithQuota struct {
 }
 
 type UpdateUserRequest struct {
-	Username         *string `json:"username"`
-	QualityProfileID *int64  `json:"qualityProfileId"`
-	AutoApprove      *bool   `json:"autoApprove"`
+	Username              *string `json:"username"`
+	MovieQualityProfileID *int64  `json:"movieQualityProfileId"`
+	TVQualityProfileID    *int64  `json:"tvQualityProfileId"`
+	AutoApprove           *bool   `json:"autoApprove"`
 }
 
 type UpdateQuotaRequest struct {
@@ -147,10 +148,10 @@ func (h *UsersHandlers) applyUserUpdates(ctx context.Context, id int64, req *Upd
 		user = u
 	}
 
-	if req.QualityProfileID != nil {
-		u, err := h.usersService.SetQualityProfile(ctx, id, req.QualityProfileID)
+	if req.MovieQualityProfileID != nil || req.TVQualityProfileID != nil {
+		u, err := h.applyQualityProfileUpdates(ctx, id, req)
 		if err != nil {
-			return nil, mapUserError(err)
+			return nil, err
 		}
 		user = u
 	}
@@ -164,6 +165,22 @@ func (h *UsersHandlers) applyUserUpdates(ctx context.Context, id int64, req *Upd
 	}
 
 	return user, nil
+}
+
+func (h *UsersHandlers) applyQualityProfileUpdates(ctx context.Context, id int64, req *UpdateUserRequest) (*users.User, error) {
+	existing, err := h.usersService.Get(ctx, id)
+	if err != nil {
+		return nil, mapUserError(err)
+	}
+	movieQPID := existing.MovieQualityProfileID
+	tvQPID := existing.TVQualityProfileID
+	if req.MovieQualityProfileID != nil {
+		movieQPID = req.MovieQualityProfileID
+	}
+	if req.TVQualityProfileID != nil {
+		tvQPID = req.TVQualityProfileID
+	}
+	return h.usersService.SetQualityProfiles(ctx, id, movieQPID, tvQPID)
 }
 
 func mapUserError(err error) *echo.HTTPError {

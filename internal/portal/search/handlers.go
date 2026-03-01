@@ -98,7 +98,7 @@ func (h *Handlers) SearchMovies(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	profileID := h.getUserQualityProfileID(c.Request().Context(), claims.UserID)
+	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, "movie")
 	enriched := h.enrichMovieResults(c.Request().Context(), results, profileID, claims.UserID)
 	return c.JSON(http.StatusOK, enriched)
 }
@@ -122,12 +122,12 @@ func parseYearParam(yearStr string) int {
 	return y
 }
 
-func (h *Handlers) getUserQualityProfileID(ctx context.Context, userID int64) *int64 {
+func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, mediaType string) *int64 {
 	user, err := h.usersService.Get(ctx, userID)
 	if err != nil || user == nil {
 		return nil
 	}
-	return user.QualityProfileID
+	return user.QualityProfileIDFor(mediaType)
 }
 
 func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64, currentUserID int64) []MovieSearchResult {
@@ -182,7 +182,7 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	profileID := h.getUserQualityProfileID(c.Request().Context(), claims.UserID)
+	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, "tv")
 	enriched := h.enrichSeriesResults(c.Request().Context(), results, profileID)
 	return c.JSON(http.StatusOK, enriched)
 }

@@ -39,7 +39,7 @@ type MediaProvisioner interface {
 }
 
 type UserQualityProfileGetter interface {
-	GetQualityProfileID(ctx context.Context, userID int64) (*int64, error)
+	GetQualityProfileID(ctx context.Context, userID int64, mediaType string) (*int64, error)
 }
 
 type RequestSearcher struct {
@@ -261,7 +261,7 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 		AddedBy: &request.UserID,
 	}
 
-	s.resolveQualityProfile(ctx, &input, request.UserID)
+	s.resolveQualityProfile(ctx, &input, request.UserID, request.MediaType)
 
 	switch request.MediaType {
 	case MediaTypeMovie:
@@ -279,11 +279,11 @@ func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Req
 	}
 }
 
-func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *MediaProvisionInput, userID int64) {
+func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *MediaProvisionInput, userID int64, mediaType string) {
 	if s.userGetter == nil {
 		return
 	}
-	qpID, err := s.userGetter.GetQualityProfileID(ctx, userID)
+	qpID, err := s.userGetter.GetQualityProfileID(ctx, userID, mediaType)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to get user's quality profile, using default")
 	} else if qpID != nil {

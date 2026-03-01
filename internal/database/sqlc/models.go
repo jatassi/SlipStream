@@ -371,14 +371,15 @@ type PlexRefreshQueue struct {
 }
 
 type PortalInvitation struct {
-	ID               int64         `json:"id"`
-	Username         string        `json:"username"`
-	Token            string        `json:"token"`
-	ExpiresAt        time.Time     `json:"expires_at"`
-	UsedAt           sql.NullTime  `json:"used_at"`
-	CreatedAt        time.Time     `json:"created_at"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
-	AutoApprove      int64         `json:"auto_approve"`
+	ID                    int64         `json:"id"`
+	Username              string        `json:"username"`
+	Token                 string        `json:"token"`
+	ExpiresAt             time.Time     `json:"expires_at"`
+	UsedAt                sql.NullTime  `json:"used_at"`
+	CreatedAt             time.Time     `json:"created_at"`
+	AutoApprove           int64         `json:"auto_approve"`
+	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
+	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
 }
 
 type PortalNotification struct {
@@ -393,15 +394,16 @@ type PortalNotification struct {
 }
 
 type PortalUser struct {
-	ID               int64         `json:"id"`
-	Username         string        `json:"username"`
-	PasswordHash     string        `json:"password_hash"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
-	AutoApprove      int64         `json:"auto_approve"`
-	Enabled          int64         `json:"enabled"`
-	CreatedAt        time.Time     `json:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at"`
-	IsAdmin          int64         `json:"is_admin"`
+	ID                    int64         `json:"id"`
+	Username              string        `json:"username"`
+	PasswordHash          string        `json:"password_hash"`
+	AutoApprove           int64         `json:"auto_approve"`
+	Enabled               int64         `json:"enabled"`
+	CreatedAt             time.Time     `json:"created_at"`
+	UpdatedAt             time.Time     `json:"updated_at"`
+	IsAdmin               int64         `json:"is_admin"`
+	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
+	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
 }
 
 type ProwlarrConfig struct {

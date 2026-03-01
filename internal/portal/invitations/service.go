@@ -25,21 +25,23 @@ var (
 )
 
 type Invitation struct {
-	ID               int64      `json:"id"`
-	Username         string     `json:"username"`
-	Token            string     `json:"token"`
-	ExpiresAt        time.Time  `json:"expiresAt"`
-	UsedAt           *time.Time `json:"usedAt"`
-	CreatedAt        time.Time  `json:"createdAt"`
-	Status           string     `json:"status"`
-	QualityProfileID *int64     `json:"qualityProfileId"`
-	AutoApprove      bool       `json:"autoApprove"`
+	ID                    int64      `json:"id"`
+	Username              string     `json:"username"`
+	Token                 string     `json:"token"`
+	ExpiresAt             time.Time  `json:"expiresAt"`
+	UsedAt                *time.Time `json:"usedAt"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	Status                string     `json:"status"`
+	MovieQualityProfileID *int64     `json:"movieQualityProfileId"`
+	TVQualityProfileID    *int64     `json:"tvQualityProfileId"`
+	AutoApprove           bool       `json:"autoApprove"`
 }
 
 type CreateInput struct {
-	Username         string
-	QualityProfileID *int64
-	AutoApprove      bool
+	Username              string
+	MovieQualityProfileID *int64
+	TVQualityProfileID    *int64
+	AutoApprove           bool
 }
 
 type Service struct {
@@ -71,17 +73,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Invitation, e
 
 	expiresAt := time.Now().Add(DefaultExpiryDuration)
 
-	var qualityProfileID sql.NullInt64
-	if input.QualityProfileID != nil {
-		qualityProfileID = sql.NullInt64{Int64: *input.QualityProfileID, Valid: true}
+	var movieQPID, tvQPID sql.NullInt64
+	if input.MovieQualityProfileID != nil {
+		movieQPID = sql.NullInt64{Int64: *input.MovieQualityProfileID, Valid: true}
+	}
+	if input.TVQualityProfileID != nil {
+		tvQPID = sql.NullInt64{Int64: *input.TVQualityProfileID, Valid: true}
 	}
 
 	inv, err := s.queries.CreatePortalInvitation(ctx, sqlc.CreatePortalInvitationParams{
-		Username:         input.Username,
-		Token:            token,
-		ExpiresAt:        expiresAt,
-		QualityProfileID: qualityProfileID,
-		AutoApprove:      boolToInt(input.AutoApprove),
+		Username:              input.Username,
+		Token:                 token,
+		ExpiresAt:             expiresAt,
+		MovieQualityProfileID: movieQPID,
+		TvQualityProfileID:    tvQPID,
+		AutoApprove:           boolToInt(input.AutoApprove),
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create invitation")
@@ -228,21 +234,25 @@ func toInvitation(inv *sqlc.PortalInvitation) *Invitation {
 		status = "expired"
 	}
 
-	var qualityProfileID *int64
-	if inv.QualityProfileID.Valid {
-		qualityProfileID = &inv.QualityProfileID.Int64
+	var movieQPID, tvQPID *int64
+	if inv.MovieQualityProfileID.Valid {
+		movieQPID = &inv.MovieQualityProfileID.Int64
+	}
+	if inv.TvQualityProfileID.Valid {
+		tvQPID = &inv.TvQualityProfileID.Int64
 	}
 
 	return &Invitation{
-		ID:               inv.ID,
-		Username:         inv.Username,
-		Token:            inv.Token,
-		ExpiresAt:        inv.ExpiresAt,
-		UsedAt:           usedAt,
-		CreatedAt:        inv.CreatedAt,
-		Status:           status,
-		QualityProfileID: qualityProfileID,
-		AutoApprove:      inv.AutoApprove != 0,
+		ID:                    inv.ID,
+		Username:              inv.Username,
+		Token:                 inv.Token,
+		ExpiresAt:             inv.ExpiresAt,
+		UsedAt:                usedAt,
+		CreatedAt:             inv.CreatedAt,
+		Status:                status,
+		MovieQualityProfileID: movieQPID,
+		TVQualityProfileID:    tvQPID,
+		AutoApprove:           inv.AutoApprove != 0,
 	}
 }
 

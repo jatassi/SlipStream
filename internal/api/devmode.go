@@ -372,22 +372,15 @@ func (s *Server) copyPortalUsersToDevDB(profileIDMapping map[int64]int64) {
 			continue // User already exists
 		}
 
-		// Map quality profile ID using the provided mapping
-		var qualityProfileID sql.NullInt64
-		if user.QualityProfileID.Valid {
-			if newID, ok := profileIDMapping[user.QualityProfileID.Int64]; ok {
-				qualityProfileID = sql.NullInt64{Int64: newID, Valid: true}
-			}
-		}
-
 		_, err = devQueries.CreatePortalUserWithID(ctx, sqlc.CreatePortalUserWithIDParams{
-			ID:               user.ID,
-			Username:         user.Username,
-			PasswordHash:     user.PasswordHash,
-			QualityProfileID: qualityProfileID,
-			AutoApprove:      user.AutoApprove,
-			Enabled:          user.Enabled,
-			IsAdmin:          user.IsAdmin,
+			ID:                    user.ID,
+			Username:              user.Username,
+			PasswordHash:          user.PasswordHash,
+			MovieQualityProfileID: mapProfileID(user.MovieQualityProfileID, profileIDMapping),
+			TvQualityProfileID:    mapProfileID(user.TvQualityProfileID, profileIDMapping),
+			AutoApprove:           user.AutoApprove,
+			Enabled:               user.Enabled,
+			IsAdmin:               user.IsAdmin,
 		})
 		if err != nil {
 			s.logger.Error().Err(err).Str("username", user.Username).Msg("Failed to copy portal user")
@@ -552,6 +545,15 @@ func (s *Server) setupDevModeSlots() {
 	}
 
 	s.logger.Info().Int("count", len(slotList)).Msg("Configured slots for dev mode")
+}
+
+func mapProfileID(id sql.NullInt64, mapping map[int64]int64) sql.NullInt64 {
+	if id.Valid {
+		if newID, ok := mapping[id.Int64]; ok {
+			return sql.NullInt64{Int64: newID, Valid: true}
+		}
+	}
+	return sql.NullInt64{}
 }
 
 // populateMockMedia creates mock movies and series in the dev database.

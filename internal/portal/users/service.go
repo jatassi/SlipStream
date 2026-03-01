@@ -22,21 +22,30 @@ var (
 )
 
 type User struct {
-	ID               int64     `json:"id"`
-	Username         string    `json:"username"`
-	QualityProfileID *int64    `json:"qualityProfileId"`
-	AutoApprove      bool      `json:"autoApprove"`
-	IsAdmin          bool      `json:"isAdmin"`
-	Enabled          bool      `json:"enabled"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	ID                    int64     `json:"id"`
+	Username              string    `json:"username"`
+	MovieQualityProfileID *int64    `json:"movieQualityProfileId"`
+	TVQualityProfileID    *int64    `json:"tvQualityProfileId"`
+	AutoApprove           bool      `json:"autoApprove"`
+	IsAdmin               bool      `json:"isAdmin"`
+	Enabled               bool      `json:"enabled"`
+	CreatedAt             time.Time `json:"createdAt"`
+	UpdatedAt             time.Time `json:"updatedAt"`
+}
+
+func (u *User) QualityProfileIDFor(mediaType string) *int64 {
+	if mediaType == "movie" {
+		return u.MovieQualityProfileID
+	}
+	return u.TVQualityProfileID
 }
 
 type CreateInput struct {
-	Username         string
-	Password         string
-	QualityProfileID *int64
-	AutoApprove      bool
+	Username              string
+	Password              string
+	MovieQualityProfileID *int64
+	TVQualityProfileID    *int64
+	AutoApprove           bool
 }
 
 type CreateUserInput = CreateInput
@@ -86,17 +95,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 		autoApprove = 1
 	}
 
-	var qualityProfileID sql.NullInt64
-	if input.QualityProfileID != nil {
-		qualityProfileID = sql.NullInt64{Int64: *input.QualityProfileID, Valid: true}
+	var movieQPID, tvQPID sql.NullInt64
+	if input.MovieQualityProfileID != nil {
+		movieQPID = sql.NullInt64{Int64: *input.MovieQualityProfileID, Valid: true}
+	}
+	if input.TVQualityProfileID != nil {
+		tvQPID = sql.NullInt64{Int64: *input.TVQualityProfileID, Valid: true}
 	}
 
 	user, err := s.queries.CreatePortalUser(ctx, sqlc.CreatePortalUserParams{
-		Username:         input.Username,
-		PasswordHash:     hash,
-		AutoApprove:      autoApprove,
-		QualityProfileID: qualityProfileID,
-		Enabled:          1,
+		Username:              input.Username,
+		PasswordHash:          hash,
+		AutoApprove:           autoApprove,
+		MovieQualityProfileID: movieQPID,
+		TvQualityProfileID:    tvQPID,
+		Enabled:               1,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create user")
@@ -239,15 +252,19 @@ func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*User
 	return toUser(user), nil
 }
 
-func (s *Service) SetQualityProfile(ctx context.Context, id int64, profileID *int64) (*User, error) {
-	var qpID sql.NullInt64
-	if profileID != nil {
-		qpID = sql.NullInt64{Int64: *profileID, Valid: true}
+func (s *Service) SetQualityProfiles(ctx context.Context, id int64, movieProfileID, tvProfileID *int64) (*User, error) {
+	var movieQPID, tvQPID sql.NullInt64
+	if movieProfileID != nil {
+		movieQPID = sql.NullInt64{Int64: *movieProfileID, Valid: true}
+	}
+	if tvProfileID != nil {
+		tvQPID = sql.NullInt64{Int64: *tvProfileID, Valid: true}
 	}
 
-	user, err := s.queries.UpdatePortalUserQualityProfile(ctx, sqlc.UpdatePortalUserQualityProfileParams{
-		ID:               id,
-		QualityProfileID: qpID,
+	user, err := s.queries.UpdatePortalUserQualityProfiles(ctx, sqlc.UpdatePortalUserQualityProfilesParams{
+		ID:                    id,
+		MovieQualityProfileID: movieQPID,
+		TvQualityProfileID:    tvQPID,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -382,19 +399,23 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 }
 
 func toUser(u *sqlc.PortalUser) *User {
-	var qpID *int64
-	if u.QualityProfileID.Valid {
-		qpID = &u.QualityProfileID.Int64
+	var movieQPID, tvQPID *int64
+	if u.MovieQualityProfileID.Valid {
+		movieQPID = &u.MovieQualityProfileID.Int64
+	}
+	if u.TvQualityProfileID.Valid {
+		tvQPID = &u.TvQualityProfileID.Int64
 	}
 
 	return &User{
-		ID:               u.ID,
-		Username:         u.Username,
-		QualityProfileID: qpID,
-		AutoApprove:      u.AutoApprove == 1,
-		IsAdmin:          u.IsAdmin == 1,
-		Enabled:          u.Enabled == 1,
-		CreatedAt:        u.CreatedAt,
-		UpdatedAt:        u.UpdatedAt,
+		ID:                    u.ID,
+		Username:              u.Username,
+		MovieQualityProfileID: movieQPID,
+		TVQualityProfileID:    tvQPID,
+		AutoApprove:           u.AutoApprove == 1,
+		IsAdmin:               u.IsAdmin == 1,
+		Enabled:               u.Enabled == 1,
+		CreatedAt:             u.CreatedAt,
+		UpdatedAt:             u.UpdatedAt,
 	}
 }

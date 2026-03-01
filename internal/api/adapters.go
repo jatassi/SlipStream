@@ -333,12 +333,12 @@ type portalUserQualityProfileAdapter struct {
 	usersSvc *users.Service
 }
 
-func (a *portalUserQualityProfileAdapter) GetQualityProfileID(ctx context.Context, userID int64) (*int64, error) {
+func (a *portalUserQualityProfileAdapter) GetQualityProfileID(ctx context.Context, userID int64, mediaType string) (*int64, error) {
 	user, err := a.usersSvc.Get(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return user.QualityProfileID, nil
+	return user.QualityProfileIDFor(mediaType), nil
 }
 
 // portalQueueGetterAdapter adapts downloader.Service to requests.QueueGetter interface.

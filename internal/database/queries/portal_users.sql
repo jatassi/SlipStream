@@ -12,8 +12,8 @@ SELECT * FROM portal_users WHERE enabled = 1 ORDER BY username;
 
 -- name: CreatePortalUser :one
 INSERT INTO portal_users (
-    username, password_hash, quality_profile_id, auto_approve, enabled
-) VALUES (?, ?, ?, ?, ?)
+    username, password_hash, movie_quality_profile_id, tv_quality_profile_id, auto_approve, enabled
+) VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdatePortalUser :one
@@ -29,9 +29,10 @@ UPDATE portal_users SET
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
 
--- name: UpdatePortalUserQualityProfile :one
+-- name: UpdatePortalUserQualityProfiles :one
 UPDATE portal_users SET
-    quality_profile_id = ?,
+    movie_quality_profile_id = ?,
+    tv_quality_profile_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -77,6 +78,6 @@ SELECT username FROM portal_users WHERE id = ? LIMIT 1;
 -- name: CreatePortalUserWithID :one
 -- Used for copying users to dev database while preserving IDs
 INSERT INTO portal_users (
-    id, username, password_hash, quality_profile_id, auto_approve, enabled, is_admin
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+    id, username, password_hash, movie_quality_profile_id, tv_quality_profile_id, auto_approve, enabled, is_admin
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;

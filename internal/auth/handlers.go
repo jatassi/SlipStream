@@ -298,10 +298,11 @@ func (h *Handlers) validateInvitation(c echo.Context, token string) (*invitation
 
 func (h *Handlers) createUserFromInvitation(c echo.Context, req *SignupRequest, inv *invitations.Invitation) (*users.User, error) {
 	user, err := h.usersService.Create(c.Request().Context(), users.CreateInput{
-		Username:         inv.Username,
-		Password:         req.Password,
-		QualityProfileID: inv.QualityProfileID,
-		AutoApprove:      inv.AutoApprove,
+		Username:              inv.Username,
+		Password:              req.Password,
+		MovieQualityProfileID: inv.MovieQualityProfileID,
+		TVQualityProfileID:    inv.TVQualityProfileID,
+		AutoApprove:           inv.AutoApprove,
 	})
 	if err != nil {
 		if errors.Is(err, users.ErrUsernameExists) {

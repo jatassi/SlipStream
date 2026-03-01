@@ -16,8 +16,8 @@ WHERE used_at IS NULL
 ORDER BY created_at DESC;
 
 -- name: CreatePortalInvitation :one
-INSERT INTO portal_invitations (username, token, expires_at, quality_profile_id, auto_approve)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO portal_invitations (username, token, expires_at, movie_quality_profile_id, tv_quality_profile_id, auto_approve)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: MarkPortalInvitationUsed :exec

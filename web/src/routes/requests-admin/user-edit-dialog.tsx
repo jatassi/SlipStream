@@ -13,9 +13,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import type { PortalUserWithQuota } from '@/types'
 
+import { ProfileSelect } from './profile-select'
 import { useUserEditDialog } from './use-user-edit-dialog'
 
 type UserEditDialogProps = {
@@ -72,7 +72,19 @@ function EditUserFormBody({ state, qualityProfiles }: EditFormProps) {
         />
       </div>
 
-      <EditProfileSelect state={state} qualityProfiles={qualityProfiles} />
+      <ProfileSelect
+        label="Movie Quality Profile"
+        value={state.movieQualityProfileId}
+        onChange={state.setMovieQualityProfileId}
+        qualityProfiles={qualityProfiles}
+      />
+
+      <ProfileSelect
+        label="TV Quality Profile"
+        value={state.tvQualityProfileId}
+        onChange={state.setTvQualityProfileId}
+        qualityProfiles={qualityProfiles}
+      />
 
       <div className="flex items-center space-x-2">
         <Checkbox
@@ -88,33 +100,6 @@ function EditUserFormBody({ state, qualityProfiles }: EditFormProps) {
   )
 }
 
-function EditProfileSelect({ state, qualityProfiles }: EditFormProps) {
-  const profileLabel = state.qualityProfileId
-    ? (qualityProfiles.find((p) => p.id === state.qualityProfileId)?.name ?? 'Select profile')
-    : 'Default (use global)'
-
-  return (
-    <div className="space-y-2">
-      <Label>Quality Profile</Label>
-      <Select
-        value={state.qualityProfileId?.toString() ?? ''}
-        onValueChange={(value) =>
-          state.setQualityProfileId(value ? Number.parseInt(value, 10) : null)
-        }
-      >
-        <SelectTrigger>{profileLabel}</SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">Default (use global)</SelectItem>
-          {qualityProfiles.map((profile) => (
-            <SelectItem key={profile.id} value={profile.id.toString()}>
-              {profile.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
 
 function QuotaOverrideSection({ state }: { state: ReturnType<typeof useUserEditDialog> }) {
   return (

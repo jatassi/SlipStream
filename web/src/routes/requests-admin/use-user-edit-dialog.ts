@@ -43,14 +43,16 @@ export function useUserEditDialog(
 ) {
   const updateMutation = useUpdateAdminUser()
   const [username, setUsername] = useState(user.username)
-  const [qualityProfileId, setQualityProfileId] = useState<number | null>(user.qualityProfileId)
+  const [movieQualityProfileId, setMovieQualityProfileId] = useState<number | null>(user.movieQualityProfileId)
+  const [tvQualityProfileId, setTvQualityProfileId] = useState<number | null>(user.tvQualityProfileId)
   const [autoApprove, setAutoApprove] = useState(user.autoApprove)
   const quotaState = useQuotaState(user.quota)
 
   const handleSave = async () => {
     const input: AdminUpdateUserInput = {
       username: username === user.username ? undefined : username,
-      qualityProfileId,
+      movieQualityProfileId,
+      tvQualityProfileId,
       autoApprove,
       quotaOverride: quotaState.buildOverride(),
     }
@@ -65,7 +67,8 @@ export function useUserEditDialog(
 
   return {
     username, setUsername,
-    qualityProfileId, setQualityProfileId,
+    movieQualityProfileId, setMovieQualityProfileId,
+    tvQualityProfileId, setTvQualityProfileId,
     autoApprove, setAutoApprove,
     ...quotaState,
     isPending: updateMutation.isPending,

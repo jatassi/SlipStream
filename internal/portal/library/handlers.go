@@ -85,7 +85,7 @@ func (h *Handlers) ListMovies(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to list movies")
 	}
 
-	profileID := h.getUserQualityProfileID(ctx, claims.UserID)
+	profileID := h.getProfileIDForUser(ctx, claims.UserID, "movie")
 
 	results := make([]MovieResult, 0, len(allMovies))
 	for _, m := range allMovies {
@@ -130,7 +130,7 @@ func (h *Handlers) ListSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to list series")
 	}
 
-	profileID := h.getUserQualityProfileID(ctx, claims.UserID)
+	profileID := h.getProfileIDForUser(ctx, claims.UserID, "tv")
 
 	results := make([]SeriesResult, 0, len(allSeries))
 	for _, s := range allSeries {
@@ -175,10 +175,10 @@ func seriesHasFiles(availability *requests.AvailabilityResult) bool {
 	return false
 }
 
-func (h *Handlers) getUserQualityProfileID(ctx context.Context, userID int64) *int64 {
+func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, mediaType string) *int64 {
 	user, err := h.usersService.Get(ctx, userID)
 	if err != nil || user == nil {
 		return nil
 	}
-	return user.QualityProfileID
+	return user.QualityProfileIDFor(mediaType)
 }

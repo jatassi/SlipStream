@@ -11,9 +11,10 @@ import (
 )
 
 type CreateInvitationRequest struct {
-	Username         string `json:"username"`
-	QualityProfileID *int64 `json:"qualityProfileId"`
-	AutoApprove      bool   `json:"autoApprove"`
+	Username              string `json:"username"`
+	MovieQualityProfileID *int64 `json:"movieQualityProfileId"`
+	TVQualityProfileID    *int64 `json:"tvQualityProfileId"`
+	AutoApprove           bool   `json:"autoApprove"`
 }
 
 type InvitationsHandlers struct {
@@ -80,9 +81,10 @@ func (h *InvitationsHandlers) Create(c echo.Context) error {
 	}
 
 	invitation, err := h.invitationsService.Create(c.Request().Context(), invitations.CreateInput{
-		Username:         req.Username,
-		QualityProfileID: req.QualityProfileID,
-		AutoApprove:      req.AutoApprove,
+		Username:              req.Username,
+		MovieQualityProfileID: req.MovieQualityProfileID,
+		TVQualityProfileID:    req.TVQualityProfileID,
+		AutoApprove:           req.AutoApprove,
 	})
 	if err != nil {
 		if errors.Is(err, invitations.ErrInvalidUsername) {

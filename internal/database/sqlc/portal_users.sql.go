@@ -47,7 +47,7 @@ const createAdminUser = `-- name: CreateAdminUser :one
 INSERT INTO portal_users (
     username, password_hash, is_admin, auto_approve, enabled
 ) VALUES (?, ?, 1, 1, 1)
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type CreateAdminUserParams struct {
@@ -62,36 +62,39 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
 
 const createPortalUser = `-- name: CreatePortalUser :one
 INSERT INTO portal_users (
-    username, password_hash, quality_profile_id, auto_approve, enabled
-) VALUES (?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+    username, password_hash, movie_quality_profile_id, tv_quality_profile_id, auto_approve, enabled
+) VALUES (?, ?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type CreatePortalUserParams struct {
-	Username         string        `json:"username"`
-	PasswordHash     string        `json:"password_hash"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
-	AutoApprove      int64         `json:"auto_approve"`
-	Enabled          int64         `json:"enabled"`
+	Username              string        `json:"username"`
+	PasswordHash          string        `json:"password_hash"`
+	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
+	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
+	AutoApprove           int64         `json:"auto_approve"`
+	Enabled               int64         `json:"enabled"`
 }
 
 func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserParams) (*PortalUser, error) {
 	row := q.db.QueryRowContext(ctx, createPortalUser,
 		arg.Username,
 		arg.PasswordHash,
-		arg.QualityProfileID,
+		arg.MovieQualityProfileID,
+		arg.TvQualityProfileID,
 		arg.AutoApprove,
 		arg.Enabled,
 	)
@@ -100,31 +103,33 @@ func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserPara
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
 
 const createPortalUserWithID = `-- name: CreatePortalUserWithID :one
 INSERT INTO portal_users (
-    id, username, password_hash, quality_profile_id, auto_approve, enabled, is_admin
-) VALUES (?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+    id, username, password_hash, movie_quality_profile_id, tv_quality_profile_id, auto_approve, enabled, is_admin
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type CreatePortalUserWithIDParams struct {
-	ID               int64         `json:"id"`
-	Username         string        `json:"username"`
-	PasswordHash     string        `json:"password_hash"`
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
-	AutoApprove      int64         `json:"auto_approve"`
-	Enabled          int64         `json:"enabled"`
-	IsAdmin          int64         `json:"is_admin"`
+	ID                    int64         `json:"id"`
+	Username              string        `json:"username"`
+	PasswordHash          string        `json:"password_hash"`
+	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
+	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
+	AutoApprove           int64         `json:"auto_approve"`
+	Enabled               int64         `json:"enabled"`
+	IsAdmin               int64         `json:"is_admin"`
 }
 
 // Used for copying users to dev database while preserving IDs
@@ -133,7 +138,8 @@ func (q *Queries) CreatePortalUserWithID(ctx context.Context, arg CreatePortalUs
 		arg.ID,
 		arg.Username,
 		arg.PasswordHash,
-		arg.QualityProfileID,
+		arg.MovieQualityProfileID,
+		arg.TvQualityProfileID,
 		arg.AutoApprove,
 		arg.Enabled,
 		arg.IsAdmin,
@@ -143,12 +149,13 @@ func (q *Queries) CreatePortalUserWithID(ctx context.Context, arg CreatePortalUs
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
@@ -163,7 +170,7 @@ func (q *Queries) DeletePortalUser(ctx context.Context, id int64) error {
 }
 
 const getAdminUser = `-- name: GetAdminUser :one
-SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE is_admin = 1 LIMIT 1
+SELECT id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id FROM portal_users WHERE is_admin = 1 LIMIT 1
 `
 
 func (q *Queries) GetAdminUser(ctx context.Context) (*PortalUser, error) {
@@ -173,18 +180,19 @@ func (q *Queries) GetAdminUser(ctx context.Context) (*PortalUser, error) {
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
 
 const getPortalUser = `-- name: GetPortalUser :one
-SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE id = ? LIMIT 1
+SELECT id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id FROM portal_users WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalUser(ctx context.Context, id int64) (*PortalUser, error) {
@@ -194,18 +202,19 @@ func (q *Queries) GetPortalUser(ctx context.Context, id int64) (*PortalUser, err
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
 
 const getPortalUserByUsername = `-- name: GetPortalUserByUsername :one
-SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE username = ? LIMIT 1
+SELECT id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id FROM portal_users WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalUserByUsername(ctx context.Context, username string) (*PortalUser, error) {
@@ -215,12 +224,13 @@ func (q *Queries) GetPortalUserByUsername(ctx context.Context, username string) 
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
@@ -237,7 +247,7 @@ func (q *Queries) GetPortalUserUsername(ctx context.Context, id int64) (string, 
 }
 
 const listEnabledPortalUsers = `-- name: ListEnabledPortalUsers :many
-SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users WHERE enabled = 1 ORDER BY username
+SELECT id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id FROM portal_users WHERE enabled = 1 ORDER BY username
 `
 
 func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, error) {
@@ -253,12 +263,13 @@ func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, er
 			&i.ID,
 			&i.Username,
 			&i.PasswordHash,
-			&i.QualityProfileID,
 			&i.AutoApprove,
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.IsAdmin,
+			&i.MovieQualityProfileID,
+			&i.TvQualityProfileID,
 		); err != nil {
 			return nil, err
 		}
@@ -274,7 +285,7 @@ func (q *Queries) ListEnabledPortalUsers(ctx context.Context) ([]*PortalUser, er
 }
 
 const listPortalUsers = `-- name: ListPortalUsers :many
-SELECT id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin FROM portal_users ORDER BY created_at DESC
+SELECT id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id FROM portal_users ORDER BY created_at DESC
 `
 
 func (q *Queries) ListPortalUsers(ctx context.Context) ([]*PortalUser, error) {
@@ -290,12 +301,13 @@ func (q *Queries) ListPortalUsers(ctx context.Context) ([]*PortalUser, error) {
 			&i.ID,
 			&i.Username,
 			&i.PasswordHash,
-			&i.QualityProfileID,
 			&i.AutoApprove,
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.IsAdmin,
+			&i.MovieQualityProfileID,
+			&i.TvQualityProfileID,
 		); err != nil {
 			return nil, err
 		}
@@ -315,7 +327,7 @@ UPDATE portal_users SET
     username = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type UpdatePortalUserParams struct {
@@ -330,12 +342,13 @@ func (q *Queries) UpdatePortalUser(ctx context.Context, arg UpdatePortalUserPara
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
@@ -345,7 +358,7 @@ UPDATE portal_users SET
     auto_approve = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type UpdatePortalUserAutoApproveParams struct {
@@ -360,12 +373,13 @@ func (q *Queries) UpdatePortalUserAutoApprove(ctx context.Context, arg UpdatePor
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
@@ -375,7 +389,7 @@ UPDATE portal_users SET
     enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
 type UpdatePortalUserEnabledParams struct {
@@ -390,12 +404,13 @@ func (q *Queries) UpdatePortalUserEnabled(ctx context.Context, arg UpdatePortalU
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }
@@ -417,32 +432,35 @@ func (q *Queries) UpdatePortalUserPassword(ctx context.Context, arg UpdatePortal
 	return err
 }
 
-const updatePortalUserQualityProfile = `-- name: UpdatePortalUserQualityProfile :one
+const updatePortalUserQualityProfiles = `-- name: UpdatePortalUserQualityProfiles :one
 UPDATE portal_users SET
-    quality_profile_id = ?,
+    movie_quality_profile_id = ?,
+    tv_quality_profile_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, username, password_hash, quality_profile_id, auto_approve, enabled, created_at, updated_at, is_admin
+RETURNING id, username, password_hash, auto_approve, enabled, created_at, updated_at, is_admin, movie_quality_profile_id, tv_quality_profile_id
 `
 
-type UpdatePortalUserQualityProfileParams struct {
-	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
-	ID               int64         `json:"id"`
+type UpdatePortalUserQualityProfilesParams struct {
+	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
+	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
+	ID                    int64         `json:"id"`
 }
 
-func (q *Queries) UpdatePortalUserQualityProfile(ctx context.Context, arg UpdatePortalUserQualityProfileParams) (*PortalUser, error) {
-	row := q.db.QueryRowContext(ctx, updatePortalUserQualityProfile, arg.QualityProfileID, arg.ID)
+func (q *Queries) UpdatePortalUserQualityProfiles(ctx context.Context, arg UpdatePortalUserQualityProfilesParams) (*PortalUser, error) {
+	row := q.db.QueryRowContext(ctx, updatePortalUserQualityProfiles, arg.MovieQualityProfileID, arg.TvQualityProfileID, arg.ID)
 	var i PortalUser
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.QualityProfileID,
 		&i.AutoApprove,
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
+		&i.MovieQualityProfileID,
+		&i.TvQualityProfileID,
 	)
 	return &i, err
 }

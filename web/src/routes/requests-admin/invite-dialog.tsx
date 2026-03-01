@@ -13,15 +13,18 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+
+import { ProfileSelect } from './profile-select'
 
 type InviteDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   inviteName: string
   onNameChange: (name: string) => void
-  qualityProfileId: number | null
-  onQualityProfileChange: (id: number | null) => void
+  movieQualityProfileId: number | null
+  onMovieQualityProfileChange: (id: number | null) => void
+  tvQualityProfileId: number | null
+  onTvQualityProfileChange: (id: number | null) => void
   autoApprove: boolean
   onAutoApproveChange: (checked: boolean) => void
   qualityProfiles: { id: number; name: string }[] | undefined
@@ -58,10 +61,6 @@ export function InviteDialog(props: InviteDialogProps) {
 }
 
 function InviteFormBody(p: InviteDialogProps) {
-  const profileLabel = p.qualityProfileId
-    ? (p.qualityProfiles?.find((pr) => pr.id === p.qualityProfileId)?.name ?? 'Select profile')
-    : 'Default (use global)'
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -76,10 +75,17 @@ function InviteFormBody(p: InviteDialogProps) {
       </div>
 
       <ProfileSelect
-        qualityProfileId={p.qualityProfileId}
-        onQualityProfileChange={p.onQualityProfileChange}
+        label="Movie Quality Profile"
+        value={p.movieQualityProfileId}
+        onChange={p.onMovieQualityProfileChange}
         qualityProfiles={p.qualityProfiles}
-        profileLabel={profileLabel}
+      />
+
+      <ProfileSelect
+        label="TV Quality Profile"
+        value={p.tvQualityProfileId}
+        onChange={p.onTvQualityProfileChange}
+        qualityProfiles={p.qualityProfiles}
       />
 
       <div className="flex items-center space-x-2">
@@ -94,33 +100,3 @@ function InviteFormBody(p: InviteDialogProps) {
   )
 }
 
-type ProfileSelectProps = {
-  qualityProfileId: number | null
-  onQualityProfileChange: (id: number | null) => void
-  qualityProfiles: { id: number; name: string }[] | undefined
-  profileLabel: string
-}
-
-function ProfileSelect({ qualityProfileId, onQualityProfileChange, qualityProfiles, profileLabel }: ProfileSelectProps) {
-  return (
-    <div className="space-y-2">
-      <Label>Quality Profile</Label>
-      <Select
-        value={qualityProfileId?.toString() ?? ''}
-        onValueChange={(value) =>
-          onQualityProfileChange(value ? Number.parseInt(value, 10) : null)
-        }
-      >
-        <SelectTrigger>{profileLabel}</SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">Default (use global)</SelectItem>
-          {qualityProfiles?.map((profile) => (
-            <SelectItem key={profile.id} value={profile.id.toString()}>
-              {profile.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}

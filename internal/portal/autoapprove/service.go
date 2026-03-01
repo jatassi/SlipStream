@@ -64,15 +64,9 @@ func (s *Service) SetRequestSearcher(searcher RequestSearcher) {
 	s.requestSearcher = searcher
 }
 
-func (s *Service) ShouldAutoApprove(ctx context.Context, userID int64, qualityProfileID *int64) (bool, error) {
-	user, err := s.usersService.Get(ctx, userID)
-	if err != nil {
-		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to get user for auto-approve check")
-		return false, err
-	}
-
+func (s *Service) ShouldAutoApprove(ctx context.Context, user *users.User, qualityProfileID *int64) (bool, error) {
 	if user.AutoApprove {
-		s.logger.Debug().Int64("userID", userID).Msg("user has auto-approve enabled")
+		s.logger.Debug().Int64("userID", user.ID).Msg("user has auto-approve enabled")
 		return true, nil
 	}
 
@@ -83,12 +77,12 @@ func (s *Service) ShouldAutoApprove(ctx context.Context, userID int64, qualityPr
 			return false, nil
 		}
 		if profile.AllowAutoApprove {
-			s.logger.Debug().Int64("userID", userID).Int64("profileID", *qualityProfileID).Msg("quality profile allows auto-approve")
+			s.logger.Debug().Int64("userID", user.ID).Int64("profileID", *qualityProfileID).Msg("quality profile allows auto-approve")
 			return true, nil
 		}
 	}
 
-	s.logger.Debug().Int64("userID", userID).Bool("userAutoApprove", user.AutoApprove).
+	s.logger.Debug().Int64("userID", user.ID).Bool("userAutoApprove", user.AutoApprove).
 		Bool("hasQualityProfile", qualityProfileID != nil).
 		Msg("auto-approve not enabled for user")
 	return false, nil
@@ -104,7 +98,8 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 		return nil, err
 	}
 
-	shouldAutoApprove, err := s.ShouldAutoApprove(ctx, request.UserID, user.QualityProfileID)
+	qualityProfileID := user.QualityProfileIDFor(request.MediaType)
+	shouldAutoApprove, err := s.ShouldAutoApprove(ctx, user, qualityProfileID)
 	if err != nil {
 		return nil, err
 	}

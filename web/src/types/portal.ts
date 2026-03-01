@@ -2,7 +2,8 @@
 export type PortalUser = {
   id: number
   username: string
-  qualityProfileId: number | null
+  movieQualityProfileId: number | null
+  tvQualityProfileId: number | null
   autoApprove: boolean
   enabled: boolean
   isAdmin: boolean
@@ -49,13 +50,15 @@ export type Invitation = {
   expiresAt: string
   usedAt: string | null
   createdAt: string
-  qualityProfileId: number | null
+  movieQualityProfileId: number | null
+  tvQualityProfileId: number | null
   autoApprove: boolean
 }
 
 export type CreateInvitationRequest = {
   username: string
-  qualityProfileId?: number | null
+  movieQualityProfileId?: number | null
+  tvQualityProfileId?: number | null
   autoApprove?: boolean
 }
 
@@ -289,7 +292,8 @@ export type RequestSettings = {
 // Admin user management
 export type AdminUpdateUserInput = {
   username?: string
-  qualityProfileId?: number | null
+  movieQualityProfileId?: number | null
+  tvQualityProfileId?: number | null
   autoApprove?: boolean
   quotaOverride?: QuotaLimits
 }

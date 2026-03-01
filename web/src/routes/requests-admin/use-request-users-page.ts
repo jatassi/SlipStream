@@ -93,12 +93,14 @@ function useClipboardLink() {
 function useInviteDialogState() {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [inviteName, setInviteName] = useState('')
-  const [inviteQualityProfileId, setInviteQualityProfileId] = useState<number | null>(null)
+  const [inviteMovieQualityProfileId, setInviteMovieQualityProfileId] = useState<number | null>(null)
+  const [inviteTvQualityProfileId, setInviteTvQualityProfileId] = useState<number | null>(null)
   const [inviteAutoApprove, setInviteAutoApprove] = useState(false)
 
   const reset = () => {
     setInviteName('')
-    setInviteQualityProfileId(null)
+    setInviteMovieQualityProfileId(null)
+    setInviteTvQualityProfileId(null)
     setInviteAutoApprove(false)
   }
 
@@ -112,8 +114,10 @@ function useInviteDialogState() {
     setShowInviteDialog,
     inviteName,
     setInviteName,
-    inviteQualityProfileId,
-    setInviteQualityProfileId,
+    inviteMovieQualityProfileId,
+    setInviteMovieQualityProfileId,
+    inviteTvQualityProfileId,
+    setInviteTvQualityProfileId,
     inviteAutoApprove,
     setInviteAutoApprove,
     reset,
@@ -137,7 +141,8 @@ function useInvitationActions(
     try {
       const params = {
         username: dialog.inviteName,
-        qualityProfileId: dialog.inviteQualityProfileId,
+        movieQualityProfileId: dialog.inviteMovieQualityProfileId,
+        tvQualityProfileId: dialog.inviteTvQualityProfileId,
         autoApprove: dialog.inviteAutoApprove,
       }
       const invitation = await createMutation.mutateAsync(params)
