@@ -98,6 +98,7 @@ function PageDialogs({ state }: { state: ReturnType<typeof useRequestUsersPage> 
 
       {state.editingUser ? (
         <UserEditDialog
+          key={state.editingUser.id}
           user={state.editingUser}
           open={state.showUserDialog}
           onOpenChange={state.setShowUserDialog}

@@ -180,7 +180,11 @@ func (h *UsersHandlers) applyQualityProfileUpdates(ctx context.Context, id int64
 	if req.TVQualityProfileID != nil {
 		tvQPID = req.TVQualityProfileID
 	}
-	return h.usersService.SetQualityProfiles(ctx, id, movieQPID, tvQPID)
+	u, err := h.usersService.SetQualityProfiles(ctx, id, movieQPID, tvQPID)
+	if err != nil {
+		return nil, mapUserError(err)
+	}
+	return u, nil
 }
 
 func mapUserError(err error) *echo.HTTPError {

@@ -578,13 +578,15 @@ var frontendRoutePrefixes = []string{
 	"/series",
 	"/calendar",
 	"/missing",
-	"/activity",
+	"/downloads",
+	"/history",
 	"/settings",
 	"/system",
 	"/import",
 	"/auth",
 	"/dev",
 	"/requests",
+	"/requests-admin",
 }
 
 func isValidFrontendRoute(path string) bool {
