@@ -173,7 +173,7 @@ WHERE e.series_id = ? AND e.season_number = ?
 ORDER BY e.episode_number;
 
 -- name: ListEpisodeFilesByEpisode :many
-SELECT * FROM episode_files WHERE episode_id = ? ORDER BY path;
+SELECT * FROM episode_files WHERE episode_id = ? ORDER BY COALESCE(quality_id, 0) DESC, id DESC;
 
 -- name: CreateEpisodeFile :one
 INSERT INTO episode_files (episode_id, path, size, quality, quality_id, video_codec, audio_codec, resolution, audio_channels, dynamic_range)

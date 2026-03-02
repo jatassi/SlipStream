@@ -1028,7 +1028,7 @@ func (q *Queries) ListMonitoredMovies(ctx context.Context) ([]*Movie, error) {
 }
 
 const listMovieFiles = `-- name: ListMovieFiles :many
-SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM movie_files WHERE movie_id = ? ORDER BY path
+SELECT id, movie_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM movie_files WHERE movie_id = ? ORDER BY COALESCE(quality_id, 0) DESC, id DESC
 `
 
 func (q *Queries) ListMovieFiles(ctx context.Context, movieID int64) ([]*MovieFile, error) {

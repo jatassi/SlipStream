@@ -475,15 +475,20 @@ func (s *Service) verifyMovieFilesExist(ctx context.Context, movieID int64) {
 		s.logger.Warn().Err(err).Int64("movieId", movieID).Msg("Failed to list movie files for verification")
 		return
 	}
+	stale := false
 	for i := range files {
 		f := &files[i]
 		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
 			s.logger.Warn().Str("path", f.Path).Int64("movieId", movieID).Msg("Movie file disappeared during refresh")
-			_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
-				Status: "missing",
-				ID:     movieID,
-			})
+			if delErr := s.queries.DeleteMovieFile(ctx, f.ID); delErr != nil {
+				s.logger.Warn().Err(delErr).Int64("fileId", f.ID).Msg("Failed to delete stale movie file record")
+			} else {
+				stale = true
+			}
 		}
+	}
+	if stale {
+		s.recomputeMovieStatus(ctx, movieID)
 	}
 }
 
@@ -521,14 +526,19 @@ func (s *Service) verifyEpisodeFilesExist(ctx context.Context, seriesID int64) {
 		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to list episode files for verification")
 		return
 	}
+	staleEpisodes := make(map[int64]struct{})
 	for _, ef := range episodeFiles {
 		if _, err := os.Stat(ef.Path); os.IsNotExist(err) {
 			s.logger.Warn().Str("path", ef.Path).Int64("episodeId", ef.EpisodeID).Msg("Episode file disappeared during refresh")
-			_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
-				Status: "missing",
-				ID:     ef.EpisodeID,
-			})
+			if delErr := s.queries.DeleteEpisodeFile(ctx, ef.ID); delErr != nil {
+				s.logger.Warn().Err(delErr).Int64("fileId", ef.ID).Msg("Failed to delete stale episode file record")
+			} else {
+				staleEpisodes[ef.EpisodeID] = struct{}{}
+			}
 		}
+	}
+	for episodeID := range staleEpisodes {
+		s.recomputeEpisodeStatus(ctx, episodeID)
 	}
 }
 
@@ -605,19 +615,24 @@ func (s *Service) verifyMovieFiles(ctx context.Context, rfID sql.NullInt64, root
 	}
 
 	missing := 0
+	staleMovies := make(map[int64]struct{})
 	for _, mf := range movieFiles {
 		if _, err := os.Stat(mf.Path); os.IsNotExist(err) {
 			missing++
 			s.logger.Warn().Str("path", mf.Path).Int64("movieId", mf.MovieID).Msg("Movie file disappeared from disk")
-			_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
-				Status: "missing",
-				ID:     mf.MovieID,
-			})
+			if delErr := s.queries.DeleteMovieFile(ctx, mf.FileID); delErr != nil {
+				s.logger.Warn().Err(delErr).Int64("fileId", mf.FileID).Msg("Failed to delete stale movie file record")
+			} else {
+				staleMovies[mf.MovieID] = struct{}{}
+			}
 			if s.healthSvc != nil {
 				healthID := fmt.Sprintf("missing-file-movie-%d", mf.FileID)
 				s.healthSvc.SetWarningStr("storage", healthID, fmt.Sprintf("Movie file not found: %s", mf.Path))
 			}
 		}
+	}
+	for movieID := range staleMovies {
+		s.recomputeMovieStatus(ctx, movieID)
 	}
 	return missing
 }
@@ -630,19 +645,110 @@ func (s *Service) verifyEpisodeFiles(ctx context.Context, rfID sql.NullInt64, ro
 	}
 
 	missing := 0
+	staleEpisodes := make(map[int64]struct{})
 	for _, ef := range episodeFiles {
 		if _, err := os.Stat(ef.Path); os.IsNotExist(err) {
 			missing++
 			s.logger.Warn().Str("path", ef.Path).Int64("episodeId", ef.EpisodeID).Msg("Episode file disappeared from disk")
-			_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
-				Status: "missing",
-				ID:     ef.EpisodeID,
-			})
+			if delErr := s.queries.DeleteEpisodeFile(ctx, ef.FileID); delErr != nil {
+				s.logger.Warn().Err(delErr).Int64("fileId", ef.FileID).Msg("Failed to delete stale episode file record")
+			} else {
+				staleEpisodes[ef.EpisodeID] = struct{}{}
+			}
 			if s.healthSvc != nil {
 				healthID := fmt.Sprintf("missing-file-episode-%d", ef.FileID)
 				s.healthSvc.SetWarningStr("storage", healthID, fmt.Sprintf("Episode file not found: %s", ef.Path))
 			}
 		}
 	}
+	for episodeID := range staleEpisodes {
+		s.recomputeEpisodeStatus(ctx, episodeID)
+	}
 	return missing
+}
+
+// recomputeEpisodeStatus sets the correct episode status after stale file records
+// have been deleted. If no files remain, status is set to "missing". If files remain,
+// status is recomputed from the best remaining file's quality.
+func (s *Service) recomputeEpisodeStatus(ctx context.Context, episodeID int64) {
+	count, _ := s.queries.CountEpisodeFiles(ctx, episodeID)
+	if count == 0 {
+		_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+			Status: "missing",
+			ID:     episodeID,
+		})
+		return
+	}
+
+	if s.qualityProfiles == nil {
+		return
+	}
+	episode, err := s.queries.GetEpisode(ctx, episodeID)
+	if err != nil {
+		return
+	}
+	series, err := s.tv.GetSeries(ctx, episode.SeriesID)
+	if err != nil {
+		return
+	}
+	profile, err := s.qualityProfiles.Get(ctx, series.QualityProfileID)
+	if err != nil {
+		return
+	}
+
+	files, _ := s.queries.ListEpisodeFilesByEpisode(ctx, episodeID)
+	var bestQualityID int64
+	for _, f := range files {
+		if f.QualityID.Valid && f.QualityID.Int64 > bestQualityID {
+			bestQualityID = f.QualityID.Int64
+		}
+	}
+	if bestQualityID > 0 {
+		newStatus := profile.StatusForQuality(int(bestQualityID))
+		_ = s.queries.UpdateEpisodeStatus(ctx, sqlc.UpdateEpisodeStatusParams{
+			Status: newStatus,
+			ID:     episodeID,
+		})
+	}
+}
+
+// recomputeMovieStatus sets the correct movie status after stale file records
+// have been deleted. If no files remain, status is set to "missing". If files remain,
+// status is recomputed from the best remaining file's quality.
+func (s *Service) recomputeMovieStatus(ctx context.Context, movieID int64) {
+	count, _ := s.queries.CountMovieFiles(ctx, movieID)
+	if count == 0 {
+		_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+			Status: "missing",
+			ID:     movieID,
+		})
+		return
+	}
+
+	if s.qualityProfiles == nil {
+		return
+	}
+	movie, err := s.movies.Get(ctx, movieID)
+	if err != nil {
+		return
+	}
+	profile, err := s.qualityProfiles.Get(ctx, movie.QualityProfileID)
+	if err != nil {
+		return
+	}
+
+	files, _ := s.queries.ListMovieFiles(ctx, movieID)
+	var bestQualityID int64
+	for _, f := range files {
+		if f.QualityID.Valid && f.QualityID.Int64 > bestQualityID {
+			bestQualityID = f.QualityID.Int64
+		}
+	}
+	if bestQualityID > 0 {
+		newStatus := profile.StatusForQuality(int(bestQualityID))
+		_ = s.queries.UpdateMovieStatus(ctx, sqlc.UpdateMovieStatusParams{
+			Status: newStatus,
+			ID:     movieID,
+		})
+	}
 }

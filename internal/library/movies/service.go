@@ -414,6 +414,8 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 		return nil, err
 	}
 
+	input.Path = pathutil.NormalizePath(input.Path)
+
 	qualityID := sql.NullInt64{}
 	if input.QualityID != nil {
 		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
@@ -536,7 +538,7 @@ func (s *Service) GetFileByID(ctx context.Context, fileID int64) (*MovieFile, er
 // UpdateMovieFilePath updates the path of a movie file.
 func (s *Service) UpdateMovieFilePath(ctx context.Context, fileID int64, newPath string) error {
 	return s.queries.UpdateMovieFilePath(ctx, sqlc.UpdateMovieFilePathParams{
-		Path: newPath,
+		Path: pathutil.NormalizePath(newPath),
 		ID:   fileID,
 	})
 }

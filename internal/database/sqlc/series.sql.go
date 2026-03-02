@@ -1531,7 +1531,7 @@ func (q *Queries) ListDownloadingEpisodes(ctx context.Context) ([]*ListDownloadi
 }
 
 const listEpisodeFilesByEpisode = `-- name: ListEpisodeFilesByEpisode :many
-SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE episode_id = ? ORDER BY path
+SELECT id, episode_id, path, size, quality, video_codec, audio_codec, resolution, created_at, quality_id, original_path, original_filename, imported_at, slot_id, audio_channels, dynamic_range FROM episode_files WHERE episode_id = ? ORDER BY COALESCE(quality_id, 0) DESC, id DESC
 `
 
 func (q *Queries) ListEpisodeFilesByEpisode(ctx context.Context, episodeID int64) ([]*EpisodeFile, error) {

@@ -191,6 +191,8 @@ func (s *Service) AddEpisodeFile(ctx context.Context, episodeID int64, input *Cr
 		return nil, err
 	}
 
+	input.Path = pathutil.NormalizePath(input.Path)
+
 	qualityID := sql.NullInt64{}
 	if input.QualityID != nil {
 		qualityID = sql.NullInt64{Int64: *input.QualityID, Valid: true}
@@ -329,7 +331,7 @@ func (s *Service) GetEpisodeFileByID(ctx context.Context, fileID int64) (*Episod
 // UpdateEpisodeFilePath updates the path of an episode file.
 func (s *Service) UpdateEpisodeFilePath(ctx context.Context, fileID int64, newPath string) error {
 	return s.queries.UpdateEpisodeFilePath(ctx, sqlc.UpdateEpisodeFilePathParams{
-		Path: newPath,
+		Path: pathutil.NormalizePath(newPath),
 		ID:   fileID,
 	})
 }

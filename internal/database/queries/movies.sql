@@ -101,7 +101,7 @@ WHERE id = ?;
 SELECT * FROM movie_files WHERE id = ? LIMIT 1;
 
 -- name: ListMovieFiles :many
-SELECT * FROM movie_files WHERE movie_id = ? ORDER BY path;
+SELECT * FROM movie_files WHERE movie_id = ? ORDER BY COALESCE(quality_id, 0) DESC, id DESC;
 
 -- name: CreateMovieFile :one
 INSERT INTO movie_files (movie_id, path, size, quality, quality_id, video_codec, audio_codec, resolution, audio_channels, dynamic_range)
