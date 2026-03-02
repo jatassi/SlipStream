@@ -152,9 +152,7 @@ func (c *Client) AddURL(url, subDir string) (string, error) {
 	}
 
 	// Start the torrent
-	if err := c.Resume(context.Background(), id); err != nil { //nolint:revive,staticcheck // Non-fatal error, intentionally ignored
-		// Non-fatal error when starting torrent, log but continue
-	}
+	_ = c.Resume(context.Background(), id)
 
 	return id, nil
 }

@@ -156,6 +156,18 @@ linters:
       - linters:
           - revive
         text: 'var-naming: avoid (package names|meaningless)'
+      - path: internal/api/
+        linters:
+          - revive
+        text: var-naming
+      - path: internal/crypto/
+        linters:
+          - revive
+        text: var-naming
+      - path: internal/library/scanner/
+        linters:
+          - revive
+        text: var-naming
     paths:
       - internal/database/sqlc
       - internal/database/migrations

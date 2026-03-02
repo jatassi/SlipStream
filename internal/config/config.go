@@ -529,28 +529,33 @@ func getLogDir() string {
 	return "./data/logs"
 }
 
-// ToManagerConfig converts IndexerConfig to cardigann.ManagerConfig compatible values.
-// Returns RepositoryConfig values, CacheConfig values, and manager settings.
-//
-//nolint:gocritic // will be simplified in Phase 7
-func (ic *IndexerConfig) ToManagerConfigValues() (
-	repoURL, branch, version, userAgent string,
-	requestTimeout time.Duration,
-	definitionsDir, customDir string,
-	autoUpdate bool,
-	updateInterval time.Duration,
-) {
+// ManagerConfigValues holds the values extracted from IndexerConfig for use in cardigann manager setup.
+type ManagerConfigValues struct {
+	RepoURL        string
+	Branch         string
+	Version        string
+	UserAgent      string
+	RequestTimeout time.Duration
+	DefinitionsDir string
+	CustomDir      string
+	AutoUpdate     bool
+	UpdateInterval time.Duration
+}
+
+// ToManagerConfigValues converts IndexerConfig to cardigann.ManagerConfig compatible values.
+func (ic *IndexerConfig) ToManagerConfigValues() ManagerConfigValues {
 	c := ic.Cardigann
-	repoURL = c.RepositoryURL
-	branch = c.Branch
-	version = c.Version
-	userAgent = "SlipStream/1.0"
-	requestTimeout = c.RequestTimeoutDuration()
-	definitionsDir = c.DefinitionsDir
-	customDir = c.CustomDir
-	autoUpdate = c.AutoUpdate
-	updateInterval = c.UpdateIntervalDuration()
-	return
+	return ManagerConfigValues{
+		RepoURL:        c.RepositoryURL,
+		Branch:         c.Branch,
+		Version:        c.Version,
+		UserAgent:      "SlipStream/1.0",
+		RequestTimeout: c.RequestTimeoutDuration(),
+		DefinitionsDir: c.DefinitionsDir,
+		CustomDir:      c.CustomDir,
+		AutoUpdate:     c.AutoUpdate,
+		UpdateInterval: c.UpdateIntervalDuration(),
+	}
 }
 
 // FindAvailablePort finds an available port starting from preferredPort.

@@ -15,23 +15,23 @@ type InitFormOptions = {
 }
 
 export function useInitializeForm({ open, notification, eventTriggers, plex, setFormData, setShowAdvanced }: InitFormOptions) {
+  const { cleanupPolling, fetchServers, resetState } = plex
   useEffect(() => {
     if (!open) {
-      plex.cleanupPolling()
+      cleanupPolling()
       return
     }
     if (notification) {
       setFormData(notification as unknown as CreateNotificationInput)
       if (notification.type === 'plex' && notification.settings.authToken) {
-        void plex.fetchServers(notification.settings.authToken as string)
+        void fetchServers(notification.settings.authToken as string)
       }
     } else {
       setFormData(buildResetData(eventTriggers))
     }
     setShowAdvanced(false)
-    plex.resetState()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when open/notification/eventTriggers change
-  }, [open, notification, eventTriggers])
+    resetState()
+  }, [open, notification, eventTriggers, cleanupPolling, fetchServers, resetState, setFormData, setShowAdvanced])
 }
 
 function buildResetData(eventTriggers?: { key: string }[]) {

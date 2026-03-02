@@ -1,6 +1,4 @@
 // Package scanner provides parsing for media filenames.
-//
-//nolint:revive // Package name intentionally matches stdlib scanner for domain clarity
 package scanner
 
 import (

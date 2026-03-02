@@ -12,12 +12,10 @@ export function findMatchingDownloads(
 ): PortalDownload[] {
   return downloads.filter((d) => {
     if (request.mediaType === 'movie') {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return d.movieId !== null && request.mediaId !== null && d.movieId === request.mediaId
+      return d.movieId !== undefined && request.mediaId !== null && d.movieId === request.mediaId
     }
     if (request.mediaType === 'series') {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return d.seriesId !== null && request.mediaId !== null && d.seriesId === request.mediaId
+      return d.seriesId !== undefined && request.mediaId !== null && d.seriesId === request.mediaId
     }
     return false
   })

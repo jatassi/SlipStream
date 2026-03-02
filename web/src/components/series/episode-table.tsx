@@ -207,8 +207,7 @@ function EpisodeRowCells(props: EpisodeRowProps) {
 function RatingCell({ imdbRating }: { imdbRating?: number }) {
   return (
     <TableCell className="px-2 py-1.5 text-center">
-      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-      {imdbRating === null || imdbRating === undefined ? (
+      {imdbRating === undefined ? (
         <span className="text-muted-foreground text-xs">-</span>
       ) : (
         <span className={cn('text-xs font-medium', getRatingColor(imdbRating))}>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { toast } from 'sonner'
 
@@ -154,14 +154,14 @@ function useDerivedData(local: LocalState, queries: QueryLayer) {
     { qualityProfileNames: profileNameMap, rootFolderNames: rootFolderNameMap },
   )
 
-  const handleSearch = (id: number) => {
+  const handleSearch = useCallback((id: number) => {
     queries.searchMutation.mutate(id, {
       onSuccess: () => toast.success('Search started'),
       onError: () => toast.error('Failed to start search'),
     })
-  }
+  }, [queries.searchMutation])
 
-  const handleDelete = (id: number) => {
+  const handleDelete = useCallback((id: number) => {
     queries.deleteMutation.mutate(
       { id },
       {
@@ -169,15 +169,14 @@ function useDerivedData(local: LocalState, queries: QueryLayer) {
         onError: () => toast.error('Failed to delete movie'),
       },
     )
-  }
+  }, [queries.deleteMutation])
 
   const allColumns = useMemo(
     () => [
       ...MOVIE_COLUMNS,
       createMovieActionsColumn({ onSearch: handleSearch, onDelete: handleDelete }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [handleSearch, handleDelete],
   )
 
   return {

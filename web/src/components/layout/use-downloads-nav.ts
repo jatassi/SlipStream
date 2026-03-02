@@ -91,7 +91,7 @@ function useCompletionFlash(queueItems: { id: string; mediaType: string }[]): Do
     }
 
     prevItemsRef.current = currentItems
-  }, [itemIds]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemIds, queueItems, setCompletionFlash])
 
   useEffect(() => {
     if (!completionFlash) {

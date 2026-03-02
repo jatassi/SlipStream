@@ -47,7 +47,7 @@ export function useModalState(open: boolean) {
     [],
   )
 
-  const { mutate, isPending, isError } = previewMutation
+  const { mutate, isPending, isError, reset } = previewMutation
   useEffect(() => {
     if (!open || s.preview || isPending || isError) { return }
     mutate(undefined, {
@@ -58,11 +58,10 @@ export function useModalState(open: boolean) {
 
   useEffect(() => {
     if (!open) {
-      setS({ ...INITIAL_STATE, selectedFileIds: new Set(), manualEdits: new Map() })
-      previewMutation.reset()
+      queueMicrotask(() => { setS({ ...INITIAL_STATE, selectedFileIds: new Set(), manualEdits: new Map() }) })
+      reset()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, setS, reset])
 
   const ignoredFileIds = useMemo((): Set<number> => {
     const ignored = new Set<number>()

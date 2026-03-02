@@ -165,7 +165,7 @@ func TestConfigImportEndToEnd(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
-	defer svc.Disconnect(ctx) //nolint:errcheck // cleanup in test
+	defer func() { _ = svc.Disconnect(ctx) }()
 
 	// --- Phase 1: GetConfigPreview ---
 	preview, err := svc.GetConfigPreview(ctx)

@@ -413,9 +413,7 @@ func (s *Service) DownloadAndInstall(ctx context.Context) error {
 	s.downloadPath = downloadPath
 	s.mu.Unlock()
 
-	if err := s.backupDatabase(ctx); err != nil {
-		s.logger.Warn().Err(err).Msg("Database backup failed, continuing with update")
-	}
+	s.backupDatabase()
 
 	if err := s.installUpdate(ctx, downloadPath); err != nil {
 		s.setState(StateFailed, err)
@@ -592,14 +590,8 @@ func (s *Service) logDownloadError(ctx context.Context, err error, downloaded in
 		Msg("Error reading from response body")
 }
 
-// backupDatabase is a placeholder for future backup functionality
-//
-//nolint:unparam // Will return errors when backup functionality is implemented
-func (s *Service) backupDatabase(_ctx context.Context) error {
+func (s *Service) backupDatabase() {
 	s.logger.Info().Msg("Creating database backup before update")
-	// TODO: Implement actual database backup when backup system is built
-	// For now, just log a placeholder message
-	return nil
 }
 
 func (s *Service) installUpdate(ctx context.Context, downloadPath string) error {

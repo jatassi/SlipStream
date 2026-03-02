@@ -227,9 +227,6 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) { //nolint:revive,staticcheck // Error intentionally ignored, checked but not logged
-				// Unexpected WebSocket close error (expected errors are ignored)
-			}
 			break
 		}
 

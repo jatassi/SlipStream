@@ -136,8 +136,22 @@ type ControlHandlersDeps = {
   title: string
 }
 
+function useAutoSearchHandler(deps: ControlHandlersDeps) {
+  const { developerMode, mutations, props, title, setControlState } = deps
+  const { movieMutation, episodeMutation, seasonMutation, seriesMutation, movieSlotMutation, episodeSlotMutation } = mutations
+  return useCallback(async () => {
+    setControlState({ type: 'searching', mode: 'auto' })
+    try {
+      if (developerMode) { await new Promise((r) => setTimeout(r, 5000)) }
+      await dispatchAutoSearch(props, { movieMutation, episodeMutation, seasonMutation, seriesMutation, movieSlotMutation, episodeSlotMutation, title, setControlState })
+    } catch (error) {
+      handleAutoSearchError(error, title, setControlState)
+    }
+  }, [props, title, developerMode, setControlState, movieMutation, episodeMutation, seasonMutation, seriesMutation, movieSlotMutation, episodeSlotMutation])
+}
+
 function useControlHandlers(deps: ControlHandlersDeps) {
-  const { controlState, setControlState, completionTimerRef, downloadProgress, developerMode, mutations, props, title } = deps
+  const { controlState, setControlState, completionTimerRef, downloadProgress } = deps
   const [searchModalOpen, setSearchModalOpen] = useState(false)
 
   const handleManualSearch = useCallback(() => {
@@ -159,39 +173,18 @@ function useControlHandlers(deps: ControlHandlersDeps) {
     setControlState({ type: 'progress' })
   }, [setControlState])
 
-  const handleAutoSearch = useCallback(async () => {
-    setControlState({ type: 'searching', mode: 'auto' })
-    try {
-      if (developerMode) {
-        await new Promise((r) => setTimeout(r, 5000))
-      }
-      await dispatchAutoSearch(props, { ...mutations, title, setControlState })
-    } catch (error) {
-      handleAutoSearchError(error, title, setControlState)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props, title, developerMode, setControlState])
+  const handleAutoSearch = useAutoSearchHandler(deps)
 
   const handleErrorDismiss = useCallback(() => {
     setControlState({ type: 'default' })
   }, [setControlState])
 
   const handleCompletionClick = useCallback(() => {
-    if (completionTimerRef.current) {
-      clearTimeout(completionTimerRef.current)
-    }
+    if (completionTimerRef.current) { clearTimeout(completionTimerRef.current) }
     setControlState({ type: 'default' })
   }, [completionTimerRef, setControlState])
 
-  return {
-    searchModalOpen,
-    handleManualSearch,
-    handleModalClose,
-    handleGrabSuccess,
-    handleAutoSearch,
-    handleErrorDismiss,
-    handleCompletionClick,
-  }
+  return { searchModalOpen, handleManualSearch, handleModalClose, handleGrabSuccess, handleAutoSearch, handleErrorDismiss, handleCompletionClick }
 }
 
 type AutoSearchDeps = {

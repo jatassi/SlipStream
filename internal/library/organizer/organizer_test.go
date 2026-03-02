@@ -65,19 +65,19 @@ func TestService_GenerateMoviePath(t *testing.T) {
 			name:     "standard movie",
 			rootPath: "/movies",
 			tokens:   MovieTokens{Title: "The Matrix", Year: 1999},
-			want:     filepath.Join("/movies", "The Matrix (1999)"), //nolint:gocritic // absolute path is intentional in test
+			want:     "/movies/The Matrix (1999)",
 		},
 		{
 			name:     "movie without year",
 			rootPath: "/movies",
 			tokens:   MovieTokens{Title: "Unknown"},
-			want:     filepath.Join("/movies", "Unknown"), //nolint:gocritic // absolute path is intentional in test
+			want:     "/movies/Unknown",
 		},
 		{
 			name:     "windows path",
 			rootPath: "C:\\Movies",
 			tokens:   MovieTokens{Title: "Inception", Year: 2010},
-			want:     filepath.Join("C:\\Movies", "Inception (2010)"), //nolint:gocritic // absolute path intentional in test
+			want:     "C:\\Movies/Inception (2010)",
 		},
 	}
 
@@ -116,13 +116,13 @@ func TestService_GenerateSeriesPath(t *testing.T) {
 			name:     "standard series",
 			rootPath: "/tv",
 			tokens:   SeriesTokens{SeriesTitle: "Breaking Bad"},
-			want:     filepath.Join("/tv", "Breaking Bad"), //nolint:gocritic // absolute path is intentional in test
+			want:     "/tv/Breaking Bad",
 		},
 		{
 			name:     "series with special chars",
 			rootPath: "/tv",
 			tokens:   SeriesTokens{SeriesTitle: "Marvel's Agents of S.H.I.E.L.D."},
-			want:     filepath.Join("/tv", "Marvel's Agents of S.H.I.E.L.D."), //nolint:gocritic // absolute path is intentional in test
+			want:     "/tv/Marvel's Agents of S.H.I.E.L.D.",
 		},
 	}
 
@@ -144,9 +144,9 @@ func TestService_GenerateSeasonPath(t *testing.T) {
 		seasonNumber int
 		want         string
 	}{
-		{"/tv/Breaking Bad", 1, filepath.Join("/tv/Breaking Bad", "Season 01")},  //nolint:gocritic // absolute path is intentional in test
-		{"/tv/Breaking Bad", 5, filepath.Join("/tv/Breaking Bad", "Season 05")},  //nolint:gocritic // absolute path is intentional in test
-		{"/tv/Breaking Bad", 10, filepath.Join("/tv/Breaking Bad", "Season 10")}, //nolint:gocritic // absolute path is intentional in test
+		{"/tv/Breaking Bad", 1, "/tv/Breaking Bad/Season 01"},
+		{"/tv/Breaking Bad", 5, "/tv/Breaking Bad/Season 05"},
+		{"/tv/Breaking Bad", 10, "/tv/Breaking Bad/Season 10"},
 	}
 
 	for _, tt := range tests {

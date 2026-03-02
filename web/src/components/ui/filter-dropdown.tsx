@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function -- ui primitive */
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Filter } from 'lucide-react'
 
@@ -38,6 +37,81 @@ type FilterDropdownProps<T extends string> = {
   disabled?: boolean
 }
 
+type TriggerIconProps = {
+  Icon: LucideIcon
+  allSelected: boolean
+  theme: FilterTheme
+}
+
+function TriggerIcon({ Icon, allSelected, theme }: TriggerIconProps) {
+  return (
+    <Icon
+      className={cn(
+        'size-4 shrink-0',
+        allSelected ? 'text-muted-foreground' : THEME_ACTIVE_CLASS[theme],
+      )}
+    />
+  )
+}
+
+type ResetItemProps = {
+  onReset: () => void
+}
+
+function ResetItem({ onReset }: ResetItemProps) {
+  return (
+    <>
+      <DropdownMenuItem onClick={onReset} className="text-muted-foreground">
+        Reset
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+    </>
+  )
+}
+
+type OptionItemProps<T extends string> = {
+  option: FilterOption<T>
+  checked: boolean
+  onToggle: (value: T) => void
+}
+
+function OptionItem<T extends string>({ option, checked, onToggle }: OptionItemProps<T>) {
+  return (
+    <DropdownMenuCheckboxItem checked={checked} onCheckedChange={() => onToggle(option.value)}>
+      {option.icon ? <option.icon className="text-muted-foreground size-4 shrink-0" /> : null}
+      {option.label}
+    </DropdownMenuCheckboxItem>
+  )
+}
+
+type DisplayLabelParams<T extends string> = {
+  options: FilterOption<T>[]
+  selected: T[]
+  label: string
+  allSelected: boolean
+}
+
+function getDisplayLabel<T extends string>({
+  options,
+  selected,
+  label,
+  allSelected,
+}: DisplayLabelParams<T>): string {
+  if (allSelected) {
+    return `All ${label}`
+  }
+  if (selected.length === 0) {
+    return `No ${label}`
+  }
+  if (selected.length > 2) {
+    return `${selected.length} Selected`
+  }
+  return options
+    .filter((o) => selected.includes(o.value))
+    .map((o) => o.label)
+    .join(', ')
+}
+
 export function FilterDropdown<T extends string>({
   options,
   selected,
@@ -50,22 +124,7 @@ export function FilterDropdown<T extends string>({
   disabled,
 }: FilterDropdownProps<T>) {
   const allSelected = selected.length >= options.length
-
-  function getDisplayLabel(): string {
-    if (allSelected) {
-      return `All ${label}`
-    }
-    if (selected.length === 0) {
-      return `No ${label}`
-    }
-    if (selected.length > 2) {
-      return `${selected.length} Selected`
-    }
-    return options
-      .filter((o) => selected.includes(o.value))
-      .map((o) => o.label)
-      .join(', ')
-  }
+  const displayLabel = getDisplayLabel({ options, selected, label, allSelected })
 
   return (
     <DropdownMenu>
@@ -76,33 +135,19 @@ export function FilterDropdown<T extends string>({
           className,
         )}
       >
-        <Icon
-          className={cn(
-            'size-4 shrink-0',
-            allSelected ? 'text-muted-foreground' : THEME_ACTIVE_CLASS[theme],
-          )}
-        />
-        {getDisplayLabel()}
+        <TriggerIcon Icon={Icon} allSelected={allSelected} theme={theme} />
+        {displayLabel}
         <ChevronDown className="text-muted-foreground size-4 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-auto min-w-(--anchor-width)">
-        {!allSelected && (
-          <>
-            <DropdownMenuItem onClick={onReset} className="text-muted-foreground">
-              Reset
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
+        {!allSelected && <ResetItem onReset={onReset} />}
         {options.map((opt) => (
-          <DropdownMenuCheckboxItem
+          <OptionItem
             key={opt.value}
+            option={opt}
             checked={selected.includes(opt.value)}
-            onCheckedChange={() => onToggle(opt.value)}
-          >
-            {opt.icon ? <opt.icon className="text-muted-foreground size-4 shrink-0" /> : null}
-            {opt.label}
-          </DropdownMenuCheckboxItem>
+            onToggle={onToggle}
+          />
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

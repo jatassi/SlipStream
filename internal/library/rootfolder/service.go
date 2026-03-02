@@ -266,7 +266,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+	defer func() { _ = tx.Rollback() }()
 
 	queries := s.queries.WithTx(tx)
 
