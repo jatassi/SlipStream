@@ -79,6 +79,24 @@ func TestFilterByCriteria_TV(t *testing.T) {
 			criteria:     types.SearchCriteria{Query: "Dark", Type: "tvsearch", Season: 1, Episode: 2},
 			shouldPass:   true,
 		},
+		{
+			name:         "release title includes year, query does not",
+			torrentTitle: "Vanished.2026.S01E01.2160p.WEB.H265-SYLiX",
+			criteria:     types.SearchCriteria{Query: "Vanished", Type: "tvsearch", Season: 1, Episode: 1},
+			shouldPass:   true,
+		},
+		{
+			name:         "release title includes year, season pack",
+			torrentTitle: "Vanished.2026.S01.1080p.Web.DDP5.1.HEVC.x265-MeGusta",
+			criteria:     types.SearchCriteria{Query: "Vanished", Type: "tvsearch", Season: 1, Episode: 1},
+			shouldPass:   true,
+		},
+		{
+			name:         "query includes year, release does not",
+			torrentTitle: "Vanished.S01E01.1080p.WEB-DL",
+			criteria:     types.SearchCriteria{Query: "Vanished 2026", Type: "tvsearch", Season: 1, Episode: 1},
+			shouldPass:   true,
+		},
 	}
 
 	for _, tt := range tests {

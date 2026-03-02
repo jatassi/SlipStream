@@ -185,6 +185,91 @@ func TestTitlesMatch(t *testing.T) {
 	}
 }
 
+func TestTVTitlesMatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		parsedTitle string
+		searchQuery string
+		expected    bool
+	}{
+		{
+			name:        "exact match no year",
+			parsedTitle: "Vanished",
+			searchQuery: "Vanished",
+			expected:    true,
+		},
+		{
+			name:        "exact match with year",
+			parsedTitle: "Vanished 2026",
+			searchQuery: "Vanished 2026",
+			expected:    true,
+		},
+		{
+			name:        "release has year, query does not",
+			parsedTitle: "Vanished 2026",
+			searchQuery: "Vanished",
+			expected:    true,
+		},
+		{
+			name:        "query has year, release does not",
+			parsedTitle: "Vanished",
+			searchQuery: "Vanished 2026",
+			expected:    true,
+		},
+		{
+			name:        "different years still match",
+			parsedTitle: "Charmed 2018",
+			searchQuery: "Charmed 1998",
+			expected:    true,
+		},
+		{
+			name:        "different titles do not match",
+			parsedTitle: "Vanished 2026",
+			searchQuery: "Lost 2004",
+			expected:    false,
+		},
+		{
+			name:        "title that is just a year is preserved",
+			parsedTitle: "2012",
+			searchQuery: "2012",
+			expected:    true,
+		},
+		{
+			name:        "year-only title does not match other year-only",
+			parsedTitle: "2012",
+			searchQuery: "1917",
+			expected:    false,
+		},
+		{
+			name:        "year in middle not stripped",
+			parsedTitle: "2001 A Space Odyssey",
+			searchQuery: "A Space Odyssey",
+			expected:    false,
+		},
+		{
+			name:        "multi-word with year",
+			parsedTitle: "The Walking Dead 2010",
+			searchQuery: "The Walking Dead",
+			expected:    true,
+		},
+		{
+			name:        "non-year trailing number not stripped",
+			parsedTitle: "Vanished 123",
+			searchQuery: "Vanished",
+			expected:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TVTitlesMatch(tt.parsedTitle, tt.searchQuery)
+			if result != tt.expected {
+				t.Errorf("TVTitlesMatch(%q, %q) = %v, want %v", tt.parsedTitle, tt.searchQuery, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCalculateTitleSimilarity(t *testing.T) {
 	tests := []struct {
 		name     string

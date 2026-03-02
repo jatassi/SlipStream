@@ -333,7 +333,7 @@ func getTVFilterReason(parsed *scanner.ParsedMedia, criteria *types.SearchCriter
 	if !parsed.IsTV {
 		return "not TV content"
 	}
-	if !TitlesMatch(parsed.Title, criteria.Query) {
+	if !TVTitlesMatch(parsed.Title, criteria.Query) {
 		return "title mismatch: '" + parsed.Title + "' != '" + criteria.Query + "'"
 	}
 	if reason := checkTVSeasonMatch(parsed, criteria); reason != "" {
