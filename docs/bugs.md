@@ -19,3 +19,5 @@
 [x] add count to upgradable tab on Missing page (simple total)
 [x] just hide passkeys components entirely in portal if no secure environment
 [x] release show/hide on downloads page should be sticky
+[x] Vanished metadata refresh issue
+[x] The Pitt S02E08 issue

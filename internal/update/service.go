@@ -730,11 +730,22 @@ func (s *Service) launchWindowsUpdater(newExePath, currentExe string) error {
 	retryDelay := 500 * time.Millisecond
 
 	for i := 0; i < maxRetries; i++ {
-		cmd := exec.CommandContext(context.Background(), newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec // Validated update executable path
+		cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec,noctx // Fire-and-forget detached process, context would prevent Job Object breakaway
 		cmd.Dir = filepath.Dir(newExePath)
+		setSysProcAttrDetached(cmd)
 		startErr := cmd.Start()
 		if startErr == nil {
 			return nil
+		}
+		// If first attempt failed and we set detach flags, retry without them
+		// (Job Object may not allow breakaway)
+		if i == 0 {
+			cmd = exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec,noctx // Fallback without detach
+			cmd.Dir = filepath.Dir(newExePath)
+			if cmd.Start() == nil {
+				s.logger.Warn().Msg("Launched updater without Job Object breakaway (breakaway not permitted)")
+				return nil
+			}
 		}
 		s.logger.Warn().
 			Err(startErr).
@@ -802,7 +813,7 @@ func (s *Service) installMacOS(ctx context.Context, downloadPath string) error {
 		Int("port", s.port).
 		Msg("Launching updater to replace app bundle")
 
-	cmd = exec.CommandContext(context.Background(), newExePath, "--complete-update", currentAppBundle, fmt.Sprintf("%d", s.port))
+	cmd = exec.Command(newExePath, "--complete-update", currentAppBundle, fmt.Sprintf("%d", s.port)) //nolint:noctx // Fire-and-forget detached process
 	cmd.Dir = tempDir
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to launch updater: %w", err)
@@ -843,7 +854,7 @@ func (s *Service) installLinux(ctx context.Context, downloadPath string) error {
 			Int("port", s.port).
 			Msg("Launching updater to replace AppImage")
 
-		cmd := exec.CommandContext(context.Background(), downloadPath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port))
+		cmd := exec.Command(downloadPath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:noctx // Fire-and-forget detached process
 		cmd.Dir = filepath.Dir(downloadPath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to launch updater: %w", err)
@@ -898,7 +909,7 @@ func (s *Service) installLinuxTarball(_ctx context.Context, downloadPath string)
 		Int("port", s.port).
 		Msg("Launching updater to replace binary")
 
-	cmd := exec.CommandContext(context.Background(), newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec // Validated update executable path
+	cmd := exec.Command(newExePath, "--complete-update", currentExe, fmt.Sprintf("%d", s.port)) //nolint:gosec,noctx // Fire-and-forget detached process
 	cmd.Dir = extractDir
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to launch updater: %w", err)
