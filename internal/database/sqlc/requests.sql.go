@@ -629,7 +629,6 @@ func (q *Queries) GetRequestByTvdbIDAndSeason(ctx context.Context, arg GetReques
 const linkRequestToMedia = `-- name: LinkRequestToMedia :one
 UPDATE requests SET
     media_id = ?,
-    status = 'available',
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at

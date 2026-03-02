@@ -83,7 +83,6 @@ RETURNING *;
 -- name: LinkRequestToMedia :one
 UPDATE requests SET
     media_id = ?,
-    status = 'available',
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;

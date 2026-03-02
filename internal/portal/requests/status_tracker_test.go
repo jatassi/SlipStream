@@ -89,13 +89,10 @@ func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 		Title:     "Test Movie",
 	})
 
-	// Link the request to the movie media ID, then restore approved status
-	// (LinkMedia sets status=available as a side effect)
 	_, err := reqSvc.LinkMedia(ctx, req.ID, movieID)
 	if err != nil {
 		t.Fatalf("LinkMedia error = %v", err)
 	}
-	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusApproved)
 
 	err = tracker.OnDownloadStarted(ctx, "movie", movieID)
 	if err != nil {
@@ -129,9 +126,7 @@ func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
 	})
-	// LinkMedia sets status=available; reset to pending to simulate a non-approved request
 	_, _ = reqSvc.LinkMedia(ctx, req.ID, movieID)
-	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusPending)
 
 	err := tracker.OnDownloadStarted(ctx, "movie", movieID)
 	if err != nil {
@@ -164,7 +159,6 @@ func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
 	})
-	// LinkMedia sets status=available; set to downloading to test failure path
 	_, _ = reqSvc.LinkMedia(ctx, req.ID, movieID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
@@ -206,7 +200,6 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 		SeasonNumber:  testutil.Int64Ptr(1),
 		EpisodeNumber: testutil.Int64Ptr(1),
 	})
-	// LinkMedia sets status=available; set to downloading to test failure path
 	_, _ = reqSvc.LinkMedia(ctx, req.ID, episodeID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
@@ -418,7 +411,6 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 		Title:            "Test Series",
 		RequestedSeasons: []int64{1},
 	})
-	// Link to series and set to downloading
 	_, _ = reqSvc.LinkMedia(ctx, req.ID, series.ID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
