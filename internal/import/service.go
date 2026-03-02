@@ -469,6 +469,12 @@ func (s *Service) broadcastImportSuccess(result *ImportResult) {
 }
 
 func (s *Service) handleFailedImport(ctx context.Context, job ImportJob, result *ImportResult) {
+	// "Not an upgrade" is an expected condition, not a real failure — skip health
+	// issues and failure broadcasts to avoid noisy warnings and notifications.
+	if errors.Is(result.Error, ErrNotAnUpgrade) {
+		return
+	}
+
 	s.logger.Error().
 		Err(result.Error).
 		Str("path", job.SourcePath).
