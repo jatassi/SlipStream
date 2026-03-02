@@ -8,6 +8,7 @@ import { historyKeys } from '@/hooks/use-history'
 import { missingKeys } from '@/hooks/use-missing'
 import { movieKeys } from '@/hooks/use-movies'
 import { queueKeys } from '@/hooks/use-queue'
+import { schedulerKeys } from '@/hooks/use-scheduler'
 import { seriesKeys } from '@/hooks/use-series'
 import type { LogEntry } from '@/types/logs'
 import type { Activity, ProgressEventType } from '@/types/progress'
@@ -146,8 +147,10 @@ const artworkHandler: MessageHandler = (message) => {
     .notifyReady(message.payload as ArtworkReadyPayload)
 }
 
-const autoSearchHandler: MessageHandler = (message) =>
+const autoSearchHandler: MessageHandler = (message, ctx) => {
   handleAutoSearchEvent(message)
+  void ctx.queryClient.invalidateQueries({ queryKey: schedulerKeys.tasks() })
+}
 
 const healthHandler: MessageHandler = (_message, ctx) => {
   void ctx.queryClient.invalidateQueries({ queryKey: systemHealthKeys.all })
@@ -161,6 +164,10 @@ const requestHandler: MessageHandler = (_message, ctx) =>
 
 const portalInboxHandler: MessageHandler = (_message, ctx) => {
   void ctx.queryClient.invalidateQueries({ queryKey: inboxKeys.all })
+}
+
+const schedulerTaskHandler: MessageHandler = (_message, ctx) => {
+  void ctx.queryClient.invalidateQueries({ queryKey: schedulerKeys.tasks() })
 }
 
 const logsHandler: MessageHandler = (message) => {
@@ -188,6 +195,11 @@ const handlerMap: Partial<Record<string, MessageHandler>> = {
   'autosearch:task:started': autoSearchHandler,
   'autosearch:task:progress': autoSearchHandler,
   'autosearch:task:completed': autoSearchHandler,
+  'rss-sync:started': schedulerTaskHandler,
+  'rss-sync:completed': schedulerTaskHandler,
+  'rss-sync:failed': schedulerTaskHandler,
+  'scheduler:task:started': schedulerTaskHandler,
+  'scheduler:task:completed': schedulerTaskHandler,
   'health:updated': healthHandler,
   'devmode:changed': devModeHandler,
   'devmode:error': devModeHandler,

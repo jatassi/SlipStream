@@ -43,12 +43,16 @@ type taskEntry struct {
 	running bool
 }
 
+// TaskStateCallback is called when a task starts or stops running.
+type TaskStateCallback func(taskID string, running bool)
+
 // Scheduler manages background scheduled tasks.
 type Scheduler struct {
-	gocron gocron.Scheduler
-	logger *zerolog.Logger
-	tasks  map[string]*taskEntry
-	mu     sync.RWMutex
+	gocron         gocron.Scheduler
+	logger         *zerolog.Logger
+	tasks          map[string]*taskEntry
+	mu             sync.RWMutex
+	onStateChanged TaskStateCallback
 }
 
 // New creates a new scheduler.
@@ -115,7 +119,12 @@ func (s *Scheduler) executeTask(taskID string) {
 		return
 	}
 	entry.running = true
+	cb := s.onStateChanged
 	s.mu.Unlock()
+
+	if cb != nil {
+		cb(taskID, true)
+	}
 
 	startTime := time.Now()
 	s.logger.Info().
@@ -130,6 +139,10 @@ func (s *Scheduler) executeTask(taskID string) {
 	entry.running = false
 	entry.lastRun = &startTime
 	s.mu.Unlock()
+
+	if cb != nil {
+		cb(taskID, false)
+	}
 
 	duration := time.Since(startTime)
 	if err != nil {
@@ -233,6 +246,11 @@ func (s *Scheduler) ListTasks() []TaskInfo {
 	}
 
 	return tasks
+}
+
+// OnTaskStateChanged registers a callback invoked when a task starts or finishes.
+func (s *Scheduler) OnTaskStateChanged(fn TaskStateCallback) {
+	s.onStateChanged = fn
 }
 
 // GetTask returns information about a specific task.

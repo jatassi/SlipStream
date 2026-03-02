@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { schedulerApi } from '@/api'
 
-const schedulerKeys = {
+export const schedulerKeys = {
   all: ['scheduler'] as const,
   tasks: () => [...schedulerKeys.all, 'tasks'] as const,
 }

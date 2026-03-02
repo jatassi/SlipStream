@@ -617,6 +617,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	} else {
 		serverDebugLog("Scheduler initialized, registering tasks...")
 		s.scheduler = sched
+		s.scheduler.OnTaskStateChanged(schedulerBroadcaster(hub))
 		// Register availability refresh task
 		if err := tasks.RegisterAvailabilityTask(s.scheduler, s.availabilityService); err != nil {
 			logger.Error().Err(err).Msg("Failed to register availability task")
@@ -694,6 +695,19 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	serverDebugLog("NewServer complete")
 
 	return s
+}
+
+func schedulerBroadcaster(hub *websocket.Hub) scheduler.TaskStateCallback {
+	return func(taskID string, running bool) {
+		eventType := "scheduler:task:started"
+		if !running {
+			eventType = "scheduler:task:completed"
+		}
+		hub.Broadcast(eventType, map[string]any{
+			"taskId":  taskID,
+			"running": running,
+		})
+	}
 }
 
 // Start begins listening for HTTP requests.
