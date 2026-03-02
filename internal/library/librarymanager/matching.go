@@ -152,6 +152,10 @@ func (s *Service) matchOrCreateSeries(
 	parsed *scanner.ParsedMedia,
 	qualityProfileID int64,
 ) (*tv.Series, bool, *metadata.SeriesResult, error) {
+	if existing := s.tryMatchExistingSeries(ctx, folder, parsed); existing != nil {
+		return existing, false, nil, nil
+	}
+
 	if !s.metadata.HasSeriesProvider() {
 		series, created, err := s.createSeriesFromParsed(ctx, folder, parsed, qualityProfileID, nil)
 		return series, created, nil, err
@@ -164,7 +168,7 @@ func (s *Service) matchOrCreateSeries(
 		return series, created, nil, err
 	}
 
-	bestMatch := s.findBestSeriesMatch(ctx, results)
+	bestMatch := s.findBestSeriesMatch(ctx, results, parsed)
 
 	if bestMatch != nil && bestMatch.TvdbID > 0 {
 		if existing := s.checkExistingSeries(ctx, bestMatch.TvdbID); existing != nil {
@@ -176,18 +180,184 @@ func (s *Service) matchOrCreateSeries(
 	return series, created, bestMatch, err
 }
 
-func (s *Service) findBestSeriesMatch(ctx context.Context, results []metadata.SeriesResult) *metadata.SeriesResult {
+// tryMatchExistingSeries checks the local DB for an existing series that matches the parsed media,
+// avoiding unnecessary external metadata searches. Uses two strategies:
+// 1. Path match: derive the series folder from the file path and query by path
+// 2. Title+year match: compare against all series in the same root folder
+func (s *Service) tryMatchExistingSeries(ctx context.Context, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) *tv.Series {
+	if match := s.tryMatchSeriesByPath(ctx, folder, parsed); match != nil {
+		return match
+	}
+	return s.tryMatchSeriesByTitleYear(ctx, folder, parsed)
+}
+
+func (s *Service) tryMatchSeriesByPath(ctx context.Context, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) *tv.Series {
+	relPath := extractRelativePath(parsed.FilePath, folder.Path)
+	if relPath == "" {
+		return nil
+	}
+
+	seriesFolder := extractFirstPathComponent(relPath)
+	if seriesFolder == "" {
+		return nil
+	}
+
+	candidatePath := folder.Path + "/" + seriesFolder
+	existing, err := s.tv.GetSeriesByPath(ctx, candidatePath)
+	if err != nil {
+		return nil
+	}
+
+	s.logger.Debug().Str("title", existing.Title).Str("path", candidatePath).Msg("Matched series by path in local DB")
+	return existing
+}
+
+func (s *Service) tryMatchSeriesByTitleYear(ctx context.Context, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) *tv.Series {
+	seriesList, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{RootFolderID: &folder.ID})
+	if err != nil || len(seriesList) == 0 {
+		return nil
+	}
+
+	parsedTitleNorm := normalizeTitle(parsed.Title)
+
+	if match := findLocalSeriesByTitleYear(seriesList, parsedTitleNorm, parsed.Year); match != nil {
+		s.logger.Debug().Str("title", match.Title).Int("year", match.Year).Msg("Matched series by title+year in local DB")
+		return match
+	}
+
+	if match := findUniqueLocalSeriesByTitle(seriesList, parsedTitleNorm); match != nil {
+		s.logger.Debug().Str("title", match.Title).Msg("Matched series by unique title in local DB")
+		return match
+	}
+	return nil
+}
+
+func findLocalSeriesByTitleYear(seriesList []*tv.Series, parsedTitleNorm string, year int) *tv.Series {
+	if year <= 0 {
+		return nil
+	}
+	for _, series := range seriesList {
+		if series.Year == year && normalizeTitle(series.Title) == parsedTitleNorm {
+			return series
+		}
+	}
+	return nil
+}
+
+func findUniqueLocalSeriesByTitle(seriesList []*tv.Series, parsedTitleNorm string) *tv.Series {
+	var match *tv.Series
+	for _, series := range seriesList {
+		if normalizeTitle(series.Title) == parsedTitleNorm {
+			if match != nil {
+				return nil // ambiguous
+			}
+			match = series
+		}
+	}
+	return match
+}
+
+// extractRelativePath returns the path of filePath relative to rootPath, using forward slashes.
+// Returns empty string if filePath doesn't start with rootPath.
+func extractRelativePath(filePath, rootPath string) string {
+	// Normalize both to forward slashes for comparison
+	fp := strings.ReplaceAll(filePath, "\\", "/")
+	rp := strings.ReplaceAll(rootPath, "\\", "/")
+	rp = strings.TrimRight(rp, "/")
+
+	if !strings.HasPrefix(fp, rp+"/") {
+		return ""
+	}
+	return fp[len(rp)+1:]
+}
+
+// extractFirstPathComponent returns the first directory in a relative path.
+// e.g. "Vanished (2026)/Season 1/file.mkv" → "Vanished (2026)"
+func extractFirstPathComponent(relPath string) string {
+	component, _, found := strings.Cut(relPath, "/")
+	if !found {
+		return ""
+	}
+	return component
+}
+
+func (s *Service) findBestSeriesMatch(ctx context.Context, results []metadata.SeriesResult, parsed *scanner.ParsedMedia) *metadata.SeriesResult {
 	if len(results) == 0 {
 		return nil
 	}
 
-	bestMatch := &results[0]
+	parsedTitleNorm := normalizeTitle(parsed.Title)
 
-	if bestMatch.Status == "" {
-		bestMatch = s.enrichSeriesStatus(ctx, bestMatch)
+	if match := findSeriesExactTitleYear(results, parsedTitleNorm, parsed.Year); match != nil {
+		return s.ensureSeriesStatus(ctx, match)
+	}
+	if match := findSeriesPrefixYear(results, parsedTitleNorm, parsed.Year); match != nil {
+		return s.ensureSeriesStatus(ctx, match)
+	}
+	if match := findSeriesYearOnly(results, parsed.Year); match != nil {
+		return s.ensureSeriesStatus(ctx, match)
+	}
+	if match := findSeriesExactTitle(results, parsedTitleNorm); match != nil {
+		return s.ensureSeriesStatus(ctx, match)
 	}
 
-	return bestMatch
+	return s.ensureSeriesStatus(ctx, &results[0])
+}
+
+func findSeriesExactTitleYear(results []metadata.SeriesResult, titleNorm string, year int) *metadata.SeriesResult {
+	if year <= 0 {
+		return nil
+	}
+	for i := range results {
+		if results[i].Year == year && normalizeTitle(results[i].Title) == titleNorm {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+func findSeriesPrefixYear(results []metadata.SeriesResult, titleNorm string, year int) *metadata.SeriesResult {
+	if year <= 0 {
+		return nil
+	}
+	for i := range results {
+		if results[i].Year != year {
+			continue
+		}
+		resultTitleNorm := normalizeTitle(results[i].Title)
+		if strings.HasPrefix(resultTitleNorm, titleNorm) && len(resultTitleNorm) <= len(titleNorm)+5 {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+func findSeriesYearOnly(results []metadata.SeriesResult, year int) *metadata.SeriesResult {
+	if year <= 0 {
+		return nil
+	}
+	for i := range results {
+		if results[i].Year == year {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+func findSeriesExactTitle(results []metadata.SeriesResult, titleNorm string) *metadata.SeriesResult {
+	for i := range results {
+		if normalizeTitle(results[i].Title) == titleNorm {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+func (s *Service) ensureSeriesStatus(ctx context.Context, match *metadata.SeriesResult) *metadata.SeriesResult {
+	if match.Status == "" {
+		return s.enrichSeriesStatus(ctx, match)
+	}
+	return match
 }
 
 func (s *Service) checkExistingSeries(ctx context.Context, tvdbID int) *tv.Series {
@@ -426,7 +596,8 @@ func (s *Service) matchSingleUnmatchedSeries(ctx context.Context, series *tv.Ser
 		return
 	}
 
-	bestMatch := &results[0]
+	pseudo := &scanner.ParsedMedia{Title: series.Title, Year: series.Year}
+	bestMatch := s.findBestSeriesMatch(ctx, results, pseudo)
 
 	if bestMatch.TvdbID > 0 {
 		if existing := s.checkExistingSeries(ctx, bestMatch.TvdbID); existing != nil {

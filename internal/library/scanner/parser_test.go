@@ -1212,3 +1212,50 @@ func TestParsePath_QualityFallback(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePath_TVYearFromGrandparentFolder(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantYear int
+		wantIsTV bool
+	}{
+		{
+			name:     "year from grandparent series folder with season subfolder",
+			path:     "/tv/Vanished (2026)/Season 1/Vanished - S01E01.mkv",
+			wantYear: 2026,
+			wantIsTV: true,
+		},
+		{
+			name:     "no year when grandparent has no year",
+			path:     "/tv/ShowName/Season 1/ShowName - S01E01.mkv",
+			wantYear: 0,
+			wantIsTV: true,
+		},
+		{
+			name:     "year from grandparent without season folder",
+			path:     "/tv/ShowName (2020)/ShowName - S01E01.mkv",
+			wantYear: 2020,
+			wantIsTV: true,
+		},
+		{
+			name:     "year from grandparent with dot-separated name",
+			path:     "/tv/The.Show.2024/Season 2/The.Show.S02E05.1080p.mkv",
+			wantYear: 2024,
+			wantIsTV: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParsePath(tt.path)
+
+			if result.IsTV != tt.wantIsTV {
+				t.Errorf("IsTV = %v, want %v", result.IsTV, tt.wantIsTV)
+			}
+			if result.Year != tt.wantYear {
+				t.Errorf("Year = %d, want %d", result.Year, tt.wantYear)
+			}
+		})
+	}
+}

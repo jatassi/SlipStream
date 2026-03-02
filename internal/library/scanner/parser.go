@@ -493,6 +493,39 @@ func tryInheritYearFromFolder(parsed *ParsedMedia, folderName string) {
 	}
 }
 
+// tryInheritYearFromSeriesFolder attempts to get year from the series folder for TV episodes.
+// The series folder may be the parent (e.g., "ShowName (2020)/file.mkv") or the grandparent
+// (e.g., "Vanished (2026)/Season 1/file.mkv") depending on whether season subfolders are used.
+func tryInheritYearFromSeriesFolder(parsed *ParsedMedia, fullPath string) {
+	if !parsed.IsTV || parsed.Year != 0 {
+		return
+	}
+
+	dir := filepath.Dir(fullPath)
+
+	// Try parent folder first (handles no season subfolder case)
+	parentName := filepath.Base(dir)
+	if parentName != "." && parentName != "/" {
+		folderParsed := parseMediaName(parentName)
+		if folderParsed.Year != 0 {
+			parsed.Year = folderParsed.Year
+			return
+		}
+	}
+
+	// Try grandparent folder (handles season subfolder case)
+	grandparentDir := filepath.Dir(dir)
+	grandparentName := filepath.Base(grandparentDir)
+	if grandparentName == "." || grandparentName == "/" {
+		return
+	}
+
+	folderParsed := parseMediaName(grandparentName)
+	if folderParsed.Year != 0 {
+		parsed.Year = folderParsed.Year
+	}
+}
+
 // tryInheritQualityFromFolder attempts to get quality info from parent folder
 func tryInheritQualityFromFolder(parsed *ParsedMedia, folderName string) {
 	if parsed.Quality != "" || parsed.Source != "" || folderName == "." || folderName == "/" {
@@ -511,6 +544,7 @@ func ParsePath(fullPath string) *ParsedMedia {
 	folderName := filepath.Base(dir)
 
 	tryInheritYearFromFolder(parsed, folderName)
+	tryInheritYearFromSeriesFolder(parsed, fullPath)
 	tryInheritQualityFromFolder(parsed, folderName)
 
 	parsed.FilePath = pathutil.NormalizePath(fullPath)

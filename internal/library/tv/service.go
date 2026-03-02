@@ -139,6 +139,18 @@ func (s *Service) GetSeriesByTvdbID(ctx context.Context, tvdbID int) (*Series, e
 	return s.rowToSeries(row), nil
 }
 
+// GetSeriesByPath retrieves a series by its filesystem path.
+func (s *Service) GetSeriesByPath(ctx context.Context, path string) (*Series, error) {
+	row, err := s.queries.GetSeriesByPath(ctx, sql.NullString{String: path, Valid: true})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrSeriesNotFound
+		}
+		return nil, fmt.Errorf("failed to get series by path: %w", err)
+	}
+	return s.rowToSeries(row), nil
+}
+
 // ListSeries returns series with optional filtering.
 func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Series, error) {
 	var rows []*sqlc.Series
