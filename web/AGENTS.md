@@ -38,6 +38,12 @@ Applies to: `TooltipTrigger`, `DialogTrigger`, `PopoverTrigger`, `DropdownMenuTr
 </SelectTrigger>
 ```
 
+## Routes & Code-Splitting
+
+Routes are lazy-loaded via `lazyRouteComponent` in `src/routes-config.tsx`. Never eagerly import page components — use the `lazyRoute()` / `lazyPortalRoute()` helpers. Routes needing `validateSearch` use `createRoute` with `component: lazyRouteComponent(importer, 'ExportName')` directly.
+
+Barrel files (`hooks/index.ts`, `api/index.ts`) use named re-exports — no `export *`.
+
 ## React Patterns
 
 ### State Synchronization
