@@ -21,6 +21,8 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 - `internal/` — All backend packages (services, handlers, database, etc.)
 - `web/` — React frontend (Vite + TanStack Router + TanStack Query)
 - `configs/` — Config files and .env
+- `internal/domain/contracts/` — Shared service interfaces
+- `internal/portal/provisioner/` — Media provisioning service
 - `scripts/` — Build, lint, and utility scripts
 
 ## Mandatory Directives
@@ -47,6 +49,7 @@ make build                # Build both backend and frontend
 make test                 # Run all Go tests
 make test-verbose         # Verbose output
 go test -v -run TestName ./internal/package/...  # Single test
+make wire                 # Regenerate Wire DI (after changing wire.go)
 ```
 
 ### Database
@@ -78,7 +81,7 @@ Priority: environment variables > `.env` file > config.yaml > defaults
 Development (`go run`): log level forced to `debug` (detected via "go-build" in executable path). Production: configured level (default `info`).
 
 ### API
-All endpoints under `/api/v1`. Route definitions in `internal/server/routes.go`.
+All endpoints under `/api/v1`. Route definitions in `internal/api/routes.go`.
 
 ### Frontend-Backend Communication
 - HTTP: Vite proxies `/api` to backend (:8080)

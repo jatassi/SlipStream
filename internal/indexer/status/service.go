@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
 var (
@@ -17,41 +18,28 @@ var (
 	ErrNoCookies      = errors.New("no cookies cached")
 )
 
-// HealthService is the interface for central health tracking.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	SetWarningStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
-
 // Service tracks indexer health and status.
 type Service struct {
 	queries       *sqlc.Queries
 	config        BackoffConfig
 	logger        *zerolog.Logger
-	healthService HealthService
+	healthService contracts.HealthService
 }
 
 // NewService creates a new status service with default configuration.
-func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
-	return NewServiceWithConfig(db, DefaultBackoffConfig(), logger)
+func NewService(db *sql.DB, logger *zerolog.Logger, healthService contracts.HealthService) *Service {
+	return NewServiceWithConfig(db, DefaultBackoffConfig(), logger, healthService)
 }
 
 // NewServiceWithConfig creates a new status service with custom configuration.
-func NewServiceWithConfig(db *sql.DB, config BackoffConfig, logger *zerolog.Logger) *Service {
+func NewServiceWithConfig(db *sql.DB, config BackoffConfig, logger *zerolog.Logger, healthService contracts.HealthService) *Service {
 	subLogger := logger.With().Str("component", "indexer-status").Logger()
 	return &Service{
-		queries: sqlc.New(db),
-		config:  config,
-		logger:  &subLogger,
+		queries:       sqlc.New(db),
+		config:        config,
+		healthService: healthService,
+		logger:        &subLogger,
 	}
-}
-
-// SetHealthService sets the central health service for forwarding status updates.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.healthService = hs
 }
 
 // SetDB updates the database connection used by this service.

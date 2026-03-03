@@ -3,14 +3,11 @@ package logger
 import (
 	"encoding/json"
 	"sync"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
 const defaultBufferSize = 1000
-
-// Broadcaster is the interface for broadcasting messages.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
 
 // LogEntry represents a parsed log entry for streaming.
 type LogEntry struct {
@@ -23,7 +20,7 @@ type LogEntry struct {
 
 // LogBroadcaster implements io.Writer and broadcasts log entries to WebSocket.
 type LogBroadcaster struct {
-	hub        Broadcaster
+	hub        contracts.Broadcaster
 	buffer     *RingBuffer[LogEntry]
 	bufferSize int
 	mu         sync.RWMutex
@@ -31,7 +28,7 @@ type LogBroadcaster struct {
 
 // NewLogBroadcaster creates a new log broadcaster.
 // Hub can be nil initially and set later with SetHub.
-func NewLogBroadcaster(hub Broadcaster, bufferSize int) *LogBroadcaster {
+func NewLogBroadcaster(hub contracts.Broadcaster, bufferSize int) *LogBroadcaster {
 	if bufferSize <= 0 {
 		bufferSize = defaultBufferSize
 	}
@@ -43,7 +40,7 @@ func NewLogBroadcaster(hub Broadcaster, bufferSize int) *LogBroadcaster {
 }
 
 // SetHub sets the broadcaster hub for sending messages.
-func (b *LogBroadcaster) SetHub(hub Broadcaster) {
+func (b *LogBroadcaster) SetHub(hub contracts.Broadcaster) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.hub = hub

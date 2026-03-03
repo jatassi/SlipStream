@@ -28,14 +28,11 @@ type AuthMiddleware struct {
 	enabledChecker PortalEnabledChecker
 }
 
-func NewAuthMiddleware(validator TokenValidator) *AuthMiddleware {
+func NewAuthMiddleware(validator TokenValidator, enabledChecker PortalEnabledChecker) *AuthMiddleware {
 	return &AuthMiddleware{
-		validator: validator,
+		validator:      validator,
+		enabledChecker: enabledChecker,
 	}
-}
-
-func (m *AuthMiddleware) SetEnabledChecker(checker PortalEnabledChecker) {
-	m.enabledChecker = checker
 }
 
 func (m *AuthMiddleware) PortalEnabled() echo.MiddlewareFunc {

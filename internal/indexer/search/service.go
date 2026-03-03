@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
 	"github.com/slipstream/slipstream/internal/indexer/scoring"
@@ -18,42 +19,25 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 )
 
-// Broadcaster interface for sending events to clients.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
 // Service orchestrates searches across multiple indexers.
 type Service struct {
 	indexerService *indexer.Service
 	statusService  *status.Service
 	rateLimiter    *ratelimit.Limiter
-	broadcaster    Broadcaster
+	broadcaster    contracts.Broadcaster
 	logger         *zerolog.Logger
 }
 
 // NewService creates a new search service.
-func NewService(indexerService *indexer.Service, logger *zerolog.Logger) *Service {
+func NewService(indexerService *indexer.Service, logger *zerolog.Logger, statusService *status.Service, rateLimiter *ratelimit.Limiter, broadcaster contracts.Broadcaster) *Service {
 	subLogger := logger.With().Str("component", "search").Logger()
 	return &Service{
 		indexerService: indexerService,
+		statusService:  statusService,
+		rateLimiter:    rateLimiter,
+		broadcaster:    broadcaster,
 		logger:         &subLogger,
 	}
-}
-
-// SetStatusService sets the status service for tracking indexer health.
-func (s *Service) SetStatusService(statusService *status.Service) {
-	s.statusService = statusService
-}
-
-// SetRateLimiter sets the rate limiter for controlling query rates.
-func (s *Service) SetRateLimiter(limiter *ratelimit.Limiter) {
-	s.rateLimiter = limiter
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time events.
-func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
-	s.broadcaster = broadcaster
 }
 
 // SearchResult contains aggregated search results.

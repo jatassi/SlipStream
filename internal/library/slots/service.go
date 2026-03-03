@@ -10,6 +10,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/library/rootfolder"
 )
 
 var (
@@ -30,15 +31,7 @@ type FileDeleter interface {
 
 // RootFolderProvider provides root folder lookup operations.
 type RootFolderProvider interface {
-	Get(ctx context.Context, id int64) (*RootFolder, error)
-}
-
-// RootFolder represents a root folder for slot root folder lookups.
-type RootFolder struct {
-	ID        int64
-	Path      string
-	Name      string
-	MediaType string
+	Get(ctx context.Context, id int64) (*rootfolder.RootFolder, error)
 }
 
 // Service provides version slot operations.
@@ -56,17 +49,13 @@ func (s *Service) SetFileDeleter(deleter FileDeleter) {
 	s.fileDeleter = deleter
 }
 
-// SetRootFolderProvider sets the root folder provider for slot root folder lookups.
-func (s *Service) SetRootFolderProvider(provider RootFolderProvider) {
-	s.rootFolderProvider = provider
-}
-
 // NewService creates a new slot service.
-func NewService(db *sql.DB, qualityService *quality.Service, logger *zerolog.Logger) *Service {
+func NewService(db *sql.DB, qualityService *quality.Service, logger *zerolog.Logger, rootFolderProvider RootFolderProvider) *Service {
 	return &Service{
-		queries:        sqlc.New(db),
-		qualityService: qualityService,
-		logger:         logger.With().Str("component", "slots").Logger(),
+		queries:            sqlc.New(db),
+		qualityService:     qualityService,
+		logger:             logger.With().Str("component", "slots").Logger(),
+		rootFolderProvider: rootFolderProvider,
 	}
 }
 

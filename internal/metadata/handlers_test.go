@@ -55,11 +55,11 @@ func setupTestHandlers(t *testing.T) (*httptest.Server, *Handlers) {
 		},
 	}
 
-	service := NewService(&cfg, newTestLogger())
+	service := NewService(&cfg, newTestLogger(), nil, nil)
 	artwork := NewArtworkDownloader(ArtworkConfig{
 		BaseDir: t.TempDir(),
 		Timeout: 5 * time.Second,
-	}, newTestLogger())
+	}, newTestLogger(), nil)
 
 	handlers := NewHandlers(service, artwork)
 
@@ -289,11 +289,11 @@ func TestHandlers_GetStatus(t *testing.T) {
 func TestHandlers_NoProvidersConfigured(t *testing.T) {
 	cfg := config.MetadataConfig{} // No API keys
 
-	service := NewService(&cfg, newTestLogger())
+	service := NewService(&cfg, newTestLogger(), nil, nil)
 	artwork := NewArtworkDownloader(ArtworkConfig{
 		BaseDir: t.TempDir(),
 		Timeout: 5 * time.Second,
-	}, newTestLogger())
+	}, newTestLogger(), nil)
 
 	handlers := NewHandlers(service, artwork)
 

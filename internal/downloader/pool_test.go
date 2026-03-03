@@ -30,7 +30,7 @@ func TestClientPool_CacheHit(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	svc := NewService(tdb.Conn, &tdb.Logger)
+	svc := NewService(tdb.Conn, &tdb.Logger, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	queries := sqlc.New(tdb.Conn)
@@ -65,7 +65,7 @@ func TestClientPool_InvalidateOnUpdate(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	svc := NewService(tdb.Conn, &tdb.Logger)
+	svc := NewService(tdb.Conn, &tdb.Logger, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	queries := sqlc.New(tdb.Conn)
@@ -106,7 +106,7 @@ func TestClientPool_InvalidateOnDelete(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	svc := NewService(tdb.Conn, &tdb.Logger)
+	svc := NewService(tdb.Conn, &tdb.Logger, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	queries := sqlc.New(tdb.Conn)
@@ -150,7 +150,7 @@ func TestClientPool_ClearOnSetDB(t *testing.T) {
 	tdb2 := testutil.NewTestDB(t)
 	defer tdb2.Close()
 
-	svc := NewService(tdb1.Conn, &tdb1.Logger)
+	svc := NewService(tdb1.Conn, &tdb1.Logger, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	queries := sqlc.New(tdb1.Conn)

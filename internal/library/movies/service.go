@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
@@ -42,24 +43,14 @@ var (
 	ErrDuplicateTmdbID   = errors.New("movie with this TMDB ID already exists")
 )
 
-// FileDeleteHandler is called when a file is deleted to update slot assignments.
-type FileDeleteHandler interface {
-	OnFileDeleted(ctx context.Context, mediaType string, fileID int64) error
-}
-
-// StatusChangeLogger logs status transition history events.
-type StatusChangeLogger interface {
-	LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error
-}
-
 // Service provides movie library operations.
 type Service struct {
 	db                 *sql.DB
 	queries            *sqlc.Queries
 	hub                *websocket.Hub
 	logger             *zerolog.Logger
-	fileDeleteHandler  FileDeleteHandler
-	statusChangeLogger StatusChangeLogger
+	fileDeleteHandler  contracts.FileDeleteHandler
+	statusChangeLogger contracts.StatusChangeLogger
 	notifier           NotificationDispatcher
 	qualityProfiles    *quality.Service
 }
@@ -69,20 +60,10 @@ func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 	s.notifier = n
 }
 
-// SetQualityService sets the quality profile service for quality evaluation.
-func (s *Service) SetQualityService(qs *quality.Service) {
-	s.qualityProfiles = qs
-}
-
 // SetFileDeleteHandler sets the handler for file deletion events.
 // Req 12.1.1: Deleting file from slot does NOT trigger automatic search
-func (s *Service) SetFileDeleteHandler(handler FileDeleteHandler) {
+func (s *Service) SetFileDeleteHandler(handler contracts.FileDeleteHandler) {
 	s.fileDeleteHandler = handler
-}
-
-// SetStatusChangeLogger sets the logger for status transition history events.
-func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
-	s.statusChangeLogger = logger
 }
 
 // isMovieReleased determines if a movie should be considered released based on
@@ -102,13 +83,15 @@ func isMovieReleased(digital, physical, theatrical sql.NullTime) bool {
 }
 
 // NewService creates a new movie service.
-func NewService(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger) *Service {
+func NewService(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger, qualityService *quality.Service, statusChangeLogger contracts.StatusChangeLogger) *Service {
 	subLogger := logger.With().Str("component", "movies").Logger()
 	return &Service{
-		db:      db,
-		queries: sqlc.New(db),
-		hub:     hub,
-		logger:  &subLogger,
+		db:                 db,
+		queries:            sqlc.New(db),
+		hub:                hub,
+		logger:             &subLogger,
+		qualityProfiles:    qualityService,
+		statusChangeLogger: statusChangeLogger,
 	}
 }
 

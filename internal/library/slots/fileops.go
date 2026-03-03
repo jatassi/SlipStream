@@ -7,7 +7,10 @@ import (
 	"fmt"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
+
+var _ contracts.FileDeleteHandler = (*Service)(nil)
 
 // SlotFileInfo represents a file assigned to a slot.
 type SlotFileInfo struct {

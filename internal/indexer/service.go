@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/genericrss"
 	indexermock "github.com/slipstream/slipstream/internal/indexer/mock"
@@ -24,35 +25,23 @@ var (
 	ErrInvalidIndexer     = errors.New("invalid indexer configuration")
 )
 
-// HealthService is the interface for central health tracking.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
-
 // Service provides indexer operations using Cardigann definitions.
 type Service struct {
 	queries       *sqlc.Queries
 	manager       *cardigann.Manager
 	logger        *zerolog.Logger
-	healthService HealthService
+	healthService contracts.HealthService
 }
 
 // NewService creates a new indexer service.
-func NewService(db *sql.DB, manager *cardigann.Manager, logger *zerolog.Logger) *Service {
+func NewService(db *sql.DB, manager *cardigann.Manager, logger *zerolog.Logger, healthService contracts.HealthService) *Service {
 	subLogger := logger.With().Str("component", "indexer").Logger()
 	return &Service{
-		queries: sqlc.New(db),
-		manager: manager,
-		logger:  &subLogger,
+		queries:       sqlc.New(db),
+		manager:       manager,
+		healthService: healthService,
+		logger:        &subLogger,
 	}
-}
-
-// SetHealthService sets the central health service for registration tracking.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.healthService = hs
 }
 
 // SetDB updates the database connection used by this service.

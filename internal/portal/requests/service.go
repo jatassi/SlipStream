@@ -101,28 +101,19 @@ type Service struct {
 	watchersService *WatchersService
 }
 
-func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
+func NewService(queries *sqlc.Queries, logger *zerolog.Logger, broadcaster *EventBroadcaster, notifDispatcher NotificationDispatcher, watchersService *WatchersService) *Service {
 	subLogger := logger.With().Str("component", "portal-requests").Logger()
 	return &Service{
-		queries: queries,
-		logger:  &subLogger,
+		queries:         queries,
+		logger:          &subLogger,
+		broadcaster:     broadcaster,
+		notifDispatcher: notifDispatcher,
+		watchersService: watchersService,
 	}
 }
 
 func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
-}
-
-func (s *Service) SetBroadcaster(broadcaster *EventBroadcaster) {
-	s.broadcaster = broadcaster
-}
-
-func (s *Service) SetNotificationDispatcher(dispatcher NotificationDispatcher) {
-	s.notifDispatcher = dispatcher
-}
-
-func (s *Service) SetWatchersService(watchersSvc *WatchersService) {
-	s.watchersService = watchersSvc
 }
 
 func (s *Service) getWatcherUserIDs(ctx context.Context, requestID int64) []int64 {

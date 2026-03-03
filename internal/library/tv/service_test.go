@@ -13,7 +13,7 @@ func TestTVService_CreateSeries(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	input := CreateSeriesInput{
@@ -58,7 +58,7 @@ func TestTVService_CreateSeries_WithSeasons(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	airDate := time.Date(2008, 1, 20, 0, 0, 0, 0, time.UTC)
@@ -113,7 +113,7 @@ func TestTVService_CreateSeries_EmptyTitle(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	input := CreateSeriesInput{Title: ""}
@@ -128,7 +128,7 @@ func TestTVService_CreateSeries_DuplicateTvdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create first series
@@ -148,7 +148,7 @@ func TestTVService_GetSeries(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	created, err := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -177,7 +177,7 @@ func TestTVService_GetSeries_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	_, err := service.GetSeries(ctx, 99999)
@@ -190,7 +190,7 @@ func TestTVService_GetSeriesByTvdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	created, _ := service.CreateSeries(ctx, &CreateSeriesInput{Title: "Test", TvdbID: 12345})
@@ -209,7 +209,7 @@ func TestTVService_ListSeries(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create multiple series
@@ -231,7 +231,7 @@ func TestTVService_ListSeries_Search(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	_, _ = service.CreateSeries(ctx, &CreateSeriesInput{Title: "Breaking Bad"})
@@ -252,7 +252,7 @@ func TestTVService_UpdateSeries(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	created, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -289,7 +289,7 @@ func TestTVService_UpdateSeries_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	newTitle := "Test"
@@ -303,7 +303,7 @@ func TestTVService_DeleteSeries(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	created, _ := service.CreateSeries(ctx, &CreateSeriesInput{Title: "To Delete"})
@@ -323,7 +323,7 @@ func TestTVService_DeleteSeries_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	err := service.DeleteSeries(ctx, 99999, false)
@@ -336,7 +336,7 @@ func TestTVService_ListSeasons(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -362,7 +362,7 @@ func TestTVService_UpdateSeasonMonitored(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -386,7 +386,7 @@ func TestTVService_UpdateSeasonMonitored_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{Title: "Test"})
@@ -401,7 +401,7 @@ func TestTVService_ListEpisodes(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -448,7 +448,7 @@ func TestTVService_GetEpisode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -477,7 +477,7 @@ func TestTVService_GetEpisode_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	_, err := service.GetEpisode(ctx, 99999)
@@ -490,7 +490,7 @@ func TestTVService_UpdateEpisode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -528,7 +528,7 @@ func TestTVService_AddEpisodeFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -573,7 +573,7 @@ func TestTVService_RemoveEpisodeFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -602,7 +602,7 @@ func TestTVService_RemoveEpisodeFile_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	err := service.RemoveEpisodeFile(ctx, 99999)
@@ -615,7 +615,7 @@ func TestTVService_Count(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	count, _ := service.Count(ctx)

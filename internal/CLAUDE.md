@@ -5,7 +5,7 @@ When making changes to this file, ALWAYS make the same update to AGENTS.md in th
 
 ## Architecture
 
-Handlers -> Services -> sqlc queries. Services are injected during server setup in `internal/server/`.
+Handlers -> Services -> sqlc queries. Services wired via google/wire in `internal/api/` (`wire.go` -> `wire_gen.go`). Circular/late-binding deps in `setters.go`. Routes in `routes.go` are purely declarative.
 
 ## Logging
 
@@ -70,6 +70,20 @@ Bugs here cause repeated erroneous downloads. Understand the full flow before mo
 - `profile.IsUpgrade(currentID, releaseID)` — strictly better check
 - `profile.IsAcceptable(qualityID)` — allowed in profile check
 - Cutoff determines "upgradable" vs "available" boundary
+
+## Dependency Injection (Wire)
+
+Key files in `internal/api/`: `wire.go` (providers, source of truth), `wire_gen.go` (generated — DO NOT EDIT), `setters.go` (circular/late-binding deps), `service_groups.go` (group structs), `switchable.go` (dev mode DB-switching registry).
+
+**Adding a service:** constructor with all deps as params -> add to `wire.Build()` in `wire.go` -> add field to group struct -> `make wire`. If switchable: add tagged field in `switchable.go`. If circular: add setter in `setters.go`.
+
+**Shared interfaces** in `internal/domain/contracts/`: `Broadcaster`, `HealthService`, `StatusChangeLogger`, `FileDeleteHandler`, `QueueTrigger`. Use instead of local copies. Add compile-time checks: `var _ contracts.X = (*MyType)(nil)`
+
+## Dev Mode Switching
+
+`DevModeManager` in `devmode.go` handles toggle logic. `SwitchableServices` in `switchable.go` uses struct tags (`switchable:"db"` / `switchable:"queries"`) with reflection-based `UpdateAll()`. New switchable service: add tagged field — reflection handles the rest. `Validate()` catches unassigned fields at startup.
+
+**Bridge files** (`internal/api/`): `notification_bridge.go`, `portal_bridge.go`, `history_bridge.go`, `slot_bridge.go`
 
 ## Statuses
 

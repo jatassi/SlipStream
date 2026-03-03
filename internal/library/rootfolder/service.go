@@ -14,6 +14,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/filesystem/mock"
 )
 
@@ -47,37 +48,25 @@ type CreateRootFolderInput struct {
 	MediaType string `json:"mediaType"`
 }
 
-// HealthService is the interface for central health tracking.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
-
 // Service provides root folder operations.
 type Service struct {
 	db            *sql.DB
 	queries       *sqlc.Queries
 	logger        *zerolog.Logger
 	defaults      *defaults.Service
-	healthService HealthService
+	healthService contracts.HealthService
 }
 
 // NewService creates a new root folder service.
-func NewService(db *sql.DB, logger *zerolog.Logger, defaultsSvc *defaults.Service) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger, defaultsSvc *defaults.Service, healthService contracts.HealthService) *Service {
 	subLogger := logger.With().Str("component", "rootfolder").Logger()
 	return &Service{
-		db:       db,
-		queries:  sqlc.New(db),
-		logger:   &subLogger,
-		defaults: defaultsSvc,
+		db:            db,
+		queries:       sqlc.New(db),
+		logger:        &subLogger,
+		defaults:      defaultsSvc,
+		healthService: healthService,
 	}
-}
-
-// SetHealthService sets the central health service for registration tracking.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.healthService = hs
 }
 
 // SetDB updates the database connection used by this service.

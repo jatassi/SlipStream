@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
-// Broadcaster defines the interface for sending WebSocket messages.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
+var _ contracts.HealthService = (*Service)(nil)
 
 // NotificationDispatcher defines the interface for sending health notifications.
 type NotificationDispatcher interface {
@@ -24,17 +23,18 @@ type NotificationDispatcher interface {
 type Service struct {
 	items       map[HealthCategory]map[string]*HealthItem
 	mu          sync.RWMutex
-	broadcaster Broadcaster
+	broadcaster contracts.Broadcaster
 	notifier    NotificationDispatcher
 	logger      *zerolog.Logger
 }
 
 // NewService creates a new health service.
-func NewService(logger *zerolog.Logger) *Service {
+func NewService(logger *zerolog.Logger, broadcaster contracts.Broadcaster) *Service {
 	subLogger := logger.With().Str("component", "health").Logger()
 	s := &Service{
-		items:  make(map[HealthCategory]map[string]*HealthItem),
-		logger: &subLogger,
+		items:       make(map[HealthCategory]map[string]*HealthItem),
+		logger:      &subLogger,
+		broadcaster: broadcaster,
 	}
 
 	// Initialize maps for all categories
@@ -43,11 +43,6 @@ func NewService(logger *zerolog.Logger) *Service {
 	}
 
 	return s
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time updates.
-func (s *Service) SetBroadcaster(b Broadcaster) {
-	s.broadcaster = b
 }
 
 // SetNotifier sets the notification dispatcher for health alerts.

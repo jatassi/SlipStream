@@ -31,22 +31,14 @@ type Router struct {
 }
 
 // NewRouter creates a new search router.
-func NewRouter(slipstreamService *Service, logger *zerolog.Logger) *Router {
+func NewRouter(slipstreamService *Service, logger *zerolog.Logger, prowlarrSearcher ProwlarrSearcher, modeProvider ModeProvider) *Router {
 	subLogger := logger.With().Str("component", "search-router").Logger()
 	return &Router{
 		slipstreamService: slipstreamService,
+		prowlarrSearcher:  prowlarrSearcher,
+		modeProvider:      modeProvider,
 		logger:            &subLogger,
 	}
-}
-
-// SetProwlarrSearcher sets the Prowlarr search provider.
-func (r *Router) SetProwlarrSearcher(searcher ProwlarrSearcher) {
-	r.prowlarrSearcher = searcher
-}
-
-// SetModeProvider sets the mode provider.
-func (r *Router) SetModeProvider(provider ModeProvider) {
-	r.modeProvider = provider
 }
 
 // Search routes the search to the appropriate backend.

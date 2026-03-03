@@ -17,6 +17,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
@@ -51,32 +52,18 @@ type TVService interface {
 
 // RootFolderService defines the interface for root folder operations.
 type RootFolderService interface {
-	List(ctx context.Context) ([]*RootFolder, error)
-}
-
-// RootFolder represents a SlipStream root folder.
-type RootFolder struct {
-	ID        int64
-	Name      string
-	Path      string
-	MediaType string
+	List(ctx context.Context) ([]*rootfolder.RootFolder, error)
 }
 
 // QualityService defines the interface for quality profile operations.
 type QualityService interface {
-	List(ctx context.Context) ([]*QualityProfile, error)
-}
-
-// QualityProfile represents a SlipStream quality profile.
-type QualityProfile struct {
-	ID   int64
-	Name string
+	List(ctx context.Context) ([]*quality.Profile, error)
 }
 
 // MetadataRefresher refreshes metadata for imported media.
 type MetadataRefresher interface {
-	RefreshMovieMetadata(ctx context.Context, movieID int64) error
-	RefreshSeriesMetadata(ctx context.Context, seriesID int64) error
+	RefreshMovieMetadata(ctx context.Context, movieID int64) (*movies.Movie, error)
+	RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*tv.Series, error)
 }
 
 // SlotsService defines the interface for slot operations.
@@ -129,7 +116,6 @@ type Service struct {
 	slotsService      SlotsService
 	metadataRefresher MetadataRefresher
 	progressManager   *progress.Manager
-	hub               interface{ BroadcastJSON(v interface{}) }
 	logger            *zerolog.Logger
 	mu                sync.Mutex
 
@@ -149,8 +135,8 @@ func NewService(
 	rootFolderService RootFolderService,
 	qualityService QualityService,
 	progressManager *progress.Manager,
-	hub interface{ BroadcastJSON(v interface{}) },
 	logger *zerolog.Logger,
+	slotsService SlotsService,
 ) *Service {
 	return &Service{
 		db:                db,
@@ -159,14 +145,9 @@ func NewService(
 		rootFolderService: rootFolderService,
 		qualityService:    qualityService,
 		progressManager:   progressManager,
-		hub:               hub,
 		logger:            logger,
+		slotsService:      slotsService,
 	}
-}
-
-// SetSlotsService sets the optional slots service for multi-version support.
-func (s *Service) SetSlotsService(svc SlotsService) {
-	s.slotsService = svc
 }
 
 // SetMetadataRefresher sets the optional metadata refresher for post-import metadata fetch.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/notification/types"
 )
 
@@ -30,12 +31,7 @@ type Notifier struct {
 	records     []NotificationRecord
 	nextID      int64
 	maxRecords  int
-	broadcaster Broadcaster
-}
-
-// Broadcaster interface for sending WebSocket events
-type Broadcaster interface {
-	Broadcast(eventType string, data any)
+	broadcaster contracts.Broadcaster
 }
 
 // New creates a new mock notifier
@@ -51,7 +47,7 @@ func New(name string, logger *zerolog.Logger) *Notifier {
 }
 
 // SetBroadcaster sets the WebSocket broadcaster for real-time updates
-func (n *Notifier) SetBroadcaster(b Broadcaster) {
+func (n *Notifier) SetBroadcaster(b contracts.Broadcaster) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.broadcaster = b

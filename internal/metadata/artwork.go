@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
 var (
@@ -55,11 +57,6 @@ func DefaultArtworkConfig() ArtworkConfig {
 	}
 }
 
-// ArtworkBroadcaster is an interface for broadcasting artwork events.
-type ArtworkBroadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
 // ArtworkReadyPayload is the payload sent when artwork is ready.
 type ArtworkReadyPayload struct {
 	MediaType   string `json:"mediaType"`
@@ -72,24 +69,20 @@ type ArtworkDownloader struct {
 	config      ArtworkConfig
 	httpClient  *http.Client
 	logger      *zerolog.Logger
-	broadcaster ArtworkBroadcaster
+	broadcaster contracts.Broadcaster
 }
 
 // NewArtworkDownloader creates a new ArtworkDownloader.
-func NewArtworkDownloader(cfg ArtworkConfig, logger *zerolog.Logger) *ArtworkDownloader {
+func NewArtworkDownloader(cfg ArtworkConfig, logger *zerolog.Logger, broadcaster contracts.Broadcaster) *ArtworkDownloader {
 	subLogger := logger.With().Str("component", "artwork").Logger()
 	return &ArtworkDownloader{
 		config: cfg,
 		httpClient: &http.Client{
 			Timeout: cfg.Timeout,
 		},
-		logger: &subLogger,
+		logger:      &subLogger,
+		broadcaster: broadcaster,
 	}
-}
-
-// SetBroadcaster sets the broadcaster for artwork events.
-func (d *ArtworkDownloader) SetBroadcaster(b ArtworkBroadcaster) {
-	d.broadcaster = b
 }
 
 // notifyArtworkReady broadcasts that artwork is ready.

@@ -14,7 +14,7 @@ func TestHistoryService_Create(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	entry, err := service.Create(ctx, &CreateInput{
@@ -47,7 +47,7 @@ func TestHistoryService_LogStatusChanged(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	err := service.LogStatusChanged(ctx, MediaTypeMovie, 42, StatusChangedData{
@@ -96,7 +96,7 @@ func TestHistoryService_LogStatusChanged_Episode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	err := service.LogStatusChanged(ctx, MediaTypeEpisode, 100, StatusChangedData{
@@ -124,7 +124,7 @@ func TestHistoryService_ListFiltered(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	// Create entries of different types
@@ -223,7 +223,7 @@ func TestHistoryService_LogAutoSearchDownload(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	err := service.LogAutoSearchDownload(ctx, MediaTypeMovie, 1, "Bluray-1080p", &AutoSearchDownloadData{
@@ -253,7 +253,7 @@ func TestHistoryService_DeleteAll(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	_, _ = service.Create(ctx, &CreateInput{
@@ -282,7 +282,7 @@ func TestHistoryService_Pagination(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, &tdb.Logger)
+	service := NewService(tdb.Conn, &tdb.Logger, nil)
 	ctx := context.Background()
 
 	// Create 5 entries

@@ -34,6 +34,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/x v0.2.1 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
+	github.com/google/wire v0.7.0 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect

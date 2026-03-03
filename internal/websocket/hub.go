@@ -10,7 +10,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
+
+var _ contracts.Broadcaster = (*Hub)(nil)
 
 const (
 	// Time allowed to write a message to the peer.

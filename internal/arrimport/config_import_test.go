@@ -144,7 +144,7 @@ func TestConfigImportEndToEnd(t *testing.T) {
 	logger := zerolog.Nop()
 
 	// Real destination services
-	dlSvc := downloader.NewService(tdb.Conn, &logger)
+	dlSvc := downloader.NewService(tdb.Conn, &logger, nil, nil, nil, nil)
 	notifSvc := notification.NewService(tdb.Conn, &logger)
 	qualProfSvc := quality.NewService(tdb.Conn, &logger)
 
@@ -153,7 +153,7 @@ func TestConfigImportEndToEnd(t *testing.T) {
 	importSettingsSvc := newStubImportSettingsService()
 
 	// Build arrimport service (nil for media import dependencies — not needed for config import)
-	svc := NewService(tdb.Conn, nil, nil, nil, nil, nil, nil, &logger)
+	svc := NewService(tdb.Conn, nil, nil, nil, nil, nil, &logger, nil)
 	svc.SetConfigImportServices(dlSvc, idxSvc, notifSvc, qualProfSvc, importSettingsSvc)
 
 	ctx := context.Background()

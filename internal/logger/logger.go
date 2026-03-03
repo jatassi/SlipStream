@@ -10,6 +10,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
 // Logger wraps zerolog for application logging.
@@ -150,7 +152,7 @@ func (l *Logger) GetLogFilePath() string {
 
 // SetBroadcastHub sets the hub for broadcasting log entries via WebSocket.
 // This should be called after the hub is created to enable real-time streaming.
-func (l *Logger) SetBroadcastHub(hub Broadcaster) {
+func (l *Logger) SetBroadcastHub(hub contracts.Broadcaster) {
 	if l.broadcaster != nil {
 		l.broadcaster.SetHub(hub)
 	}

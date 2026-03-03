@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/decisioning"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/history"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
@@ -31,11 +32,6 @@ var (
 	ErrSearchCancelled = errors.New("search was cancelled")
 )
 
-// Broadcaster interface for sending events to clients.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
 // Service provides automatic release searching and grabbing functionality.
 type Service struct {
 	db             *sql.DB
@@ -46,7 +42,7 @@ type Service struct {
 	historyService *history.Service
 	slotsService   *slots.Service
 	grabLock       *decisioning.GrabLock
-	broadcaster    Broadcaster
+	broadcaster    contracts.Broadcaster
 	logger         *zerolog.Logger
 
 	// Track currently running searches for cancellation
@@ -61,6 +57,9 @@ func NewService(
 	grabService *grab.Service,
 	qualityService *quality.Service,
 	logger *zerolog.Logger,
+	historyService *history.Service,
+	grabLock *decisioning.GrabLock,
+	broadcaster contracts.Broadcaster,
 ) *Service {
 	loggerWithComponent := logger.With().Str("component", "autosearch").Logger()
 	return &Service{
@@ -70,6 +69,9 @@ func NewService(
 		grabService:    grabService,
 		qualityService: qualityService,
 		logger:         &loggerWithComponent,
+		historyService: historyService,
+		grabLock:       grabLock,
+		broadcaster:    broadcaster,
 		activeSearches: make(map[string]context.CancelFunc),
 	}
 }
@@ -79,21 +81,6 @@ func NewService(
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
-}
-
-// SetGrabLock sets the shared grab lock for concurrent grab protection.
-func (s *Service) SetGrabLock(lock *decisioning.GrabLock) {
-	s.grabLock = lock
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time events.
-func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
-	s.broadcaster = broadcaster
-}
-
-// SetHistoryService sets the history service for event logging.
-func (s *Service) SetHistoryService(historyService *history.Service) {
-	s.historyService = historyService
 }
 
 // SearchMovie searches for a movie and grabs the best release.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
@@ -27,12 +28,6 @@ import (
 const (
 	mediaTypeMovie = "movie"
 )
-
-// HealthService defines the interface for health tracking.
-type HealthService interface {
-	SetWarningStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
 
 var (
 	ErrNoMetadataProvider = errors.New("no metadata provider configured")
@@ -80,7 +75,7 @@ type Service struct {
 	slotsSvc *slots.Service
 
 	// Optional health service for file verification alerts
-	healthSvc HealthService
+	healthSvc contracts.HealthService
 
 	// Track active scans by root folder ID
 	activeScans map[int64]string // maps folderID -> activityID
@@ -99,6 +94,9 @@ func NewService(
 	qualityProfileSvc *quality.Service,
 	progressMgr *progress.Manager,
 	logger *zerolog.Logger,
+	preferencesSvc *preferences.Service,
+	slotsSvc *slots.Service,
+	healthSvc contracts.HealthService,
 ) *Service {
 	subLogger := logger.With().Str("component", "librarymanager").Logger()
 	return &Service{
@@ -114,6 +112,9 @@ func NewService(
 		progress:        progressMgr,
 		logger:          &subLogger,
 		activeScans:     make(map[int64]string),
+		preferencesSvc:  preferencesSvc,
+		slotsSvc:        slotsSvc,
+		healthSvc:       healthSvc,
 	}
 }
 
@@ -127,22 +128,6 @@ func (s *Service) SetDB(db *sql.DB) {
 // SetAutosearchService sets the optional autosearch service for search-on-add functionality
 func (s *Service) SetAutosearchService(svc *autosearch.Service) {
 	s.autosearchSvc = svc
-}
-
-// SetPreferencesService sets the optional preferences service for add-flow defaults
-func (s *Service) SetPreferencesService(svc *preferences.Service) {
-	s.preferencesSvc = svc
-}
-
-// SetSlotsService sets the optional slots service for multi-version slot assignment.
-// Req 13.1.2: Auto-assign files to best matching slot based on quality profile matching
-func (s *Service) SetSlotsService(svc *slots.Service) {
-	s.slotsSvc = svc
-}
-
-// SetHealthService sets the optional health service for file verification alerts.
-func (s *Service) SetHealthService(svc HealthService) {
-	s.healthSvc = svc
 }
 
 // getDefaultQualityProfile returns the first available quality profile.

@@ -34,7 +34,7 @@ func TestArtworkDownloader_Download(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	path, err := downloader.Download(context.Background(), server.URL+"/poster.jpg", MediaTypeMovie, 603, ArtworkTypePoster)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestArtworkDownloader_Download(t *testing.T) {
 func TestArtworkDownloader_Download_InvalidURL(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	_, err := downloader.Download(context.Background(), "", MediaTypeMovie, 1, ArtworkTypePoster)
 	if !errors.Is(err, ErrInvalidURL) {
@@ -82,7 +82,7 @@ func TestArtworkDownloader_Download_ServerError(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	_, err := downloader.Download(context.Background(), server.URL+"/poster.jpg", MediaTypeMovie, 1, ArtworkTypePoster)
 	if err == nil {
@@ -98,7 +98,7 @@ func TestArtworkDownloader_Download_Extensions(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	tests := []struct {
 		url     string
@@ -136,7 +136,7 @@ func TestArtworkDownloader_DownloadMovieArtwork(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	movie := &MovieResult{
 		ID:          603,
@@ -169,7 +169,7 @@ func TestArtworkDownloader_DownloadMovieArtwork(t *testing.T) {
 func TestArtworkDownloader_DownloadMovieArtwork_NilMovie(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	err := downloader.DownloadMovieArtwork(context.Background(), nil)
 	if !errors.Is(err, ErrInvalidMediaType) {
@@ -187,7 +187,7 @@ func TestArtworkDownloader_DownloadSeriesArtwork(t *testing.T) {
 
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	series := &SeriesResult{
 		ID:          1396,
@@ -220,7 +220,7 @@ func TestArtworkDownloader_DownloadSeriesArtwork(t *testing.T) {
 func TestArtworkDownloader_GetArtworkPath(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	// Create a test file
 	dir := filepath.Join(tempDir, "movie")
@@ -244,7 +244,7 @@ func TestArtworkDownloader_GetArtworkPath(t *testing.T) {
 func TestArtworkDownloader_HasArtwork(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	// Create a test file
 	dir := filepath.Join(tempDir, "movie")
@@ -266,7 +266,7 @@ func TestArtworkDownloader_HasArtwork(t *testing.T) {
 func TestArtworkDownloader_DeleteArtwork(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := ArtworkConfig{BaseDir: tempDir, Timeout: 5 * time.Second}
-	downloader := NewArtworkDownloader(cfg, newTestLogger())
+	downloader := NewArtworkDownloader(cfg, newTestLogger(), nil)
 
 	// Create test files
 	dir := filepath.Join(tempDir, "movie")

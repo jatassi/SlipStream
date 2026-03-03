@@ -498,7 +498,7 @@ func (e *Executor) refreshMovieMetadata(ctx context.Context, movieID int64, titl
 	if e.metadataRefresher == nil {
 		return
 	}
-	if err := e.metadataRefresher.RefreshMovieMetadata(ctx, movieID); err != nil {
+	if _, err := e.metadataRefresher.RefreshMovieMetadata(ctx, movieID); err != nil {
 		e.logger.Warn().Err(err).Int64("movieId", movieID).Str("title", title).Msg("failed to refresh movie metadata")
 	}
 }
@@ -507,7 +507,7 @@ func (e *Executor) refreshSeriesMetadata(ctx context.Context, seriesID int64, ti
 	if e.metadataRefresher == nil {
 		return
 	}
-	if err := e.metadataRefresher.RefreshSeriesMetadata(ctx, seriesID); err != nil {
+	if _, err := e.metadataRefresher.RefreshSeriesMetadata(ctx, seriesID); err != nil {
 		e.logger.Warn().Err(err).Int64("seriesId", seriesID).Str("title", title).Msg("failed to refresh series metadata")
 	}
 }

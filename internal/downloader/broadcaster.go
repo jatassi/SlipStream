@@ -6,7 +6,11 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
+
+var _ contracts.QueueTrigger = (*QueueBroadcaster)(nil)
 
 const (
 	// Fast polling when downloads are active
@@ -14,16 +18,6 @@ const (
 	// Slow polling when queue is idle
 	idleInterval = 30 * time.Second
 )
-
-// Broadcaster defines the interface for broadcasting messages.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
-// QueueTrigger defines the interface for triggering immediate queue broadcasts.
-type QueueTrigger interface {
-	Trigger()
-}
 
 // CompletionHandler is called when downloads transition to completed state.
 type CompletionHandler interface {
@@ -35,7 +29,7 @@ type CompletionHandler interface {
 // When downloads complete, it triggers the completion handler for immediate import processing.
 type QueueBroadcaster struct {
 	service           *Service
-	hub               Broadcaster
+	hub               contracts.Broadcaster
 	completionHandler CompletionHandler
 	logger            *zerolog.Logger
 	stopCh            chan struct{}
@@ -48,7 +42,7 @@ type QueueBroadcaster struct {
 }
 
 // NewQueueBroadcaster creates a new queue broadcaster.
-func NewQueueBroadcaster(service *Service, hub Broadcaster, logger *zerolog.Logger) *QueueBroadcaster {
+func NewQueueBroadcaster(service *Service, hub contracts.Broadcaster, logger *zerolog.Logger) *QueueBroadcaster {
 	subLogger := logger.With().Str("component", "queue-broadcaster").Logger()
 	return &QueueBroadcaster{
 		service: service,

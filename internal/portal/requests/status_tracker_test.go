@@ -76,9 +76,9 @@ func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -113,9 +113,9 @@ func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -147,9 +147,9 @@ func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -181,14 +181,14 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-	tracker.SetEpisodeLookup(&mockEpisodeLookup{
+	episodeLookup := &mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			200: {tvdbID: 5000, seasonNum: 1, episodeNum: 1},
 		},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
 
 	userID := createTestUser(t, queries)
 	episodeID := int64(200)
@@ -222,15 +222,14 @@ func TestStatusTracker_OnMovieAvailable(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-
 	movieID := int64(100)
 	tmdbID := int64(42)
-	tracker.SetMovieLookup(&mockMovieLookup{
+	movieLookup := &mockMovieLookup{
 		tmdbIDs: map[int64]int64{movieID: tmdbID},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, movieLookup, nil, nil, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -260,17 +259,16 @@ func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-
 	episodeID := int64(200)
 	tvdbID := int64(5000)
-	tracker.SetEpisodeLookup(&mockEpisodeLookup{
+	episodeLookup := &mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 3},
 		},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -320,17 +318,16 @@ func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-
 	tvdbID := int64(5000)
 	episodeID := int64(200)
-	tracker.SetEpisodeLookup(&mockEpisodeLookup{
+	episodeLookup := &mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 1},
 		},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -388,20 +385,19 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 		Monitored:     1,
 	})
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-
 	tvdbID := int64(5000)
-	tracker.SetEpisodeLookup(&mockEpisodeLookup{
+	episodeLookup := &mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			ep1.ID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 1},
 			ep2.ID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 2},
 		},
-	})
-	tracker.SetSeriesLookup(&mockSeriesLookup{
+	}
+	seriesLookup := &mockSeriesLookup{
 		seriesIDs: map[int64]int64{tvdbID: series.ID},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, seriesLookup, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -449,9 +445,9 @@ func TestStatusTracker_OnDownloadFailed_SkipsDenied(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -490,21 +486,20 @@ func TestStatusTracker_OnEpisodeAvailable_CompletesSeasonRequest(t *testing.T) {
 		TvdbID:           sql.NullInt64{Int64: 6000, Valid: true},
 	})
 
-	reqSvc := NewService(queries, &tdb.Logger)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger)
-
 	tvdbID := int64(6000)
 	episodeID := int64(300)
-	tracker.SetEpisodeLookup(&mockEpisodeLookup{
+	episodeLookup := &mockEpisodeLookup{
 		episodes: map[int64]episodeInfo{
 			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 5},
 		},
-	})
-	tracker.SetSeriesLookup(&mockSeriesLookup{
+	}
+	seriesLookup := &mockSeriesLookup{
 		seriesIDs: map[int64]int64{tvdbID: series.ID},
 		complete:  map[int64]bool{series.ID: true},
-	})
+	}
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, seriesLookup, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -535,7 +530,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	reqSvc := NewService(queries, &tdb.Logger)
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	userID := createTestUser(t, queries)
 
 	// Verify all valid statuses can be set

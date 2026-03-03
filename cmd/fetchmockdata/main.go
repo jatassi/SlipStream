@@ -275,10 +275,10 @@ func fetchIndexerData(ctx context.Context, cfg *config.Config, logger *zerolog.L
 	}
 
 	// Initialize indexer service
-	indexerService := indexer.NewService(db.Conn(), cardigannManager, logger)
+	indexerService := indexer.NewService(db.Conn(), cardigannManager, logger, nil)
 
 	// Initialize search service
-	searchService := search.NewService(indexerService, logger)
+	searchService := search.NewService(indexerService, logger, nil, nil, nil)
 
 	// Search queries
 	queries := []struct {

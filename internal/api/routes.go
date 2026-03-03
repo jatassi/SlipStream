@@ -39,7 +39,6 @@ import (
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/prowlarr"
 	"github.com/slipstream/slipstream/internal/rsssync"
-	"github.com/slipstream/slipstream/internal/scheduler/tasks"
 	"github.com/slipstream/slipstream/internal/update"
 )
 
@@ -307,21 +306,12 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 	autosearchHandlers.SetScheduledSearcher(s.automation.ScheduledSearcher)
 	autosearchHandlers.RegisterRoutes(protected.Group("/autosearch"))
 
-	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.AutoSearch)
-	if s.automation.Scheduler != nil {
-		autosearchSettings.SetScheduler(s.automation.Scheduler, s.automation.ScheduledSearcher, tasks.UpdateAutoSearchTask)
-	}
-	settings.GET("/autosearch", autosearchSettings.GetSettings)
-	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
+	settings.GET("/autosearch", s.automation.AutosearchSettings.GetSettings)
+	settings.PUT("/autosearch", s.automation.AutosearchSettings.UpdateSettings)
 
 	rssSyncHandlers := rsssync.NewHandlers(s.automation.RssSync)
 	rssSyncHandlers.RegisterRoutes(protected.Group("/rsssync"))
 
-	s.automation.RssSyncSettings = rsssync.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.RssSync)
-	s.registry.RegisterQueries(s.automation.RssSyncSettings)
-	if s.automation.Scheduler != nil {
-		s.automation.RssSyncSettings.SetScheduler(s.automation.Scheduler, s.automation.RssSync, tasks.UpdateRssSyncTask)
-	}
 	settings.GET("/rsssync", s.automation.RssSyncSettings.GetSettings)
 	settings.PUT("/rsssync", s.automation.RssSyncSettings.UpdateSettings)
 
@@ -331,8 +321,6 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 	arrImportHandlers := arrimport.NewHandlers(s.automation.ArrImport)
 	arrImportHandlers.RegisterRoutes(protected.Group("/arrimport"))
 
-	s.automation.ImportSettings = importer.NewSettingsHandlers(s.startupDB, s.automation.Import)
-	s.registry.RegisterDB(s.automation.ImportSettings)
 	s.automation.ImportSettings.RegisterSettingsRoutes(settings)
 }
 
@@ -404,7 +392,7 @@ func (s *Server) setupPortalRoutes(api *echo.Group) {
 	// Portal request handlers
 	requestHandlers := requests.NewHandlers(
 		s.portal.Requests,
-		requests.NewWatchersService(sqlc.New(s.startupDB), s.logger),
+		s.portal.Watchers,
 		s.portal.Users,
 		&portalAutoApproveAdapter{svc: s.portal.AutoApprove},
 		&portalQueueGetterAdapter{downloaderSvc: s.download.Service},
@@ -436,25 +424,6 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 	adminInvitationHandlers.RegisterRoutes(adminGroup.Group("/invitations"), s.portal.AuthMiddleware)
 
 	// Admin request management
-	mpLogger := s.logger.With().Str("service", "media-provisioner").Logger()
-	s.portal.MediaProvisioner = &portalMediaProvisionerAdapter{
-		queries:        sqlc.New(s.startupDB),
-		movieService:   s.library.Movies,
-		tvService:      s.library.TV,
-		libraryManager: s.library.LibraryManager,
-		logger:         &mpLogger,
-	}
-	s.portal.RequestSearcher = requests.NewRequestSearcher(
-		sqlc.New(s.startupDB),
-		s.portal.Requests,
-		s.automation.Autosearch,
-		s.portal.MediaProvisioner,
-		s.logger,
-	)
-	s.registry.RegisterDB(s.portal.RequestSearcher)
-	s.portal.RequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portal.Users})
-	s.portal.RequestSearcher.SetDevMode(s.dbManager.IsDevMode)
-	s.portal.AutoApprove.SetRequestSearcher(s.portal.RequestSearcher)
 	adminRequestHandlers := admin.NewRequestsHandlers(
 		s.portal.Requests,
 		&portalRequestSearcherAdapter{searcher: s.portal.RequestSearcher},
@@ -463,7 +432,5 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 	adminRequestHandlers.RegisterRoutes(adminGroup, s.portal.AuthMiddleware)
 
 	// Admin settings
-	s.portal.AdminSettings = admin.NewSettingsHandlers(s.portal.Quota, sqlc.New(s.startupDB))
-	s.registry.RegisterQueries(s.portal.AdminSettings)
 	s.portal.AdminSettings.RegisterRoutes(adminGroup.Group("/settings"), s.portal.AuthMiddleware)
 }

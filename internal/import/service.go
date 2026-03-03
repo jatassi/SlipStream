@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
@@ -40,15 +41,6 @@ var (
 	ErrFileAlreadyInLibrary = errors.New("file already exists in library")
 	ErrNotAnUpgrade         = errors.New("candidate file is not a quality upgrade")
 )
-
-// HealthService defines the interface for health tracking.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	SetWarningStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
 
 // HistoryService defines the interface for history logging.
 type HistoryService interface {
@@ -144,7 +136,7 @@ type Service struct {
 	mediainfo     *mediainfo.Service
 	quality       *quality.Service
 	slots         *slots.Service
-	health        HealthService
+	health        contracts.HealthService
 	history       HistoryService
 	notifier      NotificationDispatcher
 	statusTracker StatusTrackerService
@@ -260,23 +252,33 @@ func NewService(
 	hub *websocket.Hub,
 	config Config,
 	logger *zerolog.Logger,
+	healthService contracts.HealthService,
+	historyService HistoryService,
+	qualityService *quality.Service,
+	slotsService *slots.Service,
+	statusTracker StatusTrackerService,
 ) *Service {
 	subLogger := logger.With().Str("component", "import").Logger()
 	s := &Service{
-		db:          db,
-		queries:     sqlc.New(db),
-		downloader:  downloaderSvc,
-		movies:      moviesSvc,
-		tv:          tvSvc,
-		rootfolder:  rootfolderSvc,
-		organizer:   organizerSvc,
-		mediainfo:   mediainfoSvc,
-		hub:         hub,
-		logger:      &subLogger,
-		config:      config,
-		importQueue: make(chan ImportJob, 100),
-		processing:  make(map[string]bool),
-		shutdown:    make(chan struct{}),
+		db:            db,
+		queries:       sqlc.New(db),
+		downloader:    downloaderSvc,
+		movies:        moviesSvc,
+		tv:            tvSvc,
+		rootfolder:    rootfolderSvc,
+		organizer:     organizerSvc,
+		mediainfo:     mediainfoSvc,
+		hub:           hub,
+		logger:        &subLogger,
+		config:        config,
+		health:        healthService,
+		history:       historyService,
+		quality:       qualityService,
+		slots:         slotsService,
+		statusTracker: statusTracker,
+		importQueue:   make(chan ImportJob, 100),
+		processing:    make(map[string]bool),
+		shutdown:      make(chan struct{}),
 	}
 
 	// Initialize renamer with default settings
@@ -287,34 +289,9 @@ func NewService(
 	return s
 }
 
-// SetHealthService sets the health service for tracking import health.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.health = hs
-}
-
-// SetHistoryService sets the history service for logging import events.
-func (s *Service) SetHistoryService(hs HistoryService) {
-	s.history = hs
-}
-
-// SetQualityService sets the quality service for upgrade comparison during import.
-func (s *Service) SetQualityService(qs *quality.Service) {
-	s.quality = qs
-}
-
-// SetSlotsService sets the slots service for multi-version support.
-func (s *Service) SetSlotsService(ss *slots.Service) {
-	s.slots = ss
-}
-
 // SetNotificationDispatcher sets the notification dispatcher for import events.
 func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 	s.notifier = n
-}
-
-// SetStatusTracker sets the status tracker for portal request updates.
-func (s *Service) SetStatusTracker(st StatusTrackerService) {
-	s.statusTracker = st
 }
 
 // SetDB updates the database connection used by this service.

@@ -12,7 +12,7 @@ func TestMovieService_Create(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
@@ -54,7 +54,7 @@ func TestMovieService_Create_EmptyTitle(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
@@ -71,7 +71,7 @@ func TestMovieService_Create_DuplicateTmdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create first movie
@@ -101,7 +101,7 @@ func TestMovieService_Get(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie first
@@ -134,7 +134,7 @@ func TestMovieService_Get_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	_, err := service.Get(ctx, 99999)
@@ -147,7 +147,7 @@ func TestMovieService_GetByTmdbID(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	input := CreateMovieInput{
@@ -175,7 +175,7 @@ func TestMovieService_List(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create multiple movies
@@ -207,7 +207,7 @@ func TestMovieService_List_ReturnsAll(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create 5 movies
@@ -232,7 +232,7 @@ func TestMovieService_List_Search(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create movies
@@ -255,7 +255,7 @@ func TestMovieService_Update(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie
@@ -297,7 +297,7 @@ func TestMovieService_Update_PartialUpdate(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie with multiple fields
@@ -335,7 +335,7 @@ func TestMovieService_Update_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	newTitle := "Test"
@@ -349,7 +349,7 @@ func TestMovieService_Delete(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie
@@ -375,7 +375,7 @@ func TestMovieService_Delete_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	err := service.Delete(ctx, 99999, false)
@@ -388,7 +388,7 @@ func TestMovieService_AddFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie
@@ -435,7 +435,7 @@ func TestMovieService_GetFiles(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie
@@ -459,7 +459,7 @@ func TestMovieService_RemoveFile(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Create a movie and add a file
@@ -489,7 +489,7 @@ func TestMovieService_RemoveFile_NotFound(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	err := service.RemoveFile(ctx, 99999)
@@ -502,7 +502,7 @@ func TestMovieService_Count(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Initially should be 0

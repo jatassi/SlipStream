@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 )
@@ -87,20 +88,6 @@ type TestResult struct {
 	Message string `json:"message"`
 }
 
-// HealthService defines the interface for health tracking.
-// Uses the string-based wrapper methods to avoid importing health types.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
-
-// StatusChangeLogger logs status transition history events.
-type StatusChangeLogger interface {
-	LogStatusChanged(ctx context.Context, mediaType string, mediaID int64, from, to, reason string) error
-}
-
 // PortalStatusTracker tracks download status for portal request mirroring.
 type PortalStatusTracker interface {
 	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
@@ -110,9 +97,9 @@ type PortalStatusTracker interface {
 type Service struct {
 	queries             *sqlc.Queries
 	logger              *zerolog.Logger
-	healthService       HealthService
-	broadcaster         Broadcaster
-	statusChangeLogger  StatusChangeLogger
+	healthService       contracts.HealthService
+	broadcaster         contracts.Broadcaster
+	statusChangeLogger  contracts.StatusChangeLogger
 	portalStatusTracker PortalStatusTracker
 
 	queueCacheMu sync.RWMutex
@@ -123,34 +110,25 @@ type Service struct {
 }
 
 // NewService creates a new download client service.
-func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+func NewService(
+	db *sql.DB,
+	logger *zerolog.Logger,
+	healthService contracts.HealthService,
+	broadcaster contracts.Broadcaster,
+	statusChangeLogger contracts.StatusChangeLogger,
+	portalStatusTracker PortalStatusTracker,
+) *Service {
 	subLogger := logger.With().Str("component", "downloader").Logger()
 	return &Service{
-		queries:    sqlc.New(db),
-		logger:     &subLogger,
-		queueCache: make(map[int64][]QueueItem),
-		clientPool: make(map[int64]Client),
+		queries:             sqlc.New(db),
+		logger:              &subLogger,
+		healthService:       healthService,
+		broadcaster:         broadcaster,
+		statusChangeLogger:  statusChangeLogger,
+		portalStatusTracker: portalStatusTracker,
+		queueCache:          make(map[int64][]QueueItem),
+		clientPool:          make(map[int64]Client),
 	}
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time events.
-func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
-	s.broadcaster = broadcaster
-}
-
-// SetStatusChangeLogger sets the logger for status transition history events.
-func (s *Service) SetStatusChangeLogger(logger StatusChangeLogger) {
-	s.statusChangeLogger = logger
-}
-
-// SetPortalStatusTracker sets the portal status tracker for request mirroring.
-func (s *Service) SetPortalStatusTracker(tracker PortalStatusTracker) {
-	s.portalStatusTracker = tracker
-}
-
-// SetHealthService sets the health service for tracking client health.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.healthService = hs
 }
 
 // SetDB updates the database connection used by this service.

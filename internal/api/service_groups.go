@@ -38,6 +38,7 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
+	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	portalratelimit "github.com/slipstream/slipstream/internal/portal/ratelimit"
 	"github.com/slipstream/slipstream/internal/portal/requests"
@@ -102,14 +103,16 @@ type SearchGroup struct {
 
 // AutomationGroup holds automation and scheduled task services.
 type AutomationGroup struct {
-	Autosearch        *autosearch.Service
-	ScheduledSearcher *autosearch.ScheduledSearcher
-	RssSync           *rsssync.Service
-	RssSyncSettings   *rsssync.SettingsHandler
-	Import            *importer.Service
-	ImportSettings    *importer.SettingsHandlers
-	ArrImport         *arrimport.Service
-	Scheduler         *scheduler.Scheduler
+	Autosearch         *autosearch.Service
+	ScheduledSearcher  *autosearch.ScheduledSearcher
+	AutosearchSettings *autosearch.SettingsHandler
+	RssSync            *rsssync.Service
+	RssSyncSettings    *rsssync.SettingsHandler
+	Import             *importer.Service
+	ImportSettings     *importer.SettingsHandlers
+	ArrImport          *arrimport.Service
+	Scheduler          *scheduler.Scheduler
+	FeedFetcher        *rsssync.FeedFetcher
 }
 
 // SystemGroup holds system-level services.
@@ -147,7 +150,7 @@ type PortalGroup struct {
 	AuthMiddleware      *portalmw.AuthMiddleware
 	SearchLimiter       *portalratelimit.SearchLimiter
 	RequestSearcher     *requests.RequestSearcher
-	MediaProvisioner    *portalMediaProvisionerAdapter
+	MediaProvisioner    *provisioner.Service
 	Watchers            *requests.WatchersService
 	StatusTracker       *requests.StatusTracker
 	LibraryChecker      *requests.LibraryChecker
@@ -158,4 +161,19 @@ type PortalGroup struct {
 // SecurityGroup holds security services.
 type SecurityGroup struct {
 	AuthLimiter *authratelimit.AuthLimiter
+}
+
+// ServiceContainer holds all service groups, assembled by Wire.
+type ServiceContainer struct {
+	System       SystemGroup
+	Library      LibraryGroup
+	Metadata     MetadataGroup
+	Filesystem   FilesystemGroup
+	Download     DownloadGroup
+	Search       SearchGroup
+	Automation   AutomationGroup
+	Notification NotificationGroup
+	Portal       PortalGroup
+	Security     SecurityGroup
+	Switchable   SwitchableServices
 }

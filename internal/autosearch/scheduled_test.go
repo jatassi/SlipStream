@@ -14,7 +14,7 @@ func newTestSearcher(t *testing.T) (*ScheduledSearcher, *sqlc.Queries) {
 	tdb := testutil.NewTestDB(t)
 	t.Cleanup(tdb.Close)
 
-	svc := NewService(tdb.Conn, nil, nil, nil, &tdb.Logger)
+	svc := NewService(tdb.Conn, nil, nil, nil, &tdb.Logger, nil, nil, nil)
 	cfg := &config.AutoSearchConfig{BackoffThreshold: 5, BaseDelayMs: 100}
 	searcher := NewScheduledSearcher(svc, cfg, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)

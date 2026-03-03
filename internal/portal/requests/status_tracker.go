@@ -41,6 +41,10 @@ func NewStatusTracker(
 	requestsService *Service,
 	watchersService *WatchersService,
 	logger *zerolog.Logger,
+	movieLookup MovieLookup,
+	episodeLookup EpisodeLookup,
+	seriesLookup SeriesLookup,
+	notifDispatcher NotificationDispatcher,
 ) *StatusTracker {
 	subLogger := logger.With().Str("component", "portal-status-tracker").Logger()
 	return &StatusTracker{
@@ -48,27 +52,15 @@ func NewStatusTracker(
 		requestsService: requestsService,
 		watchersService: watchersService,
 		logger:          &subLogger,
+		movieLookup:     movieLookup,
+		episodeLookup:   episodeLookup,
+		seriesLookup:    seriesLookup,
+		notifDispatcher: notifDispatcher,
 	}
 }
 
 func (t *StatusTracker) SetDB(db *sql.DB) {
 	t.queries = sqlc.New(db)
-}
-
-func (t *StatusTracker) SetMovieLookup(ml MovieLookup) {
-	t.movieLookup = ml
-}
-
-func (t *StatusTracker) SetEpisodeLookup(el EpisodeLookup) {
-	t.episodeLookup = el
-}
-
-func (t *StatusTracker) SetSeriesLookup(sl SeriesLookup) {
-	t.seriesLookup = sl
-}
-
-func (t *StatusTracker) SetNotificationDispatcher(nd NotificationDispatcher) {
-	t.notifDispatcher = nd
 }
 
 // OnDownloadStarted is called when a media item transitions to downloading status.

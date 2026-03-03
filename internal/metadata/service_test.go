@@ -55,7 +55,7 @@ func TestService_SearchMovies(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	// Test without year filter (year=0)
 	results, err := svc.SearchMovies(context.Background(), "Matrix", 0)
@@ -92,7 +92,7 @@ func TestService_SearchMovies_Caching(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	// First call
 	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
@@ -123,7 +123,7 @@ func TestService_GetMovie(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	result, err := svc.GetMovie(context.Background(), 603)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestService_SearchSeries(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	results, err := svc.SearchSeries(context.Background(), "Breaking Bad")
 	if err != nil {
@@ -178,7 +178,7 @@ func TestService_GetSeriesByTMDB(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	result, err := svc.GetSeriesByTMDB(context.Background(), 1396)
 	if err != nil {
@@ -196,7 +196,7 @@ func TestService_GetSeriesByTMDB(t *testing.T) {
 func TestService_NoProviderConfigured(t *testing.T) {
 	cfg := config.MetadataConfig{} // No API keys
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	_, err := svc.SearchMovies(context.Background(), "Matrix", 0)
 	if !errors.Is(err, ErrNoProvidersConfigured) {
@@ -229,7 +229,7 @@ func TestService_HasProviders(t *testing.T) {
 				TMDB: config.TMDBConfig{APIKey: tt.tmdbKey},
 				TVDB: config.TVDBConfig{APIKey: tt.tvdbKey},
 			}
-			svc := NewService(&cfg, newTestLogger())
+			svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 			if got := svc.HasMovieProvider(); got != tt.wantMovie {
 				t.Errorf("HasMovieProvider() = %v, want %v", got, tt.wantMovie)
@@ -253,7 +253,7 @@ func TestService_ClearCache(t *testing.T) {
 		},
 	}
 
-	svc := NewService(&cfg, newTestLogger())
+	svc := NewService(&cfg, newTestLogger(), nil, nil)
 
 	// Populate cache
 	_, _ = svc.SearchMovies(context.Background(), "Matrix", 0)

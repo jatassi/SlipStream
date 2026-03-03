@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/config"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/metadata/omdb"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
@@ -18,15 +19,6 @@ var (
 	ErrNotFound              = errors.New("metadata not found")
 )
 
-// HealthService is the interface for central health tracking.
-type HealthService interface {
-	RegisterItemStr(category, id, name string)
-	UnregisterItemStr(category, id string)
-	SetErrorStr(category, id, message string)
-	SetWarningStr(category, id, message string)
-	ClearStatusStr(category, id string)
-}
-
 // Service orchestrates metadata lookups across multiple providers.
 type Service struct {
 	tmdb             TMDBClient
@@ -34,19 +26,21 @@ type Service struct {
 	omdb             OMDBClient
 	cache            *Cache
 	logger           zerolog.Logger
-	healthService    HealthService
+	healthService    contracts.HealthService
 	networkLogoStore NetworkLogoStore
 }
 
 // NewService creates a new metadata service with real API clients.
-func NewService(cfg *config.MetadataConfig, logger *zerolog.Logger) *Service {
+func NewService(cfg *config.MetadataConfig, logger *zerolog.Logger, healthService contracts.HealthService, networkLogoStore NetworkLogoStore) *Service {
 	subLogger := logger.With().Str("component", "metadata").Logger()
 	return &Service{
-		tmdb:   tmdb.NewClient(cfg.TMDB, logger),
-		tvdb:   tvdb.NewClient(cfg.TVDB, logger),
-		omdb:   omdb.NewClient(cfg.OMDB, logger),
-		cache:  NewCache(DefaultCacheConfig()),
-		logger: subLogger,
+		tmdb:             tmdb.NewClient(cfg.TMDB, logger),
+		tvdb:             tvdb.NewClient(cfg.TVDB, logger),
+		omdb:             omdb.NewClient(cfg.OMDB, logger),
+		cache:            NewCache(DefaultCacheConfig()),
+		logger:           subLogger,
+		healthService:    healthService,
+		networkLogoStore: networkLogoStore,
 	}
 }
 
@@ -72,16 +66,6 @@ func (s *Service) SetClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbC
 // SetOMDBClient sets the OMDb client.
 func (s *Service) SetOMDBClient(client OMDBClient) {
 	s.omdb = client
-}
-
-// SetHealthService sets the central health service for registration tracking.
-func (s *Service) SetHealthService(hs HealthService) {
-	s.healthService = hs
-}
-
-// SetNetworkLogoStore sets the store for caching network logo URLs.
-func (s *Service) SetNetworkLogoStore(store NetworkLogoStore) {
-	s.networkLogoStore = store
 }
 
 // RegisterMetadataProviders registers configured metadata providers with the health service.

@@ -12,30 +12,27 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/indexer/scoring"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
-
-// Broadcaster defines the interface for sending WebSocket messages.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
 
 // Service provides history management functionality.
 type Service struct {
 	db          *sql.DB
 	queries     *sqlc.Queries
 	logger      *zerolog.Logger
-	broadcaster Broadcaster
+	broadcaster contracts.Broadcaster
 }
 
 // NewService creates a new history service.
-func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
+func NewService(db *sql.DB, logger *zerolog.Logger, broadcaster contracts.Broadcaster) *Service {
 	subLogger := logger.With().Str("component", "history").Logger()
 	return &Service{
-		db:      db,
-		queries: sqlc.New(db),
-		logger:  &subLogger,
+		db:          db,
+		queries:     sqlc.New(db),
+		logger:      &subLogger,
+		broadcaster: broadcaster,
 	}
 }
 
@@ -43,11 +40,6 @@ func NewService(db *sql.DB, logger *zerolog.Logger) *Service {
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time history events.
-func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
-	s.broadcaster = broadcaster
 }
 
 // Create creates a new history entry.

@@ -2,6 +2,8 @@ package requests
 
 import (
 	"time"
+
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 )
 
 const (
@@ -37,15 +39,11 @@ type RequestDeletedPayload struct {
 	Title     string `json:"title"`
 }
 
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
 type EventBroadcaster struct {
-	hub Broadcaster
+	hub contracts.Broadcaster
 }
 
-func NewEventBroadcaster(hub Broadcaster) *EventBroadcaster {
+func NewEventBroadcaster(hub contracts.Broadcaster) *EventBroadcaster {
 	return &EventBroadcaster{hub: hub}
 }
 

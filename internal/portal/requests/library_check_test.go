@@ -457,7 +457,7 @@ func TestCreateRequest_CrossTypeDuplicate(t *testing.T) {
 	ctx := context.Background()
 
 	userID := createTestUser(t, q)
-	svc := NewService(q, &tdb.Logger)
+	svc := NewService(q, &tdb.Logger, nil, nil, nil)
 
 	tvdbID := int64(3000)
 	_, err := svc.Create(ctx, userID, &CreateInput{
@@ -503,7 +503,7 @@ func TestCreateRequest_PartialOverlap(t *testing.T) {
 	ctx := context.Background()
 
 	userID := createTestUser(t, q)
-	svc := NewService(q, &tdb.Logger)
+	svc := NewService(q, &tdb.Logger, nil, nil, nil)
 
 	tvdbID := int64(4000)
 	sn := int64(2)

@@ -20,7 +20,7 @@ func TestEpisodeStatus_InitialStatus_Unreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	futureDate := time.Now().AddDate(1, 0, 0)
@@ -52,7 +52,7 @@ func TestEpisodeStatus_InitialStatus_Missing(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -84,7 +84,7 @@ func TestEpisodeStatus_AddFile_SetsAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -122,7 +122,7 @@ func TestEpisodeStatus_RemoveFile_SetsMissingAndUnmonitors(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -163,7 +163,7 @@ func TestEpisodeStatus_NewFields(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -194,7 +194,7 @@ func TestSeriesStatus_ProductionStatus(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -229,7 +229,7 @@ func TestSeriesStatus_StatusCounts(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -298,7 +298,7 @@ func TestSeasonStatus_StatusCounts(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -355,7 +355,7 @@ func TestEpisodeStatus_AirDateDatetime(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	// Test with full datetime including time
@@ -408,7 +408,7 @@ func TestSeriesStatus_StatusCountsAllAvailable(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -448,7 +448,7 @@ func TestSeriesStatus_StatusCountsAllUnreleased(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	futureDate := time.Now().AddDate(1, 0, 0)
@@ -480,7 +480,7 @@ func TestEpisodeStatus_DownloadLifecycle(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
@@ -550,8 +550,7 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
-	service.SetQualityService(qs)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, qs, nil)
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -608,7 +607,7 @@ func TestSeriesStatus_Season0Exclusion(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	ctx := context.Background()
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
@@ -663,8 +662,7 @@ func TestEpisodeStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 		t.Fatalf("Create profile error = %v", err)
 	}
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
-	service.SetQualityService(qs)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, qs, nil)
 
 	pastDate := time.Now().AddDate(-1, 0, 0)
 	series, _ := service.CreateSeries(ctx, &CreateSeriesInput{
@@ -702,7 +700,7 @@ func TestEpisodeStatus_ManualRetryClearsStatusMessage(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
-	service := NewService(tdb.Conn, nil, &tdb.Logger)
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 

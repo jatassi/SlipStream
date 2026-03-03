@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/downloader"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
@@ -25,16 +26,6 @@ var (
 	ErrGrabLimitExceeded = errors.New("grab limit exceeded for indexer")
 	ErrIndexerDisabled   = errors.New("indexer is temporarily disabled")
 )
-
-// Broadcaster interface for sending events to clients.
-type Broadcaster interface {
-	Broadcast(msgType string, payload interface{})
-}
-
-// QueueTrigger interface for triggering immediate queue broadcasts.
-type QueueTrigger interface {
-	Trigger()
-}
 
 // GrabMediaContext contains media metadata for grab notifications.
 type GrabMediaContext struct {
@@ -62,8 +53,8 @@ type Service struct {
 	indexerService      IndexerClientProvider
 	statusService       *status.Service
 	rateLimiter         *ratelimit.Limiter
-	broadcaster         Broadcaster
-	queueTrigger        QueueTrigger
+	broadcaster         contracts.Broadcaster
+	queueTrigger        contracts.QueueTrigger
 	notificationService NotificationService
 	portalStatusTracker PortalStatusTracker
 	logger              *zerolog.Logger
@@ -79,48 +70,30 @@ func NewService(
 	db *sql.DB,
 	downloaderService *downloader.Service,
 	logger *zerolog.Logger,
+	indexerService IndexerClientProvider,
+	statusService *status.Service,
+	rateLimiter *ratelimit.Limiter,
+	broadcaster contracts.Broadcaster,
+	queueTrigger contracts.QueueTrigger,
+	portalStatusTracker PortalStatusTracker,
 ) *Service {
 	subLogger := logger.With().Str("component", "grab").Logger()
 	return &Service{
-		queries:           sqlc.New(db),
-		downloaderService: downloaderService,
-		logger:            &subLogger,
+		queries:             sqlc.New(db),
+		downloaderService:   downloaderService,
+		indexerService:      indexerService,
+		statusService:       statusService,
+		rateLimiter:         rateLimiter,
+		broadcaster:         broadcaster,
+		queueTrigger:        queueTrigger,
+		portalStatusTracker: portalStatusTracker,
+		logger:              &subLogger,
 	}
-}
-
-// SetIndexerService sets the indexer service for downloading torrents with authentication.
-func (s *Service) SetIndexerService(indexerService IndexerClientProvider) {
-	s.indexerService = indexerService
-}
-
-// SetStatusService sets the status service for tracking indexer health.
-func (s *Service) SetStatusService(statusService *status.Service) {
-	s.statusService = statusService
-}
-
-// SetRateLimiter sets the rate limiter for controlling grab rates.
-func (s *Service) SetRateLimiter(limiter *ratelimit.Limiter) {
-	s.rateLimiter = limiter
-}
-
-// SetBroadcaster sets the WebSocket broadcaster for real-time events.
-func (s *Service) SetBroadcaster(broadcaster Broadcaster) {
-	s.broadcaster = broadcaster
 }
 
 // SetNotificationService sets the notification service for external notifications.
 func (s *Service) SetNotificationService(notificationService NotificationService) {
 	s.notificationService = notificationService
-}
-
-// SetPortalStatusTracker sets the portal status tracker for request status mirroring.
-func (s *Service) SetPortalStatusTracker(tracker PortalStatusTracker) {
-	s.portalStatusTracker = tracker
-}
-
-// SetQueueTrigger sets the queue trigger for immediate queue broadcasts when downloads are added.
-func (s *Service) SetQueueTrigger(trigger QueueTrigger) {
-	s.queueTrigger = trigger
 }
 
 // SetDB updates the database connection used by this service.
