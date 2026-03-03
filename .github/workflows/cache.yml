@@ -1,0 +1,76 @@
+name: Warm Build Caches
+
+on:
+  push:
+    branches: [main]
+
+env:
+  GO_VERSION: '1.25'
+  BUN_VERSION: 'latest'
+
+jobs:
+  warm-go-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - run: |
+          mkdir -p web/dist && touch web/dist/.gitkeep
+          CGO_ENABLED=1 GOARCH=arm64 go build ./cmd/slipstream &
+          CC="clang -arch x86_64" CGO_ENABLED=1 GOARCH=amd64 go build ./cmd/slipstream &
+          wait
+
+  warm-go-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - run: |
+          mkdir -p web/dist && touch web/dist/.gitkeep
+          CGO_ENABLED=0 GOARCH=amd64 go build ./cmd/slipstream &
+          CGO_ENABLED=0 GOARCH=arm64 go build ./cmd/slipstream &
+          wait
+
+  warm-go-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - shell: bash
+        run: |
+          mkdir -p web/dist && touch web/dist/.gitkeep
+          CGO_ENABLED=1 GOARCH=amd64 go build ./cmd/slipstream
+
+  warm-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - run: bun install --cwd web

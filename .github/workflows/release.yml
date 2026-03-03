@@ -218,14 +218,10 @@ jobs:
 
           mkdir -p dist/slipstream_darwin_arm64 dist/slipstream_darwin_amd64
 
-          # Native arm64 build
           GOARCH=arm64 go build -ldflags "$LDFLAGS" \
             -o dist/slipstream_darwin_arm64/slipstream ./cmd/slipstream &
-
-          # Cross-compile amd64 from arm64
           CC="clang -arch x86_64" GOARCH=amd64 go build -ldflags "$LDFLAGS" \
             -o dist/slipstream_darwin_amd64/slipstream ./cmd/slipstream &
-
           wait
 
       - name: Create DMGs
@@ -272,7 +268,6 @@ jobs:
         run: |
           # Install FUSE in background (needed later for AppImage)
           (sudo apt-get update -qq && sudo apt-get install -y -qq fuse libfuse2) &
-          FUSE_PID=$!
 
           VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
@@ -286,10 +281,7 @@ jobs:
           GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/slipstream_linux_arm64/slipstream ./cmd/slipstream &
           GOARCH=amd64 go build -ldflags "-s -w" -o dist/slipstream_linux_amd64/slipstream-stub ./cmd/stub &
           GOARCH=arm64 go build -ldflags "-s -w" -o dist/slipstream_linux_arm64/slipstream-stub ./cmd/stub &
-          wait
-
-          # Ensure FUSE is installed before AppImage step
-          wait $FUSE_PID
+          wait  # waits for all background processes including FUSE install
 
       - name: Create portable tarballs
         run: |

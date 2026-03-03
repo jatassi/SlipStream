@@ -16,7 +16,7 @@
 
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch SlipStream" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]slipstream.exe" />
+    <SetProperty Id="WixShellExecTarget" Value="[INSTALLFOLDER]slipstream.exe" After="CostFinalize" Sequence="execute" />
     <CustomAction Id="LaunchApplication"
                   DllEntry="WixShellExec"
                   Impersonate="yes"
