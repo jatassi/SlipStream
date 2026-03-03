@@ -11,8 +11,9 @@ Create a new release by committing changes, bumping version, generating release 
 5. **Determine next version** - Check existing tags (`git tag --sort=-v:refname | head -1`) and increment appropriately (patch for fixes/features, minor for significant changes)
 6. **Create tag** - `git tag vX.Y.Z`
 7. **Generate release notes** - Collect commits since the previous tag, categorize them by feature area, and write concise bullet points grouped by category
-8. **Push to remote** - `git push origin main && git push origin vX.Y.Z`
-9. **Create GitHub release** - `gh release create vX.Y.Z --title "SlipStream vX.Y.Z" --notes-file <generated>`
+8. **Push commit to remote** - `git push origin main` (triggers cache warming workflow)
+9. **Await cache warming** - Poll `gh run list -w cache.yml -L 1 --json status,conclusion` until the most recent run completes (typically 10-30s with warm caches). Use `gh run watch <id> --exit-status` to wait.
+10. **Push tag and create release** - `git push origin vX.Y.Z` then `gh release create vX.Y.Z --title "SlipStream vX.Y.Z" --notes-file <generated>` (tag push triggers the release pipeline with warm caches)
 
 ## Version Scheme
 
@@ -67,8 +68,9 @@ If a commit touches multiple areas, place it under the most significant one. If 
 
 ## Notes
 
-- The release pipeline is triggered automatically when a new tag is pushed
+- The commit push to `main` triggers the cache warming workflow (`cache.yml`), which must complete before pushing the tag
+- The tag push triggers the release pipeline (`release.yml`), which builds and uploads artifacts to the GitHub release
 - Version is injected at build time via ldflags (no version file to update)
-- Do not watch the pipeline - it will complete asynchronously
+- Do not watch the release pipeline - it will complete asynchronously
 - The GitHub release is created by this skill with notes; the CI pipeline uploads build artifacts to the existing release
 - Don't ask for permission to kick off the pipeline or validation on correctness of release note

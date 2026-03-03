@@ -16,12 +16,15 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-go@v5
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: go.sum
 
-      - run: |
+      - if: steps.setup-go.outputs.cache-hit != 'true'
+        run: |
           mkdir -p web/dist && touch web/dist/.gitkeep
           CGO_ENABLED=1 GOARCH=arm64 go build ./cmd/slipstream &
           CC="clang -arch x86_64" CGO_ENABLED=1 GOARCH=amd64 go build ./cmd/slipstream &
@@ -34,12 +37,15 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-go@v5
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: go.sum
 
-      - run: |
+      - if: steps.setup-go.outputs.cache-hit != 'true'
+        run: |
           mkdir -p web/dist && touch web/dist/.gitkeep
           CGO_ENABLED=0 GOARCH=amd64 go build ./cmd/slipstream &
           CGO_ENABLED=0 GOARCH=arm64 go build ./cmd/slipstream &
@@ -52,12 +58,15 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-go@v5
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: go.sum
 
-      - shell: bash
+      - if: steps.setup-go.outputs.cache-hit != 'true'
+        shell: bash
         run: |
           mkdir -p web/dist && touch web/dist/.gitkeep
           CGO_ENABLED=1 GOARCH=amd64 go build ./cmd/slipstream
