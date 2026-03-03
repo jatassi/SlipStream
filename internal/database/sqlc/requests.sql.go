@@ -669,7 +669,7 @@ func (q *Queries) LinkRequestToMedia(ctx context.Context, arg LinkRequestToMedia
 
 const listActiveSeriesRequestsByTvdbID = `-- name: ListActiveSeriesRequestsByTvdbID :many
 SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved')
+WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved', 'searching')
 ORDER BY created_at DESC
 `
 

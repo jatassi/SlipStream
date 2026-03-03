@@ -77,6 +77,7 @@ export type RequestStatus =
   | 'pending'
   | 'approved'
   | 'denied'
+  | 'searching'
   | 'downloading'
   | 'failed'
   | 'available'

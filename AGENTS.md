@@ -91,7 +91,7 @@ Toggle via hammer icon in header. Switches to separate dev database (`slipstream
 
 ## External Requests Portal
 
-Separate auth from admin: admin uses session/cookies, portal users use JWT/localStorage. Request lifecycle: `pending` -> `approved` -> `downloading` -> `available` (or `denied`/`cancelled`). Quality profiles with `allowAutoApprove` skip the approval queue.
+Separate auth from admin: admin uses session/cookies, portal users use JWT/localStorage. Request lifecycle: `pending` -> `approved` -> `searching` -> `downloading` -> `available` (or `denied`/`cancelled`). The `searching` status is set during auto search after approval; manual search grabs skip it. Quality profiles with `allowAutoApprove` skip the approval queue.
 
 ## Production Debugging
 

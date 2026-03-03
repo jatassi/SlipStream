@@ -450,6 +450,7 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 		s.logger,
 	)
 	s.portalRequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portalUsersService})
+	s.portalRequestSearcher.SetDevMode(s.dbManager.IsDevMode)
 	s.portalAutoApproveService.SetRequestSearcher(s.portalRequestSearcher)
 	adminRequestHandlers := admin.NewRequestsHandlers(
 		s.portalRequestsService,

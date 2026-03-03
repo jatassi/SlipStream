@@ -108,7 +108,16 @@ function CardHeaderContent({
         className={`${statusConfig.color} hidden shrink-0 px-2 py-0.5 text-sm text-white sm:flex md:px-3 md:py-1 md:text-base`}
       >
         {statusConfig.icon}
-        <span className="ml-1 md:ml-2">{statusConfig.label}</span>
+        {request.status === 'searching' ? (
+          <span
+            className={`ml-1 md:ml-2 ${isMovie ? 'shimmer-text-movie' : 'shimmer-text-tv'}`}
+            data-text={statusConfig.label}
+          >
+            {statusConfig.label}
+          </span>
+        ) : (
+          <span className="ml-1 md:ml-2">{statusConfig.label}</span>
+        )}
       </Badge>
     </div>
   )
@@ -148,7 +157,16 @@ function MediaTitleBadges({
           className={`${statusConfig.color} px-1.5 py-0.5 text-[10px] text-white sm:hidden md:px-2 md:text-xs`}
         >
           {statusConfig.icon}
-          <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
+          {request.status === 'searching' ? (
+            <span
+              className={`ml-0.5 md:ml-1 ${isMovie ? 'shimmer-text-movie' : 'shimmer-text-tv'}`}
+              data-text={statusConfig.label}
+            >
+              {statusConfig.label}
+            </span>
+          ) : (
+            <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
+          )}
         </Badge>
       </div>
     </div>

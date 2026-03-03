@@ -20,6 +20,7 @@ const STATUS_CONFIG: Record<
 > = {
   pending: { label: 'Pending', icon: <Clock className="size-3 md:size-4" />, color: 'bg-yellow-500' },
   approved: { label: 'Approved', icon: <CheckCircle className="size-3 md:size-4" />, color: 'bg-blue-500' },
+  searching: { label: 'Searching', icon: <Loader2 className="size-3 animate-spin md:size-4" />, color: 'bg-blue-500' },
   denied: { label: 'Denied', icon: <XCircle className="size-3 md:size-4" />, color: 'bg-red-500' },
   downloading: { label: 'Downloading', icon: <Download className="size-3 md:size-4" />, color: 'bg-purple-500' },
   failed: { label: 'Failed', icon: <XCircle className="size-3 md:size-4" />, color: 'bg-red-700' },
@@ -189,7 +190,16 @@ function RequestCard(props: { request: Request; showUser?: boolean; onClick: () 
         className={`${statusConfig.color} hidden shrink-0 px-1.5 py-0.5 text-[10px] text-white sm:flex md:px-2 md:text-xs`}
       >
         {statusConfig.icon}
-        <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
+        {request.status === 'searching' ? (
+          <span
+            className={`ml-0.5 md:ml-1 ${isMovie ? 'shimmer-text-movie' : 'shimmer-text-tv'}`}
+            data-text={statusConfig.label}
+          >
+            {statusConfig.label}
+          </span>
+        ) : (
+          <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
+        )}
       </Badge>
     </button>
   )
@@ -218,27 +228,52 @@ function RequestCardBody(props: {
         {request.year ? (
           <span className="text-muted-foreground ml-1 text-sm">({request.year})</span>
         ) : null}
-        <Badge
-          className={`${statusConfig.color} ml-2 px-1.5 py-0.5 align-middle text-[10px] text-white sm:hidden md:px-2 md:text-xs`}
-        >
-          {statusConfig.icon}
-          <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
-        </Badge>
+        <MobileStatusBadge statusConfig={statusConfig} isSearching={request.status === 'searching'} isMovie={isMovie} />
       </div>
       <RequestMetadata request={request} isMovie={isMovie} />
-      {downloadProgress ? (
-        <div className="mt-2 max-w-48">
-          <Progress
-            value={downloadProgress.progress}
-            variant={isMovie ? 'movie' : 'tv'}
-            className="h-1.5"
-          />
-          <div className="text-muted-foreground mt-0.5 flex justify-between text-xs">
-            <span>{Math.round(downloadProgress.progress)}%</span>
-            <span>{downloadProgress.statusLabel}</span>
-          </div>
-        </div>
-      ) : null}
+      <DownloadProgressIndicator downloadProgress={downloadProgress} isMovie={isMovie} />
+    </div>
+  )
+}
+
+function MobileStatusBadge({ statusConfig, isSearching, isMovie }: {
+  statusConfig: { label: string; icon: React.ReactNode; color: string }
+  isSearching: boolean
+  isMovie: boolean
+}) {
+  return (
+    <Badge
+      className={`${statusConfig.color} ml-2 px-1.5 py-0.5 align-middle text-[10px] text-white sm:hidden md:px-2 md:text-xs`}
+    >
+      {statusConfig.icon}
+      {isSearching ? (
+        <span
+          className={`ml-0.5 md:ml-1 ${isMovie ? 'shimmer-text-movie' : 'shimmer-text-tv'}`}
+          data-text={statusConfig.label}
+        >
+          {statusConfig.label}
+        </span>
+      ) : (
+        <span className="ml-0.5 md:ml-1">{statusConfig.label}</span>
+      )}
+    </Badge>
+  )
+}
+
+function DownloadProgressIndicator({ downloadProgress, isMovie }: {
+  downloadProgress: ReturnType<typeof computeDownloadProgress>
+  isMovie: boolean
+}) {
+  if (!downloadProgress) {
+    return null
+  }
+  return (
+    <div className="mt-2 max-w-48">
+      <Progress value={downloadProgress.progress} variant={isMovie ? 'movie' : 'tv'} className="h-1.5" />
+      <div className="text-muted-foreground mt-0.5 flex justify-between text-xs">
+        <span>{Math.round(downloadProgress.progress)}%</span>
+        <span>{downloadProgress.statusLabel}</span>
+      </div>
     </div>
   )
 }

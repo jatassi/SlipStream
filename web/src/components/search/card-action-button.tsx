@@ -16,6 +16,7 @@ type CardActionButtonProps = {
   hasExistingRequest: boolean
   isAvailable: boolean
   isApproved: boolean
+  isSearching: boolean
   isOwnRequest: boolean
   viewRequestId?: number
   onAction?: () => void
@@ -77,8 +78,10 @@ function StatusButton({ icon, label }: { icon: React.ReactNode; label: string })
 }
 
 function ExistingRequestButton({
+  mediaType,
   isAvailable,
   isApproved,
+  isSearching,
   isOwnRequest,
   viewRequestId,
   onViewRequest,
@@ -86,6 +89,18 @@ function ExistingRequestButton({
 }: CardActionButtonProps) {
   if (isAvailable) {
     return <StatusButton icon={<CheckCircle className={ICON_CLASS} />} label="Available" />
+  }
+  if (isSearching) {
+    return (
+      <Button variant="secondary" size="sm" className={`${BTN_CLASS} disabled:opacity-100`} disabled>
+        <span
+          className={mediaType === 'movie' ? 'shimmer-text-movie' : 'shimmer-text-tv'}
+          data-text="Searching..."
+        >
+          Searching...
+        </span>
+      </Button>
+    )
   }
   if (isApproved) {
     return <StatusButton icon={<Check className={ICON_CLASS} />} label="Approved" />

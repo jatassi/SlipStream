@@ -70,6 +70,7 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
         canRequest={props.canRequest ?? s.canRequest}
         seasonAvailability={props.availability?.seasonAvailability}
         hasExistingRequest={s.hasExistingRequest} isAvailable={s.isAvailable} isApproved={s.isApproved}
+        isSearching={s.isSearching}
         onClick={() => setInfoOpen(true)}
       />
       <div className="p-2">
@@ -78,7 +79,7 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
           activeDownloadMediaId={s.activeDownloadMediaId} isInLibrary={s.isInLibrary}
           canRequest={props.canRequest ?? s.canRequest}
           hasExistingRequest={s.hasExistingRequest} isAvailable={s.isAvailable}
-          isApproved={s.isApproved} isOwnRequest={s.isOwnRequest} viewRequestId={s.viewRequestId}
+          isApproved={s.isApproved} isSearching={s.isSearching} isOwnRequest={s.isOwnRequest} viewRequestId={s.viewRequestId}
           onAction={props.onAction} onViewRequest={props.onViewRequest}
           actionLabel={actionLabel} actionIcon={actionIcon} requestedLabel={requestedLabel}
         />

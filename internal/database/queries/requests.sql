@@ -143,7 +143,7 @@ LIMIT 1;
 -- name: ListActiveSeriesRequestsByTvdbID :many
 -- Used for status tracking - find active series requests by TVDB ID
 SELECT * FROM requests
-WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved')
+WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved', 'searching')
 ORDER BY created_at DESC;
 
 -- name: FindRequestsCoveringSeasons :many

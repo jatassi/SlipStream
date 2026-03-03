@@ -90,7 +90,7 @@ func (t *StatusTracker) OnDownloadStarted(ctx context.Context, mediaType string,
 	}
 
 	for _, req := range reqs {
-		if req.Status == StatusApproved {
+		if req.Status == StatusApproved || req.Status == StatusSearching {
 			if _, err := t.requestsService.UpdateStatus(ctx, req.ID, StatusDownloading); err != nil {
 				t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as downloading")
 			} else {
@@ -143,7 +143,7 @@ func (t *StatusTracker) findSeriesRequestsForEpisode(ctx context.Context, episod
 }
 
 func (t *StatusTracker) isDownloadingOrApproved(req *Request) bool {
-	return req.Status == StatusDownloading || req.Status == StatusApproved
+	return req.Status == StatusDownloading || req.Status == StatusApproved || req.Status == StatusSearching
 }
 
 func (t *StatusTracker) processFailedRequest(ctx context.Context, req *Request) {
@@ -205,8 +205,8 @@ func (t *StatusTracker) OnMovieAvailable(ctx context.Context, movieID int64) err
 		return err
 	}
 
-	if req.Status != StatusDownloading && req.Status != StatusApproved {
-		t.logger.Debug().Int64("requestID", req.ID).Str("status", req.Status).Msg("request not in downloading/approved status, skipping")
+	if req.Status != StatusDownloading && req.Status != StatusApproved && req.Status != StatusSearching {
+		t.logger.Debug().Int64("requestID", req.ID).Str("status", req.Status).Msg("request not in downloading/approved/searching status, skipping")
 		return nil
 	}
 
@@ -263,7 +263,7 @@ func (t *StatusTracker) processEpisodeLevelRequest(ctx context.Context, tvdbID i
 		return nil
 	}
 
-	if req.Status == StatusDownloading || req.Status == StatusApproved {
+	if req.Status == StatusDownloading || req.Status == StatusApproved || req.Status == StatusSearching {
 		if err := t.markAvailable(ctx, req); err != nil {
 			t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
 		}
@@ -405,7 +405,7 @@ func (t *StatusTracker) findSeriesRequestsWithSeason(ctx context.Context, series
 
 	result := make([]*Request, 0)
 	for _, row := range rows {
-		if row.Status != StatusDownloading && row.Status != StatusApproved {
+		if row.Status != StatusDownloading && row.Status != StatusApproved && row.Status != StatusSearching {
 			continue
 		}
 
@@ -470,7 +470,7 @@ func (t *StatusTracker) findRequestsByMediaID(ctx context.Context, mediaID int64
 
 	result := make([]*Request, 0, len(rows))
 	for _, row := range rows {
-		if row.Status == StatusDownloading || row.Status == StatusApproved {
+		if row.Status == StatusDownloading || row.Status == StatusApproved || row.Status == StatusSearching {
 			result = append(result, toRequest(row))
 		}
 	}
@@ -490,7 +490,7 @@ func (t *StatusTracker) findSeasonRequests(ctx context.Context, seriesID, season
 
 	result := make([]*Request, 0, len(rows))
 	for _, row := range rows {
-		if row.Status == StatusDownloading || row.Status == StatusApproved {
+		if row.Status == StatusDownloading || row.Status == StatusApproved || row.Status == StatusSearching {
 			result = append(result, toRequest(row))
 		}
 	}

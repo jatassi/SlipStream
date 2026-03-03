@@ -20,6 +20,7 @@ type CardPosterProps = {
   hasExistingRequest: boolean
   isAvailable: boolean
   isApproved: boolean
+  isSearching: boolean
   onClick: () => void
 }
 
@@ -37,6 +38,7 @@ export function CardPoster({
   hasExistingRequest,
   isAvailable,
   isApproved,
+  isSearching,
   onClick,
 }: CardPosterProps) {
   const showSeasonBadge = isInLibrary && canRequest && seasonAvailability && seasonAvailability.length > 0
@@ -55,6 +57,7 @@ export function CardPoster({
             hasExistingRequest={hasExistingRequest}
             isAvailable={isAvailable}
             isApproved={isApproved}
+            isSearching={isSearching}
           />
         )}
       </div>

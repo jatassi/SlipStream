@@ -75,4 +75,4 @@ Bugs here cause repeated erroneous downloads. Understand the full flow before mo
 
 - Media: unreleased, missing, downloading, failed, upgradable, available
 - Aggregate priority: downloading > failed > missing > upgradable > available > unreleased
-- Requests: pending, approved, denied, downloading, failed, available
+- Requests: pending, approved, searching, denied, downloading, failed, available

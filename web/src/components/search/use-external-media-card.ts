@@ -69,6 +69,9 @@ function computeAggregateStatus(matched: Request[], current: Request | undefined
   if (all.some((r) => r.status === 'approved')) {
     return 'approved'
   }
+  if (all.some((r) => r.status === 'searching')) {
+    return 'searching'
+  }
   return all[0].status
 }
 
@@ -125,6 +128,7 @@ function deriveFlags(ctx: DeriveContext, params: UseExternalMediaCardParams) {
   return {
     isInLibrary,
     isApproved: requestStatus === 'approved',
+    isSearching: requestStatus === 'searching',
     isAvailable: requestStatus === 'available',
     hasExistingRequest: checkHasExistingRequest(requested, ctx.matched, params.availability),
     isOwnRequest: checkIsOwnRequest(requested, ctx.matched, params),

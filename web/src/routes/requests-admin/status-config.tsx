@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Download, XCircle } from 'lucide-react'
+import { CheckCircle, Clock, Download, Loader2, XCircle } from 'lucide-react'
 
 import type { RequestStatus } from '@/types'
 
@@ -22,6 +22,7 @@ export const STATUS_CONFIG: Record<
 > = {
   pending: { label: 'Pending', icon: <Clock className="size-4" />, color: 'bg-yellow-500' },
   approved: { label: 'Approved', icon: <CheckCircle className="size-4" />, color: 'bg-blue-500' },
+  searching: { label: 'Searching', icon: <Loader2 className="size-4 animate-spin" />, color: 'bg-blue-500' },
   denied: { label: 'Denied', icon: <XCircle className="size-4" />, color: 'bg-red-500' },
   downloading: {
     label: 'Downloading',

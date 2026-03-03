@@ -1,4 +1,4 @@
-import { Check, CheckCircle, Clock, Download, Library } from 'lucide-react'
+import { Check, CheckCircle, Clock, Download, Library, Loader2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 
@@ -11,16 +11,11 @@ type StatusBadgeProps = {
   hasExistingRequest: boolean
   isAvailable: boolean
   isApproved: boolean
+  isSearching: boolean
 }
 
-export function StatusBadge({
-  hasActiveDownload,
-  isInLibrary,
-  hasExistingRequest,
-  isAvailable,
-  isApproved,
-}: StatusBadgeProps) {
-  if (hasActiveDownload) {
+export function StatusBadge(props: StatusBadgeProps) {
+  if (props.hasActiveDownload) {
     return (
       <Badge variant="secondary" className={`bg-purple-600 ${BADGE_CLASS}`}>
         <Download className={ICON_CLASS} />
@@ -29,7 +24,7 @@ export function StatusBadge({
     )
   }
 
-  if (isInLibrary) {
+  if (props.isInLibrary) {
     return (
       <Badge variant="secondary" className={`bg-green-600 ${BADGE_CLASS}`}>
         <Library className={ICON_CLASS} />
@@ -38,15 +33,28 @@ export function StatusBadge({
     )
   }
 
-  if (!hasExistingRequest) {
+  if (!props.hasExistingRequest) {
     return null
   }
 
+  return <RequestStatusBadge {...props} />
+}
+
+function RequestStatusBadge({ isAvailable, isSearching, isApproved }: StatusBadgeProps) {
   if (isAvailable) {
     return (
       <Badge variant="secondary" className={`bg-green-600 ${BADGE_CLASS}`}>
         <CheckCircle className={ICON_CLASS} />
         Available
+      </Badge>
+    )
+  }
+
+  if (isSearching) {
+    return (
+      <Badge variant="secondary" className={`bg-blue-600 ${BADGE_CLASS}`}>
+        <Loader2 className={`${ICON_CLASS} animate-spin`} />
+        Searching
       </Badge>
     )
   }

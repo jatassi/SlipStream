@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/autosearch"
@@ -48,6 +49,7 @@ type RequestSearcher struct {
 	autosearchSvc    *autosearch.Service
 	mediaProvisioner MediaProvisioner
 	userGetter       UserQualityProfileGetter
+	isDevMode        func() bool
 	logger           *zerolog.Logger
 }
 
@@ -76,6 +78,10 @@ func (s *RequestSearcher) SetUserGetter(getter UserQualityProfileGetter) {
 	s.userGetter = getter
 }
 
+func (s *RequestSearcher) SetDevMode(fn func() bool) {
+	s.isDevMode = fn
+}
+
 func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64) (*SearchForRequestResult, error) {
 	s.logger.Info().Int64("requestID", requestID).Msg("SearchForRequest called")
 
@@ -91,14 +97,38 @@ func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64)
 		return nil, err
 	}
 
+	if _, err := s.requestsService.UpdateStatus(ctx, requestID, StatusSearching); err != nil {
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("failed to set request status to searching")
+	}
+
+	if s.isDevMode != nil && s.isDevMode() {
+		time.Sleep(3 * time.Second)
+	}
+
 	result := s.executeSearch(ctx, requestID, request)
 
 	if result.Downloaded {
 		s.updateRequestStatusDownloading(ctx, requestID)
+	} else {
+		s.revertToApproved(ctx, requestID)
 	}
 
 	s.logSearchCompletion(requestID, result)
 	return result, nil
+}
+
+func (s *RequestSearcher) revertToApproved(ctx context.Context, requestID int64) {
+	current, err := s.requestsService.Get(ctx, requestID)
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("failed to get request for revert")
+		return
+	}
+	if current.Status != StatusSearching {
+		return
+	}
+	if _, err := s.requestsService.UpdateStatus(ctx, requestID, StatusApproved); err != nil {
+		s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("failed to revert request status to approved")
+	}
 }
 
 func (s *RequestSearcher) logRequestDetails(requestID int64, request *Request) {
