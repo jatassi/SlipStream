@@ -318,6 +318,7 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 	rssSyncHandlers.RegisterRoutes(protected.Group("/rsssync"))
 
 	s.automation.RssSyncSettings = rsssync.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.RssSync)
+	s.registry.RegisterQueries(s.automation.RssSyncSettings)
 	if s.automation.Scheduler != nil {
 		s.automation.RssSyncSettings.SetScheduler(s.automation.Scheduler, s.automation.RssSync, tasks.UpdateRssSyncTask)
 	}
@@ -331,6 +332,7 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 	arrImportHandlers.RegisterRoutes(protected.Group("/arrimport"))
 
 	s.automation.ImportSettings = importer.NewSettingsHandlers(s.startupDB, s.automation.Import)
+	s.registry.RegisterDB(s.automation.ImportSettings)
 	s.automation.ImportSettings.RegisterSettingsRoutes(settings)
 }
 
@@ -449,6 +451,7 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 		s.portal.MediaProvisioner,
 		s.logger,
 	)
+	s.registry.RegisterDB(s.portal.RequestSearcher)
 	s.portal.RequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portal.Users})
 	s.portal.RequestSearcher.SetDevMode(s.dbManager.IsDevMode)
 	s.portal.AutoApprove.SetRequestSearcher(s.portal.RequestSearcher)
@@ -461,5 +464,6 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 
 	// Admin settings
 	s.portal.AdminSettings = admin.NewSettingsHandlers(s.portal.Quota, sqlc.New(s.startupDB))
+	s.registry.RegisterQueries(s.portal.AdminSettings)
 	s.portal.AdminSettings.RegisterRoutes(adminGroup.Group("/settings"), s.portal.AuthMiddleware)
 }
