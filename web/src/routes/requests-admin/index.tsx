@@ -33,7 +33,7 @@ export function RequestQueuePage() {
       />
 
       <RequestsNav />
-      {!page.portalEnabled && <PortalDisabledAlert />}
+      {page.portalEnabled ? null : <PortalDisabledAlert />}
 
       <RequestTabs
         activeTab={page.activeTab}

@@ -19,9 +19,9 @@ import { useDownloadsNav } from './use-downloads-nav'
 function CountBadge({ movieCount, tvCount }: { movieCount: number; tvCount: number }) {
   return (
     <span className="flex items-center text-xs">
-      {movieCount > 0 && <span className="text-movie-400 font-medium">{movieCount}</span>}
-      {movieCount > 0 && tvCount > 0 && <span className="text-muted-foreground px-1">|</span>}
-      {tvCount > 0 && <span className="text-tv-400 font-medium">{tvCount}</span>}
+      {movieCount > 0 ? <span className="text-movie-400 font-medium">{movieCount}</span> : null}
+      {movieCount > 0 && tvCount > 0 ? <span className="text-muted-foreground px-1">|</span> : null}
+      {tvCount > 0 ? <span className="text-tv-400 font-medium">{tvCount}</span> : null}
     </span>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -36,7 +36,7 @@ export function useAddMoviePage() {
 function useNavigation() {
   const navigate = useNavigate()
   const searchParams: { tmdbId?: number } = useSearch({ strict: false })
-  const tmdbId = useMemo(() => searchParams.tmdbId, [searchParams.tmdbId])
+  const tmdbId = searchParams.tmdbId
 
   return { navigate, tmdbId }
 }

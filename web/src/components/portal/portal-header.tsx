@@ -57,7 +57,7 @@ function LibraryLink({ active, hideText }: { active: boolean; hideText: boolean 
       }`}
     >
       <Library className="size-4 md:size-5" />
-      {!hideText && <span>Library</span>}
+      {hideText ? null : <span>Library</span>}
     </Link>
   )
 }

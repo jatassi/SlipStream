@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -44,7 +44,7 @@ function useNavigation() {
   const navigate = useNavigate()
   const searchParams: Record<string, unknown> = useSearch({ strict: false })
   const rawTmdbId = searchParams.tmdbId
-  const tmdbId = useMemo(() => (rawTmdbId ? Number(rawTmdbId) : undefined), [rawTmdbId])
+  const tmdbId = rawTmdbId ? Number(rawTmdbId) : undefined
 
   return { navigate, tmdbId }
 }

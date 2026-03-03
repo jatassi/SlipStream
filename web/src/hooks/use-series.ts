@@ -28,12 +28,14 @@ export function useSeries(options?: ListSeriesOptions) {
   })
 }
 
+export const seriesQueryOptions = (id: number) => ({
+  queryKey: seriesKeys.detail(id),
+  queryFn: () => seriesApi.get(id),
+  enabled: !!id,
+})
+
 export function useSeriesDetail(id: number) {
-  return useQuery({
-    queryKey: seriesKeys.detail(id),
-    queryFn: () => seriesApi.get(id),
-    enabled: !!id,
-  })
+  return useQuery(seriesQueryOptions(id))
 }
 
 export function useAddSeries() {
@@ -132,12 +134,14 @@ export function useRefreshAllSeries() {
   })
 }
 
+export const episodesQueryOptions = (seriesId: number, seasonNumber?: number) => ({
+  queryKey: seriesKeys.episodes(seriesId, seasonNumber),
+  queryFn: () => seriesApi.getEpisodes(seriesId, seasonNumber),
+  enabled: !!seriesId,
+})
+
 export function useEpisodes(seriesId: number, seasonNumber?: number) {
-  return useQuery({
-    queryKey: seriesKeys.episodes(seriesId, seasonNumber),
-    queryFn: () => seriesApi.getEpisodes(seriesId, seasonNumber),
-    enabled: !!seriesId,
-  })
+  return useQuery(episodesQueryOptions(seriesId, seasonNumber))
 }
 
 export function useUpdateSeasonMonitored() {

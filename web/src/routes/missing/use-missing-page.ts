@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { toast } from 'sonner'
 
@@ -189,6 +189,8 @@ export function useMissingPage() {
 
   const upgradableTotalCount = counts.upgradableMovieCount + counts.upgradableEpisodeCount
 
+  const qualityMaps = useMemo(() => buildQualityMaps(qualityProfiles), [qualityProfiles])
+
   return {
     view,
     setView,
@@ -206,7 +208,7 @@ export function useMissingPage() {
     searchButtonStyle: getSearchButtonStyle(filter, movieCount, episodeCount),
     handleRefetch: () => refetchQueries(queries, isMissingView),
     handleSearch: () => void executeSearch(() => mutations[view][filter].mutateAsync()),
-    ...buildQualityMaps(qualityProfiles),
+    ...qualityMaps,
     missingMovies: queries.missingMovies.data ?? [],
     missingSeries: queries.missingSeries.data ?? [],
     upgradableMovies: queries.upgradableMovies.data ?? [],

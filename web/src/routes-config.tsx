@@ -2,6 +2,10 @@ import { createRootRoute, createRoute, lazyRouteComponent, Outlet, redirect } fr
 
 import { RootLayout } from '@/components/layout/root-layout'
 import { PortalAuthGuard, PortalLayout } from '@/components/portal'
+import { extendedMovieMetadataOptions, extendedSeriesMetadataOptions } from '@/hooks/use-metadata'
+import { movieQueryOptions } from '@/hooks/use-movies'
+import { seriesQueryOptions } from '@/hooks/use-series'
+import { queryClient } from '@/lib/query-client'
 
 export const rootRoute = createRootRoute({
   component: () => (
@@ -46,10 +50,35 @@ export const searchRoute = createRoute({
 })
 
 export const moviesRoute = lazyRoute('/movies', () => import('@/routes/movies/index'), 'MoviesPage')
-export const movieDetailRoute = lazyRoute('/movies/$id', () => import('@/routes/movies/$id'), 'MovieDetailPage')
+
+export const movieDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/movies/$id',
+  component: lazyRouteComponent(() => import('@/routes/movies/$id'), 'MovieDetailPage'),
+  loader: async ({ params }) => {
+    const movieId = Number(params.id)
+    const movie = await queryClient.ensureQueryData(movieQueryOptions(movieId))
+    if (movie.tmdbId) {
+      void queryClient.prefetchQuery(extendedMovieMetadataOptions(movie.tmdbId))
+    }
+  },
+})
+
 export const addMovieRoute = lazyRoute('/movies/add', () => import('@/routes/movies/add'), 'AddMoviePage')
 export const seriesRoute = lazyRoute('/series', () => import('@/routes/series/index'), 'SeriesListPage')
-export const seriesDetailRoute = lazyRoute('/series/$id', () => import('@/routes/series/$id'), 'SeriesDetailPage')
+
+export const seriesDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/series/$id',
+  component: lazyRouteComponent(() => import('@/routes/series/$id'), 'SeriesDetailPage'),
+  loader: async ({ params }) => {
+    const seriesId = Number(params.id)
+    const series = await queryClient.ensureQueryData(seriesQueryOptions(seriesId))
+    if (series.tmdbId) {
+      void queryClient.prefetchQuery(extendedSeriesMetadataOptions(series.tmdbId))
+    }
+  },
+})
 export const addSeriesRoute = lazyRoute('/series/add', () => import('@/routes/series/add'), 'AddSeriesPage')
 export const calendarRoute = lazyRoute('/calendar', () => import('@/routes/calendar/index'), 'CalendarPage')
 export const missingRoute = lazyRoute('/missing', () => import('@/routes/missing/index'), 'MissingPage')

@@ -100,7 +100,7 @@ function DemoRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
             onMonitoredChange={setMonitored}
           />
         </div>
-        {!isDefault && <div className="absolute inset-0 flex items-center">{content}</div>}
+        {isDefault ? null : <div className="absolute inset-0 flex items-center">{content}</div>}
       </div>
     </div>
   )

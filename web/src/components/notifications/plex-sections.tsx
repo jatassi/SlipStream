@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { Loader2 } from 'lucide-react'
 
 import { Label } from '@/components/ui/label'
@@ -53,6 +55,8 @@ function PlexSectionsContent({
   sectionIds,
   onSettingChange,
 }: PlexSectionsContentProps) {
+  const sectionIdSet = useMemo(() => new Set(sectionIds), [sectionIds])
+
   if (isLoadingSections) {
     return (
       <div className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -75,7 +79,7 @@ function PlexSectionsContent({
           </Label>
           <Switch
             id={`section-${section.key}`}
-            checked={sectionIds.includes(section.key)}
+            checked={sectionIdSet.has(section.key)}
             onCheckedChange={(checked) => {
               const newIds = checked
                 ? [...sectionIds, section.key]

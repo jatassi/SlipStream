@@ -61,7 +61,7 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
           >
             <Film className="mr-1.5 size-4" />
             Movies
-            {!s.loadingMovies && <CountBadge count={s.movies.length} className="text-muted-foreground" />}
+            {s.loadingMovies ? null : <CountBadge count={s.movies.length} className="text-muted-foreground" />}
           </TabsTrigger>
           <TabsTrigger
             value="series"
@@ -69,7 +69,7 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
           >
             <Tv className="mr-1.5 size-4" />
             Series
-            {!s.loadingSeries && <CountBadge count={s.series.length} className="text-muted-foreground" />}
+            {s.loadingSeries ? null : <CountBadge count={s.series.length} className="text-muted-foreground" />}
           </TabsTrigger>
         </TabsList>
         <PosterSizeSlider />

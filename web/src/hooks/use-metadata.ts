@@ -46,20 +46,24 @@ export function useSeriesMetadata(tmdbId: number) {
   })
 }
 
+export const extendedMovieMetadataOptions = (tmdbId: number) => ({
+  queryKey: metadataKeys.movieExtended(tmdbId),
+  queryFn: () => metadataApi.getExtendedMovie(tmdbId),
+  enabled: !!tmdbId,
+  staleTime: 1000 * 60 * 10, // 10 minutes
+})
+
 export function useExtendedMovieMetadata(tmdbId: number) {
-  return useQuery({
-    queryKey: metadataKeys.movieExtended(tmdbId),
-    queryFn: () => metadataApi.getExtendedMovie(tmdbId),
-    enabled: !!tmdbId,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  })
+  return useQuery(extendedMovieMetadataOptions(tmdbId))
 }
 
+export const extendedSeriesMetadataOptions = (tmdbId: number) => ({
+  queryKey: metadataKeys.seriesExtended(tmdbId),
+  queryFn: () => metadataApi.getExtendedSeries(tmdbId),
+  enabled: !!tmdbId,
+  staleTime: 1000 * 60 * 10, // 10 minutes
+})
+
 export function useExtendedSeriesMetadata(tmdbId: number) {
-  return useQuery({
-    queryKey: metadataKeys.seriesExtended(tmdbId),
-    queryFn: () => metadataApi.getExtendedSeries(tmdbId),
-    enabled: !!tmdbId,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  })
+  return useQuery(extendedSeriesMetadataOptions(tmdbId))
 }

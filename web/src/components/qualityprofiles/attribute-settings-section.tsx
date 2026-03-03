@@ -97,22 +97,22 @@ function SectionBadges({
 }) {
   return (
     <div className="flex items-center gap-2">
-      {requiredCount > 0 && (
+      {requiredCount > 0 ? (
         <Badge variant="destructive" className="px-1.5 py-0 text-xs">
           {requiredCount} required
         </Badge>
-      )}
-      {preferredCount > 0 && (
+      ) : null}
+      {preferredCount > 0 ? (
         <Badge variant="secondary" className="px-1.5 py-0 text-xs">
           {preferredCount} preferred
         </Badge>
-      )}
-      {notAllowedCount > 0 && (
+      ) : null}
+      {notAllowedCount > 0 ? (
         <Badge variant="outline" className="px-1.5 py-0 text-xs">
           {notAllowedCount} blocked
         </Badge>
-      )}
-      {!hasSettings && <span className="text-muted-foreground text-xs">Acceptable</span>}
+      ) : null}
+      {hasSettings ? null : <span className="text-muted-foreground text-xs">Acceptable</span>}
       <ChevronDown
         className={`text-muted-foreground size-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
       />

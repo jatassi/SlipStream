@@ -155,11 +155,9 @@ function useSearchCriteria(params: SearchCriteriaParams): ScoredSearchCriteria {
 
 function useSortedReleases(releases: TorrentInfo[], sortColumn: SortColumn, sortDirection: SortDirection): TorrentInfo[] {
   return useMemo(() => {
-    const sorted = [...releases]
-    sorted.sort((a, b) => {
+    return releases.toSorted((a, b) => {
       const comparison = compareReleases(a, b, sortColumn)
       return sortDirection === 'asc' ? comparison : -comparison
     })
-    return sorted
   }, [releases, sortColumn, sortDirection])
 }

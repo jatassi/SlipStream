@@ -11,6 +11,8 @@ import {
 import { formatBytes } from '@/lib/formatters'
 import type { QueueItem } from '@/types'
 
+const RE_SIZE_PARTS = /^([\d.]+)\s*(.+)$/
+
 function getTitleSuffix(item: QueueItem, movieYear?: number): string {
   if (item.mediaType === 'movie') {
     return movieYear ? `(${movieYear})` : ''
@@ -30,8 +32,8 @@ function getTitleSuffix(item: QueueItem, movieYear?: number): string {
 function formatProgressText(downloadedSize: number, totalSize: number): string {
   const downloadedFormatted = formatBytes(downloadedSize)
   const totalFormatted = formatBytes(totalSize)
-  const totalParts = /^([\d.]+)\s*(.+)$/.exec(totalFormatted)
-  const downloadedParts = /^([\d.]+)\s*(.+)$/.exec(downloadedFormatted)
+  const totalParts = RE_SIZE_PARTS.exec(totalFormatted)
+  const downloadedParts = RE_SIZE_PARTS.exec(downloadedFormatted)
 
   if (totalParts && totalParts[2] === downloadedParts?.[2]) {
     return `${downloadedParts[1]}/${totalParts[1]} ${totalParts[2]}`

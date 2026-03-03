@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { Columns3 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -21,9 +23,10 @@ export function ColumnConfigPopover<T>({
 }: ColumnConfigPopoverProps<T>) {
   const hideableColumns = columns.filter((c) => c.hideable)
   const accentClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
+  const visibleSet = useMemo(() => new Set(visibleColumnIds), [visibleColumnIds])
 
   const toggleColumn = (id: string) => {
-    if (visibleColumnIds.includes(id)) {
+    if (visibleSet.has(id)) {
       onVisibleColumnsChange(visibleColumnIds.filter((c) => c !== id))
     } else {
       onVisibleColumnsChange([...visibleColumnIds, id])
@@ -44,7 +47,7 @@ export function ColumnConfigPopover<T>({
               className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
             >
               <Checkbox
-                checked={visibleColumnIds.includes(col.id)}
+                checked={visibleSet.has(col.id)}
                 onCheckedChange={() => toggleColumn(col.id)}
               />
               {col.label}

@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { Checkbox } from '@/components/ui/checkbox'
@@ -46,7 +48,8 @@ export function MediaTable<T extends { id: number }>({
   onToggleSelect,
   theme,
 }: MediaTableProps<T>) {
-  const visibleColumns = columns.filter((col) => !col.hideable || visibleColumnIds.includes(col.id))
+  const visibleIdSet = useMemo(() => new Set(visibleColumnIds), [visibleColumnIds])
+  const visibleColumns = columns.filter((col) => !col.hideable || visibleIdSet.has(col.id))
 
   return (
     <div className="rounded-md border">

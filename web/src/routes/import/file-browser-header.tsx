@@ -117,7 +117,7 @@ export function FileBrowserHeader({
           )}
         </div>
       </div>
-      {!showScanResults && <PathInput pathInput={pathInput} onPathInputChange={onPathInputChange} onPathInputNavigate={onPathInputNavigate} />}
+      {showScanResults ? null : <PathInput pathInput={pathInput} onPathInputChange={onPathInputChange} onPathInputNavigate={onPathInputNavigate} />}
     </CardHeader>
   )
 }

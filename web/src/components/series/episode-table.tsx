@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -90,8 +90,11 @@ export function EpisodeTable(props: EpisodeTableProps) {
   const { episodes, isMultiVersionEnabled = false, enabledSlots = [] } = props
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<number | null>(null)
   const slotQualityProfiles = useMemo(() => buildSlotQualityMap(enabledSlots), [enabledSlots])
-  const getSlotName = (slotId: number | undefined) => findSlotName(enabledSlots, slotId)
-  const sortedEpisodes = episodes.toSorted((a, b) => a.episodeNumber - b.episodeNumber)
+  const getSlotName = useCallback((slotId: number | undefined) => findSlotName(enabledSlots, slotId), [enabledSlots])
+  const sortedEpisodes = useMemo(
+    () => episodes.toSorted((a, b) => a.episodeNumber - b.episodeNumber),
+    [episodes],
+  )
   const columnCount = isMultiVersionEnabled ? 9 : 7
 
   return (

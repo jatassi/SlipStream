@@ -189,7 +189,7 @@ function LogsStatusBar({ entryCount, isPaused, autoScroll }: { entryCount: numbe
     <div className="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
       <span>{entryCount} entries</span>
       {isPaused ? <span className="text-yellow-500">Streaming paused</span> : null}
-      {!autoScroll && <span>Auto-scroll disabled</span>}
+      {autoScroll ? null : <span>Auto-scroll disabled</span>}
     </div>
   )
 }

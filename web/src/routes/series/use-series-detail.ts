@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
@@ -18,6 +19,7 @@ import {
   useUpdateSeasonMonitored,
   useUpdateSeries,
 } from '@/hooks'
+import { seriesKeys } from '@/hooks/use-series'
 import { withToast } from '@/lib/with-toast'
 import type { Episode } from '@/types'
 
@@ -44,19 +46,23 @@ function buildEpisodeRatings(
 
 function useSeriesQueries(seriesId: number) {
   const globalLoading = useGlobalLoading()
+  const queryClient = useQueryClient()
   const { data: series, isLoading: queryLoading, isError, refetch } = useSeriesDetail(seriesId)
   const isLoading = queryLoading || globalLoading
-  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedSeriesMetadata(series?.tmdbId ?? 0)
+  const cachedSeries = queryClient.getQueryData<{ tmdbId?: number }>(seriesKeys.detail(seriesId))
+  const tmdbId = series?.tmdbId ?? cachedSeries?.tmdbId ?? 0
+  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedSeriesMetadata(tmdbId)
   const { data: qualityProfiles } = useQualityProfiles()
   const { data: episodes } = useEpisodes(seriesId)
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slots } = useSlots()
+  const enabledSlots = useMemo(() => slots?.filter((s) => s.enabled) ?? [], [slots])
 
   return {
     series, isLoading, isError, refetch,
     extendedData, isExtendedDataLoading, qualityProfiles, episodes,
     isMultiVersionEnabled: multiVersionSettings?.enabled ?? false,
-    enabledSlots: slots?.filter((s) => s.enabled) ?? [],
+    enabledSlots,
   }
 }
 
@@ -119,7 +125,10 @@ export function useSeriesDetailPage() {
   const queries = useSeriesQueries(seriesId)
   const mutations = useSeriesMutations(seriesId, () => { void queries.refetch() })
 
-  const qualityProfileName = queries.qualityProfiles?.find((p) => p.id === queries.series?.qualityProfileId)?.name
+  const qualityProfileName = useMemo(
+    () => queries.qualityProfiles?.find((p) => p.id === queries.series?.qualityProfileId)?.name,
+    [queries.qualityProfiles, queries.series?.qualityProfileId],
+  )
 
   const episodeRatings = useMemo(
     () => buildEpisodeRatings(queries.extendedData?.seasons),

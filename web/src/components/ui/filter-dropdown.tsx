@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import type { LucideIcon } from 'lucide-react'
 import { ChevronDown, Filter } from 'lucide-react'
 
@@ -87,6 +89,7 @@ function OptionItem<T extends string>({ option, checked, onToggle }: OptionItemP
 type DisplayLabelParams<T extends string> = {
   options: FilterOption<T>[]
   selected: T[]
+  selectedSet: Set<T>
   label: string
   allSelected: boolean
 }
@@ -94,6 +97,7 @@ type DisplayLabelParams<T extends string> = {
 function getDisplayLabel<T extends string>({
   options,
   selected,
+  selectedSet,
   label,
   allSelected,
 }: DisplayLabelParams<T>): string {
@@ -107,7 +111,7 @@ function getDisplayLabel<T extends string>({
     return `${selected.length} Selected`
   }
   return options
-    .filter((o) => selected.includes(o.value))
+    .filter((o) => selectedSet.has(o.value))
     .map((o) => o.label)
     .join(', ')
 }
@@ -123,8 +127,9 @@ export function FilterDropdown<T extends string>({
   className,
   disabled,
 }: FilterDropdownProps<T>) {
+  const selectedSet = useMemo(() => new Set(selected), [selected])
   const allSelected = selected.length >= options.length
-  const displayLabel = getDisplayLabel({ options, selected, label, allSelected })
+  const displayLabel = getDisplayLabel({ options, selected, selectedSet, label, allSelected })
 
   return (
     <DropdownMenu>
@@ -140,12 +145,12 @@ export function FilterDropdown<T extends string>({
         <ChevronDown className="text-muted-foreground size-4 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-auto min-w-(--anchor-width)">
-        {!allSelected && <ResetItem onReset={onReset} />}
+        {allSelected ? null : <ResetItem onReset={onReset} />}
         {options.map((opt) => (
           <OptionItem
             key={opt.value}
             option={opt}
-            checked={selected.includes(opt.value)}
+            checked={selectedSet.has(opt.value)}
             onToggle={onToggle}
           />
         ))}

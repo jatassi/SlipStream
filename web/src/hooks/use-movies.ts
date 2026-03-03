@@ -25,12 +25,14 @@ export function useMovies(options?: ListMoviesOptions) {
   })
 }
 
+export const movieQueryOptions = (id: number) => ({
+  queryKey: movieKeys.detail(id),
+  queryFn: () => moviesApi.get(id),
+  enabled: !!id,
+})
+
 export function useMovie(id: number) {
-  return useQuery({
-    queryKey: movieKeys.detail(id),
-    queryFn: () => moviesApi.get(id),
-    enabled: !!id,
-  })
+  return useQuery(movieQueryOptions(id))
 }
 
 export function useAddMovie() {

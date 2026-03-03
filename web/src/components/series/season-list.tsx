@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { ChevronRight } from 'lucide-react'
 
 import { type MediaStatus, MediaStatusBadge } from '@/components/media/media-status-badge'
@@ -100,11 +102,12 @@ function getFirstAirYear(episodes: Episode[]): string | undefined {
 export function SeasonList(props: SeasonListProps) {
   const { seasons, episodes = [], episodeRatings, className } = props
   const { isMultiVersionEnabled = false, enabledSlots = [], isAssigning = false } = props
-  const episodesBySeason = groupEpisodesBySeason(episodes)
+  const episodesBySeason = useMemo(() => groupEpisodesBySeason(episodes), [episodes])
+  const sortedSeasons = useMemo(() => sortSeasons(seasons), [seasons])
 
   return (
     <Accordion className={cn('space-y-2', className)}>
-      {sortSeasons(seasons).map((season) => (
+      {sortedSeasons.map((season) => (
         <SeasonItem
           key={season.id}
           season={season}

@@ -32,6 +32,8 @@ const HOVER_CLASSES = {
   series: 'hover:border-tv-500/50 hover:glow-tv',
 } as const
 
+const DEFAULT_ACTION_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
+
 function getSeriesField<K extends keyof SeriesSearchResult>(
   media: MovieSearchResult | SeriesSearchResult,
   mediaType: 'movie' | 'series',
@@ -46,7 +48,7 @@ function getSeriesField<K extends keyof SeriesSearchResult>(
 export function ExternalMediaCard(props: ExternalMediaCardProps) {
   const { media, mediaType } = props
   const actionLabel = props.actionLabel ?? 'Add to Library'
-  const actionIcon = props.actionIcon ?? <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
+  const actionIcon = props.actionIcon ?? DEFAULT_ACTION_ICON
   const disabledLabel = props.disabledLabel ?? 'Already Added'
   const requestedLabel = props.requestedLabel ?? 'Requested'
   const [infoOpen, setInfoOpen] = useState(false)

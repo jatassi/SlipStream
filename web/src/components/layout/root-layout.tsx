@@ -1,23 +1,15 @@
 import type { ReactNode } from 'react'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
 import { Toaster } from '@/components/ui/sonner'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { queryClient } from '@/lib/query-client'
 
 import { Header } from './header'
 import { Sidebar } from './sidebar'
 import { useLayoutEffects } from './use-layout-effects'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-    },
-  },
-})
 
 type RootLayoutProps = {
   children: ReactNode

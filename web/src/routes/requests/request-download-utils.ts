@@ -28,9 +28,14 @@ export function computeDownloadProgress(
     return null
   }
 
-  const totalSize = matchingDownloads.reduce((sum, d) => sum + (d.size || 0), 0)
-  const totalDownloaded = matchingDownloads.reduce((sum, d) => sum + (d.downloadedSize || 0), 0)
-  const totalSpeed = matchingDownloads.reduce((sum, d) => sum + (d.downloadSpeed || 0), 0)
+  const { totalSize, totalDownloaded, totalSpeed } = matchingDownloads.reduce(
+    (acc, d) => ({
+      totalSize: acc.totalSize + (d.size || 0),
+      totalDownloaded: acc.totalDownloaded + (d.downloadedSize || 0),
+      totalSpeed: acc.totalSpeed + (d.downloadSpeed || 0),
+    }),
+    { totalSize: 0, totalDownloaded: 0, totalSpeed: 0 },
+  )
   const progress = totalSize > 0 ? (totalDownloaded / totalSize) * 100 : 0
   const remainingBytes = totalSize - totalDownloaded
   const eta = totalSpeed > 0 ? Math.ceil(remainingBytes / totalSpeed) : 0

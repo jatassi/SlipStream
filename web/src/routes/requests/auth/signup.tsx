@@ -116,7 +116,7 @@ function useSignup(token: string) {
       { token, password: pin },
       {
         onSuccess: () => {
-          localStorage.setItem('slipstream_last_username', username)
+          try { localStorage.setItem('slipstream_last_username', username) } catch { /* storage unavailable */ }
           toast.success('Account created successfully')
           void navigate({ to: '/requests' })
         },

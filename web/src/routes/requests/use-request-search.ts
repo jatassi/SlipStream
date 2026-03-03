@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -25,24 +25,27 @@ function useSearchResults(query: string) {
   const { data: movies = [], isLoading: loadingMovies } = usePortalMovieSearch(query)
   const { data: series = [], isLoading: loadingSeries } = usePortalSeriesSearch(query)
 
-  const libraryMovies = sortByAddedAt(movies.filter((m) => m.availability?.inLibrary))
-  const requestableMovies = movies.filter((m) => !m.availability?.inLibrary)
-
-  const fullyAvailableSeries = sortByAddedAt(
-    series.filter((s) => s.availability?.inLibrary && !s.availability.canRequest),
-  )
-  const partialSeries = sortByAddedAt(
-    series.filter((s) => s.availability?.inLibrary && s.availability.canRequest),
-  )
-  const requestableSeries = series.filter((s) => !s.availability?.inLibrary)
-
-  const librarySeriesItems = [...fullyAvailableSeries, ...partialSeries]
+  const categorized = useMemo(() => {
+    const libraryMovies = sortByAddedAt(movies.filter((m) => m.availability?.inLibrary))
+    const requestableMovies = movies.filter((m) => !m.availability?.inLibrary)
+    const fullyAvailableSeries = sortByAddedAt(
+      series.filter((s) => s.availability?.inLibrary && !s.availability.canRequest),
+    )
+    const partialSeries = sortByAddedAt(
+      series.filter((s) => s.availability?.inLibrary && s.availability.canRequest),
+    )
+    const requestableSeries = series.filter((s) => !s.availability?.inLibrary)
+    const librarySeriesItems = [...fullyAvailableSeries, ...partialSeries]
+    return {
+      libraryMovies, librarySeriesItems, partialSeries, requestableMovies, requestableSeries,
+      hasLibraryResults: libraryMovies.length > 0 || librarySeriesItems.length > 0,
+      hasRequestableResults: requestableMovies.length > 0 || requestableSeries.length > 0,
+    }
+  }, [movies, series])
 
   return {
     isLoading: loadingMovies || loadingSeries,
-    libraryMovies, librarySeriesItems, partialSeries, requestableMovies, requestableSeries,
-    hasLibraryResults: libraryMovies.length > 0 || librarySeriesItems.length > 0,
-    hasRequestableResults: requestableMovies.length > 0 || requestableSeries.length > 0,
+    ...categorized,
   }
 }
 

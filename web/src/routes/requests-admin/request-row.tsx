@@ -88,7 +88,7 @@ function RequestMeta({ request }: { request: Request }) {
       <Badge variant="outline" className="text-xs capitalize">
         {request.mediaType}
       </Badge>
-      {request.mediaType === 'series' && <SeriesSeasonInfo request={request} />}
+      {request.mediaType === 'series' ? <SeriesSeasonInfo request={request} /> : null}
       {request.seasonNumber && request.mediaType !== 'series' ? (
         <span>Season {request.seasonNumber}</span>
       ) : null}

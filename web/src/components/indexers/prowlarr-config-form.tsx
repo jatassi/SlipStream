@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import {
   CheckCircle2,
   ChevronDown,
@@ -226,6 +228,9 @@ function SslVerifyCheckbox({ hook }: { hook: HookValues }) {
 }
 
 function CategorySettings({ hook }: { hook: HookValues }) {
+  const movieCatSet = useMemo(() => new Set(hook.movieCategories), [hook.movieCategories])
+  const tvCatSet = useMemo(() => new Set(hook.tvCategories), [hook.tvCategories])
+
   return (
     <div className="space-y-4">
       <div>
@@ -237,7 +242,7 @@ function CategorySettings({ hook }: { hook: HookValues }) {
           {DEFAULT_MOVIE_CATEGORIES.map((cat) => (
             <Badge
               key={cat}
-              variant={hook.movieCategories.includes(cat) ? 'default' : 'outline'}
+              variant={movieCatSet.has(cat) ? 'default' : 'outline'}
               className="cursor-pointer"
               onClick={() => hook.toggleCategory(cat, 'movie')}
             >
@@ -256,7 +261,7 @@ function CategorySettings({ hook }: { hook: HookValues }) {
           {DEFAULT_TV_CATEGORIES.map((cat) => (
             <Badge
               key={cat}
-              variant={hook.tvCategories.includes(cat) ? 'default' : 'outline'}
+              variant={tvCatSet.has(cat) ? 'default' : 'outline'}
               className="cursor-pointer"
               onClick={() => hook.toggleCategory(cat, 'tv')}
             >

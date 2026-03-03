@@ -169,7 +169,8 @@ function useLoginPage() {
   const { isSupported: passkeySupported, isLoading: passkeyLoading } = usePasskeySupport()
   const portalEnabled = usePortalEnabled()
 
-  const rememberedUsername = localStorage.getItem('slipstream_last_username') ?? ''
+  let rememberedUsername = ''
+  try { rememberedUsername = localStorage.getItem('slipstream_last_username') ?? '' } catch { /* storage unavailable */ }
   const [username, setUsername] = useState(rememberedUsername)
   const [showUsernameInput, setShowUsernameInput] = useState(!rememberedUsername)
   const [showPinForm, setShowPinForm] = useState(false)
@@ -184,7 +185,7 @@ function useLoginPage() {
     loginMutation.mutate(
       { username, password: pin },
       {
-        onSuccess: () => { localStorage.setItem('slipstream_last_username', username); void navigate({ to: getPostLoginRedirect() }) },
+        onSuccess: () => { try { localStorage.setItem('slipstream_last_username', username) } catch { /* storage unavailable */ }; void navigate({ to: getPostLoginRedirect() }) },
         onError: (error) => { toast.error('Login failed', { description: error.message || 'Invalid credentials' }); setPin('') },
       },
     )

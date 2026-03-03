@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -151,8 +151,11 @@ export function usePortalLibrary() {
   const dialog = useSeriesDialog()
   const requests = useLibraryRequests(dialog)
 
-  const partialTmdbIds = new Set(
-    series.filter((s) => s.availability?.inLibrary && s.availability.canRequest).map((s) => s.tmdbId),
+  const partialTmdbIds = useMemo(
+    () => new Set(
+      series.filter((s) => s.availability?.inLibrary && s.availability.canRequest).map((s) => s.tmdbId),
+    ),
+    [series],
   )
 
   return {

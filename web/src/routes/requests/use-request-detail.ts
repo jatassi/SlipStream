@@ -33,9 +33,14 @@ function getMatchingDownloads(
 }
 
 function computeDownloadState(downloads: PortalDownload[]) {
-  const totalSize = downloads.reduce((sum, d) => sum + (d.size || 0), 0)
-  const totalDownloaded = downloads.reduce((sum, d) => sum + (d.downloadedSize || 0), 0)
-  const speed = downloads.reduce((sum, d) => sum + (d.downloadSpeed || 0), 0)
+  const { totalSize, totalDownloaded, speed } = downloads.reduce(
+    (acc, d) => ({
+      totalSize: acc.totalSize + (d.size || 0),
+      totalDownloaded: acc.totalDownloaded + (d.downloadedSize || 0),
+      speed: acc.speed + (d.downloadSpeed || 0),
+    }),
+    { totalSize: 0, totalDownloaded: 0, speed: 0 },
+  )
   const progress = totalSize > 0 ? (totalDownloaded / totalSize) * 100 : 0
   const remainingBytes = totalSize - totalDownloaded
 

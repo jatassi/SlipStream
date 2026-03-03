@@ -97,9 +97,10 @@ function computeStableOrder(
   activeDownloads: PortalDownload[],
 ): string[] {
   const kept = seenOrder.filter((key) => activeKeys.has(key))
+  const keptSet = new Set(kept)
   const newKeys = activeDownloads
     .map((d) => `${d.clientId}-${d.id}`)
-    .filter((key) => !kept.includes(key))
+    .filter((key) => !keptSet.has(key))
   return [...kept, ...newKeys]
 }
 

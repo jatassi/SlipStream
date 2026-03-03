@@ -32,7 +32,7 @@ export function PageHeader({
         <nav className="text-muted-foreground flex items-center gap-1 text-sm">
           {breadcrumbs.map((item) => (
             <span key={item.label} className="flex items-center gap-1">
-              {breadcrumbs.indexOf(item) > 0 && <ChevronRight className="size-4" />}
+              {breadcrumbs.indexOf(item) > 0 ? <ChevronRight className="size-4" /> : null}
               {item.href ? (
                 <Link to={item.href} className="hover:text-foreground transition-colors">
                   {item.label}

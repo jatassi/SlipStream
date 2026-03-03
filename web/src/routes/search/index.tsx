@@ -158,8 +158,14 @@ export function SearchPage() {
   const library = useLibrarySearch(query)
   const external = useExternalSearch(query, library)
 
-  const libraryMovieTmdbIds = new Set(library.movies.map((m) => m.tmdbId).filter((id): id is number => id !== undefined))
-  const librarySeriesTmdbIds = new Set(library.series.map((s) => s.tmdbId).filter((id): id is number => id !== undefined))
+  const libraryMovieTmdbIds = useMemo(
+    () => new Set(library.movies.map((m) => m.tmdbId).filter((id): id is number => id !== undefined)),
+    [library.movies],
+  )
+  const librarySeriesTmdbIds = useMemo(
+    () => new Set(library.series.map((s) => s.tmdbId).filter((id): id is number => id !== undefined)),
+    [library.series],
+  )
 
   if (!query) {
     return <EmptyState icon={<Search className="size-8" />} title="Enter a search term" description="Use the search bar above to find movies and series" />

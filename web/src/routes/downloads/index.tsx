@@ -90,7 +90,7 @@ function FilterTabs({ isLoading, totalCount, movieCount, seriesCount }: FilterTa
         className="data-active:glow-media-sm px-4 data-active:bg-white data-active:text-black"
       >
         All
-        {!isLoading && <CountBadge count={totalCount} className="data-active:text-black/60" />}
+        {isLoading ? null : <CountBadge count={totalCount} className="data-active:text-black/60" />}
       </TabsTrigger>
       <TabsTrigger
         value="movies"
@@ -98,7 +98,7 @@ function FilterTabs({ isLoading, totalCount, movieCount, seriesCount }: FilterTa
       >
         <Film className="mr-1.5 size-4" />
         Movies
-        {!isLoading && <CountBadge count={movieCount} className="text-muted-foreground" />}
+        {isLoading ? null : <CountBadge count={movieCount} className="text-muted-foreground" />}
       </TabsTrigger>
       <TabsTrigger
         value="series"
@@ -106,7 +106,7 @@ function FilterTabs({ isLoading, totalCount, movieCount, seriesCount }: FilterTa
       >
         <Tv className="mr-1.5 size-4" />
         Series
-        {!isLoading && <CountBadge count={seriesCount} className="text-muted-foreground" />}
+        {isLoading ? null : <CountBadge count={seriesCount} className="text-muted-foreground" />}
       </TabsTrigger>
     </TabsList>
   )

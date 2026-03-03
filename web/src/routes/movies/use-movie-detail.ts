@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 
 import {
@@ -16,6 +17,7 @@ import {
   useSlots,
   useUpdateMovie,
 } from '@/hooks'
+import { movieKeys } from '@/hooks/use-movies'
 
 import { createHandlers } from './movie-detail-handlers'
 
@@ -38,12 +40,12 @@ function useSlotData(movieId: number) {
     return map
   }, [enabledSlots])
 
-  const getSlotName = (slotId: number | undefined) => {
+  const getSlotName = useCallback((slotId: number | undefined) => {
     if (!slotId) {
       return null
     }
     return slots?.find((s) => s.id === slotId)?.name ?? null
-  }
+  }, [slots])
 
   return {
     isMultiVersionEnabled, slotStatus, isLoadingSlotStatus,
@@ -62,15 +64,21 @@ export function useMovieDetail() {
   const [expandedFileId, setExpandedFileId] = useState<number | null>(null)
 
   const globalLoading = useGlobalLoading()
+  const queryClient = useQueryClient()
   const { data: movie, isLoading: queryLoading, isError, refetch } = useMovie(movieId)
   const isLoading = queryLoading || globalLoading
-  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedMovieMetadata(movie?.tmdbId ?? 0)
+  const cachedMovie = queryClient.getQueryData<{ tmdbId?: number }>(movieKeys.detail(movieId))
+  const tmdbId = movie?.tmdbId ?? cachedMovie?.tmdbId ?? 0
+  const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedMovieMetadata(tmdbId)
   const { data: qualityProfiles } = useQualityProfiles()
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
   const refreshMutation = useRefreshMovie()
   const slotData = useSlotData(movieId)
-  const qualityProfileName = qualityProfiles?.find((p) => p.id === movie?.qualityProfileId)?.name
+  const qualityProfileName = useMemo(
+    () => qualityProfiles?.find((p) => p.id === movie?.qualityProfileId)?.name,
+    [qualityProfiles, movie?.qualityProfileId],
+  )
 
   const handlers = createHandlers({
     movie, movieId, navigate,

@@ -44,17 +44,17 @@ export function MediaTabs({
         <TabsList>
           <TabsTrigger value="all" className="data-active:glow-media-sm px-4 data-active:bg-white data-active:text-black">
             All
-            {!isLoading && <CountBadge count={totalCount} className="data-active:text-black/60" />}
+            {isLoading ? null : <CountBadge count={totalCount} className="data-active:text-black/60" />}
           </TabsTrigger>
           <TabsTrigger value="movies" className="data-active:glow-movie data-active:bg-white data-active:text-black">
             <Film className="mr-1.5 size-4" />
             Movies
-            {!isLoading && <CountBadge count={movieCount} className="text-muted-foreground" />}
+            {isLoading ? null : <CountBadge count={movieCount} className="text-muted-foreground" />}
           </TabsTrigger>
           <TabsTrigger value="series" className="data-active:glow-tv data-active:bg-white data-active:text-black">
             <Tv className="mr-1.5 size-4" />
             Series
-            {!isLoading && <CountBadge count={episodeCount} className="text-muted-foreground" />}
+            {isLoading ? null : <CountBadge count={episodeCount} className="text-muted-foreground" />}
           </TabsTrigger>
         </TabsList>
         <ViewToggle isMissingView={isMissingView} upgradableTotalCount={upgradableTotalCount} isLoading={isLoading} onViewChange={onViewChange} />

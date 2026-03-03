@@ -2,12 +2,14 @@ import { useState } from 'react'
 
 import { useBrowseDirectory } from '@/hooks'
 
+const RE_WINDOWS_PATH = /^[A-Za-z]:/
+
 const getBreadcrumbs = (path: string) => {
   if (!path) {
     return []
   }
 
-  const isWindows = /^[A-Za-z]:/.test(path)
+  const isWindows = RE_WINDOWS_PATH.test(path)
   const parts = path.split(/[/\\]/).filter(Boolean)
 
   const breadcrumbs: { label: string; path: string }[] = []

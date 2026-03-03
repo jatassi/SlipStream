@@ -1,7 +1,9 @@
+const RE_GO_DURATION = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/
+
 function parseGoDuration(
   duration: string,
 ): { hours: number; minutes: number; seconds: number } | null {
-  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(duration)
+  const match = RE_GO_DURATION.exec(duration)
   if (!match) {
     return null
   }

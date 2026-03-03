@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { Download } from 'lucide-react'
 
@@ -11,11 +11,13 @@ import { TitleWidthContext } from './title-width-context'
 const RELEASE_NAME_KEY = 'downloads-show-release-name'
 
 function useReleaseName() {
-  const [show, setShow] = useState(() => localStorage.getItem(RELEASE_NAME_KEY) === 'true')
+  const [show, setShow] = useState(() => {
+    try { return localStorage.getItem(RELEASE_NAME_KEY) === 'true' } catch { return false }
+  })
   const toggle = useCallback(() => {
     setShow((prev) => {
       const next = !prev
-      localStorage.setItem(RELEASE_NAME_KEY, String(next))
+      try { localStorage.setItem(RELEASE_NAME_KEY, String(next)) } catch { /* storage unavailable */ }
       return next
     })
   }, [])
@@ -24,25 +26,25 @@ function useReleaseName() {
 
 export function DownloadsTable({ items }: { items: QueueItem[] }) {
   const releaseName = useReleaseName()
-  const [widths, setWidths] = useState<Map<string, number>>(new Map())
+  const widthsRef = useRef(new Map<string, number>())
+  const [maxWidth, setMaxWidth] = useState(0)
 
   const registerWidth = useCallback((id: string, width: number) => {
-    setWidths((prev) => {
-      const next = new Map(prev)
-      next.set(id, width)
-      return next
-    })
+    widthsRef.current.set(id, width)
+    const newMax = Math.max(0, ...widthsRef.current.values())
+    setMaxWidth((prev) => (prev === newMax ? prev : newMax))
   }, [])
 
   const unregisterWidth = useCallback((id: string) => {
-    setWidths((prev) => {
-      const next = new Map(prev)
-      next.delete(id)
-      return next
-    })
+    widthsRef.current.delete(id)
+    const newMax = widthsRef.current.size > 0 ? Math.max(0, ...widthsRef.current.values()) : 0
+    setMaxWidth((prev) => (prev === newMax ? prev : newMax))
   }, [])
 
-  const maxWidth = Math.max(0, ...widths.values())
+  const contextValue = useMemo(
+    () => ({ registerWidth, unregisterWidth, maxWidth }),
+    [registerWidth, unregisterWidth, maxWidth],
+  )
 
   if (items.length === 0) {
     return (
@@ -56,7 +58,7 @@ export function DownloadsTable({ items }: { items: QueueItem[] }) {
   }
 
   return (
-    <TitleWidthContext.Provider value={{ registerWidth, unregisterWidth, maxWidth }}>
+    <TitleWidthContext.Provider value={contextValue}>
       <div className="divide-border divide-y">
         {items.map((item) => (
           <DownloadRow

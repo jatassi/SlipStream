@@ -32,12 +32,16 @@ function buildMatchInfo(req: Request, mediaId: number | undefined): MatchInfo {
   }
 }
 
+const RE_SEPARATORS = /[._-]/g
+const RE_NON_ALNUM = /[^a-z0-9\s]/g
+const RE_WHITESPACE = /\s+/g
+
 function normalizeTitle(title: string): string {
   return title
     .toLowerCase()
-    .replaceAll(/[._-]/g, ' ')
-    .replaceAll(/[^a-z0-9\s]/g, '')
-    .replaceAll(/\s+/g, ' ')
+    .replaceAll(RE_SEPARATORS, ' ')
+    .replaceAll(RE_NON_ALNUM, '')
+    .replaceAll(RE_WHITESPACE, ' ')
     .trim()
 }
 
