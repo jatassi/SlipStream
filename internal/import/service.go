@@ -364,20 +364,17 @@ func (s *Service) worker(ctx context.Context) {
 // QueueImport queues a file for import.
 func (s *Service) QueueImport(job ImportJob) error {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.processing[job.SourcePath] {
-		s.mu.Unlock()
 		return ErrAlreadyImporting
 	}
-	s.processing[job.SourcePath] = true
-	s.mu.Unlock()
 
 	select {
 	case s.importQueue <- job:
+		s.processing[job.SourcePath] = true
 		return nil
 	default:
-		s.mu.Lock()
-		delete(s.processing, job.SourcePath)
-		s.mu.Unlock()
 		return errors.New("import queue is full")
 	}
 }

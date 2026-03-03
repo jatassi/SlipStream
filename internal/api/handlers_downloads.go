@@ -43,7 +43,7 @@ func (s *Server) listDownloadClients(c echo.Context) error {
 
 	clients, err := s.downloaderService.List(ctx)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	for _, client := range clients {
@@ -58,12 +58,12 @@ func (s *Server) addDownloadClient(c echo.Context) error {
 
 	var input downloader.CreateClientInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	client, err := s.downloaderService.Create(ctx, &input)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactDownloadClient(client)
@@ -73,17 +73,17 @@ func (s *Server) addDownloadClient(c echo.Context) error {
 func (s *Server) getDownloadClient(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := parseIDParam(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return err
 	}
 
 	client, err := s.downloaderService.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "client not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactDownloadClient(client)
@@ -93,14 +93,14 @@ func (s *Server) getDownloadClient(c echo.Context) error {
 func (s *Server) updateDownloadClient(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := parseIDParam(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return err
 	}
 
 	var input downloader.UpdateClientInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	s.restoreRedactedCredentials(ctx, id, &input)
@@ -108,9 +108,9 @@ func (s *Server) updateDownloadClient(c echo.Context) error {
 	client, err := s.downloaderService.Update(ctx, id, &input)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "client not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactDownloadClient(client)
@@ -120,13 +120,13 @@ func (s *Server) updateDownloadClient(c echo.Context) error {
 func (s *Server) deleteDownloadClient(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := parseIDParam(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return err
 	}
 
 	if err := s.downloaderService.Delete(ctx, id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -135,17 +135,17 @@ func (s *Server) deleteDownloadClient(c echo.Context) error {
 func (s *Server) testDownloadClient(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := parseIDParam(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return err
 	}
 
 	result, err := s.downloaderService.Test(ctx, id)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "client not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "client not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -156,12 +156,12 @@ func (s *Server) testNewDownloadClient(c echo.Context) error {
 
 	var input downloader.CreateClientInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	result, err := s.downloaderService.TestConfig(ctx, &input)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -173,7 +173,7 @@ func (s *Server) getQueue(c echo.Context) error {
 
 	resp, err := s.downloaderService.GetQueue(ctx)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger import check asynchronously - provides faster import triggering than scheduled task
@@ -195,11 +195,11 @@ func (s *Server) pauseDownload(c echo.Context) error {
 		ClientID int64 `json:"clientId"`
 	}
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if err := s.downloaderService.PauseDownload(ctx, body.ClientID, torrentID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
@@ -218,11 +218,11 @@ func (s *Server) resumeDownload(c echo.Context) error {
 		ClientID int64 `json:"clientId"`
 	}
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if err := s.downloaderService.ResumeDownload(ctx, body.ClientID, torrentID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger fast polling and immediate broadcast
@@ -241,11 +241,11 @@ func (s *Server) fastForwardDownload(c echo.Context) error {
 		ClientID int64 `json:"clientId"`
 	}
 	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if err := s.downloaderService.FastForwardMockDownload(ctx, body.ClientID, downloadID); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
@@ -262,13 +262,13 @@ func (s *Server) removeFromQueue(c echo.Context) error {
 
 	clientID, err := strconv.ParseInt(c.QueryParam("clientId"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid clientId"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid clientId")
 	}
 
 	deleteFiles := c.QueryParam("deleteFiles") == queryTrue
 
 	if err := s.downloaderService.RemoveDownload(ctx, clientID, torrentID, deleteFiles); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
@@ -297,7 +297,7 @@ func (s *Server) getIndexerHistory(c echo.Context) error {
 
 	grabHistory, err := s.grabService.GetGrabHistory(c.Request().Context(), limit, offset)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, grabHistory)

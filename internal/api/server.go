@@ -546,7 +546,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	s.tvService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
 
 	serverDebugLog("Initializing portal auth service...")
-	authSvc, err := auth.NewService(queries, cfg.Portal.JWTSecret)
+	authSvc, err := auth.NewService(queries, s.logger, cfg.Portal.JWTSecret)
 	if err != nil {
 		serverDebugLog(fmt.Sprintf("Failed to initialize portal auth service: %v", err))
 		logger.Error().Err(err).Msg("Failed to initialize portal auth service")

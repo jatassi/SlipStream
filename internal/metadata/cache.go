@@ -11,6 +11,7 @@ type Cache struct {
 	items    map[string]cacheItem
 	ttl      time.Duration
 	maxItems int
+	done     chan struct{}
 }
 
 type cacheItem struct {
@@ -45,12 +46,18 @@ func NewCache(cfg CacheConfig) *Cache {
 		items:    make(map[string]cacheItem),
 		ttl:      cfg.TTL,
 		maxItems: cfg.MaxItems,
+		done:     make(chan struct{}),
 	}
 
 	// Start background cleanup goroutine
 	go c.cleanup()
 
 	return c
+}
+
+// Close stops the background cleanup goroutine.
+func (c *Cache) Close() {
+	close(c.done)
 }
 
 // Get retrieves an item from the cache.
@@ -174,15 +181,20 @@ func (c *Cache) cleanup() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		for key, item := range c.items {
-			if now.After(item.expiresAt) {
-				delete(c.items, key)
+	for {
+		select {
+		case <-ticker.C:
+			c.mu.Lock()
+			now := time.Now()
+			for key, item := range c.items {
+				if now.After(item.expiresAt) {
+					delete(c.items, key)
+				}
 			}
+			c.mu.Unlock()
+		case <-c.done:
+			return
 		}
-		c.mu.Unlock()
 	}
 }
 

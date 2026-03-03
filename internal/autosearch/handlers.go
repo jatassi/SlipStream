@@ -53,10 +53,9 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 // SearchMovie triggers automatic search for a movie.
 // POST /api/v1/autosearch/movie/:id
 func (h *Handlers) SearchMovie(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie id")
+		return err
 	}
 
 	result, err := h.service.SearchMovie(c.Request().Context(), id, SearchSourceManual)
@@ -76,16 +75,14 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 // SearchMovieSlot triggers automatic search for a specific slot of a movie.
 // POST /api/v1/autosearch/movie/:id/slot/:slotId
 func (h *Handlers) SearchMovieSlot(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie id")
+		return err
 	}
 
-	slotIDStr := c.Param("slotId")
-	slotID, err := strconv.ParseInt(slotIDStr, 10, 64)
+	slotID, err := parseIDParam(c, "slotId")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid slot id")
+		return err
 	}
 
 	result, err := h.service.SearchMovieSlot(c.Request().Context(), id, slotID, SearchSourceManual)
@@ -105,10 +102,9 @@ func (h *Handlers) SearchMovieSlot(c echo.Context) error {
 // SearchEpisode triggers automatic search for an episode.
 // POST /api/v1/autosearch/episode/:id
 func (h *Handlers) SearchEpisode(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid episode id")
+		return err
 	}
 
 	result, err := h.service.SearchEpisode(c.Request().Context(), id, SearchSourceManual)
@@ -128,16 +124,14 @@ func (h *Handlers) SearchEpisode(c echo.Context) error {
 // SearchEpisodeSlot triggers automatic search for a specific slot of an episode.
 // POST /api/v1/autosearch/episode/:id/slot/:slotId
 func (h *Handlers) SearchEpisodeSlot(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid episode id")
+		return err
 	}
 
-	slotIDStr := c.Param("slotId")
-	slotID, err := strconv.ParseInt(slotIDStr, 10, 64)
+	slotID, err := parseIDParam(c, "slotId")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid slot id")
+		return err
 	}
 
 	result, err := h.service.SearchEpisodeSlot(c.Request().Context(), id, slotID, SearchSourceManual)
@@ -157,10 +151,9 @@ func (h *Handlers) SearchEpisodeSlot(c echo.Context) error {
 // SearchSeason triggers automatic search for all missing episodes in a season.
 // POST /api/v1/autosearch/season/:seriesId/:seasonNumber
 func (h *Handlers) SearchSeason(c echo.Context) error {
-	seriesIDStr := c.Param("seriesId")
-	seriesID, err := strconv.ParseInt(seriesIDStr, 10, 64)
+	seriesID, err := parseIDParam(c, "seriesId")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid series id")
+		return err
 	}
 
 	seasonStr := c.Param("seasonNumber")
@@ -183,10 +176,9 @@ func (h *Handlers) SearchSeason(c echo.Context) error {
 // SearchSeries triggers automatic search for all missing episodes in a series.
 // POST /api/v1/autosearch/series/:id
 func (h *Handlers) SearchSeries(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid series id")
+		return err
 	}
 
 	result, err := h.service.SearchSeries(c.Request().Context(), id, SearchSourceManual)
@@ -214,10 +206,9 @@ func (h *Handlers) GetStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid media type")
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+		return err
 	}
 
 	status := SearchStatus{
@@ -356,10 +347,9 @@ func (h *Handlers) SearchAllUpgradableSeries(c echo.Context) error {
 // RetryMovie resets a failed movie back to missing/upgradable and optionally triggers a search.
 // POST /api/v1/autosearch/retry/movie/:id
 func (h *Handlers) RetryMovie(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie id")
+		return err
 	}
 
 	result, err := h.service.RetryMovie(c.Request().Context(), id)
@@ -376,10 +366,9 @@ func (h *Handlers) RetryMovie(c echo.Context) error {
 // RetryEpisode resets a failed episode back to missing/upgradable and optionally triggers a search.
 // POST /api/v1/autosearch/retry/episode/:id
 func (h *Handlers) RetryEpisode(c echo.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := parseIDParam(c, "id")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid episode id")
+		return err
 	}
 
 	result, err := h.service.RetryEpisode(c.Request().Context(), id)
@@ -391,4 +380,12 @@ func (h *Handlers) RetryEpisode(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, result)
+}
+
+func parseIDParam(c echo.Context, name string) (int64, error) {
+	id, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil {
+		return 0, echo.NewHTTPError(http.StatusBadRequest, "invalid "+name)
+	}
+	return id, nil
 }

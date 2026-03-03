@@ -153,12 +153,11 @@ func (m *Manager) CompleteActivity(id, subtitle string) {
 
 	// Remove from active tracking after a short delay
 	// (frontend will handle display timeout)
-	go func() {
-		time.Sleep(5 * time.Second)
+	time.AfterFunc(5*time.Second, func() {
 		m.mu.Lock()
 		delete(m.activities, id)
 		m.mu.Unlock()
-	}()
+	})
 
 	m.logger.Debug().
 		Str("id", id).
@@ -185,12 +184,11 @@ func (m *Manager) FailActivity(id, errorMsg string) {
 	m.broadcast(EventTypeError, activity)
 
 	// Remove from active tracking after a delay
-	go func() {
-		time.Sleep(10 * time.Second)
+	time.AfterFunc(10*time.Second, func() {
 		m.mu.Lock()
 		delete(m.activities, id)
 		m.mu.Unlock()
-	}()
+	})
 
 	m.logger.Debug().
 		Str("id", id).

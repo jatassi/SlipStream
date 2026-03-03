@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/portal"
 )
@@ -29,13 +30,14 @@ var (
 
 type Service struct {
 	queries   *sqlc.Queries
+	logger    *zerolog.Logger
 	jwtSecret []byte
 }
 
 //nolint:gosec // variable name, not a credential
 const jwtSecretSettingKey = "portal_jwt_secret"
 
-func NewService(queries *sqlc.Queries, jwtSecret string) (*Service, error) {
+func NewService(queries *sqlc.Queries, logger *zerolog.Logger, jwtSecret string) (*Service, error) {
 	secret := []byte(jwtSecret)
 
 	if len(secret) == 0 {
@@ -48,6 +50,7 @@ func NewService(queries *sqlc.Queries, jwtSecret string) (*Service, error) {
 
 	return &Service{
 		queries:   queries,
+		logger:    logger,
 		jwtSecret: secret,
 	}, nil
 }
@@ -93,25 +96,30 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	ctx := context.Background()
 	setting, err := queries.GetSetting(ctx, jwtSecretSettingKey)
 	if err == nil && setting.Value != "" {
-		secret, err := hex.DecodeString(setting.Value)
-		if err == nil {
-			s.jwtSecret = secret
+		secret, decErr := hex.DecodeString(setting.Value)
+		if decErr != nil {
+			s.logger.Warn().Err(decErr).Msg("failed to decode JWT secret from database")
 			return
 		}
+		s.jwtSecret = secret
+		return
 	}
 	// If no secret in database, generate and store one
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && setting.Value == "") {
 		secret := make([]byte, 32)
 		if _, err := rand.Read(secret); err != nil {
+			s.logger.Error().Err(err).Msg("failed to generate JWT secret")
 			return
 		}
 		_, err = queries.SetSetting(ctx, sqlc.SetSettingParams{
 			Key:   jwtSecretSettingKey,
 			Value: hex.EncodeToString(secret),
 		})
-		if err == nil {
-			s.jwtSecret = secret
+		if err != nil {
+			s.logger.Error().Err(err).Msg("failed to persist JWT secret")
+			return
 		}
+		s.jwtSecret = secret
 	}
 }
 

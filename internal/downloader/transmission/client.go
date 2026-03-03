@@ -72,13 +72,13 @@ func (c *Client) Protocol() types.Protocol {
 
 // Test verifies the client connection.
 func (c *Client) Test(ctx context.Context) error {
-	_, err := c.call("session-get", nil)
+	_, err := c.call(ctx, "session-get", nil)
 	return err
 }
 
 // GetSessionInfo returns the session-get arguments from the Transmission RPC.
 func (c *Client) GetSessionInfo() (map[string]interface{}, error) {
-	resp, err := c.call("session-get", nil)
+	resp, err := c.call(context.Background(), "session-get", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (c *Client) Add(ctx context.Context, opts *types.AddOptions) (string, error
 		args["paused"] = true
 	}
 
-	resp, err := c.call("torrent-add", args)
+	resp, err := c.call(ctx, "torrent-add", args)
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +168,7 @@ func (c *Client) List(ctx context.Context) ([]types.DownloadItem, error) {
 		},
 	}
 
-	resp, err := c.call("torrent-get", args)
+	resp, err := c.call(ctx, "torrent-get", args)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (c *Client) Get(ctx context.Context, id string) (*types.DownloadItem, error
 		},
 	}
 
-	resp, err := c.call("torrent-get", args)
+	resp, err := c.call(ctx, "torrent-get", args)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func (c *Client) Remove(ctx context.Context, id string, deleteFiles bool) error 
 		"delete-local-data": deleteFiles,
 	}
 
-	_, err := c.call("torrent-remove", args)
+	_, err := c.call(ctx, "torrent-remove", args)
 	return err
 }
 
@@ -239,7 +239,7 @@ func (c *Client) Pause(ctx context.Context, id string) error {
 		"ids": []string{id},
 	}
 
-	_, err := c.call("torrent-stop", args)
+	_, err := c.call(ctx, "torrent-stop", args)
 	return err
 }
 
@@ -249,13 +249,13 @@ func (c *Client) Resume(ctx context.Context, id string) error {
 		"ids": []string{id},
 	}
 
-	_, err := c.call("torrent-start", args)
+	_, err := c.call(ctx, "torrent-start", args)
 	return err
 }
 
 // GetDownloadDir returns the default download directory from Transmission.
 func (c *Client) GetDownloadDir(ctx context.Context) (string, error) {
-	resp, err := c.call("session-get", nil)
+	resp, err := c.call(ctx, "session-get", nil)
 	if err != nil {
 		return "", err
 	}
@@ -283,7 +283,7 @@ func (c *Client) SetSeedLimits(ctx context.Context, id string, ratio float64, se
 		args["seedIdleMode"] = 1 // Use torrent-specific limit
 	}
 
-	_, err := c.call("torrent-set", args)
+	_, err := c.call(ctx, "torrent-set", args)
 	return err
 }
 
@@ -301,7 +301,7 @@ func (c *Client) GetTorrentInfo(ctx context.Context, id string) (*types.TorrentI
 		},
 	}
 
-	resp, err := c.call("torrent-get", args)
+	resp, err := c.call(ctx, "torrent-get", args)
 	if err != nil {
 		return nil, err
 	}
@@ -403,8 +403,8 @@ type rpcResponse struct {
 	Arguments map[string]interface{} `json:"arguments,omitempty"`
 }
 
-func (c *Client) call(method string, args map[string]interface{}) (*rpcResponse, error) {
-	req, err := c.buildRPCRequest(method, args)
+func (c *Client) call(ctx context.Context, method string, args map[string]interface{}) (*rpcResponse, error) {
+	req, err := c.buildRPCRequest(ctx, method, args)
 	if err != nil {
 		return nil, err
 	}
@@ -416,13 +416,13 @@ func (c *Client) call(method string, args map[string]interface{}) (*rpcResponse,
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusConflict {
-		return c.handleSessionConflict(resp, method, args)
+		return c.handleSessionConflict(ctx, resp, method, args)
 	}
 
 	return c.parseRPCResponse(resp)
 }
 
-func (c *Client) buildRPCRequest(method string, args map[string]interface{}) (*http.Request, error) {
+func (c *Client) buildRPCRequest(ctx context.Context, method string, args map[string]interface{}) (*http.Request, error) {
 	scheme := "http"
 	if c.config.UseSSL {
 		scheme = "https"
@@ -434,7 +434,7 @@ func (c *Client) buildRPCRequest(method string, args map[string]interface{}) (*h
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -451,12 +451,12 @@ func (c *Client) buildRPCRequest(method string, args map[string]interface{}) (*h
 	return req, nil
 }
 
-func (c *Client) handleSessionConflict(resp *http.Response, method string, args map[string]interface{}) (*rpcResponse, error) {
+func (c *Client) handleSessionConflict(ctx context.Context, resp *http.Response, method string, args map[string]interface{}) (*rpcResponse, error) {
 	c.sessionID = resp.Header.Get(sessionIDHeader)
 	if c.sessionID == "" {
 		return nil, fmt.Errorf("received 409 but no session ID in response")
 	}
-	return c.call(method, args)
+	return c.call(ctx, method, args)
 }
 
 func (c *Client) parseRPCResponse(resp *http.Response) (*rpcResponse, error) {

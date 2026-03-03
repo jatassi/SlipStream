@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/slipstream/slipstream/internal/downloader/types"
 )
 
@@ -20,6 +22,7 @@ type Client struct {
 	username string
 	password string
 	client   *http.Client
+	logger   *zerolog.Logger
 }
 
 func NewFromConfig(cfg *types.ClientConfig) *Client {
@@ -28,6 +31,7 @@ func NewFromConfig(cfg *types.ClientConfig) *Client {
 		scheme = "https"
 	}
 	baseURL := fmt.Sprintf("%s://%s:%d%s/api", scheme, cfg.Host, cfg.Port, cfg.URLBase)
+	nop := zerolog.Nop()
 	return &Client{
 		baseURL:  baseURL,
 		username: cfg.Username,
@@ -35,6 +39,7 @@ func NewFromConfig(cfg *types.ClientConfig) *Client {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		logger: &nop,
 	}
 }
 
@@ -127,6 +132,7 @@ func (c *Client) List(ctx context.Context) ([]types.DownloadItem, error) {
 	for _, t := range result.Torrents {
 		item, err := c.parseTorrentArray(t)
 		if err != nil {
+			c.logger.Warn().Err(err).Msg("failed to parse torrent")
 			continue
 		}
 		items = append(items, item)

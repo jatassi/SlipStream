@@ -203,22 +203,22 @@ func (c *Client) Get(ctx context.Context, id string) (*types.DownloadItem, error
 	return nil, types.ErrNotFound
 }
 
-func (c *Client) Remove(_ context.Context, id string, _ bool) error {
-	_, err := c.call(context.Background(), "d.erase", []xmlRPCValue{
+func (c *Client) Remove(ctx context.Context, id string, _ bool) error {
+	_, err := c.call(ctx, "d.erase", []xmlRPCValue{
 		{Type: "string", Value: strings.ToUpper(id)},
 	})
 	return err
 }
 
-func (c *Client) Pause(_ context.Context, id string) error {
-	_, err := c.call(context.Background(), "d.stop", []xmlRPCValue{
+func (c *Client) Pause(ctx context.Context, id string) error {
+	_, err := c.call(ctx, "d.stop", []xmlRPCValue{
 		{Type: "string", Value: strings.ToUpper(id)},
 	})
 	return err
 }
 
-func (c *Client) Resume(_ context.Context, id string) error {
-	_, err := c.call(context.Background(), "d.start", []xmlRPCValue{
+func (c *Client) Resume(ctx context.Context, id string) error {
+	_, err := c.call(ctx, "d.start", []xmlRPCValue{
 		{Type: "string", Value: strings.ToUpper(id)},
 	})
 	return err

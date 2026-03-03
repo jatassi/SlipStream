@@ -132,20 +132,35 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
-			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
-				}
-			}
-			h.mu.RUnlock()
+			h.broadcastMessage(message)
 
 		case incoming := <-h.incoming:
 			h.handleIncoming(incoming)
 		}
+	}
+}
+
+// broadcastMessage sends a message to all clients, removing any that can't keep up.
+func (h *Hub) broadcastMessage(message []byte) {
+	var stale []*Client
+	h.mu.RLock()
+	for client := range h.clients {
+		select {
+		case client.send <- message:
+		default:
+			stale = append(stale, client)
+		}
+	}
+	h.mu.RUnlock()
+	if len(stale) > 0 {
+		h.mu.Lock()
+		for _, client := range stale {
+			if _, ok := h.clients[client]; ok {
+				close(client.send)
+				delete(h.clients, client)
+			}
+		}
+		h.mu.Unlock()
 	}
 }
 

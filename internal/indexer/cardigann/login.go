@@ -115,7 +115,10 @@ func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, setting
 
 	// Add custom headers
 	for key, val := range login.Headers {
-		evaluated, _ := engine.Evaluate(string(val), tmplCtx)
+		evaluated, err := engine.Evaluate(string(val), tmplCtx)
+		if err != nil {
+			h.logger.Warn().Err(err).Str("key", key).Msg("failed to evaluate template for header")
+		}
 		req.Header.Set(key, evaluated)
 	}
 
@@ -491,7 +494,10 @@ func (h *LoginHandler) buildQueryParams(engine *TemplateEngine, tmplCtx *Templat
 
 func (h *LoginHandler) applyTemplatedHeaders(req *http.Request, engine *TemplateEngine, tmplCtx *TemplateContext, headers map[string]StringOrArray) {
 	for key, val := range headers {
-		evaluated, _ := engine.Evaluate(string(val), tmplCtx)
+		evaluated, err := engine.Evaluate(string(val), tmplCtx)
+		if err != nil {
+			h.logger.Warn().Err(err).Str("key", key).Msg("failed to evaluate template for header")
+		}
 		req.Header.Set(key, evaluated)
 	}
 }
