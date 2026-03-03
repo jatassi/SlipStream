@@ -92,6 +92,16 @@ func (a *portalMediaProvisionerAdapter) EnsureMovieInLibrary(ctx context.Context
 	}
 
 	a.logger.Info().Int64("tmdbID", input.TmdbID).Int64("movieID", movie.ID).Str("title", input.Title).Msg("created movie in library from request")
+
+	// Fetch metadata including artwork and details
+	if a.libraryManager != nil {
+		if _, err := a.libraryManager.RefreshMovieMetadata(ctx, movie.ID); err != nil {
+			a.logger.Warn().Err(err).Int64("movieID", movie.ID).Msg("failed to refresh movie metadata, movie created without full details")
+		} else {
+			a.logger.Info().Int64("movieID", movie.ID).Msg("fetched movie metadata and artwork")
+		}
+	}
+
 	return movie.ID, nil
 }
 
