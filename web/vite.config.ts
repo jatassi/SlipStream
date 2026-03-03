@@ -38,8 +38,8 @@ export default defineConfig({
           }
 
           const vendorChunks: [string, string[]][] = [
-            ["vendor-react", ["/react-dom/", "/react/"]],
-            ["vendor-router", ["@tanstack/react-router"]],
+            ["vendor-react", ["/react-dom/", "/react/", "use-sync-external-store", "@tanstack/react-store"]],
+            ["vendor-router", ["@tanstack/react-router", "@tanstack/router-core", "@tanstack/history"]],
             ["vendor-query", ["@tanstack/react-query"]],
             ["vendor-ui", ["@base-ui", "lucide-react", "cmdk", "sonner", "vaul", "react-day-picker"]],
             ["vendor-forms", ["react-hook-form", "@hookform", "/zod/"]],
