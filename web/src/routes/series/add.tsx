@@ -58,7 +58,7 @@ function AddSeriesBody({ state }: { state: PageState }) {
     return null
   }
 
-  return <SeriesConfigure state={state} />
+  return <SeriesConfigure state={{ ...state, selectedSeries: state.selectedSeries }} />
 }
 
 function SeriesConfigure({ state }: { state: PageState & { selectedSeries: NonNullable<PageState['selectedSeries']> } }) {

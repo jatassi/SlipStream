@@ -16,6 +16,8 @@ import {
 } from '@/hooks'
 import type {
   AddSeriesInput,
+  SeriesMonitorOnAdd,
+  SeriesSearchOnAdd,
   SeriesSearchResult,
 } from '@/types'
 
@@ -202,8 +204,8 @@ function buildAddInput(series: SeriesSearchResult, data: AddSeriesFormData): Add
     seasonFolder: data.seasonFolder,
     posterUrl: series.posterUrl,
     backdropUrl: series.backdropUrl,
-    searchOnAdd: data.searchOnAdd,
-    monitorOnAdd: data.monitorOnAdd,
+    searchOnAdd: data.searchOnAdd as SeriesSearchOnAdd,
+    monitorOnAdd: data.monitorOnAdd as SeriesMonitorOnAdd,
     includeSpecials: data.includeSpecials,
   }
 }
