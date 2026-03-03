@@ -86,32 +86,32 @@ function useSeriesMutations(seriesId: number, refetch: () => void) {
       await assign.mutateAsync({ episodeId, slotId, data: { fileId } })
       refetch()
       toast.success('File assigned to slot')
-    }, 'Failed to assign file to slot'),
+    }),
     handleToggleMonitored: async (series: { id: number; monitored: boolean } | undefined, newMonitored?: boolean) => {
       if (!series) {return}
       const target = newMonitored ?? !series.monitored
       await withToast(async () => {
         await update.mutateAsync({ id: series.id, data: { monitored: target } })
         toast.success(target ? 'Series monitored' : 'Series unmonitored')
-      }, 'Failed to update series')()
+      })()
     },
     handleRefresh: withToast(async () => {
       await refresh.mutateAsync(seriesId)
       toast.success('Metadata refreshed')
-    }, 'Failed to refresh metadata'),
+    }),
     handleDelete: withToast(async () => {
       await remove.mutateAsync({ id: seriesId })
       toast.success('Series deleted')
       void navigate({ to: '/series' })
-    }, 'Failed to delete series'),
+    }),
     handleSeasonMonitoredChange: withToast(async (seasonNumber: number, monitored: boolean) => {
       await seasonMonitor.mutateAsync({ seriesId, seasonNumber, monitored })
       toast.success(`Season ${seasonNumber} ${monitored ? 'monitored' : 'unmonitored'}`)
-    }, 'Failed to update season'),
+    }),
     handleEpisodeMonitoredChange: withToast(async (episode: Episode, monitored: boolean) => {
       await episodeMonitor.mutateAsync({ seriesId, episodeId: episode.id, monitored })
       toast.success(`${formatEpisodeCode(episode)} ${monitored ? 'monitored' : 'unmonitored'}`)
-    }, 'Failed to update episode'),
+    }),
   }
 }
 

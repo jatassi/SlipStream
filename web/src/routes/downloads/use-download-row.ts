@@ -44,14 +44,9 @@ function formatProgressText(downloadedSize: number, totalSize: number): string {
 async function runMutation(
   mutationFn: () => Promise<unknown>,
   successMsg: string,
-  errorMsg: string,
 ) {
-  try {
-    await mutationFn()
-    toast.success(successMsg)
-  } catch {
-    toast.error(errorMsg)
-  }
+  await mutationFn()
+  toast.success(successMsg)
 }
 
 function getMovieId(item: QueueItem): number {
@@ -90,14 +85,13 @@ export function useDownloadRow(item: QueueItem) {
     tvdbId,
     titleSuffix: getTitleSuffix(item, movie?.year),
     progressText: formatProgressText(item.downloadedSize, item.size),
-    handlePause: () => runMutation(() => pauseMutation.mutateAsync(clientItem), 'Download paused', 'Failed to pause download'),
-    handleResume: () => runMutation(() => resumeMutation.mutateAsync(clientItem), 'Download resumed', 'Failed to resume download'),
-    handleFastForward: () => runMutation(() => fastForwardMutation.mutateAsync(clientItem), 'Download completed', 'Failed to fast forward download'),
+    handlePause: () => runMutation(() => pauseMutation.mutateAsync(clientItem), 'Download paused'),
+    handleResume: () => runMutation(() => resumeMutation.mutateAsync(clientItem), 'Download resumed'),
+    handleFastForward: () => runMutation(() => fastForwardMutation.mutateAsync(clientItem), 'Download completed'),
     handleRemove: (deleteFiles: boolean) =>
       runMutation(
         () => removeMutation.mutateAsync({ ...clientItem, deleteFiles }),
         deleteFiles ? 'Download removed with files' : 'Download removed',
-        'Failed to remove download',
       ),
     pauseIsPending: pauseMutation.isPending,
     resumeIsPending: resumeMutation.isPending,

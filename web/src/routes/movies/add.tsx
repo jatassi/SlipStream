@@ -4,10 +4,13 @@ import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/layout/page-header'
+import { AddMediaConfigure, MediaPreview } from '@/components/media/add-media-configure'
+import { ToggleField } from '@/components/media/media-configure-fields'
 import { Button } from '@/components/ui/button'
 
-import { AddMovieConfigure } from './add-movie-configure'
 import { useAddMoviePage } from './use-add-movie'
+
+type PageState = ReturnType<typeof useAddMoviePage>
 
 export function AddMoviePage() {
   const state = useAddMoviePage()
@@ -35,27 +38,58 @@ export function AddMoviePage() {
           </Button>
         }
       />
-
-      {state.loadingMetadata && !state.selectedMovie ? <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-muted-foreground size-8 animate-spin" />
-        </div> : null}
-
-      {state.selectedMovie ? <AddMovieConfigure
-          selectedMovie={state.selectedMovie}
-          rootFolderId={state.rootFolderId}
-          setRootFolderId={state.setRootFolderId}
-          rootFolders={state.rootFolders}
-          qualityProfileId={state.qualityProfileId}
-          setQualityProfileId={state.setQualityProfileId}
-          qualityProfiles={state.qualityProfiles}
-          monitored={state.monitored}
-          setMonitored={state.setMonitored}
-          searchOnAdd={state.searchOnAdd}
-          setSearchOnAdd={state.setSearchOnAdd}
-          isPending={state.isPending}
-          handleBack={state.handleBack}
-          handleAdd={state.handleAdd}
-        /> : null}
+      <AddMovieBody state={state} />
     </div>
+  )
+}
+
+function AddMovieBody({ state }: { state: PageState }) {
+  if (state.loadingMetadata && !state.selectedMovie) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (!state.selectedMovie) {
+    return null
+  }
+
+  return (
+    <AddMediaConfigure
+      preview={
+        <MediaPreview
+          title={state.selectedMovie.title}
+          year={state.selectedMovie.year}
+          overview={state.selectedMovie.overview}
+          posterUrl={state.selectedMovie.posterUrl}
+          type="movie"
+        />
+      }
+      rootFolders={state.rootFolders}
+      qualityProfiles={state.qualityProfiles}
+      rootFolderId={state.form.watch('rootFolderId')}
+      qualityProfileId={state.form.watch('qualityProfileId')}
+      onFolderChange={(v) => state.form.setValue('rootFolderId', v)}
+      onProfileChange={(v) => state.form.setValue('qualityProfileId', v)}
+      isPending={state.isPending}
+      onBack={state.handleBack}
+      onAdd={state.handleAdd}
+      addLabel="Add Movie"
+    >
+      <ToggleField
+        label="Monitored"
+        description="Automatically search for and download releases"
+        checked={state.form.watch('monitored')}
+        onChange={(v) => state.form.setValue('monitored', v)}
+      />
+      <ToggleField
+        label="Search on Add"
+        description="Start searching for releases immediately"
+        checked={state.form.watch('searchOnAdd')}
+        onChange={(v) => state.form.setValue('searchOnAdd', v)}
+      />
+    </AddMediaConfigure>
   )
 }

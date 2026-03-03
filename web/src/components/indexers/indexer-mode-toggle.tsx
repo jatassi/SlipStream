@@ -21,7 +21,7 @@ export function IndexerModeToggle({ onModeChange }: IndexerModeToggleProps) {
     await setModeMutation.mutateAsync({ mode })
     toast.success(`Switched to ${mode === 'prowlarr' ? 'Prowlarr' : 'SlipStream'} mode`)
     onModeChange?.(mode)
-  }, 'Failed to change indexer mode')
+  })
 
   if (isLoading) {
     return <LoadingCard />

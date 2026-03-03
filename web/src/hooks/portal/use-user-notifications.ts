@@ -5,7 +5,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateUserNotificationInput } from '@/types'
 
 const baseKeys = createQueryKeys('userNotifications')
-const userNotificationKeys = {
+export const userNotificationKeys = {
   ...baseKeys,
   schema: () => [...baseKeys.all, 'schema'] as const,
 }

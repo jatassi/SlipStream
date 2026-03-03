@@ -10,7 +10,7 @@ import type { CreateRequestInput, PortalDownload, QueueItem, Request, RequestLis
 const baseKeys = createQueryKeys('requests')
 export const requestKeys = {
   ...baseKeys,
-  list: (filters?: RequestListFilters) => [...baseKeys.lists(), filters] as const,
+  list: (filters?: RequestListFilters) => [...baseKeys.list(), filters] as const,
 }
 
 export function useRequests(filters?: RequestListFilters) {
@@ -78,7 +78,7 @@ export function useWatchRequest() {
     mutationFn: (id: number) => portalRequestsApi.watch(id),
     onSuccess: (_, id) => {
       void queryClient.invalidateQueries({ queryKey: requestKeys.detail(id) })
-      void queryClient.invalidateQueries({ queryKey: requestKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: requestKeys.list() })
     },
   })
 }
@@ -90,7 +90,7 @@ export function useUnwatchRequest() {
     mutationFn: (id: number) => portalRequestsApi.unwatch(id),
     onSuccess: (_, id) => {
       void queryClient.invalidateQueries({ queryKey: requestKeys.detail(id) })
-      void queryClient.invalidateQueries({ queryKey: requestKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: requestKeys.list() })
     },
   })
 }

@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import {
   useAddFlowPreferences,
@@ -13,10 +16,19 @@ import {
 } from '@/hooks'
 import type {
   AddSeriesInput,
-  SeriesMonitorOnAdd,
-  SeriesSearchOnAdd,
   SeriesSearchResult,
 } from '@/types'
+
+const addSeriesSchema = z.object({
+  rootFolderId: z.string().min(1),
+  qualityProfileId: z.string().min(1),
+  monitorOnAdd: z.string(),
+  searchOnAdd: z.string(),
+  seasonFolder: z.boolean(),
+  includeSpecials: z.boolean(),
+})
+
+type AddSeriesFormData = z.infer<typeof addSeriesSchema>
 
 export function useAddSeriesPage() {
   const nav = useNavigation()
@@ -33,7 +45,7 @@ export function useAddSeriesPage() {
     ...nav,
     ...selected,
     ...queries,
-    ...form,
+    form,
     ...handlers,
   }
 }
@@ -100,21 +112,17 @@ function useQueries() {
 type Queries = ReturnType<typeof useQueries>
 
 function useFormState() {
-  const [rootFolderId, setRootFolderId] = useState<string>('')
-  const [qualityProfileId, setQualityProfileId] = useState<string>('')
-  const [seasonFolder, setSeasonFolder] = useState(true)
-  const [monitorOnAdd, setMonitorOnAdd] = useState<SeriesMonitorOnAdd | undefined>(undefined)
-  const [searchOnAdd, setSearchOnAdd] = useState<SeriesSearchOnAdd | undefined>(undefined)
-  const [includeSpecials, setIncludeSpecials] = useState<boolean | undefined>(undefined)
-
-  return {
-    rootFolderId, setRootFolderId,
-    qualityProfileId, setQualityProfileId,
-    seasonFolder, setSeasonFolder,
-    monitorOnAdd, setMonitorOnAdd,
-    searchOnAdd, setSearchOnAdd,
-    includeSpecials, setIncludeSpecials,
-  }
+  return useForm<AddSeriesFormData>({
+    resolver: zodResolver(addSeriesSchema),
+    defaultValues: {
+      rootFolderId: '',
+      qualityProfileId: '',
+      seasonFolder: true,
+      monitorOnAdd: 'future',
+      searchOnAdd: 'no',
+      includeSpecials: false,
+    },
+  })
 }
 
 type FormState = ReturnType<typeof useFormState>
@@ -123,17 +131,15 @@ function useSyncPreferences(
   addFlowPreferences: Queries['addFlowPreferences'],
   form: FormState,
 ) {
+  const [prefsSynced, setPrefsSynced] = useState(false)
   const [prev, setPrev] = useState(addFlowPreferences)
   if (addFlowPreferences && addFlowPreferences !== prev) {
     setPrev(addFlowPreferences)
-    if (form.monitorOnAdd === undefined) {
-      form.setMonitorOnAdd(addFlowPreferences.seriesMonitorOnAdd)
-    }
-    if (form.searchOnAdd === undefined) {
-      form.setSearchOnAdd(addFlowPreferences.seriesSearchOnAdd)
-    }
-    if (form.includeSpecials === undefined) {
-      form.setIncludeSpecials(addFlowPreferences.seriesIncludeSpecials)
+    if (!prefsSynced) {
+      setPrefsSynced(true)
+      form.setValue('monitorOnAdd', addFlowPreferences.seriesMonitorOnAdd)
+      form.setValue('searchOnAdd', addFlowPreferences.seriesSearchOnAdd)
+      form.setValue('includeSpecials', addFlowPreferences.seriesIncludeSpecials)
     }
   }
 }
@@ -145,8 +151,8 @@ function useSyncDefaultRootFolder(
   const [prev, setPrev] = useState(defaultRootFolder)
   if (defaultRootFolder !== prev) {
     setPrev(defaultRootFolder)
-    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !form.rootFolderId) {
-      form.setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
+    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !form.getValues('rootFolderId')) {
+      form.setValue('rootFolderId', String(defaultRootFolder.defaultEntry.entityId))
     }
   }
 }
@@ -159,12 +165,13 @@ function useHandlers({ nav, selected, form, queries }: HandlerDeps) {
   }
 
   const handleAdd = async () => {
-    if (!selected.selectedSeries || !form.rootFolderId || !form.qualityProfileId) {
+    const values = form.getValues()
+    if (!selected.selectedSeries || !values.rootFolderId || !values.qualityProfileId) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const input = buildAddInput(selected.selectedSeries, form)
+    const input = buildAddInput(selected.selectedSeries, values)
 
     try {
       const series = await queries.addMutation.mutateAsync(input)
@@ -178,7 +185,7 @@ function useHandlers({ nav, selected, form, queries }: HandlerDeps) {
   return { handleBack, handleAdd }
 }
 
-function buildAddInput(series: SeriesSearchResult, form: FormState): AddSeriesInput {
+function buildAddInput(series: SeriesSearchResult, data: AddSeriesFormData): AddSeriesInput {
   return {
     title: series.title,
     year: series.year,
@@ -189,14 +196,14 @@ function buildAddInput(series: SeriesSearchResult, form: FormState): AddSeriesIn
     runtime: series.runtime,
     network: series.network,
     networkLogoUrl: series.networkLogoUrl,
-    rootFolderId: Number.parseInt(form.rootFolderId),
-    qualityProfileId: Number.parseInt(form.qualityProfileId),
-    monitored: form.monitorOnAdd !== 'none',
-    seasonFolder: form.seasonFolder,
+    rootFolderId: Number.parseInt(data.rootFolderId),
+    qualityProfileId: Number.parseInt(data.qualityProfileId),
+    monitored: data.monitorOnAdd !== 'none',
+    seasonFolder: data.seasonFolder,
     posterUrl: series.posterUrl,
     backdropUrl: series.backdropUrl,
-    searchOnAdd: form.searchOnAdd ?? 'no',
-    monitorOnAdd: form.monitorOnAdd ?? 'future',
-    includeSpecials: form.includeSpecials ?? false,
+    searchOnAdd: data.searchOnAdd,
+    monitorOnAdd: data.monitorOnAdd,
+    includeSpecials: data.includeSpecials,
   }
 }

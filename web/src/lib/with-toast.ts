@@ -1,14 +1,5 @@
-import { toast } from 'sonner'
-
-export function withToast<T extends unknown[]>(
-  fn: (...args: T) => Promise<void>,
-  errorMsg: string,
-) {
+export function withToast<T extends unknown[]>(fn: (...args: T) => Promise<void>) {
   return async (...args: T) => {
-    try {
-      await fn(...args)
-    } catch {
-      toast.error(errorMsg)
-    }
+    await fn(...args)
   }
 }

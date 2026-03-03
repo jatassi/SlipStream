@@ -121,6 +121,7 @@ export {
   useFastForwardQueueItem,
   usePauseQueueItem,
   useQueue,
+  useQueueItems,
   useRemoveFromQueue,
   useResumeQueueItem,
 } from './use-queue'

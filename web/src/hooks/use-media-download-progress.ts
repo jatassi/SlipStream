@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { useDownloadingStore } from '@/stores'
 import type { QueueItem } from '@/types/queue'
+
+import { useQueueItems } from './use-queue'
 
 export type MediaTarget =
   | { mediaType: 'movie'; movieId: number }
@@ -119,7 +120,7 @@ function matchItems(queueItems: QueueItem[], target: MediaTarget): QueueItem[] {
 const COMPLETION_DURATION = 2500
 
 export function useMediaDownloadProgress(target: MediaTarget): MediaDownloadProgress {
-  const queueItems = useDownloadingStore((state) => state.queueItems)
+  const queueItems = useQueueItems()
   const [justCompleted, setJustCompleted] = useState(false)
   const [prevItemCount, setPrevItemCount] = useState(0)
 

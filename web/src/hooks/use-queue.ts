@@ -3,7 +3,8 @@ import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { queueApi } from '@/api'
-import { useDownloadingStore, usePortalDownloadsStore } from '@/stores'
+import { usePortalDownloadsStore } from '@/stores'
+import type { QueueItem } from '@/types/queue'
 
 export const queueKeys = {
   all: ['queue'] as const,
@@ -14,7 +15,6 @@ const WS_TIMEOUT_MS = 10_000
 const FALLBACK_POLL_MS = 2000
 
 export function useQueue(enabled = true) {
-  const setQueueItems = useDownloadingStore((state) => state.setQueueItems)
   const setPortalQueue = usePortalDownloadsStore((state) => state.setQueue)
 
   const query = useQuery({
@@ -48,16 +48,21 @@ export function useQueue(enabled = true) {
     structuralSharing: false,
   })
 
-  // Sync queue items to both stores (including empty arrays)
+  // Sync queue items to portal store (including empty arrays)
   useEffect(() => {
     if (query.data !== undefined) {
-      const items = query.data.items
-      setQueueItems(items)
-      setPortalQueue(items)
+      setPortalQueue(query.data.items)
     }
-  }, [query.data, setQueueItems, setPortalQueue])
+  }, [query.data, setPortalQueue])
 
   return query
+}
+
+const EMPTY_ITEMS: QueueItem[] = []
+
+export function useQueueItems() {
+  const { data } = useQueue()
+  return data?.items ?? EMPTY_ITEMS
 }
 
 type QueueItemParams = {

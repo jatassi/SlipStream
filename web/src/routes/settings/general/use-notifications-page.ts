@@ -37,19 +37,19 @@ export function useNotificationsPage() {
   const handleToggleEnabled = withToast(async (id: number, enabled: boolean) => {
     await updateMutation.mutateAsync({ id, data: { enabled } })
     toast.success(enabled ? 'Notification enabled' : 'Notification disabled')
-  }, 'Failed to update notification')
+  })
 
   const handleTest = withToast(async (id: number) => {
     const result = await testMutation.mutateAsync(id)
     // intentional ||: empty string should use fallback
     const toastFn = result.success ? toast.success : toast.error
     toastFn(result.message || (result.success ? 'Test notification sent' : 'Test notification failed'))
-  }, 'Failed to test notification')
+  })
 
   const handleDelete = withToast(async (id: number) => {
     await deleteMutation.mutateAsync(id)
     toast.success('Notification deleted')
-  }, 'Failed to delete notification')
+  })
 
   return {
     notifications, isLoading: queryLoading || globalLoading, isError, refetch,

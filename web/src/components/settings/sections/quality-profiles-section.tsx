@@ -92,7 +92,7 @@ export function QualityProfilesSection() {
   const handleDelete = withToast(async (id: number) => {
     await deleteMutation.mutateAsync(id)
     toast.success('Profile deleted')
-  }, 'Failed to delete profile')
+  })
 
   return (
     <>

@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import {
   useAddFlowPreferences,
@@ -12,6 +15,15 @@ import {
   useRootFoldersByType,
 } from '@/hooks'
 import type { AddMovieInput, MovieSearchResult } from '@/types'
+
+const addMovieSchema = z.object({
+  rootFolderId: z.string().min(1),
+  qualityProfileId: z.string().min(1),
+  monitored: z.boolean(),
+  searchOnAdd: z.boolean(),
+})
+
+type AddMovieFormData = z.infer<typeof addMovieSchema>
 
 export function useAddMoviePage() {
   const nav = useNavigation()
@@ -28,7 +40,7 @@ export function useAddMoviePage() {
     ...nav,
     ...selected,
     ...queries,
-    ...form,
+    form,
     ...handlers,
   }
 }
@@ -88,17 +100,15 @@ function useQueries() {
 type Queries = ReturnType<typeof useQueries>
 
 function useFormState() {
-  const [rootFolderId, setRootFolderId] = useState<string>('')
-  const [qualityProfileId, setQualityProfileId] = useState<string>('')
-  const [monitored, setMonitored] = useState(true)
-  const [searchOnAdd, setSearchOnAdd] = useState<boolean | undefined>(undefined)
-
-  return {
-    rootFolderId, setRootFolderId,
-    qualityProfileId, setQualityProfileId,
-    monitored, setMonitored,
-    searchOnAdd, setSearchOnAdd,
-  }
+  return useForm<AddMovieFormData>({
+    resolver: zodResolver(addMovieSchema),
+    defaultValues: {
+      rootFolderId: '',
+      qualityProfileId: '',
+      monitored: true,
+      searchOnAdd: false,
+    },
+  })
 }
 
 type FormState = ReturnType<typeof useFormState>
@@ -107,11 +117,13 @@ function useSyncPreferences(
   addFlowPreferences: Queries['addFlowPreferences'],
   form: FormState,
 ) {
+  const [prefsSynced, setPrefsSynced] = useState(false)
   const [prev, setPrev] = useState(addFlowPreferences)
   if (addFlowPreferences && addFlowPreferences !== prev) {
     setPrev(addFlowPreferences)
-    if (form.searchOnAdd === undefined) {
-      form.setSearchOnAdd(addFlowPreferences.movieSearchOnAdd)
+    if (!prefsSynced) {
+      setPrefsSynced(true)
+      form.setValue('searchOnAdd', addFlowPreferences.movieSearchOnAdd)
     }
   }
 }
@@ -123,8 +135,8 @@ function useSyncDefaultRootFolder(
   const [prev, setPrev] = useState(defaultRootFolder)
   if (defaultRootFolder !== prev) {
     setPrev(defaultRootFolder)
-    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !form.rootFolderId) {
-      form.setRootFolderId(String(defaultRootFolder.defaultEntry.entityId))
+    if (defaultRootFolder?.exists && defaultRootFolder.defaultEntry?.entityId && !form.getValues('rootFolderId')) {
+      form.setValue('rootFolderId', String(defaultRootFolder.defaultEntry.entityId))
     }
   }
 }
@@ -140,7 +152,8 @@ function useHandlers({ nav, selected, form, queries }: {
   }
 
   const handleAdd = async () => {
-    if (!selected.selectedMovie || !form.rootFolderId || !form.qualityProfileId) {
+    const values = form.getValues()
+    if (!selected.selectedMovie || !values.rootFolderId || !values.qualityProfileId) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -152,12 +165,12 @@ function useHandlers({ nav, selected, form, queries }: {
       imdbId: selected.selectedMovie.imdbId,
       overview: selected.selectedMovie.overview,
       runtime: selected.selectedMovie.runtime,
-      rootFolderId: Number.parseInt(form.rootFolderId),
-      qualityProfileId: Number.parseInt(form.qualityProfileId),
-      monitored: form.monitored,
+      rootFolderId: Number.parseInt(values.rootFolderId),
+      qualityProfileId: Number.parseInt(values.qualityProfileId),
+      monitored: values.monitored,
       posterUrl: selected.selectedMovie.posterUrl,
       backdropUrl: selected.selectedMovie.backdropUrl,
-      searchOnAdd: form.searchOnAdd ?? false,
+      searchOnAdd: values.searchOnAdd,
     }
 
     try {

@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Switch } from '@/components/ui/switch'
 import type { QualityProfile, RootFolder } from '@/types'
 
+import { MONITOR_LABELS, SEARCH_ON_ADD_LABELS } from './series-form-constants'
+
 export type FolderSelectProps = {
   rootFolderId: string
   rootFolders: RootFolder[] | undefined
@@ -100,6 +102,56 @@ export function FormActions({ rootFolderId, qualityProfileId, isPending, onBack,
         <Check className="mr-2 size-4" />
         {addLabel}
       </Button>
+    </div>
+  )
+}
+
+export type MonitorSelectProps = {
+  value: string | undefined
+  onChange: (v: string) => void
+}
+
+export function MonitorSelect({ value, onChange }: MonitorSelectProps) {
+  const resolved = value ?? 'future'
+  return (
+    <div className="space-y-2">
+      <Label>Monitor</Label>
+      <Select value={resolved} onValueChange={(v) => { if (v) { onChange(v) } }}>
+        <SelectTrigger>{MONITOR_LABELS[resolved as keyof typeof MONITOR_LABELS]}</SelectTrigger>
+        <SelectContent>
+          {Object.entries(MONITOR_LABELS).map(([k, label]) => (
+            <SelectItem key={k} value={k}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-muted-foreground text-sm">
+        Which episodes should be monitored for automatic downloads
+      </p>
+    </div>
+  )
+}
+
+export type SearchOnAddSelectProps = {
+  value: string | undefined
+  onChange: (v: string) => void
+}
+
+export function SearchOnAddSelect({ value, onChange }: SearchOnAddSelectProps) {
+  const resolved = value ?? 'no'
+  return (
+    <div className="space-y-2">
+      <Label>Search on Add</Label>
+      <Select value={resolved} onValueChange={(v) => { if (v) { onChange(v) } }}>
+        <SelectTrigger>{SEARCH_ON_ADD_LABELS[resolved as keyof typeof SEARCH_ON_ADD_LABELS]}</SelectTrigger>
+        <SelectContent>
+          {Object.entries(SEARCH_ON_ADD_LABELS).map(([k, label]) => (
+            <SelectItem key={k} value={k}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-muted-foreground text-sm">
+        Start searching for releases immediately after adding
+      </p>
     </div>
   )
 }

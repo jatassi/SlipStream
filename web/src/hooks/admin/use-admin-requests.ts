@@ -12,7 +12,7 @@ import type {
 const baseKeys = createQueryKeys('admin', 'requests')
 export const adminRequestKeys = {
   ...baseKeys,
-  list: (filters?: RequestListFilters) => [...baseKeys.lists(), filters] as const,
+  list: (filters?: RequestListFilters) => [...baseKeys.list(), filters] as const,
 }
 
 export function useAdminRequests(filters?: RequestListFilters) {

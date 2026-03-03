@@ -8,7 +8,7 @@ import type { CreateRootFolderInput } from '@/types'
 const baseKeys = createQueryKeys('rootFolders')
 const rootFolderKeys = {
   ...baseKeys,
-  listByType: (mediaType: 'movie' | 'tv') => [...baseKeys.lists(), mediaType] as const,
+  listByType: (mediaType: 'movie' | 'tv') => [...baseKeys.list(), mediaType] as const,
 }
 
 export function useRootFolders() {

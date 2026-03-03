@@ -224,25 +224,25 @@ function useRootFolderActions() {
       setShowAddDialog(false)
       setNewPath('')
       setNewName('')
-    }, 'Failed to add root folder')()
+    })()
   }
   const handleDelete = (id: number) => {
     void withToast(async () => {
       await deleteMutation.mutateAsync(id)
       toast.success('Root folder deleted')
-    }, 'Failed to delete root folder')()
+    })()
   }
   const handleSetDefault = (id: number, mediaType: MediaType) => {
     void withToast(async () => {
       await setDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType, entityId: id })
       toast.success(`Default ${mediaType} root folder set`)
-    }, 'Failed to set default root folder')()
+    })()
   }
   const handleClearDefault = (mediaType: MediaType) => {
     void withToast(async () => {
       await clearDefaultMutation.mutateAsync({ entityType: 'root_folder', mediaType })
       toast.success(`Default ${mediaType} root folder cleared`)
-    }, 'Failed to clear default root folder')()
+    })()
   }
   const folderActions = { onDelete: handleDelete, onSetDefault: handleSetDefault, onClearDefault: handleClearDefault } as FolderActions
   return {

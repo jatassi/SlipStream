@@ -5,8 +5,7 @@ import type { CreateInvitationRequest } from '@/types'
 
 const adminInvitationKeys = {
   all: ['admin', 'invitations'] as const,
-  lists: () => [...adminInvitationKeys.all, 'list'] as const,
-  list: () => [...adminInvitationKeys.lists()] as const,
+  list: () => [...adminInvitationKeys.all, 'list'] as const,
 }
 
 export function useAdminInvitations() {

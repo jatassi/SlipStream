@@ -15,7 +15,7 @@ import { missingKeys } from './use-missing'
 const baseKeys = createQueryKeys('movies')
 export const movieKeys = {
   ...baseKeys,
-  list: (filters: ListMoviesOptions) => [...baseKeys.lists(), filters] as const,
+  list: (filters: ListMoviesOptions) => [...baseKeys.list(), filters] as const,
 }
 
 export function useMovies(options?: ListMoviesOptions) {

@@ -6,8 +6,7 @@ import type { ListHistoryOptions } from '@/types'
 
 export const historyKeys = {
   all: ['history'] as const,
-  lists: () => [...historyKeys.all, 'list'] as const,
-  list: (filters: ListHistoryOptions) => [...historyKeys.lists(), filters] as const,
+  list: (filters: ListHistoryOptions) => [...historyKeys.all, 'list', filters] as const,
   settings: () => [...historyKeys.all, 'settings'] as const,
 }
 

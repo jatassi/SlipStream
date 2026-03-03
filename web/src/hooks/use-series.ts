@@ -15,7 +15,7 @@ import { missingKeys } from './use-missing'
 const baseKeys = createQueryKeys('series')
 export const seriesKeys = {
   ...baseKeys,
-  list: (filters: ListSeriesOptions) => [...baseKeys.lists(), filters] as const,
+  list: (filters: ListSeriesOptions) => [...baseKeys.list(), filters] as const,
   seasons: (seriesId: number) => [...baseKeys.detail(seriesId), 'seasons'] as const,
   episodes: (seriesId: number, seasonNumber?: number) =>
     [...baseKeys.detail(seriesId), 'episodes', seasonNumber] as const,

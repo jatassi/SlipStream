@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useRouterState } from '@tanstack/react-router'
 
-import { useDownloadingStore } from '@/stores'
+import { useQueueItems } from '@/hooks/use-queue'
 
 import type { DownloadTheme } from './downloads-nav-types'
 
@@ -106,7 +106,7 @@ function useCompletionFlash(queueItems: { id: string; mediaType: string }[]): Do
 
 export function useDownloadsNav() {
   const router = useRouterState()
-  const queueItems = useDownloadingStore((state) => state.queueItems)
+  const queueItems = useQueueItems()
 
   const isActive =
     router.location.pathname === '/downloads' || router.location.pathname.startsWith('/downloads/')

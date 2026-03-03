@@ -1,6 +1,5 @@
 export { useAutoSearchStore } from './autosearch'
 export { useDevModeStore } from './devmode'
-export { useDownloadingStore } from './downloading'
 export { usePortalAuthStore } from './portal-auth'
 export { usePortalDownloadsStore } from './portal-downloads'
 export { useProgressStore } from './progress'

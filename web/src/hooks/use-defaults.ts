@@ -7,7 +7,7 @@ import { createQueryKeys } from '@/lib/query-keys'
 const baseKeys = createQueryKeys('defaults')
 export const defaultsKeys = {
   ...baseKeys,
-  listByEntityType: (entityType: string) => [...baseKeys.lists(), entityType] as const,
+  listByEntityType: (entityType: string) => [...baseKeys.list(), entityType] as const,
   detail: (entityType: string, mediaType: string) =>
     [...baseKeys.details(), entityType, mediaType] as const,
 }

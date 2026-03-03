@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { portalAuthApi } from '@/api'
+import { portalLibraryKeys } from '@/hooks/portal/use-portal-library'
 import { requestKeys } from '@/hooks/portal/use-requests'
+import { userNotificationKeys } from '@/hooks/portal/use-user-notifications'
 import { createQueryKeys } from '@/lib/query-keys'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 import type { LoginRequest, SignupRequest, UpdateProfileRequest } from '@/types'
@@ -54,16 +56,16 @@ export function usePortalLogout() {
       storeLogout()
       queryClient.removeQueries({ queryKey: portalAuthKeys.all })
       queryClient.removeQueries({ queryKey: requestKeys.all })
-      queryClient.removeQueries({ queryKey: ['portalLibrary'] })
-      queryClient.removeQueries({ queryKey: ['userNotifications'] })
+      queryClient.removeQueries({ queryKey: portalLibraryKeys.all })
+      queryClient.removeQueries({ queryKey: userNotificationKeys.all })
       queryClient.removeQueries({ queryKey: invitationKeys.all })
     },
     onError: () => {
       storeLogout()
       queryClient.removeQueries({ queryKey: portalAuthKeys.all })
       queryClient.removeQueries({ queryKey: requestKeys.all })
-      queryClient.removeQueries({ queryKey: ['portalLibrary'] })
-      queryClient.removeQueries({ queryKey: ['userNotifications'] })
+      queryClient.removeQueries({ queryKey: portalLibraryKeys.all })
+      queryClient.removeQueries({ queryKey: userNotificationKeys.all })
       queryClient.removeQueries({ queryKey: invitationKeys.all })
     },
   })
