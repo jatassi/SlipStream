@@ -95,12 +95,10 @@ function HeroInfo({
     <div className="flex-1 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <MediaStatusBadge status={movie.status} />
-        {qualityProfileName ? (
-          <Badge variant="secondary" className="gap-1">
+        {qualityProfileName ? <Badge variant="secondary" className="gap-1">
             <SlidersVertical className="size-3" />
             {qualityProfileName}
-          </Badge>
-        ) : null}
+          </Badge> : null}
       </div>
       <TitleTreatment
         tmdbId={movie.tmdbId}
@@ -111,15 +109,13 @@ function HeroInfo({
       />
       <MetadataRow movie={movie} extendedData={extendedData} isExtendedDataLoading={isExtendedDataLoading} />
       <MovieRatings ratings={extendedData?.ratings} isLoading={isExtendedDataLoading} />
-      {movie.overview ? (
-        <button
+      {movie.overview ? <button
           type="button"
           className={`max-w-2xl cursor-pointer text-sm text-gray-300 text-left ${overviewExpanded ? '' : 'line-clamp-2'}`}
           onClick={onToggleOverview}
         >
           {movie.overview}
-        </button>
-      ) : null}
+        </button> : null}
     </div>
   )
 }

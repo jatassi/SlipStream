@@ -46,12 +46,10 @@ export function SeriesMetadataInfo({ series, extendedData, isExtendedDataLoading
       {items.map((item) => (
         <MetadataItem key={String(item.label)} icon={item.icon} label={item.label} />
       ))}
-      {showExtendedSkeletons ? (
-        <>
+      {showExtendedSkeletons ? <>
           <Skeleton className="h-4 w-20 rounded bg-white/10" />
           <Skeleton className="h-4 w-24 rounded bg-white/10" />
-        </>
-      ) : null}
+        </> : null}
     </div>
   )
 }

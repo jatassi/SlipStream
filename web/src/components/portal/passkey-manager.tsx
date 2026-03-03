@@ -56,8 +56,7 @@ export function PasskeyManager() {
         onAddClick={() => hook.setIsRegistering(true)}
       />
 
-      {hook.isRegistering ? (
-        <PasskeyRegistrationForm
+      {hook.isRegistering ? <PasskeyRegistrationForm
           nameInputRef={hook.nameInputRef}
           newPasskeyName={hook.newPasskeyName}
           onNameChange={hook.setNewPasskeyName}
@@ -65,8 +64,7 @@ export function PasskeyManager() {
           onPinChange={hook.handlePinChange}
           registerPending={hook.registerPending}
           onCancel={hook.handleCancelRegistration}
-        />
-      ) : null}
+        /> : null}
 
       <PasskeyList
         isLoading={hook.isLoading}

@@ -26,11 +26,9 @@ function CastMember({ person }: { person: Person }) {
         )}
       </div>
       <span className="line-clamp-2 w-full text-center text-xs">{person.name}</span>
-      {person.role ? (
-        <span className="text-muted-foreground line-clamp-2 w-full text-center text-xs">
+      {person.role ? <span className="text-muted-foreground line-clamp-2 w-full text-center text-xs">
           {person.role}
-        </span>
-      ) : null}
+        </span> : null}
     </div>
   )
 }

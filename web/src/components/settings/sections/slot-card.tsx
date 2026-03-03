@@ -213,9 +213,7 @@ function SlotCardHeader({
         <div className="min-w-0 flex-1">
           <SlotNameInput slot={slot} onNameChange={onNameChange} />
         </div>
-        {showToggle ? (
-          <SlotToggle slot={slot} onEnabledChange={onEnabledChange} isUpdating={isUpdating} />
-        ) : null}
+        {showToggle ? <SlotToggle slot={slot} onEnabledChange={onEnabledChange} isUpdating={isUpdating} /> : null}
       </div>
       <CardDescription>
         {slot.enabled ? 'Active' : 'Disabled'}

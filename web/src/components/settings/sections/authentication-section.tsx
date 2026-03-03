@@ -22,11 +22,9 @@ export function AuthenticationSection() {
         </Button>
       </div>
 
-      {passkeySupported ? (
-        <div className="border-t pt-6">
+      {passkeySupported ? <div className="border-t pt-6">
           <PasskeyManager />
-        </div>
-      ) : null}
+        </div> : null}
 
       <ChangePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} />
     </div>

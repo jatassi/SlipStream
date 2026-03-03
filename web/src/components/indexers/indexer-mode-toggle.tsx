@@ -102,11 +102,9 @@ function ModeOption({
       <Label htmlFor={`mode-${value}`} className="flex-1 cursor-pointer space-y-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{label}</span>
-          {badge ? (
-            <Badge variant="outline" className="border-amber-500/50 text-xs text-amber-500">
+          {badge ? <Badge variant="outline" className="border-amber-500/50 text-xs text-amber-500">
               {badge}
-            </Badge>
-          ) : null}
+            </Badge> : null}
           {showExternal ? <ExternalLink className="text-muted-foreground size-3.5" /> : null}
         </div>
         <p className="text-muted-foreground text-sm">{description}</p>

@@ -25,9 +25,7 @@ export function DownloadStatusCard({ download }: { download: PortalDownload }) {
       <Progress value={progress} className="h-2" />
       <div className="text-muted-foreground flex justify-between text-xs">
         <span>{Math.round(progress)}%</span>
-        {isDownloading && downloadSpeed > 0 ? (
-          <span>{(downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
-        ) : null}
+        {isDownloading && downloadSpeed > 0 ? <span>{(downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span> : null}
       </div>
     </div>
   )

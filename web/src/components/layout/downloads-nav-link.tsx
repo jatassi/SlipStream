@@ -20,7 +20,7 @@ function CountBadge({ movieCount, tvCount }: { movieCount: number; tvCount: numb
   return (
     <span className="flex items-center text-xs">
       {movieCount > 0 ? <span className="text-movie-400 font-medium">{movieCount}</span> : null}
-      {movieCount > 0 && tvCount > 0 ? <span className="text-muted-foreground px-1">|</span> : null}
+      {movieCount > 0 && tvCount > 0 && <span className="text-muted-foreground px-1">|</span>}
       {tvCount > 0 ? <span className="text-tv-400 font-medium">{tvCount}</span> : null}
     </span>
   )
@@ -45,9 +45,7 @@ export function DownloadsNavLink({
         getFlashClassName(nav.completionFlash),
       )}
     >
-      {nav.hasDownloads ? (
-        <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} />
-      ) : null}
+      {nav.hasDownloads ? <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} /> : null}
 
       <Download className={getIconClassName(themeFlags)} />
       {!collapsed && (
@@ -67,9 +65,7 @@ export function DownloadsNavLink({
           <div className="flex items-center gap-2">
             Downloads
             {nav.hasDownloads ? <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} /> : null}
-            {nav.hasDownloads ? (
-              <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span>
-            ) : null}
+            {nav.hasDownloads ? <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span> : null}
           </div>
         </TooltipContent>
       </Tooltip>

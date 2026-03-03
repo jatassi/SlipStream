@@ -137,9 +137,9 @@ function MovieSummary({ report }: { report: ImportReport }) {
     <>
       <SummaryCard label="Movies Created" value={report.moviesCreated} icon={Film} />
       <SummaryCard label="Movies Skipped" value={report.moviesSkipped} icon={Film} />
-      {report.moviesErrored > 0 ? (
+      {report.moviesErrored > 0 && (
         <SummaryCard label="Movies Errored" value={report.moviesErrored} icon={AlertCircle} />
-      ) : null}
+      )}
     </>
   )
 }
@@ -149,9 +149,9 @@ function SeriesSummary({ report }: { report: ImportReport }) {
     <>
       <SummaryCard label="Series Created" value={report.seriesCreated} icon={Tv} />
       <SummaryCard label="Series Skipped" value={report.seriesSkipped} icon={Tv} />
-      {report.seriesErrored > 0 ? (
+      {report.seriesErrored > 0 && (
         <SummaryCard label="Series Errored" value={report.seriesErrored} icon={AlertCircle} />
-      ) : null}
+      )}
     </>
   )
 }

@@ -75,12 +75,10 @@ function EpisodeInfo({ episode, currentName, cutoffName }: EpisodeInfoProps) {
         <ArrowRight className="text-muted-foreground size-2.5" />
         <span className="text-green-500">{cutoffName}</span>
       </Badge>
-      {episode.airDate ? (
-        <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+      {episode.airDate ? <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
           <Calendar className="size-3" />
           {formatDate(episode.airDate)}
-        </span>
-      ) : null}
+        </span> : null}
     </div>
   )
 }

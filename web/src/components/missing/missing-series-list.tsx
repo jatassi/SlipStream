@@ -151,18 +151,14 @@ function SeriesInfo({ series: s, profileName }: SeriesInfoProps) {
           >
             {s.title}
           </Link>
-          {s.year ? (
-            <span className="text-muted-foreground shrink-0 text-xs">({s.year})</span>
-          ) : null}
+          {s.year ? <span className="text-muted-foreground shrink-0 text-xs">({s.year})</span> : null}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <Badge variant="secondary">{s.missingCount} missing</Badge>
-          {profileName ? (
-            <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+          {profileName ? <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
               <SlidersVertical className="size-2.5" />
               {profileName}
-            </Badge>
-          ) : null}
+            </Badge> : null}
         </div>
       </div>
     </>
@@ -265,12 +261,10 @@ function MissingEpisodeRow({ series: s, episode, onMonitored, isDisabled }: Miss
         >
           {episode.title || 'TBA'}
         </span>
-        {episode.airDate ? (
-          <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+        {episode.airDate ? <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
             <Calendar className="size-3" />
             {formatDate(episode.airDate)}
-          </span>
-        ) : null}
+          </span> : null}
       </div>
 
       <div className="shrink-0">

@@ -61,16 +61,12 @@ function ReleaseNotes({ notes }: { notes: string }) {
         >
           {displayedContent}
         </Markdown>
-        {!expanded && hasMore ? (
-          <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" />
-        ) : null}
+        {!expanded && hasMore ? <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" /> : null}
       </div>
-      {hasMore ? (
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
+      {hasMore ? <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
           {expanded ? <ChevronUp className="mr-1 size-4" /> : <ChevronDown className="mr-1 size-4" />}
           {expanded ? 'Show Less' : 'Show More'}
-        </Button>
-      ) : null}
+        </Button> : null}
     </div>
   )
 }
@@ -109,13 +105,11 @@ export function UpdatePage() {
             />
           </CardContent>
         </Card>
-        {page.showReleaseNotes && page.releaseNotes ? (
-          <Card className="mt-4">
+        {page.showReleaseNotes && page.releaseNotes ? <Card className="mt-4">
             <CardContent className="py-1">
               <ReleaseNotes notes={page.releaseNotes} />
             </CardContent>
-          </Card>
-        ) : null}
+          </Card> : null}
       </div>
     </div>
   )

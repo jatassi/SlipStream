@@ -15,7 +15,6 @@ Movies use orange (`movie-*`), TV shows use blue (`tv-*`). CSS variables defined
 - Backgrounds: use `/10` or `/15` opacity (e.g., `bg-movie-500/10`)
 - Text on dark backgrounds: 400 shades; borders/accents: 500 shades
 - Glow effects for interactivity: `glow-movie`, `glow-tv`, `hover:glow-movie`, `glow-media`
-- Live palette preview at `/dev/colors` in developer mode
 
 ## Base UI (NOT Radix)
 
@@ -69,6 +68,7 @@ Separate logic from presentation. Extract state, queries, mutations, handlers in
 
 ### Conditional Rendering
 Priority: early returns > component map > single ternary. **Never nest ternaries.**
+Use `&&` for conditional rendering without an else branch: `{condition && <X />}`. Never use `condition ? <X /> : null`.
 
 ### Null Handling
 Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`, NaN should fallback) — add a comment explaining why.

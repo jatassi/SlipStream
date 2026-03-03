@@ -28,17 +28,13 @@ export function AggregatedFileTooltip({ files }: AggregatedFileTooltipProps) {
       {conflictFiles.map((file) => (
         <div key={file.fileId} className="text-xs">
           <p className="mb-1 font-medium text-orange-600 dark:text-orange-400">{file.conflict}</p>
-          {file.slotRejections && file.slotRejections.length > 0 ? (
-            <SlotRejectionList rejections={file.slotRejections} />
-          ) : null}
+          {file.slotRejections && file.slotRejections.length > 0 ? <SlotRejectionList rejections={file.slotRejections} /> : null}
         </div>
       ))}
       {noMatchFiles.map((file) => (
         <div key={file.fileId} className="text-xs">
           <p className="mb-1 font-medium text-red-600 dark:text-red-400">No matching slot</p>
-          {file.slotRejections && file.slotRejections.length > 0 ? (
-            <SlotRejectionList rejections={file.slotRejections} />
-          ) : null}
+          {file.slotRejections && file.slotRejections.length > 0 ? <SlotRejectionList rejections={file.slotRejections} /> : null}
         </div>
       ))}
     </div>

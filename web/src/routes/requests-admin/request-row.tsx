@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Request } from '@/types'
 
+import type { RequestAction } from './request-actions'
 import { RequestActions } from './request-actions'
 import { STATUS_CONFIG } from './status-config'
 
@@ -13,24 +14,10 @@ type RequestRowProps = {
   selected: boolean
   isProcessing: boolean
   onToggleSelect: () => void
-  onApproveOnly: () => void
-  onApproveAndManualSearch: () => void
-  onApproveAndAutoSearch: () => void
-  onDeny: () => void
-  onDelete: () => void
+  onAction: (action: RequestAction) => void
 }
 
-export function RequestRow({
-  request,
-  selected,
-  isProcessing,
-  onToggleSelect,
-  onApproveOnly,
-  onApproveAndManualSearch,
-  onApproveAndAutoSearch,
-  onDeny,
-  onDelete,
-}: RequestRowProps) {
+export function RequestRow({ request, selected, isProcessing, onToggleSelect, onAction }: RequestRowProps) {
   const statusConfig = STATUS_CONFIG[request.status]
   const isPending = request.status === 'pending'
 
@@ -60,15 +47,7 @@ export function RequestRow({
         <span className="ml-1">{statusConfig.label}</span>
       </Badge>
 
-      <RequestActions
-        isPending={isPending}
-        isProcessing={isProcessing}
-        onApproveOnly={onApproveOnly}
-        onApproveAndManualSearch={onApproveAndManualSearch}
-        onApproveAndAutoSearch={onApproveAndAutoSearch}
-        onDeny={onDeny}
-        onDelete={onDelete}
-      />
+      <RequestActions isPending={isPending} isProcessing={isProcessing} onAction={onAction} />
     </div>
   )
 }
@@ -88,7 +67,7 @@ function RequestMeta({ request }: { request: Request }) {
       <Badge variant="outline" className="text-xs capitalize">
         {request.mediaType}
       </Badge>
-      {request.mediaType === 'series' ? <SeriesSeasonInfo request={request} /> : null}
+      {request.mediaType === 'series' && <SeriesSeasonInfo request={request} />}
       {request.seasonNumber && request.mediaType !== 'series' ? (
         <span>Season {request.seasonNumber}</span>
       ) : null}

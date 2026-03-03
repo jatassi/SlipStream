@@ -96,18 +96,14 @@ function NotValidDescription({ validation }: { validation: SlotNamingValidation 
         Slots have different requirements for:{' '}
         <span className="font-medium">{validation.requiredAttributes.join(', ')}</span>
       </p>
-      {!validation.movieFormatValid && validation.movieValidation.missingTokens ? (
-        <MissingTokensList
+      {!validation.movieFormatValid && validation.movieValidation.missingTokens ? <MissingTokensList
           label="Movie filename format missing tokens:"
           tokens={validation.movieValidation.missingTokens}
-        />
-      ) : null}
-      {!validation.episodeFormatValid && validation.episodeValidation.missingTokens ? (
-        <MissingTokensList
+        /> : null}
+      {!validation.episodeFormatValid && validation.episodeValidation.missingTokens ? <MissingTokensList
           label="Episode filename format missing tokens:"
           tokens={validation.episodeValidation.missingTokens}
-        />
-      ) : null}
+        /> : null}
     </div>
   )
 }

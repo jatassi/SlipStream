@@ -16,11 +16,9 @@ export function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
   return (
     <div className="space-y-2">
       {hasRatings ? <RatingsBadges ratings={ratings} /> : null}
-      {ratings.awards ? (
-        <p className="text-muted-foreground text-sm">
+      {ratings.awards ? <p className="text-muted-foreground text-sm">
           <span className="text-foreground font-medium">Awards:</span> {ratings.awards}
-        </p>
-      ) : null}
+        </p> : null}
     </div>
   )
 }

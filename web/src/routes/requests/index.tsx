@@ -217,17 +217,13 @@ function RequestCardBody(props: {
 
   return (
     <div className="min-w-0 flex-1">
-      {showUser && request.user ? (
-        <div className="text-muted-foreground mb-0.5 flex items-center gap-1 text-xs">
+      {showUser && request.user ? <div className="text-muted-foreground mb-0.5 flex items-center gap-1 text-xs">
           <User className="size-3" />
           <span>{request.user.username}</span>
-        </div>
-      ) : null}
+        </div> : null}
       <div className="leading-snug">
         <span className="font-medium">{request.title}</span>
-        {request.year ? (
-          <span className="text-muted-foreground ml-1 text-sm">({request.year})</span>
-        ) : null}
+        {request.year ? <span className="text-muted-foreground ml-1 text-sm">({request.year})</span> : null}
         <MobileStatusBadge statusConfig={statusConfig} isSearching={request.status === 'searching'} isMovie={isMovie} />
       </div>
       <RequestMetadata request={request} isMovie={isMovie} />
@@ -290,9 +286,7 @@ function RequestMetadata({ request, isMovie }: { request: Request; isMovie: bool
         {request.mediaType}
       </Badge>
       <SeriesMetadata request={request} />
-      {request.seasonNumber && request.mediaType !== 'series' ? (
-        <span>Season {request.seasonNumber}</span>
-      ) : null}
+      {request.seasonNumber && request.mediaType !== 'series' ? <span>Season {request.seasonNumber}</span> : null}
       {request.episodeNumber ? <span>Episode {request.episodeNumber}</span> : null}
       <span>•</span>
       <span>{formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}</span>
@@ -316,11 +310,9 @@ function SeriesMetadata({ request }: { request: Request }) {
       ) : (
         <span className="text-muted-foreground/70">No seasons</span>
       )}
-      {request.monitorFuture ? (
-        <Badge variant="secondary" className="text-xs">
+      {request.monitorFuture ? <Badge variant="secondary" className="text-xs">
           Future
-        </Badge>
-      ) : null}
+        </Badge> : null}
     </>
   )
 }

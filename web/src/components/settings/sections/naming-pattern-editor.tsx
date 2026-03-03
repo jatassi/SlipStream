@@ -23,8 +23,7 @@ function PatternPreview({ preview }: { preview: { valid: boolean; preview: strin
           <span className="text-sm text-red-600 dark:text-red-400">{preview.error}</span>
         )}
       </div>
-      {preview.tokens && preview.tokens.length > 0 ? (
-        <details className="text-xs">
+      {preview.tokens && preview.tokens.length > 0 ? <details className="text-xs">
           <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
             Token breakdown
           </summary>
@@ -37,8 +36,7 @@ function PatternPreview({ preview }: { preview: { valid: boolean; preview: strin
               </div>
             ))}
           </div>
-        </details>
-      ) : null}
+        </details> : null}
     </div>
   )
 }

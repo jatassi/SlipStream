@@ -34,7 +34,6 @@ const ROUTE_TITLES: Record<string, string> = {
   '/system/logs': 'System - Logs',
   '/system/tasks': 'System - Tasks',
   '/system/update': 'System - Update',
-  '/dev/colors': 'Dev - Colors',
   '/dev/controls': 'Dev - Controls',
   '/requests/auth/login': 'Login',
   '/requests/auth/signup': 'Sign Up',

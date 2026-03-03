@@ -70,9 +70,7 @@ function ViewingContent({ cred }: { cred: PasskeyCredential }) {
       <div className="font-medium">{cred.name}</div>
       <div className="text-muted-foreground text-sm">
         Created {formatDistanceToNow(new Date(cred.createdAt))} ago
-        {cred.lastUsedAt ? (
-          <> · Last used {formatDistanceToNow(new Date(cred.lastUsedAt))} ago</>
-        ) : null}
+        {cred.lastUsedAt ? <> · Last used {formatDistanceToNow(new Date(cred.lastUsedAt))} ago</> : null}
       </div>
     </div>
   )

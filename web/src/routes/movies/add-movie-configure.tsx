@@ -54,11 +54,9 @@ function MoviePreview({ movie }: { movie: MovieSearchResult }) {
         <div>
           <h2 className="text-xl font-semibold">{movie.title}</h2>
           <p className="text-muted-foreground">{movie.year ?? 'Unknown year'}</p>
-          {movie.overview ? (
-            <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
+          {movie.overview ? <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
               {movie.overview}
-            </p>
-          ) : null}
+            </p> : null}
         </div>
       </CardContent>
     </Card>

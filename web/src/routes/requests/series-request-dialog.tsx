@@ -49,11 +49,9 @@ function SeasonsSelector({ seasons, loadingSeasons, selectedSeasons, onToggleSea
         </div>
       </div>
       <SeasonsList seasons={seasons} loading={loadingSeasons} selectedSeasons={selectedSeasons} onToggle={onToggleSeason} onWatchRequest={onWatchRequest} />
-      {selectedSeasons.size === 0 && monitorFuture ? (
-        <p className="text-muted-foreground text-xs">
+      {selectedSeasons.size === 0 && monitorFuture ? <p className="text-muted-foreground text-xs">
           No seasons selected. Series will be added to library and only future episodes will be monitored.
-        </p>
-      ) : null}
+        </p> : null}
     </div>
   )
 }
@@ -159,12 +157,10 @@ function RequestedSeasonRow({ season, onWatchRequest }: { season: EnrichedSeason
       <Clock className="size-4 text-yellow-500" />
       <span className="flex-1 text-sm">{getSeasonLabel(season)}</span>
       <span className="text-muted-foreground text-xs">Requested</span>
-      {onWatchRequest && requestId && !season.existingRequestIsWatching ? (
-        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onWatchRequest(requestId) }}>
+      {onWatchRequest && requestId && !season.existingRequestIsWatching ? <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onWatchRequest(requestId) }}>
           <Eye className="mr-1 size-3" />
           Watch
-        </Button>
-      ) : null}
+        </Button> : null}
       {season.existingRequestIsWatching ? <span className="text-muted-foreground text-xs">Watching</span> : null}
     </div>
   )
@@ -175,9 +171,7 @@ function SelectableSeasonRow({ season, selected, onToggle }: { season: EnrichedS
     <div className="flex items-center space-x-2 py-1">
       <Checkbox id={`season-${season.seasonNumber}`} checked={selected} onCheckedChange={() => onToggle(season.seasonNumber)} />
       <Label htmlFor={`season-${season.seasonNumber}`} className="flex-1 cursor-pointer text-sm">{getSeasonLabel(season)}</Label>
-      {season.inLibrary && season.totalAiredEpisodes > 0 ? (
-        <span className="text-muted-foreground text-xs">{season.airedEpisodesWithFiles}/{season.totalAiredEpisodes} eps</span>
-      ) : null}
+      {season.inLibrary && season.totalAiredEpisodes > 0 ? <span className="text-muted-foreground text-xs">{season.airedEpisodesWithFiles}/{season.totalAiredEpisodes} eps</span> : null}
     </div>
   )
 }

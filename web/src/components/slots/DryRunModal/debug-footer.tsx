@@ -20,21 +20,17 @@ export function DebugFooter({
 }: DebugFooterProps) {
   return (
     <div className="flex flex-1 items-center gap-2">
-      {developerMode ? (
-        <DebugButton
+      {developerMode ? <DebugButton
           isLoadingDebugData={isLoadingDebugData}
           isExecuting={isExecuting}
           onLoadDebugData={onLoadDebugData}
-        />
-      ) : null}
-      {isDebugData ? (
-        <Badge
+        /> : null}
+      {isDebugData ? <Badge
           variant="outline"
           className="border-orange-300 text-orange-600 dark:text-orange-400"
         >
           Debug Mode
-        </Badge>
-      ) : null}
+        </Badge> : null}
     </div>
   )
 }

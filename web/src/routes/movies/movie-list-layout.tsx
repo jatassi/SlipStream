@@ -45,15 +45,13 @@ export function MovieListLayout({ state: s }: { state: MovieListState }) {
   return (
     <div>
       <MovieListHeader state={s} />
-      {s.editMode ? (
-        <MediaListToolbar
+      {s.editMode ? <MediaListToolbar
           selectedCount={s.selectedIds.size} totalCount={s.filteredMovies.length}
           qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
           onSelectAll={s.handleSelectAll} onMonitor={s.handleBulkMonitor}
           onChangeQualityProfile={s.handleBulkChangeQualityProfile} onDelete={() => s.setShowDeleteDialog(true)}
           theme="movie"
-        />
-      ) : null}
+        /> : null}
       <MediaListFilters
         filterOptions={FILTER_OPTIONS} sortOptions={SORT_OPTIONS}
         statusFilters={s.statusFilters} sortField={s.sortField} view={s.moviesView}

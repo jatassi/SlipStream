@@ -69,15 +69,12 @@ function InvalidDescription({ validationResult }: { validationResult: Validation
 
   return (
     <div className="mt-2">
-      {nonConflictErrors && nonConflictErrors.length > 0 ? (
-        <ul className="list-inside list-disc">
+      {nonConflictErrors && nonConflictErrors.length > 0 ? <ul className="list-inside list-disc">
           {nonConflictErrors.map((error) => (
             <li key={error}>{error}</li>
           ))}
-        </ul>
-      ) : null}
-      {conflicts && conflicts.length > 0 ? (
-        <div className="mt-2 space-y-3">
+        </ul> : null}
+      {conflicts && conflicts.length > 0 ? <div className="mt-2 space-y-3">
           {conflicts.map((conflict) => (
             <div key={`${conflict.slotAName}-${conflict.slotBName}`}>
               <p className="font-medium">
@@ -92,8 +89,7 @@ function InvalidDescription({ validationResult }: { validationResult: Validation
               </ul>
             </div>
           ))}
-        </div>
-      ) : null}
+        </div> : null}
     </div>
   )
 }

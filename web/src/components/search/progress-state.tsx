@@ -95,8 +95,7 @@ function ProgressFill({ theme, clampedProgress, showShimmer }: { theme: MediaThe
       )}
       style={{ width: `${clampedProgress}%` }}
     >
-      {showShimmer ? (
-        <div className="absolute inset-0 overflow-hidden">
+      {showShimmer ? <div className="absolute inset-0 overflow-hidden">
           <div
             className={cn(
               'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
@@ -105,8 +104,7 @@ function ProgressFill({ theme, clampedProgress, showShimmer }: { theme: MediaThe
                 : 'via-tv-400/25 bg-gradient-to-r from-transparent to-transparent',
             )}
           />
-        </div>
-      ) : null}
+        </div> : null}
     </div>
   )
 }

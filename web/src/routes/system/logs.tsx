@@ -75,9 +75,7 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
       <span className={cn('w-12 shrink-0 uppercase', LEVEL_COLORS[entry.level] || 'text-zinc-400')}>
         {entry.level.slice(0, 5).padEnd(5)}
       </span>
-      {entry.component ? (
-        <span className="shrink-0 text-cyan-400">[{entry.component}]</span>
-      ) : null}
+      {entry.component ? <span className="shrink-0 text-cyan-400">[{entry.component}]</span> : null}
       <span className="text-zinc-100">{entry.message}</span>
       {fields ? <span className="text-zinc-500">{fields}</span> : null}
     </div>

@@ -4,14 +4,12 @@ import { CheckCircle, Loader2, Search, Trash2, XCircle, Zap } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
+export type RequestAction = 'approve' | 'approve-manual-search' | 'approve-auto-search' | 'deny' | 'delete'
+
 type RequestActionsProps = {
   isPending: boolean
   isProcessing: boolean
-  onApproveOnly: () => void
-  onApproveAndManualSearch: () => void
-  onApproveAndAutoSearch: () => void
-  onDeny: () => void
-  onDelete: () => void
+  onAction: (action: RequestAction) => void
 }
 
 export function RequestActions(props: RequestActionsProps) {
@@ -27,26 +25,26 @@ export function RequestActions(props: RequestActionsProps) {
               icon={approveIcon}
               iconClassName={approveIconClass}
               tooltip="Approve (add to library)"
-              onClick={props.onApproveOnly}
+              onClick={() => props.onAction('approve')}
               disabled={props.isProcessing}
             />
             <ActionButton
               icon={Search}
               tooltip="Approve & Manual Search"
-              onClick={props.onApproveAndManualSearch}
+              onClick={() => props.onAction('approve-manual-search')}
               disabled={props.isProcessing}
             />
             <ActionButton
               icon={Zap}
               tooltip="Approve & Auto Search"
-              onClick={props.onApproveAndAutoSearch}
+              onClick={() => props.onAction('approve-auto-search')}
               disabled={props.isProcessing}
             />
             <ActionButton
               icon={XCircle}
               iconClassName="text-destructive"
               tooltip="Deny"
-              onClick={props.onDeny}
+              onClick={() => props.onAction('deny')}
               disabled={props.isProcessing}
             />
           </>
@@ -55,7 +53,7 @@ export function RequestActions(props: RequestActionsProps) {
           icon={Trash2}
           iconClassName="text-muted-foreground hover:text-destructive"
           tooltip="Delete permanently"
-          onClick={props.onDelete}
+          onClick={() => props.onAction('delete')}
         />
       </div>
     </TooltipProvider>

@@ -78,15 +78,13 @@ function SearchInput({
         id="global-search"
         className="border-white/50 pr-8 pl-9 focus-visible:border-white"
       />
-      {searchQuery ? (
-        <button
+      {searchQuery ? <button
           type="button"
           onClick={onClear}
           className="absolute top-1/2 right-2 z-10 -translate-y-1/2 text-white/70 hover:text-white"
         >
           <X className="size-4" />
-        </button>
-      ) : null}
+        </button> : null}
     </div>
   )
 }

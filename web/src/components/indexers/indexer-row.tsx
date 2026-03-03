@@ -46,12 +46,10 @@ function IndexerBadges({
       <Badge variant="secondary" className={`text-xs ${protocolColors[indexer.protocol]}`}>
         {indexer.protocol}
       </Badge>
-      {indexer.privacy ? (
-        <Badge variant="secondary" className={`text-xs ${privacyColors[indexer.privacy]}`}>
+      {indexer.privacy ? <Badge variant="secondary" className={`text-xs ${privacyColors[indexer.privacy]}`}>
           <span className="mr-1">{privacyIcons[indexer.privacy]}</span>
           {indexer.privacy}
-        </Badge>
-      ) : null}
+        </Badge> : null}
       <Badge variant="secondary" className={`text-xs ${contentTypeColors[contentType]}`}>
         {ContentTypeLabels[contentType]}
       </Badge>
@@ -84,9 +82,7 @@ function CapabilitiesInfo({ capabilities }: { capabilities?: ProwlarrIndexerWith
     <>
       <span className="text-muted-foreground/50">|</span>
       {supportsMovieSearch ? <span>Movies</span> : null}
-      {supportsMovieSearch && supportsTvSearch ? (
-        <span className="text-muted-foreground/50">/</span>
-      ) : null}
+      {supportsMovieSearch && supportsTvSearch ? <span className="text-muted-foreground/50">/</span> : null}
       {supportsTvSearch ? <span>TV</span> : null}
     </>
   )

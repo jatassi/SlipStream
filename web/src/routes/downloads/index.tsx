@@ -35,12 +35,10 @@ function QueueErrorBanner({ errors, isFetching }: { errors: ClientError[]; isFet
         Unable to reach <span className="font-medium text-yellow-100">{clientNames}</span> — showing
         last known data
       </span>
-      {isFetching ? (
-        <span className="flex items-center gap-1.5 text-xs text-yellow-400">
+      {isFetching ? <span className="flex items-center gap-1.5 text-xs text-yellow-400">
           <Loader2 className="size-3 animate-spin" />
           Retrying…
-        </span>
-      ) : null}
+        </span> : null}
     </div>
   )
 }

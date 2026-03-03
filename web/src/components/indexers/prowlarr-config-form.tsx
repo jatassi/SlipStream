@@ -71,8 +71,7 @@ function ConfigHeader({
           </CardDescription>
         </div>
         <div className="flex items-center gap-3">
-          {status ? (
-            <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
+          {status ? <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
               {status.connected ? (
                 <>
                   <CheckCircle2 className="size-3" />
@@ -84,8 +83,7 @@ function ConfigHeader({
                   Disconnected
                 </>
               )}
-            </Badge>
-          ) : null}
+            </Badge> : null}
           <ChevronDown
             className={`text-muted-foreground size-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />

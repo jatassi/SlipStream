@@ -82,9 +82,7 @@ function MovieCardContent({
         version={movie.updatedAt}
         className="absolute inset-0"
       />
-      {editMode ? (
-        <MovieEditCheckbox movieId={movie.id} selected={selected} onToggle={onToggleSelect} />
-      ) : null}
+      {editMode ? <MovieEditCheckbox movieId={movie.id} selected={selected} onToggle={onToggleSelect} /> : null}
       <div className="absolute top-2 right-2">
         <MediaStatusBadge status={movie.status} />
       </div>

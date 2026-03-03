@@ -182,15 +182,13 @@ export function createSeriesActionsColumn(callbacks: {
               View details
             </DropdownMenuItem>
           </Link>
-          {callbacks.onDelete ? (
-            <DropdownMenuItem
+          {callbacks.onDelete ? <DropdownMenuItem
               onClick={() => callbacks.onDelete?.(series.id)}
               className="text-destructive"
             >
               <Trash2 className="mr-2 size-4" />
               Delete
-            </DropdownMenuItem>
-          ) : null}
+            </DropdownMenuItem> : null}
         </DropdownMenuContent>
       </DropdownMenu>
     ),

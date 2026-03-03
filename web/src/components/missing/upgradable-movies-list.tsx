@@ -62,12 +62,10 @@ function QualityBadges({
         <ArrowRight className="text-muted-foreground size-2.5" />
         <span className="text-green-500">{cutoffName}</span>
       </Badge>
-      {profile ? (
-        <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+      {profile ? <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
           <SlidersVertical className="size-2.5" />
           {profile.name}
-        </Badge>
-      ) : null}
+        </Badge> : null}
     </div>
   )
 }

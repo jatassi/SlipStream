@@ -95,14 +95,12 @@ function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
         onFieldChange={updateField}
       />
 
-      {showPreview ? (
-        <UpgradeStrategyPreview
+      {showPreview ? <UpgradeStrategyPreview
           allowedQualities={formData.items}
           strategy={formData.upgradeStrategy}
           cutoffId={formData.cutoff}
           cutoffOverridesStrategy={formData.cutoffOverridesStrategy}
-        />
-      ) : null}
+        /> : null}
 
       <AttributeFilters
         hdrSettings={formData.hdrSettings}

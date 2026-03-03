@@ -48,9 +48,7 @@ export function InvitationCard({
         onResend={onResend}
         onDelete={onDelete}
       />
-      {isLinkExpanded && isUnused ? (
-        <ExpandedLinkSection token={invitation.token} />
-      ) : null}
+      {isLinkExpanded && isUnused ? <ExpandedLinkSection token={invitation.token} /> : null}
     </Card>
   )
 }

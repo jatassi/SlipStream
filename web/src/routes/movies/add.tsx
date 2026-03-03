@@ -36,14 +36,11 @@ export function AddMoviePage() {
         }
       />
 
-      {state.loadingMetadata && !state.selectedMovie ? (
-        <div className="flex items-center justify-center py-12">
+      {state.loadingMetadata && !state.selectedMovie ? <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground size-8 animate-spin" />
-        </div>
-      ) : null}
+        </div> : null}
 
-      {state.selectedMovie ? (
-        <AddMovieConfigure
+      {state.selectedMovie ? <AddMovieConfigure
           selectedMovie={state.selectedMovie}
           rootFolderId={state.rootFolderId}
           setRootFolderId={state.setRootFolderId}
@@ -58,8 +55,7 @@ export function AddMoviePage() {
           isPending={state.isPending}
           handleBack={state.handleBack}
           handleAdd={state.handleAdd}
-        />
-      ) : null}
+        /> : null}
     </div>
   )
 }

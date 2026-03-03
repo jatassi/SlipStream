@@ -39,7 +39,7 @@ function ConflictBadge({ file, compactClass }: { file: FileItemProps['file']; co
       </TooltipTrigger>
       <TooltipContent side="left" className="max-w-sm">
         <p className="mb-2 font-medium">{file.conflict}</p>
-        {rejections.length > 0 ? <SlotRejectionsList rejections={rejections} /> : null}
+        {rejections.length > 0 && <SlotRejectionsList rejections={rejections} />}
       </TooltipContent>
     </Tooltip>
   )
@@ -58,7 +58,7 @@ function NoMatchBadge({ file, compactClass }: { file: FileItemProps['file']; com
         </Badge>
       </TooltipTrigger>
       <TooltipContent side="left" className="max-w-sm">
-        {rejections.length > 0 ? <SlotRejectionsList rejections={rejections} /> : null}
+        {rejections.length > 0 && <SlotRejectionsList rejections={rejections} />}
       </TooltipContent>
     </Tooltip>
   )

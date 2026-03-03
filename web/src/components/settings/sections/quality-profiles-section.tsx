@@ -48,9 +48,7 @@ function ProfileCard({
         <div>
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg">{profile.name}</CardTitle>
-            {profile.allowAutoApprove ? (
-              <Badge variant="outline" className="text-xs">Auto-Approve</Badge>
-            ) : null}
+            {profile.allowAutoApprove ? <Badge variant="outline" className="text-xs">Auto-Approve</Badge> : null}
           </div>
           <CardDescription>
             {profile.upgradesEnabled ? (

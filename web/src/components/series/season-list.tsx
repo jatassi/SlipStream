@@ -163,9 +163,7 @@ function SeasonContent(props: SeasonItemProps & { seasonLabel: string }) {
 
   return (
     <AccordionContent className="pb-4">
-      {season.overview ? (
-        <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">{season.overview}</p>
-      ) : null}
+      {season.overview ? <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">{season.overview}</p> : null}
       {seasonEpisodes.length > 0 ? (
         <EpisodeTable
           seriesId={props.seriesId}
@@ -205,9 +203,7 @@ function SeasonTrigger(props: SeasonTriggerProps) {
     <AccordionTrigger className="group py-3 hover:no-underline **:data-[slot=accordion-trigger-icon]:!hidden">
       <div className="flex flex-1 items-center gap-4">
         <ChevronRight className="text-muted-foreground group-hover:text-tv-400 group-hover:icon-glow-tv size-4 shrink-0 transition-transform duration-200 group-aria-expanded/accordion-trigger:rotate-90" />
-        {season.posterUrl ? (
-          <img src={season.posterUrl} alt={seasonLabel} className="h-14 w-10 shrink-0 rounded object-cover" />
-        ) : null}
+        {season.posterUrl ? <img src={season.posterUrl} alt={seasonLabel} className="h-14 w-10 shrink-0 rounded object-cover" /> : null}
         <SeasonLabel label={seasonLabel} firstAirYear={firstAirYear} seasonNumber={season.seasonNumber} />
         <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
           {fileCount}/{totalCount}
@@ -244,9 +240,7 @@ function SeasonLabel({ label, firstAirYear, seasonNumber }: {
   return (
     <span className="font-semibold">
       {label}
-      {firstAirYear && seasonNumber > 0 ? (
-        <span className="text-muted-foreground ml-1.5 font-normal">({firstAirYear})</span>
-      ) : null}
+      {firstAirYear && seasonNumber > 0 ? <span className="text-muted-foreground ml-1.5 font-normal">({firstAirYear})</span> : null}
     </span>
   )
 }

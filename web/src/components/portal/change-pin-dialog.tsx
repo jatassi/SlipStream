@@ -162,12 +162,10 @@ function PinInputSection({
         )}
       </div>
 
-      {error ? (
-        <div className="text-destructive mt-4 flex items-center justify-center gap-2 text-sm">
+      {error ? <div className="text-destructive mt-4 flex items-center justify-center gap-2 text-sm">
           <XCircle className="size-4" />
           {error}
-        </div>
-      ) : null}
+        </div> : null}
 
       <StepIndicator currentStep={step} />
     </div>

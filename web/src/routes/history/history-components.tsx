@@ -201,11 +201,9 @@ function HistoryRow({ item, isExpanded, onToggle }: HistoryRowProps) {
       </TableCell>
       <TableCell>
         <MediaTitle item={item} />
-        {item.quality ? (
-          <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px]">
+        {item.quality ? <Badge variant="outline" className="ml-2 px-1.5 py-0 text-[10px]">
             {item.quality}
-          </Badge>
-        ) : null}
+          </Badge> : null}
       </TableCell>
       <TableCell>
         <EventBadge item={item} />

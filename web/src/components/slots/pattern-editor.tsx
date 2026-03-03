@@ -94,9 +94,7 @@ export function PatternEditor({
         isMissing={isMissingTokens}
         onClick={() => setTokenDialogOpen(true)}
       />
-      {preview ? (
-        <PatternPreview valid={preview.valid} preview={preview.preview} error={preview.error} />
-      ) : null}
+      {preview ? <PatternPreview valid={preview.valid} preview={preview.preview} error={preview.error} /> : null}
       <TokenBuilderDialog
         open={tokenDialogOpen}
         onOpenChange={setTokenDialogOpen}

@@ -71,11 +71,9 @@ function PortField({
     <div className="space-y-2">
       <Label htmlFor="port">Port</Label>
       <Input id="port" type="number" value={port} onChange={(e) => onChange(e.target.value)} placeholder="8080" />
-      {portConflict ? (
-        <p className="text-sm text-amber-600 dark:text-amber-500">
+      {portConflict ? <p className="text-sm text-amber-600 dark:text-amber-500">
           Port {configuredPort} was in use. Server is running on port {actualPort}. Restart required to apply port changes.
-        </p>
-      ) : null}
+        </p> : null}
     </div>
   )
 }
@@ -228,9 +226,7 @@ export function ServerSection({
     <div className="space-y-4">
       <PortField port={port} onChange={onPortChange} portConflict={portConflict} configuredPort={status?.configuredPort} actualPort={status?.actualPort} />
       <ExternalAccessField enabled={externalAccessEnabled} onChange={onExternalAccessChange} />
-      {externalAccessEnabled ? (
-        <FirewallStatusPanel firewallStatus={firewallStatus} firewallLoading={firewallLoading} isChecking={isCheckingFirewall} onCheck={handleCheckFirewall} />
-      ) : null}
+      {externalAccessEnabled ? <FirewallStatusPanel firewallStatus={firewallStatus} firewallLoading={firewallLoading} isChecking={isCheckingFirewall} onCheck={handleCheckFirewall} /> : null}
       <LogLevelField logLevel={logLevel} onChange={onLogLevelChange} />
       <LogPathField logPath={settings?.logPath ?? ''} isCopied={isCopied} onCopy={handleCopyLogPath} />
       <LogRotationField logRotation={logRotation} onChange={onLogRotationChange} />

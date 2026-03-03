@@ -123,7 +123,6 @@ export const updateRoute = lazyRoute('/system/update', () => import('@/routes/sy
 export const manualImportRoute = lazyRoute('/import', () => import('@/routes/import/index'), 'ManualImportPage')
 
 // Dev
-export const devColorsRoute = lazyRoute('/dev/colors', () => import('@/routes/dev/colors'), 'ColorPreviewPage')
 export const devControlsRoute = lazyRoute('/dev/controls', () => import('@/routes/dev/controls'), 'ControlsShowcasePage')
 
 // Portal

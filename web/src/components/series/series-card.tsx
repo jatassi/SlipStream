@@ -5,6 +5,7 @@ import { NetworkLogo } from '@/components/media/network-logo'
 import { PosterImage } from '@/components/media/poster-image'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import type { Series } from '@/types'
 
@@ -14,29 +15,6 @@ type SeriesCardProps = {
   editMode?: boolean
   selected?: boolean
   onToggleSelect?: (id: number) => void
-}
-
-function formatDate(dateStr: string, format: 'short' | 'medium' | 'long') {
-  const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-  switch (format) {
-    case 'short': {
-      return `${date.getMonth() + 1}/${date.getDate()}`
-    }
-    case 'medium': {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    }
-    case 'long': {
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    }
-  }
 }
 
 function yearFromDate(dateStr?: string): number | null {
@@ -224,9 +202,11 @@ function EndedStatus({
 }
 
 function ActiveStatus({ nextAiring }: { nextAiring?: string }) {
-  const shortDate = nextAiring ? formatDate(nextAiring, 'short') : null
-  const mediumDate = nextAiring ? formatDate(nextAiring, 'medium') : null
-  const longDate = nextAiring ? formatDate(nextAiring, 'long') : null
+  const shortDate = nextAiring ? formatDate(nextAiring, { month: 'numeric', day: 'numeric' }) : null
+  const mediumDate = nextAiring ? formatDate(nextAiring, { month: 'short', day: 'numeric', year: 'numeric' }) : null
+  const longDate = nextAiring
+    ? formatDate(nextAiring, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    : null
 
   return (
     <>

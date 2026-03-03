@@ -181,14 +181,10 @@ function ProwlarrParentRow({ item, onTest, isPending }: ProwlarrParentRowProps) 
         <StatusIndicator status={item.status} size="md" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{item.name}</div>
-          {item.message ? (
-            <div className="text-muted-foreground truncate text-sm">{item.message}</div>
-          ) : null}
-          {item.timestamp ? (
-            <div className="text-muted-foreground text-xs">
+          {item.message ? <div className="text-muted-foreground truncate text-sm">{item.message}</div> : null}
+          {item.timestamp ? <div className="text-muted-foreground text-xs">
               {formatRelativeTime(item.timestamp)}
-            </div>
-          ) : null}
+            </div> : null}
         </div>
       </div>
       <Button

@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils'
 import type { Episode, Slot } from '@/types'
 
 import { EpisodeSlotRow } from './episode-slot-row'
+import type { SeriesInfo } from './series-context'
+import { SeriesContext, useSeriesInfo } from './series-context'
 
 type EpisodeTableProps = {
   seriesId: number
@@ -40,12 +42,6 @@ type EpisodeTableProps = {
 
 type EpisodeRowProps = {
   episode: Episode
-  seriesId: number
-  seriesTitle: string
-  qualityProfileId: number
-  tvdbId?: number
-  tmdbId?: number
-  imdbId?: string
   columnCount: number
   isExpanded: boolean
   onToggleExpanded: () => void
@@ -97,35 +93,40 @@ export function EpisodeTable(props: EpisodeTableProps) {
   )
   const columnCount = isMultiVersionEnabled ? 9 : 7
 
+  const seriesInfo: SeriesInfo = {
+    seriesId: props.seriesId,
+    seriesTitle: props.seriesTitle,
+    qualityProfileId: props.qualityProfileId,
+    tvdbId: props.tvdbId,
+    tmdbId: props.tmdbId,
+    imdbId: props.imdbId,
+  }
+
   return (
-    <Table>
-      <EpisodeTableHeader isMultiVersionEnabled={isMultiVersionEnabled} />
-      <TableBody>
-        {sortedEpisodes.map((episode) => (
-          <EpisodeRow
-            key={episode.id}
-            episode={episode}
-            seriesId={props.seriesId}
-            seriesTitle={props.seriesTitle}
-            qualityProfileId={props.qualityProfileId}
-            tvdbId={props.tvdbId}
-            tmdbId={props.tmdbId}
-            imdbId={props.imdbId}
-            columnCount={columnCount}
-            isExpanded={expandedEpisodeId === episode.id}
-            onToggleExpanded={() => setExpandedEpisodeId((prev) => (prev === episode.id ? null : episode.id))}
-            isMultiVersionEnabled={isMultiVersionEnabled}
-            enabledSlots={enabledSlots}
-            isAssigning={props.isAssigning ?? false}
-            getSlotName={getSlotName}
-            onMonitoredChange={props.onMonitoredChange}
-            onAssignFileToSlot={props.onAssignFileToSlot}
-            slotQualityProfiles={slotQualityProfiles}
-            imdbRating={props.episodeRatings?.[episode.episodeNumber]}
-          />
-        ))}
-      </TableBody>
-    </Table>
+    <SeriesContext.Provider value={seriesInfo}>
+      <Table>
+        <EpisodeTableHeader isMultiVersionEnabled={isMultiVersionEnabled} />
+        <TableBody>
+          {sortedEpisodes.map((episode) => (
+            <EpisodeRow
+              key={episode.id}
+              episode={episode}
+              columnCount={columnCount}
+              isExpanded={expandedEpisodeId === episode.id}
+              onToggleExpanded={() => setExpandedEpisodeId((prev) => (prev === episode.id ? null : episode.id))}
+              isMultiVersionEnabled={isMultiVersionEnabled}
+              enabledSlots={enabledSlots}
+              isAssigning={props.isAssigning ?? false}
+              getSlotName={getSlotName}
+              onMonitoredChange={props.onMonitoredChange}
+              onAssignFileToSlot={props.onAssignFileToSlot}
+              slotQualityProfiles={slotQualityProfiles}
+              imdbRating={props.episodeRatings?.[episode.episodeNumber]}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </SeriesContext.Provider>
   )
 }
 
@@ -160,12 +161,6 @@ function EpisodeRow(props: EpisodeRowProps) {
           <TableCell colSpan={columnCount} className="bg-muted/20 p-2">
             <EpisodeSlotStatusContent
               episode={episode}
-              seriesId={props.seriesId}
-              seriesTitle={props.seriesTitle}
-              qualityProfileId={props.qualityProfileId}
-              tvdbId={props.tvdbId}
-              tmdbId={props.tmdbId}
-              imdbId={props.imdbId}
               slotQualityProfiles={props.slotQualityProfiles}
             />
           </TableCell>
@@ -201,7 +196,7 @@ function EpisodeRowCells(props: EpisodeRowProps) {
       <RatingCell imdbRating={imdbRating} />
       {isMultiVersionEnabled ? <SlotAssignCell {...props} /> : null}
       <TableCell className="px-2 py-1.5">
-        <EpisodeActions {...props} />
+        <EpisodeActions episode={episode} onMonitoredChange={props.onMonitoredChange} />
       </TableCell>
     </>
   )
@@ -265,8 +260,13 @@ function SlotAssignCell(props: EpisodeRowProps) {
   )
 }
 
-function EpisodeActions(props: EpisodeRowProps) {
-  const { episode, seriesId, seriesTitle, qualityProfileId, tvdbId, tmdbId, imdbId } = props
+type EpisodeActionsProps = {
+  episode: Episode
+  onMonitoredChange?: (episode: Episode, monitored: boolean) => void
+}
+
+function EpisodeActions({ episode, onMonitoredChange }: EpisodeActionsProps) {
+  const { seriesId, seriesTitle, qualityProfileId, tvdbId, tmdbId, imdbId } = useSeriesInfo()
   const episodeCode = `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`
 
   return (
@@ -281,8 +281,8 @@ function EpisodeActions(props: EpisodeRowProps) {
       theme="tv"
       size="xs"
       monitored={episode.monitored}
-      onMonitoredChange={(m) => props.onMonitoredChange?.(episode, m)}
-      monitorDisabled={!props.onMonitoredChange}
+      onMonitoredChange={(m) => onMonitoredChange?.(episode, m)}
+      monitorDisabled={!onMonitoredChange}
       qualityProfileId={qualityProfileId}
       tvdbId={tvdbId}
       tmdbId={tmdbId}
@@ -293,17 +293,11 @@ function EpisodeActions(props: EpisodeRowProps) {
 
 type SlotStatusContentProps = {
   episode: Episode
-  seriesId: number
-  seriesTitle: string
-  qualityProfileId: number
-  tvdbId?: number
-  tmdbId?: number
-  imdbId?: string
   slotQualityProfiles: Record<number, number>
 }
 
-function EpisodeSlotStatusContent(props: SlotStatusContentProps) {
-  const { episode, seriesId, seriesTitle, qualityProfileId } = props
+function EpisodeSlotStatusContent({ episode, slotQualityProfiles }: SlotStatusContentProps) {
+  const { seriesId, seriesTitle, qualityProfileId } = useSeriesInfo()
   const { data: slotStatus, isLoading } = useEpisodeSlotStatus(episode.id)
   const setSlotMonitoredMutation = useSetEpisodeSlotMonitored()
 
@@ -345,10 +339,7 @@ function EpisodeSlotStatusContent(props: SlotStatusContentProps) {
       seasonNumber={episode.seasonNumber}
       episodeNumber={episode.episodeNumber}
       qualityProfileId={qualityProfileId}
-      tvdbId={props.tvdbId}
-      tmdbId={props.tmdbId}
-      imdbId={props.imdbId}
-      slotQualityProfiles={props.slotQualityProfiles}
+      slotQualityProfiles={slotQualityProfiles}
       onSlotMonitoredChange={handleSlotMonitoredChange}
       isMonitorUpdating={setSlotMonitoredMutation.isPending}
     />

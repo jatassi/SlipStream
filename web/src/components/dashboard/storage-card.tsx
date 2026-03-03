@@ -31,13 +31,11 @@ function StorageProgressBar({
           className={cn('h-full transition-all', colorClasses)}
           style={{ width: `${percentage}%` }}
         />
-        {showPercentage ? (
-          <div className="absolute inset-0 flex items-center justify-center">
+        {showPercentage ? <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-[16px] font-medium text-white drop-shadow-sm">
               {percentage.toFixed(0)}%
             </span>
-          </div>
-        ) : null}
+          </div> : null}
       </div>
     </div>
   )
@@ -83,8 +81,7 @@ export function StorageCard({ storage, loading }: StorageCardProps) {
         </div>
 
         {/* Root folders as badges */}
-        {storage?.length === 1 && storage[0].rootFolders && storage[0].rootFolders.length > 0 ? (
-          <div className="mb-4 flex flex-wrap gap-1">
+        {storage?.length === 1 && storage[0].rootFolders && storage[0].rootFolders.length > 0 ? <div className="mb-4 flex flex-wrap gap-1">
             {storage[0].rootFolders.map((folder) => (
               <Badge
                 key={folder.id}
@@ -94,8 +91,7 @@ export function StorageCard({ storage, loading }: StorageCardProps) {
                 {folder.name}
               </Badge>
             ))}
-          </div>
-        ) : null}
+          </div> : null}
 
         <VolumeList storage={storage} />
       </CardContent>
@@ -115,12 +111,10 @@ function VolumeList({ storage }: { storage?: StorageInfo[] }) {
             {storage.length > 1 && (
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{volume.label}</span>
-                {volume.rootFolders && volume.rootFolders.length > 0 ? (
-                  <span className="text-muted-foreground text-xs">
+                {volume.rootFolders && volume.rootFolders.length > 0 ? <span className="text-muted-foreground text-xs">
                     {volume.rootFolders.length} folder
                     {volume.rootFolders.length === 1 ? '' : 's'}
-                  </span>
-                ) : null}
+                  </span> : null}
               </div>
             )}
             <StorageProgressBar value={volume.usedPercent} showPercentage />

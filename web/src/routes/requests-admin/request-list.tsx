@@ -1,6 +1,7 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Request } from '@/types'
 
+import type { RequestAction } from './request-actions'
 import { RequestRow } from './request-row'
 
 export type RequestListProps = {
@@ -10,11 +11,7 @@ export type RequestListProps = {
   processingRequest: number | null
   onToggleSelectAll: () => void
   onToggleSelect: (id: number) => void
-  onApproveOnly: (request: Request) => void
-  onApproveAndManualSearch: (request: Request) => void
-  onApproveAndAutoSearch: (request: Request) => void
-  onDeny: (id: number) => void
-  onDelete: (id: number) => void
+  onAction: (request: Request, action: RequestAction) => void
 }
 
 export function RequestList({
@@ -24,11 +21,7 @@ export function RequestList({
   processingRequest,
   onToggleSelectAll,
   onToggleSelect,
-  onApproveOnly,
-  onApproveAndManualSearch,
-  onApproveAndAutoSearch,
-  onDeny,
-  onDelete,
+  onAction,
 }: RequestListProps) {
   return (
     <div className="rounded-md border">
@@ -46,11 +39,7 @@ export function RequestList({
             selected={selectedIds.has(request.id)}
             isProcessing={processingRequest === request.id}
             onToggleSelect={() => onToggleSelect(request.id)}
-            onApproveOnly={() => onApproveOnly(request)}
-            onApproveAndManualSearch={() => onApproveAndManualSearch(request)}
-            onApproveAndAutoSearch={() => onApproveAndAutoSearch(request)}
-            onDeny={() => onDeny(request.id)}
-            onDelete={() => onDelete(request.id)}
+            onAction={(action) => onAction(request, action)}
           />
         ))}
       </div>

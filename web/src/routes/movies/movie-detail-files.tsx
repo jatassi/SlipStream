@@ -84,15 +84,13 @@ function FilesTable({
       <TableHeader>
         <TableRow>
           <TableHead>Filename</TableHead>
-          {showColumns ? (
-            <>
+          {showColumns ? <>
               <TableHead>Quality</TableHead>
               <TableHead>Video</TableHead>
               <TableHead>Audio</TableHead>
               {isMultiVersionEnabled ? <TableHead>Slot</TableHead> : null}
               <TableHead className="text-right">Size</TableHead>
-            </>
-          ) : null}
+            </> : null}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -163,8 +161,7 @@ function FileDetailCells({
       </TableCell>
       <VideoCell file={file} />
       <AudioCell file={file} />
-      {isMultiVersionEnabled ? (
-        <TableCell>
+      {isMultiVersionEnabled ? <TableCell>
           <SlotSelect
             file={file}
             enabledSlots={enabledSlots}
@@ -172,8 +169,7 @@ function FileDetailCells({
             onAssign={onAssignToSlot}
             getSlotName={getSlotName}
           />
-        </TableCell>
-      ) : null}
+        </TableCell> : null}
       <TableCell className="text-right">{formatBytes(file.size)}</TableCell>
     </>
   )
@@ -183,9 +179,7 @@ function VideoCell({ file }: { file: MovieFile }) {
   return (
     <TableCell>
       <div className="flex items-center gap-1">
-        {file.videoCodec ? (
-          <Badge variant="outline" className="font-mono text-xs">{file.videoCodec}</Badge>
-        ) : null}
+        {file.videoCodec ? <Badge variant="outline" className="font-mono text-xs">{file.videoCodec}</Badge> : null}
         {file.dynamicRange?.split(' ').map((dr) => (
           <Badge key={dr} variant="outline" className="font-mono text-xs">{dr}</Badge>
         ))}
@@ -198,12 +192,8 @@ function AudioCell({ file }: { file: MovieFile }) {
   return (
     <TableCell>
       <div className="flex items-center gap-1">
-        {file.audioCodec ? (
-          <Badge variant="outline" className="font-mono text-xs">{file.audioCodec}</Badge>
-        ) : null}
-        {file.audioChannels ? (
-          <Badge variant="outline" className="font-mono text-xs">{file.audioChannels}</Badge>
-        ) : null}
+        {file.audioCodec ? <Badge variant="outline" className="font-mono text-xs">{file.audioCodec}</Badge> : null}
+        {file.audioChannels ? <Badge variant="outline" className="font-mono text-xs">{file.audioChannels}</Badge> : null}
       </div>
     </TableCell>
   )

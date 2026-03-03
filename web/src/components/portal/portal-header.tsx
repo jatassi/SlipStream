@@ -110,7 +110,7 @@ export function PortalHeader() {
     <header className="border-border bg-card flex h-14 items-center justify-between border-b px-3 sm:px-6">
       <LogoLink isHomePage={isHomePage} />
 
-      {isSearchPage || isLibraryPage ? (
+      {isSearchPage || isLibraryPage && (
         <SearchForm
           searchInput={searchInput}
           searchFocused={searchFocused}
@@ -118,7 +118,7 @@ export function PortalHeader() {
           onFocusChange={setSearchFocused}
           onSubmit={handleSearch}
         />
-      ) : null}
+      )}
 
       <div className="flex items-center gap-1 md:gap-2">
         <LibraryLink active={isLibraryPage} hideText={isSearchPage} />

@@ -288,11 +288,9 @@ function LeftButtons({ hook }: { hook: HookValues }) {
       <LoadingButton loading={hook.isTesting} icon={TestTube} variant="outline" onClick={hook.handleTest}>
         Test
       </LoadingButton>
-      {showDebug ? (
-        <LoadingButton loading={hook.isAddingDebugTorrent} icon={Bug} variant="outline" onClick={hook.handleDebugTorrent} title="Add mock download for testing">
+      {showDebug ? <LoadingButton loading={hook.isAddingDebugTorrent} icon={Bug} variant="outline" onClick={hook.handleDebugTorrent} title="Add mock download for testing">
           Debug
-        </LoadingButton>
-      ) : null}
+        </LoadingButton> : null}
     </div>
   )
 }

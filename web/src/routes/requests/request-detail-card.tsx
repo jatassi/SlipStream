@@ -136,9 +136,7 @@ function MediaTitleBadges({
     <div className="min-w-0">
       <CardTitle className="text-xl sm:text-2xl">
         {request.title}
-        {request.year ? (
-          <span className="text-muted-foreground ml-2">({request.year})</span>
-        ) : null}
+        {request.year ? <span className="text-muted-foreground ml-2">({request.year})</span> : null}
       </CardTitle>
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <Badge
@@ -147,12 +145,8 @@ function MediaTitleBadges({
         >
           {request.mediaType}
         </Badge>
-        {request.seasonNumber ? (
-          <Badge variant="outline">Season {request.seasonNumber}</Badge>
-        ) : null}
-        {request.episodeNumber ? (
-          <Badge variant="outline">Episode {request.episodeNumber}</Badge>
-        ) : null}
+        {request.seasonNumber ? <Badge variant="outline">Season {request.seasonNumber}</Badge> : null}
+        {request.episodeNumber ? <Badge variant="outline">Episode {request.episodeNumber}</Badge> : null}
         <Badge
           className={`${statusConfig.color} px-1.5 py-0.5 text-[10px] text-white sm:hidden md:px-2 md:text-xs`}
         >
@@ -188,8 +182,7 @@ function CardBodyContent({
 }) {
   return (
     <CardContent className="space-y-6">
-      {download.hasActive ? (
-        <RequestDownloadProgress
+      {download.hasActive ? <RequestDownloadProgress
           isMovie={isMovie}
           progress={download.progress}
           downloadSpeed={download.speed}
@@ -197,8 +190,7 @@ function CardBodyContent({
           isPaused={download.isPaused}
           isComplete={download.isComplete}
           eta={download.eta}
-        />
-      ) : null}
+        /> : null}
 
       <RequestMetadataGrid request={request} />
 
@@ -211,8 +203,7 @@ function CardBodyContent({
         </div>
       )}
 
-      {canCancel ? (
-        <div className="flex items-center gap-2 border-t pt-4">
+      {canCancel ? <div className="flex items-center gap-2 border-t pt-4">
           <Button
             variant="destructive"
             onClick={onOpenCancelDialog}
@@ -221,8 +212,7 @@ function CardBodyContent({
             <Trash2 className="mr-1 size-3 md:mr-2 md:size-4" />
             Cancel Request
           </Button>
-        </div>
-      ) : null}
+        </div> : null}
     </CardContent>
   )
 }
@@ -246,24 +236,20 @@ function RequestMetadataGrid({ request }: { request: Request }) {
           {format(new Date(request.createdAt), 'PPP')}
         </p>
       </div>
-      {request.approvedAt ? (
-        <div className="space-y-1">
+      {request.approvedAt ? <div className="space-y-1">
           <p className="text-muted-foreground flex items-center gap-1 text-xs md:text-sm">
             <CheckCircle className="size-3 md:size-4" /> Approved On
           </p>
           <p className="text-sm font-medium md:text-base">
             {format(new Date(request.approvedAt), 'PPP')}
           </p>
-        </div>
-      ) : null}
-      {request.deniedReason ? (
-        <div className="space-y-1 sm:col-span-2">
+        </div> : null}
+      {request.deniedReason ? <div className="space-y-1 sm:col-span-2">
           <p className="text-muted-foreground flex items-center gap-1 text-xs md:text-sm">
             <XCircle className="size-3 md:size-4" /> Denied Reason
           </p>
           <p className="text-sm font-medium text-red-500 md:text-base">{request.deniedReason}</p>
-        </div>
-      ) : null}
+        </div> : null}
     </div>
   )
 }
@@ -297,9 +283,7 @@ function CancelRequestDialog({
             onClick={onConfirm}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs md:text-sm"
           >
-            {isPending ? (
-              <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />
-            ) : null}
+            {isPending ? <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" /> : null}
             Cancel Request
           </AlertDialogAction>
         </AlertDialogFooter>

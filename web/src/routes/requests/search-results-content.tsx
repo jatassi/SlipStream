@@ -40,8 +40,7 @@ export function SearchResultsContent({
 }: SearchResultsContentProps) {
   return (
     <>
-      {hasLibraryResults ? (
-        <LibrarySection
+      {hasLibraryResults ? <LibrarySection
           isLoading={isLoading}
           libraryMovies={libraryMovies}
           librarySeriesItems={librarySeriesItems}
@@ -49,8 +48,7 @@ export function SearchResultsContent({
           currentUserId={currentUserId}
           onSeriesRequestClick={onSeriesRequestClick}
           onViewRequest={onViewRequest}
-        />
-      ) : null}
+        /> : null}
 
       <RequestableSection
         query={query}

@@ -20,12 +20,10 @@ function ParsedDetails({ parsed }: { parsed: ParsedMediaInfo }) {
       <div className="space-y-2 text-sm">
         {parsed.title ? <InfoRow label="Title"><span className="font-medium">{parsed.title}</span></InfoRow> : null}
         {parsed.year ? <InfoRow label="Year"><span>{parsed.year}</span></InfoRow> : null}
-        {parsed.isTV ? (
-          <>
+        {parsed.isTV ? <>
             <InfoRow label="Season"><span>{parsed.season}</span></InfoRow>
             <InfoRow label="Episode"><span>{parsed.episode}{endEpSuffix}</span></InfoRow>
-          </>
-        ) : null}
+          </> : null}
       </div>
     </div>
   )

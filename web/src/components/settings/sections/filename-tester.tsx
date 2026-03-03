@@ -78,14 +78,10 @@ export function FilenameTester({
           placeholder={placeholder ?? PLACEHOLDERS[mediaType]}
           className="font-mono text-sm"
         />
-        {showResult ? (
-          <div className="bg-muted/30 space-y-3 rounded-md border p-4">
+        {showResult ? <div className="bg-muted/30 space-y-3 rounded-md border p-4">
             <ParseResult result={result} />
-          </div>
-        ) : null}
-        {parseMutation.isPending ? (
-          <p className="text-muted-foreground text-sm">Parsing...</p>
-        ) : null}
+          </div> : null}
+        {parseMutation.isPending ? <p className="text-muted-foreground text-sm">Parsing...</p> : null}
       </CardContent>
     </Card>
   )

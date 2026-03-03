@@ -54,7 +54,7 @@ export function SlotDebugPanel() {
 function ParseReleaseTester() {
   const [releaseTitle, setReleaseTitle] = useState('')
   const [result, setResult] = useState<ParseReleaseOutput | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [parseError, setParseError] = useState<string | null>(null)
 
   const parseReleaseMutation = useParseRelease()
 
@@ -62,12 +62,12 @@ function ParseReleaseTester() {
     if (!releaseTitle.trim()) {
       return
     }
-    setError(null)
+    setParseError(null)
     try {
       const data = await parseReleaseMutation.mutateAsync({ releaseTitle: releaseTitle.trim() })
       setResult(data)
-    } catch (error_) {
-      setError(error_ instanceof Error ? error_.message : 'Failed to parse release')
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : 'Failed to parse release')
       setResult(null)
     }
   }
@@ -97,7 +97,7 @@ function ParseReleaseTester() {
         </Button>
       </div>
 
-      <ErrorMessage message={error} />
+      <ErrorMessage message={parseError} />
       {result ? <ParseResultDisplay result={result} /> : null}
     </div>
   )
@@ -141,7 +141,7 @@ function ProfileMatchTester() {
   const [releaseTitle, setReleaseTitle] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [result, setResult] = useState<ProfileMatchOutput | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [matchError, setMatchError] = useState<string | null>(null)
 
   const { data: profiles } = useQualityProfiles()
   const profileMatchMutation = useProfileMatch()
@@ -150,15 +150,15 @@ function ProfileMatchTester() {
     if (!releaseTitle.trim() || !selectedProfileId) {
       return
     }
-    setError(null)
+    setMatchError(null)
     try {
       const data = await profileMatchMutation.mutateAsync({
         releaseTitle: releaseTitle.trim(),
         qualityProfileId: Number.parseInt(selectedProfileId, 10),
       })
       setResult(data)
-    } catch (error_) {
-      setError(error_ instanceof Error ? error_.message : 'Failed to match profile')
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Failed to match profile')
       setResult(null)
     }
   }
@@ -182,7 +182,7 @@ function ProfileMatchTester() {
         isPending={profileMatchMutation.isPending}
       />
 
-      <ErrorMessage message={error} />
+      <ErrorMessage message={matchError} />
       {result ? <ProfileMatchResultDisplay result={result} /> : null}
     </div>
   )

@@ -76,13 +76,11 @@ export function SearchModal(props: SearchModalProps) {
           <SearchResultsArea {...state} />
         </ScrollArea>
 
-        {state.data ? (
-          <SearchFooter
+        {state.data ? <SearchFooter
             total={state.data.total}
             indexersSearched={state.data.indexersSearched}
             errors={state.errors}
-          />
-        ) : null}
+          /> : null}
       </DialogContent>
     </Dialog>
   )

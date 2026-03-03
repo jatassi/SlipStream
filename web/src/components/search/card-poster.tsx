@@ -89,11 +89,9 @@ function HoverOverlay({ title, year, network, networkLogoUrl }: HoverOverlayProp
       <h3 className="line-clamp-3 font-semibold text-white">{title}</h3>
       <div className="flex items-center gap-2 text-sm text-gray-300">
         <span>{year ?? 'Unknown year'}</span>
-        {network && !networkLogoUrl ? (
-          <Badge variant="secondary" className="text-xs">
+        {network && !networkLogoUrl ? <Badge variant="secondary" className="text-xs">
             {network}
-          </Badge>
-        ) : null}
+          </Badge> : null}
       </div>
     </div>
   )

@@ -127,8 +127,7 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
         </span>
       </div>
       <div className="flex items-center gap-1">
-        {canTest ? (
-          <Button
+        {canTest ? <Button
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0"
@@ -137,8 +136,7 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
             title={`Test all ${getCategoryDisplayName(category).toLowerCase()}`}
           >
             <FlaskConical className={cn('size-3', testCategory.isPending && 'animate-pulse')} />
-          </Button>
-        ) : null}
+          </Button> : null}
         <Link to={getCategorySettingsPath(category)}>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Settings">
             <Settings className="size-3" />

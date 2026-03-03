@@ -91,9 +91,9 @@ function WizardNav({
             state={stepState(currentStep === step, completedSteps.has(step))}
             onClick={completedSteps.has(step) && currentStep !== step ? () => onStepClick(step) : undefined}
           />
-          {i < WIZARD_STEPS.length - 1 ? (
+          {i < WIZARD_STEPS.length - 1 && (
             <div className={cn('h-px w-6', completedSteps.has(step) ? 'bg-green-500/40' : 'bg-border')} />
-          ) : null}
+          )}
         </div>
       ))}
     </nav>

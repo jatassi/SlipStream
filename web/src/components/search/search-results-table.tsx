@@ -50,15 +50,11 @@ function HeaderRow({ sortColumn, sortDirection, onSort, hasTorrents, hasSlotInfo
       <SortableHeader label="Title" column="title" {...sortProps} />
       <SortableHeader label="Score" column="score" className="w-[70px]" {...sortProps} />
       <SortableHeader label="Quality" column="quality" className="w-[100px]" {...sortProps} />
-      {hasSlotInfo ? (
-        <SortableHeader label="Slot" column="slot" className="w-[120px]" {...sortProps} />
-      ) : null}
+      {hasSlotInfo ? <SortableHeader label="Slot" column="slot" className="w-[120px]" {...sortProps} /> : null}
       <SortableHeader label="Indexer" column="indexer" className="w-[100px]" {...sortProps} />
       <SortableHeader label="Size" column="size" className="w-[80px]" {...sortProps} />
       <SortableHeader label="Age" column="age" className="w-[100px]" {...sortProps} />
-      {hasTorrents ? (
-        <SortableHeader label="Peers" column="peers" className="w-[100px]" {...sortProps} />
-      ) : null}
+      {hasTorrents ? <SortableHeader label="Peers" column="peers" className="w-[100px]" {...sortProps} /> : null}
       <TableHead className="w-[80px] text-right">Actions</TableHead>
     </TableRow>
   )

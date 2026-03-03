@@ -190,9 +190,7 @@ function EpisodeItem({
         <div className="flex items-center gap-2">
           <EpisodeStatusIndicator episode={episode} />
           <span>E{String(episode.episodeNumber).padStart(2, '0')}</span>
-          {episode.title ? (
-            <span className="text-muted-foreground max-w-[200px] truncate">{episode.title}</span>
-          ) : null}
+          {episode.title ? <span className="text-muted-foreground max-w-[200px] truncate">{episode.title}</span> : null}
           <span className="text-muted-foreground text-xs">
             ({episode.files.length} file{episode.files.length === 1 ? '' : 's'})
           </span>

@@ -40,11 +40,7 @@ export function RequestTabs(props: RequestTabsProps) {
             processingRequest={props.processingRequest}
             onToggleSelectAll={props.onToggleSelectAll}
             onToggleSelect={props.onToggleSelect}
-            onApproveOnly={props.onApproveOnly}
-            onApproveAndManualSearch={props.onApproveAndManualSearch}
-            onApproveAndAutoSearch={props.onApproveAndAutoSearch}
-            onDeny={props.onDeny}
-            onDelete={props.onDelete}
+            onAction={props.onAction}
           />
         )}
       </TabsContent>

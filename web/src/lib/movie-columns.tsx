@@ -155,27 +155,21 @@ export function createMovieActionsColumn(callbacks: {
               View details
             </DropdownMenuItem>
           </Link>
-          {callbacks.onSearch ? (
-            <DropdownMenuItem onClick={() => callbacks.onSearch?.(movie.id)}>
+          {callbacks.onSearch ? <DropdownMenuItem onClick={() => callbacks.onSearch?.(movie.id)}>
               <Search className="mr-2 size-4" />
               Search
-            </DropdownMenuItem>
-          ) : null}
-          {callbacks.onRefresh ? (
-            <DropdownMenuItem onClick={() => callbacks.onRefresh?.(movie.id)}>
+            </DropdownMenuItem> : null}
+          {callbacks.onRefresh ? <DropdownMenuItem onClick={() => callbacks.onRefresh?.(movie.id)}>
               <RefreshCw className="mr-2 size-4" />
               Refresh
-            </DropdownMenuItem>
-          ) : null}
-          {callbacks.onDelete ? (
-            <DropdownMenuItem
+            </DropdownMenuItem> : null}
+          {callbacks.onDelete ? <DropdownMenuItem
               onClick={() => callbacks.onDelete?.(movie.id)}
               className="text-destructive"
             >
               <Trash2 className="mr-2 size-4" />
               Delete
-            </DropdownMenuItem>
-          ) : null}
+            </DropdownMenuItem> : null}
         </DropdownMenuContent>
       </DropdownMenu>
     ),

@@ -85,8 +85,7 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
       )}
     >
       {/* Dismiss button */}
-      {onDismiss ? (
-        <Button
+      {onDismiss ? <Button
           variant="ghost"
           size="icon-xs"
           className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100"
@@ -94,8 +93,7 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
         >
           <X className="size-3" />
           <span className="sr-only">Dismiss</span>
-        </Button>
-      ) : null}
+        </Button> : null}
 
       {/* Header with icon and title */}
       <div className="flex items-start gap-2">

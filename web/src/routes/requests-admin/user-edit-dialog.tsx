@@ -113,16 +113,14 @@ function QuotaOverrideSection({ state }: { state: ReturnType<typeof useUserEditD
         <Label htmlFor="quotaOverride">Override quota limits</Label>
       </div>
 
-      {state.useQuotaOverride ? (
-        <QuotaLimitsGrid
+      {state.useQuotaOverride ? <QuotaLimitsGrid
           moviesLimit={state.moviesLimit}
           onMoviesLimitChange={state.setMoviesLimit}
           seasonsLimit={state.seasonsLimit}
           onSeasonsLimitChange={state.setSeasonsLimit}
           episodesLimit={state.episodesLimit}
           onEpisodesLimitChange={state.setEpisodesLimit}
-        />
-      ) : null}
+        /> : null}
     </div>
   )
 }

@@ -66,9 +66,9 @@ export function CalendarPage() {
     <div className="flex h-full flex-col">
       <PageHeader title="Calendar" description="Upcoming releases and air dates" actions={<ViewToggle view={view} onViewChange={handleViewChange} />} />
       <div className="min-h-0 flex-1">
-        {view === 'month' ? <CalendarMonthView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} /> : null}
-        {view === 'week' ? <CalendarWeekView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} /> : null}
-        {view === 'agenda' ? <CalendarAgendaView events={safeEvents} loading={isLoading} /> : null}
+        {view === 'month' && <CalendarMonthView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} />}
+        {view === 'week' && <CalendarWeekView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} />}
+        {view === 'agenda' && <CalendarAgendaView events={safeEvents} loading={isLoading} />}
       </div>
     </div>
   )

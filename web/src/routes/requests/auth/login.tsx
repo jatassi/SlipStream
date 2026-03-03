@@ -132,13 +132,11 @@ function PinLoginForm(props: PinFormProps) {
           Sign In
         </LoadingButton>
       </form>
-      {props.passkeySupported ? (
-        <div className="mt-4 text-center">
+      {props.passkeySupported ? <div className="mt-4 text-center">
           <button type="button" onClick={props.onUsePasskey} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
             Use Passkey instead
           </button>
-        </div>
-      ) : null}
+        </div> : null}
     </>
   )
 }
@@ -228,22 +226,18 @@ export function LoginPage() {
           <CardDescription>Sign in to your SlipStream account</CardDescription>
         </CardHeader>
         <CardContent>
-          {vm.passkeyLoading ? (
-            <div className="flex items-center justify-center py-8">
+          {vm.passkeyLoading ? <div className="flex items-center justify-center py-8">
               <Loader2 className="text-muted-foreground size-6 animate-spin" />
-            </div>
-          ) : null}
-          {!vm.passkeyLoading && vm.shouldShowPasskeyLogin ? (
-            <PasskeySection onLogin={vm.handlePasskeyLogin} isPending={vm.passkeyLoginPending} onUsePinInstead={() => vm.setShowPinForm(true)} />
-          ) : null}
-          {!vm.passkeyLoading && !vm.shouldShowPasskeyLogin ? (
+            </div> : null}
+          {!vm.passkeyLoading && vm.shouldShowPasskeyLogin ? <PasskeySection onLogin={vm.handlePasskeyLogin} isPending={vm.passkeyLoginPending} onUsePinInstead={() => vm.setShowPinForm(true)} /> : null}
+          {!vm.passkeyLoading && !vm.shouldShowPasskeyLogin && (
             <PinLoginForm
               username={vm.username} showUsernameInput={vm.showUsernameInput} onUsernameChange={vm.setUsername}
               onSwitchUser={vm.handleSwitchUser} usernameInputRef={vm.usernameInputRef}
               pin={vm.pin} onPinChange={vm.setPin} onSubmit={vm.handleSubmit}
               isPending={vm.loginPending} passkeySupported={vm.passkeySupported} onUsePasskey={() => vm.setShowPinForm(false)}
             />
-          ) : null}
+          )}
           <DebugDeleteSection showDelete={vm.showDelete} isDeleting={vm.isDeleting} onDelete={vm.handleDeleteAdmin} />
         </CardContent>
       </Card>

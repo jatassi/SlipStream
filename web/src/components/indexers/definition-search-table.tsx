@@ -152,15 +152,13 @@ function SearchToolbar({
         </Button>
       </div>
 
-      {showFilters ? (
-        <FilterDropdowns
+      {showFilters ? <FilterDropdowns
           protocolFilter={protocolFilter}
           setProtocolFilter={setProtocolFilter}
           privacyFilter={privacyFilter}
           setPrivacyFilter={setPrivacyFilter}
           stats={stats}
-        />
-      ) : null}
+        /> : null}
 
       <p className="text-muted-foreground text-sm">
         {filteredCount} of {totalCount} definitions

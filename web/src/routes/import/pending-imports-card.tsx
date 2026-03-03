@@ -63,16 +63,14 @@ export function PendingImportsCard() {
                 </div>
                 {item.error ? <p className="mt-1 text-xs text-red-600">{item.error}</p> : null}
               </div>
-              {item.status === 'failed' && item.id ? (
-                <Button
+              {item.status === 'failed' && item.id ? <Button
                   size="sm"
                   variant="outline"
                   onClick={() => item.id && retryMutation.mutate(item.id)}
                   disabled={retryMutation.isPending}
                 >
                   Retry
-                </Button>
-              ) : null}
+                </Button> : null}
             </div>
           ))}
         </div>

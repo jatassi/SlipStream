@@ -48,9 +48,7 @@ export function HistoryPage() {
           <HistoryCardBody isLoading={s.isLoading} items={s.history?.items} expandedId={s.expandedId} onToggleExpanded={s.handleToggleExpanded} />
         </CardContent>
       </Card>
-      {!s.isLoading && s.history ? (
-        <HistoryPagination page={s.page} totalPages={s.history.totalPages} onPreviousPage={s.handlePreviousPage} onNextPage={s.handleNextPage} onPageSelect={s.handlePageSelect} />
-      ) : null}
+      {!s.isLoading && s.history ? <HistoryPagination page={s.page} totalPages={s.history.totalPages} onPreviousPage={s.handlePreviousPage} onNextPage={s.handleNextPage} onPageSelect={s.handlePageSelect} /> : null}
     </div>
   )
 }

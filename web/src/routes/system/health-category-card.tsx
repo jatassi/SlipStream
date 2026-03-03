@@ -105,8 +105,7 @@ function CategoryCardHeader({
         </span>
       </div>
       <div className="flex items-center gap-2">
-        {showTestAll ? (
-          <Button
+        {showTestAll ? <Button
             variant="ghost"
             size="sm"
             onClick={onTestAll}
@@ -115,8 +114,7 @@ function CategoryCardHeader({
           >
             <FlaskConical className={cn('mr-1 size-4', testPending && 'animate-pulse')} />
             Test All
-          </Button>
-        ) : null}
+          </Button> : null}
         <Link to={settingsPath}>
           <Button variant="ghost" size="sm" title="Settings">
             <Settings className="mr-1 size-4" />

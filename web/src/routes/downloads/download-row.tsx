@@ -71,15 +71,11 @@ function TitleCell({
           onClick={onToggleReleaseName}
         >
           {title}
-          {titleSuffix ? (
-            <span className="text-muted-foreground ml-1.5">{titleSuffix}</span>
-          ) : null}
+          {titleSuffix ? <span className="text-muted-foreground ml-1.5">{titleSuffix}</span> : null}
         </button>
-        {showReleaseName ? (
-          <div className="text-muted-foreground mt-0.5 animate-[slide-down-fade_150ms_ease-out] text-xs whitespace-nowrap">
+        {showReleaseName ? <div className="text-muted-foreground mt-0.5 animate-[slide-down-fade_150ms_ease-out] text-xs whitespace-nowrap">
             {releaseName}
-          </div>
-        ) : null}
+          </div> : null}
       </div>
     </div>
   )

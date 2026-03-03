@@ -57,16 +57,14 @@ function NotificationDialogHeader({
       <DialogTitle>{isEditing ? 'Edit Notification' : 'Add Notification'}</DialogTitle>
       <DialogDescription>
         {description ?? 'Configure notification settings and triggers.'}
-        {infoUrl ? (
-          <a
+        {infoUrl ? <a
             href={infoUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary ml-1 inline-flex items-center gap-1 hover:underline"
           >
             Learn more <ExternalLink className="size-3" />
-          </a>
-        ) : null}
+          </a> : null}
       </DialogDescription>
     </DialogHeader>
   )

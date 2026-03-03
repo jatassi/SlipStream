@@ -6,7 +6,9 @@ import { LoadingState } from '@/components/data/loading-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import type { Request } from '@/types'
 
+import type { RequestAction } from './request-actions'
 import { RequestDialogs } from './request-dialogs'
 import { RequestSearchModal } from './request-search-modal'
 import { RequestTabs } from './request-tabs'
@@ -22,6 +24,16 @@ export function RequestQueuePage() {
 
   if (page.isError) {
     return <ErrorLayout onRetry={page.refetch} />
+  }
+
+  const handleAction = (request: Request, action: RequestAction) => {
+    switch (action) {
+      case 'approve': { void page.handleApproveOnly(request); break }
+      case 'approve-manual-search': { void page.handleApproveAndManualSearch(request); break }
+      case 'approve-auto-search': { void page.handleApproveAndAutoSearch(request); break }
+      case 'deny': { page.openDenyDialog(request.id); break }
+      case 'delete': { page.openDeleteDialog(request.id); break }
+    }
   }
 
   return (
@@ -49,11 +61,7 @@ export function RequestQueuePage() {
         onOpenBatchDeleteDialog={() => page.setShowBatchDeleteDialog(true)}
         onToggleSelectAll={page.toggleSelectAll}
         onToggleSelect={page.toggleSelect}
-        onApproveOnly={page.handleApproveOnly}
-        onApproveAndManualSearch={page.handleApproveAndManualSearch}
-        onApproveAndAutoSearch={page.handleApproveAndAutoSearch}
-        onDeny={page.openDenyDialog}
-        onDelete={page.openDeleteDialog}
+        onAction={handleAction}
       />
 
       <RequestDialogs page={page} />

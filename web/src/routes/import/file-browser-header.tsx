@@ -39,12 +39,10 @@ function BrowseActions({ isLoading, isScanning, currentPath, onRefresh, onScanPa
       <Button size="sm" variant="outline" onClick={onRefresh} disabled={isLoading}>
         <RefreshCw className="size-4" />
       </Button>
-      {currentPath ? (
-        <Button size="sm" onClick={() => onScanPath(currentPath)} disabled={isScanning || isLoading}>
+      {currentPath ? <Button size="sm" onClick={() => onScanPath(currentPath)} disabled={isScanning || isLoading}>
           {scanIcon}
           Scan Directory
-        </Button>
-      ) : null}
+        </Button> : null}
     </>
   )
 }
@@ -78,9 +76,7 @@ function HeaderTitle({ showScanResults, scannedFiles }: {
   return (
     <div>
       <CardTitle className="text-base">{showScanResults ? 'Scanned Files' : 'File Browser'}</CardTitle>
-      {showScanResults ? (
-        <CardDescription>{scannedFiles.length} files found, {readyCount} ready to import</CardDescription>
-      ) : null}
+      {showScanResults ? <CardDescription>{scannedFiles.length} files found, {readyCount} ready to import</CardDescription> : null}
     </div>
   )
 }

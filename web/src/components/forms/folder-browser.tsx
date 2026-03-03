@@ -168,14 +168,14 @@ function DirectoryContent({
   return (
     <>
       {data.parent ? <ParentButton parent={data.parent} onNavigate={onNavigate} /> : null}
-      {entries.length > 0 ? (
+      {entries.length > 0 && (
         <EntriesList
           entries={entries}
           onNavigate={onNavigate}
           onFileSelect={onFileSelect}
           selectedFile={selectedFile}
         />
-      ) : null}
+      )}
     </>
   )
 }

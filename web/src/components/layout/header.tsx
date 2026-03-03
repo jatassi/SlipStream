@@ -34,24 +34,22 @@ export function Header() {
       <div className="flex items-center gap-2">
         {hasRunningTasks ? <HeaderRunningTasks tasks={runningTasks} /> : null}
 
-        {activities.length > 0 ? (
+        {activities.length > 0 && (
           <HeaderActivityIndicator
             activities={activities}
             activeCount={activeCount}
             hasActiveActivities={hasActiveActivities}
             onDismiss={dismissActivity}
           />
-        ) : null}
+        )}
 
-        {isDevBuild ? (
-          <HeaderDevMode
+        {isDevBuild ? <HeaderDevMode
             devModeEnabled={devModeEnabled}
             devModeSwitching={devModeSwitching}
             onToggle={handleDevModeToggle}
             globalLoading={globalLoading}
             onGlobalLoadingChange={setGlobalLoading}
-          />
-        ) : null}
+          /> : null}
 
         <HeaderNotifications notifications={notifications} onDismiss={dismissNotification} />
       </div>

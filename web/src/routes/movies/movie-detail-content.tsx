@@ -13,8 +13,7 @@ type MovieDetailContentProps = {
 export function MovieDetailContent({ state, movie }: MovieDetailContentProps) {
   return (
     <div className="space-y-6 p-6">
-      {state.isMultiVersionEnabled ? (
-        <SlotStatusCard
+      {state.isMultiVersionEnabled ? <SlotStatusCard
           status={state.slotStatus}
           isLoading={state.isLoadingSlotStatus}
           movieId={state.movieId}
@@ -26,8 +25,7 @@ export function MovieDetailContent({ state, movie }: MovieDetailContentProps) {
           slotQualityProfiles={state.slotQualityProfiles}
           onToggleMonitored={state.handleToggleSlotMonitored}
           isUpdating={state.setSlotMonitoredMutation.isPending}
-        />
-      ) : null}
+        /> : null}
       <MovieDetailFiles
         files={movie.movieFiles}
         isMultiVersionEnabled={state.isMultiVersionEnabled}

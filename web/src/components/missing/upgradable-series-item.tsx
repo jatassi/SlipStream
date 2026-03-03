@@ -137,18 +137,14 @@ function SeriesInfo({ series, profile }: SeriesInfoProps) {
           >
             {series.title}
           </Link>
-          {series.year ? (
-            <span className="text-muted-foreground shrink-0 text-xs">({series.year})</span>
-          ) : null}
+          {series.year ? <span className="text-muted-foreground shrink-0 text-xs">({series.year})</span> : null}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <Badge variant="secondary">{series.upgradableCount} upgradable</Badge>
-          {profile ? (
-            <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+          {profile ? <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
               <SlidersVertical className="size-2.5" />
               {profile.name}
-            </Badge>
-          ) : null}
+            </Badge> : null}
         </div>
       </div>
     </>

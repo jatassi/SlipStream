@@ -33,16 +33,14 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
   return (
     <TableCell className="text-right">
       <div className="flex justify-end gap-1">
-        {release.infoUrl ? (
-          <a
+        {release.infoUrl ? <a
             href={release.infoUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
           >
             <ExternalLink className="size-4" />
-          </a>
-        ) : null}
+          </a> : null}
         <LoadingButton
           loading={isGrabbing}
           icon={Download}
@@ -95,11 +93,9 @@ export function SearchReleaseRow({
           <span className="text-muted-foreground">-</span>
         )}
       </TableCell>
-      {hasSlotInfo ? (
-        <TableCell>
+      {hasSlotInfo ? <TableCell>
           <ReleaseSlotCell release={release} />
-        </TableCell>
-      ) : null}
+        </TableCell> : null}
       <TableCell>
         <Badge variant="outline">{release.indexer}</Badge>
       </TableCell>

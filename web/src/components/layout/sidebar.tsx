@@ -27,9 +27,9 @@ function MissingBadge() {
   return (
     <span className="flex items-center text-xs">
       {counts.movies > 0 ? <span className="text-movie-500">{counts.movies}</span> : null}
-      {counts.movies > 0 && counts.episodes > 0 ? (
+      {counts.movies > 0 && counts.episodes > 0 && (
         <span className="text-muted-foreground px-1">|</span>
-      ) : null}
+      )}
       {counts.episodes > 0 ? <span className="text-tv-500">{counts.episodes}</span> : null}
     </span>
   )
@@ -48,9 +48,7 @@ function NavSection({
     <div className="space-y-1">
       {items.map((item) => (
         <React.Fragment key={item.href}>
-          {includeDownloads && item.href === '/import' ? (
-            <DownloadsNavLink collapsed={collapsed} />
-          ) : null}
+          {includeDownloads && item.href === '/import' ? <DownloadsNavLink collapsed={collapsed} /> : null}
           <NavLink
             item={item}
             collapsed={collapsed}

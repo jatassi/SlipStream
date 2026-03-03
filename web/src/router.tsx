@@ -9,7 +9,6 @@ import {
   authSetupRoute,
   autoSearchRoute,
   calendarRoute,
-  devColorsRoute,
   devControlsRoute,
   downloadClientsRoute,
   downloadPipelineRoute,
@@ -102,7 +101,6 @@ const routeTree = rootRoute.addChildren([
   updateRoute,
   manualImportRoute,
   // Dev routes
-  devColorsRoute,
   devControlsRoute,
   // Portal auth routes (public)
   portalLoginRoute,

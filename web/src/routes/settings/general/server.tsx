@@ -32,15 +32,11 @@ function HistoryRetentionCard() {
             onCheckedChange={(v) => h.setEnabled(v)}
           />
         </div>
-        {h.currentEnabled ? (
-          <RetentionDaysInput days={h.currentDays} onChange={h.setDays} />
-        ) : null}
-        {h.hasChanges ? (
-          <Button size="sm" onClick={h.handleSave} disabled={h.isSaving}>
+        {h.currentEnabled ? <RetentionDaysInput days={h.currentDays} onChange={h.setDays} /> : null}
+        {h.hasChanges ? <Button size="sm" onClick={h.handleSave} disabled={h.isSaving}>
             <Save className="mr-1.5 size-3" />
             Save
-          </Button>
-        ) : null}
+          </Button> : null}
       </CardContent>
     </Card>
   )

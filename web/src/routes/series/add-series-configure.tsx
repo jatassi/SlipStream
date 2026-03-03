@@ -70,11 +70,9 @@ function SeriesPreview({ series }: { series: SeriesSearchResult }) {
             {series.year ?? 'Unknown year'}
             {series.network ? ` - ${series.network}` : null}
           </p>
-          {series.overview ? (
-            <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
+          {series.overview ? <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
               {series.overview}
-            </p>
-          ) : null}
+            </p> : null}
         </div>
       </CardContent>
     </Card>

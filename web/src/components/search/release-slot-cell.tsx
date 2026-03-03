@@ -22,19 +22,15 @@ export function ReleaseSlotCell({ release }: { release: TorrentInfo }) {
           <div className="flex items-center gap-1">
             <Layers className="size-3" />
             <span className="text-sm">{release.targetSlotName}</span>
-            {release.isSlotUpgrade ? (
-              <Badge variant="secondary" className="px-1 text-xs">
+            {release.isSlotUpgrade ? <Badge variant="secondary" className="px-1 text-xs">
                 <ArrowUp className="size-3" />
-              </Badge>
-            ) : null}
-            {release.isSlotNewFill ? (
-              <Badge
+              </Badge> : null}
+            {release.isSlotNewFill ? <Badge
                 variant="outline"
                 className="border-green-500 px-1 text-xs text-green-500"
               >
                 New
-              </Badge>
-            ) : null}
+              </Badge> : null}
           </div>
         </TooltipTrigger>
         <TooltipContent>{getSlotTooltip(release)}</TooltipContent>

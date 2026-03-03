@@ -57,12 +57,10 @@ function FolderBadges({ folder }: { folder: RootFolder }) {
     <div className="text-right">
       <div className="mb-1 flex items-center gap-2">
         <Badge variant="secondary">{folder.mediaType}</Badge>
-        {folder.isDefault ? (
-          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+        {folder.isDefault ? <Badge variant="default" className="bg-green-500 hover:bg-green-600">
             <Check className="mr-1 size-3" />
             Default
-          </Badge>
-        ) : null}
+          </Badge> : null}
       </div>
       {folder.freeSpace > 0 && (
         <p className="text-muted-foreground text-xs">

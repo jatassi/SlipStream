@@ -9,7 +9,7 @@ export function FileBrowserSkeleton() {
         <div key={w} className="flex items-center gap-2 p-2">
           <Skeleton className="size-4 shrink-0 rounded" />
           <Skeleton className="h-4" style={{ width: `${w}%` }} />
-          {w % 3 === 0 ? <Skeleton className="ml-auto size-4 shrink-0" /> : null}
+          {w % 3 === 0 && <Skeleton className="ml-auto size-4 shrink-0" />}
         </div>
       ))}
     </div>

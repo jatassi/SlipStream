@@ -54,7 +54,7 @@ export function StudioLogo({ tmdbId, type = 'movie', alt, version, fallback, cla
     setDimensions(null)
   }
 
-  if (!imageUrl || error) {return fallback ? <div className={className}>{fallback}</div> : null}
+  if (!imageUrl || error) {return fallback && <div className={className}>{fallback}</div>}
 
   const handleLoad = (e: SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget

@@ -57,7 +57,7 @@ function EventBadges({ event }: { event: CalendarEvent }) {
       </Badge>
       {event.network ? <Badge variant="secondary" className="h-4 px-1 text-[10px]">{event.network}</Badge> : null}
       {event.earlyAccess ? <Badge className="h-4 border-orange-500/30 bg-orange-500/20 px-1 text-[10px] text-orange-600">Early</Badge> : null}
-      {event.status === 'available' ? <Badge className="h-4 border-green-500/30 bg-green-500/20 px-1 text-[10px] text-green-600">Downloaded</Badge> : null}
+      {event.status === 'available' && <Badge className="h-4 border-green-500/30 bg-green-500/20 px-1 text-[10px] text-green-600">Downloaded</Badge>}
     </div>
   )
 }

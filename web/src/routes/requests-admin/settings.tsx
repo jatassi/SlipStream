@@ -87,8 +87,7 @@ function SettingsBody({ page }: { page: PageState }) {
         enabled={page.formData.enabled ?? true}
         onChange={(checked) => page.handleChange('enabled', checked)}
       />
-      {page.portalEnabled ? (
-        <>
+      {page.portalEnabled ? <>
           <QuotasCard formData={page.formData} onChange={page.handleChange} />
           <ContentSettingsCard
             formData={page.formData}
@@ -108,8 +107,7 @@ function SettingsBody({ page }: { page: PageState }) {
             isTestPending={page.testNotificationMutation.isPending}
           />
           <RateLimitCard formData={page.formData} onChange={page.handleChange} />
-        </>
-      ) : null}
+        </> : null}
     </div>
   )
 }

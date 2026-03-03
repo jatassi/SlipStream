@@ -95,15 +95,13 @@ function PageDialogs({ state }: { state: ReturnType<typeof useRequestUsersPage> 
         onSubmit={state.handleCreateInvitation}
       />
 
-      {state.editingUser ? (
-        <UserEditDialog
+      {state.editingUser ? <UserEditDialog
           key={state.editingUser.id}
           user={state.editingUser}
           open={state.showUserDialog}
           onOpenChange={state.setShowUserDialog}
           qualityProfiles={state.qualityProfiles ?? []}
-        />
-      ) : null}
+        /> : null}
     </>
   )
 }
@@ -114,19 +112,19 @@ function UsersTabs({ state }: { state: ReturnType<typeof useRequestUsersPage> })
       <TabsList>
         <TabsTrigger value="users">
           Users{' '}
-          {state.userCount > 0 ? (
+          {state.userCount > 0 && (
             <Badge variant="secondary" className="ml-1">
               {state.userCount}
             </Badge>
-          ) : null}
+          )}
         </TabsTrigger>
         <TabsTrigger value="invitations">
           Invitations{' '}
-          {state.pendingInvitationCount > 0 ? (
+          {state.pendingInvitationCount > 0 && (
             <Badge variant="secondary" className="ml-1">
               {state.pendingInvitationCount}
             </Badge>
-          ) : null}
+          )}
         </TabsTrigger>
       </TabsList>
 

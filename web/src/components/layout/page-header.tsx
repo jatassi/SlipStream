@@ -28,11 +28,10 @@ export function PageHeader({
   return (
     <div className={cn('mb-6 space-y-2', className)}>
       {/* Breadcrumbs */}
-      {breadcrumbs && breadcrumbs.length > 0 ? (
-        <nav className="text-muted-foreground flex items-center gap-1 text-sm">
+      {breadcrumbs && breadcrumbs.length > 0 ? <nav className="text-muted-foreground flex items-center gap-1 text-sm">
           {breadcrumbs.map((item) => (
             <span key={item.label} className="flex items-center gap-1">
-              {breadcrumbs.indexOf(item) > 0 ? <ChevronRight className="size-4" /> : null}
+              {breadcrumbs.indexOf(item) > 0 && <ChevronRight className="size-4" />}
               {item.href ? (
                 <Link to={item.href} className="hover:text-foreground transition-colors">
                   {item.label}
@@ -42,8 +41,7 @@ export function PageHeader({
               )}
             </span>
           ))}
-        </nav>
-      ) : null}
+        </nav> : null}
 
       {/* Title and actions */}
       <div className="flex items-center justify-between gap-4">

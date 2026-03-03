@@ -20,11 +20,9 @@ export function ErrorState({
       </div>
       <h3 className="mb-1 text-lg font-semibold">{title}</h3>
       <p className="text-muted-foreground mb-4 max-w-md text-sm">{message}</p>
-      {onRetry ? (
-        <Button variant="outline" onClick={onRetry}>
+      {onRetry ? <Button variant="outline" onClick={onRetry}>
           Try Again
-        </Button>
-      ) : null}
+        </Button> : null}
     </div>
   )
 }

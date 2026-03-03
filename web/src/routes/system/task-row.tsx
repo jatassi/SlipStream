@@ -32,17 +32,13 @@ export function TaskRow({ task, isRunPending, onRun }: TaskRowProps) {
       <TableCell>
         <div>
           <p>{formatRelativeTime(task.lastRun)}</p>
-          {task.lastRun ? (
-            <p className="text-muted-foreground text-xs">{formatDate(task.lastRun)}</p>
-          ) : null}
+          {task.lastRun ? <p className="text-muted-foreground text-xs">{formatDate(task.lastRun)}</p> : null}
         </div>
       </TableCell>
       <TableCell>
         <div>
           <p>{formatRelativeTime(task.nextRun)}</p>
-          {task.nextRun ? (
-            <p className="text-muted-foreground text-xs">{formatDate(task.nextRun)}</p>
-          ) : null}
+          {task.nextRun ? <p className="text-muted-foreground text-xs">{formatDate(task.nextRun)}</p> : null}
         </div>
       </TableCell>
       <TableCell>

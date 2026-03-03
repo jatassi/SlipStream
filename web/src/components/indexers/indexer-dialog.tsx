@@ -1,3 +1,5 @@
+import { Controller, FormProvider, useFormContext } from 'react-hook-form'
+
 import { ArrowLeft, Globe, Loader2, Lock, TestTube, Unlock } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +22,7 @@ import type { Indexer, Privacy, Protocol } from '@/types'
 
 import { DefinitionSearchTable } from './definition-search-table'
 import { DynamicSettingsForm } from './dynamic-settings-form'
+import type { FormData } from './use-indexer-dialog'
 import { useIndexerDialog } from './use-indexer-dialog'
 
 type IndexerDialogProps = {
@@ -49,35 +52,35 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
   const hook = useIndexerDialog(open, indexer, onOpenChange)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={
-          hook.step === 'select'
-            ? 'h-[600px] sm:max-w-3xl'
-            : 'h-[80vh] sm:max-w-2xl'
-        }
-      >
-        <DialogHeader>
-          <HeaderContent hook={hook} />
-        </DialogHeader>
+    <FormProvider {...hook.form}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className={hook.step === 'select' ? 'h-[600px] sm:max-w-3xl' : 'h-[80vh] sm:max-w-2xl'}
+        >
+          <DialogHeader>
+            <HeaderContent hook={hook} />
+          </DialogHeader>
 
-        {hook.step === 'select' && (
-          <DialogBody className="overflow-hidden">
-            <DefinitionSearchTable
-              definitions={hook.definitions}
-              isLoading={hook.isLoadingDefinitions}
-              onSelect={hook.handleDefinitionSelect}
-            />
-          </DialogBody>
-        )}
+          {hook.step === 'select' && (
+            <DialogBody className="overflow-hidden">
+              <DefinitionSearchTable
+                definitions={hook.definitions}
+                isLoading={hook.isLoadingDefinitions}
+                onSelect={hook.handleDefinitionSelect}
+              />
+            </DialogBody>
+          )}
 
-        {hook.step === 'configure' && hook.selectedDefinition ? <ConfigureStep hook={hook} privacyIcons={privacyIcons} privacyColors={privacyColors} protocolColors={protocolColors} /> : null}
+          {hook.step === 'configure' && hook.selectedDefinition ? (
+            <ConfigureStep hook={hook} />
+          ) : null}
 
-        {hook.step === 'configure' && (
-          <FooterActions hook={hook} onOpenChange={onOpenChange} />
-        )}
-      </DialogContent>
-    </Dialog>
+          {hook.step === 'configure' && (
+            <FooterActions hook={hook} onOpenChange={onOpenChange} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </FormProvider>
   )
 }
 
@@ -137,17 +140,7 @@ function FooterActions({
   )
 }
 
-function ConfigureStep({
-  hook,
-  privacyIcons,
-  privacyColors,
-  protocolColors,
-}: {
-  hook: HookValues
-  privacyIcons: Record<Privacy, React.ReactNode>
-  privacyColors: Record<Privacy, string>
-  protocolColors: Record<Protocol, string>
-}) {
+function ConfigureStep({ hook }: { hook: HookValues }) {
   if (!hook.selectedDefinition) {
     return null
   }
@@ -155,22 +148,21 @@ function ConfigureStep({
   return (
     <DialogBody className="overflow-hidden">
       <ScrollArea className="size-full">
-      <div className="space-y-4 py-4 pr-4">
-        <DefinitionBanner
-          definition={hook.selectedDefinition}
-          privacyIcons={privacyIcons}
-          privacyColors={privacyColors}
-          protocolColors={protocolColors}
-        />
-
-        <NameInput hook={hook} />
-        <SchemaSettings hook={hook} />
-        <MediaTypeToggles hook={hook} />
-        <PriorityInput hook={hook} />
-        <EnabledToggle hook={hook} />
-        <AutoSearchToggle hook={hook} definition={hook.selectedDefinition} />
-        <RssToggle hook={hook} />
-      </div>
+        <div className="space-y-4 py-4 pr-4">
+          <DefinitionBanner
+            definition={hook.selectedDefinition}
+            privacyIcons={privacyIcons}
+            privacyColors={privacyColors}
+            protocolColors={protocolColors}
+          />
+          <NameInput />
+          <SchemaSettings hook={hook} />
+          <MediaTypeToggles />
+          <PriorityInput />
+          <EnabledToggle />
+          <AutoSearchToggle definition={hook.selectedDefinition} />
+          <RssToggle />
+        </div>
       </ScrollArea>
     </DialogBody>
   )
@@ -178,9 +170,9 @@ function ConfigureStep({
 
 function DefinitionBanner({
   definition,
-  privacyIcons,
-  privacyColors,
-  protocolColors,
+  privacyIcons: icons,
+  privacyColors: pColors,
+  protocolColors: prColors,
 }: {
   definition: { name: string; description?: string; protocol: Protocol; privacy: Privacy }
   privacyIcons: Record<Privacy, React.ReactNode>
@@ -196,11 +188,11 @@ function DefinitionBanner({
         ) : null}
       </div>
       <div className="flex gap-2">
-        <Badge variant="secondary" className={protocolColors[definition.protocol]}>
+        <Badge variant="secondary" className={prColors[definition.protocol]}>
           {definition.protocol}
         </Badge>
-        <Badge variant="secondary" className={privacyColors[definition.privacy]}>
-          <span className="mr-1">{privacyIcons[definition.privacy]}</span>
+        <Badge variant="secondary" className={pColors[definition.privacy]}>
+          <span className="mr-1">{icons[definition.privacy]}</span>
           {definition.privacy}
         </Badge>
       </div>
@@ -208,21 +200,19 @@ function DefinitionBanner({
   )
 }
 
-function NameInput({ hook }: { hook: HookValues }) {
+function NameInput() {
+  const { register } = useFormContext<FormData>()
   return (
     <div className="space-y-2">
       <Label htmlFor="name">Name</Label>
-      <Input
-        id="name"
-        placeholder="My Indexer"
-        value={hook.formData.name}
-        onChange={(e) => hook.setFormData((prev) => ({ ...prev, name: e.target.value }))}
-      />
+      <Input id="name" placeholder="My Indexer" {...register('name')} />
     </div>
   )
 }
 
 function SchemaSettings({ hook }: { hook: HookValues }) {
+  const { control } = useFormContext<FormData>()
+
   if (hook.isLoadingSchema) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -231,43 +221,52 @@ function SchemaSettings({ hook }: { hook: HookValues }) {
       </div>
     )
   }
+
   return (
-    <DynamicSettingsForm
-      settings={hook.schema}
-      values={hook.formData.settings}
-      onChange={(settings) => hook.setFormData((prev) => ({ ...prev, settings }))}
+    <Controller
+      control={control}
+      name="settings"
+      render={({ field }) => (
+        <DynamicSettingsForm
+          settings={hook.schema}
+          values={field.value}
+          onChange={field.onChange}
+        />
+      )}
     />
   )
 }
 
-function MediaTypeToggles({ hook }: { hook: HookValues }) {
+function MediaTypeToggles() {
+  const { control } = useFormContext<FormData>()
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="flex items-center justify-between">
         <Label htmlFor="supportsMovies">Movies</Label>
-        <Switch
-          id="supportsMovies"
-          checked={hook.formData.supportsMovies}
-          onCheckedChange={(checked) =>
-            hook.setFormData((prev) => ({ ...prev, supportsMovies: checked }))
-          }
+        <Controller
+          control={control}
+          name="supportsMovies"
+          render={({ field }) => (
+            <Switch id="supportsMovies" checked={field.value} onCheckedChange={field.onChange} />
+          )}
         />
       </div>
       <div className="flex items-center justify-between">
         <Label htmlFor="supportsTv">TV Shows</Label>
-        <Switch
-          id="supportsTv"
-          checked={hook.formData.supportsTv}
-          onCheckedChange={(checked) =>
-            hook.setFormData((prev) => ({ ...prev, supportsTv: checked }))
-          }
+        <Controller
+          control={control}
+          name="supportsTv"
+          render={({ field }) => (
+            <Switch id="supportsTv" checked={field.value} onCheckedChange={field.onChange} />
+          )}
         />
       </div>
     </div>
   )
 }
 
-function PriorityInput({ hook }: { hook: HookValues }) {
+function PriorityInput() {
+  const { register } = useFormContext<FormData>()
   return (
     <div className="space-y-2">
       <Label htmlFor="priority">Priority</Label>
@@ -276,39 +275,31 @@ function PriorityInput({ hook }: { hook: HookValues }) {
         type="number"
         min={1}
         max={100}
-        value={hook.formData.priority}
-        onChange={(e) =>
-          hook.setFormData((prev) => ({
-            ...prev,
-            priority: Number.parseInt(e.target.value) || 50,
-          }))
-        }
+        {...register('priority', { valueAsNumber: true })}
       />
       <p className="text-muted-foreground text-xs">Lower values have higher priority (1-100)</p>
     </div>
   )
 }
 
-function EnabledToggle({ hook }: { hook: HookValues }) {
+function EnabledToggle() {
+  const { control } = useFormContext<FormData>()
   return (
     <div className="flex items-center justify-between">
       <Label htmlFor="enabled">Enabled</Label>
-      <Switch
-        id="enabled"
-        checked={hook.formData.enabled}
-        onCheckedChange={(checked) => hook.setFormData((prev) => ({ ...prev, enabled: checked }))}
+      <Controller
+        control={control}
+        name="enabled"
+        render={({ field }) => (
+          <Switch id="enabled" checked={field.value} onCheckedChange={field.onChange} />
+        )}
       />
     </div>
   )
 }
 
-function AutoSearchToggle({
-  hook,
-  definition,
-}: {
-  hook: HookValues
-  definition: { id: string }
-}) {
+function AutoSearchToggle({ definition }: { definition: { id: string } }) {
+  const { control } = useFormContext<FormData>()
   const isGenericRss = definition.id === 'generic-rss'
   return (
     <div className="flex items-center justify-between">
@@ -320,19 +311,24 @@ function AutoSearchToggle({
             : 'Use this indexer when automatically searching for releases'}
         </p>
       </div>
-      <Switch
-        id="autoSearchEnabled"
-        checked={isGenericRss ? false : hook.formData.autoSearchEnabled}
-        onCheckedChange={(checked) =>
-          hook.setFormData((prev) => ({ ...prev, autoSearchEnabled: checked }))
-        }
-        disabled={isGenericRss}
+      <Controller
+        control={control}
+        name="autoSearchEnabled"
+        render={({ field }) => (
+          <Switch
+            id="autoSearchEnabled"
+            checked={isGenericRss ? false : field.value}
+            onCheckedChange={field.onChange}
+            disabled={isGenericRss}
+          />
+        )}
       />
     </div>
   )
 }
 
-function RssToggle({ hook }: { hook: HookValues }) {
+function RssToggle() {
+  const { control } = useFormContext<FormData>()
   return (
     <div className="flex items-center justify-between">
       <div className="space-y-0.5">
@@ -341,12 +337,12 @@ function RssToggle({ hook }: { hook: HookValues }) {
           Include this indexer when fetching RSS feeds for new releases
         </p>
       </div>
-      <Switch
-        id="rssEnabled"
-        checked={hook.formData.rssEnabled}
-        onCheckedChange={(checked) =>
-          hook.setFormData((prev) => ({ ...prev, rssEnabled: checked }))
-        }
+      <Controller
+        control={control}
+        name="rssEnabled"
+        render={({ field }) => (
+          <Switch id="rssEnabled" checked={field.value} onCheckedChange={field.onChange} />
+        )}
       />
     </div>
   )

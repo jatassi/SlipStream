@@ -23,9 +23,7 @@ function SlotOption({ slot }: { slot: Slot }) {
     <div className="flex items-center gap-2">
       <Layers className="size-4" />
       <span>{slot.name}</span>
-      {slot.qualityProfile ? (
-        <span className="text-muted-foreground text-xs">({slot.qualityProfile.name})</span>
-      ) : null}
+      {slot.qualityProfile ? <span className="text-muted-foreground text-xs">({slot.qualityProfile.name})</span> : null}
     </div>
   )
 }

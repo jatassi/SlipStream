@@ -154,12 +154,11 @@ function ShowLessButton({ onCollapse }: { onCollapse: () => void }) {
   )
 }
 
-const GRID_CLASS = 'grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8'
-
 type GridBodyProps<T> = {
   visibleItems: T[]
   renderItem: (item: T, index: number) => ReactNode
   getKey: (item: T) => string | number
+  columns: number
   expanded: boolean
   hasMore: boolean
   collapsible: boolean
@@ -169,23 +168,19 @@ type GridBodyProps<T> = {
 }
 
 function GridBody<T>({
-  visibleItems, renderItem, getKey,
+  visibleItems, renderItem, getKey, columns,
   expanded, hasMore, collapsible, remainingCount,
   onExpand, onCollapse,
 }: GridBodyProps<T>) {
   return (
     <>
-      <div className={GRID_CLASS}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {visibleItems.map((item, index) => (
           <div key={getKey(item)}>{renderItem(item, index)}</div>
         ))}
-        {!expanded && hasMore ? (
-          <ShowMoreCard remainingCount={remainingCount} onExpand={onExpand} />
-        ) : null}
+        {!expanded && hasMore ? <ShowMoreCard remainingCount={remainingCount} onExpand={onExpand} /> : null}
       </div>
-      {expanded && hasMore && collapsible ? (
-        <ShowLessButton onCollapse={onCollapse} />
-      ) : null}
+      {expanded && hasMore && collapsible ? <ShowLessButton onCollapse={onCollapse} /> : null}
     </>
   )
 }
@@ -222,8 +217,7 @@ export function ExpandableMediaGrid<T>({
   const visibleItems = expanded ? items : items.slice(0, initialCount)
   return (
     <div className="space-y-3">
-      {showHeader ? (
-        <GridHeader
+      {showHeader ? <GridHeader
           label={label}
           count={items.length}
           icon={icon}
@@ -231,12 +225,12 @@ export function ExpandableMediaGrid<T>({
           hasMore={hasMore}
           expanded={expanded}
           onToggle={() => setExpanded(!expanded)}
-        />
-      ) : null}
+        /> : null}
       <GridBody
         visibleItems={visibleItems}
         renderItem={renderItem}
         getKey={getKey}
+        columns={columns}
         expanded={expanded}
         hasMore={hasMore}
         collapsible={collapsible}

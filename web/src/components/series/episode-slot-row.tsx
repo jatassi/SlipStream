@@ -13,17 +13,14 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { SlotStatus } from '@/types'
 
+import { useSeriesInfo } from './series-context'
+
 type EpisodeSlotRowProps = {
   slotStatuses: SlotStatus[]
   episodeId: number
-  seriesId: number
-  seriesTitle: string
   seasonNumber: number
   episodeNumber: number
   qualityProfileId: number
-  tvdbId?: number
-  tmdbId?: number
-  imdbId?: string
   slotQualityProfiles?: Record<number, number>
   onSlotMonitoredChange?: (slotId: number, monitored: boolean) => void
   isMonitorUpdating?: boolean
@@ -32,14 +29,9 @@ type EpisodeSlotRowProps = {
 export function EpisodeSlotRow({
   slotStatuses,
   episodeId,
-  seriesId,
-  seriesTitle,
   seasonNumber,
   episodeNumber,
   qualityProfileId,
-  tvdbId,
-  tmdbId,
-  imdbId,
   slotQualityProfiles,
   onSlotMonitoredChange,
   isMonitorUpdating,
@@ -55,14 +47,9 @@ export function EpisodeSlotRow({
           key={slot.slotId}
           slot={slot}
           episodeId={episodeId}
-          seriesId={seriesId}
-          seriesTitle={seriesTitle}
           seasonNumber={seasonNumber}
           episodeNumber={episodeNumber}
           qualityProfileId={slotQualityProfiles?.[slot.slotId] ?? qualityProfileId}
-          tvdbId={tvdbId}
-          tmdbId={tmdbId}
-          imdbId={imdbId}
           onMonitoredChange={onSlotMonitoredChange}
           isMonitorUpdating={isMonitorUpdating}
         />
@@ -74,14 +61,9 @@ export function EpisodeSlotRow({
 type CompactSlotItemProps = {
   slot: SlotStatus
   episodeId: number
-  seriesId: number
-  seriesTitle: string
   seasonNumber: number
   episodeNumber: number
   qualityProfileId: number
-  tvdbId?: number
-  tmdbId?: number
-  imdbId?: string
   onMonitoredChange?: (slotId: number, monitored: boolean) => void
   isMonitorUpdating?: boolean
 }
@@ -89,27 +71,22 @@ type CompactSlotItemProps = {
 function CompactSlotItem({
   slot,
   episodeId,
-  seriesId,
-  seriesTitle,
   seasonNumber,
   episodeNumber,
   qualityProfileId,
-  tvdbId,
-  tmdbId,
-  imdbId,
   onMonitoredChange,
   isMonitorUpdating,
 }: CompactSlotItemProps) {
+  const { seriesId, seriesTitle, tvdbId, tmdbId, imdbId } = useSeriesInfo()
+
   return (
     <div className="flex items-center justify-between gap-2 py-1 text-xs">
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 font-medium">{slot.slotName}</span>
         <CompactSlotBadge slot={slot} />
-        {slot.currentQuality ? (
-          <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
+        {slot.currentQuality ? <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
             {slot.currentQuality}
-          </Badge>
-        ) : null}
+          </Badge> : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

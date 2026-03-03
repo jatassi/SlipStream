@@ -49,15 +49,13 @@ export function SeriesListLayout({ state: s }: { state: SeriesListState }) {
   return (
     <div>
       <SeriesListHeader state={s} />
-      {s.editMode ? (
-        <MediaListToolbar
+      {s.editMode ? <MediaListToolbar
           selectedCount={s.selectedIds.size} totalCount={s.filteredSeries.length}
           qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
           onSelectAll={s.handleSelectAll} onMonitor={s.handleBulkMonitor}
           onChangeQualityProfile={s.handleBulkChangeQualityProfile} onDelete={() => s.setShowDeleteDialog(true)}
           theme="tv"
-        />
-      ) : null}
+        /> : null}
       <MediaListFilters
         filterOptions={FILTER_OPTIONS} sortOptions={SORT_OPTIONS}
         statusFilters={s.statusFilters} sortField={s.sortField} view={s.seriesView}

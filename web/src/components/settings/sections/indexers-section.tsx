@@ -214,9 +214,7 @@ function IndexerDescription({ indexer }: { indexer: Indexer }) {
       <span>{indexer.definitionId}</span>
       <span className="text-muted-foreground/50">|</span>
       {indexer.supportsMovies ? <span>Movies</span> : null}
-      {indexer.supportsMovies && indexer.supportsTv ? (
-        <span className="text-muted-foreground/50">/</span>
-      ) : null}
+      {indexer.supportsMovies && indexer.supportsTv ? <span className="text-muted-foreground/50">/</span> : null}
       {indexer.supportsTv ? <span>TV</span> : null}
       <span className="text-muted-foreground/50">|</span>
       <span>Priority: {indexer.priority}</span>
