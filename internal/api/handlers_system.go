@@ -25,10 +25,10 @@ func (s *Server) healthCheck(c echo.Context) error {
 func (s *Server) getStatus(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	movieCount, _ := s.movieService.Count(ctx)
-	seriesCount, _ := s.tvService.Count(ctx)
+	movieCount, _ := s.library.Movies.Count(ctx)
+	seriesCount, _ := s.library.TV.Count(ctx)
 
-	adminExists, _ := s.portalUsersService.AdminExists(ctx)
+	adminExists, _ := s.portal.Users.AdminExists(ctx)
 
 	// Check if portal is enabled (defaults to true if not set)
 	portalEnabled := true
@@ -48,7 +48,7 @@ func (s *Server) getStatus(c echo.Context) error {
 		"requiresSetup":      !adminExists,
 		"requiresAuth":       true,
 		"actualPort":         s.cfg.Server.Port,
-		"mediainfoAvailable": s.mediainfoService.IsAvailable(),
+		"mediainfoAvailable": s.library.Mediainfo.IsAvailable(),
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},
@@ -371,7 +371,7 @@ func (s *Server) checkFirewall(c echo.Context) error {
 		}
 	}
 
-	firewallStatus, err := s.firewallChecker.CheckPort(ctx, port)
+	firewallStatus, err := s.system.Firewall.CheckPort(ctx, port)
 	if err != nil {
 		s.logger.Warn().Err(err).Int("port", port).Msg("Failed to check firewall status")
 	}

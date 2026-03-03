@@ -84,92 +84,22 @@ type Server struct {
 	logger    *zerolog.Logger
 	cfg       *config.Config
 
-	// startupDB is the database connection captured at startup time.
-	// Used for handlers that need a *sql.DB reference.
 	startupDB *sql.DB
 
-	// Real metadata clients (stored for switching back from mock)
-	realTMDBClient metadata.TMDBClient
-	realTVDBClient metadata.TVDBClient
-	realOMDBClient metadata.OMDBClient
+	library      LibraryGroup
+	metadata     MetadataGroup
+	filesystem   FilesystemGroup
+	download     DownloadGroup
+	search       SearchGroup
+	automation   AutomationGroup
+	system       SystemGroup
+	notification NotificationGroup
+	portal       PortalGroup
+	security     SecurityGroup
 
-	// Services
-	scannerService         *scanner.Service
-	movieService           *movies.Service
-	tvService              *tv.Service
-	qualityService         *quality.Service
-	rootFolderService      *rootfolder.Service
-	metadataService        *metadata.Service
-	artworkDownloader      *metadata.ArtworkDownloader
-	networkLogoStore       *metadata.SQLNetworkLogoStore
-	filesystemService      *filesystem.Service
-	storageService         *filesystem.StorageService
-	libraryManagerService  *librarymanager.Service
-	progressManager        *progress.Manager
-	downloaderService      *downloader.Service
-	indexerService         *indexer.Service
-	searchService          *search.Service
-	statusService          *status.Service
-	rateLimiter            *ratelimit.Limiter
-	grabService            *grab.Service
-	defaultsService        *defaults.Service
-	calendarService        *calendar.Service
-	scheduler              *scheduler.Scheduler
-	availabilityService    *availability.Service
-	missingService         *missing.Service
-	autosearchService      *autosearch.Service
-	scheduledSearcher      *autosearch.ScheduledSearcher
-	rssSyncService         *rsssync.Service
-	rssSyncSettingsHandler *rsssync.SettingsHandler
-	grabLock               *decisioning.GrabLock
-	preferencesService     *preferences.Service
-	historyService         *history.Service
-	healthService          *health.Service
-	importService          *importer.Service
-	importSettingsHandlers *importer.SettingsHandlers
-	organizerService       *organizer.Service
-	mediainfoService       *mediainfo.Service
-	slotsService           *slots.Service
-	arrImportService       *arrimport.Service
-	notificationService    *notification.Service
-	plexHandlers           *plex.Handlers
-	plexClient             *plex.Client
-	queueBroadcaster       *downloader.QueueBroadcaster
-	prowlarrService        *prowlarr.Service
-	prowlarrModeManager    *prowlarr.ModeManager
-	prowlarrSearchAdapter  *prowlarr.SearchAdapter
-	prowlarrGrabProvider   *prowlarr.GrabProvider
-	searchRouter           *search.Router
-	updateService          *update.Service
-	firewallChecker        *firewall.Checker
-	logsProvider           LogsProvider
+	registry ServiceRegistry
 
-	// Portal services
-	portalUsersService         *users.Service
-	portalInvitationsService   *invitations.Service
-	portalRequestsService      *requests.Service
-	portalQuotaService         *quota.Service
-	portalNotificationsService *portalnotifs.Service
-	portalAutoApproveService   *autoapprove.Service
-	portalAuthService          *auth.Service
-	portalPasskeyService       *auth.PasskeyService
-	portalAuthMiddleware       *portalmw.AuthMiddleware
-	portalSearchLimiter        *portalratelimit.SearchLimiter
-	portalRequestSearcher      *requests.RequestSearcher
-	portalMediaProvisioner     *portalMediaProvisionerAdapter
-	portalWatchersService      *requests.WatchersService
-	portalStatusTracker        *requests.StatusTracker
-	portalLibraryChecker       *requests.LibraryChecker
-	adminRequestLibraryChecker *adminRequestLibraryCheckerAdapter
-	adminSettingsHandlers      *admin.SettingsHandlers
-
-	// Security
-	authLimiter *authratelimit.AuthLimiter
-
-	// Restart channel for triggering server restart (bool = spawn new process after shutdown)
-	restartChan chan<- bool
-
-	// Port tracking (configured vs actual after conflict resolution)
+	restartChan    chan<- bool
 	configuredPort int
 }
 
@@ -181,7 +111,7 @@ func (s *Server) SetConfiguredPort(port int) {
 // SetLogsProvider sets the provider for log streaming and retrieval.
 // This must be called after NewServer to register the logs routes.
 func (s *Server) SetLogsProvider(provider LogsProvider) {
-	s.logsProvider = provider
+	s.system.Logs = provider
 
 	// Register logs routes (called after NewServer, so we register here)
 	logsGroup := s.echo.Group("/api/v1/system/logs")
@@ -216,9 +146,9 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Store real metadata clients for later switching
 	serverDebugLog("Creating metadata clients...")
-	s.realTMDBClient = tmdb.NewClient(cfg.Metadata.TMDB, logger)
-	s.realTVDBClient = tvdb.NewClient(cfg.Metadata.TVDB, logger)
-	s.realOMDBClient = omdb.NewClient(cfg.Metadata.OMDB, logger)
+	s.metadata.RealTMDBClient = tmdb.NewClient(cfg.Metadata.TMDB, logger)
+	s.metadata.RealTVDBClient = tvdb.NewClient(cfg.Metadata.TVDB, logger)
+	s.metadata.RealOMDBClient = omdb.NewClient(cfg.Metadata.OMDB, logger)
 	serverDebugLog("Metadata clients created")
 
 	// Register WebSocket handler for dev mode toggle
@@ -256,72 +186,171 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		})
 	}
 
-	// Initialize health service first (no dependencies)
-	serverDebugLog("Initializing health service...")
-	s.healthService = health.NewService(logger)
-	s.healthService.SetBroadcaster(hub)
+	s.initSystemServices(db, hub, logger)
+	s.initLibraryServices(db, hub, logger)
+	s.initMetadataServices(db, hub, cfg, logger)
+	s.initFilesystemServices(logger)
+	s.initDownloadServices(db, hub, logger)
+	s.initSearchServices(db, hub, cfg, logger)
+	s.initAutomationServices(db, hub, cfg, logger)
+	s.initNotificationServices(db, logger)
+	s.initPortalServices(db, hub, cfg, logger)
+	s.initSecurityServices()
 
-	// Initialize services
+	s.registerLibraryDependentTasks(cfg, logger)
+
+	// Initialize update service (after scheduler so we can register the task)
+	s.system.Update = update.NewService(db, logger, restartChan)
+	s.system.Update.SetBroadcaster(hub)
+	s.system.Update.SetPort(cfg.Server.Port)
+
+	// Initialize firewall checker
+	s.system.Firewall = firewall.NewChecker()
+
+	// Register update check task
+	queries := sqlc.New(db)
+	if s.automation.Scheduler != nil {
+		if err := tasks.RegisterUpdateCheckTask(s.automation.Scheduler, s.system.Update, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register update check task")
+		}
+		// Register Plex library refresh task
+		if err := tasks.RegisterPlexRefreshTask(s.automation.Scheduler, queries, s.notification.Service, s.notification.PlexClient, logger); err != nil {
+			logger.Error().Err(err).Msg("Failed to register Plex refresh task")
+		}
+	}
+
+	serverDebugLog("Setting up middleware...")
+	s.setupMiddleware()
+	serverDebugLog("Setting up routes...")
+	s.setupRoutes()
+	serverDebugLog("NewServer complete")
+
+	return s
+}
+
+// initSystemServices initializes the health and system-level services.
+func (s *Server) initSystemServices(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger) {
+	serverDebugLog("Initializing health service...")
+	s.system.Health = health.NewService(logger)
+	s.system.Health.SetBroadcaster(hub)
+
+	s.system.Defaults = defaults.NewService(sqlc.New(db))
+	s.system.Calendar = calendar.NewService(db, logger)
+	s.system.Availability = availability.NewService(db, logger)
+	s.system.Missing = missing.NewService(db, logger)
+	s.system.Preferences = preferences.NewService(sqlc.New(db))
+	s.system.History = history.NewService(db, logger)
+	s.system.History.SetBroadcaster(hub)
+	s.system.Progress = progress.NewManager(hub, logger)
+
+	s.registry.RegisterDB(
+		s.system.Defaults,
+		s.system.Calendar,
+		s.system.Availability,
+		s.system.Missing,
+		s.system.History,
+		s.system.Preferences,
+	)
+}
+
+// initLibraryServices initializes the library management services.
+func (s *Server) initLibraryServices(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger) {
 	serverDebugLog("Initializing core services (scanner, movie, tv, quality, slots)...")
-	s.scannerService = scanner.NewService(logger)
-	s.movieService = movies.NewService(db, hub, logger)
-	s.tvService = tv.NewService(db, hub, logger)
-	s.qualityService = quality.NewService(db, logger)
-	s.slotsService = slots.NewService(db, s.qualityService, logger)
+	s.library.Scanner = scanner.NewService(logger)
+	s.library.Movies = movies.NewService(db, hub, logger)
+	s.library.TV = tv.NewService(db, hub, logger)
+	s.library.Quality = quality.NewService(db, logger)
+	s.library.Slots = slots.NewService(db, s.library.Quality, logger)
 	serverDebugLog("Core services initialized")
 
 	// Wire up quality profile service for status evaluation on file import
-	s.movieService.SetQualityService(s.qualityService)
-	s.tvService.SetQualityService(s.qualityService)
+	s.library.Movies.SetQualityService(s.library.Quality)
+	s.library.TV.SetQualityService(s.library.Quality)
 
 	// Wire up slot-related file deletion handling (Req 12.1.1, 12.1.2)
-	s.movieService.SetFileDeleteHandler(s.slotsService)
-	s.tvService.SetFileDeleteHandler(s.slotsService)
+	s.library.Movies.SetFileDeleteHandler(s.library.Slots)
+	s.library.TV.SetFileDeleteHandler(s.library.Slots)
 
 	// Wire up file deleter for slot disable operations (Req 12.2.2)
-	s.slotsService.SetFileDeleter(&slotFileDeleterAdapter{
-		movieSvc: s.movieService,
-		tvSvc:    s.tvService,
+	s.library.Slots.SetFileDeleter(&slotFileDeleterAdapter{
+		movieSvc: s.library.Movies,
+		tvSvc:    s.library.TV,
 	})
 
-	s.defaultsService = defaults.NewService(sqlc.New(db))
-	s.rootFolderService = rootfolder.NewService(db, logger, s.defaultsService)
-	s.rootFolderService.SetHealthService(s.healthService)
+	s.library.RootFolder = rootfolder.NewService(db, logger, s.system.Defaults)
+	s.library.RootFolder.SetHealthService(s.system.Health)
 
 	// Wire up root folder provider for slot-level root folders (Req 22.1.1-22.1.4)
-	s.slotsService.SetRootFolderProvider(&slotRootFolderAdapter{
-		rootFolderSvc: s.rootFolderService,
+	s.library.Slots.SetRootFolderProvider(&slotRootFolderAdapter{
+		rootFolderSvc: s.library.RootFolder,
 	})
 
-	// Initialize metadata service and artwork downloader
-	s.metadataService = metadata.NewService(&cfg.Metadata, logger)
-	s.metadataService.SetHealthService(s.healthService)
-	s.networkLogoStore = metadata.NewSQLNetworkLogoStore(db)
-	s.metadataService.SetNetworkLogoStore(s.networkLogoStore)
+	// Initialize organizer service (for file operations)
+	namingCfg := organizer.DefaultNamingConfig()
+	s.library.Organizer = organizer.NewService(&namingCfg, logger)
+
+	// Initialize mediainfo service (for probing media files)
+	s.library.Mediainfo = mediainfo.NewService(mediainfo.DefaultConfig(), logger)
+
+	s.registry.RegisterDB(
+		s.library.Movies,
+		s.library.TV,
+		s.library.Quality,
+		s.library.Slots,
+		s.library.RootFolder,
+	)
+
+	// Wire status change loggers
+	s.library.Movies.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.system.History})
+	s.library.TV.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.system.History})
+}
+
+// initMetadataServices initializes metadata and artwork services.
+func (s *Server) initMetadataServices(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger *zerolog.Logger) {
+	s.metadata.Service = metadata.NewService(&cfg.Metadata, logger)
+	s.metadata.Service.SetHealthService(s.system.Health)
+	s.metadata.NetworkLogoStore = metadata.NewSQLNetworkLogoStore(db)
+	s.metadata.Service.SetNetworkLogoStore(s.metadata.NetworkLogoStore)
+
 	// Derive artwork directory from database path (uses same data directory)
 	dataDir := filepath.Dir(cfg.Database.Path)
 	artworkCfg := metadata.ArtworkConfig{
 		BaseDir: filepath.Join(dataDir, "artwork"),
 		Timeout: 30 * time.Second,
 	}
-	s.artworkDownloader = metadata.NewArtworkDownloader(artworkCfg, logger)
-	s.artworkDownloader.SetBroadcaster(hub)
+	s.metadata.ArtworkDownloader = metadata.NewArtworkDownloader(artworkCfg, logger)
+	s.metadata.ArtworkDownloader.SetBroadcaster(hub)
 
-	// Initialize filesystem service
-	s.filesystemService = filesystem.NewService(logger)
+	s.registry.RegisterDB(
+		s.metadata.NetworkLogoStore,
+	)
+}
 
-	// Initialize storage service (combines filesystem and root folder data)
-	s.storageService = filesystem.NewStorageService(s.filesystemService, s.rootFolderService, logger)
+// initFilesystemServices initializes filesystem and storage services.
+func (s *Server) initFilesystemServices(logger *zerolog.Logger) {
+	s.filesystem.Service = filesystem.NewService(logger)
+	s.filesystem.Storage = filesystem.NewStorageService(s.filesystem.Service, s.library.RootFolder, logger)
+}
 
-	// Initialize downloader service
-	s.downloaderService = downloader.NewService(db, logger)
-	s.downloaderService.SetHealthService(s.healthService)
+// initDownloadServices initializes download management services.
+func (s *Server) initDownloadServices(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger) {
+	s.download.Service = downloader.NewService(db, logger)
+	s.download.Service.SetHealthService(s.system.Health)
+	s.download.Service.SetBroadcaster(hub)
+	s.download.Service.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.system.History})
 
 	// Initialize queue broadcaster for real-time download progress updates
 	if hub != nil {
-		s.queueBroadcaster = downloader.NewQueueBroadcaster(s.downloaderService, hub, logger)
+		s.download.QueueBroadcaster = downloader.NewQueueBroadcaster(s.download.Service, hub, logger)
 	}
 
+	s.registry.RegisterDB(
+		s.download.Service,
+	)
+}
+
+// initSearchServices initializes search, indexer, and grab services.
+func (s *Server) initSearchServices(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger *zerolog.Logger) {
 	// Initialize Cardigann manager for indexer definitions
 	// Note: Definitions are fetched lazily when the user opens the Add Indexer dialog
 	serverDebugLog("Initializing Cardigann manager...")
@@ -350,29 +379,29 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	// Initialize indexer service
 	serverDebugLog("Initializing indexer service...")
-	s.indexerService = indexer.NewService(db, cardigannManager, logger)
-	s.indexerService.SetHealthService(s.healthService)
+	s.search.Indexer = indexer.NewService(db, cardigannManager, logger)
+	s.search.Indexer.SetHealthService(s.system.Health)
 	serverDebugLog("Indexer service initialized")
 
 	// Initialize indexer status service
-	s.statusService = status.NewService(db, logger)
-	s.statusService.SetHealthService(s.healthService)
+	s.search.Status = status.NewService(db, logger)
+	s.search.Status.SetHealthService(s.system.Health)
 
 	// Set up cookie store for persistent indexer sessions
-	cookieStore := indexer.NewCookieStore(s.statusService)
+	cookieStore := indexer.NewCookieStore(s.search.Status)
 	cardigannManager.SetCookieStore(cookieStore)
 
 	// Initialize rate limiter
-	s.rateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
+	s.search.RateLimiter = ratelimit.NewLimiter(db, ratelimit.DefaultConfig(), logger)
 
 	// Initialize Prowlarr service
-	s.prowlarrService = prowlarr.NewService(db, logger)
-	s.prowlarrModeManager = prowlarr.NewModeManager(s.prowlarrService, dbManager.IsDevMode)
+	s.search.Prowlarr = prowlarr.NewService(db, logger)
+	s.search.ProwlarrMode = prowlarr.NewModeManager(s.search.Prowlarr, s.dbManager.IsDevMode)
 
 	// Wire up mode check for Cardigann definition updates
 	// Definitions should only be updated when in SlipStream mode
-	if manager := s.indexerService.GetManager(); manager != nil {
-		modeManager := s.prowlarrModeManager
+	if manager := s.search.Indexer.GetManager(); manager != nil {
+		modeManager := s.search.ProwlarrMode
 		manager.SetModeCheckFunc(func() bool {
 			isSlipStream, err := modeManager.IsSlipStreamMode(context.Background())
 			if err != nil {
@@ -384,217 +413,92 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	}
 
 	// Initialize search service with status, rate limiting, and WebSocket events
-	s.searchService = search.NewService(s.indexerService, logger)
-	s.searchService.SetStatusService(s.statusService)
-	s.searchService.SetRateLimiter(s.rateLimiter)
-	s.searchService.SetBroadcaster(hub)
+	s.search.Search = search.NewService(s.search.Indexer, logger)
+	s.search.Search.SetStatusService(s.search.Status)
+	s.search.Search.SetRateLimiter(s.search.RateLimiter)
+	s.search.Search.SetBroadcaster(hub)
 
 	// Initialize Prowlarr search adapter and grab provider for mode-aware routing
-	s.prowlarrSearchAdapter = prowlarr.NewSearchAdapter(s.prowlarrService)
-	s.prowlarrGrabProvider = prowlarr.NewGrabProvider(
-		s.prowlarrService,
-		s.prowlarrModeManager,
-		s.indexerService,
+	s.search.ProwlarrSearch = prowlarr.NewSearchAdapter(s.search.Prowlarr)
+	s.search.ProwlarrGrab = prowlarr.NewGrabProvider(
+		s.search.Prowlarr,
+		s.search.ProwlarrMode,
+		s.search.Indexer,
 		logger,
 	)
 
 	// Initialize search router for mode-aware search routing
-	s.searchRouter = search.NewRouter(s.searchService, logger)
-	s.searchRouter.SetProwlarrSearcher(s.prowlarrSearchAdapter)
-	s.searchRouter.SetModeProvider(s.prowlarrModeManager)
+	s.search.Router = search.NewRouter(s.search.Search, logger)
+	s.search.Router.SetProwlarrSearcher(s.search.ProwlarrSearch)
+	s.search.Router.SetModeProvider(s.search.ProwlarrMode)
 
 	// Initialize grab service with status, rate limiting, and WebSocket events
 	// Uses prowlarrGrabProvider for mode-aware routing (Prowlarr vs internal indexers)
-	s.grabService = grab.NewService(db, s.downloaderService, logger)
-	s.grabService.SetIndexerService(s.prowlarrGrabProvider)
-	s.grabService.SetStatusService(s.statusService)
-	s.grabService.SetRateLimiter(s.rateLimiter)
-	s.grabService.SetBroadcaster(hub)
-	if s.queueBroadcaster != nil {
-		s.grabService.SetQueueTrigger(s.queueBroadcaster)
+	s.search.Grab = grab.NewService(db, s.download.Service, logger)
+	s.search.Grab.SetIndexerService(s.search.ProwlarrGrab)
+	s.search.Grab.SetStatusService(s.search.Status)
+	s.search.Grab.SetRateLimiter(s.search.RateLimiter)
+	s.search.Grab.SetBroadcaster(hub)
+	if s.download.QueueBroadcaster != nil {
+		s.search.Grab.SetQueueTrigger(s.download.QueueBroadcaster)
 	}
 
-	// Initialize defaults service
-	s.defaultsService = defaults.NewService(sqlc.New(db))
+	// Initialize shared grab lock for concurrent grab protection
+	s.search.GrabLock = decisioning.NewGrabLock()
 
-	// Initialize calendar service
-	s.calendarService = calendar.NewService(db, logger)
+	s.registry.RegisterDB(
+		s.search.Indexer,
+		s.search.Status,
+		s.search.RateLimiter,
+		s.search.Grab,
+		s.search.Prowlarr,
+	)
+}
 
-	// Initialize availability service
-	s.availabilityService = availability.NewService(db, logger)
-
-	// Initialize missing service
-	s.missingService = missing.NewService(db, logger)
-
-	// Initialize preferences service
-	s.preferencesService = preferences.NewService(sqlc.New(db))
-
-	// Initialize history service
-	s.historyService = history.NewService(db, logger)
-
-	// Initialize organizer service (for file operations)
-	namingCfg := organizer.DefaultNamingConfig()
-	s.organizerService = organizer.NewService(&namingCfg, logger)
-
-	// Initialize mediainfo service (for probing media files)
-	s.mediainfoService = mediainfo.NewService(mediainfo.DefaultConfig(), logger)
-
+// initAutomationServices initializes automation, import, and scheduling services.
+func (s *Server) initAutomationServices(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger *zerolog.Logger) {
 	// Initialize import service (for processing completed downloads)
-	s.importService = importer.NewService(
+	s.automation.Import = importer.NewService(
 		db,
-		s.downloaderService,
-		s.movieService,
-		s.tvService,
-		s.rootFolderService,
-		s.organizerService,
-		s.mediainfoService,
+		s.download.Service,
+		s.library.Movies,
+		s.library.TV,
+		s.library.RootFolder,
+		s.library.Organizer,
+		s.library.Mediainfo,
 		hub,
 		importer.DefaultConfig(),
 		logger,
 	)
-	s.importService.SetHealthService(s.healthService)
-	s.importService.SetHistoryService(&importHistoryAdapter{s.historyService})
-	s.importService.SetQualityService(s.qualityService)
-	s.importService.SetSlotsService(s.slotsService)
-	s.qualityService.SetImportDecisionCleaner(s.importService)
+	s.automation.Import.SetHealthService(s.system.Health)
+	s.automation.Import.SetHistoryService(&importHistoryAdapter{s.system.History})
+	s.automation.Import.SetQualityService(s.library.Quality)
+	s.automation.Import.SetSlotsService(s.library.Slots)
+	s.library.Quality.SetImportDecisionCleaner(s.automation.Import)
 
-	// Initialize progress manager for tracking activities (must be before arrimport)
-	s.progressManager = progress.NewManager(hub, logger)
+	// Wire up import service to queue broadcaster for immediate import triggering
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.SetCompletionHandler(s.automation.Import)
+	}
 
 	// Initialize arr import service (for migrating from Radarr/Sonarr)
-	s.arrImportService = arrimport.NewService(
+	s.automation.ArrImport = arrimport.NewService(
 		db,
-		s.movieService,
-		s.tvService,
-		&arrImportRootFolderAdapter{svc: s.rootFolderService},
-		&arrImportQualityAdapter{svc: s.qualityService},
-		s.progressManager,
+		s.library.Movies,
+		s.library.TV,
+		&arrImportRootFolderAdapter{svc: s.library.RootFolder},
+		&arrImportQualityAdapter{svc: s.library.Quality},
+		s.system.Progress,
 		&arrImportHubAdapter{hub: hub},
 		logger,
 	)
-	s.arrImportService.SetSlotsService(s.slotsService)
-
-	// Initialize notification service
-	s.notificationService = notification.NewService(db, logger)
-
-	// Initialize Plex client and handlers for OAuth/discovery endpoints
-	plexHTTPClient := &http.Client{Timeout: 30 * time.Second}
-	s.plexClient = plex.NewClient(plexHTTPClient, logger, config.Version)
-	s.plexHandlers = plex.NewHandlers(s.plexClient, logger)
-
-	// Wire up notification service to health service for health alerts
-	s.healthService.SetNotifier(s.notificationService)
-
-	// Wire up notification service to grab service
-	s.grabService.SetNotificationService(&grabNotificationAdapter{
-		svc:    s.notificationService,
-		movies: s.movieService,
-		tv:     s.tvService,
-	})
-
-	// Wire up notification service to movies service
-	s.movieService.SetNotificationDispatcher(&movieNotificationAdapter{s.notificationService})
-
-	// Wire up notification service to TV service
-	s.tvService.SetNotificationDispatcher(&tvNotificationAdapter{s.notificationService})
-
-	// Wire up notification service to import service
-	s.importService.SetNotificationDispatcher(&importNotificationAdapter{s.notificationService})
-
-	// Wire up import service to queue broadcaster for immediate import triggering
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.SetCompletionHandler(s.importService)
-	}
-
-	// Initialize portal services
-	serverDebugLog("Initializing portal services...")
-	queries := sqlc.New(db)
-	s.portalUsersService = users.NewService(queries, logger)
-	s.portalInvitationsService = invitations.NewService(queries, logger)
-	s.portalQuotaService = quota.NewService(queries, logger)
-	s.portalRequestsService = requests.NewService(queries, logger)
-	s.portalRequestsService.SetBroadcaster(requests.NewEventBroadcaster(hub))
-	s.portalNotificationsService = portalnotifs.NewService(queries, s.notificationService, hub, logger)
-	s.portalWatchersService = requests.NewWatchersService(queries, logger)
-	s.portalRequestsService.SetNotificationDispatcher(s.portalNotificationsService)
-	s.portalRequestsService.SetWatchersService(s.portalWatchersService)
-	s.portalAutoApproveService = autoapprove.NewService(
-		queries,
-		s.portalUsersService,
-		s.qualityService,
-		s.portalQuotaService,
-		s.portalRequestsService,
-		logger,
-	)
-	serverDebugLog("Portal services initialized")
-
-	// Initialize status tracker for portal request status updates
-	s.portalStatusTracker = requests.NewStatusTracker(queries, s.portalRequestsService, s.portalWatchersService, logger)
-	s.portalStatusTracker.SetMovieLookup(&statusTrackerMovieLookup{movieSvc: s.movieService})
-	s.portalStatusTracker.SetEpisodeLookup(&statusTrackerEpisodeLookup{tvSvc: s.tvService})
-	s.portalStatusTracker.SetSeriesLookup(&statusTrackerSeriesLookup{tvSvc: s.tvService})
-	s.portalStatusTracker.SetNotificationDispatcher(s.portalNotificationsService)
-	s.portalLibraryChecker = requests.NewLibraryChecker(queries, logger)
-	s.adminRequestLibraryChecker = &adminRequestLibraryCheckerAdapter{queries: queries}
-	s.importService.SetStatusTracker(s.portalStatusTracker)
-	s.grabService.SetPortalStatusTracker(s.portalStatusTracker)
-	s.downloaderService.SetPortalStatusTracker(s.portalStatusTracker)
-	s.downloaderService.SetBroadcaster(hub)
-	s.historyService.SetBroadcaster(hub)
-	s.downloaderService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
-	s.movieService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
-	s.tvService.SetStatusChangeLogger(&statusChangeLoggerAdapter{s.historyService})
-
-	serverDebugLog("Initializing portal auth service...")
-	authSvc, err := auth.NewService(queries, s.logger, cfg.Portal.JWTSecret)
-	if err != nil {
-		serverDebugLog(fmt.Sprintf("Failed to initialize portal auth service: %v", err))
-		logger.Error().Err(err).Msg("Failed to initialize portal auth service")
-	}
-	s.portalAuthService = authSvc
-	s.portalAuthMiddleware = portalmw.NewAuthMiddleware(authSvc)
-	s.portalAuthMiddleware.SetEnabledChecker(&portalEnabledChecker{queries: queries})
-	serverDebugLog("Portal auth service initialized")
-
-	serverDebugLog("Initializing passkey service...")
-	passkeySvc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
-		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
-		RPID:          cfg.Portal.WebAuthn.RPID,
-		RPOrigins:     cfg.Portal.WebAuthn.RPOrigins,
-	})
-	if err != nil {
-		serverDebugLog(fmt.Sprintf("Failed to initialize passkey service: %v", err))
-		logger.Error().Err(err).Msg("Failed to initialize passkey service")
-	}
-	s.portalPasskeyService = passkeySvc
-	serverDebugLog("Passkey service initialized")
-
-	// Wire token validator to the WebSocket hub now that the auth service is ready.
-	if hub != nil && authSvc != nil {
-		hub.SetTokenValidator(func(token string) error {
-			_, err := authSvc.ValidateAdminToken(token)
-			return err
-		})
-	}
-
-	s.portalSearchLimiter = portalratelimit.NewSearchLimiter(func() int64 {
-		if setting, err := queries.GetSetting(context.Background(), admin.SettingSearchRateLimit); err == nil && setting.Value != "" {
-			if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
-				return v
-			}
-		}
-		return portalratelimit.DefaultRequestsPerMinute
-	})
-	s.portalSearchLimiter.StartCleanup(5 * time.Minute)
-
-	// Initialize auth rate limiter (IP-based + account lockout)
-	s.authLimiter = authratelimit.NewAuthLimiter()
-	s.authLimiter.StartCleanup(5 * time.Minute)
+	s.automation.ArrImport.SetSlotsService(s.library.Slots)
 
 	// Initialize autosearch service (uses search router for mode-aware search routing)
-	s.autosearchService = autosearch.NewService(db, s.searchRouter, s.grabService, s.qualityService, logger)
-	s.autosearchService.SetBroadcaster(hub)
-	s.autosearchService.SetHistoryService(s.historyService)
+	s.automation.Autosearch = autosearch.NewService(db, s.search.Router, s.search.Grab, s.library.Quality, logger)
+	s.automation.Autosearch.SetBroadcaster(hub)
+	s.automation.Autosearch.SetHistoryService(s.system.History)
+	s.automation.Autosearch.SetGrabLock(s.search.GrabLock)
 
 	// Load saved autosearch settings into config before creating scheduler
 	if err := autosearch.LoadSettingsIntoConfig(context.Background(), sqlc.New(db), &cfg.AutoSearch); err != nil {
@@ -602,15 +506,11 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	}
 
 	// Initialize scheduled searcher for automatic background searches
-	s.scheduledSearcher = autosearch.NewScheduledSearcher(s.autosearchService, &cfg.AutoSearch, logger)
-
-	// Initialize shared grab lock for concurrent grab protection
-	s.grabLock = decisioning.NewGrabLock()
-	s.autosearchService.SetGrabLock(s.grabLock)
+	s.automation.ScheduledSearcher = autosearch.NewScheduledSearcher(s.automation.Autosearch, &cfg.AutoSearch, logger)
 
 	// Initialize RSS sync service
-	rssFetcher := rsssync.NewFeedFetcher(s.indexerService, s.prowlarrService, s.prowlarrModeManager, sqlc.New(db), logger)
-	s.rssSyncService = rsssync.NewService(sqlc.New(db), rssFetcher, s.grabService, s.qualityService, s.historyService, s.grabLock, s.healthService, hub, logger)
+	rssFetcher := rsssync.NewFeedFetcher(s.search.Indexer, s.search.Prowlarr, s.search.ProwlarrMode, sqlc.New(db), logger)
+	s.automation.RssSync = rsssync.NewService(sqlc.New(db), rssFetcher, s.search.Grab, s.library.Quality, s.system.History, s.search.GrabLock, s.system.Health, hub, logger)
 
 	// Load saved RSS sync settings into config
 	if err := rsssync.LoadSettingsIntoConfig(context.Background(), sqlc.New(db), &cfg.RssSync); err != nil {
@@ -625,85 +525,212 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		logger.Error().Err(err).Msg("Failed to initialize scheduler")
 	} else {
 		serverDebugLog("Scheduler initialized, registering tasks...")
-		s.scheduler = sched
-		s.scheduler.OnTaskStateChanged(schedulerBroadcaster(hub))
+		s.automation.Scheduler = sched
+		s.automation.Scheduler.OnTaskStateChanged(schedulerBroadcaster(hub))
 		// Register availability refresh task
-		if err := tasks.RegisterAvailabilityTask(s.scheduler, s.availabilityService); err != nil {
+		if err := tasks.RegisterAvailabilityTask(s.automation.Scheduler, s.system.Availability); err != nil {
 			logger.Error().Err(err).Msg("Failed to register availability task")
 		}
 		// Register automatic search task
-		if err := tasks.RegisterAutoSearchTask(s.scheduler, s.scheduledSearcher, &cfg.AutoSearch); err != nil {
+		if err := tasks.RegisterAutoSearchTask(s.automation.Scheduler, s.automation.ScheduledSearcher, &cfg.AutoSearch); err != nil {
 			logger.Error().Err(err).Msg("Failed to register autosearch task")
 		}
 		// Register RSS sync task
-		if err := tasks.RegisterRssSyncTask(s.scheduler, s.rssSyncService, &cfg.RssSync); err != nil {
+		if err := tasks.RegisterRssSyncTask(s.automation.Scheduler, s.automation.RssSync, &cfg.RssSync); err != nil {
 			logger.Error().Err(err).Msg("Failed to register RSS sync task")
 		}
 		serverDebugLog("Scheduler tasks registered")
 	}
 
 	// Initialize library manager service (orchestrates scanning and file matching)
-	s.libraryManagerService = librarymanager.NewService(
+	s.library.LibraryManager = librarymanager.NewService(
 		db,
-		s.scannerService,
-		s.movieService,
-		s.tvService,
-		s.metadataService,
-		s.artworkDownloader,
-		s.rootFolderService,
-		s.qualityService,
-		s.progressManager,
+		s.library.Scanner,
+		s.library.Movies,
+		s.library.TV,
+		s.metadata.Service,
+		s.metadata.ArtworkDownloader,
+		s.library.RootFolder,
+		s.library.Quality,
+		s.system.Progress,
 		logger,
 	)
 	// Wire up optional services for search-on-add functionality
-	s.libraryManagerService.SetAutosearchService(s.autosearchService)
-	s.libraryManagerService.SetPreferencesService(s.preferencesService)
-	s.libraryManagerService.SetSlotsService(s.slotsService)
-	s.libraryManagerService.SetHealthService(s.healthService)
+	s.library.LibraryManager.SetAutosearchService(s.automation.Autosearch)
+	s.library.LibraryManager.SetPreferencesService(s.system.Preferences)
+	s.library.LibraryManager.SetSlotsService(s.library.Slots)
+	s.library.LibraryManager.SetHealthService(s.system.Health)
 
 	// Wire up series refresher for pre-search metadata updates
-	s.scheduledSearcher.SetSeriesRefresher(s.libraryManagerService)
+	s.automation.ScheduledSearcher.SetSeriesRefresher(s.library.LibraryManager)
 
 	// Wire up metadata refresh for arr-import (fetches artwork/metadata after creating items)
-	s.arrImportService.SetMetadataRefresher(&arrImportMetadataRefresherAdapter{svc: s.libraryManagerService})
+	s.automation.ArrImport.SetMetadataRefresher(&arrImportMetadataRefresherAdapter{svc: s.library.LibraryManager})
+
+	s.registry.RegisterDB(
+		s.automation.Autosearch,
+		s.automation.Import,
+		s.library.LibraryManager,
+	)
+	s.registry.RegisterQueries(
+		s.automation.RssSync,
+	)
+}
+
+// initNotificationServices initializes notification services.
+func (s *Server) initNotificationServices(db *sql.DB, logger *zerolog.Logger) {
+	s.notification.Service = notification.NewService(db, logger)
+
+	// Initialize Plex client and handlers for OAuth/discovery endpoints
+	plexHTTPClient := &http.Client{Timeout: 30 * time.Second}
+	s.notification.PlexClient = plex.NewClient(plexHTTPClient, logger, config.Version)
+	s.notification.PlexHandlers = plex.NewHandlers(s.notification.PlexClient, logger)
+
+	// Wire up notification service to health service for health alerts
+	s.system.Health.SetNotifier(s.notification.Service)
+
+	// Wire up notification service to grab service
+	s.search.Grab.SetNotificationService(&grabNotificationAdapter{
+		svc:    s.notification.Service,
+		movies: s.library.Movies,
+		tv:     s.library.TV,
+	})
+
+	// Wire up notification service to movies service
+	s.library.Movies.SetNotificationDispatcher(&movieNotificationAdapter{s.notification.Service})
+
+	// Wire up notification service to TV service
+	s.library.TV.SetNotificationDispatcher(&tvNotificationAdapter{s.notification.Service})
+
+	// Wire up notification service to import service
+	s.automation.Import.SetNotificationDispatcher(&importNotificationAdapter{s.notification.Service})
 
 	// Wire up config import services for arr-import
-	s.arrImportService.SetConfigImportServices(
-		s.downloaderService,
-		s.indexerService,
-		s.notificationService,
-		s.qualityService,
-		s.importService,
+	s.automation.ArrImport.SetConfigImportServices(
+		s.download.Service,
+		s.search.Indexer,
+		s.notification.Service,
+		s.library.Quality,
+		s.automation.Import,
 	)
 
-	s.registerLibraryDependentTasks(cfg, logger)
+	s.registry.RegisterDB(
+		s.notification.Service,
+	)
+}
 
-	// Initialize update service (after scheduler so we can register the task)
-	s.updateService = update.NewService(db, logger, restartChan)
-	s.updateService.SetBroadcaster(hub)
-	s.updateService.SetPort(cfg.Server.Port)
+// initPortalServices initializes the external requests portal services.
+func (s *Server) initPortalServices(db *sql.DB, hub *websocket.Hub, cfg *config.Config, logger *zerolog.Logger) {
+	serverDebugLog("Initializing portal services...")
+	queries := sqlc.New(db)
+	s.portal.Users = users.NewService(queries, logger)
+	s.portal.Invitations = invitations.NewService(queries, logger)
+	s.portal.Quota = quota.NewService(queries, logger)
+	s.portal.Requests = requests.NewService(queries, logger)
+	s.portal.Requests.SetBroadcaster(requests.NewEventBroadcaster(hub))
+	s.portal.Notifications = portalnotifs.NewService(queries, s.notification.Service, hub, logger)
+	s.portal.Watchers = requests.NewWatchersService(queries, logger)
+	s.portal.Requests.SetNotificationDispatcher(s.portal.Notifications)
+	s.portal.Requests.SetWatchersService(s.portal.Watchers)
+	s.portal.AutoApprove = autoapprove.NewService(
+		queries,
+		s.portal.Users,
+		s.library.Quality,
+		s.portal.Quota,
+		s.portal.Requests,
+		logger,
+	)
+	serverDebugLog("Portal services initialized")
 
-	// Initialize firewall checker
-	s.firewallChecker = firewall.NewChecker()
+	// Initialize status tracker for portal request status updates
+	s.portal.StatusTracker = requests.NewStatusTracker(queries, s.portal.Requests, s.portal.Watchers, logger)
+	s.portal.StatusTracker.SetMovieLookup(&statusTrackerMovieLookup{movieSvc: s.library.Movies})
+	s.portal.StatusTracker.SetEpisodeLookup(&statusTrackerEpisodeLookup{tvSvc: s.library.TV})
+	s.portal.StatusTracker.SetSeriesLookup(&statusTrackerSeriesLookup{tvSvc: s.library.TV})
+	s.portal.StatusTracker.SetNotificationDispatcher(s.portal.Notifications)
+	s.portal.LibraryChecker = requests.NewLibraryChecker(queries, logger)
+	s.portal.AdminLibraryChecker = &adminRequestLibraryCheckerAdapter{queries: queries}
+	s.automation.Import.SetStatusTracker(s.portal.StatusTracker)
+	s.search.Grab.SetPortalStatusTracker(s.portal.StatusTracker)
+	s.download.Service.SetPortalStatusTracker(s.portal.StatusTracker)
 
-	// Register update check task
-	if s.scheduler != nil {
-		if err := tasks.RegisterUpdateCheckTask(s.scheduler, s.updateService, logger); err != nil {
-			logger.Error().Err(err).Msg("Failed to register update check task")
-		}
-		// Register Plex library refresh task
-		if err := tasks.RegisterPlexRefreshTask(s.scheduler, queries, s.notificationService, s.plexClient, logger); err != nil {
-			logger.Error().Err(err).Msg("Failed to register Plex refresh task")
-		}
+	// Initialize portal media provisioner
+	s.portal.MediaProvisioner = &portalMediaProvisionerAdapter{
+		queries:        queries,
+		movieService:   s.library.Movies,
+		tvService:      s.library.TV,
+		libraryManager: s.library.LibraryManager,
+		logger:         logger,
 	}
 
-	serverDebugLog("Setting up middleware...")
-	s.setupMiddleware()
-	serverDebugLog("Setting up routes...")
-	s.setupRoutes()
-	serverDebugLog("NewServer complete")
+	serverDebugLog("Initializing portal auth service...")
+	authSvc, err := auth.NewService(queries, s.logger, cfg.Portal.JWTSecret)
+	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize portal auth service: %v", err))
+		logger.Error().Err(err).Msg("Failed to initialize portal auth service")
+	}
+	s.portal.Auth = authSvc
+	s.portal.AuthMiddleware = portalmw.NewAuthMiddleware(authSvc)
+	s.portal.AuthMiddleware.SetEnabledChecker(&portalEnabledChecker{queries: queries})
+	serverDebugLog("Portal auth service initialized")
 
-	return s
+	serverDebugLog("Initializing passkey service...")
+	passkeySvc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
+		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
+		RPID:          cfg.Portal.WebAuthn.RPID,
+		RPOrigins:     cfg.Portal.WebAuthn.RPOrigins,
+	})
+	if err != nil {
+		serverDebugLog(fmt.Sprintf("Failed to initialize passkey service: %v", err))
+		logger.Error().Err(err).Msg("Failed to initialize passkey service")
+	}
+	s.portal.Passkey = passkeySvc
+	serverDebugLog("Passkey service initialized")
+
+	// Wire token validator to the WebSocket hub now that the auth service is ready.
+	if hub != nil && authSvc != nil {
+		hub.SetTokenValidator(func(token string) error {
+			_, err := authSvc.ValidateAdminToken(token)
+			return err
+		})
+	}
+
+	s.portal.SearchLimiter = portalratelimit.NewSearchLimiter(func() int64 {
+		if setting, err := queries.GetSetting(context.Background(), admin.SettingSearchRateLimit); err == nil && setting.Value != "" {
+			if v, parseErr := strconv.ParseInt(setting.Value, 10, 64); parseErr == nil {
+				return v
+			}
+		}
+		return portalratelimit.DefaultRequestsPerMinute
+	})
+	s.portal.SearchLimiter.StartCleanup(5 * time.Minute)
+
+	s.registry.RegisterDB(
+		s.portal.MediaProvisioner,
+		s.portal.StatusTracker,
+		s.portal.LibraryChecker,
+		s.portal.AdminLibraryChecker,
+		s.portal.Watchers,
+	)
+	s.registry.RegisterQueries(
+		s.portal.Users,
+		s.portal.Invitations,
+		s.portal.Quota,
+		s.portal.Notifications,
+		s.portal.AutoApprove,
+		s.portal.Requests,
+		s.portal.Auth,
+	)
+	if s.portal.Passkey != nil {
+		s.registry.RegisterQueries(s.portal.Passkey)
+	}
+}
+
+// initSecurityServices initializes rate limiting and security services.
+func (s *Server) initSecurityServices() {
+	// Initialize auth rate limiter (IP-based + account lockout)
+	s.security.AuthLimiter = authratelimit.NewAuthLimiter()
+	s.security.AuthLimiter.StartCleanup(5 * time.Minute)
 }
 
 func schedulerBroadcaster(hub *websocket.Hub) scheduler.TaskStateCallback {
@@ -721,31 +748,31 @@ func schedulerBroadcaster(hub *websocket.Hub) scheduler.TaskStateCallback {
 
 // Start begins listening for HTTP requests.
 func (s *Server) registerLibraryDependentTasks(cfg *config.Config, logger *zerolog.Logger) {
-	if s.scheduler == nil {
+	if s.automation.Scheduler == nil {
 		return
 	}
 
-	if err := tasks.RegisterLibraryScanTask(s.scheduler, s.libraryManagerService, s.rootFolderService, logger); err != nil {
+	if err := tasks.RegisterLibraryScanTask(s.automation.Scheduler, s.library.LibraryManager, s.library.RootFolder, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register library scan task")
 	}
-	if err := tasks.RegisterDownloadClientHealthTask(s.scheduler, s.downloaderService, s.healthService, &cfg.Health, logger); err != nil {
+	if err := tasks.RegisterDownloadClientHealthTask(s.automation.Scheduler, s.download.Service, s.system.Health, &cfg.Health, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register download client health task")
 	}
-	if err := tasks.RegisterIndexerHealthTask(s.scheduler, s.indexerService, s.prowlarrService, s.prowlarrModeManager, s.healthService, &cfg.Health, logger); err != nil {
+	if err := tasks.RegisterIndexerHealthTask(s.automation.Scheduler, s.search.Indexer, s.search.Prowlarr, s.search.ProwlarrMode, s.system.Health, &cfg.Health, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register indexer health task")
 	}
-	if err := tasks.RegisterProwlarrHealthTask(s.scheduler, s.prowlarrService, s.prowlarrModeManager, s.healthService, logger); err != nil {
+	if err := tasks.RegisterProwlarrHealthTask(s.automation.Scheduler, s.search.Prowlarr, s.search.ProwlarrMode, s.system.Health, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register Prowlarr health task")
 	}
-	storageAdapter := health.NewStorageServiceAdapter(s.storageService)
-	storageChecker := health.NewStorageChecker(s.healthService, storageAdapter, &cfg.Health, logger)
-	if err := tasks.RegisterStorageHealthTask(s.scheduler, storageChecker, &cfg.Health, logger); err != nil {
+	storageAdapter := health.NewStorageServiceAdapter(s.filesystem.Storage)
+	storageChecker := health.NewStorageChecker(s.system.Health, storageAdapter, &cfg.Health, logger)
+	if err := tasks.RegisterStorageHealthTask(s.automation.Scheduler, storageChecker, &cfg.Health, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register storage health task")
 	}
-	if err := tasks.RegisterImportScanTask(s.scheduler, s.importService, logger); err != nil {
+	if err := tasks.RegisterImportScanTask(s.automation.Scheduler, s.automation.Import, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register import scan task")
 	}
-	if err := tasks.RegisterHistoryCleanupTask(s.scheduler, s.historyService); err != nil {
+	if err := tasks.RegisterHistoryCleanupTask(s.automation.Scheduler, s.system.History); err != nil {
 		logger.Error().Err(err).Msg("Failed to register history cleanup task")
 	}
 }
@@ -755,30 +782,30 @@ func (s *Server) Start(address string) error {
 
 	// Register existing items with health service
 	ctx := context.Background()
-	if err := s.downloaderService.RegisterExistingClients(ctx); err != nil {
+	if err := s.download.Service.RegisterExistingClients(ctx); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to register existing download clients with health service")
 	}
-	if err := s.indexerService.RegisterExistingIndexers(ctx); err != nil {
+	if err := s.search.Indexer.RegisterExistingIndexers(ctx); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to register existing indexers with health service")
 	}
-	if err := s.rootFolderService.RegisterExistingRootFolders(ctx); err != nil {
+	if err := s.library.RootFolder.RegisterExistingRootFolders(ctx); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to register existing root folders with health service")
 	}
-	s.metadataService.RegisterMetadataProviders()
+	s.metadata.Service.RegisterMetadataProviders()
 
 	// Start queue broadcaster for real-time download progress
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Start()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Start()
 	}
 
 	// Start the import service workers
-	if s.importService != nil {
-		s.importService.Start(context.Background())
+	if s.automation.Import != nil {
+		s.automation.Import.Start(context.Background())
 	}
 
 	// Start the scheduler
-	if s.scheduler != nil {
-		if err := s.scheduler.Start(); err != nil {
+	if s.automation.Scheduler != nil {
+		if err := s.automation.Scheduler.Start(); err != nil {
 			s.logger.Error().Err(err).Msg("Failed to start scheduler")
 		}
 	}
@@ -791,20 +818,20 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("shutting down HTTP server")
 
 	// Stop the queue broadcaster
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Stop()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Stop()
 	}
 
 	// Stop the scheduler
-	if s.scheduler != nil {
-		if err := s.scheduler.Stop(); err != nil {
+	if s.automation.Scheduler != nil {
+		if err := s.automation.Scheduler.Stop(); err != nil {
 			s.logger.Warn().Err(err).Msg("Failed to stop scheduler")
 		}
 	}
 
 	// Stop the import service workers
-	if s.importService != nil {
-		s.importService.Stop()
+	if s.automation.Import != nil {
+		s.automation.Import.Stop()
 	}
 
 	return s.echo.Shutdown(ctx)
@@ -817,5 +844,5 @@ func (s *Server) Echo() *echo.Echo {
 
 // EnsureDefaults creates default data like quality profiles.
 func (s *Server) EnsureDefaults(ctx context.Context) error {
-	return s.qualityService.EnsureDefaults(ctx)
+	return s.library.Quality.EnsureDefaults(ctx)
 }

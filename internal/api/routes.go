@@ -130,57 +130,57 @@ func (s *Server) setupRoutes() {
 
 func (s *Server) setupAuthRoutes(api *echo.Group) {
 	authGroup := api.Group("/auth")
-	authGroup.Use(s.authLimiter.Middleware())
+	authGroup.Use(s.security.AuthLimiter.Middleware())
 	authGroup.GET("/status", s.getAuthStatus)
 	authGroup.POST("/setup", s.adminSetup)
 	authGroup.DELETE("/admin", s.deleteAdmin)
 }
 
 func (s *Server) setupSystemRoutes(protected *echo.Group) {
-	healthHandlers := health.NewHandlers(s.healthService, &health.TestFunctions{
+	healthHandlers := health.NewHandlers(s.system.Health, &health.TestFunctions{
 		TestDownloadClient: func(ctx context.Context, id int64) (bool, string) {
-			result, err := s.downloaderService.Test(ctx, id)
+			result, err := s.download.Service.Test(ctx, id)
 			if err != nil {
 				return false, err.Error()
 			}
 			return result.Success, result.Message
 		},
 		TestIndexer: func(ctx context.Context, id int64) (bool, string) {
-			result, err := s.indexerService.Test(ctx, id)
+			result, err := s.search.Indexer.Test(ctx, id)
 			if err != nil {
 				return false, err.Error()
 			}
 			return result.Success, result.Message
 		},
 		GetRootFolderPath: func(ctx context.Context, id int64) (string, error) {
-			folder, err := s.rootFolderService.Get(ctx, id)
+			folder, err := s.library.RootFolder.Get(ctx, id)
 			if err != nil {
 				return "", err
 			}
 			return folder.Path, nil
 		},
-		IsTMDBConfigured: s.metadataService.IsTMDBConfigured,
-		IsTVDBConfigured: s.metadataService.IsTVDBConfigured,
-		TestTMDB:         s.metadataService.TestTMDB,
-		TestTVDB:         s.metadataService.TestTVDB,
+		IsTMDBConfigured: s.metadata.Service.IsTMDBConfigured,
+		IsTVDBConfigured: s.metadata.Service.IsTVDBConfigured,
+		TestTMDB:         s.metadata.Service.TestTMDB,
+		TestTVDB:         s.metadata.Service.TestTVDB,
 	})
 	healthHandlers.RegisterRoutes(protected.Group("/system/health"))
 
 	protected.POST("/system/restart", s.restart)
 	protected.GET("/system/firewall", s.checkFirewall)
 
-	updateHandlers := update.NewHandlers(s.updateService)
+	updateHandlers := update.NewHandlers(s.system.Update)
 	updateHandlers.RegisterRoutes(protected.Group("/update"))
 }
 
 func (s *Server) setupLibraryRoutes(api, protected *echo.Group) {
-	movieHandlers := movies.NewHandlers(s.movieService)
+	movieHandlers := movies.NewHandlers(s.library.Movies)
 	movieHandlers.RegisterRoutes(protected.Group("/movies"))
 
-	tvHandlers := tv.NewHandlers(s.tvService)
+	tvHandlers := tv.NewHandlers(s.library.TV)
 	tvHandlers.RegisterRoutes(protected.Group("/series"))
 
-	libraryManagerHandlers := librarymanager.NewHandlers(s.libraryManagerService)
+	libraryManagerHandlers := librarymanager.NewHandlers(s.library.LibraryManager)
 	protected.POST("/movies/refresh", libraryManagerHandlers.RefreshAllMovies)
 	protected.POST("/series/refresh", libraryManagerHandlers.RefreshAllSeries)
 	protected.POST("/movies/:id/refresh", libraryManagerHandlers.RefreshMovie)
@@ -190,20 +190,20 @@ func (s *Server) setupLibraryRoutes(api, protected *echo.Group) {
 	libraryGroup.POST("/movies", libraryManagerHandlers.AddMovie)
 	libraryGroup.POST("/series", libraryManagerHandlers.AddSeries)
 
-	qualityHandlers := quality.NewHandlers(s.qualityService)
+	qualityHandlers := quality.NewHandlers(s.library.Quality)
 	qualityHandlers.RegisterRoutes(protected.Group("/qualityprofiles"))
 
-	slotsHandlers := slots.NewHandlers(s.slotsService)
+	slotsHandlers := slots.NewHandlers(s.library.Slots)
 	slotsHandlers.RegisterRoutes(protected.Group("/slots"))
 
-	slotsDebugHandlers := slots.NewDebugHandlers(s.slotsService, s.dbManager.IsDevMode)
+	slotsDebugHandlers := slots.NewDebugHandlers(s.library.Slots, s.dbManager.IsDevMode)
 	slotsDebugHandlers.RegisterDebugRoutes(protected.Group("/slots/debug"))
 
-	rootFolderHandlers := rootfolder.NewHandlers(s.rootFolderService)
+	rootFolderHandlers := rootfolder.NewHandlers(s.library.RootFolder)
 	rootFolderHandlers.RegisterRoutes(protected.Group("/rootfolders"))
 	rootFolderHandlers.SetOnFolderCreated(func(folderID int64) {
 		ctx := context.Background()
-		_, err := s.libraryManagerService.ScanRootFolder(ctx, folderID)
+		_, err := s.library.LibraryManager.ScanRootFolder(ctx, folderID)
 		if err != nil {
 			s.logger.Error().Err(err).Int64("rootFolderId", folderID).Msg("Auto-scan failed for new root folder")
 		}
@@ -217,16 +217,16 @@ func (s *Server) setupLibraryRoutes(api, protected *echo.Group) {
 	protected.POST("/scans", libraryManagerHandlers.ScanAllRootFolders)
 
 	// Metadata routes
-	metadataHandlers := metadata.NewHandlers(s.metadataService, s.artworkDownloader)
+	metadataHandlers := metadata.NewHandlers(s.metadata.Service, s.metadata.ArtworkDownloader)
 	metadataHandlers.RegisterArtworkRoutes(api.Group("/metadata"))
 
 	metadataGroup := api.Group("/metadata")
-	metadataGroup.Use(s.portalAuthMiddleware.AnyAuth())
+	metadataGroup.Use(s.portal.AuthMiddleware.AnyAuth())
 	metadataHandlers.RegisterRoutes(metadataGroup)
 
 	protected.POST("/metadata/tmdb/search-ordering", s.updateTMDBSearchOrdering)
 
-	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystemService, s.storageService)
+	filesystemHandlers := filesystem.NewHandlersWithStorage(s.filesystem.Service, s.filesystem.Storage)
 	filesystemHandlers.SetMediaParser(func(filename string) *filesystem.ParsedInfo {
 		parsed := scanner.ParseFilename(filename)
 		if parsed == nil {
@@ -251,11 +251,11 @@ func (s *Server) setupLibraryRoutes(api, protected *echo.Group) {
 
 func (s *Server) setupIndexerRoutes(protected *echo.Group) {
 	indexersGroup := protected.Group("/indexers")
-	indexerHandlers := indexer.NewHandlers(s.indexerService)
-	indexerHandlers.SetStatusService(s.statusService)
+	indexerHandlers := indexer.NewHandlers(s.search.Indexer)
+	indexerHandlers.SetStatusService(s.search.Status)
 	indexerHandlers.RegisterRoutes(indexersGroup)
 
-	prowlarrHandlers := prowlarr.NewHandlers(s.prowlarrService, s.prowlarrModeManager)
+	prowlarrHandlers := prowlarr.NewHandlers(s.search.Prowlarr, s.search.ProwlarrMode)
 	prowlarrHandlers.RegisterRoutes(indexersGroup)
 }
 
@@ -279,77 +279,77 @@ func (s *Server) setupDownloadRoutes(protected *echo.Group) {
 func (s *Server) setupMediaRoutes(api, protected *echo.Group) {
 	_ = api // reserved for future shared media routes
 
-	historyHandlers := history.NewHandlers(s.historyService)
+	historyHandlers := history.NewHandlers(s.system.History)
 	historyHandlers.RegisterRoutes(protected.Group("/history"))
 	protected.GET("/history/indexer", s.getIndexerHistory)
 
-	searchHandlers := search.NewHandlers(s.searchRouter, s.qualityService)
+	searchHandlers := search.NewHandlers(s.search.Router, s.library.Quality)
 	searchHandlers.RegisterRoutes(protected.Group("/search"))
 
-	grabHandlers := grab.NewHandlers(s.grabService)
+	grabHandlers := grab.NewHandlers(s.search.Grab)
 	grabHandlers.RegisterRoutes(protected.Group("/search"))
 
-	defaultsHandlers := defaults.NewHandlers(s.defaultsService)
+	defaultsHandlers := defaults.NewHandlers(s.system.Defaults)
 	defaultsHandlers.RegisterRoutes(protected.Group("/defaults"))
 
-	preferencesHandlers := preferences.NewHandlers(s.preferencesService)
+	preferencesHandlers := preferences.NewHandlers(s.system.Preferences)
 	preferencesHandlers.RegisterRoutes(protected.Group("/preferences"))
 
-	calendarHandlers := calendar.NewHandlers(s.calendarService)
+	calendarHandlers := calendar.NewHandlers(s.system.Calendar)
 	calendarHandlers.RegisterRoutes(protected.Group("/calendar"))
 
-	missingHandlers := missing.NewHandlers(s.missingService)
+	missingHandlers := missing.NewHandlers(s.system.Missing)
 	missingHandlers.RegisterRoutes(protected.Group("/missing"))
 }
 
 func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
-	autosearchHandlers := autosearch.NewHandlers(s.autosearchService)
-	autosearchHandlers.SetScheduledSearcher(s.scheduledSearcher)
+	autosearchHandlers := autosearch.NewHandlers(s.automation.Autosearch)
+	autosearchHandlers.SetScheduledSearcher(s.automation.ScheduledSearcher)
 	autosearchHandlers.RegisterRoutes(protected.Group("/autosearch"))
 
 	autosearchSettings := autosearch.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.AutoSearch)
-	if s.scheduler != nil {
-		autosearchSettings.SetScheduler(s.scheduler, s.scheduledSearcher, tasks.UpdateAutoSearchTask)
+	if s.automation.Scheduler != nil {
+		autosearchSettings.SetScheduler(s.automation.Scheduler, s.automation.ScheduledSearcher, tasks.UpdateAutoSearchTask)
 	}
 	settings.GET("/autosearch", autosearchSettings.GetSettings)
 	settings.PUT("/autosearch", autosearchSettings.UpdateSettings)
 
-	rssSyncHandlers := rsssync.NewHandlers(s.rssSyncService)
+	rssSyncHandlers := rsssync.NewHandlers(s.automation.RssSync)
 	rssSyncHandlers.RegisterRoutes(protected.Group("/rsssync"))
 
-	s.rssSyncSettingsHandler = rsssync.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.RssSync)
-	if s.scheduler != nil {
-		s.rssSyncSettingsHandler.SetScheduler(s.scheduler, s.rssSyncService, tasks.UpdateRssSyncTask)
+	s.automation.RssSyncSettings = rsssync.NewSettingsHandler(sqlc.New(s.startupDB), &s.cfg.RssSync)
+	if s.automation.Scheduler != nil {
+		s.automation.RssSyncSettings.SetScheduler(s.automation.Scheduler, s.automation.RssSync, tasks.UpdateRssSyncTask)
 	}
-	settings.GET("/rsssync", s.rssSyncSettingsHandler.GetSettings)
-	settings.PUT("/rsssync", s.rssSyncSettingsHandler.UpdateSettings)
+	settings.GET("/rsssync", s.automation.RssSyncSettings.GetSettings)
+	settings.PUT("/rsssync", s.automation.RssSyncSettings.UpdateSettings)
 
-	importHandlers := importer.NewHandlers(s.importService, s.startupDB)
+	importHandlers := importer.NewHandlers(s.automation.Import, s.startupDB)
 	importHandlers.RegisterRoutes(protected.Group("/import"))
 
-	arrImportHandlers := arrimport.NewHandlers(s.arrImportService)
+	arrImportHandlers := arrimport.NewHandlers(s.automation.ArrImport)
 	arrImportHandlers.RegisterRoutes(protected.Group("/arrimport"))
 
-	s.importSettingsHandlers = importer.NewSettingsHandlers(s.startupDB, s.importService)
-	s.importSettingsHandlers.RegisterSettingsRoutes(settings)
+	s.automation.ImportSettings = importer.NewSettingsHandlers(s.startupDB, s.automation.Import)
+	s.automation.ImportSettings.RegisterSettingsRoutes(settings)
 }
 
 func (s *Server) setupNotificationRoutes(api, protected *echo.Group) {
-	notificationHandlers := notification.NewHandlers(s.notificationService)
+	notificationHandlers := notification.NewHandlers(s.notification.Service)
 	notificationHandlers.RegisterRoutes(protected.Group("/notifications"))
 
-	s.plexHandlers.RegisterRoutes(protected.Group("/notifications/plex"))
+	s.notification.PlexHandlers.RegisterRoutes(protected.Group("/notifications/plex"))
 
 	notificationsShared := api.Group("/notifications")
-	notificationsShared.Use(s.portalAuthMiddleware.AnyAuth())
+	notificationsShared.Use(s.portal.AuthMiddleware.AnyAuth())
 	notificationHandlers.RegisterSharedRoutes(notificationsShared)
 }
 
 func (s *Server) setupSchedulerRoutes(protected *echo.Group) {
-	if s.scheduler == nil {
+	if s.automation.Scheduler == nil {
 		return
 	}
-	schedulerHandler := handlers.NewSchedulerHandler(s.scheduler)
+	schedulerHandler := handlers.NewSchedulerHandler(s.automation.Scheduler)
 	schedulerGroup := protected.Group("/scheduler")
 	schedulerGroup.GET("/tasks", schedulerHandler.ListTasks)
 	schedulerGroup.GET("/tasks/:id", schedulerHandler.GetTask)
@@ -360,64 +360,64 @@ func (s *Server) setupSchedulerRoutes(protected *echo.Group) {
 func (s *Server) setupPortalRoutes(api *echo.Group) {
 	// Portal auth routes (login, signup, profile) - require portal to be enabled
 	authGroup := api.Group("/requests/auth")
-	authGroup.Use(s.portalAuthMiddleware.PortalEnabled())
-	authGroup.Use(s.authLimiter.Middleware()) // Rate limit auth endpoints
+	authGroup.Use(s.portal.AuthMiddleware.PortalEnabled())
+	authGroup.Use(s.security.AuthLimiter.Middleware()) // Rate limit auth endpoints
 	portalAuthHandlers := auth.NewHandlers(
-		s.portalAuthService,
-		s.portalUsersService,
-		s.portalInvitationsService,
+		s.portal.Auth,
+		s.portal.Users,
+		s.portal.Invitations,
 	)
-	portalAuthHandlers.SetLockoutChecker(s.authLimiter)
-	portalAuthHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
+	portalAuthHandlers.SetLockoutChecker(s.security.AuthLimiter)
+	portalAuthHandlers.RegisterRoutes(authGroup, s.portal.AuthMiddleware)
 
 	// Passkey routes
 	passkeyHandlers := auth.NewPasskeyHandlers(
-		s.portalPasskeyService,
-		s.portalAuthService,
-		s.portalUsersService,
+		s.portal.Passkey,
+		s.portal.Auth,
+		s.portal.Users,
 	)
-	passkeyHandlers.RegisterRoutes(authGroup, s.portalAuthMiddleware)
+	passkeyHandlers.RegisterRoutes(authGroup, s.portal.AuthMiddleware)
 
 	// Portal user routes (authenticated portal users) - require portal to be enabled
 	requestsGroup := api.Group("/requests")
-	requestsGroup.Use(s.portalAuthMiddleware.PortalEnabled())
+	requestsGroup.Use(s.portal.AuthMiddleware.PortalEnabled())
 
 	// Portal search with rate limiting
 	searchHandlers := portalsearch.NewHandlers(
-		s.metadataService,
-		s.portalLibraryChecker,
-		s.portalUsersService,
+		s.metadata.Service,
+		s.portal.LibraryChecker,
+		s.portal.Users,
 	)
 	searchGroup := requestsGroup.Group("/search")
-	searchGroup.Use(s.portalAuthMiddleware.AnyAuth())
-	searchGroup.Use(s.portalSearchLimiter.Middleware())
-	searchHandlers.RegisterRoutes(searchGroup, s.portalAuthMiddleware)
+	searchGroup.Use(s.portal.AuthMiddleware.AnyAuth())
+	searchGroup.Use(s.portal.SearchLimiter.Middleware())
+	searchHandlers.RegisterRoutes(searchGroup, s.portal.AuthMiddleware)
 
 	// Portal library browse
-	libraryHandlers := portallibrary.NewHandlers(s.movieService, s.tvService, s.portalLibraryChecker, s.portalUsersService)
+	libraryHandlers := portallibrary.NewHandlers(s.library.Movies, s.library.TV, s.portal.LibraryChecker, s.portal.Users)
 	libraryGroup := requestsGroup.Group("/library")
-	libraryGroup.Use(s.portalAuthMiddleware.AnyAuth())
+	libraryGroup.Use(s.portal.AuthMiddleware.AnyAuth())
 	libraryHandlers.RegisterRoutes(libraryGroup)
 
 	// Portal request handlers
 	requestHandlers := requests.NewHandlers(
-		s.portalRequestsService,
+		s.portal.Requests,
 		requests.NewWatchersService(sqlc.New(s.startupDB), s.logger),
-		s.portalUsersService,
-		&portalAutoApproveAdapter{svc: s.portalAutoApproveService},
-		&portalQueueGetterAdapter{downloaderSvc: s.downloaderService},
+		s.portal.Users,
+		&portalAutoApproveAdapter{svc: s.portal.AutoApprove},
+		&portalQueueGetterAdapter{downloaderSvc: s.download.Service},
 		&portalMediaLookupAdapter{queries: sqlc.New(s.startupDB)},
 		s.logger,
 	)
-	requestHandlers.RegisterRoutes(requestsGroup, s.portalAuthMiddleware)
+	requestHandlers.RegisterRoutes(requestsGroup, s.portal.AuthMiddleware)
 
 	// Portal user notifications
-	portalNotifHandlers := portalnotifs.NewHandlers(s.portalNotificationsService)
-	portalNotifHandlers.RegisterRoutes(requestsGroup.Group("/notifications"), s.portalAuthMiddleware)
+	portalNotifHandlers := portalnotifs.NewHandlers(s.portal.Notifications)
+	portalNotifHandlers.RegisterRoutes(requestsGroup.Group("/notifications"), s.portal.AuthMiddleware)
 
 	// Portal notification inbox (in-app notifications)
-	portalInboxHandlers := portalnotifs.NewInboxHandlers(s.portalNotificationsService)
-	portalInboxHandlers.RegisterRoutes(requestsGroup.Group("/inbox"), s.portalAuthMiddleware)
+	portalInboxHandlers := portalnotifs.NewInboxHandlers(s.portal.Notifications)
+	portalInboxHandlers.RegisterRoutes(requestsGroup.Group("/inbox"), s.portal.AuthMiddleware)
 
 	s.setupPortalAdminRoutes(api)
 }
@@ -426,40 +426,40 @@ func (s *Server) setupPortalAdminRoutes(api *echo.Group) {
 	adminGroup := api.Group("/admin/requests")
 
 	// Admin user management
-	adminUserHandlers := admin.NewUsersHandlers(s.portalUsersService, s.portalQuotaService)
-	adminUserHandlers.RegisterRoutes(adminGroup.Group("/users"), s.portalAuthMiddleware)
+	adminUserHandlers := admin.NewUsersHandlers(s.portal.Users, s.portal.Quota)
+	adminUserHandlers.RegisterRoutes(adminGroup.Group("/users"), s.portal.AuthMiddleware)
 
 	// Admin invitations
-	adminInvitationHandlers := admin.NewInvitationsHandlers(s.portalInvitationsService)
-	adminInvitationHandlers.RegisterRoutes(adminGroup.Group("/invitations"), s.portalAuthMiddleware)
+	adminInvitationHandlers := admin.NewInvitationsHandlers(s.portal.Invitations)
+	adminInvitationHandlers.RegisterRoutes(adminGroup.Group("/invitations"), s.portal.AuthMiddleware)
 
 	// Admin request management
 	mpLogger := s.logger.With().Str("service", "media-provisioner").Logger()
-	s.portalMediaProvisioner = &portalMediaProvisionerAdapter{
+	s.portal.MediaProvisioner = &portalMediaProvisionerAdapter{
 		queries:        sqlc.New(s.startupDB),
-		movieService:   s.movieService,
-		tvService:      s.tvService,
-		libraryManager: s.libraryManagerService,
+		movieService:   s.library.Movies,
+		tvService:      s.library.TV,
+		libraryManager: s.library.LibraryManager,
 		logger:         &mpLogger,
 	}
-	s.portalRequestSearcher = requests.NewRequestSearcher(
+	s.portal.RequestSearcher = requests.NewRequestSearcher(
 		sqlc.New(s.startupDB),
-		s.portalRequestsService,
-		s.autosearchService,
-		s.portalMediaProvisioner,
+		s.portal.Requests,
+		s.automation.Autosearch,
+		s.portal.MediaProvisioner,
 		s.logger,
 	)
-	s.portalRequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portalUsersService})
-	s.portalRequestSearcher.SetDevMode(s.dbManager.IsDevMode)
-	s.portalAutoApproveService.SetRequestSearcher(s.portalRequestSearcher)
+	s.portal.RequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portal.Users})
+	s.portal.RequestSearcher.SetDevMode(s.dbManager.IsDevMode)
+	s.portal.AutoApprove.SetRequestSearcher(s.portal.RequestSearcher)
 	adminRequestHandlers := admin.NewRequestsHandlers(
-		s.portalRequestsService,
-		&portalRequestSearcherAdapter{searcher: s.portalRequestSearcher},
+		s.portal.Requests,
+		&portalRequestSearcherAdapter{searcher: s.portal.RequestSearcher},
 	)
-	adminRequestHandlers.SetLibraryChecker(s.adminRequestLibraryChecker)
-	adminRequestHandlers.RegisterRoutes(adminGroup, s.portalAuthMiddleware)
+	adminRequestHandlers.SetLibraryChecker(s.portal.AdminLibraryChecker)
+	adminRequestHandlers.RegisterRoutes(adminGroup, s.portal.AuthMiddleware)
 
 	// Admin settings
-	s.adminSettingsHandlers = admin.NewSettingsHandlers(s.portalQuotaService, sqlc.New(s.startupDB))
-	s.adminSettingsHandlers.RegisterRoutes(adminGroup.Group("/settings"), s.portalAuthMiddleware)
+	s.portal.AdminSettings = admin.NewSettingsHandlers(s.portal.Quota, sqlc.New(s.startupDB))
+	s.portal.AdminSettings.RegisterRoutes(adminGroup.Group("/settings"), s.portal.AuthMiddleware)
 }

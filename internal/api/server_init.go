@@ -44,5 +44,5 @@ func serverDebugLog(msg string) {
 // InitializeNetworkServices initializes services that require network connectivity.
 // This should be called with retry logic to handle network unavailability at startup.
 func (s *Server) InitializeNetworkServices(ctx context.Context) error {
-	return s.indexerService.InitializeDefinitions(ctx)
+	return s.search.Indexer.InitializeDefinitions(ctx)
 }

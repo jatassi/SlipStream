@@ -25,10 +25,10 @@ import (
 func (s *Server) switchMetadataClients(devMode bool) {
 	if devMode {
 		s.logger.Info().Msg("Switching to mock metadata providers")
-		s.metadataService.SetClients(mock.NewTMDBClient(), mock.NewTVDBClient(), mock.NewOMDBClient())
+		s.metadata.Service.SetClients(mock.NewTMDBClient(), mock.NewTVDBClient(), mock.NewOMDBClient())
 	} else {
 		s.logger.Info().Msg("Switching to real metadata providers")
-		s.metadataService.SetClients(s.realTMDBClient, s.realTVDBClient, s.realOMDBClient)
+		s.metadata.Service.SetClients(s.metadata.RealTMDBClient, s.metadata.RealTVDBClient, s.metadata.RealOMDBClient)
 	}
 }
 
@@ -38,7 +38,7 @@ func (s *Server) switchIndexer(devMode bool) {
 
 	if devMode {
 		// Check if mock indexer already exists
-		indexers, err := s.indexerService.List(ctx)
+		indexers, err := s.search.Indexer.List(ctx)
 		if err != nil {
 			s.logger.Error().Err(err).Msg("Failed to list indexers for dev mode")
 			return
@@ -53,7 +53,7 @@ func (s *Server) switchIndexer(devMode bool) {
 		}
 
 		// Create mock indexer
-		_, err = s.indexerService.Create(ctx, &indexer.CreateIndexerInput{
+		_, err = s.search.Indexer.Create(ctx, &indexer.CreateIndexerInput{
 			Name:           "Mock Indexer",
 			DefinitionID:   indexer.MockDefinitionID,
 			SupportsMovies: true,
@@ -75,52 +75,7 @@ func (s *Server) switchIndexer(devMode bool) {
 // This must be called after switching databases (e.g., when toggling dev mode).
 func (s *Server) updateServicesDB() {
 	db := s.dbManager.Conn()
-	s.downloaderService.SetDB(db)
-	s.notificationService.SetDB(db)
-	s.indexerService.SetDB(db)
-	s.grabService.SetDB(db)
-	s.rateLimiter.SetDB(db)
-	s.rootFolderService.SetDB(db)
-	s.movieService.SetDB(db)
-	s.tvService.SetDB(db)
-	s.qualityService.SetDB(db)
-	s.libraryManagerService.SetDB(db)
-	s.historyService.SetDB(db)
-	s.slotsService.SetDB(db)
-	s.autosearchService.SetDB(db)
-	s.rssSyncService.SetDB(sqlc.New(db))
-	s.rssSyncSettingsHandler.SetDB(sqlc.New(db))
-	s.importService.SetDB(db)
-	s.importSettingsHandlers.SetDB(db)
-	s.defaultsService.SetDB(db)
-	s.preferencesService.SetDB(db)
-	s.calendarService.SetDB(db)
-	s.networkLogoStore.SetDB(db)
-	s.availabilityService.SetDB(db)
-	s.missingService.SetDB(db)
-	s.statusService.SetDB(db)
-	s.prowlarrService.SetDB(db)
-
-	// Update portal services
-	queries := sqlc.New(db)
-	s.portalUsersService.SetDB(queries)
-	s.portalInvitationsService.SetDB(queries)
-	s.portalQuotaService.SetDB(queries)
-	s.portalNotificationsService.SetDB(queries)
-	s.portalAutoApproveService.SetDB(queries)
-	s.portalRequestsService.SetDB(queries)
-	s.portalAuthService.SetDB(queries)
-	if s.portalPasskeyService != nil {
-		s.portalPasskeyService.SetDB(queries)
-	}
-	s.portalMediaProvisioner.SetDB(db)
-	s.portalRequestSearcher.SetDB(db)
-	s.portalWatchersService.SetDB(db)
-	s.portalStatusTracker.SetDB(db)
-	s.portalLibraryChecker.SetDB(db)
-	s.adminRequestLibraryChecker.SetDB(db)
-	s.adminSettingsHandlers.SetDB(queries)
-
+	s.registry.UpdateAll(db)
 	s.logger.Info().Msg("Updated all services with new database connection")
 }
 
@@ -130,7 +85,7 @@ func (s *Server) switchDownloadClient(devMode bool) {
 
 	if devMode {
 		// Check if mock client already exists
-		clients, err := s.downloaderService.List(ctx)
+		clients, err := s.download.Service.List(ctx)
 		if err != nil {
 			s.logger.Error().Err(err).Msg("Failed to list download clients for dev mode")
 			return
@@ -145,7 +100,7 @@ func (s *Server) switchDownloadClient(devMode bool) {
 		}
 
 		// Create mock download client
-		_, err = s.downloaderService.Create(ctx, &downloader.CreateClientInput{
+		_, err = s.download.Service.Create(ctx, &downloader.CreateClientInput{
 			Name:     "Mock Download Client",
 			Type:     "mock",
 			Host:     "localhost",
@@ -171,7 +126,7 @@ func (s *Server) switchNotification(devMode bool) {
 
 	if devMode {
 		// Check if mock notification already exists
-		notifications, err := s.notificationService.List(ctx)
+		notifications, err := s.notification.Service.List(ctx)
 		if err != nil {
 			s.logger.Error().Err(err).Msg("Failed to list notifications for dev mode")
 			return
@@ -187,7 +142,7 @@ func (s *Server) switchNotification(devMode bool) {
 		}
 
 		// Create mock notification (subscribed to all events)
-		_, err = s.notificationService.Create(ctx, &notification.CreateInput{
+		_, err = s.notification.Service.Create(ctx, &notification.CreateInput{
 			Name:             "Mock Notification",
 			Type:             notification.NotifierMock,
 			Enabled:          true,
@@ -222,7 +177,7 @@ func (s *Server) switchRootFolders(devMode bool) {
 	ctx := context.Background()
 	fsmock.ResetInstance()
 
-	folders, err := s.rootFolderService.List(ctx)
+	folders, err := s.library.RootFolder.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list root folders for dev mode")
 		return
@@ -250,7 +205,7 @@ func (s *Server) checkExistingMockFolders(folders []*rootfolder.RootFolder) (has
 }
 
 func (s *Server) createMockMovieFolder(ctx context.Context) {
-	_, err := s.rootFolderService.Create(ctx, rootfolder.CreateRootFolderInput{
+	_, err := s.library.RootFolder.Create(ctx, rootfolder.CreateRootFolderInput{
 		Path:      fsmock.MockMoviesPath,
 		Name:      "Mock Movies",
 		MediaType: mediaTypeMovie,
@@ -263,7 +218,7 @@ func (s *Server) createMockMovieFolder(ctx context.Context) {
 }
 
 func (s *Server) createMockTVFolder(ctx context.Context) {
-	_, err := s.rootFolderService.Create(ctx, rootfolder.CreateRootFolderInput{
+	_, err := s.library.RootFolder.Create(ctx, rootfolder.CreateRootFolderInput{
 		Path:      fsmock.MockTVPath,
 		Name:      "Mock TV",
 		MediaType: "tv",
@@ -446,7 +401,7 @@ func (s *Server) copyQualityProfilesToDevDB() map[int64]int64 {
 	idMapping := make(map[int64]int64)
 
 	// Check if dev database already has profiles
-	devProfiles, err := s.qualityService.List(ctx)
+	devProfiles, err := s.library.Quality.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list dev quality profiles")
 		return idMapping
@@ -467,7 +422,7 @@ func (s *Server) copyQualityProfilesToDevDB() map[int64]int64 {
 	if len(prodRows) == 0 {
 		s.logger.Warn().Msg("No quality profiles in production database to copy")
 		// Create default profiles in dev database
-		if err := s.qualityService.EnsureDefaults(ctx); err != nil {
+		if err := s.library.Quality.EnsureDefaults(ctx); err != nil {
 			s.logger.Error().Err(err).Msg("Failed to create default quality profiles")
 		}
 		return idMapping
@@ -505,14 +460,14 @@ func (s *Server) setupDevModeSlots() {
 	ctx := context.Background()
 
 	// Get all slots
-	slotList, err := s.slotsService.List(ctx)
+	slotList, err := s.library.Slots.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list slots for dev mode setup")
 		return
 	}
 
 	// Get all quality profiles
-	profiles, err := s.qualityService.List(ctx)
+	profiles, err := s.library.Quality.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list quality profiles for dev mode setup")
 		return
@@ -536,7 +491,7 @@ func (s *Server) setupDevModeSlots() {
 		}
 		input.QualityProfileID = &profileID
 
-		_, err := s.slotsService.Update(ctx, slot.ID, input)
+		_, err := s.library.Slots.Update(ctx, slot.ID, input)
 		if err != nil {
 			s.logger.Error().Err(err).Int64("slotId", slot.ID).Msg("Failed to update slot for dev mode")
 			continue
@@ -561,7 +516,7 @@ func (s *Server) populateMockMedia() {
 	ctx := context.Background()
 
 	// Get the mock root folders
-	folders, err := s.rootFolderService.List(ctx)
+	folders, err := s.library.RootFolder.List(ctx)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to list root folders for mock media")
 		return
@@ -583,7 +538,7 @@ func (s *Server) populateMockMedia() {
 	}
 
 	// Get a default quality profile
-	profiles, err := s.qualityService.List(ctx)
+	profiles, err := s.library.Quality.List(ctx)
 	if err != nil || len(profiles) == 0 {
 		s.logger.Warn().Msg("No quality profiles available for mock media")
 		return
@@ -591,7 +546,7 @@ func (s *Server) populateMockMedia() {
 	defaultProfileID := profiles[0].ID
 
 	// Check if we already have mock movies
-	existingMovies, _ := s.movieService.List(ctx, movies.ListMoviesOptions{})
+	existingMovies, _ := s.library.Movies.List(ctx, movies.ListMoviesOptions{})
 	if len(existingMovies) > 0 {
 		s.logger.Info().Int("count", len(existingMovies)).Msg("Dev database already has movies")
 		return
@@ -619,7 +574,7 @@ func (s *Server) populateMockMovies(ctx context.Context, rootFolderID, qualityPr
 
 	for _, m := range mockMovieIDs {
 		// Fetch full metadata from mock provider
-		movieMeta, err := s.metadataService.GetMovie(ctx, m.tmdbID)
+		movieMeta, err := s.metadata.Service.GetMovie(ctx, m.tmdbID)
 		if err != nil {
 			s.logger.Error().Err(err).Int("tmdbID", m.tmdbID).Msg("Failed to fetch mock movie metadata")
 			continue
@@ -640,7 +595,7 @@ func (s *Server) populateMockMovies(ctx context.Context, rootFolderID, qualityPr
 			Monitored:        true,
 		}
 
-		movie, err := s.movieService.Create(ctx, &input)
+		movie, err := s.library.Movies.Create(ctx, &input)
 		if err != nil {
 			s.logger.Error().Err(err).Str("title", movieMeta.Title).Msg("Failed to create mock movie")
 			continue
@@ -648,7 +603,7 @@ func (s *Server) populateMockMovies(ctx context.Context, rootFolderID, qualityPr
 
 		// Download artwork from mock metadata URLs
 		go func(meta *metadata.MovieResult) {
-			if err := s.artworkDownloader.DownloadMovieArtwork(ctx, meta); err != nil {
+			if err := s.metadata.ArtworkDownloader.DownloadMovieArtwork(ctx, meta); err != nil {
 				s.logger.Debug().Err(err).Str("title", meta.Title).Msg("Failed to download movie artwork")
 			}
 		}(movieMeta)
@@ -687,7 +642,7 @@ func (s *Server) createMockMovieFiles(ctx context.Context, movieID int64, movieP
 			input.QualityID = &qid
 		}
 
-		_, err := s.movieService.AddFile(ctx, movieID, &input)
+		_, err := s.library.Movies.AddFile(ctx, movieID, &input)
 		if err != nil {
 			s.logger.Debug().Err(err).Str("path", f.Path).Msg("Failed to create movie file")
 		}
@@ -714,13 +669,13 @@ func (s *Server) populateMockSeries(ctx context.Context, rootFolderID, qualityPr
 }
 
 func (s *Server) createOneMockSeries(ctx context.Context, tvdbID int, hasFiles bool, rootFolderID, qualityProfileID int64) {
-	seriesMeta, err := s.metadataService.GetSeriesByTVDB(ctx, tvdbID)
+	seriesMeta, err := s.metadata.Service.GetSeriesByTVDB(ctx, tvdbID)
 	if err != nil {
 		s.logger.Error().Err(err).Int("tvdbID", tvdbID).Msg("Failed to fetch mock series metadata")
 		return
 	}
 
-	seasonsMeta, err := s.metadataService.GetSeriesSeasons(ctx, seriesMeta.TmdbID, seriesMeta.TvdbID)
+	seasonsMeta, err := s.metadata.Service.GetSeriesSeasons(ctx, seriesMeta.TmdbID, seriesMeta.TvdbID)
 	if err != nil {
 		s.logger.Warn().Err(err).Str("title", seriesMeta.Title).Msg("Failed to fetch seasons, using empty")
 		seasonsMeta = nil
@@ -747,14 +702,14 @@ func (s *Server) createOneMockSeries(ctx context.Context, tvdbID int, hasFiles b
 		Seasons:          seasons,
 	}
 
-	series, err := s.tvService.CreateSeries(ctx, &input)
+	series, err := s.library.TV.CreateSeries(ctx, &input)
 	if err != nil {
 		s.logger.Error().Err(err).Str("title", seriesMeta.Title).Msg("Failed to create mock series")
 		return
 	}
 
 	go func(meta *metadata.SeriesResult) {
-		if err := s.artworkDownloader.DownloadSeriesArtwork(ctx, meta); err != nil {
+		if err := s.metadata.ArtworkDownloader.DownloadSeriesArtwork(ctx, meta); err != nil {
 			s.logger.Debug().Err(err).Str("title", meta.Title).Msg("Failed to download series artwork")
 		}
 	}(seriesMeta)
@@ -806,14 +761,14 @@ func (s *Server) createMockEpisodeFiles(ctx context.Context, seriesID int64, ser
 		return
 	}
 
-	episodes, err := s.tvService.ListEpisodes(ctx, seriesID, nil)
+	episodes, err := s.library.TV.ListEpisodes(ctx, seriesID, nil)
 	if err != nil {
 		return
 	}
 
 	var profile *quality.Profile
-	if s.qualityService != nil {
-		profile, _ = s.qualityService.Get(ctx, qualityProfileID)
+	if s.library.Quality != nil {
+		profile, _ = s.library.Quality.Get(ctx, qualityProfileID)
 	}
 
 	queries := sqlc.New(s.dbManager.Conn())

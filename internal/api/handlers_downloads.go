@@ -26,7 +26,7 @@ func (s *Server) restoreRedactedCredentials(ctx context.Context, id int64, input
 	if input.Password != redactedSentinel && input.APIKey != redactedSentinel {
 		return
 	}
-	existing, err := s.downloaderService.Get(ctx, id)
+	existing, err := s.download.Service.Get(ctx, id)
 	if err != nil {
 		return
 	}
@@ -41,7 +41,7 @@ func (s *Server) restoreRedactedCredentials(ctx context.Context, id int64, input
 func (s *Server) listDownloadClients(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	clients, err := s.downloaderService.List(ctx)
+	clients, err := s.download.Service.List(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -61,7 +61,7 @@ func (s *Server) addDownloadClient(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	client, err := s.downloaderService.Create(ctx, &input)
+	client, err := s.download.Service.Create(ctx, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -78,7 +78,7 @@ func (s *Server) getDownloadClient(c echo.Context) error {
 		return err
 	}
 
-	client, err := s.downloaderService.Get(ctx, id)
+	client, err := s.download.Service.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "client not found")
@@ -105,7 +105,7 @@ func (s *Server) updateDownloadClient(c echo.Context) error {
 
 	s.restoreRedactedCredentials(ctx, id, &input)
 
-	client, err := s.downloaderService.Update(ctx, id, &input)
+	client, err := s.download.Service.Update(ctx, id, &input)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "client not found")
@@ -125,7 +125,7 @@ func (s *Server) deleteDownloadClient(c echo.Context) error {
 		return err
 	}
 
-	if err := s.downloaderService.Delete(ctx, id); err != nil {
+	if err := s.download.Service.Delete(ctx, id); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -140,7 +140,7 @@ func (s *Server) testDownloadClient(c echo.Context) error {
 		return err
 	}
 
-	result, err := s.downloaderService.Test(ctx, id)
+	result, err := s.download.Service.Test(ctx, id)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "client not found")
@@ -159,7 +159,7 @@ func (s *Server) testNewDownloadClient(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	result, err := s.downloaderService.TestConfig(ctx, &input)
+	result, err := s.download.Service.TestConfig(ctx, &input)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -171,7 +171,7 @@ func (s *Server) testNewDownloadClient(c echo.Context) error {
 func (s *Server) getQueue(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	resp, err := s.downloaderService.GetQueue(ctx)
+	resp, err := s.download.Service.GetQueue(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -179,7 +179,7 @@ func (s *Server) getQueue(c echo.Context) error {
 	// Trigger import check asynchronously - provides faster import triggering than scheduled task
 	// The import service is efficient and only processes newly completed downloads
 	go func() {
-		if err := s.importService.CheckAndProcessCompletedDownloads(context.Background()); err != nil {
+		if err := s.automation.Import.CheckAndProcessCompletedDownloads(context.Background()); err != nil {
 			s.logger.Warn().Err(err).Msg("Failed to process completed downloads")
 		}
 	}()
@@ -198,13 +198,13 @@ func (s *Server) pauseDownload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.downloaderService.PauseDownload(ctx, body.ClientID, torrentID); err != nil {
+	if err := s.download.Service.PauseDownload(ctx, body.ClientID, torrentID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Trigger()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Trigger()
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "paused"})
@@ -221,13 +221,13 @@ func (s *Server) resumeDownload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.downloaderService.ResumeDownload(ctx, body.ClientID, torrentID); err != nil {
+	if err := s.download.Service.ResumeDownload(ctx, body.ClientID, torrentID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger fast polling and immediate broadcast
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Trigger()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Trigger()
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "resumed"})
@@ -244,13 +244,13 @@ func (s *Server) fastForwardDownload(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.downloaderService.FastForwardMockDownload(ctx, body.ClientID, downloadID); err != nil {
+	if err := s.download.Service.FastForwardMockDownload(ctx, body.ClientID, downloadID); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Trigger()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Trigger()
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "completed"})
@@ -267,13 +267,13 @@ func (s *Server) removeFromQueue(c echo.Context) error {
 
 	deleteFiles := c.QueryParam("deleteFiles") == queryTrue
 
-	if err := s.downloaderService.RemoveDownload(ctx, clientID, torrentID, deleteFiles); err != nil {
+	if err := s.download.Service.RemoveDownload(ctx, clientID, torrentID, deleteFiles); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// Trigger immediate broadcast of queue state
-	if s.queueBroadcaster != nil {
-		s.queueBroadcaster.Trigger()
+	if s.download.QueueBroadcaster != nil {
+		s.download.QueueBroadcaster.Trigger()
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -295,7 +295,7 @@ func (s *Server) getIndexerHistory(c echo.Context) error {
 		}
 	}
 
-	grabHistory, err := s.grabService.GetGrabHistory(c.Request().Context(), limit, offset)
+	grabHistory, err := s.search.Grab.GetGrabHistory(c.Request().Context(), limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

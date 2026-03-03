@@ -42,13 +42,13 @@ func setupTestServer(t *testing.T) (ts *testServer, cleanup func()) {
 
 	// Create admin user for tests
 	ctx := context.Background()
-	_, err := server.portalUsersService.CreateAdmin(ctx, "testpassword123")
+	_, err := server.portal.Users.CreateAdmin(ctx, "testpassword123")
 	if err != nil {
 		t.Fatalf("Failed to create test admin: %v", err)
 	}
 
 	// Generate admin token
-	adminToken, err := server.portalAuthService.GenerateAdminToken(1, "Administrator")
+	adminToken, err := server.portal.Auth.GenerateAdminToken(1, "Administrator")
 	if err != nil {
 		t.Fatalf("Failed to generate admin token: %v", err)
 	}

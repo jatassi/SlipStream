@@ -36,7 +36,7 @@ func (s *Server) adminSetup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "setup must be performed from localhost")
 	}
 
-	exists, err := s.portalUsersService.AdminExists(ctx)
+	exists, err := s.portal.Users.AdminExists(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to check admin status")
 	}
@@ -53,12 +53,12 @@ func (s *Server) adminSetup(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "PIN must be exactly 4 digits")
 	}
 
-	user, err := s.portalUsersService.CreateAdmin(ctx, req.Password)
+	user, err := s.portal.Users.CreateAdmin(ctx, req.Password)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create admin: "+err.Error())
 	}
 
-	token, err := s.portalAuthService.GenerateAdminToken(user.ID, user.Username)
+	token, err := s.portal.Auth.GenerateAdminToken(user.ID, user.Username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate token")
 	}
@@ -73,7 +73,7 @@ func (s *Server) adminSetup(c echo.Context) error {
 func (s *Server) getAuthStatus(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	exists, err := s.portalUsersService.AdminExists(ctx)
+	exists, err := s.portal.Users.AdminExists(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to check admin status")
 	}
@@ -92,12 +92,12 @@ func (s *Server) deleteAdmin(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "must be performed from localhost")
 	}
 
-	admin, err := s.portalUsersService.GetAdmin(ctx)
+	admin, err := s.portal.Users.GetAdmin(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "admin not found")
 	}
 
-	if err := s.portalUsersService.Delete(ctx, admin.ID); err != nil {
+	if err := s.portal.Users.Delete(ctx, admin.ID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete admin")
 	}
 
@@ -113,7 +113,7 @@ func (s *Server) adminAuthMiddleware() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "missing authorization token")
 			}
 
-			claims, err := s.portalAuthService.ValidateAdminToken(token)
+			claims, err := s.portal.Auth.ValidateAdminToken(token)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
 			}
