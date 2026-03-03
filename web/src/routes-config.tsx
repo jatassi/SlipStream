@@ -119,7 +119,8 @@ export const authenticationRoute = route('/settings/general/authentication', Aut
 export const notificationsRoute = route('/settings/general/notifications', NotificationsPage)
 
 // Requests Admin
-export const requestQueueRoute = route('/requests-admin', RequestQueuePage)
+export const requestAdminRoute = redirectRoute('/requests-admin', '/requests-admin/queue')
+export const requestQueueRoute = route('/requests-admin/queue', RequestQueuePage)
 export const requestUsersRoute = route('/requests-admin/users', RequestUsersPage)
 export const requestSettingsRoute = route('/requests-admin/settings', RequestSettingsPage)
 

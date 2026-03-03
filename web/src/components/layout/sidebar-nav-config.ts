@@ -24,7 +24,7 @@ export const libraryNavItems: NavItem[] = [
 
 export const discoverNavItems: NavItem[] = [
   { title: 'Calendar', href: '/calendar', icon: Calendar },
-  { title: 'Requests', href: '/requests-admin', icon: Users },
+  { title: 'Requests', href: '/requests-admin/queue', icon: Users, activePrefix: '/requests-admin' },
   { title: 'Missing', href: '/missing', icon: Binoculars },
   { title: 'Manual Import', href: '/import', icon: FileInput },
   { title: 'History', href: '/history', icon: History },

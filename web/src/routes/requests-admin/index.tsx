@@ -29,7 +29,6 @@ export function RequestQueuePage() {
       <PageHeader
         title="External Requests"
         description="Manage portal users and content requests"
-        breadcrumbs={[{ label: 'Requests' }]}
         actions={page.developerMode ? <TestRequestButton /> : null}
       />
 

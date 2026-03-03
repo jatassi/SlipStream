@@ -33,6 +33,7 @@ import {
   portalSettingsRoute,
   portalSignupRoute,
   qualityProfilesRoute,
+  requestAdminRoute,
   requestDetailRoute,
   requestQueueRoute,
   requestSettingsRoute,
@@ -89,6 +90,7 @@ const routeTree = rootRoute.addChildren([
   authenticationRoute,
   notificationsRoute,
   // Requests Admin
+  requestAdminRoute,
   requestQueueRoute,
   requestUsersRoute,
   requestSettingsRoute,

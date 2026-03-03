@@ -64,7 +64,6 @@ function SettingsPageHeader(props: {
     <PageHeader
       title="External Requests"
       description="Manage portal users and content requests"
-      breadcrumbs={[{ label: 'Requests' }]}
       actions={
         <Button onClick={props.onSave} disabled={!props.hasChanges || props.isSaving}>
           {props.isSaving ? (

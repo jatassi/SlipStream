@@ -40,7 +40,6 @@ export function RequestUsersPage() {
       <PageHeader
         title="External Requests"
         description="Manage portal users and content requests"
-        breadcrumbs={[{ label: 'Requests' }]}
         actions={
           <Button onClick={state.handleOpenInvite}>
             <UserPlus className="mr-2 size-4" />

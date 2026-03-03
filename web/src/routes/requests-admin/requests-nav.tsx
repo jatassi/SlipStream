@@ -4,7 +4,7 @@ import { ListTodo, Settings2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const requestsNavItems = [
-  { title: 'Queue', href: '/requests-admin', icon: ListTodo },
+  { title: 'Queue', href: '/requests-admin/queue', icon: ListTodo },
   { title: 'Users', href: '/requests-admin/users', icon: Users },
   { title: 'Settings', href: '/requests-admin/settings', icon: Settings2 },
 ]
