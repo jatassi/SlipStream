@@ -29,4 +29,29 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return
+          }
+
+          const vendorChunks: [string, string[]][] = [
+            ["vendor-react", ["/react-dom/", "/react/"]],
+            ["vendor-router", ["@tanstack/react-router"]],
+            ["vendor-query", ["@tanstack/react-query"]],
+            ["vendor-ui", ["@base-ui", "lucide-react", "cmdk", "sonner", "vaul", "react-day-picker"]],
+            ["vendor-forms", ["react-hook-form", "@hookform", "/zod/"]],
+          ]
+
+          for (const [chunk, patterns] of vendorChunks) {
+            if (patterns.some((p) => id.includes(p))) {
+              return chunk
+            }
+          }
+        },
+      },
+    },
+  },
 })

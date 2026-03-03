@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 
 import { EmptyState } from '@/components/data/empty-state'
@@ -59,10 +59,6 @@ function toAvailability(entry: RequestEntry | undefined): AvailabilityInfo | und
 }
 
 const ADD_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
-
-type SearchPageProps = {
-  q: string
-}
 
 function useLibrarySearch(query: string) {
   const searchFilter = query ? { search: query } : undefined
@@ -156,7 +152,8 @@ function ExternalResults({ external, libraryMovieTmdbIds, librarySeriesTmdbIds }
   )
 }
 
-export function SearchPage({ q }: SearchPageProps) {
+export function SearchPage() {
+  const { q } = useSearch({ from: '/search' })
   const query = q.trim() || ''
   const library = useLibrarySearch(query)
   const external = useExternalSearch(query, library)

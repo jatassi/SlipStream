@@ -22,7 +22,15 @@ export { systemApi } from './system'
 export { updateApi } from './update'
 
 // Portal APIs
-export * from './portal'
+export type { PortalNotification } from './portal'
+export {
+  portalAuthApi,
+  portalInboxApi,
+  portalLibraryApi,
+  portalNotificationsApi,
+  portalRequestsApi,
+  portalSearchApi,
+} from './portal'
 
 // Admin APIs
 export * as adminApi from './admin'
