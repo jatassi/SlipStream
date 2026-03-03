@@ -72,6 +72,17 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
 }
 
+func (s *Service) UserExists(ctx context.Context, userID int64) (bool, error) {
+	user, err := s.queries.GetPortalUser(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return user.Enabled == 1, nil
+}
+
 func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) {
 	if input.Username == "" {
 		return nil, ErrInvalidUsername

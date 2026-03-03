@@ -203,7 +203,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	}
 	passkeyService := providePasskeyService(queries, cfg)
 	middlewarePortalEnabledChecker := providePortalEnabledChecker(queries)
-	authMiddleware := middleware.NewAuthMiddleware(authService, middlewarePortalEnabledChecker)
+	authMiddleware := middleware.NewAuthMiddleware(authService, middlewarePortalEnabledChecker, usersService)
 	searchLimiter := provideSearchLimiter(queries)
 	provisionerService := provisioner.NewService(queries, moviesService, tvService, librarymanagerService, logger)
 	requestSearcher := requests.NewRequestSearcher(queries, requestsService, autosearchService, provisionerService, logger)

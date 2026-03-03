@@ -23,15 +23,21 @@ type TokenValidator interface {
 	ValidateAdminToken(tokenString string) (*portal.Claims, error)
 }
 
+type UserExistenceChecker interface {
+	UserExists(ctx context.Context, userID int64) (bool, error)
+}
+
 type AuthMiddleware struct {
 	validator      TokenValidator
 	enabledChecker PortalEnabledChecker
+	userChecker    UserExistenceChecker
 }
 
-func NewAuthMiddleware(validator TokenValidator, enabledChecker PortalEnabledChecker) *AuthMiddleware {
+func NewAuthMiddleware(validator TokenValidator, enabledChecker PortalEnabledChecker, userChecker UserExistenceChecker) *AuthMiddleware {
 	return &AuthMiddleware{
 		validator:      validator,
 		enabledChecker: enabledChecker,
+		userChecker:    userChecker,
 	}
 }
 
@@ -59,6 +65,10 @@ func (m *AuthMiddleware) PortalAuth() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
 			}
 
+			if err := m.verifyUserExists(c.Request().Context(), claims.UserID); err != nil {
+				return err
+			}
+
 			c.Set(PortalUserKey, claims)
 			return next(c)
 		}
@@ -76,6 +86,10 @@ func (m *AuthMiddleware) AdminAuth() echo.MiddlewareFunc {
 			claims, err := m.validator.ValidateAdminToken(token)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
+			}
+
+			if err := m.verifyUserExists(c.Request().Context(), claims.UserID); err != nil {
+				return err
 			}
 
 			c.Set(PortalUserKey, claims)
@@ -97,10 +111,28 @@ func (m *AuthMiddleware) AnyAuth() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
 			}
 
+			if err := m.verifyUserExists(c.Request().Context(), claims.UserID); err != nil {
+				return err
+			}
+
 			c.Set(PortalUserKey, claims)
 			return next(c)
 		}
 	}
+}
+
+func (m *AuthMiddleware) verifyUserExists(ctx context.Context, userID int64) error {
+	if m.userChecker == nil {
+		return nil
+	}
+	exists, err := m.userChecker.UserExists(ctx, userID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to verify user")
+	}
+	if !exists {
+		return echo.NewHTTPError(http.StatusUnauthorized, "user not found")
+	}
+	return nil
 }
 
 func GetPortalUser(c echo.Context) *portal.Claims {

@@ -195,6 +195,7 @@ func BuildServices(
 		wire.Bind(new(requests.NotificationDispatcher), new(*portalnotifs.Service)),
 		wire.Bind(new(requests.MediaProvisioner), new(*provisioner.Service)),
 		wire.Bind(new(portalmw.TokenValidator), new(*auth.Service)),
+		wire.Bind(new(portalmw.UserExistenceChecker), new(*users.Service)),
 
 		// Metadata interfaces
 		wire.Bind(new(metadata.NetworkLogoStore), new(*metadata.SQLNetworkLogoStore)),
