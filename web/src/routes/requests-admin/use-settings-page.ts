@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import {
   systemKeys,
   useDeleteNotification,
-  useGlobalLoading,
   useNotifications,
   useNotificationSchemas,
   useRequestSettings,
@@ -15,6 +14,7 @@ import {
   useUpdateNotification,
   useUpdateRequestSettings,
 } from '@/hooks'
+import { useUIStore } from '@/stores'
 import type { Notification, RequestSettings } from '@/types'
 
 function useNotificationMutationHandlers() {
@@ -122,7 +122,7 @@ function syncFormFromSettings(params: SyncFormParams) {
 
 export function useRequestSettingsPage() {
   const queryClient = useQueryClient()
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: settings, isLoading: queryLoading, isError, refetch } = useRequestSettings()
   const isLoading = queryLoading || globalLoading
   const { data: rootFolders } = useRootFolders()

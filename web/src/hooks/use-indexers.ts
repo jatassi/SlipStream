@@ -9,13 +9,13 @@ import type {
   UpdateIndexerInput,
 } from '@/types'
 
-const indexerKeys = createQueryKeys('indexers')
+export const indexerKeys = createQueryKeys('indexers')
 
+const baseDefinitionKeys = createQueryKeys('definitions')
 const definitionKeys = {
-  all: ['definitions'] as const,
-  list: () => ['definitions', 'list'] as const,
-  schemas: () => [...definitionKeys.all, 'schema'] as const,
-  schema: (id: string) => [...definitionKeys.schemas(), id] as const,
+  ...baseDefinitionKeys,
+  schemas: () => [...baseDefinitionKeys.all, 'schema'] as const,
+  schema: (id: string) => [...baseDefinitionKeys.all, 'schema', id] as const,
 }
 
 // Indexer hooks

@@ -5,6 +5,12 @@ import type { CreateNotificationInput, Notification } from '@/types'
 import { adminEventTriggers, defaultFormData } from './notification-dialog-types'
 import type { usePlexState } from './use-plex-state'
 
+type TriggerFields = Record<string, boolean>
+
+export function asTriggerFields(data: unknown): TriggerFields {
+  return data as TriggerFields
+}
+
 type InitFormOptions = {
   open: boolean
   notification?: Notification | null
@@ -38,10 +44,10 @@ function buildResetData(eventTriggers?: { key: string }[]) {
   const resetData = { ...defaultFormData }
   if (eventTriggers) {
     adminEventTriggers.forEach((t) => {
-      ;(resetData as unknown as Record<string, unknown>)[t.key] = false
+      asTriggerFields(resetData)[t.key] = false
     })
     eventTriggers.forEach((t) => {
-      ;(resetData as unknown as Record<string, unknown>)[t.key] = true
+      asTriggerFields(resetData)[t.key] = true
     })
   }
   return resetData

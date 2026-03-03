@@ -1,11 +1,13 @@
-import { Check } from 'lucide-react'
-
+import {
+  FolderSelect,
+  FormActions,
+  ProfileSelect,
+  ToggleField,
+} from '@/components/media/media-configure-fields'
 import { PosterImage } from '@/components/media/poster-image'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import type { QualityProfile, RootFolder, SeriesMonitorOnAdd, SeriesSearchOnAdd, SeriesSearchResult } from '@/types'
 
 import { MONITOR_LABELS, SEARCH_ON_ADD_LABELS } from './add-series-constants'
@@ -49,6 +51,7 @@ export function AddSeriesConfigure(props: AddSeriesConfigureProps) {
         isPending={props.isPending}
         onBack={props.handleBack}
         onAdd={props.handleAdd}
+        addLabel="Add Series"
       />
     </div>
   )
@@ -76,28 +79,6 @@ function SeriesPreview({ series }: { series: SeriesSearchResult }) {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-type FormActionsProps = {
-  rootFolderId: string
-  qualityProfileId: string
-  isPending: boolean
-  onBack: () => void
-  onAdd: () => void
-}
-
-function FormActions({ rootFolderId, qualityProfileId, isPending, onBack, onAdd }: FormActionsProps) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button variant="outline" onClick={onBack}>
-        Back
-      </Button>
-      <Button onClick={onAdd} disabled={!rootFolderId || !qualityProfileId || isPending}>
-        <Check className="mr-2 size-4" />
-        Add Series
-      </Button>
-    </div>
   )
 }
 
@@ -134,62 +115,6 @@ function ConfigurationForm(props: AddSeriesConfigureProps) {
         />
       </CardContent>
     </Card>
-  )
-}
-
-type FolderSelectProps = {
-  rootFolderId: string
-  rootFolders: RootFolder[] | undefined
-  onChange: (v: string) => void
-}
-
-function FolderSelect({ rootFolderId, rootFolders, onChange }: FolderSelectProps) {
-  const label =
-    rootFolders?.find((f) => f.id === Number.parseInt(rootFolderId))?.name ??
-    'Select a root folder'
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="rootFolder">Root Folder *</Label>
-      <Select value={rootFolderId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
-        <SelectContent>
-          {rootFolders?.map((folder) => (
-            <SelectItem key={folder.id} value={String(folder.id)}>
-              {folder.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
-
-type ProfileSelectProps = {
-  qualityProfileId: string
-  qualityProfiles: QualityProfile[] | undefined
-  onChange: (v: string) => void
-}
-
-function ProfileSelect({ qualityProfileId, qualityProfiles, onChange }: ProfileSelectProps) {
-  const label =
-    qualityProfiles?.find((p) => p.id === Number.parseInt(qualityProfileId))?.name ??
-    'Select a quality profile'
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="qualityProfile">Quality Profile *</Label>
-      <Select value={qualityProfileId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
-        <SelectContent>
-          {qualityProfiles?.map((profile) => (
-            <SelectItem key={profile.id} value={String(profile.id)}>
-              {profile.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
   )
 }
 
@@ -239,25 +164,6 @@ function SearchOnAddSelect({ value, onChange }: SearchOnAddSelectProps) {
       <p className="text-muted-foreground text-sm">
         Start searching for releases immediately after adding
       </p>
-    </div>
-  )
-}
-
-type ToggleFieldProps = {
-  label: string
-  description: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}
-
-function ToggleField({ label, description, checked, onChange }: ToggleFieldProps) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <Label>{label}</Label>
-        <p className="text-muted-foreground text-sm">{description}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   )
 }

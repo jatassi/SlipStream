@@ -41,7 +41,7 @@ export function SearchSection({
               className="h-11 pl-10"
             />
           </div>
-          <Button type="submit" size="icon" className="h-11 w-11">
+          <Button type="submit" size="icon" aria-label="Search" className="h-11 w-11">
             <ArrowRight className="size-5" />
           </Button>
         </form>

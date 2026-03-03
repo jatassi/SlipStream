@@ -56,38 +56,41 @@ function transformSeriesResult(result: BackendSeriesResult): SeriesSearchResult 
 }
 
 export const metadataApi = {
-  searchMovies: async (query: string) => {
+  searchMovies: async (query: string, init?: RequestInit) => {
     const results = await apiFetch<BackendMovieResult[]>(
       `/metadata/movie/search?query=${encodeURIComponent(query)}`,
+      init,
     )
     return results.map((r) => transformMovieResult(r))
   },
 
-  getMovie: async (tmdbId: number) => {
-    const result = await apiFetch<BackendMovieResult>(`/metadata/movie/${tmdbId}`)
+  getMovie: async (tmdbId: number, init?: RequestInit) => {
+    const result = await apiFetch<BackendMovieResult>(`/metadata/movie/${tmdbId}`, init)
     return transformMovieResult(result)
   },
 
-  getMovieImages: (tmdbId: number) => apiFetch<MetadataImages>(`/metadata/movie/${tmdbId}/images`),
+  getMovieImages: (tmdbId: number, init?: RequestInit) =>
+    apiFetch<MetadataImages>(`/metadata/movie/${tmdbId}/images`, init),
 
-  searchSeries: async (query: string) => {
+  searchSeries: async (query: string, init?: RequestInit) => {
     const results = await apiFetch<BackendSeriesResult[]>(
       `/metadata/series/search?query=${encodeURIComponent(query)}`,
+      init,
     )
     return results.map((r) => transformSeriesResult(r))
   },
 
-  getSeries: async (tmdbId: number) => {
-    const result = await apiFetch<BackendSeriesResult>(`/metadata/series/${tmdbId}`)
+  getSeries: async (tmdbId: number, init?: RequestInit) => {
+    const result = await apiFetch<BackendSeriesResult>(`/metadata/series/${tmdbId}`, init)
     return transformSeriesResult(result)
   },
 
-  getSeriesImages: (tmdbId: number) =>
-    apiFetch<MetadataImages>(`/metadata/series/${tmdbId}/images`),
+  getSeriesImages: (tmdbId: number, init?: RequestInit) =>
+    apiFetch<MetadataImages>(`/metadata/series/${tmdbId}/images`, init),
 
-  getExtendedMovie: (tmdbId: number) =>
-    apiFetch<ExtendedMovieResult>(`/metadata/movie/${tmdbId}/extended`),
+  getExtendedMovie: (tmdbId: number, init?: RequestInit) =>
+    apiFetch<ExtendedMovieResult>(`/metadata/movie/${tmdbId}/extended`, init),
 
-  getExtendedSeries: (tmdbId: number) =>
-    apiFetch<ExtendedSeriesResult>(`/metadata/series/${tmdbId}/extended`),
+  getExtendedSeries: (tmdbId: number, init?: RequestInit) =>
+    apiFetch<ExtendedSeriesResult>(`/metadata/series/${tmdbId}/extended`, init),
 }

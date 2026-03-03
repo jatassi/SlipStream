@@ -6,7 +6,6 @@ import {
   useBulkDeleteSeries,
   useBulkMonitorSeries,
   useBulkUpdateSeries,
-  useGlobalLoading,
   useQualityProfiles,
   useRefreshAllSeries,
   useRootFolders,
@@ -107,7 +106,7 @@ function useLocalState() {
 }
 
 function useQueryLayer() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: seriesList, isLoading: queryLoading, isError, refetch } = useSeries()
   const isLoading = queryLoading || globalLoading
   const { data: qualityProfiles } = useQualityProfiles()

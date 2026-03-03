@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, lazyRouteComponent, Outlet, redirect } from '@tanstack/react-router'
 
+import { ErrorBoundary } from '@/components/error-boundary'
 import { RootLayout } from '@/components/layout/root-layout'
 import { PortalAuthGuard, PortalLayout } from '@/components/portal'
 import { extendedMovieMetadataOptions, extendedSeriesMetadataOptions } from '@/hooks/use-metadata'
@@ -10,7 +11,9 @@ import { queryClient } from '@/lib/query-client'
 export const rootRoute = createRootRoute({
   component: () => (
     <RootLayout>
-      <Outlet />
+      <ErrorBoundary>
+        <Outlet />
+      </ErrorBoundary>
     </RootLayout>
   ),
 })
@@ -143,7 +146,9 @@ export const portalLayoutRoute = createRoute({
   component: () => (
     <PortalAuthGuard>
       <PortalLayout>
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </PortalLayout>
     </PortalAuthGuard>
   ),

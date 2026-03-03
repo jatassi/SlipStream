@@ -1,12 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { portalAuthApi } from '@/api'
+import { requestKeys } from '@/hooks/portal/use-requests'
+import { createQueryKeys } from '@/lib/query-keys'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 import type { LoginRequest, SignupRequest, UpdateProfileRequest } from '@/types'
 
+const baseKeys = createQueryKeys('portalAuth')
 const portalAuthKeys = {
-  all: ['portalAuth'] as const,
-  profile: () => [...portalAuthKeys.all, 'profile'] as const,
+  ...baseKeys,
+  profile: () => [...baseKeys.all, 'profile'] as const,
+}
+
+const baseInvitationKeys = createQueryKeys('invitation')
+const invitationKeys = {
+  ...baseInvitationKeys,
+  validate: (token: string) => [...baseInvitationKeys.all, token] as const,
 }
 
 export function usePortalLogin() {
@@ -43,11 +52,19 @@ export function usePortalLogout() {
     mutationFn: () => portalAuthApi.logout(),
     onSuccess: () => {
       storeLogout()
-      queryClient.clear()
+      queryClient.removeQueries({ queryKey: portalAuthKeys.all })
+      queryClient.removeQueries({ queryKey: requestKeys.all })
+      queryClient.removeQueries({ queryKey: ['portalLibrary'] })
+      queryClient.removeQueries({ queryKey: ['userNotifications'] })
+      queryClient.removeQueries({ queryKey: invitationKeys.all })
     },
     onError: () => {
       storeLogout()
-      queryClient.clear()
+      queryClient.removeQueries({ queryKey: portalAuthKeys.all })
+      queryClient.removeQueries({ queryKey: requestKeys.all })
+      queryClient.removeQueries({ queryKey: ['portalLibrary'] })
+      queryClient.removeQueries({ queryKey: ['userNotifications'] })
+      queryClient.removeQueries({ queryKey: invitationKeys.all })
     },
   })
 }
@@ -67,7 +84,7 @@ export function useUpdatePortalProfile() {
 
 export function useValidateInvitation(token: string) {
   return useQuery({
-    queryKey: ['invitation', token] as const,
+    queryKey: invitationKeys.validate(token),
     queryFn: () => portalAuthApi.validateInvitation(token),
     enabled: !!token,
     retry: false,

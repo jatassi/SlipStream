@@ -14,7 +14,7 @@ export function NotificationBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button variant="ghost" size="icon" className="relative size-8 md:size-9">
+          <Button variant="ghost" size="icon" aria-label="Notifications" className="relative size-8 md:size-9">
             <Bell className="size-4 md:size-5" />
             {hasUnread ? <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" /> : null}
           </Button>

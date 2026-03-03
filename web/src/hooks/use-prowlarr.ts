@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { prowlarrApi } from '@/api'
+import { indexerKeys } from '@/hooks/use-indexers'
 import type {
   ProwlarrConfigInput,
   ProwlarrIndexerSettingsInput,
@@ -80,7 +81,7 @@ export function useSetIndexerMode() {
     mutationFn: (data: SetModeInput) => prowlarrApi.setMode(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: prowlarrKeys.mode() })
-      void queryClient.invalidateQueries({ queryKey: ['indexers'] })
+      void queryClient.invalidateQueries({ queryKey: indexerKeys.all })
     },
   })
 }

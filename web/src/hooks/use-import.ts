@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiFetch } from '@/api/client'
+import { createQueryKeys } from '@/lib/query-keys'
 import type {
   ImportSettings,
   ManualImportRequest,
@@ -13,10 +14,18 @@ import type {
   UpdateImportSettingsRequest,
 } from '@/types'
 
+const baseKeys = createQueryKeys('import')
+const importKeys = {
+  ...baseKeys,
+  settings: () => [...baseKeys.all, 'settings'] as const,
+  pending: () => [...baseKeys.all, 'pending'] as const,
+  status: () => [...baseKeys.all, 'status'] as const,
+}
+
 // Settings hooks
 export function useImportSettings() {
   return useQuery<ImportSettings>({
-    queryKey: ['importSettings'],
+    queryKey: importKeys.settings(),
     queryFn: () => apiFetch<ImportSettings>('/settings/import'),
   })
 }
@@ -31,7 +40,7 @@ export function useUpdateImportSettings() {
         body: JSON.stringify(settings),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['importSettings'] })
+      void queryClient.invalidateQueries({ queryKey: importKeys.settings() })
     },
   })
 }
@@ -49,7 +58,7 @@ export function usePreviewNamingPattern() {
 
 export function usePendingImports() {
   return useQuery<PendingImport[]>({
-    queryKey: ['pendingImports'],
+    queryKey: importKeys.pending(),
     queryFn: () => apiFetch<PendingImport[]>('/import/pending'),
     refetchInterval: 5000,
   })
@@ -66,8 +75,8 @@ export function useManualImport() {
         body: JSON.stringify(req),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['pendingImports'] })
-      void queryClient.invalidateQueries({ queryKey: ['importStatus'] })
+      void queryClient.invalidateQueries({ queryKey: importKeys.pending() })
+      void queryClient.invalidateQueries({ queryKey: importKeys.status() })
     },
   })
 }
@@ -82,8 +91,8 @@ export function useRetryImport() {
         method: 'POST',
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['pendingImports'] })
-      void queryClient.invalidateQueries({ queryKey: ['importStatus'] })
+      void queryClient.invalidateQueries({ queryKey: importKeys.pending() })
+      void queryClient.invalidateQueries({ queryKey: importKeys.status() })
     },
   })
 }

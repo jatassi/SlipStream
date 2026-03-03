@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
-  useGlobalLoading,
   useMissingMovies,
   useMissingSeries,
   useQualityProfiles,
@@ -16,7 +15,7 @@ import {
   useUpgradableMovies,
   useUpgradableSeries,
 } from '@/hooks'
-import { useAutoSearchStore } from '@/stores'
+import { useAutoSearchStore, useUIStore } from '@/stores'
 import type { QualityProfile } from '@/types/quality-profile'
 
 export type ViewMode = 'missing' | 'upgradable'
@@ -179,7 +178,7 @@ export function useMissingPage() {
   const { data: qualityProfiles } = useQualityProfiles()
   const mutations = useSearchMutations()
   const task = useTaskResultNotifier()
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
 
   const isMissingView = view === 'missing'
   const counts = deriveCounts(queries)

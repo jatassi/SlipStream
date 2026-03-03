@@ -9,7 +9,6 @@ import {
   useDeleteSeries,
   useEpisodes,
   useExtendedSeriesMetadata,
-  useGlobalLoading,
   useMultiVersionSettings,
   useQualityProfiles,
   useRefreshSeries,
@@ -21,6 +20,7 @@ import {
 } from '@/hooks'
 import { seriesKeys } from '@/hooks/use-series'
 import { withToast } from '@/lib/with-toast'
+import { useUIStore } from '@/stores'
 import type { Episode } from '@/types'
 
 function buildEpisodeRatings(
@@ -45,7 +45,7 @@ function buildEpisodeRatings(
 }
 
 function useSeriesQueries(seriesId: number) {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const queryClient = useQueryClient()
   const { data: series, isLoading: queryLoading, isError, refetch } = useSeriesDetail(seriesId)
   const isLoading = queryLoading || globalLoading

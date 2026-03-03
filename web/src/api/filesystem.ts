@@ -15,7 +15,7 @@ export const filesystemApi = {
    * Browse directories at the given path
    * If path is empty, returns root (drives on Windows, / on Unix)
    */
-  browse: (path?: string, extensions?: string[]) => {
+  browse: (path?: string, extensions?: string[], init?: RequestInit) => {
     const params = new URLSearchParams()
     if (path) {
       params.set('path', path)
@@ -24,14 +24,15 @@ export const filesystemApi = {
       params.set('extensions', extensions.join(','))
     }
     const qs = params.toString()
-    return apiFetch<BrowseResult>(`/filesystem/browse${qs ? `?${qs}` : ''}`)
+    return apiFetch<BrowseResult>(`/filesystem/browse${qs ? `?${qs}` : ''}`, init)
   },
 
   /**
    * Browse directories and video files for import
    */
-  browseForImport: (path?: string) =>
+  browseForImport: (path?: string, init?: RequestInit) =>
     apiFetch<ImportBrowseResult>(
       `/filesystem/browse/import${path ? `?path=${encodeURIComponent(path)}` : ''}`,
+      init,
     ),
 }

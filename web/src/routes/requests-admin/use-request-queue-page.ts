@@ -1,11 +1,12 @@
-import { useAdminRequests, useDeveloperMode, useGlobalLoading, usePortalEnabled } from '@/hooks'
+import { useAdminRequests, useDeveloperMode, usePortalEnabled } from '@/hooks'
+import { useUIStore } from '@/stores'
 
 import { useRequestApprove } from './use-request-approve'
 import { useRequestDialogs } from './use-request-dialogs'
 import { useRequestSelection } from './use-request-selection'
 
 export function useRequestQueuePage() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: requests = [], isLoading: queryLoading, isError, refetch } = useAdminRequests()
   const isLoading = queryLoading || globalLoading
   const developerMode = useDeveloperMode()

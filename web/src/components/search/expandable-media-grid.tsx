@@ -84,6 +84,7 @@ function GridHeader({
     return (
       <button
         type="button"
+        aria-expanded={expanded}
         className={`flex items-center gap-2 text-sm ${colorClass} cursor-pointer hover:brightness-125 transition-all duration-200`}
         onClick={onToggle}
       >

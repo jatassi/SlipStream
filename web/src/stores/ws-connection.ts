@@ -1,7 +1,12 @@
 import { getAdminAuthToken } from '@/api/client'
 
 import type { WebSocketState, WSMessage } from './ws-types'
-import { RECONNECT_DELAY, WS_URL } from './ws-types'
+import {
+  INITIAL_RECONNECT_DELAY,
+  MAX_RECONNECT_ATTEMPTS,
+  MAX_RECONNECT_DELAY,
+  WS_URL,
+} from './ws-types'
 
 type GetState = () => WebSocketState
 type SetState = (
@@ -52,7 +57,7 @@ function attachListeners(
 ): void {
   ws.addEventListener('open', () => {
     if (get().socket === ws) {
-      set({ connected: true, reconnecting: false, lastMessageTime: Date.now() })
+      set({ connected: true, reconnecting: false, reconnectAttempts: 0, lastMessageTime: Date.now() })
     }
   })
 
@@ -77,13 +82,25 @@ function attachListeners(
   })
 }
 
+function computeReconnectDelay(attempts: number): number {
+  const base = INITIAL_RECONNECT_DELAY * Math.pow(2, attempts)
+  const withJitter = Math.min(base, MAX_RECONNECT_DELAY) * (1 + Math.random() * 0.3)
+  return Math.min(withJitter, MAX_RECONNECT_DELAY)
+}
+
 function scheduleReconnect(get: GetState, set: SetState): void {
   if (document.visibilityState === 'hidden') {return}
-  set({ reconnecting: true })
+  const { reconnectAttempts } = get()
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    set({ reconnecting: false })
+    return
+  }
+  const delay = computeReconnectDelay(reconnectAttempts)
+  set({ reconnecting: true, reconnectAttempts: reconnectAttempts + 1 })
   setTimeout(() => {
     set({ reconnecting: false })
     get().connect()
-  }, RECONNECT_DELAY)
+  }, delay)
 }
 
 export function createConnect(

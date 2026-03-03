@@ -8,10 +8,11 @@ import { ProgressBar } from '@/components/media/progress-bar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useGlobalLoading, useHistory, useQueue } from '@/hooks'
+import { useHistory, useQueue } from '@/hooks'
 import { useStorage } from '@/hooks/use-storage'
 import { formatRelativeTime } from '@/lib/formatters'
 import { eventTypeLabels } from '@/lib/history-utils'
+import { useUIStore } from '@/stores'
 import type { HistoryEntry } from '@/types/history'
 
 function QueueLoadingSkeleton() {
@@ -33,7 +34,7 @@ function QueueLoadingSkeleton() {
 }
 
 function QueuePreview() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: queue, isLoading: queryLoading } = useQueue()
   const isLoading = queryLoading || globalLoading
 
@@ -112,7 +113,7 @@ function ActivityItem({ item }: { item: HistoryEntry }) {
 }
 
 function RecentActivity() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: history, isLoading: queryLoading } = useHistory({ pageSize: 10 })
   const isLoading = queryLoading || globalLoading
 
@@ -144,7 +145,7 @@ function RecentActivity() {
 }
 
 export function DashboardPage() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const storage = useStorage()
 
   return (

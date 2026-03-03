@@ -69,6 +69,7 @@ function ChannelActions({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Test"
         onClick={() => onTest(notification.id)}
         disabled={isTestPending}
         className="size-8 md:size-9"
@@ -78,6 +79,7 @@ function ChannelActions({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Edit"
         onClick={() => onEdit(notification)}
         className="size-8 md:size-9"
       >
@@ -85,7 +87,7 @@ function ChannelActions({
       </Button>
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon" className="size-8 md:size-9">
+          <Button variant="ghost" size="icon" aria-label="Delete" className="size-8 md:size-9">
             <Trash2 className="size-3 md:size-4" />
           </Button>
         }

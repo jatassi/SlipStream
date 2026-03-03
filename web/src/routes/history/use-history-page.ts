@@ -2,8 +2,9 @@ import { useState } from 'react'
 
 import { toast } from 'sonner'
 
-import { useClearHistory, useGlobalLoading, useHistory } from '@/hooks'
+import { useClearHistory, useHistory } from '@/hooks'
 import { filterableEventTypes } from '@/lib/history-utils'
+import { useUIStore } from '@/stores'
 import type { HistoryEventType } from '@/types'
 
 import type { DatePreset, MediaFilter } from './history-utils'
@@ -45,7 +46,7 @@ export function useHistoryPage() {
   const allSelected = filters.eventTypes.length >= filterableEventTypes.length
   const mediaTypeParam = filters.mediaType === 'all' ? undefined : filters.mediaType
 
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: history, isLoading: queryLoading, isError, refetch } = useHistory({
     eventType: allSelected ? undefined : filters.eventTypes.join(','),
     mediaType: mediaTypeParam,

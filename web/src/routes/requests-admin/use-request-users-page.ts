@@ -12,10 +12,10 @@ import {
   useDeleteInvitation,
   useDisableUser,
   useEnableUser,
-  useGlobalLoading,
   usePortalEnabled,
   useQualityProfiles,
 } from '@/hooks'
+import { useUIStore } from '@/stores'
 import type { PortalUserWithQuota } from '@/types'
 
 function useUserActions() {
@@ -181,7 +181,7 @@ function useInvitationActions(
 export function useRequestUsersPage() {
   const [activeTab, setActiveTab] = useState<string>('users')
 
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const usersQuery = useAdminUsers()
   const invitationsQuery = useAdminInvitations()
   const { data: qualityProfiles } = useQualityProfiles()

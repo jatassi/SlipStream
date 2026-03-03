@@ -66,12 +66,12 @@ function UserCardActions({ user, togglePending, onToggleEnabled, onEdit, onDelet
         onCheckedChange={() => onToggleEnabled(user)}
         disabled={togglePending}
       />
-      <Button variant="ghost" size="icon" onClick={() => onEdit(user)}>
+      <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => onEdit(user)}>
         <Edit className="size-4" />
       </Button>
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Delete">
             <Trash2 className="size-4" />
           </Button>
         }

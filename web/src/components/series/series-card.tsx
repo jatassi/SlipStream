@@ -134,6 +134,7 @@ function SeriesCardCorner({
       >
         <Checkbox
           checked={selected}
+          aria-label={`Select ${series.title}`}
           className={cn(
             'bg-background/80 size-5 border-2',
             selected && 'border-tv-500 data-[checked]:bg-tv-500',

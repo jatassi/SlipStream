@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useGlobalLoading } from '@/hooks'
 import { usePendingImports, useRetryImport } from '@/hooks/use-import'
+import { useUIStore } from '@/stores'
 
 function PendingImportsSkeleton() {
   return (
@@ -32,7 +32,7 @@ function PendingImportsSkeleton() {
 }
 
 export function PendingImportsCard() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: pending, isLoading: queryLoading } = usePendingImports()
   const retryMutation = useRetryImport()
   const isLoading = queryLoading || globalLoading

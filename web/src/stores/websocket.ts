@@ -13,6 +13,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   socket: null,
   connected: false,
   reconnecting: false,
+  reconnectAttempts: 0,
   lastMessage: null,
   lastMessageTime: 0,
   connect: createConnect(get, set),

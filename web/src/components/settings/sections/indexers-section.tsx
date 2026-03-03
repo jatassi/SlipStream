@@ -256,12 +256,12 @@ function IndexerActions(props: {
         <TestTube className="mr-1 size-4" />
         Test
       </Button>
-      <Button variant="ghost" size="icon" onClick={() => onEdit(indexer)}>
+      <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => onEdit(indexer)}>
         <Edit className="size-4" />
       </Button>
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Delete">
             <Trash2 className="size-4" />
           </Button>
         }

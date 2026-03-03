@@ -82,7 +82,7 @@ function MovieCardContent({
         version={movie.updatedAt}
         className="absolute inset-0"
       />
-      {editMode ? <MovieEditCheckbox movieId={movie.id} selected={selected} onToggle={onToggleSelect} /> : null}
+      {editMode ? <MovieEditCheckbox movieId={movie.id} movieTitle={movie.title} selected={selected} onToggle={onToggleSelect} /> : null}
       <div className="absolute top-2 right-2">
         <MediaStatusBadge status={movie.status} />
       </div>
@@ -100,10 +100,12 @@ function MovieCardContent({
 
 function MovieEditCheckbox({
   movieId,
+  movieTitle,
   selected,
   onToggle,
 }: {
   movieId: number
+  movieTitle: string
   selected?: boolean
   onToggle?: (id: number) => void
 }) {
@@ -119,6 +121,7 @@ function MovieEditCheckbox({
     >
       <Checkbox
         checked={selected}
+        aria-label={`Select ${movieTitle}`}
         className={cn(
           'bg-background/80 size-5 border-2',
           selected && 'border-movie-500 data-[checked]:bg-movie-500',

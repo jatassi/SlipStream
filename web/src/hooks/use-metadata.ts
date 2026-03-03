@@ -15,7 +15,7 @@ const metadataKeys = {
 export function useMovieSearch(query: string) {
   return useQuery({
     queryKey: metadataKeys.movieSearch(query),
-    queryFn: () => metadataApi.searchMovies(query),
+    queryFn: ({ signal }) => metadataApi.searchMovies(query, { signal }),
     enabled: query.length >= 2,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
@@ -24,7 +24,7 @@ export function useMovieSearch(query: string) {
 export function useMovieMetadata(tmdbId: number) {
   return useQuery({
     queryKey: metadataKeys.movie(tmdbId),
-    queryFn: () => metadataApi.getMovie(tmdbId),
+    queryFn: ({ signal }) => metadataApi.getMovie(tmdbId, { signal }),
     enabled: !!tmdbId,
   })
 }
@@ -32,7 +32,7 @@ export function useMovieMetadata(tmdbId: number) {
 export function useSeriesSearch(query: string) {
   return useQuery({
     queryKey: metadataKeys.seriesSearch(query),
-    queryFn: () => metadataApi.searchSeries(query),
+    queryFn: ({ signal }) => metadataApi.searchSeries(query, { signal }),
     enabled: query.length >= 2,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
@@ -41,14 +41,14 @@ export function useSeriesSearch(query: string) {
 export function useSeriesMetadata(tmdbId: number) {
   return useQuery({
     queryKey: metadataKeys.series(tmdbId),
-    queryFn: () => metadataApi.getSeries(tmdbId),
+    queryFn: ({ signal }) => metadataApi.getSeries(tmdbId, { signal }),
     enabled: !!tmdbId,
   })
 }
 
 export const extendedMovieMetadataOptions = (tmdbId: number) => ({
   queryKey: metadataKeys.movieExtended(tmdbId),
-  queryFn: () => metadataApi.getExtendedMovie(tmdbId),
+  queryFn: ({ signal }: { signal: AbortSignal }) => metadataApi.getExtendedMovie(tmdbId, { signal }),
   enabled: !!tmdbId,
   staleTime: 1000 * 60 * 10, // 10 minutes
 })
@@ -59,7 +59,7 @@ export function useExtendedMovieMetadata(tmdbId: number) {
 
 export const extendedSeriesMetadataOptions = (tmdbId: number) => ({
   queryKey: metadataKeys.seriesExtended(tmdbId),
-  queryFn: () => metadataApi.getExtendedSeries(tmdbId),
+  queryFn: ({ signal }: { signal: AbortSignal }) => metadataApi.getExtendedSeries(tmdbId, { signal }),
   enabled: !!tmdbId,
   staleTime: 1000 * 60 * 10, // 10 minutes
 })

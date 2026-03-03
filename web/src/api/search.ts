@@ -49,20 +49,20 @@ function buildScoredSearchQuery(criteria: ScoredSearchCriteria): string {
 
 export const searchApi = {
   // General search (basic ReleaseInfo, no scoring)
-  search: (criteria: SearchCriteria) =>
-    apiFetch<SearchResult>(`/search?${buildSearchQuery(criteria)}`),
+  search: (criteria: SearchCriteria, init?: RequestInit) =>
+    apiFetch<SearchResult>(`/search?${buildSearchQuery(criteria)}`, init),
 
   // Movie-specific search with scoring (returns scored TorrentInfo)
-  searchMovie: (criteria: ScoredSearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/movie?${buildScoredSearchQuery(criteria)}`),
+  searchMovie: (criteria: ScoredSearchCriteria, init?: RequestInit) =>
+    apiFetch<TorrentSearchResult>(`/search/movie?${buildScoredSearchQuery(criteria)}`, init),
 
   // TV-specific search with scoring (returns scored TorrentInfo)
-  searchTV: (criteria: ScoredSearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/tv?${buildScoredSearchQuery(criteria)}`),
+  searchTV: (criteria: ScoredSearchCriteria, init?: RequestInit) =>
+    apiFetch<TorrentSearchResult>(`/search/tv?${buildScoredSearchQuery(criteria)}`, init),
 
   // Torrent search with scoring (returns scored TorrentInfo)
-  searchTorrents: (criteria: ScoredSearchCriteria) =>
-    apiFetch<TorrentSearchResult>(`/search/torrents?${buildScoredSearchQuery(criteria)}`),
+  searchTorrents: (criteria: ScoredSearchCriteria, init?: RequestInit) =>
+    apiFetch<TorrentSearchResult>(`/search/torrents?${buildScoredSearchQuery(criteria)}`, init),
 
   // Grab a release
   grab: (request: GrabRequest) =>

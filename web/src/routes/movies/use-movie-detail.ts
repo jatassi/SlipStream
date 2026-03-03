@@ -7,7 +7,6 @@ import {
   useAssignMovieFile,
   useDeleteMovie,
   useExtendedMovieMetadata,
-  useGlobalLoading,
   useMovie,
   useMovieSlotStatus,
   useMultiVersionSettings,
@@ -18,6 +17,7 @@ import {
   useUpdateMovie,
 } from '@/hooks'
 import { movieKeys } from '@/hooks/use-movies'
+import { useUIStore } from '@/stores'
 
 import { createHandlers } from './movie-detail-handlers'
 
@@ -63,7 +63,7 @@ export function useMovieDetail() {
   const [overviewExpanded, setOverviewExpanded] = useState(false)
   const [expandedFileId, setExpandedFileId] = useState<number | null>(null)
 
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const queryClient = useQueryClient()
   const { data: movie, isLoading: queryLoading, isError, refetch } = useMovie(movieId)
   const isLoading = queryLoading || globalLoading

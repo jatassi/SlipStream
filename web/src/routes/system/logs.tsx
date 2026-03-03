@@ -20,9 +20,9 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { Input } from '@/components/ui/input'
-import { useGlobalLoading } from '@/hooks'
 import { useDownloadLogFile, useLogs } from '@/hooks/use-logs'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/stores'
 import { ALL_LOG_LEVELS, useLogsStore } from '@/stores/logs'
 import type { LogEntry, LogLevel } from '@/types/logs'
 
@@ -193,7 +193,7 @@ function LogsStatusBar({ entryCount, isPaused, autoScroll }: { entryCount: numbe
 }
 
 export function LogsPage() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { isLoading: queryLoading } = useLogs()
   const isLoading = queryLoading || globalLoading
   const downloadMutation = useDownloadLogFile()

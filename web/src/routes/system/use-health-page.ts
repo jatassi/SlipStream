@@ -1,6 +1,6 @@
-import { useGlobalLoading } from '@/hooks'
 import { useSystemHealth } from '@/hooks/use-health'
 import { useIndexerMode } from '@/hooks/use-prowlarr'
+import { useUIStore } from '@/stores'
 import type { HealthCategory, HealthItem, HealthResponse } from '@/types/health'
 
 const EMPTY: HealthItem[] = []
@@ -15,7 +15,7 @@ function buildCategories(health: HealthResponse | undefined) {
 }
 
 export function useHealthPage() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: health, isLoading: queryLoading, error } = useSystemHealth()
   const { data: modeData } = useIndexerMode()
 

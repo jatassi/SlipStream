@@ -37,6 +37,7 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
             href={release.infoUrl}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="View release info"
             className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
           >
             <ExternalLink className="size-4" />
@@ -46,6 +47,7 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
           icon={Download}
           variant="ghost"
           size="icon"
+          aria-label="Download"
           onClick={() => onGrab(release)}
         />
       </div>

@@ -2,31 +2,20 @@ import { useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 import { formatDistanceToNow } from 'date-fns'
-import { CheckCircle, Clock, Download, Loader2, User, XCircle } from 'lucide-react'
+import { Clock, Loader2, User } from 'lucide-react'
 
 import { PosterImage } from '@/components/media/poster-image'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePortalDownloads, useRequests } from '@/hooks'
-import type { PortalDownload, Request, RequestStatus } from '@/types'
+import { getStatusConfig } from '@/lib/request-status-config'
+import type { PortalDownload, Request } from '@/types'
 
 import { computeDownloadProgress, findMatchingDownloads } from './request-download-utils'
 import { SearchSection } from './request-list-search'
 
-const STATUS_CONFIG: Record<
-  RequestStatus,
-  { label: string; icon: React.ReactNode; color: string }
-> = {
-  pending: { label: 'Pending', icon: <Clock className="size-3 md:size-4" />, color: 'bg-yellow-500' },
-  approved: { label: 'Approved', icon: <CheckCircle className="size-3 md:size-4" />, color: 'bg-blue-500' },
-  searching: { label: 'Searching', icon: <Loader2 className="size-3 animate-spin md:size-4" />, color: 'bg-blue-500' },
-  denied: { label: 'Denied', icon: <XCircle className="size-3 md:size-4" />, color: 'bg-red-500' },
-  downloading: { label: 'Downloading', icon: <Download className="size-3 md:size-4" />, color: 'bg-purple-500' },
-  failed: { label: 'Failed', icon: <XCircle className="size-3 md:size-4" />, color: 'bg-red-700' },
-  available: { label: 'Available', icon: <CheckCircle className="size-3 md:size-4" />, color: 'bg-green-500' },
-  cancelled: { label: 'Cancelled', icon: <XCircle className="size-3 md:size-4" />, color: 'bg-gray-500' },
-}
+const STATUS_CONFIG = getStatusConfig('xs')
 
 export function RequestsListPage() {
   const navigate = useNavigate()

@@ -146,6 +146,7 @@ function SearchToolbar({
         <Button
           variant={showFilters ? 'secondary' : 'outline'}
           size="icon"
+          aria-label="Toggle filters"
           onClick={() => setShowFilters(!showFilters)}
         >
           <Filter className="size-4" />

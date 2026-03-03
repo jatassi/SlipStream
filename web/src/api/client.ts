@@ -1,4 +1,4 @@
-import { ApiError } from '@/types'
+import { ApiError, isApiErrorData } from '@/types'
 
 import { getPortalAuthToken } from './portal/client'
 
@@ -89,7 +89,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     }
     throw new ApiError(
       res.status,
-      errorData as { message?: string; error?: string } | null,
+      isApiErrorData(errorData) ? errorData : null,
     )
   }
 

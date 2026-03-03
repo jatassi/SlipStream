@@ -171,17 +171,18 @@ function NotificationChannelActions(props: {
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Test"
         onClick={() => props.onTest(notification.id)}
         disabled={props.isTestPending}
       >
         <TestTube className="size-4" />
       </Button>
-      <Button variant="ghost" size="icon" onClick={() => props.onEdit(notification)}>
+      <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => props.onEdit(notification)}>
         <Edit className="size-4" />
       </Button>
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Delete">
             <Trash2 className="size-4" />
           </Button>
         }

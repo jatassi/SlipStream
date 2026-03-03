@@ -31,7 +31,7 @@ export function useRssSyncStatus() {
   return useQuery({
     queryKey: rssSyncKeys.status(),
     queryFn: () => rssSyncApi.getStatus(),
-    staleTime: 5000,
+    staleTime: 15_000,
   })
 }
 

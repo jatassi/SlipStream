@@ -75,7 +75,7 @@ function InvitationCardHeader(props: InvitationCardHeaderProps) {
         {isUnused ? <InvitationActions {...props} /> : null}
         <ConfirmDialog
           trigger={
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Delete">
               <Trash2 className="size-4" />
             </Button>
           }

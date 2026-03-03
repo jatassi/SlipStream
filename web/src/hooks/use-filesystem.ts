@@ -18,7 +18,7 @@ const filesystemKeys = {
 export function useBrowseDirectory(path?: string, enabled = true, extensions?: string[]) {
   return useQuery({
     queryKey: filesystemKeys.browse(path, extensions),
-    queryFn: () => filesystemApi.browse(path, extensions),
+    queryFn: ({ signal }) => filesystemApi.browse(path, extensions, { signal }),
     enabled,
     staleTime: 30_000, // Cache for 30 seconds
   })
@@ -32,7 +32,7 @@ export function useBrowseDirectory(path?: string, enabled = true, extensions?: s
 export function useBrowseForImport(path?: string, enabled = true) {
   return useQuery({
     queryKey: filesystemKeys.browseImport(path),
-    queryFn: () => filesystemApi.browseForImport(path),
+    queryFn: ({ signal }) => filesystemApi.browseForImport(path, { signal }),
     enabled,
     staleTime: 30_000,
   })

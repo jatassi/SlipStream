@@ -25,7 +25,7 @@ export function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWit
 
   return (
     <Dialog open={dialog.open} onOpenChange={dialog.handleOpenChange}>
-      <DialogTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
+      <DialogTrigger render={<Button variant="ghost" size="icon" aria-label="Settings" className="size-8" />}>
         <Settings className="size-4" />
       </DialogTrigger>
       <DialogContent>

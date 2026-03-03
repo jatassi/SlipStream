@@ -4,13 +4,13 @@ import { toast } from 'sonner'
 
 import {
   useDeleteNotification,
-  useGlobalLoading,
   useNotifications,
   useNotificationSchemas,
   useTestNotification,
   useUpdateNotification,
 } from '@/hooks'
 import { withToast } from '@/lib/with-toast'
+import { useUIStore } from '@/stores'
 import type { Notification } from '@/types'
 
 function openDialog(
@@ -25,7 +25,7 @@ function openDialog(
 export function useNotificationsPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [editingNotification, setEditingNotification] = useState<Notification | null>(null)
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: notifications, isLoading: queryLoading, isError, refetch } = useNotifications()
   const { data: schemas } = useNotificationSchemas()
   const deleteMutation = useDeleteNotification()

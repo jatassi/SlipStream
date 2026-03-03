@@ -51,13 +51,14 @@ function EditingContent({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Save"
         className="h-8 w-8"
         onClick={onSaveEdit}
         disabled={updatePending}
       >
         <Check className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onCancelEdit}>
+      <Button variant="ghost" size="icon" aria-label="Cancel" className="h-8 w-8" onClick={onCancelEdit}>
         <X className="h-4 w-4" />
       </Button>
     </div>
@@ -91,10 +92,10 @@ function ActionButtons({
 }) {
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" onClick={() => onStartEdit(credId, credName)}>
+      <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => onStartEdit(credId, credName)}>
         <Pencil className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" onClick={() => onDelete(credId)} disabled={deletePending}>
+      <Button variant="ghost" size="icon" aria-label="Delete" onClick={() => onDelete(credId)} disabled={deletePending}>
         <Trash2 className="h-4 w-4" />
       </Button>
     </div>

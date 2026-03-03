@@ -7,7 +7,8 @@ import { CalendarAgendaView, CalendarMonthView, CalendarWeekView } from '@/compo
 import { ErrorState } from '@/components/data/error-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useCalendarEvents, useGlobalLoading } from '@/hooks'
+import { useCalendarEvents } from '@/hooks'
+import { useUIStore } from '@/stores'
 import type { CalendarView } from '@/types/calendar'
 
 function getDateRange(view: CalendarView, currentDate: Date) {
@@ -44,7 +45,7 @@ export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const dateRange = useMemo(() => getDateRange(view, currentDate), [view, currentDate])
 
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: events, isLoading: queryLoading, isError, refetch } = useCalendarEvents(dateRange)
   const isLoading = queryLoading || globalLoading
   const safeEvents = events ?? []

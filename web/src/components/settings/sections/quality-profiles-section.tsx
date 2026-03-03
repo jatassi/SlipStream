@@ -59,11 +59,11 @@ function ProfileCard({
           </CardDescription>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(profile)}>
+          <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => onEdit(profile)}>
             <Edit className="size-4" />
           </Button>
           <ConfirmDialog
-            trigger={<Button variant="ghost" size="icon"><Trash2 className="size-4" /></Button>}
+            trigger={<Button variant="ghost" size="icon" aria-label="Delete"><Trash2 className="size-4" /></Button>}
             title="Delete profile"
             description={`Are you sure you want to delete "${profile.name}"?`}
             confirmLabel="Delete"

@@ -185,6 +185,7 @@ function SqliteFields({
         <Button
           variant="outline"
           size="icon"
+          aria-label="Browse folders"
           onClick={onBrowseClick}
           type="button"
           data-icon="inline-end"

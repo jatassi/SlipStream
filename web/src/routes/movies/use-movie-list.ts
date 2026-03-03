@@ -7,7 +7,6 @@ import {
   useBulkMonitorMovies,
   useBulkUpdateMovies,
   useDeleteMovie,
-  useGlobalLoading,
   useMovies,
   useQualityProfiles,
   useRefreshAllMovies,
@@ -105,7 +104,7 @@ function useLocalState() {
 }
 
 function useQueryLayer() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: movies, isLoading: queryLoading, isError, refetch } = useMovies()
   const isLoading = queryLoading || globalLoading
   const { data: qualityProfiles } = useQualityProfiles()

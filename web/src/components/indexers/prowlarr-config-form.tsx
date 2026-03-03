@@ -175,6 +175,7 @@ function ApiKeyInput({ hook }: { hook: HookValues }) {
           type="button"
           variant="ghost"
           size="icon"
+          aria-label={hook.showApiKey ? 'Hide API key' : 'Show API key'}
           className="absolute top-0 right-0 h-full px-3 hover:bg-transparent"
           onClick={() => hook.setShowApiKey(!hook.showApiKey)}
         >

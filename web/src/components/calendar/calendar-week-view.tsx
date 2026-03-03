@@ -56,10 +56,10 @@ function WeekHeader({ weekStart, weekEnd, onDateChange }: { weekStart: Date; wee
   return (
     <div className="mb-4 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={() => onDateChange(subWeeks(weekStart, 1))}>
+        <Button variant="outline" size="icon" aria-label="Previous week" onClick={() => onDateChange(subWeeks(weekStart, 1))}>
           <ChevronLeft className="size-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={() => onDateChange(addWeeks(weekStart, 1))}>
+        <Button variant="outline" size="icon" aria-label="Next week" onClick={() => onDateChange(addWeeks(weekStart, 1))}>
           <ChevronRight className="size-4" />
         </Button>
         <h2 className="ml-2 text-xl font-semibold">

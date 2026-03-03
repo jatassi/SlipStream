@@ -20,6 +20,7 @@ function InfoBanner({ onDismiss }: { onDismiss: () => void }) {
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Dismiss"
           className="-mt-1 -mr-2 size-6"
           onClick={onDismiss}
         >
@@ -54,6 +55,7 @@ function MigrationErrorAlert({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Dismiss"
           className="-mt-1 -mr-2 size-6"
           onClick={onDismiss}
         >

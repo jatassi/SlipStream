@@ -66,11 +66,11 @@ function ClientCard({ client, actions }: { client: DownloadClient; actions: Clie
             <TestTube className="mr-1 size-4" />
             Test
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => actions.onEdit(client)}>
+          <Button variant="ghost" size="icon" aria-label="Edit" onClick={() => actions.onEdit(client)}>
             <Edit className="size-4" />
           </Button>
           <ConfirmDialog
-            trigger={<Button variant="ghost" size="icon"><Trash2 className="size-4" /></Button>}
+            trigger={<Button variant="ghost" size="icon" aria-label="Delete"><Trash2 className="size-4" /></Button>}
             title="Delete download client"
             description={`Are you sure you want to delete "${client.name}"?`}
             confirmLabel="Delete"

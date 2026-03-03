@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { useGlobalLoading } from '@/hooks'
 import { useBrowseForImport } from '@/hooks/use-filesystem'
+import { useUIStore } from '@/stores'
 import type { ScannedFile } from '@/types'
 
 import { FileBrowserContent } from './file-browser-content'
@@ -26,7 +26,7 @@ type Props = {
 
 export function FileBrowser(props: Props) {
   const [pathInput, setPathInput] = useState(props.currentPath)
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data, isLoading: queryLoading, refetch } = useBrowseForImport(props.currentPath || undefined)
   const isLoading = queryLoading || globalLoading
   const showScan = props.scannedFiles.length > 0

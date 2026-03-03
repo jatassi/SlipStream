@@ -13,7 +13,7 @@ const portalSearchKeys = {
 export function usePortalMovieSearch(query: string) {
   return useQuery({
     queryKey: portalSearchKeys.movies(query),
-    queryFn: () => portalSearchApi.searchMovies(query),
+    queryFn: ({ signal }) => portalSearchApi.searchMovies(query, { signal }),
     enabled: query.length >= 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnMount: false,
@@ -25,7 +25,7 @@ export function usePortalMovieSearch(query: string) {
 export function usePortalSeriesSearch(query: string) {
   return useQuery({
     queryKey: portalSearchKeys.series(query),
-    queryFn: () => portalSearchApi.searchSeries(query),
+    queryFn: ({ signal }) => portalSearchApi.searchSeries(query, { signal }),
     enabled: query.length >= 2,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnMount: false,
@@ -37,7 +37,7 @@ export function usePortalSeriesSearch(query: string) {
 export function useSeriesSeasons(tmdbId?: number, tvdbId?: number) {
   return useQuery({
     queryKey: portalSearchKeys.seasons(tmdbId, tvdbId),
-    queryFn: () => portalSearchApi.getSeriesSeasons(tmdbId, tvdbId),
+    queryFn: ({ signal }) => portalSearchApi.getSeriesSeasons(tmdbId, tvdbId, { signal }),
     enabled: (tmdbId !== undefined && tmdbId > 0) || (tvdbId !== undefined && tvdbId > 0),
     staleTime: 10 * 60 * 1000, // 10 minutes
   })

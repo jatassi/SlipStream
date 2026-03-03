@@ -10,6 +10,7 @@ import type { NotifierType } from '@/types'
 import { EventTriggers } from './event-triggers'
 import { PlexSections } from './plex-sections'
 import { ProviderFields } from './provider-fields'
+import { asTriggerFields } from './use-initialize-form'
 import type { NotificationDialogState } from './use-notification-dialog'
 
 export function NotificationFormBody({ state: s }: { state: NotificationDialogState }) {
@@ -34,7 +35,7 @@ export function NotificationFormBody({ state: s }: { state: NotificationDialogSt
       />
       {s.hasAdvancedFields ? <AdvancedToggle showAdvanced={s.showAdvanced} onToggle={s.toggleAdvanced} /> : null}
       {s.showAdvanced ? <ProviderFields fields={advancedFields} {...shared} /> : null}
-      <EventTriggers triggers={s.triggers} formValues={s.formData as unknown as Record<string, unknown>} onTriggerChange={s.handleFormDataChange} />
+      <EventTriggers triggers={s.triggers} formValues={asTriggerFields(s.formData)} onTriggerChange={s.handleFormDataChange} />
       <EnabledToggle enabled={s.formData.enabled ?? true} onChange={(c) => s.handleFormDataChange('enabled', c)} />
     </div>
   )

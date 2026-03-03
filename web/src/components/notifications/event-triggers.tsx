@@ -3,9 +3,11 @@ import { Switch } from '@/components/ui/switch'
 
 import type { EventTrigger } from './notification-dialog-types'
 
+type TriggerFields = Record<string, boolean>
+
 type EventTriggersProps = {
   triggers: EventTrigger[]
-  formValues: Record<string, unknown>
+  formValues: TriggerFields
   onTriggerChange: (key: string, value: unknown) => void
 }
 
@@ -23,7 +25,7 @@ export function EventTriggers({ triggers, formValues, onTriggerChange }: EventTr
             </Label>
             <Switch
               id={key}
-              checked={Boolean(formValues[key])}
+              checked={formValues[key] ?? false}
               onCheckedChange={(checked) => onTriggerChange(key, checked)}
             />
           </div>

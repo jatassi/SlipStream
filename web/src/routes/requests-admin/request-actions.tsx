@@ -76,7 +76,7 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Button variant="ghost" size="icon" onClick={onClick} disabled={disabled} />}
+        render={<Button variant="ghost" size="icon" aria-label={tooltip} onClick={onClick} disabled={disabled} />}
       >
         <Icon className={`size-4 ${iconClassName ?? ''}`} />
       </TooltipTrigger>

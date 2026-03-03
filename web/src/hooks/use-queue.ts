@@ -21,6 +21,7 @@ export function useQueue(enabled = true) {
     queryKey: queueKeys.list(),
     queryFn: () => queueApi.list(),
     enabled,
+    staleTime: 10_000,
     // Fallback polling: poll if we have active downloads or client errors,
     // and haven't received a WebSocket update in 10 seconds.
     // Force HTTP polling when errors exist so isFetching cycles for retry UX.

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-import { useGlobalLoading, useQueue } from '@/hooks'
+import { useQueue } from '@/hooks'
+import { useUIStore } from '@/stores'
 import type { QueueItem } from '@/types'
 
 export type MediaFilter = 'all' | 'movies' | 'series'
@@ -15,7 +16,7 @@ function filterItems(items: QueueItem[], filter: MediaFilter): QueueItem[] {
 
 export function useActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: queueResponse, isLoading: queryLoading, isError, isFetching, refetch } = useQueue()
   const isLoading = queryLoading || globalLoading
 

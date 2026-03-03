@@ -1,11 +1,11 @@
-import { Check } from 'lucide-react'
-
+import {
+  FolderSelect,
+  FormActions,
+  ProfileSelect,
+  ToggleField,
+} from '@/components/media/media-configure-fields'
 import { PosterImage } from '@/components/media/poster-image'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import type { MovieSearchResult, QualityProfile, RootFolder } from '@/types'
 
 type AddMovieConfigureProps = {
@@ -36,6 +36,7 @@ export function AddMovieConfigure(props: AddMovieConfigureProps) {
         isPending={props.isPending}
         onBack={props.handleBack}
         onAdd={props.handleAdd}
+        addLabel="Add Movie"
       />
     </div>
   )
@@ -60,28 +61,6 @@ function MoviePreview({ movie }: { movie: MovieSearchResult }) {
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-type FormActionsProps = {
-  rootFolderId: string
-  qualityProfileId: string
-  isPending: boolean
-  onBack: () => void
-  onAdd: () => void
-}
-
-function FormActions({ rootFolderId, qualityProfileId, isPending, onBack, onAdd }: FormActionsProps) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button variant="outline" onClick={onBack}>
-        Back
-      </Button>
-      <Button onClick={onAdd} disabled={!rootFolderId || !qualityProfileId || isPending}>
-        <Check className="mr-2 size-4" />
-        Add Movie
-      </Button>
-    </div>
   )
 }
 
@@ -116,80 +95,5 @@ function ConfigurationForm(props: AddMovieConfigureProps) {
         />
       </CardContent>
     </Card>
-  )
-}
-
-type FolderSelectProps = {
-  rootFolderId: string
-  rootFolders: RootFolder[] | undefined
-  onChange: (v: string) => void
-}
-
-function FolderSelect({ rootFolderId, rootFolders, onChange }: FolderSelectProps) {
-  const label =
-    rootFolders?.find((f) => f.id === Number.parseInt(rootFolderId))?.name ??
-    'Select a root folder'
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="rootFolder">Root Folder *</Label>
-      <Select value={rootFolderId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
-        <SelectContent>
-          {rootFolders?.map((folder) => (
-            <SelectItem key={folder.id} value={String(folder.id)}>
-              {folder.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
-
-type ProfileSelectProps = {
-  qualityProfileId: string
-  qualityProfiles: QualityProfile[] | undefined
-  onChange: (v: string) => void
-}
-
-function ProfileSelect({ qualityProfileId, qualityProfiles, onChange }: ProfileSelectProps) {
-  const label =
-    qualityProfiles?.find((p) => p.id === Number.parseInt(qualityProfileId))?.name ??
-    'Select a quality profile'
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="qualityProfile">Quality Profile *</Label>
-      <Select value={qualityProfileId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
-        <SelectContent>
-          {qualityProfiles?.map((profile) => (
-            <SelectItem key={profile.id} value={String(profile.id)}>
-              {profile.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
-
-type ToggleFieldProps = {
-  label: string
-  description: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}
-
-function ToggleField({ label, description, checked, onChange }: ToggleFieldProps) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <Label>{label}</Label>
-        <p className="text-muted-foreground text-sm">{description}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
   )
 }

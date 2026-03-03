@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as authApi from '@/api/auth'
+import { createQueryKeys } from '@/lib/query-keys'
 import { usePortalAuthStore } from '@/stores/portal-auth'
 
+const baseKeys = createQueryKeys('adminAuth')
 const adminAuthKeys = {
-  all: ['adminAuth'] as const,
-  status: () => [...adminAuthKeys.all, 'status'] as const,
+  ...baseKeys,
+  status: () => [...baseKeys.all, 'status'] as const,
 }
 
 export function useAuthStatus() {

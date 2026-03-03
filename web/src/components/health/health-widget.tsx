@@ -5,9 +5,9 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useGlobalLoading } from '@/hooks'
 import { useSystemHealthSummary, useTestHealthCategory } from '@/hooks/use-health'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/stores'
 import {
   getCategoryDisplayName,
   getCategorySettingsPath,
@@ -189,7 +189,7 @@ function WidgetError() {
 }
 
 export function HealthWidget() {
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: summary, isLoading: queryLoading, error } = useSystemHealthSummary()
 
   if (queryLoading || globalLoading) {return <WidgetSkeleton />}

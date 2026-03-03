@@ -2,15 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { defaultsApi } from '@/api'
 import type { EntityType, MediaType } from '@/api/defaults'
+import { createQueryKeys } from '@/lib/query-keys'
 
-const defaultsKeys = {
-  all: ['defaults'] as const,
-  lists: () => [...defaultsKeys.all, 'list'] as const,
-  list: () => [...defaultsKeys.all, 'list'] as const,
-  listByEntityType: (entityType: string) => [...defaultsKeys.lists(), entityType] as const,
-  details: () => [...defaultsKeys.all, 'detail'] as const,
+const baseKeys = createQueryKeys('defaults')
+export const defaultsKeys = {
+  ...baseKeys,
+  listByEntityType: (entityType: string) => [...baseKeys.lists(), entityType] as const,
   detail: (entityType: string, mediaType: string) =>
-    [...defaultsKeys.details(), entityType, mediaType] as const,
+    [...baseKeys.details(), entityType, mediaType] as const,
 }
 
 export const useDefault = (entityType: EntityType, mediaType: MediaType) =>

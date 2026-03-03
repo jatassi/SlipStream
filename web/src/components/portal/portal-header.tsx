@@ -78,7 +78,26 @@ function LogoLink({ isHomePage }: { isHomePage: boolean }) {
   )
 }
 
-export function PortalHeader() {
+function HeaderActions({ isLibraryPage, isSearchPage }: { isLibraryPage: boolean; isSearchPage: boolean }) {
+  const navigate = useNavigate()
+  return (
+    <div className="flex items-center gap-1 md:gap-2">
+      <LibraryLink active={isLibraryPage} hideText={isSearchPage} />
+      <NotificationBell />
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Settings"
+        onClick={() => navigate({ to: '/requests/settings' })}
+        className="size-8 md:size-9"
+      >
+        <Settings className="size-4 md:size-5" />
+      </Button>
+    </div>
+  )
+}
+
+function usePortalHeader() {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -106,10 +125,15 @@ export function PortalHeader() {
     }
   }
 
+  return { isHomePage, isSearchPage, isLibraryPage, searchInput, searchFocused, setSearchInput, setSearchFocused, handleSearch }
+}
+
+export function PortalHeader() {
+  const { isHomePage, isSearchPage, isLibraryPage, searchInput, searchFocused, setSearchInput, setSearchFocused, handleSearch } = usePortalHeader()
+
   return (
     <header className="border-border bg-card flex h-14 items-center justify-between border-b px-3 sm:px-6">
       <LogoLink isHomePage={isHomePage} />
-
       {isSearchPage || isLibraryPage && (
         <SearchForm
           searchInput={searchInput}
@@ -119,20 +143,7 @@ export function PortalHeader() {
           onSubmit={handleSearch}
         />
       )}
-
-      <div className="flex items-center gap-1 md:gap-2">
-        <LibraryLink active={isLibraryPage} hideText={isSearchPage} />
-        <NotificationBell />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate({ to: '/requests/settings' })}
-          className="size-8 md:size-9"
-        >
-          <Settings className="size-4 md:size-5" />
-        </Button>
-      </div>
+      <HeaderActions isLibraryPage={isLibraryPage} isSearchPage={isSearchPage} />
     </header>
   )
 }

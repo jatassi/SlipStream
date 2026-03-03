@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { rootFoldersApi } from '@/api'
+import { defaultsKeys } from '@/hooks/use-defaults'
 import { createQueryKeys } from '@/lib/query-keys'
 import type { CreateRootFolderInput } from '@/types'
 
@@ -40,7 +41,7 @@ export function useDeleteRootFolder() {
     mutationFn: (id: number) => rootFoldersApi.delete(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: rootFolderKeys.all })
-      void queryClient.invalidateQueries({ queryKey: ['defaults'] })
+      void queryClient.invalidateQueries({ queryKey: defaultsKeys.all })
     },
   })
 }

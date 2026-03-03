@@ -88,7 +88,7 @@ function FolderActions({ folder, actions }: { folder: RootFolder; actions: Folde
       )}
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Delete">
             <Trash2 className="size-4" />
           </Button>
         }

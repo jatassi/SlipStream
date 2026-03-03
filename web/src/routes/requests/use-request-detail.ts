@@ -5,13 +5,12 @@ import { toast } from 'sonner'
 
 import {
   useCancelRequest,
-  useGlobalLoading,
   usePortalDownloads,
   useRequest,
   useUnwatchRequest,
   useWatchRequest,
 } from '@/hooks'
-import { usePortalAuthStore } from '@/stores'
+import { usePortalAuthStore, useUIStore } from '@/stores'
 import type { PortalDownload, Request } from '@/types'
 
 function getMatchingDownloads(
@@ -60,7 +59,7 @@ export function useRequestDetail() {
   const navigate = useNavigate()
   const requestId = Number.parseInt(params.id ?? '0', 10)
   const { user } = usePortalAuthStore()
-  const globalLoading = useGlobalLoading()
+  const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: request, isLoading: queryLoading, error } = useRequest(requestId)
   const { data: downloads } = usePortalDownloads()
   const cancelMutation = useCancelRequest()

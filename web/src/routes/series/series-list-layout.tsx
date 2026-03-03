@@ -11,14 +11,8 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { PageHeader } from '@/components/layout/page-header'
-import { MediaDeleteDialog } from '@/components/media/media-delete-dialog'
-import { MediaListContent } from '@/components/media/media-list-content'
-import { MediaListFilters } from '@/components/media/media-list-filters'
-import { MediaListToolbar } from '@/components/media/media-list-toolbar'
-import { MediaPageActions } from '@/components/media/media-page-actions'
+import { MediaListLayout } from '@/components/media/media-list-layout'
 import { SeriesCard } from '@/components/series/series-card'
-import { Skeleton } from '@/components/ui/skeleton'
 import { SERIES_COLUMNS } from '@/lib/table-columns'
 
 import type { FilterStatus, SeriesListState, SortField } from './use-series-list'
@@ -45,62 +39,36 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
   { value: 'sizeOnDisk', label: 'Size on Disk' },
 ]
 
+const EMPTY_ACTION = { label: 'Add Series', onClick: () => document.getElementById('global-search')?.focus() }
+
 export function SeriesListLayout({ state: s }: { state: SeriesListState }) {
   return (
-    <div>
-      <SeriesListHeader state={s} />
-      {s.editMode ? <MediaListToolbar
-          selectedCount={s.selectedIds.size} totalCount={s.filteredSeries.length}
-          qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
-          onSelectAll={s.handleSelectAll} onMonitor={s.handleBulkMonitor}
-          onChangeQualityProfile={s.handleBulkChangeQualityProfile} onDelete={() => s.setShowDeleteDialog(true)}
-          theme="tv"
-        /> : null}
-      <MediaListFilters
-        filterOptions={FILTER_OPTIONS} sortOptions={SORT_OPTIONS}
-        statusFilters={s.statusFilters} sortField={s.sortField} view={s.seriesView}
-        posterSize={s.posterSize} visibleColumnIds={s.seriesTableColumns} columns={SERIES_COLUMNS}
-        isLoading={s.isLoading}
-        onToggleFilter={s.handleToggleFilter} onResetFilters={s.handleResetFilters}
-        onSortFieldChange={s.handleSortFieldChange} onViewChange={s.handleViewChange}
-        onPosterSizeChange={s.handlePosterSizeChange} onTableColumnsChange={s.setSeriesTableColumns}
-        theme="tv"
-      />
-      <MediaListContent
-        isLoading={s.isLoading} view={s.seriesView} items={s.sortedSeries}
-        groups={s.groups} posterSize={s.posterSize} editMode={s.editMode}
-        selectedIds={s.selectedIds} allFiltersSelected={s.allFiltersSelected}
-        allColumns={s.allColumns} visibleColumnIds={s.seriesTableColumns}
-        renderContext={s.renderContext} sortField={s.sortField}
-        sortDirection={s.sortDirection} onSort={s.handleColumnSort} onToggleSelect={s.handleToggleSelect}
-        theme="tv"
-        renderCard={(series, opts) => <SeriesCard key={series.id} series={series} {...opts} />}
-        emptyIcon={<Tv className="text-tv-500 size-8" />}
-        emptyTitle="No series found"
-        emptyAction={{ label: 'Add Series', onClick: () => document.getElementById('global-search')?.focus() }}
-      />
-      <MediaDeleteDialog
-        open={s.showDeleteDialog} onOpenChange={s.setShowDeleteDialog}
-        selectedCount={s.selectedIds.size} deleteFiles={s.deleteFiles}
-        onDeleteFilesChange={s.setDeleteFiles} onConfirm={s.handleBulkDelete} isPending={s.bulkDeleteMutation.isPending}
-        mediaLabel="Series" pluralMediaLabel="Series"
-      />
-    </div>
-  )
-}
-
-function SeriesListHeader({ state: s }: { state: SeriesListState }) {
-  return (
-    <PageHeader
-      title="Series"
-      description={s.isLoading ? <Skeleton className="h-4 w-36" /> : `${s.seriesList?.length ?? 0} series in library`}
-      actions={
-        <MediaPageActions
-          isLoading={s.isLoading} editMode={s.editMode} isRefreshing={s.refreshAllMutation.isPending}
-          onRefreshAll={s.handleRefreshAll} onEnterEdit={() => s.setEditMode(true)} onExitEdit={s.handleExitEditMode}
-          theme="tv" addLabel="Add Series"
-        />
-      }
+    <MediaListLayout
+      theme="tv" title="Series" addLabel="Add Series"
+      mediaLabel="Series" pluralMediaLabel="Series" libraryCount={s.seriesList?.length}
+      filterOptions={FILTER_OPTIONS} sortOptions={SORT_OPTIONS}
+      allTableColumns={s.allColumns} staticColumns={SERIES_COLUMNS}
+      visibleColumnIds={s.seriesTableColumns} onTableColumnsChange={s.setSeriesTableColumns}
+      isLoading={s.isLoading} editMode={s.editMode} selectedIds={s.selectedIds}
+      filteredCount={s.filteredSeries.length} allFiltersSelected={s.allFiltersSelected}
+      statusFilters={s.statusFilters} sortField={s.sortField}
+      sortDirection={s.sortDirection} view={s.seriesView} posterSize={s.posterSize}
+      items={s.sortedSeries} groups={s.groups} renderContext={s.renderContext}
+      qualityProfiles={s.qualityProfiles} isBulkUpdating={s.bulkUpdateMutation.isPending}
+      showDeleteDialog={s.showDeleteDialog} deleteFiles={s.deleteFiles}
+      isBulkDeleting={s.bulkDeleteMutation.isPending} isRefreshing={s.refreshAllMutation.isPending}
+      emptyIcon={<Tv className="text-tv-500 size-8" />} emptyTitle="No series found"
+      emptyAction={EMPTY_ACTION}
+      renderCard={(series, opts) => <SeriesCard key={series.id} series={series} {...opts} />}
+      onToggleFilter={s.handleToggleFilter} onResetFilters={s.handleResetFilters}
+      onSortFieldChange={s.handleSortFieldChange} onViewChange={s.handleViewChange}
+      onPosterSizeChange={s.handlePosterSizeChange} onColumnSort={s.handleColumnSort}
+      onToggleSelect={s.handleToggleSelect} onSelectAll={s.handleSelectAll}
+      onBulkMonitor={s.handleBulkMonitor} onBulkChangeQualityProfile={s.handleBulkChangeQualityProfile}
+      onDelete={() => s.setShowDeleteDialog(true)} onRefreshAll={s.handleRefreshAll}
+      onEnterEdit={() => s.setEditMode(true)} onExitEdit={s.handleExitEditMode}
+      onShowDeleteDialog={s.setShowDeleteDialog} onDeleteFilesChange={s.setDeleteFiles}
+      onBulkDelete={s.handleBulkDelete}
     />
   )
 }

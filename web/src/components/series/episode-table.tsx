@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
-import { ChevronDown, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { ChevronDown } from 'lucide-react'
 
 import { MediaStatusBadge } from '@/components/media/media-status-badge'
 import { QualityBadge } from '@/components/media/quality-badge'
@@ -15,12 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useEpisodeSlotStatus, useSetEpisodeSlotMonitored } from '@/hooks'
 import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import type { Episode, Slot } from '@/types'
 
-import { EpisodeSlotRow } from './episode-slot-row'
+import { EpisodeSlotStatusContent } from './episode-slot-status-content'
 import type { SeriesInfo } from './series-context'
 import { SeriesContext, useSeriesInfo } from './series-context'
 
@@ -287,61 +285,6 @@ function EpisodeActions({ episode, onMonitoredChange }: EpisodeActionsProps) {
       tvdbId={tvdbId}
       tmdbId={tmdbId}
       imdbId={imdbId}
-    />
-  )
-}
-
-type SlotStatusContentProps = {
-  episode: Episode
-  slotQualityProfiles: Record<number, number>
-}
-
-function EpisodeSlotStatusContent({ episode, slotQualityProfiles }: SlotStatusContentProps) {
-  const { seriesId, seriesTitle, qualityProfileId } = useSeriesInfo()
-  const { data: slotStatus, isLoading } = useEpisodeSlotStatus(episode.id)
-  const setSlotMonitoredMutation = useSetEpisodeSlotMonitored()
-
-  const handleSlotMonitoredChange = async (slotId: number, monitored: boolean) => {
-    try {
-      await setSlotMonitoredMutation.mutateAsync({
-        episodeId: episode.id,
-        slotId,
-        data: { monitored },
-      })
-      toast.success(monitored ? 'Slot monitored' : 'Slot unmonitored')
-    } catch {
-      toast.error('Failed to update slot monitoring')
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-2">
-        <Loader2 className="size-4 animate-spin" />
-      </div>
-    )
-  }
-
-  if (!slotStatus?.slotStatuses || slotStatus.slotStatuses.length === 0) {
-    return (
-      <div className="text-muted-foreground py-2 text-center text-xs">
-        No slot status available
-      </div>
-    )
-  }
-
-  return (
-    <EpisodeSlotRow
-      slotStatuses={slotStatus.slotStatuses}
-      episodeId={episode.id}
-      seriesId={seriesId}
-      seriesTitle={seriesTitle}
-      seasonNumber={episode.seasonNumber}
-      episodeNumber={episode.episodeNumber}
-      qualityProfileId={qualityProfileId}
-      slotQualityProfiles={slotQualityProfiles}
-      onSlotMonitoredChange={handleSlotMonitoredChange}
-      isMonitorUpdating={setSlotMonitoredMutation.isPending}
     />
   )
 }

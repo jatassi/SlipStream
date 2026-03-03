@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { searchApi } from '@/api/search'
+import { queueKeys } from '@/hooks/use-queue'
 import type { GrabRequest, ScoredSearchCriteria } from '@/types'
 
 // Query keys
@@ -22,7 +23,7 @@ export function useIndexerMovieSearch(
 
   return useQuery({
     queryKey: searchKeys.movieResults(criteria),
-    queryFn: () => searchApi.searchMovie(criteria),
+    queryFn: ({ signal }) => searchApi.searchMovie(criteria, { signal }),
     enabled: options?.enabled ?? defaultEnabled,
     staleTime: 30_000,
   })
@@ -35,7 +36,7 @@ export function useIndexerTVSearch(
 ) {
   return useQuery({
     queryKey: searchKeys.tvResults(criteria),
-    queryFn: () => searchApi.searchTV(criteria),
+    queryFn: ({ signal }) => searchApi.searchTV(criteria, { signal }),
     enabled:
       options?.enabled ?? (!!criteria.qualityProfileId && (!!criteria.query || !!criteria.tvdbId)),
     staleTime: 30_000,
@@ -49,7 +50,7 @@ export function useGrab() {
   return useMutation({
     mutationFn: (request: GrabRequest) => searchApi.grab(request),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['queue'] })
+      void queryClient.invalidateQueries({ queryKey: queueKeys.all })
       void queryClient.invalidateQueries({ queryKey: searchKeys.grabHistory() })
     },
   })

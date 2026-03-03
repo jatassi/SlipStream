@@ -55,15 +55,21 @@ function toNotificationForDialog(n: UserNotification): Notification {
   }
 }
 
+type PortalNotificationInput = CreateNotificationInput & {
+  onAvailable?: boolean
+  onApproved?: boolean
+  onDenied?: boolean
+}
+
 function extractPortalEvents(data: CreateNotificationInput) {
-  const eventData = data as unknown as Record<string, unknown>
+  const eventData = data as PortalNotificationInput
   return {
     type: data.type,
     name: data.name,
     settings: data.settings,
-    onAvailable: (eventData.onAvailable as boolean | undefined) ?? true,
-    onApproved: (eventData.onApproved as boolean | undefined) ?? true,
-    onDenied: (eventData.onDenied as boolean | undefined) ?? true,
+    onAvailable: eventData.onAvailable ?? true,
+    onApproved: eventData.onApproved ?? true,
+    onDenied: eventData.onDenied ?? true,
     enabled: data.enabled ?? true,
   }
 }
