@@ -28,10 +28,18 @@ function isPublicPath(pathname: string): boolean {
 
 function useWebSocketLifecycle() {
   const { connect, disconnect } = useWebSocketStore()
+  const { isAuthenticated, user } = usePortalAuthStore()
+  const isAdmin = user?.isAdmin ?? false
 
   useEffect(() => {
-    connect()
+    if (isAuthenticated && isAdmin) {
+      connect(true)
+    } else {
+      disconnect()
+    }
+  }, [isAuthenticated, isAdmin, connect, disconnect])
 
+  useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         connect(true)

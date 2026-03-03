@@ -196,6 +196,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.IPExtractor = echo.ExtractIPDirect()
 	serverDebugLog("Echo instance created")
 
 	db := dbManager.Conn()
@@ -567,6 +568,14 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	}
 	s.portalPasskeyService = passkeySvc
 	serverDebugLog("Passkey service initialized")
+
+	// Wire token validator to the WebSocket hub now that the auth service is ready.
+	if hub != nil && authSvc != nil {
+		hub.SetTokenValidator(func(token string) error {
+			_, err := authSvc.ValidateAdminToken(token)
+			return err
+		})
+	}
 
 	s.portalSearchLimiter = portalratelimit.NewSearchLimiter(func() int64 {
 		if setting, err := queries.GetSetting(context.Background(), admin.SettingSearchRateLimit); err == nil && setting.Value != "" {

@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,6 +12,8 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/status"
 )
+
+const redactedSentinel = "********"
 
 // Handlers provides HTTP handlers for indexer operations.
 type Handlers struct {
@@ -45,12 +49,133 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("/:id/status", h.GetStatus)
 }
 
+// indexerSensitiveFields returns the set of settings field names that are passwords for the given definition.
+func (h *Handlers) indexerSensitiveFields(defID string) map[string]bool {
+	schema, err := h.service.GetDefinitionSchema(defID)
+	if err != nil {
+		return nil
+	}
+	fields := make(map[string]bool)
+	for _, s := range schema {
+		if s.Type == "password" {
+			fields[s.Name] = true
+		}
+	}
+	return fields
+}
+
+// applySettingsRedaction replaces non-empty password field values in a parsed settings map with the sentinel.
+func applySettingsRedaction(settings map[string]interface{}, sensitive map[string]bool) {
+	for key, val := range settings {
+		if !sensitive[key] {
+			continue
+		}
+		if str, ok := val.(string); ok && str != "" {
+			settings[key] = redactedSentinel
+		}
+	}
+}
+
+// settingsHasSentinel reports whether any sensitive field in the map holds the sentinel.
+func settingsHasSentinel(m map[string]interface{}, sensitive map[string]bool) bool {
+	for key, val := range m {
+		if sensitive[key] {
+			if str, ok := val.(string); ok && str == redactedSentinel {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// replaceSettingsSentinels overwrites sentinel values in dst with the corresponding values from src.
+func replaceSettingsSentinels(dst, src map[string]interface{}, sensitive map[string]bool) {
+	for key, val := range dst {
+		if !sensitive[key] {
+			continue
+		}
+		if str, ok := val.(string); ok && str == redactedSentinel {
+			if existing, ok := src[key]; ok {
+				dst[key] = existing
+			}
+		}
+	}
+}
+
+// redactIndexerSettings replaces password field values in the indexer's Settings JSON
+// with the sentinel so callers know a value exists without exposing it.
+func (h *Handlers) redactIndexerSettings(indexer *IndexerDefinition) {
+	if indexer == nil || len(indexer.Settings) == 0 {
+		return
+	}
+	sensitive := h.indexerSensitiveFields(indexer.DefinitionID)
+	if len(sensitive) == 0 {
+		return
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal(indexer.Settings, &settings); err != nil {
+		return
+	}
+	applySettingsRedaction(settings, sensitive)
+	if redacted, err := json.Marshal(settings); err == nil {
+		indexer.Settings = redacted
+	}
+}
+
+// mergeRedactedSettings replaces any sentinel values in incoming settings
+// with the real values from the existing DB record, so sentinels are never persisted.
+func (h *Handlers) mergeRedactedSettings(ctx context.Context, indexerID int64, incoming json.RawMessage, defID string) json.RawMessage {
+	if len(incoming) == 0 {
+		return incoming
+	}
+	sensitive := h.indexerSensitiveFields(defID)
+	if len(sensitive) == 0 {
+		return incoming
+	}
+	var incomingMap map[string]interface{}
+	if err := json.Unmarshal(incoming, &incomingMap); err != nil {
+		return incoming
+	}
+	if !settingsHasSentinel(incomingMap, sensitive) {
+		return incoming
+	}
+	existing, err := h.service.Get(ctx, indexerID)
+	if err != nil {
+		return incoming
+	}
+	var existingMap map[string]interface{}
+	if err := json.Unmarshal(existing.Settings, &existingMap); err != nil {
+		return incoming
+	}
+	replaceSettingsSentinels(incomingMap, existingMap, sensitive)
+	if merged, err := json.Marshal(incomingMap); err == nil {
+		return merged
+	}
+	return incoming
+}
+
+// resolveUpdateDefID determines the definition ID for an update request.
+// It prefers the value from the input; if absent, it fetches the existing record.
+func (h *Handlers) resolveUpdateDefID(ctx context.Context, id int64, input *UpdateIndexerInput) string {
+	if input.DefinitionID != nil {
+		return *input.DefinitionID
+	}
+	existing, err := h.service.Get(ctx, id)
+	if err != nil {
+		return ""
+	}
+	return existing.DefinitionID
+}
+
 // List returns all indexers.
 // GET /api/v1/indexers
 func (h *Handlers) List(c echo.Context) error {
 	indexers, err := h.service.List(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	for _, idx := range indexers {
+		h.redactIndexerSettings(idx)
 	}
 	return c.JSON(http.StatusOK, indexers)
 }
@@ -70,6 +195,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	h.redactIndexerSettings(indexer)
 	return c.JSON(http.StatusOK, indexer)
 }
 
@@ -96,6 +222,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	h.redactIndexerSettings(indexer)
 	return c.JSON(http.StatusCreated, indexer)
 }
 
@@ -112,6 +239,13 @@ func (h *Handlers) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	if len(input.Settings) > 0 {
+		defID := h.resolveUpdateDefID(c.Request().Context(), id, &input)
+		if defID != "" {
+			input.Settings = h.mergeRedactedSettings(c.Request().Context(), id, input.Settings, defID)
+		}
+	}
+
 	indexer, err := h.service.Update(c.Request().Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, ErrIndexerNotFound) {
@@ -122,6 +256,7 @@ func (h *Handlers) Update(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	h.redactIndexerSettings(indexer)
 	return c.JSON(http.StatusOK, indexer)
 }
 

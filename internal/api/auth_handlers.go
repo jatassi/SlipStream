@@ -25,7 +25,7 @@ type AuthStatusResponse struct {
 
 func isLocalRequest(c echo.Context) bool {
 	ip := c.RealIP()
-	return ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "localhost")
+	return ip == "127.0.0.1" || ip == "::1"
 }
 
 // POST /api/v1/auth/setup - First-time admin password setup (local only)

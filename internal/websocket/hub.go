@@ -3,6 +3,7 @@ package websocket
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,7 +30,26 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins in development
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Non-browser clients (curl, etc.)
+		}
+		host := r.Host
+		// Strip scheme from origin: format is scheme://host[:port]
+		originHost := origin
+		if idx := strings.Index(origin, "://"); idx != -1 {
+			originHost = origin[idx+3:]
+		}
+		// Compare hostnames only (ignore port — dev server on :3000 connects to API on :8080)
+		originHostname := originHost
+		if idx := strings.LastIndex(originHost, ":"); idx != -1 {
+			originHostname = originHost[:idx]
+		}
+		requestHostname := host
+		if idx := strings.LastIndex(host, ":"); idx != -1 {
+			requestHostname = host[:idx]
+		}
+		return originHostname == requestHostname
 	},
 }
 
@@ -46,14 +66,15 @@ type DevModePayload struct {
 
 // Hub manages WebSocket connections and broadcasts.
 type Hub struct {
-	clients      map[*Client]bool
-	broadcast    chan []byte
-	register     chan *Client
-	unregister   chan *Client
-	incoming     chan incomingMessage
-	mu           sync.RWMutex
-	onDevModeSet func(enabled bool) error
-	logger       *zerolog.Logger
+	clients       map[*Client]bool
+	broadcast     chan []byte
+	register      chan *Client
+	unregister    chan *Client
+	incoming      chan incomingMessage
+	mu            sync.RWMutex
+	onDevModeSet  func(enabled bool) error
+	validateToken func(token string) error
+	logger        *zerolog.Logger
 }
 
 // Client represents a WebSocket connection.
@@ -86,6 +107,11 @@ func NewHub(logger *zerolog.Logger) *Hub {
 // SetDevModeHandler registers a handler for dev mode toggle messages.
 func (h *Hub) SetDevModeHandler(handler func(enabled bool) error) {
 	h.onDevModeSet = handler
+}
+
+// SetTokenValidator registers a function used to validate the JWT passed during WebSocket upgrade.
+func (h *Hub) SetTokenValidator(validator func(token string) error) {
+	h.validateToken = validator
 }
 
 // Run starts the hub's main loop.
@@ -186,7 +212,23 @@ func (h *Hub) ClientCount() int {
 
 // HandleWebSocket handles WebSocket connection upgrade.
 func (h *Hub) HandleWebSocket(c echo.Context) error {
-	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	// Extract token from Sec-WebSocket-Protocol header (browser WebSocket API limitation:
+	// custom headers aren't supported, so the token is passed via the subprotocol mechanism).
+	token := c.Request().Header.Get("Sec-WebSocket-Protocol")
+	if token == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "missing authentication token")
+	}
+
+	if h.validateToken != nil {
+		if err := h.validateToken(token); err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
+		}
+	}
+
+	// Echo the protocol back so the browser accepts the connection.
+	responseHeader := http.Header{}
+	responseHeader.Set("Sec-WebSocket-Protocol", token)
+	conn, err := upgrader.Upgrade(c.Response(), c.Request(), responseHeader)
 	if err != nil {
 		return err
 	}

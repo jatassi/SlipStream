@@ -11,12 +11,43 @@ import (
 	"github.com/slipstream/slipstream/internal/downloader"
 )
 
+const redactedSentinel = "********"
+
+func redactDownloadClient(client *downloader.DownloadClient) {
+	if client.Password != "" {
+		client.Password = redactedSentinel
+	}
+	if client.APIKey != "" {
+		client.APIKey = redactedSentinel
+	}
+}
+
+func (s *Server) restoreRedactedCredentials(ctx context.Context, id int64, input *downloader.UpdateClientInput) {
+	if input.Password != redactedSentinel && input.APIKey != redactedSentinel {
+		return
+	}
+	existing, err := s.downloaderService.Get(ctx, id)
+	if err != nil {
+		return
+	}
+	if input.Password == redactedSentinel {
+		input.Password = existing.Password
+	}
+	if input.APIKey == redactedSentinel {
+		input.APIKey = existing.APIKey
+	}
+}
+
 func (s *Server) listDownloadClients(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	clients, err := s.downloaderService.List(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	for _, client := range clients {
+		redactDownloadClient(client)
 	}
 
 	return c.JSON(http.StatusOK, clients)
@@ -35,6 +66,7 @@ func (s *Server) addDownloadClient(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	redactDownloadClient(client)
 	return c.JSON(http.StatusCreated, client)
 }
 
@@ -54,6 +86,7 @@ func (s *Server) getDownloadClient(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	redactDownloadClient(client)
 	return c.JSON(http.StatusOK, client)
 }
 
@@ -70,6 +103,8 @@ func (s *Server) updateDownloadClient(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 	}
 
+	s.restoreRedactedCredentials(ctx, id, &input)
+
 	client, err := s.downloaderService.Update(ctx, id, &input)
 	if err != nil {
 		if errors.Is(err, downloader.ErrClientNotFound) {
@@ -78,6 +113,7 @@ func (s *Server) updateDownloadClient(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	redactDownloadClient(client)
 	return c.JSON(http.StatusOK, client)
 }
 

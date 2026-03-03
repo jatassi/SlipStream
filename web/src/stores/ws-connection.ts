@@ -1,3 +1,5 @@
+import { getAdminAuthToken } from '@/api/client'
+
 import type { WebSocketState, WSMessage } from './ws-types'
 import { RECONNECT_DELAY, WS_URL } from './ws-types'
 
@@ -92,6 +94,10 @@ export function createConnect(
     const { socket, reconnecting, lastMessageTime } = get()
     if (reconnecting) {return}
 
+    // Don't connect if there's no admin token — user is not logged in.
+    const token = getAdminAuthToken()
+    if (!token) {return}
+
     if (socket) {
       const alreadyConnected = handleExistingSocket(set, socket, {
         force,
@@ -100,7 +106,9 @@ export function createConnect(
       if (alreadyConnected) {return}
     }
 
-    const ws = new WebSocket(WS_URL)
+    // Pass the token via the Sec-WebSocket-Protocol header (the only way
+    // the browser WebSocket API supports custom headers).
+    const ws = new WebSocket(WS_URL, [token])
     attachListeners(ws, get, set)
     set({ socket: ws, reconnecting: false })
   }
