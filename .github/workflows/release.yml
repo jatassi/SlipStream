@@ -90,6 +90,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -178,61 +180,14 @@ jobs:
           gh release upload "${{ needs.build-frontend.outputs.tag }}" \
             dist/*.zip dist/*.msi --clobber
 
-  # macOS Intel (amd64) - native build with CGO for menu bar
-  build-macos-amd64:
-    needs: build-frontend
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: web/dist
-
-      - name: Build macOS binary (amd64)
-        env:
-          CGO_ENABLED: 1
-          GOOS: darwin
-          GOARCH: amd64
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
-          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
-        run: |
-          VERSION="${{ needs.build-frontend.outputs.version }}"
-          mkdir -p dist/slipstream_darwin_amd64
-          go build -ldflags "-s -w \
-            -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
-            -o dist/slipstream_darwin_amd64/slipstream ./cmd/slipstream
-
-      - name: Create DMG
-        run: |
-          chmod +x scripts/macos/create-dmg.sh
-          ./scripts/macos/create-dmg.sh ${{ needs.build-frontend.outputs.version }} amd64
-
-      - name: Upload to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ needs.build-frontend.outputs.tag }}" \
-            dist/*.dmg --clobber
-
-  # macOS Apple Silicon (arm64) - native build with CGO for menu bar
-  build-macos-arm64:
+  # macOS: Build both architectures on fast arm64 runner
+  build-macos:
     needs: build-frontend
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -246,28 +201,38 @@ jobs:
           name: frontend-dist
           path: web/dist
 
-      - name: Build macOS binary (arm64)
+      - name: Build macOS binaries
         env:
           CGO_ENABLED: 1
           GOOS: darwin
-          GOARCH: arm64
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
           VERSION="${{ needs.build-frontend.outputs.version }}"
-          mkdir -p dist/slipstream_darwin_arm64
-          go build -ldflags "-s -w \
+          LDFLAGS="-s -w \
             -X 'github.com/slipstream/slipstream/internal/config.Version=${VERSION}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTMDBKey=${TMDB_API_KEY}' \
             -X 'github.com/slipstream/slipstream/internal/config.EmbeddedTVDBKey=${TVDB_API_KEY}' \
-            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'" \
-            -o dist/slipstream_darwin_arm64/slipstream ./cmd/slipstream
+            -X 'github.com/slipstream/slipstream/internal/config.EmbeddedOMDBKey=${OMDB_API_KEY}'"
 
-      - name: Create DMG
+          mkdir -p dist/slipstream_darwin_arm64 dist/slipstream_darwin_amd64
+
+          # Native arm64 build
+          GOARCH=arm64 go build -ldflags "$LDFLAGS" \
+            -o dist/slipstream_darwin_arm64/slipstream ./cmd/slipstream &
+
+          # Cross-compile amd64 from arm64
+          CC="clang -arch x86_64" GOARCH=amd64 go build -ldflags "$LDFLAGS" \
+            -o dist/slipstream_darwin_amd64/slipstream ./cmd/slipstream &
+
+          wait
+
+      - name: Create DMGs
         run: |
           chmod +x scripts/macos/create-dmg.sh
           ./scripts/macos/create-dmg.sh ${{ needs.build-frontend.outputs.version }} arm64
+          ./scripts/macos/create-dmg.sh ${{ needs.build-frontend.outputs.version }} amd64
 
       - name: Upload to GitHub Release
         env:
@@ -282,6 +247,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -303,6 +270,10 @@ jobs:
           TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: |
+          # Install FUSE in background (needed later for AppImage)
+          (sudo apt-get update -qq && sudo apt-get install -y -qq fuse libfuse2) &
+          FUSE_PID=$!
+
           VERSION="${{ needs.build-frontend.outputs.version }}"
           mkdir -p dist/slipstream_linux_amd64 dist/slipstream_linux_arm64
           LDFLAGS="-s -w \
@@ -316,6 +287,9 @@ jobs:
           GOARCH=amd64 go build -ldflags "-s -w" -o dist/slipstream_linux_amd64/slipstream-stub ./cmd/stub &
           GOARCH=arm64 go build -ldflags "-s -w" -o dist/slipstream_linux_arm64/slipstream-stub ./cmd/stub &
           wait
+
+          # Ensure FUSE is installed before AppImage step
+          wait $FUSE_PID
 
       - name: Create portable tarballs
         run: |
@@ -404,11 +378,6 @@ jobs:
           nfpm package -p rpm -f nfpm-amd64.yaml -t dist/
           nfpm package -p rpm -f nfpm-arm64.yaml -t dist/
 
-      - name: Install FUSE (required for AppImage)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fuse libfuse2
-
       - name: Cache appimagetool
         id: cache-appimagetool
         uses: actions/cache@v4
@@ -432,4 +401,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ needs.build-frontend.outputs.tag }}" \
-            dist/*.deb dist/*.rpm dist/*.AppImage --clobber
+            dist/*.tar.gz dist/*.deb dist/*.rpm dist/*.AppImage --clobber
