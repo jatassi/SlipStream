@@ -53,8 +53,8 @@ func (s *Service) CreateDownloadMapping(ctx context.Context, input CreateDownloa
 	params := sqlc.CreateDownloadMappingParams{
 		ClientID:         input.ClientID,
 		DownloadID:       input.DownloadID,
-		IsSeasonPack:     boolToInt64(input.IsSeasonPack),
-		IsCompleteSeries: boolToInt64(input.IsCompleteSeries),
+		IsSeasonPack:     input.IsSeasonPack,
+		IsCompleteSeries: input.IsCompleteSeries,
 	}
 
 	if input.MovieID != nil {

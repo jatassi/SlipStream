@@ -32,10 +32,10 @@ type CreateUserNotificationParams struct {
 	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Settings    string `json:"settings"`
-	OnAvailable int64  `json:"on_available"`
-	OnApproved  int64  `json:"on_approved"`
-	OnDenied    int64  `json:"on_denied"`
-	Enabled     int64  `json:"enabled"`
+	OnAvailable bool   `json:"on_available"`
+	OnApproved  bool   `json:"on_approved"`
+	OnDenied    bool   `json:"on_denied"`
+	Enabled     bool   `json:"enabled"`
 }
 
 func (q *Queries) CreateUserNotification(ctx context.Context, arg CreateUserNotificationParams) (*UserNotification, error) {
@@ -330,10 +330,10 @@ type UpdateUserNotificationParams struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Settings    string `json:"settings"`
-	OnAvailable int64  `json:"on_available"`
-	OnApproved  int64  `json:"on_approved"`
-	OnDenied    int64  `json:"on_denied"`
-	Enabled     int64  `json:"enabled"`
+	OnAvailable bool   `json:"on_available"`
+	OnApproved  bool   `json:"on_approved"`
+	OnDenied    bool   `json:"on_denied"`
+	Enabled     bool   `json:"enabled"`
 	ID          int64  `json:"id"`
 }
 

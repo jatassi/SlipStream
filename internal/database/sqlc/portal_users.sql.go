@@ -85,8 +85,8 @@ type CreatePortalUserParams struct {
 	PasswordHash          string        `json:"password_hash"`
 	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
 	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
-	AutoApprove           int64         `json:"auto_approve"`
-	Enabled               int64         `json:"enabled"`
+	AutoApprove           bool          `json:"auto_approve"`
+	Enabled               bool          `json:"enabled"`
 }
 
 func (q *Queries) CreatePortalUser(ctx context.Context, arg CreatePortalUserParams) (*PortalUser, error) {
@@ -127,9 +127,9 @@ type CreatePortalUserWithIDParams struct {
 	PasswordHash          string        `json:"password_hash"`
 	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
 	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
-	AutoApprove           int64         `json:"auto_approve"`
-	Enabled               int64         `json:"enabled"`
-	IsAdmin               int64         `json:"is_admin"`
+	AutoApprove           bool          `json:"auto_approve"`
+	Enabled               bool          `json:"enabled"`
+	IsAdmin               bool          `json:"is_admin"`
 }
 
 // Used for copying users to dev database while preserving IDs
@@ -362,7 +362,7 @@ RETURNING id, username, password_hash, auto_approve, enabled, created_at, update
 `
 
 type UpdatePortalUserAutoApproveParams struct {
-	AutoApprove int64 `json:"auto_approve"`
+	AutoApprove bool  `json:"auto_approve"`
 	ID          int64 `json:"id"`
 }
 
@@ -393,7 +393,7 @@ RETURNING id, username, password_hash, auto_approve, enabled, created_at, update
 `
 
 type UpdatePortalUserEnabledParams struct {
-	Enabled int64 `json:"enabled"`
+	Enabled bool  `json:"enabled"`
 	ID      int64 `json:"id"`
 }
 

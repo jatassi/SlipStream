@@ -55,8 +55,8 @@ type CreateDownloadMappingParams struct {
 	SeriesID         sql.NullInt64 `json:"series_id"`
 	SeasonNumber     sql.NullInt64 `json:"season_number"`
 	EpisodeID        sql.NullInt64 `json:"episode_id"`
-	IsSeasonPack     int64         `json:"is_season_pack"`
-	IsCompleteSeries int64         `json:"is_complete_series"`
+	IsSeasonPack     bool          `json:"is_season_pack"`
+	IsCompleteSeries bool          `json:"is_complete_series"`
 	TargetSlotID     sql.NullInt64 `json:"target_slot_id"`
 	Source           string        `json:"source"`
 }
@@ -301,8 +301,8 @@ type GetDownloadingSeriesDataRow struct {
 	SeriesID         sql.NullInt64 `json:"series_id"`
 	SeasonNumber     sql.NullInt64 `json:"season_number"`
 	EpisodeID        sql.NullInt64 `json:"episode_id"`
-	IsSeasonPack     int64         `json:"is_season_pack"`
-	IsCompleteSeries int64         `json:"is_complete_series"`
+	IsSeasonPack     bool          `json:"is_season_pack"`
+	IsCompleteSeries bool          `json:"is_complete_series"`
 }
 
 func (q *Queries) GetDownloadingSeriesData(ctx context.Context) ([]*GetDownloadingSeriesDataRow, error) {

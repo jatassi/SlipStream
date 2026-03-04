@@ -238,7 +238,7 @@ type CreateEpisodeSlotAssignmentParams struct {
 	EpisodeID int64         `json:"episode_id"`
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	Status    string        `json:"status"`
 }
 
@@ -276,7 +276,7 @@ type CreateMovieSlotAssignmentParams struct {
 	MovieID   int64         `json:"movie_id"`
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	Status    string        `json:"status"`
 }
 
@@ -727,7 +727,7 @@ type ListEnabledVersionSlotsWithProfilesRow struct {
 	ID                          int64          `json:"id"`
 	SlotNumber                  int64          `json:"slot_number"`
 	Name                        string         `json:"name"`
-	Enabled                     int64          `json:"enabled"`
+	Enabled                     bool           `json:"enabled"`
 	QualityProfileID            sql.NullInt64  `json:"quality_profile_id"`
 	DisplayOrder                int64          `json:"display_order"`
 	CreatedAt                   sql.NullTime   `json:"created_at"`
@@ -951,7 +951,7 @@ type ListEpisodeSlotAssignmentsRow struct {
 	EpisodeID        int64          `json:"episode_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1013,7 +1013,7 @@ type ListEpisodeSlotAssignmentsForSlotRow struct {
 	EpisodeID        int64          `json:"episode_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1125,7 +1125,7 @@ type ListEpisodeSlotsNeedingSearchRow struct {
 	EpisodeID        int64          `json:"episode_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1451,7 +1451,7 @@ type ListMovieSlotAssignmentsRow struct {
 	MovieID          int64          `json:"movie_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1512,7 +1512,7 @@ type ListMovieSlotAssignmentsForSlotRow struct {
 	MovieID          int64          `json:"movie_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1619,7 +1619,7 @@ type ListMovieSlotsNeedingSearchRow struct {
 	MovieID          int64          `json:"movie_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -1789,7 +1789,7 @@ type ListVersionSlotsWithProfilesRow struct {
 	ID                          int64          `json:"id"`
 	SlotNumber                  int64          `json:"slot_number"`
 	Name                        string         `json:"name"`
-	Enabled                     int64          `json:"enabled"`
+	Enabled                     bool           `json:"enabled"`
 	QualityProfileID            sql.NullInt64  `json:"quality_profile_id"`
 	DisplayOrder                int64          `json:"display_order"`
 	CreatedAt                   sql.NullTime   `json:"created_at"`
@@ -1857,7 +1857,7 @@ WHERE id = 1
 RETURNING id, enabled, dry_run_completed, last_migration_at, created_at, updated_at
 `
 
-func (q *Queries) SetDryRunCompleted(ctx context.Context, dryRunCompleted int64) (*MultiVersionSetting, error) {
+func (q *Queries) SetDryRunCompleted(ctx context.Context, dryRunCompleted bool) (*MultiVersionSetting, error) {
 	row := q.db.QueryRowContext(ctx, setDryRunCompleted, dryRunCompleted)
 	var i MultiVersionSetting
 	err := row.Scan(
@@ -1879,7 +1879,7 @@ WHERE id = 1
 RETURNING id, enabled, dry_run_completed, last_migration_at, created_at, updated_at
 `
 
-func (q *Queries) SetMultiVersionEnabled(ctx context.Context, enabled int64) (*MultiVersionSetting, error) {
+func (q *Queries) SetMultiVersionEnabled(ctx context.Context, enabled bool) (*MultiVersionSetting, error) {
 	row := q.db.QueryRowContext(ctx, setMultiVersionEnabled, enabled)
 	var i MultiVersionSetting
 	err := row.Scan(
@@ -1972,7 +1972,7 @@ RETURNING id, episode_id, slot_id, file_id, monitored, created_at, updated_at, s
 
 type UpdateEpisodeSlotAssignmentParams struct {
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	EpisodeID int64         `json:"episode_id"`
 	SlotID    int64         `json:"slot_id"`
 }
@@ -2026,7 +2026,7 @@ WHERE episode_id = ? AND slot_id = ?
 `
 
 type UpdateEpisodeSlotMonitoredParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	EpisodeID int64 `json:"episode_id"`
 	SlotID    int64 `json:"slot_id"`
 }
@@ -2126,7 +2126,7 @@ RETURNING id, movie_id, slot_id, file_id, monitored, created_at, updated_at, sta
 
 type UpdateMovieSlotAssignmentParams struct {
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	MovieID   int64         `json:"movie_id"`
 	SlotID    int64         `json:"slot_id"`
 }
@@ -2180,7 +2180,7 @@ WHERE movie_id = ? AND slot_id = ?
 `
 
 type UpdateMovieSlotMonitoredParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	MovieID   int64 `json:"movie_id"`
 	SlotID    int64 `json:"slot_id"`
 }
@@ -2247,8 +2247,8 @@ RETURNING id, enabled, dry_run_completed, last_migration_at, created_at, updated
 `
 
 type UpdateMultiVersionSettingsParams struct {
-	Enabled         int64        `json:"enabled"`
-	DryRunCompleted int64        `json:"dry_run_completed"`
+	Enabled         bool         `json:"enabled"`
+	DryRunCompleted bool         `json:"dry_run_completed"`
 	LastMigrationAt sql.NullTime `json:"last_migration_at"`
 }
 
@@ -2281,7 +2281,7 @@ RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, cre
 
 type UpdateVersionSlotParams struct {
 	Name              string        `json:"name"`
-	Enabled           int64         `json:"enabled"`
+	Enabled           bool          `json:"enabled"`
 	QualityProfileID  sql.NullInt64 `json:"quality_profile_id"`
 	DisplayOrder      int64         `json:"display_order"`
 	MovieRootFolderID sql.NullInt64 `json:"movie_root_folder_id"`
@@ -2324,7 +2324,7 @@ RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, cre
 `
 
 type UpdateVersionSlotEnabledParams struct {
-	Enabled int64 `json:"enabled"`
+	Enabled bool  `json:"enabled"`
 	ID      int64 `json:"id"`
 }
 
@@ -2456,7 +2456,7 @@ type UpsertEpisodeSlotAssignmentParams struct {
 	EpisodeID int64         `json:"episode_id"`
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	Status    string        `json:"status"`
 }
 
@@ -2499,7 +2499,7 @@ type UpsertMovieSlotAssignmentParams struct {
 	MovieID   int64         `json:"movie_id"`
 	SlotID    int64         `json:"slot_id"`
 	FileID    sql.NullInt64 `json:"file_id"`
-	Monitored int64         `json:"monitored"`
+	Monitored bool          `json:"monitored"`
 	Status    string        `json:"status"`
 }
 

@@ -229,13 +229,13 @@ func (s *Service) applyMonitoringType(ctx context.Context, seriesID int64, monit
 
 func (s *Service) applyMonitorNone(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return err
 	}
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return err
@@ -270,40 +270,40 @@ func (s *Service) applyMonitorLatestSeason(ctx context.Context, seriesID int64) 
 
 func (s *Service) applyMonitorFuture(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return err
 	}
 	return s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
-		Monitored: 1,
+		Monitored: true,
 		SeriesID:  seriesID,
 	})
 }
 
 func (s *Service) unmonitorAll(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return err
 	}
 	return s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	})
 }
 
 func (s *Service) monitorSeason(ctx context.Context, seriesID, seasonNumber int64) error {
 	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    1,
+		Monitored:    true,
 		SeriesID:     seriesID,
 		SeasonNumber: seasonNumber,
 	}); err != nil {
 		return err
 	}
 	return s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-		Monitored:    1,
+		Monitored:    true,
 		SeriesID:     seriesID,
 		SeasonNumber: seasonNumber,
 	})
@@ -324,14 +324,14 @@ func (s *Service) extractSeasonNumber(latestSeasonVal any) int64 {
 
 func (s *Service) unmonitorSpecials(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    0,
+		Monitored:    false,
 		SeriesID:     seriesID,
 		SeasonNumber: 0,
 	}); err != nil {
 		return err
 	}
 	return s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-		Monitored:    0,
+		Monitored:    false,
 		SeriesID:     seriesID,
 		SeasonNumber: 0,
 	})

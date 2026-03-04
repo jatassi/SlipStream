@@ -29,7 +29,7 @@ func TestRefreshMovies_UnreleasedToMissing(t *testing.T) {
 		Title:       "Past Movie",
 		SortTitle:   "Past Movie",
 		Status:      "unreleased",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: pastDate, Valid: true},
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func TestRefreshMovies_SameDayRelease(t *testing.T) {
 		Title:       "Today Movie",
 		SortTitle:   "Today Movie",
 		Status:      "unreleased",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: today, Valid: true},
 	})
 	if err != nil {
@@ -95,7 +95,7 @@ func TestRefreshMovies_FutureNotChanged(t *testing.T) {
 		Title:       "Future Movie",
 		SortTitle:   "Future Movie",
 		Status:      "unreleased",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: futureDate, Valid: true},
 	})
 	if err != nil {
@@ -129,7 +129,7 @@ func TestRefreshMovies_OnlyAffectsUnreleased(t *testing.T) {
 		Title:       "Available Movie",
 		SortTitle:   "Available Movie",
 		Status:      "available",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: pastDate, Valid: true},
 	})
 	if err != nil {
@@ -141,7 +141,7 @@ func TestRefreshMovies_OnlyAffectsUnreleased(t *testing.T) {
 		Title:       "Downloading Movie",
 		SortTitle:   "Downloading Movie",
 		Status:      "downloading",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: pastDate, Valid: true},
 	})
 	if err != nil {
@@ -171,7 +171,7 @@ func TestRefreshMovies_NoReleaseDateNotChanged(t *testing.T) {
 		Title:     "No Date Movie",
 		SortTitle: "No Date Movie",
 		Status:    "unreleased",
-		Monitored: 1,
+		Monitored: true,
 	})
 	if err != nil {
 		t.Fatalf("CreateMovie error = %v", err)
@@ -202,12 +202,12 @@ func TestRefreshEpisodes_UnreleasedToMissing(t *testing.T) {
 		Title:            "Test Series",
 		SortTitle:        "Test Series",
 		ProductionStatus: "continuing",
-		Monitored:        1,
+		Monitored:        true,
 	})
 	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 
 	pastDate := time.Now().AddDate(0, 0, -7)
@@ -218,7 +218,7 @@ func TestRefreshEpisodes_UnreleasedToMissing(t *testing.T) {
 		Title:         sql.NullString{String: "Past Episode", Valid: true},
 		Status:        "unreleased",
 		AirDate:       sql.NullTime{Time: pastDate, Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 	})
 	if err != nil {
 		t.Fatalf("CreateEpisode error = %v", err)
@@ -247,12 +247,12 @@ func TestRefreshEpisodes_FutureNotChanged(t *testing.T) {
 		Title:            "Test Series",
 		SortTitle:        "Test Series",
 		ProductionStatus: "continuing",
-		Monitored:        1,
+		Monitored:        true,
 	})
 	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 
 	futureDate := time.Now().AddDate(0, 0, 7)
@@ -263,7 +263,7 @@ func TestRefreshEpisodes_FutureNotChanged(t *testing.T) {
 		Title:         sql.NullString{String: "Future Episode", Valid: true},
 		Status:        "unreleased",
 		AirDate:       sql.NullTime{Time: futureDate, Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 	})
 	if err != nil {
 		t.Fatalf("CreateEpisode error = %v", err)
@@ -292,12 +292,12 @@ func TestRefreshEpisodes_OnlyAffectsUnreleased(t *testing.T) {
 		Title:            "Test Series",
 		SortTitle:        "Test Series",
 		ProductionStatus: "continuing",
-		Monitored:        1,
+		Monitored:        true,
 	})
 	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 
 	pastDate := time.Now().AddDate(0, 0, -7)
@@ -310,7 +310,7 @@ func TestRefreshEpisodes_OnlyAffectsUnreleased(t *testing.T) {
 		Title:         sql.NullString{String: "Available Episode", Valid: true},
 		Status:        "available",
 		AirDate:       sql.NullTime{Time: pastDate, Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 	})
 
 	updated, err := service.RefreshEpisodes(ctx)
@@ -339,7 +339,7 @@ func TestRefreshAll_BothMoviesAndEpisodes(t *testing.T) {
 		Title:       "Past Movie",
 		SortTitle:   "Past Movie",
 		Status:      "unreleased",
-		Monitored:   1,
+		Monitored:   true,
 		ReleaseDate: sql.NullTime{Time: pastDate, Valid: true},
 	})
 
@@ -348,12 +348,12 @@ func TestRefreshAll_BothMoviesAndEpisodes(t *testing.T) {
 		Title:            "Test Series",
 		SortTitle:        "Test Series",
 		ProductionStatus: "continuing",
-		Monitored:        1,
+		Monitored:        true,
 	})
 	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 	_, _ = queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 		SeriesID:      series.ID,
@@ -361,7 +361,7 @@ func TestRefreshAll_BothMoviesAndEpisodes(t *testing.T) {
 		EpisodeNumber: 1,
 		Status:        "unreleased",
 		AirDate:       sql.NullTime{Time: pastDate, Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 	})
 
 	err := service.RefreshAll(ctx)

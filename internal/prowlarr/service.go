@@ -110,13 +110,13 @@ func (s *Service) UpdateConfig(ctx context.Context, input *ConfigInput) (*Config
 	tvCats, _ := json.Marshal(input.TVCategories)
 
 	row, err := s.queries.UpdateProwlarrConfig(ctx, sqlc.UpdateProwlarrConfigParams{
-		Enabled:         boolToInt64(input.Enabled),
+		Enabled:         input.Enabled,
 		Url:             input.URL,
 		ApiKey:          input.APIKey,
 		MovieCategories: string(movieCats),
 		TvCategories:    string(tvCats),
 		Timeout:         int64(input.Timeout),
-		SkipSslVerify:   boolToInt64(input.SkipSSLVerify),
+		SkipSslVerify:   input.SkipSSLVerify,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update prowlarr config: %w", err)
@@ -164,7 +164,7 @@ func (s *Service) SetEnabled(ctx context.Context, enabled bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.queries.SetProwlarrEnabled(ctx, boolToInt64(enabled)); err != nil {
+	if err := s.queries.SetProwlarrEnabled(ctx, enabled); err != nil {
 		return fmt.Errorf("failed to set prowlarr enabled: %w", err)
 	}
 
@@ -611,11 +611,11 @@ func (s *Service) setSearchCache(key string, results []types.TorrentInfo) {
 func (s *Service) rowToConfig(row *sqlc.ProwlarrConfig) *Config {
 	config := &Config{
 		ID:            row.ID,
-		Enabled:       row.Enabled != 0,
+		Enabled:       row.Enabled,
 		URL:           row.Url,
 		APIKey:        row.ApiKey,
 		Timeout:       int(row.Timeout),
-		SkipSSLVerify: row.SkipSslVerify != 0,
+		SkipSSLVerify: row.SkipSslVerify,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -649,13 +649,6 @@ func (s *Service) rowToConfig(row *sqlc.ProwlarrConfig) *Config {
 	}
 
 	return config
-}
-
-func boolToInt64(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // GetIndexerSettings returns settings for a specific Prowlarr indexer.

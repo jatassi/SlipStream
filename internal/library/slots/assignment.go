@@ -297,7 +297,7 @@ func buildSlotWithProfile(row *sqlc.ListEnabledVersionSlotsWithProfilesRow) *Slo
 			ID:           row.ID,
 			SlotNumber:   int(row.SlotNumber),
 			Name:         row.Name,
-			Enabled:      row.Enabled != 0,
+			Enabled:      row.Enabled,
 			DisplayOrder: int(row.DisplayOrder),
 		},
 	}
@@ -352,7 +352,7 @@ func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaI
 			MovieID:   mediaID,
 			SlotID:    slotID,
 			FileID:    sql.NullInt64{Int64: fileID, Valid: true},
-			Monitored: 1,
+			Monitored: true,
 		})
 		if err != nil {
 			return err
@@ -368,7 +368,7 @@ func (s *Service) AssignFileToSlot(ctx context.Context, mediaType string, mediaI
 			EpisodeID: mediaID,
 			SlotID:    slotID,
 			FileID:    sql.NullInt64{Int64: fileID, Valid: true},
-			Monitored: 1,
+			Monitored: true,
 		})
 		if err != nil {
 			return err
@@ -414,7 +414,7 @@ func (s *Service) GetMovieSlotAssignments(ctx context.Context, movieID int64) ([
 			MovieID:          row.MovieID,
 			SlotID:           row.SlotID,
 			FileID:           row.FileID,
-			Monitored:        row.Monitored != 0,
+			Monitored:        row.Monitored,
 			Status:           row.Status,
 			SlotName:         row.SlotName,
 			SlotNumber:       int(row.SlotNumber),
@@ -439,7 +439,7 @@ func (s *Service) GetEpisodeSlotAssignments(ctx context.Context, episodeID int64
 			EpisodeID:        row.EpisodeID,
 			SlotID:           row.SlotID,
 			FileID:           row.FileID,
-			Monitored:        row.Monitored != 0,
+			Monitored:        row.Monitored,
 			Status:           row.Status,
 			SlotName:         row.SlotName,
 			SlotNumber:       int(row.SlotNumber),

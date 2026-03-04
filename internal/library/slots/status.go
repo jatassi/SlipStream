@@ -225,11 +225,6 @@ func (s *Service) GetEpisodeStatus(ctx context.Context, episodeID int64) (*Media
 // Req 8.1.1: Each slot has its own monitored toggle per movie/episode
 // Req 8.1.2: A slot can be monitored independently
 func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaID, slotID int64, monitored bool) error {
-	monitoredVal := int64(0)
-	if monitored {
-		monitoredVal = 1
-	}
-
 	switch mediaType {
 	case mediaTypeMovie:
 		// Check if assignment exists
@@ -243,7 +238,7 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 					MovieID:   mediaID,
 					SlotID:    slotID,
 					FileID:    sql.NullInt64{},
-					Monitored: monitoredVal,
+					Monitored: monitored,
 					Status:    "missing",
 				})
 				return err
@@ -252,7 +247,7 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 		}
 
 		return s.queries.UpdateMovieSlotMonitored(ctx, sqlc.UpdateMovieSlotMonitoredParams{
-			Monitored: monitoredVal,
+			Monitored: monitored,
 			MovieID:   mediaID,
 			SlotID:    slotID,
 		})
@@ -267,7 +262,7 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 					EpisodeID: mediaID,
 					SlotID:    slotID,
 					FileID:    sql.NullInt64{},
-					Monitored: monitoredVal,
+					Monitored: monitored,
 					Status:    "missing",
 				})
 				return err
@@ -276,7 +271,7 @@ func (s *Service) SetSlotMonitored(ctx context.Context, mediaType string, mediaI
 		}
 
 		return s.queries.UpdateEpisodeSlotMonitored(ctx, sqlc.UpdateEpisodeSlotMonitoredParams{
-			Monitored: monitoredVal,
+			Monitored: monitored,
 			EpisodeID: mediaID,
 			SlotID:    slotID,
 		})
@@ -333,7 +328,7 @@ func (s *Service) initializeMovieSlot(ctx context.Context, movieID, slotID int64
 			MovieID:   movieID,
 			SlotID:    slotID,
 			FileID:    sql.NullInt64{},
-			Monitored: 1,
+			Monitored: true,
 			Status:    "missing",
 		})
 		if err != nil {
@@ -353,7 +348,7 @@ func (s *Service) initializeEpisodeSlot(ctx context.Context, episodeID, slotID i
 			EpisodeID: episodeID,
 			SlotID:    slotID,
 			FileID:    sql.NullInt64{},
-			Monitored: 1,
+			Monitored: true,
 			Status:    "missing",
 		})
 		if err != nil {

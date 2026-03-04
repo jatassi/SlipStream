@@ -51,9 +51,9 @@ const isProwlarrEnabled = `-- name: IsProwlarrEnabled :one
 SELECT enabled FROM prowlarr_config WHERE id = 1 LIMIT 1
 `
 
-func (q *Queries) IsProwlarrEnabled(ctx context.Context) (int64, error) {
+func (q *Queries) IsProwlarrEnabled(ctx context.Context) (bool, error) {
 	row := q.db.QueryRowContext(ctx, isProwlarrEnabled)
-	var enabled int64
+	var enabled bool
 	err := row.Scan(&enabled)
 	return enabled, err
 }
@@ -65,7 +65,7 @@ UPDATE prowlarr_config SET
 WHERE id = 1
 `
 
-func (q *Queries) SetProwlarrEnabled(ctx context.Context, enabled int64) error {
+func (q *Queries) SetProwlarrEnabled(ctx context.Context, enabled bool) error {
 	_, err := q.db.ExecContext(ctx, setProwlarrEnabled, enabled)
 	return err
 }
@@ -85,13 +85,13 @@ RETURNING id, enabled, url, api_key, movie_categories, tv_categories, timeout, s
 `
 
 type UpdateProwlarrConfigParams struct {
-	Enabled         int64  `json:"enabled"`
+	Enabled         bool   `json:"enabled"`
 	Url             string `json:"url"`
 	ApiKey          string `json:"api_key"`
 	MovieCategories string `json:"movie_categories"`
 	TvCategories    string `json:"tv_categories"`
 	Timeout         int64  `json:"timeout"`
-	SkipSslVerify   int64  `json:"skip_ssl_verify"`
+	SkipSslVerify   bool   `json:"skip_ssl_verify"`
 }
 
 func (q *Queries) UpdateProwlarrConfig(ctx context.Context, arg UpdateProwlarrConfigParams) (*ProwlarrConfig, error) {

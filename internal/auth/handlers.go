@@ -209,7 +209,7 @@ func (h *Handlers) handleAdminLogin(c echo.Context, password string) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 	}
 
-	if dbAdmin.Enabled == 0 {
+	if !dbAdmin.Enabled {
 		return echo.NewHTTPError(http.StatusForbidden, "account is disabled")
 	}
 

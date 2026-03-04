@@ -10,3 +10,113 @@ sql:
         emit_json_tags: true
         emit_empty_slices: true
         emit_result_struct_pointers: true
+        overrides:
+          # download_clients
+          - column: "download_clients.use_ssl"
+            go_type: "bool"
+          - column: "download_clients.enabled"
+            go_type: "bool"
+          # download_mappings
+          - column: "download_mappings.is_season_pack"
+            go_type: "bool"
+          - column: "download_mappings.is_complete_series"
+            go_type: "bool"
+          # episodes
+          - column: "episodes.monitored"
+            go_type: "bool"
+          # episode_slot_assignments
+          - column: "episode_slot_assignments.monitored"
+            go_type: "bool"
+          # indexer_history
+          - column: "indexer_history.successful"
+            go_type: "bool"
+          # indexers
+          - column: "indexers.supports_movies"
+            go_type: "bool"
+          - column: "indexers.supports_tv"
+            go_type: "bool"
+          - column: "indexers.enabled"
+            go_type: "bool"
+          - column: "indexers.auto_search_enabled"
+            go_type: "bool"
+          - column: "indexers.rss_enabled"
+            go_type: "bool"
+          # movies
+          - column: "movies.monitored"
+            go_type: "bool"
+          # movie_slot_assignments
+          - column: "movie_slot_assignments.monitored"
+            go_type: "bool"
+          # multi_version_settings
+          - column: "multi_version_settings.enabled"
+            go_type: "bool"
+          - column: "multi_version_settings.dry_run_completed"
+            go_type: "bool"
+          # notifications
+          - column: "notifications.enabled"
+            go_type: "bool"
+          - column: "notifications.on_grab"
+            go_type: "bool"
+          - column: "notifications.on_import"
+            go_type: "bool"
+          - column: "notifications.on_upgrade"
+            go_type: "bool"
+          - column: "notifications.on_movie_added"
+            go_type: "bool"
+          - column: "notifications.on_movie_deleted"
+            go_type: "bool"
+          - column: "notifications.on_series_added"
+            go_type: "bool"
+          - column: "notifications.on_series_deleted"
+            go_type: "bool"
+          - column: "notifications.on_health_issue"
+            go_type: "bool"
+          - column: "notifications.on_health_restored"
+            go_type: "bool"
+          - column: "notifications.on_app_update"
+            go_type: "bool"
+          - column: "notifications.include_health_warnings"
+            go_type: "bool"
+          # portal_invitations
+          - column: "portal_invitations.auto_approve"
+            go_type: "bool"
+          # portal_notifications
+          - column: "portal_notifications.read"
+            go_type: "bool"
+          # portal_users
+          - column: "portal_users.auto_approve"
+            go_type: "bool"
+          - column: "portal_users.enabled"
+            go_type: "bool"
+          - column: "portal_users.is_admin"
+            go_type: "bool"
+          # prowlarr_config
+          - column: "prowlarr_config.enabled"
+            go_type: "bool"
+          - column: "prowlarr_config.skip_ssl_verify"
+            go_type: "bool"
+          # quality_profiles
+          - column: "quality_profiles.upgrades_enabled"
+            go_type: "bool"
+          - column: "quality_profiles.allow_auto_approve"
+            go_type: "bool"
+          # seasons
+          - column: "seasons.monitored"
+            go_type: "bool"
+          # series
+          - column: "series.monitored"
+            go_type: "bool"
+          - column: "series.season_folder"
+            go_type: "bool"
+          # user_notifications
+          - column: "user_notifications.on_available"
+            go_type: "bool"
+          - column: "user_notifications.enabled"
+            go_type: "bool"
+          - column: "user_notifications.on_approved"
+            go_type: "bool"
+          - column: "user_notifications.on_denied"
+            go_type: "bool"
+          # version_slots
+          - column: "version_slots.enabled"
+            go_type: "bool"

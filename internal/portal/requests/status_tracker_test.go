@@ -45,7 +45,7 @@ func createTestUser(t *testing.T, queries *sqlc.Queries) int64 {
 	user, err := queries.CreatePortalUser(context.Background(), sqlc.CreatePortalUserParams{
 		Username:     "testuser",
 		PasswordHash: "fakehash",
-		Enabled:      1,
+		Enabled:      true,
 	})
 	if err != nil {
 		t.Fatalf("CreatePortalUser error = %v", err)
@@ -366,7 +366,7 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 	ep1, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 		SeriesID:      series.ID,
@@ -374,7 +374,7 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 		EpisodeNumber: 1,
 		Title:         sql.NullString{String: "Ep1", Valid: true},
 		Status:        "failed",
-		Monitored:     1,
+		Monitored:     true,
 	})
 	ep2, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
 		SeriesID:      series.ID,
@@ -382,7 +382,7 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 		EpisodeNumber: 2,
 		Title:         sql.NullString{String: "Ep2", Valid: true},
 		Status:        "missing",
-		Monitored:     1,
+		Monitored:     true,
 	})
 
 	tvdbID := int64(5000)

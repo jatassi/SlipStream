@@ -240,13 +240,13 @@ func (s *Service) applyRequestedSeasonsMonitoringAdditive(ctx context.Context, s
 
 func (s *Service) applyMonitorFuture(ctx context.Context, seriesID int64) {
 	if err := s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
-		Monitored: 1,
+		Monitored: true,
 		SeriesID:  seriesID,
 	}); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesID", seriesID).Msg("failed to monitor future episodes")
 	}
 	if err := s.queries.UpdateFutureSeasonsMonitored(ctx, sqlc.UpdateFutureSeasonsMonitoredParams{
-		Monitored:  1,
+		Monitored:  true,
 		SeriesID:   seriesID,
 		SeriesID_2: seriesID,
 	}); err != nil {

@@ -185,8 +185,8 @@ func populateQueueItemFromMapping(item *QueueItem, mapping *sqlc.DownloadMapping
 		episodeID := mapping.EpisodeID.Int64
 		item.EpisodeID = &episodeID
 	}
-	item.IsSeasonPack = mapping.IsSeasonPack == 1
-	item.IsCompleteSeries = mapping.IsCompleteSeries == 1
+	item.IsSeasonPack = mapping.IsSeasonPack
+	item.IsCompleteSeries = mapping.IsCompleteSeries
 }
 
 func populateQueueItemSlot(item *QueueItem, mapping *sqlc.DownloadMapping, slotLookup map[int64]string) {

@@ -59,7 +59,7 @@ func (e *testEnv) createMovie(t *testing.T, title string, tmdbID, year int64, st
 		Year:             sql.NullInt64{Int64: year, Valid: true},
 		TmdbID:           sql.NullInt64{Int64: tmdbID, Valid: true},
 		QualityProfileID: sql.NullInt64{Int64: e.profileID, Valid: true},
-		Monitored:        1,
+		Monitored:        true,
 		Status:           status,
 	})
 	if err != nil {
@@ -88,8 +88,8 @@ func (e *testEnv) createSeries(t *testing.T, title string, tvdbID int64, prodSta
 		SortTitle:        title,
 		TvdbID:           sql.NullInt64{Int64: tvdbID, Valid: true},
 		QualityProfileID: sql.NullInt64{Int64: e.profileID, Valid: true},
-		Monitored:        1,
-		SeasonFolder:     1,
+		Monitored:        true,
+		SeasonFolder:     true,
 		ProductionStatus: prodStatus,
 	})
 	if err != nil {
@@ -103,7 +103,7 @@ func (e *testEnv) createSeason(t *testing.T, seriesID, seasonNum int64) {
 	_, err := e.queries.CreateSeason(context.Background(), sqlc.CreateSeasonParams{
 		SeriesID:     seriesID,
 		SeasonNumber: seasonNum,
-		Monitored:    1,
+		Monitored:    true,
 	})
 	if err != nil {
 		t.Fatalf("create season S%02d: %v", seasonNum, err)
@@ -117,7 +117,7 @@ func (e *testEnv) createEpisode(t *testing.T, seriesID, season, episode int64, s
 		SeasonNumber:  season,
 		EpisodeNumber: episode,
 		Title:         sql.NullString{String: fmt.Sprintf("Episode %d", episode), Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 		Status:        status,
 	})
 	if err != nil {

@@ -490,7 +490,7 @@ func (c *LibraryChecker) getSeasonAvailability(ctx context.Context, seriesID int
 			AiredEpisodesWithFiles: airedWithFiles,
 			TotalAiredEpisodes:     airedEps,
 			TotalEpisodes:          totalEps,
-			Monitored:              row.Monitored == 1,
+			Monitored:              row.Monitored,
 		})
 	}
 
@@ -596,7 +596,7 @@ func (c *LibraryChecker) GetEpisodeAvailabilityForSeason(ctx context.Context, tv
 		result = append(result, EpisodeAvailability{
 			EpisodeNumber: int(row.EpisodeNumber),
 			HasFile:       row.HasFile != 0,
-			Monitored:     row.Monitored != 0,
+			Monitored:     row.Monitored,
 			Aired:         row.Aired != 0,
 		})
 	}

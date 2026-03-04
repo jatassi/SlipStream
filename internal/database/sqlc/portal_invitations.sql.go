@@ -34,7 +34,7 @@ type CreatePortalInvitationParams struct {
 	ExpiresAt             time.Time     `json:"expires_at"`
 	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
 	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
-	AutoApprove           int64         `json:"auto_approve"`
+	AutoApprove           bool          `json:"auto_approve"`
 }
 
 func (q *Queries) CreatePortalInvitation(ctx context.Context, arg CreatePortalInvitationParams) (*PortalInvitation, error) {

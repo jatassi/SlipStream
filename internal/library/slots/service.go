@@ -93,7 +93,7 @@ func (s *Service) UpdateSettings(ctx context.Context, input UpdateMultiVersionSe
 		}
 	}
 
-	row, err := s.queries.SetMultiVersionEnabled(ctx, boolToInt64(input.Enabled))
+	row, err := s.queries.SetMultiVersionEnabled(ctx, input.Enabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update multi-version settings: %w", err)
 	}
@@ -233,7 +233,7 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateSlotInput) (
 	row, err := s.queries.UpdateVersionSlot(ctx, sqlc.UpdateVersionSlotParams{
 		ID:                id,
 		Name:              input.Name,
-		Enabled:           boolToInt64(input.Enabled),
+		Enabled:           input.Enabled,
 		QualityProfileID:  profileID,
 		DisplayOrder:      int64(input.DisplayOrder),
 		MovieRootFolderID: movieRootFolderID,
@@ -271,7 +271,7 @@ func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*Slot
 
 	row, err := s.queries.UpdateVersionSlotEnabled(ctx, sqlc.UpdateVersionSlotEnabledParams{
 		ID:      id,
-		Enabled: boolToInt64(enabled),
+		Enabled: enabled,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -564,7 +564,7 @@ func (s *Service) ValidateSlotConfigurationFull(ctx context.Context) ValidationR
 
 // SetDryRunCompleted marks the dry-run as completed.
 func (s *Service) SetDryRunCompleted(ctx context.Context, completed bool) error {
-	_, err := s.queries.SetDryRunCompleted(ctx, boolToInt64(completed))
+	_, err := s.queries.SetDryRunCompleted(ctx, completed)
 	if err != nil {
 		return fmt.Errorf("failed to set dry-run completed: %w", err)
 	}
@@ -578,7 +578,7 @@ func (s *Service) rowToSlot(row *sqlc.VersionSlot) *Slot {
 		ID:           row.ID,
 		SlotNumber:   int(row.SlotNumber),
 		Name:         row.Name,
-		Enabled:      row.Enabled != 0,
+		Enabled:      row.Enabled,
 		DisplayOrder: int(row.DisplayOrder),
 	}
 
@@ -604,8 +604,8 @@ func (s *Service) rowToSlot(row *sqlc.VersionSlot) *Slot {
 // rowToSettings converts a database row to MultiVersionSettings.
 func (s *Service) rowToSettings(row *sqlc.MultiVersionSetting) *MultiVersionSettings {
 	settings := &MultiVersionSettings{
-		Enabled:         row.Enabled != 0,
-		DryRunCompleted: row.DryRunCompleted != 0,
+		Enabled:         row.Enabled,
+		DryRunCompleted: row.DryRunCompleted,
 	}
 
 	if row.LastMigrationAt.Valid {
@@ -619,11 +619,4 @@ func (s *Service) rowToSettings(row *sqlc.MultiVersionSetting) *MultiVersionSett
 	}
 
 	return settings
-}
-
-func boolToInt64(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

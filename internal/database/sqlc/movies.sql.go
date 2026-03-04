@@ -91,7 +91,7 @@ type CreateMovieParams struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ReleaseDate           sql.NullTime   `json:"release_date"`
 	PhysicalReleaseDate   sql.NullTime   `json:"physical_release_date"`
@@ -598,7 +598,7 @@ type GetMovieWithAddedByRow struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ActiveDownloadID      sql.NullString `json:"active_download_id"`
 	StatusMessage         sql.NullString `json:"status_message"`
@@ -667,7 +667,7 @@ type GetMovieWithFileQualityRow struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ActiveDownloadID      sql.NullString `json:"active_download_id"`
 	StatusMessage         sql.NullString `json:"status_message"`
@@ -1136,7 +1136,7 @@ type ListMovieUpgradeCandidatesRow struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ActiveDownloadID      sql.NullString `json:"active_download_id"`
 	StatusMessage         sql.NullString `json:"status_message"`
@@ -1487,7 +1487,7 @@ type ListUpgradableMoviesWithQualityRow struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ActiveDownloadID      sql.NullString `json:"active_download_id"`
 	StatusMessage         sql.NullString `json:"status_message"`
@@ -1652,7 +1652,7 @@ type UpdateMovieParams struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ReleaseDate           sql.NullTime   `json:"release_date"`
 	PhysicalReleaseDate   sql.NullTime   `json:"physical_release_date"`
@@ -1818,7 +1818,7 @@ UPDATE movies SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
 `
 
 type UpdateMovieMonitoredParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	ID        int64 `json:"id"`
 }
 
@@ -1898,7 +1898,7 @@ UPDATE movies SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (/*S
 `
 
 type UpdateMoviesMonitoredByIDsParams struct {
-	Monitored int64   `json:"monitored"`
+	Monitored bool    `json:"monitored"`
 	Ids       []int64 `json:"ids"`
 }
 

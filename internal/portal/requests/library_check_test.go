@@ -69,7 +69,7 @@ func createTestSeriesWithEpisodes(t *testing.T, q *sqlc.Queries, tvdbID int, sea
 		TvdbID:           sql.NullInt64{Int64: int64(tvdbID), Valid: true},
 		QualityProfileID: sql.NullInt64{Int64: qpID, Valid: true},
 		RootFolderID:     sql.NullInt64{Int64: rfID, Valid: true},
-		Monitored:        1,
+		Monitored:        true,
 		ProductionStatus: "ended",
 	})
 	if err != nil {
@@ -79,14 +79,10 @@ func createTestSeriesWithEpisodes(t *testing.T, q *sqlc.Queries, tvdbID int, sea
 	slotID := int64(1) // Primary slot from migration
 
 	for _, s := range seasons {
-		mon := int64(0)
-		if s.Monitored {
-			mon = 1
-		}
 		_, err := q.CreateSeason(ctx, sqlc.CreateSeasonParams{
 			SeriesID:     series.ID,
 			SeasonNumber: int64(s.Number),
-			Monitored:    mon,
+			Monitored:    s.Monitored,
 		})
 		if err != nil {
 			t.Fatalf("CreateSeason error = %v", err)
@@ -102,13 +98,7 @@ func createTestSeriesWithEpisodes(t *testing.T, q *sqlc.Queries, tvdbID int, sea
 				airDate = pastDate
 			}
 
-			epMon := int64(0)
-			if aired || ep-s.AiredEpisodes <= s.UnairedMonitored {
-				epMon = 1
-			}
-			if !aired && s.UnairedMonitored == 0 {
-				epMon = 0
-			}
+			epMon := aired || (ep-s.AiredEpisodes <= s.UnairedMonitored && s.UnairedMonitored != 0)
 
 			status := "unreleased"
 			if aired {
@@ -142,7 +132,7 @@ func createTestSeriesWithEpisodes(t *testing.T, q *sqlc.Queries, tvdbID int, sea
 					EpisodeID: episode.ID,
 					SlotID:    slotID,
 					FileID:    sql.NullInt64{Int64: ef.ID, Valid: true},
-					Monitored: 1,
+					Monitored: true,
 					Status:    "available",
 				})
 				if err != nil {
@@ -170,7 +160,7 @@ func TestCheckMovieAvailability_NoFiles(t *testing.T) {
 		TmdbID:           sql.NullInt64{Int64: 12345, Valid: true},
 		QualityProfileID: sql.NullInt64{Int64: qpID, Valid: true},
 		RootFolderID:     sql.NullInt64{Int64: rfID, Valid: true},
-		Monitored:        1,
+		Monitored:        true,
 		Status:           "missing",
 	})
 	if err != nil {
@@ -181,7 +171,7 @@ func TestCheckMovieAvailability_NoFiles(t *testing.T) {
 	_, err = q.CreateMovieSlotAssignment(ctx, sqlc.CreateMovieSlotAssignmentParams{
 		MovieID:   movie.ID,
 		SlotID:    1,
-		Monitored: 1,
+		Monitored: true,
 		Status:    "missing",
 	})
 	if err != nil {
@@ -221,7 +211,7 @@ func TestCheckMovieAvailability_HasFiles(t *testing.T) {
 		TmdbID:           sql.NullInt64{Int64: 12345, Valid: true},
 		QualityProfileID: sql.NullInt64{Int64: qpID, Valid: true},
 		RootFolderID:     sql.NullInt64{Int64: rfID, Valid: true},
-		Monitored:        1,
+		Monitored:        true,
 		Status:           "available",
 	})
 	if err != nil {
@@ -241,7 +231,7 @@ func TestCheckMovieAvailability_HasFiles(t *testing.T) {
 		MovieID:   movie.ID,
 		SlotID:    1,
 		FileID:    sql.NullInt64{Int64: mf.ID, Valid: true},
-		Monitored: 1,
+		Monitored: true,
 		Status:    "available",
 	})
 	if err != nil {

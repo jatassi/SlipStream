@@ -221,7 +221,7 @@ func IsSeasonPackEligible(ctx context.Context, queries *sqlc.Queries, logger *ze
 			Msg("Season pack ineligible: failed to get season")
 		return false
 	}
-	if season.Monitored != 1 {
+	if !season.Monitored {
 		return false
 	}
 
@@ -234,7 +234,7 @@ func IsSeasonPackEligible(ctx context.Context, queries *sqlc.Queries, logger *ze
 	}
 
 	for _, ep := range episodes {
-		if ep.Monitored != 1 || ep.Status != "missing" {
+		if !ep.Monitored || ep.Status != "missing" {
 			return false
 		}
 	}
@@ -248,7 +248,7 @@ func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, log
 		SeriesID:     seriesID,
 		SeasonNumber: int64(seasonNumber),
 	})
-	if err != nil || season.Monitored != 1 {
+	if err != nil || !season.Monitored {
 		return false
 	}
 
@@ -262,7 +262,7 @@ func IsSeasonPackUpgradeEligible(ctx context.Context, queries *sqlc.Queries, log
 
 	upgradableCount := 0
 	for _, ep := range episodes {
-		if ep.Monitored != 1 {
+		if !ep.Monitored {
 			continue
 		}
 		if ep.Status != statusUpgradable {

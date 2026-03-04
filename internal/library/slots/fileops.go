@@ -107,7 +107,7 @@ func (s *Service) DisableSlotWithAction(ctx context.Context, req DisableSlotRequ
 
 	_, err := s.queries.UpdateVersionSlotEnabled(ctx, sqlc.UpdateVersionSlotEnabledParams{
 		ID:      req.SlotID,
-		Enabled: 0,
+		Enabled: false,
 	})
 	if err != nil {
 		return err

@@ -12,6 +12,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/domain/contracts"
+	"github.com/slipstream/slipstream/internal/library"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
@@ -223,7 +224,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 		Path:                  sql.NullString{String: path, Valid: path != ""},
 		RootFolderID:          sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
 		QualityProfileID:      sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
-		Monitored:             boolToInt(input.Monitored),
+		Monitored:             input.Monitored,
 		Status:                st,
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
@@ -298,7 +299,7 @@ func (s *Service) BulkUpdateMonitored(ctx context.Context, input BulkMonitorInpu
 	}
 
 	if err := s.queries.UpdateMoviesMonitoredByIDs(ctx, sqlc.UpdateMoviesMonitoredByIDsParams{
-		Monitored: boolToInt(input.Monitored),
+		Monitored: input.Monitored,
 		Ids:       input.IDs,
 	}); err != nil {
 		return fmt.Errorf("failed to bulk update movie monitored: %w", err)
@@ -330,12 +331,17 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete autosearch status for movie")
 	}
 
+	// Delete files from disk before removing DB records
+	if deleteFiles {
+		if err := s.deleteMovieFilesFromDisk(ctx, id); err != nil {
+			return err
+		}
+	}
+
 	// Delete movie files from database
 	if err := s.queries.DeleteMovieFilesByMovie(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete movie files: %w", err)
 	}
-
-	// TODO: If deleteFiles is true, delete actual files from disk
 
 	if err := s.queries.DeleteMovie(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete movie: %w", err)
@@ -360,6 +366,33 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 		}, deleteFiles, time.Now())
 	}
 
+	return nil
+}
+
+func (s *Service) deleteMovieFilesFromDisk(ctx context.Context, movieID int64) error {
+	files, err := s.queries.ListMovieFiles(ctx, movieID)
+	if err != nil {
+		return fmt.Errorf("failed to list movie files: %w", err)
+	}
+
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		if f.Path != "" {
+			paths = append(paths, f.Path)
+		}
+	}
+
+	if err := library.CheckDeletable(paths); err != nil {
+		return fmt.Errorf("cannot delete movie files: %w", err)
+	}
+
+	deleted, err := library.DeleteFiles(paths)
+	if err != nil {
+		return fmt.Errorf("failed to delete movie files from disk: %w", err)
+	}
+	if deleted > 0 {
+		s.logger.Info().Int("count", deleted).Int64("movieId", movieID).Msg("Deleted movie files from disk")
+	}
 	return nil
 }
 
@@ -547,7 +580,7 @@ func (s *Service) rowToMovie(row *sqlc.Movie) *Movie {
 		ID:         row.ID,
 		Title:      row.Title,
 		SortTitle:  row.SortTitle,
-		Monitored:  row.Monitored == 1,
+		Monitored:  row.Monitored,
 		Status:     row.Status,
 		MovieFiles: []MovieFile{},
 	}
@@ -733,7 +766,7 @@ func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *Update
 		Path:                  sql.NullString{String: path, Valid: path != ""},
 		RootFolderID:          sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
 		QualityProfileID:      sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
-		Monitored:             boolToInt(monitored),
+		Monitored:             monitored,
 		Status:                st,
 		ReleaseDate:           releaseDate,
 		PhysicalReleaseDate:   physicalReleaseDate,
@@ -778,7 +811,7 @@ func (s *Service) transitionMovieToMissingAfterFileRemoval(ctx context.Context, 
 	})
 	_ = s.queries.UpdateMovieMonitored(ctx, sqlc.UpdateMovieMonitoredParams{
 		ID:        movieID,
-		Monitored: 0,
+		Monitored: false,
 	})
 	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != status.Missing {
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", movieID, oldStatus, status.Missing, "File removed")
@@ -834,11 +867,4 @@ func GenerateMoviePath(rootPath, title string, year int) string {
 		folderName = fmt.Sprintf("%s (%d)", title, year)
 	}
 	return filepath.ToSlash(filepath.Join(rootPath, folderName))
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

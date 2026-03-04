@@ -286,13 +286,13 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, challengeID string, r 
 		return nil, fmt.Errorf("failed to update sign count: %w", err)
 	}
 
-	if foundUser.Enabled == 0 {
+	if !foundUser.Enabled {
 		return nil, fmt.Errorf("user account is disabled")
 	}
 
 	// CRITICAL: Mirror PIN login security - both conditions required
 	// This prevents privilege escalation if is_admin column is somehow modified
-	isAdmin := foundUser.IsAdmin == 1 && foundUser.Username == "Administrator"
+	isAdmin := foundUser.IsAdmin && foundUser.Username == "Administrator"
 
 	return &FinishLoginResult{
 		UserID:   foundUser.ID,

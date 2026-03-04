@@ -36,12 +36,12 @@ type CreateDownloadClientParams struct {
 	Port               int64           `json:"port"`
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
-	UseSsl             int64           `json:"use_ssl"`
+	UseSsl             bool            `json:"use_ssl"`
 	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
 	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
-	Enabled            int64           `json:"enabled"`
+	Enabled            bool            `json:"enabled"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
 	CleanupMode        string          `json:"cleanup_mode"`
 	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`
@@ -249,12 +249,12 @@ type UpdateDownloadClientParams struct {
 	Port               int64           `json:"port"`
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
-	UseSsl             int64           `json:"use_ssl"`
+	UseSsl             bool            `json:"use_ssl"`
 	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
 	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
-	Enabled            int64           `json:"enabled"`
+	Enabled            bool            `json:"enabled"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
 	CleanupMode        string          `json:"cleanup_mode"`
 	SeedRatioTarget    sql.NullFloat64 `json:"seed_ratio_target"`

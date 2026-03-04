@@ -330,32 +330,15 @@ func (s *Service) isAdminNotifyEnabled(ctx context.Context) (bool, error) {
 }
 
 func (s *Service) CreateUserNotification(ctx context.Context, userID int64, input CreateNotificationInput) (*UserNotification, error) {
-	enabled := int64(0)
-	if input.Enabled {
-		enabled = 1
-	}
-	onAvailable := int64(0)
-	if input.OnAvailable {
-		onAvailable = 1
-	}
-	onApproved := int64(0)
-	if input.OnApproved {
-		onApproved = 1
-	}
-	onDenied := int64(0)
-	if input.OnDenied {
-		onDenied = 1
-	}
-
 	notif, err := s.queries.CreateUserNotification(ctx, sqlc.CreateUserNotificationParams{
 		UserID:      userID,
 		Type:        input.Type,
 		Name:        input.Name,
 		Settings:    string(input.Settings),
-		OnAvailable: onAvailable,
-		OnApproved:  onApproved,
-		OnDenied:    onDenied,
-		Enabled:     enabled,
+		OnAvailable: input.OnAvailable,
+		OnApproved:  input.OnApproved,
+		OnDenied:    input.OnDenied,
+		Enabled:     input.Enabled,
 	})
 	if err != nil {
 		return nil, err
@@ -386,32 +369,15 @@ func (s *Service) ListUserNotifications(ctx context.Context, userID int64) ([]*U
 }
 
 func (s *Service) UpdateUserNotification(ctx context.Context, id int64, input CreateNotificationInput) (*UserNotification, error) {
-	enabled := int64(0)
-	if input.Enabled {
-		enabled = 1
-	}
-	onAvailable := int64(0)
-	if input.OnAvailable {
-		onAvailable = 1
-	}
-	onApproved := int64(0)
-	if input.OnApproved {
-		onApproved = 1
-	}
-	onDenied := int64(0)
-	if input.OnDenied {
-		onDenied = 1
-	}
-
 	notif, err := s.queries.UpdateUserNotification(ctx, sqlc.UpdateUserNotificationParams{
 		ID:          id,
 		Type:        input.Type,
 		Name:        input.Name,
 		Settings:    string(input.Settings),
-		OnAvailable: onAvailable,
-		OnApproved:  onApproved,
-		OnDenied:    onDenied,
-		Enabled:     enabled,
+		OnAvailable: input.OnAvailable,
+		OnApproved:  input.OnApproved,
+		OnDenied:    input.OnDenied,
+		Enabled:     input.Enabled,
 	})
 	if err != nil {
 		return nil, err
@@ -500,7 +466,7 @@ func toPortalNotification(n *sqlc.PortalNotification) *PortalNotification {
 		Type:      n.Type,
 		Title:     n.Title,
 		Message:   n.Message,
-		Read:      n.Read == 1,
+		Read:      n.Read,
 		CreatedAt: n.CreatedAt,
 	}
 	if n.RequestID.Valid {
@@ -516,10 +482,10 @@ func toUserNotification(n *sqlc.UserNotification) *UserNotification {
 		Type:        n.Type,
 		Name:        n.Name,
 		Settings:    json.RawMessage(n.Settings),
-		OnAvailable: n.OnAvailable == 1,
-		OnApproved:  n.OnApproved == 1,
-		OnDenied:    n.OnDenied == 1,
-		Enabled:     n.Enabled == 1,
+		OnAvailable: n.OnAvailable,
+		OnApproved:  n.OnApproved,
+		OnDenied:    n.OnDenied,
+		Enabled:     n.Enabled,
 		CreatedAt:   n.CreatedAt,
 		UpdatedAt:   n.UpdatedAt,
 	}

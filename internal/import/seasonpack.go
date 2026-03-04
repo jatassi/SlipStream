@@ -377,8 +377,8 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 		ID:               m.ID,
 		DownloadClientID: m.ClientID,
 		DownloadID:       m.DownloadID,
-		IsSeasonPack:     m.IsSeasonPack == 1,
-		IsCompleteSeries: m.IsCompleteSeries == 1,
+		IsSeasonPack:     m.IsSeasonPack,
+		IsCompleteSeries: m.IsCompleteSeries,
 		Source:           m.Source,
 	}
 

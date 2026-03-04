@@ -126,7 +126,7 @@ func (s *Service) UpdateEpisode(ctx context.Context, id int64, input UpdateEpiso
 		Title:     sql.NullString{String: title, Valid: title != ""},
 		Overview:  sql.NullString{String: overview, Valid: overview != ""},
 		AirDate:   airDateSQL,
-		Monitored: boolToInt(monitored),
+		Monitored: monitored,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update episode: %w", err)
@@ -150,7 +150,7 @@ func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumbe
 			_, err = s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
 				SeriesID:     seriesID,
 				SeasonNumber: int64(seasonNumber),
-				Monitored:    1,
+				Monitored:    true,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create season: %w", err)
@@ -166,7 +166,7 @@ func (s *Service) CreateEpisode(ctx context.Context, seriesID int64, seasonNumbe
 		SeasonNumber:  int64(seasonNumber),
 		EpisodeNumber: int64(episodeNumber),
 		Title:         sql.NullString{String: title, Valid: title != ""},
-		Monitored:     1,
+		Monitored:     true,
 		Status:        status.Missing,
 	})
 	if err != nil {
@@ -359,7 +359,7 @@ func (s *Service) BulkMonitorEpisodes(ctx context.Context, seriesID int64, input
 	}
 
 	if err := s.queries.UpdateEpisodesMonitoredByIDs(ctx, sqlc.UpdateEpisodesMonitoredByIDsParams{
-		Monitored: boolToInt(input.Monitored),
+		Monitored: input.Monitored,
 		Ids:       input.EpisodeIDs,
 	}); err != nil {
 		return fmt.Errorf("failed to update episodes: %w", err)
@@ -390,7 +390,7 @@ func (s *Service) transitionEpisodeToMissingAfterFileRemoval(ctx context.Context
 	})
 	_ = s.queries.UpdateEpisodeMonitored(ctx, sqlc.UpdateEpisodeMonitoredParams{
 		ID:        episodeID,
-		Monitored: 0,
+		Monitored: false,
 	})
 	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != status.Missing {
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", episodeID, oldStatus, status.Missing, "File removed")
@@ -407,7 +407,7 @@ func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
 		SeriesID:      row.SeriesID,
 		SeasonNumber:  int(row.SeasonNumber),
 		EpisodeNumber: int(row.EpisodeNumber),
-		Monitored:     row.Monitored == 1,
+		Monitored:     row.Monitored,
 		Status:        row.Status,
 	}
 

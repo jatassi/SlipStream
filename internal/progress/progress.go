@@ -64,6 +64,7 @@ type Manager struct {
 	activities map[string]*Activity
 	mu         sync.RWMutex
 	logger     *zerolog.Logger
+	done       chan struct{}
 }
 
 // NewManager creates a new progress manager.
@@ -73,7 +74,16 @@ func NewManager(hub *websocket.Hub, logger *zerolog.Logger) *Manager {
 		hub:        hub,
 		activities: make(map[string]*Activity),
 		logger:     &subLogger,
+		done:       make(chan struct{}),
 	}
+}
+
+// Close signals all pending timer callbacks to stop and clears activities.
+func (m *Manager) Close() {
+	close(m.done)
+	m.mu.Lock()
+	clear(m.activities)
+	m.mu.Unlock()
 }
 
 // StartActivity creates and starts tracking a new activity.
@@ -154,6 +164,11 @@ func (m *Manager) CompleteActivity(id, subtitle string) {
 	// Remove from active tracking after a short delay
 	// (frontend will handle display timeout)
 	time.AfterFunc(5*time.Second, func() {
+		select {
+		case <-m.done:
+			return
+		default:
+		}
 		m.mu.Lock()
 		delete(m.activities, id)
 		m.mu.Unlock()
@@ -185,6 +200,11 @@ func (m *Manager) FailActivity(id, errorMsg string) {
 
 	// Remove from active tracking after a delay
 	time.AfterFunc(10*time.Second, func() {
+		select {
+		case <-m.done:
+			return
+		default:
+		}
 		m.mu.Lock()
 		delete(m.activities, id)
 		m.mu.Unlock()

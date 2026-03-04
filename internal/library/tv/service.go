@@ -12,6 +12,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/domain/contracts"
+	"github.com/slipstream/slipstream/internal/library"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
@@ -224,8 +225,8 @@ func (s *Service) CreateSeries(ctx context.Context, input *CreateSeriesInput) (*
 		Path:             sql.NullString{String: input.Path, Valid: input.Path != ""},
 		RootFolderID:     sql.NullInt64{Int64: input.RootFolderID, Valid: input.RootFolderID > 0},
 		QualityProfileID: sql.NullInt64{Int64: input.QualityProfileID, Valid: input.QualityProfileID > 0},
-		Monitored:        boolToInt(input.Monitored),
-		SeasonFolder:     boolToInt(input.SeasonFolder),
+		Monitored:        input.Monitored,
+		SeasonFolder:     input.SeasonFolder,
 		ProductionStatus: productionStatus,
 		Network:          sql.NullString{String: input.Network, Valid: input.Network != ""},
 		FormatType:       sql.NullString{String: input.FormatType, Valid: input.FormatType != ""},
@@ -296,24 +297,22 @@ func (s *Service) BulkUpdateSeriesMonitored(ctx context.Context, input BulkSerie
 		return nil
 	}
 
-	monitored := boolToInt(input.Monitored)
-
 	if err := s.queries.UpdateSeriesMonitoredByIDs(ctx, sqlc.UpdateSeriesMonitoredByIDsParams{
-		Monitored: monitored,
+		Monitored: input.Monitored,
 		Ids:       input.IDs,
 	}); err != nil {
 		return fmt.Errorf("failed to bulk update series monitored: %w", err)
 	}
 
 	if err := s.queries.UpdateSeasonMonitoredBySeriesIDs(ctx, sqlc.UpdateSeasonMonitoredBySeriesIDsParams{
-		Monitored: monitored,
+		Monitored: input.Monitored,
 		Ids:       input.IDs,
 	}); err != nil {
 		return fmt.Errorf("failed to bulk update season monitored: %w", err)
 	}
 
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeriesIDs(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesIDsParams{
-		Monitored: monitored,
+		Monitored: input.Monitored,
 		Ids:       input.IDs,
 	}); err != nil {
 		return fmt.Errorf("failed to bulk update episode monitored: %w", err)
@@ -335,33 +334,17 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 		return err
 	}
 
-	// Clean up download mappings for this series to prevent seeding torrents from re-triggering imports
-	if err := s.queries.DeleteDownloadMappingsBySeriesID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete download mappings for series")
+	s.cleanupSeriesRelatedData(ctx, id)
+
+	// Delete files from disk before removing DB records
+	if deleteFiles {
+		if err := s.deleteSeriesFilesFromDisk(ctx, id); err != nil {
+			return err
+		}
 	}
 
-	// Clean up autosearch backoff records (must happen before episodes are deleted
-	// since the episode query uses a subquery on the episodes table)
-	if err := s.queries.DeleteAutosearchStatusForSeriesEpisodes(ctx, id); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series episodes")
-	}
-	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "series", ItemID: id}); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series")
-	}
-
-	// Delete all episode files, episodes, seasons
-	// TODO: If deleteFiles is true, delete actual files from disk
-
-	if err := s.queries.DeleteEpisodesBySeries(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete episodes: %w", err)
-	}
-
-	if err := s.queries.DeleteSeasonsBySeries(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete seasons: %w", err)
-	}
-
-	if err := s.queries.DeleteSeries(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete series: %w", err)
+	if err := s.deleteSeriesDBRecords(ctx, id); err != nil {
+		return err
 	}
 
 	s.logger.Info().Int64("id", id).Str("title", series.Title).Msg("Deleted series")
@@ -370,7 +353,6 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 		s.hub.Broadcast("series:deleted", map[string]int64{"id": id})
 	}
 
-	// Dispatch notification
 	if s.notifier != nil {
 		s.notifier.DispatchSeriesDeleted(ctx, &SeriesNotificationInfo{
 			ID:       series.ID,
@@ -383,6 +365,59 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 		}, deleteFiles, time.Now())
 	}
 
+	return nil
+}
+
+func (s *Service) cleanupSeriesRelatedData(ctx context.Context, id int64) {
+	if err := s.queries.DeleteDownloadMappingsBySeriesID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete download mappings for series")
+	}
+	// Autosearch cleanup must happen before episodes are deleted (uses subquery on episodes table)
+	if err := s.queries.DeleteAutosearchStatusForSeriesEpisodes(ctx, id); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series episodes")
+	}
+	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "series", ItemID: id}); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series")
+	}
+}
+
+func (s *Service) deleteSeriesDBRecords(ctx context.Context, id int64) error {
+	if err := s.queries.DeleteEpisodesBySeries(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete episodes: %w", err)
+	}
+	if err := s.queries.DeleteSeasonsBySeries(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete seasons: %w", err)
+	}
+	if err := s.queries.DeleteSeries(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete series: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) deleteSeriesFilesFromDisk(ctx context.Context, seriesID int64) error {
+	files, err := s.queries.ListEpisodeFilesBySeries(ctx, seriesID)
+	if err != nil {
+		return fmt.Errorf("failed to list episode files: %w", err)
+	}
+
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		if f.Path != "" {
+			paths = append(paths, f.Path)
+		}
+	}
+
+	if err := library.CheckDeletable(paths); err != nil {
+		return fmt.Errorf("cannot delete episode files: %w", err)
+	}
+
+	deleted, err := library.DeleteFiles(paths)
+	if err != nil {
+		return fmt.Errorf("failed to delete episode files from disk: %w", err)
+	}
+	if deleted > 0 {
+		s.logger.Info().Int("count", deleted).Int64("seriesId", seriesID).Msg("Deleted episode files from disk")
+	}
 	return nil
 }
 
@@ -406,8 +441,8 @@ func (s *Service) rowToSeries(row *sqlc.Series) *Series {
 		ID:               row.ID,
 		Title:            row.Title,
 		SortTitle:        row.SortTitle,
-		Monitored:        row.Monitored == 1,
-		SeasonFolder:     row.SeasonFolder == 1,
+		Monitored:        row.Monitored,
+		SeasonFolder:     row.SeasonFolder,
 		ProductionStatus: row.ProductionStatus,
 		Seasons:          []Season{},
 	}
@@ -574,13 +609,6 @@ func GenerateSeasonPath(seriesPath string, seasonNumber int) string {
 	return filepath.ToSlash(filepath.Join(seriesPath, fmt.Sprintf("Season %02d", seasonNumber)))
 }
 
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
-}
-
 // parseAirDate attempts to parse a date string in common formats.
 func parseAirDate(s string) (time.Time, error) {
 	formats := []string{
@@ -625,7 +653,7 @@ func (s *Service) UpdateSeasonsFromMetadata(ctx context.Context, seriesID int64,
 		_, err := s.queries.UpsertSeason(ctx, sqlc.UpsertSeasonParams{
 			SeriesID:     seriesID,
 			SeasonNumber: int64(seasonMeta.SeasonNumber),
-			Monitored:    1,
+			Monitored:    true,
 			Overview:     sql.NullString{String: seasonMeta.Overview, Valid: seasonMeta.Overview != ""},
 			PosterUrl:    sql.NullString{String: seasonMeta.PosterURL, Valid: seasonMeta.PosterURL != ""},
 		})
@@ -671,7 +699,7 @@ func (s *Service) upsertEpisodesForSeason(ctx context.Context, seriesID int64, e
 			Title:         sql.NullString{String: epMeta.Title, Valid: epMeta.Title != ""},
 			Overview:      sql.NullString{String: epMeta.Overview, Valid: epMeta.Overview != ""},
 			AirDate:       airDate,
-			Monitored:     1,
+			Monitored:     true,
 			Status:        status,
 		})
 		if err != nil {
@@ -690,7 +718,7 @@ func (s *Service) createSeasonsAndEpisodes(ctx context.Context, seriesID int64, 
 		_, err := s.queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 			SeriesID:     seriesID,
 			SeasonNumber: int64(seasonInput.SeasonNumber),
-			Monitored:    boolToInt(seasonInput.Monitored),
+			Monitored:    seasonInput.Monitored,
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Int("season", seasonInput.SeasonNumber).Msg("Failed to create season")
@@ -710,7 +738,7 @@ func (s *Service) createSeasonsAndEpisodes(ctx context.Context, seriesID int64, 
 				Title:         sql.NullString{String: episodeInput.Title, Valid: episodeInput.Title != ""},
 				Overview:      sql.NullString{String: episodeInput.Overview, Valid: episodeInput.Overview != ""},
 				AirDate:       airDate,
-				Monitored:     boolToInt(episodeInput.Monitored),
+				Monitored:     episodeInput.Monitored,
 				Status:        status,
 			})
 			if err != nil {
@@ -751,8 +779,8 @@ func (s *Service) buildSeriesUpdateParams(id int64, current *Series, input *Upda
 		Path:             sql.NullString{String: path, Valid: path != ""},
 		RootFolderID:     sql.NullInt64{Int64: rootFolderID, Valid: rootFolderID > 0},
 		QualityProfileID: sql.NullInt64{Int64: qualityProfileID, Valid: qualityProfileID > 0},
-		Monitored:        boolToInt(monitored),
-		SeasonFolder:     boolToInt(seasonFolder),
+		Monitored:        monitored,
+		SeasonFolder:     seasonFolder,
 		ProductionStatus: productionStatus,
 		Network:          sql.NullString{String: network, Valid: network != ""},
 		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
@@ -772,15 +800,14 @@ func (s *Service) cascadeMonitoringChanges(ctx context.Context, id int64, curren
 		return
 	}
 
-	monitoredInt := boolToInt(*input.Monitored)
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: monitoredInt,
+		Monitored: *input.Monitored,
 		SeriesID:  id,
 	}); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to seasons")
 	}
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: monitoredInt,
+		Monitored: *input.Monitored,
 		SeriesID:  id,
 	}); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to episodes")

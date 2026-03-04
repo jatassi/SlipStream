@@ -169,11 +169,11 @@ func createTestIndexer(t *testing.T, q *sqlc.Queries, name string) {
 	_, err := q.CreateIndexer(context.Background(), sqlc.CreateIndexerParams{
 		Name:           name,
 		DefinitionID:   "test",
-		SupportsMovies: 1,
-		SupportsTv:     1,
+		SupportsMovies: true,
+		SupportsTv:     true,
 		Priority:       25,
-		Enabled:        1,
-		RssEnabled:     1,
+		Enabled:        true,
+		RssEnabled:     true,
 	})
 	if err != nil {
 		t.Fatalf("create indexer: %v", err)

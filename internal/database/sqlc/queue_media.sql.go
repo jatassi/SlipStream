@@ -113,8 +113,8 @@ type GetFailedQueueMediaWithMappingRow struct {
 	DownloadID        string         `json:"download_id"`
 	SeriesID          sql.NullInt64  `json:"series_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
-	IsSeasonPack      int64          `json:"is_season_pack"`
-	IsCompleteSeries  int64          `json:"is_complete_series"`
+	IsSeasonPack      bool           `json:"is_season_pack"`
+	IsCompleteSeries  bool           `json:"is_complete_series"`
 }
 
 func (q *Queries) GetFailedQueueMediaWithMapping(ctx context.Context) ([]*GetFailedQueueMediaWithMappingRow, error) {
@@ -297,8 +297,8 @@ type GetReadyQueueMediaWithMappingRow struct {
 	DownloadID        string         `json:"download_id"`
 	SeriesID          sql.NullInt64  `json:"series_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
-	IsSeasonPack      int64          `json:"is_season_pack"`
-	IsCompleteSeries  int64          `json:"is_complete_series"`
+	IsSeasonPack      bool           `json:"is_season_pack"`
+	IsCompleteSeries  bool           `json:"is_complete_series"`
 }
 
 func (q *Queries) GetReadyQueueMediaWithMapping(ctx context.Context) ([]*GetReadyQueueMediaWithMappingRow, error) {

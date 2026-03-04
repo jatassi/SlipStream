@@ -211,6 +211,11 @@ func (s *Server) Start(address string) error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info().Msg("shutting down HTTP server")
 
+	// Stop progress manager timers
+	if s.system.Progress != nil {
+		s.system.Progress.Close()
+	}
+
 	// Stop the queue broadcaster
 	if s.download.QueueBroadcaster != nil {
 		s.download.QueueBroadcaster.Stop()

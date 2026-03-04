@@ -346,7 +346,7 @@ func (s *Service) getUpgradableEpisodesForSeason(ctx context.Context, seriesID i
 
 	upgradable := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		if row.Status == statusUpgradable && row.Monitored == 1 {
+		if row.Status == statusUpgradable && row.Monitored {
 			upgradable = append(upgradable, row)
 		}
 	}
@@ -642,6 +642,39 @@ func (s *Service) IsSearching(mediaType MediaType, mediaID int64) bool {
 	return exists
 }
 
+// IsInQueue checks if a media item has an active download in the queue.
+func (s *Service) IsInQueue(ctx context.Context, mediaType MediaType, mediaID int64) bool {
+	switch mediaType {
+	case MediaTypeMovie:
+		result, err := s.queries.IsMovieDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
+		return err == nil && result == 1
+
+	case MediaTypeEpisode:
+		ep, err := s.queries.GetEpisode(ctx, mediaID)
+		if err != nil {
+			return false
+		}
+		result, err := s.queries.IsEpisodeDownloading(ctx, sqlc.IsEpisodeDownloadingParams{
+			EpisodeID:    sql.NullInt64{Int64: mediaID, Valid: true},
+			SeriesID:     sql.NullInt64{Int64: ep.SeriesID, Valid: true},
+			SeasonNumber: sql.NullInt64{Int64: ep.SeasonNumber, Valid: true},
+			SeriesID_2:   sql.NullInt64{Int64: ep.SeriesID, Valid: true},
+		})
+		return err == nil && result == 1
+
+	case MediaTypeSeries:
+		result, err := s.queries.IsSeriesDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
+		return err == nil && result == 1
+
+	case MediaTypeSeason:
+		// Season status endpoint isn't used with download queue checks
+		return false
+
+	default:
+		return false
+	}
+}
+
 // buildSearchCriteria creates search criteria from a searchable item.
 func (s *Service) buildSearchCriteria(item *SearchableItem) types.SearchCriteria {
 	criteria := types.SearchCriteria{
@@ -726,7 +759,7 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 	if err != nil {
 		return nil, err
 	}
-	if series.Monitored != 1 {
+	if !series.Monitored {
 		return []*sqlc.Episode{}, nil // Series not monitored
 	}
 
@@ -738,7 +771,7 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 	if err != nil {
 		return nil, err
 	}
-	if season.Monitored != 1 {
+	if !season.Monitored {
 		return []*sqlc.Episode{}, nil // Season not monitored
 	}
 
@@ -753,7 +786,7 @@ func (s *Service) getMissingEpisodesForSeason(ctx context.Context, seriesID int6
 
 	missing := make([]*sqlc.Episode, 0)
 	for _, row := range rows {
-		if row.Status == statusMissing && row.Monitored == 1 {
+		if row.Status == statusMissing && row.Monitored {
 			missing = append(missing, row)
 		}
 	}
@@ -767,7 +800,7 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 	if err != nil {
 		return nil, err
 	}
-	if series.Monitored != 1 {
+	if !series.Monitored {
 		return []*sqlc.Episode{}, nil
 	}
 
@@ -777,7 +810,7 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 	}
 	monitoredSeasons := make(map[int64]bool)
 	for _, season := range seasons {
-		monitoredSeasons[season.SeasonNumber] = season.Monitored == 1
+		monitoredSeasons[season.SeasonNumber] = season.Monitored
 	}
 
 	rows, err := s.queries.ListEpisodesBySeries(ctx, seriesID)
@@ -790,7 +823,7 @@ func (s *Service) getMissingEpisodesForSeries(ctx context.Context, seriesID int6
 		if !monitoredSeasons[row.SeasonNumber] {
 			continue
 		}
-		if row.Status == statusMissing && row.Monitored == 1 {
+		if row.Status == statusMissing && row.Monitored {
 			missing = append(missing, row)
 		}
 	}

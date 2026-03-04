@@ -224,7 +224,7 @@ type CreateEpisodeParams struct {
 	Title         sql.NullString `json:"title"`
 	Overview      sql.NullString `json:"overview"`
 	AirDate       sql.NullTime   `json:"air_date"`
-	Monitored     int64          `json:"monitored"`
+	Monitored     bool           `json:"monitored"`
 	Status        string         `json:"status"`
 }
 
@@ -382,7 +382,7 @@ RETURNING id, series_id, season_number, monitored, overview, poster_url
 type CreateSeasonParams struct {
 	SeriesID     int64 `json:"series_id"`
 	SeasonNumber int64 `json:"season_number"`
-	Monitored    int64 `json:"monitored"`
+	Monitored    bool  `json:"monitored"`
 }
 
 func (q *Queries) CreateSeason(ctx context.Context, arg CreateSeasonParams) (*Season, error) {
@@ -420,8 +420,8 @@ type CreateSeriesParams struct {
 	Path             sql.NullString `json:"path"`
 	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	Monitored        int64          `json:"monitored"`
-	SeasonFolder     int64          `json:"season_folder"`
+	Monitored        bool           `json:"monitored"`
+	SeasonFolder     bool           `json:"season_folder"`
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
@@ -582,7 +582,7 @@ type GetEpisodeAvailabilityForSeasonParams struct {
 
 type GetEpisodeAvailabilityForSeasonRow struct {
 	EpisodeNumber int64 `json:"episode_number"`
-	Monitored     int64 `json:"monitored"`
+	Monitored     bool  `json:"monitored"`
 	Aired         int64 `json:"aired"`
 	HasFile       int64 `json:"has_file"`
 }
@@ -916,7 +916,7 @@ type GetEpisodeWithFileQualityRow struct {
 	Title                  sql.NullString `json:"title"`
 	Overview               sql.NullString `json:"overview"`
 	AirDate                sql.NullTime   `json:"air_date"`
-	Monitored              int64          `json:"monitored"`
+	Monitored              bool           `json:"monitored"`
 	Status                 string         `json:"status"`
 	ActiveDownloadID       sql.NullString `json:"active_download_id"`
 	StatusMessage          sql.NullString `json:"status_message"`
@@ -981,7 +981,7 @@ type GetEpisodesInDateRangeRow struct {
 	Title         sql.NullString `json:"title"`
 	Overview      sql.NullString `json:"overview"`
 	AirDate       sql.NullTime   `json:"air_date"`
-	Monitored     int64          `json:"monitored"`
+	Monitored     bool           `json:"monitored"`
 	Status        string         `json:"status"`
 	SeriesTitle   string         `json:"series_title"`
 	Network       sql.NullString `json:"network"`
@@ -1360,7 +1360,7 @@ ORDER BY sea.season_number
 
 type GetSeriesSeasonAvailabilitySummaryRow struct {
 	SeasonNumber     int64       `json:"season_number"`
-	Monitored        int64       `json:"monitored"`
+	Monitored        bool        `json:"monitored"`
 	TotalEpisodes    int64       `json:"total_episodes"`
 	AiredEpisodes    interface{} `json:"aired_episodes"`
 	AiredWithFiles   interface{} `json:"aired_with_files"`
@@ -1416,8 +1416,8 @@ type GetSeriesWithAddedByRow struct {
 	Path             sql.NullString `json:"path"`
 	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	Monitored        int64          `json:"monitored"`
-	SeasonFolder     int64          `json:"season_folder"`
+	Monitored        bool           `json:"monitored"`
+	SeasonFolder     bool           `json:"season_folder"`
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
@@ -1748,7 +1748,7 @@ type ListEpisodeUpgradeCandidatesRow struct {
 	Title                  sql.NullString `json:"title"`
 	Overview               sql.NullString `json:"overview"`
 	AirDate                sql.NullTime   `json:"air_date"`
-	Monitored              int64          `json:"monitored"`
+	Monitored              bool           `json:"monitored"`
 	Status                 string         `json:"status"`
 	ActiveDownloadID       sql.NullString `json:"active_download_id"`
 	StatusMessage          sql.NullString `json:"status_message"`
@@ -2006,7 +2006,7 @@ type ListMissingEpisodesRow struct {
 	Title                  sql.NullString `json:"title"`
 	Overview               sql.NullString `json:"overview"`
 	AirDate                sql.NullTime   `json:"air_date"`
-	Monitored              int64          `json:"monitored"`
+	Monitored              bool           `json:"monitored"`
 	Status                 string         `json:"status"`
 	ActiveDownloadID       sql.NullString `json:"active_download_id"`
 	StatusMessage          sql.NullString `json:"status_message"`
@@ -2429,7 +2429,7 @@ type ListUpgradableEpisodesWithQualityRow struct {
 	Title                  sql.NullString `json:"title"`
 	Overview               sql.NullString `json:"overview"`
 	AirDate                sql.NullTime   `json:"air_date"`
-	Monitored              int64          `json:"monitored"`
+	Monitored              bool           `json:"monitored"`
 	Status                 string         `json:"status"`
 	ActiveDownloadID       sql.NullString `json:"active_download_id"`
 	StatusMessage          sql.NullString `json:"status_message"`
@@ -2550,7 +2550,7 @@ UPDATE episodes SET monitored = ? WHERE series_id = ?
 `
 
 type UpdateAllEpisodesMonitoredBySeriesParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	SeriesID  int64 `json:"series_id"`
 }
 
@@ -2565,7 +2565,7 @@ UPDATE episodes SET monitored = ? WHERE series_id IN (/*SLICE:ids*/?)
 `
 
 type UpdateAllEpisodesMonitoredBySeriesIDsParams struct {
-	Monitored int64   `json:"monitored"`
+	Monitored bool    `json:"monitored"`
 	Ids       []int64 `json:"ids"`
 }
 
@@ -2599,7 +2599,7 @@ type UpdateEpisodeParams struct {
 	Title     sql.NullString `json:"title"`
 	Overview  sql.NullString `json:"overview"`
 	AirDate   sql.NullTime   `json:"air_date"`
-	Monitored int64          `json:"monitored"`
+	Monitored bool           `json:"monitored"`
 	ID        int64          `json:"id"`
 }
 
@@ -2731,7 +2731,7 @@ UPDATE episodes SET monitored = ? WHERE id = ?
 `
 
 type UpdateEpisodeMonitoredParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	ID        int64 `json:"id"`
 }
 
@@ -2784,7 +2784,7 @@ UPDATE episodes SET monitored = ? WHERE id IN (/*SLICE:ids*/?)
 `
 
 type UpdateEpisodesMonitoredByIDsParams struct {
-	Monitored int64   `json:"monitored"`
+	Monitored bool    `json:"monitored"`
 	Ids       []int64 `json:"ids"`
 }
 
@@ -2809,7 +2809,7 @@ UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number = ?
 `
 
 type UpdateEpisodesMonitoredBySeasonParams struct {
-	Monitored    int64 `json:"monitored"`
+	Monitored    bool  `json:"monitored"`
 	SeriesID     int64 `json:"series_id"`
 	SeasonNumber int64 `json:"season_number"`
 }
@@ -2824,7 +2824,7 @@ UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number != ?
 `
 
 type UpdateEpisodesMonitoredExcludingSeasonParams struct {
-	Monitored    int64 `json:"monitored"`
+	Monitored    bool  `json:"monitored"`
 	SeriesID     int64 `json:"series_id"`
 	SeasonNumber int64 `json:"season_number"`
 }
@@ -2839,7 +2839,7 @@ UPDATE episodes SET monitored = ? WHERE series_id = ? AND season_number > 0
 `
 
 type UpdateEpisodesMonitoredExcludingSpecialsParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	SeriesID  int64 `json:"series_id"`
 }
 
@@ -2862,7 +2862,7 @@ UPDATE episodes SET monitored = ? WHERE series_id = ? AND status = 'unreleased'
 `
 
 type UpdateFutureEpisodesMonitoredParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	SeriesID  int64 `json:"series_id"`
 }
 
@@ -2880,7 +2880,7 @@ WHERE seasons.series_id = ? AND seasons.season_number IN (
 `
 
 type UpdateFutureSeasonsMonitoredParams struct {
-	Monitored  int64 `json:"monitored"`
+	Monitored  bool  `json:"monitored"`
 	SeriesID   int64 `json:"series_id"`
 	SeriesID_2 int64 `json:"series_id_2"`
 }
@@ -2895,7 +2895,7 @@ UPDATE seasons SET monitored = ? WHERE id = ? RETURNING id, series_id, season_nu
 `
 
 type UpdateSeasonParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	ID        int64 `json:"id"`
 }
 
@@ -2946,7 +2946,7 @@ UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number = ?
 `
 
 type UpdateSeasonMonitoredByNumberParams struct {
-	Monitored    int64 `json:"monitored"`
+	Monitored    bool  `json:"monitored"`
 	SeriesID     int64 `json:"series_id"`
 	SeasonNumber int64 `json:"season_number"`
 }
@@ -2961,7 +2961,7 @@ UPDATE seasons SET monitored = ? WHERE series_id = ?
 `
 
 type UpdateSeasonMonitoredBySeriesParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	SeriesID  int64 `json:"series_id"`
 }
 
@@ -2975,7 +2975,7 @@ UPDATE seasons SET monitored = ? WHERE series_id IN (/*SLICE:ids*/?)
 `
 
 type UpdateSeasonMonitoredBySeriesIDsParams struct {
-	Monitored int64   `json:"monitored"`
+	Monitored bool    `json:"monitored"`
 	Ids       []int64 `json:"ids"`
 }
 
@@ -3000,7 +3000,7 @@ UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number NOT IN (/
 `
 
 type UpdateSeasonsMonitoredExcludingParams struct {
-	Monitored      int64   `json:"monitored"`
+	Monitored      bool    `json:"monitored"`
 	SeriesID       int64   `json:"series_id"`
 	ExcludeSeasons []int64 `json:"excludeSeasons"`
 }
@@ -3027,7 +3027,7 @@ UPDATE seasons SET monitored = ? WHERE series_id = ? AND season_number > 0
 `
 
 type UpdateSeasonsMonitoredExcludingSpecialsParams struct {
-	Monitored int64 `json:"monitored"`
+	Monitored bool  `json:"monitored"`
 	SeriesID  int64 `json:"series_id"`
 }
 
@@ -3072,8 +3072,8 @@ type UpdateSeriesParams struct {
 	Path             sql.NullString `json:"path"`
 	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	Monitored        int64          `json:"monitored"`
-	SeasonFolder     int64          `json:"season_folder"`
+	Monitored        bool           `json:"monitored"`
+	SeasonFolder     bool           `json:"season_folder"`
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
@@ -3173,7 +3173,7 @@ UPDATE series SET monitored = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (/*S
 `
 
 type UpdateSeriesMonitoredByIDsParams struct {
-	Monitored int64   `json:"monitored"`
+	Monitored bool    `json:"monitored"`
 	Ids       []int64 `json:"ids"`
 }
 
@@ -3263,7 +3263,7 @@ type UpsertEpisodeParams struct {
 	Title         sql.NullString `json:"title"`
 	Overview      sql.NullString `json:"overview"`
 	AirDate       sql.NullTime   `json:"air_date"`
-	Monitored     int64          `json:"monitored"`
+	Monitored     bool           `json:"monitored"`
 	Status        string         `json:"status"`
 }
 
@@ -3307,7 +3307,7 @@ RETURNING id, series_id, season_number, monitored, overview, poster_url
 type UpsertSeasonParams struct {
 	SeriesID     int64          `json:"series_id"`
 	SeasonNumber int64          `json:"season_number"`
-	Monitored    int64          `json:"monitored"`
+	Monitored    bool           `json:"monitored"`
 	Overview     sql.NullString `json:"overview"`
 	PosterUrl    sql.NullString `json:"poster_url"`
 }

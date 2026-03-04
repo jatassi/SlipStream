@@ -80,7 +80,7 @@ func (s *Service) UserExists(ctx context.Context, userID int64) (bool, error) {
 		}
 		return false, err
 	}
-	return user.Enabled == 1, nil
+	return user.Enabled, nil
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) {
@@ -101,11 +101,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 		return nil, err
 	}
 
-	var autoApprove int64
-	if input.AutoApprove {
-		autoApprove = 1
-	}
-
 	var movieQPID, tvQPID sql.NullInt64
 	if input.MovieQualityProfileID != nil {
 		movieQPID = sql.NullInt64{Int64: *input.MovieQualityProfileID, Valid: true}
@@ -117,10 +112,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 	user, err := s.queries.CreatePortalUser(ctx, sqlc.CreatePortalUserParams{
 		Username:              input.Username,
 		PasswordHash:          hash,
-		AutoApprove:           autoApprove,
+		AutoApprove:           input.AutoApprove,
 		MovieQualityProfileID: movieQPID,
 		TvQualityProfileID:    tvQPID,
-		Enabled:               1,
+		Enabled:               true,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create user")
@@ -245,14 +240,9 @@ func (s *Service) updatePasswordIfProvided(ctx context.Context, userID int64, pa
 }
 
 func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*User, error) {
-	enabledInt := int64(0)
-	if enabled {
-		enabledInt = 1
-	}
-
 	user, err := s.queries.UpdatePortalUserEnabled(ctx, sqlc.UpdatePortalUserEnabledParams{
 		ID:      id,
-		Enabled: enabledInt,
+		Enabled: enabled,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -287,14 +277,9 @@ func (s *Service) SetQualityProfiles(ctx context.Context, id int64, movieProfile
 }
 
 func (s *Service) SetAutoApprove(ctx context.Context, id int64, enabled bool) (*User, error) {
-	autoApprove := int64(0)
-	if enabled {
-		autoApprove = 1
-	}
-
 	user, err := s.queries.UpdatePortalUserAutoApprove(ctx, sqlc.UpdatePortalUserAutoApproveParams{
 		ID:          id,
-		AutoApprove: autoApprove,
+		AutoApprove: enabled,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -382,7 +367,7 @@ func (s *Service) ValidateCredentials(ctx context.Context, username, password st
 		return nil, err
 	}
 
-	if user.Enabled == 0 {
+	if !user.Enabled {
 		return nil, portal.ErrUserDisabled
 	}
 
@@ -402,7 +387,7 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 		return nil, ErrInvalidCredentials
 	}
 
-	if user.Enabled == 0 {
+	if !user.Enabled {
 		return nil, ErrUserDisabled
 	}
 
@@ -423,9 +408,9 @@ func toUser(u *sqlc.PortalUser) *User {
 		Username:              u.Username,
 		MovieQualityProfileID: movieQPID,
 		TVQualityProfileID:    tvQPID,
-		AutoApprove:           u.AutoApprove == 1,
-		IsAdmin:               u.IsAdmin == 1,
-		Enabled:               u.Enabled == 1,
+		AutoApprove:           u.AutoApprove,
+		IsAdmin:               u.IsAdmin,
+		Enabled:               u.Enabled,
 		CreatedAt:             u.CreatedAt,
 		UpdatedAt:             u.UpdatedAt,
 	}

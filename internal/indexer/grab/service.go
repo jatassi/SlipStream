@@ -426,7 +426,7 @@ func (s *Service) recordGrabHistory(ctx context.Context, req *GrabRequest, clien
 	_, err := s.queries.CreateIndexerHistoryEvent(ctx, sqlc.CreateIndexerHistoryEventParams{
 		IndexerID:    req.Release.IndexerID,
 		EventType:    "grab",
-		Successful:   1,
+		Successful:   true,
 		Query:        sql.NullString{String: req.Release.Title, Valid: true},
 		Categories:   sql.NullString{},
 		ResultsCount: sql.NullInt64{Int64: 1, Valid: true},
@@ -466,7 +466,7 @@ func (s *Service) GetGrabHistory(ctx context.Context, limit, offset int) ([]Grab
 			ID:         row.ID,
 			IndexerID:  row.IndexerID,
 			Title:      row.Query.String,
-			Successful: row.Successful == 1,
+			Successful: row.Successful,
 			CreatedAt:  row.CreatedAt.Time,
 			Data:       row.Data.String,
 		})
@@ -539,10 +539,10 @@ func (s *Service) buildMappingParams(req *GrabRequest, clientID int64, downloadI
 		params.SeriesID = sql.NullInt64{Int64: req.MediaID, Valid: true}
 		params.SeasonNumber = sql.NullInt64{Int64: int64(req.SeasonNumber), Valid: true}
 		if req.IsSeasonPack {
-			params.IsSeasonPack = 1
+			params.IsSeasonPack = true
 		}
 		if req.IsCompleteSeries {
-			params.IsCompleteSeries = 1
+			params.IsCompleteSeries = true
 		}
 	default:
 		return nil

@@ -95,19 +95,19 @@ func (s *Service) Create(ctx context.Context, input *CreateInput) (*Config, erro
 	row, err := s.queries.CreateNotification(ctx, sqlc.CreateNotificationParams{
 		Name:                  input.Name,
 		Type:                  string(input.Type),
-		Enabled:               boolToInt(input.Enabled),
+		Enabled:               input.Enabled,
 		Settings:              string(settings),
-		OnGrab:                boolToInt(input.OnGrab),
-		OnImport:              boolToInt(input.OnImport),
-		OnUpgrade:             boolToInt(input.OnUpgrade),
-		OnMovieAdded:          boolToInt(input.OnMovieAdded),
-		OnMovieDeleted:        boolToInt(input.OnMovieDeleted),
-		OnSeriesAdded:         boolToInt(input.OnSeriesAdded),
-		OnSeriesDeleted:       boolToInt(input.OnSeriesDeleted),
-		OnHealthIssue:         boolToInt(input.OnHealthIssue),
-		OnHealthRestored:      boolToInt(input.OnHealthRestored),
-		OnAppUpdate:           boolToInt(input.OnAppUpdate),
-		IncludeHealthWarnings: boolToInt(input.IncludeHealthWarnings),
+		OnGrab:                input.OnGrab,
+		OnImport:              input.OnImport,
+		OnUpgrade:             input.OnUpgrade,
+		OnMovieAdded:          input.OnMovieAdded,
+		OnMovieDeleted:        input.OnMovieDeleted,
+		OnSeriesAdded:         input.OnSeriesAdded,
+		OnSeriesDeleted:       input.OnSeriesDeleted,
+		OnHealthIssue:         input.OnHealthIssue,
+		OnHealthRestored:      input.OnHealthRestored,
+		OnAppUpdate:           input.OnAppUpdate,
+		IncludeHealthWarnings: input.IncludeHealthWarnings,
 		Tags:                  string(tags),
 	})
 	if err != nil {
@@ -165,19 +165,19 @@ func (s *Service) buildUpdateParams(existing *Config, input *UpdateInput, id int
 	return sqlc.UpdateNotificationParams{
 		Name:                  name,
 		Type:                  string(notifType),
-		Enabled:               boolToInt(enabled),
+		Enabled:               enabled,
 		Settings:              string(settings),
-		OnGrab:                boolToInt(s.mergeFlag(existing.OnGrab, input.OnGrab)),
-		OnImport:              boolToInt(s.mergeFlag(existing.OnImport, input.OnImport)),
-		OnUpgrade:             boolToInt(s.mergeFlag(existing.OnUpgrade, input.OnUpgrade)),
-		OnMovieAdded:          boolToInt(s.mergeFlag(existing.OnMovieAdded, input.OnMovieAdded)),
-		OnMovieDeleted:        boolToInt(s.mergeFlag(existing.OnMovieDeleted, input.OnMovieDeleted)),
-		OnSeriesAdded:         boolToInt(s.mergeFlag(existing.OnSeriesAdded, input.OnSeriesAdded)),
-		OnSeriesDeleted:       boolToInt(s.mergeFlag(existing.OnSeriesDeleted, input.OnSeriesDeleted)),
-		OnHealthIssue:         boolToInt(s.mergeFlag(existing.OnHealthIssue, input.OnHealthIssue)),
-		OnHealthRestored:      boolToInt(s.mergeFlag(existing.OnHealthRestored, input.OnHealthRestored)),
-		OnAppUpdate:           boolToInt(s.mergeFlag(existing.OnAppUpdate, input.OnAppUpdate)),
-		IncludeHealthWarnings: boolToInt(s.mergeFlag(existing.IncludeHealthWarnings, input.IncludeHealthWarnings)),
+		OnGrab:                s.mergeFlag(existing.OnGrab, input.OnGrab),
+		OnImport:              s.mergeFlag(existing.OnImport, input.OnImport),
+		OnUpgrade:             s.mergeFlag(existing.OnUpgrade, input.OnUpgrade),
+		OnMovieAdded:          s.mergeFlag(existing.OnMovieAdded, input.OnMovieAdded),
+		OnMovieDeleted:        s.mergeFlag(existing.OnMovieDeleted, input.OnMovieDeleted),
+		OnSeriesAdded:         s.mergeFlag(existing.OnSeriesAdded, input.OnSeriesAdded),
+		OnSeriesDeleted:       s.mergeFlag(existing.OnSeriesDeleted, input.OnSeriesDeleted),
+		OnHealthIssue:         s.mergeFlag(existing.OnHealthIssue, input.OnHealthIssue),
+		OnHealthRestored:      s.mergeFlag(existing.OnHealthRestored, input.OnHealthRestored),
+		OnAppUpdate:           s.mergeFlag(existing.OnAppUpdate, input.OnAppUpdate),
+		IncludeHealthWarnings: s.mergeFlag(existing.IncludeHealthWarnings, input.IncludeHealthWarnings),
 		Tags:                  string(tagsJSON),
 		ID:                    id,
 	}
@@ -502,19 +502,19 @@ func (s *Service) rowToConfig(row *sqlc.Notification) Config {
 		ID:                    row.ID,
 		Name:                  row.Name,
 		Type:                  NotifierType(row.Type),
-		Enabled:               row.Enabled == 1,
+		Enabled:               row.Enabled,
 		Settings:              json.RawMessage(row.Settings),
-		OnGrab:                row.OnGrab == 1,
-		OnImport:              row.OnImport == 1,
-		OnUpgrade:             row.OnUpgrade == 1,
-		OnMovieAdded:          row.OnMovieAdded == 1,
-		OnMovieDeleted:        row.OnMovieDeleted == 1,
-		OnSeriesAdded:         row.OnSeriesAdded == 1,
-		OnSeriesDeleted:       row.OnSeriesDeleted == 1,
-		OnHealthIssue:         row.OnHealthIssue == 1,
-		OnHealthRestored:      row.OnHealthRestored == 1,
-		OnAppUpdate:           row.OnAppUpdate == 1,
-		IncludeHealthWarnings: row.IncludeHealthWarnings == 1,
+		OnGrab:                row.OnGrab,
+		OnImport:              row.OnImport,
+		OnUpgrade:             row.OnUpgrade,
+		OnMovieAdded:          row.OnMovieAdded,
+		OnMovieDeleted:        row.OnMovieDeleted,
+		OnSeriesAdded:         row.OnSeriesAdded,
+		OnSeriesDeleted:       row.OnSeriesDeleted,
+		OnHealthIssue:         row.OnHealthIssue,
+		OnHealthRestored:      row.OnHealthRestored,
+		OnAppUpdate:           row.OnAppUpdate,
+		IncludeHealthWarnings: row.IncludeHealthWarnings,
 		Tags:                  tags,
 		CreatedAt:             row.CreatedAt,
 		UpdatedAt:             row.UpdatedAt,
@@ -527,13 +527,6 @@ func (s *Service) rowsToConfigs(rows []*sqlc.Notification) []Config {
 		configs[i] = s.rowToConfig(row)
 	}
 	return configs
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // DispatchHealthIssue dispatches a health issue notification.

@@ -89,7 +89,7 @@ type GetAllPasskeyCredentialsForLoginRow struct {
 	CreatedAt           time.Time      `json:"created_at"`
 	LastUsedAt          sql.NullTime   `json:"last_used_at"`
 	Username            string         `json:"username"`
-	IsAdmin             int64          `json:"is_admin"`
+	IsAdmin             bool           `json:"is_admin"`
 }
 
 func (q *Queries) GetAllPasskeyCredentialsForLogin(ctx context.Context) ([]*GetAllPasskeyCredentialsForLoginRow, error) {

@@ -61,12 +61,12 @@ type DownloadClient struct {
 	Port               int64           `json:"port"`
 	Username           sql.NullString  `json:"username"`
 	Password           sql.NullString  `json:"password"`
-	UseSsl             int64           `json:"use_ssl"`
+	UseSsl             bool            `json:"use_ssl"`
 	ApiKey             sql.NullString  `json:"api_key"`
 	Category           sql.NullString  `json:"category"`
 	UrlBase            string          `json:"url_base"`
 	Priority           int64           `json:"priority"`
-	Enabled            int64           `json:"enabled"`
+	Enabled            bool            `json:"enabled"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
 	ImportDelaySeconds int64           `json:"import_delay_seconds"`
@@ -82,8 +82,8 @@ type DownloadMapping struct {
 	SeriesID          sql.NullInt64  `json:"series_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
 	EpisodeID         sql.NullInt64  `json:"episode_id"`
-	IsSeasonPack      int64          `json:"is_season_pack"`
-	IsCompleteSeries  int64          `json:"is_complete_series"`
+	IsSeasonPack      bool           `json:"is_season_pack"`
+	IsCompleteSeries  bool           `json:"is_complete_series"`
 	CreatedAt         time.Time      `json:"created_at"`
 	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	Source            string         `json:"source"`
@@ -100,7 +100,7 @@ type Episode struct {
 	Title            sql.NullString `json:"title"`
 	Overview         sql.NullString `json:"overview"`
 	AirDate          sql.NullTime   `json:"air_date"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	Status           string         `json:"status"`
 	ActiveDownloadID sql.NullString `json:"active_download_id"`
 	StatusMessage    sql.NullString `json:"status_message"`
@@ -130,7 +130,7 @@ type EpisodeSlotAssignment struct {
 	EpisodeID        int64          `json:"episode_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -194,21 +194,21 @@ type Indexer struct {
 	DefinitionID      string         `json:"definition_id"`
 	Settings          sql.NullString `json:"settings"`
 	Categories        sql.NullString `json:"categories"`
-	SupportsMovies    int64          `json:"supports_movies"`
-	SupportsTv        int64          `json:"supports_tv"`
+	SupportsMovies    bool           `json:"supports_movies"`
+	SupportsTv        bool           `json:"supports_tv"`
 	Priority          int64          `json:"priority"`
-	Enabled           int64          `json:"enabled"`
+	Enabled           bool           `json:"enabled"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
-	AutoSearchEnabled int64          `json:"auto_search_enabled"`
-	RssEnabled        int64          `json:"rss_enabled"`
+	AutoSearchEnabled bool           `json:"auto_search_enabled"`
+	RssEnabled        bool           `json:"rss_enabled"`
 }
 
 type IndexerHistory struct {
 	ID           int64          `json:"id"`
 	IndexerID    int64          `json:"indexer_id"`
 	EventType    string         `json:"event_type"`
-	Successful   int64          `json:"successful"`
+	Successful   bool           `json:"successful"`
 	Query        sql.NullString `json:"query"`
 	Categories   sql.NullString `json:"categories"`
 	ResultsCount sql.NullInt64  `json:"results_count"`
@@ -252,7 +252,7 @@ type Movie struct {
 	Path                  sql.NullString `json:"path"`
 	RootFolderID          sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID      sql.NullInt64  `json:"quality_profile_id"`
-	Monitored             int64          `json:"monitored"`
+	Monitored             bool           `json:"monitored"`
 	Status                string         `json:"status"`
 	ActiveDownloadID      sql.NullString `json:"active_download_id"`
 	StatusMessage         sql.NullString `json:"status_message"`
@@ -291,7 +291,7 @@ type MovieSlotAssignment struct {
 	MovieID          int64          `json:"movie_id"`
 	SlotID           int64          `json:"slot_id"`
 	FileID           sql.NullInt64  `json:"file_id"`
-	Monitored        int64          `json:"monitored"`
+	Monitored        bool           `json:"monitored"`
 	CreatedAt        sql.NullTime   `json:"created_at"`
 	UpdatedAt        sql.NullTime   `json:"updated_at"`
 	Status           string         `json:"status"`
@@ -301,8 +301,8 @@ type MovieSlotAssignment struct {
 
 type MultiVersionSetting struct {
 	ID              int64        `json:"id"`
-	Enabled         int64        `json:"enabled"`
-	DryRunCompleted int64        `json:"dry_run_completed"`
+	Enabled         bool         `json:"enabled"`
+	DryRunCompleted bool         `json:"dry_run_completed"`
 	LastMigrationAt sql.NullTime `json:"last_migration_at"`
 	CreatedAt       sql.NullTime `json:"created_at"`
 	UpdatedAt       sql.NullTime `json:"updated_at"`
@@ -318,19 +318,19 @@ type Notification struct {
 	ID                    int64     `json:"id"`
 	Name                  string    `json:"name"`
 	Type                  string    `json:"type"`
-	Enabled               int64     `json:"enabled"`
+	Enabled               bool      `json:"enabled"`
 	Settings              string    `json:"settings"`
-	OnGrab                int64     `json:"on_grab"`
-	OnImport              int64     `json:"on_import"`
-	OnUpgrade             int64     `json:"on_upgrade"`
-	OnMovieAdded          int64     `json:"on_movie_added"`
-	OnMovieDeleted        int64     `json:"on_movie_deleted"`
-	OnSeriesAdded         int64     `json:"on_series_added"`
-	OnSeriesDeleted       int64     `json:"on_series_deleted"`
-	OnHealthIssue         int64     `json:"on_health_issue"`
-	OnHealthRestored      int64     `json:"on_health_restored"`
-	OnAppUpdate           int64     `json:"on_app_update"`
-	IncludeHealthWarnings int64     `json:"include_health_warnings"`
+	OnGrab                bool      `json:"on_grab"`
+	OnImport              bool      `json:"on_import"`
+	OnUpgrade             bool      `json:"on_upgrade"`
+	OnMovieAdded          bool      `json:"on_movie_added"`
+	OnMovieDeleted        bool      `json:"on_movie_deleted"`
+	OnSeriesAdded         bool      `json:"on_series_added"`
+	OnSeriesDeleted       bool      `json:"on_series_deleted"`
+	OnHealthIssue         bool      `json:"on_health_issue"`
+	OnHealthRestored      bool      `json:"on_health_restored"`
+	OnAppUpdate           bool      `json:"on_app_update"`
+	IncludeHealthWarnings bool      `json:"include_health_warnings"`
 	Tags                  string    `json:"tags"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
@@ -377,7 +377,7 @@ type PortalInvitation struct {
 	ExpiresAt             time.Time     `json:"expires_at"`
 	UsedAt                sql.NullTime  `json:"used_at"`
 	CreatedAt             time.Time     `json:"created_at"`
-	AutoApprove           int64         `json:"auto_approve"`
+	AutoApprove           bool          `json:"auto_approve"`
 	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
 	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
 }
@@ -389,7 +389,7 @@ type PortalNotification struct {
 	Type      string        `json:"type"`
 	Title     string        `json:"title"`
 	Message   string        `json:"message"`
-	Read      int64         `json:"read"`
+	Read      bool          `json:"read"`
 	CreatedAt time.Time     `json:"created_at"`
 }
 
@@ -397,24 +397,24 @@ type PortalUser struct {
 	ID                    int64         `json:"id"`
 	Username              string        `json:"username"`
 	PasswordHash          string        `json:"password_hash"`
-	AutoApprove           int64         `json:"auto_approve"`
-	Enabled               int64         `json:"enabled"`
+	AutoApprove           bool          `json:"auto_approve"`
+	Enabled               bool          `json:"enabled"`
 	CreatedAt             time.Time     `json:"created_at"`
 	UpdatedAt             time.Time     `json:"updated_at"`
-	IsAdmin               int64         `json:"is_admin"`
+	IsAdmin               bool          `json:"is_admin"`
 	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
 	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
 }
 
 type ProwlarrConfig struct {
 	ID                    int64          `json:"id"`
-	Enabled               int64          `json:"enabled"`
+	Enabled               bool           `json:"enabled"`
 	Url                   string         `json:"url"`
 	ApiKey                string         `json:"api_key"`
 	MovieCategories       string         `json:"movie_categories"`
 	TvCategories          string         `json:"tv_categories"`
 	Timeout               int64          `json:"timeout"`
-	SkipSslVerify         int64          `json:"skip_ssl_verify"`
+	SkipSslVerify         bool           `json:"skip_ssl_verify"`
 	Capabilities          sql.NullString `json:"capabilities"`
 	CapabilitiesUpdatedAt sql.NullTime   `json:"capabilities_updated_at"`
 	CreatedAt             time.Time      `json:"created_at"`
@@ -446,8 +446,8 @@ type QualityProfile struct {
 	VideoCodecSettings      string       `json:"video_codec_settings"`
 	AudioCodecSettings      string       `json:"audio_codec_settings"`
 	AudioChannelSettings    string       `json:"audio_channel_settings"`
-	UpgradesEnabled         int64        `json:"upgrades_enabled"`
-	AllowAutoApprove        int64        `json:"allow_auto_approve"`
+	UpgradesEnabled         bool         `json:"upgrades_enabled"`
+	AllowAutoApprove        bool         `json:"allow_auto_approve"`
 	UpgradeStrategy         string       `json:"upgrade_strategy"`
 	CutoffOverridesStrategy int64        `json:"cutoff_overrides_strategy"`
 }
@@ -508,7 +508,7 @@ type Season struct {
 	ID           int64          `json:"id"`
 	SeriesID     int64          `json:"series_id"`
 	SeasonNumber int64          `json:"season_number"`
-	Monitored    int64          `json:"monitored"`
+	Monitored    bool           `json:"monitored"`
 	Overview     sql.NullString `json:"overview"`
 	PosterUrl    sql.NullString `json:"poster_url"`
 }
@@ -526,8 +526,8 @@ type Series struct {
 	Path             sql.NullString `json:"path"`
 	RootFolderID     sql.NullInt64  `json:"root_folder_id"`
 	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
-	Monitored        int64          `json:"monitored"`
-	SeasonFolder     int64          `json:"season_folder"`
+	Monitored        bool           `json:"monitored"`
+	SeasonFolder     bool           `json:"season_folder"`
 	ProductionStatus string         `json:"production_status"`
 	Network          sql.NullString `json:"network"`
 	FormatType       sql.NullString `json:"format_type"`
@@ -549,12 +549,12 @@ type UserNotification struct {
 	Type        string    `json:"type"`
 	Name        string    `json:"name"`
 	Settings    string    `json:"settings"`
-	OnAvailable int64     `json:"on_available"`
-	Enabled     int64     `json:"enabled"`
+	OnAvailable bool      `json:"on_available"`
+	Enabled     bool      `json:"enabled"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	OnApproved  int64     `json:"on_approved"`
-	OnDenied    int64     `json:"on_denied"`
+	OnApproved  bool      `json:"on_approved"`
+	OnDenied    bool      `json:"on_denied"`
 }
 
 type UserQuota struct {
@@ -573,7 +573,7 @@ type VersionSlot struct {
 	ID                int64         `json:"id"`
 	SlotNumber        int64         `json:"slot_number"`
 	Name              string        `json:"name"`
-	Enabled           int64         `json:"enabled"`
+	Enabled           bool          `json:"enabled"`
 	QualityProfileID  sql.NullInt64 `json:"quality_profile_id"`
 	DisplayOrder      int64         `json:"display_order"`
 	CreatedAt         sql.NullTime  `json:"created_at"`

@@ -248,12 +248,12 @@ func (s *Service) buildCreateParams(input *CreateIndexerInput) (sqlc.CreateIndex
 		DefinitionID:      input.DefinitionID,
 		Settings:          toNullString(settingsJSON),
 		Categories:        toNullString(string(categoriesJSON)),
-		SupportsMovies:    boolToInt64(input.SupportsMovies),
-		SupportsTv:        boolToInt64(input.SupportsTV),
+		SupportsMovies:    input.SupportsMovies,
+		SupportsTv:        input.SupportsTV,
 		Priority:          int64(input.Priority),
-		Enabled:           boolToInt64(input.Enabled),
-		AutoSearchEnabled: boolToInt64(optBool(input.AutoSearchEnabled, true)),
-		RssEnabled:        boolToInt64(optBool(input.RssEnabled, true)),
+		Enabled:           input.Enabled,
+		AutoSearchEnabled: optBool(input.AutoSearchEnabled, true),
+		RssEnabled:        optBool(input.RssEnabled, true),
 	}, nil
 }
 
@@ -334,12 +334,12 @@ func (s *Service) buildUpdateParams(id int64, existing *IndexerDefinition, input
 		DefinitionID:      definitionID,
 		Settings:          toNullString(settingsJSON),
 		Categories:        toNullString(string(categoriesJSON)),
-		SupportsMovies:    boolToInt64(optBool(input.SupportsMovies, existing.SupportsMovies)),
-		SupportsTv:        boolToInt64(optBool(input.SupportsTV, existing.SupportsTV)),
+		SupportsMovies:    optBool(input.SupportsMovies, existing.SupportsMovies),
+		SupportsTv:        optBool(input.SupportsTV, existing.SupportsTV),
 		Priority:          int64(optInt(input.Priority, existing.Priority)),
-		Enabled:           boolToInt64(optBool(input.Enabled, existing.Enabled)),
-		AutoSearchEnabled: boolToInt64(optBool(input.AutoSearchEnabled, existing.AutoSearchEnabled)),
-		RssEnabled:        boolToInt64(optBool(input.RssEnabled, existing.RssEnabled)),
+		Enabled:           optBool(input.Enabled, existing.Enabled),
+		AutoSearchEnabled: optBool(input.AutoSearchEnabled, existing.AutoSearchEnabled),
+		RssEnabled:        optBool(input.RssEnabled, existing.RssEnabled),
 	}, nil
 }
 
@@ -640,12 +640,12 @@ func (s *Service) rowToDefinition(row *sqlc.Indexer) *IndexerDefinition {
 		ID:                row.ID,
 		Name:              row.Name,
 		DefinitionID:      row.DefinitionID,
-		SupportsMovies:    row.SupportsMovies == 1,
-		SupportsTV:        row.SupportsTv == 1,
+		SupportsMovies:    row.SupportsMovies,
+		SupportsTV:        row.SupportsTv,
 		Priority:          int(row.Priority),
-		Enabled:           row.Enabled == 1,
-		AutoSearchEnabled: row.AutoSearchEnabled == 1,
-		RssEnabled:        row.RssEnabled == 1,
+		Enabled:           row.Enabled,
+		AutoSearchEnabled: row.AutoSearchEnabled,
+		RssEnabled:        row.RssEnabled,
 		Categories:        []int{},
 	}
 
@@ -706,11 +706,4 @@ func toNullString(s string) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: s, Valid: true}
-}
-
-func boolToInt64(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

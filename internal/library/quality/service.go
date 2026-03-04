@@ -103,10 +103,7 @@ func (s *Service) Create(ctx context.Context, input *CreateProfileInput) (*Profi
 		return nil, err
 	}
 
-	upgradesEnabled := int64(1)
-	if input.UpgradesEnabled != nil && !*input.UpgradesEnabled {
-		upgradesEnabled = 0
-	}
+	upgradesEnabled := input.UpgradesEnabled == nil || *input.UpgradesEnabled
 
 	upgradeStrategy := string(input.UpgradeStrategy)
 	if !IsValidUpgradeStrategy(upgradeStrategy) {
@@ -122,9 +119,9 @@ func (s *Service) Create(ctx context.Context, input *CreateProfileInput) (*Profi
 		AudioCodecSettings:      serialized.audioCodec,
 		AudioChannelSettings:    serialized.audioChannel,
 		UpgradesEnabled:         upgradesEnabled,
-		AllowAutoApprove:        boolToDBInt(input.AllowAutoApprove),
+		AllowAutoApprove:        input.AllowAutoApprove,
 		UpgradeStrategy:         upgradeStrategy,
-		CutoffOverridesStrategy: boolToDBInt(input.CutoffOverridesStrategy),
+		CutoffOverridesStrategy: boolToInt64(input.CutoffOverridesStrategy),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create quality profile: %w", err)
@@ -168,7 +165,7 @@ func (s *Service) serializeProfileSettings(items []QualityItem, hdr, videoCodec,
 	}, nil
 }
 
-func boolToDBInt(b bool) int64 {
+func boolToInt64(b bool) int64 {
 	if b {
 		return 1
 	}
@@ -200,10 +197,10 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateProfileInpu
 		VideoCodecSettings:      serialized.videoCodec,
 		AudioCodecSettings:      serialized.audioCodec,
 		AudioChannelSettings:    serialized.audioChannel,
-		UpgradesEnabled:         boolToDBInt(input.UpgradesEnabled),
-		AllowAutoApprove:        boolToDBInt(input.AllowAutoApprove),
+		UpgradesEnabled:         input.UpgradesEnabled,
+		AllowAutoApprove:        input.AllowAutoApprove,
 		UpgradeStrategy:         upgradeStrategy,
-		CutoffOverridesStrategy: boolToDBInt(input.CutoffOverridesStrategy),
+		CutoffOverridesStrategy: boolToInt64(input.CutoffOverridesStrategy),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -331,10 +328,10 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		ID:                      row.ID,
 		Name:                    row.Name,
 		Cutoff:                  int(row.Cutoff),
-		UpgradesEnabled:         row.UpgradesEnabled == 1,
+		UpgradesEnabled:         row.UpgradesEnabled,
 		UpgradeStrategy:         upgradeStrategy,
 		CutoffOverridesStrategy: row.CutoffOverridesStrategy == 1,
-		AllowAutoApprove:        row.AllowAutoApprove == 1,
+		AllowAutoApprove:        row.AllowAutoApprove,
 		Items:                   items,
 		HDRSettings:             hdrSettings,
 		VideoCodecSettings:      videoCodecSettings,

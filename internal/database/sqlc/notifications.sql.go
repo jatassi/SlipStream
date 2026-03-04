@@ -46,19 +46,19 @@ RETURNING id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_
 type CreateNotificationParams struct {
 	Name                  string `json:"name"`
 	Type                  string `json:"type"`
-	Enabled               int64  `json:"enabled"`
+	Enabled               bool   `json:"enabled"`
 	Settings              string `json:"settings"`
-	OnGrab                int64  `json:"on_grab"`
-	OnImport              int64  `json:"on_import"`
-	OnUpgrade             int64  `json:"on_upgrade"`
-	OnMovieAdded          int64  `json:"on_movie_added"`
-	OnMovieDeleted        int64  `json:"on_movie_deleted"`
-	OnSeriesAdded         int64  `json:"on_series_added"`
-	OnSeriesDeleted       int64  `json:"on_series_deleted"`
-	OnHealthIssue         int64  `json:"on_health_issue"`
-	OnHealthRestored      int64  `json:"on_health_restored"`
-	OnAppUpdate           int64  `json:"on_app_update"`
-	IncludeHealthWarnings int64  `json:"include_health_warnings"`
+	OnGrab                bool   `json:"on_grab"`
+	OnImport              bool   `json:"on_import"`
+	OnUpgrade             bool   `json:"on_upgrade"`
+	OnMovieAdded          bool   `json:"on_movie_added"`
+	OnMovieDeleted        bool   `json:"on_movie_deleted"`
+	OnSeriesAdded         bool   `json:"on_series_added"`
+	OnSeriesDeleted       bool   `json:"on_series_deleted"`
+	OnHealthIssue         bool   `json:"on_health_issue"`
+	OnHealthRestored      bool   `json:"on_health_restored"`
+	OnAppUpdate           bool   `json:"on_app_update"`
+	IncludeHealthWarnings bool   `json:"include_health_warnings"`
 	Tags                  string `json:"tags"`
 }
 
@@ -176,19 +176,19 @@ type ListDisabledNotificationsRow struct {
 	ID                    int64        `json:"id"`
 	Name                  string       `json:"name"`
 	Type                  string       `json:"type"`
-	Enabled               int64        `json:"enabled"`
+	Enabled               bool         `json:"enabled"`
 	Settings              string       `json:"settings"`
-	OnGrab                int64        `json:"on_grab"`
-	OnImport              int64        `json:"on_import"`
-	OnUpgrade             int64        `json:"on_upgrade"`
-	OnMovieAdded          int64        `json:"on_movie_added"`
-	OnMovieDeleted        int64        `json:"on_movie_deleted"`
-	OnSeriesAdded         int64        `json:"on_series_added"`
-	OnSeriesDeleted       int64        `json:"on_series_deleted"`
-	OnHealthIssue         int64        `json:"on_health_issue"`
-	OnHealthRestored      int64        `json:"on_health_restored"`
-	OnAppUpdate           int64        `json:"on_app_update"`
-	IncludeHealthWarnings int64        `json:"include_health_warnings"`
+	OnGrab                bool         `json:"on_grab"`
+	OnImport              bool         `json:"on_import"`
+	OnUpgrade             bool         `json:"on_upgrade"`
+	OnMovieAdded          bool         `json:"on_movie_added"`
+	OnMovieDeleted        bool         `json:"on_movie_deleted"`
+	OnSeriesAdded         bool         `json:"on_series_added"`
+	OnSeriesDeleted       bool         `json:"on_series_deleted"`
+	OnHealthIssue         bool         `json:"on_health_issue"`
+	OnHealthRestored      bool         `json:"on_health_restored"`
+	OnAppUpdate           bool         `json:"on_app_update"`
+	IncludeHealthWarnings bool         `json:"include_health_warnings"`
 	Tags                  string       `json:"tags"`
 	CreatedAt             time.Time    `json:"created_at"`
 	UpdatedAt             time.Time    `json:"updated_at"`
@@ -410,19 +410,19 @@ RETURNING id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_
 type UpdateNotificationParams struct {
 	Name                  string `json:"name"`
 	Type                  string `json:"type"`
-	Enabled               int64  `json:"enabled"`
+	Enabled               bool   `json:"enabled"`
 	Settings              string `json:"settings"`
-	OnGrab                int64  `json:"on_grab"`
-	OnImport              int64  `json:"on_import"`
-	OnUpgrade             int64  `json:"on_upgrade"`
-	OnMovieAdded          int64  `json:"on_movie_added"`
-	OnMovieDeleted        int64  `json:"on_movie_deleted"`
-	OnSeriesAdded         int64  `json:"on_series_added"`
-	OnSeriesDeleted       int64  `json:"on_series_deleted"`
-	OnHealthIssue         int64  `json:"on_health_issue"`
-	OnHealthRestored      int64  `json:"on_health_restored"`
-	OnAppUpdate           int64  `json:"on_app_update"`
-	IncludeHealthWarnings int64  `json:"include_health_warnings"`
+	OnGrab                bool   `json:"on_grab"`
+	OnImport              bool   `json:"on_import"`
+	OnUpgrade             bool   `json:"on_upgrade"`
+	OnMovieAdded          bool   `json:"on_movie_added"`
+	OnMovieDeleted        bool   `json:"on_movie_deleted"`
+	OnSeriesAdded         bool   `json:"on_series_added"`
+	OnSeriesDeleted       bool   `json:"on_series_deleted"`
+	OnHealthIssue         bool   `json:"on_health_issue"`
+	OnHealthRestored      bool   `json:"on_health_restored"`
+	OnAppUpdate           bool   `json:"on_app_update"`
+	IncludeHealthWarnings bool   `json:"include_health_warnings"`
 	Tags                  string `json:"tags"`
 	ID                    int64  `json:"id"`
 }

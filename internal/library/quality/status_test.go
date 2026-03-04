@@ -260,7 +260,7 @@ func TestRecalculateStatusForProfile_EpisodeCutoffChange(t *testing.T) {
 	_, err = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     series.ID,
 		SeasonNumber: 1,
-		Monitored:    1,
+		Monitored:    true,
 	})
 	if err != nil {
 		t.Fatalf("CreateSeason error = %v", err)
@@ -272,7 +272,7 @@ func TestRecalculateStatusForProfile_EpisodeCutoffChange(t *testing.T) {
 		EpisodeNumber: 1,
 		Title:         sql.NullString{String: "Pilot", Valid: true},
 		Status:        "upgradable",
-		Monitored:     1,
+		Monitored:     true,
 	})
 	if err != nil {
 		t.Fatalf("CreateEpisode error = %v", err)

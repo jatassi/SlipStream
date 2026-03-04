@@ -744,8 +744,8 @@ func (s *Service) ExecuteMigration(ctx context.Context, overrides []FileOverride
 	}
 
 	_, err = s.queries.UpdateMultiVersionSettings(ctx, sqlc.UpdateMultiVersionSettingsParams{
-		Enabled:         1,
-		DryRunCompleted: 1,
+		Enabled:         true,
+		DryRunCompleted: true,
 		LastMigrationAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 	if err != nil {

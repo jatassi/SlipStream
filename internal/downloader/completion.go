@@ -189,8 +189,8 @@ func populateCompletedDownloadFields(cd *CompletedDownload, mapping *sqlc.Downlo
 		id := mapping.EpisodeID.Int64
 		cd.EpisodeID = &id
 	}
-	cd.IsSeasonPack = mapping.IsSeasonPack == 1
-	cd.IsCompleteSeries = mapping.IsCompleteSeries == 1
+	cd.IsSeasonPack = mapping.IsSeasonPack
+	cd.IsCompleteSeries = mapping.IsCompleteSeries
 	if mapping.TargetSlotID.Valid {
 		id := mapping.TargetSlotID.Int64
 		cd.TargetSlotID = &id

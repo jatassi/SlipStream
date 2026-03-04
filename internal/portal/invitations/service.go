@@ -87,7 +87,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Invitation, e
 		ExpiresAt:             expiresAt,
 		MovieQualityProfileID: movieQPID,
 		TvQualityProfileID:    tvQPID,
-		AutoApprove:           boolToInt(input.AutoApprove),
+		AutoApprove:           input.AutoApprove,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create invitation")
@@ -252,13 +252,6 @@ func toInvitation(inv *sqlc.PortalInvitation) *Invitation {
 		Status:                status,
 		MovieQualityProfileID: movieQPID,
 		TVQualityProfileID:    tvQPID,
-		AutoApprove:           inv.AutoApprove != 0,
+		AutoApprove:           inv.AutoApprove,
 	}
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

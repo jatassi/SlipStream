@@ -225,12 +225,12 @@ func (s *Service) Create(ctx context.Context, input *CreateClientInput) (*Downlo
 		Port:               int64(input.Port),
 		Username:           toNullString(input.Username),
 		Password:           toNullString(input.Password),
-		UseSsl:             boolToInt64(input.UseSSL),
+		UseSsl:             input.UseSSL,
 		ApiKey:             toNullString(input.APIKey),
 		Category:           toNullString(input.Category),
 		UrlBase:            input.URLBase,
 		Priority:           int64(input.Priority),
-		Enabled:            boolToInt64(input.Enabled),
+		Enabled:            input.Enabled,
 		ImportDelaySeconds: int64(input.ImportDelaySeconds),
 		CleanupMode:        cleanupMode,
 		SeedRatioTarget:    toNullFloat64(input.SeedRatioTarget),
@@ -268,12 +268,12 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateClientInput
 		Port:               int64(input.Port),
 		Username:           toNullString(input.Username),
 		Password:           toNullString(input.Password),
-		UseSsl:             boolToInt64(input.UseSSL),
+		UseSsl:             input.UseSSL,
 		ApiKey:             toNullString(input.APIKey),
 		Category:           toNullString(input.Category),
 		UrlBase:            input.URLBase,
 		Priority:           int64(input.Priority),
-		Enabled:            boolToInt64(input.Enabled),
+		Enabled:            input.Enabled,
 		ImportDelaySeconds: int64(input.ImportDelaySeconds),
 		CleanupMode:        cleanupMode,
 		SeedRatioTarget:    toNullFloat64(input.SeedRatioTarget),
@@ -573,9 +573,9 @@ func (s *Service) rowToClient(row *sqlc.DownloadClient) *DownloadClient {
 		Type:               row.Type,
 		Host:               row.Host,
 		Port:               int(row.Port),
-		UseSSL:             row.UseSsl == 1,
+		UseSSL:             row.UseSsl,
 		Priority:           int(row.Priority),
-		Enabled:            row.Enabled == 1,
+		Enabled:            row.Enabled,
 		ImportDelaySeconds: int(row.ImportDelaySeconds),
 		CleanupMode:        row.CleanupMode,
 	}
@@ -607,13 +607,6 @@ func toNullString(s string) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: s, Valid: true}
-}
-
-func boolToInt64(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 func toNullFloat64(f *float64) sql.NullFloat64 {

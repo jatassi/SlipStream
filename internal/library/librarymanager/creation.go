@@ -284,7 +284,7 @@ func (s *Service) getOrCreateEpisode(ctx context.Context, seriesID int64, season
 		SeasonNumber:  int64(seasonNum),
 		EpisodeNumber: int64(episodeNum),
 		Title:         sql.NullString{String: fmt.Sprintf("Episode %d", episodeNum), Valid: true},
-		Monitored:     1,
+		Monitored:     true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create episode: %w", err)
@@ -320,7 +320,7 @@ func (s *Service) ensureSeasonExists(ctx context.Context, seriesID int64, season
 	_, err = s.queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
 		SeriesID:     seriesID,
 		SeasonNumber: int64(seasonNum),
-		Monitored:    1,
+		Monitored:    true,
 	})
 	return err
 }

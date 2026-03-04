@@ -16,7 +16,7 @@ func createTestClient(t *testing.T, queries *sqlc.Queries) *sqlc.DownloadClient 
 		Type:        "transmission",
 		Host:        "localhost",
 		Port:        9091,
-		Enabled:     1,
+		Enabled:     true,
 		Priority:    50,
 		CleanupMode: "leave",
 	})

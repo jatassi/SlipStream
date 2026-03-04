@@ -40,7 +40,7 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 
 	updated, err := s.queries.UpdateSeason(ctx, sqlc.UpdateSeasonParams{
 		ID:        row.ID,
-		Monitored: boolToInt(monitored),
+		Monitored: monitored,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update season: %w", err)
@@ -48,7 +48,7 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 
 	// Cascade monitoring to all episodes in this season
 	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    boolToInt(monitored),
+		Monitored:    monitored,
 		SeriesID:     seriesID,
 		SeasonNumber: int64(seasonNumber),
 	}); err != nil {
@@ -101,13 +101,13 @@ func (s *Service) BulkMonitor(ctx context.Context, seriesID int64, input BulkMon
 func (s *Service) applyMonitorAll(ctx context.Context, seriesID int64, includeSpecials bool) error {
 	if includeSpecials {
 		if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-			Monitored: 1,
+			Monitored: true,
 			SeriesID:  seriesID,
 		}); err != nil {
 			return fmt.Errorf("failed to monitor seasons: %w", err)
 		}
 		if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-			Monitored: 1,
+			Monitored: true,
 			SeriesID:  seriesID,
 		}); err != nil {
 			return fmt.Errorf("failed to monitor episodes: %w", err)
@@ -116,13 +116,13 @@ func (s *Service) applyMonitorAll(ctx context.Context, seriesID int64, includeSp
 	}
 
 	if err := s.queries.UpdateSeasonsMonitoredExcludingSpecials(ctx, sqlc.UpdateSeasonsMonitoredExcludingSpecialsParams{
-		Monitored: 1,
+		Monitored: true,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to monitor seasons: %w", err)
 	}
 	if err := s.queries.UpdateEpisodesMonitoredExcludingSpecials(ctx, sqlc.UpdateEpisodesMonitoredExcludingSpecialsParams{
-		Monitored: 1,
+		Monitored: true,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to monitor episodes: %w", err)
@@ -132,13 +132,13 @@ func (s *Service) applyMonitorAll(ctx context.Context, seriesID int64, includeSp
 
 func (s *Service) applyMonitorNone(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor seasons: %w", err)
 	}
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor episodes: %w", err)
@@ -148,25 +148,25 @@ func (s *Service) applyMonitorNone(ctx context.Context, seriesID int64) error {
 
 func (s *Service) applyMonitorFuture(ctx context.Context, seriesID int64, includeSpecials bool) error {
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor episodes: %w", err)
 	}
 	if err := s.queries.UpdateFutureEpisodesMonitored(ctx, sqlc.UpdateFutureEpisodesMonitoredParams{
-		Monitored: 1,
+		Monitored: true,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to monitor future episodes: %w", err)
 	}
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor seasons: %w", err)
 	}
 	if err := s.queries.UpdateFutureSeasonsMonitored(ctx, sqlc.UpdateFutureSeasonsMonitoredParams{
-		Monitored:  1,
+		Monitored:  true,
 		SeriesID:   seriesID,
 		SeriesID_2: seriesID,
 	}); err != nil {
@@ -180,13 +180,13 @@ func (s *Service) applyMonitorFuture(ctx context.Context, seriesID int64, includ
 
 func (s *Service) applyMonitorFirstSeason(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor episodes: %w", err)
 	}
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor seasons: %w", err)
@@ -204,13 +204,13 @@ func (s *Service) applyMonitorLatest(ctx context.Context, seriesID int64) error 
 	}
 
 	if err := s.queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor episodes: %w", err)
 	}
 	if err := s.queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: 0,
+		Monitored: false,
 		SeriesID:  seriesID,
 	}); err != nil {
 		return fmt.Errorf("failed to unmonitor seasons: %w", err)
@@ -220,14 +220,14 @@ func (s *Service) applyMonitorLatest(ctx context.Context, seriesID int64) error 
 
 func (s *Service) unmonitorSpecials(ctx context.Context, seriesID int64) error {
 	if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-		Monitored:    0,
+		Monitored:    false,
 		SeriesID:     seriesID,
 		SeasonNumber: 0,
 	}); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("failed to unmonitor specials season: %w", err)
 	}
 	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    0,
+		Monitored:    false,
 		SeriesID:     seriesID,
 		SeasonNumber: 0,
 	}); err != nil {
@@ -238,14 +238,14 @@ func (s *Service) unmonitorSpecials(ctx context.Context, seriesID int64) error {
 
 func (s *Service) monitorSeasonBySeason(ctx context.Context, seriesID, seasonNumber int64) error {
 	if err := s.queries.UpdateSeasonMonitoredByNumber(ctx, sqlc.UpdateSeasonMonitoredByNumberParams{
-		Monitored:    1,
+		Monitored:    true,
 		SeriesID:     seriesID,
 		SeasonNumber: seasonNumber,
 	}); err != nil {
 		return fmt.Errorf("failed to monitor season: %w", err)
 	}
 	if err := s.queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    1,
+		Monitored:    true,
 		SeriesID:     seriesID,
 		SeasonNumber: seasonNumber,
 	}); err != nil {
@@ -314,7 +314,7 @@ func (s *Service) rowToSeason(row *sqlc.Season) Season {
 		ID:           row.ID,
 		SeriesID:     row.SeriesID,
 		SeasonNumber: int(row.SeasonNumber),
-		Monitored:    row.Monitored == 1,
+		Monitored:    row.Monitored,
 	}
 	if row.Overview.Valid {
 		season.Overview = row.Overview.String

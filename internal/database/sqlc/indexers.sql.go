@@ -121,12 +121,12 @@ type CreateIndexerParams struct {
 	DefinitionID      string         `json:"definition_id"`
 	Settings          sql.NullString `json:"settings"`
 	Categories        sql.NullString `json:"categories"`
-	SupportsMovies    int64          `json:"supports_movies"`
-	SupportsTv        int64          `json:"supports_tv"`
+	SupportsMovies    bool           `json:"supports_movies"`
+	SupportsTv        bool           `json:"supports_tv"`
 	Priority          int64          `json:"priority"`
-	Enabled           int64          `json:"enabled"`
-	AutoSearchEnabled int64          `json:"auto_search_enabled"`
-	RssEnabled        int64          `json:"rss_enabled"`
+	Enabled           bool           `json:"enabled"`
+	AutoSearchEnabled bool           `json:"auto_search_enabled"`
+	RssEnabled        bool           `json:"rss_enabled"`
 }
 
 func (q *Queries) CreateIndexer(ctx context.Context, arg CreateIndexerParams) (*Indexer, error) {
@@ -172,7 +172,7 @@ RETURNING id, indexer_id, event_type, successful, "query", categories, results_c
 type CreateIndexerHistoryEventParams struct {
 	IndexerID    int64          `json:"indexer_id"`
 	EventType    string         `json:"event_type"`
-	Successful   int64          `json:"successful"`
+	Successful   bool           `json:"successful"`
 	Query        sql.NullString `json:"query"`
 	Categories   sql.NullString `json:"categories"`
 	ResultsCount sql.NullInt64  `json:"results_count"`
@@ -645,14 +645,14 @@ type ListDisabledIndexersRow struct {
 	DefinitionID      string         `json:"definition_id"`
 	Settings          sql.NullString `json:"settings"`
 	Categories        sql.NullString `json:"categories"`
-	SupportsMovies    int64          `json:"supports_movies"`
-	SupportsTv        int64          `json:"supports_tv"`
+	SupportsMovies    bool           `json:"supports_movies"`
+	SupportsTv        bool           `json:"supports_tv"`
 	Priority          int64          `json:"priority"`
-	Enabled           int64          `json:"enabled"`
+	Enabled           bool           `json:"enabled"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	UpdatedAt         sql.NullTime   `json:"updated_at"`
-	AutoSearchEnabled int64          `json:"auto_search_enabled"`
-	RssEnabled        int64          `json:"rss_enabled"`
+	AutoSearchEnabled bool           `json:"auto_search_enabled"`
+	RssEnabled        bool           `json:"rss_enabled"`
 	DisabledTill      sql.NullTime   `json:"disabled_till"`
 }
 
@@ -1138,12 +1138,12 @@ type UpdateIndexerParams struct {
 	DefinitionID      string         `json:"definition_id"`
 	Settings          sql.NullString `json:"settings"`
 	Categories        sql.NullString `json:"categories"`
-	SupportsMovies    int64          `json:"supports_movies"`
-	SupportsTv        int64          `json:"supports_tv"`
+	SupportsMovies    bool           `json:"supports_movies"`
+	SupportsTv        bool           `json:"supports_tv"`
 	Priority          int64          `json:"priority"`
-	Enabled           int64          `json:"enabled"`
-	AutoSearchEnabled int64          `json:"auto_search_enabled"`
-	RssEnabled        int64          `json:"rss_enabled"`
+	Enabled           bool           `json:"enabled"`
+	AutoSearchEnabled bool           `json:"auto_search_enabled"`
+	RssEnabled        bool           `json:"rss_enabled"`
 	ID                int64          `json:"id"`
 }
 
@@ -1185,7 +1185,7 @@ UPDATE indexers SET auto_search_enabled = ?, updated_at = CURRENT_TIMESTAMP WHER
 `
 
 type UpdateIndexerAutoSearchEnabledParams struct {
-	AutoSearchEnabled int64 `json:"auto_search_enabled"`
+	AutoSearchEnabled bool  `json:"auto_search_enabled"`
 	ID                int64 `json:"id"`
 }
 
@@ -1249,7 +1249,7 @@ UPDATE indexers SET rss_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
 `
 
 type UpdateIndexerRssEnabledParams struct {
-	RssEnabled int64 `json:"rss_enabled"`
+	RssEnabled bool  `json:"rss_enabled"`
 	ID         int64 `json:"id"`
 }
 
