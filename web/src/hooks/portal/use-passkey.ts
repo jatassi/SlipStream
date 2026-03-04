@@ -31,8 +31,8 @@ export function useRegisterPasskey() {
   return useMutation({
     mutationFn: ({ pin, name }: { pin: string; name: string }) =>
       passkeyApi.registerPasskey(pin, name),
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: passkeyKeys.credentials() })
+    onSuccess: () => {
+      void queryClient.refetchQueries({ queryKey: passkeyKeys.credentials() })
       toast.success('Passkey registered successfully')
     },
     onError: (error: Error) => {

@@ -61,8 +61,7 @@ function DownloadRow({ download }: { download: PortalDownload }) {
   const season =
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     download.mediaType === 'series' && download.seasonNumber !== null
-      ? `S${download.seasonNumber}`
-      : null
+      && `S${download.seasonNumber}`
   const fullTitle = season ? `${title} ${season}` : title
   const statusLabel = getStatusLabel(download)
 

@@ -98,7 +98,7 @@ function GridHeader({
     )
   }
 
-  const Icon = icon ? ICON_MAP[icon] : null
+  const Icon = icon && ICON_MAP[icon]
 
   return (
     <div

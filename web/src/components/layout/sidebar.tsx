@@ -26,11 +26,11 @@ function MissingBadge() {
 
   return (
     <span className="flex items-center text-xs">
-      {counts.movies > 0 ? <span className="text-movie-500">{counts.movies}</span> : null}
+      {counts.movies > 0 && <span className="text-movie-500">{counts.movies}</span>}
       {counts.movies > 0 && counts.episodes > 0 && (
         <span className="text-muted-foreground px-1">|</span>
       )}
-      {counts.episodes > 0 ? <span className="text-tv-500">{counts.episodes}</span> : null}
+      {counts.episodes > 0 && <span className="text-tv-500">{counts.episodes}</span>}
     </span>
   )
 }

@@ -80,9 +80,7 @@ export function UpdatePage() {
         title="System"
         description="Monitor system health, tasks, logs, and updates"
         actions={
-          page.developerMode ? (
-            <DebugButton state={page.state} onClick={page.cycleDebugState} />
-          ) : null
+          page.developerMode ? <DebugButton state={page.state} onClick={page.cycleDebugState} /> : null
         }
       />
       <SystemNav />

@@ -10,18 +10,16 @@ import { movieKeys } from '@/hooks/use-movies'
 import { queueKeys } from '@/hooks/use-queue'
 import { schedulerKeys } from '@/hooks/use-scheduler'
 import { seriesKeys } from '@/hooks/use-series'
-import type { LogEntry } from '@/types/logs'
-import type { Activity, ProgressEventType } from '@/types/progress'
-import type { QueueResponse } from '@/types/queue'
+import type { ProgressEventType } from '@/types/progress'
 
-import { type ArtworkReadyPayload, useArtworkStore } from './artwork'
-import { type AutoSearchTaskResult, useAutoSearchStore } from './autosearch'
+import { useArtworkStore } from './artwork'
+import { useAutoSearchStore } from './autosearch'
 import { useDevModeStore } from './devmode'
 import { useLogsStore } from './logs'
 import { usePortalDownloadsStore } from './portal-downloads'
 import { useProgressStore } from './progress'
 import { useUIStore } from './ui'
-import type { WSMessage } from './ws-types'
+import type { WSMessage, WSMessageType } from './ws-types'
 
 export type DispatchContext = {
   queryClient: QueryClient
@@ -44,20 +42,24 @@ function handleQueueEvent(
   message: WSMessage,
 ): void {
   if (message.type === 'queue:state') {
-    const queueResp = message.payload as QueueResponse
-    usePortalDownloadsStore.getState().setQueue(queueResp.items)
-    queryClient.setQueryData(queueKeys.list(), queueResp)
+    // Narrows to QueueStateMessage — payload is QueueResponse
+    usePortalDownloadsStore.getState().setQueue(message.payload.items)
+    queryClient.setQueryData(queueKeys.list(), message.payload)
   } else {
     void queryClient.refetchQueries({ queryKey: queueKeys.all })
   }
 }
 
+type ProgressMessage = Extract<WSMessage, { type: `progress:${string}` }>
+
 function handleProgressEvent(message: WSMessage): void {
+  // Only called for progress:* message types; cast to the narrowed variant
+  const progressMsg = message as ProgressMessage
   useProgressStore
     .getState()
     .handleProgressEvent(
-      message.type as ProgressEventType,
-      message.payload as Activity,
+      progressMsg.type as ProgressEventType,
+      progressMsg.payload,
     )
 }
 
@@ -65,21 +67,18 @@ function handleAutoSearchEvent(message: WSMessage): void {
   const store = useAutoSearchStore.getState()
   switch (message.type) {
     case 'autosearch:task:started': {
-      store.handleTaskStarted(message.payload as { totalItems: number })
+      // Narrows to AutoSearchStartedMessage — payload is { totalItems: number }
+      store.handleTaskStarted(message.payload)
       break
     }
     case 'autosearch:task:progress': {
-      store.handleTaskProgress(
-        message.payload as {
-          currentItem: number
-          totalItems: number
-          currentTitle: string
-        },
-      )
+      // Narrows to AutoSearchProgressMessage — payload is { currentItem, totalItems, currentTitle }
+      store.handleTaskProgress(message.payload)
       break
     }
     case 'autosearch:task:completed': {
-      store.handleTaskCompleted(message.payload as AutoSearchTaskResult)
+      // Narrows to AutoSearchCompletedMessage — payload is AutoSearchTaskResult
+      store.handleTaskCompleted(message.payload)
       break
     }
   }
@@ -90,14 +89,15 @@ function handleDevModeEvent(
   message: WSMessage,
 ): void {
   if (message.type === 'devmode:changed') {
-    const { enabled } = message.payload as { enabled: boolean }
-    useDevModeStore.getState().setEnabled(enabled)
+    // Narrows to DevModeMessage — payload is { enabled: boolean }
+    useDevModeStore.getState().setEnabled(message.payload.enabled)
     useDevModeStore.getState().setSwitching(false)
-    if (!enabled) {
+    if (!message.payload.enabled) {
       useUIStore.getState().setGlobalLoading(false)
     }
     void queryClient.invalidateQueries()
   } else {
+    // devmode:error — also a DevModeMessage with { enabled: boolean }
     useDevModeStore.getState().setSwitching(false)
     useDevModeStore
       .getState()
@@ -140,9 +140,10 @@ const progressHandler: MessageHandler = (message) =>
   handleProgressEvent(message)
 
 const artworkHandler: MessageHandler = (message) => {
-  useArtworkStore
-    .getState()
-    .notifyReady(message.payload as ArtworkReadyPayload)
+  if (message.type === 'artwork:ready') {
+    // Narrows to ArtworkMessage — payload is ArtworkReadyPayload
+    useArtworkStore.getState().notifyReady(message.payload)
+  }
 }
 
 const autoSearchHandler: MessageHandler = (message, ctx) => {
@@ -169,10 +170,13 @@ const schedulerTaskHandler: MessageHandler = (_message, ctx) => {
 }
 
 const logsHandler: MessageHandler = (message) => {
-  useLogsStore.getState().addEntry(message.payload as LogEntry)
+  if (message.type === 'logs:entry') {
+    // Narrows to LogsMessage — payload is LogEntry
+    useLogsStore.getState().addEntry(message.payload)
+  }
 }
 
-const handlerMap: Partial<Record<string, MessageHandler>> = {
+const handlerMap: Partial<Record<WSMessageType, MessageHandler>> = {
   'movie:added': libraryHandler,
   'movie:updated': libraryHandler,
   'movie:deleted': libraryHandler,

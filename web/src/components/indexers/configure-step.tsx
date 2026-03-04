@@ -1,6 +1,6 @@
 import { Controller, useFormContext } from 'react-hook-form'
 
-import { Globe, Loader2, Lock, Unlock } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { DialogBody } from '@/components/ui/dialog'
@@ -11,26 +11,10 @@ import { Switch } from '@/components/ui/switch'
 import type { Privacy, Protocol } from '@/types'
 
 import { DynamicSettingsForm } from './dynamic-settings-form'
+import { privacyColors, privacyIconsMd, protocolColors } from './prowlarr-indexer-constants'
 import type { FormData, useIndexerDialog  } from './use-indexer-dialog'
 
 type HookValues = ReturnType<typeof useIndexerDialog>
-
-const privacyIcons: Record<Privacy, React.ReactNode> = {
-  public: <Globe className="size-4" />,
-  'semi-private': <Unlock className="size-4" />,
-  private: <Lock className="size-4" />,
-}
-
-const privacyColors: Record<Privacy, string> = {
-  public: 'bg-green-500/10 text-green-500',
-  'semi-private': 'bg-yellow-500/10 text-yellow-500',
-  private: 'bg-red-500/10 text-red-500',
-}
-
-const protocolColors: Record<Protocol, string> = {
-  torrent: 'bg-blue-500/10 text-blue-500',
-  usenet: 'bg-purple-500/10 text-purple-500',
-}
 
 export function ConfigureStep({ hook }: { hook: HookValues }) {
   if (!hook.selectedDefinition) {
@@ -64,16 +48,14 @@ function DefinitionBanner({
     <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
       <div className="flex-1">
         <p className="font-medium">{definition.name}</p>
-        {definition.description ? (
-          <p className="text-muted-foreground text-sm">{definition.description}</p>
-        ) : null}
+        {definition.description ? <p className="text-muted-foreground text-sm">{definition.description}</p> : null}
       </div>
       <div className="flex gap-2">
         <Badge variant="secondary" className={protocolColors[definition.protocol]}>
           {definition.protocol}
         </Badge>
         <Badge variant="secondary" className={privacyColors[definition.privacy]}>
-          <span className="mr-1">{privacyIcons[definition.privacy]}</span>
+          <span className="mr-1">{privacyIconsMd[definition.privacy]}</span>
           {definition.privacy}
         </Badge>
       </div>

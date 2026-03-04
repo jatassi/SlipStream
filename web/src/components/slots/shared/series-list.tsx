@@ -33,7 +33,7 @@ function FileStatusIcon({ hasConflict, hasNoMatch, size }: {
   if (hasNoMatch) {
     return <HelpCircle className={`${cls} text-red-500`} />
   }
-  return size === 'md' ? <CheckCircle className={`${cls} text-green-500`} /> : null
+  return size === 'md' && <CheckCircle className={`${cls} text-green-500`} />
 }
 
 function EpisodeStatusIndicator({ episode }: { episode: EpisodeItemProps['episode'] }) {

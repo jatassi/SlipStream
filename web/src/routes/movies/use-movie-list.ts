@@ -42,6 +42,14 @@ export type SortField =
   | 'rootFolder'
   | 'sizeOnDisk'
 
+const SORT_FIELDS: SortField[] = [
+  'title', 'monitored', 'qualityProfile', 'releaseDate', 'dateAdded', 'rootFolder', 'sizeOnDisk',
+]
+
+function isSortField(v: string): v is SortField {
+  return (SORT_FIELDS as string[]).includes(v)
+}
+
 const ALL_FILTERS: FilterStatus[] = [
   'monitored',
   'unreleased',
@@ -165,7 +173,7 @@ function useDerivedData(local: LocalState, queries: QueryLayer) {
       { id },
       {
         onSuccess: () => toast.success('Movie deleted'),
-        onError: () => toast.error('Failed to delete movie'),
+        onError: (error: Error) => toast.error('Failed to delete movie', { description: error.message }),
       },
     )
   }, [queries.deleteMutation])
@@ -250,7 +258,7 @@ function useBulkHandlers({ local, queries, onExitEditMode }: BulkDeps) {
           local.setDeleteFiles(false)
           onExitEditMode()
         },
-        onError: () => toast.error('Failed to delete movies'),
+        onError: (error: Error) => toast.error('Failed to delete movies', { description: error.message }),
       },
     )
   }
@@ -289,8 +297,8 @@ function useViewHandlers(local: LocalState, ui: UIState) {
   const handleColumnSort = (field: string) => {
     if (field === local.sortField) {
       local.setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      local.setSortField(field as SortField)
+    } else if (isSortField(field)) {
+      local.setSortField(field)
       local.setSortDirection(DEFAULT_SORT_DIRECTIONS[field])
     }
   }
@@ -304,14 +312,14 @@ function useViewHandlers(local: LocalState, ui: UIState) {
   const handleResetFilters = () => local.setStatusFilters([...ALL_FILTERS])
 
   const handleSortFieldChange = (v: string) => {
-    if (v) {
-      local.setSortField(v as SortField)
+    if (isSortField(v)) {
+      local.setSortField(v)
     }
   }
 
   const handleViewChange = (v: string[]) => {
-    if (v.length > 0) {
-      ui.setMoviesView(v[0] as 'grid' | 'table')
+    if (v[0] === 'grid' || v[0] === 'table') {
+      ui.setMoviesView(v[0])
     }
   }
 

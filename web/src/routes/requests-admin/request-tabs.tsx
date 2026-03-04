@@ -79,13 +79,11 @@ function TabHeader({
         <TabsTrigger value="all">All</TabsTrigger>
       </TabsList>
 
-      {isSomeSelected ? (
-        <BatchActions
+      {isSomeSelected ? <BatchActions
           selectedCount={selectedCount}
           onDeny={onOpenDenyDialog}
           onDelete={onOpenBatchDeleteDialog}
-        />
-      ) : null}
+        /> : null}
     </div>
   )
 }

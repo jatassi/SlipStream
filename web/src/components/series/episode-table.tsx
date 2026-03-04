@@ -154,16 +154,14 @@ function EpisodeRow(props: EpisodeRowProps) {
       <TableRow className={cn(isExpanded && 'border-b-0')}>
         <EpisodeRowCells {...props} />
       </TableRow>
-      {isMultiVersionEnabled && isExpanded ? (
-        <TableRow>
+      {isMultiVersionEnabled && isExpanded ? <TableRow>
           <TableCell colSpan={columnCount} className="bg-muted/20 p-2">
             <EpisodeSlotStatusContent
               episode={episode}
               slotQualityProfiles={props.slotQualityProfiles}
             />
           </TableCell>
-        </TableRow>
-      ) : null}
+        </TableRow> : null}
     </>
   )
 }
@@ -173,13 +171,11 @@ function EpisodeRowCells(props: EpisodeRowProps) {
 
   return (
     <>
-      {isMultiVersionEnabled ? (
-        <TableCell className="px-2 py-1">
+      {isMultiVersionEnabled ? <TableCell className="px-2 py-1">
           <button onClick={onToggleExpanded} className="hover:bg-muted rounded p-1">
             <ChevronDown className={cn('size-4 transition-transform', props.isExpanded && 'rotate-180')} />
           </button>
-        </TableCell>
-      ) : null}
+        </TableCell> : null}
       <TableCell className="px-2 py-1.5 font-mono">{episode.episodeNumber}</TableCell>
       <TableCell className="px-2 py-1.5 font-medium">{episode.title}</TableCell>
       <TableCell className="px-2 py-1.5">

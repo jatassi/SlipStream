@@ -15,17 +15,9 @@ import { cn } from '@/lib/utils'
 import type { Episode, Season, Slot, StatusCounts } from '@/types'
 
 import { EpisodeTable } from './episode-table'
+import type { SeriesInfo } from './series-context'
 
-type SeriesContext = {
-  seriesId: number
-  seriesTitle: string
-  qualityProfileId: number
-  tvdbId?: number
-  tmdbId?: number
-  imdbId?: string
-}
-
-type SeasonListProps = SeriesContext & {
+type SeasonListProps = SeriesInfo & {
   seasons: Season[]
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
@@ -38,7 +30,7 @@ type SeasonListProps = SeriesContext & {
   className?: string
 }
 
-type SeasonItemProps = SeriesContext & {
+type SeasonItemProps = SeriesInfo & {
   season: Season
   seasonEpisodes: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
@@ -187,7 +179,7 @@ function SeasonContent(props: SeasonItemProps & { seasonLabel: string }) {
   )
 }
 
-type SeasonTriggerProps = SeriesContext & {
+type SeasonTriggerProps = SeriesInfo & {
   season: Season
   seasonLabel: string
   firstAirYear?: string

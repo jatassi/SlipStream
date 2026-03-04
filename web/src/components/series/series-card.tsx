@@ -203,11 +203,10 @@ function EndedStatus({
 }
 
 function ActiveStatus({ nextAiring }: { nextAiring?: string }) {
-  const shortDate = nextAiring ? formatDate(nextAiring, { month: 'numeric', day: 'numeric' }) : null
-  const mediumDate = nextAiring ? formatDate(nextAiring, { month: 'short', day: 'numeric', year: 'numeric' }) : null
+  const shortDate = nextAiring && formatDate(nextAiring, { month: 'numeric', day: 'numeric' })
+  const mediumDate = nextAiring && formatDate(nextAiring, { month: 'short', day: 'numeric', year: 'numeric' })
   const longDate = nextAiring
-    ? formatDate(nextAiring, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-    : null
+    && formatDate(nextAiring, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
     <>

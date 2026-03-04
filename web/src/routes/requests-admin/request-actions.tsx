@@ -19,8 +19,7 @@ export function RequestActions(props: RequestActionsProps) {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1">
-        {props.isPending ? (
-          <>
+        {props.isPending ? <>
             <ActionButton
               icon={approveIcon}
               iconClassName={approveIconClass}
@@ -47,8 +46,7 @@ export function RequestActions(props: RequestActionsProps) {
               onClick={() => props.onAction('deny')}
               disabled={props.isProcessing}
             />
-          </>
-        ) : null}
+          </> : null}
         <ActionButton
           icon={Trash2}
           iconClassName="text-muted-foreground hover:text-destructive"

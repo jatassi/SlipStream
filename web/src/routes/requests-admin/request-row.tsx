@@ -37,9 +37,7 @@ export function RequestRow({ request, selected, isProcessing, onToggleSelect, on
       <div className="min-w-0 flex-1">
         <RequestTitle title={request.title} year={request.year} />
         <RequestMeta request={request} />
-        {request.deniedReason ? (
-          <p className="mt-1 text-sm text-red-500">Reason: {request.deniedReason}</p>
-        ) : null}
+        {request.deniedReason ? <p className="mt-1 text-sm text-red-500">Reason: {request.deniedReason}</p> : null}
       </div>
 
       <Badge className={`${statusConfig.color} text-white`}>
@@ -68,18 +66,14 @@ function RequestMeta({ request }: { request: Request }) {
         {request.mediaType}
       </Badge>
       {request.mediaType === 'series' && <SeriesSeasonInfo request={request} />}
-      {request.seasonNumber && request.mediaType !== 'series' ? (
-        <span>Season {request.seasonNumber}</span>
-      ) : null}
+      {request.seasonNumber && request.mediaType !== 'series' ? <span>Season {request.seasonNumber}</span> : null}
       {request.episodeNumber ? <span>Episode {request.episodeNumber}</span> : null}
       <span>•</span>
       <span>{formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}</span>
-      {request.user ? (
-        <>
+      {request.user ? <>
           <span>•</span>
           <span>by {request.user.username}</span>
-        </>
-      ) : null}
+        </> : null}
     </div>
   )
 }
@@ -96,11 +90,9 @@ function SeriesSeasonInfo({ request }: { request: Request }) {
       ) : (
         <span className="text-muted-foreground/70">No seasons</span>
       )}
-      {request.monitorFuture ? (
-        <Badge variant="secondary" className="text-xs">
+      {request.monitorFuture ? <Badge variant="secondary" className="text-xs">
           Future
-        </Badge>
-      ) : null}
+        </Badge> : null}
     </>
   )
 }

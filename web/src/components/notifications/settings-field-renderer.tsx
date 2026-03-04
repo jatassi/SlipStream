@@ -1,5 +1,7 @@
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
+import { apiFetch } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
@@ -153,7 +155,13 @@ function ActionField({
   return (
     <Button
       variant="outline"
-      onClick={() => field.actionEndpoint && fetch(field.actionEndpoint)}
+      onClick={() => {
+        if (field.actionEndpoint) {
+          void apiFetch(field.actionEndpoint.replace('/api/v1', ''), { method: 'POST' }).catch(() =>
+            toast.error('Action failed')
+          )
+        }
+      }}
     >
       {field.actionLabel ?? 'Action'}
     </Button>

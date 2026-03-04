@@ -128,13 +128,11 @@ function SelectSetting({ setting, value, onChange, disabled }: SettingFieldProps
           <SelectValue>{value && setting.options ? setting.options[value] : value}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {setting.options
-            ? Object.entries(setting.options).map(([optValue, optLabel]) => (
+          {setting.options ? Object.entries(setting.options).map(([optValue, optLabel]) => (
                 <SelectItem key={optValue} value={optValue}>
                   {optLabel}
                 </SelectItem>
-              ))
-            : null}
+              )) : null}
         </SelectContent>
       </Select>
     </div>

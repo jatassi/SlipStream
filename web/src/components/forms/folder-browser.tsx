@@ -162,7 +162,7 @@ function DirectoryContent({
 
   const entries = data.entries ?? []
   if (!data.parent && entries.length === 0) {
-    return data.path ? <EmptyMessage /> : null
+    return data.path && <EmptyMessage />
   }
 
   return (

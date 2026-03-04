@@ -106,9 +106,7 @@ function InvitationInfo({ invitation, isUnused }: { invitation: Invitation; isUn
         <CardDescription className="text-xs">
           Created{' '}
           {formatDistanceToNow(new Date(invitation.createdAt), { addSuffix: true })}
-          {isUnused
-            ? ` • Expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}`
-            : null}
+          {isUnused ? ` • Expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}` : null}
         </CardDescription>
       </div>
     </div>

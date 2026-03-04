@@ -66,9 +66,7 @@ export function RequestQueuePage() {
 
       <RequestDialogs page={page} />
 
-      {page.searchModal ? (
-        <RequestSearchModal searchModal={page.searchModal} onClose={page.handleSearchModalClose} />
-      ) : null}
+      {page.searchModal ? <RequestSearchModal searchModal={page.searchModal} onClose={page.handleSearchModalClose} /> : null}
     </div>
   )
 }

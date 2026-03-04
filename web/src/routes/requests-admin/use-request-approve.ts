@@ -18,6 +18,7 @@ export function useRequestApprove() {
   const autoSearchMovieMutation = useAutoSearchMovie()
   const autoSearchSeasonMutation = useAutoSearchSeason()
   const addToLibrary = useAddToLibrary()
+  const mutations = { movie: autoSearchMovieMutation, season: autoSearchSeasonMutation }
 
   const approveAndAdd = async (request: Request, action: ApproveRequestInput['action']) => {
     await approveMutation.mutateAsync({ id: request.id, input: { action } })
@@ -26,42 +27,29 @@ export function useRequestApprove() {
 
   const withProcessing = async (requestId: number, fn: () => Promise<void>) => {
     setProcessingRequest(requestId)
-    try {
-      await fn()
-    } finally {
-      setProcessingRequest(null)
-    }
+    try { await fn() } catch (error) { showApproveError(error) } finally { setProcessingRequest(null) }
   }
-
-  const handleApproveOnly = (request: Request) =>
-    withProcessing(request.id, async () => {
-      await approveAndAdd(request, 'approve_only')
-      toast.success('Request approved and added to library')
-    }).catch(showApproveError)
-
-  const handleApproveAndManualSearch = (request: Request) =>
-    withProcessing(request.id, async () => {
-      const libraryMedia = await approveAndAdd(request, 'manual_search')
-      openSearchModal({ request, libraryMedia, setSearchModal, pendingSeasonsRef })
-      toast.success('Request approved')
-    }).catch(showApproveError)
-
-  const handleApproveAndAutoSearch = (request: Request) =>
-    withProcessing(request.id, async () => {
-      const { mediaId } = await approveAndAdd(request, 'auto_search')
-      await runAutoSearch(request, mediaId, { movie: autoSearchMovieMutation, season: autoSearchSeasonMutation })
-    }).catch(showApproveError)
-
-  const handleSearchModalClose = () =>
-    advanceOrCloseSearchModal(searchModal, setSearchModal)
 
   return {
     processingRequest,
     searchModal,
-    handleSearchModalClose,
-    handleApproveOnly,
-    handleApproveAndManualSearch,
-    handleApproveAndAutoSearch,
+    handleSearchModalClose: () => advanceOrCloseSearchModal(searchModal, setSearchModal),
+    handleApproveOnly: (request: Request) =>
+      withProcessing(request.id, async () => {
+        await approveAndAdd(request, 'approve_only')
+        toast.success('Request approved and added to library')
+      }),
+    handleApproveAndManualSearch: (request: Request) =>
+      withProcessing(request.id, async () => {
+        const libraryMedia = await approveAndAdd(request, 'manual_search')
+        openSearchModal({ request, libraryMedia, setSearchModal, pendingSeasonsRef })
+        toast.success('Request approved')
+      }),
+    handleApproveAndAutoSearch: (request: Request) =>
+      withProcessing(request.id, async () => {
+        const { mediaId } = await approveAndAdd(request, 'auto_search')
+        await runAutoSearch(request, mediaId, mutations)
+      }),
   }
 }
 

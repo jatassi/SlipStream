@@ -32,7 +32,7 @@ import { formatBytes } from '@/lib/formatters'
 import { withToast } from '@/lib/with-toast'
 import type { MediaType, RootFolder } from '@/types'
 
-type FolderActions = {
+type FolderActionHandlers = {
   onDelete: (id: number) => void
   onSetDefault: (id: number, mediaType: MediaType) => void
   onClearDefault: (mediaType: MediaType) => void
@@ -72,7 +72,7 @@ function FolderBadges({ folder }: { folder: RootFolder }) {
   )
 }
 
-function FolderActions({ folder, actions }: { folder: RootFolder; actions: FolderActions }) {
+function FolderActions({ folder, actions }: { folder: RootFolder; actions: FolderActionHandlers }) {
   return (
     <div className="flex items-center gap-2">
       {folder.isDefault ? (
@@ -102,7 +102,7 @@ function FolderActions({ folder, actions }: { folder: RootFolder; actions: Folde
   )
 }
 
-function FolderCard({ folder, actions }: { folder: RootFolder; actions: FolderActions }) {
+function FolderCard({ folder, actions }: { folder: RootFolder; actions: FolderActionHandlers }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between py-4">
@@ -244,7 +244,7 @@ function useRootFolderActions() {
       toast.success(`Default ${mediaType} root folder cleared`)
     })()
   }
-  const folderActions = { onDelete: handleDelete, onSetDefault: handleSetDefault, onClearDefault: handleClearDefault } as FolderActions
+  const folderActions: FolderActionHandlers = { onDelete: handleDelete, onSetDefault: handleSetDefault, onClearDefault: handleClearDefault }
   return {
     query, showAddDialog, setShowAddDialog, showBrowser, setShowBrowser,
     newPath, setNewPath, newName, setNewName, newMediaType, setNewMediaType,

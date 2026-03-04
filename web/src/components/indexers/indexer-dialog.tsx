@@ -48,9 +48,7 @@ export function IndexerDialog({ open, onOpenChange, indexer }: IndexerDialogProp
             </DialogBody>
           )}
 
-          {hook.step === 'configure' && hook.selectedDefinition ? (
-            <ConfigureStep hook={hook} />
-          ) : null}
+          {hook.step === 'configure' && !!hook.selectedDefinition && <ConfigureStep hook={hook} />}
 
           {hook.step === 'configure' && (
             <FooterActions hook={hook} onOpenChange={onOpenChange} />

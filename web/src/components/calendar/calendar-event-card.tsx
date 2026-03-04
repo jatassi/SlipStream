@@ -76,7 +76,7 @@ export function CalendarEventCard({ event, compact, className }: CalendarEventCa
               {event.mediaType === 'episode' ? event.seriesTitle : event.title}
             </span>
           </div>
-          {event.mediaType === 'episode' ? <EpisodeDetails event={event} compact={compact} /> : null}
+          {event.mediaType === 'episode' && <EpisodeDetails event={event} compact={compact} />}
           {compact ? null : <EventBadges event={event} />}
         </div>
       </div>

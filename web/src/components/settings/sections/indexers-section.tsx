@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { Edit, Globe, Lock, Rss, TestTube, Trash2, Unlock } from 'lucide-react'
+import { Edit, Rss, TestTube, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { ErrorState } from '@/components/data/error-state'
@@ -12,6 +12,11 @@ import {
   ProwlarrConfigForm,
   ProwlarrIndexerList,
 } from '@/components/indexers'
+import {
+  privacyColorsInteractive,
+  privacyIcons,
+  protocolColorsInteractive,
+} from '@/components/indexers/prowlarr-indexer-constants'
 import { AddPlaceholderCard } from '@/components/settings/add-placeholder-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,24 +29,7 @@ import {
   useTestIndexer,
   useUpdateIndexer,
 } from '@/hooks'
-import type { Indexer, Privacy, Protocol } from '@/types'
-
-const privacyIcons: Record<Privacy, React.ReactNode> = {
-  public: <Globe className="size-3" />,
-  'semi-private': <Unlock className="size-3" />,
-  private: <Lock className="size-3" />,
-}
-
-const privacyColors: Record<Privacy, string> = {
-  public: 'bg-green-500/10 text-green-500 hover:bg-green-500/20',
-  'semi-private': 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20',
-  private: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
-}
-
-const protocolColors: Record<Protocol, string> = {
-  torrent: 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20',
-  usenet: 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20',
-}
+import type { Indexer } from '@/types'
 
 function useIndexerActions() {
   const deleteMutation = useDeleteIndexer()
@@ -191,10 +179,10 @@ function IndexerCard({ indexer, onEdit, actions }: IndexerCardProps) {
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-base">{indexer.name}</CardTitle>
-              <Badge variant="secondary" className={protocolColors[indexer.protocol]}>
+              <Badge variant="secondary" className={protocolColorsInteractive[indexer.protocol]}>
                 {indexer.protocol}
               </Badge>
-              <Badge variant="secondary" className={privacyColors[indexer.privacy]}>
+              <Badge variant="secondary" className={privacyColorsInteractive[indexer.privacy]}>
                 <span className="mr-1">{privacyIcons[indexer.privacy]}</span>
                 {indexer.privacy}
               </Badge>

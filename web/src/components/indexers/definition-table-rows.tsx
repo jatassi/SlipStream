@@ -1,25 +1,12 @@
-import { Globe, Lock, Unlock } from 'lucide-react'
-
 import { Badge } from '@/components/ui/badge'
 import { TableCell, TableRow } from '@/components/ui/table'
-import type { DefinitionMetadata, Privacy, Protocol } from '@/types'
+import type { DefinitionMetadata } from '@/types'
 
-const privacyIcons: Record<Privacy, React.ReactNode> = {
-  public: <Globe className="size-4" />,
-  'semi-private': <Unlock className="size-4" />,
-  private: <Lock className="size-4" />,
-}
-
-const privacyColors: Record<Privacy, string> = {
-  public: 'bg-green-500/10 text-green-500 hover:bg-green-500/20',
-  'semi-private': 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20',
-  private: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
-}
-
-const protocolColors: Record<Protocol, string> = {
-  torrent: 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20',
-  usenet: 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20',
-}
+import {
+  privacyColorsInteractive,
+  privacyIconsMd,
+  protocolColorsInteractive,
+} from './prowlarr-indexer-constants'
 
 type DefinitionTableRowsProps = {
   definitions: DefinitionMetadata[]
@@ -62,13 +49,13 @@ function DefinitionRow({
     >
       <TableCell className="font-medium">{definition.name}</TableCell>
       <TableCell>
-        <Badge variant="secondary" className={protocolColors[definition.protocol]}>
+        <Badge variant="secondary" className={protocolColorsInteractive[definition.protocol]}>
           {definition.protocol}
         </Badge>
       </TableCell>
       <TableCell>
-        <Badge variant="secondary" className={privacyColors[definition.privacy]}>
-          <span className="mr-1">{privacyIcons[definition.privacy]}</span>
+        <Badge variant="secondary" className={privacyColorsInteractive[definition.privacy]}>
+          <span className="mr-1">{privacyIconsMd[definition.privacy]}</span>
           {definition.privacy}
         </Badge>
       </TableCell>
