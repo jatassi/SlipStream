@@ -1,17 +1,28 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { portalRequestsApi } from '@/api'
 import { createQueryKeys } from '@/lib/query-keys'
 import { usePortalAuthStore, usePortalDownloadsStore } from '@/stores'
-import type { CreateRequestInput, PortalDownload, QueueItem, Request, RequestListFilters } from '@/types'
+import type { CreateRequestInput, PortalDownload, Request, RequestListFilters, RequestStatus } from '@/types'
 
 const baseKeys = createQueryKeys('requests')
 export const requestKeys = {
   ...baseKeys,
   list: (filters?: RequestListFilters) => [...baseKeys.list(), filters] as const,
 }
+
+const portalDownloadBaseKeys = createQueryKeys('portal-downloads')
+export const portalDownloadKeys = {
+  ...portalDownloadBaseKeys,
+}
+
+const ACTIVE_REQUEST_STATUSES = new Set<RequestStatus>([
+  'approved',
+  'searching',
+  'downloading',
+])
 
 export function useRequests(filters?: RequestListFilters) {
   return useQuery({
@@ -95,42 +106,6 @@ export function useUnwatchRequest() {
   })
 }
 
-function buildPortalDownload(
-  item: QueueItem,
-  match: {
-    requestId: number
-    requestTitle: string
-    requestMediaId?: number
-    tmdbId?: number
-    tvdbId?: number
-  },
-): PortalDownload {
-  return {
-    id: item.id,
-    clientId: item.clientId,
-    clientName: item.clientName,
-    title: item.title,
-    mediaType: item.mediaType,
-    status: item.status,
-    progress: item.progress,
-    size: item.size,
-    downloadedSize: item.downloadedSize,
-    downloadSpeed: item.downloadSpeed,
-    eta: item.eta,
-    season: item.season,
-    episode: item.episode,
-    movieId: item.movieId,
-    seriesId: item.seriesId,
-    seasonNumber: item.seasonNumber,
-    isSeasonPack: item.isSeasonPack,
-    requestId: match.requestId,
-    requestTitle: match.requestTitle,
-    requestMediaId: match.requestMediaId,
-    tmdbId: match.tmdbId,
-    tvdbId: match.tvdbId,
-  }
-}
-
 export function usePortalDownloads(): {
   data: PortalDownload[] | undefined
   requests: Request[] | undefined
@@ -138,13 +113,18 @@ export function usePortalDownloads(): {
 } {
   const isAuthenticated = usePortalAuthStore((s) => s.isAuthenticated)
   const setUserRequests = usePortalDownloadsStore((s) => s.setUserRequests)
-  const queue = usePortalDownloadsStore((s) => s.queue)
-  const matches = usePortalDownloadsStore((s) => s.matches)
 
-  const { data: requests, isLoading } = useQuery({
+  const { data: requests, isLoading: requestsLoading } = useQuery({
     queryKey: requestKeys.list(),
     queryFn: () => portalRequestsApi.list(),
     enabled: isAuthenticated,
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.some((r) => ACTIVE_REQUEST_STATUSES.has(r.status))) {
+        return 5000
+      }
+      return false
+    },
   })
 
   useEffect(() => {
@@ -153,20 +133,18 @@ export function usePortalDownloads(): {
     }
   }, [requests, setUserRequests])
 
-  const downloads = useMemo((): PortalDownload[] => {
-    const result: PortalDownload[] = []
-    for (const item of queue) {
-      const match = matches.get(item.id)
-      if (match) {
-        result.push(buildPortalDownload(item, match))
-      }
-    }
-    return result
-  }, [queue, matches])
+  const hasActiveRequests = requests?.some((r) => ACTIVE_REQUEST_STATUSES.has(r.status)) ?? false
+
+  const { data: downloads, isLoading: downloadsLoading } = useQuery({
+    queryKey: portalDownloadKeys.all,
+    queryFn: () => portalRequestsApi.downloads(),
+    enabled: isAuthenticated && hasActiveRequests,
+    refetchInterval: hasActiveRequests ? 3000 : false,
+  })
 
   return {
     data: isAuthenticated ? downloads : undefined,
     requests: isAuthenticated ? requests : undefined,
-    isLoading,
+    isLoading: requestsLoading || downloadsLoading,
   }
 }

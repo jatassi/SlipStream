@@ -89,7 +89,6 @@ function computeReconnectDelay(attempts: number): number {
 }
 
 function scheduleReconnect(get: GetState, set: SetState): void {
-  if (document.visibilityState === 'hidden') {return}
   const { reconnectAttempts } = get()
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     set({ reconnecting: false })
@@ -109,7 +108,10 @@ export function createConnect(
 ): (force?: boolean) => void {
   return (force = false) => {
     const { socket, reconnecting, lastMessageTime } = get()
-    if (reconnecting) {return}
+    if (reconnecting) {
+      if (!force) {return}
+      set({ reconnecting: false, reconnectAttempts: 0 })
+    }
 
     // Don't connect if there's no admin token — user is not logged in.
     const token = getAdminAuthToken()
