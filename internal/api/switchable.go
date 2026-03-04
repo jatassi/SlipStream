@@ -86,9 +86,9 @@ type SwitchableServices struct {
 	Notifications   *portalnotifs.Service    `switchable:"queries"`
 	AutoApprove     *autoapprove.Service     `switchable:"queries"`
 	Requests        *requests.Service        `switchable:"queries"`
-	Auth            *auth.Service            `switchable:"queries"`
-	AdminSettings   *admin.SettingsHandlers  `switchable:"queries"`
-	Passkey         *auth.PasskeyService     `switchable:"queries,optional"`
+	Auth            *auth.Service
+	AdminSettings   *admin.SettingsHandlers `switchable:"queries"`
+	Passkey         *auth.PasskeyService    `switchable:"queries,optional"`
 }
 
 // UpdateAll switches all registered services to use the given database.

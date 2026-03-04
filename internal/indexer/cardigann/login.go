@@ -118,6 +118,7 @@ func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, setting
 		evaluated, err := engine.Evaluate(string(val), tmplCtx)
 		if err != nil {
 			h.logger.Warn().Err(err).Str("key", key).Msg("failed to evaluate template for header")
+			continue
 		}
 		req.Header.Set(key, evaluated)
 	}
@@ -129,7 +130,10 @@ func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, setting
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read login response body: %w", err)
+	}
 
 	if err := checkLoginErrors(body, login.Error); err != nil {
 		return err
@@ -142,35 +146,11 @@ func (h *LoginHandler) loginPOST(ctx context.Context, login *LoginBlock, setting
 
 // loginForm performs form-based authentication with selector inputs.
 func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, settings map[string]string) error {
-	// First, fetch the login page to get form fields
 	loginPageURL := joinURL(h.baseURL, login.Path)
 
-	h.logger.Debug().Str("url", loginPageURL).Msg("Fetching login page")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, loginPageURL, http.NoBody)
+	htmlSel, body, err := h.fetchAndParsePage(ctx, loginPageURL)
 	if err != nil {
-		return fmt.Errorf("failed to create login page request: %w", err)
-	}
-
-	req.Header.Set("User-Agent", h.userAgent)
-
-	resp, err := h.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to fetch login page: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
-	h.logger.Debug().
-		Int("status", resp.StatusCode).
-		Int("bodyLength", len(body)).
-		Msg("Login page response received")
-
-	// Parse the page
-	htmlSel, err := NewHTMLSelector(body)
-	if err != nil {
-		return fmt.Errorf("failed to parse login page: %w", err)
+		return err
 	}
 
 	// Find the form
@@ -199,7 +179,7 @@ func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, setting
 	h.logger.Debug().Str("url", formAction).Msg("Submitting login form")
 
 	// Submit the form
-	req, err = http.NewRequestWithContext(ctx, http.MethodPost, formAction, strings.NewReader(formData.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, formAction, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create form submit request: %w", err)
 	}
@@ -208,7 +188,7 @@ func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, setting
 	req.Header.Set("User-Agent", h.userAgent)
 	req.Header.Set("Referer", loginPageURL)
 
-	resp, err = h.httpClient.Do(req)
+	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("form submit failed: %w", err)
 	}
@@ -217,6 +197,40 @@ func (h *LoginHandler) loginForm(ctx context.Context, login *LoginBlock, setting
 	h.logger.Debug().Int("status", resp.StatusCode).Msg("Form login completed")
 
 	return nil
+}
+
+func (h *LoginHandler) fetchAndParsePage(ctx context.Context, pageURL string) (*HTMLSelector, []byte, error) {
+	h.logger.Debug().Str("url", pageURL).Msg("Fetching login page")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, http.NoBody)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create login page request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", h.userAgent)
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch login page: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read login page body: %w", err)
+	}
+
+	h.logger.Debug().
+		Int("status", resp.StatusCode).
+		Int("bodyLength", len(body)).
+		Msg("Login page response received")
+
+	htmlSel, err := NewHTMLSelector(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse login page: %w", err)
+	}
+
+	return htmlSel, body, nil
 }
 
 // loginCookie uses user-provided cookies for authentication.
@@ -323,7 +337,10 @@ func (h *LoginHandler) loginGET(ctx context.Context, login *LoginBlock, settings
 		return fmt.Errorf("authentication failed: unauthorized (HTTP 401)")
 	}
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read login response body: %w", err)
+	}
 
 	if err := checkLoginErrors(body, login.Error); err != nil {
 		return err
@@ -363,7 +380,10 @@ func (h *LoginHandler) Test(ctx context.Context, login *LoginBlock) error {
 
 	// Check for success selector if specified
 	if login.Test.Selector != "" {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read test response body: %w", err)
+		}
 		htmlSel, err := NewHTMLSelector(body)
 		if err != nil {
 			return fmt.Errorf("failed to parse test response: %w", err)
@@ -497,6 +517,7 @@ func (h *LoginHandler) applyTemplatedHeaders(req *http.Request, engine *Template
 		evaluated, err := engine.Evaluate(string(val), tmplCtx)
 		if err != nil {
 			h.logger.Warn().Err(err).Str("key", key).Msg("failed to evaluate template for header")
+			continue
 		}
 		req.Header.Set(key, evaluated)
 	}

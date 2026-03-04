@@ -215,7 +215,7 @@ func (h *Handlers) GetStatus(c echo.Context) error {
 		MediaType: mediaType,
 		MediaID:   id,
 		Searching: h.service.IsSearching(mediaType, id),
-		InQueue:   false, // TODO: Check download queue
+		InQueue:   h.service.IsInQueue(c.Request().Context(), mediaType, id),
 	}
 
 	return c.JSON(http.StatusOK, status)

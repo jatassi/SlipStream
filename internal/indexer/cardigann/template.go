@@ -11,12 +11,13 @@ import (
 
 // TemplateContext provides data available during template evaluation.
 type TemplateContext struct {
-	Config     map[string]string // User-provided settings
-	Query      QueryContext      // Search parameters
-	Keywords   string            // Top-level alias for Query.Keywords (Cardigann compatibility)
-	Categories []string          // Selected category IDs
-	Result     map[string]string // Previously extracted fields (for field references)
-	Today      TimeContext       // Current date/time
+	Config      map[string]string // User-provided settings
+	Query       QueryContext      // Search parameters
+	Keywords    string            // Top-level alias for Query.Keywords (Cardigann compatibility)
+	Categories  []string          // Selected category IDs
+	Result      map[string]string // Previously extracted fields (for field references)
+	Today       TimeContext       // Current date/time
+	DownloadURL string            // URL of the file being downloaded (available in download.before context)
 }
 
 // QueryContext contains search query parameters.

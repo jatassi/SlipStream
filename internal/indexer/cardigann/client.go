@@ -206,7 +206,7 @@ func (c *Client) Download(ctx context.Context, url string) ([]byte, error) {
 	// Handle download block if defined
 	if c.def.Download != nil && c.def.Download.Before != nil {
 		// Execute pre-download request
-		if err := c.executePreDownload(ctx); err != nil {
+		if err := c.executePreDownload(ctx, url); err != nil {
 			c.logger.Warn().Err(err).Msg("Pre-download request failed")
 		}
 	}
@@ -515,7 +515,7 @@ func (c *Client) convertToTorrentInfo(result *SearchResult) types.TorrentInfo {
 }
 
 // executePreDownload executes a pre-download request if configured.
-func (c *Client) executePreDownload(ctx context.Context) error {
+func (c *Client) executePreDownload(ctx context.Context, downloadURL string) error {
 	before := c.def.Download.Before
 	if before == nil {
 		return nil
@@ -527,7 +527,7 @@ func (c *Client) executePreDownload(ctx context.Context) error {
 	// Create template context
 	tmplCtx := NewTemplateContext()
 	tmplCtx.Config = c.settings
-	// TODO: Add download URL info to context
+	tmplCtx.DownloadURL = downloadURL
 
 	engine := NewTemplateEngine()
 
@@ -552,7 +552,11 @@ func (c *Client) executePreDownload(ctx context.Context) error {
 
 	// Add custom headers
 	for key, val := range before.Headers {
-		evaluated, _ := engine.Evaluate(string(val), tmplCtx)
+		evaluated, err := engine.Evaluate(string(val), tmplCtx)
+		if err != nil {
+			c.logger.Warn().Err(err).Str("key", key).Msg("failed to evaluate template for header")
+			continue
+		}
 		req.Header.Set(key, evaluated)
 	}
 

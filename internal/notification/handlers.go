@@ -162,7 +162,7 @@ func (h *Handlers) List(c echo.Context) error {
 
 	notifications, err := h.service.List(ctx)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	for i := range notifications {
@@ -179,15 +179,15 @@ func (h *Handlers) Get(c echo.Context) error {
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
 	notification, err := h.service.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotificationNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "notification not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactNotificationSettings(notification)
@@ -201,20 +201,20 @@ func (h *Handlers) Create(c echo.Context) error {
 
 	var input CreateInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if input.Name == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return echo.NewHTTPError(http.StatusBadRequest, "name is required")
 	}
 
 	if input.Type == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "type is required"})
+		return echo.NewHTTPError(http.StatusBadRequest, "type is required")
 	}
 
 	notification, err := h.service.Create(ctx, &input)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactNotificationSettings(notification)
@@ -228,12 +228,12 @@ func (h *Handlers) Update(c echo.Context) error {
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
 	var input UpdateInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if input.Settings != nil {
@@ -247,9 +247,9 @@ func (h *Handlers) Update(c echo.Context) error {
 	notification, err := h.service.Update(ctx, id, &input)
 	if err != nil {
 		if errors.Is(err, ErrNotificationNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "notification not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	redactNotificationSettings(notification)
@@ -263,11 +263,11 @@ func (h *Handlers) Delete(c echo.Context) error {
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
 	if err := h.service.Delete(ctx, id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -280,15 +280,15 @@ func (h *Handlers) Test(c echo.Context) error {
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
 	result, err := h.service.Test(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotificationNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "notification not found"})
+			return echo.NewHTTPError(http.StatusNotFound, "notification not found")
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -301,16 +301,16 @@ func (h *Handlers) TestNew(c echo.Context) error {
 
 	var input CreateInput
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if input.Type == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "type is required"})
+		return echo.NewHTTPError(http.StatusBadRequest, "type is required")
 	}
 
 	result, err := h.service.TestConfig(ctx, &input)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, result)

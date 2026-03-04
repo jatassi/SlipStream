@@ -90,37 +90,14 @@ func generateAndPersistSecret(queries *sqlc.Queries) ([]byte, error) {
 	return secret, nil
 }
 
-func (s *Service) SetDB(queries *sqlc.Queries) {
+func (s *Service) SetDB(queries *sqlc.Queries) error {
 	s.queries = queries
-	// Reload JWT secret from the new database
-	ctx := context.Background()
-	setting, err := queries.GetSetting(ctx, jwtSecretSettingKey)
-	if err == nil && setting.Value != "" {
-		secret, decErr := hex.DecodeString(setting.Value)
-		if decErr != nil {
-			s.logger.Warn().Err(decErr).Msg("failed to decode JWT secret from database")
-			return
-		}
-		s.jwtSecret = secret
-		return
+	secret, err := loadOrGenerateSecret(queries)
+	if err != nil {
+		return fmt.Errorf("auth: failed to reload JWT secret: %w", err)
 	}
-	// If no secret in database, generate and store one
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && setting.Value == "") {
-		secret := make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			s.logger.Error().Err(err).Msg("failed to generate JWT secret")
-			return
-		}
-		_, err = queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   jwtSecretSettingKey,
-			Value: hex.EncodeToString(secret),
-		})
-		if err != nil {
-			s.logger.Error().Err(err).Msg("failed to persist JWT secret")
-			return
-		}
-		s.jwtSecret = secret
-	}
+	s.jwtSecret = secret
+	return nil
 }
 
 func (s *Service) GeneratePortalToken(user *sqlc.PortalUser) (string, error) {

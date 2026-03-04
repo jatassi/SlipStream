@@ -134,9 +134,9 @@ func (c *Client) Add(_ context.Context, opts *types.AddOptions) (string, error) 
 }
 
 // AddMagnet adds a mock magnet download.
-func (c *Client) AddMagnet(_ context.Context, magnetURL string, opts *types.AddOptions) (string, error) {
+func (c *Client) AddMagnet(ctx context.Context, magnetURL string, opts *types.AddOptions) (string, error) {
 	opts.URL = magnetURL
-	return c.Add(context.TODO(), opts)
+	return c.Add(ctx, opts)
 }
 
 // List returns all mock downloads with calculated progress.

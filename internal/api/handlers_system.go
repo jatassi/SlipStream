@@ -208,7 +208,7 @@ func (s *Server) updateSettings(c echo.Context) error {
 		ExternalAccessEnabled *bool   `json:"externalAccessEnabled"`
 	}
 	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
 	if err := s.updateServerPort(ctx, queries, input.ServerPort); err != nil {
@@ -332,7 +332,7 @@ func (s *Server) regenerateAPIKey(c echo.Context) error {
 
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate API key"})
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate API key")
 	}
 	apiKey := hex.EncodeToString(bytes)
 
@@ -340,7 +340,7 @@ func (s *Server) regenerateAPIKey(c echo.Context) error {
 		Key:   "api_key",
 		Value: apiKey,
 	}); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"apiKey": apiKey})
