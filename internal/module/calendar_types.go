@@ -2,11 +2,20 @@ package module
 
 import "time"
 
-// CalendarItem represents an item with a date for the calendar view.
+// CalendarItem represents a single item with a date for the unified calendar view.
 type CalendarItem struct {
-	EntityType EntityType
-	EntityID   int64
+	ID         int64
 	Title      string
-	Date       time.Time
 	ModuleType Type
+	EntityType EntityType
+	EventType  string
+	Date       time.Time
+	Status     string
+	Monitored  bool
+
+	ExternalIDs map[string]string
+	Year        int
+	ParentID    int64
+	ParentTitle string
+	Extra       map[string]any
 }

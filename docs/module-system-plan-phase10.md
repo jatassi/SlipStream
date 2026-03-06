@@ -74,6 +74,7 @@ These are backend items that the Phase 10 frontend work does not depend on. They
 | Consolidate `streamingServicesWithEarlyRelease` map duplicated between `internal/calendar/service.go` and `internal/modules/tv/calendar.go` | Phase 4 (line 5618) |
 | Align `UpdateUnreleasedMoviesToMissing` SQL to use earliest-of digital/physical instead of priority chain | Phase 4 (line 5619) |
 | Generic framework cascade (§6.1) — parent `monitored` propagation to descendants via node schema introspection | Phase 4 (line 5620) |
+| Add TV `existing` monitoring preset — monitor only episodes that currently have files (spec §6.1 lists it, deferred because it requires a new SQL query) | Phase 4 (decision 9) |
 | Eliminate `decisioning.SearchableItem` struct — migrate autosearch pipeline to use `module.SearchableItem` interface throughout | Phase 5 (lines 6585, 6874–6875) |
 | Refactor `SelectBestRelease` to use `SearchStrategy.FilterRelease` instead of hard-coded `shouldSkipTVRelease` | Phase 5 (line 6878) |
 | Full scanner refactoring — `FileParser` replaces scanner internals instead of wrapping | Phase 6 (line 6978) |

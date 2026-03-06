@@ -89,6 +89,7 @@ Every item deferred to Phase 11 from earlier phases, tracked to its task assignm
 | 9 | Remove unused naming columns from `import_settings` table | Phase 6 (line 8034) | 11.8 |
 | 10 | Remove `populateLegacyFields` bridge in renamer | Phase 6 (line 8221) | 11.8 |
 | 11 | Remove legacy `availability.Service`, `calendar.Service`, `missing.Service` dispatcher fallback paths | Phase 4 (line 4324) | 11.9 |
+| 12 | Add TV `existing` monitoring preset — monitor only episodes that currently have files (spec §6.1) | Phase 4 (decision 9) | 11.11 |
 
 ### From Phase 3
 
@@ -784,6 +785,12 @@ func CascadeMonitoredForModule(ctx context.Context, registry *Registry, moduleTy
 - This is the thin-abstraction approach (AD #7). The full generic node-schema-walk cascade is deferred until a 3rd module makes the current approach insufficient.
 - The existing TV cascade code is NOT deleted — it's just wrapped by the module's `CascadeMonitored` implementation.
 - The `MonitoringCascader` interface is optional — check with type assertion. This follows the pattern of other optional interfaces (`PortalProvisioner`, `SlotSupport`).
+
+**Also in this task:** Add the TV `existing` monitoring preset (spec §6.1, deferred from Phase 4 decision 9). This preset monitors only episodes that currently have files. Requires:
+- A new SQL query: `SELECT episode_id FROM episode_files GROUP BY episode_id` (or similar) to identify episodes with files
+- Add `{ID: "existing", Label: "Existing Episodes", Description: "Monitor only episodes that already have files"}` to `tvMonitoringPresets` in `internal/modules/tv/monitoring.go`
+- Add `case "existing"` to `toMonitorType` mapping (add `MonitorTypeExisting` to `internal/library/tv/` types)
+- Implement the preset logic in `BulkMonitor`: unmonitor all, then re-monitor only episodes with files
 
 **Verify:**
 - `go build ./...`

@@ -42,7 +42,7 @@ This phase touches 4 relatively independent interface areas (monitoring, release
 
 ---
 
-### Task 4.1: Implement MonitoringPresets on Module Stubs
+### Task 4.1: Implement MonitoringPresets on Module Stubs ✅ DONE
 
 **Depends on:** Phase 3 complete (module stubs exist in `internal/modules/movie/module.go` and `internal/modules/tv/module.go`)
 
@@ -201,7 +201,7 @@ Do the same in `internal/modules/tv/module.go`.
 
 ---
 
-### Task 4.2: Implement ReleaseDateResolver on Module Stubs
+### Task 4.2: Implement ReleaseDateResolver on Module Stubs ✅ DONE
 
 **Depends on:** Phase 3 complete
 
@@ -340,7 +340,7 @@ var _ module.ReleaseDateResolver = (*Module)(nil)
 
 ---
 
-### Task 4.3: Implement CalendarProvider on Module Stubs
+### Task 4.3: Implement CalendarProvider on Module Stubs ✅ DONE
 
 **Depends on:** Phase 3 complete
 
@@ -653,7 +653,7 @@ var _ module.CalendarProvider = (*Module)(nil)
 
 ---
 
-### Task 4.4: Implement WantedCollector on Module Stubs
+### Task 4.4: Implement WantedCollector on Module Stubs ✅ DONE
 
 **Depends on:** Phase 3 complete
 
@@ -964,7 +964,7 @@ var _ module.WantedCollector = (*Module)(nil)
 
 ---
 
-### Task 4.5: Refactor Availability Service to Dispatch Through Module Providers
+### Task 4.5: Refactor Availability Service to Dispatch Through Module Providers ✅ DONE
 
 **Depends on:** Task 4.2 (ReleaseDateResolver implementations)
 
@@ -1054,7 +1054,7 @@ func (s *Service) refreshLegacy(ctx context.Context) error {
 
 ---
 
-### Task 4.6: Refactor Calendar Service to Dispatch Through Module Providers
+### Task 4.6: Refactor Calendar Service to Dispatch Through Module Providers ✅ DONE
 
 **Depends on:** Task 4.3 (CalendarProvider implementations)
 
@@ -1189,7 +1189,7 @@ func calendarItemToEvent(item module.CalendarItem) CalendarEvent {
 
 ---
 
-### Task 4.7: Wire Integration — Connect Module Providers to Services
+### Task 4.7: Wire Integration — Connect Module Providers to Services ✅ DONE
 
 **Depends on:** Tasks 4.1–4.6
 
@@ -1286,7 +1286,7 @@ var _ module.WantedCollector = (*Module)(nil)
 
 ---
 
-### Task 4.8: Phase 4 Validation
+### Task 4.8: Phase 4 Validation ✅ DONE
 
 **Run all of these after all Phase 4 tasks complete:**
 

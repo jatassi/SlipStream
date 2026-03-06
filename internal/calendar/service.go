@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -42,9 +44,10 @@ type CalendarEvent struct {
 
 // Service provides calendar operations.
 type Service struct {
-	db      *sql.DB
-	queries *sqlc.Queries
-	logger  *zerolog.Logger
+	db       *sql.DB
+	queries  *sqlc.Queries
+	logger   *zerolog.Logger
+	registry *module.Registry
 }
 
 // NewService creates a new calendar service.
@@ -63,6 +66,11 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
+// SetRegistry sets the module registry for dispatching through module providers.
+func (s *Service) SetRegistry(registry *module.Registry) {
+	s.registry = registry
+}
+
 // streamingServicesWithEarlyRelease lists networks that typically release content
 // the night before the stated air date.
 var streamingServicesWithEarlyRelease = map[string]bool{
@@ -71,10 +79,37 @@ var streamingServicesWithEarlyRelease = map[string]bool{
 }
 
 // GetEvents returns calendar events for the specified date range.
+// When a module registry is set, events are fetched via module providers;
+// otherwise the legacy direct-query path is used.
 func (s *Service) GetEvents(ctx context.Context, start, end time.Time) ([]CalendarEvent, error) {
+	if s.registry != nil {
+		return s.getEventsViaModules(ctx, start, end)
+	}
+	return s.getEventsLegacy(ctx, start, end)
+}
+
+func (s *Service) getEventsViaModules(ctx context.Context, start, end time.Time) ([]CalendarEvent, error) {
+	var events []CalendarEvent
+	for _, mod := range s.registry.All() {
+		provider, ok := mod.(module.CalendarProvider)
+		if !ok {
+			continue
+		}
+		items, err := provider.GetItemsInDateRange(ctx, start, end)
+		if err != nil {
+			s.logger.Error().Err(err).Str("module", string(mod.ID())).Msg("Failed to get calendar items")
+			continue
+		}
+		for i := range items {
+			events = append(events, calendarItemToEvent(&items[i]))
+		}
+	}
+	return events, nil
+}
+
+func (s *Service) getEventsLegacy(ctx context.Context, start, end time.Time) ([]CalendarEvent, error) {
 	var events []CalendarEvent
 
-	// Get movie events
 	movieEvents, err := s.getMovieEvents(ctx, start, end)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to get movie events")
@@ -82,7 +117,6 @@ func (s *Service) GetEvents(ctx context.Context, start, end time.Time) ([]Calend
 	}
 	events = append(events, movieEvents...)
 
-	// Get episode events
 	episodeEvents, err := s.getEpisodeEvents(ctx, start, end)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to get episode events")
@@ -98,6 +132,45 @@ func (s *Service) GetEvents(ctx context.Context, start, end time.Time) ([]Calend
 		Msg("Got calendar events")
 
 	return events, nil
+}
+
+func calendarItemToEvent(item *module.CalendarItem) CalendarEvent {
+	event := CalendarEvent{
+		ID:        item.ID,
+		Title:     item.Title,
+		MediaType: string(item.EntityType),
+		EventType: item.EventType,
+		Date:      item.Date.Format("2006-01-02"),
+		Status:    item.Status,
+		Monitored: item.Monitored,
+		Year:      item.Year,
+	}
+
+	if tmdb, ok := item.ExternalIDs["tmdb"]; ok {
+		event.TmdbID, _ = strconv.Atoi(tmdb)
+	}
+
+	if item.ParentID != 0 {
+		event.SeriesID = item.ParentID
+		event.SeriesTitle = item.ParentTitle
+	}
+
+	if extra := item.Extra; extra != nil {
+		if sn, ok := extra["seasonNumber"].(int); ok {
+			event.SeasonNumber = sn
+		}
+		if en, ok := extra["episodeNumber"].(int); ok {
+			event.EpisodeNumber = en
+		}
+		if net, ok := extra["network"].(string); ok {
+			event.Network = net
+		}
+		if ea, ok := extra["earlyAccess"].(bool); ok {
+			event.EarlyAccess = ea
+		}
+	}
+
+	return event
 }
 
 // getMovieEvents retrieves movie release events in the date range.

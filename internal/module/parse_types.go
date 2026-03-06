@@ -11,6 +11,7 @@ type ParseResult struct {
 // MonitoringPreset defines a monitoring strategy.
 type MonitoringPreset struct {
 	ID          string
-	Name        string
+	Label       string
 	Description string
+	HasOptions  bool
 }

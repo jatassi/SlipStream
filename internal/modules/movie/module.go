@@ -2,11 +2,12 @@ package movie
 
 import (
 	"context"
-	"time"
+	"database/sql"
 
 	"github.com/google/wire"
 	"github.com/rs/zerolog"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
@@ -14,6 +15,10 @@ import (
 )
 
 var _ module.QualityDefinition = (*Descriptor)(nil)
+var _ module.MonitoringPresets = (*Module)(nil)
+var _ module.ReleaseDateResolver = (*Module)(nil)
+var _ module.CalendarProvider = (*Module)(nil)
+var _ module.WantedCollector = (*Module)(nil)
 
 // Descriptor implements module.Descriptor for the Movie module.
 type Descriptor struct{}
@@ -71,13 +76,17 @@ func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, profileID 
 type Module struct {
 	descriptor       *Descriptor
 	metadataProvider *metadataProvider
+	movieService     *movies.Service
+	queries          *sqlc.Queries
 }
 
 // NewModule creates a fully wired movie module.
-func NewModule(metadataSvc *metadata.Service, movieSvc *movies.Service, logger *zerolog.Logger) *Module {
+func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Service, logger *zerolog.Logger) *Module {
 	return &Module{
 		descriptor:       &Descriptor{},
 		metadataProvider: newMetadataProvider(metadataSvc, movieSvc, logger),
+		movieService:     movieSvc,
+		queries:          sqlc.New(db),
 	}
 }
 
@@ -164,24 +173,6 @@ func (m *Module) TokenContexts() []module.TokenContext    { return nil }
 func (m *Module) DefaultFileTemplates() map[string]string { return nil }
 func (m *Module) FormatOptions() []module.FormatOption    { return nil }
 
-// --- CalendarProvider stub ---
-
-func (m *Module) GetItemsInDateRange(_ context.Context, _, _ time.Time) ([]module.CalendarItem, error) {
-	return nil, nil
-}
-
-// --- WantedCollector stubs ---
-
-func (m *Module) CollectMissing(_ context.Context) ([]module.SearchableItem, error) { return nil, nil }
-func (m *Module) CollectUpgradable(_ context.Context) ([]module.SearchableItem, error) {
-	return nil, nil
-}
-
-// --- MonitoringPresets stubs ---
-
-func (m *Module) AvailablePresets() []module.MonitoringPreset            { return nil }
-func (m *Module) ApplyPreset(_ context.Context, _ int64, _ string) error { return nil }
-
 // --- FileParser stubs ---
 
 func (m *Module) ParseFilename(_ string) (*module.ParseResult, error) {
@@ -201,13 +192,6 @@ func (m *Module) CreateTestRootFolders(_ context.Context) error       { return n
 // --- NotificationEvents stub ---
 
 func (m *Module) DeclareEvents() []module.NotificationEvent { return nil }
-
-// --- ReleaseDateResolver stubs ---
-
-func (m *Module) ComputeAvailabilityDate(_ context.Context, _ int64) (*time.Time, error) {
-	return &time.Time{}, nil
-}
-func (m *Module) CheckReleaseDateTransitions(_ context.Context) (int, error) { return 0, nil }
 
 // --- RouteProvider stub ---
 

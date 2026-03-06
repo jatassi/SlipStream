@@ -49,11 +49,23 @@ type Release struct {
 	Category int
 }
 
-// SearchableItem is an interface for items that can be searched for.
+// SearchableItem represents an item that can be searched for by the search pipeline.
+// Deviation from spec §5.3: Uses ID-based quality accessors instead of full objects
+// to avoid circular dependency (WantedCollector importing quality service).
 type SearchableItem interface {
-	GetEntityType() EntityType
+	GetModuleType() string
+	GetMediaType() string
 	GetEntityID() int64
 	GetTitle() string
+	GetExternalIDs() map[string]string
+	GetQualityProfileID() int64
+	GetCurrentQualityID() *int64
+	GetSearchParams() SearchParams
+}
+
+// SearchParams holds additional search parameters for a SearchableItem.
+type SearchParams struct {
+	Extra map[string]any
 }
 
 // SearchCriteria contains Newznab search parameters.

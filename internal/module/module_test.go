@@ -93,8 +93,10 @@ func (m *mockModule) IsUpgrade(_, _ QualityItem, _ int64) (bool, error) { return
 func (m *mockModule) CollectMissing(_ context.Context) ([]SearchableItem, error)    { return nil, nil }
 func (m *mockModule) CollectUpgradable(_ context.Context) ([]SearchableItem, error) { return nil, nil }
 
-func (m *mockModule) AvailablePresets() []MonitoringPreset                   { return nil }
-func (m *mockModule) ApplyPreset(_ context.Context, _ int64, _ string) error { return nil }
+func (m *mockModule) AvailablePresets() []MonitoringPreset { return nil }
+func (m *mockModule) ApplyPreset(_ context.Context, _ int64, _ string, _ map[string]any) error {
+	return nil
+}
 
 func (m *mockModule) ParseFilename(_ string) (*ParseResult, error) { return nil, nil } //nolint:nilnil // test stub
 func (m *mockModule) MatchToEntity(_ context.Context, _ *ParseResult) (*MatchedEntity, error) {

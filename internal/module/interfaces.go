@@ -71,7 +71,7 @@ type WantedCollector interface {
 // MonitoringPresets defines monitoring strategies.
 type MonitoringPresets interface {
 	AvailablePresets() []MonitoringPreset
-	ApplyPreset(ctx context.Context, rootEntityID int64, presetID string) error
+	ApplyPreset(ctx context.Context, rootEntityID int64, presetID string, options map[string]any) error
 }
 
 // FileParser parses filenames to extract module-specific identifiers.
