@@ -70,6 +70,7 @@ type QualityItem struct {
 type Profile struct {
 	ID                      int64           `json:"id"`
 	Name                    string          `json:"name"`
+	ModuleType              string          `json:"moduleType"`
 	Cutoff                  int             `json:"cutoff"`                  // Quality ID at which upgrades stop
 	UpgradesEnabled         bool            `json:"upgradesEnabled"`         // Whether upgrades are enabled for this profile
 	UpgradeStrategy         UpgradeStrategy `json:"upgradeStrategy"`         // How upgrades are evaluated
@@ -89,6 +90,7 @@ type Profile struct {
 // CreateProfileInput is used when creating a new profile.
 type CreateProfileInput struct {
 	Name                    string          `json:"name"`
+	ModuleType              string          `json:"moduleType"`
 	Cutoff                  int             `json:"cutoff"`
 	UpgradesEnabled         *bool           `json:"upgradesEnabled"` // Pointer to distinguish unset from false
 	UpgradeStrategy         UpgradeStrategy `json:"upgradeStrategy"`

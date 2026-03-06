@@ -178,6 +178,22 @@ function useInvitationActions(
   return { createMutation, resendMutation, handleCreateInvitation, handleDeleteInvitation, handleResendInvitation }
 }
 
+type TabQueryStateParams = {
+  activeTab: string
+  usersQuery: ReturnType<typeof useAdminUsers>
+  invitationsQuery: ReturnType<typeof useAdminInvitations>
+  globalLoading: boolean
+}
+
+function useTabQueryState({ activeTab, usersQuery, invitationsQuery, globalLoading }: TabQueryStateParams) {
+  const activeQuery = activeTab === 'users' ? usersQuery : invitationsQuery
+  return {
+    isLoading: activeQuery.isLoading || globalLoading,
+    isError: activeQuery.isError,
+    refetch: activeQuery.refetch,
+  }
+}
+
 export function useRequestUsersPage() {
   const [activeTab, setActiveTab] = useState<string>('users')
 
@@ -192,13 +208,13 @@ export function useRequestUsersPage() {
   const dialogState = useInviteDialogState()
   const invitationActions = useInvitationActions(dialogState, clipboardLink.handleCopyLink)
 
-  const isLoading =
-    (activeTab === 'users' ? usersQuery.isLoading : invitationsQuery.isLoading) || globalLoading
-  const isError = activeTab === 'users' ? usersQuery.isError : invitationsQuery.isError
-  const refetch = activeTab === 'users' ? usersQuery.refetch : invitationsQuery.refetch
+  const tabState = useTabQueryState({ activeTab, usersQuery, invitationsQuery, globalLoading })
 
   const users = usersQuery.data
   const invitations = invitationsQuery.data
+
+  const movieProfiles = qualityProfiles?.filter((p) => p.moduleType === 'movie')
+  const tvProfiles = qualityProfiles?.filter((p) => p.moduleType === 'tv')
 
   return {
     activeTab,
@@ -206,12 +222,12 @@ export function useRequestUsersPage() {
     users,
     invitations,
     qualityProfiles,
+    movieProfiles,
+    tvProfiles,
     portalEnabled,
     userCount: users?.length ?? 0,
     pendingInvitationCount: invitations?.filter((i) => !i.usedAt).length ?? 0,
-    isLoading,
-    isError,
-    refetch,
+    ...tabState,
     ...userActions,
     ...clipboardLink,
     ...dialogState,

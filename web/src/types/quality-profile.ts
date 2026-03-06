@@ -22,6 +22,7 @@ export type UpgradeStrategy = 'aggressive' | 'balanced' | 'resolution_only'
 export type QualityProfile = {
   id: number
   name: string
+  moduleType: string
   cutoff: number
   upgradesEnabled: boolean
   upgradeStrategy: UpgradeStrategy
@@ -38,6 +39,7 @@ export type QualityProfile = {
 
 export type CreateQualityProfileInput = {
   name: string
+  moduleType: string
   cutoff: number
   upgradesEnabled: boolean
   upgradeStrategy: UpgradeStrategy

@@ -98,7 +98,7 @@ type SelectedSeries = ReturnType<typeof useSelectedSeries>
 
 function useQueries() {
   const { data: rootFolders } = useRootFoldersByType('tv')
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('tv')
   const { data: defaultRootFolder } = useDefault('root_folder', 'tv')
   const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddSeries()

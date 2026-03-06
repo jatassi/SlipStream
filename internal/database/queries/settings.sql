@@ -15,16 +15,23 @@ RETURNING *;
 -- name: DeleteSetting :exec
 DELETE FROM settings WHERE key = ?;
 
--- Quality Profiles
+-- Quality Profiles (module-scoped after migration 071)
+
 -- name: GetQualityProfile :one
 SELECT * FROM quality_profiles WHERE id = ? LIMIT 1;
 
 -- name: ListQualityProfiles :many
-SELECT * FROM quality_profiles ORDER BY name;
+SELECT * FROM quality_profiles ORDER BY module_type, name;
+
+-- name: ListQualityProfilesByModule :many
+SELECT * FROM quality_profiles WHERE module_type = ? ORDER BY name;
 
 -- name: CreateQualityProfile :one
-INSERT INTO quality_profiles (name, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO quality_profiles (
+    name, module_type, cutoff, items, hdr_settings, video_codec_settings,
+    audio_codec_settings, audio_channel_settings, upgrades_enabled,
+    allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateQualityProfile :one
@@ -48,13 +55,16 @@ RETURNING *;
 DELETE FROM quality_profiles WHERE id = ?;
 
 -- name: GetQualityProfileByName :one
-SELECT * FROM quality_profiles WHERE name = ? LIMIT 1;
+SELECT * FROM quality_profiles WHERE name = ? AND module_type = ? LIMIT 1;
 
 -- name: CountMoviesUsingProfile :one
 SELECT COUNT(*) FROM movies WHERE quality_profile_id = ?;
 
 -- name: CountSeriesUsingProfile :one
 SELECT COUNT(*) FROM series WHERE quality_profile_id = ?;
+
+-- name: CountQualityProfilesByModule :one
+SELECT COUNT(*) FROM quality_profiles WHERE module_type = ?;
 
 -- Root Folders
 -- name: GetRootFolder :one

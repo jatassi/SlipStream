@@ -89,6 +89,17 @@ func (q *Queries) CountMoviesUsingProfile(ctx context.Context, qualityProfileID 
 	return count, err
 }
 
+const countQualityProfilesByModule = `-- name: CountQualityProfilesByModule :one
+SELECT COUNT(*) FROM quality_profiles WHERE module_type = ?
+`
+
+func (q *Queries) CountQualityProfilesByModule(ctx context.Context, moduleType string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countQualityProfilesByModule, moduleType)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSeriesUsingProfile = `-- name: CountSeriesUsingProfile :one
 SELECT COUNT(*) FROM series WHERE quality_profile_id = ?
 `
@@ -197,28 +208,33 @@ func (q *Queries) CreateHistoryEntry(ctx context.Context, arg CreateHistoryEntry
 }
 
 const createQualityProfile = `-- name: CreateQualityProfile :one
-INSERT INTO quality_profiles (name, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy
+INSERT INTO quality_profiles (
+    name, module_type, cutoff, items, hdr_settings, video_codec_settings,
+    audio_codec_settings, audio_channel_settings, upgrades_enabled,
+    allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at
 `
 
 type CreateQualityProfileParams struct {
-	Name                    string `json:"name"`
-	Cutoff                  int64  `json:"cutoff"`
-	Items                   string `json:"items"`
-	HdrSettings             string `json:"hdr_settings"`
-	VideoCodecSettings      string `json:"video_codec_settings"`
-	AudioCodecSettings      string `json:"audio_codec_settings"`
-	AudioChannelSettings    string `json:"audio_channel_settings"`
-	UpgradesEnabled         bool   `json:"upgrades_enabled"`
-	AllowAutoApprove        bool   `json:"allow_auto_approve"`
-	UpgradeStrategy         string `json:"upgrade_strategy"`
-	CutoffOverridesStrategy int64  `json:"cutoff_overrides_strategy"`
+	Name                    string         `json:"name"`
+	ModuleType              string         `json:"module_type"`
+	Cutoff                  int64          `json:"cutoff"`
+	Items                   string         `json:"items"`
+	HdrSettings             sql.NullString `json:"hdr_settings"`
+	VideoCodecSettings      sql.NullString `json:"video_codec_settings"`
+	AudioCodecSettings      sql.NullString `json:"audio_codec_settings"`
+	AudioChannelSettings    sql.NullString `json:"audio_channel_settings"`
+	UpgradesEnabled         bool           `json:"upgrades_enabled"`
+	AllowAutoApprove        bool           `json:"allow_auto_approve"`
+	UpgradeStrategy         string         `json:"upgrade_strategy"`
+	CutoffOverridesStrategy int64          `json:"cutoff_overrides_strategy"`
 }
 
 func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityProfileParams) (*QualityProfile, error) {
 	row := q.db.QueryRowContext(ctx, createQualityProfile,
 		arg.Name,
+		arg.ModuleType,
 		arg.Cutoff,
 		arg.Items,
 		arg.HdrSettings,
@@ -234,10 +250,9 @@ func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityPro
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.ModuleType,
 		&i.Cutoff,
 		&i.Items,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.HdrSettings,
 		&i.VideoCodecSettings,
 		&i.AudioCodecSettings,
@@ -246,6 +261,8 @@ func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityPro
 		&i.AllowAutoApprove,
 		&i.UpgradeStrategy,
 		&i.CutoffOverridesStrategy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -430,20 +447,20 @@ func (q *Queries) GetDownload(ctx context.Context, id int64) (*Download, error) 
 }
 
 const getQualityProfile = `-- name: GetQualityProfile :one
-SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy FROM quality_profiles WHERE id = ? LIMIT 1
+
+SELECT id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at FROM quality_profiles WHERE id = ? LIMIT 1
 `
 
-// Quality Profiles
+// Quality Profiles (module-scoped after migration 071)
 func (q *Queries) GetQualityProfile(ctx context.Context, id int64) (*QualityProfile, error) {
 	row := q.db.QueryRowContext(ctx, getQualityProfile, id)
 	var i QualityProfile
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.ModuleType,
 		&i.Cutoff,
 		&i.Items,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.HdrSettings,
 		&i.VideoCodecSettings,
 		&i.AudioCodecSettings,
@@ -452,24 +469,30 @@ func (q *Queries) GetQualityProfile(ctx context.Context, id int64) (*QualityProf
 		&i.AllowAutoApprove,
 		&i.UpgradeStrategy,
 		&i.CutoffOverridesStrategy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
 const getQualityProfileByName = `-- name: GetQualityProfileByName :one
-SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy FROM quality_profiles WHERE name = ? LIMIT 1
+SELECT id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at FROM quality_profiles WHERE name = ? AND module_type = ? LIMIT 1
 `
 
-func (q *Queries) GetQualityProfileByName(ctx context.Context, name string) (*QualityProfile, error) {
-	row := q.db.QueryRowContext(ctx, getQualityProfileByName, name)
+type GetQualityProfileByNameParams struct {
+	Name       string `json:"name"`
+	ModuleType string `json:"module_type"`
+}
+
+func (q *Queries) GetQualityProfileByName(ctx context.Context, arg GetQualityProfileByNameParams) (*QualityProfile, error) {
+	row := q.db.QueryRowContext(ctx, getQualityProfileByName, arg.Name, arg.ModuleType)
 	var i QualityProfile
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.ModuleType,
 		&i.Cutoff,
 		&i.Items,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.HdrSettings,
 		&i.VideoCodecSettings,
 		&i.AudioCodecSettings,
@@ -478,6 +501,8 @@ func (q *Queries) GetQualityProfileByName(ctx context.Context, name string) (*Qu
 		&i.AllowAutoApprove,
 		&i.UpgradeStrategy,
 		&i.CutoffOverridesStrategy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -941,7 +966,7 @@ func (q *Queries) ListHistoryPaginated(ctx context.Context, arg ListHistoryPagin
 }
 
 const listQualityProfiles = `-- name: ListQualityProfiles :many
-SELECT id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy FROM quality_profiles ORDER BY name
+SELECT id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at FROM quality_profiles ORDER BY module_type, name
 `
 
 func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, error) {
@@ -956,10 +981,9 @@ func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, e
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.ModuleType,
 			&i.Cutoff,
 			&i.Items,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 			&i.HdrSettings,
 			&i.VideoCodecSettings,
 			&i.AudioCodecSettings,
@@ -968,6 +992,51 @@ func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, e
 			&i.AllowAutoApprove,
 			&i.UpgradeStrategy,
 			&i.CutoffOverridesStrategy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQualityProfilesByModule = `-- name: ListQualityProfilesByModule :many
+SELECT id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at FROM quality_profiles WHERE module_type = ? ORDER BY name
+`
+
+func (q *Queries) ListQualityProfilesByModule(ctx context.Context, moduleType string) ([]*QualityProfile, error) {
+	rows, err := q.db.QueryContext(ctx, listQualityProfilesByModule, moduleType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*QualityProfile{}
+	for rows.Next() {
+		var i QualityProfile
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ModuleType,
+			&i.Cutoff,
+			&i.Items,
+			&i.HdrSettings,
+			&i.VideoCodecSettings,
+			&i.AudioCodecSettings,
+			&i.AudioChannelSettings,
+			&i.UpgradesEnabled,
+			&i.AllowAutoApprove,
+			&i.UpgradeStrategy,
+			&i.CutoffOverridesStrategy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1211,22 +1280,22 @@ UPDATE quality_profiles SET
     cutoff_overrides_strategy = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, cutoff, items, created_at, updated_at, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy
+RETURNING id, name, module_type, cutoff, items, hdr_settings, video_codec_settings, audio_codec_settings, audio_channel_settings, upgrades_enabled, allow_auto_approve, upgrade_strategy, cutoff_overrides_strategy, created_at, updated_at
 `
 
 type UpdateQualityProfileParams struct {
-	Name                    string `json:"name"`
-	Cutoff                  int64  `json:"cutoff"`
-	Items                   string `json:"items"`
-	HdrSettings             string `json:"hdr_settings"`
-	VideoCodecSettings      string `json:"video_codec_settings"`
-	AudioCodecSettings      string `json:"audio_codec_settings"`
-	AudioChannelSettings    string `json:"audio_channel_settings"`
-	UpgradesEnabled         bool   `json:"upgrades_enabled"`
-	AllowAutoApprove        bool   `json:"allow_auto_approve"`
-	UpgradeStrategy         string `json:"upgrade_strategy"`
-	CutoffOverridesStrategy int64  `json:"cutoff_overrides_strategy"`
-	ID                      int64  `json:"id"`
+	Name                    string         `json:"name"`
+	Cutoff                  int64          `json:"cutoff"`
+	Items                   string         `json:"items"`
+	HdrSettings             sql.NullString `json:"hdr_settings"`
+	VideoCodecSettings      sql.NullString `json:"video_codec_settings"`
+	AudioCodecSettings      sql.NullString `json:"audio_codec_settings"`
+	AudioChannelSettings    sql.NullString `json:"audio_channel_settings"`
+	UpgradesEnabled         bool           `json:"upgrades_enabled"`
+	AllowAutoApprove        bool           `json:"allow_auto_approve"`
+	UpgradeStrategy         string         `json:"upgrade_strategy"`
+	CutoffOverridesStrategy int64          `json:"cutoff_overrides_strategy"`
+	ID                      int64          `json:"id"`
 }
 
 func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityProfileParams) (*QualityProfile, error) {
@@ -1248,10 +1317,9 @@ func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityPro
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.ModuleType,
 		&i.Cutoff,
 		&i.Items,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.HdrSettings,
 		&i.VideoCodecSettings,
 		&i.AudioCodecSettings,
@@ -1260,6 +1328,8 @@ func (q *Queries) UpdateQualityProfile(ctx context.Context, arg UpdateQualityPro
 		&i.AllowAutoApprove,
 		&i.UpgradeStrategy,
 		&i.CutoffOverridesStrategy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }

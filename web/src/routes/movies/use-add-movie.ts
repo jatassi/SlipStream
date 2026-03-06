@@ -84,7 +84,7 @@ type SelectedMovie = ReturnType<typeof useSelectedMovie>
 
 function useQueries() {
   const { data: rootFolders } = useRootFoldersByType('movie')
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('movie')
   const { data: defaultRootFolder } = useDefault('root_folder', 'movie')
   const { data: addFlowPreferences } = useAddFlowPreferences()
   const addMutation = useAddMovie()

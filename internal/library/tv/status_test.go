@@ -542,9 +542,10 @@ func TestEpisodeStatus_ImportWithQualityEvaluation(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  quality.HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "tv",
+		Cutoff:     11,
+		Items:      quality.HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -654,6 +655,7 @@ func TestEpisodeStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 	upgradesDisabled := false
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:            "HD-1080p",
+		ModuleType:      "tv",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
 		Items:           quality.HD1080pProfile().Items,

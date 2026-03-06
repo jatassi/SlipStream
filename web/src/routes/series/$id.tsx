@@ -63,6 +63,7 @@ export function SeriesDetailPage() {
         item={series}
         updateMutation={updateMutation}
         mediaLabel="Series"
+        moduleType="tv"
         monitoredDescription="Search for releases and upgrade quality for all monitored episodes"
       />
     </div>

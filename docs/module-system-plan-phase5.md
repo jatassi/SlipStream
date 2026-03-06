@@ -30,6 +30,16 @@ This phase refactors the search pipeline across multiple packages. The key const
 
 ---
 
+### Deferred from Phase 2
+
+These items were deferred from Phase 2 (Quality System) and must be addressed in this phase:
+
+1. **Call `RegisterModuleQualities()` at startup for each enabled module.** Phase 2 added the registration method on the quality service and `QualityItems()` on both module descriptors, but never wired the call at startup. Currently `GetQualitiesForModule()` falls back to `PredefinedQualities` (correct today since both modules use identical video tiers, but will silently break when a non-video module is added). Wire the call during module bootstrap so module-registered items are used instead of the fallback.
+
+2. **Wire the scoring pipeline through module `QualityDefinition` interfaces.** The scoring pipeline (`internal/indexer/scoring/`) still references `quality.PredefinedQualities` directly. Per Architecture Decision #9 below, scoring remains framework-owned — but the quality *items* it operates on should come from the module's registered definitions (via `GetQualitiesForModule`) rather than the hardcoded global. This ensures new modules with different quality tiers (e.g., music bitrate tiers) are scored correctly.
+
+---
+
 ### Phase 5 Architecture Decisions
 
 1. **`SearchStrategy` is implemented on the Module struct, not a separate service.** Like `MonitoringPresets` and `WantedCollector`, each module's `Module` struct (in `internal/modules/movie/` and `internal/modules/tv/`) implements the `SearchStrategy` interface. The methods wrap existing logic that's currently scattered across `autosearch/service.go` (buildSearchCriteria), `indexer/search/aggregator.go` (FilterByCriteria, getTVFilterReason, getMovieFilterReason), and `indexer/search/title_match.go` (TitlesMatch, TVTitlesMatch).

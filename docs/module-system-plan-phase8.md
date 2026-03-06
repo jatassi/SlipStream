@@ -9,6 +9,10 @@
 - §2.3 `module_type` column on `requests` table — deferred; the existing `media_type` column already serves as `entity_type`, and `module_type` is derivable from it via the registry. Adding a redundant column is deferred until a 3rd module makes the derivation ambiguous or a query performance need arises.
 - §11.1 `ValidateRequest` uses bare params (`entityType string, externalIDs map[string]int64`) instead of the spec's `*RequestValidationInput` — this is simpler for the current two modules. Can be wrapped in an input struct later if the param list grows.
 
+**Deferred from Phase 2 (Quality System):**
+- `version_slots.quality_profile_id` currently points to "movie" profile copies (Phase 2 preserved original IDs as movie copies). After the `version_slots` table recreation in this phase, verify slot quality profile assignments remain correct. If slots should support per-module quality profiles, add a `slot_quality_profiles` pivot table (analogous to `slot_root_folders`). If one profile per slot is sufficient (the slot is inherently module-scoped), no change needed — just verify FK integrity.
+- The queries `ListMovieSlotAssignmentsWithFilesForProfile` and `ListEpisodeSlotAssignmentsWithFilesForProfile` in `internal/database/queries/slots.sql` exist but are never called by Go code. Wire them into the slot service for profile-based recalculation, or remove them if the slot service doesn't need them.
+
 **Depends on:** Phase 0 (module types, interfaces, registry), Phase 1 (discriminator pattern — `module_type` column convention), Phase 2 (module-scoped quality profiles — `quality_profiles.module_type`), Phase 3 (MetadataProvider — modules own their own metadata lookup), Phase 5 (SearchStrategy — modules own search dispatch), Phase 6 (ImportHandler — modules own import), Phase 7 (BroadcastEntity — entity event broadcasting)
 
 ### Phase 8 Context Management

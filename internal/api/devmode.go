@@ -487,8 +487,10 @@ func (d *DevModeManager) copyQualityProfilesToDevDB() map[int64]int64 {
 	if len(prodRows) == 0 {
 		d.logger.Warn().Msg("No quality profiles in production database to copy")
 		// Create default profiles in dev database
-		if err := d.library.Quality.EnsureDefaults(ctx); err != nil {
-			d.logger.Error().Err(err).Msg("Failed to create default quality profiles")
+		for _, mt := range []string{"movie", "tv"} {
+			if err := d.library.Quality.EnsureDefaults(ctx, mt); err != nil {
+				d.logger.Warn().Err(err).Str("moduleType", mt).Msg("Failed to ensure default quality profiles")
+			}
 		}
 		return idMapping
 	}
@@ -496,15 +498,18 @@ func (d *DevModeManager) copyQualityProfilesToDevDB() map[int64]int64 {
 	// Copy each profile to dev database and track ID mapping
 	for _, row := range prodRows {
 		newProfile, err := devQueries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
-			Name:                 row.Name,
-			Cutoff:               row.Cutoff,
-			Items:                row.Items,
-			HdrSettings:          row.HdrSettings,
-			VideoCodecSettings:   row.VideoCodecSettings,
-			AudioCodecSettings:   row.AudioCodecSettings,
-			AudioChannelSettings: row.AudioChannelSettings,
-			UpgradesEnabled:      row.UpgradesEnabled,
-			AllowAutoApprove:     row.AllowAutoApprove,
+			Name:                    row.Name,
+			ModuleType:              row.ModuleType,
+			Cutoff:                  row.Cutoff,
+			Items:                   row.Items,
+			HdrSettings:             row.HdrSettings,
+			VideoCodecSettings:      row.VideoCodecSettings,
+			AudioCodecSettings:      row.AudioCodecSettings,
+			AudioChannelSettings:    row.AudioChannelSettings,
+			UpgradesEnabled:         row.UpgradesEnabled,
+			AllowAutoApprove:        row.AllowAutoApprove,
+			UpgradeStrategy:         row.UpgradeStrategy,
+			CutoffOverridesStrategy: row.CutoffOverridesStrategy,
 		})
 		if err != nil {
 			d.logger.Error().Err(err).Str("name", row.Name).Msg("Failed to copy quality profile")

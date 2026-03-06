@@ -1,4 +1,4 @@
-## Phase 2: Quality System
+## Phase 2: Quality System ✅ COMPLETED
 
 **Goal:** Make quality profiles module-scoped. Add `module_type` to the `quality_profiles` table, duplicate existing profiles per module, update all FK references, and make the quality service + API + frontend module-aware. Implement `QualityDefinition` on module stubs.
 
@@ -50,7 +50,7 @@ Task 2.2 (QualityDefinition impl.) ──→ Task 2.5 (quality service changes)
 
 ---
 
-### Task 2.1: Migration SQL — Module-Scoped Quality Profiles
+### Task 2.1: Migration SQL — Module-Scoped Quality Profiles ✅
 
 **Create** `internal/database/migrations/071_module_scoped_quality_profiles.sql`
 
@@ -239,7 +239,7 @@ PRAGMA foreign_keys = ON;
 
 ---
 
-### Task 2.2: Implement QualityDefinition on Module Stubs
+### Task 2.2: Implement QualityDefinition on Module Stubs ✅
 
 **Can run in parallel with Task 2.1** (no file overlap).
 
@@ -339,7 +339,7 @@ type QualityItemDef struct {
 
 ---
 
-### Task 2.3: Update sqlc Queries — Module-Scoped Quality Profiles
+### Task 2.3: Update sqlc Queries — Module-Scoped Quality Profiles ✅
 
 **Depends on:** Task 2.1 (migration must be written first so the schema is known).
 
@@ -413,7 +413,7 @@ SELECT COUNT(*) FROM quality_profiles WHERE module_type = ?;
 
 ---
 
-### Task 2.4: Run sqlc Generate
+### Task 2.4: Run sqlc Generate ✅
 
 **Depends on:** Task 2.3 (query changes must be in place).
 
@@ -432,7 +432,7 @@ go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
 
 ---
 
-### Task 2.5: Update Quality Service — Module-Aware Operations
+### Task 2.5: Update Quality Service — Module-Aware Operations ✅
 
 **Depends on:** Task 2.4 (needs regenerated sqlc types) and Task 2.2 (needs `QualityItemDef` type).
 
@@ -740,7 +740,7 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 
 ---
 
-### Task 2.6: Update API Handlers — Module-Aware Endpoints
+### Task 2.6: Update API Handlers — Module-Aware Endpoints ✅
 
 **Depends on:** Task 2.5 (service changes must be in place).
 
@@ -805,7 +805,7 @@ func (h *Handlers) ListQualities(c echo.Context) error {
 
 ---
 
-### Task 2.7: Update Go Callers — Module-Aware Profile References
+### Task 2.7: Update Go Callers — Module-Aware Profile References ✅
 
 **Depends on:** Task 2.5 (service API changes must be in place).
 
@@ -876,7 +876,7 @@ If dev mode creates quality profiles, ensure module type is specified. Search: `
 
 ---
 
-### Task 2.8: Frontend Changes — Module-Aware Quality Profiles
+### Task 2.8: Frontend Changes — Module-Aware Quality Profiles ✅
 
 **Depends on:** Tasks 2.5 and 2.6 (backend API must be stable).
 
@@ -1004,7 +1004,7 @@ Currently takes the first profile as default. After Phase 2, filter by request m
 
 ---
 
-### Task 2.9: Phase 2 Validation
+### Task 2.9: Phase 2 Validation ✅
 
 **Run all of these after all Phase 2 tasks complete:**
 

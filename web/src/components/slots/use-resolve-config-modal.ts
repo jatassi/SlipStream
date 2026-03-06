@@ -185,6 +185,7 @@ function buildInitialForms(
   for (const profile of profilesToEdit) {
     forms[profile.id] = {
       name: profile.name,
+      moduleType: profile.moduleType,
       cutoff: profile.cutoff,
       items: profile.items,
       upgradesEnabled: profile.upgradesEnabled,

@@ -417,9 +417,10 @@ func TestMovieStatus_ImportWithQualityEvaluation_Upgradable(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11, // Bluray-1080p
-		Items:  quality.HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11, // Bluray-1080p
+		Items:      quality.HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -460,9 +461,10 @@ func TestMovieStatus_ImportWithQualityEvaluation_Available(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  quality.HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11,
+		Items:      quality.HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -573,9 +575,10 @@ func TestMovieStatus_UpgradableToMissingOnFileRemoval(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  quality.HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11,
+		Items:      quality.HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -621,6 +624,7 @@ func TestMovieStatus_AddFileWithUpgradesDisabled(t *testing.T) {
 	upgradesDisabled := false
 	profile, err := qs.Create(ctx, &quality.CreateProfileInput{
 		Name:            "HD-1080p",
+		ModuleType:      "movie",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
 		Items:           quality.HD1080pProfile().Items,

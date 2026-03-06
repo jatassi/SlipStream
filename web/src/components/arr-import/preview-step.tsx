@@ -26,7 +26,7 @@ type PreviewStepProps = {
 export function PreviewStep(props: PreviewStepProps) {
   const { preview, sourceType, mappings } = props
   const isMovie = sourceType === 'radarr'
-  const { data: targetQualityProfiles } = useQualityProfiles()
+  const { data: targetQualityProfiles } = useQualityProfiles(sourceType === 'radarr' ? 'movie' : 'tv')
   const profileNameMap = buildProfileNameMap(mappings, targetQualityProfiles)
   const state = usePreviewState(preview, isMovie)
 

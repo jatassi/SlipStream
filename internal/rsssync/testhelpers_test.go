@@ -30,6 +30,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	p := quality.HD1080pProfile()
 	created, err := qs.Create(context.Background(), &quality.CreateProfileInput{
 		Name:            p.Name,
+		ModuleType:      "movie",
 		Cutoff:          p.Cutoff,
 		UpgradeStrategy: p.UpgradeStrategy,
 		Items:           p.Items,

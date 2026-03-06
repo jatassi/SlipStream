@@ -31,10 +31,18 @@ func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.DELETE("/:id", h.Delete)
 }
 
-// List returns all quality profiles.
+// List returns all quality profiles, optionally filtered by moduleType.
 // GET /api/v1/qualityprofiles
 func (h *Handlers) List(c echo.Context) error {
-	profiles, err := h.service.List(c.Request().Context())
+	moduleType := c.QueryParam("moduleType")
+	var profiles []*Profile
+	var err error
+
+	if moduleType != "" {
+		profiles, err = h.service.ListByModule(c.Request().Context(), moduleType)
+	} else {
+		profiles, err = h.service.List(c.Request().Context())
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -65,6 +73,10 @@ func (h *Handlers) Create(c echo.Context) error {
 	var input CreateProfileInput
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if input.ModuleType == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "moduleType is required")
 	}
 
 	profile, err := h.service.Create(c.Request().Context(), &input)
@@ -129,9 +141,13 @@ func (h *Handlers) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// ListQualities returns the predefined quality definitions.
+// ListQualities returns the predefined quality definitions, optionally filtered by moduleType.
 // GET /api/v1/qualityprofiles/qualities
 func (h *Handlers) ListQualities(c echo.Context) error {
+	moduleType := c.QueryParam("moduleType")
+	if moduleType != "" {
+		return c.JSON(http.StatusOK, h.service.GetQualitiesForModule(moduleType))
+	}
 	return c.JSON(http.StatusOK, h.service.GetQualities())
 }
 

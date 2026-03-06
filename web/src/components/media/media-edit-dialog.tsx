@@ -24,6 +24,7 @@ type MediaEditDialogProps<T extends { id: number; title: string; monitored: bool
     isPending: boolean
   }
   mediaLabel: string
+  moduleType: string
   monitoredDescription: string
 }
 
@@ -33,9 +34,10 @@ export function MediaEditDialog<T extends { id: number; title: string; monitored
   item,
   updateMutation,
   mediaLabel,
+  moduleType,
   monitoredDescription,
 }: MediaEditDialogProps<T>) {
-  const state = useMediaEditDialog({ item, updateMutation, mediaLabel, onOpenChange })
+  const state = useMediaEditDialog({ item, updateMutation, mediaLabel, moduleType, onOpenChange })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

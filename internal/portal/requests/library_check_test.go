@@ -33,12 +33,13 @@ func createTestQualityProfile(t *testing.T, q *sqlc.Queries) int64 {
 	itemsJSON, _ := json.Marshal(items)
 	profile, err := q.CreateQualityProfile(context.Background(), sqlc.CreateQualityProfileParams{
 		Name:                 "Test Profile",
+		ModuleType:           "movie",
 		Cutoff:               4,
 		Items:                string(itemsJSON),
-		HdrSettings:          "[]",
-		VideoCodecSettings:   "[]",
-		AudioCodecSettings:   "[]",
-		AudioChannelSettings: "[]",
+		HdrSettings:          sql.NullString{String: "[]", Valid: true},
+		VideoCodecSettings:   sql.NullString{String: "[]", Valid: true},
+		AudioCodecSettings:   sql.NullString{String: "[]", Valid: true},
+		AudioChannelSettings: sql.NullString{String: "[]", Valid: true},
 		UpgradeStrategy:      "quality",
 	})
 	if err != nil {

@@ -440,20 +440,21 @@ type ProwlarrIndexerSetting struct {
 }
 
 type QualityProfile struct {
-	ID                      int64        `json:"id"`
-	Name                    string       `json:"name"`
-	Cutoff                  int64        `json:"cutoff"`
-	Items                   string       `json:"items"`
-	CreatedAt               sql.NullTime `json:"created_at"`
-	UpdatedAt               sql.NullTime `json:"updated_at"`
-	HdrSettings             string       `json:"hdr_settings"`
-	VideoCodecSettings      string       `json:"video_codec_settings"`
-	AudioCodecSettings      string       `json:"audio_codec_settings"`
-	AudioChannelSettings    string       `json:"audio_channel_settings"`
-	UpgradesEnabled         bool         `json:"upgrades_enabled"`
-	AllowAutoApprove        bool         `json:"allow_auto_approve"`
-	UpgradeStrategy         string       `json:"upgrade_strategy"`
-	CutoffOverridesStrategy int64        `json:"cutoff_overrides_strategy"`
+	ID                      int64          `json:"id"`
+	Name                    string         `json:"name"`
+	ModuleType              string         `json:"module_type"`
+	Cutoff                  int64          `json:"cutoff"`
+	Items                   string         `json:"items"`
+	HdrSettings             sql.NullString `json:"hdr_settings"`
+	VideoCodecSettings      sql.NullString `json:"video_codec_settings"`
+	AudioCodecSettings      sql.NullString `json:"audio_codec_settings"`
+	AudioChannelSettings    sql.NullString `json:"audio_channel_settings"`
+	UpgradesEnabled         bool           `json:"upgrades_enabled"`
+	AllowAutoApprove        bool           `json:"allow_auto_approve"`
+	UpgradeStrategy         string         `json:"upgrade_strategy"`
+	CutoffOverridesStrategy int64          `json:"cutoff_overrides_strategy"`
+	CreatedAt               sql.NullTime   `json:"created_at"`
+	UpdatedAt               sql.NullTime   `json:"updated_at"`
 }
 
 type QueueMedium struct {

@@ -117,7 +117,7 @@ function useQueryLayer() {
   const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: seriesList, isLoading: queryLoading, isError, refetch } = useSeries()
   const isLoading = queryLoading || globalLoading
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('tv')
   const { data: rootFolders } = useRootFolders()
   const bulkDeleteMutation = useBulkDeleteSeries()
   const bulkUpdateMutation = useBulkUpdateSeries()

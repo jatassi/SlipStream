@@ -22,6 +22,7 @@ type SettingsField =
 function buildFormFromProfile(profile: QualityProfile): CreateQualityProfileInput {
   return {
     name: profile.name,
+    moduleType: profile.moduleType,
     cutoff: profile.cutoff,
     upgradesEnabled: profile.upgradesEnabled,
     upgradeStrategy: profile.upgradeStrategy,
@@ -35,9 +36,10 @@ function buildFormFromProfile(profile: QualityProfile): CreateQualityProfileInpu
   }
 }
 
-function buildFreshForm(): CreateQualityProfileInput {
+function buildFreshForm(defaultModuleType?: string): CreateQualityProfileInput {
   return {
     ...defaultFormData,
+    moduleType: defaultModuleType ?? '',
     items: defaultItems.map((i) => ({ ...i })),
     hdrSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
     videoCodecSettings: { ...DEFAULT_ATTRIBUTE_SETTINGS },
@@ -112,6 +114,7 @@ function removeKey(
 function useFormSync(
   open: boolean,
   profile: QualityProfile | null | undefined,
+  defaultModuleType?: string,
 ) {
   const [formData, setFormData] = useState<CreateQualityProfileInput>(defaultFormData)
   const [prevOpen, setPrevOpen] = useState(open)
@@ -121,19 +124,22 @@ function useFormSync(
     setPrevOpen(open)
     setPrevProfile(profile)
     if (open) {
-      setFormData(profile ? buildFormFromProfile(profile) : buildFreshForm())
+      setFormData(profile ? buildFormFromProfile(profile) : buildFreshForm(defaultModuleType))
     }
   }
 
   return { formData, setFormData }
 }
 
-export function useQualityProfileDialog(
-  open: boolean,
-  onOpenChange: (open: boolean) => void,
-  profile?: QualityProfile | null,
-) {
-  const { formData, setFormData } = useFormSync(open, profile)
+type UseQualityProfileDialogOptions = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  profile?: QualityProfile | null
+  defaultModuleType?: string
+}
+
+export function useQualityProfileDialog({ open, onOpenChange, profile, defaultModuleType }: UseQualityProfileDialogOptions) {
+  const { formData, setFormData } = useFormSync(open, profile, defaultModuleType)
   const createMutation = useCreateQualityProfile()
   const updateMutation = useUpdateQualityProfile()
   const { data: attributeOptions } = useQualityProfileAttributes()
@@ -195,6 +201,10 @@ async function submitForm(params: SubmitParams) {
   const { formData, isEditing, profile, createMutation, updateMutation, onOpenChange } = params
   if (!formData.name.trim()) {
     toast.error('Name is required')
+    return
+  }
+  if (!isEditing && !formData.moduleType) {
+    toast.error('Module type is required')
     return
   }
   if (formData.items.filter((i) => i.allowed).length === 0) {

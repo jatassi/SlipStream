@@ -813,8 +813,14 @@ func (s *Service) importQualityProfiles(ctx context.Context, reader Reader, sour
 		// G1: UpgradesEnabled is *bool
 		upgradesEnabled := p.UpgradeAllowed
 
+		moduleType := "movie"
+		if sourceType == SourceTypeSonarr {
+			moduleType = "tv"
+		}
+
 		input := &quality.CreateProfileInput{
 			Name:            p.Name,
+			ModuleType:      moduleType,
 			Cutoff:          cutoff,
 			UpgradesEnabled: &upgradesEnabled,
 			UpgradeStrategy: quality.StrategyBalanced,

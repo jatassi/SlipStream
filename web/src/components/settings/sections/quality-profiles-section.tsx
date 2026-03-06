@@ -48,6 +48,9 @@ function ProfileCard({
         <div>
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg">{profile.name}</CardTitle>
+            {profile.moduleType === 'movie'
+              ? <Badge variant="secondary" className="bg-movie-500/10 text-movie-500 text-xs">Movie</Badge>
+              : <Badge variant="secondary" className="bg-tv-500/10 text-tv-500 text-xs">TV</Badge>}
             {profile.allowAutoApprove ? <Badge variant="outline" className="text-xs">Auto-Approve</Badge> : null}
           </div>
           <CardDescription>

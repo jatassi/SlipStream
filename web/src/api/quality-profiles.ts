@@ -9,7 +9,10 @@ import type {
 import { apiFetch } from './client'
 
 export const qualityProfilesApi = {
-  list: () => apiFetch<QualityProfile[]>('/qualityprofiles'),
+  list: (moduleType?: string) => {
+    const params = moduleType ? `?moduleType=${moduleType}` : ''
+    return apiFetch<QualityProfile[]>(`/qualityprofiles${params}`)
+  },
 
   get: (id: number) => apiFetch<QualityProfile>(`/qualityprofiles/${id}`),
 

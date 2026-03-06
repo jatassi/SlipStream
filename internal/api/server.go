@@ -243,5 +243,10 @@ func (s *Server) Echo() *echo.Echo {
 
 // EnsureDefaults creates default data like quality profiles.
 func (s *Server) EnsureDefaults(ctx context.Context) error {
-	return s.library.Quality.EnsureDefaults(ctx)
+	for _, mt := range []string{"movie", "tv"} {
+		if err := s.library.Quality.EnsureDefaults(ctx, mt); err != nil {
+			s.logger.Warn().Err(err).Str("moduleType", mt).Msg("Failed to ensure default quality profiles")
+		}
+	}
+	return nil
 }
