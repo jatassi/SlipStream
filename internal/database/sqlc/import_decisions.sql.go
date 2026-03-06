@@ -38,16 +38,17 @@ func (q *Queries) DeleteImportDecisionsByExistingFile(ctx context.Context, exist
 }
 
 const deleteImportDecisionsByMediaItem = `-- name: DeleteImportDecisionsByMediaItem :exec
-DELETE FROM import_decisions WHERE media_type = ? AND media_id = ?
+DELETE FROM import_decisions WHERE module_type = ? AND entity_type = ? AND entity_id = ?
 `
 
 type DeleteImportDecisionsByMediaItemParams struct {
-	MediaType string `json:"media_type"`
-	MediaID   int64  `json:"media_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
 func (q *Queries) DeleteImportDecisionsByMediaItem(ctx context.Context, arg DeleteImportDecisionsByMediaItemParams) error {
-	_, err := q.db.ExecContext(ctx, deleteImportDecisionsByMediaItem, arg.MediaType, arg.MediaID)
+	_, err := q.db.ExecContext(ctx, deleteImportDecisionsByMediaItem, arg.ModuleType, arg.EntityType, arg.EntityID)
 	return err
 }
 
@@ -70,7 +71,7 @@ func (q *Queries) DeleteImportDecisionsByProfile(ctx context.Context, qualityPro
 }
 
 const getImportDecision = `-- name: GetImportDecision :one
-SELECT id, source_path, decision, media_type, media_id, slot_id, candidate_quality_id, existing_quality_id, existing_file_id, quality_profile_id, reason, evaluated_at FROM import_decisions WHERE source_path = ? LIMIT 1
+SELECT id, source_path, decision, module_type, entity_type, entity_id, slot_id, candidate_quality_id, existing_quality_id, existing_file_id, quality_profile_id, reason, evaluated_at FROM import_decisions WHERE source_path = ? LIMIT 1
 `
 
 func (q *Queries) GetImportDecision(ctx context.Context, sourcePath string) (*ImportDecision, error) {
@@ -80,8 +81,9 @@ func (q *Queries) GetImportDecision(ctx context.Context, sourcePath string) (*Im
 		&i.ID,
 		&i.SourcePath,
 		&i.Decision,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.SlotID,
 		&i.CandidateQualityID,
 		&i.ExistingQualityID,
@@ -95,14 +97,15 @@ func (q *Queries) GetImportDecision(ctx context.Context, sourcePath string) (*Im
 
 const upsertImportDecision = `-- name: UpsertImportDecision :one
 INSERT INTO import_decisions (
-    source_path, decision, media_type, media_id, slot_id,
+    source_path, decision, module_type, entity_type, entity_id, slot_id,
     candidate_quality_id, existing_quality_id, existing_file_id,
     quality_profile_id, reason, evaluated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT (source_path) DO UPDATE SET
     decision = excluded.decision,
-    media_type = excluded.media_type,
-    media_id = excluded.media_id,
+    module_type = excluded.module_type,
+    entity_type = excluded.entity_type,
+    entity_id = excluded.entity_id,
     slot_id = excluded.slot_id,
     candidate_quality_id = excluded.candidate_quality_id,
     existing_quality_id = excluded.existing_quality_id,
@@ -110,14 +113,15 @@ ON CONFLICT (source_path) DO UPDATE SET
     quality_profile_id = excluded.quality_profile_id,
     reason = excluded.reason,
     evaluated_at = CURRENT_TIMESTAMP
-RETURNING id, source_path, decision, media_type, media_id, slot_id, candidate_quality_id, existing_quality_id, existing_file_id, quality_profile_id, reason, evaluated_at
+RETURNING id, source_path, decision, module_type, entity_type, entity_id, slot_id, candidate_quality_id, existing_quality_id, existing_file_id, quality_profile_id, reason, evaluated_at
 `
 
 type UpsertImportDecisionParams struct {
 	SourcePath         string         `json:"source_path"`
 	Decision           string         `json:"decision"`
-	MediaType          string         `json:"media_type"`
-	MediaID            int64          `json:"media_id"`
+	ModuleType         string         `json:"module_type"`
+	EntityType         string         `json:"entity_type"`
+	EntityID           int64          `json:"entity_id"`
 	SlotID             sql.NullInt64  `json:"slot_id"`
 	CandidateQualityID sql.NullInt64  `json:"candidate_quality_id"`
 	ExistingQualityID  sql.NullInt64  `json:"existing_quality_id"`
@@ -130,8 +134,9 @@ func (q *Queries) UpsertImportDecision(ctx context.Context, arg UpsertImportDeci
 	row := q.db.QueryRowContext(ctx, upsertImportDecision,
 		arg.SourcePath,
 		arg.Decision,
-		arg.MediaType,
-		arg.MediaID,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
 		arg.SlotID,
 		arg.CandidateQualityID,
 		arg.ExistingQualityID,
@@ -144,8 +149,9 @@ func (q *Queries) UpsertImportDecision(ctx context.Context, arg UpsertImportDeci
 		&i.ID,
 		&i.SourcePath,
 		&i.Decision,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.SlotID,
 		&i.CandidateQualityID,
 		&i.ExistingQualityID,

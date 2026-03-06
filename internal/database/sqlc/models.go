@@ -18,8 +18,9 @@ type Auth struct {
 
 type AutosearchStatus struct {
 	ID               int64        `json:"id"`
-	ItemType         string       `json:"item_type"`
-	ItemID           int64        `json:"item_id"`
+	ModuleType       string       `json:"module_type"`
+	EntityType       string       `json:"entity_type"`
+	EntityID         int64        `json:"entity_id"`
 	SearchType       string       `json:"search_type"`
 	FailureCount     int64        `json:"failure_count"`
 	LastSearchedAt   sql.NullTime `json:"last_searched_at"`
@@ -42,8 +43,9 @@ type Download struct {
 	ClientID    sql.NullInt64  `json:"client_id"`
 	ExternalID  sql.NullString `json:"external_id"`
 	Title       string         `json:"title"`
-	MediaType   string         `json:"media_type"`
-	MediaID     int64          `json:"media_id"`
+	ModuleType  string         `json:"module_type"`
+	EntityType  string         `json:"entity_type"`
+	EntityID    int64          `json:"entity_id"`
 	Status      string         `json:"status"`
 	Progress    float64        `json:"progress"`
 	Size        int64          `json:"size"`
@@ -78,18 +80,18 @@ type DownloadMapping struct {
 	ID                int64          `json:"id"`
 	ClientID          int64          `json:"client_id"`
 	DownloadID        string         `json:"download_id"`
-	MovieID           sql.NullInt64  `json:"movie_id"`
-	SeriesID          sql.NullInt64  `json:"series_id"`
+	ModuleType        string         `json:"module_type"`
+	EntityType        string         `json:"entity_type"`
+	EntityID          int64          `json:"entity_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
-	EpisodeID         sql.NullInt64  `json:"episode_id"`
 	IsSeasonPack      bool           `json:"is_season_pack"`
 	IsCompleteSeries  bool           `json:"is_complete_series"`
-	CreatedAt         time.Time      `json:"created_at"`
 	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	Source            string         `json:"source"`
 	ImportAttempts    int64          `json:"import_attempts"`
 	LastImportError   sql.NullString `json:"last_import_error"`
 	NextImportRetryAt sql.NullTime   `json:"next_import_retry_at"`
+	CreatedAt         time.Time      `json:"created_at"`
 }
 
 type Episode struct {
@@ -139,22 +141,24 @@ type EpisodeSlotAssignment struct {
 }
 
 type History struct {
-	ID        int64          `json:"id"`
-	EventType string         `json:"event_type"`
-	MediaType string         `json:"media_type"`
-	MediaID   int64          `json:"media_id"`
-	Source    sql.NullString `json:"source"`
-	Quality   sql.NullString `json:"quality"`
-	Data      sql.NullString `json:"data"`
-	CreatedAt sql.NullTime   `json:"created_at"`
+	ID         int64          `json:"id"`
+	EventType  string         `json:"event_type"`
+	ModuleType string         `json:"module_type"`
+	EntityType string         `json:"entity_type"`
+	EntityID   int64          `json:"entity_id"`
+	Source     sql.NullString `json:"source"`
+	Quality    sql.NullString `json:"quality"`
+	Data       sql.NullString `json:"data"`
+	CreatedAt  sql.NullTime   `json:"created_at"`
 }
 
 type ImportDecision struct {
 	ID                 int64          `json:"id"`
 	SourcePath         string         `json:"source_path"`
 	Decision           string         `json:"decision"`
-	MediaType          string         `json:"media_type"`
-	MediaID            int64          `json:"media_id"`
+	ModuleType         string         `json:"module_type"`
+	EntityType         string         `json:"entity_type"`
+	EntityID           int64          `json:"entity_id"`
 	SlotID             sql.NullInt64  `json:"slot_id"`
 	CandidateQualityID sql.NullInt64  `json:"candidate_quality_id"`
 	ExistingQualityID  sql.NullInt64  `json:"existing_quality_id"`
@@ -455,21 +459,23 @@ type QualityProfile struct {
 type QueueMedium struct {
 	ID                int64          `json:"id"`
 	DownloadMappingID int64          `json:"download_mapping_id"`
-	EpisodeID         sql.NullInt64  `json:"episode_id"`
-	MovieID           sql.NullInt64  `json:"movie_id"`
+	ModuleType        string         `json:"module_type"`
+	EntityType        string         `json:"entity_type"`
+	EntityID          int64          `json:"entity_id"`
 	FilePath          sql.NullString `json:"file_path"`
 	FileStatus        string         `json:"file_status"`
 	ErrorMessage      sql.NullString `json:"error_message"`
 	ImportAttempts    int64          `json:"import_attempts"`
+	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 }
 
 type Request struct {
 	ID               int64          `json:"id"`
 	UserID           int64          `json:"user_id"`
-	MediaType        string         `json:"media_type"`
+	ModuleType       string         `json:"module_type"`
+	EntityType       string         `json:"entity_type"`
 	TmdbID           sql.NullInt64  `json:"tmdb_id"`
 	TvdbID           sql.NullInt64  `json:"tvdb_id"`
 	Title            string         `json:"title"`
@@ -496,12 +502,12 @@ type RequestWatcher struct {
 }
 
 type RootFolder struct {
-	ID        int64         `json:"id"`
-	Path      string        `json:"path"`
-	Name      string        `json:"name"`
-	MediaType string        `json:"media_type"`
-	FreeSpace sql.NullInt64 `json:"free_space"`
-	CreatedAt sql.NullTime  `json:"created_at"`
+	ID         int64         `json:"id"`
+	Path       string        `json:"path"`
+	Name       string        `json:"name"`
+	ModuleType string        `json:"module_type"`
+	FreeSpace  sql.NullInt64 `json:"free_space"`
+	CreatedAt  sql.NullTime  `json:"created_at"`
 }
 
 type Season struct {

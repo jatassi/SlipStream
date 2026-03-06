@@ -27,6 +27,14 @@ var (
 	ErrIndexerDisabled   = errors.New("indexer is temporarily disabled")
 )
 
+const (
+	mediaTypeMovie   = "movie"
+	mediaTypeEpisode = "episode"
+	mediaTypeSeason  = "season"
+	moduleTypeMovie  = "movie"
+	moduleTypeTV     = "tv"
+)
+
 // GrabMediaContext contains media metadata for grab notifications.
 type GrabMediaContext struct {
 	MediaType    string // "movie", "episode", "season"
@@ -525,25 +533,24 @@ func (s *Service) buildMappingParams(req *GrabRequest, clientID int64, downloadI
 	}
 
 	switch req.MediaType {
-	case "movie":
-		params.MovieID = sql.NullInt64{Int64: req.MediaID, Valid: true}
-	case "episode":
-		params.EpisodeID = sql.NullInt64{Int64: req.MediaID, Valid: true}
-		if req.SeriesID > 0 {
-			params.SeriesID = sql.NullInt64{Int64: req.SeriesID, Valid: true}
-		}
+	case mediaTypeMovie:
+		params.ModuleType = moduleTypeMovie
+		params.EntityType = mediaTypeMovie
+		params.EntityID = req.MediaID
+	case mediaTypeEpisode:
+		params.ModuleType = moduleTypeTV
+		params.EntityType = mediaTypeEpisode
+		params.EntityID = req.MediaID
 		if req.SeasonNumber > 0 {
 			params.SeasonNumber = sql.NullInt64{Int64: int64(req.SeasonNumber), Valid: true}
 		}
-	case "season":
-		params.SeriesID = sql.NullInt64{Int64: req.MediaID, Valid: true}
+	case mediaTypeSeason:
+		params.ModuleType = moduleTypeTV
+		params.EntityType = "series"
+		params.EntityID = req.MediaID
 		params.SeasonNumber = sql.NullInt64{Int64: int64(req.SeasonNumber), Valid: true}
-		if req.IsSeasonPack {
-			params.IsSeasonPack = true
-		}
-		if req.IsCompleteSeries {
-			params.IsCompleteSeries = true
-		}
+		params.IsSeasonPack = req.IsSeasonPack
+		params.IsCompleteSeries = req.IsCompleteSeries
 	default:
 		return nil
 	}
@@ -555,7 +562,7 @@ func (s *Service) setMediaDownloadingStatus(ctx context.Context, req *GrabReques
 	activeDownloadID := sql.NullString{String: downloadID, Valid: true}
 
 	switch req.MediaType {
-	case "movie":
+	case mediaTypeMovie:
 		if err := s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 			Status:           "downloading",
 			ActiveDownloadID: activeDownloadID,
@@ -566,7 +573,7 @@ func (s *Service) setMediaDownloadingStatus(ctx context.Context, req *GrabReques
 		} else if s.broadcaster != nil {
 			s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": req.MediaID})
 		}
-	case "episode":
+	case mediaTypeEpisode:
 		if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
 			Status:           "downloading",
 			ActiveDownloadID: activeDownloadID,

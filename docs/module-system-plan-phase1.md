@@ -38,7 +38,7 @@ Task 1.8 (validation)
 
 ---
 
-### Task 1.1: Discriminator Migration SQL
+### ~~Task 1.1: Discriminator Migration SQL~~ ✅
 
 **Create** `internal/database/migrations/070_module_discriminators.sql`
 
@@ -626,7 +626,7 @@ CREATE INDEX idx_download_mappings_episode ON download_mappings(episode_id) WHER
 
 ---
 
-### Task 1.2: Update sqlc Query Files for New Column Names
+### ~~Task 1.2: Update sqlc Query Files for New Column Names~~ ✅
 
 All sqlc query files that reference the changed tables must be updated. This is a bulk update affecting many files.
 
@@ -675,7 +675,7 @@ All sqlc query files that reference the changed tables must be updated. This is 
 
 ---
 
-### Task 1.3: Run sqlc Generate and Fix Compilation
+### ~~Task 1.3: Run sqlc Generate and Fix Compilation~~ ✅
 
 After Task 1.2, run:
 
@@ -693,7 +693,7 @@ Also update `sqlc.yaml` overrides:
 
 ---
 
-### Task 1.4: Implement DeleteEntity Framework Hook
+### ~~Task 1.4: Implement DeleteEntity Framework Hook~~ ✅
 
 **Create** `internal/module/delete.go`
 
@@ -782,7 +782,7 @@ func DeleteEntity(ctx context.Context, db DBTX, moduleType Type, entityType Enti
 
 ---
 
-### Task 1.5: Update Go Callers for New sqlc Signatures
+### ~~Task 1.5: Update Go Callers for New sqlc Signatures~~ ✅
 
 This is the largest task in Phase 1. Every Go file that calls sqlc-generated functions against the changed tables needs updating.
 
@@ -871,7 +871,7 @@ queries.CreateDownloadMapping(ctx, sqlc.CreateDownloadMappingParams{
 
 ---
 
-### Task 1.6: Status Aggregation Helpers
+### ~~Task 1.6: Status Aggregation Helpers~~ ✅
 
 **Create** `internal/module/status.go`
 
@@ -939,7 +939,7 @@ Existing code continues to import from `internal/library/status/`. The migration
 
 ---
 
-### Task 1.7: Per-Module Migration Infrastructure
+### ~~Task 1.7: Per-Module Migration Infrastructure~~ ✅
 
 **Create** `internal/module/migrate.go`
 
@@ -1001,7 +1001,7 @@ func MigrateModule(db *sql.DB, moduleType Type, migrations embed.FS, dir string)
 
 ---
 
-### Task 1.8: Update Test Fixtures
+### ~~Task 1.8: Update Test Fixtures~~ ✅
 
 After the migration, test helpers and fixtures need updating.
 
@@ -1025,7 +1025,7 @@ After the migration, test helpers and fixtures need updating.
 
 ---
 
-### Task 1.9: Phase 1 Validation
+### ~~Task 1.9: Phase 1 Validation~~ ✅
 
 **Run all of these after all Phase 1 tasks complete:**
 

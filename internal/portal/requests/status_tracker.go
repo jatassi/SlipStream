@@ -388,8 +388,8 @@ func (t *StatusTracker) findSeriesRequestsByTvdbID(ctx context.Context, tvdbID, 
 func (t *StatusTracker) findSeriesRequestsWithSeason(ctx context.Context, seriesID, seasonNum int64) ([]*Request, error) {
 	// Get all series requests for this media
 	rows, err := t.queries.ListRequestsByMediaID(ctx, sqlc.ListRequestsByMediaIDParams{
-		MediaID:   sql.NullInt64{Int64: seriesID, Valid: true},
-		MediaType: MediaTypeSeries,
+		MediaID:    sql.NullInt64{Int64: seriesID, Valid: true},
+		EntityType: MediaTypeSeries,
 	})
 	if err != nil {
 		return nil, err
@@ -453,8 +453,8 @@ func (t *StatusTracker) OnSeriesComplete(ctx context.Context, seriesID int64) er
 
 func (t *StatusTracker) findRequestsByMediaID(ctx context.Context, mediaID int64, mediaType string) ([]*Request, error) {
 	rows, err := t.queries.ListRequestsByMediaID(ctx, sqlc.ListRequestsByMediaIDParams{
-		MediaID:   sql.NullInt64{Int64: mediaID, Valid: true},
-		MediaType: mediaType,
+		MediaID:    sql.NullInt64{Int64: mediaID, Valid: true},
+		EntityType: mediaType,
 	})
 	if err != nil {
 		return nil, err
@@ -473,7 +473,7 @@ func (t *StatusTracker) findRequestsByMediaID(ctx context.Context, mediaID int64
 func (t *StatusTracker) findSeasonRequests(ctx context.Context, seriesID, seasonNumber int64) ([]*Request, error) {
 	rows, err := t.queries.ListRequestsByMediaIDAndSeason(ctx, sqlc.ListRequestsByMediaIDAndSeasonParams{
 		MediaID:      sql.NullInt64{Int64: seriesID, Valid: true},
-		MediaType:    MediaTypeSeason,
+		EntityType:   MediaTypeSeason,
 		SeasonNumber: sql.NullInt64{Int64: seasonNumber, Valid: true},
 	})
 	if err != nil {

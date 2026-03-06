@@ -105,15 +105,12 @@ func (h *Handlers) GetPendingImports(c echo.Context) error {
 			item.Error = &row.ErrorMessage.String
 		}
 
-		// Add media info if available
-		if row.MovieID.Valid {
-			item.MediaID = &row.MovieID.Int64
-			mediaType := mediaTypeMovie
-			item.MediaType = &mediaType
-		} else if row.EpisodeID.Valid {
-			item.MediaID = &row.EpisodeID.Int64
-			mediaType := mediaTypeEpisode
-			item.MediaType = &mediaType
+		// Add media info from discriminator columns
+		if row.EntityID != 0 {
+			entityID := row.EntityID
+			item.MediaID = &entityID
+			entityType := row.EntityType
+			item.MediaType = &entityType
 		}
 
 		pending = append(pending, item)
@@ -383,11 +380,16 @@ func (h *Handlers) buildRetryJob(qm *sqlc.QueueMedium) ImportJob {
 		},
 	}
 
-	if qm.MovieID.Valid {
-		job.QueueMedia.MovieID = &qm.MovieID.Int64
-	}
-	if qm.EpisodeID.Valid {
-		job.QueueMedia.EpisodeID = &qm.EpisodeID.Int64
+	job.QueueMedia.ModuleType = qm.ModuleType
+	job.QueueMedia.EntityType = qm.EntityType
+	job.QueueMedia.EntityID = qm.EntityID
+	switch qm.EntityType {
+	case mediaTypeMovie:
+		id := qm.EntityID
+		job.QueueMedia.MovieID = &id
+	case mediaTypeEpisode:
+		id := qm.EntityID
+		job.QueueMedia.EpisodeID = &id
 	}
 
 	return job
@@ -1115,12 +1117,12 @@ func (h *Handlers) buildSuggestedMatch(ctx context.Context, match *LibraryMatch)
 		Confidence: match.Confidence,
 	}
 
-	if match.MediaType == "movie" && match.MovieID != nil {
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
 		h.populateMovieSuggestion(ctx, suggested, *match.MovieID)
 		return suggested
 	}
 
-	if match.MediaType == "episode" && match.EpisodeID != nil {
+	if match.MediaType == mediaTypeEpisode && match.EpisodeID != nil {
 		h.populateEpisodeSuggestion(ctx, suggested, match)
 	}
 

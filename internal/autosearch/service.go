@@ -646,33 +646,32 @@ func (s *Service) IsSearching(mediaType MediaType, mediaID int64) bool {
 func (s *Service) IsInQueue(ctx context.Context, mediaType MediaType, mediaID int64) bool {
 	switch mediaType {
 	case MediaTypeMovie:
-		result, err := s.queries.IsMovieDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
-		return err == nil && result == 1
-
+		return s.isEntityDownloading(ctx, "movie", "movie", mediaID)
 	case MediaTypeEpisode:
-		ep, err := s.queries.GetEpisode(ctx, mediaID)
-		if err != nil {
-			return false
-		}
-		result, err := s.queries.IsEpisodeDownloading(ctx, sqlc.IsEpisodeDownloadingParams{
-			EpisodeID:    sql.NullInt64{Int64: mediaID, Valid: true},
-			SeriesID:     sql.NullInt64{Int64: ep.SeriesID, Valid: true},
-			SeasonNumber: sql.NullInt64{Int64: ep.SeasonNumber, Valid: true},
-			SeriesID_2:   sql.NullInt64{Int64: ep.SeriesID, Valid: true},
-		})
-		return err == nil && result == 1
-
+		return s.isEpisodeInQueue(ctx, mediaID)
 	case MediaTypeSeries:
-		result, err := s.queries.IsSeriesDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
-		return err == nil && result == 1
-
-	case MediaTypeSeason:
-		// Season status endpoint isn't used with download queue checks
-		return false
-
+		return s.isEntityDownloading(ctx, "tv", "series", mediaID)
 	default:
 		return false
 	}
+}
+
+func (s *Service) isEntityDownloading(ctx context.Context, moduleType, entityType string, entityID int64) bool {
+	result, err := s.queries.IsEntityDownloading(ctx, sqlc.IsEntityDownloadingParams{
+		ModuleType: moduleType, EntityType: entityType, EntityID: entityID,
+	})
+	return err == nil && result == 1
+}
+
+func (s *Service) isEpisodeInQueue(ctx context.Context, episodeID int64) bool {
+	if s.isEntityDownloading(ctx, "tv", "episode", episodeID) {
+		return true
+	}
+	ep, err := s.queries.GetEpisode(ctx, episodeID)
+	if err != nil {
+		return false
+	}
+	return s.isEntityDownloading(ctx, "tv", "series", ep.SeriesID)
 }
 
 // buildSearchCriteria creates search criteria from a searchable item.
@@ -881,8 +880,9 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 
 	// Reset autosearch backoff
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "movie",
-		ItemID:   movieID,
+		ModuleType: "movie",
+		EntityType: "movie",
+		EntityID:   movieID,
 	})
 
 	if s.historyService != nil {
@@ -941,13 +941,15 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 
 	// Reset autosearch backoff for this episode
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "episode",
-		ItemID:   episodeID,
+		ModuleType: "tv",
+		EntityType: "episode",
+		EntityID:   episodeID,
 	})
 	// Also reset series-level backoff so season pack searches are unblocked
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "series",
-		ItemID:   episode.SeriesID,
+		ModuleType: "tv",
+		EntityType: "series",
+		EntityID:   episode.SeriesID,
 	})
 
 	if s.historyService != nil {

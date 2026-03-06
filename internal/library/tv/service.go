@@ -14,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/library"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -369,15 +370,33 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 }
 
 func (s *Service) cleanupSeriesRelatedData(ctx context.Context, id int64) {
-	if err := s.queries.DeleteDownloadMappingsBySeriesID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete download mappings for series")
-	}
-	// Autosearch cleanup must happen before episodes are deleted (uses subquery on episodes table)
+	// Episode-level autosearch uses a subquery on the episodes table, so it must
+	// run before episodes are deleted from the DB.
 	if err := s.queries.DeleteAutosearchStatusForSeriesEpisodes(ctx, id); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series episodes")
 	}
-	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "series", ItemID: id}); err != nil {
-		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete autosearch status for series")
+
+	// Bulk-delete episode-level shared table records using subqueries against the
+	// episodes table (must run before episodes are deleted). These replace the
+	// ON DELETE CASCADE that was previously on download_mappings/queue_media FKs.
+	episodeSubquery := "SELECT id FROM episodes WHERE series_id = ?"
+	episodeDeletes := []string{
+		"DELETE FROM queue_media WHERE module_type = 'tv' AND entity_type = 'episode' AND entity_id IN (" + episodeSubquery + ")",
+		"DELETE FROM download_mappings WHERE module_type = 'tv' AND entity_type = 'episode' AND entity_id IN (" + episodeSubquery + ")",
+		"DELETE FROM downloads WHERE module_type = 'tv' AND entity_type = 'episode' AND entity_id IN (" + episodeSubquery + ")",
+		"DELETE FROM history WHERE module_type = 'tv' AND entity_type = 'episode' AND entity_id IN (" + episodeSubquery + ")",
+		"DELETE FROM import_decisions WHERE module_type = 'tv' AND entity_type = 'episode' AND entity_id IN (" + episodeSubquery + ")",
+	}
+	for _, q := range episodeDeletes {
+		if _, err := s.db.ExecContext(ctx, q, id); err != nil {
+			s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete episode-level shared records")
+		}
+	}
+
+	// Clean up series-level shared table records (download_mappings, queue_media,
+	// downloads, history, autosearch_status, import_decisions, requests).
+	if err := module.DeleteEntity(ctx, s.db, module.TypeTV, module.EntitySeries, id); err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to delete shared table records for series")
 	}
 }
 

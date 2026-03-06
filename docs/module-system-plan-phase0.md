@@ -18,7 +18,7 @@
 
 ---
 
-### Task 0.1: Define Node Schema Types
+### ~~Task 0.1: Define Node Schema Types~~ ✅
 
 **Create** `internal/module/schema.go`
 
@@ -72,7 +72,7 @@ func (s NodeSchema) Depth() int { return len(s.Levels) }
 
 ---
 
-### Task 0.2: Define Module Descriptor Interface and Discriminator Types
+### ~~Task 0.2: Define Module Descriptor Interface and Discriminator Types~~ ✅
 
 **Create** `internal/module/types.go`
 
@@ -128,7 +128,7 @@ type Descriptor interface {
 
 ---
 
-### Task 0.3: Define All Required Module Interfaces
+### ~~Task 0.3: Define All Required Module Interfaces~~ ✅
 
 **Create** `internal/module/interfaces.go`
 
@@ -285,7 +285,7 @@ type ArrImportAdapter interface {
 
 ---
 
-### Task 0.4: Define Supporting Types for Interfaces
+### ~~Task 0.4: Define Supporting Types for Interfaces~~ ✅
 
 **Create** `internal/module/search_types.go`, `internal/module/import_types.go`, `internal/module/calendar_types.go`, `internal/module/quality_types.go`, `internal/module/notification_types.go`, `internal/module/path_types.go`
 
@@ -347,7 +347,7 @@ Key types to define (organized by file):
 
 ---
 
-### Task 0.5: Define Module Interface Bundle and Registry
+### ~~Task 0.5: Define Module Interface Bundle and Registry~~ ✅
 
 **Create** `internal/module/module.go`
 
@@ -473,7 +473,7 @@ func (r *Registry) ModuleForEntityType(et EntityType) Module {
 
 ---
 
-### Task 0.6: Create Movie Module Descriptor Stub
+### ~~Task 0.6: Create Movie Module Descriptor Stub~~ ✅
 
 **Create** `internal/modules/movie/module.go`
 
@@ -526,7 +526,7 @@ This file only implements `Descriptor`. It does NOT embed or implement the full 
 
 ---
 
-### Task 0.7: Create TV Module Descriptor Stub
+### ~~Task 0.7: Create TV Module Descriptor Stub~~ ✅
 
 **Create** `internal/modules/tv/module.go`
 
@@ -589,7 +589,7 @@ func (d *Descriptor) Wire() wire.ProviderSet {
 
 ---
 
-### Task 0.8: Module Enable/Disable Setting and Registration Entry Point
+### ~~Task 0.8: Module Enable/Disable Setting and Registration Entry Point~~ ✅
 
 **Create** `internal/module/settings.go`
 
@@ -667,7 +667,7 @@ func RegisterAll(registry *Registry, logger *zerolog.Logger) {
 
 ---
 
-### Task 0.9: Phase 0 Validation
+### ~~Task 0.9: Phase 0 Validation~~ ✅
 
 **Run all of these after all Phase 0 tasks complete:**
 

@@ -33,11 +33,11 @@ func (q *Queries) CountHistoryByEventType(ctx context.Context, eventType string)
 }
 
 const countHistoryByMediaType = `-- name: CountHistoryByMediaType :one
-SELECT COUNT(*) FROM history WHERE media_type = ?
+SELECT COUNT(*) FROM history WHERE entity_type = ?
 `
 
-func (q *Queries) CountHistoryByMediaType(ctx context.Context, mediaType string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countHistoryByMediaType, mediaType)
+func (q *Queries) CountHistoryByMediaType(ctx context.Context, entityType string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countHistoryByMediaType, entityType)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -46,7 +46,7 @@ func (q *Queries) CountHistoryByMediaType(ctx context.Context, mediaType string)
 const countHistoryFiltered = `-- name: CountHistoryFiltered :one
 SELECT COUNT(*) FROM history
 WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
-  AND (? = '' OR media_type = ?)
+  AND (? = '' OR entity_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
 `
@@ -55,7 +55,7 @@ type CountHistoryFilteredParams struct {
 	Column1     interface{}    `json:"column_1"`
 	Column2     sql.NullString `json:"column_2"`
 	Column3     interface{}    `json:"column_3"`
-	MediaType   string         `json:"media_type"`
+	EntityType  string         `json:"entity_type"`
 	Column5     interface{}    `json:"column_5"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	Column7     interface{}    `json:"column_7"`
@@ -67,7 +67,7 @@ func (q *Queries) CountHistoryFiltered(ctx context.Context, arg CountHistoryFilt
 		arg.Column1,
 		arg.Column2,
 		arg.Column3,
-		arg.MediaType,
+		arg.EntityType,
 		arg.Column5,
 		arg.CreatedAt,
 		arg.Column7,
@@ -102,17 +102,18 @@ func (q *Queries) CountSeriesUsingProfile(ctx context.Context, qualityProfileID 
 
 const createDownload = `-- name: CreateDownload :one
 INSERT INTO downloads (
-    client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at
+    client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path, added_at, completed_at
 `
 
 type CreateDownloadParams struct {
 	ClientID    sql.NullInt64  `json:"client_id"`
 	ExternalID  sql.NullString `json:"external_id"`
 	Title       string         `json:"title"`
-	MediaType   string         `json:"media_type"`
-	MediaID     int64          `json:"media_id"`
+	ModuleType  string         `json:"module_type"`
+	EntityType  string         `json:"entity_type"`
+	EntityID    int64          `json:"entity_id"`
 	Status      string         `json:"status"`
 	Progress    float64        `json:"progress"`
 	Size        int64          `json:"size"`
@@ -125,8 +126,9 @@ func (q *Queries) CreateDownload(ctx context.Context, arg CreateDownloadParams) 
 		arg.ClientID,
 		arg.ExternalID,
 		arg.Title,
-		arg.MediaType,
-		arg.MediaID,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
 		arg.Status,
 		arg.Progress,
 		arg.Size,
@@ -139,8 +141,9 @@ func (q *Queries) CreateDownload(ctx context.Context, arg CreateDownloadParams) 
 		&i.ClientID,
 		&i.ExternalID,
 		&i.Title,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.Status,
 		&i.Progress,
 		&i.Size,
@@ -153,25 +156,27 @@ func (q *Queries) CreateDownload(ctx context.Context, arg CreateDownloadParams) 
 }
 
 const createHistoryEntry = `-- name: CreateHistoryEntry :one
-INSERT INTO history (event_type, media_type, media_id, source, quality, data)
-VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, event_type, media_type, media_id, source, quality, data, created_at
+INSERT INTO history (event_type, module_type, entity_type, entity_id, source, quality, data)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at
 `
 
 type CreateHistoryEntryParams struct {
-	EventType string         `json:"event_type"`
-	MediaType string         `json:"media_type"`
-	MediaID   int64          `json:"media_id"`
-	Source    sql.NullString `json:"source"`
-	Quality   sql.NullString `json:"quality"`
-	Data      sql.NullString `json:"data"`
+	EventType  string         `json:"event_type"`
+	ModuleType string         `json:"module_type"`
+	EntityType string         `json:"entity_type"`
+	EntityID   int64          `json:"entity_id"`
+	Source     sql.NullString `json:"source"`
+	Quality    sql.NullString `json:"quality"`
+	Data       sql.NullString `json:"data"`
 }
 
 func (q *Queries) CreateHistoryEntry(ctx context.Context, arg CreateHistoryEntryParams) (*History, error) {
 	row := q.db.QueryRowContext(ctx, createHistoryEntry,
 		arg.EventType,
-		arg.MediaType,
-		arg.MediaID,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
 		arg.Source,
 		arg.Quality,
 		arg.Data,
@@ -180,8 +185,9 @@ func (q *Queries) CreateHistoryEntry(ctx context.Context, arg CreateHistoryEntry
 	err := row.Scan(
 		&i.ID,
 		&i.EventType,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.Source,
 		&i.Quality,
 		&i.Data,
@@ -245,23 +251,23 @@ func (q *Queries) CreateQualityProfile(ctx context.Context, arg CreateQualityPro
 }
 
 const createRootFolder = `-- name: CreateRootFolder :one
-INSERT INTO root_folders (path, name, media_type, free_space)
+INSERT INTO root_folders (path, name, module_type, free_space)
 VALUES (?, ?, ?, ?)
-RETURNING id, path, name, media_type, free_space, created_at
+RETURNING id, path, name, module_type, free_space, created_at
 `
 
 type CreateRootFolderParams struct {
-	Path      string        `json:"path"`
-	Name      string        `json:"name"`
-	MediaType string        `json:"media_type"`
-	FreeSpace sql.NullInt64 `json:"free_space"`
+	Path       string        `json:"path"`
+	Name       string        `json:"name"`
+	ModuleType string        `json:"module_type"`
+	FreeSpace  sql.NullInt64 `json:"free_space"`
 }
 
 func (q *Queries) CreateRootFolder(ctx context.Context, arg CreateRootFolderParams) (*RootFolder, error) {
 	row := q.db.QueryRowContext(ctx, createRootFolder,
 		arg.Path,
 		arg.Name,
-		arg.MediaType,
+		arg.ModuleType,
 		arg.FreeSpace,
 	)
 	var i RootFolder
@@ -269,7 +275,7 @@ func (q *Queries) CreateRootFolder(ctx context.Context, arg CreateRootFolderPara
 		&i.ID,
 		&i.Path,
 		&i.Name,
-		&i.MediaType,
+		&i.ModuleType,
 		&i.FreeSpace,
 		&i.CreatedAt,
 	)
@@ -397,7 +403,7 @@ func (q *Queries) GetDefaultsForEntityType(ctx context.Context, key string) ([]*
 }
 
 const getDownload = `-- name: GetDownload :one
-SELECT id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE id = ? LIMIT 1
+SELECT id, client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE id = ? LIMIT 1
 `
 
 // Downloads Queue
@@ -409,8 +415,9 @@ func (q *Queries) GetDownload(ctx context.Context, id int64) (*Download, error) 
 		&i.ClientID,
 		&i.ExternalID,
 		&i.Title,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.Status,
 		&i.Progress,
 		&i.Size,
@@ -476,7 +483,7 @@ func (q *Queries) GetQualityProfileByName(ctx context.Context, name string) (*Qu
 }
 
 const getRootFolder = `-- name: GetRootFolder :one
-SELECT id, path, name, media_type, free_space, created_at FROM root_folders WHERE id = ? LIMIT 1
+SELECT id, path, name, module_type, free_space, created_at FROM root_folders WHERE id = ? LIMIT 1
 `
 
 // Root Folders
@@ -487,7 +494,7 @@ func (q *Queries) GetRootFolder(ctx context.Context, id int64) (*RootFolder, err
 		&i.ID,
 		&i.Path,
 		&i.Name,
-		&i.MediaType,
+		&i.ModuleType,
 		&i.FreeSpace,
 		&i.CreatedAt,
 	)
@@ -495,7 +502,7 @@ func (q *Queries) GetRootFolder(ctx context.Context, id int64) (*RootFolder, err
 }
 
 const getRootFolderByPath = `-- name: GetRootFolderByPath :one
-SELECT id, path, name, media_type, free_space, created_at FROM root_folders WHERE path = ? LIMIT 1
+SELECT id, path, name, module_type, free_space, created_at FROM root_folders WHERE path = ? LIMIT 1
 `
 
 func (q *Queries) GetRootFolderByPath(ctx context.Context, path string) (*RootFolder, error) {
@@ -505,7 +512,7 @@ func (q *Queries) GetRootFolderByPath(ctx context.Context, path string) (*RootFo
 		&i.ID,
 		&i.Path,
 		&i.Name,
-		&i.MediaType,
+		&i.ModuleType,
 		&i.FreeSpace,
 		&i.CreatedAt,
 	)
@@ -525,18 +532,18 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (*Setting, error) 
 
 const hasRecentGrab = `-- name: HasRecentGrab :one
 SELECT COUNT(*) > 0 FROM history
-WHERE media_type = ? AND media_id = ?
+WHERE entity_type = ? AND entity_id = ?
 AND event_type IN ('grabbed', 'autosearch_download')
 AND created_at > datetime('now', '-12 hours')
 `
 
 type HasRecentGrabParams struct {
-	MediaType string `json:"media_type"`
-	MediaID   int64  `json:"media_id"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
 func (q *Queries) HasRecentGrab(ctx context.Context, arg HasRecentGrabParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasRecentGrab, arg.MediaType, arg.MediaID)
+	row := q.db.QueryRowContext(ctx, hasRecentGrab, arg.EntityType, arg.EntityID)
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -544,7 +551,7 @@ func (q *Queries) HasRecentGrab(ctx context.Context, arg HasRecentGrabParams) (b
 
 const hasRecentSeasonGrab = `-- name: HasRecentSeasonGrab :one
 SELECT COUNT(*) > 0 FROM history h
-JOIN episodes e ON h.media_type = 'episode' AND h.media_id = e.id
+JOIN episodes e ON h.entity_type = 'episode' AND h.entity_id = e.id
 WHERE e.series_id = ? AND e.season_number = ?
 AND h.event_type IN ('grabbed', 'autosearch_download')
 AND h.created_at > datetime('now', '-12 hours')
@@ -566,7 +573,7 @@ func (q *Queries) HasRecentSeasonGrab(ctx context.Context, arg HasRecentSeasonGr
 }
 
 const listActiveDownloads = `-- name: ListActiveDownloads :many
-SELECT id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE status IN ('queued', 'downloading', 'paused') ORDER BY added_at
+SELECT id, client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads WHERE status IN ('queued', 'downloading', 'paused') ORDER BY added_at
 `
 
 func (q *Queries) ListActiveDownloads(ctx context.Context) ([]*Download, error) {
@@ -583,8 +590,9 @@ func (q *Queries) ListActiveDownloads(ctx context.Context) ([]*Download, error) 
 			&i.ClientID,
 			&i.ExternalID,
 			&i.Title,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Status,
 			&i.Progress,
 			&i.Size,
@@ -607,7 +615,7 @@ func (q *Queries) ListActiveDownloads(ctx context.Context) ([]*Download, error) 
 }
 
 const listDownloads = `-- name: ListDownloads :many
-SELECT id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads ORDER BY added_at DESC
+SELECT id, client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path, added_at, completed_at FROM downloads ORDER BY added_at DESC
 `
 
 func (q *Queries) ListDownloads(ctx context.Context) ([]*Download, error) {
@@ -624,8 +632,9 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]*Download, error) {
 			&i.ClientID,
 			&i.ExternalID,
 			&i.Title,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Status,
 			&i.Progress,
 			&i.Size,
@@ -648,7 +657,7 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]*Download, error) {
 }
 
 const listHistory = `-- name: ListHistory :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history ORDER BY created_at DESC LIMIT ?
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history ORDER BY created_at DESC LIMIT ?
 `
 
 // History
@@ -664,8 +673,9 @@ func (q *Queries) ListHistory(ctx context.Context, limit int64) ([]*History, err
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -685,7 +695,7 @@ func (q *Queries) ListHistory(ctx context.Context, limit int64) ([]*History, err
 }
 
 const listHistoryByEventType = `-- name: ListHistoryByEventType :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history
 WHERE event_type = ?
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?
@@ -709,8 +719,9 @@ func (q *Queries) ListHistoryByEventType(ctx context.Context, arg ListHistoryByE
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -730,16 +741,17 @@ func (q *Queries) ListHistoryByEventType(ctx context.Context, arg ListHistoryByE
 }
 
 const listHistoryByMedia = `-- name: ListHistoryByMedia :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at DESC
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history WHERE module_type = ? AND entity_type = ? AND entity_id = ? ORDER BY created_at DESC
 `
 
 type ListHistoryByMediaParams struct {
-	MediaType string `json:"media_type"`
-	MediaID   int64  `json:"media_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
 func (q *Queries) ListHistoryByMedia(ctx context.Context, arg ListHistoryByMediaParams) ([]*History, error) {
-	rows, err := q.db.QueryContext(ctx, listHistoryByMedia, arg.MediaType, arg.MediaID)
+	rows, err := q.db.QueryContext(ctx, listHistoryByMedia, arg.ModuleType, arg.EntityType, arg.EntityID)
 	if err != nil {
 		return nil, err
 	}
@@ -750,8 +762,9 @@ func (q *Queries) ListHistoryByMedia(ctx context.Context, arg ListHistoryByMedia
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -771,20 +784,20 @@ func (q *Queries) ListHistoryByMedia(ctx context.Context, arg ListHistoryByMedia
 }
 
 const listHistoryByMediaType = `-- name: ListHistoryByMediaType :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
-WHERE media_type = ?
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history
+WHERE entity_type = ?
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?
 `
 
 type ListHistoryByMediaTypeParams struct {
-	MediaType string `json:"media_type"`
-	Limit     int64  `json:"limit"`
-	Offset    int64  `json:"offset"`
+	EntityType string `json:"entity_type"`
+	Limit      int64  `json:"limit"`
+	Offset     int64  `json:"offset"`
 }
 
 func (q *Queries) ListHistoryByMediaType(ctx context.Context, arg ListHistoryByMediaTypeParams) ([]*History, error) {
-	rows, err := q.db.QueryContext(ctx, listHistoryByMediaType, arg.MediaType, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listHistoryByMediaType, arg.EntityType, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -795,8 +808,9 @@ func (q *Queries) ListHistoryByMediaType(ctx context.Context, arg ListHistoryByM
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -816,9 +830,9 @@ func (q *Queries) ListHistoryByMediaType(ctx context.Context, arg ListHistoryByM
 }
 
 const listHistoryFiltered = `-- name: ListHistoryFiltered :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history
 WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
-  AND (? = '' OR media_type = ?)
+  AND (? = '' OR entity_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
 ORDER BY created_at DESC
@@ -829,7 +843,7 @@ type ListHistoryFilteredParams struct {
 	Column1     interface{}    `json:"column_1"`
 	Column2     sql.NullString `json:"column_2"`
 	Column3     interface{}    `json:"column_3"`
-	MediaType   string         `json:"media_type"`
+	EntityType  string         `json:"entity_type"`
 	Column5     interface{}    `json:"column_5"`
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	Column7     interface{}    `json:"column_7"`
@@ -843,7 +857,7 @@ func (q *Queries) ListHistoryFiltered(ctx context.Context, arg ListHistoryFilter
 		arg.Column1,
 		arg.Column2,
 		arg.Column3,
-		arg.MediaType,
+		arg.EntityType,
 		arg.Column5,
 		arg.CreatedAt,
 		arg.Column7,
@@ -861,8 +875,9 @@ func (q *Queries) ListHistoryFiltered(ctx context.Context, arg ListHistoryFilter
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -882,7 +897,7 @@ func (q *Queries) ListHistoryFiltered(ctx context.Context, arg ListHistoryFilter
 }
 
 const listHistoryPaginated = `-- name: ListHistoryPaginated :many
-SELECT id, event_type, media_type, media_id, source, quality, data, created_at FROM history
+SELECT id, event_type, module_type, entity_type, entity_id, source, quality, data, created_at FROM history
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?
 `
@@ -904,8 +919,9 @@ func (q *Queries) ListHistoryPaginated(ctx context.Context, arg ListHistoryPagin
 		if err := rows.Scan(
 			&i.ID,
 			&i.EventType,
-			&i.MediaType,
-			&i.MediaID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.Source,
 			&i.Quality,
 			&i.Data,
@@ -967,7 +983,7 @@ func (q *Queries) ListQualityProfiles(ctx context.Context) ([]*QualityProfile, e
 }
 
 const listRootFolders = `-- name: ListRootFolders :many
-SELECT id, path, name, media_type, free_space, created_at FROM root_folders ORDER BY name
+SELECT id, path, name, module_type, free_space, created_at FROM root_folders ORDER BY name
 `
 
 func (q *Queries) ListRootFolders(ctx context.Context) ([]*RootFolder, error) {
@@ -983,7 +999,7 @@ func (q *Queries) ListRootFolders(ctx context.Context) ([]*RootFolder, error) {
 			&i.ID,
 			&i.Path,
 			&i.Name,
-			&i.MediaType,
+			&i.ModuleType,
 			&i.FreeSpace,
 			&i.CreatedAt,
 		); err != nil {
@@ -1001,11 +1017,11 @@ func (q *Queries) ListRootFolders(ctx context.Context) ([]*RootFolder, error) {
 }
 
 const listRootFoldersByMediaType = `-- name: ListRootFoldersByMediaType :many
-SELECT id, path, name, media_type, free_space, created_at FROM root_folders WHERE media_type = ? ORDER BY name
+SELECT id, path, name, module_type, free_space, created_at FROM root_folders WHERE module_type = ? ORDER BY name
 `
 
-func (q *Queries) ListRootFoldersByMediaType(ctx context.Context, mediaType string) ([]*RootFolder, error) {
-	rows, err := q.db.QueryContext(ctx, listRootFoldersByMediaType, mediaType)
+func (q *Queries) ListRootFoldersByMediaType(ctx context.Context, moduleType string) ([]*RootFolder, error) {
+	rows, err := q.db.QueryContext(ctx, listRootFoldersByMediaType, moduleType)
 	if err != nil {
 		return nil, err
 	}
@@ -1017,7 +1033,7 @@ func (q *Queries) ListRootFoldersByMediaType(ctx context.Context, mediaType stri
 			&i.ID,
 			&i.Path,
 			&i.Name,
-			&i.MediaType,
+			&i.ModuleType,
 			&i.FreeSpace,
 			&i.CreatedAt,
 		); err != nil {
@@ -1035,11 +1051,11 @@ func (q *Queries) ListRootFoldersByMediaType(ctx context.Context, mediaType stri
 }
 
 const listRootFoldersByType = `-- name: ListRootFoldersByType :many
-SELECT id, path, name, media_type, free_space, created_at FROM root_folders WHERE media_type = ? ORDER BY name
+SELECT id, path, name, module_type, free_space, created_at FROM root_folders WHERE module_type = ? ORDER BY name
 `
 
-func (q *Queries) ListRootFoldersByType(ctx context.Context, mediaType string) ([]*RootFolder, error) {
-	rows, err := q.db.QueryContext(ctx, listRootFoldersByType, mediaType)
+func (q *Queries) ListRootFoldersByType(ctx context.Context, moduleType string) ([]*RootFolder, error) {
+	rows, err := q.db.QueryContext(ctx, listRootFoldersByType, moduleType)
 	if err != nil {
 		return nil, err
 	}
@@ -1051,7 +1067,7 @@ func (q *Queries) ListRootFoldersByType(ctx context.Context, mediaType string) (
 			&i.ID,
 			&i.Path,
 			&i.Name,
-			&i.MediaType,
+			&i.ModuleType,
 			&i.FreeSpace,
 			&i.CreatedAt,
 		); err != nil {
@@ -1143,7 +1159,7 @@ UPDATE downloads SET
     progress = ?,
     completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END
 WHERE id = ?
-RETURNING id, client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path, added_at, completed_at
+RETURNING id, client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path, added_at, completed_at
 `
 
 type UpdateDownloadStatusParams struct {
@@ -1166,8 +1182,9 @@ func (q *Queries) UpdateDownloadStatus(ctx context.Context, arg UpdateDownloadSt
 		&i.ClientID,
 		&i.ExternalID,
 		&i.Title,
-		&i.MediaType,
-		&i.MediaID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.Status,
 		&i.Progress,
 		&i.Size,
@@ -1253,7 +1270,7 @@ UPDATE root_folders SET
     name = ?,
     free_space = ?
 WHERE id = ?
-RETURNING id, path, name, media_type, free_space, created_at
+RETURNING id, path, name, module_type, free_space, created_at
 `
 
 type UpdateRootFolderParams struct {
@@ -1275,7 +1292,7 @@ func (q *Queries) UpdateRootFolder(ctx context.Context, arg UpdateRootFolderPara
 		&i.ID,
 		&i.Path,
 		&i.Name,
-		&i.MediaType,
+		&i.ModuleType,
 		&i.FreeSpace,
 		&i.CreatedAt,
 	)

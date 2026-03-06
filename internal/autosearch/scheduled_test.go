@@ -41,7 +41,7 @@ func TestShouldSkipItem(t *testing.T) {
 
 		for i := 0; i < 4; i++ {
 			if err := queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-				ItemType: "movie", ItemID: 1, SearchType: "missing",
+				ModuleType: "movie", EntityType: "movie", EntityID: 1, SearchType: "missing",
 			}); err != nil {
 				t.Fatalf("increment failed: %v", err)
 			}
@@ -62,7 +62,7 @@ func TestShouldSkipItem(t *testing.T) {
 
 		for i := 0; i < 5; i++ {
 			if err := queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-				ItemType: "movie", ItemID: 1, SearchType: "missing",
+				ModuleType: "movie", EntityType: "movie", EntityID: 1, SearchType: "missing",
 			}); err != nil {
 				t.Fatalf("increment failed: %v", err)
 			}
@@ -83,7 +83,7 @@ func TestShouldSkipItem(t *testing.T) {
 
 		for i := 0; i < 7; i++ {
 			if err := queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-				ItemType: "movie", ItemID: 1, SearchType: "missing",
+				ModuleType: "movie", EntityType: "movie", EntityID: 1, SearchType: "missing",
 			}); err != nil {
 				t.Fatalf("increment failed: %v", err)
 			}
@@ -105,7 +105,7 @@ func TestShouldSkipItem(t *testing.T) {
 		// Push "missing" past threshold
 		for i := 0; i < 6; i++ {
 			if err := queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-				ItemType: "movie", ItemID: 1, SearchType: "missing",
+				ModuleType: "movie", EntityType: "movie", EntityID: 1, SearchType: "missing",
 			}); err != nil {
 				t.Fatalf("increment failed: %v", err)
 			}
@@ -131,7 +131,7 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "movie", ItemID: 10, SearchType: "missing",
+			ModuleType: "movie", EntityType: "movie", EntityID: 10, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
@@ -139,8 +139,8 @@ func TestIncrementFailureCount(t *testing.T) {
 		if status.FailureCount != 1 {
 			t.Fatalf("expected failure_count=1, got %d", status.FailureCount)
 		}
-		if status.ItemType != "movie" {
-			t.Fatalf("expected item_type='movie', got %q", status.ItemType)
+		if status.EntityType != "movie" {
+			t.Fatalf("expected entity_type='movie', got %q", status.EntityType)
 		}
 	})
 
@@ -152,13 +152,13 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "episode", ItemID: 20, SearchType: "missing",
+			ModuleType: "tv", EntityType: "episode", EntityID: 20, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
 		}
-		if status.ItemType != "episode" {
-			t.Fatalf("expected item_type='episode', got %q", status.ItemType)
+		if status.EntityType != "episode" {
+			t.Fatalf("expected entity_type='episode', got %q", status.EntityType)
 		}
 	})
 
@@ -166,18 +166,18 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		// MediaTypeSeason should map to item_type="series" in the DB
+		// MediaTypeSeason should map to entity_type="series" in the DB
 		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: 30}
 		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "series", ItemID: 30, SearchType: "missing",
+			ModuleType: "tv", EntityType: "series", EntityID: 30, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
 		}
-		if status.ItemType != "series" {
-			t.Fatalf("expected item_type='series', got %q", status.ItemType)
+		if status.EntityType != "series" {
+			t.Fatalf("expected entity_type='series', got %q", status.EntityType)
 		}
 		if status.FailureCount != 1 {
 			t.Fatalf("expected failure_count=1, got %d", status.FailureCount)
@@ -194,7 +194,7 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher.incrementFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "movie", ItemID: 40, SearchType: "missing",
+			ModuleType: "movie", EntityType: "movie", EntityID: 40, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
@@ -219,7 +219,7 @@ func TestResetFailureCount(t *testing.T) {
 		searcher.resetFailureCount(ctx, &item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "movie", ItemID: 50, SearchType: "missing",
+			ModuleType: "movie", EntityType: "movie", EntityID: 50, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
@@ -240,7 +240,7 @@ func TestResetFailureCount(t *testing.T) {
 		searcher.resetFailureCount(ctx, &item, "upgrade")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "series", ItemID: 60, SearchType: "upgrade",
+			ModuleType: "tv", EntityType: "series", EntityID: 60, SearchType: "upgrade",
 		})
 		if err != nil {
 			t.Fatalf("failed to get status: %v", err)
@@ -265,7 +265,7 @@ func TestResetFailureCount(t *testing.T) {
 		searcher.resetFailureCount(ctx, &item, "missing")
 
 		missingStatus, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "movie", ItemID: 70, SearchType: "missing",
+			ModuleType: "movie", EntityType: "movie", EntityID: 70, SearchType: "missing",
 		})
 		if err != nil {
 			t.Fatalf("failed to get missing status: %v", err)
@@ -275,7 +275,7 @@ func TestResetFailureCount(t *testing.T) {
 		}
 
 		upgradeStatus, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-			ItemType: "movie", ItemID: 70, SearchType: "upgrade",
+			ModuleType: "movie", EntityType: "movie", EntityID: 70, SearchType: "upgrade",
 		})
 		if err != nil {
 			t.Fatalf("failed to get upgrade status: %v", err)

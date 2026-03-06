@@ -15,9 +15,9 @@ import (
 func createTestRootFolder(t *testing.T, q *sqlc.Queries, mediaType string) int64 {
 	t.Helper()
 	rf, err := q.CreateRootFolder(context.Background(), sqlc.CreateRootFolderParams{
-		Path:      "/test/" + mediaType,
-		Name:      "Test " + mediaType,
-		MediaType: mediaType,
+		Path:       "/test/" + mediaType,
+		Name:       "Test " + mediaType,
+		ModuleType: mediaType,
 	})
 	if err != nil {
 		t.Fatalf("CreateRootFolder error = %v", err)
@@ -399,7 +399,8 @@ func TestGetCoveredSeasons_CrossType(t *testing.T) {
 	seasonsJSON, _ := json.Marshal([]int64{1, 2, 3})
 	_, err := q.CreateRequest(ctx, sqlc.CreateRequestParams{
 		UserID:           userID,
-		MediaType:        MediaTypeSeries,
+		ModuleType:       "tv",
+		EntityType:       MediaTypeSeries,
 		TvdbID:           sql.NullInt64{Int64: 2000, Valid: true},
 		Title:            "Test Series",
 		Status:           StatusPending,
@@ -411,7 +412,8 @@ func TestGetCoveredSeasons_CrossType(t *testing.T) {
 
 	_, err = q.CreateRequest(ctx, sqlc.CreateRequestParams{
 		UserID:       userID,
-		MediaType:    MediaTypeSeason,
+		ModuleType:   "tv",
+		EntityType:   MediaTypeSeason,
 		TvdbID:       sql.NullInt64{Int64: 2000, Valid: true},
 		Title:        "Test Series S5",
 		Status:       StatusPending,

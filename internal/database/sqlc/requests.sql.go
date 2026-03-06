@@ -17,7 +17,7 @@ UPDATE requests SET
     approved_by = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
+RETURNING id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type ApproveRequestParams struct {
@@ -31,7 +31,8 @@ func (q *Queries) ApproveRequest(ctx context.Context, arg ApproveRequestParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -89,19 +90,19 @@ func (q *Queries) CountRequestsByUser(ctx context.Context, userID int64) (int64,
 const countUserAutoApprovedInPeriod = `-- name: CountUserAutoApprovedInPeriod :one
 SELECT COUNT(*) FROM requests
 WHERE user_id = ?
-  AND media_type = ?
+  AND entity_type = ?
   AND approved_at >= ?
   AND approved_by IS NULL
 `
 
 type CountUserAutoApprovedInPeriodParams struct {
 	UserID     int64        `json:"user_id"`
-	MediaType  string       `json:"media_type"`
+	EntityType string       `json:"entity_type"`
 	ApprovedAt sql.NullTime `json:"approved_at"`
 }
 
 func (q *Queries) CountUserAutoApprovedInPeriod(ctx context.Context, arg CountUserAutoApprovedInPeriodParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserAutoApprovedInPeriod, arg.UserID, arg.MediaType, arg.ApprovedAt)
+	row := q.db.QueryRowContext(ctx, countUserAutoApprovedInPeriod, arg.UserID, arg.EntityType, arg.ApprovedAt)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -109,15 +110,16 @@ func (q *Queries) CountUserAutoApprovedInPeriod(ctx context.Context, arg CountUs
 
 const createRequest = `-- name: CreateRequest :one
 INSERT INTO requests (
-    user_id, media_type, tmdb_id, tvdb_id, title, year,
+    user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year,
     season_number, episode_number, status, monitor_type, target_slot_id, poster_url, requested_seasons
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type CreateRequestParams struct {
 	UserID           int64          `json:"user_id"`
-	MediaType        string         `json:"media_type"`
+	ModuleType       string         `json:"module_type"`
+	EntityType       string         `json:"entity_type"`
 	TmdbID           sql.NullInt64  `json:"tmdb_id"`
 	TvdbID           sql.NullInt64  `json:"tvdb_id"`
 	Title            string         `json:"title"`
@@ -134,7 +136,8 @@ type CreateRequestParams struct {
 func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (*Request, error) {
 	row := q.db.QueryRowContext(ctx, createRequest,
 		arg.UserID,
-		arg.MediaType,
+		arg.ModuleType,
+		arg.EntityType,
 		arg.TmdbID,
 		arg.TvdbID,
 		arg.Title,
@@ -151,7 +154,8 @@ func (q *Queries) CreateRequest(ctx context.Context, arg CreateRequestParams) (*
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -188,7 +192,7 @@ UPDATE requests SET
     denied_reason = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
+RETURNING id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type DenyRequestParams struct {
@@ -202,7 +206,8 @@ func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (*Requ
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -225,9 +230,9 @@ func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (*Requ
 }
 
 const findRequestsCoveringSeasons = `-- name: FindRequestsCoveringSeasons :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE tvdb_id = ?
-  AND media_type IN ('series', 'season')
+  AND entity_type IN ('series', 'season')
   AND status NOT IN ('denied', 'available')
 ORDER BY created_at DESC
 `
@@ -244,7 +249,8 @@ func (q *Queries) FindRequestsCoveringSeasons(ctx context.Context, tvdbID sql.Nu
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -277,24 +283,25 @@ func (q *Queries) FindRequestsCoveringSeasons(ctx context.Context, tvdbID sql.Nu
 }
 
 const getActiveRequestByTmdbID = `-- name: GetActiveRequestByTmdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tmdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'cancelled')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tmdb_id = ? AND entity_type = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
 
 type GetActiveRequestByTmdbIDParams struct {
-	TmdbID    sql.NullInt64 `json:"tmdb_id"`
-	MediaType string        `json:"media_type"`
+	TmdbID     sql.NullInt64 `json:"tmdb_id"`
+	EntityType string        `json:"entity_type"`
 }
 
 // Used for availability display - includes 'available' status to show completed requests
 func (q *Queries) GetActiveRequestByTmdbID(ctx context.Context, arg GetActiveRequestByTmdbIDParams) (*Request, error) {
-	row := q.db.QueryRowContext(ctx, getActiveRequestByTmdbID, arg.TmdbID, arg.MediaType)
+	row := q.db.QueryRowContext(ctx, getActiveRequestByTmdbID, arg.TmdbID, arg.EntityType)
 	var i Request
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -317,24 +324,25 @@ func (q *Queries) GetActiveRequestByTmdbID(ctx context.Context, arg GetActiveReq
 }
 
 const getActiveRequestByTvdbID = `-- name: GetActiveRequestByTvdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'cancelled')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
 
 type GetActiveRequestByTvdbIDParams struct {
-	TvdbID    sql.NullInt64 `json:"tvdb_id"`
-	MediaType string        `json:"media_type"`
+	TvdbID     sql.NullInt64 `json:"tvdb_id"`
+	EntityType string        `json:"entity_type"`
 }
 
 // Used for availability display - includes 'available' status to show completed requests
 func (q *Queries) GetActiveRequestByTvdbID(ctx context.Context, arg GetActiveRequestByTvdbIDParams) (*Request, error) {
-	row := q.db.QueryRowContext(ctx, getActiveRequestByTvdbID, arg.TvdbID, arg.MediaType)
+	row := q.db.QueryRowContext(ctx, getActiveRequestByTvdbID, arg.TvdbID, arg.EntityType)
 	var i Request
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -357,8 +365,8 @@ func (q *Queries) GetActiveRequestByTvdbID(ctx context.Context, arg GetActiveReq
 }
 
 const getActiveRequestByTvdbIDAndEpisode = `-- name: GetActiveRequestByTvdbIDAndEpisode :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'cancelled')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
 
@@ -375,7 +383,8 @@ func (q *Queries) GetActiveRequestByTvdbIDAndEpisode(ctx context.Context, arg Ge
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -398,8 +407,8 @@ func (q *Queries) GetActiveRequestByTvdbIDAndEpisode(ctx context.Context, arg Ge
 }
 
 const getActiveRequestByTvdbIDAndSeason = `-- name: GetActiveRequestByTvdbIDAndSeason :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'cancelled')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'cancelled')
 LIMIT 1
 `
 
@@ -415,7 +424,8 @@ func (q *Queries) GetActiveRequestByTvdbIDAndSeason(ctx context.Context, arg Get
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -438,7 +448,7 @@ func (q *Queries) GetActiveRequestByTvdbIDAndSeason(ctx context.Context, arg Get
 }
 
 const getRequest = `-- name: GetRequest :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests WHERE id = ? LIMIT 1
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetRequest(ctx context.Context, id int64) (*Request, error) {
@@ -447,7 +457,8 @@ func (q *Queries) GetRequest(ctx context.Context, id int64) (*Request, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -470,23 +481,24 @@ func (q *Queries) GetRequest(ctx context.Context, id int64) (*Request, error) {
 }
 
 const getRequestByTmdbID = `-- name: GetRequestByTmdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tmdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'available')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tmdb_id = ? AND entity_type = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
 
 type GetRequestByTmdbIDParams struct {
-	TmdbID    sql.NullInt64 `json:"tmdb_id"`
-	MediaType string        `json:"media_type"`
+	TmdbID     sql.NullInt64 `json:"tmdb_id"`
+	EntityType string        `json:"entity_type"`
 }
 
 func (q *Queries) GetRequestByTmdbID(ctx context.Context, arg GetRequestByTmdbIDParams) (*Request, error) {
-	row := q.db.QueryRowContext(ctx, getRequestByTmdbID, arg.TmdbID, arg.MediaType)
+	row := q.db.QueryRowContext(ctx, getRequestByTmdbID, arg.TmdbID, arg.EntityType)
 	var i Request
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -509,23 +521,24 @@ func (q *Queries) GetRequestByTmdbID(ctx context.Context, arg GetRequestByTmdbID
 }
 
 const getRequestByTvdbID = `-- name: GetRequestByTvdbID :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = ? AND status NOT IN ('denied', 'available')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
 
 type GetRequestByTvdbIDParams struct {
-	TvdbID    sql.NullInt64 `json:"tvdb_id"`
-	MediaType string        `json:"media_type"`
+	TvdbID     sql.NullInt64 `json:"tvdb_id"`
+	EntityType string        `json:"entity_type"`
 }
 
 func (q *Queries) GetRequestByTvdbID(ctx context.Context, arg GetRequestByTvdbIDParams) (*Request, error) {
-	row := q.db.QueryRowContext(ctx, getRequestByTvdbID, arg.TvdbID, arg.MediaType)
+	row := q.db.QueryRowContext(ctx, getRequestByTvdbID, arg.TvdbID, arg.EntityType)
 	var i Request
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -548,8 +561,8 @@ func (q *Queries) GetRequestByTvdbID(ctx context.Context, arg GetRequestByTvdbID
 }
 
 const getRequestByTvdbIDAndEpisode = `-- name: GetRequestByTvdbIDAndEpisode :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'available')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = 'episode' AND season_number = ? AND episode_number = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
 
@@ -565,7 +578,8 @@ func (q *Queries) GetRequestByTvdbIDAndEpisode(ctx context.Context, arg GetReque
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -588,8 +602,8 @@ func (q *Queries) GetRequestByTvdbIDAndEpisode(ctx context.Context, arg GetReque
 }
 
 const getRequestByTvdbIDAndSeason = `-- name: GetRequestByTvdbIDAndSeason :one
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'available')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = 'season' AND season_number = ? AND status NOT IN ('denied', 'available')
 LIMIT 1
 `
 
@@ -604,7 +618,8 @@ func (q *Queries) GetRequestByTvdbIDAndSeason(ctx context.Context, arg GetReques
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -631,7 +646,7 @@ UPDATE requests SET
     media_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
+RETURNING id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type LinkRequestToMediaParams struct {
@@ -645,7 +660,8 @@ func (q *Queries) LinkRequestToMedia(ctx context.Context, arg LinkRequestToMedia
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,
@@ -668,8 +684,8 @@ func (q *Queries) LinkRequestToMedia(ctx context.Context, arg LinkRequestToMedia
 }
 
 const listActiveSeriesRequestsByTvdbID = `-- name: ListActiveSeriesRequestsByTvdbID :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE tvdb_id = ? AND media_type = 'series' AND status IN ('downloading', 'approved', 'searching')
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE tvdb_id = ? AND entity_type = 'series' AND status IN ('downloading', 'approved', 'searching')
 ORDER BY created_at DESC
 `
 
@@ -686,7 +702,8 @@ func (q *Queries) ListActiveSeriesRequestsByTvdbID(ctx context.Context, tvdbID s
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -719,7 +736,7 @@ func (q *Queries) ListActiveSeriesRequestsByTvdbID(ctx context.Context, tvdbID s
 }
 
 const listPendingRequests = `-- name: ListPendingRequests :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE status = 'pending'
 ORDER BY created_at ASC
 `
@@ -736,7 +753,8 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]*Request, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -769,7 +787,7 @@ func (q *Queries) ListPendingRequests(ctx context.Context) ([]*Request, error) {
 }
 
 const listRequests = `-- name: ListRequests :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests ORDER BY created_at DESC
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests ORDER BY created_at DESC
 `
 
 func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
@@ -784,7 +802,59 @@ func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.Title,
+			&i.Year,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.Status,
+			&i.MonitorType,
+			&i.DeniedReason,
+			&i.ApprovedAt,
+			&i.ApprovedBy,
+			&i.MediaID,
+			&i.TargetSlotID,
+			&i.PosterUrl,
+			&i.RequestedSeasons,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestsByEntityType = `-- name: ListRequestsByEntityType :many
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE entity_type = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListRequestsByEntityType(ctx context.Context, entityType string) ([]*Request, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestsByEntityType, entityType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Request{}
+	for rows.Next() {
+		var i Request
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -817,18 +887,18 @@ func (q *Queries) ListRequests(ctx context.Context) ([]*Request, error) {
 }
 
 const listRequestsByMediaID = `-- name: ListRequestsByMediaID :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE media_id = ? AND media_type = ?
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE media_id = ? AND entity_type = ?
 ORDER BY created_at DESC
 `
 
 type ListRequestsByMediaIDParams struct {
-	MediaID   sql.NullInt64 `json:"media_id"`
-	MediaType string        `json:"media_type"`
+	MediaID    sql.NullInt64 `json:"media_id"`
+	EntityType string        `json:"entity_type"`
 }
 
 func (q *Queries) ListRequestsByMediaID(ctx context.Context, arg ListRequestsByMediaIDParams) ([]*Request, error) {
-	rows, err := q.db.QueryContext(ctx, listRequestsByMediaID, arg.MediaID, arg.MediaType)
+	rows, err := q.db.QueryContext(ctx, listRequestsByMediaID, arg.MediaID, arg.EntityType)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +909,8 @@ func (q *Queries) ListRequestsByMediaID(ctx context.Context, arg ListRequestsByM
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -872,19 +943,19 @@ func (q *Queries) ListRequestsByMediaID(ctx context.Context, arg ListRequestsByM
 }
 
 const listRequestsByMediaIDAndSeason = `-- name: ListRequestsByMediaIDAndSeason :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE media_id = ? AND media_type = ? AND season_number = ?
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+WHERE media_id = ? AND entity_type = ? AND season_number = ?
 ORDER BY created_at DESC
 `
 
 type ListRequestsByMediaIDAndSeasonParams struct {
 	MediaID      sql.NullInt64 `json:"media_id"`
-	MediaType    string        `json:"media_type"`
+	EntityType   string        `json:"entity_type"`
 	SeasonNumber sql.NullInt64 `json:"season_number"`
 }
 
 func (q *Queries) ListRequestsByMediaIDAndSeason(ctx context.Context, arg ListRequestsByMediaIDAndSeasonParams) ([]*Request, error) {
-	rows, err := q.db.QueryContext(ctx, listRequestsByMediaIDAndSeason, arg.MediaID, arg.MediaType, arg.SeasonNumber)
+	rows, err := q.db.QueryContext(ctx, listRequestsByMediaIDAndSeason, arg.MediaID, arg.EntityType, arg.SeasonNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -895,57 +966,8 @@ func (q *Queries) ListRequestsByMediaIDAndSeason(ctx context.Context, arg ListRe
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
-			&i.TmdbID,
-			&i.TvdbID,
-			&i.Title,
-			&i.Year,
-			&i.SeasonNumber,
-			&i.EpisodeNumber,
-			&i.Status,
-			&i.MonitorType,
-			&i.DeniedReason,
-			&i.ApprovedAt,
-			&i.ApprovedBy,
-			&i.MediaID,
-			&i.TargetSlotID,
-			&i.PosterUrl,
-			&i.RequestedSeasons,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listRequestsByMediaType = `-- name: ListRequestsByMediaType :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
-WHERE media_type = ?
-ORDER BY created_at DESC
-`
-
-func (q *Queries) ListRequestsByMediaType(ctx context.Context, mediaType string) ([]*Request, error) {
-	rows, err := q.db.QueryContext(ctx, listRequestsByMediaType, mediaType)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Request{}
-	for rows.Next() {
-		var i Request
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -978,7 +1000,7 @@ func (q *Queries) ListRequestsByMediaType(ctx context.Context, mediaType string)
 }
 
 const listRequestsByStatus = `-- name: ListRequestsByStatus :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE status = ?
 ORDER BY created_at DESC
 `
@@ -995,7 +1017,8 @@ func (q *Queries) ListRequestsByStatus(ctx context.Context, status string) ([]*R
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -1028,7 +1051,7 @@ func (q *Queries) ListRequestsByStatus(ctx context.Context, status string) ([]*R
 }
 
 const listRequestsByUser = `-- name: ListRequestsByUser :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -1045,7 +1068,8 @@ func (q *Queries) ListRequestsByUser(ctx context.Context, userID int64) ([]*Requ
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -1078,7 +1102,7 @@ func (q *Queries) ListRequestsByUser(ctx context.Context, userID int64) ([]*Requ
 }
 
 const listRequestsByUserAndStatus = `-- name: ListRequestsByUserAndStatus :many
-SELECT id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
+SELECT id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at FROM requests
 WHERE user_id = ? AND status = ?
 ORDER BY created_at DESC
 `
@@ -1100,7 +1124,8 @@ func (q *Queries) ListRequestsByUserAndStatus(ctx context.Context, arg ListReque
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.MediaType,
+			&i.ModuleType,
+			&i.EntityType,
 			&i.TmdbID,
 			&i.TvdbID,
 			&i.Title,
@@ -1137,7 +1162,7 @@ UPDATE requests SET
     status = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, user_id, media_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
+RETURNING id, user_id, module_type, entity_type, tmdb_id, tvdb_id, title, year, season_number, episode_number, status, monitor_type, denied_reason, approved_at, approved_by, media_id, target_slot_id, poster_url, requested_seasons, created_at, updated_at
 `
 
 type UpdateRequestStatusParams struct {
@@ -1151,7 +1176,8 @@ func (q *Queries) UpdateRequestStatus(ctx context.Context, arg UpdateRequestStat
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.MediaType,
+		&i.ModuleType,
+		&i.EntityType,
 		&i.TmdbID,
 		&i.TvdbID,
 		&i.Title,

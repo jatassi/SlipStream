@@ -205,15 +205,22 @@ func (s *Service) CreateQueueMediaForSeasonPack(ctx context.Context, mappingID i
 			status = downloader.QueueMediaStatusReady
 		}
 
+		var entityID int64
+		if file.EpisodeID != nil {
+			entityID = *file.EpisodeID
+		}
+
 		input := downloader.CreateQueueMediaInput{
 			DownloadMappingID: mappingID,
-			EpisodeID:         file.EpisodeID,
+			ModuleType:        "tv",
+			EntityType:        "episode",
+			EntityID:          entityID,
 			FilePath:          file.Path,
 			FileStatus:        status,
 			TargetSlotID:      file.TargetSlotID, // Req 16.2.3: Per-episode slot
 		}
 
-		entry, err := s.downloader.CreateQueueMedia(ctx, input)
+		entry, err := s.downloader.CreateQueueMedia(ctx, &input)
 		if err != nil {
 			s.logger.Warn().Err(err).Str("path", file.Path).Msg("Failed to create queue media entry")
 			continue
@@ -288,9 +295,13 @@ func (s *Service) queueSeasonPackEntry(ctx context.Context, mappingID int64, ent
 		Manual: false,
 	}
 
-	if entry.EpisodeID.Valid {
-		job.QueueMedia.EpisodeID = &entry.EpisodeID.Int64
+	if entry.EntityType == mediaTypeEpisode {
+		id := entry.EntityID
+		job.QueueMedia.EpisodeID = &id
 	}
+	job.QueueMedia.ModuleType = entry.ModuleType
+	job.QueueMedia.EntityType = entry.EntityType
+	job.QueueMedia.EntityID = entry.EntityID
 	if entry.TargetSlotID.Valid {
 		job.TargetSlotID = &entry.TargetSlotID.Int64
 	}
@@ -377,6 +388,9 @@ func (s *Service) convertMapping(m *sqlc.DownloadMapping) *DownloadMapping {
 		ID:               m.ID,
 		DownloadClientID: m.ClientID,
 		DownloadID:       m.DownloadID,
+		ModuleType:       m.ModuleType,
+		EntityType:       m.EntityType,
+		EntityID:         m.EntityID,
 		IsSeasonPack:     m.IsSeasonPack,
 		IsCompleteSeries: m.IsCompleteSeries,
 		Source:           m.Source,
@@ -392,18 +406,29 @@ func (s *Service) populateNullableFields(mapping *DownloadMapping, m *sqlc.Downl
 		id := m.TargetSlotID.Int64
 		mapping.TargetSlotID = &id
 	}
-	if m.MovieID.Valid {
-		mapping.MovieID = &m.MovieID.Int64
-	}
-	if m.SeriesID.Valid {
-		mapping.SeriesID = &m.SeriesID.Int64
+	// Derive legacy pointer fields from discriminator columns
+	switch m.ModuleType {
+	case mediaTypeMovie:
+		id := m.EntityID
+		mapping.MovieID = &id
+	case "tv":
+		switch m.EntityType {
+		case mediaTypeEpisode:
+			epID := m.EntityID
+			mapping.EpisodeID = &epID
+			// Look up series ID from the episode
+			if ep, err := s.queries.GetEpisode(context.Background(), epID); err == nil {
+				seriesID := ep.SeriesID
+				mapping.SeriesID = &seriesID
+			}
+		case "series":
+			seriesID := m.EntityID
+			mapping.SeriesID = &seriesID
+		}
 	}
 	if m.SeasonNumber.Valid {
 		sn := int(m.SeasonNumber.Int64)
 		mapping.SeasonNumber = &sn
-	}
-	if m.EpisodeID.Valid {
-		mapping.EpisodeID = &m.EpisodeID.Int64
 	}
 }
 

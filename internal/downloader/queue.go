@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	mediaTypeMovie  = "movie"
-	mediaTypeSeries = "series"
-	statusQueued    = "queued"
+	mediaTypeMovie   = "movie"
+	mediaTypeSeries  = "series"
+	mediaTypeEpisode = "episode"
+	statusQueued     = "queued"
 )
 
 // QueueItem represents a download in the queue with parsed metadata.
@@ -167,23 +168,26 @@ func (s *Service) enrichSingleQueueItem(item *QueueItem, mappingLookup map[strin
 }
 
 func populateQueueItemFromMapping(item *QueueItem, mapping *sqlc.DownloadMapping) {
-	if mapping.MovieID.Valid {
-		movieID := mapping.MovieID.Int64
+	switch mapping.ModuleType {
+	case "movie":
+		movieID := mapping.EntityID
 		item.MovieID = &movieID
 		item.MediaType = mediaTypeMovie
-	}
-	if mapping.SeriesID.Valid {
-		seriesID := mapping.SeriesID.Int64
-		item.SeriesID = &seriesID
-		item.MediaType = mediaTypeSeries
+	case "tv":
+		switch mapping.EntityType {
+		case mediaTypeEpisode:
+			episodeID := mapping.EntityID
+			item.EpisodeID = &episodeID
+			item.MediaType = mediaTypeSeries
+		case mediaTypeSeries:
+			seriesID := mapping.EntityID
+			item.SeriesID = &seriesID
+			item.MediaType = mediaTypeSeries
+		}
 	}
 	if mapping.SeasonNumber.Valid {
 		seasonNum := int(mapping.SeasonNumber.Int64)
 		item.SeasonNumber = &seasonNum
-	}
-	if mapping.EpisodeID.Valid {
-		episodeID := mapping.EpisodeID.Int64
-		item.EpisodeID = &episodeID
 	}
 	item.IsSeasonPack = mapping.IsSeasonPack
 	item.IsCompleteSeries = mapping.IsCompleteSeries

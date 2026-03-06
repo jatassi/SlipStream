@@ -16,6 +16,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -321,14 +322,10 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 		return err
 	}
 
-	// Clean up download mappings for this movie to prevent seeding torrents from re-triggering imports
-	if err := s.queries.DeleteDownloadMappingsByMovieID(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
-		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete download mappings for movie")
-	}
-
-	// Clean up autosearch backoff records
-	if err := s.queries.DeleteAutosearchStatus(ctx, sqlc.DeleteAutosearchStatusParams{ItemType: "movie", ItemID: id}); err != nil {
-		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete autosearch status for movie")
+	// Clean up all shared table records (download_mappings, queue_media, downloads,
+	// history, autosearch_status, import_decisions, requests) for this movie.
+	if err := module.DeleteEntity(ctx, s.db, module.TypeMovie, module.EntityMovie, id); err != nil {
+		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete shared table records for movie")
 	}
 
 	// Delete files from disk before removing DB records

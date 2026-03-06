@@ -24,15 +24,16 @@ func (q *Queries) CountQueueMediaByStatus(ctx context.Context, fileStatus string
 
 const createQueueMedia = `-- name: CreateQueueMedia :one
 INSERT INTO queue_media (
-    download_mapping_id, episode_id, movie_id, file_path, file_status, target_slot_id
-) VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+    download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, target_slot_id
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 type CreateQueueMediaParams struct {
 	DownloadMappingID int64          `json:"download_mapping_id"`
-	EpisodeID         sql.NullInt64  `json:"episode_id"`
-	MovieID           sql.NullInt64  `json:"movie_id"`
+	ModuleType        string         `json:"module_type"`
+	EntityType        string         `json:"entity_type"`
+	EntityID          int64          `json:"entity_id"`
 	FilePath          sql.NullString `json:"file_path"`
 	FileStatus        string         `json:"file_status"`
 	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
@@ -41,8 +42,9 @@ type CreateQueueMediaParams struct {
 func (q *Queries) CreateQueueMedia(ctx context.Context, arg CreateQueueMediaParams) (*QueueMedium, error) {
 	row := q.db.QueryRowContext(ctx, createQueueMedia,
 		arg.DownloadMappingID,
-		arg.EpisodeID,
-		arg.MovieID,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
 		arg.FilePath,
 		arg.FileStatus,
 		arg.TargetSlotID,
@@ -51,15 +53,16 @@ func (q *Queries) CreateQueueMedia(ctx context.Context, arg CreateQueueMediaPara
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -84,10 +87,12 @@ func (q *Queries) DeleteQueueMediaByDownloadMapping(ctx context.Context, downloa
 
 const getFailedQueueMediaWithMapping = `-- name: GetFailedQueueMediaWithMapping :many
 SELECT
-    qm.id, qm.download_mapping_id, qm.episode_id, qm.movie_id, qm.file_path, qm.file_status, qm.error_message, qm.import_attempts, qm.created_at, qm.updated_at, qm.target_slot_id,
+    qm.id, qm.download_mapping_id, qm.module_type, qm.entity_type, qm.entity_id, qm.file_path, qm.file_status, qm.error_message, qm.import_attempts, qm.target_slot_id, qm.created_at, qm.updated_at,
     dm.client_id,
     dm.download_id,
-    dm.series_id,
+    dm.module_type AS dm_module_type,
+    dm.entity_type AS dm_entity_type,
+    dm.entity_id AS dm_entity_id,
     dm.season_number,
     dm.is_season_pack,
     dm.is_complete_series
@@ -100,18 +105,21 @@ ORDER BY qm.created_at
 type GetFailedQueueMediaWithMappingRow struct {
 	ID                int64          `json:"id"`
 	DownloadMappingID int64          `json:"download_mapping_id"`
-	EpisodeID         sql.NullInt64  `json:"episode_id"`
-	MovieID           sql.NullInt64  `json:"movie_id"`
+	ModuleType        string         `json:"module_type"`
+	EntityType        string         `json:"entity_type"`
+	EntityID          int64          `json:"entity_id"`
 	FilePath          sql.NullString `json:"file_path"`
 	FileStatus        string         `json:"file_status"`
 	ErrorMessage      sql.NullString `json:"error_message"`
 	ImportAttempts    int64          `json:"import_attempts"`
+	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	ClientID          int64          `json:"client_id"`
 	DownloadID        string         `json:"download_id"`
-	SeriesID          sql.NullInt64  `json:"series_id"`
+	DmModuleType      string         `json:"dm_module_type"`
+	DmEntityType      string         `json:"dm_entity_type"`
+	DmEntityID        int64          `json:"dm_entity_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
 	IsSeasonPack      bool           `json:"is_season_pack"`
 	IsCompleteSeries  bool           `json:"is_complete_series"`
@@ -129,18 +137,21 @@ func (q *Queries) GetFailedQueueMediaWithMapping(ctx context.Context) ([]*GetFai
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 			&i.ClientID,
 			&i.DownloadID,
-			&i.SeriesID,
+			&i.DmModuleType,
+			&i.DmEntityType,
+			&i.DmEntityID,
 			&i.SeasonNumber,
 			&i.IsSeasonPack,
 			&i.IsCompleteSeries,
@@ -159,7 +170,7 @@ func (q *Queries) GetFailedQueueMediaWithMapping(ctx context.Context) ([]*GetFai
 }
 
 const getQueueMedia = `-- name: GetQueueMedia :one
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media WHERE id = ?
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media WHERE id = ?
 `
 
 func (q *Queries) GetQueueMedia(ctx context.Context, id int64) (*QueueMedium, error) {
@@ -168,21 +179,22 @@ func (q *Queries) GetQueueMedia(ctx context.Context, id int64) (*QueueMedium, er
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
 
 const getQueueMediaByDownloadMapping = `-- name: GetQueueMediaByDownloadMapping :many
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media WHERE download_mapping_id = ?
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media WHERE download_mapping_id = ?
 `
 
 func (q *Queries) GetQueueMediaByDownloadMapping(ctx context.Context, downloadMappingID int64) ([]*QueueMedium, error) {
@@ -197,15 +209,16 @@ func (q *Queries) GetQueueMediaByDownloadMapping(ctx context.Context, downloadMa
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -220,58 +233,44 @@ func (q *Queries) GetQueueMediaByDownloadMapping(ctx context.Context, downloadMa
 	return items, nil
 }
 
-const getQueueMediaByEpisode = `-- name: GetQueueMediaByEpisode :one
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media WHERE episode_id = ? LIMIT 1
+const getQueueMediaByEntity = `-- name: GetQueueMediaByEntity :one
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media WHERE module_type = ? AND entity_type = ? AND entity_id = ? LIMIT 1
 `
 
-func (q *Queries) GetQueueMediaByEpisode(ctx context.Context, episodeID sql.NullInt64) (*QueueMedium, error) {
-	row := q.db.QueryRowContext(ctx, getQueueMediaByEpisode, episodeID)
-	var i QueueMedium
-	err := row.Scan(
-		&i.ID,
-		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
-		&i.FilePath,
-		&i.FileStatus,
-		&i.ErrorMessage,
-		&i.ImportAttempts,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.TargetSlotID,
-	)
-	return &i, err
+type GetQueueMediaByEntityParams struct {
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
-const getQueueMediaByMovie = `-- name: GetQueueMediaByMovie :one
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media WHERE movie_id = ? LIMIT 1
-`
-
-func (q *Queries) GetQueueMediaByMovie(ctx context.Context, movieID sql.NullInt64) (*QueueMedium, error) {
-	row := q.db.QueryRowContext(ctx, getQueueMediaByMovie, movieID)
+func (q *Queries) GetQueueMediaByEntity(ctx context.Context, arg GetQueueMediaByEntityParams) (*QueueMedium, error) {
+	row := q.db.QueryRowContext(ctx, getQueueMediaByEntity, arg.ModuleType, arg.EntityType, arg.EntityID)
 	var i QueueMedium
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
 
 const getReadyQueueMediaWithMapping = `-- name: GetReadyQueueMediaWithMapping :many
 SELECT
-    qm.id, qm.download_mapping_id, qm.episode_id, qm.movie_id, qm.file_path, qm.file_status, qm.error_message, qm.import_attempts, qm.created_at, qm.updated_at, qm.target_slot_id,
+    qm.id, qm.download_mapping_id, qm.module_type, qm.entity_type, qm.entity_id, qm.file_path, qm.file_status, qm.error_message, qm.import_attempts, qm.target_slot_id, qm.created_at, qm.updated_at,
     dm.client_id,
     dm.download_id,
-    dm.series_id,
+    dm.module_type AS dm_module_type,
+    dm.entity_type AS dm_entity_type,
+    dm.entity_id AS dm_entity_id,
     dm.season_number,
     dm.is_season_pack,
     dm.is_complete_series
@@ -284,18 +283,21 @@ ORDER BY qm.created_at
 type GetReadyQueueMediaWithMappingRow struct {
 	ID                int64          `json:"id"`
 	DownloadMappingID int64          `json:"download_mapping_id"`
-	EpisodeID         sql.NullInt64  `json:"episode_id"`
-	MovieID           sql.NullInt64  `json:"movie_id"`
+	ModuleType        string         `json:"module_type"`
+	EntityType        string         `json:"entity_type"`
+	EntityID          int64          `json:"entity_id"`
 	FilePath          sql.NullString `json:"file_path"`
 	FileStatus        string         `json:"file_status"`
 	ErrorMessage      sql.NullString `json:"error_message"`
 	ImportAttempts    int64          `json:"import_attempts"`
+	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-	TargetSlotID      sql.NullInt64  `json:"target_slot_id"`
 	ClientID          int64          `json:"client_id"`
 	DownloadID        string         `json:"download_id"`
-	SeriesID          sql.NullInt64  `json:"series_id"`
+	DmModuleType      string         `json:"dm_module_type"`
+	DmEntityType      string         `json:"dm_entity_type"`
+	DmEntityID        int64          `json:"dm_entity_id"`
 	SeasonNumber      sql.NullInt64  `json:"season_number"`
 	IsSeasonPack      bool           `json:"is_season_pack"`
 	IsCompleteSeries  bool           `json:"is_complete_series"`
@@ -313,18 +315,21 @@ func (q *Queries) GetReadyQueueMediaWithMapping(ctx context.Context) ([]*GetRead
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 			&i.ClientID,
 			&i.DownloadID,
-			&i.SeriesID,
+			&i.DmModuleType,
+			&i.DmEntityType,
+			&i.DmEntityID,
 			&i.SeasonNumber,
 			&i.IsSeasonPack,
 			&i.IsCompleteSeries,
@@ -347,7 +352,7 @@ UPDATE queue_media SET
     import_attempts = import_attempts + 1,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 func (q *Queries) IncrementQueueMediaImportAttempts(ctx context.Context, id int64) (*QueueMedium, error) {
@@ -356,21 +361,22 @@ func (q *Queries) IncrementQueueMediaImportAttempts(ctx context.Context, id int6
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
 
 const listPendingImports = `-- name: ListPendingImports :many
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media
 WHERE file_status IN ('ready', 'failed')
 ORDER BY created_at
 `
@@ -387,15 +393,16 @@ func (q *Queries) ListPendingImports(ctx context.Context) ([]*QueueMedium, error
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -411,7 +418,7 @@ func (q *Queries) ListPendingImports(ctx context.Context) ([]*QueueMedium, error
 }
 
 const listPendingQueueMedia = `-- name: ListPendingQueueMedia :many
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media
 WHERE file_status IN ('pending', 'ready', 'importing', 'failed')
 ORDER BY created_at DESC
 `
@@ -428,15 +435,16 @@ func (q *Queries) ListPendingQueueMedia(ctx context.Context) ([]*QueueMedium, er
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -452,7 +460,7 @@ func (q *Queries) ListPendingQueueMedia(ctx context.Context) ([]*QueueMedium, er
 }
 
 const listQueueMediaByStatus = `-- name: ListQueueMediaByStatus :many
-SELECT id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id FROM queue_media WHERE file_status = ? ORDER BY created_at
+SELECT id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at FROM queue_media WHERE file_status = ? ORDER BY created_at
 `
 
 func (q *Queries) ListQueueMediaByStatus(ctx context.Context, fileStatus string) ([]*QueueMedium, error) {
@@ -467,15 +475,16 @@ func (q *Queries) ListQueueMediaByStatus(ctx context.Context, fileStatus string)
 		if err := rows.Scan(
 			&i.ID,
 			&i.DownloadMappingID,
-			&i.EpisodeID,
-			&i.MovieID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.FilePath,
 			&i.FileStatus,
 			&i.ErrorMessage,
 			&i.ImportAttempts,
+			&i.TargetSlotID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TargetSlotID,
 		); err != nil {
 			return nil, err
 		}
@@ -497,7 +506,7 @@ UPDATE queue_media SET
     import_attempts = 0,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 func (q *Queries) ResetQueueMediaForRetry(ctx context.Context, id int64) (*QueueMedium, error) {
@@ -506,15 +515,16 @@ func (q *Queries) ResetQueueMediaForRetry(ctx context.Context, id int64) (*Queue
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -524,7 +534,7 @@ UPDATE queue_media SET
     file_path = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 type UpdateQueueMediaFilePathParams struct {
@@ -538,15 +548,16 @@ func (q *Queries) UpdateQueueMediaFilePath(ctx context.Context, arg UpdateQueueM
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -556,7 +567,7 @@ UPDATE queue_media SET
     target_slot_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 type UpdateQueueMediaSlotParams struct {
@@ -571,15 +582,16 @@ func (q *Queries) UpdateQueueMediaSlot(ctx context.Context, arg UpdateQueueMedia
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -589,7 +601,7 @@ UPDATE queue_media SET
     file_status = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 type UpdateQueueMediaStatusParams struct {
@@ -603,15 +615,16 @@ func (q *Queries) UpdateQueueMediaStatus(ctx context.Context, arg UpdateQueueMed
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }
@@ -622,7 +635,7 @@ UPDATE queue_media SET
     error_message = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, download_mapping_id, episode_id, movie_id, file_path, file_status, error_message, import_attempts, created_at, updated_at, target_slot_id
+RETURNING id, download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, error_message, import_attempts, target_slot_id, created_at, updated_at
 `
 
 type UpdateQueueMediaStatusWithErrorParams struct {
@@ -637,15 +650,16 @@ func (q *Queries) UpdateQueueMediaStatusWithError(ctx context.Context, arg Updat
 	err := row.Scan(
 		&i.ID,
 		&i.DownloadMappingID,
-		&i.EpisodeID,
-		&i.MovieID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.FilePath,
 		&i.FileStatus,
 		&i.ErrorMessage,
 		&i.ImportAttempts,
+		&i.TargetSlotID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TargetSlotID,
 	)
 	return &i, err
 }

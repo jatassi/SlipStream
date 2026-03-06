@@ -788,9 +788,11 @@ func (s *ScheduledSearcher) collectIndividualEpisodeUpgrades(ctx context.Context
 
 // shouldSkipItem checks if an item should be skipped due to backoff.
 func (s *ScheduledSearcher) shouldSkipItem(ctx context.Context, itemType string, itemID int64, searchType string) (bool, error) {
+	modType := moduleTypeFromEntityType(itemType)
 	status, err := s.service.queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-		ItemType:   itemType,
-		ItemID:     itemID,
+		ModuleType: modType,
+		EntityType: itemType,
+		EntityID:   itemID,
 		SearchType: searchType,
 	})
 	if err != nil {
@@ -930,9 +932,11 @@ func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item *Sea
 		itemType = "series"
 	}
 
+	modType := moduleTypeFromEntityType(itemType)
 	err := s.service.queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-		ItemType:   itemType,
-		ItemID:     item.MediaID,
+		ModuleType: modType,
+		EntityType: itemType,
+		EntityID:   item.MediaID,
 		SearchType: searchType,
 	})
 	if err != nil {
@@ -950,9 +954,11 @@ func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item *Searcha
 		itemType = "series"
 	}
 
+	modType2 := moduleTypeFromEntityType(itemType)
 	err := s.service.queries.ResetAutosearchFailure(ctx, sqlc.ResetAutosearchFailureParams{
-		ItemType:   itemType,
-		ItemID:     item.MediaID,
+		ModuleType: modType2,
+		EntityType: itemType,
+		EntityID:   item.MediaID,
 		SearchType: searchType,
 	})
 	if err != nil {
@@ -961,6 +967,13 @@ func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item *Searcha
 			Int64("mediaId", item.MediaID).
 			Msg("Failed to reset failure count")
 	}
+}
+
+func moduleTypeFromEntityType(entityType string) string {
+	if entityType == "movie" {
+		return "movie"
+	}
+	return "tv"
 }
 
 // Broadcast helpers

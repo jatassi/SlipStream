@@ -18,12 +18,12 @@ type importHistoryAdapter struct {
 // Create implements importer.HistoryService.
 func (a *importHistoryAdapter) Create(ctx context.Context, input *importer.HistoryInput) error {
 	_, err := a.svc.Create(ctx, &history.CreateInput{
-		EventType: history.EventType(input.EventType),
-		MediaType: history.MediaType(input.MediaType),
-		MediaID:   input.MediaID,
-		Source:    input.Source,
-		Quality:   input.Quality,
-		Data:      input.Data,
+		EventType:  history.EventType(input.EventType),
+		EntityType: history.MediaType(input.MediaType),
+		EntityID:   input.MediaID,
+		Source:     input.Source,
+		Quality:    input.Quality,
+		Data:       input.Data,
 	})
 	return err
 }

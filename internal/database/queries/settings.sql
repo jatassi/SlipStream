@@ -64,10 +64,10 @@ SELECT * FROM root_folders WHERE id = ? LIMIT 1;
 SELECT * FROM root_folders ORDER BY name;
 
 -- name: ListRootFoldersByMediaType :many
-SELECT * FROM root_folders WHERE media_type = ? ORDER BY name;
+SELECT * FROM root_folders WHERE module_type = ? ORDER BY name;
 
 -- name: CreateRootFolder :one
-INSERT INTO root_folders (path, name, media_type, free_space)
+INSERT INTO root_folders (path, name, module_type, free_space)
 VALUES (?, ?, ?, ?)
 RETURNING *;
 
@@ -86,7 +86,7 @@ DELETE FROM root_folders WHERE id = ?;
 SELECT * FROM root_folders WHERE path = ? LIMIT 1;
 
 -- name: ListRootFoldersByType :many
-SELECT * FROM root_folders WHERE media_type = ? ORDER BY name;
+SELECT * FROM root_folders WHERE module_type = ? ORDER BY name;
 
 -- name: UpdateRootFolderFreeSpace :exec
 UPDATE root_folders SET free_space = ? WHERE id = ?;
@@ -103,8 +103,8 @@ SELECT * FROM downloads WHERE status IN ('queued', 'downloading', 'paused') ORDE
 
 -- name: CreateDownload :one
 INSERT INTO downloads (
-    client_id, external_id, title, media_type, media_id, status, progress, size, download_url, output_path
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    client_id, external_id, title, module_type, entity_type, entity_id, status, progress, size, download_url, output_path
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateDownloadStatus :one
@@ -135,14 +135,14 @@ LIMIT ? OFFSET ?;
 
 -- name: ListHistoryByMediaType :many
 SELECT * FROM history
-WHERE media_type = ?
+WHERE entity_type = ?
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
 
 -- name: ListHistoryFiltered :many
 SELECT * FROM history
 WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
-  AND (? = '' OR media_type = ?)
+  AND (? = '' OR entity_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?)
 ORDER BY created_at DESC
@@ -155,26 +155,26 @@ SELECT COUNT(*) FROM history;
 SELECT COUNT(*) FROM history WHERE event_type = ?;
 
 -- name: CountHistoryByMediaType :one
-SELECT COUNT(*) FROM history WHERE media_type = ?;
+SELECT COUNT(*) FROM history WHERE entity_type = ?;
 
 -- name: CountHistoryFiltered :one
 SELECT COUNT(*) FROM history
 WHERE (? = '' OR instr(',' || ? || ',', ',' || event_type || ',') > 0)
-  AND (? = '' OR media_type = ?)
+  AND (? = '' OR entity_type = ?)
   AND (? = '' OR created_at >= ?)
   AND (? = '' OR created_at <= ?);
 
 -- name: ListHistoryByMedia :many
-SELECT * FROM history WHERE media_type = ? AND media_id = ? ORDER BY created_at DESC;
+SELECT * FROM history WHERE module_type = ? AND entity_type = ? AND entity_id = ? ORDER BY created_at DESC;
 
 -- name: CreateHistoryEntry :one
-INSERT INTO history (event_type, media_type, media_id, source, quality, data)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO history (event_type, module_type, entity_type, entity_id, source, quality, data)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: HasRecentGrab :one
 SELECT COUNT(*) > 0 FROM history
-WHERE media_type = ? AND media_id = ?
+WHERE entity_type = ? AND entity_id = ?
 AND event_type IN ('grabbed', 'autosearch_download')
 AND created_at > datetime('now', '-12 hours');
 
@@ -183,7 +183,7 @@ AND created_at > datetime('now', '-12 hours');
 -- Used by RSS sync to prevent grabbing a season pack when individual episodes
 -- from the same season were recently grabbed (or vice versa).
 SELECT COUNT(*) > 0 FROM history h
-JOIN episodes e ON h.media_type = 'episode' AND h.media_id = e.id
+JOIN episodes e ON h.entity_type = 'episode' AND h.entity_id = e.id
 WHERE e.series_id = ? AND e.season_number = ?
 AND h.event_type IN ('grabbed', 'autosearch_download')
 AND h.created_at > datetime('now', '-12 hours');

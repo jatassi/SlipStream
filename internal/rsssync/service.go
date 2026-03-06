@@ -375,8 +375,8 @@ func (s *Service) scoreReleases(scorer *scoring.Scorer, g *matchGroup, profile *
 
 func (s *Service) hasRecentGrabForGroup(ctx context.Context, g *matchGroup) bool {
 	hasRecent, err := s.queries.HasRecentGrab(ctx, sqlc.HasRecentGrabParams{
-		MediaType: string(g.item.MediaType),
-		MediaID:   g.item.MediaID,
+		EntityType: string(g.item.MediaType),
+		EntityID:   g.item.MediaID,
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("failed to check recent grab history")
@@ -394,8 +394,8 @@ func (s *Service) hasRecentGrabForGroup(ctx context.Context, g *matchGroup) bool
 
 	if !hasRecent && g.item.MediaType == decisioning.MediaTypeEpisode {
 		hasRecent, err = s.queries.HasRecentGrab(ctx, sqlc.HasRecentGrabParams{
-			MediaType: "season",
-			MediaID:   g.item.SeriesID,
+			EntityType: "season",
+			EntityID:   g.item.SeriesID,
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Msg("failed to check recent season-level grab history")

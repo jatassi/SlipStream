@@ -309,7 +309,7 @@ func (s *Service) getGenericRootFolder(ctx context.Context, mediaType string) in
 		return 0
 	}
 	rf, rfErr := s.queries.GetRootFolder(ctx, v)
-	if rfErr != nil || rf.MediaType != mediaType {
+	if rfErr != nil || rf.ModuleType != mediaType {
 		return 0
 	}
 	return v

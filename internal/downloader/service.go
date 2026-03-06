@@ -463,7 +463,7 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url, mediaType
 	switch mediaType {
 	case mediaTypeMovie:
 		subDir = "SlipStream/Movies"
-	case mediaTypeSeries, "season", "episode":
+	case mediaTypeSeries, "season", mediaTypeEpisode:
 		subDir = "SlipStream/Series"
 	default:
 		subDir = "SlipStream"
@@ -522,7 +522,7 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 	switch mediaType {
 	case mediaTypeMovie:
 		subDir = "SlipStream/Movies"
-	case mediaTypeSeries, "season", "episode":
+	case mediaTypeSeries, "season", mediaTypeEpisode:
 		subDir = "SlipStream/Series"
 	default:
 		subDir = "SlipStream"

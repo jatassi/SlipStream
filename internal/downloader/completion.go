@@ -24,7 +24,12 @@ type CompletedDownload struct {
 	MediaType    string
 	Size         int64
 
-	// Library mapping
+	// Discriminator columns
+	ModuleType string
+	EntityType string
+	EntityID   int64
+
+	// Library mapping (derived from discriminator for backward compat)
 	MovieID          *int64
 	SeriesID         *int64
 	SeasonNumber     *int
@@ -158,7 +163,7 @@ func (s *Service) processDownload(d *types.DownloadItem, dbClient *sqlc.Download
 		MappingID:    mapping.ID,
 	}
 
-	populateCompletedDownloadFields(&cd, mapping)
+	s.populateCompletedDownloadFields(&cd, mapping)
 	return &cd
 }
 
@@ -172,22 +177,33 @@ func isDownloadComplete(d *types.DownloadItem) bool {
 	return false
 }
 
-func populateCompletedDownloadFields(cd *CompletedDownload, mapping *sqlc.DownloadMapping) {
-	if mapping.MovieID.Valid {
-		id := mapping.MovieID.Int64
+func (s *Service) populateCompletedDownloadFields(cd *CompletedDownload, mapping *sqlc.DownloadMapping) {
+	cd.ModuleType = mapping.ModuleType
+	cd.EntityType = mapping.EntityType
+	cd.EntityID = mapping.EntityID
+
+	switch mapping.ModuleType {
+	case "movie":
+		id := mapping.EntityID
 		cd.MovieID = &id
-	}
-	if mapping.SeriesID.Valid {
-		id := mapping.SeriesID.Int64
-		cd.SeriesID = &id
+	case "tv":
+		switch mapping.EntityType {
+		case mediaTypeEpisode:
+			epID := mapping.EntityID
+			cd.EpisodeID = &epID
+			// Look up series ID from the episode for downstream matching
+			if ep, err := s.queries.GetEpisode(context.Background(), epID); err == nil {
+				seriesID := ep.SeriesID
+				cd.SeriesID = &seriesID
+			}
+		case "series":
+			seriesID := mapping.EntityID
+			cd.SeriesID = &seriesID
+		}
 	}
 	if mapping.SeasonNumber.Valid {
 		num := int(mapping.SeasonNumber.Int64)
 		cd.SeasonNumber = &num
-	}
-	if mapping.EpisodeID.Valid {
-		id := mapping.EpisodeID.Int64
-		cd.EpisodeID = &id
 	}
 	cd.IsSeasonPack = mapping.IsSeasonPack
 	cd.IsCompleteSeries = mapping.IsCompleteSeries
@@ -360,13 +376,13 @@ func (s *Service) markEpisodeAsDisappeared(ctx context.Context, ep *sqlc.ListDow
 	s.logger.Info().Int64("episodeId", ep.ID).Str("downloadId", downloadID).Msg("Download disappeared from client, marked episode as failed")
 
 	if s.statusChangeLogger != nil {
-		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", ep.ID, "downloading", "failed", "Download removed from client")
+		_ = s.statusChangeLogger.LogStatusChanged(ctx, mediaTypeEpisode, ep.ID, "downloading", "failed", "Download removed from client")
 	}
 	if s.broadcaster != nil {
 		s.broadcaster.Broadcast("series:updated", map[string]any{"id": ep.SeriesID})
 	}
 	if s.portalStatusTracker != nil {
-		_ = s.portalStatusTracker.OnDownloadFailed(ctx, "episode", ep.ID)
+		_ = s.portalStatusTracker.OnDownloadFailed(ctx, mediaTypeEpisode, ep.ID)
 	}
 }
 

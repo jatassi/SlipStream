@@ -169,7 +169,10 @@ type DownloadMapping struct {
 	ID               int64
 	DownloadClientID int64
 	DownloadID       string
-	MediaType        string // "movie", "episode", "season", or "series"
+	ModuleType       string // "movie" or "tv"
+	EntityType       string // "movie", "episode", "series"
+	EntityID         int64
+	MediaType        string // "movie", "episode", "season", or "series" (derived)
 	MovieID          *int64
 	SeriesID         *int64
 	SeasonNumber     *int
@@ -184,6 +187,9 @@ type DownloadMapping struct {
 type QueueMedia struct {
 	ID                int64
 	DownloadMappingID int64
+	ModuleType        string
+	EntityType        string
+	EntityID          int64
 	EpisodeID         *int64
 	MovieID           *int64
 	FilePath          string
@@ -774,6 +780,9 @@ func (s *Service) completedDownloadToMapping(cd *downloader.CompletedDownload) *
 		ID:               cd.MappingID,
 		DownloadClientID: cd.ClientID,
 		DownloadID:       cd.DownloadID,
+		ModuleType:       cd.ModuleType,
+		EntityType:       cd.EntityType,
+		EntityID:         cd.EntityID,
 		MovieID:          cd.MovieID,
 		SeriesID:         cd.SeriesID,
 		EpisodeID:        cd.EpisodeID,
@@ -1047,8 +1056,9 @@ func (s *Service) recordImportDecision(ctx context.Context, sourcePath, decision
 	params := sqlc.UpsertImportDecisionParams{
 		SourcePath: sourcePath,
 		Decision:   decision,
-		MediaType:  mediaType,
-		MediaID:    mediaID,
+		ModuleType: moduleTypeFromMediaType(mediaType),
+		EntityType: mediaType,
+		EntityID:   mediaID,
 	}
 
 	if match.CandidateQualityID > 0 {
@@ -1067,6 +1077,13 @@ func (s *Service) recordImportDecision(ctx context.Context, sourcePath, decision
 	if _, err := s.queries.UpsertImportDecision(ctx, params); err != nil {
 		s.logger.Warn().Err(err).Str("path", sourcePath).Msg("Failed to record import decision")
 	}
+}
+
+func moduleTypeFromMediaType(mediaType string) string {
+	if mediaType == mediaTypeMovie {
+		return "movie"
+	}
+	return "tv"
 }
 
 // ClearDecisionsForProfile clears import decisions that reference a specific quality profile.
