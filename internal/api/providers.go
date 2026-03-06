@@ -25,6 +25,9 @@ import (
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/portal/admin"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
@@ -165,6 +168,15 @@ func provideSearchLimiter(queries *sqlc.Queries) *portalratelimit.SearchLimiter 
 		}
 		return portalratelimit.DefaultRequestsPerMinute
 	})
+}
+
+// --- Module providers ---
+
+func provideRegistry(movieMod *moviemod.Module, tvMod *tvmod.Module) *module.Registry {
+	reg := module.NewRegistry()
+	reg.Register(movieMod)
+	reg.Register(tvMod)
+	return reg
 }
 
 // --- Adapter providers for interface bindings ---

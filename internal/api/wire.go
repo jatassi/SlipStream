@@ -29,6 +29,8 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/status"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
@@ -119,6 +121,11 @@ func BuildServices(
 		librarymanager.NewService,
 		organizer.NewService,
 		mediainfo.NewService,
+
+		// --- Module constructors ---
+		moviemod.NewModule,
+		tvmod.NewModule,
+		provideRegistry,
 
 		// --- Metadata service constructors ---
 		metadata.NewService,

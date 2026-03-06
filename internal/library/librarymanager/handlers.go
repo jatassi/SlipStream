@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/slipstream/slipstream/internal/module"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 )
 
@@ -160,6 +161,17 @@ func (h *Handlers) RefreshMovie(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid movie ID")
 	}
 
+	if h.service.registry != nil {
+		result, err := h.service.RefreshEntityMetadata(c.Request().Context(), module.TypeMovie, id)
+		if err != nil {
+			if errors.Is(err, ErrNoMetadataProvider) {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, result)
+	}
+
 	movie, err := h.service.RefreshMovieMetadata(c.Request().Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrNoMetadataProvider) {
@@ -177,6 +189,17 @@ func (h *Handlers) RefreshSeries(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid series ID")
+	}
+
+	if h.service.registry != nil {
+		result, err := h.service.RefreshEntityMetadata(c.Request().Context(), module.TypeTV, id)
+		if err != nil {
+			if errors.Is(err, ErrNoMetadataProvider) {
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "no metadata provider configured")
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, result)
 	}
 
 	series, err := h.service.RefreshSeriesMetadata(c.Request().Context(), id)

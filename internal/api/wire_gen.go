@@ -38,6 +38,8 @@ import (
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/modules/movie"
+	tv2 "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/portal/admin"
@@ -275,6 +277,9 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		AdminSettings:       adminSettingsHandlers,
 		Passkey:             passkeyService,
 	}
+	module := movie.NewModule(metadataService, moviesService, logger)
+	tvModule := tv2.NewModule(metadataService, tvService, logger)
+	registry := provideRegistry(module, tvModule)
 	serviceContainer := &ServiceContainer{
 		System:       systemGroup,
 		Library:      libraryGroup,
@@ -287,6 +292,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		Portal:       portalGroup,
 		Security:     securityGroup,
 		Switchable:   switchableServices,
+		Registry:     registry,
 	}
 	return serviceContainer, nil
 }

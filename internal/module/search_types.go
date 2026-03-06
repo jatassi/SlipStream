@@ -1,52 +1,42 @@
 package module
 
-import "time"
-
-// SearchOptions contains query parameters for metadata search.
+// SearchOptions configures a metadata search request.
 type SearchOptions struct {
-	Year int
-	IDs  map[string]string
+	Year  int // Filter by year (0 = no filter)
+	Limit int // Max results (0 = provider default)
 }
 
-// SearchResult is a single search result from a metadata provider.
+// SearchResult represents a single result from a metadata search.
 type SearchResult struct {
-	Title      string
-	Year       int
-	ExternalID string
-	Overview   string
-	Images     []string
-}
-
-// MediaMetadata is the full metadata for an entity.
-type MediaMetadata struct {
-	Title       string
 	ExternalID  string
+	Title       string
 	Year        int
 	Overview    string
-	Runtime     int
-	Genres      []string
-	Status      string
-	ReleaseDate *time.Time
+	PosterURL   string
+	BackdropURL string
+	ExternalIDs map[string]string
+	Extra       any
 }
 
-// ExtendedMetadata contains additional metadata (credits, recommendations, etc.).
+// MediaMetadata represents full metadata for an entity fetched by external ID.
+type MediaMetadata struct {
+	ExternalID  string
+	Title       string
+	Year        int
+	Overview    string
+	PosterURL   string
+	BackdropURL string
+	ExternalIDs map[string]string
+	Extra       any
+}
+
+// ExtendedMetadata represents additional metadata (credits, ratings, etc.)
 type ExtendedMetadata struct {
-	Credits         []Credit
-	Recommendations []SearchResult
-}
-
-// Credit represents a person credit (cast or crew).
-type Credit struct {
-	Name      string
-	Role      string
-	Character string
-}
-
-// RefreshResult is the diff result from a metadata refresh.
-type RefreshResult struct {
-	Added   int
-	Updated int
-	Removed int
+	Credits       any
+	Ratings       any
+	ContentRating string
+	TrailerURL    string
+	Extra         any
 }
 
 // Release represents a release found by an indexer.

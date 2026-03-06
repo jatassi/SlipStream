@@ -10,6 +10,7 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/health"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -40,6 +41,7 @@ type Server struct {
 	portal       PortalGroup
 	security     SecurityGroup
 	switchable   SwitchableServices
+	registry     *module.Registry
 	devMode      *DevModeManager
 
 	restartChan    chan<- bool
@@ -98,6 +100,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		portal:       services.Portal,
 		security:     services.Security,
 		switchable:   services.Switchable,
+		registry:     services.Registry,
 		restartChan:  restartChan,
 	}
 

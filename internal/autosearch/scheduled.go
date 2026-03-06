@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	statusFailed  = "failed"
-	statusMissing = "missing"
+	statusFailed     = "failed"
+	statusMissing    = "missing"
+	entityTypeSeries = "series"
 )
 
 // SeriesRefresher defines the interface for refreshing series metadata.
@@ -548,7 +549,7 @@ func (s *ScheduledSearcher) tryAddMissingSeasonPackSearch(
 		return searchableItemWithPriority{}, false
 	}
 
-	shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, statusMissing)
+	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, statusMissing)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season")
 	}
@@ -691,7 +692,7 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 }
 
 func (s *ScheduledSearcher) shouldSkipSeasonUpgrade(ctx context.Context, key seasonKey) bool {
-	shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, "upgrade")
+	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, "upgrade")
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season upgrade")
 	}
@@ -929,7 +930,7 @@ func (s *ScheduledSearcher) searchItem(ctx context.Context, item *SearchableItem
 func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item *SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
-		itemType = "series"
+		itemType = entityTypeSeries
 	}
 
 	modType := moduleTypeFromEntityType(itemType)
@@ -951,7 +952,7 @@ func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item *Sea
 func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item *SearchableItem, searchType string) {
 	itemType := string(item.MediaType)
 	if item.MediaType == MediaTypeSeason {
-		itemType = "series"
+		itemType = entityTypeSeries
 	}
 
 	modType2 := moduleTypeFromEntityType(itemType)

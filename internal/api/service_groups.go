@@ -31,6 +31,7 @@ import (
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/portal/admin"
@@ -176,4 +177,5 @@ type ServiceContainer struct {
 	Portal       PortalGroup
 	Security     SecurityGroup
 	Switchable   SwitchableServices
+	Registry     *module.Registry
 }

@@ -56,7 +56,7 @@ Task 3.2 (flesh out Phase 0 metadata types) ──→ Task 3.4 (TV MetadataProvi
 
 ---
 
-### Task 3.1: Define RefreshResult Type and ExternalIDs Utility
+### Task 3.1: Define RefreshResult Type and ExternalIDs Utility ✅
 
 **Create** `internal/module/metadata_types.go`
 
@@ -216,7 +216,7 @@ func (s *Series) ExternalIDs() map[string]string {
 
 ---
 
-### Task 3.2: Flesh Out Phase 0 MetadataProvider Interface Types
+### Task 3.2: Flesh Out Phase 0 MetadataProvider Interface Types ✅
 
 **Depends on:** Task 3.1 (RefreshResult type must be defined first)
 
@@ -244,7 +244,7 @@ This should already be defined from Phase 0 Task 0.3. Verify the method signatur
 
 ---
 
-### Task 3.3: Implement Movie MetadataProvider
+### Task 3.3: Implement Movie MetadataProvider ✅
 
 **Depends on:** Tasks 3.1 and 3.2
 
@@ -550,7 +550,7 @@ func (p *metadataProvider) updateMovieFromMetadata(ctx context.Context, movieID 
 
 ---
 
-### Task 3.4: Implement TV MetadataProvider
+### Task 3.4: Implement TV MetadataProvider ✅
 
 **Depends on:** Tasks 3.1 and 3.2 (can run in parallel with Task 3.3)
 
@@ -967,7 +967,7 @@ func (p *metadataProvider) updateSeriesFromMetadata(ctx context.Context, seriesI
 
 ---
 
-### Task 3.5: Update librarymanager to Dispatch Refresh Through Module Providers
+### Task 3.5: Update librarymanager to Dispatch Refresh Through Module Providers ✅
 
 **Depends on:** Tasks 3.3 and 3.4
 
@@ -1141,7 +1141,7 @@ func (h *Handlers) RefreshMovie(c echo.Context) error {
 
 ---
 
-### Task 3.6: Wire Integration — Connect Module Providers to Services
+### Task 3.6: Wire Integration — Connect Module Providers to Services ✅
 
 **Depends on:** Task 3.5
 
@@ -1213,7 +1213,7 @@ The librarymanager constructor needs the registry. Update the Wire build to prov
 
 ---
 
-### Task 3.7: Phase 3 Validation
+### Task 3.7: Phase 3 Validation ✅
 
 **Run all of these after all Phase 3 tasks complete:**
 

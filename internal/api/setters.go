@@ -30,6 +30,9 @@ func wireCircularDeps(s *Server) {
 	// Circular: Quality ↔ Import
 	s.library.Quality.SetImportDecisionCleaner(s.automation.Import)
 
+	// Module registry → LibraryManager
+	s.library.LibraryManager.SetRegistry(s.registry)
+
 	// Circular: LibraryManager ↔ Autosearch
 	s.library.LibraryManager.SetAutosearchService(s.automation.Autosearch)
 	s.automation.ScheduledSearcher.SetSeriesRefresher(s.library.LibraryManager)
