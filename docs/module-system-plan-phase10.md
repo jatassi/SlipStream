@@ -95,7 +95,7 @@ These items provide no value for just movie+TV and are explicitly deferred until
 
 ---
 
-## Task Group 1: Module Registry Types & Runtime Config
+## Task Group 1: Module Registry Types & Runtime Config ✅ COMPLETE
 
 **Goal:** Define the `ModuleConfig` TypeScript interface and the module registry that the rest of the frontend consumes.
 
@@ -325,7 +325,7 @@ In app entry (`web/src/main.tsx` or wherever `ReactDOM.createRoot` is called), c
 
 ---
 
-## Task Group 2: Sidebar Navigation — Module-Driven
+## Task Group 2: Sidebar Navigation — Module-Driven ✅ COMPLETE
 
 **Goal:** Replace the hard-coded `libraryNavItems` array in the sidebar with module-driven entries. (Spec §13.2)
 
@@ -417,7 +417,7 @@ The `MissingBadge` at line 20-36 currently hard-codes movie/episode counts with 
 
 ---
 
-## Task Group 3: Generic WebSocket Event Handling
+## Task Group 3: Generic WebSocket Event Handling ✅ COMPLETE
 
 **Goal:** Replace the hard-coded library event handler with a module-driven dispatch. (Spec §10.1, Appendix C row "WebSocket event handlers")
 
@@ -514,7 +514,7 @@ Remove the hard-coded `'movie:added'`, `'movie:updated'`, `'movie:deleted'`, `'s
 
 ---
 
-## Task Group 4: Generic Module API Client Factory
+## Task Group 4: Generic Module API Client Factory ✅ COMPLETE
 
 **Goal:** Create a factory that generates a typed API client from a module's base path, eliminating the duplication between `web/src/api/movies.ts` and `web/src/api/series.ts`. (Appendix C row "Frontend API clients")
 
@@ -573,7 +573,7 @@ Do NOT delete `web/src/api/movies.ts` or `web/src/api/series.ts` yet. They conta
 
 ---
 
-## Task Group 5: Generic Module Hook Factory
+## Task Group 5: Generic Module Hook Factory ✅ COMPLETE
 
 **Goal:** Create a factory that generates TanStack Query hooks from a module config, eliminating the duplication between `web/src/hooks/use-movies.ts` and `web/src/hooks/use-series.ts`. (Appendix C row "TanStack Query hooks")
 
@@ -708,7 +708,7 @@ Existing `use-movies.ts` and `use-series.ts` remain for now — they are consume
 
 ---
 
-## Task Group 6: Generic List Page
+## Task Group 6: Generic List Page ✅ COMPLETE
 
 **Goal:** Eliminate the duplication between `movie-list-layout.tsx` / `use-movie-list.ts` and `series-list-layout.tsx` / `use-series-list.ts` by creating a single generic list page driven by module config. (Spec §13.1, Appendix C row "List page components")
 
@@ -806,7 +806,7 @@ Migrate existing persisted values: on first access, if `moduleViewPrefs['movie']
 
 ---
 
-## Task Group 7: Unified Wanted/Missing Page
+## Task Group 7: Unified Wanted/Missing Page ✅ COMPLETE
 
 **Goal:** Make the Missing/Wanted page show data from all enabled modules with module-based grouping/filtering. (Spec §13.3)
 
@@ -863,7 +863,7 @@ The `missingKeys` and individual hooks remain (they're backed by specific API en
 
 ---
 
-## Task Group 8: Unified Calendar
+## Task Group 8: Unified Calendar ✅ COMPLETE
 
 **Goal:** Calendar shows items from all enabled modules with module-colored items. (Spec §13.3)
 
@@ -921,90 +921,28 @@ New modules add their entries here. This is documented in the shared component c
 
 ---
 
-## Task Group 9: Notification Settings — Module-Grouped Events
+## Task Group 9: Notification Settings — Module-Grouped Events ✅ COMPLETE
 
 **Goal:** Notification event toggles are driven by module-declared event catalogs, grouped by module in the UI. (Spec §9.1 frontend portion)
 
 **Depends on:** Task Group 1, backend Phase 7 complete (notification events as JSON)
 
-### Current state
+**Status:** Already fully implemented. The "current state" described below was the state at plan creation time; all changes have since been completed (likely during backend Phase 7).
 
-- `web/src/types/notification.ts:19-34` hard-codes event flags: `onGrab`, `onImport`, `onUpgrade`, `onMovieAdded`, `onMovieDeleted`, `onSeriesAdded`, `onSeriesDeleted`, `onHealthIssue`, `onAppUpdate`
-- `web/src/routes/settings/general/notifications.tsx:21-30` hard-codes `EVENT_FLAGS` array
-- `web/src/components/notifications/notification-dialog.tsx` renders toggles for these flags
+### What was implemented
 
-### Backend prerequisite
+- **Types** (`web/src/types/notification.ts`): `Notification` uses `eventToggles: Record<string, boolean>` (no individual boolean fields). `NotificationEventDef` and `NotificationEventGroup` types are defined.
+- **Backend API** (`GET /api/v1/notifications/events`): Returns `NotificationEventGroup[]` built dynamically by `module.Registry.CollectNotificationEvents()`, which collects framework events ("General" group) plus each registered module's `DeclareEvents()` output (e.g., "Movies", "Series").
+- **Event catalog hook** (`web/src/hooks/use-notifications.ts`): `useNotificationEventCatalog()` fetches groups from the API with `staleTime: Infinity`.
+- **Event triggers component** (`web/src/components/notifications/event-triggers.tsx`): `EventTriggers` renders groups dynamically — iterates over `groups` array, showing each group label and its event toggles.
+- **Active events text** (`web/src/routes/settings/general/notifications.tsx`): `getActiveEventsText()` uses the fetched catalog to resolve event labels dynamically — no hard-coded label map.
+- **Dialog** (`web/src/components/notifications/notification-dialog.tsx`): Delegates to `NotificationFormBody` which uses `EventTriggersSection`, accepting optional `eventGroups` override or falling back to the API catalog.
 
-The notification events are stored as a JSON column keyed by event ID (per spec §9.1). The backend API returns:
-- `GET /api/v1/modules/{id}/notification-events` → `[{ id: "movie:added", label: "Movie Added", description: "..." }, ...]`
-- Notification settings have an `events: Record<string, boolean>` field instead of individual `onMovieAdded` booleans
-
-If the backend hasn't migrated yet, this task group should be **deferred** until it has. The plan below assumes the backend is ready.
-
-### Changes
-
-#### `web/src/types/notification.ts`
-
-Replace the hard-coded boolean fields with a generic events map:
-
-```typescript
-export type Notification = {
-  id: number
-  name: string
-  type: NotifierType
-  enabled: boolean
-  settings: Record<string, unknown>
-  events: Record<string, boolean>     // e.g. { "movie:added": true, "tv:grabbed": false, ... }
-  // Keep framework events as booleans
-  onHealthIssue: boolean
-  onHealthRestored: boolean
-  onAppUpdate: boolean
-  includeHealthWarnings: boolean
-  tags: number[]
-  createdAt?: string
-  updatedAt?: string
-}
-```
-
-#### `web/src/routes/settings/general/notifications.tsx`
-
-Replace the hard-coded `EVENT_FLAGS` with a dynamic list fetched from the module registry:
-
-```typescript
-function getActiveEventsText(notification: Notification): string {
-  const activeEventIds = Object.entries(notification.events)
-    .filter(([, enabled]) => enabled)
-    .map(([id]) => id)
-  // Look up labels from module event catalogs
-  // ...
-  return labels.join(', ') || 'No events configured'
-}
-```
-
-#### `web/src/components/notifications/notification-dialog.tsx`
-
-The event toggle section groups events by module:
-
-```typescript
-{getEnabledModules().map(mod => (
-  <div key={mod.id}>
-    <h4 className="font-medium">{mod.name}</h4>
-    {moduleEvents[mod.id].map(event => (
-      <Switch key={event.id} checked={form.events[event.id]} ... />
-    ))}
-  </div>
-))}
-{/* Framework events (Health, App Update) */}
-<div>
-  <h4 className="font-medium">System</h4>
-  <Switch checked={form.onHealthIssue} ... />
-  <Switch checked={form.onAppUpdate} ... />
-</div>
-```
+No hard-coded `EVENT_FLAGS`, no individual `onGrab`/`onMovieAdded` boolean fields, and no hard-coded movie/TV event references exist in the notification frontend code.
 
 ---
 
-## Task Group 10: File Naming Settings — Module Tabs
+## Task Group 10: File Naming Settings — Module Tabs ✅ COMPLETE
 
 **Goal:** File naming settings use module-provided token contexts and generate tabs per module. (Spec §13.5)
 
@@ -1057,7 +995,7 @@ The `PatternEditor` component is already generic. Its `mediaType` prop (currentl
 
 ---
 
-## Task Group 11: Search Page — Module-Driven
+## Task Group 11: Search Page — Module-Driven ✅ COMPLETE
 
 **Goal:** Global search renders results for all enabled modules. (Spec §13.3)
 
@@ -1110,7 +1048,7 @@ For external search (metadata search), the search API is module-specific (movie 
 
 ---
 
-## Task Group 12: Route Registration
+## Task Group 12: Route Registration ✅ COMPLETE
 
 **Goal:** Module routes are registered from module configs instead of hard-coded in `routes-config.tsx`. (Spec §13.4)
 
@@ -1168,7 +1106,7 @@ export function MovieListPageWrapper() {
 
 ---
 
-## Task Group 13: Quality Profile Settings — Module-Scoped
+## Task Group 13: Quality Profile Settings — Module-Scoped ✅ COMPLETE
 
 **Goal:** Quality profile settings UI shows profiles grouped by module. (Spec §4.1 frontend)
 
@@ -1237,7 +1175,7 @@ The `useRootFoldersByType` hook already exists. Ensure it filters by `module_typ
 
 ---
 
-## Task Group 14: Shared UI Component Catalog Documentation
+## Task Group 14: Shared UI Component Catalog Documentation ✅ COMPLETE
 
 **Goal:** Document the reusable frontend components available to module authors. (Spec §19.4)
 
@@ -1269,7 +1207,7 @@ Also document:
 
 ---
 
-## Task Group 15: Activity/Downloads & History — Module Awareness
+## Task Group 15: Activity/Downloads & History — Module Awareness ✅ COMPLETE
 
 **Goal:** Activity and History pages handle module-typed items generically. (Spec §13.3)
 
@@ -1336,21 +1274,21 @@ Task Group 14: Documentation (depends on all above)
 
 ## Definition of Done
 
-- [ ] All enabled modules appear in sidebar dynamically — no hard-coded movie/TV entries
-- [ ] Movie and TV list pages use the single generic `ModuleListPage` component
-- [ ] WebSocket library events dispatch via module registry — no hard-coded movie/series handlers
-- [ ] `movie-list-layout.tsx` and `series-list-layout.tsx` are deleted (replaced by generic page)
-- [ ] Calendar events use module theme colors via registry lookup
-- [ ] Missing/Wanted page iterates over enabled modules
-- [ ] Search page iterates over enabled modules for library results
-- [ ] File naming settings generate tabs per enabled module (if backend ready)
-- [ ] Notification event toggles are module-grouped (if backend ready)
-- [ ] Quality profile settings are module-grouped (if backend ready)
-- [ ] `theme` prop on `MediaListLayout` and sub-components accepts `string` (not union)
-- [ ] `cd web && bun run lint` passes with 0 new errors
-- [ ] `make build` succeeds
-- [ ] No hard-coded `'movie' | 'tv'` type unions remain in shared/framework components (module-specific components may still use concrete types)
-- [ ] Quality items loaded dynamically from backend instead of hard-coded `PREDEFINED_QUALITIES` (if backend ready)
-- [ ] Queue/history types use generic `moduleType`/`entityType`/`entityId` fields instead of `movieId`/`seriesId`/`episodeId`
-- [ ] Backend items deferred from earlier phases are tracked in the Phase 11 plan (not silently dropped)
-- [ ] Shared UI component catalog documented in `web/src/components/COMPONENTS.md`
+- [x] All enabled modules appear in sidebar dynamically — no hard-coded movie/TV entries
+- [x] Movie and TV list pages use the single generic `ModuleListPage` component
+- [x] WebSocket library events dispatch via module registry — no hard-coded movie/series handlers
+- [~] `movie-list-layout.tsx` and `series-list-layout.tsx` are deleted (replaced by generic page) — **Deviation:** layouts refactored to use module config for theme/labels/icons but retained as thin shells wrapping `MediaListLayout`, since each module has unique hook state shapes; `module-list-page.tsx` dispatch wrapper exists
+- [x] Calendar events use module theme colors via registry lookup
+- [x] Missing/Wanted page iterates over enabled modules
+- [x] Search page iterates over enabled modules for library results
+- [x] File naming settings generate tabs per enabled module (if backend ready)
+- [x] Notification event toggles are module-grouped (if backend ready) — already complete from Phase 7
+- [x] Quality profile settings are module-grouped (if backend ready)
+- [x] `theme` prop on `MediaListLayout` and sub-components accepts `string` (not union)
+- [x] `cd web && bun run lint` passes with 0 new errors
+- [x] `make build` succeeds
+- [x] No hard-coded `'movie' | 'tv'` type unions remain in shared/framework components (module-specific components may still use concrete types)
+- [ ] Quality items loaded dynamically from backend instead of hard-coded `PREDEFINED_QUALITIES` (if backend ready) — deferred, backend API not yet available
+- [x] Queue/history types use generic `moduleType`/`entityType`/`entityId` fields instead of `movieId`/`seriesId`/`episodeId`
+- [x] Backend items deferred from earlier phases are tracked in the Phase 11 plan (not silently dropped) — all 12 items verified in `module-system-plan-phase11.md`
+- [x] Shared UI component catalog documented in `web/src/components/COMPONENTS.md`

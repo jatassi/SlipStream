@@ -12,28 +12,35 @@ type NavLinkProps = {
   badge?: React.ReactNode
 }
 
-function getIconClassName(theme: NavItem['theme'], isActive: boolean): string {
+const THEME_ICON_CLASSES: Record<string, { base: string; active: string }> = {
+  movie: { base: 'text-movie-500', active: 'text-movie-400' },
+  tv: { base: 'text-tv-500', active: 'text-tv-400' },
+}
+
+const THEME_LINK_CLASSES: Record<string, { hover: string; active: string }> = {
+  movie: {
+    hover: 'hover:bg-movie-500/10 hover:text-foreground',
+    active: 'bg-movie-500/15 text-foreground border-l-movie-500',
+  },
+  tv: {
+    hover: 'hover:bg-tv-500/10 hover:text-foreground',
+    active: 'bg-tv-500/15 text-foreground border-l-tv-500',
+  },
+}
+
+function getIconClassName(theme: string | undefined, isActive: boolean): string {
+  const entry = theme ? THEME_ICON_CLASSES[theme] : undefined
   return cn(
     'size-4 shrink-0 transition-colors',
-    theme === 'movie' && 'text-movie-500',
-    theme === 'tv' && 'text-tv-500',
-    isActive && theme === 'movie' && 'text-movie-400',
-    isActive && theme === 'tv' && 'text-tv-400',
+    entry?.base,
+    isActive && entry?.active,
   )
 }
 
-function getThemeClassName(theme: NavItem['theme'], isActive: boolean): string {
-  if (theme === 'movie') {
-    return cn(
-      'hover:bg-movie-500/10 hover:text-foreground',
-      isActive && 'bg-movie-500/15 text-foreground border-l-movie-500',
-    )
-  }
-  if (theme === 'tv') {
-    return cn(
-      'hover:bg-tv-500/10 hover:text-foreground',
-      isActive && 'bg-tv-500/15 text-foreground border-l-tv-500',
-    )
+function getThemeClassName(theme: string | undefined, isActive: boolean): string {
+  const entry = theme ? THEME_LINK_CLASSES[theme] : undefined
+  if (entry) {
+    return cn(entry.hover, isActive && entry.active)
   }
   return cn(
     'hover:bg-accent hover:text-accent-foreground',

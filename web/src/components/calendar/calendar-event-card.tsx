@@ -11,9 +11,9 @@ type CalendarEventCardProps = {
   className?: string
 }
 
-type MediaType = 'movie' | 'episode'
+type ThemeStyles = { border: string; bg: string; icon: string; hover: string; badgeAccent: string }
 
-const mediaTypeStyles: Record<MediaType, { border: string; bg: string; icon: string; hover: string; badgeAccent: string }> = {
+const THEME_STYLES: Record<string, ThemeStyles> = {
   movie: {
     border: 'border-l-movie-500',
     bg: 'bg-movie-500/10',
@@ -21,13 +21,24 @@ const mediaTypeStyles: Record<MediaType, { border: string; bg: string; icon: str
     hover: 'hover:bg-movie-500/15',
     badgeAccent: 'border-movie-500/50 text-movie-600 dark:text-movie-400',
   },
-  episode: {
+  tv: {
     border: 'border-l-tv-500',
     bg: 'bg-tv-500/10',
     icon: 'text-tv-400',
     hover: 'hover:bg-tv-500/15',
     badgeAccent: 'border-tv-500/50 text-tv-600 dark:text-tv-400',
   },
+}
+
+const DEFAULT_STYLES: ThemeStyles = THEME_STYLES.movie
+
+function getEventTheme(event: CalendarEvent): string {
+  if (event.moduleType) {return event.moduleType}
+  return event.mediaType === 'movie' ? 'movie' : 'tv'
+}
+
+function getEventStyles(event: CalendarEvent): ThemeStyles {
+  return THEME_STYLES[getEventTheme(event)] ?? DEFAULT_STYLES
 }
 
 const eventTypeLabels: Record<string, string> = {
@@ -49,7 +60,7 @@ function EpisodeDetails({ event, compact }: { event: CalendarEvent; compact?: bo
 }
 
 function EventBadges({ event }: { event: CalendarEvent }) {
-  const styles = mediaTypeStyles[event.mediaType]
+  const styles = getEventStyles(event)
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1">
       <Badge variant="outline" className={cn('h-4 px-1 text-[10px]', styles.badgeAccent)}>
@@ -64,7 +75,7 @@ function EventBadges({ event }: { event: CalendarEvent }) {
 
 export function CalendarEventCard({ event, compact, className }: CalendarEventCardProps) {
   const href = event.mediaType === 'movie' ? `/movies/${event.id}` : `/series/${event.seriesId}`
-  const styles = mediaTypeStyles[event.mediaType]
+  const styles = getEventStyles(event)
 
   return (
     <Link to={href} className={cn('group block overflow-hidden rounded-lg border-l-4 transition-all supports-[backdrop-filter]:backdrop-blur-sm', styles.border, styles.bg, styles.hover, className)}>

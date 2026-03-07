@@ -304,7 +304,7 @@ export type PortalDownload = {
   clientId: number
   clientName: string
   title: string
-  mediaType: 'movie' | 'series' | 'unknown'
+  mediaType: string
   status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning'
   progress: number
   size: number

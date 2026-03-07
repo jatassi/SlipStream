@@ -1,8 +1,9 @@
-import { Binoculars, Film, Tv } from 'lucide-react'
+import { Binoculars } from 'lucide-react'
 
 import { MissingMoviesList } from '@/components/missing/missing-movies-list'
 import { MissingSeriesList } from '@/components/missing/missing-series-list'
 import { TabsContent } from '@/components/ui/tabs'
+import { getModuleOrThrow } from '@/modules'
 
 type MissingTabContentProps = {
   missingMovies: Parameters<typeof MissingMoviesList>[0]['movies']
@@ -23,25 +24,15 @@ export function MissingTabContent({
     <>
       <TabsContent value="all" className="space-y-6">
         {missingMovieCount > 0 && (
-          <MediaSection
-            icon={<Film className="text-movie-400 size-4" />}
-            label="Movies"
-            count={missingMovieCount}
-            countClass="text-movie-400"
-          >
+          <ModuleSection moduleId="movie" count={missingMovieCount}>
             <MissingMoviesList movies={missingMovies} qualityProfileNames={qualityProfileNames} />
-          </MediaSection>
+          </ModuleSection>
         )}
 
         {missingSeries.length > 0 && (
-          <MediaSection
-            icon={<Tv className="text-tv-400 size-4" />}
-            label="Episodes"
-            count={missingEpisodeCount}
-            countClass="text-tv-400"
-          >
+          <ModuleSection moduleId="tv" label="Episodes" count={missingEpisodeCount}>
             <MissingSeriesList series={missingSeries} qualityProfileNames={qualityProfileNames} />
-          </MediaSection>
+          </ModuleSection>
         )}
 
         {missingMovieCount === 0 && missingEpisodeCount === 0 && (
@@ -64,25 +55,31 @@ export function MissingTabContent({
   )
 }
 
-function MediaSection({
-  icon,
+const THEME_TEXT_CLASSES: Record<string, string> = {
+  movie: 'text-movie-400',
+  tv: 'text-tv-400',
+}
+
+function ModuleSection({
+  moduleId,
   label,
   count,
-  countClass,
   children,
 }: {
-  icon: React.ReactNode
-  label: string
+  moduleId: string
+  label?: string
   count: number
-  countClass: string
   children: React.ReactNode
 }) {
+  const mod = getModuleOrThrow(moduleId)
+  const textClass = THEME_TEXT_CLASSES[mod.themeColor] ?? 'text-foreground'
+
   return (
     <div className="space-y-3">
       <h2 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-        <span className={countClass}>({count})</span>
+        <mod.icon className={`size-4 ${textClass}`} />
+        {label ?? mod.name}
+        <span className={textClass}>({count})</span>
       </h2>
       {children}
     </div>

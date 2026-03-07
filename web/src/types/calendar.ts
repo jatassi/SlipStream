@@ -1,7 +1,8 @@
 export type CalendarEvent = {
   id: number
   title: string
-  mediaType: 'movie' | 'episode'
+  mediaType: string
+  moduleType?: string
   eventType: 'digital' | 'physical' | 'airDate' // digital = streaming/VOD release, physical = Bluray
   date: string // YYYY-MM-DD
   status: 'missing' | 'available' | 'downloading'

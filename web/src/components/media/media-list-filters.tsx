@@ -28,7 +28,7 @@ type Props<T, F extends string, S extends string> = {
   onViewChange: (v: string[]) => void
   onPosterSizeChange: (v: number | readonly number[]) => void
   onTableColumnsChange: (cols: string[]) => void
-  theme: 'movie' | 'tv'
+  theme: string
 }
 
 export function MediaListFilters<T, F extends string, S extends string>(props: Props<T, F, S>) {
@@ -62,9 +62,10 @@ function SortSelect<S extends string>({ sortField, sortOptions, onChange, disabl
   sortOptions: SortOption<S>[]
   onChange: (v: string) => void
   disabled: boolean
-  theme: 'movie' | 'tv'
+  theme: string
 }) {
-  const accentClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
+  const accentMap: Record<string, string> = { movie: 'text-movie-400', tv: 'text-tv-400' }
+  const accentClass = accentMap[theme] ?? 'text-primary'
 
   return (
     <Select value={sortField} onValueChange={(v) => v && onChange(v)} disabled={disabled}>

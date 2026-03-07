@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { DownloadsNavLink } from './downloads-nav-link'
 import { CollapsibleNavSection } from './sidebar-collapsible-nav'
 import { LogoutDialog, RestartDialog } from './sidebar-dialogs'
-import { discoverNavItems, libraryNavItems, settingsGroup, standaloneActions, systemNavItem } from './sidebar-nav-config'
+import { discoverNavItems, getLibraryNavItems, settingsGroup, standaloneActions, systemNavItem } from './sidebar-nav-config'
 import { NavLink } from './sidebar-nav-link'
 import type { ActionItem, NavItem } from './sidebar-types'
 import { useSidebarActions } from './use-sidebar'
@@ -168,7 +168,7 @@ export function Sidebar() {
 
         <ScrollArea className="flex-1">
           <nav className="space-y-4 px-3 py-4">
-            <NavSection items={libraryNavItems} collapsed={sidebar.sidebarCollapsed} />
+            <NavSection items={getLibraryNavItems()} collapsed={sidebar.sidebarCollapsed} />
             <div className="bg-border h-px" />
             <NavSection items={discoverNavItems} collapsed={sidebar.sidebarCollapsed} includeDownloads />
             <div className="bg-border h-px" />

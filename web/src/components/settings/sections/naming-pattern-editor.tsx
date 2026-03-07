@@ -46,11 +46,11 @@ type PatternEditorProps = {
   value: string
   onChange: (value: string) => void
   description?: string
-  mediaType?: 'episode' | 'movie' | 'folder'
+  mediaType?: string
   tokenContext: TokenContext
 }
 
-function usePatternPreview(value: string, mediaType: 'movie' | 'episode' | 'folder') {
+function usePatternPreview(value: string, mediaType: string) {
   const [localValue, setLocalValue] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
   const debouncedValue = useDebounce(localValue, 500)

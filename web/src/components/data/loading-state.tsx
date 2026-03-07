@@ -6,7 +6,7 @@ type LoadingStateProps = {
   variant?: 'card' | 'list'
   count?: number
   posterSize?: number
-  theme?: 'movie' | 'tv'
+  theme?: string
 }
 
 const GAP = 16
@@ -89,7 +89,7 @@ export function LoadingState({ variant = 'card', count, posterSize, theme }: Loa
   )
 }
 
-function SkeletonCard({ theme }: { theme?: 'movie' | 'tv' }) {
+function SkeletonCard({ theme }: { theme?: string }) {
   return (
     <div className="border-border bg-card overflow-hidden rounded-lg border">
       <div className="relative aspect-[2/3]">

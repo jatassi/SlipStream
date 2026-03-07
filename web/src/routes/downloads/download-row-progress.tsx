@@ -2,27 +2,20 @@ import { ProgressBar } from '@/components/media/progress-bar'
 import { formatEta, formatSpeed } from '@/lib/formatters'
 import type { QueueItem } from '@/types'
 
-type DownloadRowProgressProps = {
-  item: QueueItem
-  isMovie: boolean
-  isSeries: boolean
-  progressText: string
+const MEDIA_TYPE_VARIANT: Record<string, string> = {
+  movie: 'movie',
+  series: 'tv',
 }
 
-function getProgressVariant(isMovie: boolean, isSeries: boolean): 'movie' | 'tv' | undefined {
-  if (isMovie) {
-    return 'movie'
-  }
-  if (isSeries) {
-    return 'tv'
-  }
-  return undefined
+type DownloadRowProgressProps = {
+  item: QueueItem
+  mediaType: string
+  progressText: string
 }
 
 export function DownloadRowProgress({
   item,
-  isMovie,
-  isSeries,
+  mediaType,
   progressText,
 }: DownloadRowProgressProps) {
   const isDownloading = item.status === 'downloading'
@@ -33,7 +26,7 @@ export function DownloadRowProgress({
         <ProgressBar
           value={item.progress}
           size="sm"
-          variant={getProgressVariant(isMovie, isSeries)}
+          variant={MEDIA_TYPE_VARIANT[mediaType]}
         />
         <div className="text-muted-foreground absolute right-0 left-0 mt-1 flex items-center text-xs">
           <span>{progressText}</span>

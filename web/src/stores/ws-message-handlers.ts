@@ -8,6 +8,7 @@ import { historyKeys } from '@/hooks/use-history'
 import { missingKeys } from '@/hooks/use-missing'
 import { queueKeys } from '@/hooks/use-queue'
 import { schedulerKeys } from '@/hooks/use-scheduler'
+import { getModule } from '@/modules'
 import type { ProgressEventType } from '@/types/progress'
 
 import { useArtworkStore } from './artwork'
@@ -17,7 +18,6 @@ import { useLogsStore } from './logs'
 import { usePortalDownloadsStore } from './portal-downloads'
 import { useProgressStore } from './progress'
 import { useUIStore } from './ui'
-import { getEntityInvalidationKeys } from './ws-entity-registry'
 import type { WSMessage, WSMessageType } from './ws-types'
 
 export type DispatchContext = {
@@ -28,21 +28,23 @@ export type DispatchContext = {
 
 function handleEntityEvent(
   queryClient: QueryClient,
-  message: WSMessage,
+  type: string,
 ): void {
-  const moduleType = (message as { module?: string }).module
-  if (!moduleType) {
-    return
+  const moduleId = type.split(':')[0]
+  const mod = getModule(moduleId)
+  if (!mod) {return}
+
+  void queryClient.invalidateQueries({ queryKey: mod.queryKeys.all })
+
+  for (const rule of mod.wsInvalidationRules) {
+    if (new RegExp(rule.pattern).test(type)) {
+      for (const keys of rule.alsoInvalidate ?? []) {
+        void queryClient.invalidateQueries({ queryKey: keys })
+      }
+    }
   }
 
-  const keys = getEntityInvalidationKeys(moduleType)
-  if (!keys) {
-    return
-  }
-
-  for (const queryKey of keys) {
-    void queryClient.invalidateQueries({ queryKey: [...queryKey] })
-  }
+  void queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
 }
 
 function handleQueueEvent(
@@ -126,9 +128,6 @@ function handleRequestEvent(ctx: DispatchContext): void {
 
 type MessageHandler = (message: WSMessage, ctx: DispatchContext) => void
 
-const entityHandler: MessageHandler = (message, ctx) =>
-  handleEntityEvent(ctx.queryClient, message)
-
 const queueHandler: MessageHandler = (message, ctx) =>
   handleQueueEvent(ctx.queryClient, message)
 
@@ -185,12 +184,6 @@ const logsHandler: MessageHandler = (message) => {
 }
 
 const handlerMap: Partial<Record<WSMessageType, MessageHandler>> = {
-  'movie:added': entityHandler,
-  'movie:updated': entityHandler,
-  'movie:deleted': entityHandler,
-  'series:added': entityHandler,
-  'series:updated': entityHandler,
-  'series:deleted': entityHandler,
   'queue:updated': queueHandler,
   'queue:state': queueHandler,
   'download:completed': downloadCompletedHandler,
@@ -225,5 +218,14 @@ export function dispatchWSMessage(
   ctx: DispatchContext,
 ): void {
   const handler = handlerMap[message.type]
-  handler?.(message, ctx)
+  if (handler) {
+    handler(message, ctx)
+    return
+  }
+
+  // Generic fallback: handle module entity events (e.g. "movie:added", "tv:deleted")
+  const action = message.type.split(':')[1]
+  if (action === 'added' || action === 'updated' || action === 'deleted') {
+    handleEntityEvent(ctx.queryClient, message.type)
+  }
 }

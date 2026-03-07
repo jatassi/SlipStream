@@ -46,7 +46,7 @@ export type UpdateImportSettingsRequest = {
 // Pattern preview types
 export type PatternPreviewRequest = {
   pattern: string
-  mediaType?: 'episode' | 'movie' | 'folder'
+  mediaType?: string
 }
 
 export type TokenBreakdown = {

@@ -18,7 +18,7 @@ type SortOption<S extends string> = { value: S; label: string }
 
 export type MediaListLayoutProps<T extends { id: number }, F extends string, S extends string> = {
   // theming & labels
-  theme: 'movie' | 'tv'
+  theme: string
   title: string
   addLabel: string
   mediaLabel: string
@@ -208,6 +208,7 @@ function MediaListHeader<T extends { id: number }, F extends string, S extends s
   onExitEdit,
   theme,
   addLabel,
+  pluralMediaLabel,
 }: Pick<
   MediaListLayoutProps<T, F, S>,
   | 'title'
@@ -220,15 +221,15 @@ function MediaListHeader<T extends { id: number }, F extends string, S extends s
   | 'onExitEdit'
   | 'theme'
   | 'addLabel'
+  | 'pluralMediaLabel'
 >) {
-  const plural = theme === 'movie' ? 'movies' : 'series'
   return (
     <PageHeader
       title={title}
       description={
         isLoading
           ? <Skeleton className="h-4 w-36" />
-          : `${libraryCount ?? 0} ${plural} in library`
+          : `${libraryCount ?? 0} ${pluralMediaLabel.toLowerCase()} in library`
       }
       actions={
         <MediaPageActions

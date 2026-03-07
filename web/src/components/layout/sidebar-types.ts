@@ -2,7 +2,7 @@ export type NavItem = {
   title: string
   href: string
   icon: React.ElementType
-  theme?: 'movie' | 'tv'
+  theme?: string
   activePrefix?: string
 }
 

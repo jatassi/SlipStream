@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { getEnabledModules } from '@/modules'
 import type { QualityProfile } from '@/types'
 
 import { AttributeFilters } from './attribute-filters'
@@ -20,11 +21,6 @@ import { QualityChecklist } from './quality-checklist'
 import { UpgradeSettings } from './upgrade-settings'
 import { UpgradeStrategyPreview } from './upgrade-strategy-preview'
 import { useQualityProfileDialog } from './use-quality-profile-dialog'
-
-const MODULE_TYPE_OPTIONS = [
-  { value: 'movie', label: 'Movie' },
-  { value: 'tv', label: 'TV' },
-]
 
 type QualityProfileDialogProps = {
   open: boolean
@@ -76,17 +72,18 @@ type ProfileFormBodyProps = {
 }
 
 function ModuleTypeSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const modules = getEnabledModules()
   return (
     <div className="space-y-2">
       <Label htmlFor="module-type">Module Type</Label>
       <Select value={value} onValueChange={(v) => v && onChange(v)}>
         <SelectTrigger id="module-type">
-          {MODULE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? 'Select module type...'}
+          {modules.find((m) => m.id === value)?.name ?? 'Select module type...'}
         </SelectTrigger>
         <SelectContent>
-          {MODULE_TYPE_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
+          {modules.map((mod) => (
+            <SelectItem key={mod.id} value={mod.id}>
+              {mod.name}
             </SelectItem>
           ))}
         </SelectContent>

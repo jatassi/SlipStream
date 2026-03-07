@@ -38,6 +38,14 @@ type UIState = {
   setMovieTableColumns: (cols: string[]) => void
   setSeriesTableColumns: (cols: string[]) => void
 
+  // Module-keyed view preferences
+  moduleViewPrefs: Partial<Record<string, 'grid' | 'table'>>
+  moduleTableColumns: Partial<Record<string, string[]>>
+  getModuleView: (moduleId: string) => 'grid' | 'table'
+  setModuleView: (moduleId: string, view: 'grid' | 'table') => void
+  getModuleTableColumns: (moduleId: string) => string[]
+  setModuleTableColumns: (moduleId: string, cols: string[]) => void
+
   // Global loading override (dev tool)
   globalLoading: boolean
   setGlobalLoading: (loading: boolean) => void
@@ -49,36 +57,39 @@ type UIState = {
   clearNotifications: () => void
 }
 
+function resolveModuleView(state: UIState, moduleId: string): 'grid' | 'table' {
+  const stored = state.moduleViewPrefs[moduleId]
+  if (stored) { return stored }
+  if (moduleId === 'movie') { return state.moviesView }
+  if (moduleId === 'tv') { return state.seriesView }
+  return 'grid'
+}
+
+function resolveModuleTableColumns(state: UIState, moduleId: string): string[] {
+  const stored = state.moduleTableColumns[moduleId]
+  if (stored) { return stored }
+  if (moduleId === 'movie') { return state.movieTableColumns }
+  if (moduleId === 'tv') { return state.seriesTableColumns }
+  return []
+}
+
 export const useUIStore = create<UIState>()(
   persist(
-    (set) => ({
-      // Sidebar
+    (set, get) => ({
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-
-      // Sidebar menu expansion state
       expandedMenus: { settings: true, activity: false },
       toggleMenu: (menuId) =>
         set((state) => ({
-          expandedMenus: {
-            ...state.expandedMenus,
-            [menuId]: !state.expandedMenus[menuId],
-          },
+          expandedMenus: { ...state.expandedMenus, [menuId]: !state.expandedMenus[menuId] },
         })),
       setMenuExpanded: (menuId, expanded) =>
         set((state) => ({
-          expandedMenus: {
-            ...state.expandedMenus,
-            [menuId]: expanded,
-          },
+          expandedMenus: { ...state.expandedMenus, [menuId]: expanded },
         })),
-
-      // Theme
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
-
-      // View preferences
       moviesView: 'grid',
       seriesView: 'grid',
       posterSize: 150,
@@ -89,12 +100,16 @@ export const useUIStore = create<UIState>()(
       setPosterSize: (size) => set({ posterSize: size }),
       setMovieTableColumns: (cols) => set({ movieTableColumns: cols }),
       setSeriesTableColumns: (cols) => set({ seriesTableColumns: cols }),
-
-      // Global loading override
+      moduleViewPrefs: {},
+      moduleTableColumns: {},
+      getModuleView: (moduleId) => resolveModuleView(get(), moduleId),
+      setModuleView: (moduleId, view) =>
+        set((s) => ({ moduleViewPrefs: { ...s.moduleViewPrefs, [moduleId]: view } })),
+      getModuleTableColumns: (moduleId) => resolveModuleTableColumns(get(), moduleId),
+      setModuleTableColumns: (moduleId, cols) =>
+        set((s) => ({ moduleTableColumns: { ...s.moduleTableColumns, [moduleId]: cols } })),
       globalLoading: false,
       setGlobalLoading: (loading) => set({ globalLoading: loading }),
-
-      // Notifications
       notifications: [],
       addNotification: (notification) =>
         set((state) => ({
@@ -117,6 +132,8 @@ export const useUIStore = create<UIState>()(
         posterSize: state.posterSize,
         movieTableColumns: state.movieTableColumns,
         seriesTableColumns: state.seriesTableColumns,
+        moduleViewPrefs: state.moduleViewPrefs,
+        moduleTableColumns: state.moduleTableColumns,
       }),
     },
   ),

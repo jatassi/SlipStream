@@ -9,7 +9,7 @@ type Props = {
   onRefreshAll: () => void
   onEnterEdit: () => void
   onExitEdit: () => void
-  theme: 'movie' | 'tv'
+  theme: string
   addLabel: string
 }
 
@@ -46,7 +46,9 @@ export function MediaPageActions({
       )}
       <Button
         disabled={isLoading || editMode}
-        className={theme === 'movie' ? 'bg-movie-500 hover:bg-movie-400 border-movie-500' : 'bg-tv-500 hover:bg-tv-400 border-tv-500'}
+        className={
+          { movie: 'bg-movie-500 hover:bg-movie-400 border-movie-500', tv: 'bg-tv-500 hover:bg-tv-400 border-tv-500' }[theme] ?? 'bg-primary hover:bg-primary/80 border-primary'
+        }
         onClick={() => document.getElementById('global-search')?.focus()}
       >
         <Plus className="mr-1 size-4" />

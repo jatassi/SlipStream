@@ -24,7 +24,7 @@ type Props<T> = {
   sortDirection: 'asc' | 'desc'
   onSort: (field: string) => void
   onToggleSelect: (id: number) => void
-  theme: 'movie' | 'tv'
+  theme: string
   renderCard: (item: T, opts: { editMode?: boolean; selected?: boolean; onToggleSelect?: (id: number) => void }) => ReactNode
   emptyIcon: ReactNode
   emptyTitle: string
@@ -40,7 +40,7 @@ export function MediaListContent<T extends { id: number }>(props: Props<T>) {
       <EmptyState
         icon={props.emptyIcon}
         title={props.emptyTitle}
-        description={props.allFiltersSelected ? `Add your first ${props.theme === 'movie' ? 'movie' : 'series'} to get started` : 'Try adjusting your filters'}
+        description={props.allFiltersSelected ? 'Add media to get started' : 'Try adjusting your filters'}
         action={props.allFiltersSelected ? props.emptyAction : undefined}
       />
     )

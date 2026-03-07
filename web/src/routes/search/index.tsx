@@ -4,16 +4,15 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Plus, Search } from 'lucide-react'
 
 import { EmptyState } from '@/components/data/empty-state'
-import { MovieCard } from '@/components/movies/movie-card'
 import {
   ExpandableMediaGrid,
   ExternalMediaCard,
   ExternalSearchSection,
   SearchResultsSection,
 } from '@/components/search'
-import { SeriesCard } from '@/components/series/series-card'
 import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
 import { useAdminRequests } from '@/hooks/admin/use-admin-requests'
+import { getEnabledModules } from '@/modules'
 import type { AvailabilityInfo, RequestStatus } from '@/types'
 
 type RequestEntry = { id: number; status: string }
@@ -60,12 +59,24 @@ function toAvailability(entry: RequestEntry | undefined): AvailabilityInfo | und
 
 const ADD_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
 
+// Module-to-card-props mapping for rendering library results
+function getCardProps(moduleId: string, item: unknown): Record<string, unknown> {
+  if (moduleId === 'movie') {return { movie: item }}
+  if (moduleId === 'tv') {return { series: item }}
+  return { item }
+}
+
 function useLibrarySearch(query: string) {
   const searchFilter = query ? { search: query } : undefined
   const { data: movies = [], isLoading: loadingMovies } = useMovies(searchFilter)
   const { data: series = [], isLoading: loadingSeries } = useSeries(searchFilter)
+  const resultsByModule: Record<string, unknown[]> = {
+    movie: movies,
+    tv: series,
+  }
   return {
     movies, series,
+    resultsByModule,
     isLoading: loadingMovies || loadingSeries,
     hasResults: movies.length > 0 || series.length > 0,
   }
@@ -175,8 +186,19 @@ export function SearchPage() {
     <div className="space-y-8">
       <SearchResultsSection title="Library" isLoading={library.isLoading} hasResults={library.hasResults}>
         <div className="space-y-6">
-          <ExpandableMediaGrid items={library.movies} getKey={(m) => m.id} label="Movies" icon="movie" renderItem={(m) => <MovieCard movie={m} />} />
-          <ExpandableMediaGrid items={library.series} getKey={(s) => s.id} label="Series" icon="series" renderItem={(s) => <SeriesCard series={s} />} />
+          {getEnabledModules().map((mod) => {
+            const items = library.resultsByModule[mod.id] ?? []
+            return (
+              <ExpandableMediaGrid
+                key={mod.id}
+                items={items}
+                getKey={(item) => (item as { id: number }).id}
+                label={mod.name}
+                icon={mod.themeColor}
+                renderItem={(item) => <mod.cardComponent {...getCardProps(mod.id, item)} />}
+              />
+            )
+          })}
         </div>
       </SearchResultsSection>
 
