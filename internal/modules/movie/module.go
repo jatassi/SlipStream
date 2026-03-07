@@ -9,6 +9,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/modules/shared"
@@ -19,6 +20,13 @@ var _ module.MonitoringPresets = (*Module)(nil)
 var _ module.ReleaseDateResolver = (*Module)(nil)
 var _ module.CalendarProvider = (*Module)(nil)
 var _ module.WantedCollector = (*Module)(nil)
+var _ module.NotificationEvents = (*Module)(nil)
+
+// Movie module notification event IDs.
+const (
+	EventMovieAdded   = "movie:added"
+	EventMovieDeleted = "movie:deleted"
+)
 
 // Descriptor implements module.Descriptor for the Movie module.
 type Descriptor struct{}
@@ -76,15 +84,23 @@ func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, profileID 
 type Module struct {
 	descriptor       *Descriptor
 	metadataProvider *metadataProvider
+	importHandler    *importHandler
+	fileParser       *fileParser
+	pathGenerator    *pathGenerator
+	namingProvider   *namingProvider
 	movieService     *movies.Service
 	queries          *sqlc.Queries
 }
 
 // NewModule creates a fully wired movie module.
-func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Service, logger *zerolog.Logger) *Module {
+func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Service, rootFolderSvc *rootfolder.Service, logger *zerolog.Logger) *Module {
 	return &Module{
 		descriptor:       &Descriptor{},
 		metadataProvider: newMetadataProvider(metadataSvc, movieSvc, logger),
+		importHandler:    newImportHandler(movieSvc, rootFolderSvc, logger),
+		fileParser:       newFileParser(movieSvc, rootFolderSvc, logger),
+		pathGenerator:    &pathGenerator{},
+		namingProvider:   &namingProvider{},
 		movieService:     movieSvc,
 		queries:          sqlc.New(db),
 	}
@@ -127,61 +143,66 @@ func (m *Module) RefreshMetadata(ctx context.Context, entityID int64) (*module.R
 	return m.metadataProvider.RefreshMetadata(ctx, entityID)
 }
 
-// --- SearchStrategy stubs ---
+// --- ImportHandler delegation ---
 
-func (m *Module) Categories() []int { return nil }
-func (m *Module) FilterRelease(_ module.Release, _ module.SearchableItem) (reject bool, reason string) {
-	return false, ""
+func (m *Module) MatchDownload(ctx context.Context, download *module.CompletedDownload) ([]module.MatchedEntity, error) {
+	return m.importHandler.MatchDownload(ctx, download)
 }
-func (m *Module) TitlesMatch(_, _ string) bool { return false }
-func (m *Module) BuildSearchCriteria(_ module.SearchableItem) module.SearchCriteria {
-	return module.SearchCriteria{}
+func (m *Module) ImportFile(ctx context.Context, filePath string, entity *module.MatchedEntity, qi *module.QualityInfo) (*module.ImportResult, error) {
+	return m.importHandler.ImportFile(ctx, filePath, entity, qi)
 }
-func (m *Module) IsGroupSearchEligible(_ module.EntityType, _ int64) bool { return false }
-func (m *Module) SuppressChildSearches(_ module.EntityType, _ int64, _ module.Release) []int64 {
-	return nil
+func (m *Module) SupportsMultiFileDownload() bool { return m.importHandler.SupportsMultiFileDownload() }
+func (m *Module) MatchIndividualFile(ctx context.Context, filePath string, parentEntity *module.MatchedEntity) (*module.MatchedEntity, error) {
+	return m.importHandler.MatchIndividualFile(ctx, filePath, parentEntity)
+}
+func (m *Module) IsGroupImportReady(ctx context.Context, parentEntity *module.MatchedEntity, matchedFiles []module.MatchedEntity) bool {
+	return m.importHandler.IsGroupImportReady(ctx, parentEntity, matchedFiles)
+}
+func (m *Module) MediaInfoFields() []module.MediaInfoFieldDecl {
+	return m.importHandler.MediaInfoFields()
 }
 
-// --- ImportHandler stubs ---
+// --- PathGenerator delegation ---
 
-func (m *Module) MatchDownload(_ context.Context, _ module.CompletedDownload) ([]module.MatchedEntity, error) {
-	return nil, nil
+func (m *Module) DefaultTemplates() map[string]string {
+	return m.pathGenerator.DefaultTemplates()
 }
-func (m *Module) ImportFile(_ context.Context, _ string, _ module.MatchedEntity, _ module.QualityInfo) (*module.ImportResult, error) {
-	return &module.ImportResult{}, nil
+func (m *Module) AvailableVariables(level string) []module.TemplateVariable {
+	return m.pathGenerator.AvailableVariables(level)
 }
-func (m *Module) SupportsMultiFileDownload() bool { return false }
-func (m *Module) MatchIndividualFile(_ context.Context, _ string, _ module.MatchedEntity) (*module.MatchedEntity, error) {
-	return &module.MatchedEntity{}, nil
+func (m *Module) ResolveTemplate(template string, data map[string]any) (string, error) {
+	return m.pathGenerator.ResolveTemplate(template, data)
 }
-func (m *Module) IsGroupImportReady(_ context.Context, _ module.MatchedEntity, _ []module.MatchedEntity) bool {
-	return false
+func (m *Module) ConditionalSegments() []module.ConditionalSegment {
+	return m.pathGenerator.ConditionalSegments()
 }
-func (m *Module) MediaInfoFields() []module.MediaInfoFieldDecl { return nil }
-
-// --- PathGenerator stubs ---
-
-func (m *Module) DefaultTemplates() map[string]string                        { return nil }
-func (m *Module) AvailableVariables(_ string) []module.TemplateVariable      { return nil }
-func (m *Module) ResolveTemplate(_ string, _ map[string]any) (string, error) { return "", nil }
-func (m *Module) ConditionalSegments() []module.ConditionalSegment           { return nil }
-func (m *Module) IsSpecialNode(_ module.EntityType, _ int64) bool            { return false }
-
-// --- NamingProvider stubs ---
-
-func (m *Module) TokenContexts() []module.TokenContext    { return nil }
-func (m *Module) DefaultFileTemplates() map[string]string { return nil }
-func (m *Module) FormatOptions() []module.FormatOption    { return nil }
-
-// --- FileParser stubs ---
-
-func (m *Module) ParseFilename(_ string) (*module.ParseResult, error) {
-	return &module.ParseResult{}, nil
+func (m *Module) IsSpecialNode(ctx context.Context, entityType module.EntityType, entityID int64) (bool, error) {
+	return m.pathGenerator.IsSpecialNode(ctx, entityType, entityID)
 }
-func (m *Module) MatchToEntity(_ context.Context, _ *module.ParseResult) (*module.MatchedEntity, error) {
-	return &module.MatchedEntity{}, nil
+
+// --- NamingProvider delegation ---
+
+func (m *Module) TokenContexts() []module.TokenContext {
+	return m.namingProvider.TokenContexts()
 }
-func (m *Module) TryMatch(_ string) (float64, *module.ParseResult) { return 0, nil }
+func (m *Module) DefaultFileTemplates() map[string]string {
+	return m.namingProvider.DefaultFileTemplates()
+}
+func (m *Module) FormatOptions() []module.FormatOption {
+	return m.namingProvider.FormatOptions()
+}
+
+// --- FileParser delegation ---
+
+func (m *Module) ParseFilename(filename string) (*module.ParseResult, error) {
+	return m.fileParser.ParseFilename(filename)
+}
+func (m *Module) MatchToEntity(ctx context.Context, parseResult *module.ParseResult) (*module.MatchedEntity, error) {
+	return m.fileParser.MatchToEntity(ctx, parseResult)
+}
+func (m *Module) TryMatch(filename string) (float64, *module.ParseResult) {
+	return m.fileParser.TryMatch(filename)
+}
 
 // --- MockFactory stubs ---
 
@@ -189,9 +210,14 @@ func (m *Module) CreateMockMetadataProvider() module.MetadataProvider { return n
 func (m *Module) CreateSampleLibraryData(_ context.Context) error     { return nil }
 func (m *Module) CreateTestRootFolders(_ context.Context) error       { return nil }
 
-// --- NotificationEvents stub ---
+// --- NotificationEvents ---
 
-func (m *Module) DeclareEvents() []module.NotificationEvent { return nil }
+func (m *Module) DeclareEvents() []module.NotificationEvent {
+	return []module.NotificationEvent{
+		{ID: EventMovieAdded, Label: "Movie Added", Description: "When a movie is added to the library"},
+		{ID: EventMovieDeleted, Label: "Movie Deleted", Description: "When a movie is removed"},
+	}
+}
 
 // --- RouteProvider stub ---
 

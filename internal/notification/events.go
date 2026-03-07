@@ -1,17 +1,28 @@
 package notification
 
-// EventType identifies the type of notification event
-type EventType string
+import (
+	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
+)
 
+// EventType identifies the type of notification event.
+type EventType = string
+
+// Framework event IDs (re-exported from module package for convenience).
 const (
-	EventGrab           EventType = "grab"
-	EventImport         EventType = "download"
-	EventUpgrade        EventType = "upgrade"
-	EventMovieAdded     EventType = "movie_added"
-	EventMovieDeleted   EventType = "movie_deleted"
-	EventSeriesAdded    EventType = "series_added"
-	EventSeriesDeleted  EventType = "series_deleted"
-	EventHealthIssue    EventType = "health_issue"
-	EventHealthRestored EventType = "health_restored"
-	EventAppUpdate      EventType = "app_update"
+	EventGrab           EventType = module.EventGrab
+	EventImport         EventType = module.EventImport
+	EventUpgrade        EventType = module.EventUpgrade
+	EventHealthIssue    EventType = module.EventHealthIssue
+	EventHealthRestored EventType = module.EventHealthRestored
+	EventAppUpdate      EventType = module.EventAppUpdate
+)
+
+// Module event IDs (re-exported from module packages for convenience).
+const (
+	EventMovieAdded    EventType = moviemod.EventMovieAdded
+	EventMovieDeleted  EventType = moviemod.EventMovieDeleted
+	EventSeriesAdded   EventType = tvmod.EventTVAdded
+	EventSeriesDeleted EventType = tvmod.EventTVDeleted
 )

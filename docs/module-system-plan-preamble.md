@@ -11,13 +11,13 @@
 
 ### Delegation Strategy
 
-1. **Subagent policy:** Launch Sonnet subagents for all code changes. Each subagent gets:
+1. **Subagent policy:** Launch Sonnet subagents for all code changes. Subagents must be run synchronously, not in background. Each subagent gets:
    - The specific task description from this plan (copy verbatim)
    - The relevant file paths listed in the task
    - Any "depends on" references so it can read prior work
    - Instruction: "Do NOT use git stash or any commands that affect the entire worktree"
 
-2. **Parallelism:** Tasks within a phase that have no dependency arrows (`→`) can run in parallel. The plan marks these explicitly.
+2. **Parallelism:** Tasks within a phase that have no dependency arrows (`→`) can run synchronously in parallel. The plan marks these explicitly.
 
 3. **Validation after each task:** After a subagent completes, do a lightweight check:
    - Read the key output files (not all files — just the ones listed under "Verify")

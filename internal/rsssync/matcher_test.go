@@ -6,6 +6,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // TestBuildWantedIndex verifies index construction from wanted items.
@@ -34,7 +35,7 @@ func TestNoiseReleasesNoMatch(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	noise := makeNoiseReleases()
 	for i := range noise {
@@ -53,7 +54,7 @@ func TestMatcher_Scenario1B_MissingMovie(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	releases := []types.TorrentInfo{
 		makeTorrentWithIDs("Dune.Part.Two.2024.2160p.UHD.BluRay.x265", "BluRay", 2160, 150, 693134, 0),
@@ -95,7 +96,7 @@ func TestMatcher_Scenario4B_MissingEpisode(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03E07.1080p.WEB-DL.x264", "WEB-DL", 1080, 70, 0, 81189)
 	results := matcher.Match(context.Background(), &r1)
@@ -131,7 +132,7 @@ func TestMatcher_Scenario7B_AllMissing_SeasonPack(t *testing.T) {
 	// Build index with individual episode items (simulates what the index needs for matching)
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, false, 0)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100, 0, 81189)
 	results := matcher.Match(context.Background(), &r1)
@@ -141,8 +142,8 @@ func TestMatcher_Scenario7B_AllMissing_SeasonPack(t *testing.T) {
 	if !results[0].IsSeason {
 		t.Error("result should be marked as season")
 	}
-	if results[0].WantedItem.MediaType != decisioning.MediaTypeSeason {
-		t.Errorf("expected MediaTypeSeason, got %s", results[0].WantedItem.MediaType)
+	if results[0].WantedItem.GetMediaType() != "season" {
+		t.Errorf("expected media type season, got %s", results[0].WantedItem.GetMediaType())
 	}
 
 	r2 := makeTorrentWithIDs("Breaking.Bad.S03E01.1080p.WEB-DL.x264", "WEB-DL", 1080, 80, 0, 81189)
@@ -167,7 +168,7 @@ func TestMatcher_Scenario8B_AllUpgradable_SeasonPackUpgrade(t *testing.T) {
 	// Build index with individual upgrade episode items
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, true, 6)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("Breaking.Bad.S03.1080p.BluRay.x264", "BluRay", 1080, 100, 0, 81189)
 	results := matcher.Match(context.Background(), &r1)
@@ -177,11 +178,12 @@ func TestMatcher_Scenario8B_AllUpgradable_SeasonPackUpgrade(t *testing.T) {
 	if !results[0].IsSeason {
 		t.Error("result should be marked as season")
 	}
-	if !results[0].WantedItem.HasFile {
-		t.Error("upgrade season item should have HasFile=true")
+	currentQID := results[0].WantedItem.GetCurrentQualityID()
+	if currentQID == nil {
+		t.Fatal("upgrade season item should have CurrentQualityID set")
 	}
-	if results[0].WantedItem.CurrentQualityID != 6 {
-		t.Errorf("expected CurrentQualityID=6, got %d", results[0].WantedItem.CurrentQualityID)
+	if *currentQID != 6 {
+		t.Errorf("expected CurrentQualityID=6, got %d", *currentQID)
 	}
 }
 
@@ -201,7 +203,7 @@ func TestMatcher_Scenario10B_ContinuingSeason(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("The.Mandalorian.S03.1080p.WEB-DL.x264", "WEB-DL", 1080, 100, 0, 82856)
 	results := matcher.Match(context.Background(), &r1)
@@ -242,7 +244,7 @@ func TestMatcher_Scenario11B_SeasonPremiere(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("House.of.the.Dragon.S03E01.1080p.WEB-DL.x264", "WEB-DL", 1080, 90, 0, 94997)
 	results := matcher.Match(context.Background(), &r1)
@@ -272,7 +274,7 @@ func TestMatcher_Scenario14B_SeasonPackBlocked(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentWithIDs("The.Last.of.Us.S02.1080p.WEB-DL.x264", "WEB-DL", 1080, 100, 0, 100088)
 	results := matcher.Match(context.Background(), &r1)
@@ -295,7 +297,7 @@ func TestMatcher_Scenario15B_TitleBasedMatching(t *testing.T) {
 	env.createMovie(t, "Dune Part Two", 693134, 2024, "missing")
 	items := env.collectWantedItems(t)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	r1 := makeTorrentRelease("Dune.Part.Two.2024.1080p.BluRay.x264", "BluRay", 1080, 100)
 	results := matcher.Match(context.Background(), &r1)
@@ -315,19 +317,19 @@ func TestGroupMatches(t *testing.T) {
 	matches := []MatchResult{
 		{
 			Release:    makeTorrentRelease("Release.1", "BluRay", 1080, 100),
-			WantedItem: decisioning.SearchableItem{MediaType: decisioning.MediaTypeMovie, MediaID: 1},
+			WantedItem: makeTestWantedItem("movie", 1, 0, 0),
 		},
 		{
 			Release:    makeTorrentRelease("Release.2", "WEB-DL", 1080, 80),
-			WantedItem: decisioning.SearchableItem{MediaType: decisioning.MediaTypeMovie, MediaID: 1},
+			WantedItem: makeTestWantedItem("movie", 1, 0, 0),
 		},
 		{
 			Release:    makeTorrentRelease("Release.3", "BluRay", 1080, 90),
-			WantedItem: decisioning.SearchableItem{MediaType: decisioning.MediaTypeEpisode, MediaID: 2, SeriesID: 10, SeasonNumber: 3},
+			WantedItem: makeTestWantedItem("episode", 2, 10, 3),
 		},
 		{
 			Release:    makeTorrentRelease("Release.4", "BluRay", 1080, 95),
-			WantedItem: decisioning.SearchableItem{MediaType: decisioning.MediaTypeSeason, MediaID: 10, SeriesID: 10, SeasonNumber: 3},
+			WantedItem: makeTestWantedItem("season", 10, 10, 3),
 			IsSeason:   true,
 		},
 	}
@@ -338,14 +340,14 @@ func TestGroupMatches(t *testing.T) {
 		t.Errorf("expected 3 groups, got %d", len(groups))
 	}
 
-	movieKey := itemKey(&matches[0].WantedItem)
+	movieKey := itemKey(matches[0].WantedItem)
 	if g, ok := groups[movieKey]; !ok {
 		t.Error("missing movie group")
 	} else if len(g.releases) != 2 {
 		t.Errorf("movie group should have 2 releases, got %d", len(g.releases))
 	}
 
-	seasonKey := itemKey(&matches[3].WantedItem)
+	seasonKey := itemKey(matches[3].WantedItem)
 	if g, ok := groups[seasonKey]; !ok {
 		t.Error("missing season group")
 	} else if !g.isSeason {
@@ -353,18 +355,36 @@ func TestGroupMatches(t *testing.T) {
 	}
 }
 
-// Test seasonKeyForEpisode
-func TestSeasonKeyForEpisode(t *testing.T) {
-	item := decisioning.SearchableItem{
-		MediaType:    decisioning.MediaTypeEpisode,
-		MediaID:      100,
-		SeriesID:     10,
-		SeasonNumber: 3,
-	}
+// Test seasonKeyForItem
+func TestSeasonKeyForItem(t *testing.T) {
+	item := makeTestWantedItem("episode", 100, 10, 3)
 
-	key := seasonKeyForEpisode(&item)
+	key := seasonKeyForItem(item)
 	expected := "season:10:3"
 	if key != expected {
 		t.Errorf("expected %q, got %q", expected, key)
 	}
+}
+
+func makeTestWantedItem(mediaType string, entityID, seriesID int64, season int) module.SearchableItem {
+	var modType module.Type
+	if mediaType == "movie" {
+		modType = module.TypeMovie
+	} else {
+		modType = module.TypeTV
+	}
+	return module.NewWantedItem(
+		modType,
+		mediaType,
+		entityID,
+		"",
+		nil,
+		0,
+		nil,
+		module.SearchParams{Extra: map[string]any{
+			"seriesId":      seriesID,
+			"seasonNumber":  season,
+			"episodeNumber": 0,
+		}},
+	)
 }

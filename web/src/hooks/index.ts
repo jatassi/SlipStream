@@ -90,6 +90,7 @@ export {
 export {
   useCreateNotification,
   useDeleteNotification,
+  useNotificationEventCatalog,
   useNotifications,
   useNotificationSchemas,
   useTestNewNotification,

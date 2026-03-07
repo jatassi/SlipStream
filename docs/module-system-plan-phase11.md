@@ -109,15 +109,21 @@ Every item deferred to Phase 11 from earlier phases, tracked to its task assignm
 | 18 | ~40 duplicated slot queries in `slots.sql` | Appendix C row 6 | 11.12 |
 | 19 | List/search query patterns in `movies.sql` / `series.sql` | Appendix C row 7 | 11.16 (via scaffolding templates) |
 
+### From Phase 7
+
+| # | Deferred Item | Source | Assigned Task |
+|---|---|---|---|
+| 20 | Add generic `OnModuleEvent` method to `Notifier` interface for events that don't map to typed methods (needed when a 3rd module introduces new event types) | Phase 7 (architecture decision 3) | Deferred until 3rd module |
+
 ### From §19 Contributor Tooling
 
 | # | Spec Requirement | Assigned Task |
 |---|---|---|
-| 20 | `make new-module <id>` scaffolding generator (§19.1) | 11.16 |
-| 21 | `slipstream validate-module <id>` CLI validation (§19.2) | 11.15 |
-| 22 | `moduletest` package: lifecycle, parsing, naming, schema test harness (§19.3) | 11.14 |
+| 21 | `make new-module <id>` scaffolding generator (§19.1) | 11.16 |
+| 22 | `slipstream validate-module <id>` CLI validation (§19.2) | 11.15 |
+| 23 | `moduletest` package: lifecycle, parsing, naming, schema test harness (§19.3) | 11.14 |
 
-**Total: 22 items, all assigned.**
+**Total: 23 items, all assigned.**
 
 ---
 

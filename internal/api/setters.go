@@ -8,9 +8,11 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/firewall"
 	"github.com/slipstream/slipstream/internal/indexer"
+	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/metadata/omdb"
 	"github.com/slipstream/slipstream/internal/metadata/tmdb"
 	"github.com/slipstream/slipstream/internal/metadata/tvdb"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/rsssync"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
 	"github.com/slipstream/slipstream/internal/update"
@@ -34,6 +36,15 @@ func wireCircularDeps(s *Server) {
 	s.library.LibraryManager.SetRegistry(s.registry)
 	s.system.Availability.SetRegistry(s.registry)
 	s.system.Calendar.SetRegistry(s.registry)
+	s.search.Search.SetRegistry(s.registry)
+	s.automation.Autosearch.SetRegistry(s.registry)
+	s.automation.ScheduledSearcher.SetRegistry(s.registry)
+	s.automation.RssSync.SetRegistry(s.registry)
+	s.download.Service.SetRegistry(s.registry)
+	s.automation.Import.SetRegistry(s.registry)
+
+	// Register module quality items with the quality service
+	registerModuleQualities(s.registry, s.library.Quality)
 
 	// Circular: LibraryManager ↔ Autosearch
 	s.library.LibraryManager.SetAutosearchService(s.automation.Autosearch)
@@ -167,5 +178,26 @@ func (s *Server) registerSchedulerTasks() {
 	queries := sqlc.New(s.dbManager.Conn())
 	if err := tasks.RegisterPlexRefreshTask(sched, queries, s.notification.Service, s.notification.PlexClient, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register Plex refresh task")
+	}
+}
+
+// registerModuleQualities registers quality items from each module with the quality service.
+func registerModuleQualities(registry *module.Registry, qualitySvc *quality.Service) {
+	for _, mod := range registry.All() {
+		items := mod.QualityItems()
+		if len(items) == 0 {
+			continue
+		}
+		defs := make([]quality.QualityItemDef, len(items))
+		for i, item := range items {
+			defs[i] = quality.QualityItemDef{
+				ID:         item.ID,
+				Name:       item.Name,
+				Source:     item.Source,
+				Resolution: item.Resolution,
+				Weight:     item.Weight,
+			}
+		}
+		qualitySvc.RegisterModuleQualities(string(mod.ID()), defs)
 	}
 }

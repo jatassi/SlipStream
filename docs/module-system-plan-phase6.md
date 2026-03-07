@@ -84,7 +84,7 @@ Task 6.1 (types)
 
 ---
 
-### Task 6.1: Flesh Out File Pipeline Interface Types
+### Task 6.1: Flesh Out File Pipeline Interface Types ✅
 
 **Depends on:** Phase 5 complete
 
@@ -264,7 +264,7 @@ type FormatOption struct {
 
 ---
 
-### Task 6.2: Extract Shared Parsing Utility Library
+### Task 6.2: Extract Shared Parsing Utility Library ✅
 
 **Depends on:** Task 6.1
 
@@ -377,7 +377,7 @@ func VideoExtensions() []string
 
 ---
 
-### Task 6.3: Implement Movie FileParser
+### Task 6.3: Implement Movie FileParser ✅
 
 **Depends on:** Task 6.2
 
@@ -530,7 +530,7 @@ func parsedMediaToResult(parsed *scanner.ParsedMedia) *module.ParseResult {
 
 ---
 
-### Task 6.4: Implement TV FileParser
+### Task 6.4: Implement TV FileParser ✅
 
 **Depends on:** Task 6.2
 
@@ -724,7 +724,7 @@ func (p *fileParser) MatchToEntity(ctx context.Context, parseResult *module.Pars
 
 ---
 
-### Task 6.5: Implement Movie PathGenerator and NamingProvider
+### Task 6.5: Implement Movie PathGenerator and NamingProvider ✅
 
 **Depends on:** Task 6.1
 
@@ -845,7 +845,7 @@ func (n *namingProvider) FormatOptions() []module.FormatOption {
 
 ---
 
-### Task 6.6: Implement TV PathGenerator and NamingProvider
+### Task 6.6: Implement TV PathGenerator and NamingProvider ✅
 
 **Depends on:** Task 6.1
 
@@ -1007,7 +1007,7 @@ func (n *namingProvider) FormatOptions() []module.FormatOption {
 
 ---
 
-### Task 6.7: Naming Settings Migration and Settings Loading Refactor
+### Task 6.7: Naming Settings Migration and Settings Loading Refactor ✅
 
 **Depends on:** Tasks 6.5 + 6.6 (need to know per-module setting keys)
 
@@ -1288,7 +1288,7 @@ func populateLegacyFields(s *renamer.Settings, moduleType module.Type) {
 
 ---
 
-### Task 6.8: Implement Movie ImportHandler
+### Task 6.8: Implement Movie ImportHandler ✅
 
 **Depends on:** Task 6.1
 
@@ -1425,7 +1425,7 @@ func (h *importHandler) MediaInfoFields() []module.MediaInfoFieldDecl {
 
 ---
 
-### Task 6.9: Implement TV ImportHandler (Multi-File Support)
+### Task 6.9: Implement TV ImportHandler (Multi-File Support) ✅
 
 **Depends on:** Task 6.1
 
@@ -1683,7 +1683,7 @@ func buildTVTokenData(series *tvlib.Series, episode *tvlib.Episode) map[string]a
 
 ---
 
-### Task 6.10: Refactor Download Categories and Import Pipeline for Module Dispatch
+### Task 6.10: Refactor Download Categories and Import Pipeline for Module Dispatch ✅
 
 **Depends on:** Tasks 6.3, 6.4, 6.7, 6.8, 6.9
 
@@ -2028,7 +2028,7 @@ func (s *Service) finalizeImport(ctx context.Context, match *LibraryMatch, destP
 
 ---
 
-### Task 6.11: Refactor Orphan Scan with TryMatch
+### Task 6.11: Refactor Orphan Scan with TryMatch ✅
 
 **Depends on:** Tasks 6.3 + 6.4
 
@@ -2122,7 +2122,7 @@ func (s *Service) matchOrphanViaModules(ctx context.Context, filePath string) {
 
 ---
 
-### Task 6.12: Wire DI Integration
+### Task 6.12: Wire DI Integration ✅
 
 **Depends on:** Tasks 6.10 + 6.11
 
@@ -2174,7 +2174,7 @@ Run: `make wire` to regenerate `wire_gen.go`.
 
 ---
 
-### Task 6.13: Phase 6 Validation
+### Task 6.13: Phase 6 Validation ✅
 
 **Run all of these after all Phase 6 tasks complete:**
 

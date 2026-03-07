@@ -89,6 +89,7 @@ These items provide no value for just movie+TV and are explicitly deferred until
 
 | Deferred Item | Source |
 |---|---|
+| Wire scoring pipeline through module `QualityDefinition` — `matchExact`/`bestQualityByField` in `internal/indexer/scoring/` use `quality.PredefinedQualities` directly instead of module-registered items via `GetQualitiesForModule` | Phase 5 (deferred item 2, line 41) |
 | Generic portal duplicate detection via module external IDs (replacing per-media-type request queries) | Phase 8 (line 10532) |
 | Generic hierarchy walk for request completion inference (replacing module-dispatched `CheckAvailability`) | Phase 8 (line 10607) |
 

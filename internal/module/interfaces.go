@@ -13,23 +13,41 @@ type MetadataProvider interface {
 	RefreshMetadata(ctx context.Context, entityID int64) (*RefreshResult, error)
 }
 
-// SearchStrategy defines search behavior for a module.
+// SearchStrategy defines search behavior for a module. (spec §5.4, §5.5, §5.6)
 type SearchStrategy interface {
+	// Categories returns the Newznab/Torznab category ranges for this module.
 	Categories() []int
-	FilterRelease(release Release, item SearchableItem) (reject bool, reason string)
+
+	// DefaultSearchCategories returns the default subset of categories used for searches.
+	DefaultSearchCategories() []int
+
+	// FilterRelease determines whether a release should be rejected for the given item.
+	// Returns (true, reason) to reject, (false, "") to accept.
+	FilterRelease(ctx context.Context, release *ReleaseForFilter, item SearchableItem) (reject bool, reason string)
+
+	// TitlesMatch checks whether a parsed release title matches a media title.
 	TitlesMatch(releaseTitle, mediaTitle string) bool
+
+	// BuildSearchCriteria constructs indexer search parameters for a wanted item.
 	BuildSearchCriteria(item SearchableItem) SearchCriteria
-	IsGroupSearchEligible(parentEntityType EntityType, parentID int64) bool
-	SuppressChildSearches(parentEntityType EntityType, parentID int64, grabbedRelease Release) []int64
+
+	// IsGroupSearchEligible determines if a parent node should be searched as a group.
+	// childIdentifier carries the season number for TV, 0 for flat modules like Movie.
+	// forUpgrade distinguishes missing vs upgrade eligibility checks.
+	IsGroupSearchEligible(ctx context.Context, parentEntityType EntityType, parentID int64, childIdentifier int, forUpgrade bool) bool
+
+	// SuppressChildSearches returns entity IDs of children that should be suppressed
+	// after a successful group search (e.g., all episodes in a grabbed season pack).
+	SuppressChildSearches(parentEntityType EntityType, parentID int64, seasonNumber int) []int64
 }
 
 // ImportHandler handles download completion and file import.
 type ImportHandler interface {
-	MatchDownload(ctx context.Context, download CompletedDownload) ([]MatchedEntity, error)
-	ImportFile(ctx context.Context, filePath string, entity MatchedEntity, qualityInfo QualityInfo) (*ImportResult, error)
+	MatchDownload(ctx context.Context, download *CompletedDownload) ([]MatchedEntity, error)
+	ImportFile(ctx context.Context, filePath string, entity *MatchedEntity, qualityInfo *QualityInfo) (*ImportResult, error)
 	SupportsMultiFileDownload() bool
-	MatchIndividualFile(ctx context.Context, filePath string, parentEntity MatchedEntity) (*MatchedEntity, error)
-	IsGroupImportReady(ctx context.Context, parentEntity MatchedEntity, matchedFiles []MatchedEntity) bool
+	MatchIndividualFile(ctx context.Context, filePath string, parentEntity *MatchedEntity) (*MatchedEntity, error)
+	IsGroupImportReady(ctx context.Context, parentEntity *MatchedEntity, matchedFiles []MatchedEntity) bool
 	MediaInfoFields() []MediaInfoFieldDecl
 }
 
@@ -39,7 +57,7 @@ type PathGenerator interface {
 	AvailableVariables(level string) []TemplateVariable
 	ResolveTemplate(template string, data map[string]any) (string, error)
 	ConditionalSegments() []ConditionalSegment
-	IsSpecialNode(entityType EntityType, entityID int64) bool
+	IsSpecialNode(ctx context.Context, entityType EntityType, entityID int64) (bool, error)
 }
 
 // NamingProvider declares file naming configuration.

@@ -209,19 +209,21 @@ func (d *DevModeManager) switchNotification(devMode bool) {
 
 		// Create mock notification (subscribed to all events)
 		_, err = d.notification.Service.Create(ctx, &notification.CreateInput{
-			Name:             "Mock Notification",
-			Type:             notification.NotifierMock,
-			Enabled:          true,
-			OnGrab:           true,
-			OnImport:         true,
-			OnUpgrade:        true,
-			OnMovieAdded:     true,
-			OnMovieDeleted:   true,
-			OnSeriesAdded:    true,
-			OnSeriesDeleted:  true,
-			OnHealthIssue:    true,
-			OnHealthRestored: true,
-			OnAppUpdate:      true,
+			Name:    "Mock Notification",
+			Type:    notification.NotifierMock,
+			Enabled: true,
+			EventToggles: map[string]bool{
+				notification.EventGrab:           true,
+				notification.EventImport:         true,
+				notification.EventUpgrade:        true,
+				notification.EventMovieAdded:     true,
+				notification.EventMovieDeleted:   true,
+				notification.EventSeriesAdded:    true,
+				notification.EventSeriesDeleted:  true,
+				notification.EventHealthIssue:    true,
+				notification.EventHealthRestored: true,
+				notification.EventAppUpdate:      true,
+			},
 		})
 		if err != nil {
 			d.logger.Error().Err(err).Msg("Failed to create mock notification")

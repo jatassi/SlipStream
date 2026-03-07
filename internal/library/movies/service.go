@@ -17,6 +17,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/module"
+	"github.com/slipstream/slipstream/internal/module/parseutil"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -243,7 +244,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 	s.logger.Info().Int64("id", movie.ID).Str("title", movie.Title).Msg("Created movie")
 
 	if s.hub != nil {
-		s.hub.Broadcast("movie:added", movie)
+		s.hub.BroadcastEntity("movie", "movie", movie.ID, "added", movie)
 	}
 
 	if s.notifier != nil {
@@ -287,7 +288,7 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateMovieInput)
 		Msg("[UPDATE] Movie updated successfully")
 
 	if s.hub != nil {
-		s.hub.Broadcast("movie:updated", movie)
+		s.hub.BroadcastEntity("movie", "movie", movie.ID, "updated", movie)
 	}
 
 	return movie, nil
@@ -348,7 +349,7 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 
 	// Broadcast event
 	if s.hub != nil {
-		s.hub.Broadcast("movie:deleted", map[string]int64{"id": id})
+		s.hub.BroadcastEntity("movie", "movie", id, "deleted", nil)
 	}
 
 	// Dispatch notification
@@ -564,6 +565,25 @@ func (s *Service) UpdateFileMediaInfo(ctx context.Context, movieID int64, info *
 		Resolution: sql.NullString{String: info.VideoResolution, Valid: info.VideoResolution != ""},
 		MovieID:    movieID,
 	})
+}
+
+// FindByTitleAndYear finds a movie by normalized title and optional year.
+// Returns nil if no match is found.
+func (s *Service) FindByTitleAndYear(ctx context.Context, title string, year int) (*Movie, error) {
+	allMovies, err := s.List(ctx, ListMoviesOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedSearch := parseutil.NormalizeTitle(title)
+	for _, m := range allMovies {
+		if parseutil.NormalizeTitle(m.Title) == normalizedSearch {
+			if year == 0 || m.Year == year {
+				return m, nil
+			}
+		}
+	}
+	return nil, nil //nolint:nilnil // nil movie with no error means "no match found"
 }
 
 // Count returns the total number of movies.
@@ -814,7 +834,7 @@ func (s *Service) transitionMovieToMissingAfterFileRemoval(ctx context.Context, 
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", movieID, oldStatus, status.Missing, "File removed")
 	}
 	if s.hub != nil {
-		s.hub.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.hub.BroadcastEntity("movie", "movie", movieID, "updated", nil)
 	}
 }
 

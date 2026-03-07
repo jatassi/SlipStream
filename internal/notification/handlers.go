@@ -8,24 +8,28 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const redactedSentinel = "********"
 
 // Handlers provides HTTP handlers for notification management
 type Handlers struct {
-	service *Service
+	service  *Service
+	registry *module.Registry
 }
 
 // NewHandlers creates a new Handlers instance
-func NewHandlers(service *Service) *Handlers {
-	return &Handlers{service: service}
+func NewHandlers(service *Service, registry *module.Registry) *Handlers {
+	return &Handlers{service: service, registry: registry}
 }
 
 // RegisterRoutes registers admin-only notification routes on the provided group
 func (h *Handlers) RegisterRoutes(g *echo.Group) {
 	g.GET("", h.List)
 	g.POST("", h.Create)
+	g.GET("/events", h.GetEventCatalog)
 	g.GET("/:id", h.Get)
 	g.PUT("/:id", h.Update)
 	g.DELETE("/:id", h.Delete)
@@ -314,6 +318,13 @@ func (h *Handlers) TestNew(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, result)
+}
+
+// GetEventCatalog returns the available notification events grouped by source
+// GET /api/v1/notifications/events
+func (h *Handlers) GetEventCatalog(c echo.Context) error {
+	groups := h.registry.CollectNotificationEvents()
+	return c.JSON(http.StatusOK, groups)
 }
 
 // GetSchemas returns the available notification types and their settings schemas

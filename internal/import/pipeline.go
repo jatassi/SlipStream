@@ -20,6 +20,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 var ErrNotApplicable = errors.New("not applicable")
@@ -102,7 +103,22 @@ func (s *Service) ProcessManualImport(ctx context.Context, sourcePath string, ma
 
 // SlipStreamSubdirs are the subdirectories where SlipStream places downloads.
 // Only files in these directories should be scanned for import.
+// When the module registry is available, use GetSlipStreamSubdirs() instead.
 var SlipStreamSubdirs = []string{"SlipStream/Movies", "SlipStream/Series", "SlipStream"}
+
+// GetSlipStreamSubdirs returns download subdirectories for all registered modules.
+// Falls back to the hard-coded SlipStreamSubdirs when no registry is available.
+func (s *Service) GetSlipStreamSubdirs() []string {
+	if s.registry == nil {
+		return SlipStreamSubdirs
+	}
+	var dirs []string
+	for _, mod := range s.registry.All() {
+		dirs = append(dirs, "SlipStream/"+mod.PluralName())
+	}
+	dirs = append(dirs, "SlipStream") // Base fallback
+	return dirs
+}
 
 // ScanForPendingImports scans download folders for files ready to import.
 // Only scans the SlipStream subdirectories to avoid importing downloads from other applications.
@@ -139,7 +155,7 @@ func (s *Service) scanClientDownloads(ctx context.Context, client *downloader.Do
 		return
 	}
 
-	for _, subDir := range SlipStreamSubdirs {
+	for _, subDir := range s.GetSlipStreamSubdirs() {
 		s.scanSubdirectory(ctx, baseDir, subDir, libraryStats)
 	}
 }
@@ -289,6 +305,82 @@ func (s *Service) isSameFile(path1, path2 string) bool {
 	}
 
 	return os.SameFile(stat1, stat2)
+}
+
+// matchOrphanViaModules iterates registered modules to find the best FileParser match
+// for an orphan file (one without a download mapping). Returns nil if no module claims the file.
+func (s *Service) matchOrphanViaModules(ctx context.Context, filePath string) *module.MatchedEntity {
+	filename := filepath.Base(filePath)
+
+	var bestConfidence float64
+	var bestModule module.Module
+	var bestParse *module.ParseResult
+
+	for _, mod := range s.registry.All() {
+		fp, ok := mod.(module.FileParser)
+		if !ok {
+			continue
+		}
+
+		confidence, parseResult := fp.TryMatch(filename)
+		if confidence > bestConfidence {
+			bestConfidence = confidence
+			bestModule = mod
+			bestParse = parseResult
+		}
+	}
+
+	if bestModule == nil || bestConfidence == 0 {
+		s.logger.Debug().Str("file", filename).Msg("No module claimed orphan file")
+		return nil
+	}
+
+	s.logger.Info().
+		Str("file", filename).
+		Str("module", string(bestModule.ID())).
+		Float64("confidence", bestConfidence).
+		Msg("Orphan file claimed by module")
+
+	fp, ok := bestModule.(module.FileParser)
+	if !ok {
+		return nil
+	}
+	entity, err := fp.MatchToEntity(ctx, bestParse)
+	if err != nil || entity == nil {
+		s.logger.Debug().Str("file", filename).Msg("No library match for orphan file")
+		return nil
+	}
+
+	return entity
+}
+
+// entityToLibraryMatch converts a module MatchedEntity to the import pipeline's LibraryMatch.
+func entityToLibraryMatch(entity *module.MatchedEntity) *LibraryMatch {
+	match := &LibraryMatch{
+		Confidence:         entity.Confidence,
+		Source:             entity.Source,
+		RootFolder:         entity.RootFolder,
+		IsUpgrade:          entity.IsUpgrade,
+		ExistingFileID:     entity.ExistingFileID,
+		ExistingFile:       entity.ExistingFilePath,
+		CandidateQualityID: entity.CandidateQualityID,
+		ExistingQualityID:  entity.ExistingQualityID,
+		QualityProfileID:   entity.QualityProfileID,
+	}
+
+	switch entity.EntityType {
+	case module.EntityMovie:
+		match.MediaType = mediaTypeMovie
+		match.MovieID = &entity.EntityID
+	case module.EntityEpisode:
+		match.MediaType = mediaTypeEpisode
+		match.EpisodeID = &entity.EntityID
+		if len(entity.EntityIDs) > 1 {
+			match.EpisodeIDs = entity.EntityIDs
+		}
+	}
+
+	return match
 }
 
 // processImport handles the actual import of a single file.
@@ -646,6 +738,13 @@ func (s *Service) computeDestination(
 	sourcePath string,
 ) (string, error) {
 	ext := filepath.Ext(sourcePath)
+
+	// Module-aware path: use module schema and resolver when available
+	if s.registry != nil && match.ModuleEntity != nil {
+		return s.computeDestinationViaModule(ctx, match.ModuleEntity, nil, mediaInfo, ext)
+	}
+
+	// Legacy path
 	tokenCtx := s.buildTokenContext(ctx, match, mediaInfo, sourcePath)
 
 	if match.MediaType == mediaTypeMovie {
@@ -691,6 +790,135 @@ func (s *Service) computeEpisodeDestination(tokenCtx *renamer.TokenContext, root
 		return "", ErrPathTooLong
 	}
 	return fullPath, nil
+}
+
+// computeDestinationViaModule computes the destination path using the module's
+// NodeSchema and renamer patterns. Each schema level is resolved via
+// the module-specific Resolver from moduleResolvers.
+func (s *Service) computeDestinationViaModule(
+	_ context.Context,
+	entity *module.MatchedEntity,
+	parsed *module.ParseResult,
+	mi *mediainfo.MediaInfo,
+	ext string,
+) (string, error) {
+	mod := s.registry.Get(entity.ModuleType)
+	if mod == nil {
+		return "", fmt.Errorf("module %s not found in registry", entity.ModuleType)
+	}
+
+	resolver, ok := s.moduleResolvers[entity.ModuleType]
+	if !ok {
+		return "", fmt.Errorf("no renamer configured for module %s", entity.ModuleType)
+	}
+
+	tokenCtx := buildTokenContextFromData(entity, parsed, mi)
+	schema := mod.NodeSchema()
+	segments := []string{entity.RootFolder}
+
+	for _, level := range schema.Levels {
+		resolved, done, err := s.resolveSchemaLevel(level, mod, entity, resolver, tokenCtx, ext)
+		if err != nil {
+			return "", err
+		}
+		segments = append(segments, resolved...)
+		if done {
+			break
+		}
+	}
+
+	return filepath.Join(segments...), nil
+}
+
+// resolveSchemaLevel resolves a single schema level into path segments.
+// Returns the resolved segments, whether iteration should stop, and any error.
+func (s *Service) resolveSchemaLevel(
+	level module.NodeLevel,
+	mod module.Module,
+	entity *module.MatchedEntity,
+	resolver *renamer.Resolver,
+	tokenCtx *renamer.TokenContext,
+	ext string,
+) (segments []string, done bool, err error) {
+	if level.IsRoot && level.IsLeaf {
+		return s.resolveRootLeafLevel(level, resolver, tokenCtx, ext)
+	}
+	if level.IsRoot {
+		return s.resolveRootLevel(level, resolver, tokenCtx)
+	}
+	if level.IsLeaf {
+		return s.resolveLeafLevel(level, entity, resolver, tokenCtx, ext)
+	}
+	return s.resolveIntermediateLevel(level, mod, entity, resolver, tokenCtx)
+}
+
+func (s *Service) resolveRootLeafLevel(level module.NodeLevel, resolver *renamer.Resolver, tokenCtx *renamer.TokenContext, ext string) (segments []string, done bool, err error) {
+	folderName, err := resolver.ResolveContext(level.Name+"-folder", tokenCtx, "")
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve %s-folder: %w", level.Name, err)
+	}
+	fileName, err := resolver.ResolveContext(level.Name+"-file", tokenCtx, ext)
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve %s-file: %w", level.Name, err)
+	}
+	return []string{folderName, fileName}, true, nil
+}
+
+func (s *Service) resolveRootLevel(level module.NodeLevel, resolver *renamer.Resolver, tokenCtx *renamer.TokenContext) (segments []string, done bool, err error) {
+	folderName, err := resolver.ResolveContext(level.Name+"-folder", tokenCtx, "")
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve %s-folder: %w", level.Name, err)
+	}
+	return []string{folderName}, false, nil
+}
+
+func (s *Service) resolveLeafLevel(level module.NodeLevel, entity *module.MatchedEntity, resolver *renamer.Resolver, tokenCtx *renamer.TokenContext, ext string) (segments []string, done bool, err error) {
+	contextName := level.Name + "-file"
+	if seriesType, ok := entity.TokenData["SeriesType"].(string); ok && seriesType != "" {
+		variantKey := contextName + "." + seriesType
+		if resolver.HasPattern(variantKey) {
+			contextName = variantKey
+		}
+	}
+	fileName, err := resolver.ResolveContext(contextName, tokenCtx, ext)
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve %s: %w", contextName, err)
+	}
+	return []string{fileName}, false, nil
+}
+
+func (s *Service) resolveIntermediateLevel(level module.NodeLevel, mod module.Module, entity *module.MatchedEntity, resolver *renamer.Resolver, tokenCtx *renamer.TokenContext) (segments []string, done bool, err error) {
+	if !isIntermediateLevelEnabled(mod, entity) {
+		return nil, false, nil
+	}
+
+	contextName := level.Name + "-folder"
+	if isSpecial, ok := entity.TokenData["IsSpecial"].(bool); ok && isSpecial {
+		contextName = "specials-folder"
+	}
+
+	folderName, err := resolver.ResolveContext(contextName, tokenCtx, "")
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve %s: %w", contextName, err)
+	}
+	return []string{folderName}, false, nil
+}
+
+// isIntermediateLevelEnabled checks whether a conditional intermediate level
+// (e.g., season folder) should be included based on module conditions and entity data.
+func isIntermediateLevelEnabled(mod module.Module, entity *module.MatchedEntity) bool {
+	pathGen, ok := mod.(module.PathGenerator)
+	if !ok {
+		return true
+	}
+	for _, cond := range pathGen.ConditionalSegments() {
+		if cond.DataKey != "" {
+			if val, dataOK := entity.TokenData[cond.DataKey].(bool); dataOK && !val {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // executeImport performs the actual file import using hardlink/copy.
@@ -1296,9 +1524,7 @@ func (s *Service) processMockMovieImport(ctx context.Context, mapping *DownloadM
 			"isMock":          true,
 		})
 		// Also broadcast movie update so detail page refreshes
-		s.hub.Broadcast("movie:updated", map[string]any{
-			"movieId": mapping.MovieID,
-		})
+		s.hub.BroadcastEntity("movie", "movie", *mapping.MovieID, "updated", nil)
 	}
 
 	return nil
@@ -1412,9 +1638,7 @@ func (s *Service) broadcastSeasonPackImport(mapping *DownloadMapping, series *tv
 		"episodesImported": importedCount,
 		"isMock":           true,
 	})
-	s.hub.Broadcast("series:updated", map[string]any{
-		"seriesId": mapping.SeriesID,
-	})
+	s.hub.BroadcastEntity("tv", "series", *mapping.SeriesID, "updated", nil)
 }
 
 // processMockSingleEpisodeImport creates a file for a single episode.
@@ -1484,9 +1708,7 @@ func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *D
 			"isMock":          true,
 		})
 		// Also broadcast series update so detail page refreshes
-		s.hub.Broadcast("series:updated", map[string]any{
-			"seriesId": mapping.SeriesID,
-		})
+		s.hub.BroadcastEntity("tv", "series", *mapping.SeriesID, "updated", nil)
 	}
 
 	return nil
@@ -1620,7 +1842,5 @@ func (s *Service) broadcastCompleteSeriesImport(series *tv.Series, seasons []tv.
 		"episodesImported": totalImported,
 		"isMock":           true,
 	})
-	s.hub.Broadcast("series:updated", map[string]any{
-		"seriesId": mapping.SeriesID,
-	})
+	s.hub.BroadcastEntity("tv", "series", *mapping.SeriesID, "updated", nil)
 }

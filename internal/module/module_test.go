@@ -41,30 +41,33 @@ func (m *mockModule) RefreshMetadata(_ context.Context, _ int64) (*RefreshResult
 	return nil, nil //nolint:nilnil // test stub
 }
 
-func (m *mockModule) Categories() []int { return nil }
+func (m *mockModule) Categories() []int              { return nil }
+func (m *mockModule) DefaultSearchCategories() []int { return nil }
 
-func (m *mockModule) FilterRelease(_ Release, _ SearchableItem) (reject bool, reason string) {
+func (m *mockModule) FilterRelease(_ context.Context, _ *ReleaseForFilter, _ SearchableItem) (reject bool, reason string) {
 	return false, ""
 }
 
 func (m *mockModule) TitlesMatch(_, _ string) bool                        { return false }
 func (m *mockModule) BuildSearchCriteria(_ SearchableItem) SearchCriteria { return SearchCriteria{} }
-func (m *mockModule) IsGroupSearchEligible(_ EntityType, _ int64) bool    { return false }
-func (m *mockModule) SuppressChildSearches(_ EntityType, _ int64, _ Release) []int64 {
+func (m *mockModule) IsGroupSearchEligible(_ context.Context, _ EntityType, _ int64, _ int, _ bool) bool {
+	return false
+}
+func (m *mockModule) SuppressChildSearches(_ EntityType, _ int64, _ int) []int64 {
 	return nil
 }
 
-func (m *mockModule) MatchDownload(_ context.Context, _ CompletedDownload) ([]MatchedEntity, error) {
+func (m *mockModule) MatchDownload(_ context.Context, _ *CompletedDownload) ([]MatchedEntity, error) {
 	return nil, nil
 }
-func (m *mockModule) ImportFile(_ context.Context, _ string, _ MatchedEntity, _ QualityInfo) (*ImportResult, error) {
+func (m *mockModule) ImportFile(_ context.Context, _ string, _ *MatchedEntity, _ *QualityInfo) (*ImportResult, error) {
 	return nil, nil //nolint:nilnil // test stub
 }
 func (m *mockModule) SupportsMultiFileDownload() bool { return false }
-func (m *mockModule) MatchIndividualFile(_ context.Context, _ string, _ MatchedEntity) (*MatchedEntity, error) {
+func (m *mockModule) MatchIndividualFile(_ context.Context, _ string, _ *MatchedEntity) (*MatchedEntity, error) {
 	return nil, nil //nolint:nilnil // test stub
 }
-func (m *mockModule) IsGroupImportReady(_ context.Context, _ MatchedEntity, _ []MatchedEntity) bool {
+func (m *mockModule) IsGroupImportReady(_ context.Context, _ *MatchedEntity, _ []MatchedEntity) bool {
 	return false
 }
 func (m *mockModule) MediaInfoFields() []MediaInfoFieldDecl { return nil }
@@ -75,7 +78,9 @@ func (m *mockModule) ResolveTemplate(_ string, _ map[string]any) (string, error)
 	return "", nil
 }
 func (m *mockModule) ConditionalSegments() []ConditionalSegment { return nil }
-func (m *mockModule) IsSpecialNode(_ EntityType, _ int64) bool  { return false }
+func (m *mockModule) IsSpecialNode(_ context.Context, _ EntityType, _ int64) (bool, error) {
+	return false, nil
+}
 
 func (m *mockModule) TokenContexts() []TokenContext           { return nil }
 func (m *mockModule) DefaultFileTemplates() map[string]string { return nil }

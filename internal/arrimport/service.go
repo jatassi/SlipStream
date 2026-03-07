@@ -754,30 +754,32 @@ func (s *Service) importNotifications(ctx context.Context, reader Reader, source
 			report.Warnings = append(report.Warnings, fmt.Sprintf("notification %q: created disabled (redacted credentials)", n.Name))
 		}
 
-		input := &notification.CreateInput{
-			Name:     n.Name,
-			Type:     mappedType,
-			Enabled:  enabled,
-			Settings: translatedSettings,
-
-			OnGrab:    n.OnGrab,
-			OnImport:  n.OnDownload,
-			OnUpgrade: n.OnUpgrade,
-
-			OnHealthIssue:         n.OnHealthIssue,
-			OnHealthRestored:      n.OnHealthRestored,
-			OnAppUpdate:           n.OnApplicationUpdate,
-			IncludeHealthWarnings: n.IncludeHealthWarnings,
+		toggles := map[string]bool{
+			notification.EventGrab:           n.OnGrab,
+			notification.EventImport:         n.OnDownload,
+			notification.EventUpgrade:        n.OnUpgrade,
+			notification.EventHealthIssue:    n.OnHealthIssue,
+			notification.EventHealthRestored: n.OnHealthRestored,
+			notification.EventAppUpdate:      n.OnApplicationUpdate,
 		}
 
 		// Map source-type-specific event fields
 		switch sourceType {
 		case SourceTypeSonarr:
-			input.OnSeriesAdded = n.OnSeriesAdd
-			input.OnSeriesDeleted = n.OnSeriesDelete
+			toggles[notification.EventSeriesAdded] = n.OnSeriesAdd
+			toggles[notification.EventSeriesDeleted] = n.OnSeriesDelete
 		case SourceTypeRadarr:
-			input.OnMovieAdded = n.OnMovieAdded
-			input.OnMovieDeleted = n.OnMovieDelete
+			toggles[notification.EventMovieAdded] = n.OnMovieAdded
+			toggles[notification.EventMovieDeleted] = n.OnMovieDelete
+		}
+
+		input := &notification.CreateInput{
+			Name:                  n.Name,
+			Type:                  mappedType,
+			Enabled:               enabled,
+			Settings:              translatedSettings,
+			EventToggles:          toggles,
+			IncludeHealthWarnings: n.IncludeHealthWarnings,
 		}
 
 		if _, err := s.notifService.Create(ctx, input); err != nil {

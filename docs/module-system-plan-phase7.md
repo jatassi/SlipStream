@@ -1,4 +1,4 @@
-## Phase 7: Notifications & Real-Time
+## Phase 7: Notifications & Real-Time ✅ COMPLETED
 
 **Goal:** Replace hard-coded notification event columns with a module-declared event catalog stored as JSON. Add structured entity fields to WebSocket broadcasts and a frontend registry for module-aware query invalidation.
 
@@ -65,7 +65,7 @@ Group G:             7.13 (validation — needs all)
 
 ---
 
-### Task 7.1: Define Notification Event Types in Module Framework
+### Task 7.1: Define Notification Event Types in Module Framework ✅
 
 **Create** `internal/module/notification_events.go`
 
@@ -161,7 +161,7 @@ Note: `r.modules` iterates in registration order (use a slice, not just the map,
 
 ---
 
-### Task 7.2: Implement NotificationEvents on Movie and TV Modules
+### Task 7.2: Implement NotificationEvents on Movie and TV Modules ✅
 
 **Modify** `internal/modules/movie/module.go` — add `NotificationEvents` implementation:
 
@@ -207,7 +207,7 @@ Add compile-time assertion: `var _ module.NotificationEvents = (*Module)(nil)`
 
 ---
 
-### Task 7.3: Database Migration — Event Toggles JSON Column
+### Task 7.3: Database Migration — Event Toggles JSON Column ✅
 
 **Create** `internal/database/migrations/0XX_notification_event_toggles.sql`
 
@@ -336,7 +336,7 @@ ALTER TABLE notifications_new RENAME TO notifications;
 
 ---
 
-### Task 7.4: Update sqlc Queries for JSON Event Storage
+### Task 7.4: Update sqlc Queries for JSON Event Storage ✅
 
 **Modify** `internal/database/queries/notifications.sql`
 
@@ -392,7 +392,7 @@ The status queries (`GetNotificationStatus`, `UpsertNotificationStatus`, `ClearN
 
 ---
 
-### Task 7.5: Update Notification Types and Event Constants
+### Task 7.5: Update Notification Types and Event Constants ✅ ✅
 
 **Modify** `internal/notification/events.go`
 
@@ -488,7 +488,7 @@ Note on `UpdateInput.EventToggles`: This is `map[string]bool` (not a pointer). O
 
 ---
 
-### Task 7.6: Update Notification Service Dispatch
+### Task 7.6: Update Notification Service Dispatch ✅ ✅
 
 **Modify** `internal/notification/service.go`
 
@@ -634,7 +634,7 @@ The `dispatchToNotifier` and `dispatchRemainingEvents` methods remain unchanged 
 
 ---
 
-### Task 7.7: Update Notification Bridges
+### Task 7.7: Update Notification Bridges ✅ ✅
 
 **Modify** `internal/api/notification_bridge.go`
 
@@ -651,7 +651,7 @@ If any bridge file directly references `notification.EventMovieAdded` or similar
 
 ---
 
-### Task 7.8: Add Notification Events Catalog API Endpoint
+### Task 7.8: Add Notification Events Catalog API Endpoint ✅ ✅
 
 **Modify** `internal/notification/handlers.go`
 
@@ -750,7 +750,7 @@ func (s *Server) setupNotificationRoutes(api, protected *echo.Group) {
 
 ---
 
-### Task 7.9: Add BroadcastEntity to WebSocket Hub
+### Task 7.9: Add BroadcastEntity to WebSocket Hub ✅
 
 **Modify** `internal/domain/contracts/contracts.go`
 
@@ -830,7 +830,7 @@ func (m *mockBroadcaster) BroadcastEntity(moduleType, entityType string, entityI
 
 ---
 
-### Task 7.10: Update Entity Broadcast Call Sites — Backend
+### Task 7.10: Update Entity Broadcast Call Sites — Backend ✅
 
 Migrate all entity lifecycle broadcasts to use `BroadcastEntity`. Each call site replaces `s.broadcaster.Broadcast("type:action", payload)` with `s.broadcaster.BroadcastEntity(moduleType, entityType, entityID, action, payload)`.
 
@@ -909,7 +909,7 @@ Leave non-entity broadcasts unchanged: `queue:*`, `progress:*`, `health:*`, `aut
 
 ---
 
-### Task 7.11: Frontend — Entity Event Registry and Generic Handler
+### Task 7.11: Frontend — Entity Event Registry and Generic Handler ✅
 
 **Modify** `web/src/stores/ws-types.ts`
 
@@ -1013,7 +1013,7 @@ Remove the `handleLibraryEvent` function and the `libraryHandler` const — they
 
 ---
 
-### Task 7.12: Frontend — Notification Types and Settings UI
+### Task 7.12: Frontend — Notification Types and Settings UI ✅
 
 This is the largest frontend task. It updates the notification TypeScript types, API client, and settings UI to use dynamic event toggles from the catalog API.
 
@@ -1210,7 +1210,7 @@ function getActiveEventsText(notification: Notification, catalog: NotificationEv
 
 ---
 
-### Task 7.13: Phase 7 Validation
+### Task 7.13: Phase 7 Validation ✅
 
 **Run all of these after all Phase 7 tasks complete:**
 

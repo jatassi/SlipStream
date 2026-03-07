@@ -372,7 +372,7 @@ func (s *Service) BulkMonitorEpisodes(ctx context.Context, seriesID int64, input
 		Msg("Applied bulk episode monitoring")
 
 	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
+		s.hub.BroadcastEntity("tv", "series", seriesID, "updated", nil)
 	}
 
 	return nil
@@ -396,7 +396,7 @@ func (s *Service) transitionEpisodeToMissingAfterFileRemoval(ctx context.Context
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, "episode", episodeID, oldStatus, status.Missing, "File removed")
 	}
 	if s.hub != nil && episode != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", episode.SeriesID, "updated", nil)
 	}
 }
 

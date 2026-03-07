@@ -258,7 +258,7 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 	// Build index with individual episode items for matcher to work
 	items := buildEpisodeItems(bbID, "Breaking Bad", 81189, env.profileID, 3, 13, false, 0)
 	idx := BuildWantedIndex(items)
-	matcher := NewMatcher(idx, env.queries, &env.tdb.Logger)
+	matcher := NewMatcher(idx, env.queries, nil, &env.tdb.Logger)
 
 	// Feed: season pack + individual episodes
 	releases := []types.TorrentInfo{
@@ -280,7 +280,7 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 	for _, g := range groups {
 		if g.isSeason {
 			seasonGroups++
-		} else if g.item.MediaType == decisioning.MediaTypeEpisode {
+		} else if g.item.GetMediaType() == "episode" {
 			episodeGroups++
 		}
 	}
@@ -302,11 +302,11 @@ func TestScoreAndGrab_SeasonPackSuppression(t *testing.T) {
 		}
 	}
 
-	// The season key should match what seasonKeyForEpisode produces for episodes in the same season
+	// The season key should match what seasonKeyForItem produces for episodes in the same season
 	for _, eKey := range episodeKeys {
 		g := groups[eKey]
-		if g.item.MediaType == decisioning.MediaTypeEpisode {
-			sKey := seasonKeyForEpisode(&g.item)
+		if g.item.GetMediaType() == "episode" {
+			sKey := seasonKeyForItem(g.item)
 			found := false
 			for _, sk := range seasonKeys {
 				if sk == sKey {

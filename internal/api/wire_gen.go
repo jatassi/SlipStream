@@ -277,8 +277,8 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		AdminSettings:       adminSettingsHandlers,
 		Passkey:             passkeyService,
 	}
-	module := movie.NewModule(db, metadataService, moviesService, logger)
-	tvModule := tv2.NewModule(db, metadataService, tvService, logger)
+	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, logger)
+	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, logger)
 	registry := provideRegistry(module, tvModule)
 	serviceContainer := &ServiceContainer{
 		System:       systemGroup,

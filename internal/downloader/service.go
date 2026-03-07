@@ -14,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 var (
@@ -101,12 +102,18 @@ type Service struct {
 	broadcaster         contracts.Broadcaster
 	statusChangeLogger  contracts.StatusChangeLogger
 	portalStatusTracker PortalStatusTracker
+	registry            *module.Registry
 
 	queueCacheMu sync.RWMutex
 	queueCache   map[int64][]QueueItem
 
 	clientPoolMu sync.RWMutex
 	clientPool   map[int64]Client
+}
+
+// SetRegistry sets the module registry for module-aware media type detection.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // NewService creates a new download client service.

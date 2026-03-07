@@ -44,8 +44,6 @@ UPDATE version_slots SET
     enabled = ?,
     quality_profile_id = ?,
     display_order = ?,
-    movie_root_folder_id = ?,
-    tv_root_folder_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
@@ -67,14 +65,6 @@ RETURNING *;
 -- name: UpdateVersionSlotProfile :one
 UPDATE version_slots SET
     quality_profile_id = ?,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = ?
-RETURNING *;
-
--- name: UpdateVersionSlotRootFolders :one
-UPDATE version_slots SET
-    movie_root_folder_id = ?,
-    tv_root_folder_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;

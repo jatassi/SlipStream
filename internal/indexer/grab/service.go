@@ -571,7 +571,7 @@ func (s *Service) setMediaDownloadingStatus(ctx context.Context, req *GrabReques
 		}); err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", req.MediaID).Msg("Failed to set movie status to downloading")
 		} else if s.broadcaster != nil {
-			s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": req.MediaID})
+			s.broadcaster.BroadcastEntity("movie", "movie", req.MediaID, "updated", nil)
 		}
 	case mediaTypeEpisode:
 		if err := s.queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
@@ -582,7 +582,7 @@ func (s *Service) setMediaDownloadingStatus(ctx context.Context, req *GrabReques
 		}); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", req.MediaID).Msg("Failed to set episode status to downloading")
 		} else if s.broadcaster != nil && req.SeriesID > 0 {
-			s.broadcaster.Broadcast("series:updated", map[string]any{"id": req.SeriesID})
+			s.broadcaster.BroadcastEntity("tv", "series", req.SeriesID, "updated", nil)
 		}
 	}
 }

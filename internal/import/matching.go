@@ -11,6 +11,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/module/parseutil"
 )
 
 const (
@@ -22,7 +23,16 @@ const (
 )
 
 // matchToLibrary attempts to match a file to a library item.
+// When the module registry is present and the mapping has a ModuleType,
+// dispatch through the module's ImportHandler. Otherwise, use the legacy path.
 func (s *Service) matchToLibrary(ctx context.Context, path string, mapping *DownloadMapping) (*LibraryMatch, error) {
+	if s.registry != nil && mapping != nil && mapping.ModuleType != "" {
+		match, err := s.matchToLibraryViaModule(ctx, path, mapping)
+		if err == nil {
+			return match, nil
+		}
+		s.logger.Debug().Err(err).Str("path", path).Msg("Module matching failed, falling back to legacy matching")
+	}
 	return s.matchToLibraryWithSettings(ctx, path, mapping, nil)
 }
 
@@ -222,6 +232,15 @@ func (s *Service) populateSeasonMatch(ctx context.Context, match *LibraryMatch, 
 
 // matchFromParse attempts to match a file by parsing its filename.
 func (s *Service) matchFromParse(ctx context.Context, path string) *LibraryMatch {
+	if s.registry != nil {
+		entity := s.matchOrphanViaModules(ctx, path)
+		if entity != nil {
+			return entityToLibraryMatch(entity)
+		}
+		return nil
+	}
+
+	// Legacy path: hard-coded TV/movie parsing
 	filename := filepath.Base(path)
 	filename = strings.TrimSuffix(filename, filepath.Ext(filename))
 
@@ -551,19 +570,7 @@ func cleanTitle(title string) string {
 
 // normalizeTitle normalizes a title for comparison.
 func normalizeTitle(title string) string {
-	title = strings.ToLower(title)
-	title = cleanTitle(title)
-
-	// Remove common prefixes
-	prefixes := []string{"the ", "a ", "an "}
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(title, prefix) {
-			title = strings.TrimPrefix(title, prefix)
-			break
-		}
-	}
-
-	return title
+	return parseutil.NormalizeTitle(title)
 }
 
 // calculateTitleSimilarity calculates similarity between two titles.

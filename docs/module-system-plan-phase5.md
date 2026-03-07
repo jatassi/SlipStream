@@ -37,6 +37,8 @@ These items were deferred from Phase 2 (Quality System) and must be addressed in
 1. **Call `RegisterModuleQualities()` at startup for each enabled module.** Phase 2 added the registration method on the quality service and `QualityItems()` on both module descriptors, but never wired the call at startup. Currently `GetQualitiesForModule()` falls back to `PredefinedQualities` (correct today since both modules use identical video tiers, but will silently break when a non-video module is added). Wire the call during module bootstrap so module-registered items are used instead of the fallback.
 
 2. **Wire the scoring pipeline through module `QualityDefinition` interfaces.** The scoring pipeline (`internal/indexer/scoring/`) still references `quality.PredefinedQualities` directly. Per Architecture Decision #9 below, scoring remains framework-owned — but the quality *items* it operates on should come from the module's registered definitions (via `GetQualitiesForModule`) rather than the hardcoded global. This ensures new modules with different quality tiers (e.g., music bitrate tiers) are scored correctly.
+   - ✅ **Deferred item 1 (RegisterModuleQualities at startup):** Wired in `setters.go` via `registerModuleQualities()`.
+   - ⏳ **Deferred item 2 (scoring uses module qualities):** The scoring package's `matchExact` and `bestQualityByField` functions still reference `quality.PredefinedQualities` directly. Both current modules use identical video quality tiers, so this is functionally correct today. Refactoring to pass quality lists through the scoring pipeline is deferred to a later phase when a non-video module is added.
 
 ---
 
@@ -68,7 +70,7 @@ These items were deferred from Phase 2 (Quality System) and must be addressed in
 
 ---
 
-### Task 5.1: Flesh Out SearchStrategy Interface and Supporting Types
+### Task 5.1: Flesh Out SearchStrategy Interface and Supporting Types ✅
 
 **Depends on:** Phase 4 complete
 
@@ -194,7 +196,7 @@ type SearchParams struct {
 
 ---
 
-### Task 5.2: Implement SearchStrategy on Movie and TV Modules
+### Task 5.2: Implement SearchStrategy on Movie and TV Modules ✅
 
 **Depends on:** Phase 4 complete (module stubs exist), Task 5.1 (interface finalized)
 
@@ -429,7 +431,7 @@ func (m *Module) extractEpisodeNumber(item module.SearchableItem) int {
 
 ---
 
-### Task 5.3: Extract Title Matching to Shared Utility Package
+### Task 5.3: Extract Title Matching to Shared Utility Package ✅
 
 **Depends on:** Task 5.1
 
@@ -476,7 +478,7 @@ This ensures all existing callers (`rsssync/matcher.go`, `indexer/search/aggrega
 
 ---
 
-### Task 5.4: Add ModuleType to SearchCriteria and Refactor Criteria Building
+### Task 5.4: Add ModuleType to SearchCriteria and Refactor Criteria Building ✅
 
 **Depends on:** Tasks 5.1, 5.2, 5.3
 
@@ -564,7 +566,7 @@ The existing `buildSearchCriteria` method for `decisioning.SearchableItem` remai
 
 ---
 
-### Task 5.5: Refactor Indexer Selection for Module Awareness
+### Task 5.5: Refactor Indexer Selection for Module Awareness ✅
 
 **Depends on:** Task 5.1
 
@@ -675,7 +677,7 @@ func filterByModuleSupport(indexers []*types.IndexerDefinition, moduleCategories
 
 ---
 
-### Task 5.6: Formalize Group Search via SearchStrategy
+### Task 5.6: Formalize Group Search via SearchStrategy ✅
 
 **Depends on:** Tasks 5.1, 5.2
 
@@ -705,7 +707,7 @@ The `childIdentifier` parameter (third int) carries the season number. This was 
 
 ---
 
-### Task 5.7: Refactor RSS Sync for Module Dispatch
+### Task 5.7: Refactor RSS Sync for Module Dispatch ✅
 
 **Depends on:** Tasks 5.3, 5.4, 5.6
 
@@ -884,7 +886,7 @@ func (m *Matcher) buildSyntheticSeasonItem(episodeItem module.SearchableItem, se
 
 ---
 
-### Task 5.8: Refactor Autosearch Scheduled Task for Module Dispatch
+### Task 5.8: Refactor Autosearch Scheduled Task for Module Dispatch ✅
 
 **Depends on:** Tasks 5.3, 5.4, 5.6
 
@@ -1153,7 +1155,7 @@ func moduleItemToSearchableItem(item module.SearchableItem) decisioning.Searchab
 
 ---
 
-### Task 5.9: Wire Integration
+### Task 5.9: Wire Integration ✅
 
 **Depends on:** All prior tasks
 
@@ -1177,7 +1179,7 @@ scheduledSearcher.SetRegistry(registry)
 
 ---
 
-### Task 5.10: Validation
+### Task 5.10: Validation ✅
 
 **Run full validation:**
 

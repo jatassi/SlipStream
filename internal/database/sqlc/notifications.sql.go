@@ -34,13 +34,9 @@ func (q *Queries) CountNotifications(ctx context.Context) (int64, error) {
 const createNotification = `-- name: CreateNotification :one
 INSERT INTO notifications (
     name, type, enabled, settings,
-    on_grab, on_import, on_upgrade,
-    on_movie_added, on_movie_deleted,
-    on_series_added, on_series_deleted,
-    on_health_issue, on_health_restored, on_app_update,
-    include_health_warnings, tags
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at
+    event_toggles, include_health_warnings, tags
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, type, enabled, settings, event_toggles, include_health_warnings, tags, created_at, updated_at
 `
 
 type CreateNotificationParams struct {
@@ -48,16 +44,7 @@ type CreateNotificationParams struct {
 	Type                  string `json:"type"`
 	Enabled               bool   `json:"enabled"`
 	Settings              string `json:"settings"`
-	OnGrab                bool   `json:"on_grab"`
-	OnImport              bool   `json:"on_import"`
-	OnUpgrade             bool   `json:"on_upgrade"`
-	OnMovieAdded          bool   `json:"on_movie_added"`
-	OnMovieDeleted        bool   `json:"on_movie_deleted"`
-	OnSeriesAdded         bool   `json:"on_series_added"`
-	OnSeriesDeleted       bool   `json:"on_series_deleted"`
-	OnHealthIssue         bool   `json:"on_health_issue"`
-	OnHealthRestored      bool   `json:"on_health_restored"`
-	OnAppUpdate           bool   `json:"on_app_update"`
+	EventToggles          string `json:"event_toggles"`
 	IncludeHealthWarnings bool   `json:"include_health_warnings"`
 	Tags                  string `json:"tags"`
 }
@@ -68,16 +55,7 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		arg.Type,
 		arg.Enabled,
 		arg.Settings,
-		arg.OnGrab,
-		arg.OnImport,
-		arg.OnUpgrade,
-		arg.OnMovieAdded,
-		arg.OnMovieDeleted,
-		arg.OnSeriesAdded,
-		arg.OnSeriesDeleted,
-		arg.OnHealthIssue,
-		arg.OnHealthRestored,
-		arg.OnAppUpdate,
+		arg.EventToggles,
 		arg.IncludeHealthWarnings,
 		arg.Tags,
 	)
@@ -88,16 +66,7 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		&i.Type,
 		&i.Enabled,
 		&i.Settings,
-		&i.OnGrab,
-		&i.OnImport,
-		&i.OnUpgrade,
-		&i.OnMovieAdded,
-		&i.OnMovieDeleted,
-		&i.OnSeriesAdded,
-		&i.OnSeriesDeleted,
-		&i.OnHealthIssue,
-		&i.OnHealthRestored,
-		&i.OnAppUpdate,
+		&i.EventToggles,
 		&i.IncludeHealthWarnings,
 		&i.Tags,
 		&i.CreatedAt,
@@ -116,7 +85,7 @@ func (q *Queries) DeleteNotification(ctx context.Context, id int64) error {
 }
 
 const getNotification = `-- name: GetNotification :one
-SELECT id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at FROM notifications WHERE id = ? LIMIT 1
+SELECT id, name, type, enabled, settings, event_toggles, include_health_warnings, tags, created_at, updated_at FROM notifications WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetNotification(ctx context.Context, id int64) (*Notification, error) {
@@ -128,16 +97,7 @@ func (q *Queries) GetNotification(ctx context.Context, id int64) (*Notification,
 		&i.Type,
 		&i.Enabled,
 		&i.Settings,
-		&i.OnGrab,
-		&i.OnImport,
-		&i.OnUpgrade,
-		&i.OnMovieAdded,
-		&i.OnMovieDeleted,
-		&i.OnSeriesAdded,
-		&i.OnSeriesDeleted,
-		&i.OnHealthIssue,
-		&i.OnHealthRestored,
-		&i.OnAppUpdate,
+		&i.EventToggles,
 		&i.IncludeHealthWarnings,
 		&i.Tags,
 		&i.CreatedAt,
@@ -166,7 +126,7 @@ func (q *Queries) GetNotificationStatus(ctx context.Context, notificationID int6
 }
 
 const listDisabledNotifications = `-- name: ListDisabledNotifications :many
-SELECT n.id, n.name, n.type, n.enabled, n.settings, n.on_grab, n.on_import, n.on_upgrade, n.on_movie_added, n.on_movie_deleted, n.on_series_added, n.on_series_deleted, n.on_health_issue, n.on_health_restored, n.on_app_update, n.include_health_warnings, n.tags, n.created_at, n.updated_at, ns.disabled_till
+SELECT n.id, n.name, n.type, n.enabled, n.settings, n.event_toggles, n.include_health_warnings, n.tags, n.created_at, n.updated_at, ns.disabled_till
 FROM notifications n
 JOIN notification_status ns ON n.id = ns.notification_id
 WHERE ns.disabled_till IS NOT NULL AND ns.disabled_till > CURRENT_TIMESTAMP
@@ -178,16 +138,7 @@ type ListDisabledNotificationsRow struct {
 	Type                  string       `json:"type"`
 	Enabled               bool         `json:"enabled"`
 	Settings              string       `json:"settings"`
-	OnGrab                bool         `json:"on_grab"`
-	OnImport              bool         `json:"on_import"`
-	OnUpgrade             bool         `json:"on_upgrade"`
-	OnMovieAdded          bool         `json:"on_movie_added"`
-	OnMovieDeleted        bool         `json:"on_movie_deleted"`
-	OnSeriesAdded         bool         `json:"on_series_added"`
-	OnSeriesDeleted       bool         `json:"on_series_deleted"`
-	OnHealthIssue         bool         `json:"on_health_issue"`
-	OnHealthRestored      bool         `json:"on_health_restored"`
-	OnAppUpdate           bool         `json:"on_app_update"`
+	EventToggles          string       `json:"event_toggles"`
 	IncludeHealthWarnings bool         `json:"include_health_warnings"`
 	Tags                  string       `json:"tags"`
 	CreatedAt             time.Time    `json:"created_at"`
@@ -210,16 +161,7 @@ func (q *Queries) ListDisabledNotifications(ctx context.Context) ([]*ListDisable
 			&i.Type,
 			&i.Enabled,
 			&i.Settings,
-			&i.OnGrab,
-			&i.OnImport,
-			&i.OnUpgrade,
-			&i.OnMovieAdded,
-			&i.OnMovieDeleted,
-			&i.OnSeriesAdded,
-			&i.OnSeriesDeleted,
-			&i.OnHealthIssue,
-			&i.OnHealthRestored,
-			&i.OnAppUpdate,
+			&i.EventToggles,
 			&i.IncludeHealthWarnings,
 			&i.Tags,
 			&i.CreatedAt,
@@ -240,7 +182,7 @@ func (q *Queries) ListDisabledNotifications(ctx context.Context) ([]*ListDisable
 }
 
 const listEnabledNotifications = `-- name: ListEnabledNotifications :many
-SELECT id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at FROM notifications WHERE enabled = 1 ORDER BY name
+SELECT id, name, type, enabled, settings, event_toggles, include_health_warnings, tags, created_at, updated_at FROM notifications WHERE enabled = 1 ORDER BY name
 `
 
 func (q *Queries) ListEnabledNotifications(ctx context.Context) ([]*Notification, error) {
@@ -258,16 +200,7 @@ func (q *Queries) ListEnabledNotifications(ctx context.Context) ([]*Notification
 			&i.Type,
 			&i.Enabled,
 			&i.Settings,
-			&i.OnGrab,
-			&i.OnImport,
-			&i.OnUpgrade,
-			&i.OnMovieAdded,
-			&i.OnMovieDeleted,
-			&i.OnSeriesAdded,
-			&i.OnSeriesDeleted,
-			&i.OnHealthIssue,
-			&i.OnHealthRestored,
-			&i.OnAppUpdate,
+			&i.EventToggles,
 			&i.IncludeHealthWarnings,
 			&i.Tags,
 			&i.CreatedAt,
@@ -287,7 +220,7 @@ func (q *Queries) ListEnabledNotifications(ctx context.Context) ([]*Notification
 }
 
 const listNotifications = `-- name: ListNotifications :many
-SELECT id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at FROM notifications ORDER BY name
+SELECT id, name, type, enabled, settings, event_toggles, include_health_warnings, tags, created_at, updated_at FROM notifications ORDER BY name
 `
 
 func (q *Queries) ListNotifications(ctx context.Context) ([]*Notification, error) {
@@ -305,67 +238,7 @@ func (q *Queries) ListNotifications(ctx context.Context) ([]*Notification, error
 			&i.Type,
 			&i.Enabled,
 			&i.Settings,
-			&i.OnGrab,
-			&i.OnImport,
-			&i.OnUpgrade,
-			&i.OnMovieAdded,
-			&i.OnMovieDeleted,
-			&i.OnSeriesAdded,
-			&i.OnSeriesDeleted,
-			&i.OnHealthIssue,
-			&i.OnHealthRestored,
-			&i.OnAppUpdate,
-			&i.IncludeHealthWarnings,
-			&i.Tags,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listNotificationsForEvent = `-- name: ListNotificationsForEvent :many
-SELECT id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at FROM notifications
-WHERE enabled = 1
-ORDER BY name
-`
-
-// Returns notifications enabled for a specific event type
-// Event type is passed as parameter, we check all event columns
-func (q *Queries) ListNotificationsForEvent(ctx context.Context) ([]*Notification, error) {
-	rows, err := q.db.QueryContext(ctx, listNotificationsForEvent)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Notification{}
-	for rows.Next() {
-		var i Notification
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Type,
-			&i.Enabled,
-			&i.Settings,
-			&i.OnGrab,
-			&i.OnImport,
-			&i.OnUpgrade,
-			&i.OnMovieAdded,
-			&i.OnMovieDeleted,
-			&i.OnSeriesAdded,
-			&i.OnSeriesDeleted,
-			&i.OnHealthIssue,
-			&i.OnHealthRestored,
-			&i.OnAppUpdate,
+			&i.EventToggles,
 			&i.IncludeHealthWarnings,
 			&i.Tags,
 			&i.CreatedAt,
@@ -390,21 +263,12 @@ UPDATE notifications SET
     type = ?,
     enabled = ?,
     settings = ?,
-    on_grab = ?,
-    on_import = ?,
-    on_upgrade = ?,
-    on_movie_added = ?,
-    on_movie_deleted = ?,
-    on_series_added = ?,
-    on_series_deleted = ?,
-    on_health_issue = ?,
-    on_health_restored = ?,
-    on_app_update = ?,
+    event_toggles = ?,
     include_health_warnings = ?,
     tags = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, type, enabled, settings, on_grab, on_import, on_upgrade, on_movie_added, on_movie_deleted, on_series_added, on_series_deleted, on_health_issue, on_health_restored, on_app_update, include_health_warnings, tags, created_at, updated_at
+RETURNING id, name, type, enabled, settings, event_toggles, include_health_warnings, tags, created_at, updated_at
 `
 
 type UpdateNotificationParams struct {
@@ -412,16 +276,7 @@ type UpdateNotificationParams struct {
 	Type                  string `json:"type"`
 	Enabled               bool   `json:"enabled"`
 	Settings              string `json:"settings"`
-	OnGrab                bool   `json:"on_grab"`
-	OnImport              bool   `json:"on_import"`
-	OnUpgrade             bool   `json:"on_upgrade"`
-	OnMovieAdded          bool   `json:"on_movie_added"`
-	OnMovieDeleted        bool   `json:"on_movie_deleted"`
-	OnSeriesAdded         bool   `json:"on_series_added"`
-	OnSeriesDeleted       bool   `json:"on_series_deleted"`
-	OnHealthIssue         bool   `json:"on_health_issue"`
-	OnHealthRestored      bool   `json:"on_health_restored"`
-	OnAppUpdate           bool   `json:"on_app_update"`
+	EventToggles          string `json:"event_toggles"`
 	IncludeHealthWarnings bool   `json:"include_health_warnings"`
 	Tags                  string `json:"tags"`
 	ID                    int64  `json:"id"`
@@ -433,16 +288,7 @@ func (q *Queries) UpdateNotification(ctx context.Context, arg UpdateNotification
 		arg.Type,
 		arg.Enabled,
 		arg.Settings,
-		arg.OnGrab,
-		arg.OnImport,
-		arg.OnUpgrade,
-		arg.OnMovieAdded,
-		arg.OnMovieDeleted,
-		arg.OnSeriesAdded,
-		arg.OnSeriesDeleted,
-		arg.OnHealthIssue,
-		arg.OnHealthRestored,
-		arg.OnAppUpdate,
+		arg.EventToggles,
 		arg.IncludeHealthWarnings,
 		arg.Tags,
 		arg.ID,
@@ -454,16 +300,7 @@ func (q *Queries) UpdateNotification(ctx context.Context, arg UpdateNotification
 		&i.Type,
 		&i.Enabled,
 		&i.Settings,
-		&i.OnGrab,
-		&i.OnImport,
-		&i.OnUpgrade,
-		&i.OnMovieAdded,
-		&i.OnMovieDeleted,
-		&i.OnSeriesAdded,
-		&i.OnSeriesDeleted,
-		&i.OnHealthIssue,
-		&i.OnHealthRestored,
-		&i.OnAppUpdate,
+		&i.EventToggles,
 		&i.IncludeHealthWarnings,
 		&i.Tags,
 		&i.CreatedAt,

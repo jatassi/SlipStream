@@ -13,12 +13,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
-	statusFailed     = "failed"
-	statusMissing    = "missing"
-	entityTypeSeries = "series"
+	statusFailed      = "failed"
+	statusMissing     = "missing"
+	entityTypeSeries  = "series"
+	searchTypeUpgrade = "upgrade"
 )
 
 // SeriesRefresher defines the interface for refreshing series metadata.
@@ -39,6 +41,9 @@ type ScheduledSearcher struct {
 
 	// Optional series refresher for pre-search metadata updates
 	seriesRefresher SeriesRefresher
+
+	// Module registry for module-aware item collection
+	registry *module.Registry
 
 	// Task state
 	mu      sync.Mutex
@@ -61,6 +66,11 @@ func NewScheduledSearcher(service *Service, cfg *config.AutoSearchConfig, logger
 // SetSeriesRefresher sets the series refresher for pre-search metadata updates.
 func (s *ScheduledSearcher) SetSeriesRefresher(refresher SeriesRefresher) {
 	s.seriesRefresher = refresher
+}
+
+// SetRegistry sets the module registry for module-aware item collection.
+func (s *ScheduledSearcher) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // IsRunning returns true if the scheduled search is currently running.
@@ -386,7 +396,205 @@ type seasonKey struct {
 }
 
 // collectSearchableItems gathers all missing and upgrade-eligible movies and episodes, ordered by release date.
+// When a module registry is available, collection is delegated to module WantedCollectors;
+// otherwise the legacy sqlc-based collection path is used.
 func (s *ScheduledSearcher) collectSearchableItems(ctx context.Context) ([]SearchableItem, error) {
+	if s.registry != nil {
+		return s.collectFromModules(ctx)
+	}
+	return s.collectLegacy(ctx)
+}
+
+// collectFromModules uses module WantedCollector implementations to gather searchable items.
+func (s *ScheduledSearcher) collectFromModules(ctx context.Context) ([]SearchableItem, error) {
+	var allItems []searchableItemWithPriority
+
+	for _, mod := range s.registry.All() {
+		strategy, hasStrategy := mod.(module.SearchStrategy)
+
+		// Collect missing items
+		missingItems, err := mod.CollectMissing(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(mod.ID())).Msg("Failed to collect missing items from module")
+			continue
+		}
+
+		missingConverted := s.convertAndFilterModuleItems(ctx, missingItems, false)
+
+		// Group episodes into season packs when eligible
+		if hasStrategy {
+			missingConverted = s.groupModuleItemsIntoSeasonPacks(ctx, missingConverted, strategy, false)
+		}
+
+		allItems = append(allItems, missingConverted...)
+
+		// Collect upgradable items
+		upgradeItems, err := mod.CollectUpgradable(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(mod.ID())).Msg("Failed to collect upgradable items from module")
+			continue
+		}
+
+		upgradeConverted := s.convertAndFilterModuleItems(ctx, upgradeItems, true)
+
+		// Group upgrade episodes into season packs when eligible
+		if hasStrategy {
+			upgradeConverted = s.groupModuleItemsIntoSeasonPacks(ctx, upgradeConverted, strategy, true)
+		}
+
+		allItems = append(allItems, upgradeConverted...)
+	}
+
+	// Sort by release date (newest first)
+	sort.Slice(allItems, func(i, j int) bool {
+		return allItems[i].releaseDate.After(allItems[j].releaseDate)
+	})
+
+	result := make([]SearchableItem, len(allItems))
+	for i := range allItems {
+		result[i] = allItems[i].item
+	}
+
+	return result, nil
+}
+
+// convertAndFilterModuleItems converts module SearchableItems to legacy SearchableItems,
+// applying backoff checks to filter out items that should be skipped.
+func (s *ScheduledSearcher) convertAndFilterModuleItems(
+	ctx context.Context,
+	moduleItems []module.SearchableItem,
+	forUpgrade bool,
+) []searchableItemWithPriority {
+	items := make([]searchableItemWithPriority, 0, len(moduleItems))
+
+	searchType := statusMissing
+	if forUpgrade {
+		searchType = searchTypeUpgrade
+	}
+
+	for _, mi := range moduleItems {
+		converted := moduleItemToSearchableItem(mi)
+
+		// Determine the entity type for backoff checking
+		entityType := string(converted.MediaType)
+		entityID := converted.MediaID
+
+		shouldSkip, err := s.shouldSkipItem(ctx, entityType, entityID, searchType)
+		if err != nil {
+			s.logger.Warn().Err(err).
+				Str("entityType", entityType).
+				Int64("entityId", entityID).
+				Msg("Failed to check backoff status for module item")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		// Extract release date from SearchParams.Extra if available
+		var releaseDate time.Time
+		params := mi.GetSearchParams()
+		if rd, ok := params.Extra["releaseDate"].(time.Time); ok {
+			releaseDate = rd
+		} else if rd, ok := params.Extra["physicalReleaseDate"].(time.Time); ok {
+			releaseDate = rd
+		} else if rd, ok := params.Extra["airDate"].(time.Time); ok {
+			releaseDate = rd
+		}
+
+		items = append(items, searchableItemWithPriority{
+			item:        converted,
+			releaseDate: releaseDate,
+		})
+	}
+
+	return items
+}
+
+// groupModuleItemsIntoSeasonPacks groups episode items by season and replaces them with
+// a single season pack item when all episodes in the season are eligible for group search.
+func (s *ScheduledSearcher) groupModuleItemsIntoSeasonPacks(
+	ctx context.Context,
+	items []searchableItemWithPriority,
+	strategy module.SearchStrategy,
+	forUpgrade bool,
+) []searchableItemWithPriority {
+	var result []searchableItemWithPriority
+	episodesBySeason := make(map[seasonKey][]searchableItemWithPriority)
+
+	for i := range items {
+		if items[i].item.MediaType != MediaTypeEpisode {
+			result = append(result, items[i])
+			continue
+		}
+		key := seasonKey{seriesID: items[i].item.SeriesID, seasonNumber: int64(items[i].item.SeasonNumber)}
+		episodesBySeason[key] = append(episodesBySeason[key], items[i])
+	}
+
+	for key, episodes := range episodesBySeason {
+		if !strategy.IsGroupSearchEligible(ctx, "series", key.seriesID, int(key.seasonNumber), forUpgrade) {
+			result = append(result, episodes...)
+			continue
+		}
+
+		// Check backoff for the series-level season pack search
+		searchType := statusMissing
+		if forUpgrade {
+			searchType = searchTypeUpgrade
+		}
+		shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, searchType)
+		if err != nil {
+			s.logger.Warn().Err(err).
+				Int64("seriesId", key.seriesID).
+				Int64("season", key.seasonNumber).
+				Msg("Failed to check backoff status for season pack")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		result = append(result, s.buildModuleSeasonPackItem(key, episodes, forUpgrade))
+	}
+
+	return result
+}
+
+// buildModuleSeasonPackItem constructs a season pack searchableItemWithPriority from
+// grouped episode items collected via module WantedCollectors.
+func (s *ScheduledSearcher) buildModuleSeasonPackItem(key seasonKey, episodes []searchableItemWithPriority, forUpgrade bool) searchableItemWithPriority {
+	first := episodes[0].item
+	seasonItem := SearchableItem{
+		MediaType:        MediaTypeSeason,
+		MediaID:          key.seriesID,
+		SeriesID:         key.seriesID,
+		Title:            first.Title,
+		Year:             first.Year,
+		SeasonNumber:     int(key.seasonNumber),
+		TvdbID:           first.TvdbID,
+		TmdbID:           first.TmdbID,
+		ImdbID:           first.ImdbID,
+		QualityProfileID: first.QualityProfileID,
+	}
+
+	if forUpgrade {
+		seasonItem.HasFile = true
+		maxQID := 0
+		for j := range episodes {
+			if episodes[j].item.CurrentQualityID > maxQID {
+				maxQID = episodes[j].item.CurrentQualityID
+			}
+		}
+		seasonItem.CurrentQualityID = maxQID
+	}
+
+	return searchableItemWithPriority{
+		item:         seasonItem,
+		releaseDate:  episodes[0].releaseDate,
+		isSeasonPack: true,
+	}
+}
+
+// collectLegacy gathers items using direct sqlc queries (pre-module path).
+func (s *ScheduledSearcher) collectLegacy(ctx context.Context) ([]SearchableItem, error) {
 	var items []searchableItemWithPriority
 
 	// Get missing movies
@@ -630,7 +838,7 @@ func (s *ScheduledSearcher) collectUpgradeMovies(ctx context.Context) ([]searcha
 
 	items := make([]searchableItemWithPriority, 0, len(rows))
 	for _, row := range rows {
-		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, "upgrade")
+		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, searchTypeUpgrade)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to check backoff status")
 		}
@@ -692,7 +900,7 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 }
 
 func (s *ScheduledSearcher) shouldSkipSeasonUpgrade(ctx context.Context, key seasonKey) bool {
-	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, "upgrade")
+	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, searchTypeUpgrade)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season upgrade")
 	}
@@ -763,7 +971,7 @@ func (s *ScheduledSearcher) collectIndividualEpisodeUpgrades(ctx context.Context
 	var items []searchableItemWithPriority
 
 	for _, ep := range episodes {
-		shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, "upgrade")
+		shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, searchTypeUpgrade)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to check backoff status")
 		}
@@ -835,7 +1043,7 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 		// Determine search type based on whether item has a file (upgrade vs missing)
 		searchType := statusMissing
 		if item.HasFile {
-			searchType = "upgrade"
+			searchType = searchTypeUpgrade
 		}
 
 		// Broadcast progress

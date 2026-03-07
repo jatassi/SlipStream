@@ -6,10 +6,8 @@ import { requestKeys } from '@/hooks/portal/use-requests'
 import { systemHealthKeys } from '@/hooks/use-health'
 import { historyKeys } from '@/hooks/use-history'
 import { missingKeys } from '@/hooks/use-missing'
-import { movieKeys } from '@/hooks/use-movies'
 import { queueKeys } from '@/hooks/use-queue'
 import { schedulerKeys } from '@/hooks/use-scheduler'
-import { seriesKeys } from '@/hooks/use-series'
 import type { ProgressEventType } from '@/types/progress'
 
 import { useArtworkStore } from './artwork'
@@ -19,6 +17,7 @@ import { useLogsStore } from './logs'
 import { usePortalDownloadsStore } from './portal-downloads'
 import { useProgressStore } from './progress'
 import { useUIStore } from './ui'
+import { getEntityInvalidationKeys } from './ws-entity-registry'
 import type { WSMessage, WSMessageType } from './ws-types'
 
 export type DispatchContext = {
@@ -27,14 +26,23 @@ export type DispatchContext = {
   requestDebounceMs: number
 }
 
-function handleLibraryEvent(
+function handleEntityEvent(
   queryClient: QueryClient,
-  type: string,
+  message: WSMessage,
 ): void {
-  const isMovie = type.startsWith('movie:')
-  const keys = isMovie ? movieKeys.all : seriesKeys.all
-  void queryClient.invalidateQueries({ queryKey: keys })
-  void queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
+  const moduleType = (message as { module?: string }).module
+  if (!moduleType) {
+    return
+  }
+
+  const keys = getEntityInvalidationKeys(moduleType)
+  if (!keys) {
+    return
+  }
+
+  for (const queryKey of keys) {
+    void queryClient.invalidateQueries({ queryKey: [...queryKey] })
+  }
 }
 
 function handleQueueEvent(
@@ -118,8 +126,8 @@ function handleRequestEvent(ctx: DispatchContext): void {
 
 type MessageHandler = (message: WSMessage, ctx: DispatchContext) => void
 
-const libraryHandler: MessageHandler = (message, ctx) =>
-  handleLibraryEvent(ctx.queryClient, message.type)
+const entityHandler: MessageHandler = (message, ctx) =>
+  handleEntityEvent(ctx.queryClient, message)
 
 const queueHandler: MessageHandler = (message, ctx) =>
   handleQueueEvent(ctx.queryClient, message)
@@ -177,12 +185,12 @@ const logsHandler: MessageHandler = (message) => {
 }
 
 const handlerMap: Partial<Record<WSMessageType, MessageHandler>> = {
-  'movie:added': libraryHandler,
-  'movie:updated': libraryHandler,
-  'movie:deleted': libraryHandler,
-  'series:added': libraryHandler,
-  'series:updated': libraryHandler,
-  'series:deleted': libraryHandler,
+  'movie:added': entityHandler,
+  'movie:updated': entityHandler,
+  'movie:deleted': entityHandler,
+  'series:added': entityHandler,
+  'series:updated': entityHandler,
+  'series:deleted': entityHandler,
   'queue:updated': queueHandler,
   'queue:state': queueHandler,
   'download:completed': downloadCompletedHandler,

@@ -10,6 +10,7 @@ import (
 	"github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -258,7 +259,7 @@ func shouldIncludeInQueue(d *types.DownloadItem) bool {
 // downloadItemToQueueItem converts a DownloadItem to a QueueItem.
 func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64, clientName, clientType string) QueueItem {
 	parsed := scanner.ParseFilename(d.Name)
-	mediaType := detectMediaType(d.DownloadDir)
+	mediaType := s.detectMediaType(d.DownloadDir)
 
 	title := parsed.Title
 	if title == "" {
@@ -297,7 +298,30 @@ func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64,
 }
 
 // detectMediaType determines if the download is a movie or series based on the path.
-func detectMediaType(path string) string {
+// Uses the module registry when available for module-aware detection,
+// falling back to legacy hard-coded path matching otherwise.
+func (s *Service) detectMediaType(path string) string {
+	if s.registry != nil {
+		return detectModuleType(path, s.registry)
+	}
+	return detectMediaTypeLegacy(path)
+}
+
+// detectModuleType determines the module type from the download path using
+// the module registry. Returns string(mod.ID()) (e.g., "movie", "tv").
+func detectModuleType(path string, registry *module.Registry) string {
+	pathLower := strings.ToLower(path)
+	for _, mod := range registry.All() {
+		subdir := strings.ToLower("slipstream/" + mod.PluralName())
+		if strings.Contains(pathLower, subdir) || strings.Contains(pathLower, strings.ReplaceAll(subdir, "/", "\\")) {
+			return string(mod.ID())
+		}
+	}
+	return "unknown"
+}
+
+// detectMediaTypeLegacy is the original hard-coded detection logic.
+func detectMediaTypeLegacy(path string) string {
 	pathLower := strings.ToLower(path)
 	if strings.Contains(pathLower, "slipstream/movies") || strings.Contains(pathLower, "slipstream\\movies") {
 		return mediaTypeMovie

@@ -244,6 +244,13 @@ type Job struct {
 	Enabled         int64        `json:"enabled"`
 }
 
+type ModuleNamingSetting struct {
+	ID           int64  `json:"id"`
+	ModuleType   string `json:"module_type"`
+	SettingKey   string `json:"setting_key"`
+	SettingValue string `json:"setting_value"`
+}
+
 type Movie struct {
 	ID                    int64          `json:"id"`
 	Title                 string         `json:"title"`
@@ -324,16 +331,7 @@ type Notification struct {
 	Type                  string    `json:"type"`
 	Enabled               bool      `json:"enabled"`
 	Settings              string    `json:"settings"`
-	OnGrab                bool      `json:"on_grab"`
-	OnImport              bool      `json:"on_import"`
-	OnUpgrade             bool      `json:"on_upgrade"`
-	OnMovieAdded          bool      `json:"on_movie_added"`
-	OnMovieDeleted        bool      `json:"on_movie_deleted"`
-	OnSeriesAdded         bool      `json:"on_series_added"`
-	OnSeriesDeleted       bool      `json:"on_series_deleted"`
-	OnHealthIssue         bool      `json:"on_health_issue"`
-	OnHealthRestored      bool      `json:"on_health_restored"`
-	OnAppUpdate           bool      `json:"on_app_update"`
+	EventToggles          string    `json:"event_toggles"`
 	IncludeHealthWarnings bool      `json:"include_health_warnings"`
 	Tags                  string    `json:"tags"`
 	CreatedAt             time.Time `json:"created_at"`
@@ -375,15 +373,19 @@ type PlexRefreshQueue struct {
 }
 
 type PortalInvitation struct {
-	ID                    int64         `json:"id"`
-	Username              string        `json:"username"`
-	Token                 string        `json:"token"`
-	ExpiresAt             time.Time     `json:"expires_at"`
-	UsedAt                sql.NullTime  `json:"used_at"`
-	CreatedAt             time.Time     `json:"created_at"`
-	AutoApprove           bool          `json:"auto_approve"`
-	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
-	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
+	ID          int64        `json:"id"`
+	Username    string       `json:"username"`
+	Token       string       `json:"token"`
+	ExpiresAt   time.Time    `json:"expires_at"`
+	UsedAt      sql.NullTime `json:"used_at"`
+	AutoApprove bool         `json:"auto_approve"`
+	CreatedAt   time.Time    `json:"created_at"`
+}
+
+type PortalInvitationModuleSetting struct {
+	InvitationID     int64         `json:"invitation_id"`
+	ModuleType       string        `json:"module_type"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
 }
 
 type PortalNotification struct {
@@ -398,16 +400,25 @@ type PortalNotification struct {
 }
 
 type PortalUser struct {
-	ID                    int64         `json:"id"`
-	Username              string        `json:"username"`
-	PasswordHash          string        `json:"password_hash"`
-	AutoApprove           bool          `json:"auto_approve"`
-	Enabled               bool          `json:"enabled"`
-	CreatedAt             time.Time     `json:"created_at"`
-	UpdatedAt             time.Time     `json:"updated_at"`
-	IsAdmin               bool          `json:"is_admin"`
-	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
-	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
+	ID           int64     `json:"id"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"password_hash"`
+	AutoApprove  bool      `json:"auto_approve"`
+	Enabled      bool      `json:"enabled"`
+	IsAdmin      bool      `json:"is_admin"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type PortalUserModuleSetting struct {
+	UserID           int64         `json:"user_id"`
+	ModuleType       string        `json:"module_type"`
+	QuotaLimit       sql.NullInt64 `json:"quota_limit"`
+	QuotaUsed        int64         `json:"quota_used"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	PeriodStart      time.Time     `json:"period_start"`
+	CreatedAt        time.Time     `json:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at"`
 }
 
 type ProwlarrConfig struct {
@@ -550,6 +561,12 @@ type Setting struct {
 	UpdatedAt sql.NullTime `json:"updated_at"`
 }
 
+type SlotRootFolder struct {
+	SlotID       int64  `json:"slot_id"`
+	ModuleType   string `json:"module_type"`
+	RootFolderID int64  `json:"root_folder_id"`
+}
+
 type UserNotification struct {
 	ID          int64     `json:"id"`
 	UserID      int64     `json:"user_id"`
@@ -564,27 +581,13 @@ type UserNotification struct {
 	OnDenied    bool      `json:"on_denied"`
 }
 
-type UserQuota struct {
-	UserID        int64         `json:"user_id"`
-	MoviesLimit   sql.NullInt64 `json:"movies_limit"`
-	SeasonsLimit  sql.NullInt64 `json:"seasons_limit"`
-	EpisodesLimit sql.NullInt64 `json:"episodes_limit"`
-	MoviesUsed    int64         `json:"movies_used"`
-	SeasonsUsed   int64         `json:"seasons_used"`
-	EpisodesUsed  int64         `json:"episodes_used"`
-	PeriodStart   time.Time     `json:"period_start"`
-	UpdatedAt     time.Time     `json:"updated_at"`
-}
-
 type VersionSlot struct {
-	ID                int64         `json:"id"`
-	SlotNumber        int64         `json:"slot_number"`
-	Name              string        `json:"name"`
-	Enabled           bool          `json:"enabled"`
-	QualityProfileID  sql.NullInt64 `json:"quality_profile_id"`
-	DisplayOrder      int64         `json:"display_order"`
-	CreatedAt         sql.NullTime  `json:"created_at"`
-	UpdatedAt         sql.NullTime  `json:"updated_at"`
-	MovieRootFolderID sql.NullInt64 `json:"movie_root_folder_id"`
-	TvRootFolderID    sql.NullInt64 `json:"tv_root_folder_id"`
+	ID               int64         `json:"id"`
+	SlotNumber       int64         `json:"slot_number"`
+	Name             string        `json:"name"`
+	Enabled          bool          `json:"enabled"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	DisplayOrder     int64         `json:"display_order"`
+	CreatedAt        sql.NullTime  `json:"created_at"`
+	UpdatedAt        sql.NullTime  `json:"updated_at"`
 }

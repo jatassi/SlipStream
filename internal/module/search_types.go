@@ -49,6 +49,24 @@ type Release struct {
 	Category int
 }
 
+// ReleaseForFilter provides a read-only view of a release for module filtering.
+type ReleaseForFilter struct {
+	Title            string
+	Year             int
+	Season           int
+	EndSeason        int
+	Episode          int
+	EndEpisode       int
+	IsTV             bool
+	IsSeasonPack     bool
+	IsCompleteSeries bool
+	Quality          string
+	Source           string
+	Languages        []string
+	Size             int64
+	Categories       []int
+}
+
 // SearchableItem represents an item that can be searched for by the search pipeline.
 // Deviation from spec §5.3: Uses ID-based quality accessors instead of full objects
 // to avoid circular dependency (WantedCollector importing quality service).
@@ -63,14 +81,23 @@ type SearchableItem interface {
 	GetSearchParams() SearchParams
 }
 
-// SearchParams holds additional search parameters for a SearchableItem.
+// SearchParams holds module-specific search parameters on a SearchableItem.
 type SearchParams struct {
-	Extra map[string]any
+	Extra map[string]any // Module-specific fields (e.g., seriesId, seasonNumber for TV)
 }
 
-// SearchCriteria contains Newznab search parameters.
+// SearchCriteria defines parameters for an indexer search, constructed by a module.
 type SearchCriteria struct {
-	Query      string
-	Categories []int
-	IDs        map[string]string
+	ModuleType Type   // Which module produced this criteria
+	Query      string // Title to search for
+	SearchType string // Newznab search type: "movie", "tvsearch", "audio", "book"
+	Categories []int  // Newznab category IDs
+
+	// External IDs (module sets whichever are relevant)
+	ExternalIDs map[string]string // "imdbId" -> "tt1234567", "tmdbId" -> "550", etc.
+
+	// Structured search parameters (TV season/episode, year, etc.)
+	Year    int
+	Season  int
+	Episode int
 }

@@ -158,7 +158,7 @@ func (s *Service) processDownload(d *types.DownloadItem, dbClient *sqlc.Download
 		ClientID:     dbClient.ID,
 		ClientName:   dbClient.Name,
 		DownloadPath: contentPath,
-		MediaType:    detectMediaType(d.DownloadDir),
+		MediaType:    s.detectMediaType(d.DownloadDir),
 		Size:         d.Size,
 		MappingID:    mapping.ID,
 	}
@@ -325,7 +325,7 @@ func (s *Service) markMovieAsDisappeared(ctx context.Context, m *sqlc.ListDownlo
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", m.ID, "downloading", "failed", "Download removed from client")
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": m.ID})
+		s.broadcaster.BroadcastEntity("movie", "movie", m.ID, "updated", nil)
 	}
 	if s.portalStatusTracker != nil {
 		_ = s.portalStatusTracker.OnDownloadFailed(ctx, "movie", m.ID)
@@ -379,7 +379,7 @@ func (s *Service) markEpisodeAsDisappeared(ctx context.Context, ep *sqlc.ListDow
 		_ = s.statusChangeLogger.LogStatusChanged(ctx, mediaTypeEpisode, ep.ID, "downloading", "failed", "Download removed from client")
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("series:updated", map[string]any{"id": ep.SeriesID})
+		s.broadcaster.BroadcastEntity("tv", "series", ep.SeriesID, "updated", nil)
 	}
 	if s.portalStatusTracker != nil {
 		_ = s.portalStatusTracker.OnDownloadFailed(ctx, mediaTypeEpisode, ep.ID)

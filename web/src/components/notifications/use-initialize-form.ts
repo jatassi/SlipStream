@@ -2,19 +2,13 @@ import { useEffect, useState } from 'react'
 
 import type { CreateNotificationInput, Notification } from '@/types'
 
-import { adminEventTriggers, defaultFormData } from './notification-dialog-types'
+import { defaultFormData } from './notification-dialog-types'
 import type { usePlexState } from './use-plex-state'
-
-type TriggerFields = Record<string, boolean>
-
-export function asTriggerFields(data: unknown): TriggerFields {
-  return data as TriggerFields
-}
 
 type InitFormOptions = {
   open: boolean
   notification?: Notification | null
-  eventTriggers?: { key: string }[]
+  defaultEventToggles?: Record<string, boolean>
   plex: ReturnType<typeof usePlexState>
   setFormData: React.Dispatch<React.SetStateAction<CreateNotificationInput>>
   setShowAdvanced: React.Dispatch<React.SetStateAction<boolean>>
@@ -25,7 +19,7 @@ function toFormData(notification: Notification): CreateNotificationInput {
   return rest
 }
 
-export function useInitializeForm({ open, notification, eventTriggers, plex, setFormData, setShowAdvanced }: InitFormOptions) {
+export function useInitializeForm({ open, notification, defaultEventToggles, plex, setFormData, setShowAdvanced }: InitFormOptions) {
   const { cleanupPolling, fetchServers, resetState } = plex
   const [prevOpen, setPrevOpen] = useState(false)
   const [prevNotification, setPrevNotification] = useState(notification)
@@ -37,7 +31,11 @@ export function useInitializeForm({ open, notification, eventTriggers, plex, set
     if (notification) {
       setFormData(toFormData(notification))
     } else {
-      setFormData(buildResetData(eventTriggers))
+      const resetData = { ...defaultFormData }
+      if (defaultEventToggles) {
+        resetData.eventToggles = { ...defaultEventToggles }
+      }
+      setFormData(resetData)
     }
     setShowAdvanced(false)
     resetState()
@@ -56,17 +54,4 @@ export function useInitializeForm({ open, notification, eventTriggers, plex, set
       void fetchServers(notification.settings.authToken as string)
     }
   }, [open, notification, cleanupPolling, fetchServers])
-}
-
-function buildResetData(eventTriggers?: { key: string }[]) {
-  const resetData = { ...defaultFormData }
-  if (eventTriggers) {
-    adminEventTriggers.forEach((t) => {
-      asTriggerFields(resetData)[t.key] = false
-    })
-    eventTriggers.forEach((t) => {
-      asTriggerFields(resetData)[t.key] = true
-    })
-  }
-  return resetData
 }

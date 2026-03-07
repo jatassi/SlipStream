@@ -4,19 +4,18 @@ import { useNotificationSchemas } from '@/hooks'
 import type { CreateNotificationInput, NotifierType } from '@/types'
 
 import type { NotificationDialogProps } from './notification-dialog-types'
-import { adminEventTriggers, defaultFormData } from './notification-dialog-types'
+import { defaultFormData } from './notification-dialog-types'
 import { useFormActions } from './use-form-actions'
 import { useInitializeForm } from './use-initialize-form'
 import { usePlexState } from './use-plex-state'
 
 export function useNotificationDialog(props: NotificationDialogProps) {
-  const { open, onOpenChange, notification, eventTriggers, schemas: customSchemas, onCreate, onUpdate, onTest } = props
+  const { open, onOpenChange, notification, eventGroups, defaultEventToggles, schemas: customSchemas, onCreate, onUpdate, onTest } = props
   const [formData, setFormData] = useState<CreateNotificationInput>(defaultFormData)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const { data: fetchedSchemas } = useNotificationSchemas()
   const schemas = customSchemas ?? fetchedSchemas
-  const triggers = eventTriggers ?? adminEventTriggers
   const isEditing = !!notification
   const isPlex = formData.type === 'plex'
   const hasPlexToken = !!(formData.settings.authToken as string)
@@ -30,7 +29,7 @@ export function useNotificationDialog(props: NotificationDialogProps) {
   const plex = usePlexState({ isPlex, serverId: formData.settings.serverId, authToken: formData.settings.authToken, onSettingChange: handleSettingChange })
   const actions = useFormActions({ onOpenChange, onCreate, onUpdate, onTest })
 
-  useInitializeForm({ open, notification, eventTriggers, plex, setFormData, setShowAdvanced })
+  useInitializeForm({ open, notification, defaultEventToggles, plex, setFormData, setShowAdvanced })
 
   const handleTypeChange = useCallback((type: NotifierType) => {
     const schema = schemas?.find((s) => s.type === type)
@@ -46,10 +45,10 @@ export function useNotificationDialog(props: NotificationDialogProps) {
   }, [])
 
   return {
-    formData, isTesting: actions.isTesting, showAdvanced, isPending: actions.isPending,
+    formData, setFormData, isTesting: actions.isTesting, showAdvanced, isPending: actions.isPending,
     isPlexConnecting: plex.isPlexConnecting, plexServers: plex.plexServers, plexSections: plex.plexSections,
     isLoadingServers: plex.isLoadingServers, isLoadingSections: plex.isLoadingSections,
-    schemas, triggers, isEditing, currentSchema, hasAdvancedFields, isPlex, hasPlexToken,
+    schemas, eventGroups, isEditing, currentSchema, hasAdvancedFields, isPlex, hasPlexToken,
     handleSettingChange, handlePlexOAuth: plex.startOAuth, handleTypeChange,
     handleTest: useCallback(() => actions.handleTest(formData), [actions, formData]),
     handleSubmit: useCallback(() => actions.handleSubmit(formData, currentSchema, notification), [actions, formData, currentSchema, notification]),

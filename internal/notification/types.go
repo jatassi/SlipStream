@@ -61,19 +61,9 @@ type Config struct {
 	Enabled  bool            `json:"enabled"`
 	Settings json.RawMessage `json:"settings"`
 
-	OnGrab           bool `json:"onGrab"`
-	OnImport         bool `json:"onImport"`
-	OnUpgrade        bool `json:"onUpgrade"`
-	OnMovieAdded     bool `json:"onMovieAdded"`
-	OnMovieDeleted   bool `json:"onMovieDeleted"`
-	OnSeriesAdded    bool `json:"onSeriesAdded"`
-	OnSeriesDeleted  bool `json:"onSeriesDeleted"`
-	OnHealthIssue    bool `json:"onHealthIssue"`
-	OnHealthRestored bool `json:"onHealthRestored"`
-	OnAppUpdate      bool `json:"onAppUpdate"`
-
-	IncludeHealthWarnings bool    `json:"includeHealthWarnings"`
-	Tags                  []int64 `json:"tags,omitempty"`
+	EventToggles          map[string]bool `json:"eventToggles"`
+	IncludeHealthWarnings bool            `json:"includeHealthWarnings"`
+	Tags                  []int64         `json:"tags,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -86,19 +76,9 @@ type CreateInput struct {
 	Enabled  bool            `json:"enabled"`
 	Settings json.RawMessage `json:"settings"`
 
-	OnGrab           bool `json:"onGrab"`
-	OnImport         bool `json:"onImport"`
-	OnUpgrade        bool `json:"onUpgrade"`
-	OnMovieAdded     bool `json:"onMovieAdded"`
-	OnMovieDeleted   bool `json:"onMovieDeleted"`
-	OnSeriesAdded    bool `json:"onSeriesAdded"`
-	OnSeriesDeleted  bool `json:"onSeriesDeleted"`
-	OnHealthIssue    bool `json:"onHealthIssue"`
-	OnHealthRestored bool `json:"onHealthRestored"`
-	OnAppUpdate      bool `json:"onAppUpdate"`
-
-	IncludeHealthWarnings bool    `json:"includeHealthWarnings"`
-	Tags                  []int64 `json:"tags,omitempty"`
+	EventToggles          map[string]bool `json:"eventToggles"`
+	IncludeHealthWarnings bool            `json:"includeHealthWarnings"`
+	Tags                  []int64         `json:"tags,omitempty"`
 }
 
 // UpdateInput is used when updating an existing notification
@@ -108,19 +88,9 @@ type UpdateInput struct {
 	Enabled  *bool            `json:"enabled,omitempty"`
 	Settings *json.RawMessage `json:"settings,omitempty"`
 
-	OnGrab           *bool `json:"onGrab,omitempty"`
-	OnImport         *bool `json:"onImport,omitempty"`
-	OnUpgrade        *bool `json:"onUpgrade,omitempty"`
-	OnMovieAdded     *bool `json:"onMovieAdded,omitempty"`
-	OnMovieDeleted   *bool `json:"onMovieDeleted,omitempty"`
-	OnSeriesAdded    *bool `json:"onSeriesAdded,omitempty"`
-	OnSeriesDeleted  *bool `json:"onSeriesDeleted,omitempty"`
-	OnHealthIssue    *bool `json:"onHealthIssue,omitempty"`
-	OnHealthRestored *bool `json:"onHealthRestored,omitempty"`
-	OnAppUpdate      *bool `json:"onAppUpdate,omitempty"`
-
-	IncludeHealthWarnings *bool    `json:"includeHealthWarnings,omitempty"`
-	Tags                  *[]int64 `json:"tags,omitempty"`
+	EventToggles          map[string]bool `json:"eventToggles,omitempty"`
+	IncludeHealthWarnings *bool           `json:"includeHealthWarnings,omitempty"`
+	Tags                  *[]int64        `json:"tags,omitempty"`
 }
 
 // Status tracks notification failures for backoff logic

@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { NotifierType } from '@/types'
+import { useNotificationEventCatalog } from '@/hooks'
+import type { CreateNotificationInput, NotificationEventGroup, NotifierType } from '@/types'
 
 import { EventTriggers } from './event-triggers'
 import { PlexSections } from './plex-sections'
 import { ProviderFields } from './provider-fields'
-import { asTriggerFields } from './use-initialize-form'
 import type { NotificationDialogState } from './use-notification-dialog'
 
 export function NotificationFormBody({ state: s }: { state: NotificationDialogState }) {
@@ -35,9 +35,31 @@ export function NotificationFormBody({ state: s }: { state: NotificationDialogSt
       />
       {s.hasAdvancedFields ? <AdvancedToggle showAdvanced={s.showAdvanced} onToggle={s.toggleAdvanced} /> : null}
       {s.showAdvanced ? <ProviderFields fields={advancedFields} {...shared} /> : null}
-      <EventTriggers triggers={s.triggers} formValues={asTriggerFields(s.formData)} onTriggerChange={s.handleFormDataChange} />
+      <EventTriggersSection eventGroups={s.eventGroups} formData={s.formData} setFormData={s.setFormData} />
       <EnabledToggle enabled={s.formData.enabled ?? true} onChange={(c) => s.handleFormDataChange('enabled', c)} />
     </div>
+  )
+}
+
+function EventTriggersSection({ eventGroups: overrideGroups, formData, setFormData }: {
+  eventGroups?: NotificationEventGroup[]
+  formData: CreateNotificationInput
+  setFormData: React.Dispatch<React.SetStateAction<CreateNotificationInput>>
+}) {
+  const { data: fetchedCatalog } = useNotificationEventCatalog()
+  const groups = overrideGroups ?? fetchedCatalog ?? []
+
+  return (
+    <EventTriggers
+      groups={groups}
+      toggles={formData.eventToggles ?? {}}
+      onToggleChange={(eventId, enabled) => {
+        setFormData((prev) => ({
+          ...prev,
+          eventToggles: { ...prev.eventToggles, [eventId]: enabled },
+        }))
+      }}
+    />
   )
 }
 

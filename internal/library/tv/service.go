@@ -15,6 +15,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/module"
+	"github.com/slipstream/slipstream/internal/module/parseutil"
 	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -136,6 +137,25 @@ func (s *Service) GetSeriesByPath(ctx context.Context, path string) (*Series, er
 	return s.rowToSeries(row), nil
 }
 
+// FindByTitle searches for a series by normalized title and optional year.
+// Returns nil, nil if no match is found.
+func (s *Service) FindByTitle(ctx context.Context, title string, year int) (*Series, error) {
+	allSeries, err := s.ListSeries(ctx, ListSeriesOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedSearch := parseutil.NormalizeTitle(title)
+	for _, series := range allSeries {
+		if parseutil.NormalizeTitle(series.Title) == normalizedSearch {
+			if year == 0 || series.Year == year {
+				return series, nil
+			}
+		}
+	}
+	return nil, nil //nolint:nilnil // nil means no match found
+}
+
 // ListSeries returns series with optional filtering.
 func (s *Service) ListSeries(ctx context.Context, opts ListSeriesOptions) ([]*Series, error) {
 	var rows []*sqlc.Series
@@ -246,7 +266,7 @@ func (s *Service) CreateSeries(ctx context.Context, input *CreateSeriesInput) (*
 	s.logger.Info().Int64("id", series.ID).Str("title", series.Title).Msg("Created series")
 
 	if s.hub != nil {
-		s.hub.Broadcast("series:added", series)
+		s.hub.BroadcastEntity("tv", "series", series.ID, "added", series)
 	}
 
 	// Dispatch notification
@@ -285,7 +305,7 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input *UpdateSerie
 	s.logger.Info().Int64("id", id).Str("title", series.Title).Msg("Updated series")
 
 	if s.hub != nil {
-		s.hub.Broadcast("series:updated", series)
+		s.hub.BroadcastEntity("tv", "series", series.ID, "updated", series)
 	}
 
 	return series, nil
@@ -351,7 +371,7 @@ func (s *Service) DeleteSeries(ctx context.Context, id int64, deleteFiles bool) 
 	s.logger.Info().Int64("id", id).Str("title", series.Title).Msg("Deleted series")
 
 	if s.hub != nil {
-		s.hub.Broadcast("series:deleted", map[string]int64{"id": id})
+		s.hub.BroadcastEntity("tv", "series", id, "deleted", nil)
 	}
 
 	if s.notifier != nil {

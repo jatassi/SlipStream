@@ -19,6 +19,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/slots"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -44,6 +45,9 @@ type Service struct {
 	grabLock       *decisioning.GrabLock
 	broadcaster    contracts.Broadcaster
 	logger         *zerolog.Logger
+
+	// Module registry for module-aware criteria building
+	registry *module.Registry
 
 	// Track currently running searches for cancellation
 	mu             sync.RWMutex
@@ -81,6 +85,28 @@ func NewService(
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
+}
+
+// SetRegistry sets the module registry for module-aware criteria building.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
+}
+
+// buildSearchCriteriaFromModule constructs criteria using the module's SearchStrategy.
+func (s *Service) buildSearchCriteriaFromModule(item module.SearchableItem) types.SearchCriteria { //nolint:unused // used when module registry is fully active
+	moduleType := module.Type(item.GetModuleType())
+	mod := s.registry.Get(moduleType)
+	if mod == nil {
+		return types.SearchCriteria{Query: item.GetTitle()}
+	}
+
+	strategy, ok := mod.(module.SearchStrategy)
+	if !ok {
+		return types.SearchCriteria{Query: item.GetTitle()}
+	}
+
+	moduleCriteria := strategy.BuildSearchCriteria(item)
+	return convertModuleCriteria(&moduleCriteria)
 }
 
 // SearchMovie searches for a movie and grabs the best release.
@@ -891,7 +917,7 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 		})
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.broadcaster.BroadcastEntity("movie", "movie", movieID, "updated", nil)
 	}
 
 	return &RetryResult{
@@ -958,7 +984,7 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 		})
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+		s.broadcaster.BroadcastEntity("tv", "series", episode.SeriesID, "updated", nil)
 	}
 
 	return &RetryResult{

@@ -1,36 +1,36 @@
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-
-import type { EventTrigger } from './notification-dialog-types'
-
-type TriggerFields = Record<string, boolean>
+import type { NotificationEventGroup } from '@/types/notification'
 
 type EventTriggersProps = {
-  triggers: EventTrigger[]
-  formValues: TriggerFields
-  onTriggerChange: (key: string, value: unknown) => void
+  groups: NotificationEventGroup[]
+  toggles: Record<string, boolean>
+  onToggleChange: (eventId: string, enabled: boolean) => void
 }
 
-export function EventTriggers({ triggers, formValues, onTriggerChange }: EventTriggersProps) {
-  if (triggers.length === 0) {return null}
+export function EventTriggers({ groups, toggles, onToggleChange }: EventTriggersProps) {
+  if (groups.length === 0) {return null}
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Label>Event Triggers</Label>
-      <div className="space-y-2 rounded-lg border p-3">
-        {triggers.map(({ key, label }) => (
-          <div key={key} className="flex items-center justify-between">
-            <Label htmlFor={key} className="cursor-pointer font-normal">
-              {label}
-            </Label>
-            <Switch
-              id={key}
-              checked={formValues[key] ?? false}
-              onCheckedChange={(checked) => onTriggerChange(key, checked)}
-            />
-          </div>
-        ))}
-      </div>
+      {groups.map((group) => (
+        <div key={group.id} className="space-y-2 rounded-lg border p-3">
+          <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+          {group.events.map((event) => (
+            <div key={event.id} className="flex items-center justify-between">
+              <Label htmlFor={event.id} className="cursor-pointer font-normal">
+                {event.label}
+              </Label>
+              <Switch
+                id={event.id}
+                checked={toggles[event.id] ?? false}
+                onCheckedChange={(checked) => onToggleChange(event.id, checked)}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }

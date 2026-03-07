@@ -9,6 +9,19 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
+// GetSeasonByID retrieves a season by its ID.
+func (s *Service) GetSeasonByID(ctx context.Context, id int64) (*Season, error) {
+	row, err := s.queries.GetSeason(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrSeasonNotFound
+		}
+		return nil, fmt.Errorf("failed to get season: %w", err)
+	}
+	season := s.rowToSeason(row)
+	return &season, nil
+}
+
 // ListSeasons returns all seasons for a series.
 func (s *Service) ListSeasons(ctx context.Context, seriesID int64) ([]Season, error) {
 	rows, err := s.queries.ListSeasonsBySeries(ctx, seriesID)
@@ -92,7 +105,7 @@ func (s *Service) BulkMonitor(ctx context.Context, seriesID int64, input BulkMon
 		Msg("Applied bulk monitoring")
 
 	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]int64{"id": seriesID})
+		s.hub.BroadcastEntity("tv", "series", seriesID, "updated", nil)
 	}
 
 	return nil

@@ -24,6 +24,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -125,24 +126,26 @@ func DefaultConfig() Config {
 
 // Service orchestrates the import pipeline.
 type Service struct {
-	db            *sql.DB
-	queries       *sqlc.Queries
-	downloader    *downloader.Service
-	movies        *movies.Service
-	tv            *tv.Service
-	rootfolder    *rootfolder.Service
-	organizer     *organizer.Service
-	renamer       *renamer.Resolver
-	mediainfo     *mediainfo.Service
-	quality       *quality.Service
-	slots         *slots.Service
-	health        contracts.HealthService
-	history       HistoryService
-	notifier      NotificationDispatcher
-	statusTracker StatusTrackerService
-	hub           *websocket.Hub
-	logger        *zerolog.Logger
-	config        Config
+	db              *sql.DB
+	queries         *sqlc.Queries
+	downloader      *downloader.Service
+	movies          *movies.Service
+	tv              *tv.Service
+	rootfolder      *rootfolder.Service
+	organizer       *organizer.Service
+	renamer         *renamer.Resolver
+	mediainfo       *mediainfo.Service
+	quality         *quality.Service
+	slots           *slots.Service
+	health          contracts.HealthService
+	history         HistoryService
+	notifier        NotificationDispatcher
+	statusTracker   StatusTrackerService
+	hub             *websocket.Hub
+	registry        *module.Registry
+	moduleResolvers map[module.Type]*renamer.Resolver
+	logger          *zerolog.Logger
+	config          Config
 
 	// Import queue
 	importQueue chan ImportJob
@@ -215,6 +218,10 @@ type LibraryMatch struct {
 	CandidateQualityID int     // Quality ID of the candidate file
 	ExistingQualityID  int     // Quality ID of the existing file
 	QualityProfileID   int64   // Quality profile used for evaluation
+
+	// ModuleEntity carries the module-aware matched entity when registry is present.
+	// Populated by matchToLibraryViaModule; nil when using legacy matching.
+	ModuleEntity *module.MatchedEntity
 }
 
 // ImportResult contains the result of an import operation.
@@ -305,6 +312,24 @@ func (s *Service) SetNotificationDispatcher(n NotificationDispatcher) {
 func (s *Service) SetDB(db *sql.DB) {
 	s.db = db
 	s.queries = sqlc.New(db)
+}
+
+// SetRegistry sets the module registry and initializes per-module renamers.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
+	if r != nil {
+		s.moduleResolvers = make(map[module.Type]*renamer.Resolver)
+		for _, mod := range r.All() {
+			resolver, err := LoadModuleRenamer(context.Background(), s.queries, mod)
+			if err != nil {
+				s.logger.Error().Err(err).Str("module", string(mod.ID())).Msg("Failed to load module renamer")
+				continue
+			}
+			if resolver != nil {
+				s.moduleResolvers[mod.ID()] = resolver
+			}
+		}
+	}
 }
 
 // UpdateRenamerSettings updates the renamer with new settings.
@@ -442,9 +467,9 @@ func (s *Service) broadcastImportSuccess(result *ImportResult) {
 	})
 
 	if result.Match.MediaType == mediaTypeMovie && result.Match.MovieID != nil {
-		s.hub.Broadcast("movie:updated", map[string]any{"movieId": *result.Match.MovieID})
+		s.hub.BroadcastEntity("movie", "movie", *result.Match.MovieID, "updated", nil)
 	} else if result.Match.MediaType == mediaTypeEpisode && result.Match.SeriesID != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *result.Match.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *result.Match.SeriesID, "updated", nil)
 	}
 }
 
@@ -488,7 +513,7 @@ func (s *Service) setMovieStatusFailed(ctx context.Context, movieID int64, statu
 		ID:               movieID,
 	})
 	if s.hub != nil {
-		s.hub.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.hub.BroadcastEntity("movie", "movie", movieID, "updated", nil)
 	}
 	if s.statusTracker != nil {
 		_ = s.statusTracker.OnDownloadFailed(ctx, "movie", movieID)
@@ -503,7 +528,7 @@ func (s *Service) setEpisodeStatusFailed(ctx context.Context, mapping *DownloadM
 		ID:               *mapping.EpisodeID,
 	})
 	if s.hub != nil && mapping.SeriesID != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *mapping.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *mapping.SeriesID, "updated", nil)
 	}
 	if s.statusTracker != nil {
 		_ = s.statusTracker.OnDownloadFailed(ctx, "episode", *mapping.EpisodeID)
@@ -750,7 +775,7 @@ func (s *Service) setSeasonStatusFailed(ctx context.Context, cd *downloader.Comp
 		})
 	}
 	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *cd.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *cd.SeriesID, "updated", nil)
 	}
 }
 

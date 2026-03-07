@@ -49,6 +49,9 @@ type Settings struct {
 
 	// Case transformation
 	CaseMode CaseMode
+
+	// Module-generic naming patterns keyed by context name (e.g. "movie-file", "series-folder").
+	Patterns map[string]string
 }
 
 // DefaultSettings returns the default renaming settings matching Sonarr defaults.
@@ -274,6 +277,71 @@ func (r *Resolver) PreviewPattern(pattern string, sampleCtx *TokenContext) (stri
 	}
 
 	return r.resolvePattern(pattern, sampleCtx)
+}
+
+// ResolveContext resolves a named pattern from the Patterns map.
+func (r *Resolver) ResolveContext(contextName string, ctx *TokenContext, ext string) (string, error) {
+	pattern, ok := r.settings.Patterns[contextName]
+	if !ok {
+		return "", fmt.Errorf("no pattern for context %q", contextName)
+	}
+
+	if len(ctx.EpisodeNumbers) > 1 && r.settings.MultiEpisodeStyle != "" {
+		return r.resolveMultiEpisodeContext(pattern, ctx, ext)
+	}
+
+	resolved, err := r.resolvePattern(pattern, ctx)
+	if err != nil {
+		return "", err
+	}
+	resolved = SanitizeFilename(
+		resolved,
+		r.settings.ReplaceIllegalCharacters,
+		r.settings.ColonReplacement,
+		r.settings.CustomColonReplacement,
+	)
+	resolved = ApplyCase(resolved, r.settings.CaseMode)
+	if ext != "" {
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		resolved += ext
+	}
+	return resolved, nil
+}
+
+// resolveMultiEpisodeContext handles multi-episode formatting for a context pattern.
+func (r *Resolver) resolveMultiEpisodeContext(pattern string, ctx *TokenContext, ext string) (string, error) {
+	resolved, err := r.resolvePattern(pattern, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	resolved = r.applyMultiEpisodeFormat(resolved, ctx)
+
+	resolved = SanitizeFilename(
+		resolved,
+		r.settings.ReplaceIllegalCharacters,
+		r.settings.ColonReplacement,
+		r.settings.CustomColonReplacement,
+	)
+	resolved = ApplyCase(resolved, r.settings.CaseMode)
+	if ext != "" {
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		resolved += ext
+	}
+	return resolved, nil
+}
+
+// HasPattern reports whether a named pattern exists in the Patterns map.
+func (r *Resolver) HasPattern(contextName string) bool {
+	if r.settings.Patterns == nil {
+		return false
+	}
+	_, ok := r.settings.Patterns[contextName]
+	return ok
 }
 
 // GetSampleContext returns sample data for pattern preview.

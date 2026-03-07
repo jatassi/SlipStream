@@ -94,6 +94,29 @@ func (r *Registry) Types() []Type {
 	return append([]Type(nil), r.order...)
 }
 
+// CollectNotificationEvents returns all notification events grouped by source.
+// Framework events come first, then each registered module's events.
+func (r *Registry) CollectNotificationEvents() []NotificationEventGroup {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	groups := []NotificationEventGroup{
+		{ID: "framework", Label: "General", Events: FrameworkNotificationEvents()},
+	}
+	for _, t := range r.order {
+		mod := r.modules[t]
+		events := mod.DeclareEvents()
+		if len(events) > 0 {
+			groups = append(groups, NotificationEventGroup{
+				ID:     string(mod.ID()),
+				Label:  mod.Name(),
+				Events: events,
+			})
+		}
+	}
+	return groups
+}
+
 // ModuleForEntityType returns the module that owns the given entity type.
 func (r *Registry) ModuleForEntityType(et EntityType) Module {
 	r.mu.RLock()

@@ -624,7 +624,7 @@ func (q *Queries) GetMultiVersionSettings(ctx context.Context) (*MultiVersionSet
 }
 
 const getVersionSlot = `-- name: GetVersionSlot :one
-SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id FROM version_slots WHERE id = ? LIMIT 1
+SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at FROM version_slots WHERE id = ? LIMIT 1
 `
 
 // Version Slots
@@ -640,14 +640,12 @@ func (q *Queries) GetVersionSlot(ctx context.Context, id int64) (*VersionSlot, e
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
 
 const getVersionSlotByNumber = `-- name: GetVersionSlotByNumber :one
-SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id FROM version_slots WHERE slot_number = ? LIMIT 1
+SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at FROM version_slots WHERE slot_number = ? LIMIT 1
 `
 
 func (q *Queries) GetVersionSlotByNumber(ctx context.Context, slotNumber int64) (*VersionSlot, error) {
@@ -662,14 +660,12 @@ func (q *Queries) GetVersionSlotByNumber(ctx context.Context, slotNumber int64) 
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
 
 const listEnabledVersionSlots = `-- name: ListEnabledVersionSlots :many
-SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id FROM version_slots WHERE enabled = 1 ORDER BY display_order
+SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at FROM version_slots WHERE enabled = 1 ORDER BY display_order
 `
 
 func (q *Queries) ListEnabledVersionSlots(ctx context.Context) ([]*VersionSlot, error) {
@@ -690,8 +686,6 @@ func (q *Queries) ListEnabledVersionSlots(ctx context.Context) ([]*VersionSlot, 
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.MovieRootFolderID,
-			&i.TvRootFolderID,
 		); err != nil {
 			return nil, err
 		}
@@ -708,7 +702,7 @@ func (q *Queries) ListEnabledVersionSlots(ctx context.Context) ([]*VersionSlot, 
 
 const listEnabledVersionSlotsWithProfiles = `-- name: ListEnabledVersionSlotsWithProfiles :many
 SELECT
-    vs.id, vs.slot_number, vs.name, vs.enabled, vs.quality_profile_id, vs.display_order, vs.created_at, vs.updated_at, vs.movie_root_folder_id, vs.tv_root_folder_id,
+    vs.id, vs.slot_number, vs.name, vs.enabled, vs.quality_profile_id, vs.display_order, vs.created_at, vs.updated_at,
     qp.id as profile_id,
     qp.name as profile_name,
     qp.cutoff as profile_cutoff,
@@ -732,8 +726,6 @@ type ListEnabledVersionSlotsWithProfilesRow struct {
 	DisplayOrder                int64          `json:"display_order"`
 	CreatedAt                   sql.NullTime   `json:"created_at"`
 	UpdatedAt                   sql.NullTime   `json:"updated_at"`
-	MovieRootFolderID           sql.NullInt64  `json:"movie_root_folder_id"`
-	TvRootFolderID              sql.NullInt64  `json:"tv_root_folder_id"`
 	ProfileID                   sql.NullInt64  `json:"profile_id"`
 	ProfileName                 sql.NullString `json:"profile_name"`
 	ProfileCutoff               sql.NullInt64  `json:"profile_cutoff"`
@@ -762,8 +754,6 @@ func (q *Queries) ListEnabledVersionSlotsWithProfiles(ctx context.Context) ([]*L
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.MovieRootFolderID,
-			&i.TvRootFolderID,
 			&i.ProfileID,
 			&i.ProfileName,
 			&i.ProfileCutoff,
@@ -1732,7 +1722,7 @@ func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Mov
 }
 
 const listVersionSlots = `-- name: ListVersionSlots :many
-SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id FROM version_slots ORDER BY display_order
+SELECT id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at FROM version_slots ORDER BY display_order
 `
 
 func (q *Queries) ListVersionSlots(ctx context.Context) ([]*VersionSlot, error) {
@@ -1753,8 +1743,6 @@ func (q *Queries) ListVersionSlots(ctx context.Context) ([]*VersionSlot, error) 
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.MovieRootFolderID,
-			&i.TvRootFolderID,
 		); err != nil {
 			return nil, err
 		}
@@ -1771,7 +1759,7 @@ func (q *Queries) ListVersionSlots(ctx context.Context) ([]*VersionSlot, error) 
 
 const listVersionSlotsWithProfiles = `-- name: ListVersionSlotsWithProfiles :many
 SELECT
-    vs.id, vs.slot_number, vs.name, vs.enabled, vs.quality_profile_id, vs.display_order, vs.created_at, vs.updated_at, vs.movie_root_folder_id, vs.tv_root_folder_id,
+    vs.id, vs.slot_number, vs.name, vs.enabled, vs.quality_profile_id, vs.display_order, vs.created_at, vs.updated_at,
     qp.id as profile_id,
     qp.name as profile_name,
     qp.cutoff as profile_cutoff,
@@ -1794,8 +1782,6 @@ type ListVersionSlotsWithProfilesRow struct {
 	DisplayOrder                int64          `json:"display_order"`
 	CreatedAt                   sql.NullTime   `json:"created_at"`
 	UpdatedAt                   sql.NullTime   `json:"updated_at"`
-	MovieRootFolderID           sql.NullInt64  `json:"movie_root_folder_id"`
-	TvRootFolderID              sql.NullInt64  `json:"tv_root_folder_id"`
 	ProfileID                   sql.NullInt64  `json:"profile_id"`
 	ProfileName                 sql.NullString `json:"profile_name"`
 	ProfileCutoff               sql.NullInt64  `json:"profile_cutoff"`
@@ -1825,8 +1811,6 @@ func (q *Queries) ListVersionSlotsWithProfiles(ctx context.Context) ([]*ListVers
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.MovieRootFolderID,
-			&i.TvRootFolderID,
 			&i.ProfileID,
 			&i.ProfileName,
 			&i.ProfileCutoff,
@@ -2272,21 +2256,17 @@ UPDATE version_slots SET
     enabled = ?,
     quality_profile_id = ?,
     display_order = ?,
-    movie_root_folder_id = ?,
-    tv_root_folder_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id
+RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at
 `
 
 type UpdateVersionSlotParams struct {
-	Name              string        `json:"name"`
-	Enabled           bool          `json:"enabled"`
-	QualityProfileID  sql.NullInt64 `json:"quality_profile_id"`
-	DisplayOrder      int64         `json:"display_order"`
-	MovieRootFolderID sql.NullInt64 `json:"movie_root_folder_id"`
-	TvRootFolderID    sql.NullInt64 `json:"tv_root_folder_id"`
-	ID                int64         `json:"id"`
+	Name             string        `json:"name"`
+	Enabled          bool          `json:"enabled"`
+	QualityProfileID sql.NullInt64 `json:"quality_profile_id"`
+	DisplayOrder     int64         `json:"display_order"`
+	ID               int64         `json:"id"`
 }
 
 func (q *Queries) UpdateVersionSlot(ctx context.Context, arg UpdateVersionSlotParams) (*VersionSlot, error) {
@@ -2295,8 +2275,6 @@ func (q *Queries) UpdateVersionSlot(ctx context.Context, arg UpdateVersionSlotPa
 		arg.Enabled,
 		arg.QualityProfileID,
 		arg.DisplayOrder,
-		arg.MovieRootFolderID,
-		arg.TvRootFolderID,
 		arg.ID,
 	)
 	var i VersionSlot
@@ -2309,8 +2287,6 @@ func (q *Queries) UpdateVersionSlot(ctx context.Context, arg UpdateVersionSlotPa
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
@@ -2320,7 +2296,7 @@ UPDATE version_slots SET
     enabled = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id
+RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at
 `
 
 type UpdateVersionSlotEnabledParams struct {
@@ -2340,8 +2316,6 @@ func (q *Queries) UpdateVersionSlotEnabled(ctx context.Context, arg UpdateVersio
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
@@ -2351,7 +2325,7 @@ UPDATE version_slots SET
     name = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id
+RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at
 `
 
 type UpdateVersionSlotNameParams struct {
@@ -2371,8 +2345,6 @@ func (q *Queries) UpdateVersionSlotName(ctx context.Context, arg UpdateVersionSl
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
@@ -2382,7 +2354,7 @@ UPDATE version_slots SET
     quality_profile_id = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id
+RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at
 `
 
 type UpdateVersionSlotProfileParams struct {
@@ -2402,41 +2374,6 @@ func (q *Queries) UpdateVersionSlotProfile(ctx context.Context, arg UpdateVersio
 		&i.DisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
-	)
-	return &i, err
-}
-
-const updateVersionSlotRootFolders = `-- name: UpdateVersionSlotRootFolders :one
-UPDATE version_slots SET
-    movie_root_folder_id = ?,
-    tv_root_folder_id = ?,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = ?
-RETURNING id, slot_number, name, enabled, quality_profile_id, display_order, created_at, updated_at, movie_root_folder_id, tv_root_folder_id
-`
-
-type UpdateVersionSlotRootFoldersParams struct {
-	MovieRootFolderID sql.NullInt64 `json:"movie_root_folder_id"`
-	TvRootFolderID    sql.NullInt64 `json:"tv_root_folder_id"`
-	ID                int64         `json:"id"`
-}
-
-func (q *Queries) UpdateVersionSlotRootFolders(ctx context.Context, arg UpdateVersionSlotRootFoldersParams) (*VersionSlot, error) {
-	row := q.db.QueryRowContext(ctx, updateVersionSlotRootFolders, arg.MovieRootFolderID, arg.TvRootFolderID, arg.ID)
-	var i VersionSlot
-	err := row.Scan(
-		&i.ID,
-		&i.SlotNumber,
-		&i.Name,
-		&i.Enabled,
-		&i.QualityProfileID,
-		&i.DisplayOrder,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.MovieRootFolderID,
-		&i.TvRootFolderID,
 	)
 	return &i, err
 }
