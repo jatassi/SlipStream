@@ -130,3 +130,60 @@ func (r *Registry) ModuleForEntityType(et EntityType) Module {
 	}
 	return nil
 }
+
+// GetProvisioner returns the PortalProvisioner for the given module type, or nil.
+func (r *Registry) GetProvisioner(moduleType string) PortalProvisioner {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	mod, ok := r.modules[Type(moduleType)]
+	if !ok {
+		return nil
+	}
+	if pp, ok := mod.(PortalProvisioner); ok {
+		return pp
+	}
+	return nil
+}
+
+// GetProvisionerForEntityType returns the PortalProvisioner for a given entity type
+// (e.g., "movie" -> movie module's provisioner, "episode" -> tv module's provisioner).
+func (r *Registry) GetProvisionerForEntityType(entityType string) PortalProvisioner {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, mod := range r.modules {
+		pp, ok := mod.(PortalProvisioner)
+		if !ok {
+			continue
+		}
+		for _, et := range pp.SupportedEntityTypes() {
+			if et == entityType {
+				return pp
+			}
+		}
+	}
+	return nil
+}
+
+// GetMovieArrAdapter returns the MovieArrImportAdapter from the registered modules, or nil if none.
+func (r *Registry) GetMovieArrAdapter() MovieArrImportAdapter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, mod := range r.modules {
+		if adapter, ok := mod.(MovieArrImportAdapter); ok {
+			return adapter
+		}
+	}
+	return nil
+}
+
+// GetTVArrAdapter returns the TVArrImportAdapter from the registered modules, or nil if none.
+func (r *Registry) GetTVArrAdapter() TVArrImportAdapter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, mod := range r.modules {
+		if adapter, ok := mod.(TVArrImportAdapter); ok {
+			return adapter
+		}
+	}
+	return nil
+}

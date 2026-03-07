@@ -144,7 +144,7 @@ Task 8.9 (PortalProvisioner interface) ─────────────�
 
 ---
 
-### Task 8.1: Migration — Portal User Module Settings & Invitation Module Settings
+### Task 8.1: Migration — Portal User Module Settings & Invitation Module Settings ✅
 
 **Create** `internal/database/migrations/0XX_portal_user_module_settings.sql` (use next available migration number)
 
@@ -383,7 +383,7 @@ PRAGMA foreign_keys = ON;
 
 ---
 
-### Task 8.2: sqlc Queries for Portal User Module Settings & Invitation Module Settings
+### Task 8.2: sqlc Queries for Portal User Module Settings & Invitation Module Settings ✅
 
 **Create** `internal/database/queries/portal_user_module_settings.sql`
 
@@ -495,7 +495,7 @@ DELETE FROM portal_invitation_module_settings WHERE invitation_id = ?;
 
 ---
 
-### Task 8.3: Quota Service & Users Service Refactoring
+### Task 8.3: Quota Service & Users Service Refactoring ✅
 
 **Rewrite** `internal/portal/quota/service.go`
 
@@ -582,7 +582,7 @@ const (
 
 ---
 
-### Task 8.4: Portal Handlers & Bridge Updates for User Module Settings
+### Task 8.4: Portal Handlers & Bridge Updates for User Module Settings ✅
 
 **Modify** `internal/portal/admin/users_handlers.go`
 
@@ -614,7 +614,7 @@ const (
 
 ---
 
-### Task 8.5: Migration — Slot Root Folders Pivot Table
+### Task 8.5: Migration — Slot Root Folders Pivot Table ✅
 
 **Create** `internal/database/migrations/0XX_slot_root_folders_pivot.sql` (use next available migration number)
 
@@ -703,7 +703,7 @@ PRAGMA foreign_keys = ON;
 
 ---
 
-### Task 8.6: sqlc Queries for Slot Root Folders
+### Task 8.6: sqlc Queries for Slot Root Folders ✅
 
 **Create** `internal/database/queries/slot_root_folders.sql`
 
@@ -757,7 +757,7 @@ DELETE FROM slot_root_folders WHERE slot_id = ?;
 
 ---
 
-### Task 8.7: Slot Service Refactoring
+### Task 8.7: Slot Service Refactoring [DONE]
 
 **Modify** `internal/library/slots/slot.go`
 
@@ -781,7 +781,7 @@ DELETE FROM slot_root_folders WHERE slot_id = ?;
 
 ---
 
-### Task 8.8: Slot Handlers & Bridge Updates
+### Task 8.8: Slot Handlers & Bridge Updates [DONE]
 
 **Modify** `internal/library/slots/handlers.go`
 
@@ -801,7 +801,7 @@ DELETE FROM slot_root_folders WHERE slot_id = ?;
 
 ---
 
-### Task 8.9: Define PortalProvisioner Interface on Module Framework
+### Task 8.9: Define PortalProvisioner Interface on Module Framework [DONE]
 
 **Create** `internal/module/portal_provisioner.go`
 
@@ -947,7 +947,7 @@ type SlotSupport interface {
 
 ---
 
-### Task 8.10: Movie & TV Module PortalProvisioner Implementations
+### Task 8.10: Movie & TV Module PortalProvisioner Implementations [DONE]
 
 **Modify** `internal/modules/movie/module.go` — add `PortalProvisioner` and `SlotSupport` implementations:
 
@@ -1021,7 +1021,7 @@ The TV module's `SlotEntityType` returns `"episode"`.
 
 ---
 
-### Task 8.11: RequestSearcher & Provisioner Dispatch Refactoring
+### Task 8.11: RequestSearcher & Provisioner Dispatch Refactoring [DONE]
 
 **Modify** `internal/portal/requests/searcher.go`
 
@@ -1095,7 +1095,7 @@ The TV module's `SlotEntityType` returns `"episode"`.
 
 ---
 
-### Task 8.12: StatusTracker Rewrite — Module-Dispatched Completion Checking
+### Task 8.12: StatusTracker Rewrite — Module-Dispatched Completion Checking [COMPLETED]
 
 **Rewrite** `internal/portal/requests/status_tracker.go`
 
@@ -1250,7 +1250,7 @@ The following interfaces define the contract that external packages use to call 
 
 ---
 
-### Task 8.13: Frontend Updates
+### Task 8.13: Frontend Updates ✅
 
 **Modify** portal user types and API client:
 
@@ -1286,7 +1286,7 @@ The following interfaces define the contract that external packages use to call 
 
 ---
 
-### Task 8.14: Phase 8 Validation
+### Task 8.14: Phase 8 Validation ✅
 
 **Run full build and test suite:**
 ```bash

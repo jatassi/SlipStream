@@ -49,7 +49,6 @@ func wireCircularDeps(s *Server) {
 	// Circular: LibraryManager ↔ Autosearch
 	s.library.LibraryManager.SetAutosearchService(s.automation.Autosearch)
 	s.automation.ScheduledSearcher.SetSeriesRefresher(s.library.LibraryManager)
-	s.automation.ArrImport.SetMetadataRefresher(s.library.LibraryManager)
 
 	// Circular: Notification → many consumers
 	s.system.Health.SetNotifier(s.notification.Service)

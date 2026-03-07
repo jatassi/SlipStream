@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { QualityProfile } from '@/types'
 
 import { ProfileSelect } from './profile-select'
 
@@ -21,13 +22,11 @@ type InviteDialogProps = {
   onOpenChange: (open: boolean) => void
   inviteName: string
   onNameChange: (name: string) => void
-  movieQualityProfileId: number | null
-  onMovieQualityProfileChange: (id: number | null) => void
-  tvQualityProfileId: number | null
-  onTvQualityProfileChange: (id: number | null) => void
+  moduleSettings: Record<string, number | null>
+  onModuleProfileChange: (moduleType: string, profileId: number | null) => void
   autoApprove: boolean
   onAutoApproveChange: (checked: boolean) => void
-  qualityProfiles: { id: number; name: string }[] | undefined
+  qualityProfiles: QualityProfile[] | undefined
   isPending: boolean
   onSubmit: () => void
 }
@@ -61,6 +60,9 @@ export function InviteDialog(props: InviteDialogProps) {
 }
 
 function InviteFormBody(p: InviteDialogProps) {
+  const profiles = p.qualityProfiles ?? []
+  const moduleTypes = [...new Set(profiles.map((prof) => prof.moduleType))]
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -74,19 +76,19 @@ function InviteFormBody(p: InviteDialogProps) {
         />
       </div>
 
-      <ProfileSelect
-        label="Movie Quality Profile"
-        value={p.movieQualityProfileId}
-        onChange={p.onMovieQualityProfileChange}
-        qualityProfiles={p.qualityProfiles}
-      />
-
-      <ProfileSelect
-        label="TV Quality Profile"
-        value={p.tvQualityProfileId}
-        onChange={p.onTvQualityProfileChange}
-        qualityProfiles={p.qualityProfiles}
-      />
+      {moduleTypes.map((moduleType) => {
+        const filtered = profiles.filter((prof) => prof.moduleType === moduleType)
+        const label = `${moduleType.charAt(0).toUpperCase() + moduleType.slice(1)} Quality Profile`
+        return (
+          <ProfileSelect
+            key={moduleType}
+            label={label}
+            value={p.moduleSettings[moduleType] ?? null}
+            onChange={(id) => p.onModuleProfileChange(moduleType, id)}
+            qualityProfiles={filtered}
+          />
+        )
+      })}
 
       <div className="flex items-center space-x-2">
         <Checkbox

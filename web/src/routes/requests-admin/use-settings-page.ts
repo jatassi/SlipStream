@@ -110,9 +110,7 @@ function syncFormFromSettings(params: SyncFormParams) {
   }
   params.setFormData({
     enabled: params.settings.enabled,
-    defaultMovieQuota: params.settings.defaultMovieQuota,
-    defaultSeasonQuota: params.settings.defaultSeasonQuota,
-    defaultEpisodeQuota: params.settings.defaultEpisodeQuota,
+    defaultQuotas: params.settings.defaultQuotas,
     defaultRootFolderId: params.settings.defaultRootFolderId,
     adminNotifyNew: params.settings.adminNotifyNew,
     searchRateLimit: params.settings.searchRateLimit,
@@ -141,6 +139,14 @@ export function useRequestSettingsPage() {
     setHasChanges(true)
   }
 
+  const handleQuotaChange = (moduleType: string, value: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      defaultQuotas: { ...prev.defaultQuotas, [moduleType]: value },
+    }))
+    setHasChanges(true)
+  }
+
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync(formData)
@@ -162,6 +168,7 @@ export function useRequestSettingsPage() {
     rootFolders,
     updateMutation,
     handleChange,
+    handleQuotaChange,
     handleSave,
     ...notificationState,
   }

@@ -107,7 +107,7 @@ Group F:             9.11 (validation — needs all)
 
 ---
 
-### Task 9.1: Define Arr Import Adapter Interfaces in Module Framework
+### Task 9.1: Define Arr Import Adapter Interfaces in Module Framework ✅
 
 **Create** `internal/module/arr_import.go`
 
@@ -378,7 +378,7 @@ func (r *Registry) GetTVArrAdapter() TVArrImportAdapter {
 
 ---
 
-### Task 9.2: Implement MovieArrImportAdapter on Movie Module
+### Task 9.2: Implement MovieArrImportAdapter on Movie Module ✅
 
 **Modify** `internal/modules/movie/module.go` — add `MovieArrImportAdapter` implementation.
 
@@ -431,7 +431,7 @@ func (m *Module) ExternalAppName() string { return "Radarr" }
 
 ---
 
-### Task 9.3: Implement TVArrImportAdapter on TV Module
+### Task 9.3: Implement TVArrImportAdapter on TV Module ✅
 
 **Modify** `internal/modules/tv/module.go` — add `TVArrImportAdapter` implementation.
 
@@ -484,7 +484,7 @@ func (m *Module) ExternalAppName() string { return "Sonarr" }
 
 ---
 
-### Task 9.4: Refactor Arr Import Service to Use Module Adapters
+### Task 9.4: Refactor Arr Import Service to Use Module Adapters ✅
 
 **Modify** `internal/arrimport/service.go`:
 
@@ -581,7 +581,7 @@ func (m *Module) ExternalAppName() string { return "Sonarr" }
 
 ---
 
-### Task 9.5: Refine MockFactory Interface and Define MockContext
+### Task 9.5: Refine MockFactory Interface and Define MockContext ✅
 
 **Modify** `internal/module/interfaces.go` — update `MockFactory` to use a `MockContext` parameter:
 
@@ -643,7 +643,7 @@ Note: No `MockMetadataService` or `MockArtworkDownloader` interfaces are needed 
 
 ---
 
-### Task 9.6: Implement MockFactory on Movie Module
+### Task 9.6: Implement MockFactory on Movie Module ✅
 
 **Create** `internal/modules/movie/mock_factory.go`:
 
@@ -682,7 +682,7 @@ var _ module.MockFactory = (*Module)(nil)
 
 ---
 
-### Task 9.7: Implement MockFactory on TV Module
+### Task 9.7: Implement MockFactory on TV Module ✅
 
 **Create** `internal/modules/tv/mock_factory.go`:
 
@@ -721,7 +721,7 @@ var _ module.MockFactory = (*Module)(nil)
 
 ---
 
-### Task 9.8: Refactor DevModeManager to Use Module MockFactory
+### Task 9.8: Refactor DevModeManager to Use Module MockFactory ✅
 
 **Modify** `internal/api/devmode.go`:
 
@@ -844,7 +844,7 @@ var _ module.MockFactory = (*Module)(nil)
 
 ---
 
-### Task 9.9: Document Health Monitoring Module Usage Patterns
+### Task 9.9: Document Health Monitoring Module Usage Patterns ✅
 
 **Create** `internal/module/HEALTH_PATTERNS.md`:
 
@@ -935,7 +935,7 @@ notification dispatch — the health service does it automatically.
 
 ---
 
-### Task 9.10: Frontend Updates for Module-Dispatched Arr Import
+### Task 9.10: Frontend Updates for Module-Dispatched Arr Import ✅ (no changes needed)
 
 The frontend arr import wizard currently has hard-coded "Radarr" and "Sonarr" options. Phase 9 backend changes are backward-compatible with the existing API contract — the same endpoints return the same response shapes. However, two frontend adjustments are needed:
 
@@ -969,7 +969,7 @@ The frontend arr import wizard currently has hard-coded "Radarr" and "Sonarr" op
 
 ---
 
-### Task 9.11: Phase 9 Validation
+### Task 9.11: Phase 9 Validation ✅
 
 Run full validation:
 

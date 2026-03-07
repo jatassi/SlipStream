@@ -24,24 +24,27 @@ var (
 	ErrInvalidUsername    = errors.New("invalid username")
 )
 
+type InvitationModuleSetting struct {
+	ModuleType       string `json:"moduleType"`
+	QualityProfileID *int64 `json:"qualityProfileId"`
+}
+
 type Invitation struct {
-	ID                    int64      `json:"id"`
-	Username              string     `json:"username"`
-	Token                 string     `json:"token"`
-	ExpiresAt             time.Time  `json:"expiresAt"`
-	UsedAt                *time.Time `json:"usedAt"`
-	CreatedAt             time.Time  `json:"createdAt"`
-	Status                string     `json:"status"`
-	MovieQualityProfileID *int64     `json:"movieQualityProfileId"`
-	TVQualityProfileID    *int64     `json:"tvQualityProfileId"`
-	AutoApprove           bool       `json:"autoApprove"`
+	ID             int64                     `json:"id"`
+	Username       string                    `json:"username"`
+	Token          string                    `json:"token"`
+	ExpiresAt      time.Time                 `json:"expiresAt"`
+	UsedAt         *time.Time                `json:"usedAt"`
+	CreatedAt      time.Time                 `json:"createdAt"`
+	Status         string                    `json:"status"`
+	ModuleSettings []InvitationModuleSetting `json:"moduleSettings"`
+	AutoApprove    bool                      `json:"autoApprove"`
 }
 
 type CreateInput struct {
-	Username              string
-	MovieQualityProfileID *int64
-	TVQualityProfileID    *int64
-	AutoApprove           bool
+	Username       string
+	ModuleSettings map[string]*int64 // module_type -> quality_profile_id
+	AutoApprove    bool
 }
 
 type Service struct {
@@ -73,28 +76,34 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*Invitation, e
 
 	expiresAt := time.Now().Add(DefaultExpiryDuration)
 
-	var movieQPID, tvQPID sql.NullInt64
-	if input.MovieQualityProfileID != nil {
-		movieQPID = sql.NullInt64{Int64: *input.MovieQualityProfileID, Valid: true}
-	}
-	if input.TVQualityProfileID != nil {
-		tvQPID = sql.NullInt64{Int64: *input.TVQualityProfileID, Valid: true}
-	}
-
 	inv, err := s.queries.CreatePortalInvitation(ctx, sqlc.CreatePortalInvitationParams{
-		Username:              input.Username,
-		Token:                 token,
-		ExpiresAt:             expiresAt,
-		MovieQualityProfileID: movieQPID,
-		TvQualityProfileID:    tvQPID,
-		AutoApprove:           input.AutoApprove,
+		Username:    input.Username,
+		Token:       token,
+		ExpiresAt:   expiresAt,
+		AutoApprove: input.AutoApprove,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create invitation")
 		return nil, err
 	}
 
-	return toInvitation(inv), nil
+	for moduleType, profileID := range input.ModuleSettings {
+		var qpID sql.NullInt64
+		if profileID != nil {
+			qpID = sql.NullInt64{Int64: *profileID, Valid: true}
+		}
+		_, err := s.queries.UpsertInvitationModuleSetting(ctx, sqlc.UpsertInvitationModuleSettingParams{
+			InvitationID:     inv.ID,
+			ModuleType:       moduleType,
+			QualityProfileID: qpID,
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Str("moduleType", moduleType).Int64("invitationID", inv.ID).Msg("failed to create invitation module setting")
+			return nil, err
+		}
+	}
+
+	return s.toInvitation(ctx, inv), nil
 }
 
 func (s *Service) Get(ctx context.Context, id int64) (*Invitation, error) {
@@ -105,7 +114,7 @@ func (s *Service) Get(ctx context.Context, id int64) (*Invitation, error) {
 		}
 		return nil, err
 	}
-	return toInvitation(inv), nil
+	return s.toInvitation(ctx, inv), nil
 }
 
 func (s *Service) GetByToken(ctx context.Context, token string) (*Invitation, error) {
@@ -116,7 +125,7 @@ func (s *Service) GetByToken(ctx context.Context, token string) (*Invitation, er
 		}
 		return nil, err
 	}
-	return toInvitation(inv), nil
+	return s.toInvitation(ctx, inv), nil
 }
 
 func (s *Service) GetByUsername(ctx context.Context, username string) (*Invitation, error) {
@@ -127,7 +136,7 @@ func (s *Service) GetByUsername(ctx context.Context, username string) (*Invitati
 		}
 		return nil, err
 	}
-	return toInvitation(inv), nil
+	return s.toInvitation(ctx, inv), nil
 }
 
 func (s *Service) Validate(ctx context.Context, token string) (*Invitation, error) {
@@ -176,7 +185,7 @@ func (s *Service) ResendLink(ctx context.Context, username string) (*Invitation,
 		return nil, err
 	}
 
-	return toInvitation(inv), nil
+	return s.toInvitation(ctx, inv), nil
 }
 
 func (s *Service) ListPending(ctx context.Context) ([]*Invitation, error) {
@@ -187,7 +196,7 @@ func (s *Service) ListPending(ctx context.Context) ([]*Invitation, error) {
 
 	result := make([]*Invitation, len(invs))
 	for i, inv := range invs {
-		result[i] = toInvitation(inv)
+		result[i] = s.toInvitation(ctx, inv)
 	}
 	return result, nil
 }
@@ -200,7 +209,7 @@ func (s *Service) List(ctx context.Context) ([]*Invitation, error) {
 
 	result := make([]*Invitation, len(invs))
 	for i, inv := range invs {
-		result[i] = toInvitation(inv)
+		result[i] = s.toInvitation(ctx, inv)
 	}
 	return result, nil
 }
@@ -221,7 +230,7 @@ func generateToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-func toInvitation(inv *sqlc.PortalInvitation) *Invitation {
+func (s *Service) toInvitation(ctx context.Context, inv *sqlc.PortalInvitation) *Invitation {
 	var usedAt *time.Time
 	if inv.UsedAt.Valid {
 		usedAt = &inv.UsedAt.Time
@@ -234,24 +243,28 @@ func toInvitation(inv *sqlc.PortalInvitation) *Invitation {
 		status = "expired"
 	}
 
-	var movieQPID, tvQPID *int64
-	if inv.MovieQualityProfileID.Valid {
-		movieQPID = &inv.MovieQualityProfileID.Int64
-	}
-	if inv.TvQualityProfileID.Valid {
-		tvQPID = &inv.TvQualityProfileID.Int64
+	moduleSettings := []InvitationModuleSetting{}
+	if settings, err := s.queries.GetInvitationModuleSettings(ctx, inv.ID); err == nil {
+		for _, ms := range settings {
+			ims := InvitationModuleSetting{
+				ModuleType: ms.ModuleType,
+			}
+			if ms.QualityProfileID.Valid {
+				ims.QualityProfileID = &ms.QualityProfileID.Int64
+			}
+			moduleSettings = append(moduleSettings, ims)
+		}
 	}
 
 	return &Invitation{
-		ID:                    inv.ID,
-		Username:              inv.Username,
-		Token:                 inv.Token,
-		ExpiresAt:             inv.ExpiresAt,
-		UsedAt:                usedAt,
-		CreatedAt:             inv.CreatedAt,
-		Status:                status,
-		MovieQualityProfileID: movieQPID,
-		TVQualityProfileID:    tvQPID,
-		AutoApprove:           inv.AutoApprove,
+		ID:             inv.ID,
+		Username:       inv.Username,
+		Token:          inv.Token,
+		ExpiresAt:      inv.ExpiresAt,
+		UsedAt:         usedAt,
+		CreatedAt:      inv.CreatedAt,
+		Status:         status,
+		ModuleSettings: moduleSettings,
+		AutoApprove:    inv.AutoApprove,
 	}
 }

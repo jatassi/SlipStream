@@ -12,22 +12,26 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/users"
 )
 
+type UserModuleSetting struct {
+	ModuleType       string `json:"moduleType"`
+	QualityProfileID *int64 `json:"qualityProfileId"`
+}
+
 type UserWithQuota struct {
 	*users.User
-	Quota *quota.QuotaStatus `json:"quota,omitempty"`
+	ModuleSettings []UserModuleSetting `json:"moduleSettings"`
+	Quota          *quota.QuotaStatus  `json:"quota,omitempty"`
 }
 
 type UpdateUserRequest struct {
-	Username              *string `json:"username"`
-	MovieQualityProfileID *int64  `json:"movieQualityProfileId"`
-	TVQualityProfileID    *int64  `json:"tvQualityProfileId"`
-	AutoApprove           *bool   `json:"autoApprove"`
+	Username       *string           `json:"username"`
+	ModuleSettings map[string]*int64 `json:"moduleSettings"` // module_type -> quality_profile_id
+	AutoApprove    *bool             `json:"autoApprove"`
 }
 
 type UpdateQuotaRequest struct {
-	MoviesLimit   *int64 `json:"moviesLimit"`
-	SeasonsLimit  *int64 `json:"seasonsLimit"`
-	EpisodesLimit *int64 `json:"episodesLimit"`
+	ModuleType string `json:"moduleType"`
+	Limit      *int64 `json:"limit"`
 }
 
 type UsersHandlers struct {
@@ -65,10 +69,14 @@ func (h *UsersHandlers) List(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	ctx := c.Request().Context()
 	results := make([]*UserWithQuota, len(usersList))
 	for i, user := range usersList {
-		results[i] = &UserWithQuota{User: user}
-		quotaStatus, err := h.quotaService.GetUserQuota(c.Request().Context(), user.ID)
+		results[i] = &UserWithQuota{
+			User:           user,
+			ModuleSettings: h.getUserModuleSettings(ctx, user.ID),
+		}
+		quotaStatus, err := h.quotaService.GetQuotaStatus(ctx, user.ID)
 		if err == nil {
 			results[i].Quota = quotaStatus
 		}
@@ -93,8 +101,11 @@ func (h *UsersHandlers) Get(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result := &UserWithQuota{User: user}
-	quotaStatus, err := h.quotaService.GetUserQuota(c.Request().Context(), user.ID)
+	result := &UserWithQuota{
+		User:           user,
+		ModuleSettings: h.getUserModuleSettings(c.Request().Context(), user.ID),
+	}
+	quotaStatus, err := h.quotaService.GetQuotaStatus(c.Request().Context(), user.ID)
 	if err == nil {
 		result.Quota = quotaStatus
 	}
@@ -128,8 +139,11 @@ func (h *UsersHandlers) Update(c echo.Context) error {
 		}
 	}
 
-	result := &UserWithQuota{User: user}
-	quotaStatus, err := h.quotaService.GetUserQuota(ctx, user.ID)
+	result := &UserWithQuota{
+		User:           user,
+		ModuleSettings: h.getUserModuleSettings(ctx, user.ID),
+	}
+	quotaStatus, err := h.quotaService.GetQuotaStatus(ctx, user.ID)
 	if err == nil {
 		result.Quota = quotaStatus
 	}
@@ -148,12 +162,10 @@ func (h *UsersHandlers) applyUserUpdates(ctx context.Context, id int64, req *Upd
 		user = u
 	}
 
-	if req.MovieQualityProfileID != nil || req.TVQualityProfileID != nil {
-		u, err := h.applyQualityProfileUpdates(ctx, id, req)
-		if err != nil {
-			return nil, err
+	for moduleType, profileID := range req.ModuleSettings {
+		if err := h.usersService.SetModuleQualityProfile(ctx, id, moduleType, profileID); err != nil {
+			return nil, mapUserError(err)
 		}
-		user = u
 	}
 
 	if req.AutoApprove != nil {
@@ -167,24 +179,22 @@ func (h *UsersHandlers) applyUserUpdates(ctx context.Context, id int64, req *Upd
 	return user, nil
 }
 
-func (h *UsersHandlers) applyQualityProfileUpdates(ctx context.Context, id int64, req *UpdateUserRequest) (*users.User, error) {
-	existing, err := h.usersService.Get(ctx, id)
+func (h *UsersHandlers) getUserModuleSettings(ctx context.Context, userID int64) []UserModuleSetting {
+	settings, err := h.usersService.GetModuleSettings(ctx, userID)
 	if err != nil {
-		return nil, mapUserError(err)
+		return []UserModuleSetting{}
 	}
-	movieQPID := existing.MovieQualityProfileID
-	tvQPID := existing.TVQualityProfileID
-	if req.MovieQualityProfileID != nil {
-		movieQPID = req.MovieQualityProfileID
+	result := make([]UserModuleSetting, 0, len(settings))
+	for _, ms := range settings {
+		ums := UserModuleSetting{
+			ModuleType: ms.ModuleType,
+		}
+		if ms.QualityProfileID.Valid {
+			ums.QualityProfileID = &ms.QualityProfileID.Int64
+		}
+		result = append(result, ums)
 	}
-	if req.TVQualityProfileID != nil {
-		tvQPID = req.TVQualityProfileID
-	}
-	u, err := h.usersService.SetQualityProfiles(ctx, id, movieQPID, tvQPID)
-	if err != nil {
-		return nil, mapUserError(err)
-	}
-	return u, nil
+	return result
 }
 
 func mapUserError(err error) *echo.HTTPError {
@@ -261,7 +271,7 @@ func (h *UsersHandlers) GetQuota(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
-	quotaStatus, err := h.quotaService.GetUserQuota(c.Request().Context(), id)
+	quotaStatus, err := h.quotaService.GetQuotaStatus(c.Request().Context(), id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -269,7 +279,7 @@ func (h *UsersHandlers) GetQuota(c echo.Context) error {
 	return c.JSON(http.StatusOK, quotaStatus)
 }
 
-// UpdateQuota updates a user's quota limits
+// UpdateQuota updates a user's quota limit for a module
 // PUT /api/v1/admin/requests/users/:id/quota
 func (h *UsersHandlers) UpdateQuota(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -282,11 +292,19 @@ func (h *UsersHandlers) UpdateQuota(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	quotaStatus, err := h.quotaService.SetUserOverride(c.Request().Context(), id, quota.QuotaLimits{
-		MoviesLimit:   req.MoviesLimit,
-		SeasonsLimit:  req.SeasonsLimit,
-		EpisodesLimit: req.EpisodesLimit,
-	})
+	if req.ModuleType == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "moduleType is required")
+	}
+
+	if req.Limit == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "limit is required")
+	}
+
+	if err := h.quotaService.SetUserOverride(c.Request().Context(), id, req.ModuleType, *req.Limit); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	quotaStatus, err := h.quotaService.GetQuotaStatus(c.Request().Context(), id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -294,7 +312,7 @@ func (h *UsersHandlers) UpdateQuota(c echo.Context) error {
 	return c.JSON(http.StatusOK, quotaStatus)
 }
 
-// ClearQuota clears a user's quota overrides
+// ClearQuota clears a user's quota overrides for a module
 // DELETE /api/v1/admin/requests/users/:id/quota
 func (h *UsersHandlers) ClearQuota(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -302,11 +320,20 @@ func (h *UsersHandlers) ClearQuota(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
 	}
 
-	quotaStatus, err := h.quotaService.ClearUserOverride(c.Request().Context(), id)
-	if err != nil {
+	moduleType := c.QueryParam("moduleType")
+	if moduleType == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "moduleType query parameter is required")
+	}
+
+	if err := h.quotaService.ClearUserOverride(c.Request().Context(), id, moduleType); err != nil {
 		if errors.Is(err, quota.ErrQuotaNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	quotaStatus, err := h.quotaService.GetQuotaStatus(c.Request().Context(), id)
+	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 

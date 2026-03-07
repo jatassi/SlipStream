@@ -88,7 +88,7 @@ function SettingsBody({ page }: { page: PageState }) {
         onChange={(checked) => page.handleChange('enabled', checked)}
       />
       {page.portalEnabled ? <>
-          <QuotasCard formData={page.formData} onChange={page.handleChange} />
+          <QuotasCard formData={page.formData} onQuotaChange={page.handleQuotaChange} />
           <ContentSettingsCard
             formData={page.formData}
             rootFolders={page.rootFolders}
@@ -142,8 +142,10 @@ type FormChangeHandler = <K extends keyof RequestSettings>(
   value: RequestSettings[K],
 ) => void
 
-function QuotasCard(props: { formData: Partial<RequestSettings>; onChange: FormChangeHandler }) {
-  const { formData, onChange } = props
+function QuotasCard(props: { formData: Partial<RequestSettings>; onQuotaChange: (moduleType: string, value: number) => void }) {
+  const quotas = props.formData.defaultQuotas ?? {}
+  const moduleTypes = Object.keys(quotas).length > 0 ? Object.keys(quotas) : ['movie', 'tv']
+
   return (
     <Card>
       <CardHeader>
@@ -153,28 +155,17 @@ function QuotasCard(props: { formData: Partial<RequestSettings>; onChange: FormC
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <QuotaInput
-            id="movieQuota"
-            label="Movies per Week"
-            value={formData.defaultMovieQuota}
-            onChange={(v) => onChange('defaultMovieQuota', v)}
-            placeholder="e.g., 5"
-          />
-          <QuotaInput
-            id="seasonQuota"
-            label="Seasons per Week"
-            value={formData.defaultSeasonQuota}
-            onChange={(v) => onChange('defaultSeasonQuota', v)}
-            placeholder="e.g., 3"
-          />
-          <QuotaInput
-            id="episodeQuota"
-            label="Episodes per Week"
-            value={formData.defaultEpisodeQuota}
-            onChange={(v) => onChange('defaultEpisodeQuota', v)}
-            placeholder="e.g., 10"
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {moduleTypes.map((moduleType) => (
+            <QuotaInput
+              key={moduleType}
+              id={`${moduleType}Quota`}
+              label={`${moduleType.charAt(0).toUpperCase() + moduleType.slice(1)} per Week`}
+              value={quotas[moduleType]}
+              onChange={(v) => props.onQuotaChange(moduleType, v)}
+              placeholder="e.g., 5"
+            />
+          ))}
         </div>
       </CardContent>
     </Card>

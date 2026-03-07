@@ -153,7 +153,7 @@ func TestConfigImportEndToEnd(t *testing.T) {
 	importSettingsSvc := newStubImportSettingsService()
 
 	// Build arrimport service (nil for media import dependencies — not needed for config import)
-	svc := NewService(tdb.Conn, nil, nil, nil, nil, nil, &logger, nil)
+	svc := NewService(tdb.Conn, nil, nil, nil, nil, &logger)
 	svc.SetConfigImportServices(dlSvc, idxSvc, notifSvc, qualProfSvc, importSettingsSvc)
 
 	ctx := context.Background()

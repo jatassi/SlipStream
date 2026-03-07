@@ -27,43 +27,36 @@ export type ValidationResult = {
 type ConfigReadyInput = {
   slots: Slot[] | undefined
   profiles: { id: number }[] | undefined
-  movieRootFolders: RootFolder[] | undefined
-  tvRootFolders: RootFolder[] | undefined
+  rootFoldersByModule: Record<string, RootFolder[]>
 }
 
-type IdSets = {
-  profileIds: Set<number>
-  movieIds: Set<number>
-  tvIds: Set<number>
-}
-
-function isSlotReady(slot: Slot, ids: IdSets): boolean {
+function isSlotReady(slot: Slot, profileIds: Set<number>, rootFolderIdsByModule: Map<string, Set<number>>): boolean {
   const isRequired = slot.slotNumber <= 2 || slot.enabled
   if (!isRequired) {
     return true
   }
-  if (!slot.qualityProfileId || !ids.profileIds.has(slot.qualityProfileId)) {
+  if (!slot.qualityProfileId || !profileIds.has(slot.qualityProfileId)) {
     return false
   }
-  if (slot.movieRootFolderId !== null && !ids.movieIds.has(slot.movieRootFolderId)) {
-    return false
-  }
-  if (slot.tvRootFolderId !== null && !ids.tvIds.has(slot.tvRootFolderId)) {
-    return false
+  for (const [moduleType, folderId] of Object.entries(slot.rootFolders)) {
+    const moduleIds = rootFolderIdsByModule.get(moduleType)
+    if (folderId !== null && !moduleIds?.has(folderId)) {
+      return false
+    }
   }
   return true
 }
 
 function isConfigurationReady(input: ConfigReadyInput): boolean {
-  if (!input.slots || !input.profiles || !input.movieRootFolders || !input.tvRootFolders) {
+  if (!input.slots || !input.profiles) {
     return false
   }
-  const ids: IdSets = {
-    profileIds: new Set(input.profiles.map((p) => p.id)),
-    movieIds: new Set(input.movieRootFolders.map((f) => f.id)),
-    tvIds: new Set(input.tvRootFolders.map((f) => f.id)),
+  const profileIds = new Set(input.profiles.map((p) => p.id))
+  const rootFolderIdsByModule = new Map<string, Set<number>>()
+  for (const [moduleType, folders] of Object.entries(input.rootFoldersByModule)) {
+    rootFolderIdsByModule.set(moduleType, new Set(folders.map((f) => f.id)))
   }
-  return input.slots.every((slot) => isSlotReady(slot, ids))
+  return input.slots.every((slot) => isSlotReady(slot, profileIds, rootFolderIdsByModule))
 }
 
 function useSlotQueries() {
@@ -75,6 +68,11 @@ function useSlotQueries() {
   const importSettingsQuery = useImportSettings()
   const developerMode = useDeveloperMode()
 
+  const rootFoldersByModule: Record<string, RootFolder[]> = {
+    movie: movieFoldersQuery.data ?? [],
+    tv: tvFoldersQuery.data ?? [],
+  }
+
   return {
     slots: slotsQuery.data,
     slotsLoading: slotsQuery.isLoading,
@@ -85,8 +83,7 @@ function useSlotQueries() {
     settingsError: settingsQuery.isError,
     refetchSettings: settingsQuery.refetch,
     profiles: profilesQuery.data,
-    movieRootFolders: movieFoldersQuery.data,
-    tvRootFolders: tvFoldersQuery.data,
+    rootFoldersByModule,
     refetchImportSettings: importSettingsQuery.refetch,
     developerMode,
   }
@@ -150,8 +147,7 @@ function useSlotUpdateHandlers(mutations: ReturnType<typeof useSlotMutations>) {
       enabled: false,
       qualityProfileId: null,
       displayOrder: slot.displayOrder,
-      movieRootFolderId: null,
-      tvRootFolderId: null,
+      rootFolders: {},
     }
     await mutations.updateSlot.mutateAsync({ id: slot.id, data: input })
   }
@@ -171,7 +167,7 @@ function useSlotUpdateHandlers(mutations: ReturnType<typeof useSlotMutations>) {
 
   const handleSlotRootFolderChange = async (
     slot: Slot,
-    mediaType: 'movie' | 'tv',
+    moduleType: string,
     rootFolderId: string,
   ) => {
     const id = rootFolderId === 'none' ? null : Number.parseInt(rootFolderId, 10)
@@ -180,8 +176,7 @@ function useSlotUpdateHandlers(mutations: ReturnType<typeof useSlotMutations>) {
       enabled: slot.enabled,
       qualityProfileId: slot.qualityProfileId,
       displayOrder: slot.displayOrder,
-      movieRootFolderId: mediaType === 'movie' ? id : slot.movieRootFolderId,
-      tvRootFolderId: mediaType === 'tv' ? id : slot.tvRootFolderId,
+      rootFolders: { ...slot.rootFolders, [moduleType]: id },
     }
     await mutations.updateSlot.mutateAsync({ id: slot.id, data: input })
   }
@@ -239,8 +234,7 @@ function useValidationHandlers(
 function getQueryDefaults(queries: ReturnType<typeof useSlotQueries>) {
   return {
     profiles: queries.profiles ?? [],
-    movieRootFolders: queries.movieRootFolders ?? [],
-    tvRootFolders: queries.tvRootFolders ?? [],
+    rootFoldersByModule: queries.rootFoldersByModule,
     isLoading: queries.slotsLoading || queries.settingsLoading,
     isError: queries.slotsError || queries.settingsError,
     multiVersionEnabled: queries.settings?.enabled ?? false,

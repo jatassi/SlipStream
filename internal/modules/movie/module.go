@@ -3,6 +3,9 @@ package movie
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/google/wire"
 	"github.com/rs/zerolog"
@@ -21,6 +24,9 @@ var _ module.ReleaseDateResolver = (*Module)(nil)
 var _ module.CalendarProvider = (*Module)(nil)
 var _ module.WantedCollector = (*Module)(nil)
 var _ module.NotificationEvents = (*Module)(nil)
+var _ module.PortalProvisioner = (*Module)(nil)
+var _ module.SlotSupport = (*Module)(nil)
+var _ module.MovieArrImportAdapter = (*Module)(nil)
 
 // Movie module notification event IDs.
 const (
@@ -41,7 +47,7 @@ func (d *Descriptor) NodeSchema() module.NodeSchema {
 	return module.NodeSchema{
 		Levels: []module.NodeLevel{
 			{
-				Name:         "movie",
+				Name:         string(module.EntityMovie),
 				PluralName:   "movies",
 				IsRoot:       true,
 				IsLeaf:       true,
@@ -82,28 +88,44 @@ func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, profileID 
 
 // Module is the top-level movie module satisfying module.Module.
 type Module struct {
-	descriptor       *Descriptor
-	metadataProvider *metadataProvider
-	importHandler    *importHandler
-	fileParser       *fileParser
-	pathGenerator    *pathGenerator
-	namingProvider   *namingProvider
-	movieService     *movies.Service
-	queries          *sqlc.Queries
+	descriptor        *Descriptor
+	metadataProvider  *metadataProvider
+	importHandler     *importHandler
+	fileParser        *fileParser
+	pathGenerator     *pathGenerator
+	namingProvider    *namingProvider
+	movieService      *movies.Service
+	metadataSvc       *metadata.Service
+	artworkDownloader *metadata.ArtworkDownloader
+	rootFolderSvc     *rootfolder.Service
+	db                *sql.DB
+	queries           *sqlc.Queries
+	slotsService      module.ArrImportSlotsService
+	logger            *zerolog.Logger
 }
 
 // NewModule creates a fully wired movie module.
-func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Service, rootFolderSvc *rootfolder.Service, logger *zerolog.Logger) *Module {
+func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Service, rootFolderSvc *rootfolder.Service, artworkDl *metadata.ArtworkDownloader, logger *zerolog.Logger) *Module {
 	return &Module{
-		descriptor:       &Descriptor{},
-		metadataProvider: newMetadataProvider(metadataSvc, movieSvc, logger),
-		importHandler:    newImportHandler(movieSvc, rootFolderSvc, logger),
-		fileParser:       newFileParser(movieSvc, rootFolderSvc, logger),
-		pathGenerator:    &pathGenerator{},
-		namingProvider:   &namingProvider{},
-		movieService:     movieSvc,
-		queries:          sqlc.New(db),
+		descriptor:        &Descriptor{},
+		metadataProvider:  newMetadataProvider(metadataSvc, movieSvc, logger),
+		importHandler:     newImportHandler(movieSvc, rootFolderSvc, logger),
+		fileParser:        newFileParser(movieSvc, rootFolderSvc, logger),
+		pathGenerator:     &pathGenerator{},
+		namingProvider:    &namingProvider{},
+		movieService:      movieSvc,
+		metadataSvc:       metadataSvc,
+		artworkDownloader: artworkDl,
+		rootFolderSvc:     rootFolderSvc,
+		db:                db,
+		queries:           sqlc.New(db),
+		logger:            logger,
 	}
+}
+
+// SetSlotsService sets the optional slots service for multi-version support during arr import.
+func (m *Module) SetSlotsService(svc module.ArrImportSlotsService) {
+	m.slotsService = svc
 }
 
 // --- Descriptor delegation ---
@@ -204,11 +226,7 @@ func (m *Module) TryMatch(filename string) (float64, *module.ParseResult) {
 	return m.fileParser.TryMatch(filename)
 }
 
-// --- MockFactory stubs ---
-
-func (m *Module) CreateMockMetadataProvider() module.MetadataProvider { return nil }
-func (m *Module) CreateSampleLibraryData(_ context.Context) error     { return nil }
-func (m *Module) CreateTestRootFolders(_ context.Context) error       { return nil }
+// --- MockFactory: see mock_factory.go ---
 
 // --- NotificationEvents ---
 
@@ -226,3 +244,173 @@ func (m *Module) RegisterRoutes(_ module.RouteGroup) {}
 // --- TaskProvider stub ---
 
 func (m *Module) ScheduledTasks() []module.ScheduledTask { return nil }
+
+// --- PortalProvisioner ---
+
+func (m *Module) SupportedEntityTypes() []string {
+	return []string{string(module.EntityMovie)}
+}
+
+func (m *Module) ValidateRequest(_ context.Context, entityType string, externalIDs map[string]int64) error {
+	if entityType != string(module.EntityMovie) {
+		return fmt.Errorf("unsupported entity type %q for movie module", entityType)
+	}
+	if _, ok := externalIDs["tmdb"]; !ok {
+		return errors.New("tmdb ID is required for movie requests")
+	}
+	return nil
+}
+
+func (m *Module) EnsureInLibrary(ctx context.Context, input *module.ProvisionInput) (int64, error) {
+	tmdbID, ok := input.ExternalIDs["tmdb"]
+	if !ok {
+		return 0, errors.New("tmdb ID is required")
+	}
+
+	existing, err := m.movieService.GetByTmdbID(ctx, int(tmdbID))
+	if err == nil && existing != nil {
+		m.logger.Debug().Int64("tmdbID", tmdbID).Int64("movieID", existing.ID).Msg("found existing movie in library")
+		return existing.ID, nil
+	}
+
+	rootFolderID, qualityProfileID, err := m.getDefaultSettings(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get default settings: %w", err)
+	}
+
+	if input.QualityProfileID != nil {
+		qualityProfileID = *input.QualityProfileID
+	}
+
+	movie, err := m.movieService.Create(ctx, &movies.CreateMovieInput{
+		Title:            input.Title,
+		Year:             input.Year,
+		TmdbID:           int(tmdbID),
+		RootFolderID:     rootFolderID,
+		QualityProfileID: qualityProfileID,
+		Monitored:        true,
+		AddedBy:          input.AddedBy,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to create movie: %w", err)
+	}
+
+	m.logger.Info().Int64("tmdbID", tmdbID).Int64("movieID", movie.ID).Str("title", input.Title).Msg("created movie in library from request")
+
+	if _, refreshErr := m.RefreshMetadata(ctx, movie.ID); refreshErr != nil {
+		m.logger.Warn().Err(refreshErr).Int64("movieID", movie.ID).Msg("failed to refresh movie metadata, movie created without full details")
+	}
+
+	return movie.ID, nil
+}
+
+func (m *Module) CheckAvailability(ctx context.Context, input *module.AvailabilityCheckInput) (*module.AvailabilityResult, error) {
+	tmdbID, ok := input.ExternalIDs["tmdb"]
+	if !ok {
+		return &module.AvailabilityResult{CanRequest: true}, nil
+	}
+
+	movieRow, err := m.queries.GetMovieByTmdbID(ctx, sql.NullInt64{Int64: tmdbID, Valid: true})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &module.AvailabilityResult{CanRequest: true}, nil
+		}
+		return nil, err
+	}
+
+	if movieRow.ID == 0 {
+		return &module.AvailabilityResult{CanRequest: true}, nil
+	}
+
+	result := &module.AvailabilityResult{
+		InLibrary:  true,
+		EntityID:   &movieRow.ID,
+		CanRequest: false,
+	}
+
+	fileCount, err := m.queries.CountMovieFiles(ctx, movieRow.ID)
+	if err != nil {
+		return nil, err
+	}
+	if fileCount == 0 {
+		result.InLibrary = false
+		result.CanRequest = true
+	}
+
+	return result, nil
+}
+
+func (m *Module) CheckRequestCompletion(_ context.Context, input *module.RequestCompletionCheckInput) (*module.RequestCompletionResult, error) {
+	return &module.RequestCompletionResult{
+		ShouldMarkAvailable: input.AvailableEntityType == string(module.EntityMovie),
+	}, nil
+}
+
+// --- SlotSupport ---
+
+func (m *Module) SlotEntityType() string {
+	return string(module.EntityMovie)
+}
+
+// --- provisioner helpers ---
+
+func (m *Module) getDefaultSettings(ctx context.Context) (rootFolderID, qualityProfileID int64, err error) {
+	rootFolderID = m.resolveRootFolderID(ctx)
+	if rootFolderID == 0 {
+		return 0, 0, fmt.Errorf("no movie root folder configured - please configure a root folder for movie content")
+	}
+
+	profiles, err := m.queries.ListQualityProfiles(ctx)
+	if err != nil || len(profiles) == 0 {
+		return 0, 0, errors.New("no quality profile configured")
+	}
+	qualityProfileID = profiles[0].ID
+
+	return rootFolderID, qualityProfileID, nil
+}
+
+func (m *Module) resolveRootFolderID(ctx context.Context) int64 {
+	if id := m.getMediaTypeSpecificRootFolder(ctx); id != 0 {
+		return id
+	}
+	if id := m.getGenericRootFolder(ctx); id != 0 {
+		return id
+	}
+	return m.getFirstAvailableRootFolder(ctx)
+}
+
+func (m *Module) getMediaTypeSpecificRootFolder(ctx context.Context) int64 {
+	setting, err := m.queries.GetSetting(ctx, "requests_default_movie_root_folder_id")
+	if err != nil || setting.Value == "" {
+		return 0
+	}
+	v, parseErr := strconv.ParseInt(setting.Value, 10, 64)
+	if parseErr != nil {
+		return 0
+	}
+	return v
+}
+
+func (m *Module) getGenericRootFolder(ctx context.Context) int64 {
+	setting, err := m.queries.GetSetting(ctx, "requests_default_root_folder_id")
+	if err != nil || setting.Value == "" {
+		return 0
+	}
+	v, parseErr := strconv.ParseInt(setting.Value, 10, 64)
+	if parseErr != nil {
+		return 0
+	}
+	rf, rfErr := m.queries.GetRootFolder(ctx, v)
+	if rfErr != nil || rf.ModuleType != string(module.TypeMovie) {
+		return 0
+	}
+	return v
+}
+
+func (m *Module) getFirstAvailableRootFolder(ctx context.Context) int64 {
+	rootFolders, err := m.queries.ListRootFoldersByMediaType(ctx, string(module.TypeMovie))
+	if err != nil || len(rootFolders) == 0 {
+		return 0
+	}
+	return rootFolders[0].ID
+}

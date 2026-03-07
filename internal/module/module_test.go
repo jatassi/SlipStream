@@ -109,9 +109,9 @@ func (m *mockModule) MatchToEntity(_ context.Context, _ *ParseResult) (*MatchedE
 }
 func (m *mockModule) TryMatch(_ string) (float64, *ParseResult) { return 0, nil }
 
-func (m *mockModule) CreateMockMetadataProvider() MetadataProvider    { return nil }
-func (m *mockModule) CreateSampleLibraryData(_ context.Context) error { return nil }
-func (m *mockModule) CreateTestRootFolders(_ context.Context) error   { return nil }
+func (m *mockModule) CreateMockMetadataProvider() MetadataProvider                    { return nil }
+func (m *mockModule) CreateSampleLibraryData(_ context.Context, _ *MockContext) error { return nil }
+func (m *mockModule) CreateTestRootFolders(_ context.Context, _ *MockContext) error   { return nil }
 
 func (m *mockModule) DeclareEvents() []NotificationEvent { return nil }
 

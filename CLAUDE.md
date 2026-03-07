@@ -105,4 +105,4 @@ Logs and database from a production SlipStream instance are available for debugg
 
 ## Subagents
 
-When launching subagents, prefer launching in backgrounded mode unless task requires syncronous output. When lauching subagents to perform targeted code changes, prefer using Sonnet. ALWAYS instruct subagents that they are forbidden to use git stash commands or similar commands that affect the entire worktree and could interfere with the work of other agents.
+When launching subagents, prefer launching in synchronous mode (especially when parallelizing). When lauching subagents to perform targeted code changes, prefer using Sonnet. ALWAYS instruct subagents that they are forbidden to use git stash commands or similar commands that affect the entire worktree and could interfere with the work of other agents.

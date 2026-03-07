@@ -128,7 +128,11 @@ func (s *Service) Get(ctx context.Context, id int64) (*Slot, error) {
 		}
 		return nil, fmt.Errorf("failed to get slot: %w", err)
 	}
-	return s.rowToSlot(row), nil
+	slot := s.rowToSlot(row)
+	if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", id).Msg("Failed to enrich slot with root folders")
+	}
+	return slot, nil
 }
 
 // GetByNumber retrieves a slot by slot number (1, 2, or 3).
@@ -140,7 +144,11 @@ func (s *Service) GetByNumber(ctx context.Context, slotNumber int) (*Slot, error
 		}
 		return nil, fmt.Errorf("failed to get slot: %w", err)
 	}
-	return s.rowToSlot(row), nil
+	slot := s.rowToSlot(row)
+	if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+		s.logger.Warn().Err(err).Int("slotNumber", slotNumber).Msg("Failed to enrich slot with root folders")
+	}
+	return slot, nil
 }
 
 // List returns all slots.
@@ -153,6 +161,9 @@ func (s *Service) List(ctx context.Context) ([]*Slot, error) {
 	slots := make([]*Slot, 0, len(rows))
 	for _, row := range rows {
 		slot := s.rowToSlot(row)
+		if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+			s.logger.Warn().Err(err).Int64("slotId", slot.ID).Msg("Failed to enrich slot with root folders")
+		}
 		// Load profile info if assigned
 		if row.QualityProfileID.Valid {
 			profile, err := s.qualityService.Get(ctx, row.QualityProfileID.Int64)
@@ -180,6 +191,9 @@ func (s *Service) ListEnabled(ctx context.Context) ([]*Slot, error) {
 	slots := make([]*Slot, 0, len(rows))
 	for _, row := range rows {
 		slot := s.rowToSlot(row)
+		if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+			s.logger.Warn().Err(err).Int64("slotId", slot.ID).Msg("Failed to enrich slot with root folders")
+		}
 		if row.QualityProfileID.Valid {
 			profile, err := s.qualityService.Get(ctx, row.QualityProfileID.Int64)
 			if err == nil {
@@ -220,30 +234,25 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateSlotInput) (
 		profileID = sql.NullInt64{Int64: *input.QualityProfileID, Valid: true}
 	}
 
-	var movieRootFolderID sql.NullInt64
-	if input.MovieRootFolderID != nil {
-		movieRootFolderID = sql.NullInt64{Int64: *input.MovieRootFolderID, Valid: true}
-	}
-
-	var tvRootFolderID sql.NullInt64
-	if input.TVRootFolderID != nil {
-		tvRootFolderID = sql.NullInt64{Int64: *input.TVRootFolderID, Valid: true}
-	}
-
 	row, err := s.queries.UpdateVersionSlot(ctx, sqlc.UpdateVersionSlotParams{
-		ID:                id,
-		Name:              input.Name,
-		Enabled:           input.Enabled,
-		QualityProfileID:  profileID,
-		DisplayOrder:      int64(input.DisplayOrder),
-		MovieRootFolderID: movieRootFolderID,
-		TvRootFolderID:    tvRootFolderID,
+		ID:               id,
+		Name:             input.Name,
+		Enabled:          input.Enabled,
+		QualityProfileID: profileID,
+		DisplayOrder:     int64(input.DisplayOrder),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSlotNotFound
 		}
 		return nil, fmt.Errorf("failed to update slot: %w", err)
+	}
+
+	// Sync root folders via pivot table
+	if input.RootFolders != nil {
+		if err := s.syncRootFolders(ctx, id, input.RootFolders); err != nil {
+			return nil, fmt.Errorf("failed to sync root folders: %w", err)
+		}
 	}
 
 	s.logger.Info().Int64("id", id).Str("name", input.Name).Msg("Updated slot")
@@ -253,7 +262,11 @@ func (s *Service) Update(ctx context.Context, id int64, input UpdateSlotInput) (
 		s.logger.Warn().Err(err).Msg("Failed to clear import decisions after slot update")
 	}
 
-	return s.rowToSlot(row), nil
+	slot := s.rowToSlot(row)
+	if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", id).Msg("Failed to enrich slot with root folders")
+	}
+	return slot, nil
 }
 
 // SetEnabled enables or disables a slot.
@@ -287,7 +300,11 @@ func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*Slot
 		s.logger.Warn().Err(err).Msg("Failed to clear import decisions after slot enable/disable")
 	}
 
-	return s.rowToSlot(row), nil
+	slot := s.rowToSlot(row)
+	if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", id).Msg("Failed to enrich slot with root folders")
+	}
+	return slot, nil
 }
 
 // SetProfile sets the quality profile for a slot.
@@ -309,40 +326,60 @@ func (s *Service) SetProfile(ctx context.Context, id int64, profileID *int64) (*
 	}
 
 	s.logger.Info().Int64("id", id).Interface("profileId", profileID).Msg("Updated slot profile")
-	return s.rowToSlot(row), nil
+	slot := s.rowToSlot(row)
+	if err := s.enrichSlotWithRootFolders(ctx, slot); err != nil {
+		s.logger.Warn().Err(err).Int64("slotId", id).Msg("Failed to enrich slot with root folders")
+	}
+	return slot, nil
 }
 
 // SetRootFolders sets the root folders for a slot.
 // Req 22.1.1-22.1.2: Each slot can have a dedicated root folder per media type.
-func (s *Service) SetRootFolders(ctx context.Context, slotID int64, movieRootFolderID, tvRootFolderID *int64) (*Slot, error) {
-	var movieID sql.NullInt64
-	if movieRootFolderID != nil {
-		movieID = sql.NullInt64{Int64: *movieRootFolderID, Valid: true}
-	}
-
-	var tvID sql.NullInt64
-	if tvRootFolderID != nil {
-		tvID = sql.NullInt64{Int64: *tvRootFolderID, Valid: true}
-	}
-
-	row, err := s.queries.UpdateVersionSlotRootFolders(ctx, sqlc.UpdateVersionSlotRootFoldersParams{
-		ID:                slotID,
-		MovieRootFolderID: movieID,
-		TvRootFolderID:    tvID,
-	})
+func (s *Service) SetRootFolders(ctx context.Context, slotID int64, rootFolders map[string]*int64) (*Slot, error) {
+	// Verify slot exists
+	_, err := s.queries.GetVersionSlot(ctx, slotID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSlotNotFound
 		}
-		return nil, fmt.Errorf("failed to update slot root folders: %w", err)
+		return nil, fmt.Errorf("failed to get slot: %w", err)
+	}
+
+	if err := s.syncRootFolders(ctx, slotID, rootFolders); err != nil {
+		return nil, fmt.Errorf("failed to sync root folders: %w", err)
 	}
 
 	s.logger.Info().
 		Int64("id", slotID).
-		Interface("movieRootFolderId", movieRootFolderID).
-		Interface("tvRootFolderId", tvRootFolderID).
+		Interface("rootFolders", rootFolders).
 		Msg("Updated slot root folders")
-	return s.rowToSlot(row), nil
+
+	return s.Get(ctx, slotID)
+}
+
+// syncRootFolders synchronizes root folder assignments for a slot via the pivot table.
+func (s *Service) syncRootFolders(ctx context.Context, slotID int64, rootFolders map[string]*int64) error {
+	for moduleType, rootFolderID := range rootFolders {
+		if rootFolderID != nil {
+			_, err := s.queries.UpsertSlotRootFolder(ctx, sqlc.UpsertSlotRootFolderParams{
+				SlotID:       slotID,
+				ModuleType:   moduleType,
+				RootFolderID: *rootFolderID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to upsert root folder for module %s: %w", moduleType, err)
+			}
+		} else {
+			err := s.queries.DeleteSlotRootFolder(ctx, sqlc.DeleteSlotRootFolderParams{
+				SlotID:     slotID,
+				ModuleType: moduleType,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to delete root folder for module %s: %w", moduleType, err)
+			}
+		}
+	}
+	return nil
 }
 
 // GetRootFolderForSlot returns the appropriate root folder path for a slot and media type.
@@ -353,28 +390,32 @@ func (s *Service) GetRootFolderForSlot(ctx context.Context, slotID int64, mediaT
 		return "", nil
 	}
 
-	slot, err := s.Get(ctx, slotID)
-	if err != nil {
-		return "", err
-	}
-
-	var rootFolderID *int64
+	// Map media type to module type
+	var moduleType string
 	switch mediaType {
 	case mediaTypeMovie:
-		rootFolderID = slot.MovieRootFolderID
+		moduleType = "movie"
 	case mediaTypeEpisode, "tv":
-		rootFolderID = slot.TVRootFolderID
+		moduleType = "tv"
 	default:
 		return "", nil
 	}
 
-	if rootFolderID == nil {
+	rootFolderRow, err := s.queries.GetSlotRootFolder(ctx, sqlc.GetSlotRootFolderParams{
+		SlotID:     slotID,
+		ModuleType: moduleType,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		s.logger.Warn().Err(err).Int64("slotId", slotID).Str("moduleType", moduleType).Msg("Failed to query slot root folder")
 		return "", nil
 	}
 
-	rf, err := s.rootFolderProvider.Get(ctx, *rootFolderID)
+	rf, err := s.rootFolderProvider.Get(ctx, rootFolderRow.RootFolderID)
 	if err != nil {
-		s.logger.Warn().Err(err).Int64("rootFolderId", *rootFolderID).Msg("Failed to get slot root folder")
+		s.logger.Warn().Err(err).Int64("rootFolderId", rootFolderRow.RootFolderID).Msg("Failed to get slot root folder")
 		return "", nil
 	}
 
@@ -580,16 +621,11 @@ func (s *Service) rowToSlot(row *sqlc.VersionSlot) *Slot {
 		Name:         row.Name,
 		Enabled:      row.Enabled,
 		DisplayOrder: int(row.DisplayOrder),
+		RootFolders:  make(map[string]*int64),
 	}
 
 	if row.QualityProfileID.Valid {
 		slot.QualityProfileID = &row.QualityProfileID.Int64
-	}
-	if row.MovieRootFolderID.Valid {
-		slot.MovieRootFolderID = &row.MovieRootFolderID.Int64
-	}
-	if row.TvRootFolderID.Valid {
-		slot.TVRootFolderID = &row.TvRootFolderID.Int64
 	}
 	if row.CreatedAt.Valid {
 		slot.CreatedAt = row.CreatedAt.Time
@@ -599,6 +635,25 @@ func (s *Service) rowToSlot(row *sqlc.VersionSlot) *Slot {
 	}
 
 	return slot
+}
+
+// enrichSlotWithRootFolders queries the pivot table and populates the RootFolders map on a slot.
+func (s *Service) enrichSlotWithRootFolders(ctx context.Context, slot *Slot) error {
+	rows, err := s.queries.ListSlotRootFolders(ctx, slot.ID)
+	if err != nil {
+		return fmt.Errorf("failed to list root folders for slot %d: %w", slot.ID, err)
+	}
+
+	if slot.RootFolders == nil {
+		slot.RootFolders = make(map[string]*int64)
+	}
+
+	for _, row := range rows {
+		id := row.RootFolderID
+		slot.RootFolders[row.ModuleType] = &id
+	}
+
+	return nil
 }
 
 // rowToSettings converts a database row to MultiVersionSettings.

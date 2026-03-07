@@ -20,9 +20,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
-	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
-	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
@@ -189,12 +187,8 @@ func provideImportHistoryService(h *history.Service) importer.HistoryService {
 	return &importHistoryAdapter{svc: h}
 }
 
-func provideMovieLookup(m *movies.Service) requests.MovieLookup {
-	return &statusTrackerMovieLookup{movieSvc: m}
-}
-
-func provideEpisodeLookup(t *tv.Service) requests.EpisodeLookup {
-	return &statusTrackerEpisodeLookup{tvSvc: t}
+func provideModuleProvisionerLookup(registry *module.Registry) requests.ModuleProvisionerLookup {
+	return registry
 }
 
 func providePortalEnabledChecker(q *sqlc.Queries) portalmw.PortalEnabledChecker {
@@ -203,4 +197,8 @@ func providePortalEnabledChecker(q *sqlc.Queries) portalmw.PortalEnabledChecker 
 
 func provideAdminLibraryChecker(q *sqlc.Queries) *adminRequestLibraryCheckerAdapter {
 	return &adminRequestLibraryCheckerAdapter{queries: q}
+}
+
+func provideModuleProvisioner(registry *module.Registry) *moduleProvisionerAdapter {
+	return &moduleProvisionerAdapter{registry: registry}
 }

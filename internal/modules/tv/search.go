@@ -34,7 +34,7 @@ func (m *Module) FilterRelease(_ context.Context, release *module.ReleaseForFilt
 		return true, reason
 	}
 
-	if item.GetMediaType() == "episode" {
+	if item.GetMediaType() == string(module.EntityEpisode) {
 		episodeNumber := m.extractEpisodeNumber(item)
 		if reject, reason := m.checkEpisodeMatch(release, episodeNumber); reject {
 			return true, reason
@@ -98,11 +98,11 @@ func (m *Module) BuildSearchCriteria(item module.SearchableItem) module.SearchCr
 	episodeNumber := m.extractEpisodeNumber(item)
 
 	switch mediaType {
-	case "episode":
+	case string(module.EntityEpisode):
 		criteria.Categories = m.Categories()
 		criteria.Season = seasonNumber
 		criteria.Episode = episodeNumber
-	case "season":
+	case string(module.EntitySeason):
 		// Don't set categories or season for season pack searches
 	}
 

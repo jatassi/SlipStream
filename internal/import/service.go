@@ -66,8 +66,7 @@ type NotificationDispatcher interface {
 
 // StatusTrackerService defines the interface for request status tracking.
 type StatusTrackerService interface {
-	OnMovieAvailable(ctx context.Context, movieID int64) error
-	OnEpisodeAvailable(ctx context.Context, episodeID int64) error
+	OnEntityAvailable(ctx context.Context, moduleType, entityType string, entityID int64) error
 	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
 }
 
@@ -444,11 +443,11 @@ func (s *Service) updatePortalRequestStatus(ctx context.Context, result *ImportR
 	}
 
 	if result.Match.MediaType == mediaTypeMovie && result.Match.MovieID != nil {
-		if err := s.statusTracker.OnMovieAvailable(ctx, *result.Match.MovieID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "movie", "movie", *result.Match.MovieID); err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", *result.Match.MovieID).Msg("Failed to update request status")
 		}
 	} else if result.Match.MediaType == mediaTypeEpisode && result.Match.EpisodeID != nil {
-		if err := s.statusTracker.OnEpisodeAvailable(ctx, *result.Match.EpisodeID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "tv", "episode", *result.Match.EpisodeID); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", *result.Match.EpisodeID).Msg("Failed to update request status")
 		}
 	}

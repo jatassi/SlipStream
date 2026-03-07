@@ -1509,7 +1509,7 @@ func (s *Service) processMockMovieImport(ctx context.Context, mapping *DownloadM
 
 	// Update portal request status to available
 	if s.statusTracker != nil {
-		if err := s.statusTracker.OnMovieAvailable(ctx, *mapping.MovieID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "movie", "movie", *mapping.MovieID); err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", *mapping.MovieID).Msg("Failed to update request status")
 		}
 	}
@@ -1689,7 +1689,7 @@ func (s *Service) processMockSingleEpisodeImport(ctx context.Context, mapping *D
 
 	// Update portal request status to available
 	if s.statusTracker != nil {
-		if err := s.statusTracker.OnEpisodeAvailable(ctx, *mapping.EpisodeID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "tv", "episode", *mapping.EpisodeID); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", *mapping.EpisodeID).Msg("Failed to update request status")
 		}
 	}
@@ -1823,7 +1823,7 @@ func (s *Service) assignMockEpisodeToSlot(ctx context.Context, mapping *Download
 
 func (s *Service) updateMockEpisodeRequestStatus(ctx context.Context, episodeID int64) {
 	if s.statusTracker != nil {
-		if err := s.statusTracker.OnEpisodeAvailable(ctx, episodeID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "tv", "episode", episodeID); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", episodeID).Msg("Failed to update request status")
 		}
 	}

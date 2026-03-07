@@ -6,37 +6,46 @@ import (
 	"testing"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
-// Mock implementations for lookup interfaces
-
-type mockMovieLookup struct {
-	tmdbIDs map[int64]int64 // movieID → tmdbID
+// mockProvisionerLookup implements ModuleProvisionerLookup for testing.
+type mockProvisionerLookup struct {
+	provisioners map[string]module.PortalProvisioner
 }
 
-func (m *mockMovieLookup) GetTmdbIDByMovieID(_ context.Context, movieID int64) (int64, error) {
-	if id, ok := m.tmdbIDs[movieID]; ok {
-		return id, nil
+func (m *mockProvisionerLookup) GetProvisionerForEntityType(entityType string) module.PortalProvisioner {
+	if m == nil || m.provisioners == nil {
+		return nil
 	}
-	return 0, sql.ErrNoRows
+	return m.provisioners[entityType]
 }
 
-type mockEpisodeLookup struct {
-	episodes map[int64]episodeInfo // episodeID → info
+// mockProvisioner implements module.PortalProvisioner for testing.
+type mockProvisioner struct {
+	completionResult *module.RequestCompletionResult
+	completionErr    error
 }
 
-type episodeInfo struct {
-	tvdbID     int64
-	seasonNum  int
-	episodeNum int
+func (m *mockProvisioner) EnsureInLibrary(_ context.Context, _ *module.ProvisionInput) (int64, error) {
+	return 0, nil
 }
 
-func (m *mockEpisodeLookup) GetEpisodeInfo(_ context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error) {
-	if info, ok := m.episodes[episodeID]; ok {
-		return info.tvdbID, info.seasonNum, info.episodeNum, nil
-	}
-	return 0, 0, 0, sql.ErrNoRows
+func (m *mockProvisioner) CheckAvailability(_ context.Context, _ *module.AvailabilityCheckInput) (*module.AvailabilityResult, error) {
+	return &module.AvailabilityResult{}, nil
+}
+
+func (m *mockProvisioner) CheckRequestCompletion(_ context.Context, _ *module.RequestCompletionCheckInput) (*module.RequestCompletionResult, error) {
+	return m.completionResult, m.completionErr
+}
+
+func (m *mockProvisioner) ValidateRequest(_ context.Context, _ string, _ map[string]int64) error {
+	return nil
+}
+
+func (m *mockProvisioner) SupportedEntityTypes() []string {
+	return nil
 }
 
 // Helper to create a test portal user and return the user ID.
@@ -68,7 +77,6 @@ func createApprovedRequest(t *testing.T, svc *Service, userID int64, input *Crea
 	return approved
 }
 
-// Gap 6: StatusTracker OnDownloadStarted for movie
 func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
@@ -78,7 +86,8 @@ func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -105,7 +114,6 @@ func TestStatusTracker_OnDownloadStarted_Movie(t *testing.T) {
 	}
 }
 
-// Gap 6: StatusTracker ignores non-approved requests
 func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
@@ -115,7 +123,8 @@ func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -139,7 +148,6 @@ func TestStatusTracker_OnDownloadStarted_IgnoresNonApproved(t *testing.T) {
 	}
 }
 
-// Gap 6: StatusTracker OnDownloadFailed for movie
 func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
@@ -149,7 +157,8 @@ func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -173,7 +182,6 @@ func TestStatusTracker_OnDownloadFailed_Movie(t *testing.T) {
 	}
 }
 
-// Gap 6: StatusTracker OnDownloadFailed for episode
 func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
@@ -181,17 +189,33 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	episodeLookup := &mockEpisodeLookup{
-		episodes: map[int64]episodeInfo{
-			200: {tvdbID: 5000, seasonNum: 1, episodeNum: 1},
-		},
-	}
+	// Create a series with an episode so findParentRequests can look it up
+	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
+		Title:            "Test Series",
+		SortTitle:        "test series",
+		ProductionStatus: "ended",
+		TvdbID:           sql.NullInt64{Int64: 5000, Valid: true},
+	})
+	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
+		SeriesID:     series.ID,
+		SeasonNumber: 1,
+		Monitored:    true,
+	})
+	episode, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+		SeriesID:      series.ID,
+		SeasonNumber:  1,
+		EpisodeNumber: 1,
+		Title:         sql.NullString{String: "Ep1", Valid: true},
+		Status:        "missing",
+		Monitored:     true,
+	})
+
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
-	episodeID := int64(200)
 
 	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:     MediaTypeEpisode,
@@ -200,10 +224,10 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 		SeasonNumber:  testutil.Int64Ptr(1),
 		EpisodeNumber: testutil.Int64Ptr(1),
 	})
-	_, _ = reqSvc.LinkMedia(ctx, req.ID, episodeID)
+	_, _ = reqSvc.LinkMedia(ctx, req.ID, episode.ID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
-	err := tracker.OnDownloadFailed(ctx, "episode", episodeID)
+	err := tracker.OnDownloadFailed(ctx, "episode", episode.ID)
 	if err != nil {
 		t.Fatalf("OnDownloadFailed error = %v", err)
 	}
@@ -214,8 +238,7 @@ func TestStatusTracker_OnDownloadFailed_Episode(t *testing.T) {
 	}
 }
 
-// Gap 6: StatusTracker OnMovieAvailable
-func TestStatusTracker_OnMovieAvailable(t *testing.T) {
+func TestStatusTracker_OnEntityAvailable_Movie(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
@@ -223,26 +246,29 @@ func TestStatusTracker_OnMovieAvailable(t *testing.T) {
 	ctx := context.Background()
 
 	movieID := int64(100)
-	tmdbID := int64(42)
-	movieLookup := &mockMovieLookup{
-		tmdbIDs: map[int64]int64{movieID: tmdbID},
-	}
+
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, movieLookup, nil, nil, nil)
+	lookup := &mockProvisionerLookup{
+		provisioners: map[string]module.PortalProvisioner{
+			"movie": &mockProvisioner{},
+		},
+	}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 
 	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType: MediaTypeMovie,
-		TmdbID:    &tmdbID,
+		TmdbID:    testutil.Int64Ptr(42),
 		Title:     "Test Movie",
 	})
+	_, _ = reqSvc.LinkMedia(ctx, req.ID, movieID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
-	err := tracker.OnMovieAvailable(ctx, movieID)
+	err := tracker.OnEntityAvailable(ctx, "movie", "movie", movieID)
 	if err != nil {
-		t.Fatalf("OnMovieAvailable error = %v", err)
+		t.Fatalf("OnEntityAvailable error = %v", err)
 	}
 
 	updated, _ := reqSvc.Get(ctx, req.ID)
@@ -251,27 +277,47 @@ func TestStatusTracker_OnMovieAvailable(t *testing.T) {
 	}
 }
 
-// Gap 6: StatusTracker OnEpisodeAvailable
-func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
+func TestStatusTracker_OnEntityAvailable_Episode(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
 
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	episodeID := int64(200)
+	// Create a series with an episode
+	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
+		Title:            "Test Series",
+		SortTitle:        "test series",
+		ProductionStatus: "ended",
+		TvdbID:           sql.NullInt64{Int64: 5000, Valid: true},
+	})
+	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
+		SeriesID:     series.ID,
+		SeasonNumber: 1,
+		Monitored:    true,
+	})
+	episode, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+		SeriesID:      series.ID,
+		SeasonNumber:  1,
+		EpisodeNumber: 3,
+		Title:         sql.NullString{String: "Ep3", Valid: true},
+		Status:        "missing",
+		Monitored:     true,
+	})
+
 	tvdbID := int64(5000)
-	episodeLookup := &mockEpisodeLookup{
-		episodes: map[int64]episodeInfo{
-			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 3},
-		},
-	}
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
+	lookup := &mockProvisionerLookup{
+		provisioners: map[string]module.PortalProvisioner{
+			"episode": &mockProvisioner{},
+		},
+	}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 
+	// Create an episode-level request linked directly by media_id
 	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 		MediaType:     MediaTypeEpisode,
 		TvdbID:        &tvdbID,
@@ -279,11 +325,12 @@ func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
 		SeasonNumber:  testutil.Int64Ptr(1),
 		EpisodeNumber: testutil.Int64Ptr(3),
 	})
+	_, _ = reqSvc.LinkMedia(ctx, req.ID, episode.ID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
-	err := tracker.OnEpisodeAvailable(ctx, episodeID)
+	err := tracker.OnEntityAvailable(ctx, "tv", "episode", episode.ID)
 	if err != nil {
-		t.Fatalf("OnEpisodeAvailable error = %v", err)
+		t.Fatalf("OnEntityAvailable error = %v", err)
 	}
 
 	updated, _ := reqSvc.Get(ctx, req.ID)
@@ -292,23 +339,69 @@ func TestStatusTracker_OnEpisodeAvailable(t *testing.T) {
 	}
 }
 
-type mockSeriesLookup struct {
-	seriesIDs map[int64]int64 // tvdbID → seriesID
-	complete  map[int64]bool  // seriesID → allSeasonsComplete
-}
+func TestStatusTracker_OnEntityAvailable_EpisodeCompletesSeriesRequest(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
 
-func (m *mockSeriesLookup) GetSeriesIDByTvdbID(_ context.Context, tvdbID int64) (int64, error) {
-	if id, ok := m.seriesIDs[tvdbID]; ok {
-		return id, nil
-	}
-	return 0, sql.ErrNoRows
-}
+	queries := sqlc.New(tdb.Conn)
+	ctx := context.Background()
 
-func (m *mockSeriesLookup) AreSeasonsComplete(_ context.Context, seriesID int64, _ []int64) (bool, error) {
-	if complete, ok := m.complete[seriesID]; ok {
-		return complete, nil
+	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
+		Title:            "Test Series",
+		SortTitle:        "test series",
+		ProductionStatus: "ended",
+		TvdbID:           sql.NullInt64{Int64: 6000, Valid: true},
+	})
+	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
+		SeriesID:     series.ID,
+		SeasonNumber: 1,
+		Monitored:    true,
+	})
+	episode, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+		SeriesID:      series.ID,
+		SeasonNumber:  1,
+		EpisodeNumber: 5,
+		Title:         sql.NullString{String: "Ep5", Valid: true},
+		Status:        "missing",
+		Monitored:     true,
+	})
+
+	tvdbID := int64(6000)
+
+	// Mock provisioner returns "should mark available" for the series request
+	prov := &mockProvisioner{
+		completionResult: &module.RequestCompletionResult{ShouldMarkAvailable: true},
 	}
-	return false, nil
+	lookup := &mockProvisionerLookup{
+		provisioners: map[string]module.PortalProvisioner{
+			"episode": prov,
+			"series":  prov,
+		},
+	}
+
+	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
+	watchersSvc := NewWatchersService(queries, &tdb.Logger)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
+
+	userID := createTestUser(t, queries)
+
+	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
+		MediaType:        MediaTypeSeries,
+		TvdbID:           &tvdbID,
+		Title:            "Test Series",
+		RequestedSeasons: []int64{1},
+	})
+	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
+
+	err := tracker.OnEntityAvailable(ctx, "tv", "episode", episode.ID)
+	if err != nil {
+		t.Fatalf("OnEntityAvailable error = %v", err)
+	}
+
+	updated, _ := reqSvc.Get(ctx, req.ID)
+	if updated.Status != StatusAvailable {
+		t.Errorf("Request status = %q, want %q", updated.Status, StatusAvailable)
+	}
 }
 
 func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing.T) {
@@ -319,15 +412,31 @@ func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing
 	ctx := context.Background()
 
 	tvdbID := int64(5000)
-	episodeID := int64(200)
-	episodeLookup := &mockEpisodeLookup{
-		episodes: map[int64]episodeInfo{
-			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 1},
-		},
-	}
+
+	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
+		Title:            "Test Series",
+		SortTitle:        "test series",
+		ProductionStatus: "ended",
+		TvdbID:           sql.NullInt64{Int64: tvdbID, Valid: true},
+	})
+	_, _ = queries.CreateSeason(ctx, sqlc.CreateSeasonParams{
+		SeriesID:     series.ID,
+		SeasonNumber: 1,
+		Monitored:    true,
+	})
+	episode, _ := queries.CreateEpisode(ctx, sqlc.CreateEpisodeParams{
+		SeriesID:      series.ID,
+		SeasonNumber:  1,
+		EpisodeNumber: 1,
+		Title:         sql.NullString{String: "Ep1", Valid: true},
+		Status:        "missing",
+		Monitored:     true,
+	})
+
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -338,7 +447,7 @@ func TestStatusTracker_OnDownloadStarted_Episode_UpdatesSeriesRequest(t *testing
 		RequestedSeasons: []int64{1},
 	})
 
-	err := tracker.OnDownloadStarted(ctx, "episode", episodeID)
+	err := tracker.OnDownloadStarted(ctx, "episode", episode.ID)
 	if err != nil {
 		t.Fatalf("OnDownloadStarted error = %v", err)
 	}
@@ -356,7 +465,6 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 	queries := sqlc.New(tdb.Conn)
 	ctx := context.Background()
 
-	// Create a real series with 2 episodes in the DB
 	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
 		Title:            "Test Series",
 		SortTitle:        "test series",
@@ -386,18 +494,16 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 	})
 
 	tvdbID := int64(5000)
-	episodeLookup := &mockEpisodeLookup{
-		episodes: map[int64]episodeInfo{
-			ep1.ID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 1},
-			ep2.ID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 2},
+	prov := &mockProvisioner{}
+	lookup := &mockProvisionerLookup{
+		provisioners: map[string]module.PortalProvisioner{
+			"series":  prov,
+			"episode": prov,
 		},
-	}
-	seriesLookup := &mockSeriesLookup{
-		seriesIDs: map[int64]int64{tvdbID: series.ID},
 	}
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, seriesLookup, nil)
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 
@@ -410,7 +516,7 @@ func TestStatusTracker_OnDownloadFailed_Series_OnlyWhenAllEpisodesFailed(t *test
 	_, _ = reqSvc.LinkMedia(ctx, req.ID, series.ID)
 	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
 
-	// ep1 is failed, ep2 is still missing → request should NOT become failed
+	// ep1 is failed, ep2 is still missing -> request should NOT become failed
 	err := tracker.OnDownloadFailed(ctx, "episode", ep1.ID)
 	if err != nil {
 		t.Fatalf("OnDownloadFailed (first) error = %v", err)
@@ -447,7 +553,8 @@ func TestStatusTracker_OnDownloadFailed_SkipsDenied(t *testing.T) {
 
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, nil, nil, nil)
+	lookup := &mockProvisionerLookup{}
+	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, lookup, nil)
 
 	userID := createTestUser(t, queries)
 	movieID := int64(100)
@@ -471,58 +578,6 @@ func TestStatusTracker_OnDownloadFailed_SkipsDenied(t *testing.T) {
 	}
 }
 
-func TestStatusTracker_OnEpisodeAvailable_CompletesSeasonRequest(t *testing.T) {
-	tdb := testutil.NewTestDB(t)
-	defer tdb.Close()
-
-	queries := sqlc.New(tdb.Conn)
-	ctx := context.Background()
-
-	// Create a real series
-	series, _ := queries.CreateSeries(ctx, sqlc.CreateSeriesParams{
-		Title:            "Test Series",
-		SortTitle:        "test series",
-		ProductionStatus: "ended",
-		TvdbID:           sql.NullInt64{Int64: 6000, Valid: true},
-	})
-
-	tvdbID := int64(6000)
-	episodeID := int64(300)
-	episodeLookup := &mockEpisodeLookup{
-		episodes: map[int64]episodeInfo{
-			episodeID: {tvdbID: tvdbID, seasonNum: 1, episodeNum: 5},
-		},
-	}
-	seriesLookup := &mockSeriesLookup{
-		seriesIDs: map[int64]int64{tvdbID: series.ID},
-		complete:  map[int64]bool{series.ID: true},
-	}
-	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
-	watchersSvc := NewWatchersService(queries, &tdb.Logger)
-	tracker := NewStatusTracker(queries, reqSvc, watchersSvc, &tdb.Logger, nil, episodeLookup, seriesLookup, nil)
-
-	userID := createTestUser(t, queries)
-
-	req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
-		MediaType:        MediaTypeSeries,
-		TvdbID:           &tvdbID,
-		Title:            "Test Series",
-		RequestedSeasons: []int64{1},
-	})
-	_, _ = reqSvc.UpdateStatus(ctx, req.ID, StatusDownloading)
-
-	err := tracker.OnEpisodeAvailable(ctx, episodeID)
-	if err != nil {
-		t.Fatalf("OnEpisodeAvailable error = %v", err)
-	}
-
-	updated, _ := reqSvc.Get(ctx, req.ID)
-	if updated.Status != StatusAvailable {
-		t.Errorf("Request status = %q, want %q", updated.Status, StatusAvailable)
-	}
-}
-
-// Gap 13: Verify all valid request statuses and key transitions
 func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 	tdb := testutil.NewTestDB(t)
 	defer tdb.Close()
@@ -533,7 +588,6 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 	reqSvc := NewService(queries, &tdb.Logger, nil, nil, nil)
 	userID := createTestUser(t, queries)
 
-	// Verify all valid statuses can be set
 	validStatuses := []string{
 		StatusPending, StatusApproved, StatusDenied,
 		StatusDownloading, StatusFailed, StatusAvailable,
@@ -542,7 +596,7 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 		t.Run("valid_"+status, func(t *testing.T) {
 			req, _ := reqSvc.Create(ctx, userID, &CreateInput{
 				MediaType: MediaTypeMovie,
-				TmdbID:    testutil.Int64Ptr(int64(100 + len(status))), // unique per test
+				TmdbID:    testutil.Int64Ptr(int64(100 + len(status))),
 				Title:     "Movie " + status,
 			})
 			_, err := reqSvc.UpdateStatus(ctx, req.ID, status)
@@ -552,7 +606,6 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 		})
 	}
 
-	// Verify key transitions: approved → downloading → failed
 	t.Run("approved_to_downloading_to_failed", func(t *testing.T) {
 		req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 			MediaType: MediaTypeMovie,
@@ -574,7 +627,6 @@ func TestStatusTracker_RequestStatusConstraint(t *testing.T) {
 		}
 	})
 
-	// Verify key transition: downloading → available
 	t.Run("downloading_to_available", func(t *testing.T) {
 		req := createApprovedRequest(t, reqSvc, userID, &CreateInput{
 			MediaType: MediaTypeMovie,

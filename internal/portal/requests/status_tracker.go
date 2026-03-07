@@ -3,37 +3,24 @@ package requests
 import (
 	"context"
 	"database/sql"
-	"errors"
 
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
-// MovieLookup provides movie information for status tracking.
-type MovieLookup interface {
-	GetTmdbIDByMovieID(ctx context.Context, movieID int64) (int64, error)
-}
-
-// EpisodeLookup provides episode information for status tracking.
-type EpisodeLookup interface {
-	GetEpisodeInfo(ctx context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error)
-}
-
-// SeriesLookup provides series information for status tracking.
-type SeriesLookup interface {
-	GetSeriesIDByTvdbID(ctx context.Context, tvdbID int64) (int64, error)
-	AreSeasonsComplete(ctx context.Context, seriesID int64, seasonNumbers []int64) (bool, error)
+// ModuleProvisionerLookup provides access to module provisioners by entity type.
+type ModuleProvisionerLookup interface {
+	GetProvisionerForEntityType(entityType string) module.PortalProvisioner
 }
 
 type StatusTracker struct {
-	queries         *sqlc.Queries
-	requestsService *Service
-	watchersService *WatchersService
-	notifDispatcher NotificationDispatcher
-	movieLookup     MovieLookup
-	episodeLookup   EpisodeLookup
-	seriesLookup    SeriesLookup
-	logger          *zerolog.Logger
+	queries           *sqlc.Queries
+	requestsService   *Service
+	watchersService   *WatchersService
+	notifDispatcher   NotificationDispatcher
+	provisionerLookup ModuleProvisionerLookup
+	logger            *zerolog.Logger
 }
 
 func NewStatusTracker(
@@ -41,21 +28,17 @@ func NewStatusTracker(
 	requestsService *Service,
 	watchersService *WatchersService,
 	logger *zerolog.Logger,
-	movieLookup MovieLookup,
-	episodeLookup EpisodeLookup,
-	seriesLookup SeriesLookup,
+	provisionerLookup ModuleProvisionerLookup,
 	notifDispatcher NotificationDispatcher,
 ) *StatusTracker {
 	subLogger := logger.With().Str("component", "portal-status-tracker").Logger()
 	return &StatusTracker{
-		queries:         queries,
-		requestsService: requestsService,
-		watchersService: watchersService,
-		logger:          &subLogger,
-		movieLookup:     movieLookup,
-		episodeLookup:   episodeLookup,
-		seriesLookup:    seriesLookup,
-		notifDispatcher: notifDispatcher,
+		queries:           queries,
+		requestsService:   requestsService,
+		watchersService:   watchersService,
+		logger:            &subLogger,
+		provisionerLookup: provisionerLookup,
+		notifDispatcher:   notifDispatcher,
 	}
 }
 
@@ -66,20 +49,14 @@ func (t *StatusTracker) SetDB(db *sql.DB) {
 // OnDownloadStarted is called when a media item transitions to downloading status.
 // It updates any linked request to downloading status.
 func (t *StatusTracker) OnDownloadStarted(ctx context.Context, mediaType string, mediaID int64) error {
-	// Direct lookup for movie/episode requests
 	reqs, err := t.findRequestsByMediaID(ctx, mediaID, mediaType)
 	if err != nil {
 		return err
 	}
 
-	// For episodes, also look up series/season requests linked to the episode's series
-	if mediaType == "episode" && t.episodeLookup != nil {
-		tvdbID, seasonNum, _, lookupErr := t.episodeLookup.GetEpisodeInfo(ctx, mediaID)
-		if lookupErr == nil && tvdbID > 0 {
-			seriesReqs, _ := t.findSeriesRequestsByTvdbID(ctx, tvdbID, int64(seasonNum))
-			reqs = append(reqs, seriesReqs...)
-		}
-	}
+	// For leaf entities (e.g., episodes), also look up parent requests
+	parentReqs := t.findParentRequests(ctx, mediaType, mediaID)
+	reqs = append(reqs, parentReqs...)
 
 	for _, req := range reqs {
 		if req.Status == StatusApproved || req.Status == StatusSearching {
@@ -95,72 +72,188 @@ func (t *StatusTracker) OnDownloadStarted(ctx context.Context, mediaType string,
 }
 
 // OnDownloadFailed is called when a media item transitions to failed status.
-// For movie/episode requests, it sets the request to failed.
-// For season/series requests, it only sets failed if ALL linked episodes are failed.
+// For direct entity matches, it sets the request to failed.
+// For parent requests, it delegates to the module provisioner to decide.
 func (t *StatusTracker) OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error {
-	reqs := t.collectFailedDownloadRequests(ctx, mediaType, mediaID)
+	reqs, err := t.findRequestsByMediaID(ctx, mediaID, mediaType)
+	if err != nil {
+		return err
+	}
+
+	parentReqs := t.findParentRequests(ctx, mediaType, mediaID)
+	reqs = append(reqs, parentReqs...)
 
 	for _, req := range reqs {
 		if !t.isDownloadingOrApproved(req) {
 			continue
 		}
-		t.processFailedRequest(ctx, req)
+		t.processFailedRequest(ctx, req, mediaType, mediaID)
 	}
 
 	return nil
 }
 
-func (t *StatusTracker) collectFailedDownloadRequests(ctx context.Context, mediaType string, mediaID int64) []*Request {
-	reqs, err := t.findRequestsByMediaID(ctx, mediaID, mediaType)
+// OnEntityAvailable is called when a media entity becomes available.
+// It finds all requests that could be satisfied by this entity and processes them.
+func (t *StatusTracker) OnEntityAvailable(ctx context.Context, moduleType, entityType string, entityID int64) error {
+	// Find requests directly linked to this entity
+	reqs := t.findDirectRequests(ctx, entityType, entityID)
+
+	// For leaf entities, also find parent-level requests that may be satisfied
+	provisioner := t.provisionerLookup.GetProvisionerForEntityType(entityType)
+	parentReqs := t.findParentRequests(ctx, entityType, entityID)
+	reqs = append(reqs, parentReqs...)
+
+	for _, req := range reqs {
+		t.processRequestCompletion(ctx, req, provisioner, entityType, entityID)
+	}
+
+	return nil
+}
+
+func (t *StatusTracker) processRequestCompletion(ctx context.Context, req *Request, provisioner module.PortalProvisioner, availableEntityType string, availableEntityID int64) {
+	if !t.isDownloadingOrApproved(req) {
+		return
+	}
+
+	// For direct entity matches (e.g., movie request + movie available), mark available immediately
+	if req.MediaType == availableEntityType {
+		t.tryMarkAvailable(ctx, req)
+		return
+	}
+
+	// For parent requests (e.g., series request + episode available), delegate to module
+	if provisioner == nil {
+		return
+	}
+
+	input := t.buildCompletionInput(req, availableEntityType, availableEntityID)
+	result, err := provisioner.CheckRequestCompletion(ctx, input)
 	if err != nil {
+		t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to check request completion")
+		return
+	}
+
+	if result.ShouldMarkAvailable {
+		t.tryMarkAvailable(ctx, req)
+	}
+}
+
+func (t *StatusTracker) buildCompletionInput(req *Request, availableEntityType string, availableEntityID int64) *module.RequestCompletionCheckInput {
+	input := &module.RequestCompletionCheckInput{
+		AvailableEntityType: availableEntityType,
+		AvailableEntityID:   availableEntityID,
+		RequestEntityType:   req.MediaType,
+		RequestEntityID:     req.MediaID,
+		RequestedSeasons:    req.RequestedSeasons,
+		RequestExternalIDs:  t.collectExternalIDs(req),
+	}
+	return input
+}
+
+func (t *StatusTracker) collectExternalIDs(req *Request) map[string]int64 {
+	ids := make(map[string]int64)
+	if req.TmdbID != nil {
+		ids["tmdb"] = *req.TmdbID
+	}
+	if req.TvdbID != nil {
+		ids["tvdb"] = *req.TvdbID
+	}
+	if len(ids) == 0 {
 		return nil
 	}
+	return ids
+}
 
-	if mediaType == "episode" && t.episodeLookup != nil {
-		seriesReqs := t.findSeriesRequestsForEpisode(ctx, mediaID)
-		reqs = append(reqs, seriesReqs...)
+func (t *StatusTracker) tryMarkAvailable(ctx context.Context, req *Request) {
+	if err := t.markAvailable(ctx, req); err != nil {
+		t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
 	}
-
-	return reqs
 }
 
-func (t *StatusTracker) findSeriesRequestsForEpisode(ctx context.Context, episodeID int64) []*Request {
-	tvdbID, seasonNum, _, lookupErr := t.episodeLookup.GetEpisodeInfo(ctx, episodeID)
-	if lookupErr != nil || tvdbID == 0 {
-		return nil
-	}
-
-	seriesReqs, _ := t.findSeriesRequestsByTvdbID(ctx, tvdbID, int64(seasonNum))
-	return seriesReqs
-}
-
-func (t *StatusTracker) isDownloadingOrApproved(req *Request) bool {
-	return req.Status == StatusDownloading || req.Status == StatusApproved || req.Status == StatusSearching
-}
-
-func (t *StatusTracker) processFailedRequest(ctx context.Context, req *Request) {
+func (t *StatusTracker) processFailedRequest(ctx context.Context, req *Request, _ string, _ int64) {
+	// For direct entity matches, mark failed immediately
 	if req.MediaType == MediaTypeMovie || req.MediaType == MediaTypeEpisode {
 		t.markRequestFailed(ctx, req, "request marked as failed")
 		return
 	}
 
-	if t.shouldMarkSeriesRequestFailed(ctx, req) {
-		t.markRequestFailed(ctx, req, "series request marked as failed (all episodes failed)")
+	// For parent requests, delegate to module provisioner to check if all children failed
+	if req.MediaID == nil {
+		return
 	}
-}
 
-func (t *StatusTracker) shouldMarkSeriesRequestFailed(ctx context.Context, req *Request) bool {
-	if t.seriesLookup == nil || req.MediaID == nil {
-		return false
+	provisioner := t.provisionerLookup.GetProvisionerForEntityType(req.MediaType)
+	if provisioner == nil {
+		return
 	}
 
 	allFailed, err := t.areAllEpisodesFailed(ctx, *req.MediaID, req.RequestedSeasons)
 	if err != nil {
 		t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to check episode statuses")
-		return false
+		return
 	}
 
-	return allFailed
+	if allFailed {
+		t.markRequestFailed(ctx, req, "series request marked as failed (all episodes failed)")
+	}
+}
+
+// findDirectRequests finds requests where media_id and media_type match the given entity.
+func (t *StatusTracker) findDirectRequests(ctx context.Context, entityType string, entityID int64) []*Request {
+	reqs, err := t.findRequestsByMediaID(ctx, entityID, entityType)
+	if err != nil {
+		t.logger.Debug().Err(err).Str("entityType", entityType).Int64("entityID", entityID).Msg("failed to find direct requests")
+		return nil
+	}
+	return reqs
+}
+
+// findParentRequests finds parent-level requests that might be satisfied by a leaf entity.
+// For episodes, this looks up the episode's series TVDB ID and finds series-level requests.
+func (t *StatusTracker) findParentRequests(ctx context.Context, entityType string, entityID int64) []*Request {
+	if entityType != "episode" {
+		return nil
+	}
+
+	// Look up episode to get series ID, then look up series to get TVDB ID
+	episode, err := t.queries.GetEpisode(ctx, entityID)
+	if err != nil {
+		t.logger.Debug().Err(err).Int64("entityID", entityID).Msg("failed to get episode for parent request lookup")
+		return nil
+	}
+
+	series, err := t.queries.GetSeries(ctx, episode.SeriesID)
+	if err != nil {
+		t.logger.Debug().Err(err).Int64("seriesID", episode.SeriesID).Msg("failed to get series for parent request lookup")
+		return nil
+	}
+
+	if !series.TvdbID.Valid || series.TvdbID.Int64 == 0 {
+		return nil
+	}
+
+	tvdbID := series.TvdbID.Int64
+	seasonNum := episode.SeasonNumber
+
+	// Find series requests by TVDB ID that cover this season
+	seriesReqs, err := t.findSeriesRequestsByTvdbID(ctx, tvdbID, seasonNum)
+	if err != nil {
+		t.logger.Debug().Err(err).Int64("tvdbID", tvdbID).Msg("failed to find series requests by TVDB ID")
+		return nil
+	}
+
+	// Also find requests linked by media_id (series ID)
+	mediaIDReqs, err := t.findSeriesRequestsWithSeason(ctx, series.ID, seasonNum)
+	if err != nil {
+		return seriesReqs
+	}
+
+	return t.mergeRequests(seriesReqs, mediaIDReqs)
+}
+
+func (t *StatusTracker) isDownloadingOrApproved(req *Request) bool {
+	return req.Status == StatusDownloading || req.Status == StatusApproved || req.Status == StatusSearching
 }
 
 func (t *StatusTracker) markRequestFailed(ctx context.Context, req *Request, message string) {
@@ -169,192 +262,6 @@ func (t *StatusTracker) markRequestFailed(ctx context.Context, req *Request, mes
 	} else {
 		t.logger.Info().Int64("requestID", req.ID).Str("title", req.Title).Msg(message)
 	}
-}
-
-func (t *StatusTracker) OnMovieAvailable(ctx context.Context, movieID int64) error {
-	if t.movieLookup == nil {
-		t.logger.Warn().Msg("movie lookup not configured, cannot update request status")
-		return nil
-	}
-
-	tmdbID, err := t.movieLookup.GetTmdbIDByMovieID(ctx, movieID)
-	if err != nil {
-		t.logger.Debug().Err(err).Int64("movieID", movieID).Msg("failed to get tmdb ID for movie")
-		return nil
-	}
-
-	if tmdbID == 0 {
-		t.logger.Debug().Int64("movieID", movieID).Msg("movie has no tmdb ID, skipping request update")
-		return nil
-	}
-
-	req, err := t.requestsService.GetByTmdbID(ctx, tmdbID, MediaTypeMovie)
-	if err != nil {
-		if errors.Is(err, ErrRequestNotFound) {
-			t.logger.Debug().Int64("movieID", movieID).Int64("tmdbID", tmdbID).Msg("no request found for movie")
-			return nil
-		}
-		return err
-	}
-
-	if req.Status != StatusDownloading && req.Status != StatusApproved && req.Status != StatusSearching {
-		t.logger.Debug().Int64("requestID", req.ID).Str("status", req.Status).Msg("request not in downloading/approved/searching status, skipping")
-		return nil
-	}
-
-	if err := t.markAvailable(ctx, req); err != nil {
-		t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
-	}
-
-	return nil
-}
-
-func (t *StatusTracker) OnEpisodeAvailable(ctx context.Context, episodeID int64) error {
-	if t.episodeLookup == nil {
-		t.logger.Warn().Msg("episode lookup not configured, cannot update request status")
-		return nil
-	}
-
-	tvdbID, seasonNum, episodeNum, err := t.getEpisodeIdentifiers(ctx, episodeID)
-	if err != nil {
-		return err
-	}
-	if tvdbID == 0 {
-		return nil
-	}
-
-	if err := t.processEpisodeLevelRequest(ctx, tvdbID, seasonNum, episodeNum); err != nil {
-		return err
-	}
-
-	t.processSeriesLevelRequests(ctx, tvdbID, seasonNum)
-	return nil
-}
-
-func (t *StatusTracker) getEpisodeIdentifiers(ctx context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error) {
-	tvdbID, seasonNum, episodeNum, err = t.episodeLookup.GetEpisodeInfo(ctx, episodeID)
-	if err != nil {
-		t.logger.Debug().Err(err).Int64("episodeID", episodeID).Msg("failed to get episode info")
-		return 0, 0, 0, err
-	}
-
-	if tvdbID == 0 {
-		t.logger.Debug().Int64("episodeID", episodeID).Msg("episode has no tvdb ID, skipping request update")
-	}
-
-	return tvdbID, seasonNum, episodeNum, nil
-}
-
-func (t *StatusTracker) processEpisodeLevelRequest(ctx context.Context, tvdbID int64, seasonNum, episodeNum int) error {
-	req, err := t.requestsService.GetByTvdbIDAndEpisode(ctx, tvdbID, int64(seasonNum), int64(episodeNum))
-	if err != nil && !errors.Is(err, ErrRequestNotFound) {
-		return err
-	}
-
-	if req == nil {
-		return nil
-	}
-
-	if req.Status == StatusDownloading || req.Status == StatusApproved || req.Status == StatusSearching {
-		if err := t.markAvailable(ctx, req); err != nil {
-			t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
-		}
-	}
-
-	return nil
-}
-
-func (t *StatusTracker) processSeriesLevelRequests(ctx context.Context, tvdbID int64, seasonNum int) {
-	t.checkSeriesRequestsForSeason(ctx, tvdbID, int64(seasonNum))
-}
-
-func (t *StatusTracker) checkSeriesRequestsForSeason(ctx context.Context, tvdbID, seasonNum int64) {
-	requests := t.collectSeriesRequests(ctx, tvdbID, seasonNum)
-	if len(requests) == 0 {
-		return
-	}
-
-	seriesID := t.getSeriesIDForCompletion(ctx, tvdbID)
-
-	for _, req := range requests {
-		if err := t.processSeasonRequest(ctx, req, seriesID, seasonNum); err != nil {
-			t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to process season request")
-		}
-	}
-}
-
-func (t *StatusTracker) collectSeriesRequests(ctx context.Context, tvdbID, seasonNum int64) []*Request {
-	requests, err := t.findSeriesRequestsByTvdbID(ctx, tvdbID, seasonNum)
-	if err != nil {
-		t.logger.Warn().Err(err).Int64("tvdbID", tvdbID).Msg("failed to find series requests by TVDB ID")
-	}
-
-	if t.seriesLookup == nil {
-		return requests
-	}
-
-	seriesID, err := t.seriesLookup.GetSeriesIDByTvdbID(ctx, tvdbID)
-	if err != nil || seriesID == 0 {
-		return requests
-	}
-
-	mediaIDRequests, err := t.findSeriesRequestsWithSeason(ctx, seriesID, seasonNum)
-	if err != nil {
-		return requests
-	}
-
-	return t.mergeRequests(requests, mediaIDRequests)
-}
-
-func (t *StatusTracker) mergeRequests(requests, mediaIDRequests []*Request) []*Request {
-	seen := make(map[int64]bool)
-	for _, r := range requests {
-		seen[r.ID] = true
-	}
-	for _, r := range mediaIDRequests {
-		if !seen[r.ID] {
-			requests = append(requests, r)
-		}
-	}
-	return requests
-}
-
-func (t *StatusTracker) getSeriesIDForCompletion(ctx context.Context, tvdbID int64) int64 {
-	if t.seriesLookup == nil {
-		return 0
-	}
-	seriesID, _ := t.seriesLookup.GetSeriesIDByTvdbID(ctx, tvdbID)
-	return seriesID
-}
-
-func (t *StatusTracker) processSeasonRequest(ctx context.Context, req *Request, seriesID, _seasonNum int64) error {
-	if !t.shouldProcessSeasonRequest(req, seriesID) {
-		return nil
-	}
-
-	if len(req.RequestedSeasons) == 0 {
-		return t.markAvailable(ctx, req)
-	}
-
-	allComplete, err := t.seriesLookup.AreSeasonsComplete(ctx, seriesID, req.RequestedSeasons)
-	if err != nil {
-		return err
-	}
-
-	if allComplete {
-		return t.markAvailable(ctx, req)
-	}
-
-	t.logger.Debug().
-		Int64("requestID", req.ID).
-		Interface("requestedSeasons", req.RequestedSeasons).
-		Msg("not all requested seasons are complete yet")
-
-	return nil
-}
-
-func (t *StatusTracker) shouldProcessSeasonRequest(_req *Request, seriesID int64) bool {
-	return t.seriesLookup != nil && seriesID > 0
 }
 
 func (t *StatusTracker) findSeriesRequestsByTvdbID(ctx context.Context, tvdbID, seasonNum int64) ([]*Request, error) {
@@ -367,9 +274,7 @@ func (t *StatusTracker) findSeriesRequestsByTvdbID(ctx context.Context, tvdbID, 
 	for _, row := range rows {
 		req := toRequest(row)
 
-		// Check if this request has requestedSeasons that include our season
 		if len(req.RequestedSeasons) == 0 {
-			// Full series request - include it
 			result = append(result, req)
 			continue
 		}
@@ -386,7 +291,6 @@ func (t *StatusTracker) findSeriesRequestsByTvdbID(ctx context.Context, tvdbID, 
 }
 
 func (t *StatusTracker) findSeriesRequestsWithSeason(ctx context.Context, seriesID, seasonNum int64) ([]*Request, error) {
-	// Get all series requests for this media
 	rows, err := t.queries.ListRequestsByMediaID(ctx, sqlc.ListRequestsByMediaIDParams{
 		MediaID:    sql.NullInt64{Int64: seriesID, Valid: true},
 		EntityType: MediaTypeSeries,
@@ -403,10 +307,7 @@ func (t *StatusTracker) findSeriesRequestsWithSeason(ctx context.Context, series
 
 		req := toRequest(row)
 
-		// Check if this request has requestedSeasons that include our season
 		if len(req.RequestedSeasons) == 0 {
-			// No specific seasons requested, this is a full series request
-			// Skip for now - full series requests should use OnSeriesComplete
 			continue
 		}
 
@@ -421,60 +322,23 @@ func (t *StatusTracker) findSeriesRequestsWithSeason(ctx context.Context, series
 	return result, nil
 }
 
-func (t *StatusTracker) OnSeasonComplete(ctx context.Context, seriesID int64, seasonNumber int) error {
-	requests, err := t.findSeasonRequests(ctx, seriesID, int64(seasonNumber))
-	if err != nil {
-		return err
+func (t *StatusTracker) mergeRequests(requests, mediaIDRequests []*Request) []*Request {
+	seen := make(map[int64]bool)
+	for _, r := range requests {
+		seen[r.ID] = true
 	}
-
-	for _, req := range requests {
-		if err := t.markAvailable(ctx, req); err != nil {
-			t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
+	for _, r := range mediaIDRequests {
+		if !seen[r.ID] {
+			requests = append(requests, r)
 		}
 	}
-
-	return nil
-}
-
-func (t *StatusTracker) OnSeriesComplete(ctx context.Context, seriesID int64) error {
-	requests, err := t.findRequestsByMediaID(ctx, seriesID, MediaTypeSeries)
-	if err != nil {
-		return err
-	}
-
-	for _, req := range requests {
-		if err := t.markAvailable(ctx, req); err != nil {
-			t.logger.Warn().Err(err).Int64("requestID", req.ID).Msg("failed to mark request as available")
-		}
-	}
-
-	return nil
+	return requests
 }
 
 func (t *StatusTracker) findRequestsByMediaID(ctx context.Context, mediaID int64, mediaType string) ([]*Request, error) {
 	rows, err := t.queries.ListRequestsByMediaID(ctx, sqlc.ListRequestsByMediaIDParams{
 		MediaID:    sql.NullInt64{Int64: mediaID, Valid: true},
 		EntityType: mediaType,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*Request, 0, len(rows))
-	for _, row := range rows {
-		if row.Status == StatusDownloading || row.Status == StatusApproved || row.Status == StatusSearching {
-			result = append(result, toRequest(row))
-		}
-	}
-
-	return result, nil
-}
-
-func (t *StatusTracker) findSeasonRequests(ctx context.Context, seriesID, seasonNumber int64) ([]*Request, error) {
-	rows, err := t.queries.ListRequestsByMediaIDAndSeason(ctx, sqlc.ListRequestsByMediaIDAndSeasonParams{
-		MediaID:      sql.NullInt64{Int64: seriesID, Valid: true},
-		EntityType:   MediaTypeSeason,
-		SeasonNumber: sql.NullInt64{Int64: seasonNumber, Valid: true},
 	})
 	if err != nil {
 		return nil, err
@@ -503,7 +367,6 @@ func (t *StatusTracker) markAvailable(ctx context.Context, req *Request) error {
 		Str("title", req.Title).
 		Msg("request marked as available")
 
-	// Dispatch notification
 	if t.notifDispatcher != nil {
 		watcherIDs, _ := t.watchersService.GetWatcherUserIDs(ctx, req.ID)
 		go t.notifDispatcher.NotifyRequestAvailable(context.Background(), req, watcherIDs)
@@ -515,7 +378,6 @@ func (t *StatusTracker) markAvailable(ctx context.Context, req *Request) error {
 // areAllEpisodesFailed checks if all monitored episodes for a series (or specific seasons) are failed.
 func (t *StatusTracker) areAllEpisodesFailed(ctx context.Context, seriesID int64, requestedSeasons []int64) (bool, error) {
 	if len(requestedSeasons) == 0 {
-		// Full series request - check all episodes
 		count, err := t.queries.CountNonFailedMonitoredEpisodesBySeries(ctx, seriesID)
 		if err != nil {
 			return false, err
@@ -523,7 +385,6 @@ func (t *StatusTracker) areAllEpisodesFailed(ctx context.Context, seriesID int64
 		return count == 0, nil
 	}
 
-	// Check each requested season
 	for _, seasonNum := range requestedSeasons {
 		count, err := t.queries.CountNonFailedMonitoredEpisodesBySeason(ctx, sqlc.CountNonFailedMonitoredEpisodesBySeasonParams{
 			SeriesID:     seriesID,

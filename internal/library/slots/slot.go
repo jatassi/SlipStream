@@ -19,15 +19,13 @@ type Slot struct {
 
 	// Root folder assignments (for multi-version mode)
 	// Req 22.1.1-22.1.2: Each slot can have a dedicated root folder per media type
-	MovieRootFolderID *int64 `json:"movieRootFolderId"`
-	TVRootFolderID    *int64 `json:"tvRootFolderId"`
+	RootFolders map[string]*int64 `json:"rootFolders"` // module_type → root_folder_id
 
 	// Populated when loading with profile
 	QualityProfile *SlotProfile `json:"qualityProfile,omitempty"`
 
-	// Populated when loading with root folder info
-	MovieRootFolder *SlotRootFolder `json:"movieRootFolder,omitempty"`
-	TVRootFolder    *SlotRootFolder `json:"tvRootFolder,omitempty"`
+	// Populated when loading with root folder details
+	RootFolderDetails map[string]*SlotRootFolderDetail `json:"rootFolderDetails,omitempty"`
 
 	// Populated when checking file counts
 	FileCount int64 `json:"fileCount,omitempty"`
@@ -41,11 +39,10 @@ type SlotProfile struct {
 	UpgradesEnabled bool   `json:"upgradesEnabled"`
 }
 
-// SlotRootFolder is a simplified root folder for slot display.
-type SlotRootFolder struct {
-	ID   int64  `json:"id"`
-	Path string `json:"path"`
-	Name string `json:"name"`
+// SlotRootFolderDetail is a simplified root folder for slot display.
+type SlotRootFolderDetail struct {
+	RootFolderID int64  `json:"rootFolderId"`
+	Path         string `json:"path"`
 }
 
 // MultiVersionSettings contains the global multi-version feature settings.
@@ -61,12 +58,11 @@ type MultiVersionSettings struct {
 
 // UpdateSlotInput is the input for updating a slot.
 type UpdateSlotInput struct {
-	Name              string `json:"name"`
-	Enabled           bool   `json:"enabled"`
-	QualityProfileID  *int64 `json:"qualityProfileId"`
-	DisplayOrder      int    `json:"displayOrder"`
-	MovieRootFolderID *int64 `json:"movieRootFolderId"`
-	TVRootFolderID    *int64 `json:"tvRootFolderId"`
+	Name             string            `json:"name"`
+	Enabled          bool              `json:"enabled"`
+	QualityProfileID *int64            `json:"qualityProfileId"`
+	DisplayOrder     int               `json:"displayOrder"`
+	RootFolders      map[string]*int64 `json:"rootFolders"` // module_type → root_folder_id, nil value = remove
 }
 
 // UpdateMultiVersionSettingsInput is the input for updating multi-version settings.

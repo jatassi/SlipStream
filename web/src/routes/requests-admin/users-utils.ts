@@ -20,25 +20,23 @@ export function getQuotaDisplay(user: PortalUserWithQuota): string {
     return 'Not set'
   }
   const parts: string[] = []
-  if (user.quota.moviesLimit !== null) {
-    parts.push(`${user.quota.moviesUsed}/${user.quota.moviesLimit} movies`)
-  }
-  if (user.quota.seasonsLimit !== null) {
-    parts.push(`${user.quota.seasonsUsed}/${user.quota.seasonsLimit} seasons`)
-  }
-  if (user.quota.episodesLimit !== null) {
-    parts.push(`${user.quota.episodesUsed}/${user.quota.episodesLimit} episodes`)
+  for (const mod of user.quota.modules) {
+    if (mod.quotaLimit > 0) {
+      parts.push(`${mod.quotaUsed}/${mod.quotaLimit} ${mod.moduleType}`)
+    }
   }
   return parts.length > 0 ? parts.join(', ') : 'Unlimited'
 }
 
 export function getProfileName(
-  profileId: number | null,
+  moduleType: string,
+  moduleSettings: { moduleType: string; qualityProfileId: number | null }[],
   qualityProfiles: { id: number; name: string }[] | undefined,
 ): string {
-  if (!profileId) {
+  const setting = moduleSettings.find((s) => s.moduleType === moduleType)
+  if (!setting?.qualityProfileId) {
     return 'Default'
   }
-  const profile = qualityProfiles?.find((p) => p.id === profileId)
+  const profile = qualityProfiles?.find((p) => p.id === setting.qualityProfileId)
   return profile?.name ?? 'Unknown'
 }

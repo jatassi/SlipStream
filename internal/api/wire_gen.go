@@ -47,7 +47,6 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	"github.com/slipstream/slipstream/internal/portal/middleware"
 	"github.com/slipstream/slipstream/internal/portal/notifications"
-	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -127,9 +126,11 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	notificationsService := notifications.NewService(queries, notificationService, hub, logger)
 	watchersService := requests.NewWatchersService(queries, logger)
 	requestsService := requests.NewService(queries, logger, eventBroadcaster, notificationsService, watchersService)
-	movieLookup := provideMovieLookup(moviesService)
-	episodeLookup := provideEpisodeLookup(tvService)
-	statusTracker := requests.NewStatusTracker(queries, requestsService, watchersService, logger, movieLookup, episodeLookup, tvService, notificationsService)
+	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, artworkDownloader, logger)
+	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, artworkDownloader, qualityService, logger)
+	registry := provideRegistry(module, tvModule)
+	moduleProvisionerLookup := provideModuleProvisionerLookup(registry)
+	statusTracker := requests.NewStatusTracker(queries, requestsService, watchersService, logger, moduleProvisionerLookup, notificationsService)
 	downloaderService := downloader.NewService(db, logger, service, hub, statusChangeLogger, statusTracker)
 	queueBroadcaster := downloader.NewQueueBroadcaster(downloaderService, hub, logger)
 	downloadGroup := DownloadGroup{
@@ -174,7 +175,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	importerHistoryService := provideImportHistoryService(historyService)
 	importerService := importer.NewService(db, downloaderService, moviesService, tvService, rootfolderService, organizerService, mediainfoService, hub, importerConfig, logger, service, importerHistoryService, qualityService, slotsService, statusTracker)
 	settingsHandlers := importer.NewSettingsHandlers(db, importerService)
-	arrimportService := arrimport.NewService(db, moviesService, tvService, rootfolderService, qualityService, manager, logger, slotsService)
+	arrimportService := arrimport.NewService(db, registry, rootfolderService, qualityService, manager, logger)
 	scheduler := provideScheduler(logger)
 	automationGroup := AutomationGroup{
 		Autosearch:         autosearchService,
@@ -207,8 +208,8 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	middlewarePortalEnabledChecker := providePortalEnabledChecker(queries)
 	authMiddleware := middleware.NewAuthMiddleware(authService, middlewarePortalEnabledChecker, usersService)
 	searchLimiter := provideSearchLimiter(queries)
-	provisionerService := provisioner.NewService(queries, moviesService, tvService, librarymanagerService, logger)
-	requestSearcher := requests.NewRequestSearcher(queries, requestsService, autosearchService, provisionerService, logger)
+	apiModuleProvisionerAdapter := provideModuleProvisioner(registry)
+	requestSearcher := requests.NewRequestSearcher(queries, requestsService, autosearchService, apiModuleProvisionerAdapter, logger)
 	libraryChecker := requests.NewLibraryChecker(queries, logger)
 	apiAdminRequestLibraryCheckerAdapter := provideAdminLibraryChecker(queries)
 	adminSettingsHandlers := admin.NewSettingsHandlers(quotaService, queries)
@@ -224,7 +225,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		AuthMiddleware:      authMiddleware,
 		SearchLimiter:       searchLimiter,
 		RequestSearcher:     requestSearcher,
-		MediaProvisioner:    provisionerService,
+		ModuleProvisioner:   apiModuleProvisionerAdapter,
 		Watchers:            watchersService,
 		StatusTracker:       statusTracker,
 		LibraryChecker:      libraryChecker,
@@ -259,7 +260,6 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		ImportSettings:      settingsHandlers,
 		LibraryManager:      librarymanagerService,
 		Notification:        notificationService,
-		MediaProvisioner:    provisionerService,
 		StatusTracker:       statusTracker,
 		LibraryChecker:      libraryChecker,
 		AdminLibraryChecker: apiAdminRequestLibraryCheckerAdapter,
@@ -277,9 +277,6 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 		AdminSettings:       adminSettingsHandlers,
 		Passkey:             passkeyService,
 	}
-	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, logger)
-	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, logger)
-	registry := provideRegistry(module, tvModule)
 	serviceContainer := &ServiceContainer{
 		System:       systemGroup,
 		Library:      libraryGroup,

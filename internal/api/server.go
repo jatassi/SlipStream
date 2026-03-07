@@ -106,7 +106,7 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 
 	s.devMode = NewDevModeManager(
 		&s.library, &s.metadata, &s.search, &s.download,
-		&s.notification, &s.switchable, s.dbManager, s.logger,
+		&s.notification, &s.switchable, s.dbManager, s.logger, s.registry,
 	)
 
 	serverDebugLog("Wiring circular dependencies...")

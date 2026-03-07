@@ -122,12 +122,17 @@ func parseYearParam(yearStr string) int {
 	return y
 }
 
-func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, mediaType string) *int64 {
-	user, err := h.usersService.Get(ctx, userID)
-	if err != nil || user == nil {
+func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, moduleType string) *int64 {
+	settings, err := h.usersService.GetModuleSettings(ctx, userID)
+	if err != nil {
 		return nil
 	}
-	return user.QualityProfileIDFor(mediaType)
+	for _, ms := range settings {
+		if ms.ModuleType == moduleType && ms.QualityProfileID.Valid {
+			return &ms.QualityProfileID.Int64
+		}
+	}
+	return nil
 }
 
 func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64, currentUserID int64) []MovieSearchResult {

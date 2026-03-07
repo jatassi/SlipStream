@@ -3,38 +3,14 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { useUpdateAdminUser } from '@/hooks'
-import type { AdminUpdateUserInput, PortalUserWithQuota, UserQuota } from '@/types'
+import type { AdminUpdateUserInput, PortalUserWithQuota } from '@/types'
 
-function limitToString(value: number | null | undefined): string {
-  return value !== null && value !== undefined ? value.toString() : ''
-}
-
-function useQuotaState(quota: UserQuota | null) {
-  const hasOverride =
-    quota !== null &&
-    (quota.moviesLimit !== null || quota.seasonsLimit !== null || quota.episodesLimit !== null)
-
-  const [useQuotaOverride, setUseQuotaOverride] = useState(hasOverride)
-  const [moviesLimit, setMoviesLimit] = useState(limitToString(quota?.moviesLimit))
-  const [seasonsLimit, setSeasonsLimit] = useState(limitToString(quota?.seasonsLimit))
-  const [episodesLimit, setEpisodesLimit] = useState(limitToString(quota?.episodesLimit))
-
-  const buildOverride = () =>
-    useQuotaOverride
-      ? {
-          moviesLimit: moviesLimit ? Number.parseInt(moviesLimit, 10) : null,
-          seasonsLimit: seasonsLimit ? Number.parseInt(seasonsLimit, 10) : null,
-          episodesLimit: episodesLimit ? Number.parseInt(episodesLimit, 10) : null,
-        }
-      : { moviesLimit: null, seasonsLimit: null, episodesLimit: null }
-
-  return {
-    useQuotaOverride, setUseQuotaOverride,
-    moviesLimit, setMoviesLimit,
-    seasonsLimit, setSeasonsLimit,
-    episodesLimit, setEpisodesLimit,
-    buildOverride,
+function getInitialModuleSettings(user: PortalUserWithQuota): Record<string, number | null> {
+  const result: Record<string, number | null> = {}
+  for (const ms of user.moduleSettings) {
+    result[ms.moduleType] = ms.qualityProfileId
   }
+  return result
 }
 
 export function useUserEditDialog(
@@ -43,18 +19,20 @@ export function useUserEditDialog(
 ) {
   const updateMutation = useUpdateAdminUser()
   const [username, setUsername] = useState(user.username)
-  const [movieQualityProfileId, setMovieQualityProfileId] = useState<number | null>(user.movieQualityProfileId)
-  const [tvQualityProfileId, setTvQualityProfileId] = useState<number | null>(user.tvQualityProfileId)
+  const [moduleProfileSettings, setModuleProfileSettings] = useState<Record<string, number | null>>(
+    getInitialModuleSettings(user),
+  )
   const [autoApprove, setAutoApprove] = useState(user.autoApprove)
-  const quotaState = useQuotaState(user.quota)
+
+  const setModuleProfile = (moduleType: string, profileId: number | null) => {
+    setModuleProfileSettings((prev) => ({ ...prev, [moduleType]: profileId }))
+  }
 
   const handleSave = async () => {
     const input: AdminUpdateUserInput = {
       username: username === user.username ? undefined : username,
-      movieQualityProfileId,
-      tvQualityProfileId,
+      moduleSettings: moduleProfileSettings,
       autoApprove,
-      quotaOverride: quotaState.buildOverride(),
     }
     try {
       await updateMutation.mutateAsync({ id: user.id, data: input })
@@ -67,10 +45,9 @@ export function useUserEditDialog(
 
   return {
     username, setUsername,
-    movieQualityProfileId, setMovieQualityProfileId,
-    tvQualityProfileId, setTvQualityProfileId,
+    moduleProfileSettings,
+    setModuleProfile,
     autoApprove, setAutoApprove,
-    ...quotaState,
     isPending: updateMutation.isPending,
     handleSave,
   }

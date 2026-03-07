@@ -175,10 +175,15 @@ func seriesHasFiles(availability *requests.AvailabilityResult) bool {
 	return false
 }
 
-func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, mediaType string) *int64 {
-	user, err := h.usersService.Get(ctx, userID)
-	if err != nil || user == nil {
+func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, moduleType string) *int64 {
+	settings, err := h.usersService.GetModuleSettings(ctx, userID)
+	if err != nil {
 		return nil
 	}
-	return user.QualityProfileIDFor(mediaType)
+	for _, ms := range settings {
+		if ms.ModuleType == moduleType && ms.QualityProfileID.Valid {
+			return &ms.QualityProfileID.Int64
+		}
+	}
+	return nil
 }

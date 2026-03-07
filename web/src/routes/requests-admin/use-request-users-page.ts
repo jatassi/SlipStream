@@ -93,14 +93,12 @@ function useClipboardLink() {
 function useInviteDialogState() {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [inviteName, setInviteName] = useState('')
-  const [inviteMovieQualityProfileId, setInviteMovieQualityProfileId] = useState<number | null>(null)
-  const [inviteTvQualityProfileId, setInviteTvQualityProfileId] = useState<number | null>(null)
+  const [inviteModuleSettings, setInviteModuleSettings] = useState<Record<string, number | null>>({})
   const [inviteAutoApprove, setInviteAutoApprove] = useState(false)
 
   const reset = () => {
     setInviteName('')
-    setInviteMovieQualityProfileId(null)
-    setInviteTvQualityProfileId(null)
+    setInviteModuleSettings({})
     setInviteAutoApprove(false)
   }
 
@@ -109,15 +107,17 @@ function useInviteDialogState() {
     setShowInviteDialog(true)
   }
 
+  const setInviteModuleProfile = (moduleType: string, profileId: number | null) => {
+    setInviteModuleSettings((prev) => ({ ...prev, [moduleType]: profileId }))
+  }
+
   return {
     showInviteDialog,
     setShowInviteDialog,
     inviteName,
     setInviteName,
-    inviteMovieQualityProfileId,
-    setInviteMovieQualityProfileId,
-    inviteTvQualityProfileId,
-    setInviteTvQualityProfileId,
+    inviteModuleSettings,
+    setInviteModuleProfile,
     inviteAutoApprove,
     setInviteAutoApprove,
     reset,
@@ -141,8 +141,7 @@ function useInvitationActions(
     try {
       const params = {
         username: dialog.inviteName,
-        movieQualityProfileId: dialog.inviteMovieQualityProfileId,
-        tvQualityProfileId: dialog.inviteTvQualityProfileId,
+        moduleSettings: dialog.inviteModuleSettings,
         autoApprove: dialog.inviteAutoApprove,
       }
       const invitation = await createMutation.mutateAsync(params)
@@ -213,17 +212,12 @@ export function useRequestUsersPage() {
   const users = usersQuery.data
   const invitations = invitationsQuery.data
 
-  const movieProfiles = qualityProfiles?.filter((p) => p.moduleType === 'movie')
-  const tvProfiles = qualityProfiles?.filter((p) => p.moduleType === 'tv')
-
   return {
     activeTab,
     setActiveTab,
     users,
     invitations,
     qualityProfiles,
-    movieProfiles,
-    tvProfiles,
     portalEnabled,
     userCount: users?.length ?? 0,
     pendingInvitationCount: invitations?.filter((i) => !i.usedAt).length ?? 0,

@@ -99,11 +99,15 @@ type FileParser interface {
 	TryMatch(filename string) (confidence float64, match *ParseResult)
 }
 
-// MockFactory creates mock data for dev mode.
+// MockFactory creates mock data for dev mode. (§14.1)
 type MockFactory interface {
+	// CreateMockMetadataProvider returns a mock metadata provider for this module.
+	// May return nil if the module reuses a shared mock provider (current movie/TV behavior).
 	CreateMockMetadataProvider() MetadataProvider
-	CreateSampleLibraryData(ctx context.Context) error
-	CreateTestRootFolders(ctx context.Context) error
+	// CreateSampleLibraryData creates sample media entities in the dev database.
+	CreateSampleLibraryData(ctx context.Context, mctx *MockContext) error
+	// CreateTestRootFolders creates mock root folders with virtual filesystem entries.
+	CreateTestRootFolders(ctx context.Context, mctx *MockContext) error
 }
 
 // NotificationEvents declares notification event catalog.
@@ -126,3 +130,10 @@ type RouteProvider interface {
 type TaskProvider interface {
 	ScheduledTasks() []ScheduledTask
 }
+
+// Optional interfaces — modules may implement these for additional capabilities:
+//   - PortalProvisioner (portal_provisioner.go): portal request support
+//   - SlotSupport (slot_support.go): multi-version slot support
+//   - ArrImportAdapter (optional_interfaces.go): generic import from external *arr apps
+//   - MovieArrImportAdapter (arr_import.go): type-safe movie import from Radarr
+//   - TVArrImportAdapter (arr_import.go): type-safe TV series import from Sonarr

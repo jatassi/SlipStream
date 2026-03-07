@@ -29,6 +29,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/status"
 	"github.com/slipstream/slipstream/internal/library/librarymanager"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/module"
 	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
 	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/library/organizer"
@@ -47,7 +48,6 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
-	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -96,8 +96,7 @@ func BuildServices(
 		// --- Adapter providers ---
 		provideStatusChangeLogger,
 		provideImportHistoryService,
-		provideMovieLookup,
-		provideEpisodeLookup,
+		provideModuleProvisionerLookup,
 		providePortalEnabledChecker,
 		provideAdminLibraryChecker,
 
@@ -178,7 +177,7 @@ func BuildServices(
 		requests.NewEventBroadcaster,
 		portalnotifs.NewService,
 		autoapprove.NewService,
-		provisioner.NewService,
+		provideModuleProvisioner,
 		admin.NewSettingsHandlers,
 		portalmw.NewAuthMiddleware,
 
@@ -198,9 +197,8 @@ func BuildServices(
 		wire.Bind(new(prowlarr.InternalIndexerProvider), new(*indexer.Service)),
 
 		// Portal interfaces
-		wire.Bind(new(requests.SeriesLookup), new(*tv.Service)),
 		wire.Bind(new(requests.NotificationDispatcher), new(*portalnotifs.Service)),
-		wire.Bind(new(requests.MediaProvisioner), new(*provisioner.Service)),
+		wire.Bind(new(requests.ModuleProvisioner), new(*moduleProvisionerAdapter)),
 		wire.Bind(new(portalmw.TokenValidator), new(*auth.Service)),
 		wire.Bind(new(portalmw.UserExistenceChecker), new(*users.Service)),
 
@@ -216,11 +214,9 @@ func BuildServices(
 		wire.Bind(new(slots.RootFolderProvider), new(*rootfolder.Service)),
 
 		// ArrImport interfaces
-		wire.Bind(new(arrimport.MovieService), new(*movies.Service)),
-		wire.Bind(new(arrimport.TVService), new(*tv.Service)),
+		wire.Bind(new(arrimport.ModuleRegistry), new(*module.Registry)),
 		wire.Bind(new(arrimport.RootFolderService), new(*rootfolder.Service)),
 		wire.Bind(new(arrimport.QualityService), new(*quality.Service)),
-		wire.Bind(new(arrimport.SlotsService), new(*slots.Service)),
 
 		// --- Group struct assembly ---
 		wire.Struct(new(ServiceContainer), "*"),

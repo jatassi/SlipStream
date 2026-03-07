@@ -32,7 +32,6 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/autoapprove"
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
-	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -70,7 +69,6 @@ type SwitchableServices struct {
 	ImportSettings      *importer.SettingsHandlers         `switchable:"db"`
 	LibraryManager      *librarymanager.Service            `switchable:"db"`
 	Notification        *notification.Service              `switchable:"db"`
-	MediaProvisioner    *provisioner.Service               `switchable:"db"`
 	StatusTracker       *requests.StatusTracker            `switchable:"db"`
 	LibraryChecker      *requests.LibraryChecker           `switchable:"db"`
 	AdminLibraryChecker *adminRequestLibraryCheckerAdapter `switchable:"db"`
