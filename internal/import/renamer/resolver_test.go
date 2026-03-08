@@ -1,7 +1,6 @@
 package renamer
 
 import (
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -27,8 +26,8 @@ func TestDefaultSettings(t *testing.T) {
 	if s.ColonReplacement != ColonSmart {
 		t.Errorf("ColonReplacement = %v, want %v", s.ColonReplacement, ColonSmart)
 	}
-	if s.StandardEpisodeFormat == "" {
-		t.Error("StandardEpisodeFormat should not be empty")
+	if s.Patterns["episode-file.standard"] == "" {
+		t.Error("episode-file.standard pattern should not be empty")
 	}
 	if s.MultiEpisodeStyle != StyleExtend {
 		t.Errorf("MultiEpisodeStyle = %v, want %v", s.MultiEpisodeStyle, StyleExtend)
@@ -37,9 +36,9 @@ func TestDefaultSettings(t *testing.T) {
 
 // ===== EPISODE FILENAME RESOLUTION =====
 
-func TestResolveEpisodeFilename(t *testing.T) {
+func TestResolveContext_EpisodeFile(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}"
+	settings.Patterns["episode-file.standard"] = "{Series Title} - S{season:00}E{episode:00} - {Episode Title}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -49,52 +48,63 @@ func TestResolveEpisodeFilename(t *testing.T) {
 		EpisodeTitle:  "Breakage",
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
 	if err != nil {
-		t.Fatalf("ResolveEpisodeFilename() error = %v", err)
+		t.Fatalf("ResolveContext() error = %v", err)
 	}
 
 	want := "Breaking Bad - S02E05 - Breakage.mkv"
 	if got != want {
-		t.Errorf("ResolveEpisodeFilename() = %q, want %q", got, want)
+		t.Errorf("ResolveContext() = %q, want %q", got, want)
 	}
 }
 
-func TestResolveEpisodeFilename_RenameDisabled(t *testing.T) {
+func TestIsRenameEnabled_Disabled(t *testing.T) {
 	settings := DefaultSettings()
 	settings.RenameEpisodes = false
 	r := NewResolver(&settings)
 
-	ctx := &TokenContext{
-		OriginalFile: "original.file.mkv",
+	if r.IsRenameEnabled("episode") {
+		t.Error("IsRenameEnabled(episode) should be false")
 	}
-
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
-	if err != nil {
-		t.Fatalf("ResolveEpisodeFilename() error = %v", err)
-	}
-
-	if got != "original.file.mkv" {
-		t.Errorf("ResolveEpisodeFilename() = %q, want original filename", got)
+	if !r.IsRenameEnabled("movie") {
+		t.Error("IsRenameEnabled(movie) should be true")
 	}
 }
 
-func TestResolveEpisodeFilename_EmptyPattern(t *testing.T) {
+func TestResolveContext_EmptyPattern(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = ""
+	settings.Patterns["episode-file.standard"] = ""
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{SeriesTitle: "Test"}
 
-	_, err := r.ResolveEpisodeFilename(ctx, ".mkv")
-	if !errors.Is(err, ErrEmptyPattern) {
-		t.Errorf("ResolveEpisodeFilename() error = %v, want ErrEmptyPattern", err)
+	got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
+	if err != nil {
+		t.Fatalf("ResolveContext() error = %v", err)
+	}
+
+	// Empty pattern resolves to just the extension
+	if !strings.HasSuffix(got, ".mkv") {
+		t.Errorf("ResolveContext() = %q, want suffix .mkv", got)
 	}
 }
 
-func TestResolveEpisodeFilename_DailyFormat(t *testing.T) {
+func TestResolveContext_MissingPattern(t *testing.T) {
 	settings := DefaultSettings()
-	settings.DailyEpisodeFormat = "{Series Title} - {Air-Date}"
+	r := NewResolver(&settings)
+
+	ctx := &TokenContext{SeriesTitle: "Test"}
+
+	_, err := r.ResolveContext("nonexistent-context", ctx, ".mkv")
+	if err == nil {
+		t.Error("expected error for missing pattern context")
+	}
+}
+
+func TestResolveContext_DailyFormat(t *testing.T) {
+	settings := DefaultSettings()
+	settings.Patterns["episode-file.daily"] = "{Series Title} - {Air-Date}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -103,20 +113,20 @@ func TestResolveEpisodeFilename_DailyFormat(t *testing.T) {
 		AirDate:     time.Date(2024, 3, 15, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mp4")
+	got, err := r.ResolveContext("episode-file.daily", ctx, ".mp4")
 	if err != nil {
-		t.Fatalf("ResolveEpisodeFilename() error = %v", err)
+		t.Fatalf("ResolveContext() error = %v", err)
 	}
 
 	want := "The Daily Show - 2024-03-15.mp4"
 	if got != want {
-		t.Errorf("ResolveEpisodeFilename() = %q, want %q", got, want)
+		t.Errorf("ResolveContext() = %q, want %q", got, want)
 	}
 }
 
-func TestResolveEpisodeFilename_AnimeFormat(t *testing.T) {
+func TestResolveContext_AnimeFormat(t *testing.T) {
 	settings := DefaultSettings()
-	settings.AnimeEpisodeFormat = "{Series Title} - {absolute:000} - {Episode Title}"
+	settings.Patterns["episode-file.anime"] = "{Series Title} - {absolute:000} - {Episode Title}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -126,20 +136,20 @@ func TestResolveEpisodeFilename_AnimeFormat(t *testing.T) {
 		EpisodeTitle:   "The Great Battle",
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("episode-file.anime", ctx, ".mkv")
 	if err != nil {
-		t.Fatalf("ResolveEpisodeFilename() error = %v", err)
+		t.Fatalf("ResolveContext() error = %v", err)
 	}
 
 	want := "Naruto - 042 - The Great Battle.mkv"
 	if got != want {
-		t.Errorf("ResolveEpisodeFilename() = %q, want %q", got, want)
+		t.Errorf("ResolveContext() = %q, want %q", got, want)
 	}
 }
 
-func TestResolveEpisodeFilename_WithQuality(t *testing.T) {
+func TestResolveContext_WithQuality(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00} - {Quality Title}"
+	settings.Patterns["episode-file.standard"] = "{Series Title} - S{season:00}E{episode:00} - {Quality Title}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -150,20 +160,20 @@ func TestResolveEpisodeFilename_WithQuality(t *testing.T) {
 		Quality:       "1080p",
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
 	if err != nil {
-		t.Fatalf("ResolveEpisodeFilename() error = %v", err)
+		t.Fatalf("ResolveContext() error = %v", err)
 	}
 
 	want := "Test Show - S01E01 - BluRay-1080p.mkv"
 	if got != want {
-		t.Errorf("ResolveEpisodeFilename() = %q, want %q", got, want)
+		t.Errorf("ResolveContext() = %q, want %q", got, want)
 	}
 }
 
-func TestResolveEpisodeFilename_ExtensionHandling(t *testing.T) {
+func TestResolveContext_ExtensionHandling(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = "{Series Title}"
+	settings.Patterns["episode-file.standard"] = "{Series Title}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{SeriesTitle: "Test"}
@@ -180,7 +190,7 @@ func TestResolveEpisodeFilename_ExtensionHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := r.ResolveEpisodeFilename(ctx, tt.ext)
+			got, err := r.ResolveContext("episode-file.standard", ctx, tt.ext)
 			if err != nil {
 				t.Fatalf("error = %v", err)
 			}
@@ -193,9 +203,9 @@ func TestResolveEpisodeFilename_ExtensionHandling(t *testing.T) {
 
 // ===== MOVIE FILENAME RESOLUTION =====
 
-func TestResolveMovieFilename(t *testing.T) {
+func TestResolveContext_MovieFile(t *testing.T) {
 	settings := DefaultSettings()
-	settings.MovieFileFormat = "{Movie Title} ({Year}) - {Quality Title}"
+	settings.Patterns["movie-file"] = "{Movie Title} ({Year}) - {Quality Title}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -205,39 +215,30 @@ func TestResolveMovieFilename(t *testing.T) {
 		Quality:    "1080p",
 	}
 
-	got, err := r.ResolveMovieFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("movie-file", ctx, ".mkv")
 	if err != nil {
-		t.Fatalf("ResolveMovieFilename() error = %v", err)
+		t.Fatalf("ResolveContext() error = %v", err)
 	}
 
 	want := "The Matrix (1999) - BluRay-1080p.mkv"
 	if got != want {
-		t.Errorf("ResolveMovieFilename() = %q, want %q", got, want)
+		t.Errorf("ResolveContext() = %q, want %q", got, want)
 	}
 }
 
-func TestResolveMovieFilename_RenameDisabled(t *testing.T) {
+func TestIsRenameEnabled_MovieDisabled(t *testing.T) {
 	settings := DefaultSettings()
 	settings.RenameMovies = false
 	r := NewResolver(&settings)
 
-	ctx := &TokenContext{
-		OriginalFile: "the.matrix.1999.mkv",
-	}
-
-	got, err := r.ResolveMovieFilename(ctx, ".mkv")
-	if err != nil {
-		t.Fatalf("error = %v", err)
-	}
-
-	if got != "the.matrix.1999.mkv" {
-		t.Errorf("got = %q, want original filename", got)
+	if r.IsRenameEnabled("movie") {
+		t.Error("IsRenameEnabled(movie) should be false")
 	}
 }
 
-func TestResolveMovieFilename_WithEdition(t *testing.T) {
+func TestResolveContext_MovieWithEdition(t *testing.T) {
 	settings := DefaultSettings()
-	settings.MovieFileFormat = "{Movie Title} ({Year}) {Edition Tags}"
+	settings.Patterns["movie-file"] = "{Movie Title} ({Year}) {Edition Tags}"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -246,7 +247,7 @@ func TestResolveMovieFilename_WithEdition(t *testing.T) {
 		EditionTags: "Final Cut",
 	}
 
-	got, err := r.ResolveMovieFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("movie-file", ctx, ".mkv")
 	if err != nil {
 		t.Fatalf("error = %v", err)
 	}
@@ -259,9 +260,9 @@ func TestResolveMovieFilename_WithEdition(t *testing.T) {
 
 // ===== FOLDER NAME RESOLUTION =====
 
-func TestResolveSeriesFolderName(t *testing.T) {
+func TestResolveContext_SeriesFolder(t *testing.T) {
 	settings := DefaultSettings()
-	settings.SeriesFolderFormat = "{Series Title} ({Year})"
+	settings.Patterns["series-folder"] = "{Series Title} ({Year})"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -269,7 +270,7 @@ func TestResolveSeriesFolderName(t *testing.T) {
 		SeriesYear:  2008,
 	}
 
-	got, err := r.ResolveSeriesFolderName(ctx)
+	got, err := r.ResolveContext("series-folder", ctx, "")
 	if err != nil {
 		t.Fatalf("error = %v", err)
 	}
@@ -280,26 +281,9 @@ func TestResolveSeriesFolderName(t *testing.T) {
 	}
 }
 
-func TestResolveSeriesFolderName_DefaultPattern(t *testing.T) {
+func TestResolveContext_SeasonFolder(t *testing.T) {
 	settings := DefaultSettings()
-	settings.SeriesFolderFormat = ""
-	r := NewResolver(&settings)
-
-	ctx := &TokenContext{SeriesTitle: "Test Show"}
-
-	got, err := r.ResolveSeriesFolderName(ctx)
-	if err != nil {
-		t.Fatalf("error = %v", err)
-	}
-
-	if got != "Test Show" {
-		t.Errorf("got = %q, want %q", got, "Test Show")
-	}
-}
-
-func TestResolveSeasonFolderName(t *testing.T) {
-	settings := DefaultSettings()
-	settings.SeasonFolderFormat = "Season {season:00}"
+	settings.Patterns["season-folder"] = "Season {season:00}"
 	r := NewResolver(&settings)
 
 	tests := []struct {
@@ -313,7 +297,11 @@ func TestResolveSeasonFolderName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := r.ResolveSeasonFolderName(tt.season)
+			ctx := &TokenContext{SeasonNumber: tt.season}
+			got, err := r.ResolveContext("season-folder", ctx, "")
+			if err != nil {
+				t.Fatalf("error = %v", err)
+			}
 			if got != tt.want {
 				t.Errorf("got = %q, want %q", got, tt.want)
 			}
@@ -321,31 +309,24 @@ func TestResolveSeasonFolderName(t *testing.T) {
 	}
 }
 
-func TestResolveSeasonFolderName_Specials(t *testing.T) {
+func TestResolveContext_SpecialsFolder(t *testing.T) {
 	settings := DefaultSettings()
-	settings.SpecialsFolderFormat = "Extras"
+	settings.Patterns["specials-folder"] = "Extras"
 	r := NewResolver(&settings)
 
-	got := r.ResolveSeasonFolderName(0)
+	ctx := &TokenContext{SeasonNumber: 0}
+	got, err := r.ResolveContext("specials-folder", ctx, "")
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
 	if got != "Extras" {
 		t.Errorf("got = %q, want %q", got, "Extras")
 	}
 }
 
-func TestResolveSeasonFolderName_SpecialsDefault(t *testing.T) {
+func TestResolveContext_MovieFolder(t *testing.T) {
 	settings := DefaultSettings()
-	settings.SpecialsFolderFormat = ""
-	r := NewResolver(&settings)
-
-	got := r.ResolveSeasonFolderName(0)
-	if got != "Specials" {
-		t.Errorf("got = %q, want %q", got, "Specials")
-	}
-}
-
-func TestResolveMovieFolderName(t *testing.T) {
-	settings := DefaultSettings()
-	settings.MovieFolderFormat = "{Movie Title} ({Year})"
+	settings.Patterns["movie-folder"] = "{Movie Title} ({Year})"
 	r := NewResolver(&settings)
 
 	ctx := &TokenContext{
@@ -353,7 +334,7 @@ func TestResolveMovieFolderName(t *testing.T) {
 		MovieYear:  1999,
 	}
 
-	got, err := r.ResolveMovieFolderName(ctx)
+	got, err := r.ResolveContext("movie-folder", ctx, "")
 	if err != nil {
 		t.Fatalf("error = %v", err)
 	}
@@ -567,9 +548,9 @@ func TestGetTokenBreakdown(t *testing.T) {
 
 // ===== EMPTY TOKEN CLEANUP =====
 
-func TestResolvePattern_EmptyTokenCleanup(t *testing.T) {
+func TestResolveContext_EmptyTokenCleanup(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = "{Series Title} - {Episode Title} - {Quality Title}"
+	settings.Patterns["episode-file.standard"] = "{Series Title} - {Episode Title} - {Quality Title}"
 	r := NewResolver(&settings)
 
 	// Episode title is empty
@@ -579,7 +560,7 @@ func TestResolvePattern_EmptyTokenCleanup(t *testing.T) {
 		Quality:     "1080p",
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
 	if err != nil {
 		t.Fatalf("error = %v", err)
 	}
@@ -615,9 +596,9 @@ func TestCleanupOrphanedSeparators(t *testing.T) {
 
 // ===== MULTI-EPISODE FORMATTING IN RESOLVER =====
 
-func TestResolveEpisodeFilename_MultiEpisode(t *testing.T) {
+func TestResolveContext_MultiEpisode(t *testing.T) {
 	settings := DefaultSettings()
-	settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00}"
+	settings.Patterns["episode-file.standard"] = "{Series Title} - S{season:00}E{episode:00}"
 	settings.MultiEpisodeStyle = StyleExtend
 	r := NewResolver(&settings)
 
@@ -628,7 +609,7 @@ func TestResolveEpisodeFilename_MultiEpisode(t *testing.T) {
 		EpisodeNumbers: []int{1, 2, 3},
 	}
 
-	got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+	got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
 	if err != nil {
 		t.Fatalf("error = %v", err)
 	}
@@ -641,7 +622,7 @@ func TestResolveEpisodeFilename_MultiEpisode(t *testing.T) {
 
 // ===== CASE MODE APPLICATION =====
 
-func TestResolveEpisodeFilename_CaseMode(t *testing.T) {
+func TestResolveContext_CaseMode(t *testing.T) {
 	tests := []struct {
 		name string
 		mode CaseMode
@@ -656,7 +637,7 @@ func TestResolveEpisodeFilename_CaseMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			settings := DefaultSettings()
-			settings.StandardEpisodeFormat = "{Series Title} - S{season:00}E{episode:00}"
+			settings.Patterns["episode-file.standard"] = "{Series Title} - S{season:00}E{episode:00}"
 			settings.CaseMode = tt.mode
 			r := NewResolver(&settings)
 
@@ -666,7 +647,7 @@ func TestResolveEpisodeFilename_CaseMode(t *testing.T) {
 				EpisodeNumber: 1,
 			}
 
-			got, err := r.ResolveEpisodeFilename(ctx, ".mkv")
+			got, err := r.ResolveContext("episode-file.standard", ctx, ".mkv")
 			if err != nil {
 				t.Fatalf("error = %v", err)
 			}
@@ -675,5 +656,44 @@ func TestResolveEpisodeFilename_CaseMode(t *testing.T) {
 				t.Errorf("got = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// ===== HasPattern =====
+
+func TestHasPattern(t *testing.T) {
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
+
+	if !r.HasPattern("movie-file") {
+		t.Error("HasPattern(movie-file) should be true")
+	}
+	if r.HasPattern("nonexistent") {
+		t.Error("HasPattern(nonexistent) should be false")
+	}
+}
+
+// ===== IsRenameEnabled =====
+
+func TestIsRenameEnabled(t *testing.T) {
+	settings := DefaultSettings()
+	r := NewResolver(&settings)
+
+	if !r.IsRenameEnabled("movie") {
+		t.Error("IsRenameEnabled(movie) should be true by default")
+	}
+	if !r.IsRenameEnabled("episode") {
+		t.Error("IsRenameEnabled(episode) should be true by default")
+	}
+
+	settings.RenameMovies = false
+	settings.RenameEpisodes = false
+	r = NewResolver(&settings)
+
+	if r.IsRenameEnabled("movie") {
+		t.Error("IsRenameEnabled(movie) should be false")
+	}
+	if r.IsRenameEnabled("episode") {
+		t.Error("IsRenameEnabled(episode) should be false")
 	}
 }

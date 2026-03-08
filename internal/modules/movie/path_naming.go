@@ -33,9 +33,9 @@ func (p *pathGenerator) AvailableVariables(contextName string) []module.Template
 	}
 
 	if contextName == "movie-file" {
-		common = append(common, qualityVariables()...)
-		common = append(common, mediaInfoVariables()...)
-		common = append(common, metadataVariables()...)
+		common = append(common, module.QualityVariables()...)
+		common = append(common, module.MediaInfoVariables()...)
+		common = append(common, module.MetadataVariables()...)
 	}
 
 	return common
@@ -89,31 +89,6 @@ func (n *namingProvider) FormatOptions() []module.FormatOption {
 			EnumValues:   []string{"delete", "dash", "space_dash", "space_dash_space", "smart", "custom"},
 			DefaultValue: "smart",
 		},
-	}
-}
-
-// --- Shared helpers ---
-
-func qualityVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "Quality Title", Description: "Quality with source (e.g., HDTV-720p)", Example: "Bluray-1080p", DataKey: "QualityTitle"},
-		{Name: "Quality Full", Description: "Full quality string", Example: "HDTV-720p Proper", DataKey: "QualityFull"},
-	}
-}
-
-func mediaInfoVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "MediaInfo VideoCodec", Description: "Video codec", Example: "x264", DataKey: "VideoCodec"},
-		{Name: "MediaInfo AudioCodec", Description: "Audio codec", Example: "DTS", DataKey: "AudioCodec"},
-		{Name: "MediaInfo AudioChannels", Description: "Audio channels", Example: "5.1", DataKey: "AudioChannels"},
-		{Name: "MediaInfo VideoDynamicRange", Description: "Dynamic range", Example: "HDR", DataKey: "VideoDynamicRange"},
-	}
-}
-
-func metadataVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "Release Group", Description: "Release group name", Example: "SPARKS", DataKey: "ReleaseGroup"},
-		{Name: "Edition Tags", Description: "Edition info", Example: "Director's Cut", DataKey: "EditionTags"},
 	}
 }
 

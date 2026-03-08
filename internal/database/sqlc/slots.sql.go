@@ -11,9 +11,13 @@ import (
 )
 
 const clearAllEpisodeFileSlotsForSlot = `-- name: ClearAllEpisodeFileSlotsForSlot :exec
+
 UPDATE episode_files SET slot_id = NULL WHERE slot_id = ?
 `
 
+// =====================
+// Episode Slot Disable Queries
+// =====================
 func (q *Queries) ClearAllEpisodeFileSlotsForSlot(ctx context.Context, slotID sql.NullInt64) error {
 	_, err := q.db.ExecContext(ctx, clearAllEpisodeFileSlotsForSlot, slotID)
 	return err
@@ -32,9 +36,13 @@ func (q *Queries) ClearAllEpisodeSlotAssignmentsForSlot(ctx context.Context, slo
 }
 
 const clearAllMovieFileSlotsForSlot = `-- name: ClearAllMovieFileSlotsForSlot :exec
+
 UPDATE movie_files SET slot_id = NULL WHERE slot_id = ?
 `
 
+// =====================
+// Movie Slot Disable Queries
+// =====================
 func (q *Queries) ClearAllMovieFileSlotsForSlot(ctx context.Context, slotID sql.NullInt64) error {
 	_, err := q.db.ExecContext(ctx, clearAllMovieFileSlotsForSlot, slotID)
 	return err
@@ -159,9 +167,13 @@ func (q *Queries) CountEpisodeFilesInSlot(ctx context.Context, slotID sql.NullIn
 }
 
 const countEpisodeFilesWithoutSlot = `-- name: CountEpisodeFilesWithoutSlot :one
+
 SELECT COUNT(*) FROM episode_files WHERE slot_id IS NULL
 `
 
+// =====================
+// Episode Review Queue Queries
+// =====================
 func (q *Queries) CountEpisodeFilesWithoutSlot(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countEpisodeFilesWithoutSlot)
 	var count int64
@@ -170,9 +182,13 @@ func (q *Queries) CountEpisodeFilesWithoutSlot(ctx context.Context) (int64, erro
 }
 
 const countEpisodeSlotAssignmentsForSlot = `-- name: CountEpisodeSlotAssignmentsForSlot :one
+
 SELECT COUNT(*) FROM episode_slot_assignments WHERE slot_id = ?
 `
 
+// =====================
+// Episode Status Queries
+// =====================
 func (q *Queries) CountEpisodeSlotAssignmentsForSlot(ctx context.Context, slotID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countEpisodeSlotAssignmentsForSlot, slotID)
 	var count int64
@@ -197,7 +213,7 @@ SELECT COUNT(*) FROM movie_files WHERE slot_id IS NULL
 `
 
 // =====================
-// Review Queue Queries
+// Movie Review Queue Queries
 // =====================
 func (q *Queries) CountMovieFilesWithoutSlot(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countMovieFilesWithoutSlot)
@@ -207,9 +223,13 @@ func (q *Queries) CountMovieFilesWithoutSlot(ctx context.Context) (int64, error)
 }
 
 const countMovieSlotAssignmentsForSlot = `-- name: CountMovieSlotAssignmentsForSlot :one
+
 SELECT COUNT(*) FROM movie_slot_assignments WHERE slot_id = ?
 `
 
+// =====================
+// Movie Status Queries
+// =====================
 func (q *Queries) CountMovieSlotAssignmentsForSlot(ctx context.Context, slotID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countMovieSlotAssignmentsForSlot, slotID)
 	var count int64
@@ -351,6 +371,7 @@ func (q *Queries) DeleteMovieSlotAssignments(ctx context.Context, movieID int64)
 }
 
 const getEpisodeFileSlotAssignments = `-- name: GetEpisodeFileSlotAssignments :many
+
 SELECT ef.id, ef.episode_id, ef.path, ef.size, ef.quality, ef.video_codec, ef.audio_codec, ef.resolution, ef.created_at, ef.quality_id, ef.original_path, ef.original_filename, ef.imported_at, ef.slot_id, ef.audio_channels, ef.dynamic_range, vs.name as slot_name, vs.slot_number
 FROM episode_files ef
 LEFT JOIN version_slots vs ON ef.slot_id = vs.id
@@ -379,7 +400,9 @@ type GetEpisodeFileSlotAssignmentsRow struct {
 	SlotNumber       sql.NullInt64  `json:"slot_number"`
 }
 
+// =====================
 // Episode File Slot Assignments
+// =====================
 func (q *Queries) GetEpisodeFileSlotAssignments(ctx context.Context, episodeID int64) ([]*GetEpisodeFileSlotAssignmentsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getEpisodeFileSlotAssignments, episodeID)
 	if err != nil {
@@ -454,9 +477,13 @@ func (q *Queries) GetEpisodeSlotAssignment(ctx context.Context, arg GetEpisodeSl
 }
 
 const getEpisodeSlotAssignmentByFileID = `-- name: GetEpisodeSlotAssignmentByFileID :one
+
 SELECT id, episode_id, slot_id, file_id, monitored, created_at, updated_at, status, active_download_id, status_message FROM episode_slot_assignments WHERE file_id = ? LIMIT 1
 `
 
+// =====================
+// Episode File Deletion Queries
+// =====================
 func (q *Queries) GetEpisodeSlotAssignmentByFileID(ctx context.Context, fileID sql.NullInt64) (*EpisodeSlotAssignment, error) {
 	row := q.db.QueryRowContext(ctx, getEpisodeSlotAssignmentByFileID, fileID)
 	var i EpisodeSlotAssignment
@@ -476,6 +503,7 @@ func (q *Queries) GetEpisodeSlotAssignmentByFileID(ctx context.Context, fileID s
 }
 
 const getMovieFileSlotAssignments = `-- name: GetMovieFileSlotAssignments :many
+
 SELECT mf.id, mf.movie_id, mf.path, mf.size, mf.quality, mf.video_codec, mf.audio_codec, mf.resolution, mf.created_at, mf.quality_id, mf.original_path, mf.original_filename, mf.imported_at, mf.slot_id, mf.audio_channels, mf.dynamic_range, vs.name as slot_name, vs.slot_number
 FROM movie_files mf
 LEFT JOIN version_slots vs ON mf.slot_id = vs.id
@@ -504,7 +532,9 @@ type GetMovieFileSlotAssignmentsRow struct {
 	SlotNumber       sql.NullInt64  `json:"slot_number"`
 }
 
+// =====================
 // Movie File Slot Assignments
+// =====================
 func (q *Queries) GetMovieFileSlotAssignments(ctx context.Context, movieID int64) ([]*GetMovieFileSlotAssignmentsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getMovieFileSlotAssignments, movieID)
 	if err != nil {
@@ -584,7 +614,7 @@ SELECT id, movie_id, slot_id, file_id, monitored, created_at, updated_at, status
 `
 
 // =====================
-// File Deletion Queries
+// Movie File Deletion Queries
 // =====================
 func (q *Queries) GetMovieSlotAssignmentByFileID(ctx context.Context, fileID sql.NullInt64) (*MovieSlotAssignment, error) {
 	row := q.db.QueryRowContext(ctx, getMovieSlotAssignmentByFileID, fileID)
@@ -605,9 +635,13 @@ func (q *Queries) GetMovieSlotAssignmentByFileID(ctx context.Context, fileID sql
 }
 
 const getMultiVersionSettings = `-- name: GetMultiVersionSettings :one
+
 SELECT id, enabled, dry_run_completed, last_migration_at, created_at, updated_at FROM multi_version_settings WHERE id = 1 LIMIT 1
 `
 
+// Code generated by gen_slots.go. DO NOT EDIT.
+// Edit slots_template.sql.tmpl or slots_shared.sql.part instead.
+// Regenerate: go generate ./internal/database/queries/
 // Multi-Version Settings
 func (q *Queries) GetMultiVersionSettings(ctx context.Context) (*MultiVersionSetting, error) {
 	row := q.db.QueryRowContext(ctx, getMultiVersionSettings)
@@ -1164,7 +1198,6 @@ func (q *Queries) ListEpisodeSlotsNeedingSearch(ctx context.Context, episodeID i
 }
 
 const listFilesAssignedToSlot = `-- name: ListFilesAssignedToSlot :many
-
 SELECT
     'movie' as media_type,
     mf.id as file_id,
@@ -1201,9 +1234,7 @@ type ListFilesAssignedToSlotRow struct {
 	MediaTitle string `json:"media_title"`
 }
 
-// =====================
-// Slot Disable Queries
-// =====================
+// Slot Disable Queries (combined UNION ALL)
 func (q *Queries) ListFilesAssignedToSlot(ctx context.Context, arg ListFilesAssignedToSlotParams) ([]*ListFilesAssignedToSlotRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesAssignedToSlot, arg.SlotID, arg.SlotID_2)
 	if err != nil {
@@ -1266,7 +1297,6 @@ SELECT msa.status FROM movie_slot_assignments msa
 WHERE msa.movie_id = ? AND msa.monitored = 1
 `
 
-// Slot status queries for cached aggregate computation
 func (q *Queries) ListMonitoredMovieSlotStatuses(ctx context.Context, movieID int64) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, listMonitoredMovieSlotStatuses, movieID)
 	if err != nil {
@@ -1564,7 +1594,6 @@ type ListMovieSlotAssignmentsWithFilesForProfileRow struct {
 	CurrentQualityID sql.NullInt64 `json:"current_quality_id"`
 }
 
-// Slot-level quality recalculation
 func (q *Queries) ListMovieSlotAssignmentsWithFilesForProfile(ctx context.Context, qualityProfileID sql.NullInt64) ([]*ListMovieSlotAssignmentsWithFilesForProfileRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMovieSlotAssignmentsWithFilesForProfile, qualityProfileID)
 	if err != nil {
@@ -1620,7 +1649,6 @@ type ListMovieSlotsNeedingSearchRow struct {
 	QualityProfileID sql.NullInt64  `json:"quality_profile_id"`
 }
 
-// Slot-level search: find slots needing search
 func (q *Queries) ListMovieSlotsNeedingSearch(ctx context.Context, movieID int64) ([]*ListMovieSlotsNeedingSearchRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMovieSlotsNeedingSearch, movieID)
 	if err != nil {
@@ -1659,7 +1687,6 @@ func (q *Queries) ListMovieSlotsNeedingSearch(ctx context.Context, movieID int64
 }
 
 const listMoviesMissingInMonitoredSlots = `-- name: ListMoviesMissingInMonitoredSlots :many
-
 SELECT DISTINCT m.id, m.title, m.sort_title, m.year, m.tmdb_id, m.imdb_id, m.overview, m.runtime, m.path, m.root_folder_id, m.quality_profile_id, m.monitored, m.status, m.active_download_id, m.status_message, m.release_date, m.physical_release_date, m.added_at, m.updated_at, m.theatrical_release_date, m.studio, m.tvdb_id, m.content_rating, m.added_by
 FROM movies m
 CROSS JOIN version_slots vs
@@ -1670,9 +1697,7 @@ WHERE vs.enabled = 1
   AND (msa.file_id IS NULL OR msa.id IS NULL)
 `
 
-// =====================
-// Status Queries
-// =====================
+// Status Queries (movie-specific, no episode equivalent)
 func (q *Queries) ListMoviesMissingInMonitoredSlots(ctx context.Context) ([]*Movie, error) {
 	rows, err := q.db.QueryContext(ctx, listMoviesMissingInMonitoredSlots)
 	if err != nil {
@@ -1906,7 +1931,6 @@ type UpdateAllMovieSlotStatusesParams struct {
 	MovieID int64  `json:"movie_id"`
 }
 
-// Bulk status updates for unreleased/missing transitions (affects all slots for an item)
 func (q *Queries) UpdateAllMovieSlotStatuses(ctx context.Context, arg UpdateAllMovieSlotStatusesParams) error {
 	_, err := q.db.ExecContext(ctx, updateAllMovieSlotStatuses, arg.Status, arg.MovieID)
 	return err

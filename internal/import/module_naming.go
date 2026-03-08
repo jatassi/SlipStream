@@ -12,6 +12,33 @@ import (
 // ErrNotNamingProvider is returned when a module does not implement NamingProvider.
 var ErrNotNamingProvider = errors.New("module does not implement NamingProvider")
 
+// GetNamingSettings returns the current module naming settings as a key-value map.
+func (s *Service) GetNamingSettings(ctx context.Context, moduleType string) (map[string]string, error) {
+	rows, err := s.queries.ListModuleNamingSettings(ctx, moduleType)
+	if err != nil {
+		return nil, err
+	}
+	settings := make(map[string]string, len(rows))
+	for _, row := range rows {
+		settings[row.SettingKey] = row.SettingValue
+	}
+	return settings, nil
+}
+
+// UpsertNamingSettings writes module naming settings as key-value pairs.
+func (s *Service) UpsertNamingSettings(ctx context.Context, moduleType string, settings map[string]string) error {
+	for key, val := range settings {
+		if err := s.queries.UpsertModuleNamingSetting(ctx, sqlc.UpsertModuleNamingSettingParams{
+			ModuleType:   moduleType,
+			SettingKey:   key,
+			SettingValue: val,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // LoadModuleRenamer builds a Resolver for the given module by reading its
 // naming settings from the database and falling back to module defaults.
 func LoadModuleRenamer(ctx context.Context, queries *sqlc.Queries, mod module.Module) (*renamer.Resolver, error) {
@@ -47,7 +74,7 @@ func LoadModuleRenamer(ctx context.Context, queries *sqlc.Queries, mod module.Mo
 	}
 
 	if v, ok := dbSettings["rename_enabled"]; ok {
-		enabled := v == "true"
+		enabled := v == boolTrue
 		settings.RenameEpisodes = enabled
 		settings.RenameMovies = enabled
 	}
@@ -61,24 +88,5 @@ func LoadModuleRenamer(ctx context.Context, queries *sqlc.Queries, mod module.Mo
 		settings.MultiEpisodeStyle = renamer.MultiEpisodeStyle(v)
 	}
 
-	PopulateLegacyFields(settings, mod.ID())
-
 	return renamer.NewResolver(settings), nil
-}
-
-// PopulateLegacyFields copies Patterns entries into the legacy typed fields
-// so that existing resolver methods (ResolveMovieFilename, etc.) continue to work.
-func PopulateLegacyFields(s *renamer.Settings, moduleType module.Type) {
-	switch moduleType {
-	case module.TypeMovie:
-		s.MovieFolderFormat = s.Patterns["movie-folder"]
-		s.MovieFileFormat = s.Patterns["movie-file"]
-	case module.TypeTV:
-		s.SeriesFolderFormat = s.Patterns["series-folder"]
-		s.SeasonFolderFormat = s.Patterns["season-folder"]
-		s.SpecialsFolderFormat = s.Patterns["specials-folder"]
-		s.StandardEpisodeFormat = s.Patterns["episode-file.standard"]
-		s.DailyEpisodeFormat = s.Patterns["episode-file.daily"]
-		s.AnimeEpisodeFormat = s.Patterns["episode-file.anime"]
-	}
 }

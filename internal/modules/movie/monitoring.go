@@ -13,3 +13,7 @@ func (m *Module) AvailablePresets() []module.MonitoringPreset {
 func (m *Module) ApplyPreset(_ context.Context, _ int64, _ string, _ map[string]any) error {
 	return nil
 }
+
+func (m *Module) CascadeMonitored(_ context.Context, _ module.EntityType, _ int64, _ bool) error {
+	return nil // flat module, no children to cascade to
+}

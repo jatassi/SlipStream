@@ -2,7 +2,11 @@ package module
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
+
+	"github.com/slipstream/slipstream/internal/module/parseutil"
 )
 
 // Module is the full interface bundle that a module implementation must satisfy.
@@ -186,4 +190,60 @@ func (r *Registry) GetTVArrAdapter() TVArrImportAdapter {
 		}
 	}
 	return nil
+}
+
+// ParseReleaseForFilter parses a raw release title (which typically lacks a file
+// extension) into a ReleaseForFilter. It iterates registered module file parsers;
+// the first successful parse wins. If no module claims the title, a minimal
+// ReleaseForFilter is returned with quality info only.
+func (r *Registry) ParseReleaseForFilter(rawTitle string, size int64, categories []int) *ReleaseForFilter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// Strip any extension-like suffix (.x264, .mkv, etc.) before trying module parsers.
+	name := strings.TrimSuffix(rawTitle, filepath.Ext(rawTitle))
+
+	for _, t := range r.order {
+		mod := r.modules[t]
+		result, err := mod.ParseFilename(name)
+		if err != nil || result == nil {
+			continue
+		}
+		return parseResultToReleaseForFilter(result, mod.ID() == TypeTV, size, categories)
+	}
+
+	// Fallback: quality-only extraction from the raw title.
+	attrs := parseutil.DetectQualityAttributes(rawTitle)
+	return &ReleaseForFilter{
+		Title:      parseutil.CleanTitle(name),
+		Quality:    attrs.Quality,
+		Source:     attrs.Source,
+		Languages:  parseutil.ParseLanguages(rawTitle),
+		Size:       size,
+		Categories: categories,
+	}
+}
+
+func parseResultToReleaseForFilter(result *ParseResult, isTV bool, size int64, categories []int) *ReleaseForFilter {
+	rff := &ReleaseForFilter{
+		Title:      result.Title,
+		Year:       result.Year,
+		IsTV:       isTV,
+		Quality:    result.Quality,
+		Source:     result.Source,
+		Languages:  result.Languages,
+		Size:       size,
+		Categories: categories,
+	}
+	if result.Extra != nil {
+		if accessor, ok := result.Extra.(TVExtraAccessor); ok {
+			rff.Season = accessor.TVSeason()
+			rff.EndSeason = accessor.TVEndSeason()
+			rff.Episode = accessor.TVEpisode()
+			rff.EndEpisode = accessor.TVEndEpisode()
+			rff.IsSeasonPack = accessor.TVIsSeasonPack()
+			rff.IsCompleteSeries = accessor.TVIsCompleteSeries()
+		}
+	}
+	return rff
 }

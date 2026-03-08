@@ -34,10 +34,15 @@ func (m *Module) FilterRelease(_ context.Context, release *module.ReleaseForFilt
 		return true, reason
 	}
 
-	if item.GetMediaType() == string(module.EntityEpisode) {
+	switch item.GetMediaType() {
+	case string(module.EntityEpisode):
 		episodeNumber := m.extractEpisodeNumber(item)
 		if reject, reason := m.checkEpisodeMatch(release, episodeNumber); reject {
 			return true, reason
+		}
+	case string(module.EntitySeason):
+		if !release.IsSeasonPack && !release.IsCompleteSeries {
+			return true, "not a season pack"
 		}
 	}
 
@@ -68,7 +73,7 @@ func (m *Module) checkEpisodeMatch(release *module.ReleaseForFilter, episodeNumb
 		return false, ""
 	}
 	if release.IsSeasonPack || release.IsCompleteSeries {
-		return false, ""
+		return true, "season pack during episode search"
 	}
 	if release.Episode > 0 && release.Episode != episodeNumber {
 		if release.EndEpisode > 0 && episodeNumber >= release.Episode && episodeNumber <= release.EndEpisode {

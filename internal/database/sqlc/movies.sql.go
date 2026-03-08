@@ -793,11 +793,8 @@ func (q *Queries) GetMoviesInDateRange(ctx context.Context, arg GetMoviesInDateR
 
 const getUnreleasedMoviesWithPastDate = `-- name: GetUnreleasedMoviesWithPastDate :many
 SELECT id, title, sort_title, year, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, status, active_download_id, status_message, release_date, physical_release_date, added_at, updated_at, theatrical_release_date, studio, tvdb_id, content_rating, added_by FROM movies
-WHERE status = 'unreleased' AND (
-    (release_date IS NOT NULL AND substr(release_date, 1, 10) <= date('now'))
-    OR (physical_release_date IS NOT NULL AND substr(physical_release_date, 1, 10) <= date('now'))
-    OR (theatrical_release_date IS NOT NULL AND date(substr(theatrical_release_date, 1, 10), '+90 days') <= date('now'))
-)
+WHERE status = 'unreleased' AND
+    MIN(COALESCE(substr(release_date, 1, 10), '9999'), COALESCE(substr(physical_release_date, 1, 10), '9999')) <= date('now')
 `
 
 func (q *Queries) GetUnreleasedMoviesWithPastDate(ctx context.Context) ([]*Movie, error) {
@@ -1921,9 +1918,7 @@ func (q *Queries) UpdateMoviesMonitoredByIDs(ctx context.Context, arg UpdateMovi
 const updateMoviesToUnreleased = `-- name: UpdateMoviesToUnreleased :execresult
 UPDATE movies SET status = 'unreleased', updated_at = CURRENT_TIMESTAMP
 WHERE status = 'missing'
-    AND (release_date IS NULL OR substr(release_date, 1, 10) > date('now'))
-    AND (physical_release_date IS NULL OR substr(physical_release_date, 1, 10) > date('now'))
-    AND (theatrical_release_date IS NULL OR date(substr(theatrical_release_date, 1, 10), '+90 days') > date('now'))
+    AND MIN(COALESCE(substr(release_date, 1, 10), '9999'), COALESCE(substr(physical_release_date, 1, 10), '9999')) > date('now')
 `
 
 func (q *Queries) UpdateMoviesToUnreleased(ctx context.Context) (sql.Result, error) {
@@ -1933,11 +1928,8 @@ func (q *Queries) UpdateMoviesToUnreleased(ctx context.Context) (sql.Result, err
 const updateUnreleasedMoviesToMissing = `-- name: UpdateUnreleasedMoviesToMissing :execresult
 
 UPDATE movies SET status = 'missing', updated_at = CURRENT_TIMESTAMP
-WHERE status = 'unreleased' AND (
-    (release_date IS NOT NULL AND substr(release_date, 1, 10) <= date('now'))
-    OR (physical_release_date IS NOT NULL AND substr(physical_release_date, 1, 10) <= date('now'))
-    OR (theatrical_release_date IS NOT NULL AND date(substr(theatrical_release_date, 1, 10), '+90 days') <= date('now'))
-)
+WHERE status = 'unreleased' AND
+    MIN(COALESCE(substr(release_date, 1, 10), '9999'), COALESCE(substr(physical_release_date, 1, 10), '9999')) <= date('now')
 `
 
 // Status refresh queries

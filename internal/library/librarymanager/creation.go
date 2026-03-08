@@ -182,7 +182,7 @@ func (s *Service) fetchAndLinkSeasonMetadata(ctx context.Context, series *tv.Ser
 		return series
 	}
 
-	seasonMeta := s.convertSeasonResults(seasonResults)
+	seasonMeta := tv.ConvertSeasonResults(seasonResults)
 
 	if err := s.tv.UpdateSeasonsFromMetadata(ctx, series.ID, seasonMeta); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to update seasons from metadata during scan")

@@ -1,10 +1,8 @@
 package arrimport
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -13,7 +11,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/downloader"
-	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
@@ -72,10 +69,10 @@ type QualityProfileImportService interface {
 	List(ctx context.Context) ([]*quality.Profile, error)
 }
 
-// ImportSettingsService defines the interface for reading/updating import settings during config import.
-type ImportSettingsService interface {
-	GetSettings(ctx context.Context) (*importer.ImportSettings, error)
-	UpdateSettings(ctx context.Context, settings *importer.ImportSettings) (*importer.ImportSettings, error)
+// NamingConfigImportService defines the interface for reading/updating module naming settings during config import.
+type NamingConfigImportService interface {
+	GetNamingSettings(ctx context.Context, moduleType string) (map[string]string, error)
+	UpsertNamingSettings(ctx context.Context, moduleType string, settings map[string]string) error
 }
 
 // Service manages library imports from external sources.
@@ -91,11 +88,11 @@ type Service struct {
 	mu                sync.Mutex
 
 	// Config import services (set via SetConfigImportServices)
-	dlClientService       DownloadClientImportService
-	indexerService        IndexerImportService
-	notifService          NotificationImportService
-	qualityProfService    QualityProfileImportService
-	importSettingsService ImportSettingsService
+	dlClientService     DownloadClientImportService
+	indexerService      IndexerImportService
+	notifService        NotificationImportService
+	qualityProfService  QualityProfileImportService
+	namingConfigService NamingConfigImportService
 }
 
 // NewService creates a new library import service.
@@ -123,13 +120,13 @@ func (s *Service) SetConfigImportServices(
 	idx IndexerImportService,
 	notif NotificationImportService,
 	qualityProf QualityProfileImportService,
-	importSettings ImportSettingsService,
+	namingConfig NamingConfigImportService,
 ) {
 	s.dlClientService = dlClient
 	s.indexerService = idx
 	s.notifService = notif
 	s.qualityProfService = qualityProf
-	s.importSettingsService = importSettings
+	s.namingConfigService = namingConfig
 }
 
 // Connect establishes a connection to the source application.
@@ -461,9 +458,9 @@ func (s *Service) previewNamingConfig(ctx context.Context, reader Reader, source
 		preview.Warnings = append(preview.Warnings, "failed to read naming config: "+err.Error())
 		return
 	}
-	currentSettings, settingsErr := s.importSettingsService.GetSettings(ctx)
+	translated, _ := translateNamingConfig(nc, sourceType)
 	status := "different"
-	if settingsErr == nil && namingConfigSame(nc, sourceType, currentSettings) {
+	if s.namingConfigService != nil && namingConfigSame(ctx, s.namingConfigService, translated) {
 		status = "same"
 	}
 	preview.NamingConfig = &NamingConfigPreview{
@@ -759,20 +756,16 @@ func (s *Service) importNamingConfig(ctx context.Context, reader Reader, sourceT
 		return
 	}
 
-	current, err := s.importSettingsService.GetSettings(ctx)
-	if err != nil {
-		report.Errors = append(report.Errors, "failed to get current import settings: "+err.Error())
-		return
-	}
-
-	updated, warnings := translateNamingConfig(nc, sourceType, current)
+	translated, warnings := translateNamingConfig(nc, sourceType)
 	report.Warnings = append(report.Warnings, warnings...)
 
-	if _, err := s.importSettingsService.UpdateSettings(ctx, updated); err != nil {
-		report.Errors = append(report.Errors, "failed to update import settings: "+err.Error())
-	} else {
-		report.NamingConfigImported = true
+	for _, cfg := range translated {
+		if err := s.namingConfigService.UpsertNamingSettings(ctx, cfg.ModuleType, cfg.Settings); err != nil {
+			report.Errors = append(report.Errors, "failed to update naming settings for module "+cfg.ModuleType+": "+err.Error())
+			return
+		}
 	}
+	report.NamingConfigImported = true
 }
 
 // nameSet builds a case-insensitive name lookup from a pointer slice.
@@ -793,11 +786,19 @@ func nameSetVal[T any](items []T, getName func(T) string) map[string]bool {
 	return m
 }
 
-func namingConfigSame(src *SourceNamingConfig, sourceType SourceType, current *importer.ImportSettings) bool {
-	translated, _ := translateNamingConfig(src, sourceType, current)
-	translatedJSON, _ := json.Marshal(translated)
-	currentJSON, _ := json.Marshal(current)
-	return bytes.Equal(translatedJSON, currentJSON)
+func namingConfigSame(ctx context.Context, svc NamingConfigImportService, translated []TranslatedNamingConfig) bool {
+	for _, cfg := range translated {
+		current, err := svc.GetNamingSettings(ctx, cfg.ModuleType)
+		if err != nil {
+			return false
+		}
+		for key, val := range cfg.Settings {
+			if current[key] != val {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Disconnect closes the connection to the source and clears session state.

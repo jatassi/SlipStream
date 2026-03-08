@@ -22,6 +22,17 @@ type ParseResult struct {
 	Extra any
 }
 
+// TVExtraAccessor is an interface implemented by TV-specific Extra data in ParseResult.
+// The scanner uses this to extract TV fields without importing the TV module package.
+type TVExtraAccessor interface {
+	TVSeason() int
+	TVEndSeason() int
+	TVEpisode() int
+	TVEndEpisode() int
+	TVIsSeasonPack() bool
+	TVIsCompleteSeries() bool
+}
+
 // MonitoringPreset defines a monitoring strategy.
 type MonitoringPreset struct {
 	ID          string

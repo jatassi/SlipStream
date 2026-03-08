@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ImportSettings, MissingTokenInfo } from '@/types'
+import type { MissingTokenInfo } from '@/types'
 
 import { PatternEditor } from './pattern-editor'
 import { TokenReferenceList } from './token-reference-list'
@@ -35,6 +35,13 @@ function MissingTokensHint({ tokens }: { tokens: Set<string> }) {
   )
 }
 
+type NamingFormats = {
+  standardEpisodeFormat: string
+  dailyEpisodeFormat: string
+  animeEpisodeFormat: string
+  movieFileFormat: string
+}
+
 function EpisodeFormatsColumn({
   form,
   updateField,
@@ -42,8 +49,8 @@ function EpisodeFormatsColumn({
   missingInDaily,
   missingInAnime,
 }: {
-  form: Partial<ImportSettings>
-  updateField: (field: keyof ImportSettings, value: string) => void
+  form: Partial<NamingFormats>
+  updateField: (field: keyof NamingFormats, value: string) => void
   missingInStandard: string[]
   missingInDaily: string[]
   missingInAnime: string[]
@@ -82,8 +89,8 @@ function MovieFormatsColumn({
   missingInMovie,
   stillMissingTokens,
 }: {
-  form: Partial<ImportSettings>
-  updateField: (field: keyof ImportSettings, value: string) => void
+  form: Partial<NamingFormats>
+  updateField: (field: keyof NamingFormats, value: string) => void
   missingInMovie: string[]
   stillMissingTokens: Set<string>
 }) {

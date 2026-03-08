@@ -66,22 +66,10 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	db := provideDB(dbManager)
 	queries := provideQueries(db)
 	defaultsService := defaults.NewService(queries)
-	calendarService := calendar.NewService(db, logger)
-	availabilityService := availability.NewService(db, logger)
 	missingService := missing.NewService(db, logger)
 	preferencesService := preferences.NewService(queries)
 	historyService := history.NewService(db, logger, hub)
 	manager := progress.NewManager(hub, logger)
-	systemGroup := SystemGroup{
-		Health:       service,
-		Defaults:     defaultsService,
-		Calendar:     calendarService,
-		Availability: availabilityService,
-		Missing:      missingService,
-		Preferences:  preferencesService,
-		History:      historyService,
-		Progress:     manager,
-	}
 	scannerService := scanner.NewService(logger)
 	qualityService := quality.NewService(db, logger)
 	statusChangeLogger := provideStatusChangeLogger(historyService)
@@ -129,6 +117,18 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, artworkDownloader, logger)
 	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, artworkDownloader, qualityService, logger)
 	registry := provideRegistry(module, tvModule)
+	calendarService := calendar.NewService(registry, logger)
+	availabilityService := availability.NewService(db, registry, logger)
+	systemGroup := SystemGroup{
+		Health:       service,
+		Defaults:     defaultsService,
+		Calendar:     calendarService,
+		Availability: availabilityService,
+		Missing:      missingService,
+		Preferences:  preferencesService,
+		History:      historyService,
+		Progress:     manager,
+	}
 	moduleProvisionerLookup := provideModuleProvisionerLookup(registry)
 	statusTracker := requests.NewStatusTracker(queries, requestsService, watchersService, logger, moduleProvisionerLookup, notificationsService)
 	downloaderService := downloader.NewService(db, logger, service, hub, statusChangeLogger, statusTracker)
@@ -174,7 +174,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	importerConfig := provideImporterConfig()
 	importerHistoryService := provideImportHistoryService(historyService)
 	importerService := importer.NewService(db, downloaderService, moviesService, tvService, rootfolderService, organizerService, mediainfoService, hub, importerConfig, logger, service, importerHistoryService, qualityService, slotsService, statusTracker)
-	settingsHandlers := importer.NewSettingsHandlers(db, importerService)
+	settingsHandlers := importer.NewSettingsHandlers(db, importerService, registry)
 	arrimportService := arrimport.NewService(db, registry, rootfolderService, qualityService, manager, logger)
 	scheduler := provideScheduler(logger)
 	automationGroup := AutomationGroup{
@@ -238,7 +238,6 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	}
 	switchableServices := SwitchableServices{
 		Defaults:            defaultsService,
-		Calendar:            calendarService,
 		Availability:        availabilityService,
 		Missing:             missingService,
 		History:             historyService,

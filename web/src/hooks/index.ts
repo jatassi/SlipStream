@@ -88,6 +88,12 @@ export {
   useUpdateMovie,
 } from './use-movies'
 export {
+  namingKeys,
+  useModuleNamingPreview,
+  useModuleNamingSettings,
+  useUpdateModuleNamingSettings,
+} from './use-naming'
+export {
   useCreateNotification,
   useDeleteNotification,
   useNotificationEventCatalog,

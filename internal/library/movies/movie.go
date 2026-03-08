@@ -144,14 +144,3 @@ type CreateMovieFileInput struct {
 	OriginalPath     string `json:"originalPath,omitempty"`     // Source path before import
 	OriginalFilename string `json:"originalFilename,omitempty"` // Original filename before rename
 }
-
-// generateSortTitle creates a sort-friendly title by removing leading articles.
-func generateSortTitle(title string) string {
-	prefixes := []string{"The ", "A ", "An "}
-	for _, prefix := range prefixes {
-		if len(title) > len(prefix) && title[:len(prefix)] == prefix {
-			return title[len(prefix):]
-		}
-	}
-	return title
-}

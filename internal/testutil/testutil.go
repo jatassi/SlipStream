@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -102,4 +103,14 @@ func Int64Ptr(i int64) *int64 {
 // BoolPtr returns a pointer to a bool.
 func BoolPtr(b bool) *bool {
 	return &b
+}
+
+// ParseTime parses a date string in "2006-01-02" format and returns a time.Time.
+// Panics if the string cannot be parsed.
+func ParseTime(s string) time.Time {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		panic("testutil.ParseTime: invalid date " + s + ": " + err.Error())
+	}
+	return t
 }

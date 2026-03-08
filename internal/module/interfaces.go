@@ -92,6 +92,12 @@ type MonitoringPresets interface {
 	ApplyPreset(ctx context.Context, rootEntityID int64, presetID string, options map[string]any) error
 }
 
+// MonitoringCascader propagates a monitored value to all descendants of the
+// given entity. For flat modules (e.g., Movie), this is a no-op.
+type MonitoringCascader interface {
+	CascadeMonitored(ctx context.Context, entityType EntityType, entityID int64, monitored bool) error
+}
+
 // FileParser parses filenames to extract module-specific identifiers.
 type FileParser interface {
 	ParseFilename(filename string) (*ParseResult, error)

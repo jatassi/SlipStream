@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 
 import {
   useDeveloperMode,
-  useImportSettings,
+  useModuleNamingSettings,
   useMultiVersionSettings,
   useQualityProfiles,
   useRootFoldersByType,
@@ -65,7 +65,8 @@ function useSlotQueries() {
   const profilesQuery = useQualityProfiles()
   const movieFoldersQuery = useRootFoldersByType('movie')
   const tvFoldersQuery = useRootFoldersByType('tv')
-  const importSettingsQuery = useImportSettings()
+  const movieNamingQuery = useModuleNamingSettings('movie')
+  const tvNamingQuery = useModuleNamingSettings('tv')
   const developerMode = useDeveloperMode()
 
   const rootFoldersByModule: Record<string, RootFolder[]> = {
@@ -84,7 +85,10 @@ function useSlotQueries() {
     refetchSettings: settingsQuery.refetch,
     profiles: profilesQuery.data,
     rootFoldersByModule,
-    refetchImportSettings: importSettingsQuery.refetch,
+    refetchMovieNaming: movieNamingQuery.refetch,
+    refetchTvNaming: tvNamingQuery.refetch,
+    movieNaming: movieNamingQuery.data,
+    tvNaming: tvNamingQuery.data,
     developerMode,
   }
 }
@@ -186,7 +190,7 @@ function useSlotUpdateHandlers(mutations: ReturnType<typeof useSlotMutations>) {
 
 function useValidationHandlers(
   mutations: ReturnType<typeof useSlotMutations>,
-  refetchImportSettings: ReturnType<typeof useSlotQueries>['refetchImportSettings'],
+  refetchNaming: { movie: ReturnType<typeof useSlotQueries>['refetchMovieNaming']; tv: ReturnType<typeof useSlotQueries>['refetchTvNaming'] },
 ) {
   const [validationResult, setValidationResult] = useState<ValidationResult>(null)
   const [namingValidation, setNamingValidation] = useState<SlotNamingValidation | null>(null)
@@ -208,12 +212,15 @@ function useValidationHandlers(
 
   const handleValidateNaming = async () => {
     try {
-      const { data: latestSettings } = await refetchImportSettings()
+      const [{ data: movieNaming }, { data: tvNaming }] = await Promise.all([
+        refetchNaming.movie(),
+        refetchNaming.tv(),
+      ])
       const result = await mutations.validateNaming.mutateAsync({
         movieFileFormat:
-          latestSettings?.movieFileFormat ?? '{Movie Title} ({Year}) - {Quality Title}',
+          movieNaming?.patterns['movie-file'] ?? '{Movie Title} ({Year}) - {Quality Title}',
         episodeFileFormat:
-          latestSettings?.standardEpisodeFormat ??
+          tvNaming?.patterns['episode-file.standard'] ??
           '{Series Title} - S{season:00}E{episode:00} - {Quality Title}',
       })
       setNamingValidation(result)
@@ -288,7 +295,7 @@ export function useVersionSlotsSection() {
     developerMode: queries.developerMode,
     ...getQueryDefaults(queries),
     ...getMutationState(mutations),
-    ...useValidationHandlers(mutations, queries.refetchImportSettings),
+    ...useValidationHandlers(mutations, { movie: queries.refetchMovieNaming, tv: queries.refetchTvNaming }),
     ...useDialogState(),
     handleRetry: () => {
       void queries.refetchSlots()

@@ -12,6 +12,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/slots"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // SlotSearchResult extends SearchResult with slot information.
@@ -59,12 +60,11 @@ func (s *Service) SearchMovieSlot(ctx context.Context, movieID, slotID int64, so
 	}
 
 	// Build searchable item with slot's quality profile
-	item := s.movieToSearchableItem(ctx, movie)
-	item.QualityProfileID = slotInfo.QualityProfileID
-	item.TargetSlotID = &slotID
+	baseItem := s.movieToSearchableItem(ctx, movie)
+	item := module.CloneWithSlotOverrides(baseItem, slotInfo.QualityProfileID, &slotID)
 
 	// Use existing search infrastructure
-	result, err := s.searchAndGrab(ctx, &item, source)
+	result, err := s.searchAndGrab(ctx, item, source)
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +103,11 @@ func (s *Service) SearchEpisodeSlot(ctx context.Context, episodeID, slotID int64
 	}
 
 	// Build searchable item with slot's quality profile
-	item := s.episodeToSearchableItem(ctx, episode, series)
-	item.QualityProfileID = slotInfo.QualityProfileID
-	item.TargetSlotID = &slotID
+	baseItem := s.episodeToSearchableItem(ctx, episode, series)
+	item := module.CloneWithSlotOverrides(baseItem, slotInfo.QualityProfileID, &slotID)
 
 	// Use existing search infrastructure
-	result, err := s.searchAndGrab(ctx, &item, source)
+	result, err := s.searchAndGrab(ctx, item, source)
 	if err != nil {
 		return nil, err
 	}
@@ -305,11 +304,14 @@ func (s *Service) grabReleaseForMovieSlot(ctx context.Context, movie *sqlc.Movie
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
 	if err != nil {
 		result.Error = fmt.Sprintf("grab failed: %v", err)
-		s.logAutoSearchFailed(ctx, &SearchableItem{
-			MediaType: MediaTypeMovie,
-			MediaID:   movie.ID,
-			Title:     movie.Title,
-		}, source, err.Error())
+		s.logAutoSearchFailed(ctx, module.NewWantedItem(
+			module.TypeMovie,
+			string(MediaTypeMovie),
+			movie.ID,
+			movie.Title,
+			nil, 0, nil,
+			module.SearchParams{},
+		), source, err.Error())
 		return
 	}
 

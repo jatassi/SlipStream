@@ -34,8 +34,6 @@ func wireCircularDeps(s *Server) {
 
 	// Module registry → services
 	s.library.LibraryManager.SetRegistry(s.registry)
-	s.system.Availability.SetRegistry(s.registry)
-	s.system.Calendar.SetRegistry(s.registry)
 	s.search.Search.SetRegistry(s.registry)
 	s.automation.Autosearch.SetRegistry(s.registry)
 	s.automation.ScheduledSearcher.SetRegistry(s.registry)

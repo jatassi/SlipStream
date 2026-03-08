@@ -166,21 +166,38 @@ func (s *Service) computeEpisodeRenamePreview(series *tv.Series, ep *tv.Episode,
 	// Build token context
 	tokenCtx := s.buildEpisodeTokenContext(series, ep)
 
+	if !s.renamer.IsRenameEnabled("episode") {
+		preview.NewPath = preview.CurrentPath
+		preview.NewFilename = preview.CurrentFilename
+		return preview
+	}
+
 	// Compute new filename
 	ext := filepath.Ext(ep.EpisodeFile.Path)
-	newFilename, err := s.renamer.ResolveEpisodeFilename(tokenCtx, ext)
+	episodeContext := "episode-file." + tokenCtx.SeriesType
+	if !s.renamer.HasPattern(episodeContext) {
+		episodeContext = "episode-file.standard"
+	}
+	newFilename, err := s.renamer.ResolveContext(episodeContext, tokenCtx, ext)
 	if err != nil {
 		preview.Error = err.Error()
 		return preview
 	}
 
 	// Compute new path
-	seriesFolder, err := s.renamer.ResolveSeriesFolderName(tokenCtx)
+	seriesFolder, err := s.renamer.ResolveContext("series-folder", tokenCtx, "")
 	if err != nil {
 		preview.Error = err.Error()
 		return preview
 	}
-	seasonFolder := s.renamer.ResolveSeasonFolderName(ep.SeasonNumber)
+
+	seasonFolder, _ := s.renamer.ResolveContext("season-folder", tokenCtx, "")
+	if ep.SeasonNumber == 0 {
+		seasonFolder, _ = s.renamer.ResolveContext("specials-folder", tokenCtx, "")
+		if seasonFolder == "" {
+			seasonFolder = "Specials"
+		}
+	}
 
 	newPath := filepath.Join(rootPath, seriesFolder, seasonFolder, newFilename)
 	preview.NewPath = newPath
@@ -204,16 +221,22 @@ func (s *Service) computeMovieRenamePreview(movie *movies.Movie, file *movies.Mo
 	// Build token context
 	tokenCtx := s.buildMovieTokenContext(movie, file)
 
+	if !s.renamer.IsRenameEnabled("movie") {
+		preview.NewPath = preview.CurrentPath
+		preview.NewFilename = preview.CurrentFilename
+		return preview
+	}
+
 	// Compute new filename
 	ext := filepath.Ext(file.Path)
-	newFilename, err := s.renamer.ResolveMovieFilename(tokenCtx, ext)
+	newFilename, err := s.renamer.ResolveContext("movie-file", tokenCtx, ext)
 	if err != nil {
 		preview.Error = err.Error()
 		return preview
 	}
 
 	// Compute new folder
-	folderName, err := s.renamer.ResolveMovieFolderName(tokenCtx)
+	folderName, err := s.renamer.ResolveContext("movie-folder", tokenCtx, "")
 	if err != nil {
 		preview.Error = err.Error()
 		return preview

@@ -50,9 +50,9 @@ func (p *pathGenerator) AvailableVariables(contextName string) []module.Template
 			{Name: "Air-Date", Description: "Air date (YYYY-MM-DD)", Example: "2008-01-20", DataKey: "AirDate"},
 			{Name: "absolute", Description: "Absolute episode number (anime)", Example: "001", DataKey: "AbsoluteNumber"},
 		}
-		vars = append(vars, qualityVariables()...)
-		vars = append(vars, mediaInfoVariables()...)
-		vars = append(vars, metadataVariables()...)
+		vars = append(vars, module.QualityVariables()...)
+		vars = append(vars, module.MediaInfoVariables()...)
+		vars = append(vars, module.MetadataVariables()...)
 		return vars
 	}
 }
@@ -141,31 +141,6 @@ func (n *namingProvider) FormatOptions() []module.FormatOption {
 			EnumValues:   []string{"extend", "duplicate", "repeat", "scene", "range", "prefixed_range"},
 			DefaultValue: "extend",
 		},
-	}
-}
-
-// --- Shared helpers ---
-
-func qualityVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "Quality Title", Description: "Quality with source (e.g., HDTV-720p)", Example: "Bluray-1080p", DataKey: "QualityTitle"},
-		{Name: "Quality Full", Description: "Full quality string", Example: "HDTV-720p Proper", DataKey: "QualityFull"},
-	}
-}
-
-func mediaInfoVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "MediaInfo VideoCodec", Description: "Video codec", Example: "x264", DataKey: "VideoCodec"},
-		{Name: "MediaInfo AudioCodec", Description: "Audio codec", Example: "DTS", DataKey: "AudioCodec"},
-		{Name: "MediaInfo AudioChannels", Description: "Audio channels", Example: "5.1", DataKey: "AudioChannels"},
-		{Name: "MediaInfo VideoDynamicRange", Description: "Dynamic range", Example: "HDR", DataKey: "VideoDynamicRange"},
-	}
-}
-
-func metadataVariables() []module.TemplateVariable {
-	return []module.TemplateVariable{
-		{Name: "Release Group", Description: "Release group name", Example: "SPARKS", DataKey: "ReleaseGroup"},
-		{Name: "Edition Tags", Description: "Edition info", Example: "Director's Cut", DataKey: "EditionTags"},
 	}
 }
 

@@ -11,12 +11,15 @@ import (
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/scoring"
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 var nopLogger = func() *zerolog.Logger {
 	l := zerolog.Nop()
 	return &l
 }()
+
+var passThrough = decisioning.DefaultStrategy{}
 
 // Scenario 1B: Score+Select — Bluray-1080p selected for missing movie (2160p fails IsAcceptable)
 func TestScoreAndSelect_Scenario1B_MissingMovie(t *testing.T) {
@@ -40,7 +43,7 @@ func TestScoreAndSelect_Scenario1B_MissingMovie(t *testing.T) {
 	scorer := scoring.NewDefaultScorer()
 	sCtx := scoring.ScoringContext{
 		QualityProfile: env.profile,
-		SearchYear:     item.Year,
+		SearchYear:     module.ItemYear(item),
 		Now:            time.Now(),
 	}
 	for i := range releases {
@@ -50,7 +53,7 @@ func TestScoreAndSelect_Scenario1B_MissingMovie(t *testing.T) {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, item, passThrough, decisioning.FallbackReleaseParser, nopLogger)
 	if best == nil {
 		t.Fatal("expected a release to be selected")
 	}
@@ -82,7 +85,7 @@ func TestScoreAndSelect_Scenario2B_UpgradableMovie(t *testing.T) {
 	scorer := scoring.NewDefaultScorer()
 	sCtx := scoring.ScoringContext{
 		QualityProfile: env.profile,
-		SearchYear:     item.Year,
+		SearchYear:     module.ItemYear(item),
 		Now:            time.Now(),
 	}
 	for i := range releases {
@@ -92,7 +95,7 @@ func TestScoreAndSelect_Scenario2B_UpgradableMovie(t *testing.T) {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, item, passThrough, decisioning.FallbackReleaseParser, nopLogger)
 	if best == nil {
 		t.Fatal("expected a release to be selected")
 	}
@@ -123,7 +126,7 @@ func TestScoreAndSelect_Scenario3B_NoUpgrade(t *testing.T) {
 	scorer := scoring.NewDefaultScorer()
 	sCtx := scoring.ScoringContext{
 		QualityProfile: env.profile,
-		SearchYear:     item.Year,
+		SearchYear:     module.ItemYear(item),
 		Now:            time.Now(),
 	}
 	for i := range releases {
@@ -133,7 +136,7 @@ func TestScoreAndSelect_Scenario3B_NoUpgrade(t *testing.T) {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, item, passThrough, decisioning.FallbackReleaseParser, nopLogger)
 	if best != nil {
 		t.Errorf("expected nil (no upgrade), got %s", best.Title)
 	}
@@ -156,14 +159,14 @@ func TestScoreAndSelect_Scenario5B_DiscSourceUpgrade(t *testing.T) {
 
 	items := env.collectWantedItems(t)
 	// Find S04E05 item
-	var item decisioning.SearchableItem
+	var item module.SearchableItem
 	for _, it := range items {
-		if it.EpisodeNumber == 5 && it.SeasonNumber == 4 {
+		if module.ItemEpisodeNumber(it) == 5 && module.ItemSeasonNumber(it) == 4 {
 			item = it
 			break
 		}
 	}
-	if item.MediaID == 0 {
+	if item == nil {
 		t.Fatal("S04E05 not found in wanted items")
 	}
 
@@ -175,8 +178,8 @@ func TestScoreAndSelect_Scenario5B_DiscSourceUpgrade(t *testing.T) {
 	scorer := scoring.NewDefaultScorer()
 	sCtx := scoring.ScoringContext{
 		QualityProfile: env.profile,
-		SearchSeason:   item.SeasonNumber,
-		SearchEpisode:  item.EpisodeNumber,
+		SearchSeason:   module.ItemSeasonNumber(item),
+		SearchEpisode:  module.ItemEpisodeNumber(item),
 		Now:            time.Now(),
 	}
 	for i := range releases {
@@ -186,7 +189,7 @@ func TestScoreAndSelect_Scenario5B_DiscSourceUpgrade(t *testing.T) {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, item, passThrough, decisioning.FallbackReleaseParser, nopLogger)
 	if best == nil {
 		t.Fatal("expected disc source upgrade")
 	}
@@ -211,9 +214,9 @@ func TestScoreAndSelect_Scenario6B_NonDiscUpgradeRejected(t *testing.T) {
 	}
 
 	items := env.collectWantedItems(t)
-	var item decisioning.SearchableItem
+	var item module.SearchableItem
 	for _, it := range items {
-		if it.EpisodeNumber == 5 && it.SeasonNumber == 4 {
+		if module.ItemEpisodeNumber(it) == 5 && module.ItemSeasonNumber(it) == 4 {
 			item = it
 			break
 		}
@@ -227,8 +230,8 @@ func TestScoreAndSelect_Scenario6B_NonDiscUpgradeRejected(t *testing.T) {
 	scorer := scoring.NewDefaultScorer()
 	sCtx := scoring.ScoringContext{
 		QualityProfile: env.profile,
-		SearchSeason:   item.SeasonNumber,
-		SearchEpisode:  item.EpisodeNumber,
+		SearchSeason:   module.ItemSeasonNumber(item),
+		SearchEpisode:  module.ItemEpisodeNumber(item),
 		Now:            time.Now(),
 	}
 	for i := range releases {
@@ -238,7 +241,7 @@ func TestScoreAndSelect_Scenario6B_NonDiscUpgradeRejected(t *testing.T) {
 		return releases[i].Score > releases[j].Score
 	})
 
-	best := decisioning.SelectBestRelease(releases, env.profile, &item, nopLogger)
+	best := decisioning.SelectBestRelease(releases, env.profile, item, passThrough, decisioning.FallbackReleaseParser, nopLogger)
 	if best != nil {
 		t.Errorf("expected nil (non-disc not an upgrade), got %s", best.Title)
 	}

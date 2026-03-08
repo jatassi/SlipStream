@@ -190,7 +190,7 @@ func (p *metadataProvider) refreshSeasons(ctx context.Context, series *tvlib.Ser
 		return seasonEpisodeDiff{}
 	}
 
-	seasonMeta := p.convertToSeasonMetadata(seasonResults)
+	seasonMeta := tvlib.ConvertSeasonResults(seasonResults)
 	if err := p.tvSvc.UpdateSeasonsFromMetadata(ctx, series.ID, seasonMeta); err != nil {
 		p.logger.Warn().Err(err).Int64("seriesId", series.ID).Msg("Failed to update seasons from metadata")
 		return seasonEpisodeDiff{}
@@ -250,32 +250,6 @@ func (p *metadataProvider) buildExistingEpisodeMap(ctx context.Context, seriesID
 		}
 	}
 	return existing, nil
-}
-
-func (p *metadataProvider) convertToSeasonMetadata(seasonResults []metadata.SeasonResult) []tvlib.SeasonMetadata {
-	seasonMeta := make([]tvlib.SeasonMetadata, len(seasonResults))
-	for i, sr := range seasonResults {
-		episodes := make([]tvlib.EpisodeMetadata, len(sr.Episodes))
-		for j, ep := range sr.Episodes {
-			episodes[j] = tvlib.EpisodeMetadata{
-				EpisodeNumber: ep.EpisodeNumber,
-				SeasonNumber:  ep.SeasonNumber,
-				Title:         ep.Title,
-				Overview:      ep.Overview,
-				AirDate:       ep.AirDate,
-				Runtime:       ep.Runtime,
-			}
-		}
-		seasonMeta[i] = tvlib.SeasonMetadata{
-			SeasonNumber: sr.SeasonNumber,
-			Name:         sr.Name,
-			Overview:     sr.Overview,
-			PosterURL:    sr.PosterURL,
-			AirDate:      sr.AirDate,
-			Episodes:     episodes,
-		}
-	}
-	return seasonMeta
 }
 
 func (p *metadataProvider) enrichSeriesDetails(ctx context.Context, match *metadata.SeriesResult) *metadata.SeriesResult {

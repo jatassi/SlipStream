@@ -9,7 +9,6 @@ import (
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
-	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
@@ -47,7 +46,6 @@ import (
 type SwitchableServices struct {
 	// Services that accept *sql.DB
 	Defaults            *defaults.Service                  `switchable:"db"`
-	Calendar            *calendar.Service                  `switchable:"db"`
 	Availability        *availability.Service              `switchable:"db"`
 	Missing             *missing.Service                   `switchable:"db"`
 	History             *history.Service                   `switchable:"db"`

@@ -212,6 +212,7 @@ const (
 	MonitorTypeFuture      MonitorType = "future"
 	MonitorTypeFirstSeason MonitorType = "first_season"
 	MonitorTypeLatest      MonitorType = "latest_season"
+	MonitorTypeExisting    MonitorType = "existing"
 )
 
 // BulkMonitorInput contains fields for bulk monitoring operations.
@@ -232,15 +233,4 @@ type MonitoringStats struct {
 	MonitoredSeasons  int64 `json:"monitoredSeasons"`
 	TotalEpisodes     int64 `json:"totalEpisodes"`
 	MonitoredEpisodes int64 `json:"monitoredEpisodes"`
-}
-
-// generateSortTitle creates a sort-friendly title by removing leading articles.
-func generateSortTitle(title string) string {
-	prefixes := []string{"The ", "A ", "An "}
-	for _, prefix := range prefixes {
-		if len(title) > len(prefix) && title[:len(prefix)] == prefix {
-			return title[len(prefix):]
-		}
-	}
-	return title
 }

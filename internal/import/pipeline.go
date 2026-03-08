@@ -497,7 +497,7 @@ func (s *Service) finalizeImport(ctx context.Context, job ImportJob, result *Imp
 	result.Success = true
 }
 
-// loadAndApplySettings loads import settings and updates the renamer.
+// loadAndApplySettings loads import settings from the database.
 func (s *Service) loadAndApplySettings(ctx context.Context) *ImportSettings {
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
@@ -505,8 +505,6 @@ func (s *Service) loadAndApplySettings(ctx context.Context) *ImportSettings {
 		defaultSettings := DefaultImportSettings()
 		settings = &defaultSettings
 	}
-	renamerSettings := settings.ToRenamerSettings()
-	s.UpdateRenamerSettings(&renamerSettings)
 	return settings
 }
 
@@ -754,14 +752,18 @@ func (s *Service) computeDestination(
 }
 
 func (s *Service) computeMovieDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
-	filename, err := s.renamer.ResolveMovieFilename(tokenCtx, ext)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve movie filename: %w", err)
+	if !s.renamer.IsRenameEnabled("movie") {
+		return filepath.Join(rootFolder, tokenCtx.OriginalFile), nil
 	}
 
-	movieFolder, err := s.renamer.ResolveMovieFolderName(tokenCtx)
+	movieFolder, err := s.renamer.ResolveContext("movie-folder", tokenCtx, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve movie folder: %w", err)
+	}
+
+	filename, err := s.renamer.ResolveContext("movie-file", tokenCtx, ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve movie filename: %w", err)
 	}
 
 	folderPath := filepath.Join(rootFolder, movieFolder)
@@ -773,17 +775,36 @@ func (s *Service) computeMovieDestination(tokenCtx *renamer.TokenContext, rootFo
 }
 
 func (s *Service) computeEpisodeDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
-	filename, err := s.renamer.ResolveEpisodeFilename(tokenCtx, ext)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve episode filename: %w", err)
+	if !s.renamer.IsRenameEnabled("episode") {
+		return filepath.Join(rootFolder, tokenCtx.OriginalFile), nil
 	}
 
-	seriesFolder, err := s.renamer.ResolveSeriesFolderName(tokenCtx)
+	seriesFolder, err := s.renamer.ResolveContext("series-folder", tokenCtx, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve series folder: %w", err)
 	}
 
-	seasonFolder := s.renamer.ResolveSeasonFolderName(tokenCtx.SeasonNumber)
+	episodeContext := "episode-file." + tokenCtx.SeriesType
+	if !s.renamer.HasPattern(episodeContext) {
+		episodeContext = "episode-file.standard"
+	}
+
+	seasonFolder, err := s.renamer.ResolveContext("season-folder", tokenCtx, "")
+	if err != nil {
+		seasonFolder = fmt.Sprintf("Season %d", tokenCtx.SeasonNumber)
+	}
+	if tokenCtx.SeasonNumber == 0 {
+		seasonFolder, err = s.renamer.ResolveContext("specials-folder", tokenCtx, "")
+		if err != nil {
+			seasonFolder = "Specials"
+		}
+	}
+
+	filename, err := s.renamer.ResolveContext(episodeContext, tokenCtx, ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve episode filename: %w", err)
+	}
+
 	folderPath := filepath.Join(rootFolder, seriesFolder, seasonFolder)
 	fullPath, err := s.renamer.ResolveFullPath(folderPath, "", filename)
 	if err != nil {

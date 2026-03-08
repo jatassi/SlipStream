@@ -48,14 +48,9 @@ var (
 
 // Service provides movie library operations.
 type Service struct {
-	db                 *sql.DB
-	queries            *sqlc.Queries
-	hub                *websocket.Hub
-	logger             *zerolog.Logger
-	fileDeleteHandler  contracts.FileDeleteHandler
-	statusChangeLogger contracts.StatusChangeLogger
-	notifier           NotificationDispatcher
-	qualityProfiles    *quality.Service
+	module.BaseService
+	fileDeleteHandler contracts.FileDeleteHandler
+	notifier          NotificationDispatcher
 }
 
 // SetNotificationDispatcher sets the notification dispatcher for movie events.
@@ -87,27 +82,14 @@ func isMovieReleased(digital, physical, theatrical sql.NullTime) bool {
 
 // NewService creates a new movie service.
 func NewService(db *sql.DB, hub *websocket.Hub, logger *zerolog.Logger, qualityService *quality.Service, statusChangeLogger contracts.StatusChangeLogger) *Service {
-	subLogger := logger.With().Str("component", "movies").Logger()
 	return &Service{
-		db:                 db,
-		queries:            sqlc.New(db),
-		hub:                hub,
-		logger:             &subLogger,
-		qualityProfiles:    qualityService,
-		statusChangeLogger: statusChangeLogger,
+		BaseService: module.NewBaseService(db, hub, logger, qualityService, statusChangeLogger, "movies"),
 	}
-}
-
-// SetDB updates the database connection used by this service.
-// This is called when switching between production and development databases.
-func (s *Service) SetDB(db *sql.DB) {
-	s.db = db
-	s.queries = sqlc.New(db)
 }
 
 // Get retrieves a movie by ID.
 func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
-	row, err := s.queries.GetMovieWithAddedBy(ctx, id)
+	row, err := s.Queries.GetMovieWithAddedBy(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrMovieNotFound
@@ -120,7 +102,7 @@ func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
 	// Get movie files
 	files, err := s.GetFiles(ctx, id)
 	if err != nil {
-		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to get movie files")
+		s.Logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to get movie files")
 	} else {
 		movie.MovieFiles = files
 		for i := range files {
@@ -134,7 +116,7 @@ func (s *Service) Get(ctx context.Context, id int64) (*Movie, error) {
 
 // GetByTmdbID retrieves a movie by TMDB ID.
 func (s *Service) GetByTmdbID(ctx context.Context, tmdbID int) (*Movie, error) {
-	row, err := s.queries.GetMovieByTmdbID(ctx, sql.NullInt64{Int64: int64(tmdbID), Valid: true})
+	row, err := s.Queries.GetMovieByTmdbID(ctx, sql.NullInt64{Int64: int64(tmdbID), Valid: true})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrMovieNotFound
@@ -152,17 +134,17 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 	switch {
 	case opts.Search != "":
 		searchTerm := "%" + opts.Search + "%"
-		rows, err = s.queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
+		rows, err = s.Queries.SearchMovies(ctx, sqlc.SearchMoviesParams{
 			SearchTerm: searchTerm,
 			Lim:        1000,
 			Off:        0,
 		})
 	case opts.RootFolderID != nil:
-		rows, err = s.queries.ListMoviesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
+		rows, err = s.Queries.ListMoviesByRootFolder(ctx, sql.NullInt64{Int64: *opts.RootFolderID, Valid: true})
 	case opts.Monitored != nil && *opts.Monitored:
-		rows, err = s.queries.ListMonitoredMovies(ctx)
+		rows, err = s.Queries.ListMonitoredMovies(ctx)
 	default:
-		rows, err = s.queries.ListMovies(ctx)
+		rows, err = s.Queries.ListMovies(ctx)
 	}
 
 	if err != nil {
@@ -178,7 +160,7 @@ func (s *Service) List(ctx context.Context, opts ListMoviesOptions) ([]*Movie, e
 
 // ListUnmatchedByRootFolder returns movies without metadata (no TMDB ID) in a root folder.
 func (s *Service) ListUnmatchedByRootFolder(ctx context.Context, rootFolderID int64) ([]*Movie, error) {
-	rows, err := s.queries.ListUnmatchedMoviesByRootFolder(ctx, sql.NullInt64{Int64: rootFolderID, Valid: true})
+	rows, err := s.Queries.ListUnmatchedMoviesByRootFolder(ctx, sql.NullInt64{Int64: rootFolderID, Valid: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list unmatched movies: %w", err)
 	}
@@ -200,7 +182,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 		return nil, err
 	}
 
-	sortTitle := generateSortTitle(input.Title)
+	sortTitle := module.GenerateSortTitle(input.Title)
 	path := pathutil.NormalizePath(input.Path)
 
 	releaseDate, physicalReleaseDate, theatricalReleaseDate := parseReleaseDates(input.ReleaseDate, input.PhysicalReleaseDate, input.TheatricalReleaseDate)
@@ -215,7 +197,7 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 		addedBy = sql.NullInt64{Int64: *input.AddedBy, Valid: true}
 	}
 
-	row, err := s.queries.CreateMovie(ctx, sqlc.CreateMovieParams{
+	row, err := s.Queries.CreateMovie(ctx, sqlc.CreateMovieParams{
 		Title:                 input.Title,
 		SortTitle:             sortTitle,
 		Year:                  sql.NullInt64{Int64: int64(input.Year), Valid: input.Year > 0},
@@ -241,11 +223,9 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 	}
 
 	movie := s.rowToMovie(row)
-	s.logger.Info().Int64("id", movie.ID).Str("title", movie.Title).Msg("Created movie")
+	s.Logger.Info().Int64("id", movie.ID).Str("title", movie.Title).Msg("Created movie")
 
-	if s.hub != nil {
-		s.hub.BroadcastEntity("movie", "movie", movie.ID, "added", movie)
-	}
+	s.BroadcastEntity("movie", "movie", movie.ID, "added", movie)
 
 	if s.notifier != nil {
 		s.notifier.DispatchMovieAdded(ctx, &MovieNotificationInfo{
@@ -263,33 +243,31 @@ func (s *Service) Create(ctx context.Context, input *CreateMovieInput) (*Movie, 
 
 // Update updates an existing movie.
 func (s *Service) Update(ctx context.Context, id int64, input *UpdateMovieInput) (*Movie, error) {
-	s.logger.Debug().Int64("id", id).Msg("[UPDATE] Starting movie update")
+	s.Logger.Debug().Int64("id", id).Msg("[UPDATE] Starting movie update")
 
 	current, err := s.Get(ctx, id)
 	if err != nil {
-		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Failed to get current movie")
+		s.Logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Failed to get current movie")
 		return nil, err
 	}
 
 	params := s.buildMovieUpdateParams(id, current, input)
 
-	row, err := s.queries.UpdateMovie(ctx, params)
+	row, err := s.Queries.UpdateMovie(ctx, params)
 	if err != nil {
-		s.logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
+		s.Logger.Error().Err(err).Int64("id", id).Msg("[UPDATE] Database update failed")
 		return nil, fmt.Errorf("failed to update movie: %w", err)
 	}
 
 	movie := s.rowToMovie(row)
-	s.logger.Info().
+	s.Logger.Info().
 		Int64("id", id).
 		Str("title", movie.Title).
 		Int("tmdbId", movie.TmdbID).
 		Str("imdbId", movie.ImdbID).
 		Msg("[UPDATE] Movie updated successfully")
 
-	if s.hub != nil {
-		s.hub.BroadcastEntity("movie", "movie", movie.ID, "updated", movie)
-	}
+	s.BroadcastEntity("movie", "movie", movie.ID, "updated", movie)
 
 	return movie, nil
 }
@@ -300,18 +278,16 @@ func (s *Service) BulkUpdateMonitored(ctx context.Context, input BulkMonitorInpu
 		return nil
 	}
 
-	if err := s.queries.UpdateMoviesMonitoredByIDs(ctx, sqlc.UpdateMoviesMonitoredByIDsParams{
+	if err := s.Queries.UpdateMoviesMonitoredByIDs(ctx, sqlc.UpdateMoviesMonitoredByIDsParams{
 		Monitored: input.Monitored,
 		Ids:       input.IDs,
 	}); err != nil {
 		return fmt.Errorf("failed to bulk update movie monitored: %w", err)
 	}
 
-	s.logger.Info().Int("count", len(input.IDs)).Bool("monitored", input.Monitored).Msg("Bulk updated movie monitored status")
+	s.Logger.Info().Int("count", len(input.IDs)).Bool("monitored", input.Monitored).Msg("Bulk updated movie monitored status")
 
-	if s.hub != nil {
-		s.hub.Broadcast("library:updated", nil)
-	}
+	s.Broadcast("library:updated", nil)
 
 	return nil
 }
@@ -325,8 +301,8 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 
 	// Clean up all shared table records (download_mappings, queue_media, downloads,
 	// history, autosearch_status, import_decisions, requests) for this movie.
-	if err := module.DeleteEntity(ctx, s.db, module.TypeMovie, module.EntityMovie, id); err != nil {
-		s.logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete shared table records for movie")
+	if err := module.DeleteEntity(ctx, s.DB, module.TypeMovie, module.EntityMovie, id); err != nil {
+		s.Logger.Warn().Err(err).Int64("movieId", id).Msg("Failed to delete shared table records for movie")
 	}
 
 	// Delete files from disk before removing DB records
@@ -337,20 +313,17 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 	}
 
 	// Delete movie files from database
-	if err := s.queries.DeleteMovieFilesByMovie(ctx, id); err != nil {
+	if err := s.Queries.DeleteMovieFilesByMovie(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete movie files: %w", err)
 	}
 
-	if err := s.queries.DeleteMovie(ctx, id); err != nil {
+	if err := s.Queries.DeleteMovie(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete movie: %w", err)
 	}
 
-	s.logger.Info().Int64("id", id).Str("title", movie.Title).Msg("Deleted movie")
+	s.Logger.Info().Int64("id", id).Str("title", movie.Title).Msg("Deleted movie")
 
-	// Broadcast event
-	if s.hub != nil {
-		s.hub.BroadcastEntity("movie", "movie", id, "deleted", nil)
-	}
+	s.BroadcastEntity("movie", "movie", id, "deleted", nil)
 
 	// Dispatch notification
 	if s.notifier != nil {
@@ -368,7 +341,7 @@ func (s *Service) Delete(ctx context.Context, id int64, deleteFiles bool) error 
 }
 
 func (s *Service) deleteMovieFilesFromDisk(ctx context.Context, movieID int64) error {
-	files, err := s.queries.ListMovieFiles(ctx, movieID)
+	files, err := s.Queries.ListMovieFiles(ctx, movieID)
 	if err != nil {
 		return fmt.Errorf("failed to list movie files: %w", err)
 	}
@@ -389,14 +362,14 @@ func (s *Service) deleteMovieFilesFromDisk(ctx context.Context, movieID int64) e
 		return fmt.Errorf("failed to delete movie files from disk: %w", err)
 	}
 	if deleted > 0 {
-		s.logger.Info().Int("count", deleted).Int64("movieId", movieID).Msg("Deleted movie files from disk")
+		s.Logger.Info().Int("count", deleted).Int64("movieId", movieID).Msg("Deleted movie files from disk")
 	}
 	return nil
 }
 
 // GetFiles returns all files for a movie.
 func (s *Service) GetFiles(ctx context.Context, movieID int64) ([]MovieFile, error) {
-	rows, err := s.queries.ListMovieFiles(ctx, movieID)
+	rows, err := s.Queries.ListMovieFiles(ctx, movieID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list movie files: %w", err)
 	}
@@ -439,7 +412,7 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 
 	// Use CreateMovieFileWithImportInfo when original path is provided (for import tracking)
 	if input.OriginalPath != "" {
-		row, err = s.queries.CreateMovieFileWithImportInfo(ctx, sqlc.CreateMovieFileWithImportInfoParams{
+		row, err = s.Queries.CreateMovieFileWithImportInfo(ctx, sqlc.CreateMovieFileWithImportInfoParams{
 			MovieID:          movieID,
 			Path:             input.Path,
 			Size:             input.Size,
@@ -455,7 +428,7 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 			ImportedAt:       sql.NullTime{Time: time.Now(), Valid: true},
 		})
 	} else {
-		row, err = s.queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
+		row, err = s.Queries.CreateMovieFile(ctx, sqlc.CreateMovieFileParams{
 			MovieID:       movieID,
 			Path:          input.Path,
 			Size:          input.Size,
@@ -473,18 +446,18 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 	}
 
 	st := status.Available
-	if qualityID.Valid && s.qualityProfiles != nil {
-		if profile, profileErr := s.qualityProfiles.Get(ctx, movie.QualityProfileID); profileErr == nil {
+	if qualityID.Valid && s.QualityProfiles != nil {
+		if profile, profileErr := s.QualityProfiles.Get(ctx, movie.QualityProfileID); profileErr == nil {
 			st = profile.StatusForQuality(int(qualityID.Int64))
 		}
 	}
-	_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
+	_ = s.Queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
 		ID:     movieID,
 		Status: st,
 	})
 
 	file := s.rowToMovieFile(row)
-	s.logger.Info().Int64("movieId", movieID).Str("path", input.Path).Msg("Added movie file")
+	s.Logger.Info().Int64("movieId", movieID).Str("path", input.Path).Msg("Added movie file")
 
 	return &file, nil
 }
@@ -493,7 +466,7 @@ func (s *Service) AddFile(ctx context.Context, movieID int64, input *CreateMovie
 // Returns sql.ErrNoRows if the file doesn't exist.
 func (s *Service) GetFileByPath(ctx context.Context, path string) (*MovieFile, error) {
 	path = pathutil.NormalizePath(path)
-	row, err := s.queries.GetMovieFileByPath(ctx, path)
+	row, err := s.Queries.GetMovieFileByPath(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +478,7 @@ func (s *Service) GetFileByPath(ctx context.Context, path string) (*MovieFile, e
 // Req 12.1.1: Deleting file from slot does NOT trigger automatic search
 // Req 12.1.2: Slot becomes empty; waits for next scheduled search
 func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
-	row, err := s.queries.GetMovieFile(ctx, fileID)
+	row, err := s.Queries.GetMovieFile(ctx, fileID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrMovieFileNotFound
@@ -515,30 +488,30 @@ func (s *Service) RemoveFile(ctx context.Context, fileID int64) error {
 
 	if s.fileDeleteHandler != nil {
 		if err := s.fileDeleteHandler.OnFileDeleted(ctx, "movie", fileID); err != nil {
-			s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear slot assignment")
+			s.Logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear slot assignment")
 		}
 	}
 
-	if err := s.queries.DeleteMovieFile(ctx, fileID); err != nil {
+	if err := s.Queries.DeleteMovieFile(ctx, fileID); err != nil {
 		return fmt.Errorf("failed to delete movie file: %w", err)
 	}
 
-	if err := s.queries.DeleteImportDecisionsByExistingFile(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
-		s.logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear import decisions for removed file")
+	if err := s.Queries.DeleteImportDecisionsByExistingFile(ctx, sql.NullInt64{Int64: fileID, Valid: true}); err != nil {
+		s.Logger.Warn().Err(err).Int64("fileId", fileID).Msg("Failed to clear import decisions for removed file")
 	}
 
-	count, _ := s.queries.CountMovieFiles(ctx, row.MovieID)
+	count, _ := s.Queries.CountMovieFiles(ctx, row.MovieID)
 	if count == 0 {
 		s.transitionMovieToMissingAfterFileRemoval(ctx, row.MovieID)
 	}
 
-	s.logger.Info().Int64("fileId", fileID).Int64("movieId", row.MovieID).Msg("Removed movie file")
+	s.Logger.Info().Int64("fileId", fileID).Int64("movieId", row.MovieID).Msg("Removed movie file")
 	return nil
 }
 
 // GetFileByID retrieves a movie file by its ID.
 func (s *Service) GetFileByID(ctx context.Context, fileID int64) (*MovieFile, error) {
-	row, err := s.queries.GetMovieFile(ctx, fileID)
+	row, err := s.Queries.GetMovieFile(ctx, fileID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrMovieFileNotFound
@@ -551,7 +524,7 @@ func (s *Service) GetFileByID(ctx context.Context, fileID int64) (*MovieFile, er
 
 // UpdateMovieFilePath updates the path of a movie file.
 func (s *Service) UpdateMovieFilePath(ctx context.Context, fileID int64, newPath string) error {
-	return s.queries.UpdateMovieFilePath(ctx, sqlc.UpdateMovieFilePathParams{
+	return s.Queries.UpdateMovieFilePath(ctx, sqlc.UpdateMovieFilePathParams{
 		Path: pathutil.NormalizePath(newPath),
 		ID:   fileID,
 	})
@@ -559,7 +532,7 @@ func (s *Service) UpdateMovieFilePath(ctx context.Context, fileID int64, newPath
 
 // UpdateFileMediaInfo updates the MediaInfo fields of a movie's primary file.
 func (s *Service) UpdateFileMediaInfo(ctx context.Context, movieID int64, info *mediainfo.MediaInfo) error {
-	return s.queries.UpdateMovieFileMediaInfo(ctx, sqlc.UpdateMovieFileMediaInfoParams{
+	return s.Queries.UpdateMovieFileMediaInfo(ctx, sqlc.UpdateMovieFileMediaInfoParams{
 		VideoCodec: sql.NullString{String: info.VideoCodec, Valid: info.VideoCodec != ""},
 		AudioCodec: sql.NullString{String: info.AudioCodec, Valid: info.AudioCodec != ""},
 		Resolution: sql.NullString{String: info.VideoResolution, Valid: info.VideoResolution != ""},
@@ -588,7 +561,7 @@ func (s *Service) FindByTitleAndYear(ctx context.Context, title string, year int
 
 // Count returns the total number of movies.
 func (s *Service) Count(ctx context.Context) (int64, error) {
-	return s.queries.CountMovies(ctx)
+	return s.Queries.CountMovies(ctx)
 }
 
 // rowToMovie converts a database row to a Movie.
@@ -747,17 +720,17 @@ func parseReleaseDates(release, physical, theatrical string) (releaseDate, physi
 }
 
 func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *UpdateMovieInput) sqlc.UpdateMovieParams {
-	title := resolveField(current.Title, input.Title)
-	year := resolveField(current.Year, input.Year)
-	tmdbID := resolveField(current.TmdbID, input.TmdbID)
-	imdbID := resolveField(current.ImdbID, input.ImdbID)
-	overview := resolveField(current.Overview, input.Overview)
-	runtime := resolveField(current.Runtime, input.Runtime)
-	path := resolveField(current.Path, input.Path)
-	rootFolderID := resolveField(current.RootFolderID, input.RootFolderID)
-	qualityProfileID := resolveField(current.QualityProfileID, input.QualityProfileID)
-	monitored := resolveField(current.Monitored, input.Monitored)
-	studio := resolveField(current.Studio, input.Studio)
+	title := module.ResolveField(current.Title, input.Title)
+	year := module.ResolveField(current.Year, input.Year)
+	tmdbID := module.ResolveField(current.TmdbID, input.TmdbID)
+	imdbID := module.ResolveField(current.ImdbID, input.ImdbID)
+	overview := module.ResolveField(current.Overview, input.Overview)
+	runtime := module.ResolveField(current.Runtime, input.Runtime)
+	path := module.ResolveField(current.Path, input.Path)
+	rootFolderID := module.ResolveField(current.RootFolderID, input.RootFolderID)
+	qualityProfileID := module.ResolveField(current.QualityProfileID, input.QualityProfileID)
+	monitored := module.ResolveField(current.Monitored, input.Monitored)
+	studio := module.ResolveField(current.Studio, input.Studio)
 
 	releaseDate := s.parseOrKeepDate(input.ReleaseDate, current.ReleaseDate)
 	physicalReleaseDate := s.parseOrKeepDate(input.PhysicalReleaseDate, current.PhysicalReleaseDate)
@@ -774,7 +747,7 @@ func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *Update
 	return sqlc.UpdateMovieParams{
 		ID:                    id,
 		Title:                 title,
-		SortTitle:             generateSortTitle(title),
+		SortTitle:             module.GenerateSortTitle(title),
 		Year:                  sql.NullInt64{Int64: int64(year), Valid: year > 0},
 		TmdbID:                sql.NullInt64{Int64: int64(tmdbID), Valid: tmdbID > 0},
 		ImdbID:                sql.NullString{String: imdbID, Valid: imdbID != ""},
@@ -794,13 +767,6 @@ func (s *Service) buildMovieUpdateParams(id int64, current *Movie, input *Update
 	}
 }
 
-func resolveField[T any](current T, input *T) T {
-	if input != nil {
-		return *input
-	}
-	return current
-}
-
 func (s *Service) parseOrKeepDate(inputDate *string, currentDate *time.Time) sql.NullTime {
 	if inputDate != nil {
 		if *inputDate != "" {
@@ -817,63 +783,61 @@ func (s *Service) parseOrKeepDate(inputDate *string, currentDate *time.Time) sql
 }
 
 func (s *Service) transitionMovieToMissingAfterFileRemoval(ctx context.Context, movieID int64) {
-	movie, _ := s.queries.GetMovie(ctx, movieID)
-	oldStatus := ""
-	if movie != nil {
-		oldStatus = movie.Status
+	var logStatusChange func(ctx context.Context, entityType string, entityID int64, oldStatus, newStatus, reason string) error
+	if s.StatusChangeLogger != nil {
+		logStatusChange = s.StatusChangeLogger.LogStatusChanged
 	}
-	_ = s.queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
-		ID:     movieID,
-		Status: status.Missing,
+	var broadcastUpdate func()
+	if s.Hub != nil {
+		broadcastUpdate = func() {
+			s.BroadcastEntity("movie", "movie", movieID, "updated", nil)
+		}
+	}
+
+	module.TransitionToMissingAfterFileRemoval(ctx, &module.FileRemovalTransitionParams{
+		ModuleType: module.TypeMovie,
+		EntityType: module.EntityMovie,
+		EntityID:   movieID,
+		Logger:     s.Logger,
+		GetCurrentStatus: func(ctx context.Context, entityID int64) (string, error) {
+			movie, err := s.Queries.GetMovie(ctx, entityID)
+			if err != nil {
+				return "", err
+			}
+			return movie.Status, nil
+		},
+		SetMissingAndUnmonitor: func(ctx context.Context, entityID int64) error {
+			_ = s.Queries.UpdateMovieStatusWithDetails(ctx, sqlc.UpdateMovieStatusWithDetailsParams{
+				ID:     entityID,
+				Status: status.Missing,
+			})
+			_ = s.Queries.UpdateMovieMonitored(ctx, sqlc.UpdateMovieMonitoredParams{
+				ID:        entityID,
+				Monitored: false,
+			})
+			return nil
+		},
+		LogStatusChange: logStatusChange,
+		BroadcastUpdate: broadcastUpdate,
 	})
-	_ = s.queries.UpdateMovieMonitored(ctx, sqlc.UpdateMovieMonitoredParams{
-		ID:        movieID,
-		Monitored: false,
-	})
-	if s.statusChangeLogger != nil && oldStatus != "" && oldStatus != status.Missing {
-		_ = s.statusChangeLogger.LogStatusChanged(ctx, "movie", movieID, oldStatus, status.Missing, "File removed")
-	}
-	if s.hub != nil {
-		s.hub.BroadcastEntity("movie", "movie", movieID, "updated", nil)
-	}
 }
 
 // rowToMovieFile converts a database row to a MovieFile.
 func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
-	f := MovieFile{
-		ID:      row.ID,
-		MovieID: row.MovieID,
-		Path:    row.Path,
-		Size:    row.Size,
+	return MovieFile{
+		ID:            row.ID,
+		MovieID:       row.MovieID,
+		Path:          row.Path,
+		Size:          row.Size,
+		Quality:       module.NullStr(row.Quality),
+		VideoCodec:    module.NullStr(row.VideoCodec),
+		AudioCodec:    module.NullStr(row.AudioCodec),
+		AudioChannels: module.NullStr(row.AudioChannels),
+		DynamicRange:  module.NullStr(row.DynamicRange),
+		Resolution:    module.NullStr(row.Resolution),
+		CreatedAt:     module.NullTime(row.CreatedAt),
+		SlotID:        module.NullInt64Ptr(row.SlotID),
 	}
-
-	if row.Quality.Valid {
-		f.Quality = row.Quality.String
-	}
-	if row.VideoCodec.Valid {
-		f.VideoCodec = row.VideoCodec.String
-	}
-	if row.AudioCodec.Valid {
-		f.AudioCodec = row.AudioCodec.String
-	}
-	if row.AudioChannels.Valid {
-		f.AudioChannels = row.AudioChannels.String
-	}
-	if row.DynamicRange.Valid {
-		f.DynamicRange = row.DynamicRange.String
-	}
-	if row.Resolution.Valid {
-		f.Resolution = row.Resolution.String
-	}
-	if row.CreatedAt.Valid {
-		f.CreatedAt = row.CreatedAt.Time
-	}
-	if row.SlotID.Valid {
-		slotID := row.SlotID.Int64
-		f.SlotID = &slotID
-	}
-
-	return f
 }
 
 // GenerateMoviePath generates a path for a movie.

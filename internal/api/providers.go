@@ -21,6 +21,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
 	"github.com/slipstream/slipstream/internal/library/organizer"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
@@ -174,6 +175,9 @@ func provideRegistry(movieMod *moviemod.Module, tvMod *tvmod.Module) *module.Reg
 	reg := module.NewRegistry()
 	reg.Register(movieMod)
 	reg.Register(tvMod)
+
+	scanner.SetGlobalRegistry(module.NewScannerRegistryAdapter(reg))
+
 	return reg
 }
 

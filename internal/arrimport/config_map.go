@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"strings"
 
-	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/notification"
 )
+
+const boolTrue = "true"
 
 // downloadClientTypeMap maps Sonarr/Radarr Implementation names to SlipStream client types.
 // Empty string = unsupported (skip during import).
@@ -273,48 +274,69 @@ func flattenQualityProfileItems(sourceType SourceType, itemsJSON json.RawMessage
 	return items, cutoff, warnings
 }
 
-func translateNamingConfig(src *SourceNamingConfig, sourceType SourceType, current *importer.ImportSettings) (settings *importer.ImportSettings, warnings []string) {
-	result := *current // shallow copy
-
-	result.ReplaceIllegalCharacters = src.ReplaceIllegalCharacters
+func translateNamingConfig(src *SourceNamingConfig, sourceType SourceType) (configs []TranslatedNamingConfig, warnings []string) {
+	colonReplacement := string(renamer.ColonSmart)
 	if cr, ok := colonReplacementMap[src.ColonReplacementFormat]; ok {
-		result.ColonReplacement = cr
+		colonReplacement = string(cr)
 	} else {
-		warnings = append(warnings, "unknown colon replacement format, keeping current")
+		warnings = append(warnings, "unknown colon replacement format, using smart")
 	}
 
 	switch sourceType {
 	case SourceTypeSonarr:
-		translateSonarrNaming(src, &result)
+		configs = append(configs, translateSonarrNaming(src, colonReplacement))
 	case SourceTypeRadarr:
-		translateRadarrNaming(src, &result)
+		configs = append(configs, translateRadarrNaming(src, colonReplacement))
 	}
 
-	return &result, warnings
+	return configs, warnings
 }
 
-func translateSonarrNaming(src *SourceNamingConfig, result *importer.ImportSettings) {
-	result.RenameEpisodes = src.RenameEpisodes
+func translateSonarrNaming(src *SourceNamingConfig, colonReplacement string) TranslatedNamingConfig {
+	settings := map[string]string{
+		"colon_replacement": colonReplacement,
+	}
+
+	if src.RenameEpisodes {
+		settings["rename_enabled"] = boolTrue
+	} else {
+		settings["rename_enabled"] = "false"
+	}
+
 	if mes, ok := multiEpisodeStyleMap[src.MultiEpisodeStyle]; ok {
-		result.MultiEpisodeStyle = mes
+		settings["multi_episode_style"] = string(mes)
 	}
-	setIfNonEmpty(&result.StandardEpisodeFormat, src.StandardEpisodeFormat)
-	setIfNonEmpty(&result.DailyEpisodeFormat, src.DailyEpisodeFormat)
-	setIfNonEmpty(&result.AnimeEpisodeFormat, src.AnimeEpisodeFormat)
-	setIfNonEmpty(&result.SeriesFolderFormat, src.SeriesFolderFormat)
-	setIfNonEmpty(&result.SeasonFolderFormat, src.SeasonFolderFormat)
-	setIfNonEmpty(&result.SpecialsFolderFormat, src.SpecialsFolderFormat)
+
+	setMapIfNonEmpty(settings, "episode-file.standard", src.StandardEpisodeFormat)
+	setMapIfNonEmpty(settings, "episode-file.daily", src.DailyEpisodeFormat)
+	setMapIfNonEmpty(settings, "episode-file.anime", src.AnimeEpisodeFormat)
+	setMapIfNonEmpty(settings, "series-folder", src.SeriesFolderFormat)
+	setMapIfNonEmpty(settings, "season-folder", src.SeasonFolderFormat)
+	setMapIfNonEmpty(settings, "specials-folder", src.SpecialsFolderFormat)
+
+	return TranslatedNamingConfig{ModuleType: "tv", Settings: settings}
 }
 
-func translateRadarrNaming(src *SourceNamingConfig, result *importer.ImportSettings) {
-	result.RenameMovies = src.RenameMovies
-	setIfNonEmpty(&result.MovieFileFormat, src.StandardMovieFormat)
-	setIfNonEmpty(&result.MovieFolderFormat, src.MovieFolderFormat)
+func translateRadarrNaming(src *SourceNamingConfig, colonReplacement string) TranslatedNamingConfig {
+	settings := map[string]string{
+		"colon_replacement": colonReplacement,
+	}
+
+	if src.RenameMovies {
+		settings["rename_enabled"] = boolTrue
+	} else {
+		settings["rename_enabled"] = "false"
+	}
+
+	setMapIfNonEmpty(settings, "movie-file", src.StandardMovieFormat)
+	setMapIfNonEmpty(settings, "movie-folder", src.MovieFolderFormat)
+
+	return TranslatedNamingConfig{ModuleType: "movie", Settings: settings}
 }
 
-func setIfNonEmpty(target *string, value string) {
+func setMapIfNonEmpty(m map[string]string, key, value string) {
 	if value != "" {
-		*target = value
+		m[key] = value
 	}
 }
 

@@ -103,8 +103,8 @@ func BuildServices(
 		// --- System service constructors ---
 		health.NewService,
 		defaults.NewService,
-		calendar.NewService,
-		availability.NewService,
+		calendar.NewService,    // requires *module.Registry
+		availability.NewService, // requires *module.Registry
 		missing.NewService,
 		preferences.NewService,
 		history.NewService,

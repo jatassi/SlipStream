@@ -21,6 +21,7 @@ import (
 
 var _ module.QualityDefinition = (*Descriptor)(nil)
 var _ module.MonitoringPresets = (*Module)(nil)
+var _ module.MonitoringCascader = (*Module)(nil)
 var _ module.ReleaseDateResolver = (*Module)(nil)
 var _ module.CalendarProvider = (*Module)(nil)
 var _ module.WantedCollector = (*Module)(nil)

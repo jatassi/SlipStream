@@ -2,8 +2,15 @@ import { useState } from 'react'
 
 import { toast } from 'sonner'
 
-import { useImportSettings, useUpdateImportSettings } from '@/hooks'
-import type { ImportSettings, MissingTokenInfo } from '@/types'
+import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
+import type { MissingTokenInfo, ModuleNamingSettings } from '@/types'
+
+type NamingFormats = {
+  standardEpisodeFormat: string
+  dailyEpisodeFormat: string
+  animeEpisodeFormat: string
+  movieFileFormat: string
+}
 
 type UseResolveNamingModalParams = {
   open: boolean
@@ -18,7 +25,7 @@ function computeMissingTokens(format: string, requiredTokens: string[]) {
 }
 
 function computeAllMissing(
-  form: Partial<ImportSettings>,
+  form: Partial<NamingFormats>,
   episodeTokens: string[],
   movieTokens: string[],
 ) {
@@ -34,28 +41,49 @@ function computeAllMissing(
     ...missingInMovie,
   ])
 
-  const allResolved =
-    missingInStandard.length === 0 &&
-    missingInDaily.length === 0 &&
-    missingInAnime.length === 0 &&
-    missingInMovie.length === 0
-
   return {
     missingInStandard,
     missingInDaily,
     missingInAnime,
     missingInMovie,
     stillMissingTokens,
-    allResolved,
+    allResolved:
+      missingInStandard.length === 0 &&
+      missingInDaily.length === 0 &&
+      missingInAnime.length === 0 &&
+      missingInMovie.length === 0,
   }
 }
 
-function pickFormats(s: ImportSettings): Partial<ImportSettings> {
+function buildFormFromSettings(movie: ModuleNamingSettings, tv: ModuleNamingSettings): Partial<NamingFormats> {
   return {
-    standardEpisodeFormat: s.standardEpisodeFormat,
-    dailyEpisodeFormat: s.dailyEpisodeFormat,
-    animeEpisodeFormat: s.animeEpisodeFormat,
-    movieFileFormat: s.movieFileFormat,
+    standardEpisodeFormat: tv.patterns['episode-file.standard'] ?? '',
+    dailyEpisodeFormat: tv.patterns['episode-file.daily'] ?? '',
+    animeEpisodeFormat: tv.patterns['episode-file.anime'] ?? '',
+    movieFileFormat: movie.patterns['movie-file'] ?? '',
+  }
+}
+
+function buildMovieUpdate(movie: ModuleNamingSettings, form: Partial<NamingFormats>) {
+  return {
+    renameEnabled: movie.renameEnabled,
+    colonReplacement: movie.colonReplacement,
+    customColonReplacement: movie.customColonReplacement,
+    patterns: { ...movie.patterns, 'movie-file': form.movieFileFormat ?? movie.patterns['movie-file'] },
+  }
+}
+
+function buildTvUpdate(tv: ModuleNamingSettings, form: Partial<NamingFormats>) {
+  return {
+    renameEnabled: tv.renameEnabled,
+    colonReplacement: tv.colonReplacement,
+    customColonReplacement: tv.customColonReplacement,
+    patterns: {
+      ...tv.patterns,
+      'episode-file.standard': form.standardEpisodeFormat ?? tv.patterns['episode-file.standard'],
+      'episode-file.daily': form.dailyEpisodeFormat ?? tv.patterns['episode-file.daily'],
+      'episode-file.anime': form.animeEpisodeFormat ?? tv.patterns['episode-file.anime'],
+    },
   }
 }
 
@@ -66,28 +94,34 @@ export function useResolveNamingModal({
   missingEpisodeTokens,
   onResolved,
 }: UseResolveNamingModalParams) {
-  const { data: settings } = useImportSettings()
-  const updateMutation = useUpdateImportSettings()
-  const [form, setForm] = useState<Partial<ImportSettings>>({})
+  const { data: movieNaming } = useModuleNamingSettings('movie')
+  const { data: tvNaming } = useModuleNamingSettings('tv')
+  const updateMovie = useUpdateModuleNamingSettings('movie')
+  const updateTv = useUpdateModuleNamingSettings('tv')
+
+  const [form, setForm] = useState<Partial<NamingFormats>>({})
   const [saving, setSaving] = useState(false)
   const [prevOpen, setPrevOpen] = useState(open)
-  const [prevSettings, setPrevSettings] = useState<typeof settings>(undefined)
+  const [prevMovie, setPrevMovie] = useState(movieNaming)
+  const [prevTv, setPrevTv] = useState(tvNaming)
 
-  if (open !== prevOpen || settings !== prevSettings) {
+  if (open !== prevOpen || movieNaming !== prevMovie || tvNaming !== prevTv) {
     setPrevOpen(open)
-    setPrevSettings(settings)
-    if (open && settings) {
-      setForm(pickFormats(settings))
+    setPrevMovie(movieNaming)
+    setPrevTv(tvNaming)
+    if (open && movieNaming && tvNaming) {
+      setForm(buildFormFromSettings(movieNaming, tvNaming))
     }
   }
 
   const handleSave = async () => {
-    if (!settings) {
-      return
-    }
+    if (!movieNaming || !tvNaming) { return }
     setSaving(true)
     try {
-      await updateMutation.mutateAsync({ ...settings, ...form })
+      await Promise.all([
+        updateMovie.mutateAsync(buildMovieUpdate(movieNaming, form)),
+        updateTv.mutateAsync(buildTvUpdate(tvNaming, form)),
+      ])
       toast.success('Naming formats updated')
       onOpenChange(false)
       onResolved()
@@ -98,7 +132,7 @@ export function useResolveNamingModal({
     }
   }
 
-  const updateField = (field: keyof ImportSettings, value: string) => {
+  const updateField = (field: keyof NamingFormats, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 

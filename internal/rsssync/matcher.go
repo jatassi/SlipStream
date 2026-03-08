@@ -23,14 +23,8 @@ type WantedIndex struct {
 	byTvdbID map[int][]module.SearchableItem
 }
 
-// BuildWantedIndex creates a WantedIndex from legacy decisioning items.
-// Converts them to module.SearchableItem internally.
-func BuildWantedIndex(items []decisioning.SearchableItem) *WantedIndex {
-	return BuildWantedIndexFromModuleItems(ConvertLegacyItems(items))
-}
-
-// BuildWantedIndexFromModuleItems creates a WantedIndex from module SearchableItems.
-func BuildWantedIndexFromModuleItems(items []module.SearchableItem) *WantedIndex {
+// BuildWantedIndex creates a WantedIndex from module SearchableItems.
+func BuildWantedIndex(items []module.SearchableItem) *WantedIndex {
 	idx := &WantedIndex{
 		byTitle:  make(map[string][]module.SearchableItem),
 		byImdbID: make(map[string][]module.SearchableItem),
@@ -156,8 +150,7 @@ func (m *Matcher) matchMovie(release *types.TorrentInfo, parsed *scanner.ParsedM
 		if item.GetMediaType() != mediaTypeMovie {
 			continue
 		}
-		sp := item.GetSearchParams()
-		itemYear, _ := sp.Extra["year"].(int)
+		itemYear := module.ItemYear(item)
 		if !matchedByID && parsed.Year > 0 && itemYear > 0 && parsed.Year != itemYear {
 			continue
 		}
@@ -175,9 +168,8 @@ func (m *Matcher) matchEpisode(release *types.TorrentInfo, parsed *scanner.Parse
 		if item.GetMediaType() != mediaTypeEpisode {
 			continue
 		}
-		sp := item.GetSearchParams()
-		season, _ := sp.Extra["seasonNumber"].(int)
-		episode, _ := sp.Extra["episodeNumber"].(int)
+		season := module.ItemSeasonNumber(item)
+		episode := module.ItemEpisodeNumber(item)
 		if season != parsed.Season {
 			continue
 		}
@@ -199,8 +191,7 @@ func (m *Matcher) matchSeasonPack(ctx context.Context, release *types.TorrentInf
 		if item.GetMediaType() != mediaTypeSeason {
 			continue
 		}
-		sp := item.GetSearchParams()
-		season, _ := sp.Extra["seasonNumber"].(int)
+		season := module.ItemSeasonNumber(item)
 		if season == parsed.Season {
 			results = append(results, MatchResult{
 				Release:    *release,
@@ -223,13 +214,12 @@ func (m *Matcher) matchSeasonPack(ctx context.Context, release *types.TorrentInf
 		if item.GetMediaType() != mediaTypeEpisode {
 			continue
 		}
-		sp := item.GetSearchParams()
-		season, _ := sp.Extra["seasonNumber"].(int)
+		season := module.ItemSeasonNumber(item)
 		if season != parsed.Season {
 			continue
 		}
 
-		seriesID, _ := sp.Extra["seriesId"].(int64)
+		seriesID := module.ItemSeriesID(item)
 		key := seriesSeason{seriesID: seriesID, season: parsed.Season}
 		if checked[key] {
 			continue
@@ -335,9 +325,8 @@ func highestQualityInItems(items []module.SearchableItem, seriesID int64, season
 		if item.GetMediaType() != mediaTypeEpisode {
 			continue
 		}
-		sp := item.GetSearchParams()
-		itemSeriesID, _ := sp.Extra["seriesId"].(int64)
-		itemSeason, _ := sp.Extra["seasonNumber"].(int)
+		itemSeriesID := module.ItemSeriesID(item)
+		itemSeason := module.ItemSeasonNumber(item)
 		if itemSeriesID != seriesID || itemSeason != season {
 			continue
 		}
@@ -412,116 +401,4 @@ func parseImdbIDFromURL(url string) int {
 		return 0
 	}
 	return v
-}
-
-// ConvertLegacyItems converts legacy decisioning.SearchableItem to module.SearchableItem.
-func ConvertLegacyItems(items []decisioning.SearchableItem) []module.SearchableItem {
-	result := make([]module.SearchableItem, len(items))
-	for i := range items {
-		result[i] = convertLegacyItem(&items[i])
-	}
-	return result
-}
-
-func convertLegacyItem(item *decisioning.SearchableItem) module.SearchableItem {
-	var modType module.Type
-	switch item.MediaType {
-	case decisioning.MediaTypeMovie:
-		modType = module.TypeMovie
-	default:
-		modType = module.TypeTV
-	}
-
-	extIDs := make(map[string]string)
-	if item.ImdbID != "" {
-		extIDs["imdbId"] = item.ImdbID
-	}
-	if item.TmdbID != 0 {
-		extIDs["tmdbId"] = strconv.Itoa(item.TmdbID)
-	}
-	if item.TvdbID != 0 {
-		extIDs["tvdbId"] = strconv.Itoa(item.TvdbID)
-	}
-
-	extra := map[string]any{
-		"year":          item.Year,
-		"seriesId":      item.SeriesID,
-		"seasonNumber":  item.SeasonNumber,
-		"episodeNumber": item.EpisodeNumber,
-	}
-	if item.TargetSlotID != nil {
-		extra["targetSlotId"] = item.TargetSlotID
-	}
-
-	var currentQID *int64
-	if item.HasFile && item.CurrentQualityID > 0 {
-		qid := int64(item.CurrentQualityID)
-		currentQID = &qid
-	}
-
-	return module.NewWantedItem(
-		modType,
-		string(item.MediaType),
-		item.MediaID,
-		item.Title,
-		extIDs,
-		item.QualityProfileID,
-		currentQID,
-		module.SearchParams{Extra: extra},
-	)
-}
-
-// moduleItemToLegacy converts a module.SearchableItem back to a decisioning.SearchableItem
-// for use with legacy decisioning functions (SelectBestRelease, etc.).
-func moduleItemToLegacy(item module.SearchableItem) decisioning.SearchableItem {
-	sp := item.GetSearchParams()
-
-	legacy := decisioning.SearchableItem{
-		MediaType:        decisioning.MediaType(item.GetMediaType()),
-		MediaID:          item.GetEntityID(),
-		Title:            item.GetTitle(),
-		QualityProfileID: item.GetQualityProfileID(),
-	}
-
-	applySearchParamsToLegacy(&legacy, sp)
-	applyExternalIDsToLegacy(&legacy, item.GetExternalIDs())
-
-	if qid := item.GetCurrentQualityID(); qid != nil {
-		legacy.HasFile = true
-		legacy.CurrentQualityID = int(*qid)
-	}
-
-	return legacy
-}
-
-func applySearchParamsToLegacy(legacy *decisioning.SearchableItem, sp module.SearchParams) {
-	if v, ok := sp.Extra["year"].(int); ok {
-		legacy.Year = v
-	}
-	if v, ok := sp.Extra["seriesId"].(int64); ok {
-		legacy.SeriesID = v
-	}
-	if v, ok := sp.Extra["seasonNumber"].(int); ok {
-		legacy.SeasonNumber = v
-	}
-	if v, ok := sp.Extra["episodeNumber"].(int); ok {
-		legacy.EpisodeNumber = v
-	}
-	if v, ok := sp.Extra["targetSlotId"].(*int64); ok {
-		legacy.TargetSlotID = v
-	}
-}
-
-func applyExternalIDsToLegacy(legacy *decisioning.SearchableItem, extIDs map[string]string) {
-	legacy.ImdbID = extIDs["imdbId"]
-	if tmdbStr := extIDs["tmdbId"]; tmdbStr != "" {
-		if tmdbID, err := strconv.Atoi(tmdbStr); err == nil {
-			legacy.TmdbID = tmdbID
-		}
-	}
-	if tvdbStr := extIDs["tvdbId"]; tvdbStr != "" {
-		if tvdbID, err := strconv.Atoi(tvdbStr); err == nil {
-			legacy.TvdbID = tvdbID
-		}
-	}
 }

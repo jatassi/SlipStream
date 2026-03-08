@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new wire
+.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new wire generate-slots new-module
 
 # Build flags for embedding values at build time (set via environment variables or make arguments)
 # Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
@@ -102,10 +102,19 @@ lint-new: ## Lint only new/changed code vs main
 	@echo "Running golangci-lint on new code..."
 	@$(GOLANGCI_LINT) run --new-from-rev=origin/main ./...
 
+# Code Generation
+generate-slots: ## Regenerate slot SQL queries from template
+	@cd internal/database/queries && go generate .
+
 # Wire (Dependency Injection)
 wire: ## Regenerate Wire dependency injection code
 	@echo "Regenerating Wire..."
 	@cd internal/api && go run github.com/google/wire/cmd/wire@latest
+
+# Module Scaffolding
+new-module: ## Scaffold a new module (usage: make new-module MODULE_ID=music)
+	@if [ -z "$(MODULE_ID)" ]; then echo "Usage: make new-module MODULE_ID=<id>"; exit 1; fi
+	@go run ./scripts/new-module $(MODULE_ID)
 
 # Help
 help: ## Show this help message

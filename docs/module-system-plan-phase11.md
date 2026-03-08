@@ -78,36 +78,36 @@ Every item deferred to Phase 11 from earlier phases, tracked to its task assignm
 
 | # | Deferred Item | Source | Assigned Task |
 |---|---|---|---|
-| 1 | Remove legacy `calendar.Service` helper functions (`getMovieEvents`, `getEpisodeEvents`, `resolveMovieStatus`, `movieRowToEvents`, `createEpisodeEvent`, `createSeasonReleaseEvent`) | Phase 4 (line 5475) | 11.9 |
-| 2 | Consolidate `streamingServicesWithEarlyRelease` map duplicated between `internal/calendar/service.go` and `internal/modules/tv/calendar.go` | Phase 4 (line 5618) | 11.9 |
-| 3 | Align `UpdateUnreleasedMoviesToMissing` SQL to use earliest-of digital/physical instead of priority chain | Phase 4 (line 5619) | 11.10 |
-| 4 | Generic framework cascade (§6.1) — parent `monitored` propagation to descendants via node schema introspection | Phase 4 (line 5620) | 11.11 |
-| 5 | Eliminate `decisioning.SearchableItem` struct — migrate autosearch pipeline to use `module.SearchableItem` interface throughout | Phase 5 (lines 6585, 6874–6875) | 11.5 |
-| 6 | Refactor `SelectBestRelease` to use `SearchStrategy.FilterRelease` instead of hard-coded `shouldSkipTVRelease` | Phase 5 (line 6878) | 11.6 |
-| 7 | Full scanner refactoring — `FileParser` replaces scanner internals instead of wrapping | Phase 6 (line 6978) | 11.7 |
-| 8 | Extract shared naming template helpers (`qualityVariables()`, `mediaInfoVariables()`, `metadataVariables()`) to a shared location | Phase 6 (lines 7781, 7944) | 11.8 |
-| 9 | Remove unused naming columns from `import_settings` table | Phase 6 (line 8034) | 11.8 |
-| 10 | Remove `populateLegacyFields` bridge in renamer | Phase 6 (line 8221) | 11.8 |
-| 11 | Remove legacy `availability.Service`, `calendar.Service`, `missing.Service` dispatcher fallback paths | Phase 4 (line 4324) | 11.9 |
-| 12 | Add TV `existing` monitoring preset — monitor only episodes that currently have files (spec §6.1) | Phase 4 (decision 9) | 11.11 |
+| 1 | ~~Remove legacy `calendar.Service` helper functions (`getMovieEvents`, `getEpisodeEvents`, `resolveMovieStatus`, `movieRowToEvents`, `createEpisodeEvent`, `createSeasonReleaseEvent`)~~ | Phase 4 (line 5475) | 11.9 DONE |
+| 2 | ~~Consolidate `streamingServicesWithEarlyRelease` map duplicated between `internal/calendar/service.go` and `internal/modules/tv/calendar.go`~~ | Phase 4 (line 5618) | 11.9 DONE |
+| 3 | ~~Align `UpdateUnreleasedMoviesToMissing` SQL to use earliest-of digital/physical instead of priority chain~~ | Phase 4 (line 5619) | 11.10 DONE |
+| 4 | ~~Generic framework cascade (§6.1) — parent `monitored` propagation to descendants via node schema introspection~~ | Phase 4 (line 5620) | 11.11 DONE |
+| 5 | ~~Eliminate `decisioning.SearchableItem` struct — migrate autosearch pipeline to use `module.SearchableItem` interface throughout~~ | Phase 5 (lines 6585, 6874–6875) | 11.5 DONE |
+| 6 | ~~Refactor `SelectBestRelease` to use `SearchStrategy.FilterRelease` instead of hard-coded `shouldSkipTVRelease`~~ | Phase 5 (line 6878) | 11.6 DONE |
+| 7 | ~~Full scanner refactoring — `FileParser` replaces scanner internals instead of wrapping~~ | Phase 6 (line 6978) | 11.7 DONE |
+| 8 | ~~Extract shared naming template helpers (`qualityVariables()`, `mediaInfoVariables()`, `metadataVariables()`) to a shared location~~ | Phase 6 (lines 7781, 7944) | 11.8 DONE |
+| 9 | ~~Remove unused naming columns from `import_settings` table~~ | Phase 6 (line 8034) | 11.8 DONE |
+| 10 | ~~Remove `populateLegacyFields` bridge in renamer~~ | Phase 6 (line 8221) | 11.8 DONE |
+| 11 | ~~Remove legacy `availability.Service`, `calendar.Service`, `missing.Service` dispatcher fallback paths~~ | Phase 4 (line 4324) | 11.9 DONE |
+| 12 | ~~Add TV `existing` monitoring preset — monitor only episodes that currently have files (spec §6.1)~~ | Phase 4 (decision 9) | 11.11 DONE |
 
 ### From Phase 3
 
 | # | Deferred Item | Source | Assigned Task |
 |---|---|---|---|
-| 12 | Deduplicate `convertToSeasonMetadata` between `librarymanager/metadata_refresh.go`, `librarymanager/add.go`, and `internal/modules/tv/metadata.go` | Phase 3 (line 3972) | 11.10 |
+| 12 | ~~Deduplicate `convertToSeasonMetadata` between `librarymanager/metadata_refresh.go`, `librarymanager/add.go`, and `internal/modules/tv/metadata.go`~~ | Phase 3 (line 3972) | 11.10 DONE |
 
 ### From Appendix C (Backend Rows)
 
 | # | Duplicated Code | Spec Location | Assigned Task |
 |---|---|---|---|
-| 13 | `generateSortTitle()` in `movies/movie.go` and `tv/series.go` | Appendix C row 1 | 11.1 |
-| 14 | `resolveField[T]()` in `movies/service.go` and `tv/service.go` | Appendix C row 2 | 11.1 |
-| 15 | `rowToMovieFile` / `rowToEpisodeFile` file record mappers | Appendix C row 3 | 11.2 |
-| 16 | File removal → status transition logic | Appendix C row 4 | 11.3 |
-| 17 | Service struct layout + constructor | Appendix C row 5 | 11.4 |
-| 18 | ~40 duplicated slot queries in `slots.sql` | Appendix C row 6 | 11.12 |
-| 19 | List/search query patterns in `movies.sql` / `series.sql` | Appendix C row 7 | 11.16 (via scaffolding templates) |
+| 13 | ~~`generateSortTitle()` in `movies/movie.go` and `tv/series.go`~~ | Appendix C row 1 | 11.1 DONE |
+| 14 | ~~`resolveField[T]()` in `movies/service.go` and `tv/service.go`~~ | Appendix C row 2 | 11.1 DONE |
+| 15 | ~~`rowToMovieFile` / `rowToEpisodeFile` file record mappers~~ | Appendix C row 3 | 11.2 DONE |
+| 16 | ~~File removal → status transition logic~~ | Appendix C row 4 | 11.3 DONE |
+| 17 | ~~Service struct layout + constructor~~ | Appendix C row 5 | 11.4 DONE |
+| 18 | ~~`~40 duplicated slot queries in `slots.sql`~~ | Appendix C row 6 | 11.12 DONE |
+| 19 | ~~List/search query patterns in `movies.sql` / `series.sql`~~ | Appendix C row 7 | 11.16 DONE (via scaffolding) |
 
 ### From Phase 7
 
@@ -119,9 +119,9 @@ Every item deferred to Phase 11 from earlier phases, tracked to its task assignm
 
 | # | Spec Requirement | Assigned Task |
 |---|---|---|
-| 21 | `make new-module <id>` scaffolding generator (§19.1) | 11.16 |
-| 22 | `slipstream validate-module <id>` CLI validation (§19.2) | 11.15 |
-| 23 | `moduletest` package: lifecycle, parsing, naming, schema test harness (§19.3) | 11.14 |
+| 21 | ~~`make new-module <id>` scaffolding generator (§19.1)~~ | 11.16 DONE |
+| 22 | ~~`slipstream validate-module <id>` CLI validation (§19.2)~~ | 11.15 DONE |
+| 23 | ~~`moduletest` package: lifecycle, parsing, naming, schema test harness (§19.3)~~ | 11.14 DONE |
 
 **Total: 23 items, all assigned.**
 
@@ -155,7 +155,7 @@ Every item deferred to Phase 11 from earlier phases, tracked to its task assignm
 
 ---
 
-### Task 11.1: Extract Shared Utility Functions
+### Task 11.1: Extract Shared Utility Functions ✅ COMPLETE
 
 **Depends on:** Phase 0 complete (`internal/module/` package exists)
 
@@ -218,7 +218,7 @@ func ResolveField[T any](current T, input *T) T {
 
 ---
 
-### Task 11.2: Extract Nullable-Field Helpers and Standardize File Record Mapping
+### Task 11.2: Extract Nullable-Field Helpers and Standardize File Record Mapping ✅ COMPLETE
 
 **Depends on:** Phase 0 complete
 
@@ -298,7 +298,7 @@ func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
 
 ---
 
-### Task 11.3: Extract Framework Status Transition Helper
+### Task 11.3: Extract Framework Status Transition Helper ✅ COMPLETE
 
 **Depends on:** Phase 0 complete
 
@@ -377,7 +377,7 @@ func TransitionToMissingAfterFileRemoval(ctx context.Context, p FileRemovalTrans
 
 ---
 
-### Task 11.4: Base Service Struct Extraction
+### Task 11.4: Base Service Struct Extraction ✅ COMPLETE
 
 **Depends on:** Task 11.1 complete (shared utilities used by services)
 
@@ -456,7 +456,7 @@ func (bs *BaseService) Broadcast(event string, data map[string]any) {
 
 ---
 
-### Task 11.5: Eliminate `decisioning.SearchableItem` Struct
+### Task 11.5: Eliminate `decisioning.SearchableItem` Struct -- DONE
 
 **Depends on:** Task 11.2 complete (for stable module package), Phase 5 complete (bridge exists)
 
@@ -490,7 +490,7 @@ func (bs *BaseService) Broadcast(event string, data map[string]any) {
 
 ---
 
-### Task 11.6: Refactor `SelectBestRelease` for Module-Provided Filtering
+### Task 11.6: Refactor `SelectBestRelease` for Module-Provided Filtering ✅ COMPLETE
 
 **Depends on:** Task 11.5 complete (`module.SearchableItem` used throughout)
 
@@ -546,11 +546,13 @@ func SelectBestRelease(releases []Release, item module.SearchableItem, strategy 
 
 ---
 
-### Task 11.7: Full Scanner Refactoring — FileParser as Primary Parser
+### Task 11.7: Full Scanner Refactoring — FileParser as Primary Parser ✅ COMPLETE
 
 **Depends on:** Task 11.5 complete (module interfaces stable)
 
 **Goal:** Invert the scanner/FileParser relationship. Currently (after Phase 6), `FileParser` wraps the scanner. After this task, the scanner calls `FileParser` via the module registry.
+
+**Completed:** Moved all media-type-specific regex patterns (TV: S01E02, season packs, complete series, 1x02, spelled-out Season/Episode; Movie: Title.Year, Title (Year)) from `scanner/parser.go` into `internal/modules/tv/fileparser.go` and `internal/modules/movie/fileparser.go` respectively. Module FileParsers now have their own standalone parsing logic using `parseutil` for quality detection and title cleaning — they no longer call `scanner.ParseFilename`. The scanner delegates to modules via `scanner.ModuleParserRegistry` interface (set via `SetGlobalRegistry`), avoiding import cycles since the scanner only depends on `parseutil`, not the `module` package. Added `module.TVExtraAccessor` interface implemented by `TVParseExtra` so the scanner can extract TV fields without importing TV module. Created `module.NewScannerRegistryAdapter` to bridge `module.Registry` to `scanner.ModuleParserRegistry`. Wired up at startup in `api/providers.go`. When no registry is set (fallback), the scanner does quality-only extraction. All 181 scanner tests pass via test-only parsers in `testparsers_test.go`.
 
 **Modify** `internal/library/scanner/parser.go` (or equivalent):
 - Remove media-type-specific parsing logic (S01E02 patterns, Title (Year) patterns) from the scanner.
@@ -592,13 +594,13 @@ func (p *Parser) ParseFilename(filename string, registry *module.Registry) *modu
 
 ---
 
-### Task 11.8: Naming Pipeline Cleanup
+### Task 11.8: Naming Pipeline Cleanup ✅ COMPLETE
 
 **Depends on:** Phase 6 complete (naming infrastructure exists)
 
 Three sub-tasks, all related to the naming/renamer pipeline:
 
-#### 11.8a: Extract Shared Naming Template Helpers
+#### 11.8a: Extract Shared Naming Template Helpers ✅ COMPLETE
 
 **Move** `qualityVariables()`, `mediaInfoVariables()`, `metadataVariables()` (currently in `internal/modules/movie/path_naming.go` or a shared file) to `internal/module/naming_helpers.go`:
 
@@ -618,14 +620,16 @@ func MetadataVariables() []TemplateVariable { ... }
 
 Update `internal/modules/movie/path_naming.go` and `internal/modules/tv/path_naming.go` to call the shared helpers instead of defining them locally.
 
-#### 11.8b: Remove `populateLegacyFields` Bridge in Renamer
+#### 11.8b: Remove `populateLegacyFields` Bridge in Renamer ✅ COMPLETE
 
 **Modify** `internal/import/renamer/` (location of the renamer):
 - Delete the `populateLegacyFields` function that bridges new per-module settings to old typed fields.
 - The renamer should use the `ResolveContext(contextName, ctx, ext)` method exclusively (introduced in Phase 6).
 - Remove any remaining references to the old type-specific methods (`ResolveMovieFolderName`, `ResolveSeriesFolderName`, etc.) if they are no longer called by anything.
 
-#### 11.8c: Drop Unused `import_settings` Naming Columns
+**Completed:** Removed `PopulateLegacyFields` from `module_naming.go`. Migrated all callers (`pipeline.go`, `rename.go`) from legacy methods (`ResolveMovieFilename`, `ResolveEpisodeFilename`, `ResolveSeriesFolderName`, `ResolveSeasonFolderName`, `ResolveMovieFolderName`) to `ResolveContext`. Removed the legacy typed fields from `renamer.Settings` and the legacy methods from `Resolver`. Added `IsRenameEnabled()` to handle the rename-disabled check. Updated `DefaultSettings()`, `ToRenamerSettings()`, and `syncRenamerSettings()` to populate the `Patterns` map.
+
+#### 11.8c: Drop Unused `import_settings` Naming Columns ✅ COMPLETE
 
 **Create** a new migration file in `internal/database/migrations/`:
 
@@ -663,9 +667,11 @@ ALTER TABLE import_settings_new RENAME TO import_settings;
 - `make test`
 - `grep -r "populateLegacyFields" internal/` returns zero matches
 
+**11.8c completed:** All consumers were migrated to `module_naming_settings` and per-module naming API endpoints. Migration 076 drops the 14 legacy naming columns from `import_settings`. The initial skip reason (consumers still referencing old columns) was resolved before the migration was applied.
+
 ---
 
-### Task 11.9: Calendar, Availability & Legacy Fallback Cleanup
+### Task 11.9: Calendar, Availability & Legacy Fallback Cleanup ✅ COMPLETE
 
 **Depends on:** Phase 4 and Phase 10 complete (module CalendarProvider validated, frontend uses module framework)
 
@@ -703,7 +709,7 @@ ALTER TABLE import_settings_new RENAME TO import_settings;
 
 ---
 
-### Task 11.10: Miscellaneous Deduplication
+### Task 11.10: Miscellaneous Deduplication ✅ COMPLETE
 
 **Depends on:** Phase 3 and Phase 4 complete
 
@@ -742,9 +748,11 @@ Run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate` after.
 
 ---
 
-### Task 11.11: Generic Framework Monitoring Cascade
+### Task 11.11: Generic Framework Monitoring Cascade ✅
 
 **Depends on:** Phase 4 complete (MonitoringPresets implemented)
+
+**Status:** COMPLETED
 
 **Goal:** Add a framework-level monitoring cascade that works for any module, replacing the need for module-specific cascade logic in future modules.
 
@@ -804,7 +812,7 @@ func CascadeMonitoredForModule(ctx context.Context, registry *Registry, moduleTy
 
 ---
 
-### Task 11.12: Slot Query Template Generation
+### Task 11.12: Slot Query Template Generation -- DONE
 
 **Depends on:** Phase 8 complete (slot system refactored)
 
@@ -925,7 +933,7 @@ generate-slots: ## Regenerate slot SQL queries from template
 
 ---
 
-### Task 11.13: Validation Checkpoint — All Cleanup Complete
+### Task 11.13: Validation Checkpoint — All Cleanup Complete ✅ COMPLETE
 
 **Depends on:** Tasks 11.1–11.12 all complete
 
@@ -963,7 +971,7 @@ All grep commands should return zero matches. If any return matches, file a foll
 
 ---
 
-### Task 11.14: Module Test Harness (`moduletest` Package)
+### Task 11.14: Module Test Harness (`moduletest` Package) ✅ COMPLETE
 
 **Depends on:** Task 11.13 complete (cleanup validated — test harness should test the final architecture)
 
@@ -1249,7 +1257,7 @@ func RunLifecycleTest(t *testing.T, mod module.Module, cfg LifecycleConfig) {
 
 ---
 
-### Task 11.15: Module Validation CLI
+### Task 11.15: Module Validation CLI -- DONE
 
 **Depends on:** Task 11.14 complete (moduletest provides validation logic to reuse)
 
@@ -1421,7 +1429,7 @@ func runValidateModule(moduleID string) {
 
 ---
 
-### Task 11.16: Module Scaffolding Tool
+### Task 11.16: Module Scaffolding Tool ✅ COMPLETE
 
 **Depends on:** Task 11.15 complete (scaffolding should generate code that passes validation)
 
@@ -1656,7 +1664,7 @@ new-module: ## Scaffold a new module (usage: make new-module MODULE_ID=music)
 
 ---
 
-### Task 11.17: Final Validation & Documentation
+### Task 11.17: Final Validation & Documentation ✅ COMPLETE
 
 **Depends on:** All prior tasks complete
 
@@ -1706,24 +1714,24 @@ Confirm these items from Phase 10's "Deferred to Phase 10+" section remain inten
 
 Run after all Phase 11 tasks are complete:
 
-- [ ] `make build` succeeds (Go backend + frontend)
-- [ ] `make test` passes (all Go tests)
-- [ ] `make lint` clean (no new warnings)
-- [ ] `cd web && bun run lint` clean
-- [ ] Zero instances of `decisioning.SearchableItem` in codebase
-- [ ] Zero instances of `shouldSkipTVRelease` in codebase
-- [ ] Zero instances of `populateLegacyFields` in codebase
-- [ ] Zero instances of local `generateSortTitle` or `resolveField` (only shared versions in `internal/module/`)
-- [ ] Zero `registry == nil` fallback branches in calendar/availability/missing services
-- [ ] Zero legacy calendar helpers (`getMovieEvents`, `movieRowToEvents`, etc.)
-- [ ] `import_settings` table no longer has naming format columns
-- [ ] `slots.sql` is generated from template (verify with `go generate ./internal/database/queries/ && git diff`)
-- [ ] `streamingServicesWithEarlyRelease` exists in exactly one location
-- [ ] `convertToSeasonMetadata` exists in exactly one location
-- [ ] `make new-module MODULE_ID=test_validation` generates a compiling module skeleton
-- [ ] `./bin/slipstream validate-module movie` passes
-- [ ] `./bin/slipstream validate-module tv` passes
-- [ ] `go test ./internal/module/moduletest/...` passes
-- [ ] `go test ./internal/modules/movie/...` passes (including moduletest harness tests)
-- [ ] `go test ./internal/modules/tv/...` passes (including moduletest harness tests)
-- [ ] Backend items deferred from earlier phases (Deferred Items Registry) are all addressed or explicitly documented as further-deferred with rationale
+- [x] `make build` succeeds (Go backend + frontend)
+- [x] `make test` passes (all Go tests)
+- [x] `make lint` clean (no new warnings)
+- [x] `cd web && bun run lint` clean
+- [x] Zero instances of `decisioning.SearchableItem` in codebase
+- [x] Zero instances of `shouldSkipTVRelease` in codebase
+- [x] Zero instances of `populateLegacyFields` in codebase
+- [x] Zero instances of local `generateSortTitle` or `resolveField` (only shared versions in `internal/module/`)
+- [x] Zero `registry == nil` fallback branches in calendar/availability/missing services
+- [x] Zero legacy calendar helpers (`getMovieEvents`, `movieRowToEvents`, etc.)
+- [x] `import_settings` table no longer has naming format columns — migrated all consumers to `module_naming_settings`, added per-module naming API endpoints, dropped 14 naming columns in migration 076
+- [x] `slots.sql` is generated from template (verify with `go generate ./internal/database/queries/ && git diff`)
+- [x] `streamingServicesWithEarlyRelease` exists in exactly one location
+- [x] `convertToSeasonMetadata` exists in exactly one location (replaced by `ConvertSeasonResults`)
+- [x] `make new-module MODULE_ID=test_validation` generates a compiling module skeleton
+- [x] `./bin/slipstream validate-module movie` passes
+- [x] `./bin/slipstream validate-module tv` passes
+- [x] `go test ./internal/module/moduletest/...` passes
+- [x] `go test ./internal/modules/movie/...` passes (including moduletest harness tests)
+- [x] `go test ./internal/modules/tv/...` passes (including moduletest harness tests)
+- [x] Backend items deferred from earlier phases (Deferred Items Registry) are all addressed or explicitly documented as further-deferred with rationale

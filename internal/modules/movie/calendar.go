@@ -11,8 +11,7 @@ import (
 )
 
 // GetItemsInDateRange returns movie release events within the date range.
-// Produces separate events for digital and physical releases (same as existing
-// calendar.Service.getMovieEvents logic).
+// Produces separate events for digital and physical releases.
 func (m *Module) GetItemsInDateRange(ctx context.Context, start, end time.Time) ([]module.CalendarItem, error) {
 	rows, err := m.queries.GetMoviesInDateRange(ctx, sqlc.GetMoviesInDateRangeParams{
 		FromReleaseDate:           sql.NullTime{Time: start, Valid: true},

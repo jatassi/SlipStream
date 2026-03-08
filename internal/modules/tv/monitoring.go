@@ -14,6 +14,7 @@ var tvMonitoringPresets = []module.MonitoringPreset{
 	{ID: "future", Label: "Future Episodes", Description: "Only monitor episodes that haven't aired yet", HasOptions: true},
 	{ID: "first_season", Label: "First Season", Description: "Only monitor season 1 episodes"},
 	{ID: "latest_season", Label: "Latest Season", Description: "Only monitor the most recent season"},
+	{ID: "existing", Label: "Existing Episodes", Description: "Monitor only episodes that already have files"},
 }
 
 func (m *Module) AvailablePresets() []module.MonitoringPreset {
@@ -39,6 +40,17 @@ func (m *Module) ApplyPreset(ctx context.Context, rootEntityID int64, presetID s
 	})
 }
 
+func (m *Module) CascadeMonitored(ctx context.Context, entityType module.EntityType, entityID int64, monitored bool) error {
+	switch entityType {
+	case module.EntitySeries:
+		return m.tvService.CascadeSeriesMonitored(ctx, entityID, monitored)
+	case module.EntitySeason:
+		return m.tvService.CascadeSeasonMonitored(ctx, entityID, monitored)
+	default:
+		return nil
+	}
+}
+
 func toMonitorType(presetID string) (tvlib.MonitorType, error) {
 	switch presetID {
 	case "all":
@@ -51,6 +63,8 @@ func toMonitorType(presetID string) (tvlib.MonitorType, error) {
 		return tvlib.MonitorTypeFirstSeason, nil
 	case "latest_season":
 		return tvlib.MonitorTypeLatest, nil
+	case "existing":
+		return tvlib.MonitorTypeExisting, nil
 	default:
 		return "", fmt.Errorf("unknown TV monitoring preset: %s", presetID)
 	}

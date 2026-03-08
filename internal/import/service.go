@@ -331,9 +331,26 @@ func (s *Service) SetRegistry(r *module.Registry) {
 	}
 }
 
-// UpdateRenamerSettings updates the renamer with new settings.
-func (s *Service) UpdateRenamerSettings(settings *renamer.Settings) {
-	s.renamer = renamer.NewResolver(settings)
+// ReloadModuleRenamer reloads the renamer resolver for a single module.
+func (s *Service) ReloadModuleRenamer(ctx context.Context, moduleType module.Type) error {
+	if s.registry == nil {
+		return fmt.Errorf("registry not set")
+	}
+	mod := s.registry.Get(moduleType)
+	if mod == nil {
+		return fmt.Errorf("module %s not found", moduleType)
+	}
+	resolver, err := LoadModuleRenamer(ctx, s.queries, mod)
+	if err != nil {
+		return err
+	}
+	if s.moduleResolvers == nil {
+		s.moduleResolvers = make(map[module.Type]*renamer.Resolver)
+	}
+	if resolver != nil {
+		s.moduleResolvers[moduleType] = resolver
+	}
+	return nil
 }
 
 // Start starts the import worker(s).

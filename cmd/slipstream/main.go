@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
+	"github.com/slipstream/slipstream/internal/module/validate"
 	"github.com/slipstream/slipstream/internal/platform"
 	"github.com/slipstream/slipstream/internal/startup"
 	"github.com/slipstream/slipstream/internal/websocket"
@@ -114,6 +116,12 @@ func main() {
 			port = p
 		}
 		completeUpdate(os.Args[2], port)
+		return
+	}
+
+	// Handle validate-module subcommand (no runtime deps needed)
+	if len(os.Args) >= 3 && os.Args[1] == "validate-module" {
+		runValidateModule(os.Args[2])
 		return
 	}
 
@@ -640,4 +648,40 @@ func registerFrontendHandler(e *echo.Echo, distFS fs.FS) {
 
 		return c.Stream(http.StatusOK, "text/html; charset=utf-8", indexFile)
 	})
+}
+
+func runValidateModule(moduleID string) {
+	known := validate.KnownModules()
+	allInfos := validate.AllModuleInfos()
+
+	info, exists := known[moduleID]
+	if !exists {
+		knownIDs := make([]string, 0, len(known))
+		for id := range known {
+			knownIDs = append(knownIDs, id)
+		}
+		sort.Strings(knownIDs)
+		fmt.Printf("ERROR: module %q not found (known modules: %s)\n", moduleID, strings.Join(knownIDs, ", "))
+		os.Exit(1)
+	}
+
+	result := validate.ValidateModule(info, allInfos)
+
+	if len(result.Warnings) > 0 {
+		for _, w := range result.Warnings {
+			fmt.Printf("  WARN: %s\n", w)
+		}
+	}
+	if len(result.Errors) > 0 {
+		for _, e := range result.Errors {
+			fmt.Printf("  ERROR: %s\n", e)
+		}
+	}
+
+	if result.OK() {
+		fmt.Printf("Module %q: all checks passed (%d warnings)\n", moduleID, len(result.Warnings))
+	} else {
+		fmt.Printf("Module %q: FAILED — %d errors, %d warnings\n", moduleID, len(result.Errors), len(result.Warnings))
+		os.Exit(1)
+	}
 }

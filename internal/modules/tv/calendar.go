@@ -11,15 +11,13 @@ import (
 )
 
 // streamingServicesWithEarlyRelease lists networks that release content the night before.
-// Duplicated from internal/calendar/service.go — will be consolidated in Phase 10.
 var streamingServicesWithEarlyRelease = map[string]bool{
 	"Apple TV+": true,
 	"Apple TV":  true,
 }
 
 // GetItemsInDateRange returns episode air date events within the date range.
-// Groups 3+ same-season same-day episodes into a single season release event
-// (same logic as existing calendar.Service.getEpisodeEvents).
+// Groups 3+ same-season same-day episodes into a single season release event.
 func (m *Module) GetItemsInDateRange(ctx context.Context, start, end time.Time) ([]module.CalendarItem, error) {
 	rows, err := m.queries.GetEpisodesInDateRange(ctx, sqlc.GetEpisodesInDateRangeParams{
 		AirDate:   sql.NullTime{Time: start, Valid: true},

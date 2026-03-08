@@ -495,7 +495,7 @@ func (s *Service) updateSeriesSeasons(ctx context.Context, seriesID int64, tmdbI
 		return
 	}
 
-	seasonMeta := s.convertToSeasonMetadata(seasonResults)
+	seasonMeta := tv.ConvertSeasonResults(seasonResults)
 
 	if err := s.tv.UpdateSeasonsFromMetadata(ctx, seriesID, seasonMeta); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to update seasons from metadata")
@@ -511,32 +511,6 @@ func (s *Service) updateSeriesSeasons(ctx context.Context, seriesID int64, tmdbI
 		Int("seasons", len(seasonMeta)).
 		Int("episodes", totalEpisodes).
 		Msg("Updated seasons and episodes from metadata")
-}
-
-func (s *Service) convertToSeasonMetadata(seasonResults []metadata.SeasonResult) []tv.SeasonMetadata {
-	seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
-	for i, sr := range seasonResults {
-		episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
-		for j, ep := range sr.Episodes {
-			episodes[j] = tv.EpisodeMetadata{
-				EpisodeNumber: ep.EpisodeNumber,
-				SeasonNumber:  ep.SeasonNumber,
-				Title:         ep.Title,
-				Overview:      ep.Overview,
-				AirDate:       ep.AirDate,
-				Runtime:       ep.Runtime,
-			}
-		}
-		seasonMeta[i] = tv.SeasonMetadata{
-			SeasonNumber: sr.SeasonNumber,
-			Name:         sr.Name,
-			Overview:     sr.Overview,
-			PosterURL:    sr.PosterURL,
-			AirDate:      sr.AirDate,
-			Episodes:     episodes,
-		}
-	}
-	return seasonMeta
 }
 
 func (s *Service) downloadSeriesArtworkFromResult(bestMatch *metadata.SeriesResult) {

@@ -2,9 +2,8 @@ package scanner
 
 import (
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/module/parseutil"
@@ -38,170 +37,186 @@ type ParsedMedia struct {
 	FileSize          int64    `json:"fileSize"`
 }
 
-// Regex patterns for parsing
+// ParseResultData is a local representation of module.ParseResult, defined here to
+// avoid importing the module package (which would create an import cycle).
+type ParseResultData struct {
+	Title         string
+	Year          int
+	Quality       string
+	Source        string
+	Codec         string
+	HDRFormats    []string
+	AudioCodecs   []string
+	AudioChannels []string
+	ReleaseGroup  string
+	Revision      string
+	Edition       string
+	Languages     []string
+	IsTV          bool
+	Extra         any
+}
+
+// tvExtraAccessor extracts TV-specific fields from ParseResultData.Extra.
+type tvExtraAccessor interface {
+	TVSeason() int
+	TVEndSeason() int
+	TVEpisode() int
+	TVEndEpisode() int
+	TVIsSeasonPack() bool
+	TVIsCompleteSeries() bool
+}
+
+// ModuleFileParser is the scanner's view of a module's file parsing capability.
+type ModuleFileParser interface {
+	ID() string
+	TryMatch(filename string) (confidence float64, result *ParseResultData)
+}
+
+// ModuleParserRegistry provides access to module file parsers for delegation.
+type ModuleParserRegistry interface {
+	AllFileParsers() []ModuleFileParser
+}
+
+// Package-level registry for module-based parsing delegation.
 var (
-	// TV patterns: Show.S01E02 or Show.1x02
-	tvPatternSE = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss](\d{1,2})[Ee](\d{1,2})(?:[Ee](\d{1,2}))?[.\s_-]*(.*)$`)
-	tvPatternX  = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+(\d{1,2})[xX](\d{1,2})[.\s_-]*(.*)$`)
-
-	// TV pattern with spelled out Season and Episode: Show.Season.1.Episode.01
-	tvPatternSeasonEpisodeSpelled = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss]eason[.\s_-]+(\d{1,2})[.\s_-]+[Ee]pisode[.\s_-]+(\d{1,2})[.\s_-]*(.*)$`)
-
-	// TV season pack pattern: Show.S01 (no episode number - for season packs/boxsets)
-	tvPatternSeasonPack = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss](\d{1,2})(?:[.\s_-]|$)(.*)$`)
-
-	// TV season pack pattern with spelled out "Season": Show.Season.1 or Show Season 01
-	tvPatternSeasonSpelled = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss]eason[.\s_-]+(\d{1,2})(?:[.\s_-]|$)(.*)$`)
-
-	// TV multi-season range pattern: Show.S01-04 or Show.S01-S04 (complete series boxsets)
-	tvPatternSeasonRange = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+[Ss](\d{1,2})-s?(\d{1,2})[.\s_-]+(.*)$`)
-
-	// TV complete series pattern: Show.COMPLETE or Show.Complete.Series (no season number)
-	// Must NOT have S## pattern - those are handled by season pack patterns above
-	tvPatternComplete = regexp.MustCompile(`(?i)^(.+?)[.\s_-]+(?:complete[.\s_-]*(?:series)?|the[.\s_-]+complete[.\s_-]+series)[.\s_-]+(.*)$`)
-
-	// Movie pattern: Title.Year or Title (Year)
-	moviePatternDot    = regexp.MustCompile(`^(.+?)[.\s_-]+(\d{4})[.\s_-]+(.*)$`)
-	moviePatternParen  = regexp.MustCompile(`^(.+?)\s*\((\d{4})\)\s*(.*)$`)
-	moviePatternSimple = regexp.MustCompile(`^(.+?)[.\s_-]+(\d{4})$`)
+	globalRegistry   ModuleParserRegistry
+	globalRegistryMu sync.RWMutex
 )
 
+// SetGlobalRegistry sets the module registry used by ParseFilename and ParsePath
+// to delegate filename parsing to module FileParsers. This is called once at
+// startup after modules are registered.
+func SetGlobalRegistry(reg ModuleParserRegistry) {
+	globalRegistryMu.Lock()
+	defer globalRegistryMu.Unlock()
+	globalRegistry = reg
+}
+
+func getGlobalRegistry() ModuleParserRegistry {
+	globalRegistryMu.RLock()
+	defer globalRegistryMu.RUnlock()
+	return globalRegistry
+}
+
 // ParseFilename parses a media filename into structured data.
+// When a module registry is available, delegates to module FileParsers via TryMatch.
+// Falls back to standalone parsing (quality/title extraction only) otherwise.
 func ParseFilename(filename string) *ParsedMedia {
+	if reg := getGlobalRegistry(); reg != nil {
+		if parsed := parseFilenameViaModules(filename, reg); parsed != nil {
+			return parsed
+		}
+	}
+
 	ext := filepath.Ext(filename)
 	name := strings.TrimSuffix(filename, ext)
-	parsed := parseMediaName(name)
+	parsed := parseFallback(name)
 	parsed.FilePath = filename
 	return parsed
 }
 
-// parseMediaName parses a media name (without file extension) into structured data.
-// This is the core parsing logic shared by filename and directory name parsing.
-func parseMediaName(name string) *ParsedMedia {
-	parsed := &ParsedMedia{}
+// parseFilenameViaModules iterates all registered modules and picks the highest-confidence match.
+// If the filename has no recognized video extension (e.g., release/torrent titles), retries
+// with a dummy extension so module TryMatch video-extension checks can pass.
+func parseFilenameViaModules(filename string, reg ModuleParserRegistry) *ParsedMedia {
+	bestResult := tryMatchAllParsers(filename, reg)
 
-	if tryParseTVPatterns(name, parsed) {
-		return parsed
+	if bestResult == nil && !parseutil.IsVideoFile(filename) {
+		bestResult = tryMatchAllParsers(filename+".mkv", reg)
 	}
 
-	if tryParseMoviePatterns(name, parsed) {
-		return parsed
+	if bestResult == nil {
+		return nil
 	}
 
-	parsed.Title = cleanTitle(name)
-	parseQualityInfo(name, parsed)
+	parsed := resultToParsedMedia(bestResult)
+	parsed.FilePath = filename
 	return parsed
 }
 
-func tryParseTVPatterns(name string, parsed *ParsedMedia) bool {
-	if match := tvPatternSE.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.Episode, _ = strconv.Atoi(match[3])
-		if match[4] != "" {
-			parsed.EndEpisode, _ = strconv.Atoi(match[4])
+func tryMatchAllParsers(filename string, reg ModuleParserRegistry) *ParseResultData {
+	var bestResult *ParseResultData
+	var bestConfidence float64
+
+	for _, parser := range reg.AllFileParsers() {
+		confidence, result := parser.TryMatch(filename)
+		if confidence > bestConfidence && result != nil {
+			bestConfidence = confidence
+			bestResult = result
 		}
-		parseQualityInfo(match[5], parsed)
-		return true
 	}
 
-	if match := tvPatternX.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.Episode, _ = strconv.Atoi(match[3])
-		parseQualityInfo(match[4], parsed)
-		return true
-	}
-
-	if match := tvPatternSeasonEpisodeSpelled.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.Episode, _ = strconv.Atoi(match[3])
-		parseQualityInfo(match[4], parsed)
-		return true
-	}
-
-	return tryParseTVPackPatterns(name, parsed)
+	return bestResult
 }
 
-func tryParseTVPackPatterns(name string, parsed *ParsedMedia) bool {
-	if match := tvPatternSeasonRange.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.IsSeasonPack = true
-		parsed.IsCompleteSeries = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.EndSeason, _ = strconv.Atoi(match[3])
-		parsed.Episode = 0
-		parseQualityInfo(match[4], parsed)
-		return true
+// resultToParsedMedia converts a ParseResultData to ParsedMedia for backward compatibility.
+func resultToParsedMedia(result *ParseResultData) *ParsedMedia {
+	parsed := &ParsedMedia{
+		Title:         result.Title,
+		Year:          result.Year,
+		Quality:       result.Quality,
+		Source:        result.Source,
+		Codec:         result.Codec,
+		HDRFormats:    result.HDRFormats,
+		AudioCodecs:   result.AudioCodecs,
+		AudioChannels: result.AudioChannels,
+		ReleaseGroup:  result.ReleaseGroup,
+		Revision:      result.Revision,
+		Edition:       result.Edition,
+		Languages:     result.Languages,
+		IsTV:          result.IsTV,
 	}
 
-	if match := tvPatternSeasonPack.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.IsSeasonPack = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.Episode = 0
-		parseQualityInfo(match[3], parsed)
-		return true
+	// Extract TV-specific fields from Extra if present.
+	if result.Extra != nil {
+		populateTVFields(parsed, result.Extra)
 	}
 
-	if match := tvPatternSeasonSpelled.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.IsSeasonPack = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season, _ = strconv.Atoi(match[2])
-		parsed.Episode = 0
-		parseQualityInfo(match[3], parsed)
-		return true
-	}
-
-	if match := tvPatternComplete.FindStringSubmatch(name); match != nil {
-		parsed.IsTV = true
-		parsed.IsSeasonPack = true
-		parsed.IsCompleteSeries = true
-		parsed.Title = cleanTitle(match[1])
-		parsed.Season = 0
-		parsed.Episode = 0
-		parseQualityInfo(match[2], parsed)
-		return true
-	}
-
-	return false
+	computeAttributes(parsed)
+	return parsed
 }
 
-func tryParseMoviePatterns(name string, parsed *ParsedMedia) bool {
-	if match := moviePatternParen.FindStringSubmatch(name); match != nil {
-		parsed.Title = cleanTitle(match[1])
-		parsed.Year, _ = strconv.Atoi(match[2])
-		parseQualityInfo(match[3], parsed)
-		return true
+// populateTVFields extracts TV-specific data from ParseResultData.Extra.
+// Uses interface assertions to avoid importing the tv module package directly.
+func populateTVFields(parsed *ParsedMedia, extra any) {
+	if accessor, ok := extra.(tvExtraAccessor); ok {
+		parsed.Season = accessor.TVSeason()
+		parsed.EndSeason = accessor.TVEndSeason()
+		parsed.Episode = accessor.TVEpisode()
+		parsed.EndEpisode = accessor.TVEndEpisode()
+		parsed.IsSeasonPack = accessor.TVIsSeasonPack()
+		parsed.IsCompleteSeries = accessor.TVIsCompleteSeries()
+	}
+}
+
+// computeAttributes builds the Attributes display field from HDRFormats and Source.
+func computeAttributes(parsed *ParsedMedia) {
+	if len(parsed.Attributes) > 0 {
+		return
 	}
 
-	if match := moviePatternDot.FindStringSubmatch(name); match != nil {
-		year, _ := strconv.Atoi(match[2])
-		if year >= 1900 && year <= 2100 {
-			parsed.Title = cleanTitle(match[1])
-			parsed.Year = year
-			parseQualityInfo(match[3], parsed)
-			return true
+	var attributes []string
+	if parsed.Source == "Remux" {
+		attributes = append(attributes, "REMUX")
+	}
+	hdrFormats := parsed.HDRFormats
+	for _, f := range hdrFormats {
+		if f != "SDR" {
+			attributes = append(attributes, f)
 		}
 	}
-
-	if match := moviePatternSimple.FindStringSubmatch(name); match != nil {
-		year, _ := strconv.Atoi(match[2])
-		if year >= 1900 && year <= 2100 {
-			parsed.Title = cleanTitle(match[1])
-			parsed.Year = year
-			return true
-		}
+	if len(attributes) > 0 {
+		parsed.Attributes = attributes
 	}
+}
 
-	return false
+// parseFallback handles names that don't match any module pattern.
+// Extracts quality info and cleans the title without media-type-specific parsing.
+func parseFallback(name string) *ParsedMedia {
+	parsed := &ParsedMedia{}
+	parsed.Title = cleanTitle(name)
+	parseQualityInfo(name, parsed)
+	return parsed
 }
 
 // cleanTitle cleans up a parsed title by replacing separators with spaces.
@@ -272,8 +287,27 @@ func parseLanguages(text string, parsed *ParsedMedia) {
 	parsed.Languages = parseutil.ParseLanguages(text)
 }
 
-// ParsePath tries to extract media info from a folder path.
-// This is useful when the filename doesn't contain all information.
+// parseFolderName parses a folder name for year/quality extraction only.
+// This is used for folder inheritance and does not need module delegation.
+func parseFolderName(name string) *ParsedMedia {
+	if reg := getGlobalRegistry(); reg != nil {
+		if parsed := parseNameViaModules(name, reg); parsed != nil {
+			return parsed
+		}
+	}
+	return parseFallback(name)
+}
+
+// parseNameViaModules tries to parse a bare name (no extension) via module FileParsers.
+// Adds a dummy extension so TryMatch can pass its IsVideoFile check.
+func parseNameViaModules(name string, reg ModuleParserRegistry) *ParsedMedia {
+	bestResult := tryMatchAllParsers(name+".mkv", reg)
+	if bestResult == nil {
+		return nil
+	}
+
+	return resultToParsedMedia(bestResult)
+}
 
 // tryInheritYearFromFolder attempts to get year from parent folder name
 func tryInheritYearFromFolder(parsed *ParsedMedia, folderName string) {
@@ -281,7 +315,7 @@ func tryInheritYearFromFolder(parsed *ParsedMedia, folderName string) {
 		return
 	}
 
-	folderParsed := parseMediaName(folderName)
+	folderParsed := parseFolderName(folderName)
 	if folderParsed.Year != 0 {
 		parsed.Year = folderParsed.Year
 		if folderParsed.Title != "" {
@@ -303,7 +337,7 @@ func tryInheritYearFromSeriesFolder(parsed *ParsedMedia, fullPath string) {
 	// Try parent folder first (handles no season subfolder case)
 	parentName := filepath.Base(dir)
 	if parentName != "." && parentName != "/" {
-		folderParsed := parseMediaName(parentName)
+		folderParsed := parseFolderName(parentName)
 		if folderParsed.Year != 0 {
 			parsed.Year = folderParsed.Year
 			return
@@ -317,7 +351,7 @@ func tryInheritYearFromSeriesFolder(parsed *ParsedMedia, fullPath string) {
 		return
 	}
 
-	folderParsed := parseMediaName(grandparentName)
+	folderParsed := parseFolderName(grandparentName)
 	if folderParsed.Year != 0 {
 		parsed.Year = folderParsed.Year
 	}
@@ -329,10 +363,11 @@ func tryInheritQualityFromFolder(parsed *ParsedMedia, folderName string) {
 		return
 	}
 
-	folderParsed := parseMediaName(folderName)
+	folderParsed := parseFolderName(folderName)
 	inheritQualityInfo(parsed, folderParsed)
 }
 
+// ParsePath parses a full file path, inheriting info from parent directories when needed.
 func ParsePath(fullPath string) *ParsedMedia {
 	filename := filepath.Base(fullPath)
 	parsed := ParseFilename(filename)

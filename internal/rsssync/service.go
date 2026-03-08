@@ -134,7 +134,7 @@ func (s *Service) Run(ctx context.Context) error {
 		return nil
 	}
 
-	index := BuildWantedIndexFromModuleItems(wantedItems)
+	index := BuildWantedIndex(wantedItems)
 	s.logger.Info().Int("wantedItems", len(wantedItems)).Msg("built wanted index")
 
 	totalReleases, allMatches := s.matchFeeds(ctx, feeds, index)
@@ -208,7 +208,7 @@ func (s *Service) collectWantedLegacy(ctx context.Context, start time.Time) ([]m
 		s.broadcast(EventCompleted, CompletedEvent{ElapsedMs: int(time.Since(start).Milliseconds())})
 		return nil, nil
 	}
-	return ConvertLegacyItems(legacyItems), nil
+	return legacyItems, nil
 }
 
 func (s *Service) matchFeeds(ctx context.Context, feeds []IndexerFeed, index *WantedIndex) (int, []MatchResult) {
@@ -391,8 +391,9 @@ func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *m
 
 	s.scoreReleases(scorer, g, profile)
 
-	legacyItem := moduleItemToLegacy(g.item)
-	best := decisioning.SelectBestRelease(g.releases, profile, &legacyItem, s.logger)
+	strategy := s.strategyForItem(g.item)
+	parser := s.releaseParser()
+	best := decisioning.SelectBestRelease(g.releases, profile, g.item, strategy, parser, s.logger)
 	if best == nil {
 		return false
 	}
@@ -415,6 +416,24 @@ func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *m
 	defer s.grabLock.Release(lockKey)
 
 	return s.executeGrab(ctx, g, best)
+}
+
+// strategyForItem returns the module's SearchStrategy for the given item.
+func (s *Service) strategyForItem(item module.SearchableItem) module.SearchStrategy {
+	if s.registry != nil {
+		if mod := s.registry.Get(module.Type(item.GetModuleType())); mod != nil {
+			return mod
+		}
+	}
+	return decisioning.DefaultStrategy{}
+}
+
+// releaseParser returns a function that converts release titles to ReleaseForFilter.
+func (s *Service) releaseParser() decisioning.ReleaseParser {
+	if s.registry != nil {
+		return s.registry.ParseReleaseForFilter
+	}
+	return decisioning.FallbackReleaseParser
 }
 
 func (s *Service) scoreReleases(scorer *scoring.Scorer, g *matchGroup, profile *quality.Profile) {

@@ -4,16 +4,27 @@ import (
 	"context"
 	"testing"
 
-	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/module"
 )
 
 // TestBuildWantedIndex verifies index construction from wanted items.
 func TestBuildWantedIndex_BasicLookups(t *testing.T) {
-	items := []decisioning.SearchableItem{
-		{MediaType: decisioning.MediaTypeMovie, MediaID: 1, Title: "Dune Part Two", TmdbID: 693134},
-		{MediaType: decisioning.MediaTypeEpisode, MediaID: 2, Title: "Breaking Bad", TvdbID: 81189, SeasonNumber: 3, EpisodeNumber: 7, SeriesID: 10},
+	items := []module.SearchableItem{
+		module.NewWantedItem(
+			module.TypeMovie, "movie", 1, "Dune Part Two",
+			map[string]string{"tmdbId": "693134"},
+			0, nil, module.SearchParams{},
+		),
+		module.NewWantedItem(
+			module.TypeTV, "episode", 2, "Breaking Bad",
+			map[string]string{"tvdbId": "81189"},
+			0, nil, module.SearchParams{Extra: map[string]any{
+				"seriesId":      int64(10),
+				"seasonNumber":  3,
+				"episodeNumber": 7,
+			}},
+		),
 	}
 
 	idx := BuildWantedIndex(items)

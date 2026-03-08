@@ -6,6 +6,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -19,6 +20,23 @@ func newTestSearcher(t *testing.T) (*ScheduledSearcher, *sqlc.Queries) {
 	searcher := NewScheduledSearcher(svc, cfg, &tdb.Logger)
 	queries := sqlc.New(tdb.Conn)
 	return searcher, queries
+}
+
+func testItem(mediaType string, mediaID int64) SearchableItem {
+	var modType module.Type
+	if mediaType == string(MediaTypeMovie) {
+		modType = module.TypeMovie
+	} else {
+		modType = module.TypeTV
+	}
+	return module.NewWantedItem(
+		modType,
+		mediaType,
+		mediaID,
+		"",
+		nil, 0, nil,
+		module.SearchParams{},
+	)
 }
 
 func TestShouldSkipItem(t *testing.T) {
@@ -127,8 +145,8 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 10}
-		searcher.incrementFailureCount(ctx, &item, "missing")
+		item := testItem(string(MediaTypeMovie), 10)
+		searcher.incrementFailureCount(ctx, item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "movie", EntityType: "movie", EntityID: 10, SearchType: "missing",
@@ -148,8 +166,8 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeEpisode, MediaID: 20}
-		searcher.incrementFailureCount(ctx, &item, "missing")
+		item := testItem(string(MediaTypeEpisode), 20)
+		searcher.incrementFailureCount(ctx, item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "tv", EntityType: "episode", EntityID: 20, SearchType: "missing",
@@ -167,8 +185,8 @@ func TestIncrementFailureCount(t *testing.T) {
 		ctx := context.Background()
 
 		// MediaTypeSeason should map to entity_type="series" in the DB
-		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: 30}
-		searcher.incrementFailureCount(ctx, &item, "missing")
+		item := testItem(string(MediaTypeSeason), 30)
+		searcher.incrementFailureCount(ctx, item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "tv", EntityType: "series", EntityID: 30, SearchType: "missing",
@@ -188,10 +206,10 @@ func TestIncrementFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 40}
-		searcher.incrementFailureCount(ctx, &item, "missing")
-		searcher.incrementFailureCount(ctx, &item, "missing")
-		searcher.incrementFailureCount(ctx, &item, "missing")
+		item := testItem(string(MediaTypeMovie), 40)
+		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, item, "missing")
+		searcher.incrementFailureCount(ctx, item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "movie", EntityType: "movie", EntityID: 40, SearchType: "missing",
@@ -210,13 +228,13 @@ func TestResetFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 50}
+		item := testItem(string(MediaTypeMovie), 50)
 		// Build up failures
 		for i := 0; i < 5; i++ {
-			searcher.incrementFailureCount(ctx, &item, "missing")
+			searcher.incrementFailureCount(ctx, item, "missing")
 		}
 
-		searcher.resetFailureCount(ctx, &item, "missing")
+		searcher.resetFailureCount(ctx, item, "missing")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "movie", EntityType: "movie", EntityID: 50, SearchType: "missing",
@@ -233,11 +251,11 @@ func TestResetFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: 60}
-		searcher.incrementFailureCount(ctx, &item, "upgrade")
-		searcher.incrementFailureCount(ctx, &item, "upgrade")
+		item := testItem(string(MediaTypeSeason), 60)
+		searcher.incrementFailureCount(ctx, item, "upgrade")
+		searcher.incrementFailureCount(ctx, item, "upgrade")
 
-		searcher.resetFailureCount(ctx, &item, "upgrade")
+		searcher.resetFailureCount(ctx, item, "upgrade")
 
 		status, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "tv", EntityType: "series", EntityID: 60, SearchType: "upgrade",
@@ -254,15 +272,15 @@ func TestResetFailureCount(t *testing.T) {
 		searcher, queries := newTestSearcher(t)
 		ctx := context.Background()
 
-		item := SearchableItem{MediaType: MediaTypeMovie, MediaID: 70}
+		item := testItem(string(MediaTypeMovie), 70)
 		// Increment both search types
 		for i := 0; i < 3; i++ {
-			searcher.incrementFailureCount(ctx, &item, "missing")
-			searcher.incrementFailureCount(ctx, &item, "upgrade")
+			searcher.incrementFailureCount(ctx, item, "missing")
+			searcher.incrementFailureCount(ctx, item, "upgrade")
 		}
 
 		// Reset only "missing"
-		searcher.resetFailureCount(ctx, &item, "missing")
+		searcher.resetFailureCount(ctx, item, "missing")
 
 		missingStatus, err := queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 			ModuleType: "movie", EntityType: "movie", EntityID: 70, SearchType: "missing",
@@ -292,11 +310,11 @@ func TestBackoffIDConsistency(t *testing.T) {
 		ctx := context.Background()
 
 		seriesID := int64(100)
-		item := SearchableItem{MediaType: MediaTypeSeason, MediaID: seriesID}
+		item := testItem(string(MediaTypeSeason), seriesID)
 
 		// Push past threshold via incrementFailureCount
 		for i := 0; i < 6; i++ {
-			searcher.incrementFailureCount(ctx, &item, "missing")
+			searcher.incrementFailureCount(ctx, item, "missing")
 		}
 
 		// shouldSkipItem checks "series" + seriesID — must match what increment wrote
@@ -317,9 +335,9 @@ func TestBackoffIDConsistency(t *testing.T) {
 		episodeID := int64(2001)
 
 		// Push season (series-level) backoff past threshold
-		seasonItem := SearchableItem{MediaType: MediaTypeSeason, MediaID: seriesID}
+		seasonItem := testItem(string(MediaTypeSeason), seriesID)
 		for i := 0; i < 6; i++ {
-			searcher.incrementFailureCount(ctx, &seasonItem, "missing")
+			searcher.incrementFailureCount(ctx, seasonItem, "missing")
 		}
 
 		// Episode-level check for a different ID should not be affected

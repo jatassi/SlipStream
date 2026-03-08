@@ -386,7 +386,7 @@ func (s *Service) fetchAndUpdateSeasonMetadata(ctx context.Context, seriesID int
 		return
 	}
 
-	seasonMeta := s.convertSeasonResults(seasonResults)
+	seasonMeta := tv.ConvertSeasonResults(seasonResults)
 	if err := s.tv.UpdateSeasonsFromMetadata(ctx, seriesID, seasonMeta); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to update seasons from metadata for new series")
 		return
@@ -398,32 +398,6 @@ func (s *Service) fetchAndUpdateSeasonMetadata(ctx context.Context, seriesID int
 		Int("seasons", len(seasonMeta)).
 		Int("episodes", totalEpisodes).
 		Msg("Updated seasons and episodes for new series")
-}
-
-func (s *Service) convertSeasonResults(seasonResults []metadata.SeasonResult) []tv.SeasonMetadata {
-	seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
-	for i, sr := range seasonResults {
-		episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
-		for j, ep := range sr.Episodes {
-			episodes[j] = tv.EpisodeMetadata{
-				EpisodeNumber: ep.EpisodeNumber,
-				SeasonNumber:  ep.SeasonNumber,
-				Title:         ep.Title,
-				Overview:      ep.Overview,
-				AirDate:       ep.AirDate,
-				Runtime:       ep.Runtime,
-			}
-		}
-		seasonMeta[i] = tv.SeasonMetadata{
-			SeasonNumber: sr.SeasonNumber,
-			Name:         sr.Name,
-			Overview:     sr.Overview,
-			PosterURL:    sr.PosterURL,
-			AirDate:      sr.AirDate,
-			Episodes:     episodes,
-		}
-	}
-	return seasonMeta
 }
 
 func (s *Service) countTotalEpisodes(seasonMeta []tv.SeasonMetadata) int {

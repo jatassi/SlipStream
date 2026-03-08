@@ -23,34 +23,15 @@ var (
 
 // Settings holds the renaming configuration.
 type Settings struct {
-	// TV Settings
 	RenameEpisodes           bool
 	ReplaceIllegalCharacters bool
 	ColonReplacement         ColonReplacement
 	CustomColonReplacement   string
+	MultiEpisodeStyle        MultiEpisodeStyle
+	RenameMovies             bool
+	CaseMode                 CaseMode
 
-	// Episode format patterns
-	StandardEpisodeFormat string
-	DailyEpisodeFormat    string
-	AnimeEpisodeFormat    string
-
-	// Folder patterns
-	SeriesFolderFormat   string
-	SeasonFolderFormat   string
-	SpecialsFolderFormat string
-
-	// Multi-episode
-	MultiEpisodeStyle MultiEpisodeStyle
-
-	// Movie Settings
-	RenameMovies      bool
-	MovieFolderFormat string
-	MovieFileFormat   string
-
-	// Case transformation
-	CaseMode CaseMode
-
-	// Module-generic naming patterns keyed by context name (e.g. "movie-file", "series-folder").
+	// Naming patterns keyed by context name (e.g. "movie-file", "series-folder").
 	Patterns map[string]string
 }
 
@@ -60,22 +41,19 @@ func DefaultSettings() Settings {
 		RenameEpisodes:           true,
 		ReplaceIllegalCharacters: true,
 		ColonReplacement:         ColonSmart,
-
-		StandardEpisodeFormat: "{Series Title} - S{season:00}E{episode:00} - {Quality Title} {MediaInfo VideoDynamicRangeType}",
-		DailyEpisodeFormat:    "{Series Title} - {Air-Date} - {Episode Title} {Quality Full}",
-		AnimeEpisodeFormat:    "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}",
-
-		SeriesFolderFormat:   "{Series Title}",
-		SeasonFolderFormat:   "Season {season}",
-		SpecialsFolderFormat: "Specials",
-
-		MultiEpisodeStyle: StyleExtend,
-
-		RenameMovies:      true,
-		MovieFolderFormat: "{Movie Title} ({Year})",
-		MovieFileFormat:   "{Movie Title} ({Year}) - {Quality Title}",
-
-		CaseMode: CaseDefault,
+		MultiEpisodeStyle:        StyleExtend,
+		RenameMovies:             true,
+		CaseMode:                 CaseDefault,
+		Patterns: map[string]string{
+			"movie-folder":          "{Movie Title} ({Year})",
+			"movie-file":            "{Movie Title} ({Year}) - {Quality Title}",
+			"series-folder":         "{Series Title}",
+			"season-folder":         "Season {season}",
+			"specials-folder":       "Specials",
+			"episode-file.standard": "{Series Title} - S{season:00}E{episode:00} - {Quality Title} {MediaInfo VideoDynamicRangeType}",
+			"episode-file.daily":    "{Series Title} - {Air-Date} - {Episode Title} {Quality Full}",
+			"episode-file.anime":    "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Quality Full}",
+		},
 	}
 }
 
@@ -89,152 +67,15 @@ func NewResolver(settings *Settings) *Resolver {
 	return &Resolver{settings: *settings}
 }
 
-// ResolveEpisodeFilename resolves the full episode filename from a pattern.
-func (r *Resolver) ResolveEpisodeFilename(ctx *TokenContext, extension string) (string, error) {
-	if !r.settings.RenameEpisodes {
-		return ctx.OriginalFile, nil
+// IsRenameEnabled reports whether renaming is enabled for the given media type.
+// mediaType should be "movie" or "episode".
+func (r *Resolver) IsRenameEnabled(mediaType string) bool {
+	switch mediaType {
+	case "movie":
+		return r.settings.RenameMovies
+	default:
+		return r.settings.RenameEpisodes
 	}
-
-	pattern := r.getEpisodePattern(ctx.SeriesType)
-	if pattern == "" {
-		return "", ErrEmptyPattern
-	}
-
-	filename, err := r.resolvePattern(pattern, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	// Handle multi-episode formatting
-	if len(ctx.EpisodeNumbers) > 1 {
-		filename = r.applyMultiEpisodeFormat(filename, ctx)
-	}
-
-	// Sanitize the filename
-	filename = SanitizeFilename(
-		filename,
-		r.settings.ReplaceIllegalCharacters,
-		r.settings.ColonReplacement,
-		r.settings.CustomColonReplacement,
-	)
-
-	// Apply case transformation
-	filename = ApplyCase(filename, r.settings.CaseMode)
-
-	// Add extension (preserve original exactly)
-	if extension != "" {
-		if !strings.HasPrefix(extension, ".") {
-			extension = "." + extension
-		}
-		filename += extension
-	}
-
-	return filename, nil
-}
-
-// ResolveMovieFilename resolves the full movie filename from a pattern.
-func (r *Resolver) ResolveMovieFilename(ctx *TokenContext, extension string) (string, error) {
-	if !r.settings.RenameMovies {
-		return ctx.OriginalFile, nil
-	}
-
-	pattern := r.settings.MovieFileFormat
-	if pattern == "" {
-		return "", ErrEmptyPattern
-	}
-
-	filename, err := r.resolvePattern(pattern, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	// Sanitize the filename
-	filename = SanitizeFilename(
-		filename,
-		r.settings.ReplaceIllegalCharacters,
-		r.settings.ColonReplacement,
-		r.settings.CustomColonReplacement,
-	)
-
-	// Apply case transformation
-	filename = ApplyCase(filename, r.settings.CaseMode)
-
-	// Add extension (preserve original exactly)
-	if extension != "" {
-		if !strings.HasPrefix(extension, ".") {
-			extension = "." + extension
-		}
-		filename += extension
-	}
-
-	return filename, nil
-}
-
-// ResolveSeriesFolderName resolves the series folder name.
-func (r *Resolver) ResolveSeriesFolderName(ctx *TokenContext) (string, error) {
-	pattern := r.settings.SeriesFolderFormat
-	if pattern == "" {
-		pattern = defaultSeriesTitle
-	}
-
-	folder, err := r.resolvePattern(pattern, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return SanitizeFolderName(
-		folder,
-		r.settings.ReplaceIllegalCharacters,
-		r.settings.ColonReplacement,
-		r.settings.CustomColonReplacement,
-	), nil
-}
-
-// ResolveSeasonFolderName resolves the season folder name.
-func (r *Resolver) ResolveSeasonFolderName(seasonNumber int) string {
-	if seasonNumber == 0 {
-		folder := r.settings.SpecialsFolderFormat
-		if folder == "" {
-			return "Specials"
-		}
-		return folder
-	}
-
-	pattern := r.settings.SeasonFolderFormat
-	if pattern == "" {
-		pattern = "Season {season}"
-	}
-
-	// Simple replacement for season folder
-	ctx := &TokenContext{SeasonNumber: seasonNumber}
-	folder, _ := r.resolvePattern(pattern, ctx)
-
-	return SanitizeFolderName(
-		folder,
-		r.settings.ReplaceIllegalCharacters,
-		r.settings.ColonReplacement,
-		r.settings.CustomColonReplacement,
-	)
-}
-
-// ResolveMovieFolderName resolves the movie folder name.
-func (r *Resolver) ResolveMovieFolderName(ctx *TokenContext) (string, error) {
-	pattern := r.settings.MovieFolderFormat
-	if pattern == "" {
-		pattern = "{Movie Title} ({Year})"
-	}
-
-	folder, err := r.resolvePattern(pattern, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return SanitizeFolderName(
-		folder,
-		r.settings.ReplaceIllegalCharacters,
-		r.settings.ColonReplacement,
-		r.settings.CustomColonReplacement,
-	), nil
 }
 
 // ResolveFullPath resolves the complete destination path and validates length.
@@ -366,18 +207,6 @@ func GetSampleContext() *TokenContext {
 		ReleaseGroup:      "GROUP",
 		OriginalTitle:     "The.Series.Title.S01E01.1080p.WEB-DL.x264-GROUP",
 		OriginalFile:      "the.series.title.s01e01.1080p.web-dl.x264-group.mkv",
-	}
-}
-
-// getEpisodePattern returns the appropriate episode pattern for the series type.
-func (r *Resolver) getEpisodePattern(seriesType string) string {
-	switch seriesType {
-	case "daily":
-		return r.settings.DailyEpisodeFormat
-	case "anime":
-		return r.settings.AnimeEpisodeFormat
-	default:
-		return r.settings.StandardEpisodeFormat
 	}
 }
 

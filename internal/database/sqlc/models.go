@@ -169,27 +169,13 @@ type ImportDecision struct {
 }
 
 type ImportSetting struct {
-	ID                       int64          `json:"id"`
-	ValidationLevel          string         `json:"validation_level"`
-	MinimumFileSizeMb        int64          `json:"minimum_file_size_mb"`
-	VideoExtensions          string         `json:"video_extensions"`
-	MatchConflictBehavior    string         `json:"match_conflict_behavior"`
-	UnknownMediaBehavior     string         `json:"unknown_media_behavior"`
-	RenameEpisodes           bool           `json:"rename_episodes"`
-	ReplaceIllegalCharacters bool           `json:"replace_illegal_characters"`
-	ColonReplacement         string         `json:"colon_replacement"`
-	CustomColonReplacement   sql.NullString `json:"custom_colon_replacement"`
-	StandardEpisodeFormat    string         `json:"standard_episode_format"`
-	DailyEpisodeFormat       string         `json:"daily_episode_format"`
-	AnimeEpisodeFormat       string         `json:"anime_episode_format"`
-	SeriesFolderFormat       string         `json:"series_folder_format"`
-	SeasonFolderFormat       string         `json:"season_folder_format"`
-	SpecialsFolderFormat     string         `json:"specials_folder_format"`
-	MultiEpisodeStyle        string         `json:"multi_episode_style"`
-	RenameMovies             bool           `json:"rename_movies"`
-	MovieFolderFormat        string         `json:"movie_folder_format"`
-	MovieFileFormat          string         `json:"movie_file_format"`
-	UpdatedAt                time.Time      `json:"updated_at"`
+	ID                    int64     `json:"id"`
+	ValidationLevel       string    `json:"validation_level"`
+	MinimumFileSizeMb     int64     `json:"minimum_file_size_mb"`
+	VideoExtensions       string    `json:"video_extensions"`
+	MatchConflictBehavior string    `json:"match_conflict_behavior"`
+	UnknownMediaBehavior  string    `json:"unknown_media_behavior"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 type Indexer struct {
