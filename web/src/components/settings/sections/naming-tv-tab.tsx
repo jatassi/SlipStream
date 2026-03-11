@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Switch } from '@/components/ui/switch'
 import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
-import type { ModuleNamingSettings, UpdateModuleNamingRequest } from '@/types'
+import type { ModuleNamingSettings, TokenContext as BackendTokenContext, UpdateModuleNamingRequest } from '@/types'
 
 import {
   COLON_REPLACEMENT_OPTIONS,
@@ -184,13 +184,14 @@ function EpisodeRenamingCard({
   )
 }
 
-function EpisodeFormatCard({
-  form,
-  updatePattern,
-}: {
+type FormatCardProps = {
   form: UpdateModuleNamingRequest
   updatePattern: (key: string, value: string) => void
-}) {
+  dynamicTokenContexts?: BackendTokenContext[]
+}
+
+function EpisodeFormatCard({ form, updatePattern, dynamicTokenContexts }: FormatCardProps) {
+  const shared = { mediaType: 'episode' as const, tokenContext: 'episode', moduleId: MODULE_ID, dynamicTokenContexts }
   return (
     <Card>
       <CardHeader>
@@ -198,87 +199,26 @@ function EpisodeFormatCard({
         <CardDescription>Define naming patterns for different episode types</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <PatternEditor
-          label="Standard Episode Format"
-          value={form.patterns?.['episode-file.standard'] ?? ''}
-          onChange={(v) => updatePattern('episode-file.standard', v)}
-          description="For regular TV series"
-          mediaType="episode"
-          tokenContext="episode"
-          moduleId={MODULE_ID}
-          contextName="episode-file.standard"
-        />
-        <PatternEditor
-          label="Daily Episode Format"
-          value={form.patterns?.['episode-file.daily'] ?? ''}
-          onChange={(v) => updatePattern('episode-file.daily', v)}
-          description="For daily/date-based shows"
-          mediaType="episode"
-          tokenContext="episode"
-          moduleId={MODULE_ID}
-          contextName="episode-file.daily"
-        />
-        <PatternEditor
-          label="Anime Episode Format"
-          value={form.patterns?.['episode-file.anime'] ?? ''}
-          onChange={(v) => updatePattern('episode-file.anime', v)}
-          description="For anime series"
-          mediaType="episode"
-          tokenContext="episode"
-          moduleId={MODULE_ID}
-          contextName="episode-file.anime"
-        />
+        <PatternEditor label="Standard Episode Format" value={form.patterns?.['episode-file.standard'] ?? ''} onChange={(v) => updatePattern('episode-file.standard', v)} description="For regular TV series" contextName="episode-file.standard" {...shared} />
+        <PatternEditor label="Daily Episode Format" value={form.patterns?.['episode-file.daily'] ?? ''} onChange={(v) => updatePattern('episode-file.daily', v)} description="For daily/date-based shows" contextName="episode-file.daily" {...shared} />
+        <PatternEditor label="Anime Episode Format" value={form.patterns?.['episode-file.anime'] ?? ''} onChange={(v) => updatePattern('episode-file.anime', v)} description="For anime series" contextName="episode-file.anime" {...shared} />
       </CardContent>
     </Card>
   )
 }
 
-function FolderFormatCard({
-  form,
-  updatePattern,
-}: {
-  form: UpdateModuleNamingRequest
-  updatePattern: (key: string, value: string) => void
-}) {
+function FolderFormatCard({ form, updatePattern, dynamicTokenContexts }: FormatCardProps) {
+  const shared = { mediaType: 'folder' as const, moduleId: MODULE_ID, dynamicTokenContexts }
   return (
     <Card>
       <CardHeader>
         <CardTitle>Folder Format Patterns</CardTitle>
-        <CardDescription>
-          Define folder naming patterns for series organization
-        </CardDescription>
+        <CardDescription>Define folder naming patterns for series organization</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <PatternEditor
-          label="Series Folder Format"
-          value={form.patterns?.['series-folder'] ?? ''}
-          onChange={(v) => updatePattern('series-folder', v)}
-          description="Root folder for each series"
-          mediaType="folder"
-          tokenContext="series-folder"
-          moduleId={MODULE_ID}
-          contextName="series-folder"
-        />
-        <PatternEditor
-          label="Season Folder Format"
-          value={form.patterns?.['season-folder'] ?? ''}
-          onChange={(v) => updatePattern('season-folder', v)}
-          description="Subfolder for each season"
-          mediaType="folder"
-          tokenContext="season-folder"
-          moduleId={MODULE_ID}
-          contextName="season-folder"
-        />
-        <PatternEditor
-          label="Specials Folder Format"
-          value={form.patterns?.['specials-folder'] ?? ''}
-          onChange={(v) => updatePattern('specials-folder', v)}
-          description="Folder for specials (Season 0)"
-          mediaType="folder"
-          tokenContext="series-folder"
-          moduleId={MODULE_ID}
-          contextName="specials-folder"
-        />
+        <PatternEditor label="Series Folder Format" value={form.patterns?.['series-folder'] ?? ''} onChange={(v) => updatePattern('series-folder', v)} description="Root folder for each series" tokenContext="series-folder" contextName="series-folder" {...shared} />
+        <PatternEditor label="Season Folder Format" value={form.patterns?.['season-folder'] ?? ''} onChange={(v) => updatePattern('season-folder', v)} description="Subfolder for each season" tokenContext="season-folder" contextName="season-folder" {...shared} />
+        <PatternEditor label="Specials Folder Format" value={form.patterns?.['specials-folder'] ?? ''} onChange={(v) => updatePattern('specials-folder', v)} description="Folder for specials (Season 0)" tokenContext="series-folder" contextName="specials-folder" {...shared} />
       </CardContent>
     </Card>
   )
@@ -286,6 +226,7 @@ function FolderFormatCard({
 
 function TvNamingContent({ settings }: { settings: ModuleNamingSettings }) {
   const { form, updateField, updatePattern, isSaving } = useTvNamingForm(settings)
+  const dynamicTokenContexts = settings.tokenContexts
 
   return (
     <>
@@ -297,8 +238,8 @@ function TvNamingContent({ settings }: { settings: ModuleNamingSettings }) {
       </div>
       <FilenameTester mediaType="tv" />
       <EpisodeRenamingCard form={form} updateField={updateField} />
-      <EpisodeFormatCard form={form} updatePattern={updatePattern} />
-      <FolderFormatCard form={form} updatePattern={updatePattern} />
+      <EpisodeFormatCard form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
+      <FolderFormatCard form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
     </>
   )
 }

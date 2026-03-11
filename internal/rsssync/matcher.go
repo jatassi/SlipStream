@@ -85,6 +85,13 @@ func NewMatcher(index *WantedIndex, queries *sqlc.Queries, registry *module.Regi
 	}
 }
 
+// TODO: Integrate module SearchStrategy into RSS matching. Currently the matcher
+// uses its own title/year/season/episode comparison logic. The module's
+// SearchStrategy.TitlesMatch() should be used for title comparison, and
+// SearchStrategy.FilterRelease() should be called to validate matches before
+// they reach the scoring/grab phase. This would allow modules to define custom
+// matching and rejection rules for RSS sync (e.g., language filters, custom
+// title normalization).
 func (m *Matcher) Match(ctx context.Context, release *types.TorrentInfo) []MatchResult {
 	parsed := scanner.ParseFilename(release.Title)
 	if parsed == nil || parsed.Title == "" {

@@ -17,13 +17,13 @@ func (m *Module) CollectMissing(ctx context.Context) ([]module.SearchableItem, e
 	for _, row := range rows {
 		externalIDs := make(map[string]string)
 		if row.TmdbID.Valid {
-			externalIDs["tmdb"] = fmt.Sprintf("%d", row.TmdbID.Int64)
+			externalIDs["tmdbId"] = fmt.Sprintf("%d", row.TmdbID.Int64)
 		}
 		if row.ImdbID.Valid && row.ImdbID.String != "" {
-			externalIDs["imdb"] = row.ImdbID.String
+			externalIDs["imdbId"] = row.ImdbID.String
 		}
 		if row.TvdbID.Valid {
-			externalIDs["tvdb"] = fmt.Sprintf("%d", row.TvdbID.Int64)
+			externalIDs["tvdbId"] = fmt.Sprintf("%d", row.TvdbID.Int64)
 		}
 
 		var profileID int64
@@ -31,9 +31,14 @@ func (m *Module) CollectMissing(ctx context.Context) ([]module.SearchableItem, e
 			profileID = row.QualityProfileID.Int64
 		}
 
+		params := module.SearchParams{}
+		if row.Year.Valid {
+			params.Extra = map[string]any{"year": int(row.Year.Int64)}
+		}
+
 		items = append(items, module.NewWantedItem(
 			module.TypeMovie, "movie", row.ID, row.Title,
-			externalIDs, profileID, nil, module.SearchParams{},
+			externalIDs, profileID, nil, params,
 		))
 	}
 
@@ -50,13 +55,13 @@ func (m *Module) CollectUpgradable(ctx context.Context) ([]module.SearchableItem
 	for _, row := range rows {
 		externalIDs := make(map[string]string)
 		if row.TmdbID.Valid {
-			externalIDs["tmdb"] = fmt.Sprintf("%d", row.TmdbID.Int64)
+			externalIDs["tmdbId"] = fmt.Sprintf("%d", row.TmdbID.Int64)
 		}
 		if row.ImdbID.Valid && row.ImdbID.String != "" {
-			externalIDs["imdb"] = row.ImdbID.String
+			externalIDs["imdbId"] = row.ImdbID.String
 		}
 		if row.TvdbID.Valid {
-			externalIDs["tvdb"] = fmt.Sprintf("%d", row.TvdbID.Int64)
+			externalIDs["tvdbId"] = fmt.Sprintf("%d", row.TvdbID.Int64)
 		}
 
 		var profileID int64
@@ -70,9 +75,14 @@ func (m *Module) CollectUpgradable(ctx context.Context) ([]module.SearchableItem
 			currentQIDPtr = &v
 		}
 
+		params := module.SearchParams{}
+		if row.Year.Valid {
+			params.Extra = map[string]any{"year": int(row.Year.Int64)}
+		}
+
 		items = append(items, module.NewWantedItem(
 			module.TypeMovie, "movie", row.ID, row.Title,
-			externalIDs, profileID, currentQIDPtr, module.SearchParams{},
+			externalIDs, profileID, currentQIDPtr, params,
 		))
 	}
 

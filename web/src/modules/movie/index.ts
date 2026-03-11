@@ -1,3 +1,5 @@
+import { lazy } from 'react'
+
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -15,6 +17,8 @@ import { missingKeys } from '@/hooks/use-missing'
 import { movieKeys } from '@/hooks/use-movies'
 
 import type { ModuleConfig } from '../types'
+
+const MovieListPage = lazy(() => import('@/routes/movies').then((m) => ({ default: m.MoviesPage })))
 
 export const movieModuleConfig: ModuleConfig = {
   id: 'movie',
@@ -63,8 +67,12 @@ export const movieModuleConfig: ModuleConfig = {
 
   tableColumns: { static: [], defaults: [] },
 
+  listComponent: MovieListPage,
   cardComponent: MovieCard,
   detailComponent: () => null,
+
+  missingTabValue: 'movies',
+  missingCountKey: 'movieCount',
 
   api: {
     list: (options) => moviesApi.list(options),

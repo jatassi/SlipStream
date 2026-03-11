@@ -152,9 +152,9 @@ export const TOKEN_REFERENCE = {
 
 export type TokenCategory = keyof typeof TOKEN_REFERENCE
 
-export type TokenContext = 'episode' | 'movie' | 'series-folder' | 'season-folder' | 'movie-folder'
+export type StaticTokenContext = 'episode' | 'movie' | 'series-folder' | 'season-folder' | 'movie-folder'
 
-export const TOKEN_CATEGORIES_BY_CONTEXT: Record<TokenContext, TokenCategory[]> = {
+export const TOKEN_CATEGORIES_BY_CONTEXT: Record<StaticTokenContext, TokenCategory[]> = {
   episode: ['series', 'season', 'episode', 'anime', 'quality', 'mediaInfo', 'other'],
   movie: ['movie', 'quality', 'mediaInfo', 'other'],
   'series-folder': ['series'],

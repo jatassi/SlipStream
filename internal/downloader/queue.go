@@ -10,7 +10,6 @@ import (
 	"github.com/slipstream/slipstream/internal/downloader/mock"
 	"github.com/slipstream/slipstream/internal/downloader/types"
 	"github.com/slipstream/slipstream/internal/library/scanner"
-	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -169,22 +168,19 @@ func (s *Service) enrichSingleQueueItem(item *QueueItem, mappingLookup map[strin
 }
 
 func populateQueueItemFromMapping(item *QueueItem, mapping *sqlc.DownloadMapping) {
-	switch mapping.ModuleType {
-	case "movie":
-		movieID := mapping.EntityID
-		item.MovieID = &movieID
+	entityID := mapping.EntityID
+	switch mapping.EntityType {
+	case mediaTypeMovie:
+		item.MovieID = &entityID
 		item.MediaType = mediaTypeMovie
-	case "tv":
-		switch mapping.EntityType {
-		case mediaTypeEpisode:
-			episodeID := mapping.EntityID
-			item.EpisodeID = &episodeID
-			item.MediaType = mediaTypeSeries
-		case mediaTypeSeries:
-			seriesID := mapping.EntityID
-			item.SeriesID = &seriesID
-			item.MediaType = mediaTypeSeries
-		}
+	case mediaTypeEpisode:
+		item.EpisodeID = &entityID
+		item.MediaType = mediaTypeSeries
+	case mediaTypeSeries:
+		item.SeriesID = &entityID
+		item.MediaType = mediaTypeSeries
+	default:
+		item.MediaType = mapping.ModuleType
 	}
 	if mapping.SeasonNumber.Valid {
 		seasonNum := int(mapping.SeasonNumber.Int64)
@@ -298,36 +294,18 @@ func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64,
 }
 
 // detectMediaType determines if the download is a movie or series based on the path.
-// Uses the module registry when available for module-aware detection,
-// falling back to legacy hard-coded path matching otherwise.
+// Uses the module registry to match against each module's PluralName subdirectory.
 func (s *Service) detectMediaType(path string) string {
-	if s.registry != nil {
-		return detectModuleType(path, s.registry)
+	if s.registry == nil {
+		s.logger.Warn().Msg("Module registry not available for media type detection")
+		return "unknown"
 	}
-	return detectMediaTypeLegacy(path)
-}
-
-// detectModuleType determines the module type from the download path using
-// the module registry. Returns string(mod.ID()) (e.g., "movie", "tv").
-func detectModuleType(path string, registry *module.Registry) string {
 	pathLower := strings.ToLower(path)
-	for _, mod := range registry.All() {
+	for _, mod := range s.registry.All() {
 		subdir := strings.ToLower("slipstream/" + mod.PluralName())
 		if strings.Contains(pathLower, subdir) || strings.Contains(pathLower, strings.ReplaceAll(subdir, "/", "\\")) {
 			return string(mod.ID())
 		}
-	}
-	return "unknown"
-}
-
-// detectMediaTypeLegacy is the original hard-coded detection logic.
-func detectMediaTypeLegacy(path string) string {
-	pathLower := strings.ToLower(path)
-	if strings.Contains(pathLower, "slipstream/movies") || strings.Contains(pathLower, "slipstream\\movies") {
-		return mediaTypeMovie
-	}
-	if strings.Contains(pathLower, "slipstream/series") || strings.Contains(pathLower, "slipstream\\series") {
-		return mediaTypeSeries
 	}
 	return "unknown"
 }

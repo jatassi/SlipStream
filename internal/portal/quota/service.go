@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -35,8 +36,9 @@ type QuotaStatus struct {
 }
 
 type Service struct {
-	queries *sqlc.Queries
-	logger  *zerolog.Logger
+	queries  *sqlc.Queries
+	registry *module.Registry
+	logger   *zerolog.Logger
 }
 
 func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
@@ -49,6 +51,10 @@ func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
 
 func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
+}
+
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 func (s *Service) CheckQuota(ctx context.Context, userID int64, moduleType string) (bool, error) {
@@ -130,7 +136,7 @@ func (s *Service) GetQuotaStatus(ctx context.Context, userID int64) (*QuotaStatu
 func (s *Service) GetGlobalDefaults(ctx context.Context) map[string]int64 {
 	defaults := map[string]int64{}
 
-	for _, moduleType := range []string{"movie", "tv"} {
+	for _, moduleType := range s.moduleTypes() {
 		key := fmt.Sprintf(SettingDefaultQuotaPrefix, moduleType)
 		if setting, err := s.queries.GetSetting(ctx, key); err == nil {
 			if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
@@ -142,6 +148,18 @@ func (s *Service) GetGlobalDefaults(ctx context.Context) map[string]int64 {
 	}
 
 	return defaults
+}
+
+func (s *Service) moduleTypes() []string {
+	if s.registry != nil {
+		types := s.registry.Types()
+		result := make([]string, len(types))
+		for i, t := range types {
+			result[i] = string(t)
+		}
+		return result
+	}
+	return []string{string(module.TypeMovie), string(module.TypeTV)}
 }
 
 func (s *Service) SetGlobalDefault(ctx context.Context, moduleType string, limit int64) error {

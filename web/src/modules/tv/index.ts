@@ -1,3 +1,5 @@
+import { lazy } from 'react'
+
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -17,6 +19,8 @@ import { missingKeys } from '@/hooks/use-missing'
 import { seriesKeys } from '@/hooks/use-series'
 
 import type { ModuleConfig } from '../types'
+
+const SeriesListPage = lazy(() => import('@/routes/series').then((m) => ({ default: m.SeriesListPage })))
 
 export const tvModuleConfig: ModuleConfig = {
   id: 'tv',
@@ -67,8 +71,12 @@ export const tvModuleConfig: ModuleConfig = {
 
   tableColumns: { static: [], defaults: [] },
 
+  listComponent: SeriesListPage,
   cardComponent: SeriesCard,
   detailComponent: () => null,
+
+  missingTabValue: 'series',
+  missingCountKey: 'episodeCount',
 
   api: {
     list: (options) => seriesApi.list(options),

@@ -20,19 +20,10 @@ type CalendarEvent struct {
 	Status    string `json:"status"`    // "missing", "available", "downloading"
 	Monitored bool   `json:"monitored"`
 
-	// Movie-specific
-	TmdbID int `json:"tmdbId,omitempty"`
-	Year   int `json:"year,omitempty"`
-
-	// Episode-specific
-	SeriesID      int64  `json:"seriesId,omitempty"`
-	SeriesTitle   string `json:"seriesTitle,omitempty"`
-	SeasonNumber  int    `json:"seasonNumber"`
-	EpisodeNumber int    `json:"episodeNumber"`
-	Network       string `json:"network,omitempty"`
-
-	// Streaming services with early release (Apple TV+)
-	EarlyAccess bool `json:"earlyAccess"`
+	// Extra holds module-specific fields (e.g., tmdbId, year, seriesId,
+	// seasonNumber, episodeNumber, network, earlyAccess). Keyed by the same
+	// JSON names the frontend expects so serialization is transparent.
+	Extra map[string]any `json:"extra,omitempty"`
 }
 
 // Service provides calendar operations.
@@ -54,7 +45,7 @@ func NewService(registry *module.Registry, logger *zerolog.Logger) *Service {
 // Events are fetched via module CalendarProvider implementations.
 func (s *Service) GetEvents(ctx context.Context, start, end time.Time) ([]CalendarEvent, error) {
 	var events []CalendarEvent
-	for _, mod := range s.registry.All() {
+	for _, mod := range s.registry.Enabled() {
 		provider, ok := mod.(module.CalendarProvider)
 		if !ok {
 			continue
@@ -80,31 +71,28 @@ func calendarItemToEvent(item *module.CalendarItem) CalendarEvent {
 		Date:      item.Date.Format("2006-01-02"),
 		Status:    item.Status,
 		Monitored: item.Monitored,
-		Year:      item.Year,
+		Extra:     make(map[string]any),
+	}
+
+	if item.Year != 0 {
+		event.Extra["year"] = item.Year
 	}
 
 	if tmdb, ok := item.ExternalIDs["tmdb"]; ok {
-		event.TmdbID, _ = strconv.Atoi(tmdb)
+		if id, err := strconv.Atoi(tmdb); err == nil {
+			event.Extra["tmdbId"] = id
+		}
 	}
 
 	if item.ParentID != 0 {
-		event.SeriesID = item.ParentID
-		event.SeriesTitle = item.ParentTitle
+		event.Extra["seriesId"] = item.ParentID
+		event.Extra["seriesTitle"] = item.ParentTitle
 	}
 
-	if extra := item.Extra; extra != nil {
-		if sn, ok := extra["seasonNumber"].(int); ok {
-			event.SeasonNumber = sn
-		}
-		if en, ok := extra["episodeNumber"].(int); ok {
-			event.EpisodeNumber = en
-		}
-		if net, ok := extra["network"].(string); ok {
-			event.Network = net
-		}
-		if ea, ok := extra["earlyAccess"].(bool); ok {
-			event.EarlyAccess = ea
-		}
+	// Forward all module-specific extra fields (seasonNumber, episodeNumber,
+	// network, earlyAccess, etc.) directly into the event Extra map.
+	for k, v := range item.Extra {
+		event.Extra[k] = v
 	}
 
 	return event

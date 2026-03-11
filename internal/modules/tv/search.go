@@ -3,6 +3,7 @@ package tv
 import (
 	"context"
 
+	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/module/titleutil"
@@ -123,8 +124,26 @@ func (m *Module) IsGroupSearchEligible(ctx context.Context, _ module.EntityType,
 }
 
 // SuppressChildSearches returns episode IDs covered by a season pack grab.
-func (m *Module) SuppressChildSearches(_ module.EntityType, _ int64, _ int) []int64 {
-	return nil
+// parentID is the series ID, seasonNumber identifies which season was grabbed.
+func (m *Module) SuppressChildSearches(_ module.EntityType, parentID int64, seasonNumber int) []int64 {
+	if seasonNumber <= 0 {
+		return nil
+	}
+
+	episodes, err := m.queries.ListEpisodesBySeason(context.Background(), sqlc.ListEpisodesBySeasonParams{
+		SeriesID:     parentID,
+		SeasonNumber: int64(seasonNumber),
+	})
+	if err != nil {
+		m.logger.Warn().Err(err).Int64("seriesID", parentID).Int("seasonNumber", seasonNumber).Msg("Failed to list episodes for child search suppression")
+		return nil
+	}
+
+	ids := make([]int64, len(episodes))
+	for i, ep := range episodes {
+		ids[i] = ep.ID
+	}
+	return ids
 }
 
 func (m *Module) extractSeasonNumber(item module.SearchableItem) int {

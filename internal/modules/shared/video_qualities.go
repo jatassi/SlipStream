@@ -1,6 +1,103 @@
 package shared
 
-import "github.com/slipstream/slipstream/internal/module"
+import (
+	"strings"
+
+	"github.com/slipstream/slipstream/internal/module"
+	"github.com/slipstream/slipstream/internal/module/parseutil"
+)
+
+// sourceNormMap maps parseutil source strings (lowercased) to quality source identifiers.
+var sourceNormMap = map[string]string{
+	"remux":   "remux",
+	"bluray":  "bluray",
+	"blu-ray": "bluray",
+	"bdrip":   "bluray",
+	"brrip":   "bluray",
+	"webrip":  "webrip",
+	"web-dl":  "webdl",
+	"webdl":   "webdl",
+	"web":     "webdl",
+	"hdtv":    "tv",
+	"sdtv":    "tv",
+	"pdtv":    "tv",
+	"dsr":     "tv",
+	"dvdrip":  "dvd",
+	"dvd-r":   "dvd",
+	"dvd":     "dvd",
+	"cam":     "",
+}
+
+// resolutionMap maps resolution strings to integer values.
+var resolutionMap = map[string]int{
+	"2160p": 2160,
+	"1080p": 1080,
+	"720p":  720,
+	"480p":  480,
+}
+
+// normalizeSource converts a parseutil source string to a quality source identifier.
+func normalizeSource(source string) string {
+	if normalized, ok := sourceNormMap[strings.ToLower(source)]; ok {
+		return normalized
+	}
+	return ""
+}
+
+// matchQualityItem finds the best matching QualityItem for the given source and resolution.
+func matchQualityItem(normalizedSource string, resolution int) *module.QualityItem {
+	items := VideoQualityItems()
+
+	if match := matchExact(items, normalizedSource, resolution); match != nil {
+		return match
+	}
+	if match := matchByField(items, func(q *module.QualityItem) bool { return q.Resolution == resolution }, resolution > 0); match != nil {
+		return match
+	}
+	return matchByField(items, func(q *module.QualityItem) bool { return q.Source == normalizedSource }, normalizedSource != "")
+}
+
+func matchExact(items []module.QualityItem, source string, resolution int) *module.QualityItem {
+	if source == "" || resolution == 0 {
+		return nil
+	}
+	for i := range items {
+		if items[i].Source == source && items[i].Resolution == resolution {
+			return &items[i]
+		}
+	}
+	return nil
+}
+
+func matchByField(items []module.QualityItem, predicate func(*module.QualityItem) bool, enabled bool) *module.QualityItem {
+	if !enabled {
+		return nil
+	}
+	var best *module.QualityItem
+	for i := range items {
+		if predicate(&items[i]) && (best == nil || items[i].Weight > best.Weight) {
+			best = &items[i]
+		}
+	}
+	return best
+}
+
+// ParseVideoQuality parses a release title and returns the matched QualityResult.
+// Delegates to parseutil for title parsing and matches against the standard video quality items.
+func ParseVideoQuality(releaseTitle string) (*module.QualityResult, error) {
+	qualityStr, source, _ := parseutil.ParseVideoQuality(releaseTitle)
+
+	resolution := resolutionMap[qualityStr]
+	normalizedSource := normalizeSource(source)
+
+	result := &module.QualityResult{}
+	if matched := matchQualityItem(normalizedSource, resolution); matched != nil {
+		result.Quality = *matched
+	}
+
+	result.Proper = strings.EqualFold(parseutil.ParseRevision(releaseTitle), "proper")
+	return result, nil
+}
 
 // VideoQualityItems returns the 17 standard video quality tiers used by
 // both the Movie and TV modules. Future non-video modules (music, books)

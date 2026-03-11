@@ -62,6 +62,20 @@ func NewTestDB(t *testing.T) *TestDB {
 	}
 }
 
+// MigrateModules runs per-module migrations using the provided migrate function.
+// This avoids importing the module package directly (which would cause an import cycle
+// with packages like quality). Usage:
+//
+//	tdb.MigrateModules(t, func(db *sql.DB) error {
+//	    return module.MigrateAll(db, registry)
+//	})
+func (tdb *TestDB) MigrateModules(t *testing.T, migrateFunc func(db *sql.DB) error) {
+	t.Helper()
+	if err := migrateFunc(tdb.Conn); err != nil {
+		t.Fatalf("Failed to run module migrations: %v", err)
+	}
+}
+
 // Close closes the database and removes the temp directory.
 func (tdb *TestDB) Close() {
 	if tdb.Manager != nil {

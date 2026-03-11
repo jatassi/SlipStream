@@ -272,20 +272,20 @@ func (s *Service) dispatchToNotifier(ctx context.Context, notifier Notifier, eve
 	if eventType == EventUpgrade {
 		return s.dispatchUpgrade(ctx, notifier, event)
 	}
-	if eventType == EventMovieAdded {
+	if eventType == "movie:added" {
 		return s.dispatchMovieAdded(ctx, notifier, event)
 	}
-	if eventType == EventMovieDeleted {
+	if eventType == "movie:deleted" {
 		return s.dispatchMovieDeleted(ctx, notifier, event)
 	}
 	return s.dispatchRemainingEvents(ctx, notifier, eventType, event)
 }
 
 func (s *Service) dispatchRemainingEvents(ctx context.Context, notifier Notifier, eventType EventType, event any) error {
-	if eventType == EventSeriesAdded {
+	if eventType == "tv:added" {
 		return s.dispatchSeriesAdded(ctx, notifier, event)
 	}
-	if eventType == EventSeriesDeleted {
+	if eventType == "tv:deleted" {
 		return s.dispatchSeriesDeleted(ctx, notifier, event)
 	}
 	if eventType == EventHealthIssue {
@@ -543,22 +543,22 @@ func (s *Service) DispatchUpgrade(ctx context.Context, event *UpgradeEvent) {
 
 // DispatchMovieAdded dispatches a movie added notification.
 func (s *Service) DispatchMovieAdded(ctx context.Context, event *MovieAddedEvent) {
-	s.Dispatch(ctx, EventMovieAdded, event)
+	s.Dispatch(ctx, "movie:added", event)
 }
 
 // DispatchMovieDeleted dispatches a movie deleted notification.
 func (s *Service) DispatchMovieDeleted(ctx context.Context, event *MovieDeletedEvent) {
-	s.Dispatch(ctx, EventMovieDeleted, event)
+	s.Dispatch(ctx, "movie:deleted", event)
 }
 
 // DispatchSeriesAdded dispatches a series added notification.
 func (s *Service) DispatchSeriesAdded(ctx context.Context, event *SeriesAddedEvent) {
-	s.Dispatch(ctx, EventSeriesAdded, event)
+	s.Dispatch(ctx, "tv:added", event)
 }
 
 // DispatchSeriesDeleted dispatches a series deleted notification.
 func (s *Service) DispatchSeriesDeleted(ctx context.Context, event *SeriesDeletedEvent) {
-	s.Dispatch(ctx, EventSeriesDeleted, event)
+	s.Dispatch(ctx, "tv:deleted", event)
 }
 
 // CreateNotifierFromConfig creates a notifier from type, name, and settings.

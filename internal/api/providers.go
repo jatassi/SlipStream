@@ -171,10 +171,14 @@ func provideSearchLimiter(queries *sqlc.Queries) *portalratelimit.SearchLimiter 
 
 // --- Module providers ---
 
-func provideRegistry(movieMod *moviemod.Module, tvMod *tvmod.Module) *module.Registry {
+func provideRegistry(db *sql.DB, movieMod *moviemod.Module, tvMod *tvmod.Module) *module.Registry {
 	reg := module.NewRegistry()
 	reg.Register(movieMod)
 	reg.Register(tvMod)
+
+	if err := module.MigrateAll(db, reg); err != nil {
+		panic("failed to run module migrations: " + err.Error())
+	}
 
 	scanner.SetGlobalRegistry(module.NewScannerRegistryAdapter(reg))
 

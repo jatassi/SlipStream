@@ -138,6 +138,7 @@ type TaskProvider interface {
 }
 
 // Optional interfaces — modules may implement these for additional capabilities:
+//   - Migrator (migrate.go): per-module migration track with independent version table
 //   - PortalProvisioner (portal_provisioner.go): portal request support
 //   - SlotSupport (slot_support.go): multi-version slot support
 //   - ArrImportAdapter (optional_interfaces.go): generic import from external *arr apps

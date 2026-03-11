@@ -823,6 +823,8 @@ func (s *Service) transitionMovieToMissingAfterFileRemoval(ctx context.Context, 
 }
 
 // rowToMovieFile converts a database row to a MovieFile.
+// Similar to tv.Service.rowToEpisodeFile — kept separate because the sqlc-generated
+// input types have no shared interface and the domain types differ in parent ID field.
 func (s *Service) rowToMovieFile(row *sqlc.MovieFile) MovieFile {
 	return MovieFile{
 		ID:            row.ID,

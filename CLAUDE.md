@@ -12,18 +12,23 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 ## Scoped Documentation
 
 - `web/CLAUDE.md` — Frontend patterns, design system, component gotchas
-- `internal/CLAUDE.md` — Backend patterns, service layer, auto search pipeline
+- `internal/CLAUDE.md` — Backend patterns, service layer, module framework, auto search pipeline
+- `docs/adding-a-module.md` — Step-by-step guide for adding a new media module
 - `docs/` — Feature specs and design documents
 
 ## Project Structure
 
 - `cmd/slipstream/` — Application entrypoint
 - `internal/` — All backend packages (services, handlers, database, etc.)
+- `internal/module/` — Module framework: interfaces, registry, schema, migrations
+- `internal/modules/` — Module implementations (`movie/`, `tv/`, `shared/`)
 - `web/` — React frontend (Vite + TanStack Router + TanStack Query)
+- `web/src/modules/` — Frontend module configs and registry
 - `configs/` — Config files and .env
 - `internal/domain/contracts/` — Shared service interfaces
 - `internal/portal/provisioner/` — Media provisioning service
 - `scripts/` — Build, lint, and utility scripts
+- `scripts/new-module/` — Scaffolding tool for new modules
 
 ## Mandatory Directives
 
@@ -69,8 +74,11 @@ Additional lint helper scripts in `scripts/lint/`.
 
 ## Key Patterns
 
+### Module System
+Media types (movie, TV, etc.) are implemented as pluggable modules. Each module is a Go struct satisfying the composite `module.Module` interface (16 required sub-interfaces) registered in a central `module.Registry`. The frontend mirrors this with `ModuleConfig` objects in `web/src/modules/`. Modules own their own DB migrations, quality definitions, search strategies, naming templates, and scheduled tasks. See `docs/adding-a-module.md` for the full guide, `internal/module/interfaces.go` for interface definitions, and `scripts/new-module/` for scaffolding.
+
 ### Database
-SQLite with WAL mode. Migrations via Goose (embedded). Queries via sqlc (type-safe generated Go).
+SQLite with WAL mode. Framework migrations via Goose (embedded). Per-module migrations in `internal/modules/<id>/migrations/` with independent version tables. Queries via sqlc (type-safe generated Go).
 
 ### Configuration
 Priority: environment variables > `.env` file > config.yaml > defaults

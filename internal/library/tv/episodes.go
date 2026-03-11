@@ -453,6 +453,8 @@ func (s *Service) rowToEpisode(row *sqlc.Episode) Episode {
 }
 
 // rowToEpisodeFile converts a database row to an EpisodeFile.
+// Similar to movies.Service.rowToMovieFile — kept separate because the sqlc-generated
+// input types have no shared interface and the domain types differ in parent ID field.
 func (s *Service) rowToEpisodeFile(row *sqlc.EpisodeFile) EpisodeFile {
 	return EpisodeFile{
 		ID:            row.ID,

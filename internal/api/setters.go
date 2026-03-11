@@ -76,21 +76,16 @@ func wireCircularDeps(s *Server) {
 	// Portal: AutoApprove ↔ RequestSearcher
 	s.portal.RequestSearcher.SetUserGetter(&portalUserQualityProfileAdapter{usersSvc: s.portal.Users})
 	s.portal.RequestSearcher.SetDevMode(s.dbManager.IsDevMode)
+	s.portal.RequestSearcher.SetRegistry(s.registry)
 	s.portal.AutoApprove.SetRequestSearcher(s.portal.RequestSearcher)
+	s.portal.AutoApprove.SetRegistry(s.registry)
+	s.portal.Quota.SetRegistry(s.registry)
 }
 
 // wireLateBindings wires dependencies that are unavailable at construction time:
 // lambda callbacks, configuration loading, scheduler tasks, and cleanup goroutines.
 func wireLateBindings(s *Server) {
-	// Load saved settings into config before creating scheduler tasks
-	db := s.dbManager.Conn()
-	queries := sqlc.New(db)
-	if err := autosearch.LoadSettingsIntoConfig(context.Background(), queries, &s.cfg.AutoSearch); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to load autosearch settings, using defaults")
-	}
-	if err := rsssync.LoadSettingsIntoConfig(context.Background(), queries, &s.cfg.RssSync); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to load RSS sync settings, using defaults")
-	}
+	s.loadSavedSettings()
 
 	// WebSocket hub callbacks
 	if s.hub != nil {
@@ -127,7 +122,7 @@ func wireLateBindings(s *Server) {
 	s.metadata.RealOMDBClient = omdb.NewClient(s.cfg.Metadata.OMDB, s.logger)
 
 	// Initialize update service (depends on scheduler)
-	s.system.Update = update.NewService(db, s.logger, s.restartChan)
+	s.system.Update = update.NewService(s.dbManager.Conn(), s.logger, s.restartChan)
 	s.system.Update.SetBroadcaster(s.hub)
 	s.system.Update.SetPort(s.cfg.Server.Port)
 
@@ -149,6 +144,23 @@ func wireLateBindings(s *Server) {
 	// Start cleanup goroutines
 	s.portal.SearchLimiter.StartCleanup(5 * time.Minute)
 	s.security.AuthLimiter.StartCleanup(5 * time.Minute)
+}
+
+// loadSavedSettings loads persisted settings into runtime config and caches.
+func (s *Server) loadSavedSettings() {
+	db := s.dbManager.Conn()
+	queries := sqlc.New(db)
+	ctx := context.Background()
+
+	if err := autosearch.LoadSettingsIntoConfig(ctx, queries, &s.cfg.AutoSearch); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load autosearch settings, using defaults")
+	}
+	if err := rsssync.LoadSettingsIntoConfig(ctx, queries, &s.cfg.RssSync); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load RSS sync settings, using defaults")
+	}
+	if err := s.registry.LoadEnabledState(ctx, db); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to load module enabled state, all modules enabled by default")
+	}
 }
 
 // registerSchedulerTasks registers all scheduler tasks.

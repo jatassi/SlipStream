@@ -1065,6 +1065,7 @@ func (s *Service) getSlotFileID(ctx context.Context, match *LibraryMatch, slotID
 }
 
 // getFilePath returns the file path for a given file ID and media type.
+// TODO: dispatch to modules via registry (e.g., mod.GetFilePath(ctx, fileID)) when modules provide file queries
 func (s *Service) getFilePath(ctx context.Context, mediaType string, fileID int64) string {
 	switch mediaType {
 	case "movie":

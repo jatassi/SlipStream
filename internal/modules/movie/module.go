@@ -19,6 +19,7 @@ import (
 )
 
 var _ module.QualityDefinition = (*Descriptor)(nil)
+var _ module.Migrator = (*Module)(nil)
 var _ module.MonitoringPresets = (*Module)(nil)
 var _ module.MonitoringCascader = (*Module)(nil)
 var _ module.ReleaseDateResolver = (*Module)(nil)
@@ -28,6 +29,7 @@ var _ module.NotificationEvents = (*Module)(nil)
 var _ module.PortalProvisioner = (*Module)(nil)
 var _ module.SlotSupport = (*Module)(nil)
 var _ module.MovieArrImportAdapter = (*Module)(nil)
+var _ module.Module = (*Module)(nil)
 
 // Movie module notification event IDs.
 const (
@@ -72,9 +74,8 @@ func (d *Descriptor) QualityItems() []module.QualityItem {
 	return shared.VideoQualityItems()
 }
 
-func (d *Descriptor) ParseQuality(_ string) (*module.QualityResult, error) {
-	// Stub — delegates to existing parser in Phase 5
-	return &module.QualityResult{}, nil
+func (d *Descriptor) ParseQuality(releaseTitle string) (*module.QualityResult, error) {
+	return shared.ParseVideoQuality(releaseTitle)
 }
 
 func (d *Descriptor) ScoreQuality(item module.QualityItem) int {
@@ -82,9 +83,10 @@ func (d *Descriptor) ScoreQuality(item module.QualityItem) int {
 	return item.Weight
 }
 
-func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, profileID int64) (bool, error) {
-	// Stub — upgrade logic lives on Profile, not the module.
-	return false, nil
+func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, _ int64) (bool, error) {
+	// Basic quality ordering: higher weight = higher quality.
+	// Profile-aware cutoff logic is handled by the quality profile service.
+	return candidate.Weight > current.Weight, nil
 }
 
 // Module is the top-level movie module satisfying module.Module.

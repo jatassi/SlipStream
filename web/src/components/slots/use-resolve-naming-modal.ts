@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
+import { getEnabledModules } from '@/modules'
 import type { MissingTokenInfo, ModuleNamingSettings } from '@/types'
 
 type NamingFormats = {
@@ -55,36 +56,65 @@ function computeAllMissing(
   }
 }
 
-function buildFormFromSettings(movie: ModuleNamingSettings, tv: ModuleNamingSettings): Partial<NamingFormats> {
+function buildFormFromSettings(settingsMap: Map<string, ModuleNamingSettings>): Partial<NamingFormats> {
+  const movie = settingsMap.get('movie')
+  const tv = settingsMap.get('tv')
   return {
-    standardEpisodeFormat: tv.patterns['episode-file.standard'] ?? '',
-    dailyEpisodeFormat: tv.patterns['episode-file.daily'] ?? '',
-    animeEpisodeFormat: tv.patterns['episode-file.anime'] ?? '',
-    movieFileFormat: movie.patterns['movie-file'] ?? '',
+    standardEpisodeFormat: tv?.patterns['episode-file.standard'] ?? '',
+    dailyEpisodeFormat: tv?.patterns['episode-file.daily'] ?? '',
+    animeEpisodeFormat: tv?.patterns['episode-file.anime'] ?? '',
+    movieFileFormat: movie?.patterns['movie-file'] ?? '',
   }
 }
 
-function buildMovieUpdate(movie: ModuleNamingSettings, form: Partial<NamingFormats>) {
-  return {
-    renameEnabled: movie.renameEnabled,
-    colonReplacement: movie.colonReplacement,
-    customColonReplacement: movie.customColonReplacement,
-    patterns: { ...movie.patterns, 'movie-file': form.movieFileFormat ?? movie.patterns['movie-file'] },
+function buildModuleUpdate(settings: ModuleNamingSettings, form: Partial<NamingFormats>, moduleId: string) {
+  const base = {
+    renameEnabled: settings.renameEnabled,
+    colonReplacement: settings.colonReplacement,
+    customColonReplacement: settings.customColonReplacement,
   }
+
+  if (moduleId === 'movie') {
+    return {
+      ...base,
+      patterns: { ...settings.patterns, 'movie-file': form.movieFileFormat ?? settings.patterns['movie-file'] },
+    }
+  }
+
+  if (moduleId === 'tv') {
+    return {
+      ...base,
+      patterns: {
+        ...settings.patterns,
+        'episode-file.standard': form.standardEpisodeFormat ?? settings.patterns['episode-file.standard'],
+        'episode-file.daily': form.dailyEpisodeFormat ?? settings.patterns['episode-file.daily'],
+        'episode-file.anime': form.animeEpisodeFormat ?? settings.patterns['episode-file.anime'],
+      },
+    }
+  }
+
+  return { ...base, patterns: { ...settings.patterns } }
 }
 
-function buildTvUpdate(tv: ModuleNamingSettings, form: Partial<NamingFormats>) {
-  return {
-    renameEnabled: tv.renameEnabled,
-    colonReplacement: tv.colonReplacement,
-    customColonReplacement: tv.customColonReplacement,
-    patterns: {
-      ...tv.patterns,
-      'episode-file.standard': form.standardEpisodeFormat ?? tv.patterns['episode-file.standard'],
-      'episode-file.daily': form.dailyEpisodeFormat ?? tv.patterns['episode-file.daily'],
-      'episode-file.anime': form.animeEpisodeFormat ?? tv.patterns['episode-file.anime'],
-    },
+function useModuleNamingQueries() {
+  const modules = getEnabledModules()
+  const queries = modules.map((mod) => ({
+    moduleId: mod.id,
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    query: useModuleNamingSettings(mod.id),
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    mutation: useUpdateModuleNamingSettings(mod.id),
+  }))
+
+  const allLoaded = queries.every((q) => q.query.data !== undefined)
+  const settingsMap = new Map<string, ModuleNamingSettings>()
+  for (const q of queries) {
+    if (q.query.data) {
+      settingsMap.set(q.moduleId, q.query.data)
+    }
   }
+
+  return { queries, allLoaded, settingsMap }
 }
 
 export function useResolveNamingModal({
@@ -94,34 +124,33 @@ export function useResolveNamingModal({
   missingEpisodeTokens,
   onResolved,
 }: UseResolveNamingModalParams) {
-  const { data: movieNaming } = useModuleNamingSettings('movie')
-  const { data: tvNaming } = useModuleNamingSettings('tv')
-  const updateMovie = useUpdateModuleNamingSettings('movie')
-  const updateTv = useUpdateModuleNamingSettings('tv')
+  const { queries, allLoaded, settingsMap } = useModuleNamingQueries()
 
   const [form, setForm] = useState<Partial<NamingFormats>>({})
   const [saving, setSaving] = useState(false)
   const [prevOpen, setPrevOpen] = useState(open)
-  const [prevMovie, setPrevMovie] = useState(movieNaming)
-  const [prevTv, setPrevTv] = useState(tvNaming)
+  const [prevSettingsMap, setPrevSettingsMap] = useState(settingsMap)
 
-  if (open !== prevOpen || movieNaming !== prevMovie || tvNaming !== prevTv) {
+  const settingsChanged = prevSettingsMap.size !== settingsMap.size ||
+    [...settingsMap.entries()].some(([k, v]) => prevSettingsMap.get(k) !== v)
+
+  if (open !== prevOpen || settingsChanged) {
     setPrevOpen(open)
-    setPrevMovie(movieNaming)
-    setPrevTv(tvNaming)
-    if (open && movieNaming && tvNaming) {
-      setForm(buildFormFromSettings(movieNaming, tvNaming))
+    setPrevSettingsMap(settingsMap)
+    if (open && allLoaded) {
+      setForm(buildFormFromSettings(settingsMap))
     }
   }
 
   const handleSave = async () => {
-    if (!movieNaming || !tvNaming) { return }
+    if (!allLoaded) { return }
     setSaving(true)
     try {
-      await Promise.all([
-        updateMovie.mutateAsync(buildMovieUpdate(movieNaming, form)),
-        updateTv.mutateAsync(buildTvUpdate(tvNaming, form)),
-      ])
+      await Promise.all(
+        queries
+          .filter((q): q is typeof q & { query: { data: ModuleNamingSettings } } => q.query.data !== undefined)
+          .map((q) => q.mutation.mutateAsync(buildModuleUpdate(q.query.data, form, q.moduleId))),
+      )
       toast.success('Naming formats updated')
       onOpenChange(false)
       onResolved()

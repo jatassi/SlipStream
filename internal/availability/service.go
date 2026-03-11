@@ -40,7 +40,7 @@ func (s *Service) RefreshAll(ctx context.Context) error {
 	s.logger.Info().Msg("Starting status refresh for all media")
 
 	totalTransitioned := 0
-	for _, mod := range s.registry.All() {
+	for _, mod := range s.registry.Enabled() {
 		resolver, ok := mod.(module.ReleaseDateResolver)
 		if !ok {
 			continue

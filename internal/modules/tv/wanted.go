@@ -17,13 +17,13 @@ func (m *Module) CollectMissing(ctx context.Context) ([]module.SearchableItem, e
 	for _, row := range rows {
 		externalIDs := make(map[string]string)
 		if row.SeriesTvdbID.Valid {
-			externalIDs["tvdb"] = fmt.Sprintf("%d", row.SeriesTvdbID.Int64)
+			externalIDs["tvdbId"] = fmt.Sprintf("%d", row.SeriesTvdbID.Int64)
 		}
 		if row.SeriesTmdbID.Valid {
-			externalIDs["tmdb"] = fmt.Sprintf("%d", row.SeriesTmdbID.Int64)
+			externalIDs["tmdbId"] = fmt.Sprintf("%d", row.SeriesTmdbID.Int64)
 		}
 		if row.SeriesImdbID.Valid && row.SeriesImdbID.String != "" {
-			externalIDs["imdb"] = row.SeriesImdbID.String
+			externalIDs["imdbId"] = row.SeriesImdbID.String
 		}
 
 		var profileID int64
@@ -57,13 +57,13 @@ func (m *Module) CollectUpgradable(ctx context.Context) ([]module.SearchableItem
 	for _, row := range rows {
 		externalIDs := make(map[string]string)
 		if row.SeriesTvdbID.Valid {
-			externalIDs["tvdb"] = fmt.Sprintf("%d", row.SeriesTvdbID.Int64)
+			externalIDs["tvdbId"] = fmt.Sprintf("%d", row.SeriesTvdbID.Int64)
 		}
 		if row.SeriesTmdbID.Valid {
-			externalIDs["tmdb"] = fmt.Sprintf("%d", row.SeriesTmdbID.Int64)
+			externalIDs["tmdbId"] = fmt.Sprintf("%d", row.SeriesTmdbID.Int64)
 		}
 		if row.SeriesImdbID.Valid && row.SeriesImdbID.String != "" {
-			externalIDs["imdb"] = row.SeriesImdbID.String
+			externalIDs["imdbId"] = row.SeriesImdbID.String
 		}
 
 		var profileID int64

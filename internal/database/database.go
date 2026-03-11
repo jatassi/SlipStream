@@ -68,6 +68,15 @@ func (db *DB) Close() error {
 
 // Migrate runs all pending database migrations using embedded SQL files.
 func (db *DB) Migrate() error {
+	// Disable foreign keys during migrations so table recreation (the standard
+	// SQLite ALTER TABLE pattern) can DROP and re-CREATE referenced tables
+	// without triggering FK constraint errors. The pragma is a no-op inside a
+	// transaction, so it must be set here — before Goose opens its per-migration
+	// transactions.
+	if _, err := db.conn.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("failed to disable foreign keys for migrations: %w", err)
+	}
+
 	goose.SetBaseFS(embedMigrations)
 
 	if err := goose.SetDialect("sqlite3"); err != nil {
@@ -76,6 +85,17 @@ func (db *DB) Migrate() error {
 
 	if err := goose.Up(db.conn, "migrations"); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	// Re-enable foreign keys for normal operation and run an integrity check
+	// to catch any violations introduced by migrations.
+	if _, err := db.conn.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("failed to re-enable foreign keys: %w", err)
+	}
+
+	var fkViolations int
+	if err := db.conn.QueryRow("PRAGMA foreign_key_check").Scan(&fkViolations); err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("foreign key check failed after migrations: %w", err)
 	}
 
 	return nil

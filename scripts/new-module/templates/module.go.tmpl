@@ -14,6 +14,7 @@ import (
 )
 
 var _ module.Module = (*Module)(nil)
+var _ module.Migrator = (*Module)(nil)
 
 // Descriptor implements module.Descriptor for the {{.Title}} module.
 type Descriptor struct{}

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
-import type { ModuleNamingSettings, UpdateModuleNamingRequest } from '@/types'
+import type { ModuleNamingSettings, TokenContext as BackendTokenContext, UpdateModuleNamingRequest } from '@/types'
 
 import { FilenameTester } from './filename-tester'
 import { PatternEditor } from './naming-pattern-editor'
@@ -78,9 +78,10 @@ type MovieFormProps = {
   updateField: <K extends keyof UpdateModuleNamingRequest>(field: K, value: UpdateModuleNamingRequest[K]) => void
   updatePattern: (key: string, value: string) => void
   isSaving: boolean
+  dynamicTokenContexts?: BackendTokenContext[]
 }
 
-function MovieRenamingCard({ form, updateField, updatePattern, isSaving }: MovieFormProps) {
+function MovieRenamingCard({ form, updateField, updatePattern, isSaving, dynamicTokenContexts }: MovieFormProps) {
   return (
     <Card>
       <CardHeader>
@@ -109,6 +110,7 @@ function MovieRenamingCard({ form, updateField, updatePattern, isSaving }: Movie
           tokenContext="movie-folder"
           moduleId={MODULE_ID}
           contextName="movie-folder"
+          dynamicTokenContexts={dynamicTokenContexts}
         />
         <PatternEditor
           label="Movie File Format"
@@ -119,6 +121,7 @@ function MovieRenamingCard({ form, updateField, updatePattern, isSaving }: Movie
           tokenContext="movie"
           moduleId={MODULE_ID}
           contextName="movie-file"
+          dynamicTokenContexts={dynamicTokenContexts}
         />
       </CardContent>
     </Card>
@@ -127,11 +130,12 @@ function MovieRenamingCard({ form, updateField, updatePattern, isSaving }: Movie
 
 function MovieNamingContent({ settings }: { settings: ModuleNamingSettings }) {
   const { form, updateField, updatePattern, isSaving } = useMovieNamingForm(settings)
+  const dynamicTokenContexts = settings.tokenContexts
 
   return (
     <>
       <FilenameTester mediaType="movie" />
-      <MovieRenamingCard form={form} updateField={updateField} updatePattern={updatePattern} isSaving={isSaving} />
+      <MovieRenamingCard form={form} updateField={updateField} updatePattern={updatePattern} isSaving={isSaving} dynamicTokenContexts={dynamicTokenContexts} />
     </>
   )
 }

@@ -4,6 +4,7 @@ export {
   getModule,
   getModuleOrThrow,
   registerModule,
+  setModuleEnabledState,
 } from './registry'
 export type {
   ModuleApi,

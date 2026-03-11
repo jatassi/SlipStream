@@ -15,6 +15,8 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/progress"
 )
@@ -678,11 +680,11 @@ func (s *Service) importNotifications(ctx context.Context, reader Reader, source
 		// Map source-type-specific event fields
 		switch sourceType {
 		case SourceTypeSonarr:
-			toggles[notification.EventSeriesAdded] = n.OnSeriesAdd
-			toggles[notification.EventSeriesDeleted] = n.OnSeriesDelete
+			toggles[tvmod.EventTVAdded] = n.OnSeriesAdd
+			toggles[tvmod.EventTVDeleted] = n.OnSeriesDelete
 		case SourceTypeRadarr:
-			toggles[notification.EventMovieAdded] = n.OnMovieAdded
-			toggles[notification.EventMovieDeleted] = n.OnMovieDelete
+			toggles[moviemod.EventMovieAdded] = n.OnMovieAdded
+			toggles[moviemod.EventMovieDeleted] = n.OnMovieDelete
 		}
 
 		input := &notification.CreateInput{

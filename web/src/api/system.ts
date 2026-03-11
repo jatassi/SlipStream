@@ -32,4 +32,12 @@ export const systemApi = {
   restart: () => apiFetch<{ message: string }>('/system/restart', { method: 'POST' }),
 
   checkFirewall: () => apiFetch<FirewallStatus>('/system/firewall'),
+
+  getModuleEnabled: () => apiFetch<Record<string, boolean>>('/settings/modules'),
+
+  updateModuleEnabled: (data: Record<string, boolean>) =>
+    apiFetch<Record<string, boolean>>('/settings/modules', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 }

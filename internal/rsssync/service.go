@@ -148,7 +148,7 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) collectWantedItems(ctx context.Context, start time.Time) ([]module.SearchableItem, error) {
-	if s.registry != nil && len(s.registry.All()) > 0 {
+	if s.registry != nil && len(s.registry.Enabled()) > 0 {
 		return s.collectWantedFromModules(ctx, start)
 	}
 	return s.collectWantedLegacy(ctx, start)
@@ -156,7 +156,7 @@ func (s *Service) collectWantedItems(ctx context.Context, start time.Time) ([]mo
 
 func (s *Service) collectWantedFromModules(ctx context.Context, start time.Time) ([]module.SearchableItem, error) {
 	var allItems []module.SearchableItem
-	for _, mod := range s.registry.All() {
+	for _, mod := range s.registry.Enabled() {
 		collector, ok := mod.(module.WantedCollector)
 		if !ok {
 			continue

@@ -685,15 +685,14 @@ func (s *Service) IsSearching(mediaType MediaType, mediaID int64) bool {
 
 // IsInQueue checks if a media item has an active download in the queue.
 func (s *Service) IsInQueue(ctx context.Context, mediaType MediaType, mediaID int64) bool {
+	entityType := string(mediaType)
+	modType := s.moduleTypeForEntity(entityType)
+
 	switch mediaType {
-	case MediaTypeMovie:
-		return s.isEntityDownloading(ctx, "movie", "movie", mediaID)
 	case MediaTypeEpisode:
-		return s.isEpisodeInQueue(ctx, mediaID)
-	case MediaTypeSeries:
-		return s.isEntityDownloading(ctx, "tv", "series", mediaID)
+		return s.isEpisodeInQueue(ctx, modType, mediaID)
 	default:
-		return false
+		return s.isEntityDownloading(ctx, modType, entityType, mediaID)
 	}
 }
 
@@ -704,15 +703,30 @@ func (s *Service) isEntityDownloading(ctx context.Context, moduleType, entityTyp
 	return err == nil && result == 1
 }
 
-func (s *Service) isEpisodeInQueue(ctx context.Context, episodeID int64) bool {
-	if s.isEntityDownloading(ctx, "tv", "episode", episodeID) {
+func (s *Service) isEpisodeInQueue(ctx context.Context, modType string, episodeID int64) bool {
+	if s.isEntityDownloading(ctx, modType, "episode", episodeID) {
 		return true
 	}
 	ep, err := s.queries.GetEpisode(ctx, episodeID)
 	if err != nil {
 		return false
 	}
-	return s.isEntityDownloading(ctx, "tv", "series", ep.SeriesID)
+	return s.isEntityDownloading(ctx, modType, "series", ep.SeriesID)
+}
+
+// moduleTypeForEntity maps an entity type string to its owning module type
+// using the registry. Falls back to the legacy movie/tv assumption when the
+// registry is not available.
+func (s *Service) moduleTypeForEntity(entityType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(entityType)); mod != nil {
+			return string(mod.ID())
+		}
+	}
+	if entityType == "movie" {
+		return "movie"
+	}
+	return "tv"
 }
 
 // buildSearchCriteria creates search criteria from a searchable item.

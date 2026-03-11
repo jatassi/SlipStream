@@ -17,11 +17,15 @@ export type ModuleConfig = {
   sortOptions: ModuleSortOption[]
   tableColumns: ModuleTableColumns
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  listComponent: ComponentType<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cardComponent: ComponentType<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   detailComponent: ComponentType<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addConfigFields?: ComponentType<any>
+  missingTabValue: string
+  missingCountKey: string
   api: ModuleApi
 }
 

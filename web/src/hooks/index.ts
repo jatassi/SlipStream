@@ -192,6 +192,7 @@ export {
   useRestart,
   useSettings,
   useStatus,
+  useUpdateModuleEnabled,
   useUpdateSettings,
 } from './use-system'
 export { useCheckForUpdate, useInstallUpdate,useUpdateStatus } from './use-update'

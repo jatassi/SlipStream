@@ -69,6 +69,7 @@ func NewResolver(settings *Settings) *Resolver {
 
 // IsRenameEnabled reports whether renaming is enabled for the given media type.
 // mediaType should be "movie" or "episode".
+// TODO: replace with module-provided rename settings when modules declare their own naming config
 func (r *Resolver) IsRenameEnabled(mediaType string) bool {
 	switch mediaType {
 	case "movie":

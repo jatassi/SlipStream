@@ -9,9 +9,10 @@ import (
 	"github.com/slipstream/slipstream/internal/module"
 )
 
-// ModuleProvisionerLookup provides access to module provisioners by entity type.
+// ModuleProvisionerLookup provides access to module provisioners and schema info by entity type.
 type ModuleProvisionerLookup interface {
 	GetProvisionerForEntityType(entityType string) module.PortalProvisioner
+	IsLeafEntityType(entityType string) bool
 }
 
 type StatusTracker struct {
@@ -172,8 +173,8 @@ func (t *StatusTracker) tryMarkAvailable(ctx context.Context, req *Request) {
 }
 
 func (t *StatusTracker) processFailedRequest(ctx context.Context, req *Request, _ string, _ int64) {
-	// For direct entity matches, mark failed immediately
-	if req.MediaType == MediaTypeMovie || req.MediaType == MediaTypeEpisode {
+	// Leaf entity types (e.g., movie, episode) are marked failed immediately
+	if t.provisionerLookup.IsLeafEntityType(req.MediaType) {
 		t.markRequestFailed(ctx, req, "request marked as failed")
 		return
 	}

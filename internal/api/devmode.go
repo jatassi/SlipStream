@@ -16,6 +16,8 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/metadata/mock"
 	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification"
 )
 
@@ -60,6 +62,10 @@ func (d *DevModeManager) OnToggle(enabled bool) error {
 		return err
 	}
 	if enabled {
+		if err := module.MigrateAll(d.dbManager.Conn(), d.registry); err != nil {
+			d.logger.Error().Err(err).Msg("failed to run module migrations on dev database")
+			return err
+		}
 		d.copyJWTSecretToDevDB()
 		d.copySettingsToDevDB()
 	}
@@ -212,10 +218,10 @@ func (d *DevModeManager) switchNotification(devMode bool) {
 				notification.EventGrab:           true,
 				notification.EventImport:         true,
 				notification.EventUpgrade:        true,
-				notification.EventMovieAdded:     true,
-				notification.EventMovieDeleted:   true,
-				notification.EventSeriesAdded:    true,
-				notification.EventSeriesDeleted:  true,
+				moviemod.EventMovieAdded:         true,
+				moviemod.EventMovieDeleted:       true,
+				tvmod.EventTVAdded:               true,
+				tvmod.EventTVDeleted:             true,
 				notification.EventHealthIssue:    true,
 				notification.EventHealthRestored: true,
 				notification.EventAppUpdate:      true,

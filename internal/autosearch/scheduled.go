@@ -409,7 +409,7 @@ func (s *ScheduledSearcher) collectSearchableItems(ctx context.Context) ([]Searc
 func (s *ScheduledSearcher) collectFromModules(ctx context.Context) ([]SearchableItem, error) {
 	var allItems []searchableItemWithPriority
 
-	for _, mod := range s.registry.All() {
+	for _, mod := range s.registry.Enabled() {
 		strategy, hasStrategy := mod.(module.SearchStrategy)
 
 		// Collect missing items
@@ -1010,7 +1010,7 @@ func (s *ScheduledSearcher) collectIndividualEpisodeUpgrades(ctx context.Context
 
 // shouldSkipItem checks if an item should be skipped due to backoff.
 func (s *ScheduledSearcher) shouldSkipItem(ctx context.Context, itemType string, itemID int64, searchType string) (bool, error) {
-	modType := moduleTypeFromEntityType(itemType)
+	modType := s.moduleTypeFromEntityType(itemType)
 	status, err := s.service.queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
 		ModuleType: modType,
 		EntityType: itemType,
@@ -1160,7 +1160,7 @@ func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item Sear
 		itemType = entityTypeSeries
 	}
 
-	modType := moduleTypeFromEntityType(itemType)
+	modType := s.moduleTypeFromEntityType(itemType)
 	err := s.service.queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
 		ModuleType: modType,
 		EntityType: itemType,
@@ -1182,7 +1182,7 @@ func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item Searchab
 		itemType = entityTypeSeries
 	}
 
-	modType2 := moduleTypeFromEntityType(itemType)
+	modType2 := s.moduleTypeFromEntityType(itemType)
 	err := s.service.queries.ResetAutosearchFailure(ctx, sqlc.ResetAutosearchFailureParams{
 		ModuleType: modType2,
 		EntityType: itemType,
@@ -1197,7 +1197,16 @@ func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item Searchab
 	}
 }
 
-func moduleTypeFromEntityType(entityType string) string {
+// moduleTypeFromEntityType maps an entity type to its owning module type using
+// the registry. Falls back to the legacy movie/tv assumption when the registry
+// is not available.
+func (s *ScheduledSearcher) moduleTypeFromEntityType(entityType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(entityType)); mod != nil {
+			return string(mod.ID())
+		}
+	}
+	// Legacy fallback for pre-module code paths
 	if entityType == "movie" {
 		return "movie"
 	}

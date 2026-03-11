@@ -5,9 +5,8 @@ import { Pencil } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { useModuleNamingPreview, usePreviewNamingPattern } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
-import type { TokenBreakdown } from '@/types'
+import type { TokenBreakdown, TokenContext as BackendTokenContext } from '@/types'
 
-import type { TokenContext } from './file-naming-constants'
 import { TokenBuilderDialog } from './token-builder-dialog'
 
 function PatternPreview({ preview }: { preview: { valid: boolean; preview: string; error?: string; tokens?: TokenBreakdown[] } }) {
@@ -47,9 +46,10 @@ type PatternEditorProps = {
   onChange: (value: string) => void
   description?: string
   mediaType?: string
-  tokenContext: TokenContext
+  tokenContext: string
   moduleId?: string
   contextName?: string
+  dynamicTokenContexts?: BackendTokenContext[]
 }
 
 type PreviewOptions = { value: string; mediaType: string; moduleId?: string; contextName?: string }
@@ -82,7 +82,7 @@ function usePatternPreview({ value, mediaType, moduleId, contextName }: PreviewO
   return { localValue, setLocalValue, preview: previewMutation.data }
 }
 
-export function PatternEditor({ label, value, onChange, description, mediaType = 'episode', tokenContext, moduleId, contextName }: PatternEditorProps) {
+export function PatternEditor({ label, value, onChange, description, mediaType = 'episode', tokenContext, moduleId, contextName, dynamicTokenContexts }: PatternEditorProps) {
   const { localValue, setLocalValue, preview } = usePatternPreview({ value, mediaType, moduleId, contextName })
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
 
@@ -110,6 +110,7 @@ export function PatternEditor({ label, value, onChange, description, mediaType =
         value={localValue}
         onChange={handleChange}
         tokenContext={tokenContext}
+        dynamicTokenContexts={dynamicTokenContexts}
       />
     </div>
   )

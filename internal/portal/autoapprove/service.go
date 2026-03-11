@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -34,6 +35,7 @@ type Service struct {
 	quotaService    *quota.Service
 	requestsService *requests.Service
 	requestSearcher RequestSearcher
+	registry        *module.Registry
 	logger          *zerolog.Logger
 }
 
@@ -62,6 +64,10 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 
 func (s *Service) SetRequestSearcher(searcher RequestSearcher) {
 	s.requestSearcher = searcher
+}
+
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 func (s *Service) ShouldAutoApprove(ctx context.Context, user *users.User, qualityProfileID *int64) (bool, error) {
@@ -98,7 +104,7 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 		return nil, err
 	}
 
-	moduleType := getModuleType(request.MediaType)
+	moduleType := s.getModuleType(request.MediaType)
 	qualityProfileID := s.getQualityProfileForModule(ctx, request.UserID, moduleType)
 	shouldAutoApprove, err := s.ShouldAutoApprove(ctx, user, qualityProfileID)
 	if err != nil {
@@ -161,11 +167,11 @@ func (s *Service) getQualityProfileForModule(ctx context.Context, userID int64, 
 	return nil
 }
 
-func getModuleType(requestMediaType string) string {
-	switch requestMediaType {
-	case "movie":
-		return "movie"
-	default:
-		return "tv"
+func (s *Service) getModuleType(requestMediaType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(requestMediaType)); mod != nil {
+			return string(mod.ID())
+		}
 	}
+	return requestMediaType
 }

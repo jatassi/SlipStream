@@ -1,6 +1,7 @@
 import type { ModuleConfig } from './types'
 
 const modules = new Map<string, ModuleConfig>()
+const disabledModules = new Set<string>()
 
 export function registerModule(config: ModuleConfig): void {
   if (modules.has(config.id)) {
@@ -24,5 +25,14 @@ export function getAllModules(): ModuleConfig[] {
 }
 
 export function getEnabledModules(): ModuleConfig[] {
-  return getAllModules()
+  return getAllModules().filter((mod) => !disabledModules.has(mod.id))
+}
+
+export function setModuleEnabledState(enabledMap: Record<string, boolean>): void {
+  disabledModules.clear()
+  for (const [id, enabled] of Object.entries(enabledMap)) {
+    if (!enabled) {
+      disabledModules.add(id)
+    }
+  }
 }

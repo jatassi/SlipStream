@@ -115,6 +115,8 @@ func (s *Server) setupRoutes() {
 	settings.GET("", s.getSettings)
 	settings.PUT("", s.updateSettings)
 	settings.POST("/apikey", s.regenerateAPIKey)
+	settings.GET("/modules", s.getModuleEnabled)
+	settings.PUT("/modules", s.updateModuleEnabled)
 
 	s.setupSystemRoutes(protected)
 	s.setupLibraryRoutes(api, protected)

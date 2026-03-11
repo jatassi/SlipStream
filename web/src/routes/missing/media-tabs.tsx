@@ -10,13 +10,6 @@ const THEME_GLOW_CLASSES: Record<string, string> = {
   tv: 'data-active:glow-tv',
 }
 
-// TODO: Module system — derive per-module counts from backend per-module missing API
-// Tab values ("movies"/"series") are currently used as keys in search mutations
-const MODULE_TAB_MAP: { moduleId: string; tabValue: MediaFilter; countKey: 'movieCount' | 'episodeCount' }[] = [
-  { moduleId: 'movie', tabValue: 'movies', countKey: 'movieCount' },
-  { moduleId: 'tv', tabValue: 'series', countKey: 'episodeCount' },
-]
-
 type MediaTabsProps = {
   filter: MediaFilter
   onFilterChange: (filter: MediaFilter) => void
@@ -60,23 +53,17 @@ export function MediaTabs({
             All
             {isLoading ? null : <CountBadge count={totalCount} className="data-active:text-black/60" />}
           </TabsTrigger>
-          {MODULE_TAB_MAP.flatMap((entry) => {
-            const mod = modules.find((m) => m.id === entry.moduleId)
-            if (!mod) {
-              return []
-            }
-            return (
-              <TabsTrigger
-                key={entry.tabValue}
-                value={entry.tabValue}
-                className={cn(THEME_GLOW_CLASSES[mod.themeColor], 'data-active:bg-white data-active:text-black')}
-              >
-                <mod.icon className="mr-1.5 size-4" />
-                {mod.name}
-                {isLoading ? null : <CountBadge count={counts[entry.countKey]} className="text-muted-foreground" />}
-              </TabsTrigger>
-            )
-          })}
+          {modules.map((mod) => (
+            <TabsTrigger
+              key={mod.missingTabValue}
+              value={mod.missingTabValue}
+              className={cn(THEME_GLOW_CLASSES[mod.themeColor], 'data-active:bg-white data-active:text-black')}
+            >
+              <mod.icon className="mr-1.5 size-4" />
+              {mod.name}
+              {isLoading ? null : <CountBadge count={counts[mod.missingCountKey]} className="text-muted-foreground" />}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <ViewToggle isMissingView={isMissingView} upgradableTotalCount={upgradableTotalCount} isLoading={isLoading} onViewChange={onViewChange} />
       </div>

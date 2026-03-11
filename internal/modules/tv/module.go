@@ -20,6 +20,7 @@ import (
 )
 
 var _ module.QualityDefinition = (*Descriptor)(nil)
+var _ module.Migrator = (*Module)(nil)
 var _ module.MonitoringPresets = (*Module)(nil)
 var _ module.MonitoringCascader = (*Module)(nil)
 var _ module.ReleaseDateResolver = (*Module)(nil)
@@ -29,6 +30,7 @@ var _ module.NotificationEvents = (*Module)(nil)
 var _ module.PortalProvisioner = (*Module)(nil)
 var _ module.SlotSupport = (*Module)(nil)
 var _ module.TVArrImportAdapter = (*Module)(nil)
+var _ module.Module = (*Module)(nil)
 
 // TV module notification event IDs.
 const (
@@ -87,9 +89,8 @@ func (d *Descriptor) QualityItems() []module.QualityItem {
 	return shared.VideoQualityItems()
 }
 
-func (d *Descriptor) ParseQuality(_ string) (*module.QualityResult, error) {
-	// Stub — delegates to existing parser in Phase 5
-	return &module.QualityResult{}, nil
+func (d *Descriptor) ParseQuality(releaseTitle string) (*module.QualityResult, error) {
+	return shared.ParseVideoQuality(releaseTitle)
 }
 
 func (d *Descriptor) ScoreQuality(item module.QualityItem) int {
@@ -97,9 +98,10 @@ func (d *Descriptor) ScoreQuality(item module.QualityItem) int {
 	return item.Weight
 }
 
-func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, profileID int64) (bool, error) {
-	// Stub — upgrade logic lives on Profile, not the module.
-	return false, nil
+func (d *Descriptor) IsUpgrade(current, candidate module.QualityItem, _ int64) (bool, error) {
+	// Basic quality ordering: higher weight = higher quality.
+	// Profile-aware cutoff logic is handled by the quality profile service.
+	return candidate.Weight > current.Weight, nil
 }
 
 // Module is the top-level TV module satisfying module.Module.
@@ -670,27 +672,20 @@ func (m *Module) checkSeasonCompletion(ctx context.Context, input *module.Reques
 		return &module.RequestCompletionResult{}, nil
 	}
 
-	tvdbID, ok := input.RequestExternalIDs["tvdb"]
-	if !ok {
+	season, err := m.queries.GetSeason(ctx, *input.RequestEntityID)
+	if err != nil {
+		m.logger.Warn().Err(err).Int64("seasonID", *input.RequestEntityID).Msg("failed to look up season for completion check")
 		return &module.RequestCompletionResult{}, nil
 	}
 
-	series, err := m.queries.GetSeriesByTvdbID(ctx, sql.NullInt64{Int64: tvdbID, Valid: true})
+	seasonAvail, err := m.getSeasonAvailability(ctx, season.SeriesID)
 	if err != nil {
-		m.logger.Warn().Err(err).Int64("tvdbID", tvdbID).Msg("failed to look up series for season completion check")
-		return &module.RequestCompletionResult{}, nil
-	}
-
-	seasonAvail, err := m.getSeasonAvailability(ctx, series.ID)
-	if err != nil {
-		m.logger.Warn().Err(err).Int64("seriesID", series.ID).Msg("failed to get season availability for completion check")
+		m.logger.Warn().Err(err).Int64("seriesID", season.SeriesID).Msg("failed to get season availability for completion check")
 		return &module.RequestCompletionResult{}, nil
 	}
 
 	for _, sa := range seasonAvail {
-		if sa.available && sa.seasonNumber > 0 {
-			// We can't determine which season was requested without additional data,
-			// so check if the available entity is in this season.
+		if sa.seasonNumber == int(season.SeasonNumber) {
 			return &module.RequestCompletionResult{ShouldMarkAvailable: sa.available}, nil
 		}
 	}

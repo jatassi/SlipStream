@@ -1734,4 +1734,5 @@ Run after all Phase 11 tasks are complete:
 - [x] `go test ./internal/module/moduletest/...` passes
 - [x] `go test ./internal/modules/movie/...` passes (including moduletest harness tests)
 - [x] `go test ./internal/modules/tv/...` passes (including moduletest harness tests)
+- [x] Per-module migration tracks (spec §2.2): `Migrator` interface, `MigrateAll()`, per-module goose version tables (`goose_db_version_<module>`), integrated into startup/devmode/tests
 - [x] Backend items deferred from earlier phases (Deferred Items Registry) are all addressed or explicitly documented as further-deferred with rationale

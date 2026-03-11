@@ -59,7 +59,7 @@ func main() {
 	backendDir := filepath.Join("internal", "modules", moduleID)
 	frontendDir := filepath.Join("web", "src", "modules", moduleID)
 	queriesDir := filepath.Join("internal", "database", "queries")
-	migrationsDir := filepath.Join("internal", "database", "migrations")
+	moduleMigrationsDir := filepath.Join(backendDir, "migrations")
 
 	type fileSpec struct {
 		templateName string
@@ -69,6 +69,7 @@ func main() {
 	files := []fileSpec{
 		// Backend Go files
 		{"templates/module.go.tmpl", filepath.Join(backendDir, "module.go")},
+		{"templates/migrate.go.tmpl", filepath.Join(backendDir, "migrate.go")},
 		{"templates/metadata.go.tmpl", filepath.Join(backendDir, "metadata.go")},
 		{"templates/search.go.tmpl", filepath.Join(backendDir, "search.go")},
 		{"templates/file_parser.go.tmpl", filepath.Join(backendDir, "fileparser.go")},
@@ -83,9 +84,11 @@ func main() {
 		{"templates/mock.go.tmpl", filepath.Join(backendDir, "mock_factory.go")},
 		{"templates/module_test.go.tmpl", filepath.Join(backendDir, "module_test.go")},
 
-		// SQL files
+		// Module-scoped migration (initial schema)
+		{"templates/initial_migration.sql.tmpl", filepath.Join(moduleMigrationsDir, "00001_initial.sql")},
+
+		// SQL files (shared query layer)
 		{"templates/queries.sql.tmpl", filepath.Join(queriesDir, data.PluralID+".sql")},
-		{"templates/initial_migration.sql.tmpl", filepath.Join(migrationsDir, "xxx_"+moduleID+"_initial.sql")},
 
 		// Frontend TypeScript files
 		{"templates/config.ts.tmpl", filepath.Join(frontendDir, "index.ts")},
@@ -183,9 +186,11 @@ Next steps:
        Type%s Type = "%s"
        Entity%s EntityType = "%s"
 
-  2. Rename the migration file with the next available number:
-       internal/database/migrations/xxx_%s_initial.sql
-     -> internal/database/migrations/NNN_%s_initial.sql
+  2. Module-scoped migrations are in:
+       internal/modules/%s/migrations/00001_initial.sql
+     These run automatically via the per-module migration track
+     (goose table: goose_db_version_%s). Add future migrations
+     as 00002_*.sql, 00003_*.sql, etc.
 
   3. Update the SQL queries file for sqlc and run:
        go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate

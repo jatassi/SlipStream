@@ -66,22 +66,37 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	db := provideDB(dbManager)
 	queries := provideQueries(db)
 	defaultsService := defaults.NewService(queries)
-	missingService := missing.NewService(db, logger)
-	preferencesService := preferences.NewService(queries)
-	historyService := history.NewService(db, logger, hub)
-	manager := progress.NewManager(hub, logger)
-	scannerService := scanner.NewService(logger)
-	qualityService := quality.NewService(db, logger)
-	statusChangeLogger := provideStatusChangeLogger(historyService)
-	moviesService := movies.NewService(db, hub, logger, qualityService, statusChangeLogger)
-	tvService := tv.NewService(db, hub, logger, qualityService, statusChangeLogger)
-	rootfolderService := rootfolder.NewService(db, logger, defaultsService, service)
-	slotsService := slots.NewService(db, qualityService, logger, rootfolderService)
 	metadataConfig := provideMetadataConfig(cfg)
 	sqlNetworkLogoStore := metadata.NewSQLNetworkLogoStore(db)
 	metadataService := metadata.NewService(metadataConfig, logger, service, sqlNetworkLogoStore)
+	qualityService := quality.NewService(db, logger)
+	historyService := history.NewService(db, logger, hub)
+	statusChangeLogger := provideStatusChangeLogger(historyService)
+	moviesService := movies.NewService(db, hub, logger, qualityService, statusChangeLogger)
+	rootfolderService := rootfolder.NewService(db, logger, defaultsService, service)
 	artworkConfig := provideArtworkConfig(cfg)
 	artworkDownloader := metadata.NewArtworkDownloader(artworkConfig, logger, hub)
+	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, artworkDownloader, logger)
+	tvService := tv.NewService(db, hub, logger, qualityService, statusChangeLogger)
+	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, artworkDownloader, qualityService, logger)
+	registry := provideRegistry(db, module, tvModule)
+	calendarService := calendar.NewService(registry, logger)
+	availabilityService := availability.NewService(db, registry, logger)
+	missingService := missing.NewService(db, logger)
+	preferencesService := preferences.NewService(queries)
+	manager := progress.NewManager(hub, logger)
+	systemGroup := SystemGroup{
+		Health:       service,
+		Defaults:     defaultsService,
+		Calendar:     calendarService,
+		Availability: availabilityService,
+		Missing:      missingService,
+		Preferences:  preferencesService,
+		History:      historyService,
+		Progress:     manager,
+	}
+	scannerService := scanner.NewService(logger)
+	slotsService := slots.NewService(db, qualityService, logger, rootfolderService)
 	librarymanagerService := librarymanager.NewService(db, scannerService, moviesService, tvService, metadataService, artworkDownloader, rootfolderService, qualityService, manager, logger, preferencesService, slotsService, service)
 	namingConfig := provideNamingConfig()
 	organizerService := organizer.NewService(namingConfig, logger)
@@ -114,21 +129,6 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	notificationsService := notifications.NewService(queries, notificationService, hub, logger)
 	watchersService := requests.NewWatchersService(queries, logger)
 	requestsService := requests.NewService(queries, logger, eventBroadcaster, notificationsService, watchersService)
-	module := movie.NewModule(db, metadataService, moviesService, rootfolderService, artworkDownloader, logger)
-	tvModule := tv2.NewModule(db, metadataService, tvService, rootfolderService, artworkDownloader, qualityService, logger)
-	registry := provideRegistry(module, tvModule)
-	calendarService := calendar.NewService(registry, logger)
-	availabilityService := availability.NewService(db, registry, logger)
-	systemGroup := SystemGroup{
-		Health:       service,
-		Defaults:     defaultsService,
-		Calendar:     calendarService,
-		Availability: availabilityService,
-		Missing:      missingService,
-		Preferences:  preferencesService,
-		History:      historyService,
-		Progress:     manager,
-	}
 	moduleProvisionerLookup := provideModuleProvisionerLookup(registry)
 	statusTracker := requests.NewStatusTracker(queries, requestsService, watchersService, logger, moduleProvisionerLookup, notificationsService)
 	downloaderService := downloader.NewService(db, logger, service, hub, statusChangeLogger, statusTracker)

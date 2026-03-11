@@ -37,6 +37,20 @@ Applies to: `TooltipTrigger`, `DialogTrigger`, `PopoverTrigger`, `DropdownMenuTr
 </SelectTrigger>
 ```
 
+## Module System
+
+Frontend media modules live in `src/modules/`. Each module exports a `ModuleConfig` (defined in `src/modules/types.ts`) containing identity, routes, query keys, WS invalidation rules, filter/sort options, table columns, lazy-loaded components, and API bindings.
+
+**Key files:**
+- `src/modules/types.ts` — `ModuleConfig` type definition
+- `src/modules/registry.ts` — `registerModule()`, `getModule()`, `getEnabledModules()`, `setModuleEnabledState()`
+- `src/modules/setup.ts` — Calls `registerModule()` for each module at app init
+- `src/modules/<id>/index.ts` — Module-specific config (one per media type)
+
+**Enabled state:** On app init, `GET /api/v1/system` returns enabled modules. `setModuleEnabledState()` filters the registry. Use `getEnabledModules()` (not `getAllModules()`) for user-facing lists like nav, missing tabs, calendar.
+
+**Adding a frontend module:** Create `src/modules/<id>/index.ts` exporting a `ModuleConfig`, register it in `src/modules/setup.ts`, add theme color CSS variables to `src/index.css`.
+
 ## Routes & Code-Splitting
 
 Routes are lazy-loaded via `lazyRouteComponent` in `src/routes-config.tsx`. Never eagerly import page components — use the `lazyRoute()` / `lazyPortalRoute()` helpers. Routes needing `validateSearch` use `createRoute` with `component: lazyRouteComponent(importer, 'ExportName')` directly.

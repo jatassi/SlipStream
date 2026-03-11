@@ -12,7 +12,8 @@ import (
 
 // mockProvisionerLookup implements ModuleProvisionerLookup for testing.
 type mockProvisionerLookup struct {
-	provisioners map[string]module.PortalProvisioner
+	provisioners    map[string]module.PortalProvisioner
+	leafEntityTypes map[string]bool
 }
 
 func (m *mockProvisionerLookup) GetProvisionerForEntityType(entityType string) module.PortalProvisioner {
@@ -20,6 +21,14 @@ func (m *mockProvisionerLookup) GetProvisionerForEntityType(entityType string) m
 		return nil
 	}
 	return m.provisioners[entityType]
+}
+
+func (m *mockProvisionerLookup) IsLeafEntityType(entityType string) bool {
+	if m == nil || m.leafEntityTypes == nil {
+		// Default: movie and episode are leaf types (matches real module schemas)
+		return entityType == "movie" || entityType == "episode"
+	}
+	return m.leafEntityTypes[entityType]
 }
 
 // mockProvisioner implements module.PortalProvisioner for testing.

@@ -308,6 +308,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 }
 
 // checkProfileUsage verifies that a quality profile is not in use by any media or slots.
+// TODO: replace with module interface method when available (e.g., mod.CountEntitiesUsingProfile(profileID))
 func (s *Service) checkProfileUsage(ctx context.Context, id int64, moduleType string) error {
 	nullID := sql.NullInt64{Int64: id, Valid: true}
 
@@ -452,6 +453,7 @@ func (s *Service) RecalculateStatusForProfile(ctx context.Context, profileID int
 		return 0, err
 	}
 
+	// TODO: replace with module interface method when available (e.g., mod.RecalculateStatusesForProfile(profileID))
 	switch profile.ModuleType {
 	case "movie":
 		updated, err := s.recalculateMovieStatuses(ctx, profileID, profile)

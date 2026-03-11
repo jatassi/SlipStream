@@ -38,6 +38,7 @@ type RequestSearcher struct {
 	autosearchSvc   *autosearch.Service
 	provisioner     ModuleProvisioner
 	userGetter      UserQualityProfileGetter
+	registry        *module.Registry
 	isDevMode       func() bool
 	logger          *zerolog.Logger
 }
@@ -69,6 +70,10 @@ func (s *RequestSearcher) SetUserGetter(getter UserQualityProfileGetter) {
 
 func (s *RequestSearcher) SetDevMode(fn func() bool) {
 	s.isDevMode = fn
+}
+
+func (s *RequestSearcher) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64) (*SearchForRequestResult, error) {
@@ -310,12 +315,12 @@ func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *modu
 }
 
 func (s *RequestSearcher) getModuleType(mediaType string) string {
-	switch mediaType {
-	case MediaTypeMovie:
-		return "movie"
-	default:
-		return "tv"
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(mediaType)); mod != nil {
+			return string(mod.ID())
+		}
 	}
+	return mediaType
 }
 
 func intFromPtr(p *int64) int {
