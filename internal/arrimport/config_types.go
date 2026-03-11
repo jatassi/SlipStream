@@ -65,6 +65,13 @@ type SourceNamingConfig struct {
 	MovieFolderFormat   string `json:"movieFolderFormat"`
 }
 
+// TranslatedNamingConfig holds naming settings translated from a Sonarr/Radarr source,
+// ready to be written to module_naming_settings.
+type TranslatedNamingConfig struct {
+	ModuleType string            // "tv" or "movie"
+	Settings   map[string]string // key-value pairs for module_naming_settings
+}
+
 type SourceQualityProfileFull struct {
 	ID             int64           `json:"id"`
 	Name           string          `json:"name"`

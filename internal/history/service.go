@@ -42,6 +42,16 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
+// moduleTypeForEntityType derives the module_type ("movie" or "tv") from an entity type.
+func moduleTypeForEntityType(entityType MediaType) string {
+	switch entityType {
+	case MediaTypeMovie:
+		return "movie"
+	default:
+		return "tv"
+	}
+}
+
 // Create creates a new history entry.
 func (s *Service) Create(ctx context.Context, input *CreateInput) (*Entry, error) {
 	var dataJSON sql.NullString
@@ -53,13 +63,19 @@ func (s *Service) Create(ctx context.Context, input *CreateInput) (*Entry, error
 		dataJSON = sql.NullString{String: string(bytes), Valid: true}
 	}
 
+	modType := input.ModuleType
+	if modType == "" {
+		modType = moduleTypeForEntityType(input.EntityType)
+	}
+
 	row, err := s.queries.CreateHistoryEntry(ctx, sqlc.CreateHistoryEntryParams{
-		EventType: string(input.EventType),
-		MediaType: string(input.MediaType),
-		MediaID:   input.MediaID,
-		Source:    sql.NullString{String: input.Source, Valid: input.Source != ""},
-		Quality:   sql.NullString{String: input.Quality, Valid: input.Quality != ""},
-		Data:      dataJSON,
+		EventType:  string(input.EventType),
+		ModuleType: modType,
+		EntityType: string(input.EntityType),
+		EntityID:   input.EntityID,
+		Source:     sql.NullString{String: input.Source, Valid: input.Source != ""},
+		Quality:    sql.NullString{String: input.Quality, Valid: input.Quality != ""},
+		Data:       dataJSON,
 	})
 	if err != nil {
 		return nil, err
@@ -156,7 +172,7 @@ func (s *Service) listWithFilters(ctx context.Context, opts *ListOptions, limit,
 		Column1:     opts.EventType,
 		Column2:     sql.NullString{String: opts.EventType, Valid: opts.EventType != ""},
 		Column3:     opts.MediaType,
-		MediaType:   opts.MediaType,
+		EntityType:  opts.MediaType,
 		Column5:     opts.After,
 		CreatedAt:   afterTime,
 		Column7:     opts.Before,
@@ -172,7 +188,7 @@ func (s *Service) listWithFilters(ctx context.Context, opts *ListOptions, limit,
 		Column1:     opts.EventType,
 		Column2:     sql.NullString{String: opts.EventType, Valid: opts.EventType != ""},
 		Column3:     opts.MediaType,
-		MediaType:   opts.MediaType,
+		EntityType:  opts.MediaType,
 		Column5:     opts.After,
 		CreatedAt:   afterTime,
 		Column7:     opts.Before,
@@ -199,8 +215,9 @@ func parseTimeFilter(filter string) sql.NullTime {
 // ListByMedia lists history for a specific media item.
 func (s *Service) ListByMedia(ctx context.Context, mediaType MediaType, mediaID int64) ([]*Entry, error) {
 	rows, err := s.queries.ListHistoryByMedia(ctx, sqlc.ListHistoryByMediaParams{
-		MediaType: string(mediaType),
-		MediaID:   mediaID,
+		ModuleType: moduleTypeForEntityType(mediaType),
+		EntityType: string(mediaType),
+		EntityID:   mediaID,
 	})
 	if err != nil {
 		return nil, err
@@ -224,10 +241,13 @@ func (s *Service) DeleteAll(ctx context.Context) error {
 // rowToEntry converts a database row to an Entry.
 func (s *Service) rowToEntry(row *sqlc.History) *Entry {
 	entry := &Entry{
-		ID:        row.ID,
-		EventType: EventType(row.EventType),
-		MediaType: MediaType(row.MediaType),
-		MediaID:   row.MediaID,
+		ID:         row.ID,
+		EventType:  EventType(row.EventType),
+		ModuleType: row.ModuleType,
+		EntityType: MediaType(row.EntityType),
+		EntityID:   row.EntityID,
+		MediaType:  MediaType(row.EntityType),
+		MediaID:    row.EntityID,
 	}
 
 	if row.Source.Valid {
@@ -256,7 +276,7 @@ func (s *Service) enrichEntry(ctx context.Context, entry *Entry) {
 }
 
 func (s *Service) enrichMediaInfo(ctx context.Context, entry *Entry) {
-	switch entry.MediaType {
+	switch entry.EntityType {
 	case MediaTypeMovie:
 		s.enrichMovieInfo(ctx, entry)
 	case MediaTypeEpisode:
@@ -265,7 +285,7 @@ func (s *Service) enrichMediaInfo(ctx context.Context, entry *Entry) {
 }
 
 func (s *Service) enrichMovieInfo(ctx context.Context, entry *Entry) {
-	movie, err := s.queries.GetMovie(ctx, entry.MediaID)
+	movie, err := s.queries.GetMovie(ctx, entry.EntityID)
 	if err != nil {
 		return
 	}
@@ -278,7 +298,7 @@ func (s *Service) enrichMovieInfo(ctx context.Context, entry *Entry) {
 }
 
 func (s *Service) enrichEpisodeInfo(ctx context.Context, entry *Entry) {
-	episode, err := s.queries.GetEpisode(ctx, entry.MediaID)
+	episode, err := s.queries.GetEpisode(ctx, entry.EntityID)
 	if err != nil {
 		return
 	}
@@ -371,12 +391,12 @@ func (s *Service) LogAutoSearchDownload(ctx context.Context, mediaType MediaType
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeAutoSearchDownload,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Quality:   quality,
-		Data:      dataMap,
+		EventType:  EventTypeAutoSearchDownload,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Source:     data.Source,
+		Quality:    quality,
+		Data:       dataMap,
 	})
 	return err
 }
@@ -390,11 +410,11 @@ func (s *Service) LogAutoSearchFailed(ctx context.Context, mediaType MediaType, 
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeAutoSearchFailed,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    data.Source,
-		Data:      dataMap,
+		EventType:  EventTypeAutoSearchFailed,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Source:     data.Source,
+		Data:       dataMap,
 	})
 	return err
 }
@@ -408,10 +428,10 @@ func (s *Service) LogStatusChanged(ctx context.Context, mediaType MediaType, med
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeStatusChanged,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Data:      dataMap,
+		EventType:  EventTypeStatusChanged,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Data:       dataMap,
 	})
 	return err
 }
@@ -425,11 +445,11 @@ func (s *Service) LogSlotAssigned(ctx context.Context, mediaType MediaType, medi
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeSlotAssigned,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    "slot",
-		Data:      dataMap,
+		EventType:  EventTypeSlotAssigned,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Source:     "slot",
+		Data:       dataMap,
 	})
 	return err
 }
@@ -443,11 +463,11 @@ func (s *Service) LogSlotReassigned(ctx context.Context, mediaType MediaType, me
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeSlotReassigned,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    "slot",
-		Data:      dataMap,
+		EventType:  EventTypeSlotReassigned,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Source:     "slot",
+		Data:       dataMap,
 	})
 	return err
 }
@@ -461,11 +481,11 @@ func (s *Service) LogSlotUnassigned(ctx context.Context, mediaType MediaType, me
 	}
 
 	_, err = s.Create(ctx, &CreateInput{
-		EventType: EventTypeSlotUnassigned,
-		MediaType: mediaType,
-		MediaID:   mediaID,
-		Source:    "slot",
-		Data:      dataMap,
+		EventType:  EventTypeSlotUnassigned,
+		EntityType: mediaType,
+		EntityID:   mediaID,
+		Source:     "slot",
+		Data:       dataMap,
 	})
 	return err
 }

@@ -22,30 +22,24 @@ var (
 )
 
 type User struct {
-	ID                    int64     `json:"id"`
-	Username              string    `json:"username"`
-	MovieQualityProfileID *int64    `json:"movieQualityProfileId"`
-	TVQualityProfileID    *int64    `json:"tvQualityProfileId"`
-	AutoApprove           bool      `json:"autoApprove"`
-	IsAdmin               bool      `json:"isAdmin"`
-	Enabled               bool      `json:"enabled"`
-	CreatedAt             time.Time `json:"createdAt"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	ID          int64     `json:"id"`
+	Username    string    `json:"username"`
+	AutoApprove bool      `json:"autoApprove"`
+	IsAdmin     bool      `json:"isAdmin"`
+	Enabled     bool      `json:"enabled"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-func (u *User) QualityProfileIDFor(mediaType string) *int64 {
-	if mediaType == "movie" {
-		return u.MovieQualityProfileID
-	}
-	return u.TVQualityProfileID
+type ModuleSettingInput struct {
+	QualityProfileID *int64
 }
 
 type CreateInput struct {
-	Username              string
-	Password              string
-	MovieQualityProfileID *int64
-	TVQualityProfileID    *int64
-	AutoApprove           bool
+	Username       string
+	Password       string
+	ModuleSettings map[string]*ModuleSettingInput
+	AutoApprove    bool
 }
 
 type CreateUserInput = CreateInput
@@ -101,28 +95,45 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*User, error) 
 		return nil, err
 	}
 
-	var movieQPID, tvQPID sql.NullInt64
-	if input.MovieQualityProfileID != nil {
-		movieQPID = sql.NullInt64{Int64: *input.MovieQualityProfileID, Valid: true}
-	}
-	if input.TVQualityProfileID != nil {
-		tvQPID = sql.NullInt64{Int64: *input.TVQualityProfileID, Valid: true}
-	}
-
 	user, err := s.queries.CreatePortalUser(ctx, sqlc.CreatePortalUserParams{
-		Username:              input.Username,
-		PasswordHash:          hash,
-		AutoApprove:           input.AutoApprove,
-		MovieQualityProfileID: movieQPID,
-		TvQualityProfileID:    tvQPID,
-		Enabled:               true,
+		Username:     input.Username,
+		PasswordHash: hash,
+		AutoApprove:  input.AutoApprove,
+		Enabled:      true,
 	})
 	if err != nil {
 		s.logger.Error().Err(err).Str("username", input.Username).Msg("failed to create user")
 		return nil, err
 	}
 
+	if err := s.initModuleSettings(ctx, user.ID, input.ModuleSettings); err != nil {
+		return nil, err
+	}
+
 	return toUser(user), nil
+}
+
+func (s *Service) initModuleSettings(ctx context.Context, userID int64, settings map[string]*ModuleSettingInput) error {
+	for moduleType, ms := range settings {
+		if ms == nil {
+			continue
+		}
+		var qpID sql.NullInt64
+		if ms.QualityProfileID != nil {
+			qpID = sql.NullInt64{Int64: *ms.QualityProfileID, Valid: true}
+		}
+		_, err := s.queries.UpsertUserModuleSettings(ctx, sqlc.UpsertUserModuleSettingsParams{
+			UserID:           userID,
+			ModuleType:       moduleType,
+			QualityProfileID: qpID,
+			PeriodStart:      time.Now(),
+		})
+		if err != nil {
+			s.logger.Error().Err(err).Str("moduleType", moduleType).Int64("userID", userID).Msg("failed to create module settings")
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) Get(ctx context.Context, id int64) (*User, error) {
@@ -253,27 +264,42 @@ func (s *Service) SetEnabled(ctx context.Context, id int64, enabled bool) (*User
 	return toUser(user), nil
 }
 
-func (s *Service) SetQualityProfiles(ctx context.Context, id int64, movieProfileID, tvProfileID *int64) (*User, error) {
-	var movieQPID, tvQPID sql.NullInt64
-	if movieProfileID != nil {
-		movieQPID = sql.NullInt64{Int64: *movieProfileID, Valid: true}
-	}
-	if tvProfileID != nil {
-		tvQPID = sql.NullInt64{Int64: *tvProfileID, Valid: true}
-	}
+func (s *Service) GetModuleSettings(ctx context.Context, userID int64) ([]*sqlc.PortalUserModuleSetting, error) {
+	return s.queries.ListUserModuleSettings(ctx, userID)
+}
 
-	user, err := s.queries.UpdatePortalUserQualityProfiles(ctx, sqlc.UpdatePortalUserQualityProfilesParams{
-		ID:                    id,
-		MovieQualityProfileID: movieQPID,
-		TvQualityProfileID:    tvQPID,
+func (s *Service) SetModuleQualityProfile(ctx context.Context, userID int64, moduleType string, profileID *int64) error {
+	_, err := s.queries.GetUserModuleSettings(ctx, sqlc.GetUserModuleSettingsParams{
+		UserID:     userID,
+		ModuleType: moduleType,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
+			var qpID sql.NullInt64
+			if profileID != nil {
+				qpID = sql.NullInt64{Int64: *profileID, Valid: true}
+			}
+			_, err = s.queries.UpsertUserModuleSettings(ctx, sqlc.UpsertUserModuleSettingsParams{
+				UserID:           userID,
+				ModuleType:       moduleType,
+				QualityProfileID: qpID,
+				PeriodStart:      time.Now(),
+			})
+			return err
 		}
-		return nil, err
+		return err
 	}
-	return toUser(user), nil
+
+	var qpID sql.NullInt64
+	if profileID != nil {
+		qpID = sql.NullInt64{Int64: *profileID, Valid: true}
+	}
+	_, err = s.queries.UpdateUserModuleQualityProfile(ctx, sqlc.UpdateUserModuleQualityProfileParams{
+		QualityProfileID: qpID,
+		UserID:           userID,
+		ModuleType:       moduleType,
+	})
+	return err
 }
 
 func (s *Service) SetAutoApprove(ctx context.Context, id int64, enabled bool) (*User, error) {
@@ -395,23 +421,13 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 }
 
 func toUser(u *sqlc.PortalUser) *User {
-	var movieQPID, tvQPID *int64
-	if u.MovieQualityProfileID.Valid {
-		movieQPID = &u.MovieQualityProfileID.Int64
-	}
-	if u.TvQualityProfileID.Valid {
-		tvQPID = &u.TvQualityProfileID.Int64
-	}
-
 	return &User{
-		ID:                    u.ID,
-		Username:              u.Username,
-		MovieQualityProfileID: movieQPID,
-		TVQualityProfileID:    tvQPID,
-		AutoApprove:           u.AutoApprove,
-		IsAdmin:               u.IsAdmin,
-		Enabled:               u.Enabled,
-		CreatedAt:             u.CreatedAt,
-		UpdatedAt:             u.UpdatedAt,
+		ID:          u.ID,
+		Username:    u.Username,
+		AutoApprove: u.AutoApprove,
+		IsAdmin:     u.IsAdmin,
+		Enabled:     u.Enabled,
+		CreatedAt:   u.CreatedAt,
+		UpdatedAt:   u.UpdatedAt,
 	}
 }

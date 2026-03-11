@@ -1,10 +1,8 @@
 package arrimport
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -13,14 +11,12 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/downloader"
-	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/indexer"
-	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
-	"github.com/slipstream/slipstream/internal/library/scanner"
-	"github.com/slipstream/slipstream/internal/library/slots"
-	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/progress"
 )
@@ -35,19 +31,10 @@ const (
 	statusReasonRedacted = "credentials are redacted (API connection)"
 )
 
-// MovieService defines the interface for movie operations.
-type MovieService interface {
-	Create(ctx context.Context, input *movies.CreateMovieInput) (*movies.Movie, error)
-	GetByTmdbID(ctx context.Context, tmdbID int) (*movies.Movie, error)
-	AddFile(ctx context.Context, movieID int64, input *movies.CreateMovieFileInput) (*movies.MovieFile, error)
-}
-
-// TVService defines the interface for TV operations.
-type TVService interface {
-	CreateSeries(ctx context.Context, input *tv.CreateSeriesInput) (*tv.Series, error)
-	GetSeriesByTvdbID(ctx context.Context, tvdbID int) (*tv.Series, error)
-	GetEpisodeByNumber(ctx context.Context, seriesID int64, seasonNumber, episodeNumber int) (*tv.Episode, error)
-	AddEpisodeFile(ctx context.Context, episodeID int64, input *tv.CreateEpisodeFileInput) (*tv.EpisodeFile, error)
+// ModuleRegistry provides access to module adapters for arr import.
+type ModuleRegistry interface {
+	GetMovieArrAdapter() module.MovieArrImportAdapter
+	GetTVArrAdapter() module.TVArrImportAdapter
 }
 
 // RootFolderService defines the interface for root folder operations.
@@ -58,20 +45,6 @@ type RootFolderService interface {
 // QualityService defines the interface for quality profile operations.
 type QualityService interface {
 	List(ctx context.Context) ([]*quality.Profile, error)
-}
-
-// MetadataRefresher refreshes metadata for imported media.
-type MetadataRefresher interface {
-	RefreshMovieMetadata(ctx context.Context, movieID int64) (*movies.Movie, error)
-	RefreshSeriesMetadata(ctx context.Context, seriesID int64) (*tv.Series, error)
-}
-
-// SlotsService defines the interface for slot operations.
-type SlotsService interface {
-	IsMultiVersionEnabled(ctx context.Context) bool
-	InitializeSlotAssignments(ctx context.Context, mediaType string, mediaID int64) error
-	DetermineTargetSlot(ctx context.Context, parsed *scanner.ParsedMedia, mediaType string, mediaID int64) (*slots.SlotAssignment, error)
-	AssignFileToSlot(ctx context.Context, mediaType string, mediaID, slotID, fileID int64) error
 }
 
 // DownloadClientImportService defines the interface for creating download clients during config import.
@@ -98,10 +71,10 @@ type QualityProfileImportService interface {
 	List(ctx context.Context) ([]*quality.Profile, error)
 }
 
-// ImportSettingsService defines the interface for reading/updating import settings during config import.
-type ImportSettingsService interface {
-	GetSettings(ctx context.Context) (*importer.ImportSettings, error)
-	UpdateSettings(ctx context.Context, settings *importer.ImportSettings) (*importer.ImportSettings, error)
+// NamingConfigImportService defines the interface for reading/updating module naming settings during config import.
+type NamingConfigImportService interface {
+	GetNamingSettings(ctx context.Context, moduleType string) (map[string]string, error)
+	UpsertNamingSettings(ctx context.Context, moduleType string, settings map[string]string) error
 }
 
 // Service manages library imports from external sources.
@@ -109,50 +82,38 @@ type Service struct {
 	db                *sql.DB
 	reader            Reader
 	sourceType        SourceType
-	movieService      MovieService
-	tvService         TVService
+	registry          ModuleRegistry
 	rootFolderService RootFolderService
 	qualityService    QualityService
-	slotsService      SlotsService
-	metadataRefresher MetadataRefresher
 	progressManager   *progress.Manager
 	logger            *zerolog.Logger
 	mu                sync.Mutex
 
 	// Config import services (set via SetConfigImportServices)
-	dlClientService       DownloadClientImportService
-	indexerService        IndexerImportService
-	notifService          NotificationImportService
-	qualityProfService    QualityProfileImportService
-	importSettingsService ImportSettingsService
+	dlClientService     DownloadClientImportService
+	indexerService      IndexerImportService
+	notifService        NotificationImportService
+	qualityProfService  QualityProfileImportService
+	namingConfigService NamingConfigImportService
 }
 
 // NewService creates a new library import service.
 func NewService(
 	db *sql.DB,
-	movieService MovieService,
-	tvService TVService,
+	registry ModuleRegistry,
 	rootFolderService RootFolderService,
 	qualityService QualityService,
 	progressManager *progress.Manager,
 	logger *zerolog.Logger,
-	slotsService SlotsService,
 ) *Service {
 	return &Service{
 		db:                db,
-		movieService:      movieService,
-		tvService:         tvService,
+		registry:          registry,
 		rootFolderService: rootFolderService,
 		qualityService:    qualityService,
 		progressManager:   progressManager,
 		logger:            logger,
-		slotsService:      slotsService,
 	}
-}
-
-// SetMetadataRefresher sets the optional metadata refresher for post-import metadata fetch.
-func (s *Service) SetMetadataRefresher(refresher MetadataRefresher) {
-	s.metadataRefresher = refresher
 }
 
 // SetConfigImportServices sets the services required for config import.
@@ -161,13 +122,13 @@ func (s *Service) SetConfigImportServices(
 	idx IndexerImportService,
 	notif NotificationImportService,
 	qualityProf QualityProfileImportService,
-	importSettings ImportSettingsService,
+	namingConfig NamingConfigImportService,
 ) {
 	s.dlClientService = dlClient
 	s.indexerService = idx
 	s.notifService = notif
 	s.qualityProfService = qualityProf
-	s.importSettingsService = importSettings
+	s.namingConfigService = namingConfig
 }
 
 // Connect establishes a connection to the source application.
@@ -234,143 +195,96 @@ func (s *Service) Preview(ctx context.Context, mappings ImportMappings) (*Import
 		Summary: ImportSummary{},
 	}
 
-	// Read and preview movies (only for Radarr)
+	adapted := &readerAdapter{inner: reader}
+
 	if sourceType == SourceTypeRadarr {
-		if err := s.previewMovies(ctx, reader, preview); err != nil {
-			return nil, fmt.Errorf("failed to preview movies: %w", err)
+		if err := s.previewMovies(ctx, adapted, preview); err != nil {
+			return nil, err
 		}
 	}
 
-	// Read and preview series (only for Sonarr)
 	if sourceType == SourceTypeSonarr {
-		if err := s.previewSeries(ctx, reader, preview); err != nil {
-			return nil, fmt.Errorf("failed to preview series: %w", err)
+		if err := s.previewSeries(ctx, adapted, preview); err != nil {
+			return nil, err
 		}
 	}
 
 	return preview, nil
 }
 
-func (s *Service) previewMovies(ctx context.Context, reader Reader, preview *ImportPreview) error {
-	sourceMovies, err := reader.ReadMovies(ctx)
-	if err != nil {
-		return err
+func (s *Service) previewMovies(ctx context.Context, reader module.ArrReader, preview *ImportPreview) error {
+	adapter := s.registry.GetMovieArrAdapter()
+	if adapter == nil {
+		return fmt.Errorf("no movie arr import adapter registered")
 	}
-
-	for i := range sourceMovies {
-		moviePreview := MoviePreview{
-			Title:            sourceMovies[i].Title,
-			Year:             sourceMovies[i].Year,
-			TmdbID:           sourceMovies[i].TmdbID,
-			HasFile:          sourceMovies[i].HasFile,
-			Monitored:        sourceMovies[i].Monitored,
-			QualityProfileID: sourceMovies[i].QualityProfileID,
-			PosterURL:        sourceMovies[i].PosterURL,
-		}
-
-		if sourceMovies[i].File != nil {
-			moviePreview.Quality = sourceMovies[i].File.QualityName
-		}
-
-		if sourceMovies[i].TmdbID == 0 {
-			moviePreview.Status = previewStatusSkip
-			moviePreview.SkipReason = "no TMDB ID"
-			preview.Movies = append(preview.Movies, moviePreview)
-			preview.Summary.TotalMovies++
-			preview.Summary.SkippedMovies++
-			continue
-		}
-
-		_, err := s.movieService.GetByTmdbID(ctx, sourceMovies[i].TmdbID)
-		if err != nil {
-			errMsg := err.Error()
-			if errMsg == "movie not found" {
-				moviePreview.Status = previewStatusNew
-				preview.Summary.NewMovies++
-			} else {
-				s.logger.Warn().Int("tmdbId", sourceMovies[i].TmdbID).Err(err).Msg("failed to check movie existence")
-				moviePreview.Status = previewStatusSkip
-				moviePreview.SkipReason = "error checking existence"
-				preview.Summary.SkippedMovies++
-			}
-		} else {
-			moviePreview.Status = previewStatusDuplicate
-			preview.Summary.DuplicateMovies++
-		}
-
-		preview.Movies = append(preview.Movies, moviePreview)
+	items, err := adapter.PreviewMovies(ctx, reader)
+	if err != nil {
+		return fmt.Errorf("failed to preview movies: %w", err)
+	}
+	for i := range items {
+		preview.Movies = append(preview.Movies, MoviePreview{
+			Title:            items[i].Title,
+			Year:             items[i].Year,
+			TmdbID:           items[i].TmdbID,
+			HasFile:          items[i].HasFile,
+			Quality:          items[i].Quality,
+			Monitored:        items[i].Monitored,
+			QualityProfileID: items[i].QualityProfileID,
+			PosterURL:        items[i].PosterURL,
+			Status:           items[i].Status,
+			SkipReason:       items[i].SkipReason,
+		})
 		preview.Summary.TotalMovies++
-		if sourceMovies[i].HasFile {
+		switch items[i].Status {
+		case "new":
+			preview.Summary.NewMovies++
+		case "duplicate":
+			preview.Summary.DuplicateMovies++
+		case "skip":
+			preview.Summary.SkippedMovies++
+		}
+		if items[i].HasFile {
 			preview.Summary.TotalFiles++
 		}
 	}
-
 	return nil
 }
 
-func (s *Service) previewSeries(ctx context.Context, reader Reader, preview *ImportPreview) error {
-	seriesList, err := reader.ReadSeries(ctx)
+func (s *Service) previewSeries(ctx context.Context, reader module.ArrReader, preview *ImportPreview) error {
+	adapter := s.registry.GetTVArrAdapter()
+	if adapter == nil {
+		return fmt.Errorf("no TV arr import adapter registered")
+	}
+	items, err := adapter.PreviewSeries(ctx, reader)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to preview series: %w", err)
 	}
-
-	for i := range seriesList {
-		seriesPreview := SeriesPreview{
-			Title:            seriesList[i].Title,
-			Year:             seriesList[i].Year,
-			TvdbID:           seriesList[i].TvdbID,
-			TmdbID:           seriesList[i].TmdbID,
-			Monitored:        seriesList[i].Monitored,
-			QualityProfileID: seriesList[i].QualityProfileID,
-			PosterURL:        seriesList[i].PosterURL,
-		}
-
-		if seriesList[i].TvdbID == 0 {
-			seriesPreview.Status = previewStatusSkip
-			seriesPreview.SkipReason = "no TVDB ID"
-			preview.Series = append(preview.Series, seriesPreview)
-			preview.Summary.TotalSeries++
-			preview.Summary.SkippedSeries++
-			continue
-		}
-
-		episodes, err := reader.ReadEpisodes(ctx, seriesList[i].ID)
-		if err != nil {
-			s.logger.Warn().Int64("seriesId", seriesList[i].ID).Err(err).Msg("failed to read episodes")
-			episodes = []SourceEpisode{}
-		}
-		seriesPreview.EpisodeCount = len(episodes)
-		preview.Summary.TotalEpisodes += len(episodes)
-
-		files, err := reader.ReadEpisodeFiles(ctx, seriesList[i].ID)
-		if err != nil {
-			s.logger.Warn().Int64("seriesId", seriesList[i].ID).Err(err).Msg("failed to read episode files")
-			files = []SourceEpisodeFile{}
-		}
-		seriesPreview.FileCount = len(files)
-		preview.Summary.TotalFiles += len(files)
-
-		_, err = s.tvService.GetSeriesByTvdbID(ctx, seriesList[i].TvdbID)
-		if err != nil {
-			errMsg := err.Error()
-			if errMsg == "series not found" {
-				seriesPreview.Status = previewStatusNew
-				preview.Summary.NewSeries++
-			} else {
-				s.logger.Warn().Int("tvdbId", seriesList[i].TvdbID).Err(err).Msg("failed to check series existence")
-				seriesPreview.Status = previewStatusSkip
-				seriesPreview.SkipReason = "error checking existence"
-				preview.Summary.SkippedSeries++
-			}
-		} else {
-			seriesPreview.Status = previewStatusDuplicate
-			preview.Summary.DuplicateSeries++
-		}
-
-		preview.Series = append(preview.Series, seriesPreview)
+	for i := range items {
+		preview.Series = append(preview.Series, SeriesPreview{
+			Title:            items[i].Title,
+			Year:             items[i].Year,
+			TvdbID:           items[i].TvdbID,
+			TmdbID:           items[i].TmdbID,
+			EpisodeCount:     items[i].EpisodeCount,
+			FileCount:        items[i].FileCount,
+			Monitored:        items[i].Monitored,
+			QualityProfileID: items[i].QualityProfileID,
+			PosterURL:        items[i].PosterURL,
+			Status:           items[i].Status,
+			SkipReason:       items[i].SkipReason,
+		})
 		preview.Summary.TotalSeries++
+		preview.Summary.TotalEpisodes += items[i].EpisodeCount
+		preview.Summary.TotalFiles += items[i].FileCount
+		switch items[i].Status {
+		case "new":
+			preview.Summary.NewSeries++
+		case "duplicate":
+			preview.Summary.DuplicateSeries++
+		case "skip":
+			preview.Summary.SkippedSeries++
+		}
 	}
-
 	return nil
 }
 
@@ -387,7 +301,7 @@ func (s *Service) Execute(ctx context.Context, mappings ImportMappings) error {
 	sourceType := s.sourceType
 	s.mu.Unlock()
 
-	executor := NewExecutor(s.db, reader, sourceType, s.movieService, s.tvService, s.slotsService, s.metadataRefresher, s.progressManager, s.logger)
+	executor := NewExecutor(s.db, reader, sourceType, s.registry, s.progressManager, s.logger)
 	go executor.Run(context.Background(), mappings)
 
 	return nil
@@ -546,9 +460,9 @@ func (s *Service) previewNamingConfig(ctx context.Context, reader Reader, source
 		preview.Warnings = append(preview.Warnings, "failed to read naming config: "+err.Error())
 		return
 	}
-	currentSettings, settingsErr := s.importSettingsService.GetSettings(ctx)
+	translated, _ := translateNamingConfig(nc, sourceType)
 	status := "different"
-	if settingsErr == nil && namingConfigSame(nc, sourceType, currentSettings) {
+	if s.namingConfigService != nil && namingConfigSame(ctx, s.namingConfigService, translated) {
 		status = "same"
 	}
 	preview.NamingConfig = &NamingConfigPreview{
@@ -754,30 +668,32 @@ func (s *Service) importNotifications(ctx context.Context, reader Reader, source
 			report.Warnings = append(report.Warnings, fmt.Sprintf("notification %q: created disabled (redacted credentials)", n.Name))
 		}
 
-		input := &notification.CreateInput{
-			Name:     n.Name,
-			Type:     mappedType,
-			Enabled:  enabled,
-			Settings: translatedSettings,
-
-			OnGrab:    n.OnGrab,
-			OnImport:  n.OnDownload,
-			OnUpgrade: n.OnUpgrade,
-
-			OnHealthIssue:         n.OnHealthIssue,
-			OnHealthRestored:      n.OnHealthRestored,
-			OnAppUpdate:           n.OnApplicationUpdate,
-			IncludeHealthWarnings: n.IncludeHealthWarnings,
+		toggles := map[string]bool{
+			notification.EventGrab:           n.OnGrab,
+			notification.EventImport:         n.OnDownload,
+			notification.EventUpgrade:        n.OnUpgrade,
+			notification.EventHealthIssue:    n.OnHealthIssue,
+			notification.EventHealthRestored: n.OnHealthRestored,
+			notification.EventAppUpdate:      n.OnApplicationUpdate,
 		}
 
 		// Map source-type-specific event fields
 		switch sourceType {
 		case SourceTypeSonarr:
-			input.OnSeriesAdded = n.OnSeriesAdd
-			input.OnSeriesDeleted = n.OnSeriesDelete
+			toggles[tvmod.EventTVAdded] = n.OnSeriesAdd
+			toggles[tvmod.EventTVDeleted] = n.OnSeriesDelete
 		case SourceTypeRadarr:
-			input.OnMovieAdded = n.OnMovieAdded
-			input.OnMovieDeleted = n.OnMovieDelete
+			toggles[moviemod.EventMovieAdded] = n.OnMovieAdded
+			toggles[moviemod.EventMovieDeleted] = n.OnMovieDelete
+		}
+
+		input := &notification.CreateInput{
+			Name:                  n.Name,
+			Type:                  mappedType,
+			Enabled:               enabled,
+			Settings:              translatedSettings,
+			EventToggles:          toggles,
+			IncludeHealthWarnings: n.IncludeHealthWarnings,
 		}
 
 		if _, err := s.notifService.Create(ctx, input); err != nil {
@@ -813,8 +729,14 @@ func (s *Service) importQualityProfiles(ctx context.Context, reader Reader, sour
 		// G1: UpgradesEnabled is *bool
 		upgradesEnabled := p.UpgradeAllowed
 
+		moduleType := "movie"
+		if sourceType == SourceTypeSonarr {
+			moduleType = "tv"
+		}
+
 		input := &quality.CreateProfileInput{
 			Name:            p.Name,
+			ModuleType:      moduleType,
 			Cutoff:          cutoff,
 			UpgradesEnabled: &upgradesEnabled,
 			UpgradeStrategy: quality.StrategyBalanced,
@@ -836,20 +758,16 @@ func (s *Service) importNamingConfig(ctx context.Context, reader Reader, sourceT
 		return
 	}
 
-	current, err := s.importSettingsService.GetSettings(ctx)
-	if err != nil {
-		report.Errors = append(report.Errors, "failed to get current import settings: "+err.Error())
-		return
-	}
-
-	updated, warnings := translateNamingConfig(nc, sourceType, current)
+	translated, warnings := translateNamingConfig(nc, sourceType)
 	report.Warnings = append(report.Warnings, warnings...)
 
-	if _, err := s.importSettingsService.UpdateSettings(ctx, updated); err != nil {
-		report.Errors = append(report.Errors, "failed to update import settings: "+err.Error())
-	} else {
-		report.NamingConfigImported = true
+	for _, cfg := range translated {
+		if err := s.namingConfigService.UpsertNamingSettings(ctx, cfg.ModuleType, cfg.Settings); err != nil {
+			report.Errors = append(report.Errors, "failed to update naming settings for module "+cfg.ModuleType+": "+err.Error())
+			return
+		}
 	}
+	report.NamingConfigImported = true
 }
 
 // nameSet builds a case-insensitive name lookup from a pointer slice.
@@ -870,11 +788,19 @@ func nameSetVal[T any](items []T, getName func(T) string) map[string]bool {
 	return m
 }
 
-func namingConfigSame(src *SourceNamingConfig, sourceType SourceType, current *importer.ImportSettings) bool {
-	translated, _ := translateNamingConfig(src, sourceType, current)
-	translatedJSON, _ := json.Marshal(translated)
-	currentJSON, _ := json.Marshal(current)
-	return bytes.Equal(translatedJSON, currentJSON)
+func namingConfigSame(ctx context.Context, svc NamingConfigImportService, translated []TranslatedNamingConfig) bool {
+	for _, cfg := range translated {
+		current, err := svc.GetNamingSettings(ctx, cfg.ModuleType)
+		if err != nil {
+			return false
+		}
+		for key, val := range cfg.Settings {
+			if current[key] != val {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Disconnect closes the connection to the source and clears session state.
@@ -893,4 +819,183 @@ func (s *Service) Disconnect(ctx context.Context) error {
 	s.logger.Info().Msg("disconnected from source")
 
 	return nil
+}
+
+// readerAdapter wraps an arrimport.Reader to implement module.ArrReader.
+type readerAdapter struct{ inner Reader }
+
+func (a *readerAdapter) ReadRootFolders(ctx context.Context) ([]module.ArrSourceRootFolder, error) {
+	folders, err := a.inner.ReadRootFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceRootFolder, len(folders))
+	for i, f := range folders {
+		result[i] = module.ArrSourceRootFolder{ID: f.ID, Path: f.Path}
+	}
+	return result, nil
+}
+
+func (a *readerAdapter) ReadQualityProfiles(ctx context.Context) ([]module.ArrSourceQualityProfile, error) {
+	profiles, err := a.inner.ReadQualityProfiles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceQualityProfile, len(profiles))
+	for i, p := range profiles {
+		result[i] = module.ArrSourceQualityProfile{ID: p.ID, Name: p.Name, InUse: p.InUse}
+	}
+	return result, nil
+}
+
+func (a *readerAdapter) ReadMovies(ctx context.Context) ([]module.ArrSourceMovie, error) {
+	movies, err := a.inner.ReadMovies(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceMovie, len(movies))
+	for i := range movies {
+		result[i] = convertSourceMovie(&movies[i])
+	}
+	return result, nil
+}
+
+func (a *readerAdapter) ReadSeries(ctx context.Context) ([]module.ArrSourceSeries, error) {
+	seriesList, err := a.inner.ReadSeries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceSeries, len(seriesList))
+	for i := range seriesList {
+		result[i] = convertSourceSeries(&seriesList[i])
+	}
+	return result, nil
+}
+
+func (a *readerAdapter) ReadEpisodes(ctx context.Context, seriesID int64) ([]module.ArrSourceEpisode, error) {
+	episodes, err := a.inner.ReadEpisodes(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceEpisode, len(episodes))
+	for i, ep := range episodes {
+		result[i] = module.ArrSourceEpisode{
+			ID:            ep.ID,
+			SeriesID:      ep.SeriesID,
+			SeasonNumber:  ep.SeasonNumber,
+			EpisodeNumber: ep.EpisodeNumber,
+			Title:         ep.Title,
+			Overview:      ep.Overview,
+			AirDateUtc:    ep.AirDateUtc,
+			Monitored:     ep.Monitored,
+			EpisodeFileID: ep.EpisodeFileID,
+			HasFile:       ep.HasFile,
+		}
+	}
+	return result, nil
+}
+
+func (a *readerAdapter) ReadEpisodeFiles(ctx context.Context, seriesID int64) ([]module.ArrSourceEpisodeFile, error) {
+	files, err := a.inner.ReadEpisodeFiles(ctx, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]module.ArrSourceEpisodeFile, len(files))
+	for i := range files {
+		result[i] = module.ArrSourceEpisodeFile{
+			ID:               files[i].ID,
+			SeriesID:         files[i].SeriesID,
+			SeasonNumber:     files[i].SeasonNumber,
+			RelativePath:     files[i].RelativePath,
+			Size:             files[i].Size,
+			QualityID:        files[i].QualityID,
+			QualityName:      files[i].QualityName,
+			VideoCodec:       files[i].VideoCodec,
+			AudioCodec:       files[i].AudioCodec,
+			Resolution:       files[i].Resolution,
+			AudioChannels:    files[i].AudioChannels,
+			DynamicRange:     files[i].DynamicRange,
+			OriginalFilePath: files[i].OriginalFilePath,
+			DateAdded:        files[i].DateAdded,
+		}
+	}
+	return result, nil
+}
+
+func convertSourceMovie(m *SourceMovie) module.ArrSourceMovie {
+	result := module.ArrSourceMovie{
+		ID:               m.ID,
+		Title:            m.Title,
+		SortTitle:        m.SortTitle,
+		Year:             m.Year,
+		TmdbID:           m.TmdbID,
+		ImdbID:           m.ImdbID,
+		Overview:         m.Overview,
+		Runtime:          m.Runtime,
+		Path:             m.Path,
+		RootFolderPath:   m.RootFolderPath,
+		QualityProfileID: m.QualityProfileID,
+		Monitored:        m.Monitored,
+		Status:           m.Status,
+		InCinemas:        m.InCinemas,
+		PhysicalRelease:  m.PhysicalRelease,
+		DigitalRelease:   m.DigitalRelease,
+		Studio:           m.Studio,
+		Certification:    m.Certification,
+		Added:            m.Added,
+		HasFile:          m.HasFile,
+		PosterURL:        m.PosterURL,
+	}
+	if m.File != nil {
+		result.File = &module.ArrSourceMovieFile{
+			ID:               m.File.ID,
+			Path:             m.File.Path,
+			Size:             m.File.Size,
+			QualityID:        m.File.QualityID,
+			QualityName:      m.File.QualityName,
+			VideoCodec:       m.File.VideoCodec,
+			AudioCodec:       m.File.AudioCodec,
+			Resolution:       m.File.Resolution,
+			AudioChannels:    m.File.AudioChannels,
+			DynamicRange:     m.File.DynamicRange,
+			OriginalFilePath: m.File.OriginalFilePath,
+			DateAdded:        m.File.DateAdded,
+		}
+	}
+	return result
+}
+
+func convertSourceSeries(s *SourceSeries) module.ArrSourceSeries {
+	result := module.ArrSourceSeries{
+		ID:               s.ID,
+		Title:            s.Title,
+		SortTitle:        s.SortTitle,
+		Year:             s.Year,
+		TvdbID:           s.TvdbID,
+		TmdbID:           s.TmdbID,
+		ImdbID:           s.ImdbID,
+		Overview:         s.Overview,
+		Runtime:          s.Runtime,
+		Path:             s.Path,
+		RootFolderPath:   s.RootFolderPath,
+		QualityProfileID: s.QualityProfileID,
+		Monitored:        s.Monitored,
+		SeasonFolder:     s.SeasonFolder,
+		Status:           s.Status,
+		Network:          s.Network,
+		SeriesType:       s.SeriesType,
+		Certification:    s.Certification,
+		Added:            s.Added,
+		PosterURL:        s.PosterURL,
+	}
+	if len(s.Seasons) > 0 {
+		result.Seasons = make([]module.ArrSourceSeason, len(s.Seasons))
+		for i, season := range s.Seasons {
+			result.Seasons[i] = module.ArrSourceSeason{
+				SeasonNumber: season.SeasonNumber,
+				Monitored:    season.Monitored,
+			}
+		}
+	}
+	return result
 }

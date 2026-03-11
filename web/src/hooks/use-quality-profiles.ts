@@ -10,10 +10,12 @@ const qualityProfileKeys = {
   attributes: () => [...baseKeys.all, 'attributes'] as const,
 }
 
-export function useQualityProfiles() {
+export function useQualityProfiles(moduleType?: string) {
   return useQuery({
-    queryKey: qualityProfileKeys.list(),
-    queryFn: () => qualityProfilesApi.list(),
+    queryKey: moduleType
+      ? [...qualityProfileKeys.list(), moduleType]
+      : qualityProfileKeys.list(),
+    queryFn: () => qualityProfilesApi.list(moduleType),
   })
 }
 

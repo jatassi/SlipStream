@@ -14,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/downloader/transmission"
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 var (
@@ -101,12 +102,18 @@ type Service struct {
 	broadcaster         contracts.Broadcaster
 	statusChangeLogger  contracts.StatusChangeLogger
 	portalStatusTracker PortalStatusTracker
+	registry            *module.Registry
 
 	queueCacheMu sync.RWMutex
 	queueCache   map[int64][]QueueItem
 
 	clientPoolMu sync.RWMutex
 	clientPool   map[int64]Client
+}
+
+// SetRegistry sets the module registry for module-aware media type detection.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // NewService creates a new download client service.
@@ -449,6 +456,18 @@ func (s *Service) GetTorrentClient(ctx context.Context, id int64) (TorrentClient
 	return TorrentClientFromDownloadClient(cfg)
 }
 
+// downloadSubDir returns the download subdirectory for a given entity type
+// (e.g., "movie", "series", "episode"). The subdirectory is derived from the
+// module's PluralName via the registry (spec §8.1).
+func (s *Service) downloadSubDir(mediaType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(mediaType)); mod != nil {
+			return "SlipStream/" + mod.PluralName()
+		}
+	}
+	return "SlipStream"
+}
+
 // AddTorrent adds a torrent from a URL to a specific client.
 // mediaType should be "movie" or "series" to determine the download subdirectory.
 // name is an optional display name (used by mock client; real clients get name from torrent file).
@@ -458,16 +477,7 @@ func (s *Service) AddTorrent(ctx context.Context, clientID int64, url, mediaType
 		return "", err
 	}
 
-	// Determine subdirectory based on media type
-	var subDir string
-	switch mediaType {
-	case mediaTypeMovie:
-		subDir = "SlipStream/Movies"
-	case mediaTypeSeries, "season", "episode":
-		subDir = "SlipStream/Series"
-	default:
-		subDir = "SlipStream"
-	}
+	subDir := s.downloadSubDir(mediaType)
 
 	// Get the client using the factory
 	client, err := ClientFromDownloadClient(cfg)
@@ -517,16 +527,7 @@ func (s *Service) AddTorrentWithContent(ctx context.Context, clientID int64, con
 		return "", err
 	}
 
-	// Determine subdirectory based on media type
-	var subDir string
-	switch mediaType {
-	case mediaTypeMovie:
-		subDir = "SlipStream/Movies"
-	case mediaTypeSeries, "season", "episode":
-		subDir = "SlipStream/Series"
-	default:
-		subDir = "SlipStream"
-	}
+	subDir := s.downloadSubDir(mediaType)
 
 	// Get the client using the factory
 	client, err := ClientFromDownloadClient(cfg)

@@ -1,6 +1,9 @@
 package tv
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // StatusCounts holds episode status counts for a series or season.
 type StatusCounts struct {
@@ -44,6 +47,21 @@ type Series struct {
 
 	AddedBy         *int64 `json:"addedBy,omitempty"`
 	AddedByUsername string `json:"addedByUsername,omitempty"`
+}
+
+// ExternalIDs returns a map of external provider IDs for the series.
+func (s *Series) ExternalIDs() map[string]string {
+	ids := make(map[string]string)
+	if s.TvdbID > 0 {
+		ids["tvdb"] = strconv.Itoa(s.TvdbID)
+	}
+	if s.TmdbID > 0 {
+		ids["tmdb"] = strconv.Itoa(s.TmdbID)
+	}
+	if s.ImdbID != "" {
+		ids["imdb"] = s.ImdbID
+	}
+	return ids
 }
 
 // Season represents a season of a TV series.
@@ -194,6 +212,7 @@ const (
 	MonitorTypeFuture      MonitorType = "future"
 	MonitorTypeFirstSeason MonitorType = "first_season"
 	MonitorTypeLatest      MonitorType = "latest_season"
+	MonitorTypeExisting    MonitorType = "existing"
 )
 
 // BulkMonitorInput contains fields for bulk monitoring operations.
@@ -214,15 +233,4 @@ type MonitoringStats struct {
 	MonitoredSeasons  int64 `json:"monitoredSeasons"`
 	TotalEpisodes     int64 `json:"totalEpisodes"`
 	MonitoredEpisodes int64 `json:"monitoredEpisodes"`
-}
-
-// generateSortTitle creates a sort-friendly title by removing leading articles.
-func generateSortTitle(title string) string {
-	prefixes := []string{"The ", "A ", "An "}
-	for _, prefix := range prefixes {
-		if len(title) > len(prefix) && title[:len(prefix)] == prefix {
-			return title[len(prefix):]
-		}
-	}
-	return title
 }

@@ -1,6 +1,9 @@
 package movies
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // Movie represents a movie in the library.
 type Movie struct {
@@ -34,6 +37,21 @@ type Movie struct {
 
 	AddedBy         *int64 `json:"addedBy,omitempty"`
 	AddedByUsername string `json:"addedByUsername,omitempty"`
+}
+
+// ExternalIDs returns a map of external provider IDs for the movie.
+func (m *Movie) ExternalIDs() map[string]string {
+	ids := make(map[string]string)
+	if m.TmdbID > 0 {
+		ids["tmdb"] = strconv.Itoa(m.TmdbID)
+	}
+	if m.ImdbID != "" {
+		ids["imdb"] = m.ImdbID
+	}
+	if m.TvdbID > 0 {
+		ids["tvdb"] = strconv.Itoa(m.TvdbID)
+	}
+	return ids
 }
 
 // MovieFile represents a movie file on disk.
@@ -125,15 +143,4 @@ type CreateMovieFileInput struct {
 	Resolution       string `json:"resolution,omitempty"`
 	OriginalPath     string `json:"originalPath,omitempty"`     // Source path before import
 	OriginalFilename string `json:"originalFilename,omitempty"` // Original filename before rename
-}
-
-// generateSortTitle creates a sort-friendly title by removing leading articles.
-func generateSortTitle(title string) string {
-	prefixes := []string{"The ", "A ", "An "}
-	for _, prefix := range prefixes {
-		if len(title) > len(prefix) && title[:len(prefix)] == prefix {
-			return title[len(prefix):]
-		}
-	}
-	return title
 }

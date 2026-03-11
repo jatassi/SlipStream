@@ -1,5 +1,8 @@
 {
   "permissions": {
+    "deny": [
+      "LSP"
+    ],
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run build:*)",

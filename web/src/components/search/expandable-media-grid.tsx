@@ -1,6 +1,6 @@
 import { type ReactNode, useState, useSyncExternalStore } from 'react'
 
-import { ChevronDown, ChevronRight, Film, Tv } from 'lucide-react'
+import { ChevronDown, ChevronRight, Film, type LucideIcon,Tv } from 'lucide-react'
 
 const BREAKPOINTS = [
   { minWidth: 1280, columns: 8 }, // xl
@@ -29,39 +29,39 @@ function useGridColumns(): number {
   return useSyncExternalStore(subscribe, getColumns, () => 3)
 }
 
-const ICON_MAP = {
+const ICON_MAP: Record<string, LucideIcon> = {
   movie: Film,
   series: Tv,
-} as const
-
-const THEME_COLOR_MAP = {
-  movie: 'text-movie-400',
-  series: 'text-tv-400',
-} as const
-
-const ICON_GLOW_MAP = {
-  movie: 'icon-glow-movie',
-  series: 'icon-glow-tv',
-} as const
-
-function getThemeColor(icon?: 'movie' | 'series'): string {
-  if (!icon) {
-    return ''
-  }
-  return THEME_COLOR_MAP[icon]
 }
 
-function getIconGlow(icon?: 'movie' | 'series'): string {
+const THEME_COLOR_MAP: Record<string, string> = {
+  movie: 'text-movie-400',
+  series: 'text-tv-400',
+}
+
+const ICON_GLOW_MAP: Record<string, string> = {
+  movie: 'icon-glow-movie',
+  series: 'icon-glow-tv',
+}
+
+function getThemeColor(icon?: string): string {
   if (!icon) {
     return ''
   }
-  return ICON_GLOW_MAP[icon]
+  return THEME_COLOR_MAP[icon] ?? ''
+}
+
+function getIconGlow(icon?: string): string {
+  if (!icon) {
+    return ''
+  }
+  return ICON_GLOW_MAP[icon] ?? ''
 }
 
 type HeaderProps = {
   label: string
   count: number
-  icon?: 'movie' | 'series'
+  icon?: string
   collapsible: boolean
   hasMore: boolean
   expanded: boolean
@@ -191,7 +191,7 @@ type ExpandableMediaGridProps<T> = {
   renderItem: (item: T, index: number) => ReactNode
   getKey: (item: T) => string | number
   label: string
-  icon?: 'movie' | 'series'
+  icon?: string
   showHeader?: boolean
   collapsible?: boolean
 }

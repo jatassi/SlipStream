@@ -35,6 +35,9 @@ const (
 type Entry struct {
 	ID             int64          `json:"id"`
 	EventType      EventType      `json:"eventType"`
+	ModuleType     string         `json:"moduleType"`
+	EntityType     MediaType      `json:"entityType"`
+	EntityID       int64          `json:"entityId"`
 	MediaType      MediaType      `json:"mediaType"`
 	MediaID        int64          `json:"mediaId"`
 	Source         string         `json:"source,omitempty"`
@@ -49,12 +52,13 @@ type Entry struct {
 
 // CreateInput contains fields for creating a history entry.
 type CreateInput struct {
-	EventType EventType
-	MediaType MediaType
-	MediaID   int64
-	Source    string
-	Quality   string
-	Data      map[string]any
+	EventType  EventType
+	ModuleType string // "movie" or "tv"
+	EntityType MediaType
+	EntityID   int64
+	Source     string
+	Quality    string
+	Data       map[string]any
 }
 
 // ListOptions contains options for listing history.

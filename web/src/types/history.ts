@@ -15,7 +15,8 @@ export type HistoryEventType =
 export type HistoryEntry = {
   id: number
   eventType: HistoryEventType
-  mediaType: 'movie' | 'episode'
+  mediaType: string
+  moduleType?: string
   mediaId: number
   source?: string
   quality?: string
@@ -85,7 +86,7 @@ export type HistoryEventData =
 
 export type ListHistoryOptions = {
   eventType?: string
-  mediaType?: 'movie' | 'episode'
+  mediaType?: string
   mediaId?: number
   page?: number
   pageSize?: number

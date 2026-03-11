@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 )
 
 const ensureImportSettingsExist = `-- name: EnsureImportSettingsExist :exec
@@ -20,7 +19,7 @@ func (q *Queries) EnsureImportSettingsExist(ctx context.Context) error {
 }
 
 const getImportSettings = `-- name: GetImportSettings :one
-SELECT id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at FROM import_settings WHERE id = 1
+SELECT id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, updated_at FROM import_settings WHERE id = 1
 `
 
 func (q *Queries) GetImportSettings(ctx context.Context) (*ImportSetting, error) {
@@ -33,20 +32,6 @@ func (q *Queries) GetImportSettings(ctx context.Context) (*ImportSetting, error)
 		&i.VideoExtensions,
 		&i.MatchConflictBehavior,
 		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
 		&i.UpdatedAt,
 	)
 	return &i, err
@@ -58,7 +43,7 @@ UPDATE import_settings SET
     unknown_media_behavior = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = 1
-RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at
+RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, updated_at
 `
 
 type UpdateImportMatchingSettingsParams struct {
@@ -76,65 +61,6 @@ func (q *Queries) UpdateImportMatchingSettings(ctx context.Context, arg UpdateIm
 		&i.VideoExtensions,
 		&i.MatchConflictBehavior,
 		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const updateImportMovieNamingSettings = `-- name: UpdateImportMovieNamingSettings :one
-UPDATE import_settings SET
-    rename_movies = ?,
-    movie_folder_format = ?,
-    movie_file_format = ?,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = 1
-RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at
-`
-
-type UpdateImportMovieNamingSettingsParams struct {
-	RenameMovies      bool   `json:"rename_movies"`
-	MovieFolderFormat string `json:"movie_folder_format"`
-	MovieFileFormat   string `json:"movie_file_format"`
-}
-
-func (q *Queries) UpdateImportMovieNamingSettings(ctx context.Context, arg UpdateImportMovieNamingSettingsParams) (*ImportSetting, error) {
-	row := q.db.QueryRowContext(ctx, updateImportMovieNamingSettings, arg.RenameMovies, arg.MovieFolderFormat, arg.MovieFileFormat)
-	var i ImportSetting
-	err := row.Scan(
-		&i.ID,
-		&i.ValidationLevel,
-		&i.MinimumFileSizeMb,
-		&i.VideoExtensions,
-		&i.MatchConflictBehavior,
-		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
 		&i.UpdatedAt,
 	)
 	return &i, err
@@ -147,45 +73,17 @@ UPDATE import_settings SET
     video_extensions = ?,
     match_conflict_behavior = ?,
     unknown_media_behavior = ?,
-    rename_episodes = ?,
-    replace_illegal_characters = ?,
-    colon_replacement = ?,
-    custom_colon_replacement = ?,
-    standard_episode_format = ?,
-    daily_episode_format = ?,
-    anime_episode_format = ?,
-    series_folder_format = ?,
-    season_folder_format = ?,
-    specials_folder_format = ?,
-    multi_episode_style = ?,
-    rename_movies = ?,
-    movie_folder_format = ?,
-    movie_file_format = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = 1
-RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at
+RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, updated_at
 `
 
 type UpdateImportSettingsParams struct {
-	ValidationLevel          string         `json:"validation_level"`
-	MinimumFileSizeMb        int64          `json:"minimum_file_size_mb"`
-	VideoExtensions          string         `json:"video_extensions"`
-	MatchConflictBehavior    string         `json:"match_conflict_behavior"`
-	UnknownMediaBehavior     string         `json:"unknown_media_behavior"`
-	RenameEpisodes           bool           `json:"rename_episodes"`
-	ReplaceIllegalCharacters bool           `json:"replace_illegal_characters"`
-	ColonReplacement         string         `json:"colon_replacement"`
-	CustomColonReplacement   sql.NullString `json:"custom_colon_replacement"`
-	StandardEpisodeFormat    string         `json:"standard_episode_format"`
-	DailyEpisodeFormat       string         `json:"daily_episode_format"`
-	AnimeEpisodeFormat       string         `json:"anime_episode_format"`
-	SeriesFolderFormat       string         `json:"series_folder_format"`
-	SeasonFolderFormat       string         `json:"season_folder_format"`
-	SpecialsFolderFormat     string         `json:"specials_folder_format"`
-	MultiEpisodeStyle        string         `json:"multi_episode_style"`
-	RenameMovies             bool           `json:"rename_movies"`
-	MovieFolderFormat        string         `json:"movie_folder_format"`
-	MovieFileFormat          string         `json:"movie_file_format"`
+	ValidationLevel       string `json:"validation_level"`
+	MinimumFileSizeMb     int64  `json:"minimum_file_size_mb"`
+	VideoExtensions       string `json:"video_extensions"`
+	MatchConflictBehavior string `json:"match_conflict_behavior"`
+	UnknownMediaBehavior  string `json:"unknown_media_behavior"`
 }
 
 func (q *Queries) UpdateImportSettings(ctx context.Context, arg UpdateImportSettingsParams) (*ImportSetting, error) {
@@ -195,20 +93,6 @@ func (q *Queries) UpdateImportSettings(ctx context.Context, arg UpdateImportSett
 		arg.VideoExtensions,
 		arg.MatchConflictBehavior,
 		arg.UnknownMediaBehavior,
-		arg.RenameEpisodes,
-		arg.ReplaceIllegalCharacters,
-		arg.ColonReplacement,
-		arg.CustomColonReplacement,
-		arg.StandardEpisodeFormat,
-		arg.DailyEpisodeFormat,
-		arg.AnimeEpisodeFormat,
-		arg.SeriesFolderFormat,
-		arg.SeasonFolderFormat,
-		arg.SpecialsFolderFormat,
-		arg.MultiEpisodeStyle,
-		arg.RenameMovies,
-		arg.MovieFolderFormat,
-		arg.MovieFileFormat,
 	)
 	var i ImportSetting
 	err := row.Scan(
@@ -218,93 +102,6 @@ func (q *Queries) UpdateImportSettings(ctx context.Context, arg UpdateImportSett
 		&i.VideoExtensions,
 		&i.MatchConflictBehavior,
 		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const updateImportTVNamingSettings = `-- name: UpdateImportTVNamingSettings :one
-UPDATE import_settings SET
-    rename_episodes = ?,
-    replace_illegal_characters = ?,
-    colon_replacement = ?,
-    custom_colon_replacement = ?,
-    standard_episode_format = ?,
-    daily_episode_format = ?,
-    anime_episode_format = ?,
-    series_folder_format = ?,
-    season_folder_format = ?,
-    specials_folder_format = ?,
-    multi_episode_style = ?,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = 1
-RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at
-`
-
-type UpdateImportTVNamingSettingsParams struct {
-	RenameEpisodes           bool           `json:"rename_episodes"`
-	ReplaceIllegalCharacters bool           `json:"replace_illegal_characters"`
-	ColonReplacement         string         `json:"colon_replacement"`
-	CustomColonReplacement   sql.NullString `json:"custom_colon_replacement"`
-	StandardEpisodeFormat    string         `json:"standard_episode_format"`
-	DailyEpisodeFormat       string         `json:"daily_episode_format"`
-	AnimeEpisodeFormat       string         `json:"anime_episode_format"`
-	SeriesFolderFormat       string         `json:"series_folder_format"`
-	SeasonFolderFormat       string         `json:"season_folder_format"`
-	SpecialsFolderFormat     string         `json:"specials_folder_format"`
-	MultiEpisodeStyle        string         `json:"multi_episode_style"`
-}
-
-func (q *Queries) UpdateImportTVNamingSettings(ctx context.Context, arg UpdateImportTVNamingSettingsParams) (*ImportSetting, error) {
-	row := q.db.QueryRowContext(ctx, updateImportTVNamingSettings,
-		arg.RenameEpisodes,
-		arg.ReplaceIllegalCharacters,
-		arg.ColonReplacement,
-		arg.CustomColonReplacement,
-		arg.StandardEpisodeFormat,
-		arg.DailyEpisodeFormat,
-		arg.AnimeEpisodeFormat,
-		arg.SeriesFolderFormat,
-		arg.SeasonFolderFormat,
-		arg.SpecialsFolderFormat,
-		arg.MultiEpisodeStyle,
-	)
-	var i ImportSetting
-	err := row.Scan(
-		&i.ID,
-		&i.ValidationLevel,
-		&i.MinimumFileSizeMb,
-		&i.VideoExtensions,
-		&i.MatchConflictBehavior,
-		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
 		&i.UpdatedAt,
 	)
 	return &i, err
@@ -317,7 +114,7 @@ UPDATE import_settings SET
     video_extensions = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = 1
-RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, rename_episodes, replace_illegal_characters, colon_replacement, custom_colon_replacement, standard_episode_format, daily_episode_format, anime_episode_format, series_folder_format, season_folder_format, specials_folder_format, multi_episode_style, rename_movies, movie_folder_format, movie_file_format, updated_at
+RETURNING id, validation_level, minimum_file_size_mb, video_extensions, match_conflict_behavior, unknown_media_behavior, updated_at
 `
 
 type UpdateImportValidationSettingsParams struct {
@@ -336,20 +133,6 @@ func (q *Queries) UpdateImportValidationSettings(ctx context.Context, arg Update
 		&i.VideoExtensions,
 		&i.MatchConflictBehavior,
 		&i.UnknownMediaBehavior,
-		&i.RenameEpisodes,
-		&i.ReplaceIllegalCharacters,
-		&i.ColonReplacement,
-		&i.CustomColonReplacement,
-		&i.StandardEpisodeFormat,
-		&i.DailyEpisodeFormat,
-		&i.AnimeEpisodeFormat,
-		&i.SeriesFolderFormat,
-		&i.SeasonFolderFormat,
-		&i.SpecialsFolderFormat,
-		&i.MultiEpisodeStyle,
-		&i.RenameMovies,
-		&i.MovieFolderFormat,
-		&i.MovieFileFormat,
 		&i.UpdatedAt,
 	)
 	return &i, err

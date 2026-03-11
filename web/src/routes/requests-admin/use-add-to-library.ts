@@ -25,13 +25,18 @@ export function useAddToLibrary() {
     [requestSettings, rootFolders],
   )
 
-  const getDefaultQualityProfileId = useCallback(() => {
-    return qualityProfiles?.[0]?.id ?? 0
-  }, [qualityProfiles])
+  const getDefaultQualityProfileId = useCallback(
+    (mediaType: string) => {
+      const moduleType = mediaType === 'movie' ? 'movie' : 'tv'
+      const match = qualityProfiles?.find((p) => p.moduleType === moduleType)
+      return match?.id ?? qualityProfiles?.[0]?.id ?? 0
+    },
+    [qualityProfiles],
+  )
 
   return async (request: Request) => {
     const rootFolderId = getDefaultRootFolderId(request.mediaType)
-    const qualityProfileId = getDefaultQualityProfileId()
+    const qualityProfileId = getDefaultQualityProfileId(request.mediaType)
 
     if (!rootFolderId || !qualityProfileId) {
       throw new Error('Missing root folder or quality profile configuration')

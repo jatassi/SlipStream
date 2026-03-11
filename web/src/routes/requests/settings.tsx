@@ -79,7 +79,8 @@ function NotificationsSection() {
         open={state.dialogOpen}
         onOpenChange={state.setDialogOpen}
         notification={state.notificationForDialog}
-        eventTriggers={state.portalEventTriggers}
+        eventGroups={state.portalEventGroups}
+        defaultEventToggles={state.portalDefaultToggles}
         schemas={state.schemas}
         onCreate={state.handleCreateNotification}
         onUpdate={state.handleUpdateNotification}

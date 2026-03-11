@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/downloader"
-	"github.com/slipstream/slipstream/internal/library/movies"
-	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/portal/autoapprove"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -38,12 +38,17 @@ type portalUserQualityProfileAdapter struct {
 	usersSvc *users.Service
 }
 
-func (a *portalUserQualityProfileAdapter) GetQualityProfileID(ctx context.Context, userID int64, mediaType string) (*int64, error) {
-	user, err := a.usersSvc.Get(ctx, userID)
+func (a *portalUserQualityProfileAdapter) GetQualityProfileID(ctx context.Context, userID int64, moduleType string) (*int64, error) {
+	settings, err := a.usersSvc.GetModuleSettings(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return user.QualityProfileIDFor(mediaType), nil
+	for _, ms := range settings {
+		if ms.ModuleType == moduleType && ms.QualityProfileID.Valid {
+			return &ms.QualityProfileID.Int64, nil
+		}
+	}
+	return nil, nil //nolint:nilnil // no profile configured is a valid state
 }
 
 // portalQueueGetterAdapter adapts downloader.Service to requests.QueueGetter interface.
@@ -155,33 +160,16 @@ func (a *adminRequestLibraryCheckerAdapter) SetDB(db *sql.DB) {
 	a.queries = sqlc.New(db)
 }
 
-type statusTrackerMovieLookup struct {
-	movieSvc *movies.Service
+// moduleProvisionerAdapter implements requests.ModuleProvisioner by dispatching
+// to the correct module's PortalProvisioner via the registry.
+type moduleProvisionerAdapter struct {
+	registry *module.Registry
 }
 
-func (l *statusTrackerMovieLookup) GetTmdbIDByMovieID(ctx context.Context, movieID int64) (int64, error) {
-	movie, err := l.movieSvc.Get(ctx, movieID)
-	if err != nil {
-		return 0, err
+func (a *moduleProvisionerAdapter) EnsureInLibrary(ctx context.Context, moduleType string, input *module.ProvisionInput) (int64, error) {
+	provisioner := a.registry.GetProvisioner(moduleType)
+	if provisioner == nil {
+		return 0, fmt.Errorf("no provisioner registered for module type %q", moduleType)
 	}
-	return int64(movie.TmdbID), nil
-}
-
-// statusTrackerEpisodeLookup implements requests.EpisodeLookup
-type statusTrackerEpisodeLookup struct {
-	tvSvc *tv.Service
-}
-
-func (l *statusTrackerEpisodeLookup) GetEpisodeInfo(ctx context.Context, episodeID int64) (tvdbID int64, seasonNum, episodeNum int, err error) {
-	episode, err := l.tvSvc.GetEpisode(ctx, episodeID)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	series, err := l.tvSvc.GetSeries(ctx, episode.SeriesID)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	return int64(series.TvdbID), episode.SeasonNumber, episode.EpisodeNumber, nil
+	return provisioner.EnsureInLibrary(ctx, input)
 }

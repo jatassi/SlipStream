@@ -1,11 +1,11 @@
 package scanner
 
 import (
-	"path/filepath"
-	"strings"
+	"github.com/slipstream/slipstream/internal/module/parseutil"
 )
 
 // VideoExtensions contains supported video file extensions.
+// Kept for backwards compatibility with code that accesses it directly.
 var VideoExtensions = map[string]bool{
 	".mkv":  true,
 	".mp4":  true,
@@ -24,6 +24,7 @@ var VideoExtensions = map[string]bool{
 }
 
 // SampleFileIndicators are strings that indicate a file is a sample.
+// Kept for backwards compatibility with code that accesses it directly.
 var SampleFileIndicators = []string{
 	"sample",
 	"trailer",
@@ -32,17 +33,10 @@ var SampleFileIndicators = []string{
 
 // IsVideoFile checks if a filename has a video extension.
 func IsVideoFile(filename string) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	return VideoExtensions[ext]
+	return parseutil.IsVideoFile(filename)
 }
 
 // IsSampleFile checks if a filename indicates it's a sample file.
 func IsSampleFile(filename string) bool {
-	lower := strings.ToLower(filename)
-	for _, indicator := range SampleFileIndicators {
-		if strings.Contains(lower, indicator) {
-			return true
-		}
-	}
-	return false
+	return parseutil.IsSampleFile(filename)
 }

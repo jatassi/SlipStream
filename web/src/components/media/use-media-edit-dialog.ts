@@ -11,6 +11,7 @@ type UseMediaEditDialogParams<T extends { id: number; monitored: boolean; qualit
     isPending: boolean
   }
   mediaLabel: string
+  moduleType: string
   onOpenChange: (open: boolean) => void
 }
 
@@ -18,6 +19,7 @@ export function useMediaEditDialog<T extends { id: number; monitored: boolean; q
   item,
   updateMutation,
   mediaLabel,
+  moduleType,
   onOpenChange,
 }: UseMediaEditDialogParams<T>) {
   const [monitored, setMonitored] = useState(item.monitored)
@@ -30,7 +32,7 @@ export function useMediaEditDialog<T extends { id: number; monitored: boolean; q
     setQualityProfileId(item.qualityProfileId)
   }
 
-  const { data: profiles } = useQualityProfiles()
+  const { data: profiles } = useQualityProfiles(moduleType)
   const hasChanges = monitored !== item.monitored || qualityProfileId !== item.qualityProfileId
 
   const handleSubmit = async () => {

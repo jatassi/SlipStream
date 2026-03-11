@@ -3,11 +3,10 @@ import { useEffect, useState } from 'react'
 import { Pencil } from 'lucide-react'
 
 import { Label } from '@/components/ui/label'
-import { usePreviewNamingPattern } from '@/hooks'
+import { useModuleNamingPreview, usePreviewNamingPattern } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
-import type { TokenBreakdown } from '@/types'
+import type { TokenBreakdown, TokenContext as BackendTokenContext } from '@/types'
 
-import type { TokenContext } from './file-naming-constants'
 import { TokenBuilderDialog } from './token-builder-dialog'
 
 function PatternPreview({ preview }: { preview: { valid: boolean; preview: string; error?: string; tokens?: TokenBreakdown[] } }) {
@@ -46,15 +45,23 @@ type PatternEditorProps = {
   value: string
   onChange: (value: string) => void
   description?: string
-  mediaType?: 'episode' | 'movie' | 'folder'
-  tokenContext: TokenContext
+  mediaType?: string
+  tokenContext: string
+  moduleId?: string
+  contextName?: string
+  dynamicTokenContexts?: BackendTokenContext[]
 }
 
-function usePatternPreview(value: string, mediaType: 'movie' | 'episode' | 'folder') {
+type PreviewOptions = { value: string; mediaType: string; moduleId?: string; contextName?: string }
+
+function usePatternPreview({ value, mediaType, moduleId, contextName }: PreviewOptions) {
   const [localValue, setLocalValue] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
   const debouncedValue = useDebounce(localValue, 500)
-  const previewMutation = usePreviewNamingPattern()
+  const legacyPreview = usePreviewNamingPattern()
+  const modulePreview = useModuleNamingPreview(moduleId ?? '')
+  const isModuleScoped = !!(moduleId && contextName)
+  const previewMutation = isModuleScoped ? modulePreview : legacyPreview
   const previewMutate = previewMutation.mutate
 
   if (value !== prevValue) {
@@ -64,15 +71,19 @@ function usePatternPreview(value: string, mediaType: 'movie' | 'episode' | 'fold
 
   useEffect(() => {
     if (debouncedValue) {
-      previewMutate({ pattern: debouncedValue, mediaType })
+      if (isModuleScoped) {
+        previewMutate({ contextName, pattern: debouncedValue } as never)
+      } else {
+        previewMutate({ pattern: debouncedValue, mediaType } as never)
+      }
     }
-  }, [debouncedValue, mediaType, previewMutate])
+  }, [debouncedValue, mediaType, contextName, isModuleScoped, previewMutate])
 
   return { localValue, setLocalValue, preview: previewMutation.data }
 }
 
-export function PatternEditor({ label, value, onChange, description, mediaType = 'episode', tokenContext }: PatternEditorProps) {
-  const { localValue, setLocalValue, preview } = usePatternPreview(value, mediaType)
+export function PatternEditor({ label, value, onChange, description, mediaType = 'episode', tokenContext, moduleId, contextName, dynamicTokenContexts }: PatternEditorProps) {
+  const { localValue, setLocalValue, preview } = usePatternPreview({ value, mediaType, moduleId, contextName })
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
 
   const handleChange = (newValue: string) => {
@@ -99,6 +110,7 @@ export function PatternEditor({ label, value, onChange, description, mediaType =
         value={localValue}
         onChange={handleChange}
         tokenContext={tokenContext}
+        dynamicTokenContexts={dynamicTokenContexts}
       />
     </div>
   )

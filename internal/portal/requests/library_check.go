@@ -129,8 +129,8 @@ func (c *LibraryChecker) checkMovieInLibrary(ctx context.Context, tmdbID int64, 
 
 func (c *LibraryChecker) checkExistingMovieRequest(ctx context.Context, tmdbID, currentUserID int64, result *AvailabilityResult) error {
 	existingReq, err := c.queries.GetActiveRequestByTmdbID(ctx, sqlc.GetActiveRequestByTmdbIDParams{
-		TmdbID:    sql.NullInt64{Int64: tmdbID, Valid: true},
-		MediaType: MediaTypeMovie,
+		TmdbID:     sql.NullInt64{Int64: tmdbID, Valid: true},
+		EntityType: MediaTypeMovie,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -234,8 +234,8 @@ func (c *LibraryChecker) populateSeriesAvailability(ctx context.Context, series 
 
 func (c *LibraryChecker) checkExistingSeriesRequest(ctx context.Context, tvdbID int64, result *AvailabilityResult) error {
 	existingReq, err := c.queries.GetActiveRequestByTvdbID(ctx, sqlc.GetActiveRequestByTvdbIDParams{
-		TvdbID:    sql.NullInt64{Int64: tvdbID, Valid: true},
-		MediaType: MediaTypeSeries,
+		TvdbID:     sql.NullInt64{Int64: tvdbID, Valid: true},
+		EntityType: MediaTypeSeries,
 	})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -528,11 +528,11 @@ func (c *LibraryChecker) GetCoveredSeasons(ctx context.Context, tvdbID, tmdbID, 
 	result := make(map[int]CoveredSeason)
 	for _, r := range reqs {
 		covered := c.toCoveredSeason(ctx, r, currentUserID)
-		if r.MediaType == MediaTypeSeries {
+		if r.EntityType == MediaTypeSeries {
 			for _, sn := range seasonsFromJSON(r.RequestedSeasons) {
 				result[int(sn)] = covered
 			}
-		} else if r.MediaType == MediaTypeSeason && r.SeasonNumber.Valid {
+		} else if r.EntityType == MediaTypeSeason && r.SeasonNumber.Valid {
 			result[int(r.SeasonNumber.Int64)] = covered
 		}
 	}

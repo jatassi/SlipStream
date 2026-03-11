@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -645,12 +646,320 @@ func TestGenerateSortTitle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			got := generateSortTitle(tt.title)
+			got := module.GenerateSortTitle(tt.title)
 			if got != tt.want {
-				t.Errorf("generateSortTitle(%q) = %q, want %q", tt.title, got, tt.want)
+				t.Errorf("GenerateSortTitle(%q) = %q, want %q", tt.title, got, tt.want)
 			}
 		})
 	}
+}
+
+func TestTVService_CascadeSeriesMonitored(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
+	ctx := context.Background()
+
+	airDate := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("set all seasons and episodes to monitored", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Cascade Test 1",
+			Monitored: false,
+			Seasons: []SeasonInput{
+				{
+					SeasonNumber: 1,
+					Monitored:    false,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S1E1", AirDate: &airDate, Monitored: false},
+						{EpisodeNumber: 2, Title: "S1E2", AirDate: &airDate, Monitored: false},
+					},
+				},
+				{
+					SeasonNumber: 2,
+					Monitored:    false,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S2E1", AirDate: &airDate, Monitored: false},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		if err := service.CascadeSeriesMonitored(ctx, series.ID, true); err != nil {
+			t.Fatalf("CascadeSeriesMonitored(true) error = %v", err)
+		}
+
+		seasons, err := service.ListSeasons(ctx, series.ID)
+		if err != nil {
+			t.Fatalf("ListSeasons() error = %v", err)
+		}
+		for _, season := range seasons {
+			if !season.Monitored {
+				t.Errorf("Season %d should be monitored after cascade", season.SeasonNumber)
+			}
+		}
+
+		episodes, err := service.ListEpisodes(ctx, series.ID, nil)
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range episodes {
+			if !ep.Monitored {
+				t.Errorf("Episode S%02dE%02d should be monitored after cascade", ep.SeasonNumber, ep.EpisodeNumber)
+			}
+		}
+	})
+
+	t.Run("set all seasons and episodes to unmonitored", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Cascade Test 2",
+			Monitored: true,
+			Seasons: []SeasonInput{
+				{
+					SeasonNumber: 1,
+					Monitored:    true,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S1E1", AirDate: &airDate, Monitored: true},
+						{EpisodeNumber: 2, Title: "S1E2", AirDate: &airDate, Monitored: true},
+					},
+				},
+				{
+					SeasonNumber: 2,
+					Monitored:    true,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S2E1", AirDate: &airDate, Monitored: true},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		if err := service.CascadeSeriesMonitored(ctx, series.ID, false); err != nil {
+			t.Fatalf("CascadeSeriesMonitored(false) error = %v", err)
+		}
+
+		seasons, err := service.ListSeasons(ctx, series.ID)
+		if err != nil {
+			t.Fatalf("ListSeasons() error = %v", err)
+		}
+		for _, season := range seasons {
+			if season.Monitored {
+				t.Errorf("Season %d should be unmonitored after cascade", season.SeasonNumber)
+			}
+		}
+
+		episodes, err := service.ListEpisodes(ctx, series.ID, nil)
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range episodes {
+			if ep.Monitored {
+				t.Errorf("Episode S%02dE%02d should be unmonitored after cascade", ep.SeasonNumber, ep.EpisodeNumber)
+			}
+		}
+	})
+
+	t.Run("series with no seasons", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Cascade Test No Seasons",
+			Monitored: true,
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		if err := service.CascadeSeriesMonitored(ctx, series.ID, true); err != nil {
+			t.Fatalf("CascadeSeriesMonitored() on series with no seasons should not error, got %v", err)
+		}
+
+		if err := service.CascadeSeriesMonitored(ctx, series.ID, false); err != nil {
+			t.Fatalf("CascadeSeriesMonitored() on series with no seasons should not error, got %v", err)
+		}
+	})
+}
+
+func TestTVService_CascadeSeasonMonitored(t *testing.T) {
+	tdb := testutil.NewTestDB(t)
+	defer tdb.Close()
+
+	service := NewService(tdb.Conn, nil, &tdb.Logger, nil, nil)
+	ctx := context.Background()
+
+	airDate := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("set all episodes in season to monitored", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Season Cascade Test 1",
+			Monitored: true,
+			Seasons: []SeasonInput{
+				{
+					SeasonNumber: 1,
+					Monitored:    false,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S1E1", AirDate: &airDate, Monitored: false},
+						{EpisodeNumber: 2, Title: "S1E2", AirDate: &airDate, Monitored: false},
+						{EpisodeNumber: 3, Title: "S1E3", AirDate: &airDate, Monitored: false},
+					},
+				},
+				{
+					SeasonNumber: 2,
+					Monitored:    false,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S2E1", AirDate: &airDate, Monitored: false},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		// Get season 1 ID
+		seasons, err := service.ListSeasons(ctx, series.ID)
+		if err != nil {
+			t.Fatalf("ListSeasons() error = %v", err)
+		}
+		var season1ID int64
+		for _, s := range seasons {
+			if s.SeasonNumber == 1 {
+				season1ID = s.ID
+				break
+			}
+		}
+		if season1ID == 0 {
+			t.Fatal("Season 1 not found")
+		}
+
+		if err := service.CascadeSeasonMonitored(ctx, season1ID, true); err != nil {
+			t.Fatalf("CascadeSeasonMonitored(true) error = %v", err)
+		}
+
+		// Season 1 episodes should be monitored
+		s1Episodes, err := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(1))
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range s1Episodes {
+			if !ep.Monitored {
+				t.Errorf("Season 1 Episode %d should be monitored after cascade", ep.EpisodeNumber)
+			}
+		}
+
+		// Season 2 episodes should remain unmonitored
+		s2Episodes, err := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(2))
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range s2Episodes {
+			if ep.Monitored {
+				t.Errorf("Season 2 Episode %d should still be unmonitored", ep.EpisodeNumber)
+			}
+		}
+	})
+
+	t.Run("set all episodes in season to unmonitored", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Season Cascade Test 2",
+			Monitored: true,
+			Seasons: []SeasonInput{
+				{
+					SeasonNumber: 1,
+					Monitored:    true,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S1E1", AirDate: &airDate, Monitored: true},
+						{EpisodeNumber: 2, Title: "S1E2", AirDate: &airDate, Monitored: true},
+					},
+				},
+				{
+					SeasonNumber: 2,
+					Monitored:    true,
+					Episodes: []EpisodeInput{
+						{EpisodeNumber: 1, Title: "S2E1", AirDate: &airDate, Monitored: true},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		// Get season 1 ID
+		seasons, err := service.ListSeasons(ctx, series.ID)
+		if err != nil {
+			t.Fatalf("ListSeasons() error = %v", err)
+		}
+		var season1ID int64
+		for _, s := range seasons {
+			if s.SeasonNumber == 1 {
+				season1ID = s.ID
+				break
+			}
+		}
+		if season1ID == 0 {
+			t.Fatal("Season 1 not found")
+		}
+
+		if err := service.CascadeSeasonMonitored(ctx, season1ID, false); err != nil {
+			t.Fatalf("CascadeSeasonMonitored(false) error = %v", err)
+		}
+
+		// Season 1 episodes should be unmonitored
+		s1Episodes, err := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(1))
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range s1Episodes {
+			if ep.Monitored {
+				t.Errorf("Season 1 Episode %d should be unmonitored after cascade", ep.EpisodeNumber)
+			}
+		}
+
+		// Season 2 episodes should remain monitored
+		s2Episodes, err := service.ListEpisodes(ctx, series.ID, testutil.IntPtr(2))
+		if err != nil {
+			t.Fatalf("ListEpisodes() error = %v", err)
+		}
+		for _, ep := range s2Episodes {
+			if !ep.Monitored {
+				t.Errorf("Season 2 Episode %d should still be monitored", ep.EpisodeNumber)
+			}
+		}
+	})
+
+	t.Run("season with no episodes", func(t *testing.T) {
+		series, err := service.CreateSeries(ctx, &CreateSeriesInput{
+			Title:     "Season Cascade Test No Episodes",
+			Monitored: true,
+			Seasons: []SeasonInput{
+				{SeasonNumber: 1, Monitored: true},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateSeries() error = %v", err)
+		}
+
+		seasons, err := service.ListSeasons(ctx, series.ID)
+		if err != nil {
+			t.Fatalf("ListSeasons() error = %v", err)
+		}
+		if len(seasons) == 0 {
+			t.Fatal("No seasons created")
+		}
+
+		if err := service.CascadeSeasonMonitored(ctx, seasons[0].ID, true); err != nil {
+			t.Fatalf("CascadeSeasonMonitored() on season with no episodes should not error, got %v", err)
+		}
+
+		if err := service.CascadeSeasonMonitored(ctx, seasons[0].ID, false); err != nil {
+			t.Fatalf("CascadeSeasonMonitored() on season with no episodes should not error, got %v", err)
+		}
+	})
 }
 
 func TestGenerateSeriesPath(t *testing.T) {

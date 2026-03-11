@@ -279,13 +279,16 @@ func (s *Service) GetPendingRetries(ctx context.Context) ([]*QueueMedia, error) 
 		if row.ErrorMessage.Valid {
 			item.ErrorMessage = row.ErrorMessage.String
 		}
-		if row.EpisodeID.Valid {
-			id := row.EpisodeID.Int64
-			item.EpisodeID = &id
-		}
-		if row.MovieID.Valid {
-			id := row.MovieID.Int64
+		item.ModuleType = row.ModuleType
+		item.EntityType = row.EntityType
+		item.EntityID = row.EntityID
+		switch row.EntityType {
+		case mediaTypeMovie:
+			id := row.EntityID
 			item.MovieID = &id
+		case mediaTypeEpisode:
+			id := row.EntityID
+			item.EpisodeID = &id
 		}
 		items = append(items, item)
 	}

@@ -1,7 +1,7 @@
 -- name: CreateQueueMedia :one
 INSERT INTO queue_media (
-    download_mapping_id, episode_id, movie_id, file_path, file_status, target_slot_id
-) VALUES (?, ?, ?, ?, ?, ?)
+    download_mapping_id, module_type, entity_type, entity_id, file_path, file_status, target_slot_id
+) VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetQueueMedia :one
@@ -10,11 +10,8 @@ SELECT * FROM queue_media WHERE id = ?;
 -- name: GetQueueMediaByDownloadMapping :many
 SELECT * FROM queue_media WHERE download_mapping_id = ?;
 
--- name: GetQueueMediaByEpisode :one
-SELECT * FROM queue_media WHERE episode_id = ? LIMIT 1;
-
--- name: GetQueueMediaByMovie :one
-SELECT * FROM queue_media WHERE movie_id = ? LIMIT 1;
+-- name: GetQueueMediaByEntity :one
+SELECT * FROM queue_media WHERE module_type = ? AND entity_type = ? AND entity_id = ? LIMIT 1;
 
 -- name: ListQueueMediaByStatus :many
 SELECT * FROM queue_media WHERE file_status = ? ORDER BY created_at;
@@ -76,7 +73,9 @@ SELECT
     qm.*,
     dm.client_id,
     dm.download_id,
-    dm.series_id,
+    dm.module_type AS dm_module_type,
+    dm.entity_type AS dm_entity_type,
+    dm.entity_id AS dm_entity_id,
     dm.season_number,
     dm.is_season_pack,
     dm.is_complete_series
@@ -90,7 +89,9 @@ SELECT
     qm.*,
     dm.client_id,
     dm.download_id,
-    dm.series_id,
+    dm.module_type AS dm_module_type,
+    dm.entity_type AS dm_entity_type,
+    dm.entity_id AS dm_entity_id,
     dm.season_number,
     dm.is_season_pack,
     dm.is_complete_series

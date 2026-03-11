@@ -31,6 +31,7 @@ import (
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/missing"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/notification"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/portal/admin"
@@ -38,7 +39,6 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
-	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	portalratelimit "github.com/slipstream/slipstream/internal/portal/ratelimit"
 	"github.com/slipstream/slipstream/internal/portal/requests"
@@ -150,7 +150,7 @@ type PortalGroup struct {
 	AuthMiddleware      *portalmw.AuthMiddleware
 	SearchLimiter       *portalratelimit.SearchLimiter
 	RequestSearcher     *requests.RequestSearcher
-	MediaProvisioner    *provisioner.Service
+	ModuleProvisioner   *moduleProvisionerAdapter
 	Watchers            *requests.WatchersService
 	StatusTracker       *requests.StatusTracker
 	LibraryChecker      *requests.LibraryChecker
@@ -176,4 +176,5 @@ type ServiceContainer struct {
 	Portal       PortalGroup
 	Security     SecurityGroup
 	Switchable   SwitchableServices
+	Registry     *module.Registry
 }

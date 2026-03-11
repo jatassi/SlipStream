@@ -91,22 +91,17 @@ func (s *Service) Create(ctx context.Context, input *CreateInput) (*Config, erro
 	}
 
 	tags, _ := json.Marshal(input.Tags)
+	eventToggles, _ := json.Marshal(input.EventToggles)
+	if input.EventToggles == nil {
+		eventToggles = []byte("{}")
+	}
 
 	row, err := s.queries.CreateNotification(ctx, sqlc.CreateNotificationParams{
 		Name:                  input.Name,
 		Type:                  string(input.Type),
 		Enabled:               input.Enabled,
 		Settings:              string(settings),
-		OnGrab:                input.OnGrab,
-		OnImport:              input.OnImport,
-		OnUpgrade:             input.OnUpgrade,
-		OnMovieAdded:          input.OnMovieAdded,
-		OnMovieDeleted:        input.OnMovieDeleted,
-		OnSeriesAdded:         input.OnSeriesAdded,
-		OnSeriesDeleted:       input.OnSeriesDeleted,
-		OnHealthIssue:         input.OnHealthIssue,
-		OnHealthRestored:      input.OnHealthRestored,
-		OnAppUpdate:           input.OnAppUpdate,
+		EventToggles:          string(eventToggles),
 		IncludeHealthWarnings: input.IncludeHealthWarnings,
 		Tags:                  string(tags),
 	})
@@ -156,38 +151,37 @@ func (s *Service) buildUpdateParams(existing *Config, input *UpdateInput, id int
 		settings = *input.Settings
 	}
 
+	// Merge event toggles: input overrides existing keys, preserves unmentioned keys
+	mergedToggles := make(map[string]bool, len(existing.EventToggles))
+	for k, v := range existing.EventToggles {
+		mergedToggles[k] = v
+	}
+	for k, v := range input.EventToggles {
+		mergedToggles[k] = v
+	}
+
+	ihw := existing.IncludeHealthWarnings
+	if input.IncludeHealthWarnings != nil {
+		ihw = *input.IncludeHealthWarnings
+	}
+
 	tags := existing.Tags
 	if input.Tags != nil {
 		tags = *input.Tags
 	}
 	tagsJSON, _ := json.Marshal(tags)
+	togglesJSON, _ := json.Marshal(mergedToggles)
 
 	return sqlc.UpdateNotificationParams{
 		Name:                  name,
 		Type:                  string(notifType),
 		Enabled:               enabled,
 		Settings:              string(settings),
-		OnGrab:                s.mergeFlag(existing.OnGrab, input.OnGrab),
-		OnImport:              s.mergeFlag(existing.OnImport, input.OnImport),
-		OnUpgrade:             s.mergeFlag(existing.OnUpgrade, input.OnUpgrade),
-		OnMovieAdded:          s.mergeFlag(existing.OnMovieAdded, input.OnMovieAdded),
-		OnMovieDeleted:        s.mergeFlag(existing.OnMovieDeleted, input.OnMovieDeleted),
-		OnSeriesAdded:         s.mergeFlag(existing.OnSeriesAdded, input.OnSeriesAdded),
-		OnSeriesDeleted:       s.mergeFlag(existing.OnSeriesDeleted, input.OnSeriesDeleted),
-		OnHealthIssue:         s.mergeFlag(existing.OnHealthIssue, input.OnHealthIssue),
-		OnHealthRestored:      s.mergeFlag(existing.OnHealthRestored, input.OnHealthRestored),
-		OnAppUpdate:           s.mergeFlag(existing.OnAppUpdate, input.OnAppUpdate),
-		IncludeHealthWarnings: s.mergeFlag(existing.IncludeHealthWarnings, input.IncludeHealthWarnings),
+		EventToggles:          string(togglesJSON),
+		IncludeHealthWarnings: ihw,
 		Tags:                  string(tagsJSON),
 		ID:                    id,
 	}
-}
-
-func (s *Service) mergeFlag(existing bool, update *bool) bool {
-	if update != nil {
-		return *update
-	}
-	return existing
 }
 
 // Delete deletes a notification
@@ -238,7 +232,7 @@ func (s *Service) TestConfig(ctx context.Context, input *CreateInput) (*TestResu
 func (s *Service) Dispatch(ctx context.Context, eventType EventType, event any) {
 	configs, err := s.getEnabledConfigs(ctx, eventType)
 	if err != nil {
-		s.logger.Error().Err(err).Str("event", string(eventType)).Msg("Failed to get enabled notifications")
+		s.logger.Error().Err(err).Str("event", eventType).Msg("Failed to get enabled notifications")
 		return
 	}
 
@@ -247,7 +241,7 @@ func (s *Service) Dispatch(ctx context.Context, eventType EventType, event any) 
 	}
 
 	s.logger.Info().
-		Str("event", string(eventType)).
+		Str("event", eventType).
 		Int("count", len(configs)).
 		Msg("Dispatching notification event")
 
@@ -278,20 +272,20 @@ func (s *Service) dispatchToNotifier(ctx context.Context, notifier Notifier, eve
 	if eventType == EventUpgrade {
 		return s.dispatchUpgrade(ctx, notifier, event)
 	}
-	if eventType == EventMovieAdded {
+	if eventType == "movie:added" {
 		return s.dispatchMovieAdded(ctx, notifier, event)
 	}
-	if eventType == EventMovieDeleted {
+	if eventType == "movie:deleted" {
 		return s.dispatchMovieDeleted(ctx, notifier, event)
 	}
 	return s.dispatchRemainingEvents(ctx, notifier, eventType, event)
 }
 
 func (s *Service) dispatchRemainingEvents(ctx context.Context, notifier Notifier, eventType EventType, event any) error {
-	if eventType == EventSeriesAdded {
+	if eventType == "tv:added" {
 		return s.dispatchSeriesAdded(ctx, notifier, event)
 	}
-	if eventType == EventSeriesDeleted {
+	if eventType == "tv:deleted" {
 		return s.dispatchSeriesDeleted(ctx, notifier, event)
 	}
 	if eventType == EventHealthIssue {
@@ -382,7 +376,7 @@ func (s *Service) handleNotificationResult(ctx context.Context, cfg *Config, eve
 			Err(sendErr).
 			Str("name", cfg.Name).
 			Str("type", string(cfg.Type)).
-			Str("event", string(eventType)).
+			Str("event", eventType).
 			Msg("Notification failed")
 		s.recordFailure(ctx, cfg.ID)
 		return
@@ -391,7 +385,7 @@ func (s *Service) handleNotificationResult(ctx context.Context, cfg *Config, eve
 	s.logger.Info().
 		Str("name", cfg.Name).
 		Str("type", string(cfg.Type)).
-		Str("event", string(eventType)).
+		Str("event", eventType).
 		Msg("Notification sent successfully")
 	s.clearFailure(ctx, cfg.ID)
 }
@@ -421,19 +415,7 @@ func (s *Service) getEnabledConfigs(ctx context.Context, eventType EventType) ([
 }
 
 func (s *Service) configSubscribesToEvent(cfg *Config, eventType EventType) bool {
-	eventMap := map[EventType]bool{
-		EventGrab:           cfg.OnGrab,
-		EventImport:         cfg.OnImport,
-		EventUpgrade:        cfg.OnUpgrade,
-		EventMovieAdded:     cfg.OnMovieAdded,
-		EventMovieDeleted:   cfg.OnMovieDeleted,
-		EventSeriesAdded:    cfg.OnSeriesAdded,
-		EventSeriesDeleted:  cfg.OnSeriesDeleted,
-		EventHealthIssue:    cfg.OnHealthIssue,
-		EventHealthRestored: cfg.OnHealthRestored,
-		EventAppUpdate:      cfg.OnAppUpdate,
-	}
-	return eventMap[eventType]
+	return cfg.EventToggles[eventType]
 }
 
 func (s *Service) isDisabled(ctx context.Context, id int64) bool {
@@ -498,22 +480,18 @@ func (s *Service) rowToConfig(row *sqlc.Notification) Config {
 		s.logger.Warn().Err(err).Int64("notificationID", row.ID).Msg("Failed to unmarshal notification tags")
 	}
 
+	eventToggles := make(map[string]bool)
+	if err := json.Unmarshal([]byte(row.EventToggles), &eventToggles); err != nil {
+		s.logger.Warn().Err(err).Int64("notificationID", row.ID).Msg("Failed to unmarshal event toggles")
+	}
+
 	return Config{
 		ID:                    row.ID,
 		Name:                  row.Name,
 		Type:                  NotifierType(row.Type),
 		Enabled:               row.Enabled,
 		Settings:              json.RawMessage(row.Settings),
-		OnGrab:                row.OnGrab,
-		OnImport:              row.OnImport,
-		OnUpgrade:             row.OnUpgrade,
-		OnMovieAdded:          row.OnMovieAdded,
-		OnMovieDeleted:        row.OnMovieDeleted,
-		OnSeriesAdded:         row.OnSeriesAdded,
-		OnSeriesDeleted:       row.OnSeriesDeleted,
-		OnHealthIssue:         row.OnHealthIssue,
-		OnHealthRestored:      row.OnHealthRestored,
-		OnAppUpdate:           row.OnAppUpdate,
+		EventToggles:          eventToggles,
 		IncludeHealthWarnings: row.IncludeHealthWarnings,
 		Tags:                  tags,
 		CreatedAt:             row.CreatedAt,
@@ -565,22 +543,22 @@ func (s *Service) DispatchUpgrade(ctx context.Context, event *UpgradeEvent) {
 
 // DispatchMovieAdded dispatches a movie added notification.
 func (s *Service) DispatchMovieAdded(ctx context.Context, event *MovieAddedEvent) {
-	s.Dispatch(ctx, EventMovieAdded, event)
+	s.Dispatch(ctx, "movie:added", event)
 }
 
 // DispatchMovieDeleted dispatches a movie deleted notification.
 func (s *Service) DispatchMovieDeleted(ctx context.Context, event *MovieDeletedEvent) {
-	s.Dispatch(ctx, EventMovieDeleted, event)
+	s.Dispatch(ctx, "movie:deleted", event)
 }
 
 // DispatchSeriesAdded dispatches a series added notification.
 func (s *Service) DispatchSeriesAdded(ctx context.Context, event *SeriesAddedEvent) {
-	s.Dispatch(ctx, EventSeriesAdded, event)
+	s.Dispatch(ctx, "tv:added", event)
 }
 
 // DispatchSeriesDeleted dispatches a series deleted notification.
 func (s *Service) DispatchSeriesDeleted(ctx context.Context, event *SeriesDeletedEvent) {
-	s.Dispatch(ctx, EventSeriesDeleted, event)
+	s.Dispatch(ctx, "tv:deleted", event)
 }
 
 // CreateNotifierFromConfig creates a notifier from type, name, and settings.

@@ -3,24 +3,28 @@ import {
   Calendar,
   Cog,
   FileInput,
-  Film,
   FolderOpen,
   History,
   LogOut,
   RotateCcw,
   Server,
   Settings,
-  Tv,
   Users,
   Workflow,
 } from 'lucide-react'
 
+import { getEnabledModules } from '@/modules'
+
 import type { ActionItem, CollapsibleNavGroup, NavItem } from './sidebar-types'
 
-export const libraryNavItems: NavItem[] = [
-  { title: 'Movies', href: '/movies', icon: Film, theme: 'movie' },
-  { title: 'Series', href: '/series', icon: Tv, theme: 'tv' },
-]
+export function getLibraryNavItems(): NavItem[] {
+  return getEnabledModules().map((mod) => ({
+    title: mod.name,
+    href: mod.basePath,
+    icon: mod.icon,
+    theme: mod.themeColor,
+  }))
+}
 
 export const discoverNavItems: NavItem[] = [
   { title: 'Calendar', href: '/calendar', icon: Calendar },

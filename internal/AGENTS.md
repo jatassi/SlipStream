@@ -5,7 +5,7 @@ When making changes to this file, ALWAYS make the same update to CLAUDE.md in th
 
 ## Architecture
 
-Handlers -> Services -> sqlc queries. Services wired via google/wire in `internal/api/` (`wire.go` -> `wire_gen.go`). Circular/late-binding deps in `setters.go`. Routes in `routes.go` are purely declarative.
+Handlers -> Services -> sqlc queries. Services wired via google/wire in `internal/api/` (`wire.go` -> `wire_gen.go`). Circular/late-binding deps in `setters.go`. Routes in `routes.go` are purely declarative. Media-type-specific logic lives in module implementations (`internal/modules/`), not in core services.
 
 ## Logging
 
@@ -17,9 +17,32 @@ s.logger.Warn().Err(err).Str("key", val).Msg("something failed")
 
 **Component tags:** Every logger must have a `Str("component", "xxx")` tag identifying its top-level subsystem (e.g., `api`, `database`, `scheduler`, `cardigann`, `startup`, `updater`). Use `Str("service", "xxx")` for sub-granularity within a component. Pre-zerolog bootstrap logs use `[component]` prefix in the format string (e.g., `[bootstrap]`, `[api]`).
 
+## Module System
+
+Media types are pluggable modules in `internal/modules/`. Each module satisfies the composite `module.Module` interface (16 sub-interfaces defined in `internal/module/interfaces.go`). The `module.Registry` holds all modules, validates schemas, and provides lookups.
+
+**Key framework files** (`internal/module/`):
+- `interfaces.go` — 16 required + optional interface definitions
+- `module.go` — `Module` composite interface, `Registry` type
+- `schema.go` — `NodeSchema` (entity hierarchy: flat vs hierarchical)
+- `migrate.go` — Per-module migration runner (`MigrateAll`)
+- `types.go` — `Type` and `EntityType` constants
+- `portal_provisioner.go`, `slot_support.go`, `arr_import.go` — Optional interfaces
+
+**Module implementations** (`internal/modules/<id>/`):
+- `module.go` — Module struct, constructor, delegation methods
+- `migrate.go` — Embedded `migrations/` FS
+- One file per interface (metadata, search, import, calendar, wanted, etc.)
+- `migrations/` — Module-specific SQL migrations (independent goose version table)
+- `internal/modules/shared/` — Cross-module utilities (video quality definitions, etc.)
+
+**Adding a module:** Run `go run ./scripts/new-module <id>` to scaffold, then see `docs/adding-a-module.md`.
+
+**Wiring:** Module constructors go in `wire.go`, registration in `provideRegistry()` in `providers.go`. Modules register routes via `RouteProvider` and scheduled tasks via `TaskProvider`.
+
 ## Database
 
-SQLite, WAL mode, Goose migrations (embedded), sqlc-generated queries. After modifying `internal/database/queries/*.sql`, run:
+SQLite, WAL mode, Goose migrations (embedded), sqlc-generated queries. Framework migrations in `internal/database/migrations/`. Per-module migrations in `internal/modules/<id>/migrations/` with independent version tables (`goose_db_version_<module_id>`). After modifying `internal/database/queries/*.sql`, run:
 ```bash
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
 ```
@@ -76,6 +99,8 @@ Bugs here cause repeated erroneous downloads. Understand the full flow before mo
 Key files in `internal/api/`: `wire.go` (providers, source of truth), `wire_gen.go` (generated — DO NOT EDIT), `setters.go` (circular/late-binding deps), `service_groups.go` (group structs), `switchable.go` (dev mode DB-switching registry).
 
 **Adding a service:** constructor with all deps as params -> add to `wire.Build()` in `wire.go` -> add field to group struct -> `make wire`. If switchable: add tagged field in `switchable.go`. If circular: add setter in `setters.go`.
+
+**Adding a module:** Add module constructor to `wire.Build()` in `wire.go`, add parameter to `provideRegistry()` in `providers.go`, call `reg.Register()`, run `make wire`.
 
 **Shared interfaces** in `internal/domain/contracts/`: `Broadcaster`, `HealthService`, `StatusChangeLogger`, `FileDeleteHandler`, `QueueTrigger`. Use instead of local copies. Add compile-time checks: `var _ contracts.X = (*MyType)(nil)`
 

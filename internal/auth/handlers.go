@@ -297,12 +297,18 @@ func (h *Handlers) validateInvitation(c echo.Context, token string) (*invitation
 }
 
 func (h *Handlers) createUserFromInvitation(c echo.Context, req *SignupRequest, inv *invitations.Invitation) (*users.User, error) {
+	moduleSettings := make(map[string]*users.ModuleSettingInput)
+	for _, ms := range inv.ModuleSettings {
+		moduleSettings[ms.ModuleType] = &users.ModuleSettingInput{
+			QualityProfileID: ms.QualityProfileID,
+		}
+	}
+
 	user, err := h.usersService.Create(c.Request().Context(), users.CreateInput{
-		Username:              inv.Username,
-		Password:              req.Password,
-		MovieQualityProfileID: inv.MovieQualityProfileID,
-		TVQualityProfileID:    inv.TVQualityProfileID,
-		AutoApprove:           inv.AutoApprove,
+		Username:       inv.Username,
+		Password:       req.Password,
+		ModuleSettings: moduleSettings,
+		AutoApprove:    inv.AutoApprove,
 	})
 	if err != nil {
 		if errors.Is(err, users.ErrUsernameExists) {

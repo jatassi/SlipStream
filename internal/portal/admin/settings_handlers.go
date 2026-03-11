@@ -19,23 +19,19 @@ const (
 )
 
 type RequestSettings struct {
-	Enabled             bool   `json:"enabled"`
-	DefaultMovieQuota   int64  `json:"defaultMovieQuota"`
-	DefaultSeasonQuota  int64  `json:"defaultSeasonQuota"`
-	DefaultEpisodeQuota int64  `json:"defaultEpisodeQuota"`
-	DefaultRootFolderID *int64 `json:"defaultRootFolderId"`
-	AdminNotifyNew      bool   `json:"adminNotifyNew"`
-	SearchRateLimit     int64  `json:"searchRateLimit"`
+	Enabled             bool             `json:"enabled"`
+	DefaultQuotas       map[string]int64 `json:"defaultQuotas"`
+	DefaultRootFolderID *int64           `json:"defaultRootFolderId"`
+	AdminNotifyNew      bool             `json:"adminNotifyNew"`
+	SearchRateLimit     int64            `json:"searchRateLimit"`
 }
 
 type UpdateSettingsRequest struct {
-	Enabled             *bool  `json:"enabled"`
-	DefaultMovieQuota   *int64 `json:"defaultMovieQuota"`
-	DefaultSeasonQuota  *int64 `json:"defaultSeasonQuota"`
-	DefaultEpisodeQuota *int64 `json:"defaultEpisodeQuota"`
-	DefaultRootFolderID *int64 `json:"defaultRootFolderId"`
-	AdminNotifyNew      *bool  `json:"adminNotifyNew"`
-	SearchRateLimit     *int64 `json:"searchRateLimit"`
+	Enabled             *bool             `json:"enabled"`
+	DefaultQuotas       map[string]*int64 `json:"defaultQuotas"` // module_type -> limit
+	DefaultRootFolderID *int64            `json:"defaultRootFolderId"`
+	AdminNotifyNew      *bool             `json:"adminNotifyNew"`
+	SearchRateLimit     *int64            `json:"searchRateLimit"`
 }
 
 type SettingsHandlers struct {
@@ -68,17 +64,12 @@ func (h *SettingsHandlers) RegisterRoutes(g *echo.Group, authMiddleware *portalm
 func (h *SettingsHandlers) Get(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	quotaDefaults, err := h.quotaService.GetGlobalDefaults(ctx)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
+	quotaDefaults := h.quotaService.GetGlobalDefaults(ctx)
 
 	settings := RequestSettings{
-		Enabled:             true,
-		DefaultMovieQuota:   *quotaDefaults.MoviesLimit,
-		DefaultSeasonQuota:  *quotaDefaults.SeasonsLimit,
-		DefaultEpisodeQuota: *quotaDefaults.EpisodesLimit,
-		SearchRateLimit:     60,
+		Enabled:         true,
+		DefaultQuotas:   quotaDefaults,
+		SearchRateLimit: 60,
 	}
 
 	settings.Enabled = h.readSettingBool(ctx, SettingPortalEnabled, true)
@@ -138,7 +129,7 @@ func (h *SettingsHandlers) applySettingsUpdate(ctx context.Context, req *UpdateS
 		}
 	}
 
-	if err := h.updateQuotas(ctx, req); err != nil {
+	if err := h.updateQuotaDefaults(ctx, req.DefaultQuotas); err != nil {
 		return err
 	}
 
@@ -161,6 +152,17 @@ func (h *SettingsHandlers) applySettingsUpdate(ctx context.Context, req *UpdateS
 	return nil
 }
 
+func (h *SettingsHandlers) updateQuotaDefaults(ctx context.Context, quotas map[string]*int64) error {
+	for moduleType, limit := range quotas {
+		if limit != nil {
+			if err := h.quotaService.SetGlobalDefault(ctx, moduleType, *limit); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (h *SettingsHandlers) updateRootFolderSetting(ctx context.Context, rootFolderID *int64) error {
 	if rootFolderID == nil {
 		return nil
@@ -170,17 +172,6 @@ func (h *SettingsHandlers) updateRootFolderSetting(ctx context.Context, rootFold
 		value = strconv.FormatInt(*rootFolderID, 10)
 	}
 	return h.setStringSetting(ctx, SettingDefaultRootFolderID, value)
-}
-
-func (h *SettingsHandlers) updateQuotas(ctx context.Context, req *UpdateSettingsRequest) error {
-	if req.DefaultMovieQuota == nil && req.DefaultSeasonQuota == nil && req.DefaultEpisodeQuota == nil {
-		return nil
-	}
-	return h.quotaService.SetGlobalDefaults(ctx, quota.QuotaLimits{
-		MoviesLimit:   req.DefaultMovieQuota,
-		SeasonsLimit:  req.DefaultSeasonQuota,
-		EpisodesLimit: req.DefaultEpisodeQuota,
-	})
 }
 
 func (h *SettingsHandlers) setBoolSetting(ctx context.Context, key string, value bool) error {

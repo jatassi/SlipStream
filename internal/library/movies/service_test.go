@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -544,9 +545,9 @@ func TestGenerateSortTitle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			got := generateSortTitle(tt.title)
+			got := module.GenerateSortTitle(tt.title)
 			if got != tt.want {
-				t.Errorf("generateSortTitle(%q) = %q, want %q", tt.title, got, tt.want)
+				t.Errorf("GenerateSortTitle(%q) = %q, want %q", tt.title, got, tt.want)
 			}
 		})
 	}

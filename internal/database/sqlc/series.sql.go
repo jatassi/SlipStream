@@ -2485,6 +2485,34 @@ func (q *Queries) ListUpgradableEpisodesWithQuality(ctx context.Context) ([]*Lis
 	return items, nil
 }
 
+const monitorEpisodesWithFilesBySeries = `-- name: MonitorEpisodesWithFilesBySeries :exec
+UPDATE episodes SET monitored = 1
+WHERE episodes.series_id = ?1 AND EXISTS (
+    SELECT 1 FROM episode_files ef WHERE ef.episode_id = episodes.id
+)
+`
+
+// Monitor only episodes that have files (for "existing" preset)
+func (q *Queries) MonitorEpisodesWithFilesBySeries(ctx context.Context, seriesID int64) error {
+	_, err := q.db.ExecContext(ctx, monitorEpisodesWithFilesBySeries, seriesID)
+	return err
+}
+
+const monitorSeasonsWithFilesBySeries = `-- name: MonitorSeasonsWithFilesBySeries :exec
+UPDATE seasons SET monitored = 1
+WHERE seasons.series_id = ?1 AND EXISTS (
+    SELECT 1 FROM episodes ep
+    JOIN episode_files ef ON ef.episode_id = ep.id
+    WHERE ep.series_id = ?1 AND ep.season_number = seasons.season_number
+)
+`
+
+// Monitor seasons that contain at least one episode with a file (for "existing" preset)
+func (q *Queries) MonitorSeasonsWithFilesBySeries(ctx context.Context, seriesID int64) error {
+	_, err := q.db.ExecContext(ctx, monitorSeasonsWithFilesBySeries, seriesID)
+	return err
+}
+
 const searchSeries = `-- name: SearchSeries :many
 SELECT id, title, sort_title, year, tvdb_id, tmdb_id, imdb_id, overview, runtime, path, root_folder_id, quality_profile_id, monitored, season_folder, production_status, network, format_type, added_at, updated_at, network_logo_url, added_by FROM series
 WHERE title LIKE ?1 OR sort_title LIKE ?1

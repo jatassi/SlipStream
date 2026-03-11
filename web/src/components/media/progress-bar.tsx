@@ -7,7 +7,7 @@ type ProgressBarProps = {
   max?: number
   showLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
-  variant?: 'default' | 'movie' | 'tv'
+  variant?: string
   className?: string
 }
 
@@ -27,7 +27,7 @@ export function ProgressBar({
     lg: 'h-3',
   }
 
-  const indicatorClasses = {
+  const indicatorClasses: Record<string, string> = {
     default: 'bg-primary',
     movie: 'bg-movie-500',
     tv: 'bg-tv-500',
@@ -43,7 +43,7 @@ export function ProgressBar({
           )}
         >
           <ProgressPrimitive.Indicator
-            className={cn('h-full rounded-full transition-all', indicatorClasses[variant])}
+            className={cn('h-full rounded-full transition-all', indicatorClasses[variant] ?? indicatorClasses.default)}
           />
         </ProgressPrimitive.Track>
       </ProgressPrimitive.Root>

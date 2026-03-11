@@ -13,9 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-type FilterTheme = 'movie' | 'tv' | 'neutral'
-
-const THEME_ACTIVE_CLASS: Record<FilterTheme, string> = {
+const THEME_ACTIVE_CLASS: Record<string, string> = {
   movie: 'text-movie-400',
   tv: 'text-tv-400',
   neutral: 'text-white',
@@ -34,7 +32,7 @@ type FilterDropdownProps<T extends string> = {
   onReset: () => void
   icon?: LucideIcon
   label?: string
-  theme?: FilterTheme
+  theme?: string
   className?: string
   disabled?: boolean
 }
@@ -42,7 +40,7 @@ type FilterDropdownProps<T extends string> = {
 type TriggerIconProps = {
   Icon: LucideIcon
   allSelected: boolean
-  theme: FilterTheme
+  theme: string
 }
 
 function TriggerIcon({ Icon, allSelected, theme }: TriggerIconProps) {
@@ -50,7 +48,7 @@ function TriggerIcon({ Icon, allSelected, theme }: TriggerIconProps) {
     <Icon
       className={cn(
         'size-4 shrink-0',
-        allSelected ? 'text-muted-foreground' : THEME_ACTIVE_CLASS[theme],
+        allSelected ? 'text-muted-foreground' : (THEME_ACTIVE_CLASS[theme] ?? 'text-primary'),
       )}
     />
   )

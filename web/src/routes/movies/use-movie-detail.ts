@@ -70,7 +70,7 @@ export function useMovieDetail() {
   const cachedMovie = queryClient.getQueryData<{ tmdbId?: number }>(movieKeys.detail(movieId))
   const tmdbId = movie?.tmdbId ?? cachedMovie?.tmdbId ?? 0
   const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedMovieMetadata(tmdbId)
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('movie')
   const updateMutation = useUpdateMovie()
   const deleteMutation = useDeleteMovie()
   const refreshMutation = useRefreshMovie()

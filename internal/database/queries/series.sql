@@ -482,6 +482,22 @@ SELECT
     (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ?) as total_episodes,
     (SELECT COUNT(*) FROM episodes e WHERE e.series_id = ? AND e.monitored = 1) as monitored_episodes;
 
+-- Monitor only episodes that have files (for "existing" preset)
+-- name: MonitorEpisodesWithFilesBySeries :exec
+UPDATE episodes SET monitored = 1
+WHERE episodes.series_id = @series_id AND EXISTS (
+    SELECT 1 FROM episode_files ef WHERE ef.episode_id = episodes.id
+);
+
+-- Monitor seasons that contain at least one episode with a file (for "existing" preset)
+-- name: MonitorSeasonsWithFilesBySeries :exec
+UPDATE seasons SET monitored = 1
+WHERE seasons.series_id = @series_id AND EXISTS (
+    SELECT 1 FROM episodes ep
+    JOIN episode_files ef ON ef.episode_id = ep.id
+    WHERE ep.series_id = @series_id AND ep.season_number = seasons.season_number
+);
+
 -- Import-related episode file operations
 -- name: CreateEpisodeFileWithImportInfo :one
 INSERT INTO episode_files (

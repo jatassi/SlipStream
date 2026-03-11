@@ -1,13 +1,14 @@
 -- name: UpsertImportDecision :one
 INSERT INTO import_decisions (
-    source_path, decision, media_type, media_id, slot_id,
+    source_path, decision, module_type, entity_type, entity_id, slot_id,
     candidate_quality_id, existing_quality_id, existing_file_id,
     quality_profile_id, reason, evaluated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT (source_path) DO UPDATE SET
     decision = excluded.decision,
-    media_type = excluded.media_type,
-    media_id = excluded.media_id,
+    module_type = excluded.module_type,
+    entity_type = excluded.entity_type,
+    entity_id = excluded.entity_id,
     slot_id = excluded.slot_id,
     candidate_quality_id = excluded.candidate_quality_id,
     existing_quality_id = excluded.existing_quality_id,
@@ -24,7 +25,7 @@ SELECT * FROM import_decisions WHERE source_path = ? LIMIT 1;
 DELETE FROM import_decisions WHERE source_path = ?;
 
 -- name: DeleteImportDecisionsByMediaItem :exec
-DELETE FROM import_decisions WHERE media_type = ? AND media_id = ?;
+DELETE FROM import_decisions WHERE module_type = ? AND entity_type = ? AND entity_id = ?;
 
 -- name: DeleteImportDecisionsByProfile :exec
 DELETE FROM import_decisions WHERE quality_profile_id = ?;

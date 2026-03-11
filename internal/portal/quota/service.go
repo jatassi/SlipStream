@@ -4,21 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
-	SettingDefaultMovieQuota   = "requests_default_movie_quota"
-	SettingDefaultSeasonQuota  = "requests_default_season_quota"
-	SettingDefaultEpisodeQuota = "requests_default_episode_quota"
-
-	DefaultMovieQuota   = 5
-	DefaultSeasonQuota  = 3
-	DefaultEpisodeQuota = 10
+	SettingDefaultQuotaPrefix = "requests_default_%s_quota"
+	DefaultQuota              = 5
 )
 
 var (
@@ -26,27 +23,22 @@ var (
 	ErrQuotaNotFound = errors.New("quota not found")
 )
 
-type QuotaStatus struct {
-	UserID        int64     `json:"userId"`
-	MoviesLimit   int64     `json:"moviesLimit"`
-	SeasonsLimit  int64     `json:"seasonsLimit"`
-	EpisodesLimit int64     `json:"episodesLimit"`
-	MoviesUsed    int64     `json:"moviesUsed"`
-	SeasonsUsed   int64     `json:"seasonsUsed"`
-	EpisodesUsed  int64     `json:"episodesUsed"`
-	PeriodStart   time.Time `json:"periodStart"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+type ModuleQuotaStatus struct {
+	ModuleType  string    `json:"moduleType"`
+	QuotaLimit  int64     `json:"quotaLimit"`
+	QuotaUsed   int64     `json:"quotaUsed"`
+	PeriodStart time.Time `json:"periodStart"`
 }
 
-type QuotaLimits struct {
-	MoviesLimit   *int64
-	SeasonsLimit  *int64
-	EpisodesLimit *int64
+type QuotaStatus struct {
+	UserID  int64               `json:"userId"`
+	Modules []ModuleQuotaStatus `json:"modules"`
 }
 
 type Service struct {
-	queries *sqlc.Queries
-	logger  *zerolog.Logger
+	queries  *sqlc.Queries
+	registry *module.Registry
+	logger   *zerolog.Logger
 }
 
 func NewService(queries *sqlc.Queries, logger *zerolog.Logger) *Service {
@@ -61,43 +53,38 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.queries = queries
 }
 
-func (s *Service) GetUserQuota(ctx context.Context, userID int64) (*QuotaStatus, error) {
-	quota, err := s.queries.GetUserQuota(ctx, userID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return s.initializeUserQuota(ctx, userID)
-		}
-		return nil, err
-	}
-
-	if s.shouldResetQuota(quota.PeriodStart) {
-		return s.resetUserQuota(ctx, userID)
-	}
-
-	return s.toQuotaStatus(ctx, quota), nil
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
-func (s *Service) CheckQuota(ctx context.Context, userID int64, mediaType string) (bool, error) {
-	status, err := s.GetUserQuota(ctx, userID)
+func (s *Service) CheckQuota(ctx context.Context, userID int64, moduleType string) (bool, error) {
+	setting, err := s.queries.GetUserModuleSettings(ctx, sqlc.GetUserModuleSettingsParams{
+		UserID:     userID,
+		ModuleType: moduleType,
+	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
 		return false, err
 	}
 
-	switch mediaType {
-	case "movie":
-		// 0 means unlimited
-		return status.MoviesLimit == 0 || status.MoviesUsed < status.MoviesLimit, nil
-	case "season":
-		return status.SeasonsLimit == 0 || status.SeasonsUsed < status.SeasonsLimit, nil
-	case "episode":
-		return status.EpisodesLimit == 0 || status.EpisodesUsed < status.EpisodesLimit, nil
+	if s.shouldResetQuota(setting.PeriodStart) {
+		setting, err = s.resetModuleQuota(ctx, userID, moduleType)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return true, nil
+	limit := s.effectiveLimit(ctx, setting, moduleType)
+	if limit == 0 {
+		return true, nil
+	}
+	return setting.QuotaUsed < limit, nil
 }
 
-func (s *Service) ConsumeQuota(ctx context.Context, userID int64, mediaType string) error {
-	canConsume, err := s.CheckQuota(ctx, userID, mediaType)
+func (s *Service) ConsumeQuota(ctx context.Context, userID int64, moduleType string) error {
+	canConsume, err := s.CheckQuota(ctx, userID, moduleType)
 	if err != nil {
 		return err
 	}
@@ -105,21 +92,116 @@ func (s *Service) ConsumeQuota(ctx context.Context, userID int64, mediaType stri
 		return ErrQuotaExceeded
 	}
 
-	switch mediaType {
-	case "movie":
-		_, err = s.queries.IncrementMovieQuota(ctx, userID)
-	case "season":
-		_, err = s.queries.IncrementSeasonQuota(ctx, userID)
-	case "episode":
-		_, err = s.queries.IncrementEpisodeQuota(ctx, userID)
+	if ensureErr := s.ensureModuleSettings(ctx, userID, moduleType); ensureErr != nil {
+		return ensureErr
 	}
 
+	_, err = s.queries.IncrementUserModuleQuota(ctx, sqlc.IncrementUserModuleQuotaParams{
+		UserID:     userID,
+		ModuleType: moduleType,
+	})
 	return err
+}
+
+func (s *Service) GetQuotaStatus(ctx context.Context, userID int64) (*QuotaStatus, error) {
+	settings, err := s.queries.ListUserModuleSettings(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	modules := make([]ModuleQuotaStatus, 0, len(settings))
+	for _, ms := range settings {
+		if s.shouldResetQuota(ms.PeriodStart) {
+			ms, err = s.resetModuleQuota(ctx, userID, ms.ModuleType)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		limit := s.effectiveLimit(ctx, ms, ms.ModuleType)
+		modules = append(modules, ModuleQuotaStatus{
+			ModuleType:  ms.ModuleType,
+			QuotaLimit:  limit,
+			QuotaUsed:   ms.QuotaUsed,
+			PeriodStart: ms.PeriodStart,
+		})
+	}
+
+	return &QuotaStatus{
+		UserID:  userID,
+		Modules: modules,
+	}, nil
+}
+
+func (s *Service) GetGlobalDefaults(ctx context.Context) map[string]int64 {
+	defaults := map[string]int64{}
+
+	for _, moduleType := range s.moduleTypes() {
+		key := fmt.Sprintf(SettingDefaultQuotaPrefix, moduleType)
+		if setting, err := s.queries.GetSetting(ctx, key); err == nil {
+			if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
+				defaults[moduleType] = v
+				continue
+			}
+		}
+		defaults[moduleType] = DefaultQuota
+	}
+
+	return defaults
+}
+
+func (s *Service) moduleTypes() []string {
+	if s.registry != nil {
+		types := s.registry.Types()
+		result := make([]string, len(types))
+		for i, t := range types {
+			result[i] = string(t)
+		}
+		return result
+	}
+	return []string{string(module.TypeMovie), string(module.TypeTV)}
+}
+
+func (s *Service) SetGlobalDefault(ctx context.Context, moduleType string, limit int64) error {
+	key := fmt.Sprintf(SettingDefaultQuotaPrefix, moduleType)
+	_, err := s.queries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   key,
+		Value: strconv.FormatInt(limit, 10),
+	})
+	return err
+}
+
+func (s *Service) SetUserOverride(ctx context.Context, userID int64, moduleType string, limit int64) error {
+	if err := s.ensureModuleSettings(ctx, userID, moduleType); err != nil {
+		return err
+	}
+
+	_, err := s.queries.UpdateUserModuleQuotaLimit(ctx, sqlc.UpdateUserModuleQuotaLimitParams{
+		QuotaLimit: sql.NullInt64{Int64: limit, Valid: true},
+		UserID:     userID,
+		ModuleType: moduleType,
+	})
+	return err
+}
+
+func (s *Service) ClearUserOverride(ctx context.Context, userID int64, moduleType string) error {
+	_, err := s.queries.UpdateUserModuleQuotaLimit(ctx, sqlc.UpdateUserModuleQuotaLimitParams{
+		QuotaLimit: sql.NullInt64{Valid: false},
+		UserID:     userID,
+		ModuleType: moduleType,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrQuotaNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Service) ResetAllQuotas(ctx context.Context) error {
 	periodStart := s.getNextMondayMidnight()
-	err := s.queries.ResetAllQuotas(ctx, periodStart)
+	err := s.queries.ResetAllModuleQuotas(ctx, periodStart)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to reset all quotas")
 		return err
@@ -128,160 +210,54 @@ func (s *Service) ResetAllQuotas(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) GetGlobalDefaults(ctx context.Context) (*QuotaLimits, error) {
-	movieLimit := int64(DefaultMovieQuota)
-	seasonLimit := int64(DefaultSeasonQuota)
-	episodeLimit := int64(DefaultEpisodeQuota)
-
-	if setting, err := s.queries.GetSetting(ctx, SettingDefaultMovieQuota); err == nil {
-		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
-			movieLimit = v
-		}
-	}
-
-	if setting, err := s.queries.GetSetting(ctx, SettingDefaultSeasonQuota); err == nil {
-		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
-			seasonLimit = v
-		}
-	}
-
-	if setting, err := s.queries.GetSetting(ctx, SettingDefaultEpisodeQuota); err == nil {
-		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
-			episodeLimit = v
-		}
-	}
-
-	return &QuotaLimits{
-		MoviesLimit:   &movieLimit,
-		SeasonsLimit:  &seasonLimit,
-		EpisodesLimit: &episodeLimit,
-	}, nil
-}
-
-func (s *Service) SetGlobalDefaults(ctx context.Context, limits QuotaLimits) error {
-	if limits.MoviesLimit != nil {
-		if _, err := s.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingDefaultMovieQuota,
-			Value: strconv.FormatInt(*limits.MoviesLimit, 10),
-		}); err != nil {
-			return err
-		}
-	}
-
-	if limits.SeasonsLimit != nil {
-		if _, err := s.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingDefaultSeasonQuota,
-			Value: strconv.FormatInt(*limits.SeasonsLimit, 10),
-		}); err != nil {
-			return err
-		}
-	}
-
-	if limits.EpisodesLimit != nil {
-		if _, err := s.queries.SetSetting(ctx, sqlc.SetSettingParams{
-			Key:   SettingDefaultEpisodeQuota,
-			Value: strconv.FormatInt(*limits.EpisodesLimit, 10),
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) SetUserOverride(ctx context.Context, userID int64, limits QuotaLimits) (*QuotaStatus, error) {
-	existing, err := s.queries.GetUserQuota(ctx, userID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			_, err = s.initializeUserQuota(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-
-	var moviesLimit, seasonsLimit, episodesLimit sql.NullInt64
-
-	if existing != nil {
-		moviesLimit = existing.MoviesLimit
-		seasonsLimit = existing.SeasonsLimit
-		episodesLimit = existing.EpisodesLimit
-	}
-
-	if limits.MoviesLimit != nil {
-		moviesLimit = sql.NullInt64{Int64: *limits.MoviesLimit, Valid: true}
-	}
-	if limits.SeasonsLimit != nil {
-		seasonsLimit = sql.NullInt64{Int64: *limits.SeasonsLimit, Valid: true}
-	}
-	if limits.EpisodesLimit != nil {
-		episodesLimit = sql.NullInt64{Int64: *limits.EpisodesLimit, Valid: true}
-	}
-
-	quota, err := s.queries.UpdateUserQuotaLimits(ctx, sqlc.UpdateUserQuotaLimitsParams{
-		UserID:        userID,
-		MoviesLimit:   moviesLimit,
-		SeasonsLimit:  seasonsLimit,
-		EpisodesLimit: episodesLimit,
+func (s *Service) ensureModuleSettings(ctx context.Context, userID int64, moduleType string) error {
+	_, err := s.queries.GetUserModuleSettings(ctx, sqlc.GetUserModuleSettingsParams{
+		UserID:     userID,
+		ModuleType: moduleType,
 	})
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
 	}
 
-	return s.toQuotaStatus(ctx, quota), nil
-}
-
-func (s *Service) ClearUserOverride(ctx context.Context, userID int64) (*QuotaStatus, error) {
-	quota, err := s.queries.UpdateUserQuotaLimits(ctx, sqlc.UpdateUserQuotaLimitsParams{
-		UserID:        userID,
-		MoviesLimit:   sql.NullInt64{Valid: false},
-		SeasonsLimit:  sql.NullInt64{Valid: false},
-		EpisodesLimit: sql.NullInt64{Valid: false},
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrQuotaNotFound
-		}
-		return nil, err
-	}
-
-	return s.toQuotaStatus(ctx, quota), nil
-}
-
-func (s *Service) initializeUserQuota(ctx context.Context, userID int64) (*QuotaStatus, error) {
 	periodStart := s.getNextMondayMidnight()
-
-	quota, err := s.queries.UpsertUserQuota(ctx, sqlc.UpsertUserQuotaParams{
-		UserID:        userID,
-		MoviesLimit:   sql.NullInt64{Valid: false},
-		SeasonsLimit:  sql.NullInt64{Valid: false},
-		EpisodesLimit: sql.NullInt64{Valid: false},
-		MoviesUsed:    0,
-		SeasonsUsed:   0,
-		EpisodesUsed:  0,
-		PeriodStart:   periodStart,
+	_, err = s.queries.UpsertUserModuleSettings(ctx, sqlc.UpsertUserModuleSettingsParams{
+		UserID:           userID,
+		ModuleType:       moduleType,
+		QuotaLimit:       sql.NullInt64{Valid: false},
+		QuotaUsed:        0,
+		QualityProfileID: sql.NullInt64{Valid: false},
+		PeriodStart:      periodStart,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return s.toQuotaStatus(ctx, quota), nil
+	return err
 }
 
-func (s *Service) resetUserQuota(ctx context.Context, userID int64) (*QuotaStatus, error) {
+func (s *Service) resetModuleQuota(ctx context.Context, userID int64, moduleType string) (*sqlc.PortalUserModuleSetting, error) {
 	periodStart := s.getNextMondayMidnight()
-
-	quota, err := s.queries.ResetUserQuota(ctx, sqlc.ResetUserQuotaParams{
-		UserID:      userID,
+	return s.queries.ResetUserModuleQuota(ctx, sqlc.ResetUserModuleQuotaParams{
 		PeriodStart: periodStart,
+		UserID:      userID,
+		ModuleType:  moduleType,
 	})
-	if err != nil {
-		return nil, err
-	}
+}
 
-	return s.toQuotaStatus(ctx, quota), nil
+func (s *Service) effectiveLimit(ctx context.Context, setting *sqlc.PortalUserModuleSetting, moduleType string) int64 {
+	if setting.QuotaLimit.Valid {
+		return setting.QuotaLimit.Int64
+	}
+	return s.getDefaultQuota(ctx, moduleType)
+}
+
+func (s *Service) getDefaultQuota(ctx context.Context, moduleType string) int64 {
+	key := fmt.Sprintf(SettingDefaultQuotaPrefix, moduleType)
+	if setting, err := s.queries.GetSetting(ctx, key); err == nil {
+		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
+			return v
+		}
+	}
+	return DefaultQuota
 }
 
 func (s *Service) shouldResetQuota(periodStart time.Time) bool {
@@ -297,34 +273,4 @@ func (s *Service) getNextMondayMidnight() time.Time {
 
 	nextMonday := now.AddDate(0, 0, daysUntilMonday)
 	return time.Date(nextMonday.Year(), nextMonday.Month(), nextMonday.Day(), 0, 0, 0, 0, time.Local)
-}
-
-func (s *Service) toQuotaStatus(ctx context.Context, q *sqlc.UserQuota) *QuotaStatus {
-	defaults, _ := s.GetGlobalDefaults(ctx)
-
-	moviesLimit := *defaults.MoviesLimit
-	seasonsLimit := *defaults.SeasonsLimit
-	episodesLimit := *defaults.EpisodesLimit
-
-	if q.MoviesLimit.Valid {
-		moviesLimit = q.MoviesLimit.Int64
-	}
-	if q.SeasonsLimit.Valid {
-		seasonsLimit = q.SeasonsLimit.Int64
-	}
-	if q.EpisodesLimit.Valid {
-		episodesLimit = q.EpisodesLimit.Int64
-	}
-
-	return &QuotaStatus{
-		UserID:        q.UserID,
-		MoviesLimit:   moviesLimit,
-		SeasonsLimit:  seasonsLimit,
-		EpisodesLimit: episodesLimit,
-		MoviesUsed:    q.MoviesUsed,
-		SeasonsUsed:   q.SeasonsUsed,
-		EpisodesUsed:  q.EpisodesUsed,
-		PeriodStart:   q.PeriodStart,
-		UpdatedAt:     q.UpdatedAt,
-	}
 }

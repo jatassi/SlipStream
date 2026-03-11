@@ -14,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/scanner"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // parseFilename is a convenience wrapper around scanner.ParseFilename
@@ -105,15 +106,12 @@ func (h *Handlers) GetPendingImports(c echo.Context) error {
 			item.Error = &row.ErrorMessage.String
 		}
 
-		// Add media info if available
-		if row.MovieID.Valid {
-			item.MediaID = &row.MovieID.Int64
-			mediaType := mediaTypeMovie
-			item.MediaType = &mediaType
-		} else if row.EpisodeID.Valid {
-			item.MediaID = &row.EpisodeID.Int64
-			mediaType := mediaTypeEpisode
-			item.MediaType = &mediaType
+		// Add media info from discriminator columns
+		if row.EntityID != 0 {
+			entityID := row.EntityID
+			item.MediaID = &entityID
+			entityType := row.EntityType
+			item.MediaType = &entityType
 		}
 
 		pending = append(pending, item)
@@ -383,11 +381,16 @@ func (h *Handlers) buildRetryJob(qm *sqlc.QueueMedium) ImportJob {
 		},
 	}
 
-	if qm.MovieID.Valid {
-		job.QueueMedia.MovieID = &qm.MovieID.Int64
-	}
-	if qm.EpisodeID.Valid {
-		job.QueueMedia.EpisodeID = &qm.EpisodeID.Int64
+	job.QueueMedia.ModuleType = qm.ModuleType
+	job.QueueMedia.EntityType = qm.EntityType
+	job.QueueMedia.EntityID = qm.EntityID
+	switch qm.EntityType {
+	case mediaTypeMovie:
+		id := qm.EntityID
+		job.QueueMedia.MovieID = &id
+	case mediaTypeEpisode:
+		id := qm.EntityID
+		job.QueueMedia.EpisodeID = &id
 	}
 
 	return job
@@ -526,7 +529,7 @@ func (h *Handlers) GetRenamePreview(c echo.Context) error {
 	}
 
 	// Filter to only items that need renaming if requested
-	needsRenameOnly := c.QueryParam("needsRename") == "true"
+	needsRenameOnly := c.QueryParam("needsRename") == boolTrue
 	if needsRenameOnly {
 		filtered := make([]RenamePreview, 0)
 		for i := range previews {
@@ -587,15 +590,17 @@ func (h *Handlers) ExecuteRename(c echo.Context) error {
 
 // SettingsHandlers provides HTTP handlers for import settings.
 type SettingsHandlers struct {
-	queries *sqlc.Queries
-	service *Service
+	queries  *sqlc.Queries
+	service  *Service
+	registry *module.Registry
 }
 
 // NewSettingsHandlers creates a new settings handlers instance.
-func NewSettingsHandlers(db *sql.DB, service *Service) *SettingsHandlers {
+func NewSettingsHandlers(db *sql.DB, service *Service, registry *module.Registry) *SettingsHandlers {
 	return &SettingsHandlers{
-		queries: sqlc.New(db),
-		service: service,
+		queries:  sqlc.New(db),
+		service:  service,
+		registry: registry,
 	}
 }
 
@@ -611,6 +616,11 @@ func (h *SettingsHandlers) RegisterSettingsRoutes(g *echo.Group) {
 	g.POST("/import/naming/preview", h.PreviewNamingPattern)
 	g.POST("/import/naming/validate", h.ValidateNamingPattern)
 	g.POST("/import/naming/parse", h.ParseFilename)
+
+	g.GET("/:moduleId/naming", h.GetModuleNaming)
+	g.PUT("/:moduleId/naming", h.UpdateModuleNaming)
+	g.POST("/:moduleId/naming/preview", h.PreviewModuleNamingPattern)
+	g.POST("/:moduleId/naming/parse", h.ParseModuleFilename)
 }
 
 // ImportSettingsResponse represents the import settings API response.
@@ -623,30 +633,6 @@ type ImportSettingsResponse struct {
 	// Matching settings
 	MatchConflictBehavior string `json:"matchConflictBehavior"`
 	UnknownMediaBehavior  string `json:"unknownMediaBehavior"`
-
-	// TV naming settings
-	RenameEpisodes           bool   `json:"renameEpisodes"`
-	ReplaceIllegalCharacters bool   `json:"replaceIllegalCharacters"`
-	ColonReplacement         string `json:"colonReplacement"`
-	CustomColonReplacement   string `json:"customColonReplacement,omitempty"`
-
-	// Episode format patterns
-	StandardEpisodeFormat string `json:"standardEpisodeFormat"`
-	DailyEpisodeFormat    string `json:"dailyEpisodeFormat"`
-	AnimeEpisodeFormat    string `json:"animeEpisodeFormat"`
-
-	// Folder patterns
-	SeriesFolderFormat   string `json:"seriesFolderFormat"`
-	SeasonFolderFormat   string `json:"seasonFolderFormat"`
-	SpecialsFolderFormat string `json:"specialsFolderFormat"`
-
-	// Multi-episode
-	MultiEpisodeStyle string `json:"multiEpisodeStyle"`
-
-	// Movie naming settings
-	RenameMovies      bool   `json:"renameMovies"`
-	MovieFolderFormat string `json:"movieFolderFormat"`
-	MovieFileFormat   string `json:"movieFileFormat"`
 }
 
 // GetSettings returns the current import settings.
@@ -665,28 +651,11 @@ func (h *SettingsHandlers) GetSettings(c echo.Context) error {
 	}
 
 	resp := ImportSettingsResponse{
-		ValidationLevel:          row.ValidationLevel,
-		MinimumFileSizeMB:        row.MinimumFileSizeMb,
-		VideoExtensions:          strings.Split(row.VideoExtensions, ","),
-		MatchConflictBehavior:    row.MatchConflictBehavior,
-		UnknownMediaBehavior:     row.UnknownMediaBehavior,
-		RenameEpisodes:           row.RenameEpisodes,
-		ReplaceIllegalCharacters: row.ReplaceIllegalCharacters,
-		ColonReplacement:         row.ColonReplacement,
-		StandardEpisodeFormat:    row.StandardEpisodeFormat,
-		DailyEpisodeFormat:       row.DailyEpisodeFormat,
-		AnimeEpisodeFormat:       row.AnimeEpisodeFormat,
-		SeriesFolderFormat:       row.SeriesFolderFormat,
-		SeasonFolderFormat:       row.SeasonFolderFormat,
-		SpecialsFolderFormat:     row.SpecialsFolderFormat,
-		MultiEpisodeStyle:        row.MultiEpisodeStyle,
-		RenameMovies:             row.RenameMovies,
-		MovieFolderFormat:        row.MovieFolderFormat,
-		MovieFileFormat:          row.MovieFileFormat,
-	}
-
-	if row.CustomColonReplacement.Valid {
-		resp.CustomColonReplacement = row.CustomColonReplacement.String
+		ValidationLevel:       row.ValidationLevel,
+		MinimumFileSizeMB:     row.MinimumFileSizeMb,
+		VideoExtensions:       strings.Split(row.VideoExtensions, ","),
+		MatchConflictBehavior: row.MatchConflictBehavior,
+		UnknownMediaBehavior:  row.UnknownMediaBehavior,
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -702,30 +671,6 @@ type UpdateSettingsRequest struct {
 	// Matching settings
 	MatchConflictBehavior *string `json:"matchConflictBehavior,omitempty"`
 	UnknownMediaBehavior  *string `json:"unknownMediaBehavior,omitempty"`
-
-	// TV naming settings
-	RenameEpisodes           *bool   `json:"renameEpisodes,omitempty"`
-	ReplaceIllegalCharacters *bool   `json:"replaceIllegalCharacters,omitempty"`
-	ColonReplacement         *string `json:"colonReplacement,omitempty"`
-	CustomColonReplacement   *string `json:"customColonReplacement,omitempty"`
-
-	// Episode format patterns
-	StandardEpisodeFormat *string `json:"standardEpisodeFormat,omitempty"`
-	DailyEpisodeFormat    *string `json:"dailyEpisodeFormat,omitempty"`
-	AnimeEpisodeFormat    *string `json:"animeEpisodeFormat,omitempty"`
-
-	// Folder patterns
-	SeriesFolderFormat   *string `json:"seriesFolderFormat,omitempty"`
-	SeasonFolderFormat   *string `json:"seasonFolderFormat,omitempty"`
-	SpecialsFolderFormat *string `json:"specialsFolderFormat,omitempty"`
-
-	// Multi-episode
-	MultiEpisodeStyle *string `json:"multiEpisodeStyle,omitempty"`
-
-	// Movie naming settings
-	RenameMovies      *bool   `json:"renameMovies,omitempty"`
-	MovieFolderFormat *string `json:"movieFolderFormat,omitempty"`
-	MovieFileFormat   *string `json:"movieFileFormat,omitempty"`
 }
 
 // UpdateSettings updates import settings.
@@ -755,43 +700,21 @@ func (h *SettingsHandlers) UpdateSettings(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	h.syncRenamerSettings(updated)
-
 	resp := h.buildSettingsResponse(updated)
 	return c.JSON(http.StatusOK, resp)
 }
 
 func (h *SettingsHandlers) buildUpdateParams(current *sqlc.ImportSetting) sqlc.UpdateImportSettingsParams {
 	return sqlc.UpdateImportSettingsParams{
-		ValidationLevel:          current.ValidationLevel,
-		MinimumFileSizeMb:        current.MinimumFileSizeMb,
-		VideoExtensions:          current.VideoExtensions,
-		MatchConflictBehavior:    current.MatchConflictBehavior,
-		UnknownMediaBehavior:     current.UnknownMediaBehavior,
-		RenameEpisodes:           current.RenameEpisodes,
-		ReplaceIllegalCharacters: current.ReplaceIllegalCharacters,
-		ColonReplacement:         current.ColonReplacement,
-		CustomColonReplacement:   current.CustomColonReplacement,
-		StandardEpisodeFormat:    current.StandardEpisodeFormat,
-		DailyEpisodeFormat:       current.DailyEpisodeFormat,
-		AnimeEpisodeFormat:       current.AnimeEpisodeFormat,
-		SeriesFolderFormat:       current.SeriesFolderFormat,
-		SeasonFolderFormat:       current.SeasonFolderFormat,
-		SpecialsFolderFormat:     current.SpecialsFolderFormat,
-		MultiEpisodeStyle:        current.MultiEpisodeStyle,
-		RenameMovies:             current.RenameMovies,
-		MovieFolderFormat:        current.MovieFolderFormat,
-		MovieFileFormat:          current.MovieFileFormat,
+		ValidationLevel:       current.ValidationLevel,
+		MinimumFileSizeMb:     current.MinimumFileSizeMb,
+		VideoExtensions:       current.VideoExtensions,
+		MatchConflictBehavior: current.MatchConflictBehavior,
+		UnknownMediaBehavior:  current.UnknownMediaBehavior,
 	}
 }
 
 func (h *SettingsHandlers) applySettingUpdates(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
-	h.applyGeneralSettings(params, req)
-	h.applyEpisodeNamingSettings(params, req)
-	h.applyMovieNamingSettings(params, req)
-}
-
-func (h *SettingsHandlers) applyGeneralSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
 	if req.ValidationLevel != nil {
 		params.ValidationLevel = *req.ValidationLevel
 	}
@@ -807,106 +730,16 @@ func (h *SettingsHandlers) applyGeneralSettings(params *sqlc.UpdateImportSetting
 	if req.UnknownMediaBehavior != nil {
 		params.UnknownMediaBehavior = *req.UnknownMediaBehavior
 	}
-	if req.ReplaceIllegalCharacters != nil {
-		params.ReplaceIllegalCharacters = *req.ReplaceIllegalCharacters
-	}
-	if req.ColonReplacement != nil {
-		params.ColonReplacement = *req.ColonReplacement
-	}
-	if req.CustomColonReplacement != nil {
-		params.CustomColonReplacement = sql.NullString{String: *req.CustomColonReplacement, Valid: true}
-	}
-}
-
-func (h *SettingsHandlers) applyEpisodeNamingSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
-	if req.RenameEpisodes != nil {
-		params.RenameEpisodes = *req.RenameEpisodes
-	}
-	if req.StandardEpisodeFormat != nil {
-		params.StandardEpisodeFormat = *req.StandardEpisodeFormat
-	}
-	if req.DailyEpisodeFormat != nil {
-		params.DailyEpisodeFormat = *req.DailyEpisodeFormat
-	}
-	if req.AnimeEpisodeFormat != nil {
-		params.AnimeEpisodeFormat = *req.AnimeEpisodeFormat
-	}
-	if req.SeriesFolderFormat != nil {
-		params.SeriesFolderFormat = *req.SeriesFolderFormat
-	}
-	if req.SeasonFolderFormat != nil {
-		params.SeasonFolderFormat = *req.SeasonFolderFormat
-	}
-	if req.SpecialsFolderFormat != nil {
-		params.SpecialsFolderFormat = *req.SpecialsFolderFormat
-	}
-	if req.MultiEpisodeStyle != nil {
-		params.MultiEpisodeStyle = *req.MultiEpisodeStyle
-	}
-}
-
-func (h *SettingsHandlers) applyMovieNamingSettings(params *sqlc.UpdateImportSettingsParams, req *UpdateSettingsRequest) {
-	if req.RenameMovies != nil {
-		params.RenameMovies = *req.RenameMovies
-	}
-	if req.MovieFolderFormat != nil {
-		params.MovieFolderFormat = *req.MovieFolderFormat
-	}
-	if req.MovieFileFormat != nil {
-		params.MovieFileFormat = *req.MovieFileFormat
-	}
-}
-
-func (h *SettingsHandlers) syncRenamerSettings(updated *sqlc.ImportSetting) {
-	if h.service == nil {
-		return
-	}
-
-	h.service.UpdateRenamerSettings(&renamer.Settings{
-		RenameEpisodes:           updated.RenameEpisodes,
-		ReplaceIllegalCharacters: updated.ReplaceIllegalCharacters,
-		ColonReplacement:         renamer.ColonReplacement(updated.ColonReplacement),
-		CustomColonReplacement:   updated.CustomColonReplacement.String,
-		StandardEpisodeFormat:    updated.StandardEpisodeFormat,
-		DailyEpisodeFormat:       updated.DailyEpisodeFormat,
-		AnimeEpisodeFormat:       updated.AnimeEpisodeFormat,
-		SeriesFolderFormat:       updated.SeriesFolderFormat,
-		SeasonFolderFormat:       updated.SeasonFolderFormat,
-		SpecialsFolderFormat:     updated.SpecialsFolderFormat,
-		MultiEpisodeStyle:        renamer.MultiEpisodeStyle(updated.MultiEpisodeStyle),
-		RenameMovies:             updated.RenameMovies,
-		MovieFolderFormat:        updated.MovieFolderFormat,
-		MovieFileFormat:          updated.MovieFileFormat,
-	})
 }
 
 func (h *SettingsHandlers) buildSettingsResponse(updated *sqlc.ImportSetting) ImportSettingsResponse {
-	resp := ImportSettingsResponse{
-		ValidationLevel:          updated.ValidationLevel,
-		MinimumFileSizeMB:        updated.MinimumFileSizeMb,
-		VideoExtensions:          strings.Split(updated.VideoExtensions, ","),
-		MatchConflictBehavior:    updated.MatchConflictBehavior,
-		UnknownMediaBehavior:     updated.UnknownMediaBehavior,
-		RenameEpisodes:           updated.RenameEpisodes,
-		ReplaceIllegalCharacters: updated.ReplaceIllegalCharacters,
-		ColonReplacement:         updated.ColonReplacement,
-		StandardEpisodeFormat:    updated.StandardEpisodeFormat,
-		DailyEpisodeFormat:       updated.DailyEpisodeFormat,
-		AnimeEpisodeFormat:       updated.AnimeEpisodeFormat,
-		SeriesFolderFormat:       updated.SeriesFolderFormat,
-		SeasonFolderFormat:       updated.SeasonFolderFormat,
-		SpecialsFolderFormat:     updated.SpecialsFolderFormat,
-		MultiEpisodeStyle:        updated.MultiEpisodeStyle,
-		RenameMovies:             updated.RenameMovies,
-		MovieFolderFormat:        updated.MovieFolderFormat,
-		MovieFileFormat:          updated.MovieFileFormat,
+	return ImportSettingsResponse{
+		ValidationLevel:       updated.ValidationLevel,
+		MinimumFileSizeMB:     updated.MinimumFileSizeMb,
+		VideoExtensions:       strings.Split(updated.VideoExtensions, ","),
+		MatchConflictBehavior: updated.MatchConflictBehavior,
+		UnknownMediaBehavior:  updated.UnknownMediaBehavior,
 	}
-
-	if updated.CustomColonReplacement.Valid {
-		resp.CustomColonReplacement = updated.CustomColonReplacement.String
-	}
-
-	return resp
 }
 
 // PatternPreviewRequest contains the request body for pattern preview.
@@ -1115,12 +948,12 @@ func (h *Handlers) buildSuggestedMatch(ctx context.Context, match *LibraryMatch)
 		Confidence: match.Confidence,
 	}
 
-	if match.MediaType == "movie" && match.MovieID != nil {
+	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
 		h.populateMovieSuggestion(ctx, suggested, *match.MovieID)
 		return suggested
 	}
 
-	if match.MediaType == "episode" && match.EpisodeID != nil {
+	if match.MediaType == mediaTypeEpisode && match.EpisodeID != nil {
 		h.populateEpisodeSuggestion(ctx, suggested, match)
 	}
 

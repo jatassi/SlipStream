@@ -1,10 +1,14 @@
-import { Film, Tv } from 'lucide-react'
-
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { getEnabledModules } from '@/modules'
 
 import type { MediaFilter, ViewMode } from './use-missing-page'
 import { ViewToggle } from './view-toggle'
+
+const THEME_GLOW_CLASSES: Record<string, string> = {
+  movie: 'data-active:glow-movie',
+  tv: 'data-active:glow-tv',
+}
 
 type MediaTabsProps = {
   filter: MediaFilter
@@ -38,6 +42,9 @@ export function MediaTabs({
   onViewChange,
   children,
 }: MediaTabsProps) {
+  const modules = getEnabledModules()
+  const counts: Record<string, number> = { movieCount, episodeCount }
+
   return (
     <Tabs value={filter} onValueChange={(v) => onFilterChange(v as MediaFilter)} className="space-y-4">
       <div className={cn('flex flex-wrap items-center justify-between gap-3', isLoading && 'pointer-events-none opacity-50')}>
@@ -46,16 +53,17 @@ export function MediaTabs({
             All
             {isLoading ? null : <CountBadge count={totalCount} className="data-active:text-black/60" />}
           </TabsTrigger>
-          <TabsTrigger value="movies" className="data-active:glow-movie data-active:bg-white data-active:text-black">
-            <Film className="mr-1.5 size-4" />
-            Movies
-            {isLoading ? null : <CountBadge count={movieCount} className="text-muted-foreground" />}
-          </TabsTrigger>
-          <TabsTrigger value="series" className="data-active:glow-tv data-active:bg-white data-active:text-black">
-            <Tv className="mr-1.5 size-4" />
-            Series
-            {isLoading ? null : <CountBadge count={episodeCount} className="text-muted-foreground" />}
-          </TabsTrigger>
+          {modules.map((mod) => (
+            <TabsTrigger
+              key={mod.missingTabValue}
+              value={mod.missingTabValue}
+              className={cn(THEME_GLOW_CLASSES[mod.themeColor], 'data-active:bg-white data-active:text-black')}
+            >
+              <mod.icon className="mr-1.5 size-4" />
+              {mod.name}
+              {isLoading ? null : <CountBadge count={counts[mod.missingCountKey]} className="text-muted-foreground" />}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <ViewToggle isMissingView={isMissingView} upgradableTotalCount={upgradableTotalCount} isLoading={isLoading} onViewChange={onViewChange} />
       </div>

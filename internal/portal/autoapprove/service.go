@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -34,6 +35,7 @@ type Service struct {
 	quotaService    *quota.Service
 	requestsService *requests.Service
 	requestSearcher RequestSearcher
+	registry        *module.Registry
 	logger          *zerolog.Logger
 }
 
@@ -62,6 +64,10 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 
 func (s *Service) SetRequestSearcher(searcher RequestSearcher) {
 	s.requestSearcher = searcher
+}
+
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 func (s *Service) ShouldAutoApprove(ctx context.Context, user *users.User, qualityProfileID *int64) (bool, error) {
@@ -98,7 +104,8 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 		return nil, err
 	}
 
-	qualityProfileID := user.QualityProfileIDFor(request.MediaType)
+	moduleType := s.getModuleType(request.MediaType)
+	qualityProfileID := s.getQualityProfileForModule(ctx, request.UserID, moduleType)
 	shouldAutoApprove, err := s.ShouldAutoApprove(ctx, user, qualityProfileID)
 	if err != nil {
 		return nil, err
@@ -108,8 +115,7 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 		return result, nil
 	}
 
-	mediaType := s.getQuotaMediaType(request.MediaType)
-	canConsume, err := s.quotaService.CheckQuota(ctx, request.UserID, mediaType)
+	canConsume, err := s.quotaService.CheckQuota(ctx, request.UserID, moduleType)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +130,7 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 		return result, nil
 	}
 
-	if err := s.quotaService.ConsumeQuota(ctx, request.UserID, mediaType); err != nil {
+	if err := s.quotaService.ConsumeQuota(ctx, request.UserID, moduleType); err != nil {
 		return nil, err
 	}
 
@@ -147,15 +153,25 @@ func (s *Service) ProcessAutoApprove(ctx context.Context, request *requests.Requ
 	return result, nil
 }
 
-func (s *Service) getQuotaMediaType(requestMediaType string) string {
-	switch requestMediaType {
-	case requests.MediaTypeMovie:
-		return "movie"
-	case requests.MediaTypeSeries, requests.MediaTypeSeason:
-		return "season"
-	case requests.MediaTypeEpisode:
-		return "episode"
-	default:
-		return "movie"
+func (s *Service) getQualityProfileForModule(ctx context.Context, userID int64, moduleType string) *int64 {
+	setting, err := s.queries.GetUserModuleSettings(ctx, sqlc.GetUserModuleSettingsParams{
+		UserID:     userID,
+		ModuleType: moduleType,
+	})
+	if err != nil {
+		return nil
 	}
+	if setting.QualityProfileID.Valid {
+		return &setting.QualityProfileID.Int64
+	}
+	return nil
+}
+
+func (s *Service) getModuleType(requestMediaType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(requestMediaType)); mod != nil {
+			return string(mod.ID())
+		}
+	}
+	return requestMediaType
 }

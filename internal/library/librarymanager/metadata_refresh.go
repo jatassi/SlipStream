@@ -10,6 +10,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/progress"
 )
 
@@ -80,6 +81,134 @@ func (s *Service) downloadPendingArtwork(
 		Int("downloaded", downloaded).
 		Int("total", totalItems).
 		Msg("Artwork download complete")
+}
+
+// RefreshEntityMetadata refreshes metadata for any module entity by dispatching
+// to the module's MetadataProvider. Falls back to legacy refresh if the module
+// registry is not available.
+func (s *Service) RefreshEntityMetadata(ctx context.Context, moduleType module.Type, entityID int64) (*module.RefreshResult, error) {
+	if s.registry == nil {
+		return s.legacyRefresh(ctx, moduleType, entityID)
+	}
+
+	mod := s.registry.Get(moduleType)
+	if mod == nil {
+		return nil, fmt.Errorf("unknown module type: %s", moduleType)
+	}
+
+	result, err := mod.RefreshMetadata(ctx, entityID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.handlePostRefreshArtwork(ctx, moduleType, result)
+	s.handlePostRefreshScan(ctx, moduleType, entityID)
+
+	return result, nil
+}
+
+func (s *Service) legacyRefresh(ctx context.Context, moduleType module.Type, entityID int64) (*module.RefreshResult, error) {
+	switch moduleType {
+	case module.TypeMovie:
+		movie, err := s.RefreshMovieMetadata(ctx, entityID)
+		if err != nil {
+			return nil, err
+		}
+		return &module.RefreshResult{
+			EntityID: movie.ID,
+			Updated:  true,
+		}, nil
+	case module.TypeTV:
+		series, err := s.RefreshSeriesMetadata(ctx, entityID)
+		if err != nil {
+			return nil, err
+		}
+		return &module.RefreshResult{
+			EntityID: series.ID,
+			Updated:  true,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported module type for legacy refresh: %s", moduleType)
+	}
+}
+
+func (s *Service) handlePostRefreshArtwork(_ context.Context, moduleType module.Type, result *module.RefreshResult) {
+	if s.artwork == nil || result == nil {
+		return
+	}
+
+	urls := result.ArtworkURLs
+	if urls.PosterURL == "" && urls.BackdropURL == "" && urls.LogoURL == "" && urls.StudioLogoURL == "" {
+		return
+	}
+
+	go func() {
+		switch moduleType {
+		case module.TypeMovie:
+			s.downloadRefreshMovieArtwork(result)
+		case module.TypeTV:
+			s.downloadRefreshSeriesArtwork(result)
+		}
+	}()
+}
+
+func (s *Service) downloadRefreshMovieArtwork(result *module.RefreshResult) {
+	movieResult, ok := result.Metadata.(*metadata.MovieResult)
+	if !ok {
+		s.logger.Error().Str("actualType", fmt.Sprintf("%T", result.Metadata)).
+			Msg("Post-refresh artwork: expected *metadata.MovieResult in RefreshResult.Metadata")
+		return
+	}
+	if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to download movie artwork after refresh")
+	}
+}
+
+func (s *Service) downloadRefreshSeriesArtwork(result *module.RefreshResult) {
+	seriesResult, ok := result.Metadata.(*metadata.SeriesResult)
+	if !ok {
+		s.logger.Error().Str("actualType", fmt.Sprintf("%T", result.Metadata)).
+			Msg("Post-refresh artwork: expected *metadata.SeriesResult in RefreshResult.Metadata")
+		return
+	}
+	if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to download series artwork after refresh")
+	}
+}
+
+func (s *Service) handlePostRefreshScan(ctx context.Context, moduleType module.Type, entityID int64) {
+	switch moduleType {
+	case module.TypeMovie:
+		movie, err := s.movies.Get(ctx, entityID)
+		if err == nil {
+			s.scanMovieFolder(ctx, movie)
+		}
+	case module.TypeTV:
+		series, err := s.tv.GetSeries(ctx, entityID)
+		if err == nil {
+			s.scanSeriesFolder(ctx, series)
+		}
+	}
+}
+
+// refreshSingleEntity dispatches to RefreshEntityMetadata when the registry is
+// available, otherwise falls back to the legacy per-type refresh methods.
+func (s *Service) refreshSingleEntity(ctx context.Context, moduleType module.Type, entityID int64) error {
+	if s.registry != nil {
+		_, err := s.RefreshEntityMetadata(ctx, moduleType, entityID)
+		return err
+	}
+
+	switch moduleType {
+	case module.TypeMovie:
+		_, err := s.RefreshMovieMetadata(ctx, entityID)
+		return err
+	case module.TypeTV:
+		_, err := s.RefreshSeriesMetadata(ctx, entityID)
+		return err
+	default:
+		return fmt.Errorf("unsupported module type: %s", moduleType)
+	}
 }
 
 // RefreshMovieMetadata fetches metadata for a single movie and downloads artwork.
@@ -366,7 +495,7 @@ func (s *Service) updateSeriesSeasons(ctx context.Context, seriesID int64, tmdbI
 		return
 	}
 
-	seasonMeta := s.convertToSeasonMetadata(seasonResults)
+	seasonMeta := tv.ConvertSeasonResults(seasonResults)
 
 	if err := s.tv.UpdateSeasonsFromMetadata(ctx, seriesID, seasonMeta); err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", seriesID).Msg("Failed to update seasons from metadata")
@@ -382,32 +511,6 @@ func (s *Service) updateSeriesSeasons(ctx context.Context, seriesID int64, tmdbI
 		Int("seasons", len(seasonMeta)).
 		Int("episodes", totalEpisodes).
 		Msg("Updated seasons and episodes from metadata")
-}
-
-func (s *Service) convertToSeasonMetadata(seasonResults []metadata.SeasonResult) []tv.SeasonMetadata {
-	seasonMeta := make([]tv.SeasonMetadata, len(seasonResults))
-	for i, sr := range seasonResults {
-		episodes := make([]tv.EpisodeMetadata, len(sr.Episodes))
-		for j, ep := range sr.Episodes {
-			episodes[j] = tv.EpisodeMetadata{
-				EpisodeNumber: ep.EpisodeNumber,
-				SeasonNumber:  ep.SeasonNumber,
-				Title:         ep.Title,
-				Overview:      ep.Overview,
-				AirDate:       ep.AirDate,
-				Runtime:       ep.Runtime,
-			}
-		}
-		seasonMeta[i] = tv.SeasonMetadata{
-			SeasonNumber: sr.SeasonNumber,
-			Name:         sr.Name,
-			Overview:     sr.Overview,
-			PosterURL:    sr.PosterURL,
-			AirDate:      sr.AirDate,
-			Episodes:     episodes,
-		}
-	}
-	return seasonMeta
 }
 
 func (s *Service) downloadSeriesArtworkFromResult(bestMatch *metadata.SeriesResult) {
@@ -446,7 +549,7 @@ func (s *Service) RefreshMonitoredSeriesMetadata(ctx context.Context) (int, erro
 		default:
 		}
 
-		_, err := s.RefreshSeriesMetadata(ctx, series.ID)
+		err := s.refreshSingleEntity(ctx, module.TypeTV, series.ID)
 		if err != nil {
 			if errors.Is(err, ErrNoMetadataProvider) {
 				s.logger.Warn().Msg("No metadata provider configured, stopping series refresh")
@@ -530,7 +633,7 @@ func (s *Service) refreshAllMovieMetadata(ctx context.Context, allMovies []*movi
 			activity.Update(fmt.Sprintf("Refreshing: %s", movie.Title), pct)
 		}
 
-		if _, err := s.RefreshMovieMetadata(ctx, movie.ID); err != nil {
+		if err := s.refreshSingleEntity(ctx, module.TypeMovie, movie.ID); err != nil {
 			if errors.Is(err, ErrNoMetadataProvider) {
 				break
 			}
@@ -612,7 +715,7 @@ func (s *Service) refreshAllSeriesMetadata(ctx context.Context, allSeries []*tv.
 			activity.Update(fmt.Sprintf("Refreshing: %s", series.Title), pct)
 		}
 
-		if _, err := s.RefreshSeriesMetadata(ctx, series.ID); err != nil {
+		if err := s.refreshSingleEntity(ctx, module.TypeTV, series.ID); err != nil {
 			if errors.Is(err, ErrNoMetadataProvider) {
 				break
 			}

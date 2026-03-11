@@ -48,6 +48,7 @@ export const defaultItems: QualityItem[] = PREDEFINED_QUALITIES.map((q) => ({
 
 export const defaultFormData: CreateQualityProfileInput = {
   name: '',
+  moduleType: '',
   cutoff: 10,
   upgradesEnabled: true,
   upgradeStrategy: 'balanced',

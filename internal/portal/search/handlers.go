@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/module"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -98,7 +99,7 @@ func (h *Handlers) SearchMovies(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, "movie")
+	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, string(module.TypeMovie))
 	enriched := h.enrichMovieResults(c.Request().Context(), results, profileID, claims.UserID)
 	return c.JSON(http.StatusOK, enriched)
 }
@@ -122,12 +123,17 @@ func parseYearParam(yearStr string) int {
 	return y
 }
 
-func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, mediaType string) *int64 {
-	user, err := h.usersService.Get(ctx, userID)
-	if err != nil || user == nil {
+func (h *Handlers) getProfileIDForUser(ctx context.Context, userID int64, moduleType string) *int64 {
+	settings, err := h.usersService.GetModuleSettings(ctx, userID)
+	if err != nil {
 		return nil
 	}
-	return user.QualityProfileIDFor(mediaType)
+	for _, ms := range settings {
+		if ms.ModuleType == moduleType && ms.QualityProfileID.Valid {
+			return &ms.QualityProfileID.Int64
+		}
+	}
+	return nil
 }
 
 func (h *Handlers) enrichMovieResults(ctx context.Context, results []metadata.MovieResult, profileID *int64, currentUserID int64) []MovieSearchResult {
@@ -182,7 +188,7 @@ func (h *Handlers) SearchSeries(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, "tv")
+	profileID := h.getProfileIDForUser(c.Request().Context(), claims.UserID, string(module.TypeTV))
 	enriched := h.enrichSeriesResults(c.Request().Context(), results, profileID)
 	return c.JSON(http.StatusOK, enriched)
 }

@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { getEnabledModules } from '@/modules'
 import type { QualityProfile } from '@/types'
 
 import { AttributeFilters } from './attribute-filters'
@@ -24,10 +26,11 @@ type QualityProfileDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   profile?: QualityProfile | null
+  defaultModuleType?: string
 }
 
-export function QualityProfileDialog({ open, onOpenChange, profile }: QualityProfileDialogProps) {
-  const state = useQualityProfileDialog(open, onOpenChange, profile)
+export function QualityProfileDialog({ open, onOpenChange, profile, defaultModuleType }: QualityProfileDialogProps) {
+  const state = useQualityProfileDialog({ open, onOpenChange, profile, defaultModuleType })
   const showPreview = state.formData.upgradesEnabled && state.allowedQualities.length >= 2
 
   return (
@@ -68,8 +71,29 @@ type ProfileFormBodyProps = {
   showPreview: boolean
 }
 
+function ModuleTypeSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const modules = getEnabledModules()
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="module-type">Module Type</Label>
+      <Select value={value} onValueChange={(v) => v && onChange(v)}>
+        <SelectTrigger id="module-type">
+          {modules.find((m) => m.id === value)?.name ?? 'Select module type...'}
+        </SelectTrigger>
+        <SelectContent>
+          {modules.map((mod) => (
+            <SelectItem key={mod.id} value={mod.id}>
+              {mod.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
-  const { formData, cutoffOptions, updateField, toggleQuality, updateItemMode } = state
+  const { formData, cutoffOptions, updateField, toggleQuality, updateItemMode, isEditing } = state
 
   return (
     <div className="space-y-6 py-4">
@@ -82,6 +106,10 @@ function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
           onChange={(e) => updateField('name', e.target.value)}
         />
       </div>
+
+      {!isEditing && (
+        <ModuleTypeSelector value={formData.moduleType} onChange={(v) => updateField('moduleType', v)} />
+      )}
 
       <QualityChecklist items={formData.items} onToggle={toggleQuality} />
 

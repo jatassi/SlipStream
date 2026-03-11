@@ -84,10 +84,8 @@ function PageDialogs({ state }: { state: ReturnType<typeof useRequestUsersPage> 
         onOpenChange={state.setShowInviteDialog}
         inviteName={state.inviteName}
         onNameChange={state.setInviteName}
-        movieQualityProfileId={state.inviteMovieQualityProfileId}
-        onMovieQualityProfileChange={state.setInviteMovieQualityProfileId}
-        tvQualityProfileId={state.inviteTvQualityProfileId}
-        onTvQualityProfileChange={state.setInviteTvQualityProfileId}
+        moduleSettings={state.inviteModuleSettings}
+        onModuleProfileChange={state.setInviteModuleProfile}
         autoApprove={state.inviteAutoApprove}
         onAutoApproveChange={state.setInviteAutoApprove}
         qualityProfiles={state.qualityProfiles}

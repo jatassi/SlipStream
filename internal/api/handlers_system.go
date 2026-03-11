@@ -14,6 +14,7 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/logger"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // --- Handler implementations ---
@@ -37,6 +38,12 @@ func (s *Server) getStatus(c echo.Context) error {
 		portalEnabled = setting.Value != "0" && setting.Value != "false"
 	}
 
+	// Build enabled modules map for the frontend
+	enabledModules := make(map[string]bool)
+	for moduleType, enabled := range s.registry.EnabledState() {
+		enabledModules[string(moduleType)] = enabled
+	}
+
 	response := map[string]interface{}{
 		"version":            config.Version,
 		"startTime":          time.Now().Format(time.RFC3339),
@@ -49,6 +56,7 @@ func (s *Server) getStatus(c echo.Context) error {
 		"requiresAuth":       true,
 		"actualPort":         s.cfg.Server.Port,
 		"mediainfoAvailable": s.library.Mediainfo.IsAvailable(),
+		"enabledModules":     enabledModules,
 		"tmdb": map[string]interface{}{
 			"disableSearchOrdering": s.cfg.Metadata.TMDB.DisableSearchOrdering,
 		},
@@ -357,6 +365,41 @@ func (s *Server) restart(c echo.Context) error {
 	default:
 		return echo.NewHTTPError(http.StatusConflict, "Restart already in progress")
 	}
+}
+
+// getModuleEnabled returns the enabled state of all modules.
+// GET /api/v1/settings/modules
+func (s *Server) getModuleEnabled(c echo.Context) error {
+	result := make(map[string]bool)
+	for moduleType, enabled := range s.registry.EnabledState() {
+		result[string(moduleType)] = enabled
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// updateModuleEnabled toggles the enabled state of a module.
+// PUT /api/v1/settings/modules
+func (s *Server) updateModuleEnabled(c echo.Context) error {
+	ctx := c.Request().Context()
+	db := s.dbManager.Conn()
+
+	var input map[string]bool
+	if err := c.Bind(&input); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
+
+	for moduleID, enabled := range input {
+		mod := s.registry.Get(module.Type(moduleID))
+		if mod == nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "unknown module: "+moduleID)
+		}
+		if err := module.SetModuleEnabled(ctx, db, module.Type(moduleID), enabled); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to update module state: "+err.Error())
+		}
+		s.registry.SetModuleEnabled(module.Type(moduleID), enabled)
+	}
+
+	return s.getModuleEnabled(c)
 }
 
 func (s *Server) checkFirewall(c echo.Context) error {

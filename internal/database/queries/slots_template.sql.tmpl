@@ -1,0 +1,183 @@
+-- =====================
+-- {{.EntityType}} File Slot Assignments
+-- =====================
+
+-- name: Get{{.EntityType}}FileSlotAssignments :many
+SELECT {{.FileAlias}}.*, vs.name as slot_name, vs.slot_number
+FROM {{.FileTable}} {{.FileAlias}}
+LEFT JOIN version_slots vs ON {{.FileAlias}}.slot_id = vs.id
+WHERE {{.FileAlias}}.{{.EntityIDCol}} = ?
+ORDER BY vs.slot_number;
+
+-- name: Update{{.EntityType}}FileSlot :one
+UPDATE {{.FileTable}} SET slot_id = ? WHERE id = ? RETURNING *;
+
+-- name: Clear{{.EntityType}}FileSlot :exec
+UPDATE {{.FileTable}} SET slot_id = NULL WHERE id = ?;
+
+-- name: List{{.EntityType}}FilesInSlot :many
+SELECT {{.FileAlias}}.*, {{.FileTitleCols}}
+FROM {{.FileTable}} {{.FileAlias}}
+{{.FileEntityJoins}}
+WHERE {{.FileAlias}}.slot_id = ?
+ORDER BY {{.FileTitleOrder}};
+
+-- name: Count{{.EntityType}}FilesInSlot :one
+SELECT COUNT(*) FROM {{.FileTable}} WHERE slot_id = ?;
+
+-- =====================
+-- {{.EntityType}} Slot Assignments
+-- =====================
+
+-- name: Get{{.EntityType}}SlotAssignment :one
+SELECT * FROM {{.AssignTable}} WHERE {{.EntityIDCol}} = ? AND slot_id = ? LIMIT 1;
+
+-- name: List{{.EntityType}}SlotAssignments :many
+SELECT {{.AssignAlias}}.*, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM {{.AssignTable}} {{.AssignAlias}}
+JOIN version_slots vs ON {{.AssignAlias}}.slot_id = vs.id
+WHERE {{.AssignAlias}}.{{.EntityIDCol}} = ?
+ORDER BY vs.slot_number;
+
+-- name: Create{{.EntityType}}SlotAssignment :one
+INSERT INTO {{.AssignTable}} ({{.EntityIDCol}}, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: Update{{.EntityType}}SlotAssignment :one
+UPDATE {{.AssignTable}} SET
+    file_id = ?,
+    monitored = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?
+RETURNING *;
+
+-- name: Update{{.EntityType}}SlotMonitored :exec
+UPDATE {{.AssignTable}} SET
+    monitored = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Update{{.EntityType}}SlotFile :exec
+UPDATE {{.AssignTable}} SET
+    file_id = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Update{{.EntityType}}SlotStatus :exec
+UPDATE {{.AssignTable}} SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Update{{.EntityType}}SlotStatusWithDetails :exec
+UPDATE {{.AssignTable}} SET
+    status = ?,
+    active_download_id = ?,
+    status_message = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Clear{{.EntityType}}SlotFile :exec
+UPDATE {{.AssignTable}} SET
+    file_id = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Delete{{.EntityType}}SlotAssignment :exec
+DELETE FROM {{.AssignTable}} WHERE {{.EntityIDCol}} = ? AND slot_id = ?;
+
+-- name: Delete{{.EntityType}}SlotAssignments :exec
+DELETE FROM {{.AssignTable}} WHERE {{.EntityIDCol}} = ?;
+
+-- name: Upsert{{.EntityType}}SlotAssignment :one
+INSERT INTO {{.AssignTable}} ({{.EntityIDCol}}, slot_id, file_id, monitored, status)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT ({{.EntityIDCol}}, slot_id) DO UPDATE SET
+    file_id = excluded.file_id,
+    monitored = excluded.monitored,
+    status = excluded.status,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING *;
+
+-- =====================
+-- {{.EntityType}} Status Queries
+-- =====================
+
+-- name: Count{{.EntityType}}SlotAssignmentsForSlot :one
+SELECT COUNT(*) FROM {{.AssignTable}} WHERE slot_id = ?;
+
+-- name: List{{.EntityType}}SlotAssignmentsForSlot :many
+SELECT {{.AssignAlias}}.*, {{.AssignTitleCols}}
+FROM {{.AssignTable}} {{.AssignAlias}}
+{{.AssignEntityJoins}}
+WHERE {{.AssignAlias}}.slot_id = ?
+ORDER BY {{.AssignTitleOrder}};
+
+-- name: ListMonitored{{.EntityType}}SlotStatuses :many
+SELECT {{.AssignAlias}}.status FROM {{.AssignTable}} {{.AssignAlias}}
+WHERE {{.AssignAlias}}.{{.EntityIDCol}} = ? AND {{.AssignAlias}}.monitored = 1;
+
+-- name: UpdateAll{{.EntityType}}SlotStatuses :exec
+UPDATE {{.AssignTable}} SET
+    status = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE {{.EntityIDCol}} = ?;
+
+-- name: List{{.EntityType}}SlotsNeedingSearch :many
+SELECT {{.AssignAlias}}.*, vs.name as slot_name, vs.slot_number, vs.quality_profile_id
+FROM {{.AssignTable}} {{.AssignAlias}}
+JOIN version_slots vs ON {{.AssignAlias}}.slot_id = vs.id
+WHERE {{.AssignAlias}}.{{.EntityIDCol}} = ?
+  AND {{.AssignAlias}}.monitored = 1
+  AND {{.AssignAlias}}.status IN ('missing', 'upgradable')
+ORDER BY vs.slot_number;
+
+-- name: List{{.EntityType}}SlotAssignmentsWithFilesForProfile :many
+SELECT {{.AssignAlias}}.{{.EntityIDCol}}, {{.AssignAlias}}.slot_id, {{.AssignAlias}}.status, {{.AssignAlias}}.file_id, {{.FileAlias}}.quality_id as current_quality_id
+FROM {{.AssignTable}} {{.AssignAlias}}
+JOIN {{.FileTable}} {{.FileAlias}} ON {{.AssignAlias}}.file_id = {{.FileAlias}}.id
+JOIN version_slots vs ON {{.AssignAlias}}.slot_id = vs.id
+WHERE vs.quality_profile_id = ?
+  AND {{.AssignAlias}}.status IN ('available', 'upgradable')
+  AND {{.FileAlias}}.quality_id IS NOT NULL;
+
+-- =====================
+-- {{.EntityType}} File Deletion Queries
+-- =====================
+
+-- name: Get{{.EntityType}}SlotAssignmentByFileID :one
+SELECT * FROM {{.AssignTable}} WHERE file_id = ? LIMIT 1;
+
+-- name: Clear{{.EntityType}}SlotFileByFileID :exec
+UPDATE {{.AssignTable}} SET
+    file_id = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE file_id = ?;
+
+-- =====================
+-- {{.EntityType}} Slot Disable Queries
+-- =====================
+
+-- name: ClearAll{{.EntityType}}FileSlotsForSlot :exec
+UPDATE {{.FileTable}} SET slot_id = NULL WHERE slot_id = ?;
+
+-- name: ClearAll{{.EntityType}}SlotAssignmentsForSlot :exec
+UPDATE {{.AssignTable}} SET
+    file_id = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE slot_id = ?;
+
+-- =====================
+-- {{.EntityType}} Review Queue Queries
+-- =====================
+
+-- name: Count{{.EntityType}}FilesWithoutSlot :one
+SELECT COUNT(*) FROM {{.FileTable}} WHERE slot_id IS NULL;
+
+-- name: List{{.EntityType}}FilesWithoutSlot :many
+SELECT {{.FileAlias}}.*, {{.FileTitleCols}}
+FROM {{.FileTable}} {{.FileAlias}}
+{{.FileEntityJoins}}
+WHERE {{.FileAlias}}.slot_id IS NULL
+ORDER BY {{.FileTitleOrder}};

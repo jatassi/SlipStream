@@ -12,6 +12,11 @@ export type SlotRootFolder = {
   name: string
 }
 
+export type SlotRootFolderDetail = {
+  rootFolderId: number
+  path: string
+}
+
 export type Slot = {
   id: number
   slotNumber: number
@@ -21,12 +26,9 @@ export type Slot = {
   displayOrder: number
   createdAt: string
   updatedAt: string
-  // Root folder assignments for multi-version mode (Req 22.1.1-22.1.2)
-  movieRootFolderId: number | null
-  tvRootFolderId: number | null
+  rootFolders: Record<string, number | null>
   qualityProfile?: SlotProfile
-  movieRootFolder?: SlotRootFolder
-  tvRootFolder?: SlotRootFolder
+  rootFolderDetails?: Record<string, SlotRootFolderDetail>
   fileCount?: number
 }
 
@@ -43,8 +45,7 @@ export type UpdateSlotInput = {
   enabled: boolean
   qualityProfileId: number | null
   displayOrder: number
-  movieRootFolderId?: number | null
-  tvRootFolderId?: number | null
+  rootFolders?: Record<string, number | null>
 }
 
 export type UpdateMultiVersionSettingsInput = {

@@ -90,9 +90,13 @@ type Client struct {
 
 // Message represents a WebSocket message.
 type Message struct {
-	Type      string      `json:"type"`
-	Payload   interface{} `json:"payload"`
-	Timestamp string      `json:"timestamp"`
+	Type       string      `json:"type"`
+	Payload    interface{} `json:"payload"`
+	Timestamp  string      `json:"timestamp"`
+	Module     string      `json:"module,omitempty"`
+	EntityType string      `json:"entityType,omitempty"`
+	EntityID   int64       `json:"entityId,omitempty"`
+	Action     string      `json:"action,omitempty"`
 }
 
 // NewHub creates a new WebSocket hub.
@@ -217,6 +221,31 @@ func (h *Hub) Broadcast(msgType string, payload interface{}) {
 			Err(err).
 			Str("msgType", msgType).
 			Msg("Failed to marshal WebSocket message")
+		return
+	}
+	h.broadcast <- data
+}
+
+// BroadcastEntity sends an entity lifecycle event to all connected clients.
+// The type field is derived from entityType:action for backward compatibility.
+func (h *Hub) BroadcastEntity(moduleType, entityType string, entityID int64, action string, payload interface{}) {
+	msg := Message{
+		Type:       entityType + ":" + action,
+		Module:     moduleType,
+		EntityType: entityType,
+		EntityID:   entityID,
+		Action:     action,
+		Payload:    payload,
+		Timestamp:  time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		h.logger.Error().
+			Err(err).
+			Str("module", moduleType).
+			Str("entityType", entityType).
+			Str("action", action).
+			Msg("Failed to marshal entity WebSocket message")
 		return
 	}
 	h.broadcast <- data

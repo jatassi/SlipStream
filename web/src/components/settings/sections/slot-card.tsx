@@ -14,12 +14,11 @@ type SlotCardProps = {
   slot: Slot
   profiles: { id: number; name: string }[]
   usedProfileIds: number[]
-  movieRootFolders: RootFolder[]
-  tvRootFolders: RootFolder[]
+  rootFoldersByModule: Record<string, RootFolder[]>
   onEnabledChange: (enabled: boolean) => void
   onNameChange: (name: string) => void
   onProfileChange: (profileId: string) => void
-  onRootFolderChange: (mediaType: 'movie' | 'tv', rootFolderId: string) => void
+  onRootFolderChange: (moduleType: string, rootFolderId: string) => void
   isUpdating: boolean
   showToggle?: boolean
 }
@@ -110,28 +109,28 @@ function SlotNameInput({
 
 function RootFolderSelect({
   slotId,
-  mediaType,
+  moduleType,
   selectedId,
   folders,
   onRootFolderChange,
   isUpdating,
 }: {
   slotId: number
-  mediaType: 'movie' | 'tv'
+  moduleType: string
   selectedId: number | null
   folders: RootFolder[]
-  onRootFolderChange: (mediaType: 'movie' | 'tv', rootFolderId: string) => void
+  onRootFolderChange: (moduleType: string, rootFolderId: string) => void
   isUpdating: boolean
 }) {
-  const label = mediaType === 'movie' ? 'Movie Root Folder' : 'TV Root Folder'
-  const htmlId = `slot-${slotId}-${mediaType}-root`
+  const label = `${moduleType.charAt(0).toUpperCase() + moduleType.slice(1)} Root Folder`
+  const htmlId = `slot-${slotId}-${moduleType}-root`
 
   return (
     <div className="space-y-2">
       <Label htmlFor={htmlId}>{label}</Label>
       <Select
         value={selectedId?.toString() ?? 'none'}
-        onValueChange={(v) => v && onRootFolderChange(mediaType, v)}
+        onValueChange={(v) => v && onRootFolderChange(moduleType, v)}
         disabled={isUpdating}
       >
         <SelectTrigger id={htmlId}>
@@ -226,6 +225,7 @@ function SlotCardHeader({
 export function SlotCard(props: SlotCardProps) {
   const { slot, isUpdating } = props
   const availableProfiles = props.profiles.filter((p) => !props.usedProfileIds.includes(p.id))
+  const moduleTypes = Object.keys(props.rootFoldersByModule)
 
   return (
     <Card className={slot.enabled ? 'ring-primary/50 ring-2' : ''}>
@@ -246,22 +246,17 @@ export function SlotCard(props: SlotCardProps) {
             onProfileChange={props.onProfileChange}
             isUpdating={isUpdating}
           />
-          <RootFolderSelect
-            slotId={slot.id}
-            mediaType="movie"
-            selectedId={slot.movieRootFolderId}
-            folders={props.movieRootFolders}
-            onRootFolderChange={props.onRootFolderChange}
-            isUpdating={isUpdating}
-          />
-          <RootFolderSelect
-            slotId={slot.id}
-            mediaType="tv"
-            selectedId={slot.tvRootFolderId}
-            folders={props.tvRootFolders}
-            onRootFolderChange={props.onRootFolderChange}
-            isUpdating={isUpdating}
-          />
+          {moduleTypes.map((moduleType) => (
+            <RootFolderSelect
+              key={moduleType}
+              slotId={slot.id}
+              moduleType={moduleType}
+              selectedId={slot.rootFolders[moduleType] ?? null}
+              folders={props.rootFoldersByModule[moduleType] ?? []}
+              onRootFolderChange={props.onRootFolderChange}
+              isUpdating={isUpdating}
+            />
+          ))}
         </div>
       </CardContent>
     </Card>

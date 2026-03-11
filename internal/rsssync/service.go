@@ -17,7 +17,15 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/scoring"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/websocket"
+)
+
+// Media type string constants for module.SearchableItem comparisons.
+const (
+	mediaTypeMovie   = "movie"
+	mediaTypeEpisode = "episode"
+	mediaTypeSeason  = "season"
 )
 
 // SyncStatus holds the result of the last RSS sync run.
@@ -42,6 +50,7 @@ type Service struct {
 	healthService  *health.Service
 	hub            *websocket.Hub
 	logger         *zerolog.Logger
+	registry       *module.Registry
 
 	running atomic.Bool
 	mu      sync.RWMutex
@@ -79,6 +88,11 @@ func (s *Service) SetDB(queries *sqlc.Queries) {
 	s.fetcher.queries = queries
 }
 
+// SetRegistry sets the module registry for module-aware wanted collection.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
+}
+
 // IsRunning returns whether an RSS sync is currently running.
 func (s *Service) IsRunning() bool {
 	return s.running.Load()
@@ -112,7 +126,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.broadcast(EventStarted, StartedEvent{IndexerCount: len(feeds)})
 
-	wantedItems, err := s.collectWanted(ctx, start)
+	wantedItems, err := s.collectWantedItems(ctx, start)
 	if err != nil {
 		return err
 	}
@@ -133,25 +147,68 @@ func (s *Service) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) collectWanted(ctx context.Context, start time.Time) ([]decisioning.SearchableItem, error) {
+func (s *Service) collectWantedItems(ctx context.Context, start time.Time) ([]module.SearchableItem, error) {
+	if s.registry != nil && len(s.registry.Enabled()) > 0 {
+		return s.collectWantedFromModules(ctx, start)
+	}
+	return s.collectWantedLegacy(ctx, start)
+}
+
+func (s *Service) collectWantedFromModules(ctx context.Context, start time.Time) ([]module.SearchableItem, error) {
+	var allItems []module.SearchableItem
+	for _, mod := range s.registry.Enabled() {
+		collector, ok := mod.(module.WantedCollector)
+		if !ok {
+			continue
+		}
+		modDesc, ok := mod.(module.Descriptor)
+		if !ok {
+			continue
+		}
+
+		missing, err := collector.CollectMissing(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(modDesc.ID())).Msg("failed to collect missing items")
+			continue
+		}
+		allItems = append(allItems, missing...)
+
+		upgradable, err := collector.CollectUpgradable(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(modDesc.ID())).Msg("failed to collect upgradable items")
+			continue
+		}
+		allItems = append(allItems, upgradable...)
+	}
+
+	if len(allItems) == 0 {
+		s.logger.Info().Msg("no wanted items from modules, skipping RSS sync")
+		s.setStatus(&SyncStatus{LastRun: start})
+		s.broadcast(EventCompleted, CompletedEvent{ElapsedMs: int(time.Since(start).Milliseconds())})
+		return nil, nil
+	}
+	return allItems, nil
+}
+
+func (s *Service) collectWantedLegacy(ctx context.Context, start time.Time) ([]module.SearchableItem, error) {
 	collector := &decisioning.Collector{
 		Queries:        s.queries,
 		Logger:         s.logger,
 		BackoffChecker: decisioning.NoBackoff{},
 	}
-	wantedItems, err := decisioning.CollectWantedItems(ctx, collector)
+	legacyItems, err := decisioning.CollectWantedItems(ctx, collector)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to collect wanted items")
 		s.failSync(start, err.Error())
 		return nil, err
 	}
-	if len(wantedItems) == 0 {
+	if len(legacyItems) == 0 {
 		s.logger.Info().Msg("no wanted items, skipping RSS sync")
 		s.setStatus(&SyncStatus{LastRun: start})
 		s.broadcast(EventCompleted, CompletedEvent{ElapsedMs: int(time.Since(start).Milliseconds())})
 		return nil, nil
 	}
-	return wantedItems, nil
+	return legacyItems, nil
 }
 
 func (s *Service) matchFeeds(ctx context.Context, feeds []IndexerFeed, index *WantedIndex) (int, []MatchResult) {
@@ -164,7 +221,7 @@ func (s *Service) matchFeeds(ctx context.Context, feeds []IndexerFeed, index *Wa
 			continue
 		}
 
-		matcher := NewMatcher(index, s.queries, s.logger)
+		matcher := NewMatcher(index, s.queries, s.registry, s.logger)
 		feedMatches := s.processFeed(ctx, feed, matcher)
 		totalReleases += len(feed.Releases)
 		allMatches = append(allMatches, feedMatches...)
@@ -249,7 +306,7 @@ func (s *Service) processFeed(ctx context.Context, feed IndexerFeed, matcher *Ma
 
 // matchGroup holds matches grouped by a single wanted item.
 type matchGroup struct {
-	item     decisioning.SearchableItem
+	item     module.SearchableItem
 	releases []types.TorrentInfo
 	isSeason bool
 }
@@ -258,7 +315,7 @@ func groupMatches(matches []MatchResult) map[string]*matchGroup {
 	groups := make(map[string]*matchGroup)
 	for i := range matches {
 		m := &matches[i]
-		key := itemKey(&m.WantedItem)
+		key := itemKey(m.WantedItem)
 		g, ok := groups[key]
 		if !ok {
 			g = &matchGroup{
@@ -302,13 +359,16 @@ func (s *Service) scoreAndGrab(ctx context.Context, groups map[string]*matchGrou
 	// Process individual items, suppressing episodes covered by season packs
 	for _, key := range episodeKeys {
 		g := groups[key]
-		if g.item.MediaType == decisioning.MediaTypeEpisode {
-			sKey := seasonKeyForEpisode(&g.item)
+		if g.item.GetMediaType() == mediaTypeEpisode {
+			sKey := seasonKeyForItem(g.item)
 			if seasonGrabs[sKey] {
+				sp := g.item.GetSearchParams()
+				sn, _ := sp.Extra["seasonNumber"].(int)
+				en, _ := sp.Extra["episodeNumber"].(int)
 				s.logger.Debug().
-					Str("title", g.item.Title).
-					Int("season", g.item.SeasonNumber).
-					Int("episodeNumber", g.item.EpisodeNumber).
+					Str("title", g.item.GetTitle()).
+					Int("season", sn).
+					Int("episodeNumber", en).
 					Msg("skipping episode covered by season pack grab")
 				continue
 			}
@@ -323,15 +383,17 @@ func (s *Service) scoreAndGrab(ctx context.Context, groups map[string]*matchGrou
 
 // processGroup scores, selects, and grabs the best release for a single wanted item group.
 func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *matchGroup) bool {
-	profile, err := s.qualityService.Get(ctx, g.item.QualityProfileID)
+	profile, err := s.qualityService.Get(ctx, g.item.GetQualityProfileID())
 	if err != nil {
-		s.logger.Warn().Err(err).Int64("profileID", g.item.QualityProfileID).Msg("failed to load quality profile")
+		s.logger.Warn().Err(err).Int64("profileID", g.item.GetQualityProfileID()).Msg("failed to load quality profile")
 		return false
 	}
 
 	s.scoreReleases(scorer, g, profile)
 
-	best := decisioning.SelectBestRelease(g.releases, profile, &g.item, s.logger)
+	strategy := s.strategyForItem(g.item)
+	parser := s.releaseParser()
+	best := decisioning.SelectBestRelease(g.releases, profile, g.item, strategy, parser, s.logger)
 	if best == nil {
 		return false
 	}
@@ -339,13 +401,14 @@ func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *m
 	if s.hasRecentGrabForGroup(ctx, g) {
 		s.logger.Debug().
 			Str("title", best.Title).
-			Str("mediaType", string(g.item.MediaType)).
-			Int64("mediaID", g.item.MediaID).
+			Str("mediaType", g.item.GetMediaType()).
+			Int64("mediaID", g.item.GetEntityID()).
 			Msg("skipping: recently grabbed")
 		return false
 	}
 
-	lockKey := decisioning.Key(g.item.MediaType, g.item.MediaID)
+	mediaType := decisioning.MediaType(g.item.GetMediaType())
+	lockKey := decisioning.Key(mediaType, g.item.GetEntityID())
 	if !s.grabLock.TryAcquire(lockKey) {
 		s.logger.Debug().Str("key", lockKey).Msg("skipping: grab lock held")
 		return false
@@ -355,13 +418,38 @@ func (s *Service) processGroup(ctx context.Context, scorer *scoring.Scorer, g *m
 	return s.executeGrab(ctx, g, best)
 }
 
+// strategyForItem returns the module's SearchStrategy for the given item.
+func (s *Service) strategyForItem(item module.SearchableItem) module.SearchStrategy {
+	if s.registry != nil {
+		if mod := s.registry.Get(module.Type(item.GetModuleType())); mod != nil {
+			return mod
+		}
+	}
+	return decisioning.DefaultStrategy{}
+}
+
+// releaseParser returns a function that converts release titles to ReleaseForFilter.
+func (s *Service) releaseParser() decisioning.ReleaseParser {
+	if s.registry != nil {
+		return s.registry.ParseReleaseForFilter
+	}
+	return decisioning.FallbackReleaseParser
+}
+
 func (s *Service) scoreReleases(scorer *scoring.Scorer, g *matchGroup, profile *quality.Profile) {
 	scoringCtx := scoring.ScoringContext{QualityProfile: profile}
-	if g.item.MediaType == decisioning.MediaTypeMovie {
-		scoringCtx.SearchYear = g.item.Year
+	sp := g.item.GetSearchParams()
+	if g.item.GetMediaType() == mediaTypeMovie {
+		if y, ok := sp.Extra["year"].(int); ok {
+			scoringCtx.SearchYear = y
+		}
 	} else {
-		scoringCtx.SearchSeason = g.item.SeasonNumber
-		scoringCtx.SearchEpisode = g.item.EpisodeNumber
+		if sn, ok := sp.Extra["seasonNumber"].(int); ok {
+			scoringCtx.SearchSeason = sn
+		}
+		if en, ok := sp.Extra["episodeNumber"].(int); ok {
+			scoringCtx.SearchEpisode = en
+		}
 	}
 
 	for i := range g.releases {
@@ -375,27 +463,31 @@ func (s *Service) scoreReleases(scorer *scoring.Scorer, g *matchGroup, profile *
 
 func (s *Service) hasRecentGrabForGroup(ctx context.Context, g *matchGroup) bool {
 	hasRecent, err := s.queries.HasRecentGrab(ctx, sqlc.HasRecentGrabParams{
-		MediaType: string(g.item.MediaType),
-		MediaID:   g.item.MediaID,
+		EntityType: g.item.GetMediaType(),
+		EntityID:   g.item.GetEntityID(),
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).Msg("failed to check recent grab history")
 	}
 
+	sp := g.item.GetSearchParams()
 	if !hasRecent && g.isSeason {
+		seriesID, _ := sp.Extra["seriesId"].(int64)
+		season, _ := sp.Extra["seasonNumber"].(int)
 		hasRecent, err = s.queries.HasRecentSeasonGrab(ctx, sqlc.HasRecentSeasonGrabParams{
-			SeriesID:     g.item.SeriesID,
-			SeasonNumber: int64(g.item.SeasonNumber),
+			SeriesID:     seriesID,
+			SeasonNumber: int64(season),
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Msg("failed to check recent season grab history")
 		}
 	}
 
-	if !hasRecent && g.item.MediaType == decisioning.MediaTypeEpisode {
+	if !hasRecent && g.item.GetMediaType() == mediaTypeEpisode {
+		seriesID, _ := sp.Extra["seriesId"].(int64)
 		hasRecent, err = s.queries.HasRecentGrab(ctx, sqlc.HasRecentGrabParams{
-			MediaType: "season",
-			MediaID:   g.item.SeriesID,
+			EntityType: mediaTypeSeason,
+			EntityID:   seriesID,
 		})
 		if err != nil {
 			s.logger.Warn().Err(err).Msg("failed to check recent season-level grab history")
@@ -411,46 +503,55 @@ func (s *Service) executeGrab(ctx context.Context, g *matchGroup, best *types.To
 	result, err := s.grabService.Grab(ctx, req)
 	if err != nil {
 		s.logger.Warn().Err(err).Str("title", best.Title).Msg("RSS grab failed")
-		s.logGrabFailed(ctx, &g.item, err.Error())
+		s.logGrabFailed(ctx, g.item, err.Error())
 		return false
 	}
 
 	if !result.Success {
 		s.logger.Warn().Str("title", best.Title).Msg("RSS grab unsuccessful")
-		s.logGrabFailed(ctx, &g.item, "grab unsuccessful")
+		s.logGrabFailed(ctx, g.item, "grab unsuccessful")
 		return false
 	}
 
-	isUpgrade := g.item.HasFile && g.item.CurrentQualityID > 0
+	currentQID := g.item.GetCurrentQualityID()
+	isUpgrade := currentQID != nil && *currentQID > 0
 
 	s.logger.Info().
 		Str("title", best.Title).
-		Str("mediaType", string(g.item.MediaType)).
-		Int64("mediaID", g.item.MediaID).
+		Str("mediaType", g.item.GetMediaType()).
+		Int64("mediaID", g.item.GetEntityID()).
 		Str("quality", best.Quality).
 		Bool("isUpgrade", isUpgrade).
 		Msg("RSS sync grabbed release")
 
-	s.logGrabSuccess(ctx, &g.item, best, result, isUpgrade)
+	s.logGrabSuccess(ctx, g.item, best, result, isUpgrade)
 	return true
 }
 
 func (s *Service) buildGrabRequest(g *matchGroup, best *types.TorrentInfo) *grab.GrabRequest {
+	sp := g.item.GetSearchParams()
 	req := &grab.GrabRequest{
-		Release:      &best.ReleaseInfo,
-		Source:       "rss-sync",
-		MediaType:    string(g.item.MediaType),
-		MediaID:      g.item.MediaID,
-		TargetSlotID: g.item.TargetSlotID,
+		Release:   &best.ReleaseInfo,
+		Source:    "rss-sync",
+		MediaType: g.item.GetMediaType(),
+		MediaID:   g.item.GetEntityID(),
 	}
+
+	// TargetSlotID from search params (if present)
+	if slotID, ok := sp.Extra["targetSlotId"].(*int64); ok {
+		req.TargetSlotID = slotID
+	}
+
+	seriesID, _ := sp.Extra["seriesId"].(int64)
+	season, _ := sp.Extra["seasonNumber"].(int)
 
 	if g.isSeason {
 		req.IsSeasonPack = true
-		req.SeriesID = g.item.SeriesID
-		req.SeasonNumber = g.item.SeasonNumber
-	} else if g.item.MediaType == decisioning.MediaTypeEpisode {
-		req.SeriesID = g.item.SeriesID
-		req.SeasonNumber = g.item.SeasonNumber
+		req.SeriesID = seriesID
+		req.SeasonNumber = season
+	} else if g.item.GetMediaType() == mediaTypeEpisode {
+		req.SeriesID = seriesID
+		req.SeasonNumber = season
 	}
 
 	return req
@@ -489,20 +590,12 @@ func (s *Service) broadcast(eventType string, payload interface{}) {
 	s.hub.Broadcast(eventType, payload)
 }
 
-func (s *Service) logGrabSuccess(ctx context.Context, item *decisioning.SearchableItem, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
+func (s *Service) logGrabSuccess(ctx context.Context, item module.SearchableItem, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
 	if s.historyService == nil {
 		return
 	}
 
-	var mediaType history.MediaType
-	switch item.MediaType {
-	case decisioning.MediaTypeSeason, decisioning.MediaTypeSeries:
-		mediaType = history.MediaTypeSeason
-	case decisioning.MediaTypeEpisode:
-		mediaType = history.MediaTypeEpisode
-	default:
-		mediaType = history.MediaTypeMovie
-	}
+	mediaType := mapHistoryMediaType(item.GetMediaType())
 
 	qualityStr := ""
 	if release.ScoreBreakdown != nil {
@@ -520,34 +613,38 @@ func (s *Service) logGrabSuccess(ctx context.Context, item *decisioning.Searchab
 	if isUpgrade {
 		data.NewQuality = qualityStr
 	}
-	if item.TargetSlotID != nil {
-		data.SlotID = item.TargetSlotID
+	sp := item.GetSearchParams()
+	if slotID, ok := sp.Extra["targetSlotId"].(*int64); ok {
+		data.SlotID = slotID
 	}
 
-	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, &data); err != nil {
+	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.GetEntityID(), qualityStr, &data); err != nil {
 		s.logger.Warn().Err(err).Msg("failed to log RSS sync grab history")
 	}
 }
 
-func (s *Service) logGrabFailed(ctx context.Context, item *decisioning.SearchableItem, errMsg string) {
+func (s *Service) logGrabFailed(ctx context.Context, item module.SearchableItem, errMsg string) {
 	if s.historyService == nil {
 		return
 	}
 
-	var mediaType history.MediaType
-	switch item.MediaType {
-	case decisioning.MediaTypeSeason, decisioning.MediaTypeSeries:
-		mediaType = history.MediaTypeSeason
-	case decisioning.MediaTypeEpisode:
-		mediaType = history.MediaTypeEpisode
-	default:
-		mediaType = history.MediaTypeMovie
-	}
+	mediaType := mapHistoryMediaType(item.GetMediaType())
 
-	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.MediaID, history.AutoSearchFailedData{
+	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.GetEntityID(), history.AutoSearchFailedData{
 		Error:  errMsg,
 		Source: "rss-sync",
 	}); err != nil {
 		s.logger.Warn().Err(err).Msg("failed to log RSS sync failure history")
+	}
+}
+
+func mapHistoryMediaType(mediaType string) history.MediaType {
+	switch mediaType {
+	case mediaTypeSeason, "series":
+		return history.MediaTypeSeason
+	case mediaTypeEpisode:
+		return history.MediaTypeEpisode
+	default:
+		return history.MediaTypeMovie
 	}
 }

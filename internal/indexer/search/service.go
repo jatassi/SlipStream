@@ -17,6 +17,7 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer/status"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // Service orchestrates searches across multiple indexers.
@@ -25,6 +26,7 @@ type Service struct {
 	statusService  *status.Service
 	rateLimiter    *ratelimit.Limiter
 	broadcaster    contracts.Broadcaster
+	registry       *module.Registry
 	logger         *zerolog.Logger
 }
 
@@ -38,6 +40,11 @@ func NewService(indexerService *indexer.Service, logger *zerolog.Logger, statusS
 		broadcaster:    broadcaster,
 		logger:         &subLogger,
 	}
+}
+
+// SetRegistry sets the module registry for module-aware indexer selection.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // SearchResult contains aggregated search results.
@@ -225,18 +232,33 @@ func (s *Service) getIndexersForSearch(ctx context.Context, criteria *types.Sear
 	var indexers []*types.IndexerDefinition
 	var err error
 
-	// Get indexers based on search type
-	switch criteria.Type {
-	case searchTypeMovie:
-		indexers, err = s.indexerService.ListEnabledForMovies(ctx)
-	case searchTypeTVSearch:
-		indexers, err = s.indexerService.ListEnabledForTV(ctx)
-	default:
-		indexers, err = s.indexerService.ListEnabled(ctx)
+	// Module-aware path: use module's categories to determine support
+	if criteria.ModuleType != "" && s.registry != nil {
+		mod := s.registry.Get(module.Type(criteria.ModuleType))
+		if mod != nil {
+			cats := mod.Categories()
+			indexers, err = s.indexerService.ListEnabled(ctx)
+			if err != nil {
+				return nil, err
+			}
+			indexers = filterByModuleSupport(indexers, cats)
+		}
 	}
 
-	if err != nil {
-		return nil, err
+	// Fallback: existing hard-coded path
+	if indexers == nil {
+		switch criteria.Type {
+		case searchTypeMovie:
+			indexers, err = s.indexerService.ListEnabledForMovies(ctx)
+		case searchTypeTVSearch:
+			indexers, err = s.indexerService.ListEnabledForTV(ctx)
+		default:
+			indexers, err = s.indexerService.ListEnabled(ctx)
+		}
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Filter by search support
@@ -254,6 +276,17 @@ func (s *Service) getIndexersForSearch(ctx context.Context, criteria *types.Sear
 	})
 
 	return indexers, nil
+}
+
+// filterByModuleSupport filters indexers to those whose categories overlap with the module's category range.
+func filterByModuleSupport(indexers []*types.IndexerDefinition, moduleCategories []int) []*types.IndexerDefinition {
+	filtered := make([]*types.IndexerDefinition, 0, len(indexers))
+	for _, idx := range indexers {
+		if idx.SupportsModule(moduleCategories) {
+			filtered = append(filtered, idx)
+		}
+	}
+	return filtered
 }
 
 // filterDisabledIndexers removes indexers that are temporarily disabled due to failures.

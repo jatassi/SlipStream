@@ -19,6 +19,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/preferences"
 	"github.com/slipstream/slipstream/internal/progress"
 
@@ -77,6 +78,9 @@ type Service struct {
 	// Optional health service for file verification alerts
 	healthSvc contracts.HealthService
 
+	// Optional module registry for dispatching through module providers
+	registry *module.Registry
+
 	// Track active scans by root folder ID
 	activeScans map[int64]string // maps folderID -> activityID
 	scanMu      sync.RWMutex
@@ -128,6 +132,11 @@ func (s *Service) SetDB(db *sql.DB) {
 // SetAutosearchService sets the optional autosearch service for search-on-add functionality
 func (s *Service) SetAutosearchService(svc *autosearch.Service) {
 	s.autosearchSvc = svc
+}
+
+// SetRegistry sets the optional module registry for dispatching refresh through module providers.
+func (s *Service) SetRegistry(reg *module.Registry) {
+	s.registry = reg
 }
 
 // getDefaultQualityProfile returns the first available quality profile.

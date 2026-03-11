@@ -173,10 +173,10 @@ func (s *Service) Create(ctx context.Context, input CreateRootFolderInput) (*Roo
 	}
 
 	row, err := s.queries.CreateRootFolder(ctx, sqlc.CreateRootFolderParams{
-		Path:      absPath,
-		Name:      name,
-		MediaType: input.MediaType,
-		FreeSpace: sql.NullInt64{Int64: freeSpace, Valid: true},
+		Path:       absPath,
+		Name:       name,
+		ModuleType: input.MediaType,
+		FreeSpace:  sql.NullInt64{Int64: freeSpace, Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create root folder: %w", err)
@@ -335,7 +335,7 @@ func (s *Service) rowToRootFolder(row *sqlc.RootFolder) *RootFolder {
 		ID:        row.ID,
 		Path:      row.Path,
 		Name:      row.Name,
-		MediaType: row.MediaType,
+		MediaType: row.ModuleType,
 	}
 	if row.FreeSpace.Valid {
 		rf.FreeSpace = row.FreeSpace.Int64
@@ -353,7 +353,7 @@ func (s *Service) rowToRootFolderWithDefaults(ctx context.Context, row *sqlc.Roo
 
 	// Check if this is default for its media type
 	if s.defaults != nil {
-		mediaType := defaults.MediaType(row.MediaType)
+		mediaType := defaults.MediaType(row.ModuleType)
 		defaultEntry, err := s.defaults.GetDefault(ctx, defaults.EntityTypeRootFolder, mediaType)
 		if err == nil && defaultEntry != nil && defaultEntry.EntityID == row.ID {
 			rf.IsDefault = true

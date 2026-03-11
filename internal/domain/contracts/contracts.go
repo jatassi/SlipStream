@@ -5,6 +5,7 @@ import "context"
 // Broadcaster defines the WebSocket broadcast interface used across services.
 type Broadcaster interface {
 	Broadcast(msgType string, payload any)
+	BroadcastEntity(moduleType, entityType string, entityID int64, action string, payload any)
 }
 
 // HealthService defines the health status registration interface.

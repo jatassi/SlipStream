@@ -455,7 +455,7 @@ func TestQualityProfilesAPI_Create(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	body := `{"name": "HD-1080p", "cutoff": 11, "items": []}`
+	body := `{"name": "HD-1080p", "moduleType": "movie", "cutoff": 11, "items": []}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/qualityprofiles", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)

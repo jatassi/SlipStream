@@ -5,12 +5,20 @@ import type { QueueResponse } from '@/types/queue'
 import type { ArtworkReadyPayload } from './artwork'
 import type { AutoSearchTaskResult } from './autosearch'
 
+// Entity events carry structured module/entity fields alongside the legacy type
+type EntityEventFields = {
+  module: string
+  entityType: string
+  entityId: number
+  action: string
+}
+
 // Library events just trigger invalidation, payload is unused
 type LibraryMessage = {
   type: 'movie:added' | 'movie:updated' | 'movie:deleted' | 'series:added' | 'series:updated' | 'series:deleted'
   payload: unknown
   timestamp: string
-}
+} & EntityEventFields
 
 type QueueUpdatedMessage = {
   type: 'queue:updated'

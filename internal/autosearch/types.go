@@ -4,11 +4,14 @@ package autosearch
 import (
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/types"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // Type aliases for zero-breakage migration to decisioning package.
 type MediaType = decisioning.MediaType
-type SearchableItem = decisioning.SearchableItem
+
+// SearchableItem is the module interface for items that can be searched.
+type SearchableItem = module.SearchableItem
 
 const (
 	MediaTypeMovie   = decisioning.MediaTypeMovie

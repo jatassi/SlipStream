@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/indexer/types"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -30,6 +32,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	p := quality.HD1080pProfile()
 	created, err := qs.Create(context.Background(), &quality.CreateProfileInput{
 		Name:            p.Name,
+		ModuleType:      "movie",
 		Cutoff:          p.Cutoff,
 		UpgradeStrategy: p.UpgradeStrategy,
 		Items:           p.Items,
@@ -139,7 +142,7 @@ func (e *testEnv) createEpisodeFile(t *testing.T, episodeID, qualityID int64) {
 	}
 }
 
-func (e *testEnv) collectWantedItems(t *testing.T) []decisioning.SearchableItem {
+func (e *testEnv) collectWantedItems(t *testing.T) []module.SearchableItem {
 	t.Helper()
 	collector := &decisioning.Collector{
 		Queries:        e.queries,
@@ -178,21 +181,30 @@ func makeTorrentWithIDs(title, source string, resolution, seeders, tmdbID, tvdbI
 // This is needed because CollectWantedItems collapses all-missing/all-upgradable episodes
 // into a single season item, but the Matcher requires individual episode items in the index
 // so that matchSeasonPack can find candidates and check eligibility.
-func buildEpisodeItems(seriesID int64, title string, tvdbID int, profileID int64, season, count int, hasFile bool, qualityID int) []decisioning.SearchableItem {
-	items := make([]decisioning.SearchableItem, count)
+func buildEpisodeItems(seriesID int64, title string, tvdbID int, profileID int64, season, count int, hasFile bool, qualityID int) []module.SearchableItem {
+	items := make([]module.SearchableItem, count)
 	for i := 0; i < count; i++ {
-		items[i] = decisioning.SearchableItem{
-			MediaType:        decisioning.MediaTypeEpisode,
-			MediaID:          seriesID*100 + int64(i+1),
-			Title:            title,
-			TvdbID:           tvdbID,
-			SeriesID:         seriesID,
-			SeasonNumber:     season,
-			EpisodeNumber:    i + 1,
-			QualityProfileID: profileID,
-			HasFile:          hasFile,
-			CurrentQualityID: qualityID,
+		var currentQID *int64
+		if hasFile {
+			qid := int64(qualityID)
+			currentQID = &qid
 		}
+		items[i] = module.NewWantedItem(
+			module.TypeTV,
+			string(decisioning.MediaTypeEpisode),
+			seriesID*100+int64(i+1),
+			title,
+			map[string]string{
+				"tvdbId": strconv.Itoa(tvdbID),
+			},
+			profileID,
+			currentQID,
+			module.SearchParams{Extra: map[string]any{
+				"seriesId":      seriesID,
+				"seasonNumber":  season,
+				"episodeNumber": i + 1,
+			}},
+		)
 	}
 	return items
 }

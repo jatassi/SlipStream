@@ -13,11 +13,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
-	statusFailed  = "failed"
-	statusMissing = "missing"
+	statusFailed      = "failed"
+	statusMissing     = "missing"
+	entityTypeSeries  = "series"
+	searchTypeUpgrade = "upgrade"
 )
 
 // SeriesRefresher defines the interface for refreshing series metadata.
@@ -38,6 +41,9 @@ type ScheduledSearcher struct {
 
 	// Optional series refresher for pre-search metadata updates
 	seriesRefresher SeriesRefresher
+
+	// Module registry for module-aware item collection
+	registry *module.Registry
 
 	// Task state
 	mu      sync.Mutex
@@ -60,6 +66,11 @@ func NewScheduledSearcher(service *Service, cfg *config.AutoSearchConfig, logger
 // SetSeriesRefresher sets the series refresher for pre-search metadata updates.
 func (s *ScheduledSearcher) SetSeriesRefresher(refresher SeriesRefresher) {
 	s.seriesRefresher = refresher
+}
+
+// SetRegistry sets the module registry for module-aware item collection.
+func (s *ScheduledSearcher) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // IsRunning returns true if the scheduled search is currently running.
@@ -385,7 +396,210 @@ type seasonKey struct {
 }
 
 // collectSearchableItems gathers all missing and upgrade-eligible movies and episodes, ordered by release date.
+// When a module registry is available, collection is delegated to module WantedCollectors;
+// otherwise the legacy sqlc-based collection path is used.
 func (s *ScheduledSearcher) collectSearchableItems(ctx context.Context) ([]SearchableItem, error) {
+	if s.registry != nil {
+		return s.collectFromModules(ctx)
+	}
+	return s.collectLegacy(ctx)
+}
+
+// collectFromModules uses module WantedCollector implementations to gather searchable items.
+func (s *ScheduledSearcher) collectFromModules(ctx context.Context) ([]SearchableItem, error) {
+	var allItems []searchableItemWithPriority
+
+	for _, mod := range s.registry.Enabled() {
+		strategy, hasStrategy := mod.(module.SearchStrategy)
+
+		// Collect missing items
+		missingItems, err := mod.CollectMissing(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(mod.ID())).Msg("Failed to collect missing items from module")
+			continue
+		}
+
+		missingConverted := s.convertAndFilterModuleItems(ctx, missingItems, false)
+
+		// Group episodes into season packs when eligible
+		if hasStrategy {
+			missingConverted = s.groupModuleItemsIntoSeasonPacks(ctx, missingConverted, strategy, false)
+		}
+
+		allItems = append(allItems, missingConverted...)
+
+		// Collect upgradable items
+		upgradeItems, err := mod.CollectUpgradable(ctx)
+		if err != nil {
+			s.logger.Warn().Err(err).Str("module", string(mod.ID())).Msg("Failed to collect upgradable items from module")
+			continue
+		}
+
+		upgradeConverted := s.convertAndFilterModuleItems(ctx, upgradeItems, true)
+
+		// Group upgrade episodes into season packs when eligible
+		if hasStrategy {
+			upgradeConverted = s.groupModuleItemsIntoSeasonPacks(ctx, upgradeConverted, strategy, true)
+		}
+
+		allItems = append(allItems, upgradeConverted...)
+	}
+
+	// Sort by release date (newest first)
+	sort.Slice(allItems, func(i, j int) bool {
+		return allItems[i].releaseDate.After(allItems[j].releaseDate)
+	})
+
+	result := make([]SearchableItem, len(allItems))
+	for i := range allItems {
+		result[i] = allItems[i].item
+	}
+
+	return result, nil
+}
+
+// convertAndFilterModuleItems applies backoff checks to filter out items that should be skipped.
+func (s *ScheduledSearcher) convertAndFilterModuleItems(
+	ctx context.Context,
+	moduleItems []module.SearchableItem,
+	forUpgrade bool,
+) []searchableItemWithPriority {
+	items := make([]searchableItemWithPriority, 0, len(moduleItems))
+
+	searchType := statusMissing
+	if forUpgrade {
+		searchType = searchTypeUpgrade
+	}
+
+	for _, mi := range moduleItems {
+		entityType := mi.GetMediaType()
+		entityID := mi.GetEntityID()
+
+		shouldSkip, err := s.shouldSkipItem(ctx, entityType, entityID, searchType)
+		if err != nil {
+			s.logger.Warn().Err(err).
+				Str("entityType", entityType).
+				Int64("entityId", entityID).
+				Msg("Failed to check backoff status for module item")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		// Extract release date from SearchParams.Extra if available
+		var releaseDate time.Time
+		params := mi.GetSearchParams()
+		if rd, ok := params.Extra["releaseDate"].(time.Time); ok {
+			releaseDate = rd
+		} else if rd, ok := params.Extra["physicalReleaseDate"].(time.Time); ok {
+			releaseDate = rd
+		} else if rd, ok := params.Extra["airDate"].(time.Time); ok {
+			releaseDate = rd
+		}
+
+		items = append(items, searchableItemWithPriority{
+			item:        mi,
+			releaseDate: releaseDate,
+		})
+	}
+
+	return items
+}
+
+// groupModuleItemsIntoSeasonPacks groups episode items by season and replaces them with
+// a single season pack item when all episodes in the season are eligible for group search.
+func (s *ScheduledSearcher) groupModuleItemsIntoSeasonPacks(
+	ctx context.Context,
+	items []searchableItemWithPriority,
+	strategy module.SearchStrategy,
+	forUpgrade bool,
+) []searchableItemWithPriority {
+	var result []searchableItemWithPriority
+	episodesBySeason := make(map[seasonKey][]searchableItemWithPriority)
+
+	for i := range items {
+		if items[i].item.GetMediaType() != string(MediaTypeEpisode) {
+			result = append(result, items[i])
+			continue
+		}
+		seriesID := module.ItemSeriesID(items[i].item)
+		seasonNum := module.ItemSeasonNumber(items[i].item)
+		key := seasonKey{seriesID: seriesID, seasonNumber: int64(seasonNum)}
+		episodesBySeason[key] = append(episodesBySeason[key], items[i])
+	}
+
+	for key, episodes := range episodesBySeason {
+		if !strategy.IsGroupSearchEligible(ctx, "series", key.seriesID, int(key.seasonNumber), forUpgrade) {
+			result = append(result, episodes...)
+			continue
+		}
+
+		// Check backoff for the series-level season pack search
+		searchType := statusMissing
+		if forUpgrade {
+			searchType = searchTypeUpgrade
+		}
+		shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, searchType)
+		if err != nil {
+			s.logger.Warn().Err(err).
+				Int64("seriesId", key.seriesID).
+				Int64("season", key.seasonNumber).
+				Msg("Failed to check backoff status for season pack")
+		}
+		if shouldSkip {
+			continue
+		}
+
+		result = append(result, s.buildModuleSeasonPackItem(key, episodes, forUpgrade))
+	}
+
+	return result
+}
+
+// buildModuleSeasonPackItem constructs a season pack searchableItemWithPriority from
+// grouped episode items collected via module WantedCollectors.
+func (s *ScheduledSearcher) buildModuleSeasonPackItem(key seasonKey, episodes []searchableItemWithPriority, forUpgrade bool) searchableItemWithPriority {
+	first := episodes[0].item
+
+	var currentQID *int64
+	if forUpgrade {
+		var maxQID int64
+		for j := range episodes {
+			if qid := episodes[j].item.GetCurrentQualityID(); qid != nil && *qid > maxQID {
+				maxQID = *qid
+			}
+		}
+		currentQID = &maxQID
+	}
+
+	extra := map[string]any{
+		"seriesId":     key.seriesID,
+		"seasonNumber": int(key.seasonNumber),
+	}
+	if year := module.ItemYear(first); year > 0 {
+		extra["year"] = year
+	}
+
+	seasonItem := module.NewWantedItem(
+		module.Type(first.GetModuleType()),
+		string(MediaTypeSeason),
+		key.seriesID,
+		first.GetTitle(),
+		first.GetExternalIDs(),
+		first.GetQualityProfileID(),
+		currentQID,
+		module.SearchParams{Extra: extra},
+	)
+
+	return searchableItemWithPriority{
+		item:         seasonItem,
+		releaseDate:  episodes[0].releaseDate,
+		isSeasonPack: true,
+	}
+}
+
+// collectLegacy gathers items using direct sqlc queries (pre-module path).
+func (s *ScheduledSearcher) collectLegacy(ctx context.Context) ([]SearchableItem, error) {
 	var items []searchableItemWithPriority
 
 	// Get missing movies
@@ -487,55 +701,61 @@ func groupMissingEpisodesBySeason(rows []*sqlc.ListMissingEpisodesRow) map[seaso
 
 // buildMissingSeasonPackItem constructs a SearchableItem for season pack search.
 func buildMissingSeasonPackItem(firstEp *sqlc.ListMissingEpisodesRow, seasonNumber int64) SearchableItem {
-	item := SearchableItem{
-		MediaType:    MediaTypeSeason,
-		MediaID:      firstEp.SeriesID,
-		Title:        firstEp.SeriesTitle,
-		SeasonNumber: int(seasonNumber),
-	}
-	if firstEp.SeriesYear.Valid {
-		item.Year = int(firstEp.SeriesYear.Int64)
-	}
+	extIDs := make(map[string]string)
 	if firstEp.SeriesTvdbID.Valid {
-		item.TvdbID = int(firstEp.SeriesTvdbID.Int64)
+		extIDs["tvdbId"] = strconv.FormatInt(firstEp.SeriesTvdbID.Int64, 10)
 	}
 	if firstEp.SeriesTmdbID.Valid {
-		item.TmdbID = int(firstEp.SeriesTmdbID.Int64)
+		extIDs["tmdbId"] = strconv.FormatInt(firstEp.SeriesTmdbID.Int64, 10)
 	}
 	if firstEp.SeriesImdbID.Valid {
-		item.ImdbID = firstEp.SeriesImdbID.String
+		extIDs["imdbId"] = firstEp.SeriesImdbID.String
 	}
+
+	extra := map[string]any{
+		"seriesId":     firstEp.SeriesID,
+		"seasonNumber": int(seasonNumber),
+	}
+	if firstEp.SeriesYear.Valid {
+		extra["year"] = int(firstEp.SeriesYear.Int64)
+	}
+
+	var profileID int64
 	if firstEp.SeriesQualityProfileID.Valid {
-		item.QualityProfileID = firstEp.SeriesQualityProfileID.Int64
+		profileID = firstEp.SeriesQualityProfileID.Int64
 	}
-	return item
+
+	return module.NewWantedItem(module.TypeTV, string(MediaTypeSeason), firstEp.SeriesID, firstEp.SeriesTitle, extIDs, profileID, nil, module.SearchParams{Extra: extra})
 }
 
 // buildMissingEpisodeItem constructs a SearchableItem for individual episode search.
 func buildMissingEpisodeItem(ep *sqlc.ListMissingEpisodesRow) SearchableItem {
-	item := SearchableItem{
-		MediaType:     MediaTypeEpisode,
-		MediaID:       ep.ID,
-		Title:         ep.SeriesTitle,
-		SeasonNumber:  int(ep.SeasonNumber),
-		EpisodeNumber: int(ep.EpisodeNumber),
-	}
-	if ep.SeriesYear.Valid {
-		item.Year = int(ep.SeriesYear.Int64)
-	}
+	extIDs := make(map[string]string)
 	if ep.SeriesTvdbID.Valid {
-		item.TvdbID = int(ep.SeriesTvdbID.Int64)
+		extIDs["tvdbId"] = strconv.FormatInt(ep.SeriesTvdbID.Int64, 10)
 	}
 	if ep.SeriesTmdbID.Valid {
-		item.TmdbID = int(ep.SeriesTmdbID.Int64)
+		extIDs["tmdbId"] = strconv.FormatInt(ep.SeriesTmdbID.Int64, 10)
 	}
 	if ep.SeriesImdbID.Valid {
-		item.ImdbID = ep.SeriesImdbID.String
+		extIDs["imdbId"] = ep.SeriesImdbID.String
 	}
+
+	extra := map[string]any{
+		"seriesId":      ep.SeriesID,
+		"seasonNumber":  int(ep.SeasonNumber),
+		"episodeNumber": int(ep.EpisodeNumber),
+	}
+	if ep.SeriesYear.Valid {
+		extra["year"] = int(ep.SeriesYear.Int64)
+	}
+
+	var profileID int64
 	if ep.SeriesQualityProfileID.Valid {
-		item.QualityProfileID = ep.SeriesQualityProfileID.Int64
+		profileID = ep.SeriesQualityProfileID.Int64
 	}
-	return item
+
+	return module.NewWantedItem(module.TypeTV, string(MediaTypeEpisode), ep.ID, ep.SeriesTitle, extIDs, profileID, nil, module.SearchParams{Extra: extra})
 }
 
 // tryAddMissingSeasonPackSearch attempts to add a season pack search if eligible.
@@ -548,7 +768,7 @@ func (s *ScheduledSearcher) tryAddMissingSeasonPackSearch(
 		return searchableItemWithPriority{}, false
 	}
 
-	shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, statusMissing)
+	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, statusMissing)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season")
 	}
@@ -629,7 +849,7 @@ func (s *ScheduledSearcher) collectUpgradeMovies(ctx context.Context) ([]searcha
 
 	items := make([]searchableItemWithPriority, 0, len(rows))
 	for _, row := range rows {
-		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, "upgrade")
+		shouldSkip, err := s.shouldSkipItem(ctx, "movie", row.ID, searchTypeUpgrade)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", row.ID).Msg("Failed to check backoff status")
 		}
@@ -691,7 +911,7 @@ func (s *ScheduledSearcher) collectUpgradeEpisodes(ctx context.Context) ([]searc
 }
 
 func (s *ScheduledSearcher) shouldSkipSeasonUpgrade(ctx context.Context, key seasonKey) bool {
-	shouldSkip, err := s.shouldSkipItem(ctx, "series", key.seriesID, "upgrade")
+	shouldSkip, err := s.shouldSkipItem(ctx, entityTypeSeries, key.seriesID, searchTypeUpgrade)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("seriesId", key.seriesID).Int64("season", key.seasonNumber).Msg("Failed to check backoff status for season upgrade")
 	}
@@ -708,30 +928,32 @@ func (s *ScheduledSearcher) buildSeasonPackUpgradeItem(key seasonKey, episodes [
 		airDate = firstEp.AirDate.Time
 	}
 
-	item := SearchableItem{
-		MediaType:        MediaTypeSeason,
-		MediaID:          key.seriesID,
-		SeriesID:         key.seriesID,
-		Title:            firstEp.SeriesTitle,
-		SeasonNumber:     int(key.seasonNumber),
-		HasFile:          true,
-		CurrentQualityID: maxQualityID,
-	}
-	if firstEp.SeriesYear.Valid {
-		item.Year = int(firstEp.SeriesYear.Int64)
-	}
+	extIDs := make(map[string]string)
 	if firstEp.SeriesTvdbID.Valid {
-		item.TvdbID = int(firstEp.SeriesTvdbID.Int64)
+		extIDs["tvdbId"] = strconv.FormatInt(firstEp.SeriesTvdbID.Int64, 10)
 	}
 	if firstEp.SeriesTmdbID.Valid {
-		item.TmdbID = int(firstEp.SeriesTmdbID.Int64)
+		extIDs["tmdbId"] = strconv.FormatInt(firstEp.SeriesTmdbID.Int64, 10)
 	}
 	if firstEp.SeriesImdbID.Valid {
-		item.ImdbID = firstEp.SeriesImdbID.String
+		extIDs["imdbId"] = firstEp.SeriesImdbID.String
 	}
+
+	extra := map[string]any{
+		"seriesId":     key.seriesID,
+		"seasonNumber": int(key.seasonNumber),
+	}
+	if firstEp.SeriesYear.Valid {
+		extra["year"] = int(firstEp.SeriesYear.Int64)
+	}
+
+	var profileID int64
 	if firstEp.SeriesQualityProfileID.Valid {
-		item.QualityProfileID = firstEp.SeriesQualityProfileID.Int64
+		profileID = firstEp.SeriesQualityProfileID.Int64
 	}
+
+	qid := int64(maxQualityID)
+	item := module.NewWantedItem(module.TypeTV, string(MediaTypeSeason), key.seriesID, firstEp.SeriesTitle, extIDs, profileID, &qid, module.SearchParams{Extra: extra})
 
 	s.logger.Info().
 		Str("title", firstEp.SeriesTitle).
@@ -762,7 +984,7 @@ func (s *ScheduledSearcher) collectIndividualEpisodeUpgrades(ctx context.Context
 	var items []searchableItemWithPriority
 
 	for _, ep := range episodes {
-		shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, "upgrade")
+		shouldSkip, err := s.shouldSkipItem(ctx, "episode", ep.ID, searchTypeUpgrade)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to check backoff status")
 		}
@@ -788,9 +1010,11 @@ func (s *ScheduledSearcher) collectIndividualEpisodeUpgrades(ctx context.Context
 
 // shouldSkipItem checks if an item should be skipped due to backoff.
 func (s *ScheduledSearcher) shouldSkipItem(ctx context.Context, itemType string, itemID int64, searchType string) (bool, error) {
+	modType := s.moduleTypeFromEntityType(itemType)
 	status, err := s.service.queries.GetAutosearchStatus(ctx, sqlc.GetAutosearchStatusParams{
-		ItemType:   itemType,
-		ItemID:     itemID,
+		ModuleType: modType,
+		EntityType: itemType,
+		EntityID:   itemID,
 		SearchType: searchType,
 	})
 	if err != nil {
@@ -820,8 +1044,7 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 		Results:       make([]*SearchResult, 0, len(items)),
 	}
 
-	for i := range items {
-		item := &items[i]
+	for i, item := range items {
 		select {
 		case <-ctx.Done():
 			s.logger.Info().Msg("Scheduled search task cancelled")
@@ -829,14 +1052,16 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 		default:
 		}
 
+		hasFile := module.ItemHasFile(item)
+
 		// Determine search type based on whether item has a file (upgrade vs missing)
 		searchType := statusMissing
-		if item.HasFile {
-			searchType = "upgrade"
+		if hasFile {
+			searchType = searchTypeUpgrade
 		}
 
 		// Broadcast progress
-		s.broadcastTaskProgress(i+1, len(items), item.Title)
+		s.broadcastTaskProgress(i+1, len(items), item.GetTitle())
 
 		// Apply rate limiting delay
 		delay := s.rateLimiter.GetDelay()
@@ -856,8 +1081,8 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 
 		if err != nil {
 			s.logger.Warn().Err(err).
-				Str("title", item.Title).
-				Str("mediaType", string(item.MediaType)).
+				Str("title", item.GetTitle()).
+				Str("mediaType", item.GetMediaType()).
 				Msg("Search failed")
 			result.Failed++
 			result.Results = append(result.Results, &SearchResult{Error: err.Error()})
@@ -885,16 +1110,20 @@ func (s *ScheduledSearcher) processItems(ctx context.Context, items []Searchable
 }
 
 // searchItem searches for a single item based on its type.
-func (s *ScheduledSearcher) searchItem(ctx context.Context, item *SearchableItem) (*SearchResult, error) {
-	switch item.MediaType {
-	case MediaTypeMovie:
-		return s.service.SearchMovie(ctx, item.MediaID, SearchSourceScheduled)
-	case MediaTypeEpisode:
-		return s.service.SearchEpisode(ctx, item.MediaID, SearchSourceScheduled)
-	case MediaTypeSeason:
-		if item.HasFile {
+func (s *ScheduledSearcher) searchItem(ctx context.Context, item SearchableItem) (*SearchResult, error) {
+	mediaType := item.GetMediaType()
+	switch mediaType {
+	case string(MediaTypeMovie):
+		return s.service.SearchMovie(ctx, item.GetEntityID(), SearchSourceScheduled)
+	case string(MediaTypeEpisode):
+		return s.service.SearchEpisode(ctx, item.GetEntityID(), SearchSourceScheduled)
+	case string(MediaTypeSeason):
+		hasFile := module.ItemHasFile(item)
+		if hasFile {
+			currentQualityID := module.ItemCurrentQualityID(item)
+			seasonNumber := module.ItemSeasonNumber(item)
 			// Season pack upgrade search with individual episode fallback
-			batchResult, err := s.service.SearchSeasonUpgrade(ctx, item.MediaID, item.SeasonNumber, item.CurrentQualityID, SearchSourceScheduled)
+			batchResult, err := s.service.SearchSeasonUpgrade(ctx, item.GetEntityID(), seasonNumber, currentQualityID, SearchSourceScheduled)
 			if err != nil {
 				return nil, err
 			}
@@ -917,50 +1146,71 @@ func (s *ScheduledSearcher) searchItem(ctx context.Context, item *SearchableItem
 			return result, nil
 		}
 		// Missing season pack search
-		return s.service.searchSeasonPackByID(ctx, item.MediaID, item.SeasonNumber, SearchSourceScheduled)
+		seasonNumber := module.ItemSeasonNumber(item)
+		return s.service.searchSeasonPackByID(ctx, item.GetEntityID(), seasonNumber, SearchSourceScheduled)
 	default:
 		return &SearchResult{Error: "unsupported media type"}, nil
 	}
 }
 
 // incrementFailureCount increments the failure count for an item.
-func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item *SearchableItem, searchType string) {
-	itemType := string(item.MediaType)
-	if item.MediaType == MediaTypeSeason {
-		itemType = "series"
+func (s *ScheduledSearcher) incrementFailureCount(ctx context.Context, item SearchableItem, searchType string) {
+	itemType := item.GetMediaType()
+	if itemType == string(MediaTypeSeason) {
+		itemType = entityTypeSeries
 	}
 
+	modType := s.moduleTypeFromEntityType(itemType)
 	err := s.service.queries.IncrementAutosearchFailure(ctx, sqlc.IncrementAutosearchFailureParams{
-		ItemType:   itemType,
-		ItemID:     item.MediaID,
+		ModuleType: modType,
+		EntityType: itemType,
+		EntityID:   item.GetEntityID(),
 		SearchType: searchType,
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).
 			Str("itemType", itemType).
-			Int64("mediaId", item.MediaID).
+			Int64("mediaId", item.GetEntityID()).
 			Msg("Failed to increment failure count")
 	}
 }
 
 // resetFailureCount resets the failure count for an item.
-func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item *SearchableItem, searchType string) {
-	itemType := string(item.MediaType)
-	if item.MediaType == MediaTypeSeason {
-		itemType = "series"
+func (s *ScheduledSearcher) resetFailureCount(ctx context.Context, item SearchableItem, searchType string) {
+	itemType := item.GetMediaType()
+	if itemType == string(MediaTypeSeason) {
+		itemType = entityTypeSeries
 	}
 
+	modType2 := s.moduleTypeFromEntityType(itemType)
 	err := s.service.queries.ResetAutosearchFailure(ctx, sqlc.ResetAutosearchFailureParams{
-		ItemType:   itemType,
-		ItemID:     item.MediaID,
+		ModuleType: modType2,
+		EntityType: itemType,
+		EntityID:   item.GetEntityID(),
 		SearchType: searchType,
 	})
 	if err != nil {
 		s.logger.Warn().Err(err).
 			Str("itemType", itemType).
-			Int64("mediaId", item.MediaID).
+			Int64("mediaId", item.GetEntityID()).
 			Msg("Failed to reset failure count")
 	}
+}
+
+// moduleTypeFromEntityType maps an entity type to its owning module type using
+// the registry. Falls back to the legacy movie/tv assumption when the registry
+// is not available.
+func (s *ScheduledSearcher) moduleTypeFromEntityType(entityType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(entityType)); mod != nil {
+			return string(mod.ID())
+		}
+	}
+	// Legacy fallback for pre-module code paths
+	if entityType == "movie" {
+		return "movie"
+	}
+	return "tv"
 }
 
 // Broadcast helpers

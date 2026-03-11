@@ -46,6 +46,7 @@ export function MovieDetailPage() {
         item={movie}
         updateMutation={updateMutation}
         mediaLabel="Movie"
+        moduleType="movie"
         monitoredDescription="Search for releases and upgrade quality"
       />
     </div>

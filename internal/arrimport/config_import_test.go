@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/downloader"
-	importer "github.com/slipstream/slipstream/internal/import"
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/notification"
@@ -38,23 +37,30 @@ func (s *stubIndexerService) List(_ context.Context) ([]*indexer.IndexerDefiniti
 	return s.created, nil
 }
 
-// stubImportSettingsService implements ImportSettingsService backed by in-memory settings.
-type stubImportSettingsService struct {
-	settings *importer.ImportSettings
+// stubNamingConfigService implements NamingConfigImportService backed by in-memory settings.
+type stubNamingConfigService struct {
+	settings map[string]map[string]string // moduleType -> key -> value
 }
 
-func newStubImportSettingsService() *stubImportSettingsService {
-	s := importer.DefaultImportSettings()
-	return &stubImportSettingsService{settings: &s}
+func newStubNamingConfigService() *stubNamingConfigService {
+	return &stubNamingConfigService{settings: make(map[string]map[string]string)}
 }
 
-func (s *stubImportSettingsService) GetSettings(_ context.Context) (*importer.ImportSettings, error) {
-	return s.settings, nil
+func (s *stubNamingConfigService) GetNamingSettings(_ context.Context, moduleType string) (map[string]string, error) {
+	if m, ok := s.settings[moduleType]; ok {
+		return m, nil
+	}
+	return map[string]string{}, nil
 }
 
-func (s *stubImportSettingsService) UpdateSettings(_ context.Context, settings *importer.ImportSettings) (*importer.ImportSettings, error) {
-	s.settings = settings
-	return settings, nil
+func (s *stubNamingConfigService) UpsertNamingSettings(_ context.Context, moduleType string, settings map[string]string) error {
+	if s.settings[moduleType] == nil {
+		s.settings[moduleType] = make(map[string]string)
+	}
+	for k, v := range settings {
+		s.settings[moduleType][k] = v
+	}
+	return nil
 }
 
 // setupRadarrSourceDB creates a temporary Radarr-style SQLite DB with test data.
@@ -150,11 +156,11 @@ func TestConfigImportEndToEnd(t *testing.T) {
 
 	// Stubs for services with heavy dependency chains
 	idxSvc := &stubIndexerService{}
-	importSettingsSvc := newStubImportSettingsService()
+	namingConfigSvc := newStubNamingConfigService()
 
 	// Build arrimport service (nil for media import dependencies — not needed for config import)
-	svc := NewService(tdb.Conn, nil, nil, nil, nil, nil, &logger, nil)
-	svc.SetConfigImportServices(dlSvc, idxSvc, notifSvc, qualProfSvc, importSettingsSvc)
+	svc := NewService(tdb.Conn, nil, nil, nil, nil, &logger)
+	svc.SetConfigImportServices(dlSvc, idxSvc, notifSvc, qualProfSvc, namingConfigSvc)
 
 	ctx := context.Background()
 
@@ -315,16 +321,16 @@ func TestConfigImportEndToEnd(t *testing.T) {
 		t.Errorf("expected 17 quality items, got %d", len(profiles[0].Items))
 	}
 
-	// Naming config
-	settings, err := importSettingsSvc.GetSettings(ctx)
+	// Naming config (now stored in module_naming_settings)
+	movieNaming, err := namingConfigSvc.GetNamingSettings(ctx, "movie")
 	if err != nil {
-		t.Fatalf("get import settings: %v", err)
+		t.Fatalf("get movie naming settings: %v", err)
 	}
-	if !settings.RenameMovies {
-		t.Error("rename movies should be true")
+	if movieNaming["rename_enabled"] != "true" {
+		t.Errorf("rename_enabled = %q, want true", movieNaming["rename_enabled"])
 	}
-	if settings.MovieFileFormat != "{Movie Title} ({Release Year})" {
-		t.Errorf("movie file format = %q", settings.MovieFileFormat)
+	if movieNaming["movie-file"] != "{Movie Title} ({Release Year})" {
+		t.Errorf("movie-file = %q", movieNaming["movie-file"])
 	}
 
 	// --- Phase 4: Duplicate detection (re-import should skip) ---

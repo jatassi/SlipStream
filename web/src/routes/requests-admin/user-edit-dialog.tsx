@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { PortalUserWithQuota } from '@/types'
+import type { PortalUserWithQuota, QualityProfile } from '@/types'
 
 import { ProfileSelect } from './profile-select'
 import { useUserEditDialog } from './use-user-edit-dialog'
@@ -22,7 +22,7 @@ type UserEditDialogProps = {
   user: PortalUserWithQuota
   open: boolean
   onOpenChange: (open: boolean) => void
-  qualityProfiles: { id: number; name: string }[]
+  qualityProfiles: QualityProfile[]
 }
 
 export function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: UserEditDialogProps) {
@@ -56,10 +56,12 @@ export function UserEditDialog({ user, open, onOpenChange, qualityProfiles }: Us
 
 type EditFormProps = {
   state: ReturnType<typeof useUserEditDialog>
-  qualityProfiles: { id: number; name: string }[]
+  qualityProfiles: QualityProfile[]
 }
 
 function EditUserFormBody({ state, qualityProfiles }: EditFormProps) {
+  const moduleTypes = [...new Set(qualityProfiles.map((p) => p.moduleType))]
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -72,19 +74,19 @@ function EditUserFormBody({ state, qualityProfiles }: EditFormProps) {
         />
       </div>
 
-      <ProfileSelect
-        label="Movie Quality Profile"
-        value={state.movieQualityProfileId}
-        onChange={state.setMovieQualityProfileId}
-        qualityProfiles={qualityProfiles}
-      />
-
-      <ProfileSelect
-        label="TV Quality Profile"
-        value={state.tvQualityProfileId}
-        onChange={state.setTvQualityProfileId}
-        qualityProfiles={qualityProfiles}
-      />
+      {moduleTypes.map((moduleType) => {
+        const filtered = qualityProfiles.filter((p) => p.moduleType === moduleType)
+        const label = `${moduleType.charAt(0).toUpperCase() + moduleType.slice(1)} Quality Profile`
+        return (
+          <ProfileSelect
+            key={moduleType}
+            label={label}
+            value={state.moduleProfileSettings[moduleType] ?? null}
+            onChange={(id) => state.setModuleProfile(moduleType, id)}
+            qualityProfiles={filtered}
+          />
+        )
+      })}
 
       <div className="flex items-center space-x-2">
         <Checkbox
@@ -94,88 +96,6 @@ function EditUserFormBody({ state, qualityProfiles }: EditFormProps) {
         />
         <Label htmlFor="autoApprove">Auto-approve requests</Label>
       </div>
-
-      <QuotaOverrideSection state={state} />
-    </div>
-  )
-}
-
-
-function QuotaOverrideSection({ state }: { state: ReturnType<typeof useUserEditDialog> }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="quotaOverride"
-          checked={state.useQuotaOverride}
-          onCheckedChange={(checked) => state.setUseQuotaOverride(checked)}
-        />
-        <Label htmlFor="quotaOverride">Override quota limits</Label>
-      </div>
-
-      {state.useQuotaOverride ? <QuotaLimitsGrid
-          moviesLimit={state.moviesLimit}
-          onMoviesLimitChange={state.setMoviesLimit}
-          seasonsLimit={state.seasonsLimit}
-          onSeasonsLimitChange={state.setSeasonsLimit}
-          episodesLimit={state.episodesLimit}
-          onEpisodesLimitChange={state.setEpisodesLimit}
-        /> : null}
-    </div>
-  )
-}
-
-type QuotaLimitsGridProps = {
-  moviesLimit: string
-  onMoviesLimitChange: (value: string) => void
-  seasonsLimit: string
-  onSeasonsLimitChange: (value: string) => void
-  episodesLimit: string
-  onEpisodesLimitChange: (value: string) => void
-}
-
-function QuotaLimitsGrid({
-  moviesLimit,
-  onMoviesLimitChange,
-  seasonsLimit,
-  onSeasonsLimitChange,
-  episodesLimit,
-  onEpisodesLimitChange,
-}: QuotaLimitsGridProps) {
-  return (
-    <div className="ml-6 space-y-2 pt-2">
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Movies</Label>
-          <Input
-            type="number"
-            placeholder="Default"
-            value={moviesLimit}
-            onChange={(e) => onMoviesLimitChange(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Seasons</Label>
-          <Input
-            type="number"
-            placeholder="Default"
-            value={seasonsLimit}
-            onChange={(e) => onSeasonsLimitChange(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Episodes</Label>
-          <Input
-            type="number"
-            placeholder="Default"
-            value={episodesLimit}
-            onChange={(e) => onEpisodesLimitChange(e.target.value)}
-          />
-        </div>
-      </div>
-      <p className="text-muted-foreground text-xs">
-        Leave empty to use the global default. Set to 0 for no limit.
-      </p>
     </div>
   )
 }

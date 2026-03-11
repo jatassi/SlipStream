@@ -3,9 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -15,13 +12,12 @@ import (
 	downloadermock "github.com/slipstream/slipstream/internal/downloader/mock"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/indexer"
-	"github.com/slipstream/slipstream/internal/library/movies"
-	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/rootfolder"
 	"github.com/slipstream/slipstream/internal/library/slots"
-	"github.com/slipstream/slipstream/internal/library/tv"
-	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/metadata/mock"
+	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification"
 )
 
@@ -36,12 +32,13 @@ type DevModeManager struct {
 	switchable   *SwitchableServices
 	dbManager    *database.Manager
 	logger       *zerolog.Logger
+	registry     *module.Registry
 }
 
 // NewDevModeManager creates a new DevModeManager with references to the server's service groups.
 func NewDevModeManager(library *LibraryGroup, meta *MetadataGroup, search *SearchGroup,
 	download *DownloadGroup, notif *NotificationGroup, switchable *SwitchableServices,
-	dbManager *database.Manager, logger *zerolog.Logger) *DevModeManager {
+	dbManager *database.Manager, logger *zerolog.Logger, registry *module.Registry) *DevModeManager {
 	return &DevModeManager{
 		library:      library,
 		metadata:     meta,
@@ -51,6 +48,7 @@ func NewDevModeManager(library *LibraryGroup, meta *MetadataGroup, search *Searc
 		switchable:   switchable,
 		dbManager:    dbManager,
 		logger:       logger,
+		registry:     registry,
 	}
 }
 
@@ -64,6 +62,10 @@ func (d *DevModeManager) OnToggle(enabled bool) error {
 		return err
 	}
 	if enabled {
+		if err := module.MigrateAll(d.dbManager.Conn(), d.registry); err != nil {
+			d.logger.Error().Err(err).Msg("failed to run module migrations on dev database")
+			return err
+		}
 		d.copyJWTSecretToDevDB()
 		d.copySettingsToDevDB()
 	}
@@ -209,19 +211,21 @@ func (d *DevModeManager) switchNotification(devMode bool) {
 
 		// Create mock notification (subscribed to all events)
 		_, err = d.notification.Service.Create(ctx, &notification.CreateInput{
-			Name:             "Mock Notification",
-			Type:             notification.NotifierMock,
-			Enabled:          true,
-			OnGrab:           true,
-			OnImport:         true,
-			OnUpgrade:        true,
-			OnMovieAdded:     true,
-			OnMovieDeleted:   true,
-			OnSeriesAdded:    true,
-			OnSeriesDeleted:  true,
-			OnHealthIssue:    true,
-			OnHealthRestored: true,
-			OnAppUpdate:      true,
+			Name:    "Mock Notification",
+			Type:    notification.NotifierMock,
+			Enabled: true,
+			EventToggles: map[string]bool{
+				notification.EventGrab:           true,
+				notification.EventImport:         true,
+				notification.EventUpgrade:        true,
+				moviemod.EventMovieAdded:         true,
+				moviemod.EventMovieDeleted:       true,
+				tvmod.EventTVAdded:               true,
+				tvmod.EventTVDeleted:             true,
+				notification.EventHealthIssue:    true,
+				notification.EventHealthRestored: true,
+				notification.EventAppUpdate:      true,
+			},
 		})
 		if err != nil {
 			d.logger.Error().Err(err).Msg("Failed to create mock notification")
@@ -233,7 +237,24 @@ func (d *DevModeManager) switchNotification(devMode bool) {
 	}
 }
 
-// switchRootFolders creates mock root folders based on dev mode.
+// mockRootFolderAdapter adapts rootfolder.Service to module.MockRootFolderCreator.
+type mockRootFolderAdapter struct {
+	service *rootfolder.Service
+}
+
+func (a *mockRootFolderAdapter) Create(ctx context.Context, path, name, mediaType string) (int64, error) {
+	rf, err := a.service.Create(ctx, rootfolder.CreateRootFolderInput{
+		Path:      path,
+		Name:      name,
+		MediaType: mediaType,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return rf.ID, nil
+}
+
+// switchRootFolders creates mock root folders via module MockFactory.
 func (d *DevModeManager) switchRootFolders(devMode bool) {
 	if !devMode {
 		d.logger.Info().Msg("Dev mode disabled - mock root folders will remain until manually deleted")
@@ -243,56 +264,42 @@ func (d *DevModeManager) switchRootFolders(devMode bool) {
 	ctx := context.Background()
 	fsmock.ResetInstance()
 
-	folders, err := d.library.RootFolder.List(ctx)
-	if err != nil {
-		d.logger.Error().Err(err).Msg("Failed to list root folders for dev mode")
-		return
-	}
-
-	hasMovieRoot, hasTVRoot := d.checkExistingMockFolders(folders)
-	if !hasMovieRoot {
-		d.createMockMovieFolder(ctx)
-	}
-	if !hasTVRoot {
-		d.createMockTVFolder(ctx)
-	}
-}
-
-func (d *DevModeManager) checkExistingMockFolders(folders []*rootfolder.RootFolder) (hasMovieRoot, hasTVRoot bool) {
-	for _, f := range folders {
-		if f.Path == fsmock.MockMoviesPath {
-			hasMovieRoot = true
-		}
-		if f.Path == fsmock.MockTVPath {
-			hasTVRoot = true
+	mctx := d.buildMockContext(ctx)
+	for _, mod := range d.registry.All() {
+		if err := mod.CreateTestRootFolders(ctx, mctx); err != nil {
+			d.logger.Error().Err(err).Str("module", string(mod.ID())).Msg("Failed to create test root folders")
 		}
 	}
-	return
 }
 
-func (d *DevModeManager) createMockMovieFolder(ctx context.Context) {
-	_, err := d.library.RootFolder.Create(ctx, rootfolder.CreateRootFolderInput{
-		Path:      fsmock.MockMoviesPath,
-		Name:      "Mock Movies",
-		MediaType: mediaTypeMovie,
-	})
-	if err != nil {
-		d.logger.Error().Err(err).Msg("Failed to create mock movies root folder")
-	} else {
-		d.logger.Info().Str("path", fsmock.MockMoviesPath).Msg("Created mock movies root folder")
+// populateMockMedia creates mock media via module MockFactory.
+func (d *DevModeManager) populateMockMedia() {
+	ctx := context.Background()
+	mctx := d.buildMockContext(ctx)
+	for _, mod := range d.registry.All() {
+		if err := mod.CreateSampleLibraryData(ctx, mctx); err != nil {
+			d.logger.Error().Err(err).Str("module", string(mod.ID())).Msg("Failed to create sample library data")
+		}
 	}
 }
 
-func (d *DevModeManager) createMockTVFolder(ctx context.Context) {
-	_, err := d.library.RootFolder.Create(ctx, rootfolder.CreateRootFolderInput{
-		Path:      fsmock.MockTVPath,
-		Name:      "Mock TV",
-		MediaType: "tv",
-	})
-	if err != nil {
-		d.logger.Error().Err(err).Msg("Failed to create mock TV root folder")
-	} else {
-		d.logger.Info().Str("path", fsmock.MockTVPath).Msg("Created mock TV root folder")
+func (d *DevModeManager) buildMockContext(ctx context.Context) *module.MockContext {
+	profiles, _ := d.library.Quality.List(ctx)
+	mockProfiles := make([]module.MockQualityProfile, len(profiles))
+	for i, p := range profiles {
+		mockProfiles[i] = module.MockQualityProfile{ID: p.ID, Name: p.Name}
+	}
+	var defaultProfileID int64
+	if len(profiles) > 0 {
+		defaultProfileID = profiles[0].ID
+	}
+
+	return &module.MockContext{
+		DB:                d.dbManager.Conn(),
+		Logger:            d.logger,
+		RootFolderCreator: &mockRootFolderAdapter{service: d.library.RootFolder},
+		QualityProfiles:   mockProfiles,
+		DefaultProfileID:  defaultProfileID,
 	}
 }
 
@@ -386,31 +393,51 @@ func (d *DevModeManager) copyPortalUsersToDevDB(profileIDMapping map[int64]int64
 	// Copy each user to dev database (skip if already exists)
 	copied := 0
 	for _, user := range prodUsers {
-		// Check if user already exists in dev DB
 		_, err := devQueries.GetPortalUser(ctx, user.ID)
 		if err == nil {
-			continue // User already exists
+			continue
 		}
 
 		_, err = devQueries.CreatePortalUserWithID(ctx, sqlc.CreatePortalUserWithIDParams{
-			ID:                    user.ID,
-			Username:              user.Username,
-			PasswordHash:          user.PasswordHash,
-			MovieQualityProfileID: mapProfileID(user.MovieQualityProfileID, profileIDMapping),
-			TvQualityProfileID:    mapProfileID(user.TvQualityProfileID, profileIDMapping),
-			AutoApprove:           user.AutoApprove,
-			Enabled:               user.Enabled,
-			IsAdmin:               user.IsAdmin,
+			ID:           user.ID,
+			Username:     user.Username,
+			PasswordHash: user.PasswordHash,
+			AutoApprove:  user.AutoApprove,
+			Enabled:      user.Enabled,
+			IsAdmin:      user.IsAdmin,
 		})
 		if err != nil {
 			d.logger.Error().Err(err).Str("username", user.Username).Msg("Failed to copy portal user")
 			continue
 		}
+
+		d.copyUserModuleSettingsToDevDB(ctx, prodQueries, devQueries, user.ID, profileIDMapping)
 		copied++
 	}
 
 	if copied > 0 {
 		d.logger.Info().Int("count", copied).Msg("Copied portal users to dev database")
+	}
+}
+
+func (d *DevModeManager) copyUserModuleSettingsToDevDB(ctx context.Context, prodQueries, devQueries *sqlc.Queries, userID int64, profileIDMapping map[int64]int64) {
+	prodSettings, err := prodQueries.ListUserModuleSettings(ctx, userID)
+	if err != nil {
+		return
+	}
+	for _, ms := range prodSettings {
+		qpID := ms.QualityProfileID
+		if qpID.Valid {
+			qpID = mapProfileID(qpID, profileIDMapping)
+		}
+		_, _ = devQueries.UpsertUserModuleSettings(ctx, sqlc.UpsertUserModuleSettingsParams{
+			UserID:           userID,
+			ModuleType:       ms.ModuleType,
+			QuotaLimit:       ms.QuotaLimit,
+			QuotaUsed:        ms.QuotaUsed,
+			QualityProfileID: qpID,
+			PeriodStart:      ms.PeriodStart,
+		})
 	}
 }
 
@@ -487,8 +514,10 @@ func (d *DevModeManager) copyQualityProfilesToDevDB() map[int64]int64 {
 	if len(prodRows) == 0 {
 		d.logger.Warn().Msg("No quality profiles in production database to copy")
 		// Create default profiles in dev database
-		if err := d.library.Quality.EnsureDefaults(ctx); err != nil {
-			d.logger.Error().Err(err).Msg("Failed to create default quality profiles")
+		for _, mt := range []string{"movie", "tv"} {
+			if err := d.library.Quality.EnsureDefaults(ctx, mt); err != nil {
+				d.logger.Warn().Err(err).Str("moduleType", mt).Msg("Failed to ensure default quality profiles")
+			}
 		}
 		return idMapping
 	}
@@ -496,15 +525,18 @@ func (d *DevModeManager) copyQualityProfilesToDevDB() map[int64]int64 {
 	// Copy each profile to dev database and track ID mapping
 	for _, row := range prodRows {
 		newProfile, err := devQueries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
-			Name:                 row.Name,
-			Cutoff:               row.Cutoff,
-			Items:                row.Items,
-			HdrSettings:          row.HdrSettings,
-			VideoCodecSettings:   row.VideoCodecSettings,
-			AudioCodecSettings:   row.AudioCodecSettings,
-			AudioChannelSettings: row.AudioChannelSettings,
-			UpgradesEnabled:      row.UpgradesEnabled,
-			AllowAutoApprove:     row.AllowAutoApprove,
+			Name:                    row.Name,
+			ModuleType:              row.ModuleType,
+			Cutoff:                  row.Cutoff,
+			Items:                   row.Items,
+			HdrSettings:             row.HdrSettings,
+			VideoCodecSettings:      row.VideoCodecSettings,
+			AudioCodecSettings:      row.AudioCodecSettings,
+			AudioChannelSettings:    row.AudioChannelSettings,
+			UpgradesEnabled:         row.UpgradesEnabled,
+			AllowAutoApprove:        row.AllowAutoApprove,
+			UpgradeStrategy:         row.UpgradeStrategy,
+			CutoffOverridesStrategy: row.CutoffOverridesStrategy,
 		})
 		if err != nil {
 			d.logger.Error().Err(err).Str("name", row.Name).Msg("Failed to copy quality profile")
@@ -573,411 +605,4 @@ func mapProfileID(id sql.NullInt64, mapping map[int64]int64) sql.NullInt64 {
 		}
 	}
 	return sql.NullInt64{}
-}
-
-// populateMockMedia creates mock movies and series in the dev database.
-func (d *DevModeManager) populateMockMedia() {
-	ctx := context.Background()
-
-	// Get the mock root folders
-	folders, err := d.library.RootFolder.List(ctx)
-	if err != nil {
-		d.logger.Error().Err(err).Msg("Failed to list root folders for mock media")
-		return
-	}
-
-	var movieRootID, tvRootID int64
-	for _, f := range folders {
-		if f.Path == fsmock.MockMoviesPath {
-			movieRootID = f.ID
-		}
-		if f.Path == fsmock.MockTVPath {
-			tvRootID = f.ID
-		}
-	}
-
-	if movieRootID == 0 || tvRootID == 0 {
-		d.logger.Warn().Msg("Mock root folders not found, skipping media population")
-		return
-	}
-
-	// Get a default quality profile
-	profiles, err := d.library.Quality.List(ctx)
-	if err != nil || len(profiles) == 0 {
-		d.logger.Warn().Msg("No quality profiles available for mock media")
-		return
-	}
-	defaultProfileID := profiles[0].ID
-
-	// Check if we already have mock movies
-	existingMovies, _ := d.library.Movies.List(ctx, movies.ListMoviesOptions{})
-	if len(existingMovies) > 0 {
-		d.logger.Info().Int("count", len(existingMovies)).Msg("Dev database already has movies")
-		return
-	}
-
-	d.populateMockMovies(ctx, movieRootID, defaultProfileID)
-	d.populateMockSeries(ctx, tvRootID, defaultProfileID)
-}
-
-func (d *DevModeManager) populateMockMovies(ctx context.Context, rootFolderID, qualityProfileID int64) {
-	// Mock movies with TMDB IDs - metadata will be fetched from mock provider
-	mockMovieIDs := []struct {
-		tmdbID   int
-		hasFiles bool
-	}{
-		{603, true},     // The Matrix
-		{27205, true},   // Inception
-		{438631, true},  // Dune
-		{680, true},     // Pulp Fiction
-		{550, true},     // Fight Club
-		{693134, false}, // Dune: Part Two
-		{872585, false}, // Oppenheimer
-		{346698, false}, // Barbie
-	}
-
-	for _, m := range mockMovieIDs {
-		// Fetch full metadata from mock provider
-		movieMeta, err := d.metadata.Service.GetMovie(ctx, m.tmdbID)
-		if err != nil {
-			d.logger.Error().Err(err).Int("tmdbID", m.tmdbID).Msg("Failed to fetch mock movie metadata")
-			continue
-		}
-
-		path := fsmock.MockMoviesPath + "/" + movieMeta.Title + " (" + itoa(movieMeta.Year) + ")"
-
-		input := movies.CreateMovieInput{
-			Title:            movieMeta.Title,
-			Year:             movieMeta.Year,
-			TmdbID:           movieMeta.ID, // ID is the TMDB ID
-			ImdbID:           movieMeta.ImdbID,
-			Overview:         movieMeta.Overview,
-			Runtime:          movieMeta.Runtime,
-			RootFolderID:     rootFolderID,
-			QualityProfileID: qualityProfileID,
-			Path:             path,
-			Monitored:        true,
-		}
-
-		movie, err := d.library.Movies.Create(ctx, &input)
-		if err != nil {
-			d.logger.Error().Err(err).Str("title", movieMeta.Title).Msg("Failed to create mock movie")
-			continue
-		}
-
-		// Download artwork from mock metadata URLs
-		go func(meta *metadata.MovieResult) {
-			if err := d.metadata.ArtworkDownloader.DownloadMovieArtwork(ctx, meta); err != nil {
-				d.logger.Debug().Err(err).Str("title", meta.Title).Msg("Failed to download movie artwork")
-			}
-		}(movieMeta)
-
-		// If the movie has files in the VFS, create file entries
-		if m.hasFiles {
-			d.createMockMovieFiles(ctx, movie.ID, path)
-		}
-
-		d.logger.Debug().Str("title", movieMeta.Title).Bool("hasFiles", m.hasFiles).Msg("Created mock movie")
-	}
-
-	d.logger.Info().Int("count", len(mockMovieIDs)).Msg("Populated mock movies")
-}
-
-func (d *DevModeManager) createMockMovieFiles(ctx context.Context, movieID int64, moviePath string) {
-	vfs := fsmock.GetInstance()
-	files, err := vfs.ListDirectory(moviePath)
-	if err != nil {
-		return
-	}
-
-	for _, f := range files {
-		if f.Type != fsmock.FileTypeVideo {
-			continue
-		}
-
-		qualityName := parseQualityFromFilename(f.Name)
-		input := movies.CreateMovieFileInput{
-			Path:    f.Path,
-			Size:    f.Size,
-			Quality: qualityName,
-		}
-		if q, ok := quality.GetQualityByName(qualityName); ok {
-			qid := int64(q.ID)
-			input.QualityID = &qid
-		}
-
-		_, err := d.library.Movies.AddFile(ctx, movieID, &input)
-		if err != nil {
-			d.logger.Debug().Err(err).Str("path", f.Path).Msg("Failed to create movie file")
-		}
-	}
-}
-
-func (d *DevModeManager) populateMockSeries(ctx context.Context, rootFolderID, qualityProfileID int64) {
-	mockSeriesIDs := []struct {
-		tvdbID   int
-		hasFiles bool
-	}{
-		{81189, true},   // Breaking Bad
-		{121361, true},  // Game of Thrones
-		{305288, true},  // Stranger Things
-		{361753, true},  // The Mandalorian
-		{355567, false}, // The Boys
-	}
-
-	for _, s2 := range mockSeriesIDs {
-		d.createOneMockSeries(ctx, s2.tvdbID, s2.hasFiles, rootFolderID, qualityProfileID)
-	}
-
-	d.logger.Info().Int("count", len(mockSeriesIDs)).Msg("Populated mock series")
-}
-
-func (d *DevModeManager) createOneMockSeries(ctx context.Context, tvdbID int, hasFiles bool, rootFolderID, qualityProfileID int64) {
-	seriesMeta, err := d.metadata.Service.GetSeriesByTVDB(ctx, tvdbID)
-	if err != nil {
-		d.logger.Error().Err(err).Int("tvdbID", tvdbID).Msg("Failed to fetch mock series metadata")
-		return
-	}
-
-	seasonsMeta, err := d.metadata.Service.GetSeriesSeasons(ctx, seriesMeta.TmdbID, seriesMeta.TvdbID)
-	if err != nil {
-		d.logger.Warn().Err(err).Str("title", seriesMeta.Title).Msg("Failed to fetch seasons, using empty")
-		seasonsMeta = nil
-	}
-
-	seasons := d.convertSeasonsMetadata(seasonsMeta)
-	path := fsmock.MockTVPath + "/" + seriesMeta.Title
-
-	input := tv.CreateSeriesInput{
-		Title:            seriesMeta.Title,
-		Year:             seriesMeta.Year,
-		TvdbID:           seriesMeta.TvdbID,
-		TmdbID:           seriesMeta.TmdbID,
-		ImdbID:           seriesMeta.ImdbID,
-		Overview:         seriesMeta.Overview,
-		Runtime:          seriesMeta.Runtime,
-		Network:          seriesMeta.Network,
-		NetworkLogoURL:   seriesMeta.NetworkLogoURL,
-		RootFolderID:     rootFolderID,
-		QualityProfileID: qualityProfileID,
-		Path:             path,
-		Monitored:        true,
-		SeasonFolder:     true,
-		Seasons:          seasons,
-	}
-
-	series, err := d.library.TV.CreateSeries(ctx, &input)
-	if err != nil {
-		d.logger.Error().Err(err).Str("title", seriesMeta.Title).Msg("Failed to create mock series")
-		return
-	}
-
-	go func(meta *metadata.SeriesResult) {
-		if err := d.metadata.ArtworkDownloader.DownloadSeriesArtwork(ctx, meta); err != nil {
-			d.logger.Debug().Err(err).Str("title", meta.Title).Msg("Failed to download series artwork")
-		}
-	}(seriesMeta)
-
-	if hasFiles {
-		d.createMockEpisodeFiles(ctx, series.ID, path, qualityProfileID)
-	}
-
-	d.logger.Debug().Str("title", seriesMeta.Title).Bool("hasFiles", hasFiles).Int("seasons", len(seasons)).Msg("Created mock series")
-}
-
-func (d *DevModeManager) convertSeasonsMetadata(seasonsMeta []metadata.SeasonResult) []tv.SeasonInput {
-	var seasons []tv.SeasonInput
-	for _, sm := range seasonsMeta {
-		episodes := d.convertEpisodesMetadata(sm.Episodes)
-		seasons = append(seasons, tv.SeasonInput{
-			SeasonNumber: sm.SeasonNumber,
-			Monitored:    true,
-			Episodes:     episodes,
-		})
-	}
-	return seasons
-}
-
-func (d *DevModeManager) convertEpisodesMetadata(episodesMeta []metadata.EpisodeResult) []tv.EpisodeInput {
-	var episodes []tv.EpisodeInput
-	for _, ep := range episodesMeta {
-		var airDate *time.Time
-		if ep.AirDate != "" {
-			if t, err := time.Parse("2006-01-02", ep.AirDate); err == nil {
-				airDate = &t
-			}
-		}
-		episodes = append(episodes, tv.EpisodeInput{
-			EpisodeNumber: ep.EpisodeNumber,
-			Title:         ep.Title,
-			Overview:      ep.Overview,
-			AirDate:       airDate,
-			Monitored:     true,
-		})
-	}
-	return episodes
-}
-
-func (d *DevModeManager) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string, qualityProfileID int64) {
-	vfs := fsmock.GetInstance()
-	seasonDirs, err := vfs.ListDirectory(seriesPath)
-	if err != nil {
-		return
-	}
-
-	episodes, err := d.library.TV.ListEpisodes(ctx, seriesID, nil)
-	if err != nil {
-		return
-	}
-
-	var profile *quality.Profile
-	if d.library.Quality != nil {
-		profile, _ = d.library.Quality.Get(ctx, qualityProfileID)
-	}
-
-	queries := sqlc.New(d.dbManager.Conn())
-	episodeMap := d.buildEpisodeMap(episodes)
-
-	for _, seasonDir := range seasonDirs {
-		d.processSeasonDirectory(ctx, queries, episodeMap, profile, vfs, seasonDir)
-	}
-}
-
-func (d *DevModeManager) buildEpisodeMap(episodes []tv.Episode) map[string]int64 {
-	episodeMap := make(map[string]int64)
-	for _, ep := range episodes {
-		key := itoa(ep.SeasonNumber) + ":" + itoa(ep.EpisodeNumber)
-		episodeMap[key] = ep.ID
-	}
-	return episodeMap
-}
-
-func (d *DevModeManager) processSeasonDirectory(ctx context.Context, queries *sqlc.Queries, episodeMap map[string]int64, profile *quality.Profile, vfs *fsmock.VirtualFS, seasonDir *fsmock.VirtualFile) {
-	if seasonDir.Type != fsmock.FileTypeDirectory {
-		return
-	}
-
-	seasonNum := parseSeasonNumber(seasonDir.Name)
-	if seasonNum == 0 {
-		return
-	}
-
-	episodeFiles, err := vfs.ListDirectory(seasonDir.Path)
-	if err != nil {
-		return
-	}
-
-	for _, f := range episodeFiles {
-		d.processEpisodeFile(ctx, queries, episodeMap, profile, f, seasonNum)
-	}
-}
-
-func (d *DevModeManager) processEpisodeFile(ctx context.Context, queries *sqlc.Queries, episodeMap map[string]int64, profile *quality.Profile, f *fsmock.VirtualFile, seasonNum int) {
-	if f.Type != fsmock.FileTypeVideo {
-		return
-	}
-
-	epNum := parseEpisodeNumber(f.Name)
-	if epNum == 0 {
-		return
-	}
-
-	key := itoa(seasonNum) + ":" + itoa(epNum)
-	episodeID, ok := episodeMap[key]
-	if !ok {
-		return
-	}
-
-	qualityName := parseQualityFromFilename(f.Name)
-	qualityID := sql.NullInt64{}
-	if q, ok := quality.GetQualityByName(qualityName); ok {
-		qualityID = sql.NullInt64{Int64: int64(q.ID), Valid: true}
-	}
-
-	_, _ = queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
-		EpisodeID: episodeID,
-		Path:      f.Path,
-		Size:      f.Size,
-		Quality:   sql.NullString{String: qualityName, Valid: qualityName != ""},
-		QualityID: qualityID,
-	})
-
-	episodeStatus := "available"
-	if qualityID.Valid && profile != nil {
-		episodeStatus = profile.StatusForQuality(int(qualityID.Int64))
-	}
-	_ = queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
-		ID:     episodeID,
-		Status: episodeStatus,
-	})
-}
-
-func parseQualityFromFilename(filename string) string {
-	filename = strings.ToLower(filename)
-	if strings.Contains(filename, "2160p") {
-		if strings.Contains(filename, "remux") {
-			return "Remux-2160p"
-		}
-		return "Bluray-2160p"
-	}
-	if strings.Contains(filename, "1080p") {
-		if strings.Contains(filename, "web") {
-			return "WEBDL-1080p"
-		}
-		return "Bluray-1080p"
-	}
-	if strings.Contains(filename, "720p") {
-		if strings.Contains(filename, "web") {
-			return "WEBDL-720p"
-		}
-		return "Bluray-720p"
-	}
-	return "Unknown"
-}
-
-func parseSeasonNumber(name string) int {
-	// Handle "Season 01", "Season 1", "S01", etc.
-	name = strings.ToLower(name)
-	name = strings.TrimPrefix(name, "season ")
-	name = strings.TrimPrefix(name, "s")
-	name = strings.TrimSpace(name)
-	num, _ := strconv.Atoi(name)
-	return num
-}
-
-func parseEpisodeNumber(filename string) int {
-	filename = strings.ToLower(filename)
-	for i := 1; i < len(filename)-1; i++ {
-		if !isEpisodeMarker(filename, i) {
-			continue
-		}
-		return extractEpisodeDigits(filename, i)
-	}
-	return 0
-}
-
-func isEpisodeMarker(filename string, i int) bool {
-	if filename[i] != 'e' {
-		return false
-	}
-	if filename[i-1] < '0' || filename[i-1] > '9' {
-		return false
-	}
-	if i+1 >= len(filename) {
-		return false
-	}
-	return filename[i+1] >= '0' && filename[i+1] <= '9'
-}
-
-func extractEpisodeDigits(filename string, startIdx int) int {
-	end := startIdx + 1
-	for end < len(filename) && end < startIdx+4 && filename[end] >= '0' && filename[end] <= '9' {
-		end++
-	}
-	num, _ := strconv.Atoi(filename[startIdx+1 : end])
-	return num
-}
-
-func itoa(n int) string {
-	return strconv.Itoa(n)
 }

@@ -31,11 +31,20 @@ function useTitleWidth(rowId: string, showReleaseName: boolean) {
   return { titleRef, maxWidth }
 }
 
+const THEME_HOVER_TEXT: Record<string, string> = {
+  movie: 'hover:text-movie-500',
+  series: 'hover:text-tv-500',
+}
+
+const THEME_HOVER_BG: Record<string, string> = {
+  movie: 'hover:bg-movie-500/5',
+  series: 'hover:bg-tv-500/5',
+}
+
 type TitleCellProps = {
   titleRef: RefObject<HTMLDivElement | null>
   maxWidth: number
-  isMovie: boolean
-  isSeries: boolean
+  mediaType: string
   title: string
   titleSuffix: string
   releaseName: string
@@ -46,8 +55,7 @@ type TitleCellProps = {
 function TitleCell({
   titleRef,
   maxWidth,
-  isMovie,
-  isSeries,
+  mediaType,
   title,
   titleSuffix,
   releaseName,
@@ -64,8 +72,7 @@ function TitleCell({
           type="button"
           className={cn(
             'cursor-pointer font-medium whitespace-nowrap transition-colors',
-            isMovie && 'hover:text-movie-500',
-            isSeries && 'hover:text-tv-500',
+            THEME_HOVER_TEXT[mediaType],
           )}
           title={releaseName}
           onClick={onToggleReleaseName}
@@ -95,9 +102,7 @@ export function DownloadRow({ item, showReleaseName, onToggleReleaseName }: Down
     <div
       className={cn(
         'flex items-center gap-4 px-4 py-3 transition-colors',
-        row.isMovie && 'hover:bg-movie-500/5',
-        row.isSeries && 'hover:bg-tv-500/5',
-        !row.isMovie && !row.isSeries && 'hover:bg-accent/50',
+        THEME_HOVER_BG[item.mediaType] ?? 'hover:bg-accent/50',
       )}
     >
       <div className="shrink-0 self-center">
@@ -108,15 +113,14 @@ export function DownloadRow({ item, showReleaseName, onToggleReleaseName }: Down
         <TitleCell
           titleRef={titleRef}
           maxWidth={maxWidth}
-          isMovie={row.isMovie}
-          isSeries={row.isSeries}
+          mediaType={item.mediaType}
           title={item.title}
           titleSuffix={row.titleSuffix}
           releaseName={item.releaseName}
           showReleaseName={showReleaseName}
           onToggleReleaseName={onToggleReleaseName}
         />
-        <DownloadRowProgress item={item} isMovie={row.isMovie} isSeries={row.isSeries} progressText={row.progressText} />
+        <DownloadRowProgress item={item} mediaType={item.mediaType} progressText={row.progressText} />
       </div>
 
       <DownloadRowActions

@@ -54,8 +54,29 @@ type IndexerDefinition struct {
 	UpdatedAt         time.Time       `json:"updatedAt,omitempty"`
 }
 
+// SupportsModule checks if this indexer supports a module type by examining
+// whether its category list includes any categories in the module's declared range.
+func (d *IndexerDefinition) SupportsModule(moduleCategories []int) bool {
+	if len(d.Categories) == 0 || len(moduleCategories) == 0 {
+		return false
+	}
+	moduleCatSet := make(map[int]bool, len(moduleCategories))
+	for _, c := range moduleCategories {
+		moduleCatSet[c] = true
+	}
+	moduleMin := moduleCategories[0] / 1000 * 1000
+	moduleMax := moduleMin + 999
+	for _, c := range d.Categories {
+		if moduleCatSet[c] || (c >= moduleMin && c <= moduleMax) {
+			return true
+		}
+	}
+	return false
+}
+
 // SearchCriteria defines search parameters.
 type SearchCriteria struct {
+	ModuleType string `json:"moduleType,omitempty"` // module that generated this criteria
 	Query      string `json:"query,omitempty"`
 	Type       string `json:"type"` // search, tvsearch, movie
 	Categories []int  `json:"categories,omitempty"`

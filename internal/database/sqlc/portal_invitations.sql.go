@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
 
@@ -23,18 +22,16 @@ func (q *Queries) CountPendingPortalInvitations(ctx context.Context) (int64, err
 }
 
 const createPortalInvitation = `-- name: CreatePortalInvitation :one
-INSERT INTO portal_invitations (username, token, expires_at, movie_quality_profile_id, tv_quality_profile_id, auto_approve)
-VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id
+INSERT INTO portal_invitations (username, token, expires_at, auto_approve)
+VALUES (?, ?, ?, ?)
+RETURNING id, username, token, expires_at, used_at, auto_approve, created_at
 `
 
 type CreatePortalInvitationParams struct {
-	Username              string        `json:"username"`
-	Token                 string        `json:"token"`
-	ExpiresAt             time.Time     `json:"expires_at"`
-	MovieQualityProfileID sql.NullInt64 `json:"movie_quality_profile_id"`
-	TvQualityProfileID    sql.NullInt64 `json:"tv_quality_profile_id"`
-	AutoApprove           bool          `json:"auto_approve"`
+	Username    string    `json:"username"`
+	Token       string    `json:"token"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	AutoApprove bool      `json:"auto_approve"`
 }
 
 func (q *Queries) CreatePortalInvitation(ctx context.Context, arg CreatePortalInvitationParams) (*PortalInvitation, error) {
@@ -42,8 +39,6 @@ func (q *Queries) CreatePortalInvitation(ctx context.Context, arg CreatePortalIn
 		arg.Username,
 		arg.Token,
 		arg.ExpiresAt,
-		arg.MovieQualityProfileID,
-		arg.TvQualityProfileID,
 		arg.AutoApprove,
 	)
 	var i PortalInvitation
@@ -53,10 +48,8 @@ func (q *Queries) CreatePortalInvitation(ctx context.Context, arg CreatePortalIn
 		&i.Token,
 		&i.ExpiresAt,
 		&i.UsedAt,
-		&i.CreatedAt,
 		&i.AutoApprove,
-		&i.MovieQualityProfileID,
-		&i.TvQualityProfileID,
+		&i.CreatedAt,
 	)
 	return &i, err
 }
@@ -81,7 +74,7 @@ func (q *Queries) DeletePortalInvitation(ctx context.Context, id int64) error {
 }
 
 const getPortalInvitation = `-- name: GetPortalInvitation :one
-SELECT id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id FROM portal_invitations WHERE id = ? LIMIT 1
+SELECT id, username, token, expires_at, used_at, auto_approve, created_at FROM portal_invitations WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalInvitation(ctx context.Context, id int64) (*PortalInvitation, error) {
@@ -93,16 +86,14 @@ func (q *Queries) GetPortalInvitation(ctx context.Context, id int64) (*PortalInv
 		&i.Token,
 		&i.ExpiresAt,
 		&i.UsedAt,
-		&i.CreatedAt,
 		&i.AutoApprove,
-		&i.MovieQualityProfileID,
-		&i.TvQualityProfileID,
+		&i.CreatedAt,
 	)
 	return &i, err
 }
 
 const getPortalInvitationByToken = `-- name: GetPortalInvitationByToken :one
-SELECT id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id FROM portal_invitations WHERE token = ? LIMIT 1
+SELECT id, username, token, expires_at, used_at, auto_approve, created_at FROM portal_invitations WHERE token = ? LIMIT 1
 `
 
 func (q *Queries) GetPortalInvitationByToken(ctx context.Context, token string) (*PortalInvitation, error) {
@@ -114,16 +105,14 @@ func (q *Queries) GetPortalInvitationByToken(ctx context.Context, token string) 
 		&i.Token,
 		&i.ExpiresAt,
 		&i.UsedAt,
-		&i.CreatedAt,
 		&i.AutoApprove,
-		&i.MovieQualityProfileID,
-		&i.TvQualityProfileID,
+		&i.CreatedAt,
 	)
 	return &i, err
 }
 
 const getPortalInvitationByUsername = `-- name: GetPortalInvitationByUsername :one
-SELECT id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id FROM portal_invitations WHERE username = ? ORDER BY created_at DESC LIMIT 1
+SELECT id, username, token, expires_at, used_at, auto_approve, created_at FROM portal_invitations WHERE username = ? ORDER BY created_at DESC LIMIT 1
 `
 
 func (q *Queries) GetPortalInvitationByUsername(ctx context.Context, username string) (*PortalInvitation, error) {
@@ -135,16 +124,14 @@ func (q *Queries) GetPortalInvitationByUsername(ctx context.Context, username st
 		&i.Token,
 		&i.ExpiresAt,
 		&i.UsedAt,
-		&i.CreatedAt,
 		&i.AutoApprove,
-		&i.MovieQualityProfileID,
-		&i.TvQualityProfileID,
+		&i.CreatedAt,
 	)
 	return &i, err
 }
 
 const listPendingPortalInvitations = `-- name: ListPendingPortalInvitations :many
-SELECT id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id FROM portal_invitations
+SELECT id, username, token, expires_at, used_at, auto_approve, created_at FROM portal_invitations
 WHERE used_at IS NULL
 ORDER BY created_at DESC
 `
@@ -164,10 +151,8 @@ func (q *Queries) ListPendingPortalInvitations(ctx context.Context) ([]*PortalIn
 			&i.Token,
 			&i.ExpiresAt,
 			&i.UsedAt,
-			&i.CreatedAt,
 			&i.AutoApprove,
-			&i.MovieQualityProfileID,
-			&i.TvQualityProfileID,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -183,7 +168,7 @@ func (q *Queries) ListPendingPortalInvitations(ctx context.Context) ([]*PortalIn
 }
 
 const listPortalInvitations = `-- name: ListPortalInvitations :many
-SELECT id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id FROM portal_invitations ORDER BY created_at DESC
+SELECT id, username, token, expires_at, used_at, auto_approve, created_at FROM portal_invitations ORDER BY created_at DESC
 `
 
 func (q *Queries) ListPortalInvitations(ctx context.Context) ([]*PortalInvitation, error) {
@@ -201,10 +186,8 @@ func (q *Queries) ListPortalInvitations(ctx context.Context) ([]*PortalInvitatio
 			&i.Token,
 			&i.ExpiresAt,
 			&i.UsedAt,
-			&i.CreatedAt,
 			&i.AutoApprove,
-			&i.MovieQualityProfileID,
-			&i.TvQualityProfileID,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -234,7 +217,7 @@ UPDATE portal_invitations SET
     expires_at = ?,
     used_at = NULL
 WHERE id = ?
-RETURNING id, username, token, expires_at, used_at, created_at, auto_approve, movie_quality_profile_id, tv_quality_profile_id
+RETURNING id, username, token, expires_at, used_at, auto_approve, created_at
 `
 
 type UpdatePortalInvitationTokenParams struct {
@@ -252,10 +235,8 @@ func (q *Queries) UpdatePortalInvitationToken(ctx context.Context, arg UpdatePor
 		&i.Token,
 		&i.ExpiresAt,
 		&i.UsedAt,
-		&i.CreatedAt,
 		&i.AutoApprove,
-		&i.MovieQualityProfileID,
-		&i.TvQualityProfileID,
+		&i.CreatedAt,
 	)
 	return &i, err
 }

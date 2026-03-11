@@ -6,10 +6,9 @@ import { requestKeys } from '@/hooks/portal/use-requests'
 import { systemHealthKeys } from '@/hooks/use-health'
 import { historyKeys } from '@/hooks/use-history'
 import { missingKeys } from '@/hooks/use-missing'
-import { movieKeys } from '@/hooks/use-movies'
 import { queueKeys } from '@/hooks/use-queue'
 import { schedulerKeys } from '@/hooks/use-scheduler'
-import { seriesKeys } from '@/hooks/use-series'
+import { getModule } from '@/modules'
 import type { ProgressEventType } from '@/types/progress'
 
 import { useArtworkStore } from './artwork'
@@ -27,13 +26,24 @@ export type DispatchContext = {
   requestDebounceMs: number
 }
 
-function handleLibraryEvent(
+function handleEntityEvent(
   queryClient: QueryClient,
   type: string,
 ): void {
-  const isMovie = type.startsWith('movie:')
-  const keys = isMovie ? movieKeys.all : seriesKeys.all
-  void queryClient.invalidateQueries({ queryKey: keys })
+  const moduleId = type.split(':')[0]
+  const mod = getModule(moduleId)
+  if (!mod) {return}
+
+  void queryClient.invalidateQueries({ queryKey: mod.queryKeys.all })
+
+  for (const rule of mod.wsInvalidationRules) {
+    if (new RegExp(rule.pattern).test(type)) {
+      for (const keys of rule.alsoInvalidate ?? []) {
+        void queryClient.invalidateQueries({ queryKey: keys })
+      }
+    }
+  }
+
   void queryClient.invalidateQueries({ queryKey: missingKeys.counts() })
 }
 
@@ -118,9 +128,6 @@ function handleRequestEvent(ctx: DispatchContext): void {
 
 type MessageHandler = (message: WSMessage, ctx: DispatchContext) => void
 
-const libraryHandler: MessageHandler = (message, ctx) =>
-  handleLibraryEvent(ctx.queryClient, message.type)
-
 const queueHandler: MessageHandler = (message, ctx) =>
   handleQueueEvent(ctx.queryClient, message)
 
@@ -177,12 +184,6 @@ const logsHandler: MessageHandler = (message) => {
 }
 
 const handlerMap: Partial<Record<WSMessageType, MessageHandler>> = {
-  'movie:added': libraryHandler,
-  'movie:updated': libraryHandler,
-  'movie:deleted': libraryHandler,
-  'series:added': libraryHandler,
-  'series:updated': libraryHandler,
-  'series:deleted': libraryHandler,
   'queue:updated': queueHandler,
   'queue:state': queueHandler,
   'download:completed': downloadCompletedHandler,
@@ -217,5 +218,14 @@ export function dispatchWSMessage(
   ctx: DispatchContext,
 ): void {
   const handler = handlerMap[message.type]
-  handler?.(message, ctx)
+  if (handler) {
+    handler(message, ctx)
+    return
+  }
+
+  // Generic fallback: handle module entity events (e.g. "movie:added", "tv:deleted")
+  const action = message.type.split(':')[1]
+  if (action === 'added' || action === 'updated' || action === 'deleted') {
+    handleEntityEvent(ctx.queryClient, message.type)
+  }
 }

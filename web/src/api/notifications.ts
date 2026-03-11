@@ -1,6 +1,7 @@
 import type {
   CreateNotificationInput,
   Notification,
+  NotificationEventGroup,
   NotificationTestResult,
   NotifierSchema,
   UpdateNotificationInput,
@@ -37,4 +38,6 @@ export const notificationsApi = {
     }),
 
   getSchemas: () => apiFetch<NotifierSchema[]>('/notifications/schema'),
+
+  getEventCatalog: () => apiFetch<NotificationEventGroup[]>('/notifications/events'),
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/library/slots"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 const (
@@ -44,6 +45,9 @@ type Service struct {
 	grabLock       *decisioning.GrabLock
 	broadcaster    contracts.Broadcaster
 	logger         *zerolog.Logger
+
+	// Module registry for module-aware criteria building
+	registry *module.Registry
 
 	// Track currently running searches for cancellation
 	mu             sync.RWMutex
@@ -83,6 +87,28 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
+// SetRegistry sets the module registry for module-aware criteria building.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
+}
+
+// buildSearchCriteriaFromModule constructs criteria using the module's SearchStrategy.
+func (s *Service) buildSearchCriteriaFromModule(item module.SearchableItem) types.SearchCriteria { //nolint:unused // used when module registry is fully active
+	moduleType := module.Type(item.GetModuleType())
+	mod := s.registry.Get(moduleType)
+	if mod == nil {
+		return types.SearchCriteria{Query: item.GetTitle()}
+	}
+
+	strategy, ok := mod.(module.SearchStrategy)
+	if !ok {
+		return types.SearchCriteria{Query: item.GetTitle()}
+	}
+
+	moduleCriteria := strategy.BuildSearchCriteria(item)
+	return convertModuleCriteria(&moduleCriteria)
+}
+
 // SearchMovie searches for a movie and grabs the best release.
 func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchSource) (*SearchResult, error) {
 	// Get movie details
@@ -95,7 +121,7 @@ func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchS
 	}
 
 	item := s.movieToSearchableItem(ctx, movie)
-	return s.searchAndGrab(ctx, &item, source)
+	return s.searchAndGrab(ctx, item, source)
 }
 
 // SearchEpisode searches for an episode and grabs the best release.
@@ -118,7 +144,7 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 	}
 
 	item := s.episodeToSearchableItem(ctx, episode, series)
-	result, err := s.searchAndGrab(ctx, &item, source)
+	result, err := s.searchAndGrab(ctx, item, source)
 	if err != nil {
 		return result, err
 	}
@@ -126,7 +152,7 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 	// For first episodes of a season, try season pack search as fallback.
 	// Only for missing episodes — upgradable episodes already had season pack
 	// search attempted via SearchSeasonUpgrade before reaching here.
-	if episode.EpisodeNumber == 1 && !result.Downloaded && !item.HasFile {
+	if episode.EpisodeNumber == 1 && !result.Downloaded && !module.ItemHasFile(item) {
 		s.logger.Debug().
 			Int64("seriesId", episode.SeriesID).
 			Int64("seasonNumber", episode.SeasonNumber).
@@ -211,7 +237,7 @@ func (s *Service) searchEpisodesIndividually(ctx context.Context, episodes []*sq
 
 	for _, ep := range episodes {
 		item := s.episodeToSearchableItem(ctx, ep, series)
-		searchResult, err := s.searchAndGrab(ctx, &item, source)
+		searchResult, err := s.searchAndGrab(ctx, item, source)
 		if err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Failed to search episode")
 			result.Failed++
@@ -267,7 +293,7 @@ func (s *Service) SearchSeason(ctx context.Context, seriesID int64, seasonNumber
 // searchSeasonPack searches for a season pack release (internal method).
 func (s *Service) searchSeasonPack(ctx context.Context, series *sqlc.Series, seasonNumber int, source SearchSource) (*SearchResult, error) {
 	item := s.seriesToSeasonPackItem(series, seasonNumber)
-	return s.searchAndGrab(ctx, &item, source)
+	return s.searchAndGrab(ctx, item, source)
 }
 
 // SearchSeasonUpgrade searches for a season pack upgrade, falling back to individual episodes.
@@ -277,11 +303,21 @@ func (s *Service) SearchSeasonUpgrade(ctx context.Context, seriesID int64, seaso
 		return nil, err
 	}
 
-	item := s.seriesToSeasonPackItem(series, seasonNumber)
-	item.HasFile = true
-	item.CurrentQualityID = currentQualityID
+	baseItem := s.seriesToSeasonPackItem(series, seasonNumber)
+	// Wrap with upgrade quality info
+	qid := int64(currentQualityID)
+	item := module.NewWantedItem(
+		module.Type(baseItem.GetModuleType()),
+		baseItem.GetMediaType(),
+		baseItem.GetEntityID(),
+		baseItem.GetTitle(),
+		baseItem.GetExternalIDs(),
+		baseItem.GetQualityProfileID(),
+		&qid,
+		baseItem.GetSearchParams(),
+	)
 
-	packResult, err := s.searchAndGrab(ctx, &item, source)
+	packResult, err := s.searchAndGrab(ctx, item, source)
 	if err == nil && packResult.Downloaded {
 		return &BatchSearchResult{
 			TotalSearched: 1,
@@ -399,13 +435,12 @@ func (s *Service) executeSeriesSearch(ctx context.Context, items []SearchableIte
 		Results:       make([]*SearchResult, 0, len(items)),
 	}
 
-	for i := range items {
-		item := &items[i]
+	for _, item := range items {
 		searchResult, err := s.searchAndGrab(ctx, item, source)
 		if err != nil {
 			s.logger.Warn().Err(err).
-				Str("mediaType", string(item.MediaType)).
-				Int64("mediaId", item.MediaID).
+				Str("mediaType", item.GetMediaType()).
+				Int64("mediaId", item.GetEntityID()).
 				Msg("Failed to search item")
 			result.Failed++
 			result.Results = append(result.Results, &SearchResult{Error: err.Error()})
@@ -442,8 +477,11 @@ func (s *Service) SearchSeries(ctx context.Context, seriesID int64, source Searc
 }
 
 // searchAndGrab is the core function that searches for a release and grabs the best one.
-func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, source SearchSource) (*SearchResult, error) {
-	searchKey := fmt.Sprintf("%s:%d", item.MediaType, item.MediaID)
+func (s *Service) searchAndGrab(_ctx context.Context, item SearchableItem, source SearchSource) (*SearchResult, error) {
+	mediaType := item.GetMediaType()
+	mediaID := item.GetEntityID()
+	title := item.GetTitle()
+	searchKey := fmt.Sprintf("%s:%d", mediaType, mediaID)
 
 	// Register this search and get a cancellable context
 	searchCtx, cancel := s.registerSearch(searchKey)
@@ -453,15 +491,15 @@ func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, sour
 	s.broadcastStarted(item, source)
 
 	s.logger.Info().
-		Str("mediaType", string(item.MediaType)).
-		Int64("mediaId", item.MediaID).
-		Str("title", item.Title).
+		Str("mediaType", mediaType).
+		Int64("mediaId", mediaID).
+		Str("title", title).
 		Msg("Starting automatic search")
 
 	// Get quality profile
-	profile, err := s.qualityService.Get(searchCtx, item.QualityProfileID)
+	profile, err := s.qualityService.Get(searchCtx, item.GetQualityProfileID())
 	if err != nil {
-		s.logger.Warn().Err(err).Int64("profileId", item.QualityProfileID).
+		s.logger.Warn().Err(err).Int64("profileId", item.GetQualityProfileID()).
 			Msg("Failed to get quality profile, using default")
 		defaultProfile := quality.DefaultProfile()
 		profile = &defaultProfile
@@ -473,9 +511,9 @@ func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, sour
 	// Build scoring parameters
 	scoringParams := search.ScoredSearchParams{
 		QualityProfile: profile,
-		SearchYear:     item.Year,
-		SearchSeason:   item.SeasonNumber,
-		SearchEpisode:  item.EpisodeNumber,
+		SearchYear:     module.ItemYear(item),
+		SearchSeason:   module.ItemSeasonNumber(item),
+		SearchEpisode:  module.ItemEpisodeNumber(item),
 	}
 
 	// Execute search and select best release
@@ -487,11 +525,13 @@ func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, sour
 		return earlyResult, nil
 	}
 
-	isUpgrade := item.HasFile && item.CurrentQualityID > 0
+	hasFile := module.ItemHasFile(item)
+	currentQualityID := module.ItemCurrentQualityID(item)
+	isUpgrade := hasFile && currentQualityID > 0
 
 	// Acquire grab lock to prevent concurrent grabs from RSS sync
 	if s.grabLock != nil {
-		lockKey := decisioning.Key(item.MediaType, item.MediaID)
+		lockKey := decisioning.Key(decisioning.MediaType(mediaType), mediaID)
 		if !s.grabLock.TryAcquire(lockKey) {
 			s.logger.Debug().Str("key", lockKey).Msg("skipping: grab lock held")
 			result := &SearchResult{Found: true}
@@ -504,7 +544,7 @@ func (s *Service) searchAndGrab(_ctx context.Context, item *SearchableItem, sour
 	return s.grabAndReport(searchCtx, item, bestRelease, source, isUpgrade)
 }
 
-func (s *Service) findBestRelease(ctx context.Context, item *SearchableItem, criteria *types.SearchCriteria, scoringParams *search.ScoredSearchParams, profile *quality.Profile, source SearchSource) (*types.TorrentInfo, *SearchResult, error) {
+func (s *Service) findBestRelease(ctx context.Context, item SearchableItem, criteria *types.SearchCriteria, scoringParams *search.ScoredSearchParams, profile *quality.Profile, source SearchSource) (*types.TorrentInfo, *SearchResult, error) {
 	searchResult, err := s.searchService.SearchTorrents(ctx, criteria, scoringParams)
 	if err != nil {
 		s.broadcastFailed(item, err.Error())
@@ -513,7 +553,7 @@ func (s *Service) findBestRelease(ctx context.Context, item *SearchableItem, cri
 	}
 
 	if len(searchResult.Releases) == 0 {
-		s.logger.Debug().Str("title", item.Title).Msg("No releases found")
+		s.logger.Debug().Str("title", item.GetTitle()).Msg("No releases found")
 		result := &SearchResult{Found: false}
 		s.broadcastCompleted(item, result)
 		return nil, result, nil
@@ -521,14 +561,14 @@ func (s *Service) findBestRelease(ctx context.Context, item *SearchableItem, cri
 
 	bestRelease := s.selectBestRelease(searchResult.Releases, profile, item)
 	if bestRelease == nil {
-		s.logger.Debug().Str("title", item.Title).Msg("No acceptable releases found")
+		s.logger.Debug().Str("title", item.GetTitle()).Msg("No acceptable releases found")
 		result := &SearchResult{Found: false}
 		s.broadcastCompleted(item, result)
 		return nil, result, nil
 	}
 
 	s.logger.Info().
-		Str("title", item.Title).
+		Str("title", item.GetTitle()).
 		Str("release", bestRelease.Title).
 		Float64("score", bestRelease.Score).
 		Int("normalizedScore", bestRelease.NormalizedScore).
@@ -537,7 +577,7 @@ func (s *Service) findBestRelease(ctx context.Context, item *SearchableItem, cri
 	return bestRelease, nil, nil
 }
 
-func (s *Service) grabAndReport(ctx context.Context, item *SearchableItem, bestRelease *types.TorrentInfo, source SearchSource, isUpgrade bool) (*SearchResult, error) {
+func (s *Service) grabAndReport(ctx context.Context, item SearchableItem, bestRelease *types.TorrentInfo, source SearchSource, isUpgrade bool) (*SearchResult, error) {
 	grabReq := s.buildGrabRequest(item, bestRelease)
 	grabResult, err := s.grabService.Grab(ctx, grabReq)
 	if err != nil {
@@ -565,7 +605,7 @@ func (s *Service) grabAndReport(ctx context.Context, item *SearchableItem, bestR
 	s.broadcastCompleted(item, result)
 
 	s.logger.Info().
-		Str("title", item.Title).
+		Str("title", item.GetTitle()).
 		Str("release", bestRelease.Title).
 		Str("client", grabResult.ClientName).
 		Bool("success", grabResult.Success).
@@ -574,17 +614,18 @@ func (s *Service) grabAndReport(ctx context.Context, item *SearchableItem, bestR
 	return result, nil
 }
 
-func (s *Service) buildGrabRequest(item *SearchableItem, bestRelease *types.TorrentInfo) *grab.GrabRequest {
+func (s *Service) buildGrabRequest(item SearchableItem, bestRelease *types.TorrentInfo) *grab.GrabRequest {
+	mediaType := item.GetMediaType()
 	req := &grab.GrabRequest{
 		Release:      &bestRelease.ReleaseInfo,
-		MediaType:    string(item.MediaType),
-		MediaID:      item.MediaID,
-		SeriesID:     item.SeriesID,
-		SeasonNumber: item.SeasonNumber,
-		TargetSlotID: item.TargetSlotID,
+		MediaType:    mediaType,
+		MediaID:      item.GetEntityID(),
+		SeriesID:     module.ItemSeriesID(item),
+		SeasonNumber: module.ItemSeasonNumber(item),
+		TargetSlotID: module.ItemTargetSlotID(item),
 		Source:       "auto-search",
 	}
-	if item.MediaType == MediaTypeSeason {
+	if mediaType == string(MediaTypeSeason) {
 		req.IsSeasonPack = true
 		parsed := scanner.ParseFilename(bestRelease.Title)
 		if parsed.IsCompleteSeries {
@@ -644,73 +685,87 @@ func (s *Service) IsSearching(mediaType MediaType, mediaID int64) bool {
 
 // IsInQueue checks if a media item has an active download in the queue.
 func (s *Service) IsInQueue(ctx context.Context, mediaType MediaType, mediaID int64) bool {
+	entityType := string(mediaType)
+	modType := s.moduleTypeForEntity(entityType)
+
 	switch mediaType {
-	case MediaTypeMovie:
-		result, err := s.queries.IsMovieDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
-		return err == nil && result == 1
-
 	case MediaTypeEpisode:
-		ep, err := s.queries.GetEpisode(ctx, mediaID)
-		if err != nil {
-			return false
-		}
-		result, err := s.queries.IsEpisodeDownloading(ctx, sqlc.IsEpisodeDownloadingParams{
-			EpisodeID:    sql.NullInt64{Int64: mediaID, Valid: true},
-			SeriesID:     sql.NullInt64{Int64: ep.SeriesID, Valid: true},
-			SeasonNumber: sql.NullInt64{Int64: ep.SeasonNumber, Valid: true},
-			SeriesID_2:   sql.NullInt64{Int64: ep.SeriesID, Valid: true},
-		})
-		return err == nil && result == 1
-
-	case MediaTypeSeries:
-		result, err := s.queries.IsSeriesDownloading(ctx, sql.NullInt64{Int64: mediaID, Valid: true})
-		return err == nil && result == 1
-
-	case MediaTypeSeason:
-		// Season status endpoint isn't used with download queue checks
-		return false
-
+		return s.isEpisodeInQueue(ctx, modType, mediaID)
 	default:
-		return false
+		return s.isEntityDownloading(ctx, modType, entityType, mediaID)
 	}
 }
 
+func (s *Service) isEntityDownloading(ctx context.Context, moduleType, entityType string, entityID int64) bool {
+	result, err := s.queries.IsEntityDownloading(ctx, sqlc.IsEntityDownloadingParams{
+		ModuleType: moduleType, EntityType: entityType, EntityID: entityID,
+	})
+	return err == nil && result == 1
+}
+
+func (s *Service) isEpisodeInQueue(ctx context.Context, modType string, episodeID int64) bool {
+	if s.isEntityDownloading(ctx, modType, "episode", episodeID) {
+		return true
+	}
+	ep, err := s.queries.GetEpisode(ctx, episodeID)
+	if err != nil {
+		return false
+	}
+	return s.isEntityDownloading(ctx, modType, "series", ep.SeriesID)
+}
+
+// moduleTypeForEntity maps an entity type string to its owning module type
+// using the registry. Falls back to the legacy movie/tv assumption when the
+// registry is not available.
+func (s *Service) moduleTypeForEntity(entityType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(entityType)); mod != nil {
+			return string(mod.ID())
+		}
+	}
+	if entityType == "movie" {
+		return "movie"
+	}
+	return "tv"
+}
+
 // buildSearchCriteria creates search criteria from a searchable item.
-func (s *Service) buildSearchCriteria(item *SearchableItem) types.SearchCriteria {
+func (s *Service) buildSearchCriteria(item SearchableItem) types.SearchCriteria {
+	mediaType := item.GetMediaType()
 	criteria := types.SearchCriteria{
-		Query: item.Title,
+		Query: item.GetTitle(),
 	}
 
-	switch item.MediaType {
-	case MediaTypeMovie:
+	switch mediaType {
+	case string(MediaTypeMovie):
 		criteria.Type = "movie"
 		criteria.Categories = indexer.MovieCategories()
-		if item.ImdbID != "" {
-			criteria.ImdbID = item.ImdbID
+		if imdbID := module.ItemImdbID(item); imdbID != "" {
+			criteria.ImdbID = imdbID
 		}
-		if item.TmdbID > 0 {
-			criteria.TmdbID = item.TmdbID
+		if tmdbID := module.ItemTmdbID(item); tmdbID > 0 {
+			criteria.TmdbID = tmdbID
 		}
-		if item.Year > 0 {
-			criteria.Year = item.Year
+		if year := module.ItemYear(item); year > 0 {
+			criteria.Year = year
 		}
 
-	case MediaTypeEpisode:
+	case string(MediaTypeEpisode):
 		criteria.Type = "tvsearch"
 		criteria.Categories = indexer.TVCategories()
-		if item.TvdbID > 0 {
-			criteria.TvdbID = item.TvdbID
+		if tvdbID := module.ItemTvdbID(item); tvdbID > 0 {
+			criteria.TvdbID = tvdbID
 		}
-		criteria.Season = item.SeasonNumber
-		criteria.Episode = item.EpisodeNumber
+		criteria.Season = module.ItemSeasonNumber(item)
+		criteria.Episode = module.ItemEpisodeNumber(item)
 
-	case MediaTypeSeason:
+	case string(MediaTypeSeason):
 		criteria.Type = "tvsearch"
 		// Don't filter by categories for season pack searches - some indexers
 		// categorize season packs differently than individual episodes, and
 		// filtering would exclude them. This matches manual search behavior.
-		if item.TvdbID > 0 {
-			criteria.TvdbID = item.TvdbID
+		if tvdbID := module.ItemTvdbID(item); tvdbID > 0 {
+			criteria.TvdbID = tvdbID
 		}
 		// Don't set Season parameter for season pack searches. Setting it would
 		// cause indexers to filter server-side, potentially excluding complete
@@ -725,31 +780,51 @@ func (s *Service) buildSearchCriteria(item *SearchableItem) types.SearchCriteria
 
 // selectBestRelease selects the best release from scored results.
 // Delegates to the shared decisioning.SelectBestRelease.
-func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item *SearchableItem) *types.TorrentInfo {
-	return decisioning.SelectBestRelease(releases, profile, item, s.logger)
+func (s *Service) selectBestRelease(releases []types.TorrentInfo, profile *quality.Profile, item SearchableItem) *types.TorrentInfo {
+	strategy := s.strategyForItem(item)
+	parser := s.releaseParser()
+	return decisioning.SelectBestRelease(releases, profile, item, strategy, parser, s.logger)
+}
+
+// strategyForItem returns the module's SearchStrategy for the given item.
+func (s *Service) strategyForItem(item SearchableItem) module.SearchStrategy {
+	if s.registry != nil {
+		if mod := s.registry.Get(module.Type(item.GetModuleType())); mod != nil {
+			return mod
+		}
+	}
+	return decisioning.DefaultStrategy{}
+}
+
+// releaseParser returns a function that converts release titles to ReleaseForFilter.
+func (s *Service) releaseParser() decisioning.ReleaseParser {
+	if s.registry != nil {
+		return s.registry.ParseReleaseForFilter
+	}
+	return decisioning.FallbackReleaseParser
 }
 
 func (s *Service) movieToSearchableItem(ctx context.Context, movie *sqlc.Movie) SearchableItem {
-	return decisioning.MovieToSearchableItem(ctx, s.queries, s.logger, movie)
+	return decisioning.MovieToWantedItem(ctx, s.queries, s.logger, movie)
 }
 
 func (s *Service) episodeToSearchableItem(ctx context.Context, episode *sqlc.Episode, series *sqlc.Series) SearchableItem {
-	return decisioning.EpisodeToSearchableItem(ctx, s.queries, s.logger, episode, series)
+	return decisioning.EpisodeToWantedItem(ctx, s.queries, s.logger, episode, series)
 }
 
 // seriesToSeasonPackItem converts a series and season number to a season pack SearchableItem.
 func (s *Service) seriesToSeasonPackItem(series *sqlc.Series, seasonNumber int) SearchableItem {
-	return decisioning.SeriesToSeasonPackItem(series, seasonNumber)
+	return decisioning.SeriesToSeasonPackWantedItem(series, seasonNumber)
 }
 
 // movieUpgradeCandidateToSearchableItem converts an upgrade candidate movie to a SearchableItem.
 func (s *Service) movieUpgradeCandidateToSearchableItem(movie *sqlc.ListMovieUpgradeCandidatesRow) SearchableItem {
-	return decisioning.MovieUpgradeCandidateToSearchableItem(movie)
+	return decisioning.MovieUpgradeCandidateToWantedItem(movie)
 }
 
 // episodeUpgradeCandidateToSearchableItem converts an upgrade candidate row to a SearchableItem.
 func (s *Service) episodeUpgradeCandidateToSearchableItem(row *sqlc.ListEpisodeUpgradeCandidatesRow) SearchableItem {
-	return decisioning.EpisodeUpgradeCandidateToSearchableItem(row)
+	return decisioning.EpisodeUpgradeCandidateToWantedItem(row)
 }
 
 // getMissingEpisodesForSeason returns missing, monitored episodes for a specific season.
@@ -881,8 +956,9 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 
 	// Reset autosearch backoff
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "movie",
-		ItemID:   movieID,
+		ModuleType: "movie",
+		EntityType: "movie",
+		EntityID:   movieID,
 	})
 
 	if s.historyService != nil {
@@ -891,7 +967,7 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 		})
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.broadcaster.BroadcastEntity("movie", "movie", movieID, "updated", nil)
 	}
 
 	return &RetryResult{
@@ -941,13 +1017,15 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 
 	// Reset autosearch backoff for this episode
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "episode",
-		ItemID:   episodeID,
+		ModuleType: "tv",
+		EntityType: "episode",
+		EntityID:   episodeID,
 	})
 	// Also reset series-level backoff so season pack searches are unblocked
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ItemType: "series",
-		ItemID:   episode.SeriesID,
+		ModuleType: "tv",
+		EntityType: "series",
+		EntityID:   episode.SeriesID,
 	})
 
 	if s.historyService != nil {
@@ -956,7 +1034,7 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 		})
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.Broadcast("series:updated", map[string]any{"id": episode.SeriesID})
+		s.broadcaster.BroadcastEntity("tv", "series", episode.SeriesID, "updated", nil)
 	}
 
 	return &RetryResult{
@@ -967,26 +1045,26 @@ func (s *Service) RetryEpisode(ctx context.Context, episodeID int64) (*RetryResu
 
 // Broadcast helpers
 
-func (s *Service) broadcastStarted(item *SearchableItem, source SearchSource) {
+func (s *Service) broadcastStarted(item SearchableItem, source SearchSource) {
 	if s.broadcaster == nil {
 		return
 	}
 	s.broadcaster.Broadcast(EventAutoSearchStarted, AutoSearchStartedPayload{
-		MediaType: item.MediaType,
-		MediaID:   item.MediaID,
-		Title:     item.Title,
+		MediaType: MediaType(item.GetMediaType()),
+		MediaID:   item.GetEntityID(),
+		Title:     item.GetTitle(),
 		Source:    source,
 	})
 }
 
-func (s *Service) broadcastCompleted(item *SearchableItem, result *SearchResult) {
+func (s *Service) broadcastCompleted(item SearchableItem, result *SearchResult) {
 	if s.broadcaster == nil {
 		return
 	}
 	payload := AutoSearchCompletedPayload{
-		MediaType:  item.MediaType,
-		MediaID:    item.MediaID,
-		Title:      item.Title,
+		MediaType:  MediaType(item.GetMediaType()),
+		MediaID:    item.GetEntityID(),
+		Title:      item.GetTitle(),
 		Found:      result.Found,
 		Downloaded: result.Downloaded,
 		Upgraded:   result.Upgraded,
@@ -998,30 +1076,31 @@ func (s *Service) broadcastCompleted(item *SearchableItem, result *SearchResult)
 	s.broadcaster.Broadcast(EventAutoSearchCompleted, payload)
 }
 
-func (s *Service) broadcastFailed(item *SearchableItem, errMsg string) {
+func (s *Service) broadcastFailed(item SearchableItem, errMsg string) {
 	if s.broadcaster == nil {
 		return
 	}
 	s.broadcaster.Broadcast(EventAutoSearchFailed, AutoSearchFailedPayload{
-		MediaType: item.MediaType,
-		MediaID:   item.MediaID,
-		Title:     item.Title,
+		MediaType: MediaType(item.GetMediaType()),
+		MediaID:   item.GetEntityID(),
+		Title:     item.GetTitle(),
 		Error:     errMsg,
 	})
 }
 
 // History logging helpers
 
-func (s *Service) logAutoSearchSuccess(ctx context.Context, item *SearchableItem, source SearchSource, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
+func (s *Service) logAutoSearchSuccess(ctx context.Context, item SearchableItem, source SearchSource, release *types.TorrentInfo, grabResult *grab.GrabResult, isUpgrade bool) {
 	if s.historyService == nil {
 		return
 	}
 
 	var mediaType history.MediaType
-	switch item.MediaType {
-	case MediaTypeSeason, MediaTypeSeries:
+	mt := item.GetMediaType()
+	switch mt {
+	case string(MediaTypeSeason), string(MediaTypeSeries):
 		mediaType = history.MediaTypeSeason
-	case MediaTypeEpisode:
+	case string(MediaTypeEpisode):
 		mediaType = history.MediaTypeEpisode
 	default:
 		mediaType = history.MediaTypeMovie
@@ -1043,27 +1122,28 @@ func (s *Service) logAutoSearchSuccess(ctx context.Context, item *SearchableItem
 	if isUpgrade {
 		data.NewQuality = qualityStr
 	}
-	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.MediaID, qualityStr, &data); err != nil {
+	if err := s.historyService.LogAutoSearchDownload(ctx, mediaType, item.GetEntityID(), qualityStr, &data); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to log autosearch download event")
 	}
 }
 
-func (s *Service) logAutoSearchFailed(ctx context.Context, item *SearchableItem, source SearchSource, errMsg string) {
+func (s *Service) logAutoSearchFailed(ctx context.Context, item SearchableItem, source SearchSource, errMsg string) {
 	if s.historyService == nil {
 		return
 	}
 
 	var mediaType history.MediaType
-	switch item.MediaType {
-	case MediaTypeSeason, MediaTypeSeries:
+	mt := item.GetMediaType()
+	switch mt {
+	case string(MediaTypeSeason), string(MediaTypeSeries):
 		mediaType = history.MediaTypeSeason
-	case MediaTypeEpisode:
+	case string(MediaTypeEpisode):
 		mediaType = history.MediaTypeEpisode
 	default:
 		mediaType = history.MediaTypeMovie
 	}
 
-	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.MediaID, history.AutoSearchFailedData{
+	if err := s.historyService.LogAutoSearchFailed(ctx, mediaType, item.GetEntityID(), history.AutoSearchFailedData{
 		Error:  errMsg,
 		Source: string(source),
 	}); err != nil {

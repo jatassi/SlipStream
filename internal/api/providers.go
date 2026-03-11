@@ -20,11 +20,13 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
-	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/organizer"
-	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
+	"github.com/slipstream/slipstream/internal/module"
+	moviemod "github.com/slipstream/slipstream/internal/modules/movie"
+	tvmod "github.com/slipstream/slipstream/internal/modules/tv"
 	"github.com/slipstream/slipstream/internal/notification/plex"
 	"github.com/slipstream/slipstream/internal/portal/admin"
 	portalmw "github.com/slipstream/slipstream/internal/portal/middleware"
@@ -167,6 +169,22 @@ func provideSearchLimiter(queries *sqlc.Queries) *portalratelimit.SearchLimiter 
 	})
 }
 
+// --- Module providers ---
+
+func provideRegistry(db *sql.DB, movieMod *moviemod.Module, tvMod *tvmod.Module) *module.Registry {
+	reg := module.NewRegistry()
+	reg.Register(movieMod)
+	reg.Register(tvMod)
+
+	if err := module.MigrateAll(db, reg); err != nil {
+		panic("failed to run module migrations: " + err.Error())
+	}
+
+	scanner.SetGlobalRegistry(module.NewScannerRegistryAdapter(reg))
+
+	return reg
+}
+
 // --- Adapter providers for interface bindings ---
 
 func provideStatusChangeLogger(h *history.Service) contracts.StatusChangeLogger {
@@ -177,12 +195,8 @@ func provideImportHistoryService(h *history.Service) importer.HistoryService {
 	return &importHistoryAdapter{svc: h}
 }
 
-func provideMovieLookup(m *movies.Service) requests.MovieLookup {
-	return &statusTrackerMovieLookup{movieSvc: m}
-}
-
-func provideEpisodeLookup(t *tv.Service) requests.EpisodeLookup {
-	return &statusTrackerEpisodeLookup{tvSvc: t}
+func provideModuleProvisionerLookup(registry *module.Registry) requests.ModuleProvisionerLookup {
+	return registry
 }
 
 func providePortalEnabledChecker(q *sqlc.Queries) portalmw.PortalEnabledChecker {
@@ -191,4 +205,8 @@ func providePortalEnabledChecker(q *sqlc.Queries) portalmw.PortalEnabledChecker 
 
 func provideAdminLibraryChecker(q *sqlc.Queries) *adminRequestLibraryCheckerAdapter {
 	return &adminRequestLibraryCheckerAdapter{queries: q}
+}
+
+func provideModuleProvisioner(registry *module.Registry) *moduleProvisionerAdapter {
+	return &moduleProvisionerAdapter{registry: registry}
 }

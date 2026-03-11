@@ -10,23 +10,17 @@ import {
   useUserNotifications,
   useUserNotificationSchema,
 } from '@/hooks'
-import type { CreateNotificationInput, Notification, NotifierType, UserNotification } from '@/types'
+import type { CreateNotificationInput, Notification, NotificationEventGroup, NotifierType, UserNotification } from '@/types'
 
-const portalEventTriggers = [
+const portalEventGroups: NotificationEventGroup[] = [
   {
-    key: 'onApproved',
-    label: 'Request Approved',
-    description: 'When your request is approved by an admin',
-  },
-  {
-    key: 'onDenied',
-    label: 'Request Denied',
-    description: 'When your request is denied by an admin',
-  },
-  {
-    key: 'onAvailable',
-    label: 'Request Available',
-    description: 'When your requested content becomes available',
+    id: 'requests',
+    label: 'Request Events',
+    events: [
+      { id: 'onApproved', label: 'Request Approved', description: 'When your request is approved by an admin' },
+      { id: 'onDenied', label: 'Request Denied', description: 'When your request is denied by an admin' },
+      { id: 'onAvailable', label: 'Request Available', description: 'When your requested content becomes available' },
+    ],
   },
 ]
 
@@ -37,39 +31,25 @@ function toNotificationForDialog(n: UserNotification): Notification {
     type: n.type as NotifierType,
     enabled: n.enabled,
     settings: n.settings,
-    onGrab: false,
-    onImport: false,
-    onUpgrade: false,
-    onMovieAdded: false,
-    onMovieDeleted: false,
-    onSeriesAdded: false,
-    onSeriesDeleted: false,
-    onHealthIssue: false,
-    onHealthRestored: false,
-    onAppUpdate: false,
+    eventToggles: {
+      onAvailable: n.onAvailable,
+      onApproved: n.onApproved,
+      onDenied: n.onDenied,
+    },
     includeHealthWarnings: false,
-    onAvailable: n.onAvailable,
-    onApproved: n.onApproved,
-    onDenied: n.onDenied,
     tags: [],
   }
 }
 
-type PortalNotificationInput = CreateNotificationInput & {
-  onAvailable?: boolean
-  onApproved?: boolean
-  onDenied?: boolean
-}
-
 function extractPortalEvents(data: CreateNotificationInput) {
-  const eventData = data as PortalNotificationInput
+  const toggles = data.eventToggles
   return {
     type: data.type,
     name: data.name,
     settings: data.settings,
-    onAvailable: eventData.onAvailable ?? true,
-    onApproved: eventData.onApproved ?? true,
-    onDenied: eventData.onDenied ?? true,
+    onAvailable: toggles ? toggles.onAvailable : true,
+    onApproved: toggles ? toggles.onApproved : true,
+    onDenied: toggles ? toggles.onDenied : true,
     enabled: data.enabled ?? true,
   }
 }
@@ -87,6 +67,12 @@ function buildTogglePayload(notification: UserNotification, enabled: boolean) {
       enabled,
     },
   }
+}
+
+const portalDefaultToggles: Record<string, boolean> = {
+  onApproved: true,
+  onDenied: true,
+  onAvailable: true,
 }
 
 function useNotificationMutations() {
@@ -171,7 +157,8 @@ export function useNotificationsSection() {
     dialogOpen,
     setDialogOpen,
     notificationForDialog,
-    portalEventTriggers,
+    portalEventGroups,
+    portalDefaultToggles,
     getTypeName,
     handleCreate,
     handleEdit,

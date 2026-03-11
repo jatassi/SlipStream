@@ -36,22 +36,23 @@ func (q *Queries) CountItemsExceedingBackoffThreshold(ctx context.Context, arg C
 }
 
 const deleteAutosearchStatus = `-- name: DeleteAutosearchStatus :exec
-DELETE FROM autosearch_status WHERE item_type = ? AND item_id = ?
+DELETE FROM autosearch_status WHERE module_type = ? AND entity_type = ? AND entity_id = ?
 `
 
 type DeleteAutosearchStatusParams struct {
-	ItemType string `json:"item_type"`
-	ItemID   int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
 func (q *Queries) DeleteAutosearchStatus(ctx context.Context, arg DeleteAutosearchStatusParams) error {
-	_, err := q.db.ExecContext(ctx, deleteAutosearchStatus, arg.ItemType, arg.ItemID)
+	_, err := q.db.ExecContext(ctx, deleteAutosearchStatus, arg.ModuleType, arg.EntityType, arg.EntityID)
 	return err
 }
 
 const deleteAutosearchStatusForSeriesEpisodes = `-- name: DeleteAutosearchStatusForSeriesEpisodes :exec
-DELETE FROM autosearch_status WHERE item_type = 'episode'
-AND item_id IN (SELECT id FROM episodes WHERE series_id = ?)
+DELETE FROM autosearch_status WHERE entity_type = 'episode'
+AND entity_id IN (SELECT id FROM episodes WHERE series_id = ?)
 `
 
 func (q *Queries) DeleteAutosearchStatusForSeriesEpisodes(ctx context.Context, seriesID int64) error {
@@ -61,23 +62,30 @@ func (q *Queries) DeleteAutosearchStatusForSeriesEpisodes(ctx context.Context, s
 
 const getAutosearchStatus = `-- name: GetAutosearchStatus :one
 
-SELECT id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status WHERE item_type = ? AND item_id = ? AND search_type = ? LIMIT 1
+SELECT id, module_type, entity_type, entity_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status WHERE module_type = ? AND entity_type = ? AND entity_id = ? AND search_type = ? LIMIT 1
 `
 
 type GetAutosearchStatusParams struct {
-	ItemType   string `json:"item_type"`
-	ItemID     int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 	SearchType string `json:"search_type"`
 }
 
 // Autosearch status queries for tracking search failures and backoff
 func (q *Queries) GetAutosearchStatus(ctx context.Context, arg GetAutosearchStatusParams) (*AutosearchStatus, error) {
-	row := q.db.QueryRowContext(ctx, getAutosearchStatus, arg.ItemType, arg.ItemID, arg.SearchType)
+	row := q.db.QueryRowContext(ctx, getAutosearchStatus,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SearchType,
+	)
 	var i AutosearchStatus
 	err := row.Scan(
 		&i.ID,
-		&i.ItemType,
-		&i.ItemID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.SearchType,
 		&i.FailureCount,
 		&i.LastSearchedAt,
@@ -87,26 +95,32 @@ func (q *Queries) GetAutosearchStatus(ctx context.Context, arg GetAutosearchStat
 }
 
 const incrementAutosearchFailure = `-- name: IncrementAutosearchFailure :exec
-INSERT INTO autosearch_status (item_type, item_id, search_type, failure_count, last_searched_at)
-VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
-ON CONFLICT(item_type, item_id, search_type) DO UPDATE SET
+INSERT INTO autosearch_status (module_type, entity_type, entity_id, search_type, failure_count, last_searched_at)
+VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+ON CONFLICT(module_type, entity_type, entity_id, search_type) DO UPDATE SET
     failure_count = autosearch_status.failure_count + 1,
     last_searched_at = CURRENT_TIMESTAMP
 `
 
 type IncrementAutosearchFailureParams struct {
-	ItemType   string `json:"item_type"`
-	ItemID     int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 	SearchType string `json:"search_type"`
 }
 
 func (q *Queries) IncrementAutosearchFailure(ctx context.Context, arg IncrementAutosearchFailureParams) error {
-	_, err := q.db.ExecContext(ctx, incrementAutosearchFailure, arg.ItemType, arg.ItemID, arg.SearchType)
+	_, err := q.db.ExecContext(ctx, incrementAutosearchFailure,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SearchType,
+	)
 	return err
 }
 
 const listItemsExceedingBackoffThreshold = `-- name: ListItemsExceedingBackoffThreshold :many
-SELECT id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status
+SELECT id, module_type, entity_type, entity_id, search_type, failure_count, last_searched_at, last_meta_change_at FROM autosearch_status
 WHERE failure_count >= ? AND search_type = ?
 ORDER BY last_searched_at DESC
 `
@@ -127,8 +141,9 @@ func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, arg Li
 		var i AutosearchStatus
 		if err := rows.Scan(
 			&i.ID,
-			&i.ItemType,
-			&i.ItemID,
+			&i.ModuleType,
+			&i.EntityType,
+			&i.EntityID,
 			&i.SearchType,
 			&i.FailureCount,
 			&i.LastSearchedAt,
@@ -150,66 +165,80 @@ func (q *Queries) ListItemsExceedingBackoffThreshold(ctx context.Context, arg Li
 const markAutosearchSearched = `-- name: MarkAutosearchSearched :exec
 UPDATE autosearch_status
 SET last_searched_at = CURRENT_TIMESTAMP
-WHERE item_type = ? AND item_id = ? AND search_type = ?
+WHERE module_type = ? AND entity_type = ? AND entity_id = ? AND search_type = ?
 `
 
 type MarkAutosearchSearchedParams struct {
-	ItemType   string `json:"item_type"`
-	ItemID     int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 	SearchType string `json:"search_type"`
 }
 
 func (q *Queries) MarkAutosearchSearched(ctx context.Context, arg MarkAutosearchSearchedParams) error {
-	_, err := q.db.ExecContext(ctx, markAutosearchSearched, arg.ItemType, arg.ItemID, arg.SearchType)
+	_, err := q.db.ExecContext(ctx, markAutosearchSearched,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SearchType,
+	)
 	return err
 }
 
 const resetAllAutosearchFailuresForItem = `-- name: ResetAllAutosearchFailuresForItem :exec
 UPDATE autosearch_status
 SET failure_count = 0, last_meta_change_at = CURRENT_TIMESTAMP
-WHERE item_type = ? AND item_id = ?
+WHERE module_type = ? AND entity_type = ? AND entity_id = ?
 `
 
 type ResetAllAutosearchFailuresForItemParams struct {
-	ItemType string `json:"item_type"`
-	ItemID   int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 }
 
 func (q *Queries) ResetAllAutosearchFailuresForItem(ctx context.Context, arg ResetAllAutosearchFailuresForItemParams) error {
-	_, err := q.db.ExecContext(ctx, resetAllAutosearchFailuresForItem, arg.ItemType, arg.ItemID)
+	_, err := q.db.ExecContext(ctx, resetAllAutosearchFailuresForItem, arg.ModuleType, arg.EntityType, arg.EntityID)
 	return err
 }
 
 const resetAutosearchFailure = `-- name: ResetAutosearchFailure :exec
 UPDATE autosearch_status
 SET failure_count = 0, last_meta_change_at = CURRENT_TIMESTAMP
-WHERE item_type = ? AND item_id = ? AND search_type = ?
+WHERE module_type = ? AND entity_type = ? AND entity_id = ? AND search_type = ?
 `
 
 type ResetAutosearchFailureParams struct {
-	ItemType   string `json:"item_type"`
-	ItemID     int64  `json:"item_id"`
+	ModuleType string `json:"module_type"`
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
 	SearchType string `json:"search_type"`
 }
 
 func (q *Queries) ResetAutosearchFailure(ctx context.Context, arg ResetAutosearchFailureParams) error {
-	_, err := q.db.ExecContext(ctx, resetAutosearchFailure, arg.ItemType, arg.ItemID, arg.SearchType)
+	_, err := q.db.ExecContext(ctx, resetAutosearchFailure,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
+		arg.SearchType,
+	)
 	return err
 }
 
 const upsertAutosearchStatus = `-- name: UpsertAutosearchStatus :one
-INSERT INTO autosearch_status (item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at)
-VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT(item_type, item_id, search_type) DO UPDATE SET
+INSERT INTO autosearch_status (module_type, entity_type, entity_id, search_type, failure_count, last_searched_at, last_meta_change_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(module_type, entity_type, entity_id, search_type) DO UPDATE SET
     failure_count = excluded.failure_count,
     last_searched_at = excluded.last_searched_at,
     last_meta_change_at = COALESCE(excluded.last_meta_change_at, autosearch_status.last_meta_change_at)
-RETURNING id, item_type, item_id, search_type, failure_count, last_searched_at, last_meta_change_at
+RETURNING id, module_type, entity_type, entity_id, search_type, failure_count, last_searched_at, last_meta_change_at
 `
 
 type UpsertAutosearchStatusParams struct {
-	ItemType         string       `json:"item_type"`
-	ItemID           int64        `json:"item_id"`
+	ModuleType       string       `json:"module_type"`
+	EntityType       string       `json:"entity_type"`
+	EntityID         int64        `json:"entity_id"`
 	SearchType       string       `json:"search_type"`
 	FailureCount     int64        `json:"failure_count"`
 	LastSearchedAt   sql.NullTime `json:"last_searched_at"`
@@ -218,8 +247,9 @@ type UpsertAutosearchStatusParams struct {
 
 func (q *Queries) UpsertAutosearchStatus(ctx context.Context, arg UpsertAutosearchStatusParams) (*AutosearchStatus, error) {
 	row := q.db.QueryRowContext(ctx, upsertAutosearchStatus,
-		arg.ItemType,
-		arg.ItemID,
+		arg.ModuleType,
+		arg.EntityType,
+		arg.EntityID,
 		arg.SearchType,
 		arg.FailureCount,
 		arg.LastSearchedAt,
@@ -228,8 +258,9 @@ func (q *Queries) UpsertAutosearchStatus(ctx context.Context, arg UpsertAutosear
 	var i AutosearchStatus
 	err := row.Scan(
 		&i.ID,
-		&i.ItemType,
-		&i.ItemID,
+		&i.ModuleType,
+		&i.EntityType,
+		&i.EntityID,
 		&i.SearchType,
 		&i.FailureCount,
 		&i.LastSearchedAt,

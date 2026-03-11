@@ -37,37 +37,33 @@ type QueueMediaEntry struct {
 type CreateDownloadMappingInput struct {
 	ClientID         int64
 	DownloadID       string
-	MovieID          *int64
-	SeriesID         *int64
+	ModuleType       string // "movie" or "tv"
+	EntityType       string // "movie", "episode", or "series"
+	EntityID         int64
 	SeasonNumber     *int
-	EpisodeID        *int64
 	IsSeasonPack     bool
 	IsCompleteSeries bool
+	Source           string
 	// Req 10.1.2: Target slot for multi-version tracking
 	TargetSlotID *int64
 }
 
 // CreateDownloadMapping creates a download mapping record when a download is initiated.
 // This links the download client's download ID to the library item(s).
-func (s *Service) CreateDownloadMapping(ctx context.Context, input CreateDownloadMappingInput) (*sqlc.DownloadMapping, error) {
+func (s *Service) CreateDownloadMapping(ctx context.Context, input *CreateDownloadMappingInput) (*sqlc.DownloadMapping, error) {
 	params := sqlc.CreateDownloadMappingParams{
 		ClientID:         input.ClientID,
 		DownloadID:       input.DownloadID,
+		ModuleType:       input.ModuleType,
+		EntityType:       input.EntityType,
+		EntityID:         input.EntityID,
 		IsSeasonPack:     input.IsSeasonPack,
 		IsCompleteSeries: input.IsCompleteSeries,
+		Source:           input.Source,
 	}
 
-	if input.MovieID != nil {
-		params.MovieID = sql.NullInt64{Int64: *input.MovieID, Valid: true}
-	}
-	if input.SeriesID != nil {
-		params.SeriesID = sql.NullInt64{Int64: *input.SeriesID, Valid: true}
-	}
 	if input.SeasonNumber != nil {
 		params.SeasonNumber = sql.NullInt64{Int64: int64(*input.SeasonNumber), Valid: true}
-	}
-	if input.EpisodeID != nil {
-		params.EpisodeID = sql.NullInt64{Int64: *input.EpisodeID, Valid: true}
 	}
 	// Req 10.1.2: Set target slot for multi-version tracking
 	if input.TargetSlotID != nil {
@@ -217,8 +213,9 @@ func (s *Service) IncrementMappingImportAttempts(ctx context.Context, clientID i
 // CreateQueueMediaInput contains the input for creating a queue media entry.
 type CreateQueueMediaInput struct {
 	DownloadMappingID int64
-	EpisodeID         *int64
-	MovieID           *int64
+	ModuleType        string // "movie" or "tv"
+	EntityType        string // "movie" or "episode"
+	EntityID          int64
 	FilePath          string
 	FileStatus        QueueMediaStatus
 	// Req 16.2.3: Per-episode slot assignment for season packs
@@ -226,20 +223,17 @@ type CreateQueueMediaInput struct {
 }
 
 // CreateQueueMedia creates a queue_media entry for tracking individual file import status.
-func (s *Service) CreateQueueMedia(ctx context.Context, input CreateQueueMediaInput) (*sqlc.QueueMedium, error) {
+func (s *Service) CreateQueueMedia(ctx context.Context, input *CreateQueueMediaInput) (*sqlc.QueueMedium, error) {
 	params := sqlc.CreateQueueMediaParams{
 		DownloadMappingID: input.DownloadMappingID,
+		ModuleType:        input.ModuleType,
+		EntityType:        input.EntityType,
+		EntityID:          input.EntityID,
 		FileStatus:        string(input.FileStatus),
 	}
 
 	if input.FilePath != "" {
 		params.FilePath = sql.NullString{String: input.FilePath, Valid: true}
-	}
-	if input.EpisodeID != nil {
-		params.EpisodeID = sql.NullInt64{Int64: *input.EpisodeID, Valid: true}
-	}
-	if input.MovieID != nil {
-		params.MovieID = sql.NullInt64{Int64: *input.MovieID, Valid: true}
 	}
 	// Req 16.2.3: Per-episode slot assignment for season packs
 	if input.TargetSlotID != nil {
@@ -362,10 +356,10 @@ func (s *Service) GetFailedQueueMediaWithMapping(ctx context.Context) ([]*sqlc.G
 
 // AddTorrentWithMapping adds a torrent and creates the download mapping in a single operation.
 // Returns the torrent ID and mapping ID.
-func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url string, input CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
+func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url string, input *CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
 	// Add the torrent first
 	mediaType := mediaTypeMovie
-	if input.SeriesID != nil {
+	if input.ModuleType == "tv" {
 		mediaType = mediaTypeSeries
 	}
 
@@ -389,10 +383,10 @@ func (s *Service) AddTorrentWithMapping(ctx context.Context, clientID int64, url
 
 // AddTorrentContentWithMapping adds a torrent from content and creates the download mapping.
 // Returns the torrent ID and mapping ID.
-func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int64, content []byte, input CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
+func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int64, content []byte, input *CreateDownloadMappingInput) (torrentID string, mappingID int64, err error) {
 	// Add the torrent first
 	mediaType := mediaTypeMovie
-	if input.SeriesID != nil {
+	if input.ModuleType == "tv" {
 		mediaType = mediaTypeSeries
 	}
 
@@ -416,18 +410,22 @@ func (s *Service) AddTorrentContentWithMapping(ctx context.Context, clientID int
 
 // CreateQueueMediaForMovie creates a queue_media entry for a movie download.
 func (s *Service) CreateQueueMediaForMovie(ctx context.Context, mappingID, movieID int64) (*sqlc.QueueMedium, error) {
-	return s.CreateQueueMedia(ctx, CreateQueueMediaInput{
+	return s.CreateQueueMedia(ctx, &CreateQueueMediaInput{
 		DownloadMappingID: mappingID,
-		MovieID:           &movieID,
+		ModuleType:        "movie",
+		EntityType:        "movie",
+		EntityID:          movieID,
 		FileStatus:        QueueMediaStatusPending,
 	})
 }
 
 // CreateQueueMediaForEpisode creates a queue_media entry for an episode download.
 func (s *Service) CreateQueueMediaForEpisode(ctx context.Context, mappingID, episodeID int64) (*sqlc.QueueMedium, error) {
-	return s.CreateQueueMedia(ctx, CreateQueueMediaInput{
+	return s.CreateQueueMedia(ctx, &CreateQueueMediaInput{
 		DownloadMappingID: mappingID,
-		EpisodeID:         &episodeID,
+		ModuleType:        "tv",
+		EntityType:        "episode",
+		EntityID:          episodeID,
 		FileStatus:        QueueMediaStatusPending,
 	})
 }

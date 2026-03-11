@@ -3,6 +3,7 @@ import { Save } from 'lucide-react'
 import { ErrorState } from '@/components/data/error-state'
 import { LoadingState } from '@/components/data/loading-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getEnabledModules } from '@/modules'
 
 import { MatchingTab } from './naming-matching-tab'
 import { MovieNamingTab } from './naming-movie-tab'
@@ -28,26 +29,32 @@ function SaveStatus({ isSaving, hasChanges }: { isSaving: boolean; hasChanges: b
   )
 }
 
+const MODULE_NAMING_TABS: Partial<Record<string, React.ComponentType>> = {
+  movie: MovieNamingTab,
+  tv: TvNamingTab,
+}
+
+function ModuleNamingTab({ moduleId }: { moduleId: string }) {
+  const Tab = MODULE_NAMING_TABS[moduleId]
+  if (!Tab) {
+    return null
+  }
+  return <Tab />
+}
+
 export function FileNamingSection() {
-  const {
-    form,
-    activeTab,
-    setActiveTab,
-    updateField,
-    hasChanges,
-    isLoading,
-    isError,
-    isSaving,
-    refetch,
-  } = useFileNamingSection()
+  const { form, activeTab, setActiveTab, updateField, hasChanges, isLoading, isError, isSaving, refetch } =
+    useFileNamingSection()
+  const modules = getEnabledModules()
 
   if (isLoading) {
     return <LoadingState variant="list" count={3} />
   }
-
   if (isError || !form) {
     return <ErrorState onRetry={refetch} />
   }
+
+  const isImportTab = activeTab === 'validation' || activeTab === 'matching'
 
   return (
     <div className="space-y-6">
@@ -56,29 +63,26 @@ export function FileNamingSection() {
           <TabsList>
             <TabsTrigger value="validation">Validation</TabsTrigger>
             <TabsTrigger value="matching">Matching</TabsTrigger>
-            <TabsTrigger value="tv-naming">TV Naming</TabsTrigger>
-            <TabsTrigger value="movie-naming">Movie Naming</TabsTrigger>
+            {modules.map((mod) => (
+              <TabsTrigger key={mod.id} value={`${mod.id}-naming`}>
+                {mod.singularName} Naming
+              </TabsTrigger>
+            ))}
             <TabsTrigger value="tokens">Token Reference</TabsTrigger>
           </TabsList>
-          <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} />
+          {isImportTab ? <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} /> : null}
         </div>
-
         <TabsContent value="validation" className="mt-6 max-w-2xl space-y-6">
           <ValidationTab form={form} updateField={updateField} />
         </TabsContent>
-
         <TabsContent value="matching" className="mt-6 max-w-2xl space-y-6">
           <MatchingTab form={form} updateField={updateField} />
         </TabsContent>
-
-        <TabsContent value="tv-naming" className="mt-6 max-w-3xl space-y-6">
-          <TvNamingTab form={form} updateField={updateField} />
-        </TabsContent>
-
-        <TabsContent value="movie-naming" className="mt-6 max-w-3xl space-y-6">
-          <MovieNamingTab form={form} updateField={updateField} />
-        </TabsContent>
-
+        {modules.map((mod) => (
+          <TabsContent key={mod.id} value={`${mod.id}-naming`} className="mt-6 max-w-3xl space-y-6">
+            <ModuleNamingTab moduleId={mod.id} />
+          </TabsContent>
+        ))}
         <TabsContent value="tokens" className="mt-6 max-w-4xl space-y-6">
           <TokenReferenceTab />
         </TabsContent>

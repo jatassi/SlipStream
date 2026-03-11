@@ -12,7 +12,7 @@ type ColumnConfigPopoverProps<T> = {
   columns: ColumnDef<T>[]
   visibleColumnIds: string[]
   onVisibleColumnsChange: (ids: string[]) => void
-  theme: 'movie' | 'tv'
+  theme: string
 }
 
 export function ColumnConfigPopover<T>({
@@ -22,7 +22,8 @@ export function ColumnConfigPopover<T>({
   theme,
 }: ColumnConfigPopoverProps<T>) {
   const hideableColumns = columns.filter((c) => c.hideable)
-  const accentClass = theme === 'movie' ? 'text-movie-400' : 'text-tv-400'
+  const accentMap: Record<string, string> = { movie: 'text-movie-400', tv: 'text-tv-400' }
+  const accentClass = accentMap[theme] ?? 'text-primary'
   const visibleSet = useMemo(() => new Set(visibleColumnIds), [visibleColumnIds])
 
   const toggleColumn = (id: string) => {

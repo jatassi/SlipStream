@@ -1,0 +1,146 @@
+-- Multi-Version Settings
+-- name: GetMultiVersionSettings :one
+SELECT * FROM multi_version_settings WHERE id = 1 LIMIT 1;
+
+-- name: UpdateMultiVersionSettings :one
+UPDATE multi_version_settings SET
+    enabled = ?,
+    dry_run_completed = ?,
+    last_migration_at = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 1
+RETURNING *;
+
+-- name: SetMultiVersionEnabled :one
+UPDATE multi_version_settings SET
+    enabled = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 1
+RETURNING *;
+
+-- name: SetDryRunCompleted :one
+UPDATE multi_version_settings SET
+    dry_run_completed = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 1
+RETURNING *;
+
+-- Version Slots
+-- name: GetVersionSlot :one
+SELECT * FROM version_slots WHERE id = ? LIMIT 1;
+
+-- name: GetVersionSlotByNumber :one
+SELECT * FROM version_slots WHERE slot_number = ? LIMIT 1;
+
+-- name: ListVersionSlots :many
+SELECT * FROM version_slots ORDER BY display_order;
+
+-- name: ListEnabledVersionSlots :many
+SELECT * FROM version_slots WHERE enabled = 1 ORDER BY display_order;
+
+-- name: UpdateVersionSlot :one
+UPDATE version_slots SET
+    name = ?,
+    enabled = ?,
+    quality_profile_id = ?,
+    display_order = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;
+
+-- name: UpdateVersionSlotName :one
+UPDATE version_slots SET
+    name = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;
+
+-- name: UpdateVersionSlotEnabled :one
+UPDATE version_slots SET
+    enabled = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;
+
+-- name: UpdateVersionSlotProfile :one
+UPDATE version_slots SET
+    quality_profile_id = ?,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+RETURNING *;
+
+-- name: CountSlotsUsingProfile :one
+SELECT COUNT(*) FROM version_slots WHERE quality_profile_id = ?;
+
+-- Combined File Counts
+-- name: CountAllFilesInSlot :one
+SELECT
+    (SELECT COUNT(*) FROM movie_files mf WHERE mf.slot_id = ?) +
+    (SELECT COUNT(*) FROM episode_files ef WHERE ef.slot_id = ?) as total_count;
+
+-- Slot with Profile (for joined queries)
+-- name: ListVersionSlotsWithProfiles :many
+SELECT
+    vs.*,
+    qp.id as profile_id,
+    qp.name as profile_name,
+    qp.cutoff as profile_cutoff,
+    qp.items as profile_items,
+    qp.hdr_settings as profile_hdr_settings,
+    qp.video_codec_settings as profile_video_codec_settings,
+    qp.audio_codec_settings as profile_audio_codec_settings,
+    qp.audio_channel_settings as profile_audio_channel_settings
+FROM version_slots vs
+LEFT JOIN quality_profiles qp ON vs.quality_profile_id = qp.id
+ORDER BY vs.display_order;
+
+-- name: ListEnabledVersionSlotsWithProfiles :many
+SELECT
+    vs.*,
+    qp.id as profile_id,
+    qp.name as profile_name,
+    qp.cutoff as profile_cutoff,
+    qp.items as profile_items,
+    qp.hdr_settings as profile_hdr_settings,
+    qp.video_codec_settings as profile_video_codec_settings,
+    qp.audio_codec_settings as profile_audio_codec_settings,
+    qp.audio_channel_settings as profile_audio_channel_settings
+FROM version_slots vs
+LEFT JOIN quality_profiles qp ON vs.quality_profile_id = qp.id
+WHERE vs.enabled = 1
+ORDER BY vs.display_order;
+
+-- Status Queries (movie-specific, no episode equivalent)
+-- name: ListMoviesMissingInMonitoredSlots :many
+SELECT DISTINCT m.*
+FROM movies m
+CROSS JOIN version_slots vs
+LEFT JOIN movie_slot_assignments msa ON m.id = msa.movie_id AND vs.id = msa.slot_id
+WHERE vs.enabled = 1
+  AND m.monitored = 1
+  AND (msa.monitored = 1 OR msa.monitored IS NULL)
+  AND (msa.file_id IS NULL OR msa.id IS NULL);
+
+-- Slot Disable Queries (combined UNION ALL)
+-- name: ListFilesAssignedToSlot :many
+SELECT
+    'movie' as media_type,
+    mf.id as file_id,
+    mf.path as file_path,
+    mf.movie_id as media_id,
+    m.title as media_title
+FROM movie_files mf
+JOIN movies m ON mf.movie_id = m.id
+WHERE mf.slot_id = ?
+UNION ALL
+SELECT
+    'episode' as media_type,
+    ef.id as file_id,
+    ef.path as file_path,
+    ef.episode_id as media_id,
+    s.title || ' S' || printf('%02d', e.season_number) || 'E' || printf('%02d', e.episode_number) as media_title
+FROM episode_files ef
+JOIN episodes e ON ef.episode_id = e.id
+JOIN series s ON e.series_id = s.id
+WHERE ef.slot_id = ?
+ORDER BY media_title;

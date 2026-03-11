@@ -9,7 +9,6 @@ import (
 	"github.com/slipstream/slipstream/internal/auth"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/availability"
-	"github.com/slipstream/slipstream/internal/calendar"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/defaults"
 	"github.com/slipstream/slipstream/internal/downloader"
@@ -32,7 +31,6 @@ import (
 	"github.com/slipstream/slipstream/internal/portal/autoapprove"
 	"github.com/slipstream/slipstream/internal/portal/invitations"
 	portalnotifs "github.com/slipstream/slipstream/internal/portal/notifications"
-	"github.com/slipstream/slipstream/internal/portal/provisioner"
 	"github.com/slipstream/slipstream/internal/portal/quota"
 	"github.com/slipstream/slipstream/internal/portal/requests"
 	"github.com/slipstream/slipstream/internal/portal/users"
@@ -48,7 +46,6 @@ import (
 type SwitchableServices struct {
 	// Services that accept *sql.DB
 	Defaults            *defaults.Service                  `switchable:"db"`
-	Calendar            *calendar.Service                  `switchable:"db"`
 	Availability        *availability.Service              `switchable:"db"`
 	Missing             *missing.Service                   `switchable:"db"`
 	History             *history.Service                   `switchable:"db"`
@@ -70,7 +67,6 @@ type SwitchableServices struct {
 	ImportSettings      *importer.SettingsHandlers         `switchable:"db"`
 	LibraryManager      *librarymanager.Service            `switchable:"db"`
 	Notification        *notification.Service              `switchable:"db"`
-	MediaProvisioner    *provisioner.Service               `switchable:"db"`
 	StatusTracker       *requests.StatusTracker            `switchable:"db"`
 	LibraryChecker      *requests.LibraryChecker           `switchable:"db"`
 	AdminLibraryChecker *adminRequestLibraryCheckerAdapter `switchable:"db"`

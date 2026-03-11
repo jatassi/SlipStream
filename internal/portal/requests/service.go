@@ -143,7 +143,8 @@ func (s *Service) Create(ctx context.Context, userID int64, input *CreateInput) 
 
 	req, err := s.queries.CreateRequest(ctx, sqlc.CreateRequestParams{
 		UserID:           userID,
-		MediaType:        input.MediaType,
+		ModuleType:       moduleTypeForMediaType(input.MediaType),
+		EntityType:       input.MediaType,
 		TmdbID:           toNullInt64(input.TmdbID),
 		TvdbID:           toNullInt64(input.TvdbID),
 		Title:            input.Title,
@@ -182,8 +183,8 @@ func (s *Service) Get(ctx context.Context, id int64) (*Request, error) {
 
 func (s *Service) GetByTmdbID(ctx context.Context, tmdbID int64, mediaType string) (*Request, error) {
 	req, err := s.queries.GetRequestByTmdbID(ctx, sqlc.GetRequestByTmdbIDParams{
-		TmdbID:    sql.NullInt64{Int64: tmdbID, Valid: true},
-		MediaType: mediaType,
+		TmdbID:     sql.NullInt64{Int64: tmdbID, Valid: true},
+		EntityType: mediaType,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -196,8 +197,8 @@ func (s *Service) GetByTmdbID(ctx context.Context, tmdbID int64, mediaType strin
 
 func (s *Service) GetByTvdbID(ctx context.Context, tvdbID int64, mediaType string) (*Request, error) {
 	req, err := s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
-		TvdbID:    sql.NullInt64{Int64: tvdbID, Valid: true},
-		MediaType: mediaType,
+		TvdbID:     sql.NullInt64{Int64: tvdbID, Valid: true},
+		EntityType: mediaType,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -252,7 +253,7 @@ func (s *Service) List(ctx context.Context, filters ListFilters) ([]*Request, er
 	case filters.Status != nil:
 		requests, err = s.queries.ListRequestsByStatus(ctx, *filters.Status)
 	case filters.MediaType != nil:
-		requests, err = s.queries.ListRequestsByMediaType(ctx, *filters.MediaType)
+		requests, err = s.queries.ListRequestsByEntityType(ctx, *filters.MediaType)
 	default:
 		requests, err = s.queries.ListRequests(ctx)
 	}
@@ -496,8 +497,8 @@ func (s *Service) checkExistingMovie(ctx context.Context, input *CreateInput) (*
 		return nil, sql.ErrNoRows
 	}
 	return s.queries.GetRequestByTmdbID(ctx, sqlc.GetRequestByTmdbIDParams{
-		TmdbID:    sql.NullInt64{Int64: *input.TmdbID, Valid: true},
-		MediaType: MediaTypeMovie,
+		TmdbID:     sql.NullInt64{Int64: *input.TmdbID, Valid: true},
+		EntityType: MediaTypeMovie,
 	})
 }
 
@@ -508,8 +509,8 @@ func (s *Service) checkExistingSeries(ctx context.Context, input *CreateInput) (
 
 	// Same-type check first
 	req, err := s.queries.GetRequestByTvdbID(ctx, sqlc.GetRequestByTvdbIDParams{
-		TvdbID:    sql.NullInt64{Int64: *input.TvdbID, Valid: true},
-		MediaType: MediaTypeSeries,
+		TvdbID:     sql.NullInt64{Int64: *input.TvdbID, Valid: true},
+		EntityType: MediaTypeSeries,
 	})
 	if err == nil && req != nil {
 		return req, nil
@@ -585,11 +586,11 @@ func buildCoveredSeasonsMap(reqs []*sqlc.Request) (map[int64]bool, *sqlc.Request
 	coveredSeasons := make(map[int64]bool)
 	var coveringReq *sqlc.Request
 	for _, r := range reqs {
-		if r.MediaType == MediaTypeSeries {
+		if r.EntityType == MediaTypeSeries {
 			for _, sn := range seasonsFromJSON(r.RequestedSeasons) {
 				coveredSeasons[sn] = true
 			}
-		} else if r.MediaType == MediaTypeSeason && r.SeasonNumber.Valid {
+		} else if r.EntityType == MediaTypeSeason && r.SeasonNumber.Valid {
 			coveredSeasons[r.SeasonNumber.Int64] = true
 		}
 		if coveringReq == nil {
@@ -672,7 +673,7 @@ func toRequest(r *sqlc.Request) *Request {
 	req := &Request{
 		ID:        r.ID,
 		UserID:    r.UserID,
-		MediaType: r.MediaType,
+		MediaType: r.EntityType,
 		Title:     r.Title,
 		Status:    r.Status,
 		CreatedAt: r.CreatedAt,
@@ -699,6 +700,13 @@ func toRequest(r *sqlc.Request) *Request {
 	req.RequestedSeasons = seasonsFromJSON(r.RequestedSeasons)
 
 	return req
+}
+
+func moduleTypeForMediaType(mediaType string) string {
+	if mediaType == MediaTypeMovie {
+		return "movie"
+	}
+	return "tv"
 }
 
 func assignNullableInt64(dest **int64, src sql.NullInt64) {

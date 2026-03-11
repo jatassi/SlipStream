@@ -166,9 +166,10 @@ func TestRecalculateStatusForProfile_MovieCutoffChange(t *testing.T) {
 
 	// Create profile with cutoff=11 (Bluray-1080p)
 	profile, err := qs.Create(ctx, &CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11,
+		Items:      HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -237,9 +238,10 @@ func TestRecalculateStatusForProfile_EpisodeCutoffChange(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "tv",
+		Cutoff:     11,
+		Items:      HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -325,6 +327,7 @@ func TestRecalculateStatusForProfile_UpgradesDisabledChange(t *testing.T) {
 	upgradesEnabled := true
 	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:            "HD-1080p",
+		ModuleType:      "movie",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesEnabled,
 		Items:           HD1080pProfile().Items,
@@ -389,6 +392,7 @@ func TestRecalculateStatusForProfile_UpgradesEnabledChange(t *testing.T) {
 	upgradesDisabled := false
 	profile, err := qs.Create(ctx, &CreateProfileInput{
 		Name:            "HD-1080p",
+		ModuleType:      "movie",
 		Cutoff:          11,
 		UpgradesEnabled: &upgradesDisabled,
 		Items:           HD1080pProfile().Items,
@@ -451,9 +455,10 @@ func TestRecalculateStatusForProfile_SkipsNonApplicableStatuses(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11,
+		Items:      HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)
@@ -511,9 +516,10 @@ func TestRecalculateStatusForProfile_NoChangeNeeded(t *testing.T) {
 	ctx := context.Background()
 
 	profile, err := qs.Create(ctx, &CreateProfileInput{
-		Name:   "HD-1080p",
-		Cutoff: 11,
-		Items:  HD1080pProfile().Items,
+		Name:       "HD-1080p",
+		ModuleType: "movie",
+		Cutoff:     11,
+		Items:      HD1080pProfile().Items,
 	})
 	if err != nil {
 		t.Fatalf("Create profile error = %v", err)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/quality"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/testutil"
 )
 
@@ -18,6 +19,7 @@ func createProfile(t *testing.T, tdb *testutil.TestDB) int64 {
 	p := quality.HD1080pProfile()
 	created, err := qs.Create(context.Background(), &quality.CreateProfileInput{
 		Name:            p.Name,
+		ModuleType:      "movie",
 		Cutoff:          p.Cutoff,
 		UpgradeStrategy: p.UpgradeStrategy,
 		Items:           p.Items,
@@ -287,9 +289,9 @@ func TestCollectWantedItems_MissingMovie(t *testing.T) {
 
 	var found bool
 	for _, item := range items {
-		if item.MediaType == MediaTypeMovie && item.Title == "Dune Part Two" {
+		if item.GetMediaType() == string(MediaTypeMovie) && item.GetTitle() == "Dune Part Two" {
 			found = true
-			if item.HasFile {
+			if module.ItemHasFile(item) {
 				t.Error("missing movie should not have HasFile=true")
 			}
 		}
@@ -322,13 +324,13 @@ func TestCollectWantedItems_UpgradableMovie(t *testing.T) {
 
 	var found bool
 	for _, item := range items {
-		if item.MediaType == MediaTypeMovie && item.Title == "Inception" {
+		if item.GetMediaType() == string(MediaTypeMovie) && item.GetTitle() == "Inception" {
 			found = true
-			if !item.HasFile {
+			if !module.ItemHasFile(item) {
 				t.Error("upgradable movie should have HasFile=true")
 			}
-			if item.CurrentQualityID != 6 {
-				t.Errorf("expected CurrentQualityID=6, got %d", item.CurrentQualityID)
+			if module.ItemCurrentQualityID(item) != 6 {
+				t.Errorf("expected CurrentQualityID=6, got %d", module.ItemCurrentQualityID(item))
 			}
 		}
 	}
@@ -363,14 +365,14 @@ func TestCollectWantedItems_AllMissingEpisodes_SeasonItem(t *testing.T) {
 
 	var seasonItems, episodeItems int
 	for _, item := range items {
-		if item.Title == "Breaking Bad" {
-			switch item.MediaType {
-			case MediaTypeSeason:
+		if item.GetTitle() == "Breaking Bad" {
+			switch item.GetMediaType() {
+			case string(MediaTypeSeason):
 				seasonItems++
-				if item.SeasonNumber != 3 {
-					t.Errorf("expected SeasonNumber=3, got %d", item.SeasonNumber)
+				if module.ItemSeasonNumber(item) != 3 {
+					t.Errorf("expected SeasonNumber=3, got %d", module.ItemSeasonNumber(item))
 				}
-			case MediaTypeEpisode:
+			case string(MediaTypeEpisode):
 				episodeItems++
 			}
 		}
@@ -410,13 +412,13 @@ func TestCollectWantedItems_AllUpgradableEpisodes_SeasonItem(t *testing.T) {
 
 	var seasonItems int
 	for _, item := range items {
-		if item.Title == "Breaking Bad" && item.MediaType == MediaTypeSeason {
+		if item.GetTitle() == "Breaking Bad" && item.GetMediaType() == string(MediaTypeSeason) {
 			seasonItems++
-			if !item.HasFile {
+			if !module.ItemHasFile(item) {
 				t.Error("season upgrade item should have HasFile=true")
 			}
-			if item.CurrentQualityID != 6 {
-				t.Errorf("expected CurrentQualityID=6, got %d", item.CurrentQualityID)
+			if module.ItemCurrentQualityID(item) != 6 {
+				t.Errorf("expected CurrentQualityID=6, got %d", module.ItemCurrentQualityID(item))
 			}
 		}
 	}
@@ -456,11 +458,11 @@ func TestCollectWantedItems_MixedUpgradableAndCutoff_IndividualItems(t *testing.
 
 	var epCount, seasonCount int
 	for _, item := range items {
-		if item.Title == "Breaking Bad" {
-			switch item.MediaType {
-			case MediaTypeEpisode:
+		if item.GetTitle() == "Breaking Bad" {
+			switch item.GetMediaType() {
+			case string(MediaTypeEpisode):
 				epCount++
-			case MediaTypeSeason:
+			case string(MediaTypeSeason):
 				seasonCount++
 			}
 		}
@@ -502,7 +504,7 @@ func TestCollectWantedItems_MissingPlusUnreleased_IndividualItems(t *testing.T) 
 
 	var epCount int
 	for _, item := range items {
-		if item.Title == "The Mandalorian" && item.MediaType == MediaTypeEpisode {
+		if item.GetTitle() == "The Mandalorian" && item.GetMediaType() == string(MediaTypeEpisode) {
 			epCount++
 		}
 	}
@@ -538,10 +540,10 @@ func TestCollectWantedItems_SingleMissingPlusUnreleased(t *testing.T) {
 
 	var epCount int
 	for _, item := range items {
-		if item.Title == "House of the Dragon" && item.MediaType == MediaTypeEpisode {
+		if item.GetTitle() == "House of the Dragon" && item.GetMediaType() == string(MediaTypeEpisode) {
 			epCount++
-			if item.EpisodeNumber != 1 {
-				t.Errorf("expected episode 1, got %d", item.EpisodeNumber)
+			if module.ItemEpisodeNumber(item) != 1 {
+				t.Errorf("expected episode 1, got %d", module.ItemEpisodeNumber(item))
 			}
 		}
 	}
@@ -571,7 +573,7 @@ func TestCollectWantedItems_FailedMovieExcluded(t *testing.T) {
 	}
 
 	for _, item := range items {
-		if item.Title == "Failed Movie" {
+		if item.GetTitle() == "Failed Movie" {
 			t.Error("failed movie should not appear in wanted items")
 		}
 	}
@@ -605,11 +607,11 @@ func TestCollectWantedItems_SeasonTransition(t *testing.T) {
 
 	var seasonCount, epCount int
 	for _, item := range items {
-		if item.Title == "The Last of Us" {
-			switch item.MediaType {
-			case MediaTypeSeason:
+		if item.GetTitle() == "The Last of Us" {
+			switch item.GetMediaType() {
+			case string(MediaTypeSeason):
 				seasonCount++
-			case MediaTypeEpisode:
+			case string(MediaTypeEpisode):
 				epCount++
 			}
 		}
@@ -643,11 +645,11 @@ func TestCollectWantedItems_SeasonTransition(t *testing.T) {
 	seasonCount = 0
 	epCount = 0
 	for _, item := range items2 {
-		if item.Title == "The Last of Us" {
-			switch item.MediaType {
-			case MediaTypeSeason:
+		if item.GetTitle() == "The Last of Us" {
+			switch item.GetMediaType() {
+			case string(MediaTypeSeason):
 				seasonCount++
-			case MediaTypeEpisode:
+			case string(MediaTypeEpisode):
 				epCount++
 			}
 		}

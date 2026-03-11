@@ -1,5 +1,11 @@
 package decisioning
 
+import (
+	"context"
+
+	"github.com/slipstream/slipstream/internal/module"
+)
+
 // MediaType represents the type of media being searched.
 type MediaType string
 
@@ -10,32 +16,32 @@ const (
 	MediaTypeSeries  MediaType = "series"
 )
 
-// SearchableItem represents a wanted media item for release decisioning.
-type SearchableItem struct {
-	MediaType MediaType `json:"mediaType"`
-	MediaID   int64     `json:"mediaId"`
-	Title     string    `json:"title"`
-	Year      int       `json:"year,omitempty"`
+// DefaultStrategy is a pass-through SearchStrategy that accepts all releases.
+// Used as a fallback when no module is registered for an item's type.
+type DefaultStrategy struct{}
 
-	// External IDs for search queries
-	ImdbID string `json:"imdbId,omitempty"`
-	TmdbID int    `json:"tmdbId,omitempty"`
-	TvdbID int    `json:"tvdbId,omitempty"`
+func (DefaultStrategy) Categories() []int              { return nil }
+func (DefaultStrategy) DefaultSearchCategories() []int { return nil }
+func (DefaultStrategy) TitlesMatch(_, _ string) bool   { return true }
+func (DefaultStrategy) BuildSearchCriteria(item module.SearchableItem) module.SearchCriteria {
+	return module.SearchCriteria{Query: item.GetTitle()}
+}
+func (DefaultStrategy) FilterRelease(_ context.Context, _ *module.ReleaseForFilter, _ module.SearchableItem) (reject bool, reason string) {
+	return false, ""
+}
+func (DefaultStrategy) IsGroupSearchEligible(_ context.Context, _ module.EntityType, _ int64, _ int, _ bool) bool {
+	return false
+}
+func (DefaultStrategy) SuppressChildSearches(_ module.EntityType, _ int64, _ int) []int64 {
+	return nil
+}
 
-	// TV-specific fields
-	SeriesID      int64 `json:"seriesId,omitempty"`
-	SeasonNumber  int   `json:"seasonNumber,omitempty"`
-	EpisodeNumber int   `json:"episodeNumber,omitempty"`
-
-	// Quality profile for scoring
-	QualityProfileID int64 `json:"qualityProfileId"`
-
-	// Current file info for upgrades.
-	// HasFile must be true and CurrentQualityID must be the HIGHEST quality
-	// across all file records when item has existing files.
-	HasFile          bool `json:"hasFile"`
-	CurrentQualityID int  `json:"currentQualityId,omitempty"`
-
-	// Slot targeting (for multi-version mode)
-	TargetSlotID *int64 `json:"targetSlotId,omitempty"`
+// FallbackReleaseParser is a minimal ReleaseParser that returns a ReleaseForFilter
+// with only the raw title, size, and categories. Used when no module registry is available.
+func FallbackReleaseParser(title string, size int64, categories []int) *module.ReleaseForFilter {
+	return &module.ReleaseForFilter{
+		Title:      title,
+		Size:       size,
+		Categories: categories,
+	}
 }

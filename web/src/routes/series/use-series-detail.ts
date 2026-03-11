@@ -52,7 +52,7 @@ function useSeriesQueries(seriesId: number) {
   const cachedSeries = queryClient.getQueryData<{ tmdbId?: number }>(seriesKeys.detail(seriesId))
   const tmdbId = series?.tmdbId ?? cachedSeries?.tmdbId ?? 0
   const { data: extendedData, isLoading: isExtendedDataLoading } = useExtendedSeriesMetadata(tmdbId)
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('tv')
   const { data: episodes } = useEpisodes(seriesId)
   const { data: multiVersionSettings } = useMultiVersionSettings()
   const { data: slots } = useSlots()

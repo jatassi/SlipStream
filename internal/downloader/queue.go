@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	mediaTypeMovie  = "movie"
-	mediaTypeSeries = "series"
-	statusQueued    = "queued"
+	mediaTypeMovie   = "movie"
+	mediaTypeSeries  = "series"
+	mediaTypeEpisode = "episode"
+	statusQueued     = "queued"
 )
 
 // QueueItem represents a download in the queue with parsed metadata.
@@ -167,23 +168,23 @@ func (s *Service) enrichSingleQueueItem(item *QueueItem, mappingLookup map[strin
 }
 
 func populateQueueItemFromMapping(item *QueueItem, mapping *sqlc.DownloadMapping) {
-	if mapping.MovieID.Valid {
-		movieID := mapping.MovieID.Int64
-		item.MovieID = &movieID
+	entityID := mapping.EntityID
+	switch mapping.EntityType {
+	case mediaTypeMovie:
+		item.MovieID = &entityID
 		item.MediaType = mediaTypeMovie
-	}
-	if mapping.SeriesID.Valid {
-		seriesID := mapping.SeriesID.Int64
-		item.SeriesID = &seriesID
+	case mediaTypeEpisode:
+		item.EpisodeID = &entityID
 		item.MediaType = mediaTypeSeries
+	case mediaTypeSeries:
+		item.SeriesID = &entityID
+		item.MediaType = mediaTypeSeries
+	default:
+		item.MediaType = mapping.ModuleType
 	}
 	if mapping.SeasonNumber.Valid {
 		seasonNum := int(mapping.SeasonNumber.Int64)
 		item.SeasonNumber = &seasonNum
-	}
-	if mapping.EpisodeID.Valid {
-		episodeID := mapping.EpisodeID.Int64
-		item.EpisodeID = &episodeID
 	}
 	item.IsSeasonPack = mapping.IsSeasonPack
 	item.IsCompleteSeries = mapping.IsCompleteSeries
@@ -254,7 +255,7 @@ func shouldIncludeInQueue(d *types.DownloadItem) bool {
 // downloadItemToQueueItem converts a DownloadItem to a QueueItem.
 func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64, clientName, clientType string) QueueItem {
 	parsed := scanner.ParseFilename(d.Name)
-	mediaType := detectMediaType(d.DownloadDir)
+	mediaType := s.detectMediaType(d.DownloadDir)
 
 	title := parsed.Title
 	if title == "" {
@@ -293,13 +294,18 @@ func (s *Service) downloadItemToQueueItem(d *types.DownloadItem, clientID int64,
 }
 
 // detectMediaType determines if the download is a movie or series based on the path.
-func detectMediaType(path string) string {
-	pathLower := strings.ToLower(path)
-	if strings.Contains(pathLower, "slipstream/movies") || strings.Contains(pathLower, "slipstream\\movies") {
-		return mediaTypeMovie
+// Uses the module registry to match against each module's PluralName subdirectory.
+func (s *Service) detectMediaType(path string) string {
+	if s.registry == nil {
+		s.logger.Warn().Msg("Module registry not available for media type detection")
+		return "unknown"
 	}
-	if strings.Contains(pathLower, "slipstream/series") || strings.Contains(pathLower, "slipstream\\series") {
-		return mediaTypeSeries
+	pathLower := strings.ToLower(path)
+	for _, mod := range s.registry.All() {
+		subdir := strings.ToLower("slipstream/" + mod.PluralName())
+		if strings.Contains(pathLower, subdir) || strings.Contains(pathLower, strings.ReplaceAll(subdir, "/", "\\")) {
+			return string(mod.ID())
+		}
 	}
 	return "unknown"
 }

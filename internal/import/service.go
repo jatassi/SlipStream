@@ -24,6 +24,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/slots"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -65,8 +66,7 @@ type NotificationDispatcher interface {
 
 // StatusTrackerService defines the interface for request status tracking.
 type StatusTrackerService interface {
-	OnMovieAvailable(ctx context.Context, movieID int64) error
-	OnEpisodeAvailable(ctx context.Context, episodeID int64) error
+	OnEntityAvailable(ctx context.Context, moduleType, entityType string, entityID int64) error
 	OnDownloadFailed(ctx context.Context, mediaType string, mediaID int64) error
 }
 
@@ -125,24 +125,26 @@ func DefaultConfig() Config {
 
 // Service orchestrates the import pipeline.
 type Service struct {
-	db            *sql.DB
-	queries       *sqlc.Queries
-	downloader    *downloader.Service
-	movies        *movies.Service
-	tv            *tv.Service
-	rootfolder    *rootfolder.Service
-	organizer     *organizer.Service
-	renamer       *renamer.Resolver
-	mediainfo     *mediainfo.Service
-	quality       *quality.Service
-	slots         *slots.Service
-	health        contracts.HealthService
-	history       HistoryService
-	notifier      NotificationDispatcher
-	statusTracker StatusTrackerService
-	hub           *websocket.Hub
-	logger        *zerolog.Logger
-	config        Config
+	db              *sql.DB
+	queries         *sqlc.Queries
+	downloader      *downloader.Service
+	movies          *movies.Service
+	tv              *tv.Service
+	rootfolder      *rootfolder.Service
+	organizer       *organizer.Service
+	renamer         *renamer.Resolver
+	mediainfo       *mediainfo.Service
+	quality         *quality.Service
+	slots           *slots.Service
+	health          contracts.HealthService
+	history         HistoryService
+	notifier        NotificationDispatcher
+	statusTracker   StatusTrackerService
+	hub             *websocket.Hub
+	registry        *module.Registry
+	moduleResolvers map[module.Type]*renamer.Resolver
+	logger          *zerolog.Logger
+	config          Config
 
 	// Import queue
 	importQueue chan ImportJob
@@ -169,7 +171,10 @@ type DownloadMapping struct {
 	ID               int64
 	DownloadClientID int64
 	DownloadID       string
-	MediaType        string // "movie", "episode", "season", or "series"
+	ModuleType       string // "movie" or "tv"
+	EntityType       string // "movie", "episode", "series"
+	EntityID         int64
+	MediaType        string // "movie", "episode", "season", or "series" (derived)
 	MovieID          *int64
 	SeriesID         *int64
 	SeasonNumber     *int
@@ -184,6 +189,9 @@ type DownloadMapping struct {
 type QueueMedia struct {
 	ID                int64
 	DownloadMappingID int64
+	ModuleType        string
+	EntityType        string
+	EntityID          int64
 	EpisodeID         *int64
 	MovieID           *int64
 	FilePath          string
@@ -209,6 +217,10 @@ type LibraryMatch struct {
 	CandidateQualityID int     // Quality ID of the candidate file
 	ExistingQualityID  int     // Quality ID of the existing file
 	QualityProfileID   int64   // Quality profile used for evaluation
+
+	// ModuleEntity carries the module-aware matched entity when registry is present.
+	// Populated by matchToLibraryViaModule; nil when using legacy matching.
+	ModuleEntity *module.MatchedEntity
 }
 
 // ImportResult contains the result of an import operation.
@@ -301,9 +313,44 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
-// UpdateRenamerSettings updates the renamer with new settings.
-func (s *Service) UpdateRenamerSettings(settings *renamer.Settings) {
-	s.renamer = renamer.NewResolver(settings)
+// SetRegistry sets the module registry and initializes per-module renamers.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
+	if r != nil {
+		s.moduleResolvers = make(map[module.Type]*renamer.Resolver)
+		for _, mod := range r.All() {
+			resolver, err := LoadModuleRenamer(context.Background(), s.queries, mod)
+			if err != nil {
+				s.logger.Error().Err(err).Str("module", string(mod.ID())).Msg("Failed to load module renamer")
+				continue
+			}
+			if resolver != nil {
+				s.moduleResolvers[mod.ID()] = resolver
+			}
+		}
+	}
+}
+
+// ReloadModuleRenamer reloads the renamer resolver for a single module.
+func (s *Service) ReloadModuleRenamer(ctx context.Context, moduleType module.Type) error {
+	if s.registry == nil {
+		return fmt.Errorf("registry not set")
+	}
+	mod := s.registry.Get(moduleType)
+	if mod == nil {
+		return fmt.Errorf("module %s not found", moduleType)
+	}
+	resolver, err := LoadModuleRenamer(ctx, s.queries, mod)
+	if err != nil {
+		return err
+	}
+	if s.moduleResolvers == nil {
+		s.moduleResolvers = make(map[module.Type]*renamer.Resolver)
+	}
+	if resolver != nil {
+		s.moduleResolvers[moduleType] = resolver
+	}
+	return nil
 }
 
 // Start starts the import worker(s).
@@ -413,11 +460,11 @@ func (s *Service) updatePortalRequestStatus(ctx context.Context, result *ImportR
 	}
 
 	if result.Match.MediaType == mediaTypeMovie && result.Match.MovieID != nil {
-		if err := s.statusTracker.OnMovieAvailable(ctx, *result.Match.MovieID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "movie", "movie", *result.Match.MovieID); err != nil {
 			s.logger.Warn().Err(err).Int64("movieId", *result.Match.MovieID).Msg("Failed to update request status")
 		}
 	} else if result.Match.MediaType == mediaTypeEpisode && result.Match.EpisodeID != nil {
-		if err := s.statusTracker.OnEpisodeAvailable(ctx, *result.Match.EpisodeID); err != nil {
+		if err := s.statusTracker.OnEntityAvailable(ctx, "tv", "episode", *result.Match.EpisodeID); err != nil {
 			s.logger.Warn().Err(err).Int64("episodeId", *result.Match.EpisodeID).Msg("Failed to update request status")
 		}
 	}
@@ -436,9 +483,9 @@ func (s *Service) broadcastImportSuccess(result *ImportResult) {
 	})
 
 	if result.Match.MediaType == mediaTypeMovie && result.Match.MovieID != nil {
-		s.hub.Broadcast("movie:updated", map[string]any{"movieId": *result.Match.MovieID})
+		s.hub.BroadcastEntity("movie", "movie", *result.Match.MovieID, "updated", nil)
 	} else if result.Match.MediaType == mediaTypeEpisode && result.Match.SeriesID != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *result.Match.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *result.Match.SeriesID, "updated", nil)
 	}
 }
 
@@ -482,7 +529,7 @@ func (s *Service) setMovieStatusFailed(ctx context.Context, movieID int64, statu
 		ID:               movieID,
 	})
 	if s.hub != nil {
-		s.hub.Broadcast("movie:updated", map[string]any{"movieId": movieID})
+		s.hub.BroadcastEntity("movie", "movie", movieID, "updated", nil)
 	}
 	if s.statusTracker != nil {
 		_ = s.statusTracker.OnDownloadFailed(ctx, "movie", movieID)
@@ -497,7 +544,7 @@ func (s *Service) setEpisodeStatusFailed(ctx context.Context, mapping *DownloadM
 		ID:               *mapping.EpisodeID,
 	})
 	if s.hub != nil && mapping.SeriesID != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *mapping.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *mapping.SeriesID, "updated", nil)
 	}
 	if s.statusTracker != nil {
 		_ = s.statusTracker.OnDownloadFailed(ctx, "episode", *mapping.EpisodeID)
@@ -744,7 +791,7 @@ func (s *Service) setSeasonStatusFailed(ctx context.Context, cd *downloader.Comp
 		})
 	}
 	if s.hub != nil {
-		s.hub.Broadcast("series:updated", map[string]any{"id": *cd.SeriesID})
+		s.hub.BroadcastEntity("tv", "series", *cd.SeriesID, "updated", nil)
 	}
 }
 
@@ -774,6 +821,9 @@ func (s *Service) completedDownloadToMapping(cd *downloader.CompletedDownload) *
 		ID:               cd.MappingID,
 		DownloadClientID: cd.ClientID,
 		DownloadID:       cd.DownloadID,
+		ModuleType:       cd.ModuleType,
+		EntityType:       cd.EntityType,
+		EntityID:         cd.EntityID,
 		MovieID:          cd.MovieID,
 		SeriesID:         cd.SeriesID,
 		EpisodeID:        cd.EpisodeID,
@@ -1015,6 +1065,7 @@ func (s *Service) getSlotFileID(ctx context.Context, match *LibraryMatch, slotID
 }
 
 // getFilePath returns the file path for a given file ID and media type.
+// TODO: dispatch to modules via registry (e.g., mod.GetFilePath(ctx, fileID)) when modules provide file queries
 func (s *Service) getFilePath(ctx context.Context, mediaType string, fileID int64) string {
 	switch mediaType {
 	case "movie":
@@ -1047,8 +1098,9 @@ func (s *Service) recordImportDecision(ctx context.Context, sourcePath, decision
 	params := sqlc.UpsertImportDecisionParams{
 		SourcePath: sourcePath,
 		Decision:   decision,
-		MediaType:  mediaType,
-		MediaID:    mediaID,
+		ModuleType: moduleTypeFromMediaType(mediaType),
+		EntityType: mediaType,
+		EntityID:   mediaID,
 	}
 
 	if match.CandidateQualityID > 0 {
@@ -1067,6 +1119,13 @@ func (s *Service) recordImportDecision(ctx context.Context, sourcePath, decision
 	if _, err := s.queries.UpsertImportDecision(ctx, params); err != nil {
 		s.logger.Warn().Err(err).Str("path", sourcePath).Msg("Failed to record import decision")
 	}
+}
+
+func moduleTypeFromMediaType(mediaType string) string {
+	if mediaType == mediaTypeMovie {
+		return "movie"
+	}
+	return "tv"
 }
 
 // ClearDecisionsForProfile clears import decisions that reference a specific quality profile.

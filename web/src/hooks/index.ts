@@ -88,8 +88,15 @@ export {
   useUpdateMovie,
 } from './use-movies'
 export {
+  namingKeys,
+  useModuleNamingPreview,
+  useModuleNamingSettings,
+  useUpdateModuleNamingSettings,
+} from './use-naming'
+export {
   useCreateNotification,
   useDeleteNotification,
+  useNotificationEventCatalog,
   useNotifications,
   useNotificationSchemas,
   useTestNewNotification,
@@ -185,6 +192,7 @@ export {
   useRestart,
   useSettings,
   useStatus,
+  useUpdateModuleEnabled,
   useUpdateSettings,
 } from './use-system'
 export { useCheckForUpdate, useInstallUpdate,useUpdateStatus } from './use-update'

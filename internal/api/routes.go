@@ -115,6 +115,8 @@ func (s *Server) setupRoutes() {
 	settings.GET("", s.getSettings)
 	settings.PUT("", s.updateSettings)
 	settings.POST("/apikey", s.regenerateAPIKey)
+	settings.GET("/modules", s.getModuleEnabled)
+	settings.PUT("/modules", s.updateModuleEnabled)
 
 	s.setupSystemRoutes(protected)
 	s.setupLibraryRoutes(api, protected)
@@ -325,7 +327,7 @@ func (s *Server) setupAutomationRoutes(protected, settings *echo.Group) {
 }
 
 func (s *Server) setupNotificationRoutes(api, protected *echo.Group) {
-	notificationHandlers := notification.NewHandlers(s.notification.Service)
+	notificationHandlers := notification.NewHandlers(s.notification.Service, s.registry)
 	notificationHandlers.RegisterRoutes(protected.Group("/notifications"))
 
 	s.notification.PlexHandlers.RegisterRoutes(protected.Group("/notifications/plex"))

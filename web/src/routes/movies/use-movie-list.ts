@@ -115,7 +115,7 @@ function useQueryLayer() {
   const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: movies, isLoading: queryLoading, isError, refetch } = useMovies()
   const isLoading = queryLoading || globalLoading
-  const { data: qualityProfiles } = useQualityProfiles()
+  const { data: qualityProfiles } = useQualityProfiles('movie')
   const { data: rootFolders } = useRootFolders()
   const searchMutation = useSearchMovie()
   const deleteMutation = useDeleteMovie()

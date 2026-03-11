@@ -33,7 +33,7 @@ export function UserCard({ user, qualityProfiles, togglePending, onToggleEnabled
               {user.enabled ? null : <Badge variant="destructive">Disabled</Badge>}
             </div>
             <CardDescription className="text-xs">
-              Movie: {getProfileName(user.movieQualityProfileId, qualityProfiles)} • TV: {getProfileName(user.tvQualityProfileId, qualityProfiles)} •
+              Movie: {getProfileName('movie', user.moduleSettings, qualityProfiles)} • TV: {getProfileName('tv', user.moduleSettings, qualityProfiles)} •
               Quota: {getQuotaDisplay(user)}
             </CardDescription>
           </div>

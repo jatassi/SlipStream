@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { systemApi } from '@/api'
+import { setModuleEnabledState } from '@/modules'
 import type { UpdateSettingsInput } from '@/types'
 
 export const systemKeys = {
@@ -13,7 +14,13 @@ export const systemKeys = {
 export function useStatus() {
   return useQuery({
     queryKey: systemKeys.status(),
-    queryFn: () => systemApi.status(),
+    queryFn: async () => {
+      const status = await systemApi.status()
+      if (status.enabledModules) {
+        setModuleEnabledState(status.enabledModules)
+      }
+      return status
+    },
     refetchInterval: 30_000, // Refresh every 30 seconds
   })
 }
@@ -70,6 +77,17 @@ export function useCheckFirewall() {
     mutationFn: () => systemApi.checkFirewall(),
     onSuccess: (data) => {
       queryClient.setQueryData(systemKeys.firewall(), data)
+    },
+  })
+}
+
+export function useUpdateModuleEnabled() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Record<string, boolean>) => systemApi.updateModuleEnabled(data),
+    onSuccess: (enabledMap) => {
+      setModuleEnabledState(enabledMap)
+      void queryClient.invalidateQueries({ queryKey: systemKeys.status() })
     },
   })
 }

@@ -11,6 +11,7 @@ export type SystemStatus = {
   isDevBuild: boolean
   portalEnabled: boolean
   mediainfoAvailable: boolean
+  enabledModules?: Record<string, boolean>
   actualPort?: number
   configuredPort?: number
   tmdb?: {

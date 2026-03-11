@@ -2,12 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { notificationsApi } from '@/api'
 import { createQueryKeys } from '@/lib/query-keys'
-import type { CreateNotificationInput, Notification, UpdateNotificationInput } from '@/types'
+import type { CreateNotificationInput, Notification, NotificationEventGroup, UpdateNotificationInput } from '@/types'
 
 const baseKeys = createQueryKeys('notifications')
 const notificationKeys = {
   ...baseKeys,
   schemas: () => [...baseKeys.all, 'schemas'] as const,
+}
+
+export const notificationEventKeys = {
+  catalog: () => ['notifications', 'events'] as const,
 }
 
 export function useNotifications() {
@@ -21,6 +25,14 @@ export function useNotificationSchemas() {
   return useQuery({
     queryKey: notificationKeys.schemas(),
     queryFn: () => notificationsApi.getSchemas(),
+    staleTime: Infinity,
+  })
+}
+
+export function useNotificationEventCatalog() {
+  return useQuery<NotificationEventGroup[]>({
+    queryKey: notificationEventKeys.catalog(),
+    queryFn: () => notificationsApi.getEventCatalog(),
     staleTime: Infinity,
   })
 }

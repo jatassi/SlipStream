@@ -32,7 +32,7 @@ type MediaTableProps<T extends { id: number }> = {
   editMode?: boolean
   selectedIds?: Set<number>
   onToggleSelect?: (id: number) => void
-  theme: 'movie' | 'tv'
+  theme: string
 }
 
 export function MediaTable<T extends { id: number }>({
@@ -135,12 +135,13 @@ function MediaTableRow<T extends { id: number }>({
   editMode?: boolean
   selected?: boolean
   onToggleSelect?: (id: number) => void
-  theme: 'movie' | 'tv'
+  theme: string
 }) {
-  const checkboxClassName =
-    theme === 'movie'
-      ? 'data-checked:bg-movie-500 data-checked:border-movie-500'
-      : 'data-checked:bg-tv-500 data-checked:border-tv-500'
+  const checkboxClassMap: Record<string, string> = {
+    movie: 'data-checked:bg-movie-500 data-checked:border-movie-500',
+    tv: 'data-checked:bg-tv-500 data-checked:border-tv-500',
+  }
+  const checkboxClassName = checkboxClassMap[theme] ?? 'data-checked:bg-primary data-checked:border-primary'
 
   return (
     <TableRow

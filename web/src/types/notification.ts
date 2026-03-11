@@ -22,21 +22,8 @@ export type Notification = {
   type: NotifierType
   enabled: boolean
   settings: Record<string, unknown>
-  onGrab: boolean
-  onImport: boolean
-  onUpgrade: boolean
-  onMovieAdded: boolean
-  onMovieDeleted: boolean
-  onSeriesAdded: boolean
-  onSeriesDeleted: boolean
-  onHealthIssue: boolean
-  onHealthRestored: boolean
-  onAppUpdate: boolean
+  eventToggles: Record<string, boolean>
   includeHealthWarnings: boolean
-  // Portal-specific event triggers
-  onAvailable?: boolean
-  onApproved?: boolean
-  onDenied?: boolean
   tags: number[]
   createdAt?: string
   updatedAt?: string
@@ -47,16 +34,7 @@ export type CreateNotificationInput = {
   type: NotifierType
   enabled?: boolean
   settings: Record<string, unknown>
-  onGrab?: boolean
-  onImport?: boolean
-  onUpgrade?: boolean
-  onMovieAdded?: boolean
-  onMovieDeleted?: boolean
-  onSeriesAdded?: boolean
-  onSeriesDeleted?: boolean
-  onHealthIssue?: boolean
-  onHealthRestored?: boolean
-  onAppUpdate?: boolean
+  eventToggles?: Record<string, boolean>
   includeHealthWarnings?: boolean
   tags?: number[]
 }
@@ -66,16 +44,7 @@ export type UpdateNotificationInput = {
   type?: NotifierType
   enabled?: boolean
   settings?: Record<string, unknown>
-  onGrab?: boolean
-  onImport?: boolean
-  onUpgrade?: boolean
-  onMovieAdded?: boolean
-  onMovieDeleted?: boolean
-  onSeriesAdded?: boolean
-  onSeriesDeleted?: boolean
-  onHealthIssue?: boolean
-  onHealthRestored?: boolean
-  onAppUpdate?: boolean
+  eventToggles?: Record<string, boolean>
   includeHealthWarnings?: boolean
   tags?: number[]
 }
@@ -113,5 +82,17 @@ export type NotifierSchema = {
   description?: string
   infoUrl?: string
   fields: SettingsField[]
+}
+
+export type NotificationEventDef = {
+  id: string
+  label: string
+  description: string
+}
+
+export type NotificationEventGroup = {
+  id: string
+  label: string
+  events: NotificationEventDef[]
 }
 

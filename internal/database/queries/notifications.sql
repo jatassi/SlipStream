@@ -7,22 +7,11 @@ SELECT * FROM notifications ORDER BY name;
 -- name: ListEnabledNotifications :many
 SELECT * FROM notifications WHERE enabled = 1 ORDER BY name;
 
--- name: ListNotificationsForEvent :many
--- Returns notifications enabled for a specific event type
--- Event type is passed as parameter, we check all event columns
-SELECT * FROM notifications
-WHERE enabled = 1
-ORDER BY name;
-
 -- name: CreateNotification :one
 INSERT INTO notifications (
     name, type, enabled, settings,
-    on_grab, on_import, on_upgrade,
-    on_movie_added, on_movie_deleted,
-    on_series_added, on_series_deleted,
-    on_health_issue, on_health_restored, on_app_update,
-    include_health_warnings, tags
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    event_toggles, include_health_warnings, tags
+) VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateNotification :one
@@ -31,16 +20,7 @@ UPDATE notifications SET
     type = ?,
     enabled = ?,
     settings = ?,
-    on_grab = ?,
-    on_import = ?,
-    on_upgrade = ?,
-    on_movie_added = ?,
-    on_movie_deleted = ?,
-    on_series_added = ?,
-    on_series_deleted = ?,
-    on_health_issue = ?,
-    on_health_restored = ?,
-    on_app_update = ?,
+    event_toggles = ?,
     include_health_warnings = ?,
     tags = ?,
     updated_at = CURRENT_TIMESTAMP

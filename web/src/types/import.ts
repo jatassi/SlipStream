@@ -1,24 +1,10 @@
-// Import settings types
+// Import settings types (validation + matching only; naming moved to per-module endpoints)
 export type ImportSettings = {
   validationLevel: 'basic' | 'standard' | 'full'
   minimumFileSizeMB: number
   videoExtensions: string[]
   matchConflictBehavior: 'trust_queue' | 'trust_parse' | 'fail'
   unknownMediaBehavior: 'ignore' | 'auto_add'
-  renameEpisodes: boolean
-  replaceIllegalCharacters: boolean
-  colonReplacement: 'delete' | 'dash' | 'space_dash' | 'space_dash_space' | 'smart' | 'custom'
-  customColonReplacement?: string
-  standardEpisodeFormat: string
-  dailyEpisodeFormat: string
-  animeEpisodeFormat: string
-  seriesFolderFormat: string
-  seasonFolderFormat: string
-  specialsFolderFormat: string
-  multiEpisodeStyle: 'extend' | 'duplicate' | 'repeat' | 'scene' | 'range' | 'prefixed_range'
-  renameMovies: boolean
-  movieFolderFormat: string
-  movieFileFormat: string
 }
 
 export type UpdateImportSettingsRequest = {
@@ -27,26 +13,12 @@ export type UpdateImportSettingsRequest = {
   videoExtensions?: string[]
   matchConflictBehavior?: string
   unknownMediaBehavior?: string
-  renameEpisodes?: boolean
-  replaceIllegalCharacters?: boolean
-  colonReplacement?: string
-  customColonReplacement?: string
-  standardEpisodeFormat?: string
-  dailyEpisodeFormat?: string
-  animeEpisodeFormat?: string
-  seriesFolderFormat?: string
-  seasonFolderFormat?: string
-  specialsFolderFormat?: string
-  multiEpisodeStyle?: string
-  renameMovies?: boolean
-  movieFolderFormat?: string
-  movieFileFormat?: string
 }
 
 // Pattern preview types
 export type PatternPreviewRequest = {
   pattern: string
-  mediaType?: 'episode' | 'movie' | 'folder'
+  mediaType?: string
 }
 
 export type TokenBreakdown = {

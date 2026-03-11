@@ -10,6 +10,7 @@ import (
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database"
 	"github.com/slipstream/slipstream/internal/health"
+	"github.com/slipstream/slipstream/internal/module"
 	"github.com/slipstream/slipstream/internal/scheduler/tasks"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
@@ -40,6 +41,7 @@ type Server struct {
 	portal       PortalGroup
 	security     SecurityGroup
 	switchable   SwitchableServices
+	registry     *module.Registry
 	devMode      *DevModeManager
 
 	restartChan    chan<- bool
@@ -98,12 +100,13 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 		portal:       services.Portal,
 		security:     services.Security,
 		switchable:   services.Switchable,
+		registry:     services.Registry,
 		restartChan:  restartChan,
 	}
 
 	s.devMode = NewDevModeManager(
 		&s.library, &s.metadata, &s.search, &s.download,
-		&s.notification, &s.switchable, s.dbManager, s.logger,
+		&s.notification, &s.switchable, s.dbManager, s.logger, s.registry,
 	)
 
 	serverDebugLog("Wiring circular dependencies...")
@@ -243,5 +246,10 @@ func (s *Server) Echo() *echo.Echo {
 
 // EnsureDefaults creates default data like quality profiles.
 func (s *Server) EnsureDefaults(ctx context.Context) error {
-	return s.library.Quality.EnsureDefaults(ctx)
+	for _, mt := range []string{"movie", "tv"} {
+		if err := s.library.Quality.EnsureDefaults(ctx, mt); err != nil {
+			s.logger.Warn().Err(err).Str("moduleType", mt).Msg("Failed to ensure default quality profiles")
+		}
+	}
+	return nil
 }

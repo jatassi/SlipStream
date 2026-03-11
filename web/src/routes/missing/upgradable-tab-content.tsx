@@ -1,8 +1,9 @@
-import { Film, TrendingUp, Tv } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
 
 import { UpgradableMoviesList } from '@/components/missing/upgradable-movies-list'
 import { UpgradableSeriesList } from '@/components/missing/upgradable-series-list'
 import { TabsContent } from '@/components/ui/tabs'
+import { getModuleOrThrow } from '@/modules'
 import type { QualityProfile } from '@/types/quality-profile'
 
 type UpgradableTabContentProps = {
@@ -24,25 +25,15 @@ export function UpgradableTabContent({
     <>
       <TabsContent value="all" className="space-y-6">
         {upgradableMovieCount > 0 && (
-          <MediaSection
-            icon={<Film className="text-movie-400 size-4" />}
-            label="Movies"
-            count={upgradableMovieCount}
-            countClass="text-movie-400"
-          >
+          <ModuleSection moduleId="movie" count={upgradableMovieCount}>
             <UpgradableMoviesList movies={upgradableMovies} qualityProfiles={qualityProfiles} />
-          </MediaSection>
+          </ModuleSection>
         )}
 
         {upgradableSeries.length > 0 && (
-          <MediaSection
-            icon={<Tv className="text-tv-400 size-4" />}
-            label="Episodes"
-            count={upgradableEpisodeCount}
-            countClass="text-tv-400"
-          >
+          <ModuleSection moduleId="tv" label="Episodes" count={upgradableEpisodeCount}>
             <UpgradableSeriesList series={upgradableSeries} qualityProfiles={qualityProfiles} />
-          </MediaSection>
+          </ModuleSection>
         )}
 
         {upgradableMovieCount === 0 && upgradableEpisodeCount === 0 && (
@@ -65,25 +56,31 @@ export function UpgradableTabContent({
   )
 }
 
-function MediaSection({
-  icon,
+const THEME_TEXT_CLASSES: Record<string, string> = {
+  movie: 'text-movie-400',
+  tv: 'text-tv-400',
+}
+
+function ModuleSection({
+  moduleId,
   label,
   count,
-  countClass,
   children,
 }: {
-  icon: React.ReactNode
-  label: string
+  moduleId: string
+  label?: string
   count: number
-  countClass: string
   children: React.ReactNode
 }) {
+  const mod = getModuleOrThrow(moduleId)
+  const textClass = THEME_TEXT_CLASSES[mod.themeColor] ?? 'text-foreground'
+
   return (
     <div className="space-y-3">
       <h2 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-        <span className={countClass}>({count})</span>
+        <mod.icon className={`size-4 ${textClass}`} />
+        {label ?? mod.name}
+        <span className={textClass}>({count})</span>
       </h2>
       {children}
     </div>

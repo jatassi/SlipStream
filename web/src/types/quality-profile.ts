@@ -22,6 +22,7 @@ export type UpgradeStrategy = 'aggressive' | 'balanced' | 'resolution_only'
 export type QualityProfile = {
   id: number
   name: string
+  moduleType: string
   cutoff: number
   upgradesEnabled: boolean
   upgradeStrategy: UpgradeStrategy
@@ -38,6 +39,7 @@ export type QualityProfile = {
 
 export type CreateQualityProfileInput = {
   name: string
+  moduleType: string
   cutoff: number
   upgradesEnabled: boolean
   upgradeStrategy: UpgradeStrategy
@@ -76,6 +78,7 @@ export const DEFAULT_ATTRIBUTE_SETTINGS: AttributeSettings = {
   items: {},
 }
 
+// TODO: Replace with fetch from /api/v1/qualityprofiles/qualities (backend endpoint exists)
 export const PREDEFINED_QUALITIES: Quality[] = [
   { id: 1, name: 'SDTV', source: 'tv', resolution: 480, weight: 1 },
   { id: 2, name: 'DVD', source: 'dvd', resolution: 480, weight: 2 },

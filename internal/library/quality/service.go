@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/rs/zerolog"
 
@@ -22,11 +23,26 @@ type ImportDecisionCleaner interface {
 	ClearDecisionsForProfile(ctx context.Context, profileID int64) error
 }
 
+// QualityItemDef mirrors module.QualityItem for registration without importing the module package.
+type QualityItemDef struct {
+	ID         int
+	Name       string
+	Source     string
+	Resolution int
+	Weight     int
+}
+
+type moduleQualityRegistry struct {
+	mu    sync.RWMutex
+	items map[string][]QualityItemDef
+}
+
 // Service provides quality profile operations.
 type Service struct {
 	queries               *sqlc.Queries
 	logger                *zerolog.Logger
 	importDecisionCleaner ImportDecisionCleaner
+	moduleQualities       moduleQualityRegistry
 }
 
 // NewService creates a new quality profile service.
@@ -49,6 +65,33 @@ func (s *Service) SetDB(db *sql.DB) {
 	s.queries = sqlc.New(db)
 }
 
+// RegisterModuleQualities registers quality items for a module.
+func (s *Service) RegisterModuleQualities(moduleType string, items []QualityItemDef) {
+	s.moduleQualities.mu.Lock()
+	defer s.moduleQualities.mu.Unlock()
+	if s.moduleQualities.items == nil {
+		s.moduleQualities.items = make(map[string][]QualityItemDef)
+	}
+	s.moduleQualities.items[moduleType] = items
+	s.logger.Info().Str("moduleType", moduleType).Int("qualityCount", len(items)).
+		Msg("Registered quality items for module")
+}
+
+// GetQualitiesForModule returns quality items for a specific module.
+func (s *Service) GetQualitiesForModule(moduleType string) []Quality {
+	s.moduleQualities.mu.RLock()
+	defer s.moduleQualities.mu.RUnlock()
+	items, ok := s.moduleQualities.items[moduleType]
+	if !ok || len(items) == 0 {
+		return PredefinedQualities
+	}
+	result := make([]Quality, len(items))
+	for i, item := range items {
+		result[i] = Quality(item)
+	}
+	return result
+}
+
 // Get retrieves a quality profile by ID.
 func (s *Service) Get(ctx context.Context, id int64) (*Profile, error) {
 	row, err := s.queries.GetQualityProfile(ctx, id)
@@ -61,9 +104,12 @@ func (s *Service) Get(ctx context.Context, id int64) (*Profile, error) {
 	return s.rowToProfile(row)
 }
 
-// GetByName retrieves a quality profile by name.
-func (s *Service) GetByName(ctx context.Context, name string) (*Profile, error) {
-	row, err := s.queries.GetQualityProfileByName(ctx, name)
+// GetByName retrieves a quality profile by name and module type.
+func (s *Service) GetByName(ctx context.Context, name, moduleType string) (*Profile, error) {
+	row, err := s.queries.GetQualityProfileByName(ctx, sqlc.GetQualityProfileByNameParams{
+		Name:       name,
+		ModuleType: moduleType,
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrProfileNotFound
@@ -92,10 +138,31 @@ func (s *Service) List(ctx context.Context) ([]*Profile, error) {
 	return profiles, nil
 }
 
+// ListByModule returns quality profiles for a specific module type.
+func (s *Service) ListByModule(ctx context.Context, moduleType string) ([]*Profile, error) {
+	rows, err := s.queries.ListQualityProfilesByModule(ctx, moduleType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list quality profiles for module %s: %w", moduleType, err)
+	}
+	profiles := make([]*Profile, 0, len(rows))
+	for _, row := range rows {
+		p, err := s.rowToProfile(row)
+		if err != nil {
+			s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to parse quality profile")
+			continue
+		}
+		profiles = append(profiles, p)
+	}
+	return profiles, nil
+}
+
 // Create creates a new quality profile.
 func (s *Service) Create(ctx context.Context, input *CreateProfileInput) (*Profile, error) {
 	if input.Name == "" {
 		return nil, ErrInvalidProfile
+	}
+	if input.ModuleType == "" {
+		return nil, fmt.Errorf("%w: moduleType is required", ErrInvalidProfile)
 	}
 
 	serialized, err := s.serializeProfileSettings(input.Items, input.HDRSettings, input.VideoCodecSettings, input.AudioCodecSettings, input.AudioChannelSettings)
@@ -112,12 +179,13 @@ func (s *Service) Create(ctx context.Context, input *CreateProfileInput) (*Profi
 
 	row, err := s.queries.CreateQualityProfile(ctx, sqlc.CreateQualityProfileParams{
 		Name:                    input.Name,
+		ModuleType:              input.ModuleType,
 		Cutoff:                  int64(input.Cutoff),
 		Items:                   serialized.items,
-		HdrSettings:             serialized.hdr,
-		VideoCodecSettings:      serialized.videoCodec,
-		AudioCodecSettings:      serialized.audioCodec,
-		AudioChannelSettings:    serialized.audioChannel,
+		HdrSettings:             sql.NullString{String: serialized.hdr, Valid: serialized.hdr != ""},
+		VideoCodecSettings:      sql.NullString{String: serialized.videoCodec, Valid: serialized.videoCodec != ""},
+		AudioCodecSettings:      sql.NullString{String: serialized.audioCodec, Valid: serialized.audioCodec != ""},
+		AudioChannelSettings:    sql.NullString{String: serialized.audioChannel, Valid: serialized.audioChannel != ""},
 		UpgradesEnabled:         upgradesEnabled,
 		AllowAutoApprove:        input.AllowAutoApprove,
 		UpgradeStrategy:         upgradeStrategy,
@@ -193,10 +261,10 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateProfileInpu
 		Name:                    input.Name,
 		Cutoff:                  int64(input.Cutoff),
 		Items:                   serialized.items,
-		HdrSettings:             serialized.hdr,
-		VideoCodecSettings:      serialized.videoCodec,
-		AudioCodecSettings:      serialized.audioCodec,
-		AudioChannelSettings:    serialized.audioChannel,
+		HdrSettings:             sql.NullString{String: serialized.hdr, Valid: serialized.hdr != ""},
+		VideoCodecSettings:      sql.NullString{String: serialized.videoCodec, Valid: serialized.videoCodec != ""},
+		AudioCodecSettings:      sql.NullString{String: serialized.audioCodec, Valid: serialized.audioCodec != ""},
+		AudioChannelSettings:    sql.NullString{String: serialized.audioChannel, Valid: serialized.audioChannel != ""},
 		UpgradesEnabled:         input.UpgradesEnabled,
 		AllowAutoApprove:        input.AllowAutoApprove,
 		UpgradeStrategy:         upgradeStrategy,
@@ -222,21 +290,13 @@ func (s *Service) Update(ctx context.Context, id int64, input *UpdateProfileInpu
 
 // Delete deletes a quality profile.
 func (s *Service) Delete(ctx context.Context, id int64) error {
-	// Check if profile is in use
-	movieCount, err := s.queries.CountMoviesUsingProfile(ctx, sql.NullInt64{Int64: id, Valid: true})
+	profile, err := s.Get(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to check movie usage: %w", err)
-	}
-	if movieCount > 0 {
-		return ErrProfileInUse
+		return err
 	}
 
-	seriesCount, err := s.queries.CountSeriesUsingProfile(ctx, sql.NullInt64{Int64: id, Valid: true})
-	if err != nil {
-		return fmt.Errorf("failed to check series usage: %w", err)
-	}
-	if seriesCount > 0 {
-		return ErrProfileInUse
+	if err := s.checkProfileUsage(ctx, id, profile.ModuleType); err != nil {
+		return err
 	}
 
 	if err := s.queries.DeleteQualityProfile(ctx, id); err != nil {
@@ -247,20 +307,54 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+// checkProfileUsage verifies that a quality profile is not in use by any media or slots.
+// TODO: replace with module interface method when available (e.g., mod.CountEntitiesUsingProfile(profileID))
+func (s *Service) checkProfileUsage(ctx context.Context, id int64, moduleType string) error {
+	nullID := sql.NullInt64{Int64: id, Valid: true}
+
+	switch moduleType {
+	case "movie":
+		count, err := s.queries.CountMoviesUsingProfile(ctx, nullID)
+		if err != nil {
+			return fmt.Errorf("failed to check movie usage: %w", err)
+		}
+		if count > 0 {
+			return ErrProfileInUse
+		}
+	case "tv":
+		count, err := s.queries.CountSeriesUsingProfile(ctx, nullID)
+		if err != nil {
+			return fmt.Errorf("failed to check series usage: %w", err)
+		}
+		if count > 0 {
+			return ErrProfileInUse
+		}
+	}
+
+	slotCount, err := s.queries.CountSlotsUsingProfile(ctx, nullID)
+	if err != nil {
+		return fmt.Errorf("failed to check slot usage: %w", err)
+	}
+	if slotCount > 0 {
+		return ErrProfileInUse
+	}
+	return nil
+}
+
 // GetQualities returns the list of predefined qualities.
 func (s *Service) GetQualities() []Quality {
 	return PredefinedQualities
 }
 
-// EnsureDefaults creates default profiles if none exist.
-func (s *Service) EnsureDefaults(ctx context.Context) error {
-	profiles, err := s.List(ctx)
+// EnsureDefaults creates default profiles if none exist for the given module type.
+func (s *Service) EnsureDefaults(ctx context.Context, moduleType string) error {
+	count, err := s.queries.CountQualityProfilesByModule(ctx, moduleType)
 	if err != nil {
 		return err
 	}
 
-	if len(profiles) > 0 {
-		return nil // Already have profiles
+	if count > 0 {
+		return nil // Already have profiles for this module
 	}
 
 	// Create default profiles
@@ -275,6 +369,7 @@ func (s *Service) EnsureDefaults(ctx context.Context) error {
 		upgradesEnabled := p.UpgradesEnabled
 		_, err := s.Create(ctx, &CreateProfileInput{
 			Name:            p.Name,
+			ModuleType:      moduleType,
 			Cutoff:          p.Cutoff,
 			UpgradesEnabled: &upgradesEnabled,
 			Items:           p.Items,
@@ -284,7 +379,7 @@ func (s *Service) EnsureDefaults(ctx context.Context) error {
 		}
 	}
 
-	s.logger.Info().Msg("Created default quality profiles")
+	s.logger.Info().Str("moduleType", moduleType).Msg("Created default quality profiles")
 	return nil
 }
 
@@ -295,25 +390,25 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 		return nil, fmt.Errorf("failed to deserialize items: %w", err)
 	}
 
-	hdrSettings, err := DeserializeAttributeSettings(row.HdrSettings)
+	hdrSettings, err := DeserializeAttributeSettings(row.HdrSettings.String)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize HDR settings, using defaults")
 		hdrSettings = DefaultAttributeSettings()
 	}
 
-	videoCodecSettings, err := DeserializeAttributeSettings(row.VideoCodecSettings)
+	videoCodecSettings, err := DeserializeAttributeSettings(row.VideoCodecSettings.String)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize video codec settings, using defaults")
 		videoCodecSettings = DefaultAttributeSettings()
 	}
 
-	audioCodecSettings, err := DeserializeAttributeSettings(row.AudioCodecSettings)
+	audioCodecSettings, err := DeserializeAttributeSettings(row.AudioCodecSettings.String)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize audio codec settings, using defaults")
 		audioCodecSettings = DefaultAttributeSettings()
 	}
 
-	audioChannelSettings, err := DeserializeAttributeSettings(row.AudioChannelSettings)
+	audioChannelSettings, err := DeserializeAttributeSettings(row.AudioChannelSettings.String)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("id", row.ID).Msg("Failed to deserialize audio channel settings, using defaults")
 		audioChannelSettings = DefaultAttributeSettings()
@@ -327,6 +422,7 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 	p := &Profile{
 		ID:                      row.ID,
 		Name:                    row.Name,
+		ModuleType:              row.ModuleType,
 		Cutoff:                  int(row.Cutoff),
 		UpgradesEnabled:         row.UpgradesEnabled,
 		UpgradeStrategy:         upgradeStrategy,
@@ -349,7 +445,7 @@ func (s *Service) rowToProfile(row *sqlc.QualityProfile) (*Profile, error) {
 	return p, nil
 }
 
-// RecalculateStatusForProfile recalculates status for all movies and episodes using a profile.
+// RecalculateStatusForProfile recalculates status for media using a profile, scoped by module type.
 // Called when a profile's cutoff or upgrades_enabled changes.
 func (s *Service) RecalculateStatusForProfile(ctx context.Context, profileID int64) (int, error) {
 	profile, err := s.Get(ctx, profileID)
@@ -357,21 +453,38 @@ func (s *Service) RecalculateStatusForProfile(ctx context.Context, profileID int
 		return 0, err
 	}
 
-	movieUpdated, err := s.recalculateMovieStatuses(ctx, profileID, profile)
-	if err != nil {
-		return 0, err
+	// TODO: replace with module interface method when available (e.g., mod.RecalculateStatusesForProfile(profileID))
+	switch profile.ModuleType {
+	case "movie":
+		updated, err := s.recalculateMovieStatuses(ctx, profileID, profile)
+		if err != nil {
+			return 0, err
+		}
+		s.logger.Info().Int64("profileId", profileID).Int("updated", updated).
+			Msg("Recalculated movie status for profile change")
+		return updated, nil
+	case "tv":
+		updated, err := s.recalculateEpisodeStatuses(ctx, profileID, profile)
+		if err != nil {
+			return 0, err
+		}
+		s.logger.Info().Int64("profileId", profileID).Int("updated", updated).
+			Msg("Recalculated episode status for profile change")
+		return updated, nil
+	default:
+		movieUpdated, err := s.recalculateMovieStatuses(ctx, profileID, profile)
+		if err != nil {
+			return 0, err
+		}
+		episodeUpdated, err := s.recalculateEpisodeStatuses(ctx, profileID, profile)
+		if err != nil {
+			return movieUpdated, err
+		}
+		updated := movieUpdated + episodeUpdated
+		s.logger.Info().Int64("profileId", profileID).Int("updated", updated).
+			Msg("Recalculated media status for profile change")
+		return updated, nil
 	}
-
-	episodeUpdated, err := s.recalculateEpisodeStatuses(ctx, profileID, profile)
-	if err != nil {
-		return movieUpdated, err
-	}
-
-	updated := movieUpdated + episodeUpdated
-	s.logger.Info().Int64("profileId", profileID).Int("updated", updated).
-		Msg("Recalculated media status for profile change")
-
-	return updated, nil
 }
 
 func (s *Service) recalculateMovieStatuses(ctx context.Context, profileID int64, profile *Profile) (int, error) {

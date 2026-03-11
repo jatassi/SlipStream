@@ -6,7 +6,7 @@ import {
   ResolveNamingModal,
   SlotDebugPanel,
 } from '@/components/slots'
-import type { RootFolder, Slot, SlotNamingValidation } from '@/types'
+import type { Slot, SlotNamingValidation } from '@/types'
 
 import type { MasterToggleCardProps } from './master-toggle-card'
 import { MasterToggleCard } from './master-toggle-card'
@@ -27,13 +27,12 @@ function getUsedProfileIds(slots: Slot[], excludeId: number): number[] {
 type SlotGridProps = {
   slots: Slot[] | undefined
   profiles: { id: number; name: string }[]
-  movieRootFolders: RootFolder[]
-  tvRootFolders: RootFolder[]
+  rootFoldersByModule: ReturnType<typeof useVersionSlotsSection>['rootFoldersByModule']
   isSlotUpdating: boolean
   onEnabledChange: (slot: Slot, enabled: boolean) => void
   onNameChange: (slot: Slot, name: string) => void
   onProfileChange: (slot: Slot, profileId: string) => void
-  onRootFolderChange: (slot: Slot, mediaType: 'movie' | 'tv', rootFolderId: string) => void
+  onRootFolderChange: (slot: Slot, moduleType: string, rootFolderId: string) => void
 }
 
 function SlotGrid(props: SlotGridProps) {
@@ -50,13 +49,12 @@ function SlotGrid(props: SlotGridProps) {
           slot={slot}
           profiles={props.profiles}
           usedProfileIds={getUsedProfileIds(slots, slot.id)}
-          movieRootFolders={props.movieRootFolders}
-          tvRootFolders={props.tvRootFolders}
+          rootFoldersByModule={props.rootFoldersByModule}
           onEnabledChange={(enabled) => props.onEnabledChange(slot, enabled)}
           onNameChange={(name) => props.onNameChange(slot, name)}
           onProfileChange={(profileId) => props.onProfileChange(slot, profileId)}
-          onRootFolderChange={(mediaType, rootFolderId) =>
-            props.onRootFolderChange(slot, mediaType, rootFolderId)
+          onRootFolderChange={(moduleType, rootFolderId) =>
+            props.onRootFolderChange(slot, moduleType, rootFolderId)
           }
           isUpdating={props.isSlotUpdating}
           showToggle={slot.slotNumber === 3}
@@ -147,8 +145,7 @@ export function VersionSlotsSection() {
       <SlotGrid
         slots={s.slots}
         profiles={s.profiles}
-        movieRootFolders={s.movieRootFolders}
-        tvRootFolders={s.tvRootFolders}
+        rootFoldersByModule={s.rootFoldersByModule}
         isSlotUpdating={s.isSlotUpdating}
         onEnabledChange={s.handleSlotEnabledChange}
         onNameChange={s.handleSlotNameChange}

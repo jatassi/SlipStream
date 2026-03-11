@@ -12,31 +12,24 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import type { Notification } from '@/types'
+import { useNotificationEventCatalog } from '@/hooks'
+import type { Notification, NotificationEventGroup } from '@/types'
 
 import { GeneralNav } from './general-nav'
 import { useNotificationsPage } from './use-notifications-page'
 
-const EVENT_FLAGS = [
-  ['onGrab', 'Grab'],
-  ['onImport', 'Import'],
-  ['onUpgrade', 'Upgrade'],
-  ['onMovieAdded', 'Movie Added'],
-  ['onMovieDeleted', 'Movie Deleted'],
-  ['onSeriesAdded', 'Series Added'],
-  ['onSeriesDeleted', 'Series Deleted'],
-  ['onHealthIssue', 'Health'],
-  ['onAppUpdate', 'App Update'],
-] as const
-
-function getActiveEventsText(notification: Notification): string {
-  const labels = EVENT_FLAGS.filter(([key]) => notification[key]).map(([, label]) => label)
-  return labels.length > 0 ? labels.join(', ') : 'No events configured'
+function getActiveEventsText(notification: Notification, catalog: NotificationEventGroup[]): string {
+  const allEvents = catalog.flatMap((g) => g.events)
+  const activeLabels = allEvents
+    .filter((e) => notification.eventToggles[e.id])
+    .map((e) => e.label)
+  return activeLabels.length > 0 ? activeLabels.join(', ') : 'No events'
 }
 
 type NotificationCardProps = {
   notification: Notification
   typeName: string
+  eventCatalog: NotificationEventGroup[]
   testPending: boolean
   onToggle: (id: number, enabled: boolean) => void
   onTest: (id: number) => void
@@ -75,7 +68,7 @@ function CardActions({ notification, testPending, onToggle, onTest, onEdit, onDe
 }
 
 function NotificationCard(props: NotificationCardProps) {
-  const { notification, typeName } = props
+  const { notification, typeName, eventCatalog } = props
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between py-4">
@@ -89,7 +82,7 @@ function NotificationCard(props: NotificationCardProps) {
               <Badge variant="outline">{typeName}</Badge>
             </div>
             <CardDescription className="text-xs">
-              {getActiveEventsText(notification)}
+              {getActiveEventsText(notification, eventCatalog)}
             </CardDescription>
           </div>
         </div>
@@ -115,6 +108,7 @@ function NotificationsLayout({ children }: { children: ReactNode }) {
 
 export function NotificationsPage() {
   const state = useNotificationsPage()
+  const { data: eventCatalog } = useNotificationEventCatalog()
 
   if (state.isLoading) {
     return (
@@ -141,6 +135,7 @@ export function NotificationsPage() {
             key={notification.id}
             notification={notification}
             typeName={state.getTypeName(notification.type)}
+            eventCatalog={eventCatalog ?? []}
             testPending={state.testPending}
             onToggle={state.handleToggleEnabled}
             onTest={state.handleTest}

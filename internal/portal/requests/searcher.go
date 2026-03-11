@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 var (
@@ -23,20 +24,8 @@ type SearchForRequestResult struct {
 	Error      string `json:"error,omitempty"`
 }
 
-type MediaProvisionInput struct {
-	TmdbID           int64
-	TvdbID           int64
-	Title            string
-	Year             int
-	QualityProfileID *int64  // Optional: user's assigned quality profile
-	RequestedSeasons []int64 // Optional: specific seasons to monitor (empty = all seasons)
-	AddedBy          *int64  // Optional: portal user ID who triggered the add
-	MonitorFuture    bool    // If true, monitor future/unaired episodes and seasons
-}
-
-type MediaProvisioner interface {
-	EnsureMovieInLibrary(ctx context.Context, input *MediaProvisionInput) (int64, error)
-	EnsureSeriesInLibrary(ctx context.Context, input *MediaProvisionInput) (int64, error)
+type ModuleProvisioner interface {
+	EnsureInLibrary(ctx context.Context, moduleType string, input *module.ProvisionInput) (int64, error)
 }
 
 type UserQualityProfileGetter interface {
@@ -44,29 +33,30 @@ type UserQualityProfileGetter interface {
 }
 
 type RequestSearcher struct {
-	queries          *sqlc.Queries
-	requestsService  *Service
-	autosearchSvc    *autosearch.Service
-	mediaProvisioner MediaProvisioner
-	userGetter       UserQualityProfileGetter
-	isDevMode        func() bool
-	logger           *zerolog.Logger
+	queries         *sqlc.Queries
+	requestsService *Service
+	autosearchSvc   *autosearch.Service
+	provisioner     ModuleProvisioner
+	userGetter      UserQualityProfileGetter
+	registry        *module.Registry
+	isDevMode       func() bool
+	logger          *zerolog.Logger
 }
 
 func NewRequestSearcher(
 	queries *sqlc.Queries,
 	requestsService *Service,
 	autosearchSvc *autosearch.Service,
-	mediaProvisioner MediaProvisioner,
+	provisioner ModuleProvisioner,
 	logger *zerolog.Logger,
 ) *RequestSearcher {
 	subLogger := logger.With().Str("component", "portal-request-searcher").Logger()
 	return &RequestSearcher{
-		queries:          queries,
-		requestsService:  requestsService,
-		autosearchSvc:    autosearchSvc,
-		mediaProvisioner: mediaProvisioner,
-		logger:           &subLogger,
+		queries:         queries,
+		requestsService: requestsService,
+		autosearchSvc:   autosearchSvc,
+		provisioner:     provisioner,
+		logger:          &subLogger,
 	}
 }
 
@@ -80,6 +70,10 @@ func (s *RequestSearcher) SetUserGetter(getter UserQualityProfileGetter) {
 
 func (s *RequestSearcher) SetDevMode(fn func() bool) {
 	s.isDevMode = fn
+}
+
+func (s *RequestSearcher) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 func (s *RequestSearcher) SearchForRequest(ctx context.Context, requestID int64) (*SearchForRequestResult, error) {
@@ -276,44 +270,42 @@ func (s *RequestSearcher) SearchForRequestAsync(ctx context.Context, requestID i
 }
 
 func (s *RequestSearcher) ensureMediaInLibrary(ctx context.Context, request *Request) (int64, error) {
-	if s.mediaProvisioner == nil {
+	if s.provisioner == nil {
 		return 0, ErrMediaNotInLibrary
 	}
 
-	year := 0
-	if request.Year != nil {
-		year = int(*request.Year)
+	moduleType := s.getModuleType(request.MediaType)
+	input := &module.ProvisionInput{
+		Title:            request.Title,
+		Year:             intFromPtr(request.Year),
+		RequestedSeasons: request.RequestedSeasons,
+		MonitorFuture:    isMonitorFuture(request.MonitorType),
+		AddedBy:          &request.UserID,
 	}
 
-	input := MediaProvisionInput{
-		Title:   request.Title,
-		Year:    year,
-		AddedBy: &request.UserID,
+	if request.MediaType == MediaTypeSeason && request.SeasonNumber != nil {
+		input.RequestedSeasons = []int64{*request.SeasonNumber}
 	}
 
-	s.resolveQualityProfile(ctx, &input, request.UserID, request.MediaType)
-
-	switch request.MediaType {
-	case MediaTypeMovie:
-		if request.TmdbID == nil {
-			return 0, errors.New("movie request missing tmdbID")
+	if request.TmdbID != nil {
+		input.ExternalIDs = map[string]int64{"tmdb": *request.TmdbID}
+	}
+	if request.TvdbID != nil {
+		if input.ExternalIDs == nil {
+			input.ExternalIDs = make(map[string]int64)
 		}
-		input.TmdbID = *request.TmdbID
-		return s.mediaProvisioner.EnsureMovieInLibrary(ctx, &input)
-
-	case MediaTypeSeries, MediaTypeSeason, MediaTypeEpisode:
-		return s.ensureSeriesInLibrary(ctx, request, &input)
-
-	default:
-		return 0, fmt.Errorf("unsupported media type: %s", request.MediaType)
+		input.ExternalIDs["tvdb"] = *request.TvdbID
 	}
+
+	s.resolveQualityProfile(ctx, input, request.UserID, moduleType)
+	return s.provisioner.EnsureInLibrary(ctx, moduleType, input)
 }
 
-func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *MediaProvisionInput, userID int64, mediaType string) {
+func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *module.ProvisionInput, userID int64, moduleType string) {
 	if s.userGetter == nil {
 		return
 	}
-	qpID, err := s.userGetter.GetQualityProfileID(ctx, userID, mediaType)
+	qpID, err := s.userGetter.GetQualityProfileID(ctx, userID, moduleType)
 	if err != nil {
 		s.logger.Warn().Err(err).Int64("userID", userID).Msg("failed to get user's quality profile, using default")
 	} else if qpID != nil {
@@ -322,17 +314,20 @@ func (s *RequestSearcher) resolveQualityProfile(ctx context.Context, input *Medi
 	}
 }
 
-func (s *RequestSearcher) ensureSeriesInLibrary(ctx context.Context, request *Request, input *MediaProvisionInput) (int64, error) {
-	if request.TvdbID == nil {
-		return 0, errors.New("series request missing tvdbID")
+func (s *RequestSearcher) getModuleType(mediaType string) string {
+	if s.registry != nil {
+		if mod := s.registry.ModuleForEntityType(module.EntityType(mediaType)); mod != nil {
+			return string(mod.ID())
+		}
 	}
-	input.TvdbID = *request.TvdbID
-	input.RequestedSeasons = request.RequestedSeasons
-	if request.MediaType == MediaTypeSeason && request.SeasonNumber != nil {
-		input.RequestedSeasons = []int64{*request.SeasonNumber}
+	return mediaType
+}
+
+func intFromPtr(p *int64) int {
+	if p == nil {
+		return 0
 	}
-	input.MonitorFuture = isMonitorFuture(request.MonitorType)
-	return s.mediaProvisioner.EnsureSeriesInLibrary(ctx, input)
+	return int(*p)
 }
 
 func isMonitorFuture(monitorType *string) bool {

@@ -33,7 +33,7 @@ export function MappingStep({
   onMappingsComplete,
 }: MappingStepProps) {
   const { data: targetRootFolders, isLoading: isLoadingRootFolders } = useRootFolders()
-  const { data: targetQualityProfiles, isLoading: isLoadingProfiles } = useQualityProfiles()
+  const { data: targetQualityProfiles, isLoading: isLoadingProfiles } = useQualityProfiles(sourceType === 'radarr' ? 'movie' : 'tv')
 
   const mappingState = useMappingState({
     sourceRootFolders,

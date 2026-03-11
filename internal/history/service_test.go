@@ -18,11 +18,11 @@ func TestHistoryService_Create(t *testing.T) {
 	ctx := context.Background()
 
 	entry, err := service.Create(ctx, &CreateInput{
-		EventType: EventTypeGrabbed,
-		MediaType: MediaTypeMovie,
-		MediaID:   1,
-		Source:    "test-indexer",
-		Quality:   "Bluray-1080p",
+		EventType:  EventTypeGrabbed,
+		EntityType: MediaTypeMovie,
+		EntityID:   1,
+		Source:     "test-indexer",
+		Quality:    "Bluray-1080p",
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
@@ -129,19 +129,19 @@ func TestHistoryService_ListFiltered(t *testing.T) {
 
 	// Create entries of different types
 	_, _ = service.Create(ctx, &CreateInput{
-		EventType: EventTypeGrabbed,
-		MediaType: MediaTypeMovie,
-		MediaID:   1,
+		EventType:  EventTypeGrabbed,
+		EntityType: MediaTypeMovie,
+		EntityID:   1,
 	})
 	_, _ = service.Create(ctx, &CreateInput{
-		EventType: EventTypeStatusChanged,
-		MediaType: MediaTypeMovie,
-		MediaID:   2,
+		EventType:  EventTypeStatusChanged,
+		EntityType: MediaTypeMovie,
+		EntityID:   2,
 	})
 	_, _ = service.Create(ctx, &CreateInput{
-		EventType: EventTypeStatusChanged,
-		MediaType: MediaTypeEpisode,
-		MediaID:   3,
+		EventType:  EventTypeStatusChanged,
+		EntityType: MediaTypeEpisode,
+		EntityID:   3,
 	})
 
 	// Filter by event type
@@ -257,14 +257,14 @@ func TestHistoryService_DeleteAll(t *testing.T) {
 	ctx := context.Background()
 
 	_, _ = service.Create(ctx, &CreateInput{
-		EventType: EventTypeGrabbed,
-		MediaType: MediaTypeMovie,
-		MediaID:   1,
+		EventType:  EventTypeGrabbed,
+		EntityType: MediaTypeMovie,
+		EntityID:   1,
 	})
 	_, _ = service.Create(ctx, &CreateInput{
-		EventType: EventTypeStatusChanged,
-		MediaType: MediaTypeEpisode,
-		MediaID:   2,
+		EventType:  EventTypeStatusChanged,
+		EntityType: MediaTypeEpisode,
+		EntityID:   2,
 	})
 
 	err := service.DeleteAll(ctx)
@@ -288,9 +288,9 @@ func TestHistoryService_Pagination(t *testing.T) {
 	// Create 5 entries
 	for i := 1; i <= 5; i++ {
 		_, _ = service.Create(ctx, &CreateInput{
-			EventType: EventTypeGrabbed,
-			MediaType: MediaTypeMovie,
-			MediaID:   int64(i),
+			EventType:  EventTypeGrabbed,
+			EntityType: MediaTypeMovie,
+			EntityID:   int64(i),
 		})
 	}
 

@@ -1,9 +1,13 @@
 // Portal User types
+export type UserModuleSetting = {
+  moduleType: string
+  qualityProfileId: number | null
+}
+
 export type PortalUser = {
   id: number
   username: string
-  movieQualityProfileId: number | null
-  tvQualityProfileId: number | null
+  moduleSettings: UserModuleSetting[]
   autoApprove: boolean
   enabled: boolean
   isAdmin: boolean
@@ -12,7 +16,7 @@ export type PortalUser = {
 }
 
 export type PortalUserWithQuota = {
-  quota: UserQuota | null
+  quota: QuotaStatus | null
 } & PortalUser
 
 // Auth types
@@ -43,6 +47,11 @@ export type UpdateProfileRequest = {
 }
 
 // Invitation types
+export type InvitationModuleSetting = {
+  moduleType: string
+  qualityProfileId: number | null
+}
+
 export type Invitation = {
   id: number
   username: string
@@ -50,15 +59,14 @@ export type Invitation = {
   expiresAt: string
   usedAt: string | null
   createdAt: string
-  movieQualityProfileId: number | null
-  tvQualityProfileId: number | null
+  status: string
+  moduleSettings: InvitationModuleSetting[]
   autoApprove: boolean
 }
 
 export type CreateInvitationRequest = {
   username: string
-  movieQualityProfileId?: number | null
-  tvQualityProfileId?: number | null
+  moduleSettings?: Record<string, number | null>
   autoApprove?: boolean
 }
 
@@ -150,21 +158,16 @@ export type BatchDenyInput = {
 }
 
 // Quota types
-export type UserQuota = {
-  userId: number
-  moviesLimit: number | null
-  seasonsLimit: number | null
-  episodesLimit: number | null
-  moviesUsed: number
-  seasonsUsed: number
-  episodesUsed: number
+export type ModuleQuotaStatus = {
+  moduleType: string
+  quotaLimit: number
+  quotaUsed: number
   periodStart: string
 }
 
-export type QuotaLimits = {
-  moviesLimit?: number | null
-  seasonsLimit?: number | null
-  episodesLimit?: number | null
+export type QuotaStatus = {
+  userId: number
+  modules: ModuleQuotaStatus[]
 }
 
 // User notification types
@@ -282,9 +285,7 @@ export type EnrichedSeason = {
 // Request settings
 export type RequestSettings = {
   enabled: boolean
-  defaultMovieQuota: number
-  defaultSeasonQuota: number
-  defaultEpisodeQuota: number
+  defaultQuotas: Record<string, number>
   defaultRootFolderId: number | null
   adminNotifyNew: boolean
   searchRateLimit: number
@@ -293,10 +294,8 @@ export type RequestSettings = {
 // Admin user management
 export type AdminUpdateUserInput = {
   username?: string
-  movieQualityProfileId?: number | null
-  tvQualityProfileId?: number | null
+  moduleSettings?: Record<string, number | null>
   autoApprove?: boolean
-  quotaOverride?: QuotaLimits
 }
 
 // Portal download (queue item filtered to user's requests)
@@ -305,7 +304,7 @@ export type PortalDownload = {
   clientId: number
   clientName: string
   title: string
-  mediaType: 'movie' | 'series' | 'unknown'
+  mediaType: string
   status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning'
   progress: number
   size: number

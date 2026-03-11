@@ -70,11 +70,22 @@ function DetailsContent({ item }: { item: HistoryEntry }) {
   return <>{getDetailsText(item)}</>
 }
 
+const MEDIA_HOVER_CLASSES: Record<string, string> = {
+  movie: 'hover:text-movie-500',
+  episode: 'hover:text-tv-500',
+}
+
+const MEDIA_ROW_HOVER: Record<string, string> = {
+  movie: 'hover:bg-movie-500/5',
+  episode: 'hover:bg-tv-500/5',
+}
+
 function MediaTitle({ item }: { item: HistoryEntry }) {
   const isMovie = item.mediaType === 'movie'
   const title = item.mediaTitle ?? `${item.mediaType} #${item.mediaId}`
   const movieYear = item.year ? String(item.year) : undefined
   const qualifier = isMovie ? movieYear : item.mediaQualifier
+  const hoverClass = MEDIA_HOVER_CLASSES[item.mediaType] ?? ''
 
   const content = (
     <>
@@ -88,7 +99,7 @@ function MediaTitle({ item }: { item: HistoryEntry }) {
       <Link
         to="/movies/$id"
         params={{ id: String(item.mediaId) }}
-        className="hover:text-movie-500 transition-colors hover:underline"
+        className={cn(hoverClass, 'transition-colors hover:underline')}
       >
         {content}
       </Link>
@@ -100,7 +111,7 @@ function MediaTitle({ item }: { item: HistoryEntry }) {
       <Link
         to="/series/$id"
         params={{ id: String(item.seriesId) }}
-        className="hover:text-tv-500 transition-colors hover:underline"
+        className={cn(hoverClass, 'transition-colors hover:underline')}
       >
         {content}
       </Link>
@@ -144,11 +155,17 @@ function ExpandChevron({ hasDetails, isExpanded }: { hasDetails: boolean; isExpa
   return <ChevronRight className="text-muted-foreground size-3.5" />
 }
 
-function MediaIcon({ isMovie }: { isMovie: boolean }) {
-  if (isMovie) {
-    return <Film className="text-movie-500 size-4" />
+const MEDIA_ICON_CLASSES: Record<string, string> = {
+  movie: 'text-movie-500',
+  episode: 'text-tv-500',
+}
+
+function MediaIcon({ mediaType }: { mediaType: string }) {
+  const iconClass = MEDIA_ICON_CLASSES[mediaType] ?? 'text-muted-foreground'
+  if (mediaType === 'movie') {
+    return <Film className={cn('size-4', iconClass)} />
   }
-  return <Tv className="text-tv-500 size-4" />
+  return <Tv className={cn('size-4', iconClass)} />
 }
 
 function EventBadge({ item }: { item: HistoryEntry }) {
@@ -182,13 +199,12 @@ type HistoryRowProps = {
 
 function HistoryRow({ item, isExpanded, onToggle }: HistoryRowProps) {
   const hasDetails = getDetailRows(item).length > 0
-  const isMovie = item.mediaType === 'movie'
 
   return (
     <TableRow
       className={cn(
         'cursor-pointer',
-        isMovie ? 'hover:bg-movie-500/5' : 'hover:bg-tv-500/5',
+        MEDIA_ROW_HOVER[item.mediaType] ?? 'hover:bg-accent/50',
         isExpanded && 'bg-muted/20',
       )}
       onClick={() => onToggle(item.id, hasDetails)}
@@ -197,7 +213,7 @@ function HistoryRow({ item, isExpanded, onToggle }: HistoryRowProps) {
         <ExpandChevron hasDetails={hasDetails} isExpanded={isExpanded} />
       </TableCell>
       <TableCell className="w-12">
-        <MediaIcon isMovie={isMovie} />
+        <MediaIcon mediaType={item.mediaType} />
       </TableCell>
       <TableCell>
         <MediaTitle item={item} />

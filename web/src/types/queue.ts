@@ -5,7 +5,10 @@ export type QueueItem = {
   clientType: string
   title: string
   releaseName: string
-  mediaType: 'movie' | 'series' | 'unknown'
+  mediaType: string
+  moduleType?: string
+  entityType?: string
+  entityId?: number
   status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning'
   progress: number
   size: number
