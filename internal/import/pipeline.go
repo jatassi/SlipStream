@@ -366,6 +366,7 @@ func entityToLibraryMatch(entity *module.MatchedEntity) *LibraryMatch {
 		CandidateQualityID: entity.CandidateQualityID,
 		ExistingQualityID:  entity.ExistingQualityID,
 		QualityProfileID:   entity.QualityProfileID,
+		ModuleEntity:       entity,
 	}
 
 	switch entity.EntityType {
