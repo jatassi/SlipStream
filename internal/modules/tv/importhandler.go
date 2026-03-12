@@ -204,6 +204,13 @@ func (h *importHandler) ImportFile(ctx context.Context, filePath string, entity 
 	}, nil
 }
 
+func defaultFormatType(ft string) string {
+	if ft == "" {
+		return "standard"
+	}
+	return ft
+}
+
 func (h *importHandler) SupportsMultiFileDownload() bool { return true }
 
 func (h *importHandler) MediaInfoFields() []module.MediaInfoFieldDecl {
@@ -220,7 +227,7 @@ func buildSeriesTokenData(series *tvlib.Series) map[string]any {
 	return map[string]any{
 		"SeriesTitle": series.Title,
 		"SeriesYear":  series.Year,
-		"SeriesType":  series.FormatType,
+		"SeriesType":  defaultFormatType(series.FormatType),
 	}
 }
 
@@ -229,7 +236,7 @@ func buildTVTokenData(series *tvlib.Series, episode *tvlib.Episode) map[string]a
 		"SeriesID":      series.ID,
 		"SeriesTitle":   series.Title,
 		"SeriesYear":    series.Year,
-		"SeriesType":    series.FormatType,
+		"SeriesType":    defaultFormatType(series.FormatType),
 		"SeasonNumber":  episode.SeasonNumber,
 		"EpisodeNumber": episode.EpisodeNumber,
 		"EpisodeTitle":  episode.Title,
