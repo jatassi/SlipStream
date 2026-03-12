@@ -354,36 +354,6 @@ func (s *Service) matchOrphanViaModules(ctx context.Context, filePath string) *m
 	return entity
 }
 
-// entityToLibraryMatch converts a module MatchedEntity to the import pipeline's LibraryMatch.
-func entityToLibraryMatch(entity *module.MatchedEntity) *LibraryMatch {
-	match := &LibraryMatch{
-		Confidence:         entity.Confidence,
-		Source:             entity.Source,
-		RootFolder:         entity.RootFolder,
-		IsUpgrade:          entity.IsUpgrade,
-		ExistingFileID:     entity.ExistingFileID,
-		ExistingFile:       entity.ExistingFilePath,
-		CandidateQualityID: entity.CandidateQualityID,
-		ExistingQualityID:  entity.ExistingQualityID,
-		QualityProfileID:   entity.QualityProfileID,
-		ModuleEntity:       entity,
-	}
-
-	switch entity.EntityType {
-	case module.EntityMovie:
-		match.MediaType = mediaTypeMovie
-		match.MovieID = &entity.EntityID
-	case module.EntityEpisode:
-		match.MediaType = mediaTypeEpisode
-		match.EpisodeID = &entity.EntityID
-		if len(entity.EntityIDs) > 1 {
-			match.EpisodeIDs = entity.EntityIDs
-		}
-	}
-
-	return match
-}
-
 // processImport handles the actual import of a single file.
 func (s *Service) processImport(ctx context.Context, job ImportJob) (*ImportResult, error) {
 	result := &ImportResult{SourcePath: job.SourcePath}

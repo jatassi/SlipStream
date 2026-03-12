@@ -226,6 +226,7 @@ func buildSeriesTokenData(series *tvlib.Series) map[string]any {
 
 func buildTVTokenData(series *tvlib.Series, episode *tvlib.Episode) map[string]any {
 	data := map[string]any{
+		"SeriesID":      series.ID,
 		"SeriesTitle":   series.Title,
 		"SeriesYear":    series.Year,
 		"SeriesType":    series.FormatType,

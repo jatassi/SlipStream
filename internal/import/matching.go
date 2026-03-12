@@ -235,7 +235,7 @@ func (s *Service) matchFromParse(ctx context.Context, path string) *LibraryMatch
 	if s.registry != nil {
 		entity := s.matchOrphanViaModules(ctx, path)
 		if entity != nil {
-			return entityToLibraryMatch(entity)
+			return moduleEntityToLibraryMatch(entity)
 		}
 		return nil
 	}

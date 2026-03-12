@@ -243,6 +243,7 @@ func (p *fileParser) matchSeasonPack(series *tvlib.Series, rootFolder string, ex
 		Source:           "parse",
 		QualityProfileID: series.QualityProfileID,
 		TokenData: map[string]any{
+			"SeriesID":     series.ID,
 			"SeriesTitle":  series.Title,
 			"SeriesYear":   series.Year,
 			"SeasonNumber": extra.Season,
