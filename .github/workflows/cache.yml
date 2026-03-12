@@ -71,6 +71,33 @@ jobs:
           mkdir -p web/dist && touch web/dist/.gitkeep
           CGO_ENABLED=1 GOARCH=amd64 go build ./cmd/slipstream
 
+      - name: Cache go-winres
+        id: cache-gowinres
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/go-winres.exe
+          key: go-winres-windows-1
+
+      - name: Install go-winres
+        if: steps.cache-gowinres.outputs.cache-hit != 'true'
+        run: go install github.com/tc-hib/go-winres@latest
+
+      - name: Cache WiX toolset
+        id: cache-wix
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.dotnet/tools
+            ~/.wix
+          key: wix-windows-5.0.2
+
+      - name: Install WiX v5
+        if: steps.cache-wix.outputs.cache-hit != 'true'
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
   warm-frontend:
     runs-on: ubuntu-latest
     steps:
