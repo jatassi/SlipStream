@@ -28,16 +28,21 @@ export type DispatchContext = {
 
 function handleEntityEvent(
   queryClient: QueryClient,
-  type: string,
+  message: WSMessage,
 ): void {
-  const moduleId = type.split(':')[0]
+  // Entity events carry a `module` field (e.g. "tv") that differs from the
+  // first segment of `type` (e.g. "series:updated" → "series"). Use the
+  // explicit module field when available so the lookup succeeds for all modules.
+  const moduleId = ('module' in message && typeof message.module === 'string')
+    ? message.module
+    : message.type.split(':')[0]
   const mod = getModule(moduleId)
   if (!mod) {return}
 
   void queryClient.invalidateQueries({ queryKey: mod.queryKeys.all })
 
   for (const rule of mod.wsInvalidationRules) {
-    if (new RegExp(rule.pattern).test(type)) {
+    if (new RegExp(rule.pattern).test(message.type)) {
       for (const keys of rule.alsoInvalidate ?? []) {
         void queryClient.invalidateQueries({ queryKey: keys })
       }
@@ -223,9 +228,9 @@ export function dispatchWSMessage(
     return
   }
 
-  // Generic fallback: handle module entity events (e.g. "movie:added", "tv:deleted")
+  // Generic fallback: handle module entity events (e.g. "movie:added", "series:updated")
   const action = message.type.split(':')[1]
   if (action === 'added' || action === 'updated' || action === 'deleted') {
-    handleEntityEvent(ctx.queryClient, message.type)
+    handleEntityEvent(ctx.queryClient, message)
   }
 }
