@@ -53,6 +53,12 @@ type Service struct {
 	module.BaseService
 	fileDeleteHandler contracts.FileDeleteHandler
 	notifier          NotificationDispatcher
+	registry          *module.Registry
+}
+
+// SetRegistry sets the module registry for cascading monitoring changes.
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // SetNotificationDispatcher sets the notification dispatcher for series events.
@@ -280,7 +286,11 @@ func (s *Service) UpdateSeries(ctx context.Context, id int64, input *UpdateSerie
 		return nil, fmt.Errorf("failed to update series: %w", err)
 	}
 
-	s.cascadeMonitoringChanges(ctx, id, current, input)
+	if input.Monitored != nil && *input.Monitored != current.Monitored && s.registry != nil {
+		if err := module.CascadeMonitoredForModule(ctx, s.registry, module.TypeTV, module.EntitySeries, id, *input.Monitored); err != nil {
+			s.Logger.Warn().Err(err).Int64("seriesId", id).Msg("cascade monitoring failed")
+		}
+	}
 
 	series := s.rowToSeries(row)
 	s.Logger.Info().Int64("id", id).Str("title", series.Title).Msg("Updated series")
@@ -304,18 +314,12 @@ func (s *Service) BulkUpdateSeriesMonitored(ctx context.Context, input BulkSerie
 		return fmt.Errorf("failed to bulk update series monitored: %w", err)
 	}
 
-	if err := s.Queries.UpdateSeasonMonitoredBySeriesIDs(ctx, sqlc.UpdateSeasonMonitoredBySeriesIDsParams{
-		Monitored: input.Monitored,
-		Ids:       input.IDs,
-	}); err != nil {
-		return fmt.Errorf("failed to bulk update season monitored: %w", err)
-	}
-
-	if err := s.Queries.UpdateAllEpisodesMonitoredBySeriesIDs(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesIDsParams{
-		Monitored: input.Monitored,
-		Ids:       input.IDs,
-	}); err != nil {
-		return fmt.Errorf("failed to bulk update episode monitored: %w", err)
+	if s.registry != nil {
+		for _, id := range input.IDs {
+			if err := module.CascadeMonitoredForModule(ctx, s.registry, module.TypeTV, module.EntitySeries, id, input.Monitored); err != nil {
+				s.Logger.Warn().Err(err).Int64("seriesId", id).Msg("cascade monitoring failed")
+			}
+		}
 	}
 
 	s.Logger.Info().Int("count", len(input.IDs)).Bool("monitored", input.Monitored).Msg("Bulk updated series monitored status")
@@ -826,25 +830,6 @@ func (s *Service) buildSeriesUpdateParams(id int64, current *Series, input *Upda
 		Network:          sql.NullString{String: network, Valid: network != ""},
 		FormatType:       sql.NullString{String: formatType, Valid: formatType != ""},
 		NetworkLogoUrl:   sql.NullString{String: networkLogoURL, Valid: networkLogoURL != ""},
-	}
-}
-
-func (s *Service) cascadeMonitoringChanges(ctx context.Context, id int64, current *Series, input *UpdateSeriesInput) {
-	if input.Monitored == nil || *input.Monitored == current.Monitored {
-		return
-	}
-
-	if err := s.Queries.UpdateSeasonMonitoredBySeries(ctx, sqlc.UpdateSeasonMonitoredBySeriesParams{
-		Monitored: *input.Monitored,
-		SeriesID:  id,
-	}); err != nil {
-		s.Logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to seasons")
-	}
-	if err := s.Queries.UpdateAllEpisodesMonitoredBySeries(ctx, sqlc.UpdateAllEpisodesMonitoredBySeriesParams{
-		Monitored: *input.Monitored,
-		SeriesID:  id,
-	}); err != nil {
-		s.Logger.Warn().Err(err).Int64("seriesId", id).Msg("Failed to cascade monitoring to episodes")
 	}
 }
 

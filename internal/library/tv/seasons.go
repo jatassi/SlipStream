@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/slipstream/slipstream/internal/database/sqlc"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // GetSeasonByID retrieves a season by its ID.
@@ -59,13 +60,10 @@ func (s *Service) UpdateSeasonMonitored(ctx context.Context, seriesID int64, sea
 		return nil, fmt.Errorf("failed to update season: %w", err)
 	}
 
-	// Cascade monitoring to all episodes in this season
-	if err := s.Queries.UpdateEpisodesMonitoredBySeason(ctx, sqlc.UpdateEpisodesMonitoredBySeasonParams{
-		Monitored:    monitored,
-		SeriesID:     seriesID,
-		SeasonNumber: int64(seasonNumber),
-	}); err != nil {
-		s.Logger.Warn().Err(err).Int64("seriesId", seriesID).Int("seasonNumber", seasonNumber).Msg("Failed to cascade monitoring to episodes")
+	if s.registry != nil {
+		if err := module.CascadeMonitoredForModule(ctx, s.registry, module.TypeTV, module.EntitySeason, row.ID, monitored); err != nil {
+			s.Logger.Warn().Err(err).Int64("seasonId", row.ID).Msg("cascade monitoring failed")
+		}
 	}
 
 	season := s.rowToSeason(updated)

@@ -8,7 +8,7 @@ import (
 )
 
 // convertModuleCriteria converts module.SearchCriteria to indexer types.SearchCriteria.
-func convertModuleCriteria(mc *module.SearchCriteria) types.SearchCriteria { //nolint:unused // used when module registry is fully active
+func convertModuleCriteria(mc *module.SearchCriteria) types.SearchCriteria {
 	ic := types.SearchCriteria{
 		ModuleType: string(mc.ModuleType),
 		Query:      mc.Query,

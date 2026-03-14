@@ -12,7 +12,6 @@ import (
 	"github.com/slipstream/slipstream/internal/decisioning"
 	"github.com/slipstream/slipstream/internal/domain/contracts"
 	"github.com/slipstream/slipstream/internal/history"
-	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/grab"
 	"github.com/slipstream/slipstream/internal/indexer/search"
 	"github.com/slipstream/slipstream/internal/indexer/types"
@@ -93,7 +92,7 @@ func (s *Service) SetRegistry(r *module.Registry) {
 }
 
 // buildSearchCriteriaFromModule constructs criteria using the module's SearchStrategy.
-func (s *Service) buildSearchCriteriaFromModule(item module.SearchableItem) types.SearchCriteria { //nolint:unused // used when module registry is fully active
+func (s *Service) buildSearchCriteriaFromModule(item module.SearchableItem) types.SearchCriteria {
 	moduleType := module.Type(item.GetModuleType())
 	mod := s.registry.Get(moduleType)
 	if mod == nil {
@@ -731,51 +730,10 @@ func (s *Service) moduleTypeForEntity(entityType string) string {
 
 // buildSearchCriteria creates search criteria from a searchable item.
 func (s *Service) buildSearchCriteria(item SearchableItem) types.SearchCriteria {
-	mediaType := item.GetMediaType()
-	criteria := types.SearchCriteria{
-		Query: item.GetTitle(),
+	if s.registry != nil {
+		return s.buildSearchCriteriaFromModule(item)
 	}
-
-	switch mediaType {
-	case string(MediaTypeMovie):
-		criteria.Type = "movie"
-		criteria.Categories = indexer.MovieCategories()
-		if imdbID := module.ItemImdbID(item); imdbID != "" {
-			criteria.ImdbID = imdbID
-		}
-		if tmdbID := module.ItemTmdbID(item); tmdbID > 0 {
-			criteria.TmdbID = tmdbID
-		}
-		if year := module.ItemYear(item); year > 0 {
-			criteria.Year = year
-		}
-
-	case string(MediaTypeEpisode):
-		criteria.Type = "tvsearch"
-		criteria.Categories = indexer.TVCategories()
-		if tvdbID := module.ItemTvdbID(item); tvdbID > 0 {
-			criteria.TvdbID = tvdbID
-		}
-		criteria.Season = module.ItemSeasonNumber(item)
-		criteria.Episode = module.ItemEpisodeNumber(item)
-
-	case string(MediaTypeSeason):
-		criteria.Type = "tvsearch"
-		// Don't filter by categories for season pack searches - some indexers
-		// categorize season packs differently than individual episodes, and
-		// filtering would exclude them. This matches manual search behavior.
-		if tvdbID := module.ItemTvdbID(item); tvdbID > 0 {
-			criteria.TvdbID = tvdbID
-		}
-		// Don't set Season parameter for season pack searches. Setting it would
-		// cause indexers to filter server-side, potentially excluding complete
-		// series boxsets that aren't tagged with a specific season number.
-		// Our client-side selectBestRelease handles filtering to accept:
-		// - Single season packs matching the target season
-		// - Complete series boxsets that include the target season
-	}
-
-	return criteria
+	return types.SearchCriteria{Query: item.GetTitle()}
 }
 
 // selectBestRelease selects the best release from scored results.

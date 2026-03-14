@@ -51,6 +51,12 @@ type Service struct {
 	module.BaseService
 	fileDeleteHandler contracts.FileDeleteHandler
 	notifier          NotificationDispatcher
+	registry          *module.Registry
+}
+
+// SetRegistry sets the module registry (reserved for future use; movies have no cascade hierarchy).
+func (s *Service) SetRegistry(r *module.Registry) {
+	s.registry = r
 }
 
 // SetNotificationDispatcher sets the notification dispatcher for movie events.
