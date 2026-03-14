@@ -32,15 +32,13 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 
 ## Mandatory Directives
 
-- Code should be self-documenting — avoid frivolous comments
-- Do not conduct your own testing after implementation unless explicitly instructed. Suggest testing to the user if necessary.
+- Avoid frivolous comments - code should be self-documenting
 - After completing major changes, run the relevant linter(s): `make lint` for Go, `cd web && bun run lint` for frontend. Fix any issues introduced by your changes.
 - At the end of each message, put **Restart Backend** if a backend restart is required
 - If following an external plan or to-do list, always update it once you finish a task/phase/feature
-- Deviation from the plan or spec requires pausing to ask the user's approval. If approved, update the plan/spec before making code changes
-- When a tool use fails, think carefully about the root cause, find the issue, and improve the common commands sections of AGENTS.md and CLAUDE.md to avoid the failure in the future
 - When completing a major unit of work, check for and remove legacy codepaths that have been replaced by your changes
 - **Do NOT commit, tag, or release unless explicitly instructed by the user**
+- **Strongly avoid** fallback code, "defense-in-depth", and backwards compatibility. Instead, code should be predictable so overly defensive code isn't required.
 
 ## Common Commands
 
