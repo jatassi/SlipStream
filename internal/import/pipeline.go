@@ -480,17 +480,15 @@ func (s *Service) loadAndApplySettings(ctx context.Context) *ImportSettings {
 }
 
 // resolveLibraryMatch resolves the import target, either from a confirmed match or by searching the library.
-func (s *Service) resolveLibraryMatch(ctx context.Context, job ImportJob, settings *ImportSettings) (*LibraryMatch, error) {
+func (s *Service) resolveLibraryMatch(ctx context.Context, job ImportJob, _ *ImportSettings) (*LibraryMatch, error) {
 	if job.ConfirmedMatch != nil {
 		return job.ConfirmedMatch, nil
 	}
 
-	match, err := s.matchToLibraryWithSettings(ctx, job.SourcePath, job.DownloadMapping, settings)
+	match, err := s.matchToLibrary(ctx, job.SourcePath, job.DownloadMapping)
 	if err != nil {
-		if errors.Is(err, ErrNoMatch) && settings.UnknownMediaBehavior == UnknownAutoAdd {
-			s.logger.Warn().Str("path", job.SourcePath).Msg("Auto-add not yet implemented, file will be skipped")
-		} else if errors.Is(err, ErrNoMatch) {
-			s.logger.Debug().Str("path", job.SourcePath).Msg("No library match found, ignoring file per settings")
+		if errors.Is(err, ErrNoMatch) {
+			s.logger.Debug().Str("path", job.SourcePath).Msg("No library match found")
 		}
 		return nil, err
 	}
@@ -706,82 +704,12 @@ func (s *Service) computeDestination(
 	mediaInfo *mediainfo.MediaInfo,
 	sourcePath string,
 ) (string, error) {
+	if match.ModuleEntity == nil {
+		return "", fmt.Errorf("no module entity for matched file %s", filepath.Base(sourcePath))
+	}
+
 	ext := filepath.Ext(sourcePath)
-
-	// Module-aware path: use module schema and resolver when available
-	if s.registry != nil && match.ModuleEntity != nil {
-		return s.computeDestinationViaModule(ctx, match.ModuleEntity, nil, mediaInfo, ext)
-	}
-
-	// Legacy path
-	tokenCtx := s.buildTokenContext(ctx, match, mediaInfo, sourcePath)
-
-	if match.MediaType == mediaTypeMovie {
-		return s.computeMovieDestination(tokenCtx, match.RootFolder, ext)
-	}
-	return s.computeEpisodeDestination(tokenCtx, match.RootFolder, ext)
-}
-
-func (s *Service) computeMovieDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
-	if !s.renamer.IsRenameEnabled("movie") {
-		return filepath.Join(rootFolder, tokenCtx.OriginalFile), nil
-	}
-
-	movieFolder, err := s.renamer.ResolveContext("movie-folder", tokenCtx, "")
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve movie folder: %w", err)
-	}
-
-	filename, err := s.renamer.ResolveContext("movie-file", tokenCtx, ext)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve movie filename: %w", err)
-	}
-
-	folderPath := filepath.Join(rootFolder, movieFolder)
-	fullPath, err := s.renamer.ResolveFullPath(folderPath, "", filename)
-	if err != nil {
-		return "", ErrPathTooLong
-	}
-	return fullPath, nil
-}
-
-func (s *Service) computeEpisodeDestination(tokenCtx *renamer.TokenContext, rootFolder, ext string) (string, error) {
-	if !s.renamer.IsRenameEnabled("episode") {
-		return filepath.Join(rootFolder, tokenCtx.OriginalFile), nil
-	}
-
-	seriesFolder, err := s.renamer.ResolveContext("series-folder", tokenCtx, "")
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve series folder: %w", err)
-	}
-
-	episodeContext := "episode-file." + tokenCtx.SeriesType
-	if !s.renamer.HasPattern(episodeContext) {
-		episodeContext = "episode-file.standard"
-	}
-
-	seasonFolder, err := s.renamer.ResolveContext("season-folder", tokenCtx, "")
-	if err != nil {
-		seasonFolder = fmt.Sprintf("Season %d", tokenCtx.SeasonNumber)
-	}
-	if tokenCtx.SeasonNumber == 0 {
-		seasonFolder, err = s.renamer.ResolveContext("specials-folder", tokenCtx, "")
-		if err != nil {
-			seasonFolder = "Specials"
-		}
-	}
-
-	filename, err := s.renamer.ResolveContext(episodeContext, tokenCtx, ext)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve episode filename: %w", err)
-	}
-
-	folderPath := filepath.Join(rootFolder, seriesFolder, seasonFolder)
-	fullPath, err := s.renamer.ResolveFullPath(folderPath, "", filename)
-	if err != nil {
-		return "", ErrPathTooLong
-	}
-	return fullPath, nil
+	return s.computeDestinationViaModule(ctx, match.ModuleEntity, nil, mediaInfo, ext)
 }
 
 // computeDestinationViaModule computes the destination path using the module's
@@ -923,171 +851,6 @@ func (s *Service) executeImport(source, dest string) (organizer.LinkMode, error)
 
 	// Use organizer's ImportFile which handles hardlink/symlink/copy fallback
 	return s.organizer.ImportFile(source, dest)
-}
-
-// buildTokenContext creates a token context from match and mediainfo.
-func (s *Service) buildTokenContext(
-	ctx context.Context,
-	match *LibraryMatch,
-	mediaInfo *mediainfo.MediaInfo,
-	sourcePath string,
-) *renamer.TokenContext {
-	filename := filepath.Base(sourcePath)
-	parsed := scanner.ParsePath(sourcePath)
-
-	tc := &renamer.TokenContext{
-		OriginalFile:  filename,
-		OriginalTitle: strings.TrimSuffix(filename, filepath.Ext(filename)),
-	}
-
-	s.applyParsedAttributes(tc, parsed)
-	s.applyMediaInfo(tc, mediaInfo, parsed)
-
-	if match.MediaType == mediaTypeMovie && match.MovieID != nil {
-		s.applyMovieContext(ctx, tc, *match.MovieID)
-	} else if match.MediaType == mediaTypeEpisode && match.SeriesID != nil {
-		s.applySeriesContext(ctx, tc, match)
-	}
-
-	return tc
-}
-
-// applyParsedAttributes populates token context with parsed filename data.
-func (s *Service) applyParsedAttributes(tc *renamer.TokenContext, parsed *scanner.ParsedMedia) {
-	tc.Quality = parsed.Quality
-	tc.Source = parsed.Source
-	tc.Codec = parsed.Codec
-
-	for _, attr := range parsed.Attributes {
-		if s.isHDRAttribute(attr) {
-			if tc.VideoDynamicRange == "" {
-				tc.VideoDynamicRange = attr
-			} else {
-				tc.VideoDynamicRange += " " + attr
-			}
-		}
-	}
-
-	if len(parsed.AudioCodecs) > 0 {
-		tc.AudioCodec = strings.Join(parsed.AudioCodecs, " ")
-	}
-	if len(parsed.AudioChannels) > 0 {
-		tc.AudioChannels = strings.Join(parsed.AudioChannels, " ")
-	}
-	if len(parsed.AudioEnhancements) > 0 {
-		enhancement := strings.Join(parsed.AudioEnhancements, " ")
-		if tc.AudioCodec != "" {
-			tc.AudioCodec += " " + enhancement
-		} else {
-			tc.AudioCodec = enhancement
-		}
-	}
-
-	tc.ReleaseGroup = parsed.ReleaseGroup
-	tc.Revision = parsed.Revision
-	tc.EditionTags = parsed.Edition
-}
-
-// isHDRAttribute checks if an attribute is an HDR type.
-func (s *Service) isHDRAttribute(attr string) bool {
-	switch attr {
-	case "HDR10+", "HDR10", "HDR", "DV", "Dolby Vision":
-		return true
-	default:
-		return false
-	}
-}
-
-// applyMediaInfo overrides token context with MediaInfo data (more accurate than filename parsing).
-func (s *Service) applyMediaInfo(tc *renamer.TokenContext, mediaInfo *mediainfo.MediaInfo, parsed *scanner.ParsedMedia) {
-	if mediaInfo.VideoCodec != "" {
-		tc.VideoCodec = mediaInfo.VideoCodec
-	} else {
-		tc.VideoCodec = parsed.Codec
-	}
-
-	if mediaInfo.VideoBitDepth > 0 {
-		tc.VideoBitDepth = mediaInfo.VideoBitDepth
-	}
-	if mediaInfo.DynamicRangeType != "" {
-		tc.VideoDynamicRange = mediaInfo.DynamicRangeType
-	}
-	if mediaInfo.AudioCodec != "" {
-		tc.AudioCodec = mediaInfo.AudioCodec
-	}
-	if mediaInfo.AudioChannels != "" {
-		tc.AudioChannels = mediaInfo.AudioChannels
-	}
-	if len(mediaInfo.AudioLanguages) > 0 {
-		tc.AudioLanguages = mediaInfo.AudioLanguages
-	}
-	if len(mediaInfo.SubtitleLanguages) > 0 {
-		tc.SubtitleLanguages = mediaInfo.SubtitleLanguages
-	}
-}
-
-// applyMovieContext populates token context with movie library data.
-func (s *Service) applyMovieContext(ctx context.Context, tc *renamer.TokenContext, movieID int64) {
-	movie, err := s.movies.Get(ctx, movieID)
-	if err != nil {
-		return
-	}
-	tc.MovieTitle = movie.Title
-	tc.MovieYear = movie.Year
-}
-
-// applySeriesContext populates token context with series/episode library data.
-func (s *Service) applySeriesContext(ctx context.Context, tc *renamer.TokenContext, match *LibraryMatch) {
-	if match.SeriesID == nil {
-		return
-	}
-
-	series, err := s.tv.GetSeries(ctx, *match.SeriesID)
-	if err == nil {
-		tc.SeriesTitle = series.Title
-		tc.SeriesYear = series.Year
-		tc.SeriesType = series.FormatType
-		if tc.SeriesType == "" {
-			tc.SeriesType = "standard"
-		}
-	}
-
-	if match.SeasonNum != nil {
-		tc.SeasonNumber = *match.SeasonNum
-	}
-
-	if match.EpisodeID != nil {
-		s.applySingleEpisodeContext(ctx, tc, *match.EpisodeID)
-	}
-
-	if len(match.EpisodeIDs) > 1 {
-		s.applyMultiEpisodeContext(ctx, tc, match.EpisodeIDs)
-	}
-}
-
-// applySingleEpisodeContext populates token context with episode data.
-func (s *Service) applySingleEpisodeContext(ctx context.Context, tc *renamer.TokenContext, episodeID int64) {
-	episode, err := s.tv.GetEpisode(ctx, episodeID)
-	if err != nil {
-		return
-	}
-	tc.EpisodeNumber = episode.EpisodeNumber
-	tc.EpisodeTitle = episode.Title
-	if episode.AirDate != nil {
-		tc.AirDate = *episode.AirDate
-	}
-}
-
-// applyMultiEpisodeContext populates token context with multi-episode data.
-func (s *Service) applyMultiEpisodeContext(ctx context.Context, tc *renamer.TokenContext, episodeIDs []int64) {
-	tc.EpisodeNumbers = make([]int, 0, len(episodeIDs))
-	for _, epID := range episodeIDs {
-		ep, err := s.tv.GetEpisode(ctx, epID)
-		if err != nil {
-			continue
-		}
-		tc.EpisodeNumbers = append(tc.EpisodeNumbers, ep.EpisodeNumber)
-	}
 }
 
 // logImportHistory logs the import to history.

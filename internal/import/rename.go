@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/slipstream/slipstream/internal/import/renamer"
 	"github.com/slipstream/slipstream/internal/library/movies"
 	"github.com/slipstream/slipstream/internal/library/tv"
+	"github.com/slipstream/slipstream/internal/mediainfo"
+	"github.com/slipstream/slipstream/internal/module"
 )
 
 // RenamePreview represents a preview of a rename operation.
@@ -163,45 +164,50 @@ func (s *Service) computeEpisodeRenamePreview(series *tv.Series, ep *tv.Episode,
 		Year:            series.Year,
 	}
 
-	// Build token context
-	tokenCtx := s.buildEpisodeTokenContext(series, ep)
-
-	if !s.renamer.IsRenameEnabled("episode") {
-		preview.NewPath = preview.CurrentPath
-		preview.NewFilename = preview.CurrentFilename
-		return preview
+	seriesType := series.FormatType
+	if seriesType == "" {
+		seriesType = "standard"
 	}
 
-	// Compute new filename
+	tokenData := map[string]any{
+		"SeriesID":      series.ID,
+		"SeriesTitle":   series.Title,
+		"SeriesYear":    series.Year,
+		"SeriesType":    seriesType,
+		"SeasonNumber":  ep.SeasonNumber,
+		"EpisodeNumber": ep.EpisodeNumber,
+		"EpisodeTitle":  ep.Title,
+		"SeasonFolder":  series.SeasonFolder,
+		"IsSpecial":     ep.SeasonNumber == 0,
+	}
+	if ep.AirDate != nil {
+		tokenData["AirDate"] = *ep.AirDate
+	}
+
+	entity := &module.MatchedEntity{
+		ModuleType: module.TypeTV,
+		EntityType: module.EntityEpisode,
+		EntityID:   ep.ID,
+		RootFolder: rootPath,
+		TokenData:  tokenData,
+	}
+
+	mi := &mediainfo.MediaInfo{
+		VideoCodec:    ep.EpisodeFile.VideoCodec,
+		AudioCodec:    ep.EpisodeFile.AudioCodec,
+		AudioChannels: ep.EpisodeFile.AudioChannels,
+		DynamicRange:  ep.EpisodeFile.DynamicRange,
+	}
+
 	ext := filepath.Ext(ep.EpisodeFile.Path)
-	episodeContext := "episode-file." + tokenCtx.SeriesType
-	if !s.renamer.HasPattern(episodeContext) {
-		episodeContext = "episode-file.standard"
-	}
-	newFilename, err := s.renamer.ResolveContext(episodeContext, tokenCtx, ext)
+	newPath, err := s.computeDestinationViaModule(context.Background(), entity, nil, mi, ext)
 	if err != nil {
 		preview.Error = err.Error()
 		return preview
 	}
 
-	// Compute new path
-	seriesFolder, err := s.renamer.ResolveContext("series-folder", tokenCtx, "")
-	if err != nil {
-		preview.Error = err.Error()
-		return preview
-	}
-
-	seasonFolder, _ := s.renamer.ResolveContext("season-folder", tokenCtx, "")
-	if ep.SeasonNumber == 0 {
-		seasonFolder, _ = s.renamer.ResolveContext("specials-folder", tokenCtx, "")
-		if seasonFolder == "" {
-			seasonFolder = "Specials"
-		}
-	}
-
-	newPath := filepath.Join(rootPath, seriesFolder, seasonFolder, newFilename)
 	preview.NewPath = newPath
-	preview.NewFilename = newFilename
+	preview.NewFilename = filepath.Base(newPath)
 	preview.NeedsRename = preview.CurrentPath != newPath
 
 	return preview
@@ -218,86 +224,36 @@ func (s *Service) computeMovieRenamePreview(movie *movies.Movie, file *movies.Mo
 		Year:            movie.Year,
 	}
 
-	// Build token context
-	tokenCtx := s.buildMovieTokenContext(movie, file)
-
-	if !s.renamer.IsRenameEnabled("movie") {
-		preview.NewPath = preview.CurrentPath
-		preview.NewFilename = preview.CurrentFilename
-		return preview
+	entity := &module.MatchedEntity{
+		ModuleType: module.TypeMovie,
+		EntityType: module.EntityMovie,
+		EntityID:   movie.ID,
+		RootFolder: rootPath,
+		TokenData: map[string]any{
+			"MovieTitle": movie.Title,
+			"MovieYear":  movie.Year,
+		},
 	}
 
-	// Compute new filename
+	mi := &mediainfo.MediaInfo{
+		VideoCodec:    file.VideoCodec,
+		AudioCodec:    file.AudioCodec,
+		AudioChannels: file.AudioChannels,
+		DynamicRange:  file.DynamicRange,
+	}
+
 	ext := filepath.Ext(file.Path)
-	newFilename, err := s.renamer.ResolveContext("movie-file", tokenCtx, ext)
+	newPath, err := s.computeDestinationViaModule(context.Background(), entity, nil, mi, ext)
 	if err != nil {
 		preview.Error = err.Error()
 		return preview
 	}
 
-	// Compute new folder
-	folderName, err := s.renamer.ResolveContext("movie-folder", tokenCtx, "")
-	if err != nil {
-		preview.Error = err.Error()
-		return preview
-	}
-
-	newPath := filepath.Join(rootPath, folderName, newFilename)
 	preview.NewPath = newPath
-	preview.NewFilename = newFilename
+	preview.NewFilename = filepath.Base(newPath)
 	preview.NeedsRename = preview.CurrentPath != newPath
 
 	return preview
-}
-
-// buildEpisodeTokenContext builds a token context from series and episode data.
-func (s *Service) buildEpisodeTokenContext(series *tv.Series, ep *tv.Episode) *renamer.TokenContext {
-	ctx := &renamer.TokenContext{
-		SeriesTitle:   series.Title,
-		SeriesYear:    series.Year,
-		SeriesType:    series.FormatType,
-		SeasonNumber:  ep.SeasonNumber,
-		EpisodeNumber: ep.EpisodeNumber,
-		EpisodeTitle:  ep.Title,
-		OriginalFile:  filepath.Base(ep.EpisodeFile.Path),
-	}
-
-	// Default to standard if not set
-	if ctx.SeriesType == "" {
-		ctx.SeriesType = "standard"
-	}
-
-	// Set air date if available
-	if ep.AirDate != nil {
-		ctx.AirDate = *ep.AirDate
-	}
-
-	// Extract quality info from file if available
-	if ep.EpisodeFile != nil {
-		ctx.Quality = ep.EpisodeFile.Resolution
-		ctx.VideoCodec = ep.EpisodeFile.VideoCodec
-		ctx.AudioCodec = ep.EpisodeFile.AudioCodec
-	}
-
-	return ctx
-}
-
-// buildMovieTokenContext builds a token context from movie data.
-func (s *Service) buildMovieTokenContext(movie *movies.Movie, file *movies.MovieFile) *renamer.TokenContext {
-	ctx := &renamer.TokenContext{
-		MovieTitle: movie.Title,
-		MovieYear:  movie.Year,
-	}
-
-	// Extract quality info from file if available
-	if file != nil {
-		ctx.OriginalFile = filepath.Base(file.Path)
-		ctx.Quality = file.Resolution
-		ctx.VideoCodec = file.VideoCodec
-		ctx.AudioCodec = file.AudioCodec
-	}
-
-	return ctx
 }
 
 // ExecuteMassRename performs mass rename operations for the specified items.
