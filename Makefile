@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new wire generate-slots new-module
+.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new deadcode wire generate-slots new-module
 
 # Build flags for embedding values at build time (set via environment variables or make arguments)
 # Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
@@ -86,6 +86,8 @@ test-coverage-view: ## Run tests and open coverage report in browser
 # Linting (Go)
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
 
+DEADCODE := $(shell command -v deadcode 2>/dev/null || echo "$(shell go env GOPATH)/bin/deadcode")
+
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
 	@$(GOLANGCI_LINT) run ./...
@@ -101,6 +103,10 @@ lint-verbose: ## Run golangci-lint with verbose output
 lint-new: ## Lint only new/changed code vs main
 	@echo "Running golangci-lint on new code..."
 	@$(GOLANGCI_LINT) run --new-from-rev=origin/main ./...
+
+deadcode: ## Find unreachable functions via whole-program analysis
+	@echo "Running deadcode analysis..."
+	@$(DEADCODE) -test ./...
 
 # Code Generation
 generate-slots: ## Regenerate slot SQL queries from template
