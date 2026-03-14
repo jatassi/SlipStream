@@ -8,9 +8,9 @@ import (
 )
 
 // matchToLibraryViaModule uses the module's ImportHandler to match a download to a
-// library entity. The result is stored in both the legacy LibraryMatch fields and
-// the new ModuleEntity field for downstream module-aware processing.
-func (s *Service) matchToLibraryViaModule(ctx context.Context, _ string, mapping *DownloadMapping) (*LibraryMatch, error) {
+// library entity. For group downloads (season packs), it first resolves the group
+// then matches the individual file to a specific entity (e.g., episode).
+func (s *Service) matchToLibraryViaModule(ctx context.Context, path string, mapping *DownloadMapping) (*LibraryMatch, error) {
 	cd := mappingToModuleDownload(mapping)
 
 	mod := s.registry.Get(cd.ModuleType)
@@ -31,11 +31,19 @@ func (s *Service) matchToLibraryViaModule(ctx context.Context, _ string, mapping
 		return nil, ErrNoMatch
 	}
 
-	// Use the first matched entity (for single-file downloads)
 	entity := &entities[0]
-	match := moduleEntityToLibraryMatch(entity)
 
-	return match, nil
+	// For group downloads (season packs, complete series), the download-level match
+	// is a parent entity (series). Resolve the individual file to its specific entity.
+	if entity.GroupInfo != nil {
+		fileEntity, err := importHandler.MatchIndividualFile(ctx, path, entity)
+		if err != nil {
+			return nil, fmt.Errorf("individual file match within group failed: %w", err)
+		}
+		entity = fileEntity
+	}
+
+	return moduleEntityToLibraryMatch(entity), nil
 }
 
 // mappingToModuleDownload converts a DownloadMapping to the module-system CompletedDownload.
@@ -53,14 +61,6 @@ func mappingToModuleDownload(mapping *DownloadMapping) module.CompletedDownload 
 
 	if mapping.IsSeasonPack || mapping.IsCompleteSeries {
 		cd.IsGroupDownload = true
-		if mapping.IsCompleteSeries {
-			cd.GroupEntityType = module.EntitySeries
-		} else {
-			cd.GroupEntityType = module.EntitySeason
-		}
-		if mapping.SeriesID != nil {
-			cd.GroupEntityID = *mapping.SeriesID
-		}
 	}
 
 	if mapping.SeasonNumber != nil {

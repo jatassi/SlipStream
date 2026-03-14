@@ -17,9 +17,7 @@ type CompletedDownload struct {
 
 	// Group download info (season packs, full albums, etc.)
 	IsGroupDownload bool
-	GroupEntityType EntityType // Parent entity type (e.g., "season", "series")
-	GroupEntityID   int64      // Parent entity ID
-	SeasonNumber    *int       // TV convenience field (from download_mappings.season_number)
+	SeasonNumber    *int // TV convenience field (from download_mappings.season_number)
 
 	TargetSlotID *int64
 	Source       string // "auto-search", "manual-search", "portal-request"
@@ -53,17 +51,17 @@ type MatchedEntity struct {
 	// The framework adds quality/media-info keys during import.
 	TokenData map[string]any
 
-	// GroupInfo for multi-file downloads (populated for season packs, albums, etc.)
+	// GroupInfo signals that this entity represents a group of files (season pack,
+	// full album, etc.) rather than a single importable file. When set, the framework
+	// calls MatchIndividualFile to resolve each file to its leaf entity.
+	// Module-specific group metadata (season number, disc number, etc.) belongs in TokenData.
 	GroupInfo *GroupMatchInfo
 }
 
-// GroupMatchInfo carries parent entity info for group downloads.
-type GroupMatchInfo struct {
-	ParentEntityType EntityType
-	ParentEntityID   int64
-	IsSeasonPack     bool
-	IsCompleteSeries bool
-}
+// GroupMatchInfo is a marker type indicating a multi-file group download.
+// Module-specific metadata (season number, disc info, etc.) is stored in
+// the parent MatchedEntity's TokenData, not here.
+type GroupMatchInfo struct{}
 
 // QualityInfo describes the quality of a file being imported.
 type QualityInfo struct {

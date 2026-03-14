@@ -248,11 +248,7 @@ func (p *fileParser) matchSeasonPack(series *tvlib.Series, rootFolder string, ex
 			"SeriesYear":   series.Year,
 			"SeasonNumber": extra.Season,
 		},
-		GroupInfo: &module.GroupMatchInfo{
-			ParentEntityType: module.EntitySeason,
-			IsSeasonPack:     true,
-			IsCompleteSeries: extra.IsCompleteSeries,
-		},
+		GroupInfo: &module.GroupMatchInfo{},
 	}
 }
 

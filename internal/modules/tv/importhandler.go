@@ -57,11 +57,7 @@ func (h *importHandler) matchGroupDownload(ctx context.Context, download *module
 		Source:           "queue",
 		QualityProfileID: series.QualityProfileID,
 		TokenData:        buildSeriesTokenData(series),
-		GroupInfo: &module.GroupMatchInfo{
-			ParentEntityType: download.GroupEntityType,
-			ParentEntityID:   download.GroupEntityID,
-			IsSeasonPack:     true,
-		},
+		GroupInfo:        &module.GroupMatchInfo{},
 	}
 
 	if download.SeasonNumber != nil {
