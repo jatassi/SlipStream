@@ -14,15 +14,16 @@ func (m *Module) ComputeAvailabilityDate(ctx context.Context, entityID int64) (*
 	var earliest *time.Time
 
 	// Compute earliest of digital and physical release dates (spec §7.1)
-	if movie.ReleaseDate != nil && movie.PhysicalReleaseDate != nil {
+	switch {
+	case movie.ReleaseDate != nil && movie.PhysicalReleaseDate != nil:
 		if movie.ReleaseDate.Before(*movie.PhysicalReleaseDate) {
 			earliest = movie.ReleaseDate
 		} else {
 			earliest = movie.PhysicalReleaseDate
 		}
-	} else if movie.ReleaseDate != nil {
+	case movie.ReleaseDate != nil:
 		earliest = movie.ReleaseDate
-	} else if movie.PhysicalReleaseDate != nil {
+	case movie.PhysicalReleaseDate != nil:
 		earliest = movie.PhysicalReleaseDate
 	}
 

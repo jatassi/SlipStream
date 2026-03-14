@@ -73,7 +73,7 @@ func (db *DB) Migrate() error {
 	// without triggering FK constraint errors. The pragma is a no-op inside a
 	// transaction, so it must be set here — before Goose opens its per-migration
 	// transactions.
-	if _, err := db.conn.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+	if _, err := db.conn.ExecContext(context.Background(), "PRAGMA foreign_keys = OFF"); err != nil {
 		return fmt.Errorf("failed to disable foreign keys for migrations: %w", err)
 	}
 
@@ -89,12 +89,12 @@ func (db *DB) Migrate() error {
 
 	// Re-enable foreign keys for normal operation and run an integrity check
 	// to catch any violations introduced by migrations.
-	if _, err := db.conn.Exec("PRAGMA foreign_keys = ON"); err != nil {
+	if _, err := db.conn.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
 		return fmt.Errorf("failed to re-enable foreign keys: %w", err)
 	}
 
 	var fkViolations int
-	if err := db.conn.QueryRow("PRAGMA foreign_key_check").Scan(&fkViolations); err != nil && err != sql.ErrNoRows {
+	if err := db.conn.QueryRowContext(context.Background(), "PRAGMA foreign_key_check").Scan(&fkViolations); err != nil && err != sql.ErrNoRows {
 		return fmt.Errorf("foreign key check failed after migrations: %w", err)
 	}
 
