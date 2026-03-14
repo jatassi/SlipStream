@@ -169,60 +169,9 @@ func (s *Service) finalizeRetryExhausted(job ImportJob, lastResult *ImportResult
 	return lastResult
 }
 
-// RetryInfo contains information about retry attempts.
-type RetryInfo struct {
-	Attempt     int        `json:"attempt"`
-	MaxAttempts int        `json:"maxAttempts"`
-	LastError   string     `json:"lastError,omitempty"`
-	NextRetry   *time.Time `json:"nextRetry,omitempty"`
-	Policy      string     `json:"policy"`
-}
-
-// GetRetryInfo returns retry information for an error.
-func GetRetryInfo(err error, currentAttempt int) *RetryInfo {
-	policy := classifyError(err)
-
-	info := &RetryInfo{
-		Attempt:     currentAttempt,
-		MaxAttempts: MaxRetries + 1,
-	}
-
-	if err != nil {
-		info.LastError = err.Error()
-	}
-
-	switch policy {
-	case RetryNever:
-		info.Policy = "never"
-	case RetryImmediate:
-		info.Policy = "immediate"
-	case RetryWithBackoff:
-		info.Policy = "backoff"
-		if currentAttempt < MaxRetries {
-			delay := calculateRetryDelay(currentAttempt + 1)
-			nextRetry := time.Now().Add(delay)
-			info.NextRetry = &nextRetry
-		}
-	case RetryAfterDelay:
-		info.Policy = "delay"
-	}
-
-	return info
-}
-
-// ShouldRetry returns whether an error should be retried.
-func ShouldRetry(err error) bool {
-	return classifyError(err) != RetryNever
-}
-
 // IsRetryableError returns true if the error is retryable.
 func IsRetryableError(err error) bool {
 	return classifyError(err) != RetryNever
-}
-
-// IsPermanentError returns true if the error should not be retried.
-func IsPermanentError(err error) bool {
-	return classifyError(err) == RetryNever
 }
 
 // MarkForRetry updates the queue media status to indicate retry is needed.

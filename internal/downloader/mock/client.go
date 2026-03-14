@@ -59,11 +59,6 @@ func GetInstance() *Client {
 	return instance
 }
 
-// New creates a reference to the singleton mock client.
-func New() *Client {
-	return GetInstance()
-}
-
 // NewFromConfig creates a client from a ClientConfig (config is ignored for mock).
 func NewFromConfig(_ *types.ClientConfig) *Client {
 	return GetInstance()

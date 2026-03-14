@@ -71,29 +71,6 @@ func DefaultBackoffConfig() BackoffConfig {
 	}
 }
 
-// BackoffPeriods returns the escalating backoff periods.
-func BackoffPeriods() []time.Duration {
-	return []time.Duration{
-		5 * time.Minute,  // Level 1
-		15 * time.Minute, // Level 2
-		30 * time.Minute, // Level 3
-		1 * time.Hour,    // Level 4
-		3 * time.Hour,    // Level 5+
-	}
-}
-
-// CalculateBackoff returns the backoff duration for the given escalation level.
-func CalculateBackoff(escalationLevel int) time.Duration {
-	periods := BackoffPeriods()
-	if escalationLevel <= 0 {
-		return 0
-	}
-	if escalationLevel > len(periods) {
-		return periods[len(periods)-1]
-	}
-	return periods[escalationLevel-1]
-}
-
 // FailureInfo contains details about an indexer failure.
 type FailureInfo struct {
 	IndexerID int64     `json:"indexerId"`

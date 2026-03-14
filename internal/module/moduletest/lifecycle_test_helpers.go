@@ -10,8 +10,7 @@ import (
 
 // safeCall runs fn and recovers from panics, logging them as warnings.
 // DB-dependent methods may panic when the module was constructed without a
-// database; this is expected for lightweight smoke tests. Use
-// RunLifecycleTestWithDB for stricter validation with a real DB.
+// database; this is expected for lightweight smoke tests.
 func safeCall(t *testing.T, name string, fn func()) {
 	t.Helper()
 	defer func() {
@@ -167,48 +166,4 @@ func lifecycleFileParser(t *testing.T, mod module.Module) {
 	t.Helper()
 	_, _ = mod.ParseFilename("nonexistent.mkv")
 	_, _ = mod.TryMatch("nonexistent.mkv")
-}
-
-// RunLifecycleTestWithDB is a more thorough lifecycle test that uses a real
-// database connection. It runs all the tests from RunLifecycleTest plus
-// database-dependent tests that verify empty-DB behavior.
-func RunLifecycleTestWithDB(t *testing.T, mod module.Module) {
-	t.Helper()
-	ctx := context.Background()
-
-	RunLifecycleTest(t, mod)
-
-	t.Run("CalendarProvider/WithDB", func(t *testing.T) {
-		now := time.Now()
-		items, err := mod.GetItemsInDateRange(ctx, now.AddDate(0, -1, 0), now.AddDate(0, 1, 0))
-		if err != nil {
-			t.Fatalf("GetItemsInDateRange() unexpected error: %v", err)
-		}
-		if items == nil {
-			t.Log("GetItemsInDateRange() returned nil (expected on empty DB)")
-		}
-	})
-
-	t.Run("WantedCollector/WithDB", func(t *testing.T) {
-		lifecycleWantedWithDB(ctx, t, mod)
-	})
-}
-
-func lifecycleWantedWithDB(ctx context.Context, t *testing.T, mod module.Module) {
-	t.Helper()
-	missing, err := mod.CollectMissing(ctx)
-	if err != nil {
-		t.Fatalf("CollectMissing() unexpected error: %v", err)
-	}
-	if len(missing) != 0 {
-		t.Errorf("CollectMissing() returned %d items on empty DB, want 0", len(missing))
-	}
-
-	upgradable, err := mod.CollectUpgradable(ctx)
-	if err != nil {
-		t.Fatalf("CollectUpgradable() unexpected error: %v", err)
-	}
-	if len(upgradable) != 0 {
-		t.Errorf("CollectUpgradable() returned %d items on empty DB, want 0", len(upgradable))
-	}
 }

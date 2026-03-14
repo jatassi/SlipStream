@@ -2,7 +2,6 @@ package prowlarr
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
@@ -32,57 +31,3 @@ var (
 	// Not found errors
 	ErrNotFound = errors.New("not found")
 )
-
-// ProwlarrError wraps an error with additional context.
-type ProwlarrError struct {
-	Op      string // Operation that failed (e.g., "search", "download", "connect")
-	Err     error  // Underlying error
-	Message string // Additional context message
-}
-
-func (e *ProwlarrError) Error() string {
-	if e.Message != "" {
-		return fmt.Sprintf("prowlarr %s: %s: %v", e.Op, e.Message, e.Err)
-	}
-	return fmt.Sprintf("prowlarr %s: %v", e.Op, e.Err)
-}
-
-func (e *ProwlarrError) Unwrap() error {
-	return e.Err
-}
-
-// WrapError creates a ProwlarrError wrapping the given error.
-func WrapError(op string, err error, message string) error {
-	if err == nil {
-		return nil
-	}
-	return &ProwlarrError{
-		Op:      op,
-		Err:     err,
-		Message: message,
-	}
-}
-
-// IsNotConfigured returns true if the error indicates Prowlarr is not configured.
-func IsNotConfigured(err error) bool {
-	return errors.Is(err, ErrNotConfigured)
-}
-
-// IsConnectionError returns true if the error is a connection-related error.
-func IsConnectionError(err error) bool {
-	return errors.Is(err, ErrConnectionFailed) ||
-		errors.Is(err, ErrConnectionTimeout) ||
-		errors.Is(err, ErrSSLVerificationFailed)
-}
-
-// IsSearchError returns true if the error is a search-related error.
-func IsSearchError(err error) bool {
-	return errors.Is(err, ErrSearchFailed) ||
-		errors.Is(err, ErrSearchTimeout) ||
-		errors.Is(err, ErrNoIndexersEnabled)
-}
-
-// IsRateLimited returns true if the error indicates rate limiting.
-func IsRateLimited(err error) bool {
-	return errors.Is(err, ErrRateLimited)
-}

@@ -103,23 +103,6 @@ func NewTorrentClient(clientType ClientType, config *ClientConfig) (TorrentClien
 	}
 }
 
-// NewUsenetClient creates a new usenet client of the specified type.
-// Returns the UsenetClient interface for usenet-specific operations.
-func NewUsenetClient(clientType ClientType, config *ClientConfig) (UsenetClient, error) {
-	if ProtocolForClient(clientType) != ProtocolUsenet {
-		return nil, fmt.Errorf("%w: %s is not a usenet client", ErrUnsupportedClient, clientType)
-	}
-
-	switch clientType {
-	case ClientTypeSABnzbd:
-		return sabnzbd.NewFromConfig(config), nil
-	case ClientTypeNZBGet:
-		return nil, fmt.Errorf("%w: %s client not yet implemented", ErrUnsupportedClient, clientType)
-	default:
-		return nil, fmt.Errorf("%w: unknown usenet client type %s", ErrUnsupportedClient, clientType)
-	}
-}
-
 // ClientFromDownloadClient creates a Client from a DownloadClient database model.
 func ClientFromDownloadClient(dc *DownloadClient) (Client, error) {
 	return NewClient(ClientType(dc.Type), downloadClientToConfig(dc))

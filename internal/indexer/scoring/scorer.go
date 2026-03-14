@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/slipstream/slipstream/internal/indexer/types"
-	"github.com/slipstream/slipstream/internal/library/quality"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 )
 
@@ -265,14 +264,4 @@ func (s *Scorer) calculateLanguageScore(torrent *types.TorrentInfo, ctx *Scoring
 
 	// Release has explicit non-preferred language(s) - apply penalty
 	return s.config.LanguageMismatchPenalty
-}
-
-// GetQualityForRelease returns the matched quality for a release.
-// Useful for external callers who need quality info without full scoring.
-func GetQualityForRelease(source string, resolution int) (*quality.Quality, bool) {
-	result := MatchQuality(source, resolution)
-	if result.Quality != nil {
-		return result.Quality, true
-	}
-	return nil, false
 }

@@ -143,14 +143,6 @@ func GetPortalUser(c echo.Context) *portal.Claims {
 	return claims
 }
 
-func IsAdmin(c echo.Context) bool {
-	claims := GetPortalUser(c)
-	if claims == nil {
-		return false
-	}
-	return claims.Audience == portal.AudienceAdmin
-}
-
 func extractBearerToken(c echo.Context) string {
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader == "" {

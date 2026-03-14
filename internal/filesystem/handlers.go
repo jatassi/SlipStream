@@ -18,11 +18,6 @@ type Handlers struct {
 	mediaParser    MediaParser
 }
 
-// NewHandlers creates a new filesystem handlers instance
-func NewHandlers(service *Service) *Handlers {
-	return &Handlers{service: service}
-}
-
 // NewHandlersWithStorage creates a new filesystem handlers instance with storage support
 func NewHandlersWithStorage(service *Service, storageService *StorageService) *Handlers {
 	return &Handlers{

@@ -74,28 +74,3 @@ func (o *OAuthFlow) CheckAuth(ctx context.Context, pinID int) (*OAuthCheckResult
 		Complete:  true,
 	}, nil
 }
-
-// WaitForAuth polls the PIN status until the user authenticates or the PIN expires
-func (o *OAuthFlow) WaitForAuth(ctx context.Context, pinID int, pollInterval time.Duration) (string, error) {
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-ticker.C:
-			result, err := o.CheckAuth(ctx, pinID)
-			if err != nil {
-				if errors.Is(err, ErrPINExpired) {
-					return "", err
-				}
-				continue
-			}
-
-			if result.Complete {
-				return result.AuthToken, nil
-			}
-		}
-	}
-}

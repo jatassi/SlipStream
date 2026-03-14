@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -62,20 +61,6 @@ func NewTestDB(t *testing.T) *TestDB {
 	}
 }
 
-// MigrateModules runs per-module migrations using the provided migrate function.
-// This avoids importing the module package directly (which would cause an import cycle
-// with packages like quality). Usage:
-//
-//	tdb.MigrateModules(t, func(db *sql.DB) error {
-//	    return module.MigrateAll(db, registry)
-//	})
-func (tdb *TestDB) MigrateModules(t *testing.T, migrateFunc func(db *sql.DB) error) {
-	t.Helper()
-	if err := migrateFunc(tdb.Conn); err != nil {
-		t.Fatalf("Failed to run module migrations: %v", err)
-	}
-}
-
 // Close closes the database and removes the temp directory.
 func (tdb *TestDB) Close() {
 	if tdb.Manager != nil {
@@ -88,20 +73,9 @@ func (tdb *TestDB) Close() {
 	}
 }
 
-// NewTestLogger creates a test logger that outputs to t.Log.
-func NewTestLogger(t *testing.T) zerolog.Logger {
-	t.Helper()
-	return zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.DebugLevel)
-}
-
 // NopLogger returns a no-op logger for tests that don't need output.
 func NopLogger() zerolog.Logger {
 	return zerolog.Nop()
-}
-
-// StringPtr returns a pointer to a string.
-func StringPtr(s string) *string {
-	return &s
 }
 
 // IntPtr returns a pointer to an int.
@@ -112,19 +86,4 @@ func IntPtr(i int) *int {
 // Int64Ptr returns a pointer to an int64.
 func Int64Ptr(i int64) *int64 {
 	return &i
-}
-
-// BoolPtr returns a pointer to a bool.
-func BoolPtr(b bool) *bool {
-	return &b
-}
-
-// ParseTime parses a date string in "2006-01-02" format and returns a time.Time.
-// Panics if the string cannot be parsed.
-func ParseTime(s string) time.Time {
-	t, err := time.Parse("2006-01-02", s)
-	if err != nil {
-		panic("testutil.ParseTime: invalid date " + s + ": " + err.Error())
-	}
-	return t
 }

@@ -404,12 +404,6 @@ func (vfs *VirtualFS) getNode(path string) *VirtualFile {
 	return current
 }
 
-func (vfs *VirtualFS) Exists(path string) bool {
-	vfs.mu.RLock()
-	defer vfs.mu.RUnlock()
-	return vfs.getNode(path) != nil
-}
-
 func (vfs *VirtualFS) IsDirectory(path string) bool {
 	vfs.mu.RLock()
 	defer vfs.mu.RUnlock()
@@ -440,12 +434,6 @@ func (vfs *VirtualFS) ListDirectory(path string) ([]*VirtualFile, error) {
 	})
 
 	return entries, nil
-}
-
-func (vfs *VirtualFS) GetFile(path string) *VirtualFile {
-	vfs.mu.RLock()
-	defer vfs.mu.RUnlock()
-	return vfs.getNode(path)
 }
 
 func (vfs *VirtualFS) WalkDir(root string, fn func(path string, file *VirtualFile) error) error {
@@ -492,25 +480,6 @@ func (vfs *VirtualFS) AddDirectory(path string) {
 	vfs.mu.Lock()
 	defer vfs.mu.Unlock()
 	vfs.createDirectory(path)
-}
-
-func (vfs *VirtualFS) Remove(path string) bool {
-	vfs.mu.Lock()
-	defer vfs.mu.Unlock()
-
-	dir := filepath.Dir(path)
-	name := filepath.Base(path)
-
-	parent := vfs.getNode(dir)
-	if parent == nil || parent.Children == nil {
-		return false
-	}
-
-	if _, exists := parent.Children[name]; exists {
-		delete(parent.Children, name)
-		return true
-	}
-	return false
 }
 
 func IsMockPath(path string) bool {

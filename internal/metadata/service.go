@@ -44,17 +44,6 @@ func NewService(cfg *config.MetadataConfig, logger *zerolog.Logger, healthServic
 	}
 }
 
-// NewServiceWithClients creates a new metadata service with custom clients (for testing/mocking).
-func NewServiceWithClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient, logger *zerolog.Logger) *Service {
-	return &Service{
-		tmdb:   tmdbClient,
-		tvdb:   tvdbClient,
-		omdb:   omdbClient,
-		cache:  NewCache(DefaultCacheConfig()),
-		logger: logger.With().Str("component", "metadata").Logger(),
-	}
-}
-
 // SetClients replaces the TMDB, TVDB, and OMDb clients (for dev mode switching).
 func (s *Service) SetClients(tmdbClient TMDBClient, tvdbClient TVDBClient, omdbClient OMDBClient) {
 	s.tmdb = tmdbClient

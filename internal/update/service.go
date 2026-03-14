@@ -23,7 +23,6 @@ import (
 
 	"github.com/slipstream/slipstream/internal/config"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
-	"github.com/slipstream/slipstream/internal/websocket"
 )
 
 const (
@@ -1034,26 +1033,4 @@ func (s *Service) CheckAndAutoInstall(ctx context.Context) error {
 
 func ptr[T any](v T) *T {
 	return &v
-}
-
-var _ websocket.UpdateStatusProvider = (*Service)(nil)
-
-func (s *Service) GetUpdateStatus() *websocket.UpdateStatus {
-	status := s.GetStatus()
-	return &websocket.UpdateStatus{
-		State:          string(status.State),
-		CurrentVersion: status.CurrentVersion,
-		LatestVersion:  getLatestVersion(status.LatestRelease),
-		Progress:       status.Progress,
-		DownloadedMB:   status.DownloadedMB,
-		TotalMB:        status.TotalMB,
-		Error:          status.Error,
-	}
-}
-
-func getLatestVersion(release *ReleaseInfo) string {
-	if release == nil {
-		return ""
-	}
-	return release.Version
 }

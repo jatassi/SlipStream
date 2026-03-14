@@ -38,13 +38,6 @@ func ParseVersion(s string) (*Version, error) {
 	}, nil
 }
 
-func (v *Version) String() string {
-	if v.Prerelease != "" {
-		return fmt.Sprintf("%d.%d.%d-%s", v.Major, v.Minor, v.Patch, v.Prerelease)
-	}
-	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-}
-
 // Compare returns:
 //
 //	-1 if v < other
@@ -91,16 +84,8 @@ func comparePrerelease(a, b string) int {
 	return 1
 }
 
-func (v *Version) LessThan(other *Version) bool {
-	return v.Compare(other) < 0
-}
-
 func (v *Version) GreaterThan(other *Version) bool {
 	return v.Compare(other) > 0
-}
-
-func (v *Version) Equal(other *Version) bool {
-	return v.Compare(other) == 0
 }
 
 // IsNewerThan compares version strings directly.

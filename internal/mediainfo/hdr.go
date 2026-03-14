@@ -93,11 +93,3 @@ func isHDRColorSpace(primaries, transfer string) bool {
 		strings.Contains(lower, "bt2020") ||
 		strings.Contains(lower, "rec.2020")
 }
-
-// FormatHDRSimple returns a simple HDR indicator.
-func FormatHDRSimple(dynamicRange string) string {
-	if dynamicRange != "" {
-		return string(HDRTypeGenericHDR)
-	}
-	return ""
-}

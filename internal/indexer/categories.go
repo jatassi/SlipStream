@@ -36,42 +36,6 @@ const (
 	CategoryTVWebDL   = 5090
 )
 
-// CategoryName returns a human-readable name for a category.
-func CategoryName(id int) string {
-	names := map[int]string{
-		CategoryConsole:       "Console",
-		CategoryMovies:        "Movies",
-		CategoryMoviesForeign: "Movies/Foreign",
-		CategoryMoviesOther:   "Movies/Other",
-		CategoryMoviesSD:      "Movies/SD",
-		CategoryMoviesHD:      "Movies/HD",
-		CategoryMoviesUHD:     "Movies/UHD",
-		CategoryMoviesBluRay:  "Movies/BluRay",
-		CategoryMovies3D:      "Movies/3D",
-		CategoryMoviesDVD:     "Movies/DVD",
-		CategoryMoviesWebDL:   "Movies/WEB-DL",
-		CategoryAudio:         "Audio",
-		CategoryPC:            "PC",
-		CategoryTV:            "TV",
-		CategoryTVForeign:     "TV/Foreign",
-		CategoryTVOther:       "TV/Other",
-		CategoryTVSD:          "TV/SD",
-		CategoryTVHD:          "TV/HD",
-		CategoryTVUHD:         "TV/UHD",
-		CategoryTVSport:       "TV/Sport",
-		CategoryTVAnime:       "TV/Anime",
-		CategoryTVDoc:         "TV/Documentary",
-		CategoryTVWebDL:       "TV/WEB-DL",
-		CategoryXXX:           "XXX",
-		CategoryBooks:         "Books",
-		CategoryOther:         "Other",
-	}
-	if name, ok := names[id]; ok {
-		return name
-	}
-	return "Unknown"
-}
-
 // MovieCategories returns all movie-related categories.
 func MovieCategories() []int {
 	return []int{
@@ -102,50 +66,4 @@ func TVCategories() []int {
 		CategoryTVDoc,
 		CategoryTVWebDL,
 	}
-}
-
-// IsMovieCategory returns true if the category is a movie category.
-func IsMovieCategory(id int) bool {
-	return id >= 2000 && id < 3000
-}
-
-// IsTVCategory returns true if the category is a TV category.
-func IsTVCategory(id int) bool {
-	return id >= 5000 && id < 6000
-}
-
-// DefaultMovieCategories returns the default categories to search for movies.
-func DefaultMovieCategories() []int {
-	return []int{
-		CategoryMovies,
-		CategoryMoviesSD,
-		CategoryMoviesHD,
-		CategoryMoviesUHD,
-		CategoryMoviesBluRay,
-		CategoryMoviesWebDL,
-	}
-}
-
-// DefaultTVCategories returns the default categories to search for TV shows.
-func DefaultTVCategories() []int {
-	return []int{
-		CategoryTV,
-		CategoryTVSD,
-		CategoryTVHD,
-		CategoryTVUHD,
-		CategoryTVAnime,
-		CategoryTVWebDL,
-	}
-}
-
-// ParseCategories converts category IDs to CategoryMapping objects.
-func ParseCategories(ids []int) []CategoryMapping {
-	mappings := make([]CategoryMapping, 0, len(ids))
-	for _, id := range ids {
-		mappings = append(mappings, CategoryMapping{
-			ID:   id,
-			Name: CategoryName(id),
-		})
-	}
-	return mappings
 }

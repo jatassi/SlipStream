@@ -211,55 +211,6 @@ func sortTorrents(torrents []types.TorrentInfo) {
 	})
 }
 
-// FilterByQuality filters releases based on quality criteria.
-// This is a placeholder for future quality profile integration.
-func FilterByQuality(releases []types.ReleaseInfo, minSize, maxSize int64) []types.ReleaseInfo {
-	if minSize == 0 && maxSize == 0 {
-		return releases
-	}
-
-	filtered := make([]types.ReleaseInfo, 0, len(releases))
-	for i := range releases {
-		if minSize > 0 && releases[i].Size < minSize {
-			continue
-		}
-		if maxSize > 0 && releases[i].Size > maxSize {
-			continue
-		}
-		filtered = append(filtered, releases[i])
-	}
-	return filtered
-}
-
-// FilterTorrentsByQuality filters torrents based on quality criteria.
-func FilterTorrentsByQuality(torrents []types.TorrentInfo, minSeeders int, minSize, maxSize int64) []types.TorrentInfo {
-	filtered := make([]types.TorrentInfo, 0, len(torrents))
-	for i := range torrents {
-		if minSeeders > 0 && torrents[i].Seeders < minSeeders {
-			continue
-		}
-		if minSize > 0 && torrents[i].Size < minSize {
-			continue
-		}
-		if maxSize > 0 && torrents[i].Size > maxSize {
-			continue
-		}
-		filtered = append(filtered, torrents[i])
-	}
-	return filtered
-}
-
-// FilterFreeleech returns only freeleech torrents (downloadVolumeFactor == 0).
-func FilterFreeleech(torrents []types.TorrentInfo) []types.TorrentInfo {
-	filtered := make([]types.TorrentInfo, 0)
-	for i := range torrents {
-		if torrents[i].DownloadVolumeFactor == 0 {
-			filtered = append(filtered, torrents[i])
-		}
-	}
-	return filtered
-}
-
 // enrichWithQuality parses quality info from release titles using the scanner parser.
 func enrichWithQuality(releases []types.ReleaseInfo) {
 	for i := range releases {

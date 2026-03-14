@@ -100,29 +100,3 @@ func (db *DB) Migrate() error {
 
 	return nil
 }
-
-// MigrateDown rolls back the last migration.
-func (db *DB) MigrateDown() error {
-	goose.SetBaseFS(embedMigrations)
-
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		return fmt.Errorf("failed to set goose dialect: %w", err)
-	}
-
-	if err := goose.Down(db.conn, "migrations"); err != nil {
-		return fmt.Errorf("failed to rollback migration: %w", err)
-	}
-
-	return nil
-}
-
-// MigrationStatus returns the current migration status.
-func (db *DB) MigrationStatus() error {
-	goose.SetBaseFS(embedMigrations)
-
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		return fmt.Errorf("failed to set goose dialect: %w", err)
-	}
-
-	return goose.Status(db.conn, "migrations")
-}

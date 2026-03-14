@@ -158,20 +158,6 @@ func isSampleFile(path string) bool {
 	return false
 }
 
-// IsValidVideoExtension checks if an extension is valid for import.
-func IsValidVideoExtension(ext string) bool {
-	return validVideoExtensions[strings.ToLower(ext)]
-}
-
-// GetValidExtensions returns a list of valid video extensions.
-func GetValidExtensions() []string {
-	exts := make([]string, 0, len(validVideoExtensions))
-	for ext := range validVideoExtensions {
-		exts = append(exts, ext)
-	}
-	return exts
-}
-
 // MediaInfoValidationResult contains the result of MediaInfo validation.
 type MediaInfoValidationResult struct {
 	Valid           bool    `json:"valid"`

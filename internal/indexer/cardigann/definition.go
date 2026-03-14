@@ -4,7 +4,6 @@ package cardigann
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -233,15 +232,6 @@ func ParseDefinition(data []byte) (*Definition, error) {
 		return nil, fmt.Errorf("failed to parse definition YAML: %w", err)
 	}
 	return &def, nil
-}
-
-// ParseDefinitionFile parses a Cardigann YAML definition from a file.
-func ParseDefinitionFile(path string) (*Definition, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read definition file: %w", err)
-	}
-	return ParseDefinition(data)
 }
 
 // GetBaseURL returns the primary URL for this indexer.
