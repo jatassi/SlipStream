@@ -1,121 +1,122 @@
 # SlipStream
 
-A unified media management system in the spirit of Sonarr/Radarr, built around a pluggable **module system** so new media types can be added without forking the core. Go backend, React frontend, single SQLite database, cross-platform (Windows, macOS, Linux).
+SlipStream is a self-hosted media management system — the kind of tool that watches for new releases, pulls them from your indexers, hands them off to your download client, and files the results away under a tidy library. It's built around a pluggable **module system**, so support for a new media type is a self-contained package rather than a fork.
 
-> **Status:** early development. Clean design is prioritized over backward compatibility — APIs, schemas and module contracts are expected to change.
+Today it ships with first-class Movie and TV modules. Music, books, comics, games and anything else live as future modules that slot into the same machinery.
 
-## Highlights
+## What it does
 
-- **Modular media types.** Movies and TV are first-class today; each is a self-contained module owning its schema migrations, quality definitions, search strategy, file naming, scheduled tasks, and frontend config. Music, books, etc. can be added the same way.
-- **Metadata providers.** TMDB (movies/TV), TVDB (TV), OMDb (ratings).
-- **Automatic search & grab pipeline.** Quality profiles with upgrades and cutoffs, multi-quality version slots, season-pack ⇢ per-episode fallback for TV, grab locks to prevent duplicates.
-- **Indexers.** Prowlarr (with caching, rate limiting, capability polling), Cardigann-style YAML indexers, and generic RSS.
-- **Download clients.** qBittorrent, Transmission, Deluge, rTorrent, Aria2, SABnzbd, and more.
-- **Importing.** Post-grab matching & import, plus Radarr / Sonarr library import.
-- **Requests portal.** Separate JWT-authenticated user surface with quotas, auto-approval, and per-module settings. Lifecycle: `pending → approved → searching → downloading → available` (or `denied`/`cancelled`).
-- **Auth.** Session cookies for admin; JWT + WebAuthn passkeys for portal users.
-- **Real-time UI.** WebSocket broadcasts drive TanStack Query invalidation for library and progress updates.
-- **Notifications.** Discord, Telegram, Slack, Email, Webhook, Pushover, Plex.
-- **Calendar & history.** Unified calendar across modules; status-change and grab/import history.
-- **Health monitoring.** Indexer and download-client health surface warnings/errors in the UI.
-- **Developer mode.** Toggleable sandbox with its own SQLite DB (`slipstream_dev.db`), mock metadata/indexer/download/notification services, and a virtual filesystem.
+- **Library management** — track what you have, what you're missing, and what can still be upgraded.
+- **Metadata** from TMDB, TVDB, and OMDb (for Rotten Tomatoes / IMDB ratings).
+- **Search and grab** across indexers with quality profiles, cutoffs, and multiple simultaneous quality versions per item. For TV, season packs fall back cleanly to individual episodes.
+- **Indexers** — native Prowlarr integration (with caching, rate limiting, and capability polling), Cardigann-style YAML definitions, and generic RSS feeds.
+- **Download clients** — qBittorrent, Transmission, Deluge, rTorrent, Aria2, SABnzbd, and more.
+- **Importing** — post-download file matching, rename, and move, plus one-shot library import from existing Radarr and Sonarr installs.
+- **Requests portal** — a separate, JWT-authenticated surface where other users can request media, with per-user quotas, auto-approval rules, and module-specific settings.
+- **Real-time UI** — a WebSocket feed keeps library and download progress live without polling.
+- **Notifications** — Discord, Telegram, Slack, Email, Webhook, Pushover, and Plex.
+- **Calendar, history, and health monitoring** for indexers and download clients.
+- **Developer mode** — a sandbox with its own database, mock services, and a virtual filesystem, toggleable from the UI.
 
-## Tech Stack
+## Tech stack
 
-**Backend** — Go 1.25, [Echo](https://echo.labstack.com) HTTP, [Google Wire](https://github.com/google/wire) DI, [sqlc](https://sqlc.dev) + [Goose](https://github.com/pressly/goose) over SQLite (WAL), [zerolog](https://github.com/rs/zerolog), [Viper](https://github.com/spf13/viper) config, [gocron](https://github.com/go-co-op/gocron) scheduling, [gorilla/websocket](https://github.com/gorilla/websocket), [go-webauthn](https://github.com/go-webauthn/webauthn), [modernc.org/sqlite](https://modernc.org/sqlite) (pure-Go, no CGO).
+**Backend:** Go 1.25, Echo for HTTP, Google Wire for DI, SQLite in WAL mode with Goose migrations and sqlc-generated queries, zerolog, Viper, gocron. Auth uses session cookies for admins and JWT + WebAuthn passkeys for portal users.
 
-**Frontend** — React 19, TypeScript 5.9, Vite 7, [TanStack Router](https://tanstack.com/router) + [TanStack Query](https://tanstack.com/query), [Zustand](https://zustand.docs.pmnd.rs) for client state, Tailwind CSS 4, [Base UI](https://base-ui.com) via shadcn, [react-hook-form](https://react-hook-form.com) + [Zod](https://zod.dev). **Package manager: [Bun](https://bun.sh)** — not npm.
+**Frontend:** React 19 and TypeScript on Vite, TanStack Router and TanStack Query, Zustand for client state, Tailwind CSS 4, and shadcn components built on Base UI. Package management is Bun.
 
-## Prerequisites
+Everything runs from a single SQLite file and targets Windows, macOS, and Linux.
 
-- **Go** ≥ 1.25
-- **Bun** (used for all frontend commands — `bun`, not `npm`/`npx`)
-- **Git**
-- No SQLite system package needed — `modernc.org/sqlite` is pure Go.
+## Getting started
 
-## Quick Start
+You'll need Go 1.25+, Bun, and Git.
 
 ```bash
-# 1. Clone and install deps
 git clone <repo-url> && cd SlipStream
-make install                 # go mod download + bun install
+make install                # go mod download + bun install
 
-# 2. Configure metadata keys
-cp .env.example .env
-$EDITOR .env                 # set SLIPSTREAM_METADATA_TMDB_API_KEY, _TVDB_API_KEY
-
-# 3. Run both servers
-make dev                     # backend :8080, frontend :3000
+cp .env.example .env        # add your TMDB / TVDB API keys
+make dev                    # backend on :8080, frontend on :3000
 ```
 
-Then open http://localhost:3000.
+Then open <http://localhost:3000>.
 
-**Platform helper scripts** (install toolchains + first run):
+First-time setup scripts are available if you'd rather have the toolchain installed for you:
 
-| Platform | Setup               | Dev                  |
-| -------- | ------------------- | -------------------- |
-| Windows  | `.\setup.bat`       | `.\dev.bat`          |
-| macOS    | `bash setup-mac.sh` | `make dev`           |
-| Linux    | `make install`      | `make dev`           |
+| Platform | Setup               | Run          |
+| -------- | ------------------- | ------------ |
+| Windows  | `.\setup.bat`       | `.\dev.bat`  |
+| macOS    | `bash setup-mac.sh` | `make dev`   |
+| Linux    | `make install`      | `make dev`   |
 
 ## Configuration
 
-Resolution order (highest priority first): **environment variables → `.env` → `configs/config.yaml` → defaults**.
-
-Environment variables are prefixed `SLIPSTREAM_` and nested keys use `_`:
+Config is resolved from, in order: environment variables → `.env` → `configs/config.yaml` → defaults. Env vars use the `SLIPSTREAM_` prefix with underscores for nested keys:
 
 ```bash
-SLIPSTREAM_SERVER_HOST=0.0.0.0
 SLIPSTREAM_SERVER_PORT=8080
 SLIPSTREAM_DATABASE_PATH=./data/slipstream.db
-SLIPSTREAM_LOGGING_LEVEL=info               # debug | info | warn | error
+SLIPSTREAM_LOGGING_LEVEL=info                 # debug | info | warn | error
 SLIPSTREAM_METADATA_TMDB_API_KEY=...
 SLIPSTREAM_METADATA_TVDB_API_KEY=...
-SLIPSTREAM_METADATA_OMDB_API_KEY=...        # optional, adds Rotten Tomatoes / IMDB ratings
-SLIPSTREAM_AUTH_JWT_SECRET=...              # auto-generated if unset
+SLIPSTREAM_METADATA_OMDB_API_KEY=...          # optional
+SLIPSTREAM_AUTH_JWT_SECRET=...                # auto-generated if unset
 ```
 
-See `configs/config.example.yaml` for the full schema and `.env.example` for a starter env file.
-
-Metadata keys (and `VERSION`) can also be **baked into the binary** at build time:
+See `configs/config.example.yaml` for the full schema. Metadata API keys and a `VERSION` string can also be baked into the binary at build time:
 
 ```bash
-make build-backend VERSION=1.0.0 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
+make build-backend VERSION=1.0.0 TMDB_API_KEY=... TVDB_API_KEY=... OMDB_API_KEY=...
 ```
 
-## Make Targets
+## How it's built
+
+The backend is a set of services wired together by Google Wire (`internal/api/wire.go` → `wire_gen.go`). HTTP routing, middleware, and handlers live in `internal/api/`; all endpoints are mounted under `/api/v1`, with a WebSocket hub at `/ws`.
+
+Persistence is a single SQLite database. Framework schema migrations are managed with Goose and embedded into the binary. Each media module runs its own migrations against an independent version table, so modules evolve their schemas on their own schedule. Queries go through sqlc-generated code in `internal/database/sqlc/`.
+
+Supporting services live in their own packages — metadata providers (`internal/metadata`), indexer clients and search routing (`internal/indexer`, `internal/prowlarr`, `internal/rsssync`), download clients (`internal/downloader`), the grab and import pipeline (`internal/autosearch`, `internal/import`), notifications (`internal/notification`), health monitoring (`internal/health`), the requests portal (`internal/portal`), and authentication (`internal/auth`). Cross-service interfaces like broadcasting and health reporting live in `internal/domain/contracts/` so individual services don't depend on each other's concrete types.
+
+The frontend mirrors this shape under `web/src/`:
+
+- `routes/` — TanStack Router routes, lazy-loaded
+- `modules/` — one config object per media type, declaring routes, query keys, WebSocket invalidation rules, filter and sort options, table columns, and lazy-loaded page components
+- `components/` — React components organized by feature
+- `hooks/` — custom hooks split by admin vs. portal
+- `stores/` — Zustand stores for client state
+- `api/` — typed HTTP clients for the admin and portal APIs
+
+## The module system
+
+A media type is a Go struct that satisfies `module.Module` in `internal/module/interfaces.go` — a composite of sixteen smaller interfaces covering identity, metadata, search, import, path and naming templates, quality, monitoring, calendar, notifications, filename parsing, dev-mode mocks, HTTP routes, and scheduled tasks. Optional interfaces add portal provisioning, multi-version slot support, and Radarr/Sonarr import adapters.
+
+Each module declares its own **node schema** (Movie is flat; TV nests `series → season → episode`), ships its own database migrations, and registers itself in a central `module.Registry` at startup. On the frontend, every module exports a matching `ModuleConfig` from `web/src/modules/<id>/index.ts`.
+
+To scaffold a new module:
 
 ```bash
-make dev                 # Run backend and frontend in parallel
-make build               # make build-backend + make build-frontend
-make build-backend       # → bin/slipstream (supports VERSION / *_API_KEY ldflags)
-make build-frontend      # Vite production build
-make install             # go mod download && bun install
-make clean               # Remove bin/, web/dist/, coverage/
+make new-module MODULE_ID=music
+```
 
+Then follow `docs/adding-a-module.md` for the full walkthrough. `docs/module-system-spec.md` has the deeper reference.
+
+## Development commands
+
+```bash
+make dev                 # run backend and frontend together
+make build               # build both (→ bin/slipstream + web/dist)
 make test                # go test -race ./...
-make test-unit           # scanner / quality / organizer
-make test-integration    # library services + API
-make test-coverage       # → coverage/coverage.html
-make test-verbose
-
+make test-coverage       # HTML report at coverage/coverage.html
 make lint                # golangci-lint
-make lint-fix            # with --fix
-make lint-new            # diff vs origin/main
-make deadcode            # whole-program unreachable-function analysis
-
-make wire                # regenerate Wire DI after editing internal/api/wire.go
-make generate-slots      # regenerate slot SQL from templates
-make new-module MODULE_ID=music   # scaffold a new media module
+make lint-fix            # ... with auto-fix
+make wire                # regenerate Wire DI after editing providers
+make new-module MODULE_ID=<id>
 ```
 
-Frontend linting lives in `web/`:
+From `web/`:
 
 ```bash
-cd web
-bun run lint             # ESLint
-bun run lint:fix
-bun run format           # Prettier
+bun run lint
+bun run format
 ```
 
 After editing `internal/database/queries/*.sql`, regenerate sqlc output:
@@ -124,97 +125,33 @@ After editing `internal/database/queries/*.sql`, regenerate sqlc output:
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
 ```
 
-## Project Layout
+`make help` lists every target.
+
+## Project layout
 
 ```
-cmd/slipstream/             Application entrypoint
-internal/
-  api/                      HTTP handlers, routes, middleware, Wire DI (wire.go / wire_gen.go)
-  module/                   Module framework: interfaces, registry, schema, migrations
-  modules/                  Module implementations: movie/, tv/, shared/
-  database/                 SQLite manager, Goose migrations, sqlc queries
-  domain/contracts/         Cross-service interfaces (Broadcaster, HealthService, ...)
-  library/                  Core services: movies, tv, rootfolder, quality, slots, scanner, organizer
-  autosearch/               Scheduled auto-search + grab pipeline
-  indexer/                  Search routing, scoring, grab; prowlarr / cardigann / genericrss clients
-  downloader/               Torrent & usenet client integrations
-  import/                   Post-download matching and file import
-  metadata/                 TMDB / TVDB / OMDb clients
-  portal/                   Portal auth, requests, users, quotas, provisioner
-  notification/             Event dispatch + Discord/Telegram/Slack/Email/Webhook/Pushover/Plex
-  auth/                     Session + JWT + WebAuthn (passkeys)
-  websocket/                Real-time broadcast hub
-  health/                   Indexer & download-client health tracking
-  calendar/  history/       Unified calendar, event history
-  prowlarr/  rsssync/       Prowlarr cache & RSS sync services
-  config/  logger/  startup/  scheduler/  filesystem/  preferences/  update/
-web/
+cmd/slipstream/     Application entrypoint
+internal/           Backend packages
+  module/           Module framework: interfaces, registry, schema
+  modules/          Module implementations (movie, tv, shared)
+  api/              HTTP handlers, routes, Wire DI
+  library/          Core services: movies, tv, rootfolder, quality, scanner, organizer
+  autosearch/       Scheduled search and grab pipeline
+  indexer/          Search routing and indexer clients
+  downloader/       Torrent and usenet client integrations
+  import/           Post-download matching and file import
+  metadata/         TMDB, TVDB, OMDb clients
+  portal/           Requests portal, users, quotas, provisioner
+  notification/     Event dispatch and notification channels
+  auth/             Session, JWT, and WebAuthn
+  database/         SQLite manager, Goose migrations, sqlc queries
+  domain/contracts/ Cross-service interfaces
+web/                React frontend (Vite)
   src/
-    api/                    HTTP client functions (admin + portal)
-    routes/                 TanStack Router routes (lazy-loaded)
-    modules/                ModuleConfig registry (movie, tv)
-    components/             React components by feature
-    hooks/                  Per-feature custom hooks (admin + portal)
-    stores/                 Zustand client-state stores
-    lib/  types/
-configs/                    config.example.yaml
-docs/                       Feature specs, design documents, implementation plans
-scripts/                    Build, lint and utility scripts; scripts/new-module/ scaffolder
-resources/                  Static resources
+    routes/  modules/  components/  hooks/  stores/  api/
+configs/            config.example.yaml
+docs/               Feature specs and design documents
+scripts/            Build, lint, and scaffolding utilities
 ```
 
-## Module System (in brief)
-
-A media type is a Go struct composed of ~16 sub-interfaces from `internal/module/interfaces.go`:
-
-`ModuleDescriptor`, `MetadataProvider`, `SearchStrategy`, `ImportHandler`, `PathGenerator`, `NamingProvider`, `CalendarProvider`, `QualityDefinition`, `WantedCollector`, `MonitoringPresets`, `FileParser`, `MockFactory`, `NotificationEvents`, `ReleaseDateResolver`, `RouteProvider`, `TaskProvider` — plus optional `PortalProvisioner`, `SlotSupport`, `ArrImportAdapter`.
-
-Each module:
-
-- declares a **node schema** (flat for Movie, `series → season → episode` for TV),
-- ships its **own Goose migrations** in `internal/modules/<id>/migrations/` with an independent `goose_db_version_<id>` table,
-- is registered in a central `module.Registry`, and
-- has a mirrored `ModuleConfig` in `web/src/modules/<id>/` exposing routes, query keys, WebSocket invalidation rules, filter/sort options, and table columns.
-
-To add a module: `make new-module MODULE_ID=music`, then follow `docs/adding-a-module.md`.
-
-## Documentation
-
-Project-level agent instructions:
-
-- `CLAUDE.md` / `AGENTS.md` (root) — mandatory directives and style guide
-- `internal/CLAUDE.md` — backend patterns, service layer, module framework, auto-search
-- `web/CLAUDE.md` — frontend patterns, design system (movie = orange, TV = blue), Base UI gotchas
-
-Selected design docs in `docs/`:
-
-- `adding-a-module.md` — guide for new modules
-- `module-system-spec.md` + `module-system-plan-phase*.md` — module architecture and phased rollout
-- `automatic-search-spec.md` — auto search and upgrade pipeline
-- `multiple-quality-versions-spec.md` — quality version slots
-- `external-requests-spec.md` — portal requests system
-- `Prowlarr-integration-spec.md`, `RSS-Sync-Design.md`
-- `system-health-spec.md`
-- `Library-Import-Spec.md`, `release-importing-spec.md`
-- `passkey-implementation-plan.md`
-- `Windows-Application-Plan.md`, `macOS-Application-Plan.md`, `Linux-Application-Plan.md`
-
-## Architecture Notes
-
-- **API** — all endpoints under `/api/v1`; routes registered in `internal/api/routes.go`. WebSocket on `/ws`.
-- **Database** — single SQLite file in WAL mode. Framework migrations via embedded Goose; each module runs its own migrations against an independent version table. All reads/writes use sqlc-generated type-safe queries.
-- **DI** — Google Wire generates `internal/api/wire_gen.go` from `wire.go`. Circular/late-binding dependencies are handled in `setters.go`. Re-run `make wire` after changing providers.
-- **Dev mode switching** — `DevModeManager` swaps in mock services at runtime (`SwitchableServices` in `internal/api/switchable.go`) and points at `slipstream_dev.db`. Toggle via the hammer icon in the header.
-- **Logging** — zerolog everywhere with mandatory `component` tags. In `go run` the level is forced to `debug`; in built binaries it honors config.
-- **Cross-platform paths** — both `\` and `/` separators are handled; imports from foreign Radarr/Sonarr DBs may originate on a different OS than the running server.
-- **Frontend code-splitting** — routes are lazy-loaded via `lazyRouteComponent()` in `web/src/routes-config.tsx`; never eagerly import page components.
-
-## Default Ports
-
-| Service  | Port   |
-| -------- | ------ |
-| Backend  | `8080` |
-| Frontend | `3000` |
-| WebSocket| `/ws` on the backend |
-
-The Vite dev server proxies `/api` and `/ws` to the backend.
+Most of the deeper reading lives in `docs/` — start with `adding-a-module.md` and `module-system-spec.md` for the extension story, or `automatic-search-spec.md` for the search and grab pipeline.
