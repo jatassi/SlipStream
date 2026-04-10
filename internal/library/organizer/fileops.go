@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/slipstream/slipstream/internal/pathutil"
 )
 
 var (
@@ -140,7 +142,7 @@ func (s *Service) DeleteFile(path string) error {
 // DeleteUpgradedFile deletes the old file when a new version is imported.
 // Only deletes if the file exists and is different from the new file.
 func (s *Service) DeleteUpgradedFile(oldPath, newPath string) error {
-	if oldPath == "" || oldPath == newPath {
+	if oldPath == "" || pathutil.PathsEqual(oldPath, newPath) {
 		return nil
 	}
 
@@ -217,7 +219,7 @@ func (s *Service) CopyExtraFiles(sourceDir, destDir, mainFile string) (int, erro
 // MoveSeriesFolder moves an entire series folder structure to a new location.
 // Used when series title or folder pattern changes.
 func (s *Service) MoveSeriesFolder(oldPath, newPath string) error {
-	if oldPath == newPath {
+	if pathutil.PathsEqual(oldPath, newPath) {
 		return nil
 	}
 

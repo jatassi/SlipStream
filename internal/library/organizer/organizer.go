@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/pathutil"
 )
 
 // Service provides file organization operations.
@@ -149,7 +151,7 @@ func (s *Service) RenameFile(oldPath, newFilename string) (string, error) {
 	ext := filepath.Ext(oldPath)
 	newPath := filepath.Join(dir, newFilename+ext)
 
-	if oldPath == newPath {
+	if pathutil.PathsEqual(oldPath, newPath) {
 		return newPath, nil // No change needed
 	}
 
@@ -172,7 +174,7 @@ func (s *Service) OrganizeMovie(sourcePath, rootPath string, tokens *MovieTokens
 	ext := filepath.Ext(sourcePath)
 	destPath := filepath.Join(movieDir, filename+ext)
 
-	if sourcePath == destPath {
+	if pathutil.PathsEqual(sourcePath, destPath) {
 		return destPath, nil // Already in correct location
 	}
 
@@ -191,7 +193,7 @@ func (s *Service) OrganizeEpisode(sourcePath, seriesPath string, seasonNumber in
 	ext := filepath.Ext(sourcePath)
 	destPath := filepath.Join(seasonDir, filename+ext)
 
-	if sourcePath == destPath {
+	if pathutil.PathsEqual(sourcePath, destPath) {
 		return destPath, nil // Already in correct location
 	}
 
