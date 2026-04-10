@@ -1,12 +1,12 @@
 package plex
 
-import "strings"
+import "github.com/slipstream/slipstream/internal/pathutil"
 
 // MapPath applies path mappings to transform a local path to a Plex path
 func MapPath(path string, mappings []PathMapping) string {
 	for _, m := range mappings {
-		if strings.HasPrefix(path, m.From) {
-			return m.To + strings.TrimPrefix(path, m.From)
+		if remainder, ok := pathutil.TrimPathPrefix(path, m.From); ok {
+			return m.To + remainder
 		}
 	}
 	return path
@@ -20,7 +20,7 @@ func FindMatchingSection(path string, sections []LibrarySection, targetSectionID
 		}
 
 		for _, loc := range section.Locations {
-			if strings.HasPrefix(path, loc.Path) {
+			if pathutil.HasPathPrefix(path, loc.Path) {
 				return &section
 			}
 		}

@@ -54,3 +54,111 @@ func TestPathsEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestTrimPathPrefix(t *testing.T) {
+	tests := []struct {
+		name          string
+		path, prefix  string
+		wantRemainder string
+		wantOK        bool
+	}{
+		{
+			name:          "exact equal",
+			path:          "D:/foo",
+			prefix:        "D:/foo",
+			wantRemainder: "",
+			wantOK:        true,
+		},
+		{
+			name:          "strict child",
+			path:          "D:/foo/bar/baz.mkv",
+			prefix:        "D:/foo",
+			wantRemainder: "/bar/baz.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "mixed separators (cross-origin DB)",
+			path:          `D:\Downloads\SlipStream\The.Boys.mkv`,
+			prefix:        "D:/Downloads/SlipStream",
+			wantRemainder: "/The.Boys.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "reverse mixed separators",
+			path:          "D:/Downloads/SlipStream/The.Boys.mkv",
+			prefix:        `D:\Downloads\SlipStream`,
+			wantRemainder: "/The.Boys.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "boundary guard rejects substring",
+			path:          "D:/foobar/baz.mkv",
+			prefix:        "D:/foo",
+			wantRemainder: "",
+			wantOK:        false,
+		},
+		{
+			name:          "prefix with trailing slash equals path",
+			path:          "D:/foo",
+			prefix:        "D:/foo/",
+			wantRemainder: "",
+			wantOK:        true,
+		},
+		{
+			name:          "prefix with trailing slash strict child",
+			path:          "D:/foo/bar.mkv",
+			prefix:        "D:/foo/",
+			wantRemainder: "/bar.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "unrelated paths",
+			path:          "D:/foo/bar.mkv",
+			prefix:        "E:/baz",
+			wantRemainder: "",
+			wantOK:        false,
+		},
+		{
+			name:          "redundant slashes normalized",
+			path:          "D:/foo//bar//baz.mkv",
+			prefix:        "D:/foo",
+			wantRemainder: "/bar/baz.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "unix root prefix keeps full path",
+			path:          "/media/shows/foo.mkv",
+			prefix:        "/",
+			wantRemainder: "/media/shows/foo.mkv",
+			wantOK:        true,
+		},
+		{
+			name:          "empty path",
+			path:          "",
+			prefix:        "D:/foo",
+			wantRemainder: "",
+			wantOK:        false,
+		},
+		{
+			name:          "empty prefix",
+			path:          "D:/foo",
+			prefix:        "",
+			wantRemainder: "",
+			wantOK:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotRemainder, gotOK := TrimPathPrefix(tt.path, tt.prefix)
+			if gotOK != tt.wantOK || gotRemainder != tt.wantRemainder {
+				t.Errorf("TrimPathPrefix(%q, %q) = (%q, %v), want (%q, %v)",
+					tt.path, tt.prefix, gotRemainder, gotOK, tt.wantRemainder, tt.wantOK)
+			}
+			if gotHas := HasPathPrefix(tt.path, tt.prefix); gotHas != tt.wantOK {
+				t.Errorf("HasPathPrefix(%q, %q) = %v, want %v",
+					tt.path, tt.prefix, gotHas, tt.wantOK)
+			}
+		})
+	}
+}

@@ -590,11 +590,7 @@ func resolveFilePath(parentPath, relativePath string) string {
 // may originate from either OS.
 func deriveRootFolderPath(mediaPath string, rootFolders []SourceRootFolder) string {
 	for _, rf := range rootFolders {
-		rfPath := rf.Path
-		if !strings.HasSuffix(rfPath, "/") && !strings.HasSuffix(rfPath, "\\") {
-			rfPath += "/"
-		}
-		if strings.HasPrefix(mediaPath, rfPath) {
+		if pathutil.HasPathPrefix(mediaPath, rf.Path) {
 			return rf.Path
 		}
 	}

@@ -424,7 +424,6 @@ func (s *Service) findRootFolderForPath(ctx context.Context, filePath string) (*
 	if err != nil {
 		return nil, err
 	}
-	absPath = pathutil.NormalizePath(absPath)
 
 	folders, err := s.rootfolders.List(ctx)
 	if err != nil {
@@ -432,8 +431,7 @@ func (s *Service) findRootFolderForPath(ctx context.Context, filePath string) (*
 	}
 
 	for _, folder := range folders {
-		folderPath := pathutil.NormalizePath(folder.Path)
-		if strings.HasPrefix(absPath, folderPath) {
+		if pathutil.HasPathPrefix(absPath, folder.Path) {
 			return folder, nil
 		}
 	}

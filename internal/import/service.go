@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/module"
+	"github.com/slipstream/slipstream/internal/pathutil"
 	"github.com/slipstream/slipstream/internal/websocket"
 )
 
@@ -641,7 +641,7 @@ func (s *Service) findMappingForPath(ctx context.Context, filePath string, clien
 func (s *Service) findDownloadIDForPath(filePath string, items []downloader.DownloadItem) string {
 	for i := range items {
 		item := &items[i]
-		if item.DownloadDir != "" && strings.HasPrefix(filePath, item.DownloadDir) {
+		if item.DownloadDir != "" && pathutil.HasPathPrefix(filePath, item.DownloadDir) {
 			return item.ID
 		}
 	}
