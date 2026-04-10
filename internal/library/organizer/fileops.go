@@ -159,110 +159,6 @@ func (s *Service) DeleteUpgradedFile(oldPath, newPath string) error {
 	return s.DeleteFile(oldPath)
 }
 
-// CopyExtraFiles copies extra files (subtitles, NFO, etc.) from source directory
-// to destination directory, preserving their original names.
-func (s *Service) CopyExtraFiles(sourceDir, destDir, mainFile string) (int, error) {
-	s.logger.Debug().
-		Str("sourceDir", sourceDir).
-		Str("destDir", destDir).
-		Str("mainFile", mainFile).
-		Msg("Copying extra files")
-
-	entries, err := os.ReadDir(sourceDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read source directory: %w", err)
-	}
-
-	mainBase := filepath.Base(mainFile)
-	mainNoExt := strings.TrimSuffix(mainBase, filepath.Ext(mainBase))
-	count := 0
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		if name == mainBase {
-			continue // Skip the main video file
-		}
-
-		// Only copy files that match the main file's base name
-		// This catches associated subtitles like "video.en.srt"
-		if !strings.HasPrefix(name, mainNoExt) {
-			continue
-		}
-
-		ext := strings.ToLower(filepath.Ext(name))
-		if !isExtraFileExtension(ext) {
-			continue
-		}
-
-		sourcePath := filepath.Join(sourceDir, name)
-		destPath := filepath.Join(destDir, name)
-
-		if err := s.CopyFile(sourcePath, destPath); err != nil {
-			s.logger.Warn().Err(err).
-				Str("file", name).
-				Msg("Failed to copy extra file")
-			continue
-		}
-
-		count++
-		s.logger.Debug().Str("file", name).Msg("Copied extra file")
-	}
-
-	s.logger.Info().Int("count", count).Msg("Copied extra files")
-	return count, nil
-}
-
-// MoveSeriesFolder moves an entire series folder structure to a new location.
-// Used when series title or folder pattern changes.
-func (s *Service) MoveSeriesFolder(oldPath, newPath string) error {
-	if pathutil.PathsEqual(oldPath, newPath) {
-		return nil
-	}
-
-	s.logger.Info().
-		Str("old", oldPath).
-		Str("new", newPath).
-		Msg("Moving series folder")
-
-	// Check if source exists
-	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-		return nil // Nothing to move
-	}
-
-	// Create parent directory for new path
-	if err := os.MkdirAll(filepath.Dir(newPath), 0o750); err != nil {
-		return fmt.Errorf("failed to create parent directory: %w", err)
-	}
-
-	// Try rename first (same filesystem)
-	if err := os.Rename(oldPath, newPath); err == nil {
-		s.logger.Info().Msg("Moved series folder via rename")
-		return nil
-	}
-
-	// Fall back to recursive copy + delete
-	if err := s.copyDirRecursive(oldPath, newPath); err != nil {
-		return fmt.Errorf("failed to copy series folder: %w", err)
-	}
-
-	if err := os.RemoveAll(oldPath); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to remove old series folder after copy")
-	}
-
-	s.logger.Info().Msg("Moved series folder via copy")
-	return nil
-}
-
-// FileExists checks if a file exists.
-func (s *Service) FileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
 // ensureDestDir creates the destination directory if needed, inheriting permissions.
 func (s *Service) ensureDestDir(destPath string) error {
 	destDir := filepath.Dir(destPath)
@@ -299,28 +195,6 @@ func (s *Service) removeIfExists(path string) error {
 	return nil
 }
 
-// copyDirRecursive copies a directory recursively.
-func (s *Service) copyDirRecursive(src, dst string) error {
-	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-
-		destPath := filepath.Join(dst, relPath)
-
-		if d.IsDir() {
-			return os.MkdirAll(destPath, 0o750)
-		}
-
-		return s.CopyFile(path, destPath)
-	})
-}
-
 // isCrossDeviceError checks if an error is a cross-device link error.
 func isCrossDeviceError(err error) bool {
 	if err == nil {
@@ -339,18 +213,4 @@ func isCrossDeviceError(err error) bool {
 	default:
 		return strings.Contains(errStr, "cross-device")
 	}
-}
-
-// isExtraFileExtension returns true if the extension is for an extra file type.
-func isExtraFileExtension(ext string) bool {
-	extraExts := map[string]bool{
-		// Subtitles
-		".srt": true, ".sub": true, ".ssa": true, ".ass": true,
-		".idx": true, ".vtt": true, ".smi": true,
-		// Metadata
-		".nfo": true, ".txt": true,
-		// Images (for folder art)
-		".jpg": true, ".jpeg": true, ".png": true,
-	}
-	return extraExts[ext]
 }

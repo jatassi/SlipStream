@@ -77,7 +77,6 @@ func BuildServices(
 		provideAutoSearchConfig,
 		provideRssSyncConfig,
 		provideRateLimitConfig,
-		provideNamingConfig,
 		provideMediainfoConfig,
 		provideImporterConfig,
 

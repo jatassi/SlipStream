@@ -98,8 +98,7 @@ func BuildServices(dbManager *database.Manager, hub *websocket.Hub, cfg *config.
 	scannerService := scanner.NewService(logger)
 	slotsService := slots.NewService(db, qualityService, logger, rootfolderService)
 	librarymanagerService := librarymanager.NewService(db, scannerService, moviesService, tvService, metadataService, artworkDownloader, rootfolderService, qualityService, manager, logger, preferencesService, slotsService, service)
-	namingConfig := provideNamingConfig()
-	organizerService := organizer.NewService(namingConfig, logger)
+	organizerService := organizer.NewService(logger)
 	mediainfoConfig := provideMediainfoConfig()
 	mediainfoService := mediainfo.NewService(mediainfoConfig, logger)
 	libraryGroup := LibraryGroup{

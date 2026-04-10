@@ -20,7 +20,6 @@ import (
 	"github.com/slipstream/slipstream/internal/indexer"
 	"github.com/slipstream/slipstream/internal/indexer/cardigann"
 	"github.com/slipstream/slipstream/internal/indexer/ratelimit"
-	"github.com/slipstream/slipstream/internal/library/organizer"
 	"github.com/slipstream/slipstream/internal/library/scanner"
 	"github.com/slipstream/slipstream/internal/mediainfo"
 	"github.com/slipstream/slipstream/internal/metadata"
@@ -71,11 +70,6 @@ func provideRssSyncConfig(cfg *config.Config) *config.RssSyncConfig {
 
 func provideRateLimitConfig() ratelimit.Config {
 	return ratelimit.DefaultConfig()
-}
-
-func provideNamingConfig() *organizer.NamingConfig {
-	nc := organizer.DefaultNamingConfig()
-	return &nc
 }
 
 func provideMediainfoConfig() mediainfo.Config {
