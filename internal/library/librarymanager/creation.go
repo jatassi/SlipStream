@@ -156,6 +156,14 @@ func (s *Service) createSeriesFromParsed(
 		tvdbID = meta.TvdbID
 	}
 
+	// When the parsed media has a known file path (i.e. the series is being created
+	// during a scan of real on-disk files), prefer the actual folder over the title-
+	// generated path so the record matches the layout on disk even when the folder
+	// name doesn't match the canonical title (e.g. "The Boys (2019)" vs "The Boys").
+	if scanned := seriesFolderFromScan(folder, parsed); scanned != "" {
+		input.Path = scanned
+	}
+
 	series, err := s.tv.CreateSeries(ctx, &input)
 	if err != nil {
 		if errors.Is(err, tv.ErrDuplicateTvdbID) && meta != nil && meta.TvdbID > 0 {

@@ -184,25 +184,46 @@ func (s *Service) matchOrCreateSeries(
 // avoiding unnecessary external metadata searches. Uses two strategies:
 // 1. Path match: derive the series folder from the file path and query by path
 // 2. Title+year match: compare against all series in the same root folder
+// When a match is found via title+year but the series has no path, the series path
+// is backfilled from the scanned file's folder so future scans match by path directly.
 func (s *Service) tryMatchExistingSeries(ctx context.Context, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) *tv.Series {
 	if match := s.tryMatchSeriesByPath(ctx, folder, parsed); match != nil {
 		return match
 	}
-	return s.tryMatchSeriesByTitleYear(ctx, folder, parsed)
+	match := s.tryMatchSeriesByTitleYear(ctx, folder, parsed)
+	if match == nil {
+		return nil
+	}
+	s.backfillSeriesPathIfEmpty(ctx, match, folder, parsed)
+	return match
+}
+
+// backfillSeriesPathIfEmpty sets the series path to the scanned folder when the series
+// has no path recorded. Without this, future scans repeatedly fail path-based lookup
+// and risk creating duplicate records via metadata search.
+func (s *Service) backfillSeriesPathIfEmpty(ctx context.Context, series *tv.Series, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) {
+	if series.Path != "" {
+		return
+	}
+	candidatePath := seriesFolderFromScan(folder, parsed)
+	if candidatePath == "" {
+		return
+	}
+	updated, err := s.tv.UpdateSeries(ctx, series.ID, &tv.UpdateSeriesInput{Path: &candidatePath})
+	if err != nil {
+		s.logger.Warn().Err(err).Int64("seriesId", series.ID).Str("path", candidatePath).Msg("Failed to backfill series path")
+		return
+	}
+	series.Path = updated.Path
+	s.logger.Info().Int64("seriesId", series.ID).Str("title", series.Title).Str("path", candidatePath).Msg("Backfilled series path from scan")
 }
 
 func (s *Service) tryMatchSeriesByPath(ctx context.Context, folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) *tv.Series {
-	relPath := extractRelativePath(parsed.FilePath, folder.Path)
-	if relPath == "" {
+	candidatePath := seriesFolderFromScan(folder, parsed)
+	if candidatePath == "" {
 		return nil
 	}
 
-	seriesFolder := extractFirstPathComponent(relPath)
-	if seriesFolder == "" {
-		return nil
-	}
-
-	candidatePath := folder.Path + "/" + seriesFolder
 	existing, err := s.tv.GetSeriesByPath(ctx, candidatePath)
 	if err != nil {
 		return nil
@@ -255,6 +276,24 @@ func findUniqueLocalSeriesByTitle(seriesList []*tv.Series, parsedTitleNorm strin
 		}
 	}
 	return match
+}
+
+// seriesFolderFromScan derives the on-disk series folder for a scanned file,
+// e.g. "D:/Plex/Shows/The Boys (2019)". Returns empty string if the file path
+// isn't inside the root folder or doesn't have a series subfolder.
+func seriesFolderFromScan(folder *rootfolder.RootFolder, parsed *scanner.ParsedMedia) string {
+	if parsed == nil || parsed.FilePath == "" {
+		return ""
+	}
+	relPath := extractRelativePath(parsed.FilePath, folder.Path)
+	if relPath == "" {
+		return ""
+	}
+	seriesFolder := extractFirstPathComponent(relPath)
+	if seriesFolder == "" {
+		return ""
+	}
+	return folder.Path + "/" + seriesFolder
 }
 
 // extractRelativePath returns the path of filePath relative to rootPath, using forward slashes.

@@ -190,8 +190,16 @@ func buildTVParseResult(rawTitle, qualityText string, extra *TVParseExtra) *modu
 		hdrFormats = []string{"SDR"}
 	}
 
+	title := parseutil.CleanTitle(rawTitle)
+	year := 0
+	if y, remainder, found := parseutil.ExtractYear(title); found && remainder != "" {
+		title = remainder
+		year = y
+	}
+
 	return &module.ParseResult{
-		Title:         parseutil.CleanTitle(rawTitle),
+		Title:         title,
+		Year:          year,
 		Quality:       attrs.Quality,
 		Source:        attrs.Source,
 		Codec:         codec,
