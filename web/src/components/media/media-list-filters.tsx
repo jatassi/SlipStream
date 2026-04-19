@@ -1,9 +1,14 @@
 import type { LucideIcon } from 'lucide-react'
-import { ArrowUpDown, Grid, List } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Grid, List } from 'lucide-react'
 
 import { ColumnConfigPopover } from '@/components/tables/column-config-popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { ColumnDef } from '@/lib/table-columns'
@@ -17,6 +22,7 @@ type Props<T, F extends string, S extends string> = {
   sortOptions: SortOption<S>[]
   statusFilters: F[]
   sortField: S
+  sortDirection: 'asc' | 'desc'
   view: 'grid' | 'table'
   posterSize: number
   visibleColumnIds: string[]
@@ -32,7 +38,7 @@ type Props<T, F extends string, S extends string> = {
 }
 
 export function MediaListFilters<T, F extends string, S extends string>(props: Props<T, F, S>) {
-  const { sortField, view, isLoading, theme } = props
+  const { sortField, sortDirection, view, isLoading, theme } = props
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -45,7 +51,14 @@ export function MediaListFilters<T, F extends string, S extends string>(props: P
         theme={theme}
         disabled={isLoading}
       />
-      <SortSelect sortField={sortField} sortOptions={props.sortOptions} onChange={props.onSortFieldChange} disabled={isLoading} theme={theme} />
+      <SortSelect
+        sortField={sortField}
+        sortDirection={sortDirection}
+        sortOptions={props.sortOptions}
+        onChange={props.onSortFieldChange}
+        disabled={isLoading}
+        theme={theme}
+      />
       <div className="ml-auto flex items-center gap-4">
         <ViewOptions {...props} />
         <ToggleGroup value={[view]} onValueChange={props.onViewChange} disabled={isLoading}>
@@ -57,8 +70,9 @@ export function MediaListFilters<T, F extends string, S extends string>(props: P
   )
 }
 
-function SortSelect<S extends string>({ sortField, sortOptions, onChange, disabled, theme }: {
+function SortSelect<S extends string>({ sortField, sortDirection, sortOptions, onChange, disabled, theme }: {
   sortField: S
+  sortDirection: 'asc' | 'desc'
   sortOptions: SortOption<S>[]
   onChange: (v: string) => void
   disabled: boolean
@@ -66,19 +80,34 @@ function SortSelect<S extends string>({ sortField, sortOptions, onChange, disabl
 }) {
   const accentMap: Record<string, string> = { movie: 'text-movie-400', tv: 'text-tv-400' }
   const accentClass = accentMap[theme] ?? 'text-primary'
+  const DirectionIcon = sortDirection === 'asc' ? ArrowUp : ArrowDown
+  const selectedLabel = sortOptions.find((o) => o.value === sortField)?.label
 
   return (
-    <Select value={sortField} onValueChange={(v) => v && onChange(v)} disabled={disabled}>
-      <SelectTrigger className="gap-1.5">
-        <ArrowUpDown className={cn('size-4 shrink-0', sortField === 'title' ? 'text-muted-foreground' : accentClass)} />
-        <span className="hidden sm:inline">{sortOptions.find((o) => o.value === sortField)?.label}</span>
-      </SelectTrigger>
-      <SelectContent>
-        {sortOptions.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        className={cn(
+          'border-input dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 flex h-8 w-fit items-center gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-[3px]',
+          disabled && 'pointer-events-none opacity-50',
+        )}
+      >
+        <DirectionIcon className={cn('size-4 shrink-0', sortField === 'title' ? 'text-muted-foreground' : accentClass)} />
+        <span className="hidden sm:inline">{selectedLabel}</span>
+        <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-auto min-w-(--anchor-width)">
+        {sortOptions.map((opt) => {
+          const selected = opt.value === sortField
+          return (
+            <DropdownMenuItem key={opt.value} onClick={() => onChange(opt.value)}>
+              <span className="flex-1 pr-4">{opt.label}</span>
+              {selected ? <DirectionIcon className={cn('size-4 shrink-0', accentClass)} /> : null}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

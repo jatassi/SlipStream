@@ -42,7 +42,13 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 
 ## Common Commands
 
-Do not start servers. Assume they're running on default ports (backend :8080, frontend :3000). Prompt user to restart as needed.
+Default ports: backend :8080, frontend :3000. The user typically already has dev servers running — check `curl -sf http://localhost:3000` and `curl -sf http://localhost:8080/api/v1/system` before starting anything. If you need to start them yourself, run them in the background (`run_in_background: true`) so you can keep working:
+
+- Both: `make dev` from the repo root
+- Backend only: `go run ./cmd/slipstream --config configs/config.example.yaml` (omit the flag if `configs/config.yaml` exists)
+- Frontend only: `cd web && bun run dev`
+
+Stop a background task with `TaskStop`. After making backend changes, prompt the user to restart rather than restarting their running server yourself.
 
 **Important:** The frontend uses `bun` as its package manager and runtime. Always use `bun` instead of `npm`, `npx`, or `node` for frontend commands (e.g., `bun run`, `bun add`, `bun install`).
 

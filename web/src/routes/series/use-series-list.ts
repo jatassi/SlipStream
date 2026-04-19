@@ -280,11 +280,7 @@ function useViewHandlers(local: LocalState, ui: UIState) {
 
   const handleResetFilters = () => local.setStatusFilters([...ALL_FILTERS])
 
-  const handleSortFieldChange = (v: string) => {
-    if (isSortField(v)) {
-      local.setSortField(v)
-    }
-  }
+  const handleSortFieldChange = handleColumnSort
 
   const handleViewChange = (v: string[]) => {
     if (v[0] === 'grid' || v[0] === 'table') {

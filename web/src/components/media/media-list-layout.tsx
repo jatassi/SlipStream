@@ -134,6 +134,7 @@ function MediaListFiltersRow<T extends { id: number }, F extends string, S exten
       sortOptions={props.sortOptions}
       statusFilters={props.statusFilters}
       sortField={props.sortField}
+      sortDirection={props.sortDirection}
       view={props.view}
       posterSize={props.posterSize}
       visibleColumnIds={props.visibleColumnIds}
