@@ -1,3 +1,4 @@
+import type { StoreApi } from 'zustand'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -32,11 +33,19 @@ type UIState = {
   posterSize: number // 100-250, represents min-width in pixels
   movieTableColumns: string[]
   seriesTableColumns: string[]
+  movieSortField: string
+  movieSortDirection: 'asc' | 'desc'
+  seriesSortField: string
+  seriesSortDirection: 'asc' | 'desc'
   setMoviesView: (view: 'grid' | 'table') => void
   setSeriesView: (view: 'grid' | 'table') => void
   setPosterSize: (size: number) => void
   setMovieTableColumns: (cols: string[]) => void
   setSeriesTableColumns: (cols: string[]) => void
+  setMovieSortField: (field: string) => void
+  setMovieSortDirection: (direction: 'asc' | 'desc') => void
+  setSeriesSortField: (field: string) => void
+  setSeriesSortDirection: (direction: 'asc' | 'desc') => void
 
   // Module-keyed view preferences
   moduleViewPrefs: Partial<Record<string, 'grid' | 'table'>>
@@ -73,6 +82,23 @@ function resolveModuleTableColumns(state: UIState, moduleId: string): string[] {
   return []
 }
 
+type SetState = StoreApi<UIState>['setState']
+
+function createNotificationSlice(set: SetState) {
+  return {
+    notifications: [] as Notification[],
+    addNotification: (notification: Omit<Notification, 'id'>) =>
+      set((state) => ({
+        notifications: [...state.notifications, { ...notification, id: crypto.randomUUID() }],
+      })),
+    dismissNotification: (id: string) =>
+      set((state) => ({
+        notifications: state.notifications.filter((n) => n.id !== id),
+      })),
+    clearNotifications: () => set({ notifications: [] }),
+  }
+}
+
 export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
@@ -95,11 +121,19 @@ export const useUIStore = create<UIState>()(
       posterSize: 150,
       movieTableColumns: getDefaultVisibleColumns(MOVIE_COLUMNS),
       seriesTableColumns: getDefaultVisibleColumns(SERIES_COLUMNS),
+      movieSortField: 'title',
+      movieSortDirection: 'asc',
+      seriesSortField: 'title',
+      seriesSortDirection: 'asc',
       setMoviesView: (view) => set({ moviesView: view }),
       setSeriesView: (view) => set({ seriesView: view }),
       setPosterSize: (size) => set({ posterSize: size }),
       setMovieTableColumns: (cols) => set({ movieTableColumns: cols }),
       setSeriesTableColumns: (cols) => set({ seriesTableColumns: cols }),
+      setMovieSortField: (field) => set({ movieSortField: field }),
+      setMovieSortDirection: (direction) => set({ movieSortDirection: direction }),
+      setSeriesSortField: (field) => set({ seriesSortField: field }),
+      setSeriesSortDirection: (direction) => set({ seriesSortDirection: direction }),
       moduleViewPrefs: {},
       moduleTableColumns: {},
       getModuleView: (moduleId) => resolveModuleView(get(), moduleId),
@@ -110,16 +144,7 @@ export const useUIStore = create<UIState>()(
         set((s) => ({ moduleTableColumns: { ...s.moduleTableColumns, [moduleId]: cols } })),
       globalLoading: false,
       setGlobalLoading: (loading) => set({ globalLoading: loading }),
-      notifications: [],
-      addNotification: (notification) =>
-        set((state) => ({
-          notifications: [...state.notifications, { ...notification, id: crypto.randomUUID() }],
-        })),
-      dismissNotification: (id) =>
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id),
-        })),
-      clearNotifications: () => set({ notifications: [] }),
+      ...createNotificationSlice(set),
     }),
     {
       name: 'slipstream-ui',
@@ -132,6 +157,10 @@ export const useUIStore = create<UIState>()(
         posterSize: state.posterSize,
         movieTableColumns: state.movieTableColumns,
         seriesTableColumns: state.seriesTableColumns,
+        movieSortField: state.movieSortField,
+        movieSortDirection: state.movieSortDirection,
+        seriesSortField: state.seriesSortField,
+        seriesSortDirection: state.seriesSortDirection,
         moduleViewPrefs: state.moduleViewPrefs,
         moduleTableColumns: state.moduleTableColumns,
       }),

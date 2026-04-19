@@ -92,9 +92,12 @@ function useUIState() {
 }
 
 function useLocalState() {
+  const storedSortField = useUIStore((s) => s.movieSortField)
+  const sortField: SortField = isSortField(storedSortField) ? storedSortField : 'title'
+  const setSortField = useUIStore((s) => s.setMovieSortField)
+  const sortDirection = useUIStore((s) => s.movieSortDirection)
+  const setSortDirection = useUIStore((s) => s.setMovieSortDirection)
   const [statusFilters, setStatusFilters] = useState<FilterStatus[]>([...ALL_FILTERS])
-  const [sortField, setSortField] = useState<SortField>('title')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [editMode, setEditMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -296,7 +299,7 @@ function useBulkHandlers({ local, queries, onExitEditMode }: BulkDeps) {
 function useViewHandlers(local: LocalState, ui: UIState) {
   const handleColumnSort = (field: string) => {
     if (field === local.sortField) {
-      local.setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+      local.setSortDirection(local.sortDirection === 'asc' ? 'desc' : 'asc')
     } else if (isSortField(field)) {
       local.setSortField(field)
       local.setSortDirection(DEFAULT_SORT_DIRECTIONS[field])
