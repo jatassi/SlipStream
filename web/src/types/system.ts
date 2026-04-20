@@ -41,6 +41,9 @@ export type Settings = {
   logMaxAgeDays: number
   logCompress: boolean
   externalAccessEnabled: boolean
+  webauthnRpId: string
+  webauthnRpOrigins: string[]
+  webauthnRpDisplayName: string
 }
 
 export type UpdateSettingsInput = {
@@ -53,6 +56,9 @@ export type UpdateSettingsInput = {
   logMaxAgeDays?: number
   logCompress?: boolean
   externalAccessEnabled?: boolean
+  webauthnRpId?: string
+  webauthnRpOrigins?: string[]
+  webauthnRpDisplayName?: string
 }
 
 export type FirewallStatus = {

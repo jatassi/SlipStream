@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { usePasskeySupport } from '@/hooks/portal'
 
+import { WebAuthnRPConfig } from './webauthn-rp-config'
+
 export function AuthenticationSection() {
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const { isSupported: passkeySupported } = usePasskeySupport()
@@ -20,6 +22,10 @@ export function AuthenticationSection() {
           <Lock className="mr-2 size-4" />
           Change PIN...
         </Button>
+      </div>
+
+      <div className="border-t pt-6">
+        <WebAuthnRPConfig />
       </div>
 
       {passkeySupported ? <div className="border-t pt-6">

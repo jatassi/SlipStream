@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -108,6 +109,9 @@ func (s *Server) getSettings(c echo.Context) error {
 		"logMaxAgeDays":         s.getLogMaxAgeDays(ctx, queries),
 		"logCompress":           s.getLogCompress(ctx, queries),
 		"externalAccessEnabled": s.getExternalAccessEnabled(ctx, queries),
+		"webauthnRpId":          loadWebAuthnRPID(ctx, queries, &s.cfg.Portal.WebAuthn),
+		"webauthnRpOrigins":     loadWebAuthnRPOrigins(ctx, queries, &s.cfg.Portal.WebAuthn),
+		"webauthnRpDisplayName": loadWebAuthnRPDisplayName(ctx, queries, &s.cfg.Portal.WebAuthn),
 	})
 }
 
@@ -207,13 +211,16 @@ func (s *Server) updateSettings(c echo.Context) error {
 	queries := sqlc.New(s.dbManager.Conn())
 
 	var input struct {
-		ServerPort            *int    `json:"serverPort"`
-		LogLevel              *string `json:"logLevel"`
-		LogMaxSizeMB          *int    `json:"logMaxSizeMB"`
-		LogMaxBackups         *int    `json:"logMaxBackups"`
-		LogMaxAgeDays         *int    `json:"logMaxAgeDays"`
-		LogCompress           *bool   `json:"logCompress"`
-		ExternalAccessEnabled *bool   `json:"externalAccessEnabled"`
+		ServerPort            *int      `json:"serverPort"`
+		LogLevel              *string   `json:"logLevel"`
+		LogMaxSizeMB          *int      `json:"logMaxSizeMB"`
+		LogMaxBackups         *int      `json:"logMaxBackups"`
+		LogMaxAgeDays         *int      `json:"logMaxAgeDays"`
+		LogCompress           *bool     `json:"logCompress"`
+		ExternalAccessEnabled *bool     `json:"externalAccessEnabled"`
+		WebAuthnRPID          *string   `json:"webauthnRpId"`
+		WebAuthnRPOrigins     *[]string `json:"webauthnRpOrigins"`
+		WebAuthnRPDisplayName *string   `json:"webauthnRpDisplayName"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
@@ -238,6 +245,15 @@ func (s *Server) updateSettings(c echo.Context) error {
 		return err
 	}
 	if err := s.updateExternalAccessEnabled(ctx, queries, input.ExternalAccessEnabled); err != nil {
+		return err
+	}
+	if err := s.updateWebAuthnRPID(ctx, queries, input.WebAuthnRPID); err != nil {
+		return err
+	}
+	if err := s.updateWebAuthnRPOrigins(ctx, queries, input.WebAuthnRPOrigins); err != nil {
+		return err
+	}
+	if err := s.updateWebAuthnRPDisplayName(ctx, queries, input.WebAuthnRPDisplayName); err != nil {
 		return err
 	}
 
@@ -330,6 +346,52 @@ func (s *Server) updateExternalAccessEnabled(ctx context.Context, queries *sqlc.
 	_, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
 		Key:   "external_access_enabled",
 		Value: strconv.FormatBool(*externalAccessEnabled),
+	})
+	return err
+}
+
+func (s *Server) updateWebAuthnRPID(ctx context.Context, queries *sqlc.Queries, rpID *string) error {
+	if rpID == nil {
+		return nil
+	}
+	value := strings.TrimSpace(*rpID)
+	if strings.Contains(value, "://") || strings.ContainsAny(value, "/:?#") {
+		return echo.NewHTTPError(http.StatusBadRequest, "RP ID must be a bare hostname (no scheme, port, or path)")
+	}
+	_, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   settingWebAuthnRPID,
+		Value: value,
+	})
+	return err
+}
+
+func (s *Server) updateWebAuthnRPOrigins(ctx context.Context, queries *sqlc.Queries, origins *[]string) error {
+	if origins == nil {
+		return nil
+	}
+	for _, o := range *origins {
+		trimmed := strings.TrimSpace(o)
+		if trimmed == "" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") {
+			return echo.NewHTTPError(http.StatusBadRequest, "each RP origin must include a scheme (https:// or http://)")
+		}
+	}
+	_, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   settingWebAuthnRPOrigins,
+		Value: serializeOriginList(*origins),
+	})
+	return err
+}
+
+func (s *Server) updateWebAuthnRPDisplayName(ctx context.Context, queries *sqlc.Queries, displayName *string) error {
+	if displayName == nil {
+		return nil
+	}
+	_, err := queries.SetSetting(ctx, sqlc.SetSettingParams{
+		Key:   settingWebAuthnRPDisplayName,
+		Value: strings.TrimSpace(*displayName),
 	})
 	return err
 }
