@@ -134,7 +134,6 @@ func (s *Server) setupAuthRoutes(api *echo.Group) {
 	authGroup.Use(s.security.AuthLimiter.Middleware())
 	authGroup.GET("/status", s.getAuthStatus)
 	authGroup.POST("/setup", s.adminSetup)
-	authGroup.DELETE("/admin", s.deleteAdmin)
 }
 
 func (s *Server) setupSystemRoutes(protected *echo.Group) {

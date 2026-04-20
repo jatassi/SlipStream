@@ -78,7 +78,7 @@ func EnableStartup(appPath string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+	if err := os.MkdirAll(serviceDir, 0o750); err != nil {
 		return fmt.Errorf("create systemd user dir: %w", err)
 	}
 
@@ -112,7 +112,7 @@ WantedBy=default.target
 		return err
 	}
 
-	if err := os.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
+	if err := os.WriteFile(servicePath, []byte(serviceContent), 0o600); err != nil {
 		return fmt.Errorf("write service file: %w", err)
 	}
 
@@ -152,7 +152,7 @@ func IsStartupEnabled() (bool, error) {
 	cmd := exec.CommandContext(context.Background(), "systemctl", "--user", "is-enabled", serviceName)
 	output, err := cmd.Output()
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // systemctl is-enabled exits non-zero when a service is disabled or missing; treat as "not enabled"
 	}
 	return strings.TrimSpace(string(output)) == "enabled", nil
 }
