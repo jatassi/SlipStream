@@ -116,10 +116,11 @@ func provideScheduler(logger *zerolog.Logger) *scheduler.Scheduler {
 }
 
 func providePasskeyService(queries *sqlc.Queries, cfg *config.Config) *auth.PasskeyService {
+	ctx := context.Background()
 	svc, err := auth.NewPasskeyService(queries, auth.PasskeyConfig{
-		RPDisplayName: cfg.Portal.WebAuthn.RPDisplayName,
-		RPID:          cfg.Portal.WebAuthn.RPID,
-		RPOrigins:     cfg.Portal.WebAuthn.RPOrigins,
+		RPDisplayName: loadWebAuthnRPDisplayName(ctx, queries, &cfg.Portal.WebAuthn),
+		RPID:          loadWebAuthnRPID(ctx, queries, &cfg.Portal.WebAuthn),
+		RPOrigins:     loadWebAuthnRPOrigins(ctx, queries, &cfg.Portal.WebAuthn),
 	})
 	if err != nil {
 		return nil
