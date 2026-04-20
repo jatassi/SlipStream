@@ -11,8 +11,7 @@ import (
 
 // checkFirewall checks Linux firewall status for the specified port.
 // Supports: ufw, firewalld, and iptables (in order of preference).
-// Returns: firewallEnabled, portAllowed, firewallName, error
-func checkFirewall(ctx context.Context, port int) (bool, bool, string, error) {
+func checkFirewall(ctx context.Context, port int) (enabled, allowed bool, name string, err error) {
 	// Try ufw first (Ubuntu/Debian)
 	if enabled, allowed, err := checkUFW(ctx, port); err == nil {
 		return enabled, allowed, "ufw", nil
@@ -33,7 +32,7 @@ func checkFirewall(ctx context.Context, port int) (bool, bool, string, error) {
 }
 
 // checkUFW checks ufw (Uncomplicated Firewall) status.
-func checkUFW(ctx context.Context, port int) (bool, bool, error) {
+func checkUFW(ctx context.Context, port int) (enabled, allowed bool, err error) {
 	// Check if ufw is available and get status
 	cmd := exec.CommandContext(ctx, "ufw", "status")
 	output, err := cmd.Output()
@@ -70,7 +69,7 @@ func checkUFW(ctx context.Context, port int) (bool, bool, error) {
 }
 
 // checkFirewalld checks firewalld status.
-func checkFirewalld(ctx context.Context, port int) (bool, bool, error) {
+func checkFirewalld(ctx context.Context, port int) (enabled, allowed bool, err error) {
 	// Check if firewalld is running
 	cmd := exec.CommandContext(ctx, "firewall-cmd", "--state")
 	output, err := cmd.Output()
@@ -82,9 +81,8 @@ func checkFirewalld(ctx context.Context, port int) (bool, bool, error) {
 		return false, true, nil
 	}
 
-	// firewalld is running, check if port is open
 	portStr := strconv.Itoa(port)
-	cmd = exec.CommandContext(ctx, "firewall-cmd", "--query-port="+portStr+"/tcp")
+	cmd = exec.CommandContext(ctx, "firewall-cmd", "--query-port="+portStr+"/tcp") //nolint:gosec // portStr is strconv.Itoa(int), no shell interpretation
 	err = cmd.Run()
 
 	// Exit code 0 means port is open
@@ -92,7 +90,7 @@ func checkFirewalld(ctx context.Context, port int) (bool, bool, error) {
 }
 
 // checkIPTables checks iptables rules.
-func checkIPTables(ctx context.Context, port int) (bool, bool, error) {
+func checkIPTables(ctx context.Context, port int) (enabled, allowed bool, err error) {
 	// List INPUT chain rules
 	cmd := exec.CommandContext(ctx, "iptables", "-L", "INPUT", "-n")
 	output, err := cmd.Output()
