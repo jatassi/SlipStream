@@ -84,26 +84,6 @@ func (s *Server) getAuthStatus(c echo.Context) error {
 	})
 }
 
-// DELETE /api/v1/auth/admin - Delete admin user (debug only, local only)
-func (s *Server) deleteAdmin(c echo.Context) error {
-	ctx := c.Request().Context()
-
-	if !isLocalRequest(c) {
-		return echo.NewHTTPError(http.StatusForbidden, "must be performed from localhost")
-	}
-
-	admin, err := s.portal.Users.GetAdmin(ctx)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "admin not found")
-	}
-
-	if err := s.portal.Users.Delete(ctx, admin.ID); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete admin")
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "admin deleted"})
-}
-
 // adminAuthMiddleware protects main API routes with admin JWT authentication
 func (s *Server) adminAuthMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

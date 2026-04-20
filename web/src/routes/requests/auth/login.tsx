@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
-import { Ban, KeyRound, Loader2, Trash2, User } from 'lucide-react'
+import { Ban, KeyRound, Loader2, User } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { deleteAdmin } from '@/api/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Label } from '@/components/ui/label'
 import { LoadingButton } from '@/components/ui/loading-button'
-import { useAuthStatus, usePortalEnabled, usePortalLogin } from '@/hooks'
+import { usePortalEnabled, usePortalLogin } from '@/hooks'
 import { usePasskeyLogin, usePasskeySupport } from '@/hooks/portal'
 import { usePortalAuthStore } from '@/stores'
 
@@ -141,29 +140,11 @@ function PinLoginForm(props: PinFormProps) {
   )
 }
 
-type DebugDeleteProps = {
-  showDelete: boolean
-  isDeleting: boolean
-  onDelete: () => void
-}
-
-function DebugDeleteSection({ showDelete, isDeleting, onDelete }: DebugDeleteProps) {
-  if (!showDelete) {return null}
-  return (
-    <div className="border-border mt-6 border-t pt-4">
-      <LoadingButton type="button" loading={isDeleting} icon={Trash2} iconClassName="mr-1 size-3 md:mr-2 md:size-4" variant="destructive" size="sm" className="w-full text-xs md:text-sm" onClick={onDelete}>
-        Delete Admin (Debug)
-      </LoadingButton>
-    </div>
-  )
-}
-
 function useLoginPage() {
   const navigate = useNavigate()
   const { getPostLoginRedirect } = usePortalAuthStore()
   const loginMutation = usePortalLogin()
   const passkeyLoginMutation = usePasskeyLogin()
-  const { data: authStatus, refetch: refetchAuthStatus } = useAuthStatus()
   const { isSupported: passkeySupported, isLoading: passkeyLoading } = usePasskeySupport()
   const portalEnabled = usePortalEnabled()
 
@@ -173,7 +154,6 @@ function useLoginPage() {
   const [showUsernameInput, setShowUsernameInput] = useState(!rememberedUsername)
   const [showPinForm, setShowPinForm] = useState(false)
   const [pin, setPin] = useState('')
-  const [isDeleting, setIsDeleting] = useState(false)
   const usernameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (showUsernameInput) {usernameInputRef.current?.focus()} }, [showUsernameInput])
@@ -195,8 +175,7 @@ function useLoginPage() {
     portalEnabled, passkeyLoading, passkeySupported,
     shouldShowPasskeyLogin: !passkeyLoading && passkeySupported && !showPinForm,
     username, setUsername, showUsernameInput, usernameInputRef,
-    pin, setPin, isDeleting, loginPending: loginMutation.isPending,
-    showDelete: !authStatus?.requiresSetup,
+    pin, setPin, loginPending: loginMutation.isPending,
     handleSwitchUser: () => { setUsername(''); setPin(''); setShowUsernameInput(true) },
     handleSubmit: (e: React.SyntheticEvent) => { e.preventDefault(); performLogin() },
     handlePasskeyLogin: () => {
@@ -204,12 +183,6 @@ function useLoginPage() {
     },
     passkeyLoginPending: passkeyLoginMutation.isPending,
     setShowPinForm,
-    handleDeleteAdmin: async () => {
-      setIsDeleting(true)
-      try { await deleteAdmin(); toast.success('Admin deleted'); await refetchAuthStatus(); void navigate({ to: '/auth/setup' }) }
-      catch { toast.error('Failed to delete admin') }
-      finally { setIsDeleting(false) }
-    },
   }
 }
 
@@ -238,7 +211,6 @@ export function LoginPage() {
               isPending={vm.loginPending} passkeySupported={vm.passkeySupported} onUsePasskey={() => vm.setShowPinForm(false)}
             />
           )}
-          <DebugDeleteSection showDelete={vm.showDelete} isDeleting={vm.isDeleting} onDelete={vm.handleDeleteAdmin} />
         </CardContent>
       </Card>
     </AuthPageShell>

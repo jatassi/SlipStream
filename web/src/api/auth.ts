@@ -22,7 +22,3 @@ export async function adminSetup(password: string): Promise<AdminSetupResponse> 
     body: JSON.stringify({ password }),
   })
 }
-
-export async function deleteAdmin(): Promise<void> {
-  await apiFetch('/auth/admin', { method: 'DELETE' })
-}
