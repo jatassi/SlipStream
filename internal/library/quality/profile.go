@@ -123,6 +123,10 @@ type UpdateProfileInput struct {
 }
 
 // PredefinedQualities are the standard quality definitions.
+// CAM (ID 18) covers cinema-recorded sources (CAM, HDCAM, TS, TELESYNC, HDTS).
+// Its resolution tag is intentionally ignored — a "1080p TELESYNC" is still a
+// camcorder recording — so it stays a single tier rather than per-resolution
+// variants. Weight 0 keeps it strictly below SDTV in any scoring decision.
 var PredefinedQualities = []Quality{
 	{ID: 1, Name: "SDTV", Source: "tv", Resolution: 480, Weight: 1},
 	{ID: 2, Name: "DVD", Source: "dvd", Resolution: 480, Weight: 2},
@@ -141,7 +145,11 @@ var PredefinedQualities = []Quality{
 	{ID: 15, Name: "WEBDL-2160p", Source: "webdl", Resolution: 2160, Weight: 15},
 	{ID: 16, Name: "Bluray-2160p", Source: "bluray", Resolution: 2160, Weight: 16},
 	{ID: 17, Name: "Remux-2160p", Source: "remux", Resolution: 2160, Weight: 17},
+	{ID: 18, Name: "CAM", Source: "cam", Resolution: 0, Weight: 0},
 }
+
+// CAMQualityID is the predefined ID for the CAM tier.
+const CAMQualityID = 18
 
 // qualityByID is a lookup map for qualities by ID.
 var qualityByID map[int]Quality
@@ -169,13 +177,14 @@ func GetQualityByName(name string) (Quality, bool) {
 	return Quality{}, false
 }
 
-// DefaultProfile returns a default "Any" profile that accepts all qualities.
+// DefaultProfile returns a default "Any" profile that accepts all qualities
+// except CAM, which must be opted into explicitly.
 func DefaultProfile() Profile {
 	items := make([]QualityItem, len(PredefinedQualities))
 	for i, q := range PredefinedQualities {
 		items[i] = QualityItem{
 			Quality: q,
-			Allowed: true,
+			Allowed: q.ID != CAMQualityID,
 		}
 	}
 	return Profile{

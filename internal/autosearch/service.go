@@ -23,6 +23,7 @@ import (
 
 const (
 	statusUpgradable = "upgradable"
+	statusUnreleased = "unreleased"
 )
 
 var (
@@ -119,6 +120,14 @@ func (s *Service) SearchMovie(ctx context.Context, movieID int64, source SearchS
 		return nil, fmt.Errorf("failed to get movie: %w", err)
 	}
 
+	if movie.Status == statusUnreleased {
+		s.logger.Info().
+			Int64("movieId", movieID).
+			Str("title", movie.Title).
+			Msg("Skipping search: movie is unreleased")
+		return &SearchResult{Found: false}, nil
+	}
+
 	item := s.movieToSearchableItem(ctx, movie)
 	return s.searchAndGrab(ctx, item, source)
 }
@@ -136,6 +145,14 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 		return nil, fmt.Errorf("failed to get episode: %w", err)
 	}
 
+	if episode.Status == statusUnreleased {
+		s.logger.Info().
+			Int64("episodeId", episodeID).
+			Int64("seriesId", episode.SeriesID).
+			Msg("Skipping search: episode is unreleased")
+		return &SearchResult{Found: false}, nil
+	}
+
 	// Get series for additional metadata
 	series, err := s.queries.GetSeries(ctx, episode.SeriesID)
 	if err != nil {
@@ -148,26 +165,45 @@ func (s *Service) SearchEpisode(ctx context.Context, episodeID int64, source Sea
 		return result, err
 	}
 
-	// For first episodes of a season, try season pack search as fallback.
-	// Only for missing episodes — upgradable episodes already had season pack
-	// search attempted via SearchSeasonUpgrade before reaching here.
-	if episode.EpisodeNumber == 1 && !result.Downloaded && !module.ItemHasFile(item) {
-		s.logger.Debug().
-			Int64("seriesId", episode.SeriesID).
-			Int64("seasonNumber", episode.SeasonNumber).
-			Msg("Episode 1 search didn't grab, trying season pack fallback")
-
-		packResult, packErr := s.searchSeasonPack(ctx, series, int(episode.SeasonNumber), source)
-		if packErr == nil && packResult.Downloaded {
-			s.logger.Info().
-				Int64("seriesId", episode.SeriesID).
-				Int64("seasonNumber", episode.SeasonNumber).
-				Msg("Season pack fallback succeeded for first episode")
-			return packResult, nil
-		}
+	if pack := s.tryEpisodeOneSeasonPackFallback(ctx, episode, series, item, result, source); pack != nil {
+		return pack, nil
 	}
 
 	return result, nil
+}
+
+// tryEpisodeOneSeasonPackFallback attempts a season pack grab when an E01
+// individual search didn't grab anything. Returns the pack result if it
+// succeeded, or nil to fall back to the original episode result. Only fires
+// for missing episodes — upgradable episodes already attempted a season pack
+// via SearchSeasonUpgrade before reaching here.
+func (s *Service) tryEpisodeOneSeasonPackFallback(
+	ctx context.Context,
+	episode *sqlc.Episode,
+	series *sqlc.Series,
+	item SearchableItem,
+	episodeResult *SearchResult,
+	source SearchSource,
+) *SearchResult {
+	if episode.EpisodeNumber != 1 || episodeResult.Downloaded || module.ItemHasFile(item) {
+		return nil
+	}
+
+	s.logger.Debug().
+		Int64("seriesId", episode.SeriesID).
+		Int64("seasonNumber", episode.SeasonNumber).
+		Msg("Episode 1 search didn't grab, trying season pack fallback")
+
+	packResult, packErr := s.searchSeasonPack(ctx, series, int(episode.SeasonNumber), source)
+	if packErr != nil || !packResult.Downloaded {
+		return nil
+	}
+
+	s.logger.Info().
+		Int64("seriesId", episode.SeriesID).
+		Int64("seasonNumber", episode.SeasonNumber).
+		Msg("Season pack fallback succeeded for first episode")
+	return packResult
 }
 
 // SearchSeason searches for all missing episodes in a season with boxset prioritization.

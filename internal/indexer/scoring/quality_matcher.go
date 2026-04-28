@@ -13,26 +13,53 @@ type MatchResult struct {
 	Confidence float64 // 0.0-1.0, how confident we are in the match
 }
 
+// sourceCAM is the canonical source identifier for camera-recorded releases
+// (CAM, HDCAM, TS, HDTS, TELESYNC). Match against quality.PredefinedQualities
+// where Source == sourceCAM.
+const sourceCAM = "cam"
+
 // sourceMapping maps parsed source strings to quality source identifiers.
 // Keys are lowercase for case-insensitive matching.
 var sourceMapping = map[string]string{
-	"bluray":  "bluray",
-	"blu-ray": "bluray",
-	"bdrip":   "bluray",
-	"brrip":   "bluray",
-	"bdremux": "remux",
-	"remux":   "remux",
-	"web-dl":  "webdl",
-	"webdl":   "webdl",
-	"webrip":  "webrip",
-	"web":     "webdl", // Assume WEB-DL if just "WEB"
-	"hdtv":    "tv",
-	"sdtv":    "tv",
-	"pdtv":    "tv",
-	"dsr":     "tv",
-	"dvdrip":  "dvd",
-	"dvd-r":   "dvd",
-	"dvd":     "dvd",
+	"bluray":   "bluray",
+	"blu-ray":  "bluray",
+	"bdrip":    "bluray",
+	"brrip":    "bluray",
+	"bdremux":  "remux",
+	"remux":    "remux",
+	"web-dl":   "webdl",
+	"webdl":    "webdl",
+	"webrip":   "webrip",
+	"web":      "webdl", // Assume WEB-DL if just "WEB"
+	"hdtv":     "tv",
+	"sdtv":     "tv",
+	"pdtv":     "tv",
+	"dsr":      "tv",
+	"dvdrip":   "dvd",
+	"dvd-r":    "dvd",
+	"dvd":      "dvd",
+	"cam":      sourceCAM,
+	"hdcam":    sourceCAM,
+	"ts":       sourceCAM,
+	"hdts":     sourceCAM,
+	"telesync": sourceCAM,
+}
+
+// keywordSourceFallbacks maps a substring to a normalized source. Used when a
+// raw source string doesn't match `sourceMapping` exactly (e.g. "BDRemux2.0").
+// Order matters: the first match wins, so list the most specific patterns first.
+var keywordSourceFallbacks = []struct {
+	keyword string
+	source  string
+}{
+	{"remux", "remux"},
+	{"bluray", "bluray"},
+	{"blu-ray", "bluray"},
+	{"telesync", sourceCAM},
+	{"hdcam", sourceCAM},
+	{"hdts", sourceCAM},
+	{"hdtv", "tv"},
+	{"dvd", "dvd"},
 }
 
 // NormalizeSource converts a parsed source string to a quality source identifier.
@@ -41,12 +68,10 @@ func NormalizeSource(source string) string {
 	if normalized, ok := sourceMapping[lower]; ok {
 		return normalized
 	}
-	// If source contains certain keywords, try to match
-	if strings.Contains(lower, "remux") {
-		return "remux"
-	}
-	if strings.Contains(lower, "bluray") || strings.Contains(lower, "blu-ray") {
-		return "bluray"
+	for _, fb := range keywordSourceFallbacks {
+		if strings.Contains(lower, fb.keyword) {
+			return fb.source
+		}
 	}
 	if strings.Contains(lower, "web") {
 		if strings.Contains(lower, "rip") {
@@ -54,11 +79,8 @@ func NormalizeSource(source string) string {
 		}
 		return "webdl"
 	}
-	if strings.Contains(lower, "hdtv") || strings.Contains(lower, "tv") {
+	if strings.Contains(lower, "tv") {
 		return "tv"
-	}
-	if strings.Contains(lower, "dvd") {
-		return "dvd"
 	}
 	return ""
 }
@@ -67,6 +89,14 @@ func NormalizeSource(source string) string {
 // Returns the matched quality ID, the quality definition, and a confidence score.
 func MatchQuality(source string, resolution int) MatchResult {
 	normalizedSource := NormalizeSource(source)
+
+	// CAM/TELESYNC sources map directly to the CAM tier regardless of any
+	// resolution tag in the title — a "1080p TELESYNC" is still a camcorder.
+	if normalizedSource == sourceCAM {
+		if best := bestQualityByField(func(q *quality.Quality) bool { return q.Source == sourceCAM }); best != nil {
+			return MatchResult{QualityID: best.ID, Quality: best, Confidence: 1.0}
+		}
+	}
 
 	if normalizedSource != "" && resolution > 0 {
 		if result, ok := matchExact(normalizedSource, resolution); ok {

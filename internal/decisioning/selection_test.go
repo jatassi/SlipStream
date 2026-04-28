@@ -499,6 +499,51 @@ func TestSelectBestRelease_EmptyReleases(t *testing.T) {
 	}
 }
 
+// Regression: a TELESYNC release tagged "1080p" must not win selection in an
+// HD-1080p profile that does not allow CAM. Previously it parsed to
+// Remux-1080p (highest 1080p) and was grabbed for in-theater movies.
+func TestSelectBestRelease_TelesyncRejected(t *testing.T) {
+	profile := hd1080pProfile()
+	item := testMovieItem(1, "Michael", 2026, 936075, profile.ID, nil)
+
+	releases := []types.TorrentInfo{
+		makeTorrent("Michael.2026.1080p.TELESYNC.V2.x264-SyncUP", "CAM", 1080, 200),
+	}
+
+	scoreAndSort(releases, profile, item)
+	best := SelectBestRelease(releases, profile, item, movieStrategy, testReleaseParser, logger)
+
+	if best != nil {
+		t.Errorf("expected TELESYNC release to be rejected, got %s (quality ID %d)", best.Title, safeQualityID(best))
+	}
+}
+
+// When CAM is explicitly allowed in a profile, the release should be selected
+// as the CAM tier — not silently upgraded to Remux-1080p.
+func TestSelectBestRelease_CAMAllowedExplicitly(t *testing.T) {
+	profile := hd1080pProfile()
+	for i := range profile.Items {
+		if profile.Items[i].Quality.ID == quality.CAMQualityID {
+			profile.Items[i].Allowed = true
+		}
+	}
+	item := testMovieItem(1, "Michael", 2026, 936075, profile.ID, nil)
+
+	releases := []types.TorrentInfo{
+		makeTorrent("Michael.2026.1080p.TELESYNC.V2.x264-SyncUP", "CAM", 1080, 200),
+	}
+
+	scoreAndSort(releases, profile, item)
+	best := SelectBestRelease(releases, profile, item, movieStrategy, testReleaseParser, logger)
+
+	if best == nil {
+		t.Fatal("expected release to be selected when CAM is allowed")
+	}
+	if best.ScoreBreakdown == nil || best.ScoreBreakdown.QualityID != quality.CAMQualityID {
+		t.Errorf("expected CAM quality (id %d), got id=%d", quality.CAMQualityID, safeQualityID(best))
+	}
+}
+
 // Edge case: Wrong season for episode search
 func TestSelectBestRelease_WrongSeason(t *testing.T) {
 	profile := hd1080pProfile()

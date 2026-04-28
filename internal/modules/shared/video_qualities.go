@@ -25,7 +25,7 @@ var sourceNormMap = map[string]string{
 	"dvdrip":  "dvd",
 	"dvd-r":   "dvd",
 	"dvd":     "dvd",
-	"cam":     "",
+	"cam":     "cam",
 }
 
 // resolutionMap maps resolution strings to integer values.
@@ -47,6 +47,12 @@ func normalizeSource(source string) string {
 // matchQualityItem finds the best matching QualityItem for the given source and resolution.
 func matchQualityItem(normalizedSource string, resolution int) *module.QualityItem {
 	items := VideoQualityItems()
+
+	// CAM/TELESYNC sources map directly to the CAM tier regardless of any
+	// resolution tag in the title — a "1080p TELESYNC" is still a camcorder.
+	if normalizedSource == "cam" {
+		return matchByField(items, func(q *module.QualityItem) bool { return q.Source == "cam" }, true)
+	}
 
 	if match := matchExact(items, normalizedSource, resolution); match != nil {
 		return match
@@ -99,9 +105,9 @@ func ParseVideoQuality(releaseTitle string) (*module.QualityResult, error) {
 	return result, nil
 }
 
-// VideoQualityItems returns the 17 standard video quality tiers used by
-// both the Movie and TV modules. Future non-video modules (music, books)
-// would define their own quality items.
+// VideoQualityItems returns the standard video quality tiers used by both the
+// Movie and TV modules. Future non-video modules (music, books) would define
+// their own quality items.
 func VideoQualityItems() []module.QualityItem {
 	return []module.QualityItem{
 		{ID: 1, Name: "SDTV", Source: "tv", Resolution: 480, Weight: 1},
@@ -121,5 +127,6 @@ func VideoQualityItems() []module.QualityItem {
 		{ID: 15, Name: "WEBDL-2160p", Source: "webdl", Resolution: 2160, Weight: 15},
 		{ID: 16, Name: "Bluray-2160p", Source: "bluray", Resolution: 2160, Weight: 16},
 		{ID: 17, Name: "Remux-2160p", Source: "remux", Resolution: 2160, Weight: 17},
+		{ID: 18, Name: "CAM", Source: "cam", Resolution: 0, Weight: 0},
 	}
 }

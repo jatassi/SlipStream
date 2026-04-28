@@ -28,6 +28,7 @@ func TestGetQualityByID(t *testing.T) {
 		{15, "WEBDL-2160p", true},
 		{16, "Bluray-2160p", true},
 		{17, "Remux-2160p", true},
+		{18, "CAM", true},
 		{0, "", false},
 		{-1, "", false},
 		{100, "", false},
@@ -74,12 +75,13 @@ func TestGetQualityByName(t *testing.T) {
 }
 
 func TestPredefinedQualities(t *testing.T) {
-	// Verify we have 17 quality tiers
-	if len(PredefinedQualities) != 17 {
-		t.Errorf("PredefinedQualities has %d entries, want 17", len(PredefinedQualities))
+	// 17 resolution-tagged tiers (SDTV..Remux-2160p) plus CAM at id 18.
+	const wantLen = 18
+	if len(PredefinedQualities) != wantLen {
+		t.Errorf("PredefinedQualities has %d entries, want %d", len(PredefinedQualities), wantLen)
 	}
 
-	// Verify weights are sequential and unique
+	// Verify weights are unique. CAM has weight 0; everything else has 1-17.
 	weights := make(map[int]bool)
 	for _, q := range PredefinedQualities {
 		if weights[q.Weight] {
@@ -87,23 +89,35 @@ func TestPredefinedQualities(t *testing.T) {
 		}
 		weights[q.Weight] = true
 
+		if q.ID == CAMQualityID {
+			if q.Weight != 0 {
+				t.Errorf("CAM quality has weight %d, want 0", q.Weight)
+			}
+			continue
+		}
 		if q.Weight < 1 || q.Weight > 17 {
 			t.Errorf("Quality %s has weight %d, expected 1-17", q.Name, q.Weight)
 		}
 	}
 
-	// Verify IDs match weights (they should be the same in this implementation)
+	// Verify IDs match weights for resolution-tagged tiers (CAM is the exception).
 	for _, q := range PredefinedQualities {
+		if q.ID == CAMQualityID {
+			continue
+		}
 		if q.ID != q.Weight {
 			t.Errorf("Quality %s has ID %d but weight %d", q.Name, q.ID, q.Weight)
 		}
 	}
 
-	// Verify resolution values are valid
-	validResolutions := map[int]bool{480: true, 720: true, 1080: true, 2160: true}
+	// CAM is the only tier with resolution 0; everything else uses 480/720/1080/2160.
+	validResolutions := map[int]bool{0: true, 480: true, 720: true, 1080: true, 2160: true}
 	for _, q := range PredefinedQualities {
 		if !validResolutions[q.Resolution] {
 			t.Errorf("Quality %s has invalid resolution %d", q.Name, q.Resolution)
+		}
+		if q.Resolution == 0 && q.ID != CAMQualityID {
+			t.Errorf("Quality %s has resolution 0 but is not CAM", q.Name)
 		}
 	}
 }
@@ -123,8 +137,14 @@ func TestDefaultProfile(t *testing.T) {
 		t.Errorf("DefaultProfile().Items has %d entries, want %d", len(profile.Items), len(PredefinedQualities))
 	}
 
-	// All qualities should be allowed in default profile
+	// CAM is opt-in: every other tier should be allowed in the default profile.
 	for _, item := range profile.Items {
+		if item.Quality.ID == CAMQualityID {
+			if item.Allowed {
+				t.Errorf("DefaultProfile() should not allow CAM by default")
+			}
+			continue
+		}
 		if !item.Allowed {
 			t.Errorf("DefaultProfile() has disallowed quality: %s", item.Quality.Name)
 		}

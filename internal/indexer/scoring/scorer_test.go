@@ -104,6 +104,12 @@ func TestNormalizeSource(t *testing.T) {
 		{"HDTV", "tv"},
 		{"Remux", "remux"},
 		{"DVDRip", "dvd"},
+		{"CAM", "cam"},
+		{"HDCAM", "cam"},
+		{"TS", "cam"},
+		{"HDTS", "cam"},
+		{"TELESYNC", "cam"},
+		{"telesync", "cam"},
 		{"unknown", ""},
 	}
 
@@ -112,6 +118,39 @@ func TestNormalizeSource(t *testing.T) {
 			result := NormalizeSource(tt.input)
 			if result != tt.expected {
 				t.Errorf("NormalizeSource(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestQualityMatcher_CAMBeatsResolution verifies that a CAM/TELESYNC release
+// with a 1080p tag is matched to the CAM tier rather than silently falling back
+// to the highest-weight 1080p quality. Regression test: a "1080p TELESYNC" was
+// previously matched as Remux-1080p and accepted by HD profiles.
+func TestQualityMatcher_CAMBeatsResolution(t *testing.T) {
+	tests := []struct {
+		name       string
+		source     string
+		resolution int
+	}{
+		{"CAM with 1080p tag", "CAM", 1080},
+		{"TELESYNC with 1080p tag", "TELESYNC", 1080},
+		{"HDCAM with 2160p tag", "HDCAM", 2160},
+		{"TS with 720p tag", "TS", 720},
+		{"CAM with no resolution", "CAM", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MatchQuality(tt.source, tt.resolution)
+			if result.Quality == nil {
+				t.Fatalf("Expected CAM match, got nil")
+			}
+			if result.QualityID != quality.CAMQualityID {
+				t.Errorf("Expected CAM quality (id %d), got id=%d name=%s", quality.CAMQualityID, result.QualityID, result.Quality.Name)
+			}
+			if result.Quality.Source != "cam" {
+				t.Errorf("Expected source=cam, got %q", result.Quality.Source)
 			}
 		})
 	}
