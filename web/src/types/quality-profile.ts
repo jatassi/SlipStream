@@ -97,6 +97,7 @@ export const PREDEFINED_QUALITIES: Quality[] = [
   { id: 15, name: 'WEBDL-2160p', source: 'webdl', resolution: 2160, weight: 15 },
   { id: 16, name: 'Bluray-2160p', source: 'bluray', resolution: 2160, weight: 16 },
   { id: 17, name: 'Remux-2160p', source: 'remux', resolution: 2160, weight: 17 },
+  { id: 18, name: 'CAM', source: 'cam', resolution: 0, weight: 0 },
 ]
 
 // Exclusivity checking types (Req 3.1.1-3.1.4)

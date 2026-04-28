@@ -70,6 +70,30 @@ export function ProfileEditorCard({
   )
 }
 
+function CompactQualityGroup({
+  title,
+  items,
+  onToggle,
+}: {
+  title: string
+  items: CreateQualityProfileInput['items']
+  onToggle: (qualityId: number) => void
+}) {
+  return (
+    <div className="p-2">
+      <div className="text-muted-foreground mb-1 text-xs font-medium">{title}</div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {items.map((item) => (
+          <label key={item.quality.id} className="flex cursor-pointer items-center gap-1.5">
+            <Checkbox checked={item.allowed} onCheckedChange={() => onToggle(item.quality.id)} />
+            <span className="text-xs">{item.quality.name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function QualityChecklist({
   items,
   onToggle,
@@ -77,6 +101,8 @@ function QualityChecklist({
   items: CreateQualityProfileInput['items']
   onToggle: (qualityId: number) => void
 }) {
+  const cinemaSourceItems = items.filter((item) => item.quality.resolution === 0)
+
   return (
     <div className="space-y-2">
       <Label>Allowed Qualities</Label>
@@ -87,24 +113,21 @@ function QualityChecklist({
             return null
           }
           return (
-            <div key={resolution} className="p-2">
-              <div className="text-muted-foreground mb-1 text-xs font-medium">
-                {resolution === 480 ? 'SD' : `${resolution}p`}
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {resolutionItems.map((item) => (
-                  <label key={item.quality.id} className="flex cursor-pointer items-center gap-1.5">
-                    <Checkbox
-                      checked={item.allowed}
-                      onCheckedChange={() => onToggle(item.quality.id)}
-                    />
-                    <span className="text-xs">{item.quality.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <CompactQualityGroup
+              key={resolution}
+              title={resolution === 480 ? 'SD' : `${resolution}p`}
+              items={resolutionItems}
+              onToggle={onToggle}
+            />
           )
         })}
+        {cinemaSourceItems.length > 0 && (
+          <CompactQualityGroup
+            title="Cinema Source"
+            items={cinemaSourceItems}
+            onToggle={onToggle}
+          />
+        )}
       </div>
     </div>
   )
