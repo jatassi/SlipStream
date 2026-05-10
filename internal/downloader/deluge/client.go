@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 type Client struct {
@@ -407,7 +408,7 @@ func (c *Client) buildURL() string {
 		urlPath = "/" + strings.Trim(c.config.URLBase, "/") + "/json"
 	}
 
-	return fmt.Sprintf("%s://%s:%d%s", scheme, c.config.Host, c.config.Port, urlPath)
+	return fmt.Sprintf("%s://%s:%d%s", scheme, netutil.NormalizeLoopbackHost(c.config.Host), c.config.Port, urlPath)
 }
 
 func (c *Client) parseRPCError(raw json.RawMessage) error {

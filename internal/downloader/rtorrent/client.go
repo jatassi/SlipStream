@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 var _ types.TorrentClient = (*Client)(nil)
@@ -57,7 +58,7 @@ func NewFromConfig(cfg *types.ClientConfig) *Client {
 	urlBase = strings.TrimPrefix(urlBase, "/")
 	urlBase = strings.TrimSuffix(urlBase, "/")
 
-	baseURL := fmt.Sprintf("%s://%s:%d/%s", scheme, cfg.Host, cfg.Port, urlBase)
+	baseURL := fmt.Sprintf("%s://%s:%d/%s", scheme, netutil.NormalizeLoopbackHost(cfg.Host), cfg.Port, urlBase)
 
 	return &Client{
 		config: *cfg,

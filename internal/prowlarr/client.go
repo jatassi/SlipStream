@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 const (
@@ -47,7 +49,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		return nil, fmt.Errorf("prowlarr API key is required")
 	}
 
-	baseURL := strings.TrimSuffix(cfg.URL, "/")
+	baseURL := netutil.NormalizeLoopbackURL(strings.TrimSuffix(cfg.URL, "/"))
 
 	timeout := defaultTimeout
 	if cfg.Timeout > 0 {

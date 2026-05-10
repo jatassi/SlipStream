@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 const (
@@ -427,7 +428,7 @@ func (c *Client) buildRPCRequest(ctx context.Context, method string, args map[st
 	if c.config.UseSSL {
 		scheme = "https"
 	}
-	url := fmt.Sprintf("%s://%s:%d/transmission/rpc", scheme, c.config.Host, c.config.Port)
+	url := fmt.Sprintf("%s://%s:%d/transmission/rpc", scheme, netutil.NormalizeLoopbackHost(c.config.Host), c.config.Port)
 
 	body, err := json.Marshal(rpcRequest{Method: method, Arguments: args})
 	if err != nil {

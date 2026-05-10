@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 var _ types.TorrentClient = (*Client)(nil)
@@ -30,7 +31,7 @@ func NewFromConfig(cfg *types.ClientConfig) *Client {
 	if cfg.UseSSL {
 		scheme = "https"
 	}
-	baseURL := fmt.Sprintf("%s://%s:%d%s/api", scheme, cfg.Host, cfg.Port, cfg.URLBase)
+	baseURL := fmt.Sprintf("%s://%s:%d%s/api", scheme, netutil.NormalizeLoopbackHost(cfg.Host), cfg.Port, cfg.URLBase)
 	nop := zerolog.Nop()
 	return &Client{
 		baseURL:  baseURL,

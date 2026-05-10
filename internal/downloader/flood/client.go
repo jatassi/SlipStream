@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 var _ types.TorrentClient = (*Client)(nil)
@@ -400,7 +401,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body any) (
 		urlBase = "/" + strings.Trim(c.config.URLBase, "/")
 	}
 
-	reqURL := fmt.Sprintf("%s://%s:%d%s%s", scheme, c.config.Host, c.config.Port, urlBase, path)
+	reqURL := fmt.Sprintf("%s://%s:%d%s%s", scheme, netutil.NormalizeLoopbackHost(c.config.Host), c.config.Port, urlBase, path)
 
 	var bodyReader io.Reader
 	if body != nil {

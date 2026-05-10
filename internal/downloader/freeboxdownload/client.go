@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/downloader/types"
+	"github.com/slipstream/slipstream/internal/netutil"
 )
 
 var _ types.TorrentClient = (*Client)(nil)
@@ -75,7 +76,7 @@ func NewFromConfig(cfg *types.ClientConfig) *Client {
 	if cfg.UseSSL {
 		scheme = "https"
 	}
-	baseURL := fmt.Sprintf("%s://%s:%d/api/v1", scheme, cfg.Host, cfg.Port)
+	baseURL := fmt.Sprintf("%s://%s:%d/api/v1", scheme, netutil.NormalizeLoopbackHost(cfg.Host), cfg.Port)
 
 	return &Client{
 		config:  cfg,
