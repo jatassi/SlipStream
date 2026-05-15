@@ -101,7 +101,6 @@ func (s *Service) RefreshEntityMetadata(ctx context.Context, moduleType module.T
 		return nil, err
 	}
 
-	s.handlePostRefreshArtwork(ctx, moduleType, result)
 	s.handlePostRefreshScan(ctx, moduleType, entityID)
 
 	return result, nil
@@ -129,50 +128,6 @@ func (s *Service) legacyRefresh(ctx context.Context, moduleType module.Type, ent
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported module type for legacy refresh: %s", moduleType)
-	}
-}
-
-func (s *Service) handlePostRefreshArtwork(_ context.Context, moduleType module.Type, result *module.RefreshResult) {
-	if s.artwork == nil || result == nil {
-		return
-	}
-
-	urls := result.ArtworkURLs
-	if urls.PosterURL == "" && urls.BackdropURL == "" && urls.LogoURL == "" && urls.StudioLogoURL == "" {
-		return
-	}
-
-	go func() {
-		switch moduleType {
-		case module.TypeMovie:
-			s.downloadRefreshMovieArtwork(result)
-		case module.TypeTV:
-			s.downloadRefreshSeriesArtwork(result)
-		}
-	}()
-}
-
-func (s *Service) downloadRefreshMovieArtwork(result *module.RefreshResult) {
-	movieResult, ok := result.Metadata.(*metadata.MovieResult)
-	if !ok {
-		s.logger.Error().Str("actualType", fmt.Sprintf("%T", result.Metadata)).
-			Msg("Post-refresh artwork: expected *metadata.MovieResult in RefreshResult.Metadata")
-		return
-	}
-	if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to download movie artwork after refresh")
-	}
-}
-
-func (s *Service) downloadRefreshSeriesArtwork(result *module.RefreshResult) {
-	seriesResult, ok := result.Metadata.(*metadata.SeriesResult)
-	if !ok {
-		s.logger.Error().Str("actualType", fmt.Sprintf("%T", result.Metadata)).
-			Msg("Post-refresh artwork: expected *metadata.SeriesResult in RefreshResult.Metadata")
-		return
-	}
-	if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to download series artwork after refresh")
 	}
 }
 
@@ -561,6 +516,80 @@ func (s *Service) RefreshMonitoredSeriesMetadata(ctx context.Context) (int, erro
 		refreshed++
 	}
 
+	return refreshed, nil
+}
+
+// RefreshUnreleasedMetadata refreshes metadata for every library item with an
+// unreleased status (movies whose status is 'unreleased', series with at least
+// one 'unreleased' episode). Intended as a defensive daily catch-up so release
+// dates, episode lists, and artwork stay current as items approach release.
+func (s *Service) RefreshUnreleasedMetadata(ctx context.Context) error {
+	movieCount, err := s.refreshUnreleasedMovies(ctx)
+	if err != nil {
+		return err
+	}
+	seriesCount, err := s.refreshUnreleasedSeries(ctx)
+	if err != nil {
+		return err
+	}
+	s.logger.Info().
+		Int("moviesRefreshed", movieCount).
+		Int("seriesRefreshed", seriesCount).
+		Msg("Unreleased metadata refresh complete")
+	return nil
+}
+
+func (s *Service) refreshUnreleasedMovies(ctx context.Context) (int, error) {
+	allMovies, err := s.movies.List(ctx, movies.ListMoviesOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list movies: %w", err)
+	}
+
+	refreshed := 0
+	for _, m := range allMovies {
+		if m.Status != "unreleased" {
+			continue
+		}
+		if ctx.Err() != nil {
+			return refreshed, ctx.Err()
+		}
+		if err := s.refreshSingleEntity(ctx, module.TypeMovie, m.ID); err != nil {
+			if errors.Is(err, ErrNoMetadataProvider) {
+				s.logger.Warn().Msg("No metadata provider configured, stopping unreleased movie refresh")
+				return refreshed, nil
+			}
+			s.logger.Debug().Err(err).Int64("movieId", m.ID).Str("title", m.Title).Msg("Failed to refresh unreleased movie metadata")
+			continue
+		}
+		refreshed++
+	}
+	return refreshed, nil
+}
+
+func (s *Service) refreshUnreleasedSeries(ctx context.Context) (int, error) {
+	allSeries, err := s.tv.ListSeries(ctx, tv.ListSeriesOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list series: %w", err)
+	}
+
+	refreshed := 0
+	for _, series := range allSeries {
+		if series.StatusCounts.Unreleased == 0 {
+			continue
+		}
+		if ctx.Err() != nil {
+			return refreshed, ctx.Err()
+		}
+		if err := s.refreshSingleEntity(ctx, module.TypeTV, series.ID); err != nil {
+			if errors.Is(err, ErrNoMetadataProvider) {
+				s.logger.Warn().Msg("No metadata provider configured, stopping unreleased series refresh")
+				return refreshed, nil
+			}
+			s.logger.Debug().Err(err).Int64("seriesId", series.ID).Str("title", series.Title).Msg("Failed to refresh unreleased series metadata")
+			continue
+		}
+		refreshed++
+	}
 	return refreshed, nil
 }
 

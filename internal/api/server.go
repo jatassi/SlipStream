@@ -151,6 +151,9 @@ func (s *Server) registerLibraryDependentTasks(cfg *config.Config, logger *zerol
 	if err := tasks.RegisterLibraryScanTask(s.automation.Scheduler, s.library.LibraryManager, s.library.RootFolder, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register library scan task")
 	}
+	if err := tasks.RegisterUnreleasedRefreshTask(s.automation.Scheduler, s.library.LibraryManager); err != nil {
+		logger.Error().Err(err).Msg("Failed to register unreleased refresh task")
+	}
 	if err := tasks.RegisterDownloadClientHealthTask(s.automation.Scheduler, s.download.Service, s.system.Health, &cfg.Health, logger); err != nil {
 		logger.Error().Err(err).Msg("Failed to register download client health task")
 	}

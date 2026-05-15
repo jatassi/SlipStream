@@ -18,13 +18,15 @@ var ErrNoMetadataProvider = errors.New("no metadata provider configured")
 type metadataProvider struct {
 	metadataSvc *metadata.Service
 	tvSvc       *tvlib.Service
+	artworkDl   *metadata.ArtworkDownloader
 	logger      zerolog.Logger
 }
 
-func newMetadataProvider(metadataSvc *metadata.Service, tvSvc *tvlib.Service, logger *zerolog.Logger) *metadataProvider {
+func newMetadataProvider(metadataSvc *metadata.Service, tvSvc *tvlib.Service, artworkDl *metadata.ArtworkDownloader, logger *zerolog.Logger) *metadataProvider {
 	return &metadataProvider{
 		metadataSvc: metadataSvc,
 		tvSvc:       tvSvc,
+		artworkDl:   artworkDl,
 		logger:      logger.With().Str("component", "tv-metadata").Logger(),
 	}
 }
@@ -151,6 +153,8 @@ func (p *metadataProvider) RefreshMetadata(ctx context.Context, entityID int64) 
 
 	childDiff := p.refreshSeasons(ctx, series, bestMatch.TmdbID, bestMatch.TvdbID)
 
+	p.downloadArtworkAsync(bestMatch)
+
 	return &module.RefreshResult{
 		EntityID:        entityID,
 		Updated:         len(fieldsChanged) > 0,
@@ -158,12 +162,6 @@ func (p *metadataProvider) RefreshMetadata(ctx context.Context, entityID int64) 
 		ChildrenAdded:   childDiff.added,
 		ChildrenUpdated: childDiff.updated,
 		ChildrenRemoved: childDiff.removed,
-		ArtworkURLs: module.ArtworkURLs{
-			PosterURL:   bestMatch.PosterURL,
-			BackdropURL: bestMatch.BackdropURL,
-			LogoURL:     bestMatch.LogoURL,
-		},
-		Metadata: bestMatch,
 	}, nil
 }
 
@@ -250,6 +248,20 @@ func (p *metadataProvider) buildExistingEpisodeMap(ctx context.Context, seriesID
 		}
 	}
 	return existing, nil
+}
+
+func (p *metadataProvider) downloadArtworkAsync(match *metadata.SeriesResult) {
+	if p.artworkDl == nil || match == nil {
+		return
+	}
+	if match.PosterURL == "" && match.BackdropURL == "" && match.LogoURL == "" {
+		return
+	}
+	go func() {
+		if err := p.artworkDl.DownloadSeriesArtwork(context.Background(), match); err != nil {
+			p.logger.Warn().Err(err).Int("tvdbId", match.TvdbID).Msg("Failed to download series artwork after refresh")
+		}
+	}()
 }
 
 func (p *metadataProvider) enrichSeriesDetails(ctx context.Context, match *metadata.SeriesResult) *metadata.SeriesResult {

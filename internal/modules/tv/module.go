@@ -127,7 +127,7 @@ type Module struct {
 func NewModule(db *sql.DB, metadataSvc *metadata.Service, tvSvc *tvlib.Service, rootFolderSvc *rootfolder.Service, artworkDl *metadata.ArtworkDownloader, qualitySvc *quality.Service, logger *zerolog.Logger) *Module {
 	return &Module{
 		descriptor:        &Descriptor{},
-		metadataProvider:  newMetadataProvider(metadataSvc, tvSvc, logger),
+		metadataProvider:  newMetadataProvider(metadataSvc, tvSvc, artworkDl, logger),
 		importHandler:     newImportHandler(tvSvc, rootFolderSvc, logger),
 		fileParser:        newFileParser(tvSvc, rootFolderSvc, logger),
 		pathGenerator:     &pathGenerator{tvSvc: tvSvc},

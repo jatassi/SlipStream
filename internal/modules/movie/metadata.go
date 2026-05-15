@@ -19,13 +19,15 @@ var ErrNoMetadataProvider = errors.New("no metadata provider configured")
 type metadataProvider struct {
 	metadataSvc *metadata.Service
 	movieSvc    *movies.Service
+	artworkDl   *metadata.ArtworkDownloader
 	logger      zerolog.Logger
 }
 
-func newMetadataProvider(metadataSvc *metadata.Service, movieSvc *movies.Service, logger *zerolog.Logger) *metadataProvider {
+func newMetadataProvider(metadataSvc *metadata.Service, movieSvc *movies.Service, artworkDl *metadata.ArtworkDownloader, logger *zerolog.Logger) *metadataProvider {
 	return &metadataProvider{
 		metadataSvc: metadataSvc,
 		movieSvc:    movieSvc,
+		artworkDl:   artworkDl,
 		logger:      logger.With().Str("component", "movie-metadata").Logger(),
 	}
 }
@@ -130,17 +132,12 @@ func (p *metadataProvider) RefreshMetadata(ctx context.Context, entityID int64) 
 		return nil, err
 	}
 
+	p.downloadArtworkAsync(bestMatch)
+
 	return &module.RefreshResult{
 		EntityID:      entityID,
 		Updated:       len(fieldsChanged) > 0,
 		FieldsChanged: fieldsChanged,
-		ArtworkURLs: module.ArtworkURLs{
-			PosterURL:     bestMatch.PosterURL,
-			BackdropURL:   bestMatch.BackdropURL,
-			LogoURL:       bestMatch.LogoURL,
-			StudioLogoURL: bestMatch.StudioLogoURL,
-		},
-		Metadata: bestMatch,
 	}, nil
 }
 
@@ -206,6 +203,20 @@ func (p *metadataProvider) computeFieldsChanged(movie *movies.Movie, match *meta
 		changed = append(changed, "studio")
 	}
 	return changed
+}
+
+func (p *metadataProvider) downloadArtworkAsync(match *metadata.MovieResult) {
+	if p.artworkDl == nil || match == nil {
+		return
+	}
+	if match.PosterURL == "" && match.BackdropURL == "" && match.LogoURL == "" && match.StudioLogoURL == "" {
+		return
+	}
+	go func() {
+		if err := p.artworkDl.DownloadMovieArtwork(context.Background(), match); err != nil {
+			p.logger.Warn().Err(err).Int("tmdbId", match.ID).Msg("Failed to download movie artwork after refresh")
+		}
+	}()
 }
 
 func (p *metadataProvider) updateMovieFromMetadata(ctx context.Context, movieID int64, match *metadata.MovieResult) error {
