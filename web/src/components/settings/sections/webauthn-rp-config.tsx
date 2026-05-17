@@ -51,8 +51,9 @@ function SectionHeader() {
     <div>
       <Label className="text-base">Passkey Relying Party</Label>
       <p className="text-muted-foreground text-sm">
-        Configure the WebAuthn relying party for this server. Required when SlipStream is reached
-        via a domain other than localhost.
+        Configure the WebAuthn relying party for this server. List every hostname you sign in
+        from (e.g. localhost and your public domain) under Allowed Origins — SlipStream picks
+        the matching RP ID per request.
       </p>
     </div>
   )
@@ -64,8 +65,9 @@ function RestartNotice() {
       <TriangleAlert className="size-4 text-amber-500" />
       <AlertTitle>Restart required</AlertTitle>
       <AlertDescription>
-        Saved changes only apply after the server is restarted. Existing passkeys registered under
-        a different Relying Party ID will stop working.
+        Saved changes only apply after the server is restarted. Passkeys are bound to the
+        hostname they were registered on, so you may need to register a new passkey for any
+        newly added origin.
       </AlertDescription>
     </Alert>
   )
@@ -75,7 +77,7 @@ function FormFields({ draft, onChange }: { draft: Draft; onChange: (next: Draft)
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="webauthnRpId">Relying Party ID</Label>
+        <Label htmlFor="webauthnRpId">Fallback Relying Party ID</Label>
         <Input
           id="webauthnRpId"
           value={draft.rpId}
@@ -83,8 +85,8 @@ function FormFields({ draft, onChange }: { draft: Draft; onChange: (next: Draft)
           placeholder="example.com"
         />
         <p className="text-muted-foreground text-xs">
-          Bare hostname only — no scheme, port, or path. Must match (or be a registrable suffix of)
-          the host shown in the browser address bar.
+          Bare hostname only — no scheme, port, or path. Used only when the request hostname
+          doesn&apos;t match any Allowed Origin below.
         </p>
       </div>
 
@@ -94,12 +96,13 @@ function FormFields({ draft, onChange }: { draft: Draft; onChange: (next: Draft)
           id="webauthnRpOrigins"
           value={draft.rpOrigins}
           onChange={(e) => onChange({ ...draft, rpOrigins: e.target.value })}
-          placeholder="https://example.com"
+          placeholder={'http://localhost:3000\nhttps://example.com'}
           rows={3}
           className="font-mono text-sm"
         />
         <p className="text-muted-foreground text-xs">
           One full origin per line, including scheme (e.g. <code>https://example.com</code>).
+          The hostname of the matching origin is used as the RP ID for each request.
         </p>
       </div>
 
