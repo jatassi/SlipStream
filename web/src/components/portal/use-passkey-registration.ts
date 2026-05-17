@@ -2,10 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useRegisterPasskey } from '@/hooks/portal'
 
+const AUTO_OPEN_HASH = '#new-passkey'
+
+function consumeAutoOpenHash(): boolean {
+  if (globalThis.location.hash !== AUTO_OPEN_HASH) {
+    return false
+  }
+  globalThis.history.replaceState(null, '', globalThis.location.pathname + globalThis.location.search)
+  return true
+}
+
 export function usePasskeyRegistration() {
   const [newPasskeyName, setNewPasskeyName] = useState('')
   const [pin, setPin] = useState('')
-  const [isRegistering, setIsRegistering] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(consumeAutoOpenHash)
   const isSubmittingRef = useRef(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const registerPasskey = useRegisterPasskey()

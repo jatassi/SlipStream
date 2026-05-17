@@ -10,12 +10,14 @@ type PortalAuthState = {
   user: PortalUser | null
   redirectUrl: string | null
   isAuthenticated: boolean
+  justLoggedIn: boolean
 
   login: (token: string, user: PortalUser) => void
   logout: () => void
   setUser: (user: PortalUser) => void
   setRedirectUrl: (url: string | null) => void
   getPostLoginRedirect: () => string
+  consumeJustLoggedIn: () => boolean
 }
 
 export const usePortalAuthStore = create<PortalAuthState>()(
@@ -25,6 +27,7 @@ export const usePortalAuthStore = create<PortalAuthState>()(
       user: null,
       redirectUrl: null,
       isAuthenticated: false,
+      justLoggedIn: false,
 
       login: (token, user) => {
         // Set token in portal API client
@@ -33,13 +36,21 @@ export const usePortalAuthStore = create<PortalAuthState>()(
         if (user.isAdmin) {
           setAdminAuthToken(token)
         }
-        set({ token, user, isAuthenticated: true })
+        set({ token, user, isAuthenticated: true, justLoggedIn: true })
       },
 
       logout: () => {
         setPortalAuthToken(null)
         setAdminAuthToken(null)
-        set({ token: null, user: null, isAuthenticated: false })
+        set({ token: null, user: null, isAuthenticated: false, justLoggedIn: false })
+      },
+
+      consumeJustLoggedIn: () => {
+        const flag = get().justLoggedIn
+        if (flag) {
+          set({ justLoggedIn: false })
+        }
+        return flag
       },
 
       setUser: (user) => {
