@@ -43,19 +43,18 @@ function PortalDisabledView() {
 }
 
 type PasskeySectionProps = {
-  onLogin: () => void
-  isPending: boolean
-  onUsePinInstead: () => void
+  onPasskeyLogin: () => void
+  passkeyPending: boolean
+  onShowPin: () => void
 }
 
-function PasskeySection({ onLogin, isPending, onUsePinInstead }: PasskeySectionProps) {
+function PasskeySection({ onPasskeyLogin, passkeyPending, onShowPin }: PasskeySectionProps) {
   return (
     <div className="space-y-3">
-      <Button type="button" onClick={onUsePinInstead} className="w-full text-sm md:text-base">
-        <LockKeyhole className="mr-1 size-3 md:mr-2 md:size-4" />
+      <LoadingButton loading={false} icon={LockKeyhole} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onShowPin} className="w-full text-sm md:text-base">
         Sign in with PIN
-      </Button>
-      <LoadingButton loading={isPending} icon={KeyRound} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onLogin} variant="outline" className="w-full text-sm md:text-base">
+      </LoadingButton>
+      <LoadingButton loading={passkeyPending} icon={KeyRound} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onPasskeyLogin} variant="outline" className="w-full text-sm md:text-base">
         Sign in with Passkey
       </LoadingButton>
     </div>
@@ -201,7 +200,7 @@ export function LoginPage() {
           {vm.passkeyLoading ? <div className="flex items-center justify-center py-8">
               <Loader2 className="text-muted-foreground size-6 animate-spin" />
             </div> : null}
-          {!vm.passkeyLoading && vm.shouldShowPasskeyLogin ? <PasskeySection onLogin={vm.handlePasskeyLogin} isPending={vm.passkeyLoginPending} onUsePinInstead={() => vm.setShowPinForm(true)} /> : null}
+          {vm.shouldShowPasskeyLogin ? <PasskeySection onPasskeyLogin={vm.handlePasskeyLogin} passkeyPending={vm.passkeyLoginPending} onShowPin={() => vm.setShowPinForm(true)} /> : null}
           {!vm.passkeyLoading && !vm.shouldShowPasskeyLogin && (
             <PinLoginForm
               username={vm.username} showUsernameInput={vm.showUsernameInput} onUsernameChange={vm.setUsername}
