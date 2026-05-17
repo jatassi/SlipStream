@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
-import { Ban, KeyRound, Loader2, User } from 'lucide-react'
+import { Ban, KeyRound, Loader2, LockKeyhole, User } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -50,15 +50,14 @@ type PasskeySectionProps = {
 
 function PasskeySection({ onLogin, isPending, onUsePinInstead }: PasskeySectionProps) {
   return (
-    <div className="space-y-6">
-      <LoadingButton loading={isPending} icon={KeyRound} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onLogin} className="w-full text-sm md:text-base">
+    <div className="space-y-3">
+      <Button type="button" onClick={onUsePinInstead} className="w-full text-sm md:text-base">
+        <LockKeyhole className="mr-1 size-3 md:mr-2 md:size-4" />
+        Sign in with PIN
+      </Button>
+      <LoadingButton loading={isPending} icon={KeyRound} iconClassName="mr-1 size-3 md:mr-2 md:size-4" onClick={onLogin} variant="outline" className="w-full text-sm md:text-base">
         Sign in with Passkey
       </LoadingButton>
-      <div className="text-center">
-        <button type="button" onClick={onUsePinInstead} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
-          Use PIN instead
-        </button>
-      </div>
     </div>
   )
 }
