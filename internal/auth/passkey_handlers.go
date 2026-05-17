@@ -72,7 +72,7 @@ func (h *PasskeyHandlers) BeginRegistration(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid PIN")
 	}
 
-	resp, err := h.passkeyService.BeginRegistration(c.Request().Context(), user, c.Request())
+	resp, err := h.passkeyService.BeginRegistration(c.Request().Context(), user, c.Request().Host)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -108,7 +108,7 @@ func (h *PasskeyHandlers) FinishRegistration(c echo.Context) error {
 
 // POST /api/v1/requests/auth/passkey/login/begin
 func (h *PasskeyHandlers) BeginLogin(c echo.Context) error {
-	resp, err := h.passkeyService.BeginLogin(c.Request().Context(), c.Request())
+	resp, err := h.passkeyService.BeginLogin(c.Request().Context(), c.Request().Host)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

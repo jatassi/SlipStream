@@ -52,8 +52,8 @@ function SectionHeader() {
       <Label className="text-base">Passkey Relying Party</Label>
       <p className="text-muted-foreground text-sm">
         Configure the WebAuthn relying party for this server. List every hostname you sign in
-        from (e.g. localhost and your public domain) under Allowed Origins — SlipStream picks
-        the matching RP ID per request.
+        from under Allowed Origins — SlipStream picks the matching RP ID per request and
+        rejects sign-in attempts from hosts not on the list.
       </p>
     </div>
   )
@@ -77,7 +77,7 @@ function FormFields({ draft, onChange }: { draft: Draft; onChange: (next: Draft)
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="webauthnRpId">Fallback Relying Party ID</Label>
+        <Label htmlFor="webauthnRpId">Default Relying Party ID</Label>
         <Input
           id="webauthnRpId"
           value={draft.rpId}
@@ -85,8 +85,8 @@ function FormFields({ draft, onChange }: { draft: Draft; onChange: (next: Draft)
           placeholder="example.com"
         />
         <p className="text-muted-foreground text-xs">
-          Bare hostname only — no scheme, port, or path. Used only when the request hostname
-          doesn&apos;t match any Allowed Origin below.
+          Bare hostname only — no scheme, port, or path. Required for startup validation;
+          the RP ID actually used at sign-in is derived from the matching Allowed Origin.
         </p>
       </div>
 
