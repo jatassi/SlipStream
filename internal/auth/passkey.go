@@ -5,18 +5,21 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 )
 
 type PasskeyService struct {
-	webAuthn   *webauthn.WebAuthn
 	queries    *sqlc.Queries
 	challenges sync.Map // map[string]*ChallengeData
 	config     PasskeyConfig
@@ -28,10 +31,16 @@ type PasskeyConfig struct {
 	RPOrigins     []string
 }
 
+// ChallengeData carries the pending WebAuthn session along with the Origin
+// selected at Begin time. The matching RP ID is read back from
+// SessionData.RelyingPartyID at Finish; storing the chosen Origin lets us
+// reconstruct an equivalent WebAuthn instance even when the server is reached
+// via more than one hostname.
 type ChallengeData struct {
 	SessionData *webauthn.SessionData
 	UserID      int64
 	ExpiresAt   time.Time
+	Origin      string
 }
 
 type BeginRegistrationResponse struct {
@@ -58,26 +67,88 @@ type PasskeyCredentialInfo struct {
 }
 
 func NewPasskeyService(queries *sqlc.Queries, config PasskeyConfig) (*PasskeyService, error) {
-	wconfig := &webauthn.Config{
-		RPDisplayName: config.RPDisplayName,
-		RPID:          config.RPID,
-		RPOrigins:     config.RPOrigins,
-	}
-
-	webAuthn, err := webauthn.New(wconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create webauthn: %w", err)
+	// Validate eagerly so misconfiguration surfaces at startup rather than on
+	// the first sign-in attempt. The runtime instance is constructed per-request
+	// to support multi-hostname deployments.
+	if _, err := webauthn.New(buildWebAuthnConfig(config, config.RPID, config.RPOrigins)); err != nil {
+		return nil, fmt.Errorf("failed to validate webauthn config: %w", err)
 	}
 
 	s := &PasskeyService{
-		webAuthn: webAuthn,
-		queries:  queries,
-		config:   config,
+		queries: queries,
+		config:  config,
 	}
 
 	go s.cleanupExpiredChallenges()
 
 	return s, nil
+}
+
+// buildWebAuthnConfig assembles a webauthn.Config from the service-wide settings
+// and the (rpID, origins) chosen for a specific request. Keeping construction in
+// one place prevents skew between startup validation and per-request use.
+func buildWebAuthnConfig(cfg PasskeyConfig, rpID string, origins []string) *webauthn.Config {
+	return &webauthn.Config{
+		RPDisplayName: cfg.RPDisplayName,
+		RPID:          rpID,
+		RPOrigins:     origins,
+	}
+}
+
+// resolveRPForRequest picks the RP ID and Origin for an incoming request by
+// matching the request host against the configured RPOrigins. Returns an error
+// when no origin matches: silently falling through would issue a challenge the
+// browser is guaranteed to reject at Finish time, producing a confusing failure
+// mode and leaving stale challenges in the in-memory map.
+func (s *PasskeyService) resolveRPForRequest(host string) (rpID, origin string, err error) {
+	reqHost := requestHostname(host)
+	if reqHost == "" {
+		return "", "", fmt.Errorf("request host is empty")
+	}
+	for _, o := range s.config.RPOrigins {
+		if oHost := normalizedOriginHost(o); oHost != "" && oHost == reqHost {
+			return reqHost, o, nil
+		}
+	}
+	return "", "", fmt.Errorf("host %q is not a configured WebAuthn origin", reqHost)
+}
+
+// webAuthnFor builds a fresh WebAuthn instance for the given RP context. The
+// origin list always contains exactly the chosen origin so Finish verification
+// rejects anything that doesn't match the Begin-time decision.
+func (s *PasskeyService) webAuthnFor(rpID, origin string) (*webauthn.WebAuthn, error) {
+	if rpID == "" || origin == "" {
+		return nil, fmt.Errorf("missing RP ID or origin")
+	}
+	w, err := webauthn.New(buildWebAuthnConfig(s.config, rpID, []string{origin}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create webauthn: %w", err)
+	}
+	return w, nil
+}
+
+// requestHostname normalizes the host portion of an incoming HTTP request's
+// Host header (which may include a port).
+func requestHostname(host string) string {
+	if host == "" {
+		return ""
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return strings.ToLower(h)
+	}
+	return strings.ToLower(host)
+}
+
+// normalizedOriginHost extracts the lowercase hostname from a configured
+// RPOrigin URL. Entries without a parseable scheme/host return empty and are
+// skipped — operators are expected to store full origins (validated upstream
+// by webauthn.New at startup).
+func normalizedOriginHost(origin string) string {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
 }
 
 func (s *PasskeyService) SetDB(queries *sqlc.Queries) {
@@ -125,7 +196,7 @@ func (s *PasskeyService) cleanupExpiredChallenges() {
 }
 
 // BeginRegistration starts passkey registration for an authenticated user
-func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.PortalUser) (*BeginRegistrationResponse, error) {
+func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.PortalUser, host string) (*BeginRegistrationResponse, error) {
 	dbCreds, err := s.queries.GetPasskeyCredentialsByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing credentials: %w", err)
@@ -139,7 +210,16 @@ func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.Porta
 
 	exclusions := credentialDescriptorsFromDB(dbCreds)
 
-	options, session, err := s.webAuthn.BeginRegistration(webAuthnUser,
+	rpID, origin, err := s.resolveRPForRequest(host)
+	if err != nil {
+		return nil, err
+	}
+	w, err := s.webAuthnFor(rpID, origin)
+	if err != nil {
+		return nil, err
+	}
+
+	options, session, err := w.BeginRegistration(webAuthnUser,
 		webauthn.WithExclusions(exclusions),
 		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementPreferred),
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
@@ -154,6 +234,7 @@ func (s *PasskeyService) BeginRegistration(ctx context.Context, user *sqlc.Porta
 	s.storeChallenge(challengeID, &ChallengeData{
 		SessionData: session,
 		UserID:      user.ID,
+		Origin:      origin,
 	})
 
 	return &BeginRegistrationResponse{
@@ -181,7 +262,12 @@ func (s *PasskeyService) FinishRegistration(ctx context.Context, user *sqlc.Port
 		Credentials: credentialsFromDB(dbCreds),
 	}
 
-	credential, err := s.webAuthn.FinishRegistration(webAuthnUser, *challenge.SessionData, r)
+	w, err := s.webAuthnFor(challenge.SessionData.RelyingPartyID, challenge.Origin)
+	if err != nil {
+		return err
+	}
+
+	credential, err := w.FinishRegistration(webAuthnUser, *challenge.SessionData, r)
 	if err != nil {
 		return fmt.Errorf("failed to finish registration: %w", err)
 	}
@@ -214,8 +300,17 @@ func (s *PasskeyService) FinishRegistration(ctx context.Context, user *sqlc.Port
 }
 
 // BeginLogin starts passkey authentication (discoverable credentials)
-func (s *PasskeyService) BeginLogin(ctx context.Context) (*BeginLoginResponse, error) {
-	options, session, err := s.webAuthn.BeginDiscoverableLogin(
+func (s *PasskeyService) BeginLogin(ctx context.Context, host string) (*BeginLoginResponse, error) {
+	rpID, origin, err := s.resolveRPForRequest(host)
+	if err != nil {
+		return nil, err
+	}
+	w, err := s.webAuthnFor(rpID, origin)
+	if err != nil {
+		return nil, err
+	}
+
+	options, session, err := w.BeginDiscoverableLogin(
 		webauthn.WithUserVerification(protocol.VerificationPreferred),
 	)
 	if err != nil {
@@ -226,12 +321,48 @@ func (s *PasskeyService) BeginLogin(ctx context.Context) (*BeginLoginResponse, e
 	s.storeChallenge(challengeID, &ChallengeData{
 		SessionData: session,
 		UserID:      0, // Unknown until credential is presented
+		Origin:      origin,
 	})
 
 	return &BeginLoginResponse{
 		ChallengeID: challengeID,
 		Options:     options,
 	}, nil
+}
+
+// discoverableUserResult captures the credential and user resolved during a
+// discoverable-credential assertion so the caller can inspect them after
+// FinishDiscoverableLogin returns.
+type discoverableUserResult struct {
+	Credential *sqlc.PasskeyCredential
+	User       *sqlc.PortalUser
+}
+
+// discoverableUserLookup returns a webauthn.DiscoverableUserHandler that
+// resolves a presented credential to its owning portal user and records both
+// on result.
+func (s *PasskeyService) discoverableUserLookup(ctx context.Context, result *discoverableUserResult) webauthn.DiscoverableUserHandler {
+	return func(rawID, _ []byte) (webauthn.User, error) {
+		dbCred, err := s.queries.GetPasskeyCredentialByCredentialID(ctx, rawID)
+		if err != nil {
+			return nil, fmt.Errorf("credential not found")
+		}
+		result.Credential = dbCred
+
+		user, err := s.queries.GetPortalUser(ctx, dbCred.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("user not found")
+		}
+		result.User = user
+
+		dbCreds, _ := s.queries.GetPasskeyCredentialsByUserID(ctx, user.ID)
+
+		return &WebAuthnUser{
+			ID:          user.ID,
+			Username:    user.Username,
+			Credentials: credentialsFromDB(dbCreds),
+		}, nil
+	}
 }
 
 // FinishLogin completes passkey authentication using the HTTP request
@@ -242,31 +373,14 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, challengeID string, r 
 	}
 	defer s.deleteChallenge(challengeID)
 
-	var foundUser *sqlc.PortalUser
-	var foundCredential *sqlc.PasskeyCredential
+	w, err := s.webAuthnFor(challenge.SessionData.RelyingPartyID, challenge.Origin)
+	if err != nil {
+		return nil, err
+	}
 
-	credential, err := s.webAuthn.FinishDiscoverableLogin(
-		func(rawID, userHandle []byte) (webauthn.User, error) {
-			dbCred, err := s.queries.GetPasskeyCredentialByCredentialID(ctx, rawID)
-			if err != nil {
-				return nil, fmt.Errorf("credential not found")
-			}
-			foundCredential = dbCred
-
-			user, err := s.queries.GetPortalUser(ctx, dbCred.UserID)
-			if err != nil {
-				return nil, fmt.Errorf("user not found")
-			}
-			foundUser = user
-
-			dbCreds, _ := s.queries.GetPasskeyCredentialsByUserID(ctx, user.ID)
-
-			return &WebAuthnUser{
-				ID:          user.ID,
-				Username:    user.Username,
-				Credentials: credentialsFromDB(dbCreds),
-			}, nil
-		},
+	lookup := &discoverableUserResult{}
+	credential, err := w.FinishDiscoverableLogin(
+		s.discoverableUserLookup(ctx, lookup),
 		*challenge.SessionData,
 		r,
 	)
@@ -274,29 +388,29 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, challengeID string, r 
 		return nil, fmt.Errorf("failed to finish login: %w", err)
 	}
 
-	if foundCredential == nil || foundUser == nil {
+	if lookup.Credential == nil || lookup.User == nil {
 		return nil, fmt.Errorf("credential lookup failed")
 	}
 
 	err = s.queries.UpdatePasskeyCredentialSignCount(ctx, sqlc.UpdatePasskeyCredentialSignCountParams{
 		SignCount: int64(credential.Authenticator.SignCount),
-		ID:        foundCredential.ID,
+		ID:        lookup.Credential.ID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update sign count: %w", err)
 	}
 
-	if !foundUser.Enabled {
+	if !lookup.User.Enabled {
 		return nil, fmt.Errorf("user account is disabled")
 	}
 
 	// CRITICAL: Mirror PIN login security - both conditions required
 	// This prevents privilege escalation if is_admin column is somehow modified
-	isAdmin := foundUser.IsAdmin && foundUser.Username == "Administrator"
+	isAdmin := lookup.User.IsAdmin && lookup.User.Username == "Administrator"
 
 	return &FinishLoginResult{
-		UserID:   foundUser.ID,
-		Username: foundUser.Username,
+		UserID:   lookup.User.ID,
+		Username: lookup.User.Username,
 		IsAdmin:  isAdmin,
 	}, nil
 }
