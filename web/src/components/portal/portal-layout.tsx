@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { PasskeyPromptHost } from './passkey-prompt-host'
 import { PortalDownloads } from './portal-downloads'
 import { PortalHeader } from './portal-header'
 
@@ -17,6 +18,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
       <PortalHeader />
       <PortalDownloads />
       <main className="flex-1 overflow-auto">{children}</main>
+      <PasskeyPromptHost />
     </div>
   )
 }
