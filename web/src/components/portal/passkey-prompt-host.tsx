@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
 
 import { usePasskeyCredentials, usePasskeySupport } from '@/hooks/portal'
 import { usePortalAuthStore } from '@/stores'
 
+import { NEW_PASSKEY_HASH } from './passkey-deep-link'
 import { PasskeyPromptModal } from './passkey-prompt-modal'
 
 const DISMISSED_STORAGE_KEY = 'slipstream_passkey_prompt_dismissed'
@@ -36,25 +37,25 @@ function shouldShowPrompt(args: {
 }
 
 function usePasskeyPromptTrigger() {
-  const { isAuthenticated, justLoggedIn, consumeJustLoggedIn } = usePortalAuthStore()
+  const { isAuthenticated, justLoggedIn, user, consumeJustLoggedIn } = usePortalAuthStore()
   const { isSupported } = usePasskeySupport()
   const { data: credentials, isLoading: credentialsLoading } = usePasskeyCredentials()
   const [open, setOpen] = useState(false)
   const [evaluated, setEvaluated] = useState(false)
 
-  // Render-time state adjustment: evaluate exactly once per sign-in event,
-  // gated on credential data being loaded.
-  const ready = isAuthenticated && justLoggedIn && !credentialsLoading
+  const ready = isAuthenticated && justLoggedIn && !user?.isAdmin && !credentialsLoading
   if (ready && !evaluated) {
     setEvaluated(true)
-    consumeJustLoggedIn()
     if (shouldShowPrompt({ isSupported, credentialCount: credentials?.length ?? 0 })) {
       setOpen(true)
     }
   }
-  if (!isAuthenticated && evaluated) {
-    setEvaluated(false)
-  }
+
+  useEffect(() => {
+    if (evaluated && justLoggedIn) {
+      consumeJustLoggedIn()
+    }
+  }, [evaluated, justLoggedIn, consumeJustLoggedIn])
 
   return { open, setOpen }
 }
@@ -63,23 +64,20 @@ export function PasskeyPromptHost() {
   const navigate = useNavigate()
   const { open, setOpen } = usePasskeyPromptTrigger()
 
-  const handleDismiss = (dontShowAgain: boolean) => {
+  const close = (dontShowAgain: boolean) => {
     persistDismissal(dontShowAgain)
     setOpen(false)
-  }
-
-  const handleCreate = (dontShowAgain: boolean) => {
-    persistDismissal(dontShowAgain)
-    setOpen(false)
-    void navigate({ to: '/requests/settings', hash: 'new-passkey' })
   }
 
   return (
     <PasskeyPromptModal
       open={open}
       onOpenChange={setOpen}
-      onDismiss={handleDismiss}
-      onCreate={handleCreate}
+      onDismiss={close}
+      onCreate={(dontShowAgain) => {
+        close(dontShowAgain)
+        void navigate({ to: '/requests/settings', hash: NEW_PASSKEY_HASH })
+      }}
     />
   )
 }

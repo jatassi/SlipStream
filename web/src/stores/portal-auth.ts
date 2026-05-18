@@ -17,7 +17,7 @@ type PortalAuthState = {
   setUser: (user: PortalUser) => void
   setRedirectUrl: (url: string | null) => void
   getPostLoginRedirect: () => string
-  consumeJustLoggedIn: () => boolean
+  consumeJustLoggedIn: () => void
 }
 
 export const usePortalAuthStore = create<PortalAuthState>()(
@@ -46,11 +46,9 @@ export const usePortalAuthStore = create<PortalAuthState>()(
       },
 
       consumeJustLoggedIn: () => {
-        const flag = get().justLoggedIn
-        if (flag) {
+        if (get().justLoggedIn) {
           set({ justLoggedIn: false })
         }
-        return flag
       },
 
       setUser: (user) => {

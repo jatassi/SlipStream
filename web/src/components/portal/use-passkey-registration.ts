@@ -1,24 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { useLocation } from '@tanstack/react-router'
+
 import { useRegisterPasskey } from '@/hooks/portal'
 
-const AUTO_OPEN_HASH = '#new-passkey'
+import { NEW_PASSKEY_HASH } from './passkey-deep-link'
 
-function consumeAutoOpenHash(): boolean {
-  if (globalThis.location.hash !== AUTO_OPEN_HASH) {
-    return false
+function useHashAutoOpen(setIsRegistering: (value: boolean) => void) {
+  const location = useLocation()
+  const [prevHash, setPrevHash] = useState(location.hash)
+  if (location.hash !== prevHash) {
+    setPrevHash(location.hash)
+    if (location.hash === NEW_PASSKEY_HASH) {
+      setIsRegistering(true)
+    }
   }
-  globalThis.history.replaceState(null, '', globalThis.location.pathname + globalThis.location.search)
-  return true
 }
 
 export function usePasskeyRegistration() {
+  const location = useLocation()
   const [newPasskeyName, setNewPasskeyName] = useState('')
   const [pin, setPin] = useState('')
-  const [isRegistering, setIsRegistering] = useState(consumeAutoOpenHash)
+  const [isRegistering, setIsRegistering] = useState(location.hash === NEW_PASSKEY_HASH)
   const isSubmittingRef = useRef(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const registerPasskey = useRegisterPasskey()
+
+  useHashAutoOpen(setIsRegistering)
 
   useEffect(() => {
     if (isRegistering) {nameInputRef.current?.focus()}
