@@ -104,6 +104,8 @@ All endpoints under `/api/v1`. Route definitions in `internal/api/routes.go`.
 
 Toggle via hammer icon in header. Switches to separate dev database (`slipstream_dev.db`), creates mock services (metadata, indexer, download client, notifications), mock root folders with virtual filesystem. Backend check: `dbManager.IsDevMode()`.
 
+Start the dev server with developer mode already enabled via `make dev-mode`, the `--dev-mode` flag (`go run ./cmd/slipstream --dev-mode`), or the `SLIPSTREAM_DEV_MODE=1` environment variable.
+
 ## External Requests Portal
 
 Separate auth from admin: admin uses session/cookies, portal users use JWT/localStorage. Request lifecycle: `pending` -> `approved` -> `searching` -> `downloading` -> `available` (or `denied`/`cancelled`). The `searching` status is set during auto search after approval; manual search grabs skip it. Quality profiles with `allowAutoApprove` skip the approval queue.

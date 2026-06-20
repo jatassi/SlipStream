@@ -137,9 +137,10 @@ func main() {
 
 	configPath := flag.String("config", "", "Path to config file")
 	noTray := flag.Bool("no-tray", false, "Run without system tray (console mode)")
+	devMode := flag.Bool("dev-mode", false, "Start with developer mode enabled (mock services and a separate dev database)")
 	flag.Parse()
 
-	bootstrapLog(fmt.Sprintf("Flags parsed: config=%q, no-tray=%v", *configPath, *noTray))
+	bootstrapLog(fmt.Sprintf("Flags parsed: config=%q, no-tray=%v, dev-mode=%v", *configPath, *noTray, *devMode))
 	bootstrapLog("Loading configuration...")
 
 	cfg, err := config.Load(*configPath)
@@ -262,6 +263,16 @@ func main() {
 		bootstrapLog("Network services initialized")
 	}
 
+	if *devMode || envEnabled("SLIPSTREAM_DEV_MODE") {
+		bootstrapLog("Enabling developer mode at startup...")
+		if err := server.EnableDevMode(); err != nil {
+			bootstrapLog(fmt.Sprintf("Warning: failed to enable developer mode: %v", err))
+			appLogger.Warn().Err(err).Msg("failed to enable developer mode at startup")
+		} else {
+			appLogger.Info().Msg("developer mode enabled at startup")
+		}
+	}
+
 	server.Echo().GET("/ws", hub.HandleWebSocket)
 
 	if distFS, err := web.DistFS(); err == nil {
@@ -346,6 +357,16 @@ func main() {
 	}
 
 	appLogger.Info().Msg("server stopped")
+}
+
+// envEnabled reports whether an environment variable is set to a truthy value.
+func envEnabled(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func spawnNewProcess() error {

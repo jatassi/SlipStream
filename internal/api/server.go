@@ -129,6 +129,13 @@ func NewServer(dbManager *database.Manager, hub *websocket.Hub, cfg *config.Conf
 	return s
 }
 
+// EnableDevMode turns on developer mode at startup, mirroring the runtime
+// hammer-icon toggle: it switches to the dev database and substitutes mock
+// services, indexers, download clients, and sample media.
+func (s *Server) EnableDevMode() error {
+	return s.devMode.OnToggle(true)
+}
+
 func schedulerBroadcaster(hub *websocket.Hub) func(taskID string, running bool) {
 	return func(taskID string, running bool) {
 		eventType := "scheduler:task:started"

@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new deadcode wire generate-slots new-module
+.PHONY: dev dev-mode dev-backend dev-backend-devmode dev-frontend build build-backend build-frontend clean install test test-unit test-integration test-coverage test-verbose lint lint-fix lint-verbose lint-new deadcode wire generate-slots new-module
 
 # Build flags for embedding values at build time (set via environment variables or make arguments)
 # Example: make build-backend VERSION=1.2.3 TMDB_API_KEY=xxx TVDB_API_KEY=yyy OMDB_API_KEY=zzz
@@ -21,9 +21,17 @@ dev: ## Run both backend and frontend in development mode
 	@echo "Starting development servers..."
 	@make -j2 dev-backend dev-frontend
 
+dev-mode: ## Run both servers with developer mode enabled at startup
+	@echo "Starting development servers (developer mode)..."
+	@make -j2 dev-backend-devmode dev-frontend
+
 dev-backend: ## Run Go backend in development mode
 	@echo "Starting backend on :8080..."
 	@cd cmd/slipstream && go run .
+
+dev-backend-devmode: ## Run Go backend with developer mode enabled at startup
+	@echo "Starting backend on :8080 (developer mode)..."
+	@cd cmd/slipstream && go run . --dev-mode
 
 dev-frontend: ## Run Vite frontend in development mode
 	@echo "Starting frontend on :3000..."
