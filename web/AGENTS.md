@@ -89,13 +89,29 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 
 ## Grouped lists
 
-`Group`, `Row`, `IconTile` and `ProgressLine` live in `src/components/grouped-list/`. Use them for inset grouped lists (Dashboard, More, and later History/Settings).
+`Group`, `Row`, `IconTile` and `ProgressLine` live in `src/components/grouped-list/`. Use them for inset grouped lists (Dashboard, More, Settings, and later History).
 
 - `Group`: inset (`px-screen`) card stack with optional `header` (uppercase footnote) and `header` `action`. Pass `inset={false}` when the parent already provides the 16 px gutter (e.g. a two-column dashboard grid).
 - `Row`: 44 px minimum (`min-h-tap`) row with `leading` (tile or thumbnail), `title`, `subtitle`, `trailing`, optional `chevron`, `tone` (`default` | `warning` | `destructive`). Renders a link when `href` is set, a button when `onClick` is set, otherwise a static row. Press feedback is the `press-row` tint.
 - `IconTile`: 28 px rounded square for a leading glyph (`[&_svg]:size-4`). Pass the fill with `className` (`bg-amber-500`, `bg-tv-600`, …).
 - `ProgressLine`: media-coloured bar (`kind` `movie` | `series`) with `role="progressbar"`. Width eases 700 ms linear. `muted` paints with `--muted-foreground`.
 - `RowSkeleton`: loading stand-in with the same padding and 44 px minimum as `Row`. `leading="poster"` and `progress` match download rows.
+
+## Settings screens
+
+Every settings route renders a `Screen` with `back={usePushBack()}`; `backLabelForPathname` in
+`src/components/layout/push-routes.ts` derives the label from `SETTINGS_SECTIONS` (back from a leaf
+reads its section name, back from a section reads "More"). Settings paths are `isScreenFillPath`, so
+both shells let the `Screen` own its own back control and scrolling.
+
+- `/settings/media`, `/settings/download-pipeline` and `/settings/general` are section index pages
+  built from `src/routes/settings/settings-section-screen.tsx`: one `Group` of `Row`s with an icon
+  tile, a trailing count and a warning summary from `use-health-warnings.ts`.
+- List pages (Root Folders, Quality Profiles, Version Slots, Indexers, Download Clients,
+  Notifications) use `SettingsList` (loading / error / empty states around a `Group`) and
+  `SettingsItemRow` (icon tile, primary line, optional subtitle, trailing detail, `Switch` and an
+  overflow action menu with confirmation). Add is `AddAction` — a plus passed as the `Screen`
+  `trailing` slot.
 
 ## Playwright E2E
 

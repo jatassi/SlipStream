@@ -74,8 +74,6 @@ Reusable components available to module authors. All paths are relative to `web/
 | Component | Location | Purpose | Key Props |
 |---|---|---|---|
 | `PatternEditor` | `components/settings/sections/naming-pattern-editor.tsx` | File naming pattern editor with token builder dialog, live preview, and token breakdown. | `label`, `value`, `onChange`, `description`, `mediaType`, `tokenContext` |
-| `VersionSlotsSection` | `components/settings/sections/version-slots-section.tsx` | Quality version slots management UI with dry-run modals and debug panel. | (internal hook-driven; used in settings pages) |
-| `QualityProfilesSection` | `components/settings/sections/quality-profiles-section.tsx` | Quality profile CRUD list with inline allowed-quality badges. | (internal hook-driven; used in settings pages) |
 
 ---
 
