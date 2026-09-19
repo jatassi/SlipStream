@@ -110,6 +110,20 @@ Start the dev server with developer mode already enabled via `make dev-mode`, th
 
 Separate auth from admin: admin uses session/cookies, portal users use JWT/localStorage. Request lifecycle: `pending` -> `approved` -> `searching` -> `downloading` -> `available` (or `denied`/`cancelled`). The `searching` status is set during auto search after approval; manual search grabs skip it. Quality profiles with `allowAutoApprove` skip the approval queue.
 
+## Agent skills
+
+### Issue tracker
+
+Specs and tickets are local markdown under `docs/` (`docs/<feature>-spec.md`, `docs/tickets/<feature>/NN-<slug>.md`); GitHub Issues are not used. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`, recorded as a `Status:` line. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the repo root and ADRs in `docs/adr/` (created lazily by `/domain-modeling`). See `docs/agents/domain.md`.
+
 ## Production Debugging
 
 Logs and database from a production SlipStream instance are available for debugging purposes. You may only read from the database. Do not access these files unless the user explicitly mentions an error happening in production or otherwise instructs you to access them.
