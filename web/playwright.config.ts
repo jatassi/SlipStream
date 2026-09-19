@@ -64,7 +64,7 @@ const config: PlaywrightTestConfig = {
   fullyParallel: true,
   forbidOnly: inCI,
   retries: inCI ? 1 : 0,
-  workers: inCI ? 2 : undefined,
+  workers: inCI ? 1 : undefined,
   reporter: inCI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   timeout: 30_000,
   expect: { timeout: 15_000 },
