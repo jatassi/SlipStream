@@ -38,6 +38,10 @@ jobs:
         working-directory: web
         run: bunx tsc -b
 
+      - name: Build frontend (go:embed requires web/dist)
+        working-directory: web
+        run: bunx vite build
+
       - name: Install Playwright Chromium
         working-directory: web
         run: bunx playwright install --with-deps chromium
