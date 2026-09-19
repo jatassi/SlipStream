@@ -5,35 +5,9 @@ import { ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-export function Group({
-  header,
-  action,
-  children,
-  className,
-}: {
-  header?: string
-  action?: ReactNode
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <section className={cn('mb-7 px-screen', className)}>
-      {header !== undefined && (
-        <div className="flex items-baseline justify-between px-3 pb-2">
-          <h2 className="text-footnote font-semibold tracking-wide text-muted-foreground uppercase">
-            {header}
-          </h2>
-          {action}
-        </div>
-      )}
-      <div className="divide-y divide-border/70 overflow-hidden rounded-card bg-card">{children}</div>
-    </section>
-  )
-}
-
 type RowTone = 'default' | 'destructive' | 'warning'
 
-type RowProps = {
+export type RowProps = {
   title: ReactNode
   subtitle?: ReactNode
   leading?: ReactNode
@@ -61,17 +35,17 @@ function RowBody({
 }: Omit<RowProps, 'href' | 'onClick' | 'className'> & { tone: RowTone }) {
   return (
     <>
-      {leading === undefined ? null : <div className="flex shrink-0 items-center">{leading}</div>}
+      {leading !== undefined && <div className="flex shrink-0 items-center">{leading}</div>}
       <div className="min-w-0 flex-1 text-left">
         <div className={cn('truncate text-body font-medium', TONE[tone])}>{title}</div>
-        {subtitle === undefined ? null : (
+        {subtitle !== undefined && (
           <div className="text-footnote mt-0.5 truncate text-muted-foreground">{subtitle}</div>
         )}
       </div>
-      {trailing === undefined ? null : (
+      {trailing !== undefined && (
         <div className="text-body flex shrink-0 items-center text-muted-foreground">{trailing}</div>
       )}
-      {chevron ? <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" /> : null}
+      {chevron && <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" />}
     </>
   )
 }
@@ -120,12 +94,4 @@ export function Row({
   }
 
   return <div className={classes}>{body}</div>
-}
-
-export function IconTile({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span className={cn('flex size-7 items-center justify-center rounded-[7px] text-white [&_svg]:size-4', className)}>
-      {children}
-    </span>
-  )
 }

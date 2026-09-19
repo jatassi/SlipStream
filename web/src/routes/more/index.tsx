@@ -12,7 +12,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
-import { Group, IconTile, Row } from '@/components/grouped-list/grouped-list'
+import { Group, IconTile, Row } from '@/components/grouped-list'
 import { DevModeControls } from '@/components/layout/dev-mode-controls'
 import { LogoutDialog, RestartDialog } from '@/components/layout/sidebar-dialogs'
 import { useHeader } from '@/components/layout/use-header'

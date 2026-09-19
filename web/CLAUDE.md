@@ -87,6 +87,16 @@ Use `&&` for conditional rendering without an else branch: `{condition && <X />}
 ### Null Handling
 Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`, NaN should fallback) — add a comment explaining why.
 
+## Grouped lists
+
+`Group`, `Row`, `IconTile` and `ProgressLine` live in `src/components/grouped-list/`. Use them for inset grouped lists (Dashboard, More, and later History/Settings).
+
+- `Group`: inset (`px-screen`) card stack with optional `header` (uppercase footnote) and `header` `action`. Pass `inset={false}` when the parent already provides the 16 px gutter (e.g. a two-column dashboard grid).
+- `Row`: 44 px minimum (`min-h-tap`) row with `leading` (tile or thumbnail), `title`, `subtitle`, `trailing`, optional `chevron`, `tone` (`default` | `warning` | `destructive`). Renders a link when `href` is set, a button when `onClick` is set, otherwise a static row. Press feedback is the `press-row` tint.
+- `IconTile`: 28 px rounded square for a leading glyph (`[&_svg]:size-4`). Pass the fill with `className` (`bg-amber-500`, `bg-tv-600`, …).
+- `ProgressLine`: media-coloured bar (`kind` `movie` | `series`) with `role="progressbar"`. Width eases 700 ms linear. `muted` paints with `--muted-foreground`.
+- `RowSkeleton`: loading stand-in with the same padding and 44 px minimum as `Row`. `leading="poster"` and `progress` match download rows.
+
 ## Playwright E2E
 
 Browser tests live in `e2e/` and run against the real app in developer mode (`phone` 390×844 touch, `wide` 1440×900 mouse). `bun run test:e2e` starts the Go backend (`--dev-mode`) and Vite via Playwright `webServer`, then runs both projects. `bun run test:e2e:headed` is the debugging variant. `bun run test:e2e:reduced-motion` runs the shell tests with `prefers-reduced-motion`.
