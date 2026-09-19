@@ -61,6 +61,30 @@ function isLibraryPath(pathname: string): boolean {
   )
 }
 
+export function paneBehindPathname(pathname: string): PaneId {
+  const pane = paneFromPathname(pathname)
+  if (pane !== null) {
+    return pane
+  }
+  return paneForCoveredTab(tabFromPathname(pathname), pathname)
+}
+
+function paneForCoveredTab(tab: TabId, pathname: string): PaneId {
+  if (tab === 'dashboard') {
+    return 'dashboard'
+  }
+  if (tab === 'library') {
+    return pathname.startsWith('/series') ? 'series' : 'movies'
+  }
+  if (tab === 'activity') {
+    return 'activity'
+  }
+  if (tab === 'search') {
+    return 'search'
+  }
+  return 'more'
+}
+
 export function tabFromPathname(pathname: string): TabId {
   if (pathname === '/') {
     return 'dashboard'

@@ -4,7 +4,7 @@ import { ErrorBoundary } from '@/components/error-boundary'
 import { cn } from '@/lib/utils'
 
 import { LoadingScreen } from './loading-screen'
-import { paneFromPathname,type PaneId } from './use-tab-nav'
+import { paneBehindPathname, paneFromPathname, type PaneId } from './use-tab-nav'
 
 const DashboardPage = lazy(() => import('@/routes/index').then((m) => ({ default: m.DashboardPage })))
 const MoviesPage = lazy(() => import('@/routes/movies/index').then((m) => ({ default: m.MoviesPage })))
@@ -34,18 +34,20 @@ const TAB_STACK_INSET = { paddingBottom: 'calc(var(--safe-bottom) + var(--spacin
 
 function PaneFrame({
   id,
-  active,
+  shown,
+  interactive,
   Page,
 }: {
   id: PaneId
-  active: boolean
+  shown: boolean
+  interactive: boolean
   Page: LazyExoticComponent<ComponentType>
 }) {
   const screenPane = SCREEN_PANES[id] === true
   return (
     <div
-      inert={!active}
-      className={cn('absolute inset-0', screenPane ? 'overflow-hidden' : 'scroll p-6', !active && 'invisible')}
+      inert={!interactive}
+      className={cn('absolute inset-0', screenPane ? 'overflow-hidden' : 'scroll p-6', !shown && 'invisible')}
       style={screenPane ? undefined : TAB_STACK_INSET}
     >
       <ErrorBoundary>
@@ -57,21 +59,28 @@ function PaneFrame({
   )
 }
 
-export function TabPanes({ pathname }: { pathname: string }) {
-  const pane = paneFromPathname(pathname)
+export function TabPanes({ pathname, overlay }: { pathname: string; overlay: boolean }) {
+  const routePane = paneFromPathname(pathname)
+  const shownPane = routePane ?? (overlay ? paneBehindPathname(pathname) : null)
   const [visited, setVisited] = useState<Partial<Record<PaneId, true>>>(() =>
-    pane === null ? {} : { [pane]: true },
+    shownPane === null ? {} : { [shownPane]: true },
   )
 
-  if (pane !== null && visited[pane] !== true) {
-    setVisited({ ...visited, [pane]: true })
+  if (shownPane !== null && visited[shownPane] !== true) {
+    setVisited({ ...visited, [shownPane]: true })
   }
 
   return (
     <>
       {PANE_ORDER.map((id) =>
         visited[id] === true ? (
-          <PaneFrame key={id} id={id} active={pane === id} Page={PANE_PAGES[id]} />
+          <PaneFrame
+            key={id}
+            id={id}
+            shown={shownPane === id}
+            interactive={routePane === id}
+            Page={PANE_PAGES[id]}
+          />
         ) : null,
       )}
     </>

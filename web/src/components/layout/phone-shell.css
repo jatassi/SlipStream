@@ -1,0 +1,89 @@
+/* Phone push navigation — slide over the mounted tab root */
+
+.phone-root {
+  transition: transform var(--dur-base) var(--ease-out-strong);
+}
+.phone-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out-strong);
+}
+.phone-root[data-behind] {
+  transform: translateX(-28%);
+}
+.phone-root[data-behind]::after {
+  opacity: 0.3;
+}
+.phone-root[data-instant],
+.phone-root[data-instant]::after {
+  transition: none;
+}
+
+.phone-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--background);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 45%);
+  animation: phone-push-in 260ms var(--ease-out-strong) both;
+}
+.phone-layer[data-exiting] {
+  animation: phone-push-out 200ms var(--ease-out-strong) both;
+  pointer-events: none;
+}
+.phone-layer[data-instant],
+.phone-layer[data-instant][data-exiting] {
+  animation: none;
+}
+
+@keyframes phone-push-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes phone-push-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes phone-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes phone-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-layer:not([data-instant]) {
+    animation-name: phone-fade-in;
+    animation-duration: var(--dur-fast);
+  }
+  .phone-layer[data-exiting]:not([data-instant]) {
+    animation-name: phone-fade-out;
+    animation-duration: var(--dur-fast);
+  }
+  .phone-root[data-behind] {
+    transform: none;
+  }
+}

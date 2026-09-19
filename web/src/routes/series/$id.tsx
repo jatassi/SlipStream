@@ -1,5 +1,7 @@
 import { ErrorState } from '@/components/data/error-state'
+import { usePushBack } from '@/components/layout/use-push-back'
 import { MediaEditDialog } from '@/components/media/media-edit-dialog'
+import { Screen } from '@/components/screen/screen'
 import { SeasonList } from '@/components/series/season-list'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useUpdateSeries } from '@/hooks'
@@ -9,9 +11,13 @@ import { SeriesDetailSkeleton } from './series-detail-skeleton'
 import { SeriesHeroSection } from './series-hero-section'
 import { useSeriesDetailPage } from './use-series-detail'
 
+const HERO_FADE = 200
+
 function SeasonsCard({ vm }: { vm: ReturnType<typeof useSeriesDetailPage> }) {
   const { series } = vm
-  if (!series) {return null}
+  if (!series) {
+    return null
+  }
   return (
     <Card>
       <CardHeader>
@@ -37,14 +43,28 @@ function SeasonsCard({ vm }: { vm: ReturnType<typeof useSeriesDetailPage> }) {
 
 export function SeriesDetailPage() {
   const vm = useSeriesDetailPage()
+  const back = usePushBack()
+
+  return (
+    <Screen title={vm.series?.title ?? 'Series'} largeTitle={false} transparentUntil={HERO_FADE} back={back}>
+      <SeriesDetailBody vm={vm} />
+    </Screen>
+  )
+}
+
+function SeriesDetailBody({ vm }: { vm: ReturnType<typeof useSeriesDetailPage> }) {
   const updateMutation = useUpdateSeries()
 
-  if (vm.isLoading) {return <SeriesDetailSkeleton />}
-  if (vm.isError || !vm.series) {return <ErrorState message="Series not found" onRetry={vm.refetch} />}
+  if (vm.isLoading) {
+    return <SeriesDetailSkeleton />
+  }
+  if (vm.isError || !vm.series) {
+    return <ErrorState message="Series not found" onRetry={vm.refetch} />
+  }
 
   const { series } = vm
   return (
-    <div className="-m-6">
+    <>
       <SeriesHeroSection
         series={series} extendedData={vm.extendedData} isExtendedDataLoading={vm.isExtendedDataLoading}
         qualityProfileName={vm.qualityProfileName} overviewExpanded={vm.overviewExpanded}
@@ -66,6 +86,6 @@ export function SeriesDetailPage() {
         moduleType="tv"
         monitoredDescription="Search for releases and upgrade quality for all monitored episodes"
       />
-    </div>
+    </>
   )
 }
