@@ -34,10 +34,14 @@ type Config struct {
 	BufferSize      int    // ring buffer size for recent logs (default: 1000)
 }
 
-// IsDevBuild returns true if running via "go run" (development mode).
-// This is detected by checking if the executable path contains "go-build",
-// which is where Go compiles temporary binaries during "go run".
+// IsDevBuild reports whether this is a development build: either running via
+// "go run" (the executable lives in Go's temporary "go-build" directory) or a
+// built binary started with SLIPSTREAM_DEV_BUILD=1, which the dev servers and
+// the Playwright harness use.
 func IsDevBuild() bool {
+	if os.Getenv("SLIPSTREAM_DEV_BUILD") == "1" {
+		return true
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return false

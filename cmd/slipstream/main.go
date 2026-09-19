@@ -194,10 +194,12 @@ func main() {
 	bootstrapLog("Database migrations complete")
 
 	queries := sqlc.New(dbManager.Conn())
-	if setting, err := queries.GetSetting(context.Background(), "server_port"); err == nil {
-		if port, err := strconv.Atoi(setting.Value); err == nil {
-			cfg.Server.Port = port
-			appLogger.Info().Int("port", port).Msg("loaded server port from database")
+	if _, pinned := os.LookupEnv("SLIPSTREAM_SERVER_PORT"); !pinned {
+		if setting, err := queries.GetSetting(context.Background(), "server_port"); err == nil {
+			if port, err := strconv.Atoi(setting.Value); err == nil {
+				cfg.Server.Port = port
+				appLogger.Info().Int("port", port).Msg("loaded server port from database")
+			}
 		}
 	}
 	if setting, err := queries.GetSetting(context.Background(), "log_level"); err == nil && setting.Value != "" {
