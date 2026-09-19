@@ -7,7 +7,7 @@ import { PhoneShell } from './phone-shell'
 import { WideShell } from './wide-shell'
 
 const PHONE_TOAST_STYLE =
-  '[data-sonner-toaster][data-y-position="bottom"]{bottom:calc(env(safe-area-inset-bottom, 0px) + 56px + 12px)!important}'
+  '[data-sonner-toaster][data-y-position="bottom"]{bottom:calc(var(--safe-bottom) + var(--spacing-tab-bar) + 12px)!important}'
 
 function AppToaster() {
   const shell = useViewport()

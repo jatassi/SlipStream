@@ -149,23 +149,26 @@ test('toasts sit above the tab bar on phone and bottom-right on wide', async ({ 
   await activate(testAll)
   const toast = page.getByText(/Download Clients:/)
   await expect(toast).toBeVisible()
-  const box = await toast.boundingBox()
-  expect(box).not.toBeNull()
-  if (box === null) {
-    return
-  }
   const viewport = page.viewportSize()
   expect(viewport).not.toBeNull()
   if (viewport === null) {
     return
   }
   if (shellKind(testInfo.project.name) === 'phone') {
-    const tabBox = await primaryNav(page).boundingBox()
-    expect(tabBox).not.toBeNull()
-    if (tabBox === null) {
-      return
-    }
-    expect(box.y + box.height).toBeLessThanOrEqual(tabBox.y + 8)
+    const tabBar = primaryNav(page)
+    await expect.poll(async () => {
+      const box = await toast.boundingBox()
+      const tabBox = await tabBar.boundingBox()
+      if (box === null || tabBox === null) {
+        return Number.POSITIVE_INFINITY
+      }
+      return box.y + box.height - tabBox.y
+    }).toBeLessThanOrEqual(8)
+    return
+  }
+  const box = await toast.boundingBox()
+  expect(box).not.toBeNull()
+  if (box === null) {
     return
   }
   expect(box.x).toBeGreaterThan(viewport.width / 2)
