@@ -39,7 +39,7 @@ function reducedMotionProject(): Project {
   return {
     name: 'reduced-motion',
     dependencies: ['setup'],
-    testMatch: /shell\.spec\.ts/,
+    testMatch: /(shell|push)\.spec\.ts/,
     use: { ...phoneUse, reducedMotion: 'reduce' },
   }
 }

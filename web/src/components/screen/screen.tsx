@@ -40,6 +40,7 @@ function useScreenChrome(largeTitle: boolean, transparentUntil: number | undefin
     trailingInBar: shell === 'phone' || collapsed || !largeTitle,
     trailingBesideTitle: shell === 'wide' && largeTitle && !collapsed,
     paddingTop: largeTitle ? 'calc(var(--safe-top) + 44px)' : 0,
+    alwaysTitle: !largeTitle && transparentUntil === undefined,
   }
 }
 
@@ -59,22 +60,47 @@ export function Screen({
       <ScreenBar
         title={title}
         collapsed={chrome.collapsed}
-        largeTitle={largeTitle}
+        alwaysTitle={chrome.alwaysTitle}
         back={back}
         trailing={chrome.trailingInBar ? trailing : undefined}
       />
       <div
         className="scroll h-full"
+        role="region"
+        aria-label={title}
         onScroll={chrome.onScroll}
         style={{ paddingTop: chrome.paddingTop, paddingBottom: chrome.inset }}
       >
-        <div className={cn('mx-auto w-full max-w-5xl', largeTitle && 'min-h-[calc(100%+16rem)]')}>
-          {largeTitle ? (
-            <LargeTitle title={title} trailing={chrome.trailingBesideTitle ? trailing : undefined} />
-          ) : null}
+        <ScreenBody
+          largeTitle={largeTitle}
+          title={title}
+          trailing={chrome.trailingBesideTitle ? trailing : undefined}
+        >
           {children}
-        </div>
+        </ScreenBody>
       </div>
+    </div>
+  )
+}
+
+function ScreenBody({
+  largeTitle,
+  title,
+  trailing,
+  children,
+}: {
+  largeTitle: boolean
+  title: string
+  trailing?: ReactNode
+  children: ReactNode
+}) {
+  if (!largeTitle) {
+    return children
+  }
+  return (
+    <div className="mx-auto w-full max-w-5xl min-h-[calc(100%+16rem)]">
+      <LargeTitle title={title} trailing={trailing} />
+      {children}
     </div>
   )
 }
@@ -91,13 +117,13 @@ function LargeTitle({ title, trailing }: { title: string; trailing?: ReactNode }
 function ScreenBar({
   title,
   collapsed,
-  largeTitle,
+  alwaysTitle,
   back,
   trailing,
 }: {
   title: string
   collapsed: boolean
-  largeTitle: boolean
+  alwaysTitle: boolean
   back?: ScreenProps['back']
   trailing?: ReactNode
 }) {
@@ -106,7 +132,7 @@ function ScreenBar({
       className="screen-bar absolute inset-x-0 top-0 z-20"
       aria-label={title}
       data-collapsed={collapsed ? '' : undefined}
-      data-always-title={largeTitle ? undefined : ''}
+      data-always-title={alwaysTitle ? '' : undefined}
     >
       <div className="screen-bar-bg material" aria-hidden="true" />
       <div className="relative safe-top">
@@ -114,7 +140,7 @@ function ScreenBar({
           {back === undefined ? null : <BackButton label={back.label} onClick={back.onClick} />}
           <span
             className="screen-compact-title text-title font-semibold"
-            aria-hidden={largeTitle && !collapsed ? true : undefined}
+            aria-hidden={alwaysTitle || collapsed ? undefined : true}
           >
             {title}
           </span>
@@ -127,15 +153,27 @@ function ScreenBar({
   )
 }
 
-function BackButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function BackControl({
+  label,
+  onClick,
+  className,
+}: {
+  label: string
+  onClick: () => void
+  className?: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn('press-dim absolute left-1 flex h-11 items-center pr-3 pl-1 text-title text-foreground')}
+      className={cn('press-dim flex h-11 items-center pr-3 pl-1 text-title text-foreground', className)}
     >
       <ChevronLeft className="size-7 -ml-1" strokeWidth={2.25} />
       <span className="-ml-0.5">{label}</span>
     </button>
   )
+}
+
+function BackButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <BackControl label={label} onClick={onClick} className="absolute left-1" />
 }

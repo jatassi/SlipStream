@@ -97,7 +97,7 @@ function SeasonsSkeleton() {
 
 export function SeriesDetailSkeleton() {
   return (
-    <div className="-m-6">
+    <div>
       <HeroSkeleton />
       <ActionBarSkeleton />
       <SeasonsSkeleton />

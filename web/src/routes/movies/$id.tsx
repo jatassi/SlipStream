@@ -1,15 +1,29 @@
 import { ErrorState } from '@/components/data/error-state'
+import { usePushBack } from '@/components/layout/use-push-back'
 import { MediaEditDialog } from '@/components/media/media-edit-dialog'
+import { Screen } from '@/components/screen/screen'
 import { useUpdateMovie } from '@/hooks'
 
 import { MovieDetailActions } from './movie-detail-actions'
 import { MovieDetailContent } from './movie-detail-content'
 import { MovieDetailHero } from './movie-detail-hero'
 import { MovieDetailSkeleton } from './movie-detail-skeleton'
-import { useMovieDetail } from './use-movie-detail'
+import { type MovieDetailState, useMovieDetail } from './use-movie-detail'
+
+const HERO_FADE = 200
 
 export function MovieDetailPage() {
   const state = useMovieDetail()
+  const back = usePushBack()
+
+  return (
+    <Screen title={state.movie?.title ?? 'Movie'} largeTitle={false} transparentUntil={HERO_FADE} back={back}>
+      <MovieDetailBody state={state} />
+    </Screen>
+  )
+}
+
+function MovieDetailBody({ state }: { state: MovieDetailState }) {
   const updateMutation = useUpdateMovie()
 
   if (state.isLoading) {
@@ -22,7 +36,7 @@ export function MovieDetailPage() {
   const { movie } = state
 
   return (
-    <div className="-m-6">
+    <>
       <MovieDetailHero
         movie={movie}
         extendedData={state.extendedData}
@@ -49,6 +63,6 @@ export function MovieDetailPage() {
         moduleType="movie"
         monitoredDescription="Search for releases and upgrade quality"
       />
-    </div>
+    </>
   )
 }

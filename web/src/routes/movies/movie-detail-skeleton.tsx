@@ -92,7 +92,7 @@ function ContentSkeleton() {
 
 export function MovieDetailSkeleton() {
   return (
-    <div className="-m-6">
+    <div>
       <HeroSkeleton />
       <ActionBarSkeleton />
       <ContentSkeleton />
