@@ -175,11 +175,13 @@ export async function ensureDownloading(page: Page): Promise<DownloadRef> {
 
 export async function ensureRecentHistory(page: Page): Promise<HistoryItem> {
   await ensureDownloading(page)
-  await expect.poll(async () => (await listHistory(page)).length).toBeGreaterThan(0)
+  await expect.poll(async () => {
+    const items = await listHistory(page)
+    return items.length
+  }).toBeGreaterThan(0)
   const history = await listHistory(page)
-  const entry = history[0]
-  if (!entry) {
+  if (history.length === 0) {
     throw new Error('history stayed empty after autosearch')
   }
-  return entry
+  return history[0]
 }

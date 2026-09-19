@@ -142,11 +142,11 @@ type ForceLoadingArgs = {
 }
 
 async function setForceLoading({ page, activate, kind, on }: ForceLoadingArgs): Promise<void> {
-  if (kind === 'phone') {
-    await activate(primaryNav(page).getByRole('link', { name: 'More' }))
-  } else {
-    await activate(page.getByRole('button', { name: 'Developer Tools' }))
-  }
+  await activate(
+    kind === 'phone'
+      ? primaryNav(page).getByRole('link', { name: 'More' })
+      : page.getByRole('button', { name: 'Developer Tools' }),
+  )
   const toggle = page.getByRole('switch', { name: 'Force Loading' })
   await expect(toggle).toBeVisible()
   if ((await toggle.isChecked()) !== on) {

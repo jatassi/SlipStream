@@ -41,10 +41,10 @@ export function RowSkeleton({
       <LeadingSkeleton kind={leading} />
       <div className="min-w-0 flex-1">
         <Skeleton className="h-5 w-2/3" />
-        {subtitle && <SubtitleSkeleton progress={progress} />}
+        {subtitle ? <SubtitleSkeleton progress={progress} /> : null}
       </div>
-      {trailing && <Skeleton className="h-[18px] w-12" />}
-      {chevron && <Skeleton className="size-4 rounded" />}
+      {trailing ? <Skeleton className="h-[18px] w-12" /> : null}
+      {chevron ? <Skeleton className="size-4 rounded" /> : null}
     </div>
   )
 }
