@@ -8,13 +8,17 @@ This ticket introduces the shared `Group`, `Row` and `IconTile` primitives (inse
 
 **Blocked by:** 03 (Two-shell layout)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Both projects: the Dashboard shows Health, Storage, Downloading and Recent as grouped sections populated from developer-mode data
-- [ ] Both projects: a health issue row shows the amber tile and activating it opens System
-- [ ] Both projects: Storage shows a single split bar with used/total and one line per root folder
-- [ ] Both projects: Downloading lists at most three items with progress, speed and remaining time; "See all" opens Activity; activating a row opens that title's detail
-- [ ] Both projects: Recent rows show the event tile, title and relative time; activating a row opens the title's detail
-- [ ] Wide project: the groups render in two columns; phone project: they stack with the 16 px gutter
-- [ ] Skeleton state renders rows of the same height as the loaded state (no vertical shift when data arrives)
-- [ ] `Group`, `Row`, `IconTile` and `ProgressLine` are shared components reusable by later tickets and match the Native prototype's look and press behaviour
+- [x] Both projects: the Dashboard shows Health, Storage, Downloading and Recent as grouped sections populated from developer-mode data
+- [x] Both projects: a health issue row shows the amber tile and activating it opens System
+- [x] Both projects: Storage shows a single split bar with used/total and one line per root folder
+- [x] Both projects: Downloading lists at most three items with progress, speed and remaining time; "See all" opens Activity; activating a row opens that title's detail
+- [x] Both projects: Recent rows show the event tile, title and relative time; activating a row opens the title's detail
+- [x] Wide project: the groups render in two columns; phone project: they stack with the 16 px gutter
+- [x] Skeleton state renders rows of the same height as the loaded state (no vertical shift when data arrives)
+- [x] `Group`, `Row`, `IconTile` and `ProgressLine` are shared components reusable by later tickets and match the Native prototype's look and press behaviour
+
+## Comments
+
+Storage split segments are weighted by movie vs TV root-folder counts because the storage API exposes volume used/total, not per-folder used. Skeleton vs loaded Health row height is asserted within 4px (phone device-pixel rounding). Developer-mode library has no `missing` movies; dashboard e2e autosearches an upgradable title (and POSTs root-folder health tests) so Health/Downloading/Recent assert real data.

@@ -6,11 +6,10 @@ const STATUS_LABEL = /^(Available|Missing|Downloading|Upgradable|Unreleased|Fail
 test('dashboard shows developer-mode data', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-  await expect(page.getByText('System Health', { exact: true })).toBeVisible()
-  await expect(page.getByText('Download Clients', { exact: true })).toBeVisible()
-  await expect(page.getByText('Indexers', { exact: true })).toBeVisible()
-  await expect(page.getByText('Active Downloads', { exact: true })).toBeVisible()
-  await expect(page.getByText('Storage', { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Storage' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Downloading' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recent' })).toBeVisible()
 })
 
 test('library list shows items', async ({ page }) => {
