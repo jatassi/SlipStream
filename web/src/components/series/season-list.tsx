@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 
 import { ChevronRight } from 'lucide-react'
 
-import { type MediaStatus, MediaStatusBadge } from '@/components/media/media-status-badge'
+import type { MediaStatus } from '@/components/media/media-status'
+import { StatusPill } from '@/components/media/status-pill'
 import { MediaSearchMonitorControls } from '@/components/search'
 import {
   Accordion,
@@ -200,7 +201,7 @@ function SeasonTrigger(props: SeasonTriggerProps) {
         <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
           {fileCount}/{totalCount}
         </Badge>
-        <MediaStatusBadge status={computeSeasonStatus(season.statusCounts)} />
+        <StatusPill status={computeSeasonStatus(season.statusCounts)} />
         <button type="button" className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <MediaSearchMonitorControls
             mediaType="season"

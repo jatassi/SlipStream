@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Eye, MoreHorizontal, RefreshCw, Search, Trash2 } from 'lucide-react'
 
-import { MediaStatusBadge } from '@/components/media/media-status-badge'
+import { StatusPill } from '@/components/media/status-pill'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +49,7 @@ export const MOVIE_COLUMNS: ColumnDef<Movie>[] = [
     label: 'Status',
     defaultVisible: true,
     hideable: true,
-    render: (movie) => <MediaStatusBadge status={movie.status} />,
+    render: (movie) => <StatusPill status={movie.status} />,
   },
   {
     id: 'qualityProfile',

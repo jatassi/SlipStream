@@ -3,9 +3,17 @@
 @import 'shadcn/tailwind.css';
 @plugin '@tailwindcss/typography';
 @import '@fontsource-variable/inter';
+@import './tokens.css';
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant data-active (&[data-active]);
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 
 :root {
   --background: oklch(1 0 0);
@@ -277,38 +285,40 @@
     animation: glow-media-pulse 2s ease-in-out infinite;
   }
 
-  /* Hover variants for glows */
-  .hover\:glow-movie-sm:hover {
-    box-shadow: 0 0 8px var(--movie-500);
-  }
-  .hover\:glow-movie:hover {
-    box-shadow: 0 0 15px var(--movie-500);
-  }
-  .hover\:glow-movie-lg:hover {
-    box-shadow:
-      0 0 25px var(--movie-500),
-      0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
-  }
-  .hover\:glow-tv-sm:hover {
-    box-shadow: 0 0 8px var(--tv-500);
-  }
-  .hover\:glow-tv:hover {
-    box-shadow: 0 0 15px var(--tv-500);
-  }
-  .hover\:glow-tv-lg:hover {
-    box-shadow:
-      0 0 25px var(--tv-500),
-      0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-  .hover\:glow-media-sm:hover {
-    box-shadow:
-      -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
-      8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-  .hover\:glow-media:hover {
-    box-shadow:
-      -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-      12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+  /* Hover variants for glows — fine pointer only so tap never sticks */
+  @media (hover: hover) and (pointer: fine) {
+    .hover\:glow-movie-sm:hover {
+      box-shadow: 0 0 8px var(--movie-500);
+    }
+    .hover\:glow-movie:hover {
+      box-shadow: 0 0 15px var(--movie-500);
+    }
+    .hover\:glow-movie-lg:hover {
+      box-shadow:
+        0 0 25px var(--movie-500),
+        0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
+    }
+    .hover\:glow-tv-sm:hover {
+      box-shadow: 0 0 8px var(--tv-500);
+    }
+    .hover\:glow-tv:hover {
+      box-shadow: 0 0 15px var(--tv-500);
+    }
+    .hover\:glow-tv-lg:hover {
+      box-shadow:
+        0 0 25px var(--tv-500),
+        0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    }
+    .hover\:glow-media-sm:hover {
+      box-shadow:
+        -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
+        8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
+    }
+    .hover\:glow-media:hover {
+      box-shadow:
+        -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
+        12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
+    }
   }
 
   /* Icon glow effects (using drop-shadow for SVG icons) */
@@ -329,19 +339,21 @@
   }
 
   /* Hover variants for icon glows */
-  .group:hover .group-hover\:icon-glow-movie,
-  .group\/btn:hover .group-hover\/btn\:icon-glow-movie {
-    filter: drop-shadow(0 0 4px var(--movie-500));
-  }
-  .group:hover .group-hover\:icon-glow-tv,
-  .group\/btn:hover .group-hover\/btn\:icon-glow-tv {
-    filter: drop-shadow(0 0 4px var(--tv-500));
-  }
-  .hover\:icon-glow-movie:hover {
-    filter: drop-shadow(0 0 4px var(--movie-500));
-  }
-  .hover\:icon-glow-tv:hover {
-    filter: drop-shadow(0 0 4px var(--tv-500));
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .group-hover\:icon-glow-movie,
+    .group\/btn:hover .group-hover\/btn\:icon-glow-movie {
+      filter: drop-shadow(0 0 4px var(--movie-500));
+    }
+    .group:hover .group-hover\:icon-glow-tv,
+    .group\/btn:hover .group-hover\/btn\:icon-glow-tv {
+      filter: drop-shadow(0 0 4px var(--tv-500));
+    }
+    .hover\:icon-glow-movie:hover {
+      filter: drop-shadow(0 0 4px var(--movie-500));
+    }
+    .hover\:icon-glow-tv:hover {
+      filter: drop-shadow(0 0 4px var(--tv-500));
+    }
   }
 }
 

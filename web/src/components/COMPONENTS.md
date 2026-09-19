@@ -54,7 +54,8 @@ Reusable components available to module authors. All paths are relative to `web/
 
 | Component | Location | Purpose | Key Props |
 |---|---|---|---|
-| `MediaStatusBadge` | `components/media/media-status-badge.tsx` | Color-coded badge for media status (unreleased, missing, downloading, failed, upgradable, available). Supports icon-only mode. | `status: MediaStatus`, `iconOnly`, `className` |
+| `StatusDot` | `components/media/status-dot.tsx` | 6 px tinted dot for a media status hue. Dense contexts (tables, poster cells). | `status: MediaStatus`, `decorative`, `className` |
+| `StatusPill` | `components/media/status-pill.tsx` | Tinted pill with a status dot and label. Prominent contexts (cards, heroes). | `status: MediaStatus`, `className` |
 | `QualityBadge` | `components/media/quality-badge.tsx` | Monospace badge showing quality/resolution label. Variant adjusts by resolution tier. | `quality`, `resolution`, `className` |
 | `ProductionStatusBadge` | `components/media/production-status-badge.tsx` | Badge for series production status (continuing, ended, upcoming). | `status: ProductionStatus`, `className` |
 | `ProgressBar` | `components/media/progress-bar.tsx` | Themed progress bar (sm/md/lg). Variant controls color (`default`, `movie`, `tv`). | `value`, `max`, `showLabel`, `size`, `variant`, `className` |

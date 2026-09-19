@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { ChevronDown } from 'lucide-react'
 
-import { MediaStatusBadge } from '@/components/media/media-status-badge'
 import { QualityBadge } from '@/components/media/quality-badge'
+import { StatusDot } from '@/components/media/status-dot'
 import { MediaSearchMonitorControls } from '@/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import {
@@ -182,7 +182,7 @@ function EpisodeRowCells(props: EpisodeRowProps) {
         {episode.airDate ? formatDate(episode.airDate) : '-'}
       </TableCell>
       <TableCell className="px-2 py-1.5 text-center">
-        <MediaStatusBadge status={episode.status} iconOnly />
+        <StatusDot status={episode.status} />
       </TableCell>
       <TableCell className="px-2 py-1.5">
         {episode.episodeFile ? <QualityBadge quality={episode.episodeFile.quality} /> : '-'}
