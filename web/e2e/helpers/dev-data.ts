@@ -84,6 +84,10 @@ function flattenIssues(health: HealthResponse): HealthItem[] {
   ].filter((item) => item.status !== 'ok')
 }
 
+export async function apiGet<T>(page: Page, path: string): Promise<T> {
+  return apiJson<T>(page, path)
+}
+
 export async function listHealthIssues(page: Page): Promise<HealthItem[]> {
   const health = await apiJson<HealthResponse>(page, '/system/health')
   return flattenIssues(health)
