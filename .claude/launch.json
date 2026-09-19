@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-dev-mode",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["dev-backend-devmode"],
+      "url": "https://slipstream-api.localhost:1355"
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["dev-frontend"],
+      "url": "https://slipstream.localhost:1355"
+    }
+  ]
+}

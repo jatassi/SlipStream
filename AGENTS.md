@@ -42,11 +42,13 @@ SlipStream is a unified media management system (similar to Sonarr/Radarr) with 
 
 ## Common Commands
 
-Default ports: backend :8080, frontend :3000. The user typically already has dev servers running — check `curl -sf http://localhost:3000` and `curl -sf http://localhost:8080/api/v1/system` before starting anything. If you need to start them yourself, run them in the background (`run_in_background: true`) so you can keep working:
+Dev servers run through [portless](https://portless.sh), which gives each one a stable named URL instead of a port and prefixes the name with the branch inside a git worktree, so parallel checkouts never contend for a port. Frontend: `portless get slipstream`; backend: `portless get slipstream-api`. The user typically already has dev servers running — check `portless list` (or `curl -skf "$(portless get slipstream-api)/api/v1/system"`) before starting anything. If you need to start them yourself, run them in the background (`run_in_background: true`) so you can keep working:
 
-- Both: `make dev` from the repo root
-- Backend only: `go run ./cmd/slipstream --config configs/config.example.yaml` (omit the flag if `configs/config.yaml` exists)
-- Frontend only: `cd web && bun run dev`
+- Both: `make dev` from the repo root (`make dev-mode` for developer mode)
+- Backend only: `make dev-backend` (`make dev-backend-devmode` for developer mode)
+- Frontend only: `make dev-frontend`
+
+Never start `go run` or `bun run dev` bare: the frontend reads its port from `PORT` and its API target from `SLIPSTREAM_API_ORIGIN`, which the Makefile targets set through portless. Ports 8080 and 3000 are only the defaults used when those variables are absent (CI).
 
 Stop a background task with `TaskStop`. After making backend changes, prompt the user to restart rather than restarting their running server yourself.
 
@@ -90,7 +92,7 @@ Priority: environment variables > `.env` file > config.yaml > defaults
 - Config file: `--config` flag or `configs/config.yaml`
 
 ### Logging
-Development (`go run`): log level forced to `debug` (detected via "go-build" in executable path). Production: configured level (default `info`).
+Development: log level forced to `debug` and developer tools exposed when the build is a dev build, detected via "go-build" in the executable path (`go run`) or `SLIPSTREAM_DEV_BUILD=1` (set by the `make dev*` targets and the Playwright harness, which run a built binary). Production: configured level (default `info`).
 
 ### API
 All endpoints under `/api/v1`. Route definitions in `internal/api/routes.go`.

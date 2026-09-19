@@ -25,17 +25,27 @@ dev-mode: ## Run both servers with developer mode enabled at startup
 	@echo "Starting development servers (developer mode)..."
 	@make -j2 dev-backend-devmode dev-frontend
 
+# Dev servers run through portless (https://portless.sh): each gets a stable
+# named URL instead of a port, and every git worktree gets its own prefixed
+# name, so parallel checkouts never fight over :3000 or :8080. The backend is
+# built and exec'd directly and Vite runs through its own binary because
+# `go run` and `bun run` swallow the signals portless uses to stop them;
+# SLIPSTREAM_DEV_BUILD=1 keeps the dev-build behaviour `go run` used to imply.
+#   backend  -> $(portless get slipstream-api)
+#   frontend -> $(portless get slipstream)
 dev-backend: ## Run Go backend in development mode
-	@echo "Starting backend on :8080..."
-	@cd cmd/slipstream && go run .
+	@echo "Starting backend at $$(portless get slipstream-api)..."
+	@go build -o bin/slipstream ./cmd/slipstream
+	@SLIPSTREAM_DEV_BUILD=1 portless run --name slipstream-api sh -c 'SLIPSTREAM_SERVER_PORT="$$PORT" exec ./bin/slipstream'
 
 dev-backend-devmode: ## Run Go backend with developer mode enabled at startup
-	@echo "Starting backend on :8080 (developer mode)..."
-	@cd cmd/slipstream && go run . --dev-mode
+	@echo "Starting backend at $$(portless get slipstream-api) (developer mode)..."
+	@go build -o bin/slipstream ./cmd/slipstream
+	@SLIPSTREAM_DEV_BUILD=1 portless run --name slipstream-api sh -c 'SLIPSTREAM_SERVER_PORT="$$PORT" exec ./bin/slipstream --dev-mode'
 
 dev-frontend: ## Run Vite frontend in development mode
-	@echo "Starting frontend on :3000..."
-	@cd web && bun run dev
+	@echo "Starting frontend at $$(portless get slipstream)..."
+	@cd web && SLIPSTREAM_API_ORIGIN="$$(portless get slipstream-api)" portless run --name slipstream node_modules/.bin/vite
 
 # Build
 build: build-backend build-frontend ## Build both backend and frontend
