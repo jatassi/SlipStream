@@ -21,8 +21,11 @@ type HealthResponse = {
 
 type QueueItem = {
   title: string
+  releaseName: string
   status: string
+  mediaType: string
   movieId?: number
+  seriesId?: number
 }
 
 function isQueuedOrDownloading(item: QueueItem): boolean {
@@ -114,6 +117,7 @@ async function listQueuedOrDownloading(page: Page): Promise<QueueItem[]> {
 
 export type DownloadRef = {
   rowTitle: string
+  releaseName: string
   detailTitle: string
 }
 
@@ -185,28 +189,123 @@ async function autosearchMissingMovie(page: Page): Promise<void> {
   }
 }
 
+async function downloadRef(page: Page, item: QueueItem): Promise<DownloadRef> {
+  return {
+    rowTitle: item.title,
+    releaseName: item.releaseName,
+    detailTitle: await detailTitleFor(page, item),
+  }
+}
+
 export async function ensureDownloading(page: Page): Promise<DownloadRef> {
   const existing = await listDownloading(page)
   if (existing[0]) {
-    return { rowTitle: existing[0].title, detailTitle: await detailTitleFor(page, existing[0]) }
+    return downloadRef(page, existing[0])
   }
   const pending = await listQueuedOrDownloading(page)
   if (!pending[0]) {
     await autosearchMissingMovie(page)
   }
-  const item = await waitForDownloading(page)
-  return { rowTitle: item.title, detailTitle: await detailTitleFor(page, item) }
+  return downloadRef(page, await waitForDownloading(page))
 }
 
+type Episode = {
+  id: number
+  status: string
+  monitored: boolean
+}
+
+// Mock downloads sit in `queued` for two seconds before they start, and a
+// queued row carries no pause control, so wait for the running state.
+async function grabbed(page: Page, match: (item: QueueItem) => boolean): Promise<QueueItem> {
+  const running = (item: QueueItem) => match(item) && item.status === 'downloading'
+  await expect
+    .poll(
+      async () => {
+        const data = await apiJson<{ items: QueueItem[] }>(page, '/queue')
+        return data.items.filter((item) => running(item)).length
+      },
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThan(0)
+  const data = await apiJson<{ items: QueueItem[] }>(page, '/queue')
+  const item = data.items.find((entry) => running(entry))
+  if (!item) {
+    throw new Error('grabbed item vanished from the queue')
+  }
+  return item
+}
+
+async function postAutosearch(page: Page, path: string): Promise<void> {
+  const token = await bearerToken(page)
+  const response = await page.request.fetch(`${apiBase}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok() && response.status() !== 409) {
+    throw new Error(`${path} failed: ${response.status()} ${await response.text()}`)
+  }
+}
+
+export async function ensureSeriesDownloading(page: Page, title: string): Promise<DownloadRef> {
+  const library = await apiJson<{ id: number; title: string }[]>(page, '/series')
+  const series = library.find((entry) => entry.title === title)
+  if (!series) {
+    throw new Error(`no series titled ${title} in the developer library`)
+  }
+  const matches = (item: QueueItem) => item.seriesId === series.id
+  const queue = await apiJson<{ items: QueueItem[] }>(page, '/queue')
+  if (!queue.items.some((item) => matches(item))) {
+    const episodes = await apiJson<Episode[]>(page, `/series/${series.id}/episodes`)
+    const episode = episodes.find((entry) => entry.monitored && entry.status === 'missing')
+    if (!episode) {
+      throw new Error(`no missing episode of ${title} to grab`)
+    }
+    await postAutosearch(page, `/autosearch/episode/${episode.id}`)
+  }
+  return downloadRef(page, await grabbed(page, matches))
+}
+
+export async function addOfflineDownloadClient(page: Page, name: string): Promise<number> {
+  const created = await apiJson<{ id: number }>(page, '/downloadclients', {
+    method: 'POST',
+    data: {
+      name,
+      type: 'qbittorrent',
+      host: '127.0.0.1',
+      port: 1,
+      enabled: true,
+      priority: 99,
+      cleanupMode: 'leave',
+      importDelaySeconds: 0,
+    },
+  })
+  return created.id
+}
+
+export async function removeDownloadClient(page: Page, id: number): Promise<void> {
+  const token = await bearerToken(page)
+  const response = await page.request.fetch(`${apiBase}/downloadclients/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok()) {
+    throw new Error(`delete download client ${id} failed: ${response.status()}`)
+  }
+}
+
+// Episode grabs are recorded without a media title, so return the newest entry
+// the dashboard's Recent group can actually name.
 export async function ensureRecentHistory(page: Page): Promise<HistoryItem> {
   await ensureDownloading(page)
   await expect.poll(async () => {
     const items = await listHistory(page)
-    return items.length
+    return items.filter((item) => (item.mediaTitle ?? '') !== '').length
   }).toBeGreaterThan(0)
   const history = await listHistory(page)
-  if (history.length === 0) {
-    throw new Error('history stayed empty after autosearch')
+  const titled = history.find((item) => (item.mediaTitle ?? '') !== '')
+  if (!titled) {
+    throw new Error('history holds no titled entry')
   }
-  return history[0]
+  return titled
 }
