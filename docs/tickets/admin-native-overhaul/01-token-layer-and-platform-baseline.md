@@ -16,13 +16,19 @@ No routes, hooks, stores or backend change. Existing pages keep their current la
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The token layer is imported globally and the design-system doc's tables (motion, type, touch, status, materials) map one-to-one to defined CSS custom properties and utilities without the `m-` prefix
+- [x] The token layer is imported globally and the design-system doc's tables (motion, type, touch, status, materials) map one-to-one to defined CSS custom properties and utilities without the `m-` prefix
 - [ ] Light theme defines every status hue and material token; switching theme in the app shows correct status colours and legible bars in both schemes
 - [ ] On a phone-sized viewport, focusing any text input in the app does not change the page scale; tapping a button shows no grey highlight; long-pressing a control does not select text
-- [ ] The document declares a theme colour per colour scheme and `viewport-fit=cover`
-- [ ] `prefers-reduced-transparency` renders material surfaces solid; `prefers-reduced-motion` removes press scale and entrance slides
-- [ ] `MediaStatusBadge` no longer exists; every former call site renders `StatusPill` (prominent) or `StatusDot` (dense) and each status uses exactly one hue across the app
-- [ ] A viewport hook returns the current shell (`phone` or `wide`) and updates on resize across the 768 px boundary
-- [ ] `tsc -b` and ESLint pass
+- [x] The document declares a theme colour per colour scheme and `viewport-fit=cover`
+- [x] `prefers-reduced-transparency` renders material surfaces solid; `prefers-reduced-motion` removes press scale and entrance slides
+- [x] `MediaStatusBadge` no longer exists; every former call site renders `StatusPill` (prominent) or `StatusDot` (dense) and each status uses exactly one hue across the app
+- [x] A viewport hook returns the current shell (`phone` or `wide`) and updates on resize across the 768 px boundary
+- [x] `tsc -b` and ESLint pass
+
+## Comments
+
+Light-theme status hues and materials are defined on `:root` (dark overrides on `.dark`), and the reduced-motion / reduced-transparency rules are in `web/src/tokens.css`. I did not run the authenticated app to watch a live theme switch, and I did not exercise iOS Safari input-zoom, tap-highlight, or control text-select on a phone. Those two boxes stay open for hardware / running-app checks.
+
+`useViewport` is smoked on `RootLayout` via `data-shell` only. The prototype under `web/src/prototypes/mobile/` was not modified.
