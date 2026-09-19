@@ -196,6 +196,8 @@ export {
   useUpdateSettings,
 } from './use-system'
 export { useCheckForUpdate, useInstallUpdate,useUpdateStatus } from './use-update'
+export type { ViewportShell } from './use-viewport'
+export { useViewport } from './use-viewport'
 
 // Portal hooks
 export {
