@@ -115,8 +115,7 @@ test('skeleton rows match loaded row height', async ({ page, activate }, testInf
     return
   }
   expect(Math.abs(skeletonBox.height - loadedBox.height)).toBeLessThanOrEqual(4)
-  await setForceLoading({ page, activate, kind: shellKind(testInfo.project.name), on: false })
-  await expect(health.getByRole('link').first()).toBeVisible()
+  await expect(health.getByRole('status', { name: 'Loading' }).first()).toBeVisible()
 })
 
 function downloadRow(downloading: Locator, download: DownloadRef): Locator {
@@ -147,10 +146,12 @@ async function setForceLoading({ page, activate, kind, on }: ForceLoadingArgs): 
       ? primaryNav(page).getByRole('link', { name: 'More' })
       : page.getByRole('button', { name: 'Developer Tools' }),
   )
+  const label = page.getByText('Force Loading', { exact: true })
+  await expect(label).toBeVisible()
   const toggle = page.getByRole('switch', { name: 'Force Loading' })
-  await expect(toggle).toBeVisible()
   if ((await toggle.isChecked()) !== on) {
-    await activate(toggle)
+    await activate(label)
+    await expect(toggle).toHaveAttribute('aria-checked', on ? 'true' : 'false')
   }
   if (kind === 'phone') {
     await activate(primaryNav(page).getByRole('link', { name: 'Dashboard' }))

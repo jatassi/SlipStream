@@ -152,11 +152,21 @@ type AutoSearchResult = {
   error?: string
 }
 
+function pickMovieToSearch(movies: Movie[]): Movie | undefined {
+  const rank = ['missing', 'upgradable', 'failed', 'downloading', 'available'] as const
+  for (const status of rank) {
+    const movie = movies.find((item) => item.status === status)
+    if (movie) {
+      return movie
+    }
+  }
+}
+
 async function autosearchMissingMovie(page: Page): Promise<void> {
   const movies = await apiJson<Movie[]>(page, '/movies')
-  const movie = movies.find((item) => item.status === 'missing')
+  const movie = pickMovieToSearch(movies)
   if (!movie) {
-    return
+    throw new Error('no searchable movie in the library')
   }
   const token = await bearerToken(page)
   const response = await page.request.fetch(`${apiBase}/autosearch/movie/${movie.id}`, {
@@ -167,7 +177,7 @@ async function autosearchMissingMovie(page: Page): Promise<void> {
     return
   }
   if (!response.ok()) {
-    throw new Error(`/autosearch/movie/${movie.id} failed: ${response.status()}`)
+    throw new Error(`/autosearch/movie/${movie.id} failed: ${response.status()} ${await response.text()}`)
   }
   const result = (await response.json()) as AutoSearchResult
   if (!result.downloaded) {
