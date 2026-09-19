@@ -43,18 +43,17 @@ type macApp struct {
 	running     bool
 	mu          sync.Mutex
 	stopOnce    sync.Once
+	done        chan struct{}
 }
 
 func NewApp(cfg AppConfig) App {
-	return &macApp{config: cfg}
+	return &macApp{config: cfg, done: make(chan struct{})}
 }
 
 func (a *macApp) Run() error {
 	if a.config.NoTray {
-		a.mu.Lock()
-		a.running = true
-		a.mu.Unlock()
-		select {}
+		<-a.done
+		return nil
 	}
 
 	objc.WithAutoreleasePool(func() {
@@ -136,6 +135,14 @@ func (a *macApp) OpenBrowser(url string) error {
 
 func (a *macApp) Stop() {
 	a.stopOnce.Do(func() {
+		if a.config.NoTray {
+			close(a.done)
+			if a.config.OnQuit != nil {
+				a.config.OnQuit()
+			}
+			return
+		}
+
 		a.mu.Lock()
 		wasRunning := a.running
 		a.running = false

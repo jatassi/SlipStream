@@ -23,18 +23,17 @@ type windowsApp struct {
 	running    bool
 	mu         sync.Mutex
 	stopOnce   sync.Once
+	done       chan struct{}
 }
 
 func NewApp(cfg AppConfig) App {
-	return &windowsApp{config: cfg}
+	return &windowsApp{config: cfg, done: make(chan struct{})}
 }
 
 func (a *windowsApp) Run() error {
 	if a.config.NoTray {
-		a.mu.Lock()
-		a.running = true
-		a.mu.Unlock()
-		select {}
+		<-a.done
+		return nil
 	}
 
 	var err error
@@ -103,6 +102,14 @@ func (a *windowsApp) OpenBrowser(url string) error {
 
 func (a *windowsApp) Stop() {
 	a.stopOnce.Do(func() {
+		if a.config.NoTray {
+			close(a.done)
+			if a.config.OnQuit != nil {
+				a.config.OnQuit()
+			}
+			return
+		}
+
 		a.mu.Lock()
 		if a.running {
 			if a.notifyIcon != nil {
