@@ -1,0 +1,115 @@
+/* Native variant — push navigation, collapsing bars, action sheet */
+
+.native-root {
+  transition:
+    transform var(--dur-base) var(--ease-out-strong),
+    filter var(--dur-base) var(--ease-out-strong);
+}
+.native-root[data-behind] {
+  transform: translateX(-28%);
+  filter: brightness(0.7);
+}
+
+.native-layer {
+  position: absolute;
+  inset: 0;
+  background: var(--background);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+  animation: native-push-in 260ms var(--ease-out-strong) both;
+  transition:
+    transform var(--dur-base) var(--ease-out-strong),
+    filter var(--dur-base) var(--ease-out-strong);
+}
+.native-layer[data-behind] {
+  transform: translateX(-28%);
+  filter: brightness(0.7);
+}
+/* Exit is faster than enter: the system is responding, not deciding */
+.native-layer[data-exiting] {
+  animation: native-push-out 200ms var(--ease-out-strong) both;
+  pointer-events: none;
+}
+
+@keyframes native-push-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes native-push-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+/* Bar background fades in only once content scrolls beneath it */
+.native-bar-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out-strong);
+  box-shadow: 0 1px 0 var(--material-edge);
+}
+.native-bar[data-collapsed] .native-bar-bg {
+  opacity: 1;
+}
+.native-compact-title {
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--dur-fast) var(--ease-out-strong),
+    transform var(--dur-fast) var(--ease-out-strong);
+}
+.native-bar[data-collapsed] .native-compact-title,
+.native-bar[data-always-title] .native-compact-title {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Segmented control thumb */
+.native-segment-thumb {
+  transition: transform 200ms var(--ease-out-strong);
+}
+
+/* Action sheet: enters from where it dismisses to */
+.native-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  animation: m-fade-in 200ms var(--ease-out-strong) both;
+}
+.native-sheet {
+  position: absolute;
+  inset-inline: 8px;
+  bottom: calc(var(--safe-bottom) + 8px);
+  animation: native-sheet-in 260ms var(--ease-out-strong) both;
+}
+[data-closing] > .native-scrim {
+  animation: m-fade-out 180ms var(--ease-out-strong) both;
+}
+[data-closing] > .native-sheet {
+  animation: native-sheet-out 180ms var(--ease-out-strong) both;
+}
+@keyframes native-sheet-in {
+  from { transform: translateY(110%); }
+  to { transform: translateY(0); }
+}
+@keyframes native-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(110%); }
+}
+@keyframes m-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .native-layer,
+  .native-layer[data-exiting],
+  .native-sheet,
+  [data-closing] > .native-sheet {
+    animation-name: m-fade-in;
+    animation-duration: 160ms;
+  }
+  .native-root[data-behind],
+  .native-layer[data-behind] {
+    transform: none;
+  }
+}
