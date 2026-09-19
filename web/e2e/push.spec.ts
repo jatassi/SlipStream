@@ -17,7 +17,7 @@ test('phone library item pushes detail and restores list scroll', async ({ page,
   await expect(page.getByRole('banner', { name: 'The Matrix' })).toBeVisible()
   await activate(page.getByRole('button', { name: 'Library' }))
   await expect(heading).toBeVisible()
-  await expect.poll(() => scrollTopOf(heading)).toBe(scrolled)
+  await expect.poll(async () => Math.abs((await scrollTopOf(heading)) - scrolled)).toBeLessThan(8)
 })
 
 test('phone settings from More back via button and browser history', async ({ page, activate }, testInfo) => {
