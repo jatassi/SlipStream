@@ -1,0 +1,250 @@
+/*
+ * SlipStream mobile design system — tokens and platform baseline.
+ *
+ * Layered on top of the existing admin tokens (index.css). Everything here is
+ * shared by every mobile shell variant; variants differ in layout, navigation
+ * model and personality, never in these primitives.
+ */
+
+@theme inline {
+  /* Motion — strong curves; built-in CSS easings are too weak to read as intentional */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Mobile type scale — size, leading and tracking travel together */
+  --text-m-caption: 12px;
+  --text-m-caption--line-height: 16px;
+  --text-m-caption--letter-spacing: 0.01em;
+  --text-m-footnote: 13px;
+  --text-m-footnote--line-height: 18px;
+  --text-m-body: 15px;
+  --text-m-body--line-height: 20px;
+  --text-m-title: 17px;
+  --text-m-title--line-height: 22px;
+  --text-m-title--letter-spacing: -0.01em;
+  --text-m-heading: 22px;
+  --text-m-heading--line-height: 28px;
+  --text-m-heading--letter-spacing: -0.015em;
+  --text-m-display: 34px;
+  --text-m-display--line-height: 40px;
+  --text-m-display--letter-spacing: -0.022em;
+
+  /* Touch geometry */
+  --spacing-tap: 44px;
+  --spacing-tap-lg: 52px;
+  --spacing-screen: 16px;
+  --spacing-tab-bar: 56px;
+
+  /* Sheet + bar radii */
+  --radius-sheet: 20px;
+  --radius-card: 14px;
+  --radius-thumb: 6px;
+}
+
+:root {
+  /* Durations — press < fast < base < sheet. UI motion stays under 300ms; sheets may go to 320. */
+  --dur-press: 120ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-sheet: 320ms;
+
+  /* Safe areas — real devices resolve env(); the prototype phone frame overrides these */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Materials — translucent chrome that content scrolls under */
+  --material-bar: color-mix(in oklch, var(--background) 78%, transparent);
+  --material-bar-heavy: color-mix(in oklch, var(--background) 88%, transparent);
+  --material-chip: color-mix(in oklch, var(--card) 70%, transparent);
+  --material-edge: color-mix(in oklch, var(--foreground) 8%, transparent);
+
+  /* Status hues — shared by every variant so a state always looks the same */
+  --status-available: oklch(72% 0.17 155);
+  --status-missing: oklch(78% 0.16 75);
+  --status-downloading: oklch(70% 0.19 300);
+  --status-failed: oklch(66% 0.21 25);
+  --status-upgradable: oklch(76% 0.14 205);
+  --status-unreleased: oklch(70% 0.12 245);
+}
+
+/* ─── Platform baseline (mobile-native) ─────────────────────────────────── */
+
+.m-root {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.m-root input,
+.m-root textarea,
+.m-root select {
+  /* 16px minimum keeps iOS Safari from zooming into the field */
+  font-size: 16px;
+}
+
+.m-root button,
+.m-root a,
+.m-root [role='button'] {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Scroll containers own their bounce; the page behind them never moves */
+.m-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.m-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.m-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x pan-y;
+}
+.m-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Interaction primitives ────────────────────────────────────────────── */
+
+/* Press feedback lands on pointer-down, ease-out, 120ms; never on click */
+.m-press {
+  transition: transform var(--dur-press) var(--ease-out-strong), opacity var(--dur-press) var(--ease-out-strong);
+}
+.m-press:active {
+  transform: scale(0.97);
+}
+.m-press-row:active {
+  background: color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+.m-press-dim:active {
+  opacity: 0.6;
+}
+
+/* Hover lives only where a precise pointer exists — touch never gets a stuck hover */
+@media (hover: hover) and (pointer: fine) {
+  .m-press-row:hover {
+    background: color-mix(in oklch, var(--foreground) 4%, transparent);
+  }
+}
+
+/* ─── Materials ─────────────────────────────────────────────────────────── */
+
+.m-material {
+  background: var(--material-bar);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+.m-material-heavy {
+  background: var(--material-bar-heavy);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+.m-material-chip {
+  background: var(--material-chip);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: 0 0 0 1px var(--material-edge) inset;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .m-material,
+  .m-material-heavy,
+  .m-material-chip {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Scroll edge: a soft fade where content meets floating chrome, not a 1px divider */
+.m-scroll-edge-top {
+  mask-image: linear-gradient(to bottom, transparent, black 24px);
+}
+
+/* ─── Safe areas ────────────────────────────────────────────────────────── */
+
+.m-safe-top {
+  padding-top: var(--safe-top);
+}
+.m-safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}
+
+/* ─── Enter animations (entrances ease-out, never ease-in) ──────────────── */
+
+@keyframes m-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes m-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes m-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.m-enter-fade-up {
+  animation: m-fade-up var(--dur-base) var(--ease-out-strong) both;
+}
+.m-enter-fade {
+  animation: m-fade-in var(--dur-fast) var(--ease-out-strong) both;
+}
+.m-enter-scale {
+  animation: m-scale-in var(--dur-base) var(--ease-out-strong) both;
+}
+
+/* Stagger: 40ms steps, capped so a long list never feels slow */
+.m-stagger > :nth-child(1) { animation-delay: 0ms; }
+.m-stagger > :nth-child(2) { animation-delay: 40ms; }
+.m-stagger > :nth-child(3) { animation-delay: 80ms; }
+.m-stagger > :nth-child(4) { animation-delay: 120ms; }
+.m-stagger > :nth-child(5) { animation-delay: 160ms; }
+.m-stagger > :nth-child(n + 6) { animation-delay: 200ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-enter-fade-up,
+  .m-enter-scale {
+    animation-name: m-fade-in;
+  }
+  .m-press:active {
+    transform: none;
+  }
+}
+
+/* Numbers that change should not jitter their neighbours */
+.m-nums {
+  font-variant-numeric: tabular-nums;
+}
