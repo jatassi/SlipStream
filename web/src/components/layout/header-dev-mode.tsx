@@ -34,6 +34,7 @@ export function HeaderDevMode({
         onCheckedChange={onToggle}
         disabled={devModeSwitching}
         size="sm"
+        aria-label="Developer mode"
         className={cn(devModeEnabled && 'data-checked:bg-amber-500')}
       />
     </div>

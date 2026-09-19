@@ -31,10 +31,12 @@ function CollapsedPopoverMenu({ group, onAction }: CollapsibleNavSectionProps) {
     <Popover>
       <PopoverTrigger
         className={cn(
-          'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+          'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium',
+          'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
           'hover:bg-accent hover:text-accent-foreground',
           isAnyChildActive && 'bg-accent text-accent-foreground',
         )}
+        aria-label={group.title}
       >
         <group.icon className="size-5 shrink-0" />
       </PopoverTrigger>
@@ -50,7 +52,8 @@ function CollapsedPopoverMenu({ group, onAction }: CollapsibleNavSectionProps) {
               key={item.href}
               to={item.href}
               className={cn(
-                'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm',
+                'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
                 'hover:bg-accent hover:text-accent-foreground',
                 isItemActive(router.location.pathname, item.href) &&
                   'bg-accent text-accent-foreground font-medium',
@@ -79,7 +82,8 @@ function ExpandedCollapsibleMenu({ group, onAction }: CollapsibleNavSectionProps
     <Collapsible open={isExpanded} onOpenChange={() => toggleMenu(group.id)}>
       <CollapsibleTrigger
         className={cn(
-          'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium',
+          'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
           'hover:bg-accent hover:text-accent-foreground',
           isAnyChildActive && 'text-accent-foreground',
         )}

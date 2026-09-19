@@ -12,6 +12,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/series/add': 'Add Series',
   '/calendar': 'Calendar',
   '/missing': 'Missing',
+  '/more': 'More',
   '/downloads': 'Downloads',
   '/history': 'History',
   '/settings/media/root-folders': 'Settings - Media Management',

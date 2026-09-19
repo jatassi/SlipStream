@@ -19,8 +19,10 @@ export function HeaderDevModePopover({
   return (
     <Popover>
       <PopoverTrigger
+        aria-label="Developer Tools"
         className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+          'inline-flex h-8 w-8 items-center justify-center rounded-md',
+          'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
           'text-amber-500 hover:bg-amber-600/20',
         )}
       >

@@ -18,6 +18,9 @@ type UIState = {
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
 
+  lastLibraryModuleId: string | null
+  setLastLibraryModuleId: (moduleId: string) => void
+
   // Sidebar menu expansion state
   expandedMenus: Record<string, boolean>
   toggleMenu: (menuId: string) => void
@@ -105,6 +108,8 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      lastLibraryModuleId: null,
+      setLastLibraryModuleId: (moduleId) => set({ lastLibraryModuleId: moduleId }),
       expandedMenus: { settings: true, activity: false },
       toggleMenu: (menuId) =>
         set((state) => ({
@@ -150,6 +155,7 @@ export const useUIStore = create<UIState>()(
       name: 'slipstream-ui',
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
+        lastLibraryModuleId: state.lastLibraryModuleId,
         expandedMenus: state.expandedMenus,
         theme: state.theme,
         moviesView: state.moviesView,

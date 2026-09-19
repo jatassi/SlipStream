@@ -26,29 +26,32 @@ function CountBadge({ movieCount, tvCount }: { movieCount: number; tvCount: numb
   )
 }
 
-export function DownloadsNavLink({
+function DownloadsLink({
   collapsed,
-  indented = false,
-  popover = false,
+  indented,
+  popover,
 }: DownloadsNavLinkProps) {
   const nav = useDownloadsNav()
   const themeFlags = { theme: nav.theme, hasDownloads: nav.hasDownloads }
 
-  const linkElement = (
+  return (
     <Link
       to="/downloads"
+      aria-current={nav.isActive ? 'page' : undefined}
+      aria-label={collapsed ? 'Downloads' : undefined}
       className={cn(
-        getBaseClassName({ collapsed, indented, popover }),
+        getBaseClassName({ collapsed, indented: indented ?? false, popover: popover ?? false }),
         getHoverClassName(themeFlags),
         getActiveClassName(nav.isActive, themeFlags),
         getGlowClassName({ ...themeFlags, allPaused: nav.allPaused }),
         getFlashClassName(nav.completionFlash),
       )}
     >
-      {nav.hasDownloads ? <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} /> : null}
-
+      {nav.hasDownloads ? (
+        <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} />
+      ) : null}
       <Download className={getIconClassName(themeFlags)} />
-      {!collapsed && (
+      {collapsed ? null : (
         <>
           <span className="relative z-10 flex-1">Downloads</span>
           {nav.hasDownloads ? <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} /> : null}
@@ -56,6 +59,15 @@ export function DownloadsNavLink({
       )}
     </Link>
   )
+}
+
+export function DownloadsNavLink({
+  collapsed,
+  indented = false,
+  popover = false,
+}: DownloadsNavLinkProps) {
+  const nav = useDownloadsNav()
+  const linkElement = <DownloadsLink collapsed={collapsed} indented={indented} popover={popover} />
 
   if (collapsed && !popover) {
     return (
@@ -65,7 +77,9 @@ export function DownloadsNavLink({
           <div className="flex items-center gap-2">
             Downloads
             {nav.hasDownloads ? <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} /> : null}
-            {nav.hasDownloads ? <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span> : null}
+            {nav.hasDownloads ? (
+              <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span>
+            ) : null}
           </div>
         </TooltipContent>
       </Tooltip>

@@ -133,12 +133,13 @@ function CategoryRow({ category, ok, warning, error }: CategoryRowProps) {
             className="h-6 w-6 p-0"
             onClick={() => void runCategoryTest(testCategory, category, total)}
             disabled={testCategory.isPending || total === 0}
+            aria-label={`Test all ${getCategoryDisplayName(category).toLowerCase()}`}
             title={`Test all ${getCategoryDisplayName(category).toLowerCase()}`}
           >
             <FlaskConical className={cn('size-3', testCategory.isPending && 'animate-pulse')} />
           </Button> : null}
         <Link to={getCategorySettingsPath(category)}>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Settings">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="Settings" title="Settings">
             <Settings className="size-3" />
           </Button>
         </Link>

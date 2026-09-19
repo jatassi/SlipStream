@@ -36,16 +36,23 @@ function MissingBadge() {
 }
 
 function NavSection({
+  title,
   items,
   collapsed,
   includeDownloads = false,
 }: {
+  title: string
   items: NavItem[]
   collapsed: boolean
   includeDownloads?: boolean
 }) {
   return (
     <div className="space-y-1">
+      {collapsed ? null : (
+        <h2 className="text-caption px-3 pb-1 font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h2>
+      )}
       {items.map((item) => (
         <React.Fragment key={item.href}>
           {includeDownloads && item.href === '/import' ? <DownloadsNavLink collapsed={collapsed} /> : null}
@@ -60,6 +67,16 @@ function NavSection({
   )
 }
 
+function actionVariantClass(variant: ActionItem['variant']): string {
+  if (variant === 'destructive') {
+    return 'text-destructive hover:bg-destructive/10 hover:text-destructive'
+  }
+  if (variant === 'warning') {
+    return 'text-amber-500 hover:bg-amber-500/10 hover:text-amber-500'
+  }
+  return 'hover:bg-accent hover:text-accent-foreground'
+}
+
 function StandaloneActionButton({
   item,
   collapsed,
@@ -69,12 +86,7 @@ function StandaloneActionButton({
   collapsed: boolean
   onAction: (action: string) => void
 }) {
-  let variantClass = 'hover:bg-accent hover:text-accent-foreground'
-  if (item.variant === 'destructive') {
-    variantClass = 'text-destructive hover:bg-destructive/10 hover:text-destructive'
-  } else if (item.variant === 'warning') {
-    variantClass = 'text-amber-500 hover:bg-amber-500/10 hover:text-amber-500'
-  }
+  const variantClass = actionVariantClass(item.variant)
 
   if (collapsed) {
     return (
@@ -83,8 +95,10 @@ function StandaloneActionButton({
           render={
             <button
               onClick={() => onAction(item.action)}
+              aria-label={item.title}
               className={cn(
-                'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium',
+                'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
                 variantClass,
               )}
             />
@@ -101,7 +115,8 @@ function StandaloneActionButton({
     <button
       onClick={() => onAction(item.action)}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium',
+        'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
         variantClass,
       )}
     >
@@ -119,8 +134,12 @@ function SidebarLogo({ collapsed }: { collapsed: boolean }) {
         collapsed && 'justify-center px-2',
       )}
     >
-      <Link to="/" className="flex items-center gap-2">
-        <div className="bg-media-gradient glow-media-sm flex size-8 items-center justify-center rounded-md text-white">
+      <Link
+        to="/"
+        className="focus-visible:ring-ring flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px]"
+        aria-label="SlipStream"
+      >
+        <div className="bg-media-gradient flex size-8 items-center justify-center rounded-md text-white">
           <Film className="size-5" />
         </div>
         {!collapsed && (
@@ -138,6 +157,7 @@ function CollapseToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         variant="ghost"
         size="sm"
         onClick={onToggle}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         className={cn('w-full', collapsed && 'px-2')}
       >
         {collapsed ? (
@@ -160,17 +180,17 @@ export function Sidebar() {
     <TooltipProvider delay={0}>
       <aside
         className={cn(
-          'border-border bg-card flex h-screen flex-col border-r transition-all duration-300',
+          'material flex h-dvh flex-col shadow-[1px_0_0_var(--material-edge)]',
           sidebar.sidebarCollapsed ? 'w-16' : 'w-64',
         )}
       >
         <SidebarLogo collapsed={sidebar.sidebarCollapsed} />
 
         <ScrollArea className="flex-1">
-          <nav className="space-y-4 px-3 py-4">
-            <NavSection items={getLibraryNavItems()} collapsed={sidebar.sidebarCollapsed} />
+          <nav className="space-y-4 px-3 py-4" aria-label="Sidebar">
+            <NavSection title="Library" items={getLibraryNavItems()} collapsed={sidebar.sidebarCollapsed} />
             <div className="bg-border h-px" />
-            <NavSection items={discoverNavItems} collapsed={sidebar.sidebarCollapsed} includeDownloads />
+            <NavSection title="Discover" items={discoverNavItems} collapsed={sidebar.sidebarCollapsed} includeDownloads />
             <div className="bg-border h-px" />
             <CollapsibleNavSection group={settingsGroup} collapsed={sidebar.sidebarCollapsed} />
             <NavLink item={systemNavItem} collapsed={sidebar.sidebarCollapsed} />
