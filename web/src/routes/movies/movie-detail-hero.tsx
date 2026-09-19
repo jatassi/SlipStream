@@ -1,7 +1,7 @@
 import { SlidersVertical } from 'lucide-react'
 
 import { BackdropImage } from '@/components/media/backdrop-image'
-import { MediaStatusBadge } from '@/components/media/media-status-badge'
+import { StatusPill } from '@/components/media/status-pill'
 import { PosterImage } from '@/components/media/poster-image'
 import { StudioLogo } from '@/components/media/studio-logo'
 import { TitleTreatment } from '@/components/media/title-treatment'
@@ -94,7 +94,7 @@ function HeroInfo({
   return (
     <div className="flex-1 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <MediaStatusBadge status={movie.status} />
+        <StatusPill status={movie.status} />
         {qualityProfileName ? <Badge variant="secondary" className="gap-1">
             <SlidersVertical className="size-3" />
             {qualityProfileName}

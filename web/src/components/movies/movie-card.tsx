@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { MediaStatusBadge } from '@/components/media/media-status-badge'
+import { StatusPill } from '@/components/media/status-pill'
 import { PosterImage } from '@/components/media/poster-image'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
@@ -84,7 +84,7 @@ function MovieCardContent({
       />
       {editMode ? <MovieEditCheckbox movieId={movie.id} movieTitle={movie.title} selected={selected} onToggle={onToggleSelect} /> : null}
       <div className="absolute top-2 right-2">
-        <MediaStatusBadge status={movie.status} />
+        <StatusPill status={movie.status} />
       </div>
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
         <h3 className="line-clamp-2 font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
