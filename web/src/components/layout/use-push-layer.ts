@@ -1,5 +1,4 @@
-/* eslint-disable react-hooks/refs */
-import { type ReactNode, useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 type PushPhase = 'off' | 'on' | 'out'
 
@@ -8,7 +7,6 @@ type PushLayer = {
   exiting: boolean
   instant: boolean
   path: string
-  node: ReactNode
   finishExit: () => void
 }
 
@@ -21,22 +19,18 @@ type LayerSetters = {
 export function usePushLayer({
   active,
   pathname,
-  children,
   animate,
 }: {
   active: boolean
   pathname: string
-  children: ReactNode
   animate: boolean
 }): PushLayer {
-  const snap = useRef(children)
   const [phase, setPhase] = useState<PushPhase>(active ? 'on' : 'off')
   const [shownPath, setShownPath] = useState(pathname)
   const [instant, setInstant] = useState(!animate)
   const setters: LayerSetters = { setPhase, setShownPath, setInstant }
 
   if (active) {
-    snap.current = children
     syncEnter({ phase, shownPath, pathname, animate, setters })
   } else {
     syncExit({ phase, animate, setters })
@@ -51,7 +45,6 @@ export function usePushLayer({
     exiting: phase === 'out',
     instant,
     path: shownPath,
-    node: active ? children : snap.current,
     finishExit,
   }
 }

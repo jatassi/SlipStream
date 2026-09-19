@@ -21,7 +21,6 @@ export function PhoneShell({ children }: { children: ReactNode }) {
   const layer = usePushLayer({
     active: overlay,
     pathname,
-    children,
     animate: usePushMotion(pathname),
   })
   const back = usePushBack()
@@ -44,7 +43,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
           instant={layer.instant}
           onExitEnd={layer.finishExit}
         >
-          {layer.node}
+          {children}
         </PhoneOverlay>
       ) : null}
       <TabBar current={currentTab} />
