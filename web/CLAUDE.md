@@ -97,6 +97,20 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 - `ProgressLine`: media-coloured bar (`kind` `movie` | `series`) with `role="progressbar"`. Width eases 700 ms linear. `muted` paints with `--muted-foreground`.
 - `RowSkeleton`: loading stand-in with the same padding and 44 px minimum as `Row`. `leading="poster"` and `progress` match download rows.
 
+## Segmented control and the action presenter
+
+`Segmented` (`src/components/ui/segmented.tsx`) is the sliding-thumb switch for two to five options. It replaces the Tabs primitive wherever tabs were only switching a filter — the Activity All/Movies/Series filter today, Library, Missing, Calendar and the Requests queue later.
+
+- Props: `label` (the group's accessible name), `value`, `options` (`{ value, label }`), `onChange`, `className`.
+- Renders a `radiogroup` of `radio` buttons. Arrow keys wrap the selection, Home and End jump to the ends, and only the selected option stays in the tab order.
+- The thumb is a single absolutely positioned span translated by `index * 100%`; only `transform` animates (200 ms), and reduced motion drops the transition.
+
+`ActionPresenter` (`src/components/presenter/`) takes one action list and picks the surface the shell calls for: a bottom-anchored `ActionSheet` on phones, a dropdown menu positioned against `anchor` on wide screens.
+
+- `ActionItem` is `{ label, onClick?, destructive?, confirm? }`. Destructive actions render last, in the destructive colour, in their own stack (sheet) or below a separator (menu).
+- `confirm: { title, description, actions }` routes the action through a second step instead of running it — another sheet on phones, an `AlertDialog` on wide. Use it for anything that deletes.
+- Describe the actions once and pass them in; never branch on `useViewport()` at the call site, and never hand-roll a second sheet.
+
 ## Playwright E2E
 
 Browser tests live in `e2e/` and run against the real app in developer mode (`phone` 390×844 touch, `wide` 1440×900 mouse). `bun run test:e2e` starts the Go backend (`--dev-mode`) and Vite via Playwright `webServer`, then runs both projects. `bun run test:e2e:headed` is the debugging variant. `bun run test:e2e:reduced-motion` runs the shell tests with `prefers-reduced-motion`.

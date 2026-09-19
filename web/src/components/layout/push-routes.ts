@@ -27,7 +27,8 @@ export function backLabelForPathname(pathname: string): string | undefined {
 }
 
 export function isScreenFillPath(pathname: string): boolean {
-  if (pathname === '/more' || paneFromPathname(pathname) === 'dashboard') {
+  const pane = paneFromPathname(pathname)
+  if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
     return true
   }
   return isDetailPath(pathname)

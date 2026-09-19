@@ -1,0 +1,9 @@
+.segmented-thumb {
+  transition: transform 200ms var(--ease-out-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-thumb {
+    transition: none;
+  }
+}

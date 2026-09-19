@@ -48,7 +48,7 @@ test('downloading lists at most three items and see all opens Activity', async (
   const bars = downloading.getByRole('progressbar')
   await expect(bars.first()).toBeVisible()
   expect(await bars.count()).toBeLessThanOrEqual(3)
-  await expect(downloading.getByText(/% · /)).toBeVisible()
+  await expect(downloading.getByText(/% · /).first()).toBeVisible()
   await activate(downloading.getByRole('link', { name: 'See all' }))
   await expect(page.getByRole('heading', { name: 'Downloads', exact: true })).toBeVisible()
 })

@@ -28,7 +28,7 @@ const PANE_PAGES: Record<PaneId, LazyExoticComponent<ComponentType>> = {
 
 const PANE_ORDER: PaneId[] = ['dashboard', 'movies', 'series', 'activity', 'search', 'more']
 
-const SCREEN_PANES: Partial<Record<PaneId, true>> = { dashboard: true, more: true }
+const SCREEN_PANES: Partial<Record<PaneId, true>> = { activity: true, dashboard: true, more: true }
 
 const TAB_STACK_INSET = { paddingBottom: 'calc(var(--safe-bottom) + var(--spacing-tab-bar) + 24px)' }
 
