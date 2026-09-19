@@ -21,7 +21,7 @@ test('phone tabs open destinations and mark the current tab', async ({ page, act
   const nav = primaryNav(page)
   await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
   await expect(
-    page.getByText('No active downloads').or(nav.getByRole('link', { name: 'Activity' }).getByText(/[1-9]/)),
+    page.getByText('Nothing downloading').or(nav.getByRole('link', { name: 'Activity' }).getByText(/[1-9]/)),
   ).toBeVisible()
   await activate(nav.getByRole('link', { name: 'Library' }))
   await expect(page.getByRole('heading', { name: 'Movies' })).toBeVisible()
@@ -142,9 +142,9 @@ test('wide keyboard traversal shows a focus ring on shell controls', async ({ pa
 })
 
 test('toasts sit above the tab bar on phone and bottom-right on wide', async ({ page, activate }, testInfo) => {
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-  const testAll = page.getByRole('button', { name: 'Test all download clients' })
+  await page.goto('/system/health')
+  await expect(page.getByRole('heading', { name: 'System' })).toBeVisible()
+  const testAll = page.getByRole('button', { name: 'Test All' }).first()
   await expect(testAll).toBeEnabled()
   await activate(testAll)
   const toast = page.getByText(/Download Clients:/)
