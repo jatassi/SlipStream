@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { ChevronDown } from 'lucide-react'
 
-import { StatusDot } from '@/components/media/status-dot'
 import { QualityBadge } from '@/components/media/quality-badge'
+import { StatusDot } from '@/components/media/status-dot'
 import { MediaSearchMonitorControls } from '@/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import {

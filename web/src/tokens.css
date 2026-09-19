@@ -31,10 +31,40 @@
 }
 
 :root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
   --dur-press: 120ms;
   --dur-fast: 160ms;
   --dur-base: 220ms;
   --dur-sheet: 320ms;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--letter-spacing: 0.01em;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-body: 15px;
+  --text-body--line-height: 20px;
+  --text-title: 17px;
+  --text-title--line-height: 22px;
+  --text-title--letter-spacing: -0.01em;
+  --text-heading: 22px;
+  --text-heading--line-height: 28px;
+  --text-heading--letter-spacing: -0.015em;
+  --text-display: 34px;
+  --text-display--line-height: 40px;
+  --text-display--letter-spacing: -0.022em;
+
+  --spacing-tap: 44px;
+  --spacing-tap-lg: 52px;
+  --spacing-screen: 16px;
+  --spacing-tab-bar: 56px;
+
+  --radius-sheet: 20px;
+  --radius-card: 14px;
+  --radius-thumb: 6px;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

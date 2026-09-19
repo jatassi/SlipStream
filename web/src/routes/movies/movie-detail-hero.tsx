@@ -1,8 +1,8 @@
 import { SlidersVertical } from 'lucide-react'
 
 import { BackdropImage } from '@/components/media/backdrop-image'
-import { StatusPill } from '@/components/media/status-pill'
 import { PosterImage } from '@/components/media/poster-image'
+import { StatusPill } from '@/components/media/status-pill'
 import { StudioLogo } from '@/components/media/studio-logo'
 import { TitleTreatment } from '@/components/media/title-treatment'
 import { Badge } from '@/components/ui/badge'
