@@ -1,23 +1,15 @@
 import { ArrImportWizard } from '@/components/arr-import'
-import { PageHeader } from '@/components/layout/page-header'
-
-import { MediaNav } from './media-nav'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 
 export function ArrImportPage() {
+  const back = usePushBack()
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Media Management"
-        description="Configure root folders, quality profiles, version slots, and file naming"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'Media Management' },
-        ]}
-      />
-
-      <MediaNav />
-
-      <ArrImportWizard />
-    </div>
+    <Screen title="Migrate from *arr" back={back}>
+      <div className="px-screen">
+        <ArrImportWizard />
+      </div>
+    </Screen>
   )
 }

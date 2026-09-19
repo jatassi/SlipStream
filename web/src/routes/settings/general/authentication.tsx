@@ -1,22 +1,15 @@
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { AuthenticationSection } from '@/components/settings'
 
-import { GeneralNav } from './general-nav'
-
 export function AuthenticationPage() {
+  const back = usePushBack()
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="General"
-        description="Server configuration, authentication, and notification settings"
-        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'General' }]}
-      />
-
-      <GeneralNav />
-
-      <div className="max-w-2xl">
+    <Screen title="Authentication" back={back}>
+      <div className="px-screen max-w-2xl">
         <AuthenticationSection />
       </div>
-    </div>
+    </Screen>
   )
 }

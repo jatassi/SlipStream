@@ -90,8 +90,8 @@ export const activityRoute = lazyRoute('/downloads', () => import('@/routes/down
 export const historyRoute = lazyRoute('/history', () => import('@/routes/history/history'), 'HistoryPage')
 
 // Settings — Media
-export const settingsRoute = redirectRoute('/settings', '/settings/media/root-folders')
-export const mediaSettingsRoute = redirectRoute('/settings/media', '/settings/media/root-folders')
+export const settingsRoute = redirectRoute('/settings', '/settings/media')
+export const mediaSettingsRoute = lazyRoute('/settings/media', () => import('@/routes/settings/media/index'), 'MediaSettingsPage')
 export const rootFoldersRoute = lazyRoute('/settings/media/root-folders', () => import('@/routes/settings/media/root-folders'), 'RootFoldersPage')
 export const qualityProfilesRoute = lazyRoute('/settings/media/quality-profiles', () => import('@/routes/settings/media/quality-profiles'), 'QualityProfilesPage')
 export const versionSlotsRoute = lazyRoute('/settings/media/version-slots', () => import('@/routes/settings/media/version-slots'), 'VersionSlotsPage')
@@ -99,14 +99,14 @@ export const fileNamingRoute = lazyRoute('/settings/media/file-naming', () => im
 export const arrImportRoute = lazyRoute('/settings/media/arr-import', () => import('@/routes/settings/media/arr-import'), 'ArrImportPage')
 
 // Settings — Download Pipeline
-export const downloadPipelineRoute = redirectRoute('/settings/download-pipeline', '/settings/download-pipeline/indexers')
+export const downloadPipelineRoute = lazyRoute('/settings/download-pipeline', () => import('@/routes/settings/download-pipeline/index'), 'DownloadPipelinePage')
 export const indexersRoute = lazyRoute('/settings/download-pipeline/indexers', () => import('@/routes/settings/download-pipeline/indexers'), 'IndexersPage')
 export const downloadClientsRoute = lazyRoute('/settings/download-pipeline/clients', () => import('@/routes/settings/download-pipeline/clients'), 'DownloadClientsPage')
 export const autoSearchRoute = lazyRoute('/settings/download-pipeline/auto-search', () => import('@/routes/settings/download-pipeline/auto-search'), 'AutoSearchPage')
 export const rssSyncRoute = lazyRoute('/settings/download-pipeline/rss-sync', () => import('@/routes/settings/download-pipeline/rss-sync'), 'RssSyncPage')
 
 // Settings — General (Server + Auth + Notifications)
-export const generalSettingsRoute = redirectRoute('/settings/general', '/settings/general/server')
+export const generalSettingsRoute = lazyRoute('/settings/general', () => import('@/routes/settings/general/index'), 'GeneralSettingsPage')
 export const serverRoute = lazyRoute('/settings/general/server', () => import('@/routes/settings/general/server'), 'ServerPage')
 export const authenticationRoute = lazyRoute('/settings/general/authentication', () => import('@/routes/settings/general/authentication'), 'AuthenticationPage')
 export const notificationsRoute = lazyRoute('/settings/general/notifications', () => import('@/routes/settings/general/notifications'), 'NotificationsPage')
