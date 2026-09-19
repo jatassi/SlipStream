@@ -86,3 +86,10 @@ Use `&&` for conditional rendering without an else branch: `{condition && <X />}
 
 ### Null Handling
 Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`, NaN should fallback) — add a comment explaining why.
+
+## Playwright E2E
+
+Browser tests live in `e2e/` and run against the real app in developer mode (`phone` 390×844 touch, `wide` 1440×900 mouse). `bun run test:e2e` starts the Go backend (`--dev-mode`) and Vite via Playwright `webServer`, then runs both projects. `bun run test:e2e:headed` is the debugging variant. `bun run test:e2e:reduced-motion` runs the shell tests with `prefers-reduced-motion`.
+
+Screenshot comparison is opt-in: `PLAYWRIGHT_SCREENSHOTS=1 bun run test:e2e:screenshots` (or the same env with `bun run test:e2e`). Baselines are stored at `e2e/snapshots/{project}/{spec}-{name}.png`. Update them with `PLAYWRIGHT_SCREENSHOTS=1 bunx playwright test --project=phone --project=wide e2e/screenshots.spec.ts --update-snapshots`. Do not treat pixel diffs as a required gate; they exist to catch layout regressions.
+

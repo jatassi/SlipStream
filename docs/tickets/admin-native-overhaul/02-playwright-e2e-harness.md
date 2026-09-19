@@ -18,11 +18,19 @@ The spec asks for this seam to be confirmed before implementation begins; it is 
 
 **Blocked by:** 01 (Token layer, platform baseline and unified status rendering)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A Playwright config defines `phone` and `wide` projects with the dimensions, touch and scale settings above, and a reduced-motion variant of the shell tests
-- [ ] A frontend script boots the backend in developer mode and the frontend, waits for readiness, and runs the suite; a second script runs it headed for debugging
-- [ ] Shared helpers exist for "activate" (tap vs click per project), authenticated session setup, and console-error capture
-- [ ] Smoke tests pass in both projects: Dashboard renders developer-mode data; a library list route shows items; on `phone`, focusing the search input leaves the visual viewport scale unchanged; status pills on the Dashboard have accessible text
-- [ ] A CI workflow runs lint, `tsc -b` and the suite on pull requests and uploads traces on failure
-- [ ] Screenshot comparison is wired but opt-in (skipped unless explicitly enabled) with baseline storage documented in the frontend docs
+- [x] A Playwright config defines `phone` and `wide` projects with the dimensions, touch and scale settings above, and a reduced-motion variant of the shell tests
+- [x] A frontend script boots the backend in developer mode and the frontend, waits for readiness, and runs the suite; a second script runs it headed for debugging
+- [x] Shared helpers exist for "activate" (tap vs click per project), authenticated session setup, and console-error capture
+- [x] Smoke tests pass in both projects: Dashboard renders developer-mode data; a library list route shows items; on `phone`, focusing the search input leaves the visual viewport scale unchanged; status pills on the Dashboard have accessible text
+- [x] A CI workflow runs lint, `tsc -b` and the suite on pull requests and uploads traces on failure
+- [x] Screenshot comparison is wired but opt-in (skipped unless explicitly enabled) with baseline storage documented in the frontend docs
+
+## Comments
+
+The Dashboard does not render `StatusPill` today. Accessible status text is asserted on `/movies` (grid cards) instead.
+
+Console-error capture fails the test after dropping known current-app noise: Vite-proxied `/ws` handshake 403 (`CheckOrigin` against `:3000` vs `:8080`), React's pre-existing `<p>`/`<div>` hydration warning from `PageHeader` + `Skeleton`, and `Failed to load resource` lines. Unexpected `pageerror` / `console.error` still fail.
+
+Until the two-shell layout lands, phone tests collapse the existing 256 px sidebar so the 390 px profile can see main content. The current desktop sidebar's Movies row is covered by the logo/collapse chrome, so shell navigation uses the Dashboard "View all" control through `activate` plus a URL open of `/movies`.

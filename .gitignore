@@ -50,6 +50,10 @@ config.toml
 web/node_modules/
 web/dist/
 web/.vite/
+web/test-results/
+web/playwright-report/
+web/e2e/.auth/
+web/e2e/.data/
 
 # Environment
 .env
