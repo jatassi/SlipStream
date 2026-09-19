@@ -1,0 +1,41 @@
+/* Console variant — dense, fast, thumb-reach command bar, no ornamental motion */
+
+.con-hairline > * + * {
+  box-shadow: 0 -1px 0 color-mix(in oklch, var(--foreground) 7%, transparent);
+}
+
+.con-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  box-shadow: 0 0 6px currentColor;
+  background: currentColor;
+}
+
+.con-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: color-mix(in oklch, var(--foreground) 6%, transparent);
+}
+.con-progress > span {
+  display: block;
+  height: 100%;
+  transition: width 700ms linear;
+}
+
+/* The command field must never be under 16px or iOS zooms the page */
+.con-input {
+  font-size: 16px;
+}
+
+.con-chip-row {
+  scroll-snap-type: none;
+}
+
+/* Expanding a row is instant: it happens dozens of times a session */
+.con-row-detail {
+  animation: none;
+}
