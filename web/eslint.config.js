@@ -12,7 +12,7 @@ import prettierConfig from 'eslint-config-prettier'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'test-results', 'playwright-report', 'e2e/.auth', 'e2e/.data']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -148,6 +148,21 @@ export default defineConfig([
       'unicorn/no-useless-undefined': 'off',
       'unicorn/filename-case': ['error', { case: 'kebabCase' }],
       'unicorn/prefer-query-selector': 'off',
+    },
+  },
+  {
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      'max-nested-callbacks': ['error', 3],
+      'react-refresh/only-export-components': 'off',
+      'react-hooks/rules-of-hooks': 'off',
+      'unicorn/filename-case': [
+        'error',
+        { case: 'kebabCase', ignore: [String.raw`.*\.setup\.ts$`, String.raw`playwright\.config\.ts$`] },
+      ],
     },
   },
 ])

@@ -1,0 +1,57 @@
+name: Admin E2E
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.25'
+  BUN_VERSION: 'latest'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install frontend dependencies
+        run: bun install --cwd web
+
+      - name: Lint
+        working-directory: web
+        run: bun run lint
+
+      - name: Typecheck
+        working-directory: web
+        run: bunx tsc -b
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run Playwright suite
+        working-directory: web
+        run: bun run test:e2e
+
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            web/test-results
+            web/playwright-report
+          retention-days: 7
