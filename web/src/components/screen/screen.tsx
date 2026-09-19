@@ -68,7 +68,7 @@ export function Screen({
         onScroll={chrome.onScroll}
         style={{ paddingTop: chrome.paddingTop, paddingBottom: chrome.inset }}
       >
-        <div className="mx-auto w-full max-w-5xl">
+        <div className={cn('mx-auto w-full max-w-5xl', largeTitle && 'min-h-[calc(100%+16rem)]')}>
           {largeTitle ? (
             <LargeTitle title={title} trailing={chrome.trailingBesideTitle ? trailing : undefined} />
           ) : null}
@@ -108,11 +108,16 @@ function ScreenBar({
       data-collapsed={collapsed ? '' : undefined}
       data-always-title={largeTitle ? undefined : ''}
     >
-      <div className="screen-bar-bg material" />
+      <div className="screen-bar-bg material" aria-hidden="true" />
       <div className="relative safe-top">
         <div className="relative flex h-11 items-center justify-center px-4">
           {back === undefined ? null : <BackButton label={back.label} onClick={back.onClick} />}
-          <span className="screen-compact-title text-title font-semibold">{title}</span>
+          <span
+            className="screen-compact-title text-title font-semibold"
+            aria-hidden={largeTitle && !collapsed ? true : undefined}
+          >
+            {title}
+          </span>
           {trailing === undefined ? null : (
             <div className="absolute right-2 flex items-center">{trailing}</div>
           )}

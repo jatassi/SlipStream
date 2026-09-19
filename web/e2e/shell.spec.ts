@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 import { expect, test } from './fixtures'
 import { shellKind } from './helpers/activate'
@@ -20,10 +20,9 @@ test('phone tabs open destinations and mark the current tab', async ({ page, act
   await expectPhoneTabs(page)
   const nav = primaryNav(page)
   await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
-  const queueEmpty = page.getByText('No active downloads')
-  if (!(await queueEmpty.isVisible())) {
-    await expect(nav.getByRole('link', { name: 'Activity' })).toContainText(/[1-9]/)
-  }
+  await expect(
+    page.getByText('No active downloads').or(nav.getByRole('link', { name: 'Activity' }).getByText(/[1-9]/)),
+  ).toBeVisible()
   await activate(nav.getByRole('link', { name: 'Library' }))
   await expect(page.getByRole('heading', { name: 'Movies' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Library' })).toHaveAttribute('aria-current', 'page')
@@ -40,9 +39,9 @@ test('phone tab scroll is restored after switching away', async ({ page, activat
   test.skip(shellKind(testInfo.project.name) !== 'phone', 'phone profile only')
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-  await page.getByRole('heading', { name: 'Dashboard' }).hover()
-  await page.mouse.wheel(0, 600)
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).not.toBeInViewport()
+  const heading = page.getByRole('heading', { name: 'Dashboard' })
+  await scrollNearestScroller(heading, 600)
+  await expect(heading).not.toBeInViewport()
   await activate(primaryNav(page).getByRole('link', { name: 'More' }))
   await expect(page.getByRole('heading', { name: 'More' })).toBeVisible()
   await activate(primaryNav(page).getByRole('link', { name: 'Dashboard' }))
@@ -96,6 +95,7 @@ test('wide sidebar groups collapse and keep search plus developer tools', async 
   await expect(page.getByRole('searchbox', { name: 'Search' })).toBeVisible()
   await expect(page.getByRole('switch', { name: 'Developer mode' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Downloads' })).toBeVisible()
+  await expect(primaryNav(page)).toHaveCount(0)
   await activate(page.getByRole('button', { name: 'Collapse sidebar' }))
   await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
   await page.reload()
@@ -124,10 +124,9 @@ test('dashboard large title collapses after scroll', async ({ page }) => {
   await page.goto('/')
   const heading = page.getByRole('heading', { name: 'Dashboard' })
   await expect(heading).toBeVisible()
-  const compact = page.getByRole('banner', { name: 'Dashboard' }).getByText('Dashboard')
+  const compact = page.getByRole('banner', { name: 'Dashboard' }).getByText('Dashboard', { exact: true })
   await expect(compact).toBeHidden()
-  await heading.hover()
-  await page.mouse.wheel(0, 700)
+  await scrollNearestScroller(heading, 800)
   await expect(heading).not.toBeInViewport()
   await expect(compact).toBeVisible()
 })
@@ -145,8 +144,10 @@ test('wide keyboard traversal shows a focus ring on shell controls', async ({ pa
 test('toasts sit above the tab bar on phone and bottom-right on wide', async ({ page, activate }, testInfo) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-  await activate(page.getByRole('button', { name: /Test all/i }).first())
-  const toast = page.getByRole('status').first()
+  const testAll = page.getByRole('button', { name: 'Test all download clients' })
+  await expect(testAll).toBeEnabled()
+  await activate(testAll)
+  const toast = page.getByText(/Download Clients:/)
   await expect(toast).toBeVisible()
   const box = await toast.boundingBox()
   expect(box).not.toBeNull()
@@ -170,6 +171,20 @@ test('toasts sit above the tab bar on phone and bottom-right on wide', async ({ 
   expect(box.x).toBeGreaterThan(viewport.width / 2)
   expect(box.y).toBeGreaterThan(viewport.height / 2)
 })
+
+async function scrollNearestScroller(locator: Locator, top: number): Promise<void> {
+  await locator.evaluate((el, scrollTop) => {
+    let node: Element | null = el
+    while (node instanceof HTMLElement) {
+      if (node.scrollHeight > node.clientHeight + 1) {
+        node.scrollTop = scrollTop
+        node.dispatchEvent(new Event('scroll'))
+        return
+      }
+      node = node.parentElement
+    }
+  }, top)
+}
 
 async function expectMissingCounts(page: Page): Promise<void> {
   const missing = page.getByRole('link', { name: 'Missing' })

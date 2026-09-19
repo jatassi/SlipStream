@@ -10,6 +10,7 @@
 }
 .screen-compact-title {
   opacity: 0;
+  visibility: hidden;
   transform: translateY(4px);
   transition:
     opacity var(--dur-fast) var(--ease-out-strong),
@@ -18,6 +19,7 @@
 .screen-bar[data-collapsed] .screen-compact-title,
 .screen-bar[data-always-title] .screen-compact-title {
   opacity: 1;
+  visibility: visible;
   transform: translateY(0);
 }
 

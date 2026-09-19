@@ -11,7 +11,9 @@ const PHONE_TOAST_OFFSET = { bottom: 'calc(var(--safe-bottom) + var(--spacing-ta
 function AppToaster() {
   const shell = useViewport()
   if (shell === 'phone') {
-    return <Toaster position="bottom-center" offset={PHONE_TOAST_OFFSET} />
+    return (
+      <Toaster position="bottom-center" offset={PHONE_TOAST_OFFSET} mobileOffset={PHONE_TOAST_OFFSET} />
+    )
   }
   return <Toaster position="bottom-right" />
 }
@@ -20,9 +22,11 @@ export function ShellLayout({ children }: { children: ReactNode }) {
   const shell = useViewport()
 
   return (
-    <div className="bg-background h-dvh overflow-hidden" data-shell={shell}>
-      {shell === 'phone' ? <PhoneShell>{children}</PhoneShell> : <WideShell>{children}</WideShell>}
+    <>
+      <div className="bg-background h-dvh overflow-hidden" data-shell={shell}>
+        {shell === 'phone' ? <PhoneShell>{children}</PhoneShell> : <WideShell>{children}</WideShell>}
+      </div>
       <AppToaster />
-    </div>
+    </>
   )
 }
