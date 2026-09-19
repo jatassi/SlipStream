@@ -6,10 +6,18 @@ import { useViewport } from '@/hooks/use-viewport'
 import { PhoneShell } from './phone-shell'
 import { WideShell } from './wide-shell'
 
+const PHONE_TOAST_STYLE =
+  '[data-sonner-toaster][data-y-position="bottom"]{bottom:calc(env(safe-area-inset-bottom, 0px) + 56px + 12px)!important}'
+
 function AppToaster() {
   const shell = useViewport()
   if (shell === 'phone') {
-    return <Toaster position="bottom-center" />
+    return (
+      <>
+        <style>{PHONE_TOAST_STYLE}</style>
+        <Toaster position="bottom-center" />
+      </>
+    )
   }
   return <Toaster position="bottom-right" />
 }

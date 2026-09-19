@@ -291,7 +291,3 @@ a,
 .nums {
   font-variant-numeric: tabular-nums;
 }
-
-body:has([data-shell='phone']) [data-sonner-toaster][data-y-position='bottom'] {
-  bottom: calc(var(--safe-bottom) + var(--spacing-tab-bar) + 12px) !important;
-}
