@@ -1,23 +1,15 @@
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { RssSyncSection } from '@/components/settings'
 
-import { DownloadPipelineNav } from './download-pipeline-nav'
-
 export function RssSyncPage() {
+  const back = usePushBack()
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Download Pipeline"
-        description="Configure indexers, download clients, and automatic search"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'Download Pipeline' },
-        ]}
-      />
-
-      <DownloadPipelineNav />
-
-      <RssSyncSection />
-    </div>
+    <Screen title="RSS Sync" back={back}>
+      <div className="px-screen">
+        <RssSyncSection />
+      </div>
+    </Screen>
   )
 }

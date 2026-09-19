@@ -1,6 +1,7 @@
 import { History, Save } from 'lucide-react'
 
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { ServerSection } from '@/components/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
-import { GeneralNav } from './general-nav'
 import { useHistoryRetention } from './use-history-retention'
 import { useServerPage } from './use-server-page'
 
@@ -70,22 +70,20 @@ function RetentionDaysInput({
 
 export function ServerPage() {
   const page = useServerPage()
+  const back = usePushBack()
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="General"
-        description="Server configuration, authentication, and notification settings"
-        breadcrumbs={[{ label: 'Settings', href: '/settings/media' }, { label: 'General' }]}
-        actions={
-          <Button onClick={page.handleSave} disabled={page.isSaving || !page.hasChanges}>
-            <Save className="mr-2 size-4" />
-            Save Changes
-          </Button>
-        }
-      />
-      <GeneralNav />
-      <div className="max-w-2xl space-y-6">
+    <Screen
+      title="Server"
+      back={back}
+      trailing={
+        <Button size="sm" onClick={page.handleSave} disabled={page.isSaving || !page.hasChanges}>
+          <Save className="mr-2 size-4" />
+          Save
+        </Button>
+      }
+    >
+      <div className="px-screen max-w-2xl space-y-6">
         <ServerSection
           port={page.port}
           onPortChange={page.onPortChange}
@@ -98,6 +96,6 @@ export function ServerPage() {
         />
         <HistoryRetentionCard />
       </div>
-    </div>
+    </Screen>
   )
 }

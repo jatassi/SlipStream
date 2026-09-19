@@ -1,23 +1,15 @@
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { AutoSearchSection } from '@/components/settings'
 
-import { DownloadPipelineNav } from './download-pipeline-nav'
-
 export function AutoSearchPage() {
+  const back = usePushBack()
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Download Pipeline"
-        description="Configure indexers, download clients, and automatic search"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'Download Pipeline' },
-        ]}
-      />
-
-      <DownloadPipelineNav />
-
-      <AutoSearchSection />
-    </div>
+    <Screen title="Auto Search" back={back}>
+      <div className="px-screen">
+        <AutoSearchSection />
+      </div>
+    </Screen>
   )
 }

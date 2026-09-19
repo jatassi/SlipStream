@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 
 import { PhoneOverlay } from './phone-overlay'
-import { isDetailPath } from './push-routes'
+import { isScreenFillPath } from './push-routes'
 import { TabBar } from './tab-bar'
 import { TabPanes } from './tab-panes'
 import { usePushBack } from './use-push-back'
@@ -37,7 +37,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
       </div>
       {layer.mounted ? (
         <PhoneOverlay
-          fill={isDetailPath(layer.path)}
+          fill={isScreenFillPath(layer.path)}
           back={overlayBack(layer.path, back)}
           exiting={layer.exiting}
           instant={layer.instant}
@@ -55,7 +55,7 @@ function overlayBack(
   path: string,
   back: { label: string; onClick: () => void } | undefined,
 ): { label: string; onClick: () => void } | undefined {
-  if (isDetailPath(path) || back === undefined) {
+  if (isScreenFillPath(path) || back === undefined) {
     return undefined
   }
   return back

@@ -1,23 +1,15 @@
-import { PageHeader } from '@/components/layout/page-header'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
 import { FileNamingSection } from '@/components/settings'
 
-import { MediaNav } from './media-nav'
-
 export function FileNamingPage() {
+  const back = usePushBack()
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Media Management"
-        description="Configure root folders, quality profiles, version slots, and file naming"
-        breadcrumbs={[
-          { label: 'Settings', href: '/settings/media' },
-          { label: 'Media Management' },
-        ]}
-      />
-
-      <MediaNav />
-
-      <FileNamingSection />
-    </div>
+    <Screen title="Import & Naming" back={back}>
+      <div className="px-screen">
+        <FileNamingSection />
+      </div>
+    </Screen>
   )
 }

@@ -5,7 +5,7 @@ import { useRouterState } from '@tanstack/react-router'
 import { BackControl } from '@/components/screen/screen'
 
 import { Header } from './header'
-import { isDetailPath, isScreenFillPath } from './push-routes'
+import { isScreenFillPath } from './push-routes'
 import { Sidebar } from './sidebar'
 import { usePushBack } from './use-push-back'
 import { useRecordLibraryModule } from './use-tab-nav'
@@ -41,7 +41,7 @@ function chromeBack(
   pathname: string,
   back: { label: string; onClick: () => void } | undefined,
 ): { label: string; onClick: () => void } | undefined {
-  if (isDetailPath(pathname) || back === undefined) {
+  if (isScreenFillPath(pathname) || back === undefined) {
     return undefined
   }
   return back
