@@ -4,9 +4,14 @@ Status: ready-for-agent
 
 Origin: `/to-spec` synthesis of the mobile design exploration on branch
 `cursor/mobile-design-system-prototypes-20af` (PR #17). The Native direction was chosen from
-three prototyped shells; see `docs/mobile-design-system.md` for the token layer and the
-prototype at `web/src/prototypes/mobile/` for the reference implementation of every pattern
-named below.
+three prototyped shells; see `docs/mobile-design-system.md` for the token layer.
+
+Reference implementation: the Native prototype on branch
+`cursor/mobile-design-system-prototypes-20af`, under `web/src/prototypes/mobile/` (harness,
+shared primitives and mock data, `variants/native/`). It is kept on that branch for reference
+throughout implementation and is the source of truth for the look and behaviour of every
+pattern named below. Run it with `cd web && bun run dev` and open
+`http://localhost:3000/prototypes/mobile/?v=1`.
 
 ## Problem Statement
 
@@ -190,7 +195,7 @@ app feel installed on a phone.
 - This is a presentation-layer overhaul with feature parity. Routes, TanStack Query hooks, WebSocket invalidation, Zustand stores, the module registry and the backend are unchanged except where noted below.
 - One codebase, two shells, selected by a single breakpoint at 768 px. The shell decision (tab bar versus sidebar, sheet versus dialog, push versus instant) is made by one viewport hook; every other responsive difference is CSS.
 - The portal (`/requests` for portal users) is untouched.
-- The Native prototype under the prototypes directory is the reference implementation. Its shell, screens and primitives are ported into the production component tree; the prototype surface (harness, phone frame, picker, mock data, other two variants) is deleted when the port lands.
+- The Native prototype on branch `cursor/mobile-design-system-prototypes-20af` is the reference implementation. Its shell, screens and primitives are ported into the production component tree; the Native variant, the harness (phone frame, picker) and the shared primitives and mock data it depends on are kept on the branch for reference. The Cinematic and Console variants are removed when the port lands.
 
 ### Token layer
 
@@ -240,7 +245,7 @@ app feel installed on a phone.
 
 ### Removal of legacy
 
-When the port lands, the following are removed: PageHeader, MediaStatusBadge, ListSection, AddPlaceholderCard, per-module card components, the header search bar's mobile fallback, hover-glow utilities and usages, `transition-all` usages, the `web/prototypes` and `web/src/prototypes` directories, and the picker chrome.
+When the port lands, the following are removed: PageHeader, MediaStatusBadge, ListSection, AddPlaceholderCard, per-module card components, the header search bar's mobile fallback, hover-glow utilities and usages, `transition-all` usages, and the Cinematic and Console prototype variants. The Native prototype and its harness stay on branch `cursor/mobile-design-system-prototypes-20af` for reference; whether they ship to `main` or are dropped once the production shell is complete is a decision for the final ticket, not this spec.
 
 ## Testing Decisions
 
@@ -315,7 +320,7 @@ tooling to the repo (a Playwright dev dependency, a config, a test script and a 
 - Backend, API, database or module-framework changes beyond removing `cardComponent` from the frontend ModuleConfig.
 - New features. Every story above is a re-presentation of an existing capability; anything not in the app today (swipe-to-go-back, offline support, push notifications, home-screen widgets) is a follow-up.
 - Native iOS or Android apps and app-store packaging. Full PWA installability (manifest, service worker, offline cache) is a follow-up; only the theme-color and viewport baseline are in scope.
-- The Cinematic and Console directions from the exploration. Their prototypes are deleted with the harness.
+- The Cinematic and Console directions from the exploration. Their prototype variants are deleted; the Native variant and harness are kept for reference.
 - Tablet-specific layouts between the two shells. Tablets get the wide shell.
 - Migrating existing forms to a single form library. Forms keep their current state management (react-hook-form with zod where present, local state elsewhere) and only change presentation.
 - Redesigning the `/dev/controls` showcase beyond re-skinning the controls it shows.
@@ -331,8 +336,11 @@ tooling to the repo (a Playwright dev dependency, a config, a test script and a 
   Library (segmented, chips, PosterCell, edit mode); Detail (hero, pills, control states,
   groups); Activity (rows, action sheet, presenter); Search; Settings lists and the
   sheet/dialog presenter across all forms; System and Requests admin; Calendar, Missing,
-  History, Manual Import; legacy removal and prototype deletion. Each slice is shippable on
+  History, Manual Import; legacy removal (Cinematic and Console variants). Each slice is shippable on
   its own because the shell is route-based and unaffected pages keep working inside it.
+- When a production pattern and the Native prototype disagree during implementation, the
+  prototype on `cursor/mobile-design-system-prototypes-20af` wins unless this spec says
+  otherwise; if the spec is changed, note it under Comments below.
 - Real-hardware verification is required before calling the phone shell done: sticky hover,
   tap delay, safe areas, keyboard behaviour and sheet drag cannot be judged in device
   emulation or in the Playwright phone profile.

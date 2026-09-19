@@ -172,11 +172,15 @@ warmth and approachability; artwork is reduced to a thumbnail.
 
 ## 5. Promotion checklist
 
+**Native was chosen.** The full overhaul spec is `docs/admin-native-overhaul-spec.md`; it
+supersedes this checklist, which is kept as the short form. The Native prototype stays on
+branch `cursor/mobile-design-system-prototypes-20af` for reference during implementation.
+
 When a direction is picked:
 
 1. Move `styles/mobile-tokens.css` beside `web/src/index.css` and import it there.
 2. Add the platform baseline (`viewport-fit=cover`, `theme-color` per scheme) to `web/index.html`.
 3. Port the chosen shell into `web/src/components/layout/` behind a `(max-width: 768px)` breakpoint or a standalone `/m` route, replacing mock data with the existing TanStack Query hooks (`useQueue`, `useHistory`, `useStorage`, module registries for Library).
 4. Poster art uses `PosterImage` / `BackdropImage`; the gradient stand-ins in `shared/poster.tsx` are deleted.
-5. Delete `web/prototypes/` and `web/src/prototypes/`.
+5. Delete the Cinematic and Console variants. Keep the Native variant, harness and shared primitives on branch `cursor/mobile-design-system-prototypes-20af` as the reference implementation.
 6. Verify on hardware: sticky hover, tap delay, safe areas, keyboard, and the sheet gesture cannot be judged in device emulation.
