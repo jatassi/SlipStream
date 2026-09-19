@@ -38,7 +38,6 @@ export function UpgradableEpisodeRow({ series, episode, profile, onMonitored, is
           episodeNumber={episode.episodeNumber}
           title={epLabel}
           theme="tv"
-          size="xs"
           monitored
           onMonitoredChange={(m) => onMonitored({ seriesId: series.id, episodeId: episode.id, label: epLabel, monitored: m })}
           monitorDisabled={isDisabled}

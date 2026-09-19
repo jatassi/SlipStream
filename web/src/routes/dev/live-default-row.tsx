@@ -1,16 +1,17 @@
 import { useState } from 'react'
 
 import { MediaSearchMonitorControls } from '@/components/search'
+import type { ControlVariant } from '@/components/search/media-search-monitor-types'
 import { Badge } from '@/components/ui/badge'
 
-import type { ControlSize, MediaTheme } from './controls-types'
+import type { MediaTheme } from './controls-types'
 
-export function LiveDefaultRow({ theme, size }: { theme: MediaTheme; size: ControlSize }) {
+export function LiveDefaultRow({ theme, variant }: { theme: MediaTheme; variant: ControlVariant }) {
   const [monitored, setMonitored] = useState(true)
 
   const commonProps = {
     theme,
-    size,
+    variant,
     monitored,
     onMonitoredChange: setMonitored,
     qualityProfileId: 1,
@@ -19,8 +20,8 @@ export function LiveDefaultRow({ theme, size }: { theme: MediaTheme; size: Contr
 
   return (
     <div className="flex items-center gap-4">
-      <Badge variant="outline" className="w-8 justify-center text-xs">
-        {size}
+      <Badge variant="outline" className="w-12 justify-center text-xs">
+        {variant}
       </Badge>
       {theme === 'movie' ? (
         <MediaSearchMonitorControls

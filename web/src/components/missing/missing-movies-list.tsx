@@ -73,7 +73,6 @@ function MissingMovieRow({
           movieId={movie.id}
           title={movie.title}
           theme="movie"
-          size="sm"
           monitored
           onMonitoredChange={(m) => onToggleMonitored(movie, m)}
           monitorDisabled={isUpdating}

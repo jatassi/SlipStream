@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { toast } from 'sonner'
 
@@ -16,7 +16,6 @@ import {
 import type {
   ControlState,
   MediaSearchMonitorControlsProps,
-  ResolvedSize,
   SearchModalExternalProps,
 } from './media-search-monitor-types'
 import {
@@ -26,27 +25,8 @@ import {
   formatSingleResult,
 } from './media-search-monitor-utils'
 
-const SM_BREAKPOINT = '(max-width: 819px)'
-const smSubscribe = (cb: () => void) => {
-  const mql = globalThis.matchMedia(SM_BREAKPOINT)
-  mql.addEventListener('change', cb)
-  return () => mql.removeEventListener('change', cb)
-}
-const smSnapshot = () => globalThis.matchMedia(SM_BREAKPOINT).matches
-const smServer = () => false
-
-function resolveSize(sizeProp: string, isSmall: boolean): ResolvedSize {
-  if (sizeProp === 'responsive') {
-    return isSmall ? 'sm' : 'lg'
-  }
-  return sizeProp as ResolvedSize
-}
-
 export function useMediaSearchMonitor(props: MediaSearchMonitorControlsProps) {
-  const { title, size: sizeProp, qualityProfileId } = props
-
-  const isSmall = useSyncExternalStore(smSubscribe, smSnapshot, smServer)
-  const size = resolveSize(sizeProp, isSmall)
+  const { title, variant = 'row', qualityProfileId } = props
 
   const downloadTarget = buildDownloadTarget(props)
   const downloadProgress = useMediaDownloadProgress(downloadTarget)
@@ -72,7 +52,7 @@ export function useMediaSearchMonitor(props: MediaSearchMonitorControlsProps) {
     : controlState
 
   return {
-    size,
+    variant,
     effectiveState,
     downloadProgress,
     searchModalProps,

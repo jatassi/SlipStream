@@ -1,65 +1,27 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 
 import { ChevronRight } from 'lucide-react'
 
-import type { MediaStatus } from '@/components/media/media-status'
+import { Group, Row } from '@/components/grouped-list'
+import { mediaStatusFromCounts } from '@/components/media/media-status'
+import { StatusDot } from '@/components/media/status-dot'
 import { StatusPill } from '@/components/media/status-pill'
 import { MediaSearchMonitorControls } from '@/components/search'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
-import { Badge } from '@/components/ui/badge'
+import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
-import type { Episode, Season, Slot, StatusCounts } from '@/types'
+import type { Episode, Season, Slot } from '@/types'
 
-import { EpisodeTable } from './episode-table'
+import { EpisodeSlotStatusContent } from './episode-slot-status-content'
 import type { SeriesInfo } from './series-context'
+import { SeriesContext, useSeriesInfo } from './series-context'
 
 type SeasonListProps = SeriesInfo & {
   seasons: Season[]
   episodes?: Episode[]
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
   onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
-  onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
   isMultiVersionEnabled?: boolean
   enabledSlots?: Slot[]
-  isAssigning?: boolean
-  episodeRatings?: Record<number, Record<number, number>>
-  className?: string
-}
-
-type SeasonItemProps = SeriesInfo & {
-  season: Season
-  seasonEpisodes: Episode[]
-  onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
-  onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
-  onAssignFileToSlot?: (fileId: number, episodeId: number, slotId: number) => void
-  isMultiVersionEnabled: boolean
-  enabledSlots: Slot[]
-  isAssigning: boolean
-  seasonEpisodeRatings?: Record<number, number>
-}
-
-function computeSeasonStatus(counts: StatusCounts): MediaStatus {
-  if (counts.downloading > 0) {
-    return 'downloading'
-  }
-  if (counts.failed > 0) {
-    return 'failed'
-  }
-  if (counts.missing > 0) {
-    return 'missing'
-  }
-  if (counts.upgradable > 0) {
-    return 'upgradable'
-  }
-  if (counts.available > 0) {
-    return 'available'
-  }
-  return 'unreleased'
 }
 
 function groupEpisodesBySeason(episodes: Episode[]): Partial<Record<number, Episode[]>> {
@@ -83,157 +45,297 @@ function sortSeasons(seasons: Season[]): Season[] {
   })
 }
 
-function getFirstAirYear(episodes: Episode[]): string | undefined {
-  return episodes
-    .filter((ep) => ep.airDate)
-    .toSorted(
-      (a, b) => new Date(a.airDate ?? 0).getTime() - new Date(b.airDate ?? 0).getTime(),
-    )[0]
-    ?.airDate?.slice(0, 4)
+function seasonLabelFor(seasonNumber: number): string {
+  return seasonNumber === 0 ? 'Specials' : `Season ${seasonNumber}`
+}
+
+function buildSlotQualityMap(slots: Slot[]): Record<number, number> {
+  const map: Record<number, number> = {}
+  for (const slot of slots) {
+    if (slot.qualityProfileId !== null) {
+      map[slot.id] = slot.qualityProfileId
+    }
+  }
+  return map
 }
 
 export function SeasonList(props: SeasonListProps) {
-  const { seasons, episodes = [], episodeRatings, className } = props
-  const { isMultiVersionEnabled = false, enabledSlots = [], isAssigning = false } = props
+  const { seasons, episodes = [], enabledSlots = [], isMultiVersionEnabled = false } = props
+  const [expanded, setExpanded] = useState<number | null>(null)
   const episodesBySeason = useMemo(() => groupEpisodesBySeason(episodes), [episodes])
   const sortedSeasons = useMemo(() => sortSeasons(seasons), [seasons])
+  const slotQualityProfiles = useMemo(() => buildSlotQualityMap(enabledSlots), [enabledSlots])
+
+  const seriesInfo: SeriesInfo = {
+    seriesId: props.seriesId,
+    seriesTitle: props.seriesTitle,
+    qualityProfileId: props.qualityProfileId,
+    tvdbId: props.tvdbId,
+    tmdbId: props.tmdbId,
+    imdbId: props.imdbId,
+  }
 
   return (
-    <Accordion className={cn('space-y-2', className)}>
-      {sortedSeasons.map((season) => (
-        <SeasonItem
-          key={season.id}
-          season={season}
-          seasonEpisodes={episodesBySeason[season.seasonNumber] ?? []}
-          seriesId={props.seriesId}
-          seriesTitle={props.seriesTitle}
-          qualityProfileId={props.qualityProfileId}
-          tvdbId={props.tvdbId}
-          tmdbId={props.tmdbId}
-          imdbId={props.imdbId}
-          onSeasonMonitoredChange={props.onSeasonMonitoredChange}
-          onEpisodeMonitoredChange={props.onEpisodeMonitoredChange}
-          onAssignFileToSlot={props.onAssignFileToSlot}
-          isMultiVersionEnabled={isMultiVersionEnabled}
-          enabledSlots={enabledSlots}
-          isAssigning={isAssigning}
-          seasonEpisodeRatings={episodeRatings?.[season.seasonNumber]}
-        />
-      ))}
-    </Accordion>
+    <SeriesContext.Provider value={seriesInfo}>
+      <Group header="Seasons">
+        {sortedSeasons.map((season) => (
+          <Fragment key={season.id}>
+            <SeasonRow
+              season={season}
+              expanded={expanded === season.seasonNumber}
+              onToggle={() =>
+                setExpanded((prev) => (prev === season.seasonNumber ? null : season.seasonNumber))
+              }
+              onSeasonMonitoredChange={props.onSeasonMonitoredChange}
+            />
+            {expanded === season.seasonNumber && (
+              <SeasonEpisodes
+                episodes={episodesBySeason[season.seasonNumber] ?? []}
+                onEpisodeMonitoredChange={props.onEpisodeMonitoredChange}
+                isMultiVersionEnabled={isMultiVersionEnabled}
+                slotQualityProfiles={slotQualityProfiles}
+              />
+            )}
+          </Fragment>
+        ))}
+      </Group>
+    </SeriesContext.Provider>
   )
 }
 
-function SeasonItem(props: SeasonItemProps) {
-  const { season, seasonEpisodes, onSeasonMonitoredChange } = props
+function SeasonRow({
+  season,
+  expanded,
+  onToggle,
+  onSeasonMonitoredChange,
+}: {
+  season: Season
+  expanded: boolean
+  onToggle: () => void
+  onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
+}) {
+  const label = seasonLabelFor(season.seasonNumber)
   const fileCount = season.statusCounts.available + season.statusCounts.upgradable
   const totalCount = season.statusCounts.total - season.statusCounts.unreleased
-  const seasonLabel = season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`
 
   return (
-    <AccordionItem value={`season-${season.seasonNumber}`} className="rounded-lg border px-4">
-      <SeasonTrigger
-        season={season}
-        seasonLabel={seasonLabel}
-        firstAirYear={getFirstAirYear(seasonEpisodes)}
-        fileCount={fileCount}
-        totalCount={totalCount}
-        seriesId={props.seriesId}
-        seriesTitle={props.seriesTitle}
-        qualityProfileId={props.qualityProfileId}
-        tvdbId={props.tvdbId}
-        tmdbId={props.tmdbId}
-        imdbId={props.imdbId}
-        onSeasonMonitoredChange={onSeasonMonitoredChange}
-      />
-      <SeasonContent {...props} seasonLabel={seasonLabel} />
-    </AccordionItem>
-  )
-}
-
-function SeasonContent(props: SeasonItemProps & { seasonLabel: string }) {
-  const { season, seasonEpisodes, seasonEpisodeRatings } = props
-
-  return (
-    <AccordionContent className="pb-4">
-      {season.overview ? <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">{season.overview}</p> : null}
-      {seasonEpisodes.length > 0 ? (
-        <EpisodeTable
-          seriesId={props.seriesId}
-          seriesTitle={props.seriesTitle}
-          qualityProfileId={props.qualityProfileId}
-          tvdbId={props.tvdbId}
-          tmdbId={props.tmdbId}
-          imdbId={props.imdbId}
-          episodes={seasonEpisodes}
-          onMonitoredChange={props.onEpisodeMonitoredChange}
-          onAssignFileToSlot={props.onAssignFileToSlot}
-          isMultiVersionEnabled={props.isMultiVersionEnabled}
-          enabledSlots={props.enabledSlots}
-          isAssigning={props.isAssigning}
-          episodeRatings={seasonEpisodeRatings}
+    <div className="flex items-center gap-2 pr-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="press-row min-h-tap focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left outline-none focus-visible:ring-[3px]"
+      >
+        <ChevronRight
+          className={cn(
+            'text-muted-foreground/60 size-4 shrink-0 transition-transform duration-[var(--dur-fast)]',
+            expanded && 'rotate-90',
+          )}
         />
-      ) : (
-        <p className="text-muted-foreground py-2 text-sm">No episodes found</p>
-      )}
-    </AccordionContent>
+        <span className="min-w-0 flex-1">
+          <span className="text-body block truncate font-medium">{label}</span>
+          <span className="text-footnote text-muted-foreground nums mt-0.5 block">
+            {fileCount}/{totalCount} episodes
+          </span>
+        </span>
+        <StatusPill status={mediaStatusFromCounts(season.statusCounts)} />
+      </button>
+      <SeasonActions season={season} label={label} onSeasonMonitoredChange={onSeasonMonitoredChange} />
+    </div>
   )
 }
 
-type SeasonTriggerProps = SeriesInfo & {
+function SeasonActions({
+  season,
+  label,
+  onSeasonMonitoredChange,
+}: {
   season: Season
-  seasonLabel: string
-  firstAirYear?: string
-  fileCount: number
-  totalCount: number
+  label: string
   onSeasonMonitoredChange?: (seasonNumber: number, monitored: boolean) => void
-}
-
-function SeasonTrigger(props: SeasonTriggerProps) {
-  const { season, seasonLabel, firstAirYear, fileCount, totalCount } = props
-
+}) {
+  const info = useSeriesInfo()
   return (
-    <AccordionTrigger className="group py-3 hover:no-underline **:data-[slot=accordion-trigger-icon]:!hidden">
-      <div className="flex flex-1 items-center gap-4">
-        <ChevronRight className="text-muted-foreground group-hover:text-tv-400 group-hover:icon-glow-tv size-4 shrink-0 transition-transform duration-200 group-aria-expanded/accordion-trigger:rotate-90" />
-        {season.posterUrl ? <img src={season.posterUrl} alt={seasonLabel} className="h-14 w-10 shrink-0 rounded object-cover" /> : null}
-        <SeasonLabel label={seasonLabel} firstAirYear={firstAirYear} seasonNumber={season.seasonNumber} />
-        <Badge variant={fileCount === totalCount && totalCount > 0 ? 'default' : 'secondary'}>
-          {fileCount}/{totalCount}
-        </Badge>
-        <StatusPill status={computeSeasonStatus(season.statusCounts)} />
-        <button type="button" className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <MediaSearchMonitorControls
-            mediaType="season"
-            seriesId={props.seriesId}
-            seriesTitle={props.seriesTitle}
-            seasonNumber={season.seasonNumber}
-            title={seasonLabel}
-            theme="tv"
-            size="sm"
-            monitored={season.monitored}
-            onMonitoredChange={(m) => props.onSeasonMonitoredChange?.(season.seasonNumber, m)}
-            monitorDisabled={!props.onSeasonMonitoredChange}
-            qualityProfileId={props.qualityProfileId}
-            tvdbId={props.tvdbId}
-            tmdbId={props.tmdbId}
-            imdbId={props.imdbId}
-          />
-        </button>
-      </div>
-    </AccordionTrigger>
+    <MediaSearchMonitorControls
+      mediaType="season"
+      seriesId={info.seriesId}
+      seriesTitle={info.seriesTitle}
+      seasonNumber={season.seasonNumber}
+      title={label}
+      theme="tv"
+      monitored={season.monitored}
+      onMonitoredChange={(m) => onSeasonMonitoredChange?.(season.seasonNumber, m)}
+      monitorDisabled={onSeasonMonitoredChange === undefined}
+      qualityProfileId={info.qualityProfileId}
+      tvdbId={info.tvdbId}
+      tmdbId={info.tmdbId}
+      imdbId={info.imdbId}
+    />
   )
 }
 
-function SeasonLabel({ label, firstAirYear, seasonNumber }: {
-  label: string
-  firstAirYear?: string
-  seasonNumber: number
+function SeasonEpisodes({
+  episodes,
+  onEpisodeMonitoredChange,
+  isMultiVersionEnabled,
+  slotQualityProfiles,
+}: {
+  episodes: Episode[]
+  onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
+  isMultiVersionEnabled: boolean
+  slotQualityProfiles: Record<number, number>
 }) {
+  const sorted = useMemo(
+    () => episodes.toSorted((a, b) => a.episodeNumber - b.episodeNumber),
+    [episodes],
+  )
+
+  if (sorted.length === 0) {
+    return <Row title="No episodes found" />
+  }
+
   return (
-    <span className="font-semibold">
-      {label}
-      {firstAirYear && seasonNumber > 0 ? <span className="text-muted-foreground ml-1.5 font-normal">({firstAirYear})</span> : null}
-    </span>
+    <>
+      {sorted.map((episode) => (
+        <EpisodeRow
+          key={episode.id}
+          episode={episode}
+          onMonitoredChange={onEpisodeMonitoredChange}
+          isMultiVersionEnabled={isMultiVersionEnabled}
+          slotQualityProfiles={slotQualityProfiles}
+        />
+      ))}
+    </>
+  )
+}
+
+function episodeCode(episode: Episode): string {
+  return `S${episode.seasonNumber.toString().padStart(2, '0')}E${episode.episodeNumber.toString().padStart(2, '0')}`
+}
+
+function episodeSubtitle(episode: Episode): string {
+  const parts = [episode.airDate ? formatDate(episode.airDate) : 'No air date']
+  if (episode.episodeFile?.quality) {
+    parts.push(episode.episodeFile.quality)
+  }
+  return parts.join(' · ')
+}
+
+type EpisodeRowProps = {
+  episode: Episode
+  onMonitoredChange?: (episode: Episode, monitored: boolean) => void
+  isMultiVersionEnabled: boolean
+  slotQualityProfiles: Record<number, number>
+}
+
+function EpisodeRow({
+  episode,
+  onMonitoredChange,
+  isMultiVersionEnabled,
+  slotQualityProfiles,
+}: EpisodeRowProps) {
+  const [slotsOpen, setSlotsOpen] = useState(false)
+  const slotsVisible = isMultiVersionEnabled && slotsOpen
+
+  return (
+    <>
+      <Row
+        className="bg-foreground/[0.03]"
+        leading={<StatusDot status={episode.status} className="ml-1" />}
+        title={`${episode.episodeNumber}. ${episode.title}`}
+        subtitle={episodeSubtitle(episode)}
+        trailing={
+          <div className="flex items-center gap-1.5">
+            <SlotsToggle
+              episode={episode}
+              enabled={isMultiVersionEnabled}
+              open={slotsOpen}
+              onToggle={() => setSlotsOpen((prev) => !prev)}
+            />
+            <EpisodeActions episode={episode} onMonitoredChange={onMonitoredChange} />
+          </div>
+        }
+      />
+      <EpisodeSlots
+        episode={episode}
+        open={slotsVisible}
+        slotQualityProfiles={slotQualityProfiles}
+      />
+    </>
+  )
+}
+
+function SlotsToggle({
+  episode,
+  enabled,
+  open,
+  onToggle,
+}: {
+  episode: Episode
+  enabled: boolean
+  open: boolean
+  onToggle: () => void
+}) {
+  if (!enabled) {
+    return null
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Version slots for ${episodeCode(episode)}`}
+      aria-expanded={open}
+      onClick={onToggle}
+      className="press focus-visible:ring-ring flex size-8 items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"
+    >
+      <ChevronRight className={cn('size-4 transition-transform', open && 'rotate-90')} />
+    </button>
+  )
+}
+
+function EpisodeSlots({
+  episode,
+  open,
+  slotQualityProfiles,
+}: {
+  episode: Episode
+  open: boolean
+  slotQualityProfiles: Record<number, number>
+}) {
+  if (!open) {
+    return null
+  }
+  return (
+    <div className="px-4 py-2">
+      <EpisodeSlotStatusContent episode={episode} slotQualityProfiles={slotQualityProfiles} />
+    </div>
+  )
+}
+
+function EpisodeActions({
+  episode,
+  onMonitoredChange,
+}: {
+  episode: Episode
+  onMonitoredChange?: (episode: Episode, monitored: boolean) => void
+}) {
+  const info = useSeriesInfo()
+  return (
+    <MediaSearchMonitorControls
+      mediaType="episode"
+      episodeId={episode.id}
+      seriesId={info.seriesId}
+      seriesTitle={info.seriesTitle}
+      seasonNumber={episode.seasonNumber}
+      episodeNumber={episode.episodeNumber}
+      title={episodeCode(episode)}
+      theme="tv"
+      monitored={episode.monitored}
+      onMonitoredChange={(m) => onMonitoredChange?.(episode, m)}
+      monitorDisabled={onMonitoredChange === undefined}
+      qualityProfileId={info.qualityProfileId}
+      tvdbId={info.tvdbId}
+      tmdbId={info.tmdbId}
+      imdbId={info.imdbId}
+    />
   )
 }

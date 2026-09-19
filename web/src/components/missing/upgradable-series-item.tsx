@@ -86,7 +86,6 @@ function SeriesTrigger({ series, profile, onSeriesMonitored, isSeriesPending }: 
             seriesId={series.id}
             title={series.title}
             theme="tv"
-            size="sm"
             monitored
             onMonitoredChange={(m) => onSeriesMonitored(series, m)}
             monitorDisabled={isSeriesPending}

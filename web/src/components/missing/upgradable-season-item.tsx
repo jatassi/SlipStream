@@ -86,7 +86,6 @@ function SeasonTrigger({ series, season, onSeasonMonitored, isSeasonDisabled }: 
             seasonNumber={season.seasonNumber}
             title={`${series.title} Season ${season.seasonNumber}`}
             theme="tv"
-            size="xs"
             monitored
             onMonitoredChange={(m) => onSeasonMonitored(series.id, season.seasonNumber, m)}
             monitorDisabled={isSeasonDisabled}

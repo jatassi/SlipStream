@@ -15,7 +15,7 @@ export function ControlsShowcasePage() {
     <div className="space-y-8">
       <PageHeader
         title="MediaSearchMonitorControls Showcase"
-        description="Every permutation of size, theme, state, and monitored flag"
+        description="Every permutation of variant, theme, state, and monitored flag"
       />
       <LiveComponentsSection />
       <InteractiveStatePreview />
@@ -46,8 +46,8 @@ function LiveComponentsSection() {
                 {theme === 'movie' ? 'Movie Theme (Orange)' : 'TV Theme (Blue)'}
               </h3>
               <div className="space-y-3">
-                {(['lg', 'sm', 'xs'] as const).map((size) => (
-                  <LiveDefaultRow key={size} theme={theme} size={size} />
+                {(['pill', 'row'] as const).map((variant) => (
+                  <LiveDefaultRow key={variant} theme={theme} variant={variant} />
                 ))}
               </div>
             </div>

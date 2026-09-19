@@ -1,0 +1,54 @@
+/* Positioning and the app's motion tokens for the vaul drawer. vaul ships a
+   0.5s slide; the motion policy caps sheets at 320ms. */
+.sheet-presenter {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+  border-top-left-radius: var(--radius-sheet);
+  border-top-right-radius: var(--radius-sheet);
+  background: var(--card);
+  outline: none;
+  transition-duration: var(--dur-sheet);
+  animation-duration: var(--dur-sheet);
+}
+
+.sheet-presenter-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.45);
+  animation-duration: var(--dur-sheet);
+}
+
+@keyframes sheet-presenter-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-presenter-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-vaul-drawer].sheet-presenter[data-vaul-snap-points='false'][data-vaul-drawer-direction='bottom'][data-state='open'] {
+    animation-name: sheet-presenter-fade-in;
+    animation-duration: var(--dur-fast);
+  }
+  [data-vaul-drawer].sheet-presenter[data-vaul-snap-points='false'][data-vaul-drawer-direction='bottom'][data-state='closed'] {
+    animation-name: sheet-presenter-fade-out;
+    animation-duration: var(--dur-fast);
+  }
+}
