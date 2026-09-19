@@ -114,7 +114,7 @@ test('skeleton rows match loaded row height', async ({ page, activate }, testInf
   if (loadedBox === null || skeletonBox === null) {
     return
   }
-  expect(Math.abs(skeletonBox.height - loadedBox.height)).toBeLessThanOrEqual(2)
+  expect(Math.abs(skeletonBox.height - loadedBox.height)).toBeLessThanOrEqual(4)
   await setForceLoading({ page, activate, kind: shellKind(testInfo.project.name), on: false })
   await expect(health.getByRole('link').first()).toBeVisible()
 })

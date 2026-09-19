@@ -48,6 +48,7 @@ export function HeaderDevModePopover({
               checked={globalLoading}
               onCheckedChange={onGlobalLoadingChange}
               size="sm"
+              aria-label="Force Loading"
             />
           </Label>
         </div>

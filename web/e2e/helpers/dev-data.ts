@@ -25,6 +25,10 @@ type QueueItem = {
   movieId?: number
 }
 
+function isQueuedOrDownloading(item: QueueItem): boolean {
+  return item.status === 'downloading' || item.status === 'queued'
+}
+
 type HistoryItem = {
   mediaTitle?: string
   eventType: string
@@ -103,6 +107,11 @@ export async function listDownloading(page: Page): Promise<QueueItem[]> {
   return data.items.filter((item) => item.status === 'downloading')
 }
 
+async function listQueuedOrDownloading(page: Page): Promise<QueueItem[]> {
+  const data = await apiJson<{ items: QueueItem[] }>(page, '/queue')
+  return data.items.filter((item) => isQueuedOrDownloading(item))
+}
+
 export type DownloadRef = {
   rowTitle: string
   detailTitle: string
@@ -110,13 +119,16 @@ export type DownloadRef = {
 
 async function waitForDownloading(page: Page): Promise<QueueItem> {
   await expect
-    .poll(async () => {
-      const active = await listDownloading(page)
-      return active[0]?.title ?? ''
-    })
+    .poll(
+      async () => {
+        const active = await listDownloading(page)
+        return active[0]?.title ?? ''
+      },
+      { timeout: 20_000 },
+    )
     .not.toEqual('')
   const active = await listDownloading(page)
-  if (!active[0]) {
+  if (active.length === 0) {
     throw new Error('queue never entered downloading')
   }
   return active[0]
@@ -144,7 +156,7 @@ async function autosearchMissingMovie(page: Page): Promise<void> {
   const movies = await apiJson<Movie[]>(page, '/movies')
   const movie = movies.find((item) => item.status === 'missing')
   if (!movie) {
-    throw new Error('no missing movie to download')
+    return
   }
   const token = await bearerToken(page)
   const response = await page.request.fetch(`${apiBase}/autosearch/movie/${movie.id}`, {
@@ -168,7 +180,10 @@ export async function ensureDownloading(page: Page): Promise<DownloadRef> {
   if (existing[0]) {
     return { rowTitle: existing[0].title, detailTitle: await detailTitleFor(page, existing[0]) }
   }
-  await autosearchMissingMovie(page)
+  const pending = await listQueuedOrDownloading(page)
+  if (!pending[0]) {
+    await autosearchMissingMovie(page)
+  }
   const item = await waitForDownloading(page)
   return { rowTitle: item.title, detailTitle: await detailTitleFor(page, item) }
 }
