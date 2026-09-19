@@ -193,9 +193,6 @@ The following files contain `Record<string, string>` maps that must be updated w
 | `components/media/media-list-toolbar.tsx` | (inline object) | Bulk toolbar border/bg |
 | `components/tables/column-config-popover.tsx` | `accentMap` | Column config accent |
 | `components/ui/filter-dropdown.tsx` | `THEME_ACTIVE_CLASS` | Active filter text color |
-| `routes/downloads/download-row.tsx` | `THEME_HOVER_TEXT`, `THEME_HOVER_BG` | Download row hover styles |
-| `routes/downloads/download-row-poster.tsx` | `THEME_POSTER_CLASSES` | Download row poster fallback |
-| `routes/downloads/download-row-progress.tsx` | `MEDIA_TYPE_VARIANT` | Download progress variant |
 | `routes/missing/media-tabs.tsx` | `THEME_GLOW_CLASSES` | Tab glow effect |
 | `routes/missing/missing-tab-content.tsx` | `THEME_TEXT_CLASSES` | Missing tab text color |
 | `routes/missing/upgradable-tab-content.tsx` | `THEME_TEXT_CLASSES` | Upgradable tab text color |

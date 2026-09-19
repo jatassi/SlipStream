@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { useQueue } from '@/hooks'
+import { formatSpeed } from '@/lib/formatters'
 import { useUIStore } from '@/stores'
 import type { QueueItem } from '@/types'
 
@@ -14,10 +15,16 @@ function filterItems(items: QueueItem[], filter: MediaFilter): QueueItem[] {
   return items.filter((item) => item.mediaType === mediaType)
 }
 
+function summaryLine(items: QueueItem[]): string {
+  const downloading = items.filter((item) => item.status === 'downloading')
+  const speed = downloading.reduce((total, item) => total + item.downloadSpeed, 0)
+  return `${downloading.length} downloading · ${formatSpeed(speed)} · ${items.length} in queue`
+}
+
 export function useActivityPage() {
   const [filter, setFilter] = useState<MediaFilter>('all')
   const globalLoading = useUIStore((s) => s.globalLoading)
-  const { data: queueResponse, isLoading: queryLoading, isError, isFetching, refetch } = useQueue()
+  const { data: queueResponse, isLoading: queryLoading, isError, refetch } = useQueue()
   const isLoading = queryLoading || globalLoading
 
   const items = queueResponse?.items ?? []
@@ -27,21 +34,14 @@ export function useActivityPage() {
     a.title.localeCompare(b.title),
   )
 
-  const movieCount = items.filter((q) => q.mediaType === 'movie').length
-  const seriesCount = items.filter((q) => q.mediaType === 'series').length
-  const totalCount = items.length
-
   return {
     filter,
     setFilter,
     isLoading,
     isError,
-    isFetching,
     refetch,
     filteredItems,
     clientErrors,
-    movieCount,
-    seriesCount,
-    totalCount,
+    summary: summaryLine(items),
   }
 }
