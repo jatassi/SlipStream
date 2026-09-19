@@ -166,6 +166,11 @@ test('a row tap opens the existing edit flow', async ({ page, activate }) => {
   await page.goto('/settings/download-pipeline/indexers')
   await activate(page.getByRole('button', { name: 'Edit Mock Indexer' }))
   await expect(page.getByRole('heading', { name: 'Edit Indexer' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.goto('/settings/download-pipeline/clients')
+  await activate(page.getByRole('button', { name: 'Edit Mock Download Client' }))
+  await expect(page.getByRole('heading', { name: 'Edit Download Client' })).toBeVisible()
 })
 
 // Toggles the notification channel rather than an indexer or download client: those are

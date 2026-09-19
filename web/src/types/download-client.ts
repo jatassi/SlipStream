@@ -12,6 +12,7 @@ export type DownloadClientType =
   | 'freeboxdownload'
   | 'rqbit'
   | 'tribler'
+  | 'mock'
 
 export type DownloadClient = {
   id: number

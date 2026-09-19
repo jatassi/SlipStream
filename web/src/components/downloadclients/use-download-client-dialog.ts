@@ -52,6 +52,7 @@ export const clientTypeConfigs: Record<DownloadClientType, ClientTypeConfig> = {
   freeboxdownload: cfg({ label: 'Freebox Download', defaultPort: 443, defaultUrlBase: '/api/v1/', defaultSsl: true, supportsApiKey: true, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '', apiKeyLabel: 'App Token' }),
   rqbit: cfg({ label: 'rqbit', defaultPort: 3030, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '' }),
   tribler: cfg({ label: 'Tribler', defaultPort: 20_100, supportsApiKey: true, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '', apiKeyLabel: 'API Key' }),
+  mock: cfg({ label: 'Mock', defaultPort: 9999, supportsUsername: false, supportsPassword: false, usernameLabel: '', passwordLabel: '' }),
 }
 
 const defaultFormData: CreateDownloadClientInput = {

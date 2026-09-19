@@ -8,7 +8,7 @@ import { Screen } from '@/components/screen/screen'
 import type { SettingsRowAction } from '@/components/settings/settings-item-row'
 import { SettingsItemRow } from '@/components/settings/settings-item-row'
 import { AddAction, SettingsList } from '@/components/settings/settings-list'
-import type { DownloadClient, DownloadClientType } from '@/types'
+import type { DownloadClient } from '@/types'
 
 import { useDownloadClientsPage } from './use-download-clients-page'
 
@@ -77,15 +77,8 @@ function ClientRow({ client, page }: { client: DownloadClient; page: PageState }
   )
 }
 
-function clientTypeLabel(type: string): string {
-  if (type in clientTypeConfigs) {
-    return clientTypeConfigs[type as DownloadClientType].label
-  }
-  return type
-}
-
 function clientSubtitle(client: DownloadClient): string {
   const urlBase = client.urlBase && client.urlBase !== '/' ? client.urlBase : ''
   const address = `${client.useSsl ? 'https' : 'http'}://${client.host}:${client.port}${urlBase}`
-  return `${clientTypeLabel(client.type)} · ${address}`
+  return `${clientTypeConfigs[client.type].label} · ${address}`
 }
