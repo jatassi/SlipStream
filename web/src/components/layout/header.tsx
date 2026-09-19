@@ -24,7 +24,7 @@ export function Header() {
   } = useHeader()
 
   return (
-    <header className="border-border bg-card flex h-14 items-center gap-4 border-b px-6">
+    <header aria-label="App" className="material flex h-14 items-center gap-4 px-6 shadow-[0_1px_0_var(--material-edge)]">
       <div className="flex flex-1 justify-center">
         <div className="max-w-2xl flex-1">
           <SearchBar />

@@ -50,7 +50,8 @@ function getThemeClassName(theme: string | undefined, isActive: boolean): string
 
 function getLinkClassName(opts: { collapsed: boolean; indented: boolean; theme: NavItem['theme']; isActive: boolean }): string {
   return cn(
-    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all border-l-2 border-transparent',
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium border-l-2 border-transparent',
+    'focus-visible:ring-ring outline-none focus-visible:ring-[3px]',
     opts.collapsed && 'justify-center px-2 border-l-0',
     opts.indented && !opts.collapsed && 'ml-4 border-l border-border pl-4',
     getThemeClassName(opts.theme, opts.isActive),
@@ -69,7 +70,7 @@ export function NavLink({ item, collapsed, indented = false, badge }: NavLinkPro
   const linkContent = (
     <>
       <item.icon className={iconClassName} />
-      {!collapsed && (
+      {collapsed ? null : (
         <>
           <span className="flex-1">{item.title}</span>
           {badge}
@@ -81,7 +82,16 @@ export function NavLink({ item, collapsed, indented = false, badge }: NavLinkPro
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger render={<Link to={item.href} className={linkClassName} />}>
+        <TooltipTrigger
+          render={
+            <Link
+              to={item.href}
+              className={linkClassName}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={item.title}
+            />
+          }
+        >
           {linkContent}
         </TooltipTrigger>
         <TooltipContent side="right">
@@ -95,7 +105,7 @@ export function NavLink({ item, collapsed, indented = false, badge }: NavLinkPro
   }
 
   return (
-    <Link to={item.href} className={linkClassName}>
+    <Link to={item.href} className={linkClassName} aria-current={isActive ? 'page' : undefined}>
       {linkContent}
     </Link>
   )

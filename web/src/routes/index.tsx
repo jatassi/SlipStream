@@ -3,8 +3,8 @@ import { Film, Tv } from 'lucide-react'
 
 import { StorageCard } from '@/components/dashboard/storage-card'
 import { HealthWidget } from '@/components/health'
-import { PageHeader } from '@/components/layout/page-header'
 import { ProgressBar } from '@/components/media/progress-bar'
+import { Screen } from '@/components/screen/screen'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -149,20 +149,15 @@ export function DashboardPage() {
   const storage = useStorage()
 
   return (
-    <div>
-      <PageHeader title="Dashboard" description="Overview of your media library" />
-
-      {/* Stats grid */}
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
+    <Screen title="Dashboard">
+      <div className="px-screen mb-6 grid gap-4 md:grid-cols-2">
         <StorageCard storage={storage.data} loading={storage.isLoading || globalLoading} />
         <HealthWidget />
       </div>
-
-      {/* Activity section */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="px-screen grid gap-4 md:grid-cols-2">
         <QueuePreview />
         <RecentActivity />
       </div>
-    </div>
+    </Screen>
   )
 }

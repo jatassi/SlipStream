@@ -22,7 +22,10 @@ type HeaderNotificationsProps = {
 export function HeaderNotifications({ notifications, onDismiss }: HeaderNotificationsProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground relative inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:ring-1 focus-visible:outline-none">
+      <DropdownMenuTrigger
+        aria-label="Notifications"
+        className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground relative inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium focus-visible:ring-[3px] focus-visible:outline-none"
+      >
         <Bell className="size-5" />
         {notifications.length > 0 && (
           <Badge

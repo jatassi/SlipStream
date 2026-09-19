@@ -1,0 +1,31 @@
+.screen-bar-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out-strong);
+  box-shadow: 0 1px 0 var(--material-edge);
+}
+.screen-bar[data-collapsed] .screen-bar-bg {
+  opacity: 1;
+}
+.screen-compact-title {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity var(--dur-fast) var(--ease-out-strong),
+    transform var(--dur-fast) var(--ease-out-strong);
+}
+.screen-bar[data-collapsed] .screen-compact-title,
+.screen-bar[data-always-title] .screen-compact-title {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-compact-title {
+    transform: none;
+    transition: opacity var(--dur-fast) var(--ease-out-strong);
+  }
+}

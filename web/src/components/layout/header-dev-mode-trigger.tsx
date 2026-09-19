@@ -6,7 +6,10 @@ export function HeaderDevModeTrigger() {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger className="text-muted-foreground inline-flex h-8 w-8 items-center justify-center rounded-md">
+        <TooltipTrigger
+          aria-label="Enable developer mode"
+          className="text-muted-foreground inline-flex h-8 w-8 items-center justify-center rounded-md"
+        >
           <Hammer className="size-4" />
         </TooltipTrigger>
         <TooltipContent>Enable developer mode</TooltipContent>

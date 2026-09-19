@@ -42,6 +42,7 @@ const redirectRoute = <P extends string>(path: P, to: string) =>
 
 export const authSetupRoute = lazyRoute('/auth/setup', () => import('@/routes/auth/setup'), 'SetupPage')
 export const indexRoute = lazyRoute('/', () => import('@/routes/index'), 'DashboardPage')
+export const moreRoute = lazyRoute('/more', () => import('@/routes/more/index'), 'MorePage')
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,

@@ -53,6 +53,6 @@ export const systemNavItem: NavItem = {
 }
 
 export const standaloneActions: ActionItem[] = [
-  { title: 'Logout', icon: LogOut, action: 'logout', variant: 'warning' },
+  { title: 'Log out', icon: LogOut, action: 'logout', variant: 'warning' },
   { title: 'Restart', icon: RotateCcw, action: 'restart', variant: 'destructive' },
 ]

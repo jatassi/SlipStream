@@ -10,6 +10,7 @@ import {
   ExternalSearchSection,
   SearchResultsSection,
 } from '@/components/search'
+import { SearchBar } from '@/components/search/search-bar'
 import { useMovies, useMovieSearch, useSeries, useSeriesSearch } from '@/hooks'
 import { useAdminRequests } from '@/hooks/admin/use-admin-requests'
 import { getEnabledModules } from '@/modules'
@@ -164,8 +165,8 @@ function ExternalResults({ external, libraryMovieTmdbIds, librarySeriesTmdbIds }
 }
 
 export function SearchPage() {
-  const { q } = useSearch({ from: '/search' })
-  const query = q.trim() || ''
+  const search = useSearch({ strict: false })
+  const query = typeof search.q === 'string' ? search.q.trim() : ''
   const library = useLibrarySearch(query)
   const external = useExternalSearch(query, library)
 
@@ -178,12 +179,43 @@ export function SearchPage() {
     [library.series],
   )
 
-  if (!query) {
-    return <EmptyState icon={<Search className="size-8" />} title="Enter a search term" description="Use the search bar above to find movies and series" />
-  }
-
   return (
     <div className="space-y-8">
+      <SearchBar />
+      {query ? (
+        <SearchPageResults
+          query={query}
+          library={library}
+          external={external}
+          libraryMovieTmdbIds={libraryMovieTmdbIds}
+          librarySeriesTmdbIds={librarySeriesTmdbIds}
+        />
+      ) : (
+        <EmptyState
+          icon={<Search className="size-8" />}
+          title="Enter a search term"
+          description="Search movies and series"
+        />
+      )}
+    </div>
+  )
+}
+
+function SearchPageResults({
+  query,
+  library,
+  external,
+  libraryMovieTmdbIds,
+  librarySeriesTmdbIds,
+}: {
+  query: string
+  library: ReturnType<typeof useLibrarySearch>
+  external: ReturnType<typeof useExternalSearch>
+  libraryMovieTmdbIds: Set<number>
+  librarySeriesTmdbIds: Set<number>
+}) {
+  return (
+    <>
       <SearchResultsSection title="Library" isLoading={library.isLoading} hasResults={library.hasResults}>
         <div className="space-y-6">
           {getEnabledModules().map((mod) => {
@@ -201,7 +233,6 @@ export function SearchPage() {
           })}
         </div>
       </SearchResultsSection>
-
       <ExternalSearchSection
         query={query}
         enabled={external.shouldSearch}
@@ -209,8 +240,12 @@ export function SearchPage() {
         isLoading={external.isLoading}
         hasResults={external.hasResults}
       >
-        <ExternalResults external={external} libraryMovieTmdbIds={libraryMovieTmdbIds} librarySeriesTmdbIds={librarySeriesTmdbIds} />
+        <ExternalResults
+          external={external}
+          libraryMovieTmdbIds={libraryMovieTmdbIds}
+          librarySeriesTmdbIds={librarySeriesTmdbIds}
+        />
       </ExternalSearchSection>
-    </div>
+    </>
   )
 }
