@@ -1,0 +1,137 @@
+/* Cinematic variant — immersive art, glass dock, gesture sheet */
+
+.cine-dock {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 10px);
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--background) 62%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    -10px 0 30px color-mix(in oklch, var(--movie-500) 22%, transparent),
+    10px 0 30px color-mix(in oklch, var(--tv-500) 22%, transparent);
+}
+
+.cine-dock-highlight {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  height: 46px;
+  border-radius: 999px;
+  background: #fff;
+  will-change: transform;
+}
+.cine-dock[data-ready] .cine-dock-highlight {
+  transition:
+    transform 200ms var(--ease-out-strong),
+    width 200ms var(--ease-out-strong);
+}
+
+.cine-dock-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  min-width: 46px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 160ms var(--ease-out-strong);
+}
+.cine-dock-item[data-active] {
+  color: #0a0a0a;
+}
+
+/* Hero carousel */
+.cine-rail {
+  display: flex;
+  gap: 12px;
+  padding-inline: 16px;
+  scroll-padding-inline: 16px;
+}
+.cine-rail > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Glowing progress */
+.cine-glow-movie {
+  box-shadow: 0 0 12px color-mix(in oklch, var(--movie-500) 70%, transparent);
+}
+.cine-glow-tv {
+  box-shadow: 0 0 12px color-mix(in oklch, var(--tv-500) 70%, transparent);
+}
+
+/* Sheet */
+.cine-sheet-root {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+}
+.cine-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  transition: opacity var(--dur-sheet) var(--ease-drawer);
+}
+.cine-sheet {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 92%;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--card);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.08), 0 -24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  will-change: transform;
+}
+.cine-sheet[data-animating] {
+  transition: transform var(--dur-sheet) var(--ease-drawer);
+}
+.cine-sheet-handle-zone {
+  touch-action: none;
+  cursor: grab;
+}
+.cine-sheet-handle-zone:active {
+  cursor: grabbing;
+}
+
+/* Search overlay materializes: blur + scale + opacity together */
+.cine-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  animation: cine-materialize 200ms var(--ease-out-strong) both;
+}
+.cine-overlay[data-closing] {
+  animation: cine-dematerialize 160ms var(--ease-out-strong) both;
+}
+@keyframes cine-materialize {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes cine-dematerialize {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-overlay,
+  .cine-overlay[data-closing] {
+    animation-name: m-fade-in;
+  }
+  .cine-sheet[data-animating] {
+    transition-duration: 160ms;
+  }
+}
