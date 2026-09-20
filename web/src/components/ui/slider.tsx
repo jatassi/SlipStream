@@ -11,9 +11,10 @@ type SliderProps = {
   step?: number
   disabled?: boolean
   className?: string
+  label?: string
 }
 
-function Slider({ value, defaultValue, onValueChange, min = 0, max = 100, step = 1, disabled, className }: SliderProps) {
+function Slider({ value, defaultValue, onValueChange, min = 0, max = 100, step = 1, disabled, className, label }: SliderProps) {
   const current = value?.[0] ?? defaultValue?.[0] ?? min
   const percent = ((current - min) / (max - min)) * 100
 
@@ -35,6 +36,7 @@ function Slider({ value, defaultValue, onValueChange, min = 0, max = 100, step =
       </div>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}

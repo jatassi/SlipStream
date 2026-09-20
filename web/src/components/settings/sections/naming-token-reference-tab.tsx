@@ -1,21 +1,17 @@
+import { Group } from '@/components/grouped-list'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { TOKEN_REFERENCE } from './file-naming-constants'
 
-function TokenReferenceCard() {
+function TokenReferenceGroup() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Token Reference</CardTitle>
-        <CardDescription>Available tokens for naming patterns</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Group header="Token Reference" footer="Available tokens for naming patterns.">
+      <div className="px-4">
         <Accordion>
           {Object.entries(TOKEN_REFERENCE).map(([category, tokens]) => (
             <AccordionItem key={category} value={category}>
@@ -27,12 +23,12 @@ function TokenReferenceCard() {
                   {tokens.map((t) => (
                     <div
                       key={t.token}
-                      className="flex items-start gap-4 border-b py-2 last:border-0"
+                      className="flex flex-wrap items-start gap-x-4 gap-y-1 border-b py-2 last:border-0"
                     >
-                      <code className="bg-muted min-w-[180px] rounded px-2 py-1 font-mono text-sm">
+                      <code className="bg-muted rounded px-2 py-1 font-mono text-footnote">
                         {t.token}
                       </code>
-                      <div className="flex-1 text-sm">
+                      <div className="text-footnote min-w-0 flex-1">
                         <p>{t.description}</p>
                         <p className="text-muted-foreground mt-1">
                           Example: <span className="font-mono">{t.example}</span>
@@ -45,19 +41,15 @@ function TokenReferenceCard() {
             </AccordionItem>
           ))}
         </Accordion>
-      </CardContent>
-    </Card>
+      </div>
+    </Group>
   )
 }
 
-function TokenModifiersCard() {
+function TokenModifiersGroup() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Token Modifiers</CardTitle>
-        <CardDescription>Additional formatting options for tokens</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
+    <Group header="Token Modifiers" footer="Additional formatting options for tokens.">
+      <div className="text-footnote space-y-4 px-4 py-3">
         <div>
           <h4 className="mb-2 font-medium">Separator Control</h4>
           <p className="text-muted-foreground mb-2">Control word separation within tokens:</p>
@@ -79,9 +71,7 @@ function TokenModifiersCard() {
 
         <div>
           <h4 className="mb-2 font-medium">Truncation</h4>
-          <p className="text-muted-foreground mb-2">
-            Limit token length to prevent path issues:
-          </p>
+          <p className="text-muted-foreground mb-2">Limit token length to prevent path issues:</p>
           <ul className="text-muted-foreground list-inside list-disc space-y-1">
             <li>
               <code>{'{Episode Title:30}'}</code> - Truncate to 30 chars from end
@@ -91,16 +81,16 @@ function TokenModifiersCard() {
             </li>
           </ul>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </Group>
   )
 }
 
 export function TokenReferenceTab() {
   return (
     <>
-      <TokenReferenceCard />
-      <TokenModifiersCard />
+      <TokenReferenceGroup />
+      <TokenModifiersGroup />
     </>
   )
 }

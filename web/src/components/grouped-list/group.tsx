@@ -4,13 +4,14 @@ import { cn } from '@/lib/utils'
 
 type GroupProps = {
   header?: string
+  footer?: ReactNode
   action?: ReactNode
   children: ReactNode
   className?: string
   inset?: boolean
 }
 
-export function Group({ header, action, children, className, inset = true }: GroupProps) {
+export function Group({ header, footer, action, children, className, inset = true }: GroupProps) {
   const headingId = useId()
   return (
     <section
@@ -29,6 +30,9 @@ export function Group({ header, action, children, className, inset = true }: Gro
         </div>
       )}
       <div className="divide-y divide-border/70 overflow-hidden rounded-card bg-card">{children}</div>
+      {footer !== undefined && (
+        <div className="text-footnote px-3 pt-2 text-muted-foreground">{footer}</div>
+      )}
     </section>
   )
 }

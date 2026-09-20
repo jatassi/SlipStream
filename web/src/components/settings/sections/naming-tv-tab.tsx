@@ -3,13 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { Group } from '@/components/grouped-list'
+import { InputRow, SelectRow, SwitchRow } from '@/components/settings/control-row'
+import { SectionError, SectionLoading } from '@/components/settings/section-state'
 import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { ModuleNamingSettings, TokenContext as BackendTokenContext, UpdateModuleNamingRequest } from '@/types'
@@ -71,7 +67,7 @@ function useTvNamingForm(settings: ModuleNamingSettings) {
   return { form, updateField, updatePattern, isSaving: updateMutation.isPending }
 }
 
-function ColonReplacementSelect({
+function ColonReplacementGroup({
   value,
   customValue,
   onChangeReplacement,
@@ -82,67 +78,52 @@ function ColonReplacementSelect({
   onChangeReplacement: (v: string) => void
   onChangeCustom: (v: string) => void
 }) {
+  const option = COLON_REPLACEMENT_OPTIONS.find((o) => o.value === value)
   return (
-    <div className="space-y-3">
-      <Label>Colon Replacement</Label>
-      <Select value={value} onValueChange={(v) => v && onChangeReplacement(v)}>
-        <SelectTrigger>
-          {COLON_REPLACEMENT_OPTIONS.find((o) => o.value === value)?.label}
-        </SelectTrigger>
-        <SelectContent>
-          {COLON_REPLACEMENT_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground text-xs">
-        Example:{' '}
-        {COLON_REPLACEMENT_OPTIONS.find((o) => o.value === value)?.example}
-      </p>
+    <Group header="Colon Replacement" footer={`Example: ${option?.example ?? ''}`}>
+      <SelectRow
+        label="Colon Replacement"
+        value={value}
+        onChange={onChangeReplacement}
+        options={COLON_REPLACEMENT_OPTIONS}
+      />
       {value === 'custom' && (
-        <Input
+        <InputRow
+          label="Custom Replacement"
+          stacked
           value={customValue}
           onChange={(e) => onChangeCustom(e.target.value)}
           placeholder="Enter custom replacement character"
         />
       )}
-    </div>
+    </Group>
   )
 }
 
-function MultiEpisodeStyleSelect({
+function MultiEpisodeStyleGroup({
   value,
   onChange,
 }: {
   value: string
   onChange: (v: string) => void
 }) {
+  const style = MULTI_EPISODE_STYLES.find((s) => s.value === value)
   return (
-    <div className="space-y-3">
-      <Label>Multi-Episode Style</Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger>
-          {MULTI_EPISODE_STYLES.find((s) => s.value === value)?.label}
-        </SelectTrigger>
-        <SelectContent>
-          {MULTI_EPISODE_STYLES.map((style) => (
-            <SelectItem key={style.value} value={style.value}>
-              {style.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground font-mono text-xs">
-        Example:{' '}
-        {MULTI_EPISODE_STYLES.find((s) => s.value === value)?.example}
-      </p>
-    </div>
+    <Group
+      header="Multi-Episode Style"
+      footer={<span className="font-mono">Example: {style?.example ?? ''}</span>}
+    >
+      <SelectRow
+        label="Multi-Episode Style"
+        value={value}
+        onChange={onChange}
+        options={MULTI_EPISODE_STYLES}
+      />
+    </Group>
   )
 }
 
-function EpisodeRenamingCard({
+function EpisodeRenamingGroups({
   form,
   updateField,
 }: {
@@ -150,77 +131,56 @@ function EpisodeRenamingCard({
   updateField: <K extends keyof UpdateModuleNamingRequest>(field: K, value: UpdateModuleNamingRequest[K]) => void
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Episode Renaming</CardTitle>
-        <CardDescription>Configure how TV episodes are renamed during import</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Rename Episodes</Label>
-            <p className="text-muted-foreground text-sm">
-              Rename files according to format patterns
-            </p>
-          </div>
-          <Switch
-            checked={form.renameEnabled ?? false}
-            onCheckedChange={(v) => updateField('renameEnabled', v)}
-          />
-        </div>
-
-        <ColonReplacementSelect
-          value={form.colonReplacement ?? 'delete'}
-          customValue={form.customColonReplacement ?? ''}
-          onChangeReplacement={(v) => updateField('colonReplacement', v)}
-          onChangeCustom={(v) => updateField('customColonReplacement', v)}
+    <>
+      <Group
+        header="Episode Renaming"
+        footer="Rename episode files according to the format patterns below during import."
+      >
+        <SwitchRow
+          label="Rename Episodes"
+          checked={form.renameEnabled ?? false}
+          onCheckedChange={(v) => updateField('renameEnabled', v)}
         />
-        <MultiEpisodeStyleSelect
-          value={form.multiEpisodeStyle ?? 'extend'}
-          onChange={(v) => updateField('multiEpisodeStyle', v)}
-        />
-      </CardContent>
-    </Card>
+      </Group>
+      <ColonReplacementGroup
+        value={form.colonReplacement ?? 'delete'}
+        customValue={form.customColonReplacement ?? ''}
+        onChangeReplacement={(v) => updateField('colonReplacement', v)}
+        onChangeCustom={(v) => updateField('customColonReplacement', v)}
+      />
+      <MultiEpisodeStyleGroup
+        value={form.multiEpisodeStyle ?? 'extend'}
+        onChange={(v) => updateField('multiEpisodeStyle', v)}
+      />
+    </>
   )
 }
 
-type FormatCardProps = {
+type FormatGroupProps = {
   form: UpdateModuleNamingRequest
   updatePattern: (key: string, value: string) => void
   dynamicTokenContexts?: BackendTokenContext[]
 }
 
-function EpisodeFormatCard({ form, updatePattern, dynamicTokenContexts }: FormatCardProps) {
+function EpisodeFormatGroups({ form, updatePattern, dynamicTokenContexts }: FormatGroupProps) {
   const shared = { mediaType: 'episode' as const, tokenContext: 'episode', moduleId: MODULE_ID, dynamicTokenContexts }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Episode Format Patterns</CardTitle>
-        <CardDescription>Define naming patterns for different episode types</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <PatternEditor label="Standard Episode Format" value={form.patterns?.['episode-file.standard'] ?? ''} onChange={(v) => updatePattern('episode-file.standard', v)} description="For regular TV series" contextName="episode-file.standard" {...shared} />
-        <PatternEditor label="Daily Episode Format" value={form.patterns?.['episode-file.daily'] ?? ''} onChange={(v) => updatePattern('episode-file.daily', v)} description="For daily/date-based shows" contextName="episode-file.daily" {...shared} />
-        <PatternEditor label="Anime Episode Format" value={form.patterns?.['episode-file.anime'] ?? ''} onChange={(v) => updatePattern('episode-file.anime', v)} description="For anime series" contextName="episode-file.anime" {...shared} />
-      </CardContent>
-    </Card>
+    <>
+      <PatternEditor label="Standard Episode Format" value={form.patterns?.['episode-file.standard'] ?? ''} onChange={(v) => updatePattern('episode-file.standard', v)} description="For regular TV series." contextName="episode-file.standard" {...shared} />
+      <PatternEditor label="Daily Episode Format" value={form.patterns?.['episode-file.daily'] ?? ''} onChange={(v) => updatePattern('episode-file.daily', v)} description="For daily, date-based shows." contextName="episode-file.daily" {...shared} />
+      <PatternEditor label="Anime Episode Format" value={form.patterns?.['episode-file.anime'] ?? ''} onChange={(v) => updatePattern('episode-file.anime', v)} description="For anime series." contextName="episode-file.anime" {...shared} />
+    </>
   )
 }
 
-function FolderFormatCard({ form, updatePattern, dynamicTokenContexts }: FormatCardProps) {
+function FolderFormatGroups({ form, updatePattern, dynamicTokenContexts }: FormatGroupProps) {
   const shared = { mediaType: 'folder' as const, moduleId: MODULE_ID, dynamicTokenContexts }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Folder Format Patterns</CardTitle>
-        <CardDescription>Define folder naming patterns for series organization</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <PatternEditor label="Series Folder Format" value={form.patterns?.['series-folder'] ?? ''} onChange={(v) => updatePattern('series-folder', v)} description="Root folder for each series" tokenContext="series-folder" contextName="series-folder" {...shared} />
-        <PatternEditor label="Season Folder Format" value={form.patterns?.['season-folder'] ?? ''} onChange={(v) => updatePattern('season-folder', v)} description="Subfolder for each season" tokenContext="season-folder" contextName="season-folder" {...shared} />
-        <PatternEditor label="Specials Folder Format" value={form.patterns?.['specials-folder'] ?? ''} onChange={(v) => updatePattern('specials-folder', v)} description="Folder for specials (Season 0)" tokenContext="series-folder" contextName="specials-folder" {...shared} />
-      </CardContent>
-    </Card>
+    <>
+      <PatternEditor label="Series Folder Format" value={form.patterns?.['series-folder'] ?? ''} onChange={(v) => updatePattern('series-folder', v)} description="Root folder for each series." tokenContext="series-folder" contextName="series-folder" {...shared} />
+      <PatternEditor label="Season Folder Format" value={form.patterns?.['season-folder'] ?? ''} onChange={(v) => updatePattern('season-folder', v)} description="Subfolder for each season." tokenContext="season-folder" contextName="season-folder" {...shared} />
+      <PatternEditor label="Specials Folder Format" value={form.patterns?.['specials-folder'] ?? ''} onChange={(v) => updatePattern('specials-folder', v)} description="Folder for specials (Season 0)." tokenContext="series-folder" contextName="specials-folder" {...shared} />
+    </>
   )
 }
 
@@ -230,16 +190,16 @@ function TvNamingContent({ settings }: { settings: ModuleNamingSettings }) {
 
   return (
     <>
-      <div className="flex justify-end">
-        <span className="text-muted-foreground flex items-center gap-2 text-sm">
+      <div className="px-screen mb-3 flex justify-end">
+        <span className="text-footnote flex items-center gap-2 text-muted-foreground">
           <Save className={`size-4 ${isSaving ? 'animate-pulse' : ''}`} />
           {isSaving ? 'Saving...' : 'Auto-save'}
         </span>
       </div>
       <FilenameTester mediaType="tv" />
-      <EpisodeRenamingCard form={form} updateField={updateField} />
-      <EpisodeFormatCard form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
-      <FolderFormatCard form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
+      <EpisodeRenamingGroups form={form} updateField={updateField} />
+      <EpisodeFormatGroups form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
+      <FolderFormatGroups form={form} updatePattern={updatePattern} dynamicTokenContexts={dynamicTokenContexts} />
     </>
   )
 }
@@ -247,8 +207,12 @@ function TvNamingContent({ settings }: { settings: ModuleNamingSettings }) {
 export function TvNamingTab() {
   const { data: settings, isLoading, isError, refetch } = useModuleNamingSettings(MODULE_ID)
 
-  if (isLoading) {return <LoadingState variant="list" count={3} />}
-  if (isError || !settings) {return <ErrorState onRetry={refetch} />}
+  if (isLoading) {
+    return <SectionLoading count={3} />
+  }
+  if (isError || !settings) {
+    return <SectionError onRetry={refetch} />
+  }
 
   return <TvNamingContent settings={settings} />
 }

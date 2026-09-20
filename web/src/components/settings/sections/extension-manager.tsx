@@ -5,7 +5,6 @@ import { Plus, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 function ExtensionBadge({ ext, onRemove }: { ext: string; onRemove: () => void }) {
   return (
@@ -41,7 +40,6 @@ export function ExtensionManager({ extensions, onChange }: { extensions: string[
   }
   return (
     <div className="space-y-3">
-      <Label>Allowed Video Extensions</Label>
       <div className="flex flex-wrap gap-2">
         {extensions.map((ext) => (
           <ExtensionBadge key={ext} ext={ext} onRemove={() => onChange(extensions.filter((e) => e !== ext))} />
@@ -52,10 +50,11 @@ export function ExtensionManager({ extensions, onChange }: { extensions: string[
           value={newExt}
           onChange={(e) => setNewExt(e.target.value)}
           placeholder=".mkv"
-          className="w-24"
+          aria-label="New video extension"
+          className="h-11 w-24 text-base"
           onKeyDown={handleKeyDown}
         />
-        <Button type="button" size="sm" variant="outline" onClick={addExtension}>
+        <Button type="button" variant="outline" className="h-11" onClick={addExtension}>
           <Plus className="mr-1 size-4" />
           Add
         </Button>

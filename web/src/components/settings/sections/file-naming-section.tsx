@@ -1,7 +1,6 @@
 import { Save } from 'lucide-react'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
+import { SectionError, SectionLoading } from '@/components/settings/section-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getEnabledModules } from '@/modules'
 
@@ -15,14 +14,14 @@ import { useFileNamingSection } from './use-file-naming-section'
 function SaveStatus({ isSaving, hasChanges }: { isSaving: boolean; hasChanges: boolean }) {
   if (isSaving) {
     return (
-      <span className="text-muted-foreground flex items-center gap-2 text-sm">
+      <span className="text-footnote flex items-center gap-2 text-muted-foreground">
         <Save className="size-4 animate-pulse" />
         Saving...
       </span>
     )
   }
   return (
-    <span className="text-muted-foreground flex items-center gap-2 text-sm">
+    <span className="text-footnote flex items-center gap-2 text-muted-foreground">
       <Save className="size-4" />
       {hasChanges ? 'Unsaved changes' : 'All changes saved'}
     </span>
@@ -48,45 +47,43 @@ export function FileNamingSection() {
   const modules = getEnabledModules()
 
   if (isLoading) {
-    return <LoadingState variant="list" count={3} />
+    return <SectionLoading count={3} />
   }
   if (isError || !form) {
-    return <ErrorState onRetry={refetch} />
+    return <SectionError onRetry={refetch} />
   }
 
   const isImportTab = activeTab === 'validation' || activeTab === 'matching'
 
   return (
-    <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="validation">Validation</TabsTrigger>
-            <TabsTrigger value="matching">Matching</TabsTrigger>
-            {modules.map((mod) => (
-              <TabsTrigger key={mod.id} value={`${mod.id}-naming`}>
-                {mod.singularName} Naming
-              </TabsTrigger>
-            ))}
-            <TabsTrigger value="tokens">Token Reference</TabsTrigger>
-          </TabsList>
-          {isImportTab ? <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} /> : null}
-        </div>
-        <TabsContent value="validation" className="mt-6 max-w-2xl space-y-6">
-          <ValidationTab form={form} updateField={updateField} />
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="px-screen mb-4 flex flex-wrap items-center justify-between gap-3">
+        <TabsList className="max-w-full overflow-x-auto">
+          <TabsTrigger value="validation">Validation</TabsTrigger>
+          <TabsTrigger value="matching">Matching</TabsTrigger>
+          {modules.map((mod) => (
+            <TabsTrigger key={mod.id} value={`${mod.id}-naming`}>
+              {mod.singularName} Naming
+            </TabsTrigger>
+          ))}
+          <TabsTrigger value="tokens">Token Reference</TabsTrigger>
+        </TabsList>
+        {isImportTab ? <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} /> : null}
+      </div>
+      <TabsContent value="validation">
+        <ValidationTab form={form} updateField={updateField} />
+      </TabsContent>
+      <TabsContent value="matching">
+        <MatchingTab form={form} updateField={updateField} />
+      </TabsContent>
+      {modules.map((mod) => (
+        <TabsContent key={mod.id} value={`${mod.id}-naming`}>
+          <ModuleNamingTab moduleId={mod.id} />
         </TabsContent>
-        <TabsContent value="matching" className="mt-6 max-w-2xl space-y-6">
-          <MatchingTab form={form} updateField={updateField} />
-        </TabsContent>
-        {modules.map((mod) => (
-          <TabsContent key={mod.id} value={`${mod.id}-naming`} className="mt-6 max-w-3xl space-y-6">
-            <ModuleNamingTab moduleId={mod.id} />
-          </TabsContent>
-        ))}
-        <TabsContent value="tokens" className="mt-6 max-w-4xl space-y-6">
-          <TokenReferenceTab />
-        </TabsContent>
-      </Tabs>
-    </div>
+      ))}
+      <TabsContent value="tokens">
+        <TokenReferenceTab />
+      </TabsContent>
+    </Tabs>
   )
 }

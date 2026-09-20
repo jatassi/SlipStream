@@ -7,9 +7,7 @@ export function FileNamingPage() {
 
   return (
     <Screen title="Import & Naming" back={back}>
-      <div className="px-screen">
-        <FileNamingSection />
-      </div>
+      <FileNamingSection />
     </Screen>
   )
 }

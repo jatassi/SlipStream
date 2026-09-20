@@ -3,11 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { Group } from '@/components/grouped-list'
+import { SwitchRow } from '@/components/settings/control-row'
+import { SectionError, SectionLoading } from '@/components/settings/section-state'
 import { useModuleNamingSettings, useUpdateModuleNamingSettings } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { ModuleNamingSettings, TokenContext as BackendTokenContext, UpdateModuleNamingRequest } from '@/types'
@@ -66,10 +64,12 @@ function useMovieNamingForm(settings: ModuleNamingSettings) {
 
 function SaveIndicator({ isSaving }: { isSaving: boolean }) {
   return (
-    <span className="text-muted-foreground flex items-center gap-2 text-sm">
-      <Save className={`size-4 ${isSaving ? 'animate-pulse' : ''}`} />
-      {isSaving ? 'Saving...' : 'Auto-save'}
-    </span>
+    <div className="px-screen mb-3 flex justify-end">
+      <span className="text-footnote flex items-center gap-2 text-muted-foreground">
+        <Save className={`size-4 ${isSaving ? 'animate-pulse' : ''}`} />
+        {isSaving ? 'Saving...' : 'Auto-save'}
+      </span>
+    </div>
   )
 }
 
@@ -81,50 +81,43 @@ type MovieFormProps = {
   dynamicTokenContexts?: BackendTokenContext[]
 }
 
-function MovieRenamingCard({ form, updateField, updatePattern, isSaving, dynamicTokenContexts }: MovieFormProps) {
+function MovieRenamingGroups({ form, updateField, updatePattern, isSaving, dynamicTokenContexts }: MovieFormProps) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Movie Renaming</CardTitle>
-            <CardDescription>Configure how movies are renamed during import</CardDescription>
-          </div>
-          <SaveIndicator isSaving={isSaving} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Rename Movies</Label>
-            <p className="text-muted-foreground text-sm">Rename files according to format patterns</p>
-          </div>
-          <Switch checked={form.renameEnabled ?? false} onCheckedChange={(v) => updateField('renameEnabled', v)} />
-        </div>
-        <PatternEditor
-          label="Movie Folder Format"
-          value={form.patterns?.['movie-folder'] ?? ''}
-          onChange={(v) => updatePattern('movie-folder', v)}
-          description="Folder name for each movie"
-          mediaType="folder"
-          tokenContext="movie-folder"
-          moduleId={MODULE_ID}
-          contextName="movie-folder"
-          dynamicTokenContexts={dynamicTokenContexts}
+    <>
+      <SaveIndicator isSaving={isSaving} />
+      <Group
+        header="Movie Renaming"
+        footer="Rename movie files according to the format patterns below during import."
+      >
+        <SwitchRow
+          label="Rename Movies"
+          checked={form.renameEnabled ?? false}
+          onCheckedChange={(v) => updateField('renameEnabled', v)}
         />
-        <PatternEditor
-          label="Movie File Format"
-          value={form.patterns?.['movie-file'] ?? ''}
-          onChange={(v) => updatePattern('movie-file', v)}
-          description="Filename pattern for movie files"
-          mediaType="movie"
-          tokenContext="movie"
-          moduleId={MODULE_ID}
-          contextName="movie-file"
-          dynamicTokenContexts={dynamicTokenContexts}
-        />
-      </CardContent>
-    </Card>
+      </Group>
+      <PatternEditor
+        label="Movie Folder Format"
+        value={form.patterns?.['movie-folder'] ?? ''}
+        onChange={(v) => updatePattern('movie-folder', v)}
+        description="Folder name for each movie."
+        mediaType="folder"
+        tokenContext="movie-folder"
+        moduleId={MODULE_ID}
+        contextName="movie-folder"
+        dynamicTokenContexts={dynamicTokenContexts}
+      />
+      <PatternEditor
+        label="Movie File Format"
+        value={form.patterns?.['movie-file'] ?? ''}
+        onChange={(v) => updatePattern('movie-file', v)}
+        description="Filename pattern for movie files."
+        mediaType="movie"
+        tokenContext="movie"
+        moduleId={MODULE_ID}
+        contextName="movie-file"
+        dynamicTokenContexts={dynamicTokenContexts}
+      />
+    </>
   )
 }
 
@@ -135,7 +128,7 @@ function MovieNamingContent({ settings }: { settings: ModuleNamingSettings }) {
   return (
     <>
       <FilenameTester mediaType="movie" />
-      <MovieRenamingCard form={form} updateField={updateField} updatePattern={updatePattern} isSaving={isSaving} dynamicTokenContexts={dynamicTokenContexts} />
+      <MovieRenamingGroups form={form} updateField={updateField} updatePattern={updatePattern} isSaving={isSaving} dynamicTokenContexts={dynamicTokenContexts} />
     </>
   )
 }
@@ -143,8 +136,12 @@ function MovieNamingContent({ settings }: { settings: ModuleNamingSettings }) {
 export function MovieNamingTab() {
   const { data: settings, isLoading, isError, refetch } = useModuleNamingSettings(MODULE_ID)
 
-  if (isLoading) {return <LoadingState variant="list" count={2} />}
-  if (isError || !settings) {return <ErrorState onRetry={refetch} />}
+  if (isLoading) {
+    return <SectionLoading count={2} />
+  }
+  if (isError || !settings) {
+    return <SectionError onRetry={refetch} />
+  }
 
   return <MovieNamingContent settings={settings} />
 }

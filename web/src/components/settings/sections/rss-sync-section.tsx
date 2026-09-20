@@ -1,15 +1,12 @@
 import { useState } from 'react'
 
-import { AlertTriangle, Loader2, Play, Save } from 'lucide-react'
+import { Loader2, Play, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
+import { Group, Row } from '@/components/grouped-list'
+import { SliderRow, SwitchRow } from '@/components/settings/control-row'
+import { SectionError, SectionLoading } from '@/components/settings/section-state'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
 import {
   useRssSyncSettings,
   useRssSyncStatus,
@@ -52,99 +49,34 @@ type SyncStatus = {
   elapsed?: number
 }
 
-function SyncStatsGrid({ status }: { status: SyncStatus }) {
-  const stats = [
-    { value: status.totalReleases, label: 'Releases' },
-    { value: status.matched, label: 'Matched' },
-    { value: status.grabbed, label: 'Grabbed' },
-    { value: formatElapsed(status.elapsed ?? 0), label: 'Elapsed' },
-  ]
-  return (
-    <div className="grid grid-cols-4 gap-4">
-      {stats.map((s) => (
-        <div key={s.label} className="text-center">
-          <div className="text-lg font-semibold">{s.value}</div>
-          <div className="text-muted-foreground text-xs">{s.label}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function LastSyncContent({ status }: { status: SyncStatus | undefined }) {
+function LastSyncRows({ status }: { status: SyncStatus | undefined }) {
   if (!status?.lastRun) {
-    return <p className="text-muted-foreground text-sm">No sync has been run yet</p>
+    return <Row title="Last run" trailing="Never" />
   }
+
+  if (status.error) {
+    return (
+      <>
+        <Row title="Last run" trailing={formatRelativeTime(status.lastRun)} />
+        <Row title="Error" subtitle={status.error} tone="warning" />
+      </>
+    )
+  }
+
   return (
     <>
-      <div className="text-muted-foreground text-sm">{formatRelativeTime(status.lastRun)}</div>
-      {status.error ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-          <AlertTriangle className="size-4 shrink-0 text-red-500" />
-          <p className="text-sm text-red-400">{status.error}</p>
-        </div>
-      ) : (
-        <SyncStatsGrid status={status} />
-      )}
+      <Row title="Last run" trailing={formatRelativeTime(status.lastRun)} />
+      <Row title="Releases" trailing={String(status.totalReleases ?? 0)} />
+      <Row title="Matched" trailing={String(status.matched ?? 0)} />
+      <Row title="Grabbed" trailing={String(status.grabbed ?? 0)} />
+      <Row title="Elapsed" trailing={formatElapsed(status.elapsed ?? 0)} />
     </>
   )
 }
 
-function RssSyncSettingsCard({
-  enabled,
-  onEnabledChange,
-  intervalMin,
-  onIntervalChange,
-}: {
-  enabled: boolean
-  onEnabledChange: (v: boolean) => void
-  intervalMin: number
-  onIntervalChange: (v: number) => void
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>RSS Sync</CardTitle>
-        <CardDescription>Periodically fetch RSS feeds from indexers and grab matching releases</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Enable RSS Sync</Label>
-            <p className="text-muted-foreground text-sm">Periodically fetch RSS feeds from indexers and grab matching releases</p>
-          </div>
-          <Switch checked={enabled} onCheckedChange={onEnabledChange} />
-        </div>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>Sync Interval</Label>
-              <span className="text-muted-foreground text-sm">Every {intervalMin} minutes</span>
-            </div>
-            <Slider
-              value={[intervalMin]}
-              onValueChange={(value) => {
-                const v = Array.isArray(value) && typeof value[0] === 'number' ? value[0] : intervalMin
-                onIntervalChange(v)
-              }}
-              min={10}
-              max={120}
-              step={5}
-              disabled={!enabled}
-            />
-            <p className="text-muted-foreground text-xs">How often to check RSS feeds for new releases (10-120 minutes)</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-export function RssSyncSection() {
+function useRssSyncForm() {
   const { data: settings, isLoading, isError, refetch } = useRssSyncSettings()
   const updateMutation = useUpdateRssSyncSettings()
-  const { data: status } = useRssSyncStatus()
-  const triggerMutation = useTriggerRssSync()
 
   const [enabled, setEnabled] = useState(true)
   const [intervalMin, setIntervalMin] = useState(15)
@@ -152,46 +84,105 @@ export function RssSyncSection() {
 
   if (settings !== prevSettings) {
     setPrevSettings(settings)
-    if (settings) { setEnabled(settings.enabled); setIntervalMin(settings.intervalMin) }
+    if (settings) {
+      setEnabled(settings.enabled)
+      setIntervalMin(settings.intervalMin)
+    }
   }
 
   const handleSave = async () => {
-    try { await updateMutation.mutateAsync({ enabled, intervalMin }); toast.success('Settings saved') }
-    catch { toast.error('Failed to save settings') }
+    try {
+      await updateMutation.mutateAsync({ enabled, intervalMin })
+      toast.success('Settings saved')
+    } catch {
+      toast.error('Failed to save settings')
+    }
   }
+
+  const hasChanges = Boolean(
+    settings && (enabled !== settings.enabled || intervalMin !== settings.intervalMin),
+  )
+
+  return {
+    enabled,
+    setEnabled,
+    intervalMin,
+    setIntervalMin,
+    handleSave,
+    hasChanges,
+    isSaving: updateMutation.isPending,
+    isLoading,
+    isError,
+    refetch,
+  }
+}
+
+function RunNowRow() {
+  const triggerMutation = useTriggerRssSync()
 
   const handleTrigger = async () => {
-    try { await triggerMutation.mutateAsync(); toast.success('RSS sync started') }
-    catch { toast.error('Failed to trigger RSS sync') }
+    try {
+      await triggerMutation.mutateAsync()
+      toast.success('RSS sync started')
+    } catch {
+      toast.error('Failed to trigger RSS sync')
+    }
   }
 
-  const hasChanges = settings && (enabled !== settings.enabled || intervalMin !== settings.intervalMin)
+  return (
+    <Row
+      title={<span className="text-primary">Run Now</span>}
+      onClick={() => void handleTrigger()}
+      trailing={
+        triggerMutation.isPending ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Play className="size-4" />
+        )
+      }
+    />
+  )
+}
 
-  if (isLoading) {return <LoadingState variant="list" count={2} />}
-  if (isError) {return <ErrorState onRetry={refetch} />}
+export function RssSyncSection() {
+  const form = useRssSyncForm()
+  const { data: status } = useRssSyncStatus()
+
+  if (form.isLoading) {
+    return <SectionLoading count={2} />
+  }
+  if (form.isError) {
+    return <SectionError onRetry={form.refetch} />
+  }
 
   return (
-    <div className="space-y-6">
-      <RssSyncSettingsCard enabled={enabled} onEnabledChange={setEnabled} intervalMin={intervalMin} onIntervalChange={setIntervalMin} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Last Sync</CardTitle>
-          <CardDescription>Status of the most recent RSS sync run</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <LastSyncContent status={status} />
-          <Button variant="outline" onClick={handleTrigger} disabled={triggerMutation.isPending}>
-            {triggerMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
-            Run Now
-          </Button>
-        </CardContent>
-      </Card>
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={updateMutation.isPending || !hasChanges}>
+    <>
+      <Group
+        header="Feed Schedule"
+        footer="Periodically fetch RSS feeds from indexers and grab matching releases, every 10 to 120 minutes."
+      >
+        <SwitchRow label="Enable RSS Sync" checked={form.enabled} onCheckedChange={form.setEnabled} />
+        <SliderRow
+          label="Sync Interval"
+          value={form.intervalMin}
+          display={`Every ${form.intervalMin} minutes`}
+          onChange={form.setIntervalMin}
+          min={10}
+          max={120}
+          step={5}
+          disabled={!form.enabled}
+        />
+      </Group>
+      <Group header="Last Sync" footer="Status of the most recent RSS sync run.">
+        <LastSyncRows status={status} />
+        <RunNowRow />
+      </Group>
+      <div className="px-screen flex justify-end">
+        <Button className="h-11" onClick={form.handleSave} disabled={form.isSaving || !form.hasChanges}>
           <Save className="mr-2 size-4" />
           Save Changes
         </Button>
       </div>
-    </div>
+    </>
   )
 }
