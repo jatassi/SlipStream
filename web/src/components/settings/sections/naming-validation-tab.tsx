@@ -1,70 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Slider } from '@/components/ui/slider'
+import { Group } from '@/components/grouped-list'
+import { SelectRow, SliderRow, StackedRow } from '@/components/settings/control-row'
 import type { ImportSettings } from '@/types'
 
 import { ExtensionManager } from './extension-manager'
 import { VALIDATION_LEVELS } from './file-naming-constants'
 import { MediaInfoStatus } from './media-info-status'
-
-function ValidationLevelSelect({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <Label>Validation Level</Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger>
-          {VALIDATION_LEVELS.find((l) => l.value === value)?.label}
-        </SelectTrigger>
-        <SelectContent>
-          {VALIDATION_LEVELS.map((level) => (
-            <SelectItem key={level.value} value={level.value}>
-              {level.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground text-xs">
-        {VALIDATION_LEVELS.find((l) => l.value === value)?.description}
-      </p>
-    </div>
-  )
-}
-
-function MinFileSizeSlider({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <Label>Minimum File Size</Label>
-        <span className="text-muted-foreground text-sm">{value} MB</span>
-      </div>
-      <Slider
-        value={[value]}
-        onValueChange={(v) =>
-          onChange(Array.isArray(v) && typeof v[0] === 'number' ? v[0] : value)
-        }
-        min={0}
-        max={500}
-        step={10}
-      />
-      <p className="text-muted-foreground text-xs">
-        Files smaller than this will be rejected (helps filter sample files)
-      </p>
-    </div>
-  )
-}
 
 export function ValidationTab({
   form,
@@ -73,29 +13,43 @@ export function ValidationTab({
   form: ImportSettings
   updateField: <K extends keyof ImportSettings>(field: K, value: ImportSettings[K]) => void
 }) {
+  const level = VALIDATION_LEVELS.find((l) => l.value === form.validationLevel)
+
   return (
     <>
-      <MediaInfoStatus />
-      <Card>
-        <CardHeader>
-          <CardTitle>File Validation</CardTitle>
-          <CardDescription>Configure how files are validated before import</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <ValidationLevelSelect
-            value={form.validationLevel}
-            onChange={(v) => updateField('validationLevel', v as ImportSettings['validationLevel'])}
-          />
-          <MinFileSizeSlider
-            value={form.minimumFileSizeMB}
-            onChange={(v) => updateField('minimumFileSizeMB', v)}
-          />
+      <div className="px-screen mb-7">
+        <MediaInfoStatus />
+      </div>
+      <Group header="File Validation" footer={level?.description}>
+        <SelectRow
+          label="Validation Level"
+          value={form.validationLevel}
+          onChange={(v) => updateField('validationLevel', v as ImportSettings['validationLevel'])}
+          options={VALIDATION_LEVELS}
+        />
+      </Group>
+      <Group footer="Files smaller than this are rejected, which helps filter out sample files.">
+        <SliderRow
+          label="Minimum File Size"
+          value={form.minimumFileSizeMB}
+          display={`${form.minimumFileSizeMB} MB`}
+          onChange={(v) => updateField('minimumFileSizeMB', v)}
+          min={0}
+          max={500}
+          step={10}
+        />
+      </Group>
+      <Group
+        header="Allowed Video Extensions"
+        footer="Only files with one of these extensions are considered for import."
+      >
+        <StackedRow>
           <ExtensionManager
             extensions={form.videoExtensions}
             onChange={(exts) => updateField('videoExtensions', exts)}
           />
-        </CardContent>
-      </Card>
+        </StackedRow>
+      </Group>
     </>
   )
 }

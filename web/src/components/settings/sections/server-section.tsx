@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 
 import { Check, Copy } from 'lucide-react'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
+import { Group, Row } from '@/components/grouped-list'
+import { InputRow, SelectRow, SwitchRow } from '@/components/settings/control-row'
+import { SectionError, SectionLoading } from '@/components/settings/section-state'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,16 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Input } from '@/components/ui/input'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from '@/components/ui/input-group'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 
 import { FirewallStatusPanel } from './firewall-status-panel'
 import { useServerSection } from './use-server-section'
@@ -54,63 +45,50 @@ type ServerSectionProps = {
   onExternalAccessChange: (enabled: boolean) => void
 }
 
-function PortField({
-  port,
-  onChange,
-  portConflict,
-  configuredPort,
-  actualPort,
-}: {
-  port: string
-  onChange: (v: string) => void
-  portConflict: boolean
-  configuredPort?: number
-  actualPort?: number
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="port">Port</Label>
-      <Input id="port" type="number" value={port} onChange={(e) => onChange(e.target.value)} placeholder="8080" />
-      {portConflict ? <p className="text-sm text-amber-600 dark:text-amber-500">
-          Port {configuredPort} was in use. Server is running on port {actualPort}. Restart required to apply port changes.
-        </p> : null}
-    </div>
-  )
+function portFooter(portConflict: boolean, configuredPort?: number, actualPort?: number) {
+  if (portConflict) {
+    return `Port ${configuredPort} was in use. Server is running on port ${actualPort}. Restart required to apply port changes.`
+  }
+  return 'The port the server listens on. Restart required to apply port changes.'
 }
 
-function ExternalAccessField({
+function ExternalAccessGroup({
   enabled,
   onChange,
+  children,
 }: {
   enabled: boolean
   onChange: (v: boolean) => void
+  children?: React.ReactNode
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const handleToggle = (checked: boolean) => {
     if (checked) {
       setConfirmOpen(true)
-    } else {
-      onChange(false)
+      return
     }
+    onChange(false)
   }
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="externalAccess">External Access</Label>
-      <div className="flex items-center gap-2">
-        <Switch id="externalAccess" checked={enabled} onCheckedChange={handleToggle} />
-        <span className="text-muted-foreground text-sm">{enabled ? 'Enabled' : 'Disabled'}</span>
-      </div>
-      <p className="text-muted-foreground text-sm">
-        {enabled ? 'Server is accessible from other devices on your network' : 'Server is only accessible from this machine (localhost)'}
-      </p>
+    <Group
+      header="External Access"
+      footer={
+        enabled
+          ? 'Server is accessible from other devices on your network.'
+          : 'Server is only accessible from this machine (localhost).'
+      }
+    >
+      <SwitchRow label="External Access" checked={enabled} onCheckedChange={handleToggle} />
+      {children}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Enable External Access</AlertDialogTitle>
             <AlertDialogDescription>
-              This will expose your server to other devices on your network. Ensure you have proper authentication enabled before proceeding.
+              This will expose your server to other devices on your network. Ensure you have proper
+              authentication enabled before proceeding.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -119,117 +97,177 @@ function ExternalAccessField({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Group>
   )
 }
 
-function LogLevelField({ logLevel, onChange }: { logLevel: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="logLevel">Log Level</Label>
-      <Select value={logLevel} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger>{LOG_LEVELS.find((l) => l.value === logLevel)?.label ?? 'Info'}</SelectTrigger>
-        <SelectContent>
-          {LOG_LEVELS.map((level) => (
-            <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
-}
-
-function LogPathField({ logPath, isCopied, onCopy }: { logPath: string; isCopied: boolean; onCopy: () => void }) {
-  return (
-    <div className="space-y-2">
-      <Label>Log Files</Label>
-      <InputGroup>
-        <InputGroupInput value={logPath} readOnly className="font-mono text-sm" />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton aria-label="Copy" title="Copy path" size="icon-xs" onClick={onCopy}>
-            {isCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-      <p className="text-muted-foreground text-sm">Location where log files are stored</p>
-    </div>
-  )
-}
-
-function LogRotationField({ logRotation, onChange }: { logRotation: LogRotationSettings; onChange: (s: LogRotationSettings) => void }) {
-  const updateField = (field: keyof LogRotationSettings, fallback: number) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onChange({ ...logRotation, [field]: Number.parseInt(e.target.value) || fallback })
-
-  return (
-    <div className="space-y-4 border-t pt-4">
-      <div>
-        <h4 className="mb-1 text-sm font-medium">Log Rotation</h4>
-        <p className="text-muted-foreground text-sm">Configure automatic log file rotation to manage disk space</p>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="maxSizeMB">Max File Size (MB)</Label>
-          <Input id="maxSizeMB" type="number" min={1} max={100} value={logRotation.maxSizeMB} onChange={updateField('maxSizeMB', 10)} />
-          <p className="text-muted-foreground text-xs">Rotate when file exceeds this size</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="maxBackups">Max Backup Files</Label>
-          <Input id="maxBackups" type="number" min={1} max={20} value={logRotation.maxBackups} onChange={updateField('maxBackups', 5)} />
-          <p className="text-muted-foreground text-xs">Number of old files to keep</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="maxAgeDays">Max Age (Days)</Label>
-          <Input id="maxAgeDays" type="number" min={1} max={365} value={logRotation.maxAgeDays} onChange={updateField('maxAgeDays', 30)} />
-          <p className="text-muted-foreground text-xs">Delete files older than this</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="compress">Compress Old Logs</Label>
-          <div className="flex items-center gap-2 pt-1">
-            <Switch id="compress" checked={logRotation.compress} onCheckedChange={(checked) => onChange({ ...logRotation, compress: checked })} />
-            <span className="text-muted-foreground text-sm">{logRotation.compress ? 'Enabled' : 'Disabled'}</span>
-          </div>
-          <p className="text-muted-foreground text-xs">Gzip rotated log files</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function ServerSection({
-  port,
-  onPortChange,
-  logLevel,
-  onLogLevelChange,
+function LogRotationGroup({
   logRotation,
-  onLogRotationChange,
-  externalAccessEnabled,
-  onExternalAccessChange,
-}: ServerSectionProps) {
-  const {
-    settings, isLoading, isError, refetch, status,
-    firewallStatus, firewallLoading, isCheckingFirewall,
-    isCopied, portConflict, handleCopyLogPath, handleCheckFirewall,
-  } = useServerSection()
+  onChange,
+}: {
+  logRotation: LogRotationSettings
+  onChange: (s: LogRotationSettings) => void
+}) {
+  const updateField =
+    (field: keyof LogRotationSettings, fallback: number) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      onChange({ ...logRotation, [field]: Number.parseInt(e.target.value) || fallback })
 
+  return (
+    <Group
+      header="Log Rotation"
+      footer="Rotate when a file exceeds the maximum size, keep this many old files, delete files older than the maximum age, and optionally gzip rotated logs."
+    >
+      <InputRow
+        label="Max File Size (MB)"
+        type="number"
+        min={1}
+        max={100}
+        value={logRotation.maxSizeMB}
+        onChange={updateField('maxSizeMB', 10)}
+      />
+      <InputRow
+        label="Max Backup Files"
+        type="number"
+        min={1}
+        max={20}
+        value={logRotation.maxBackups}
+        onChange={updateField('maxBackups', 5)}
+      />
+      <InputRow
+        label="Max Age (Days)"
+        type="number"
+        min={1}
+        max={365}
+        value={logRotation.maxAgeDays}
+        onChange={updateField('maxAgeDays', 30)}
+      />
+      <SwitchRow
+        label="Compress Old Logs"
+        checked={logRotation.compress}
+        onCheckedChange={(checked) => onChange({ ...logRotation, compress: checked })}
+      />
+    </Group>
+  )
+}
+
+function useSyncServerSettings(props: ServerSectionProps, settings: ReturnType<typeof useServerSection>['settings']) {
+  const { onPortChange, onLogLevelChange, onLogRotationChange, onExternalAccessChange } = props
   useEffect(() => {
-    if (!settings) {return}
+    if (!settings) {
+      return
+    }
     onPortChange(settings.serverPort.toString())
     onLogLevelChange(settings.logLevel)
-    onLogRotationChange({ maxSizeMB: settings.logMaxSizeMB, maxBackups: settings.logMaxBackups, maxAgeDays: settings.logMaxAgeDays, compress: settings.logCompress })
+    onLogRotationChange({
+      maxSizeMB: settings.logMaxSizeMB,
+      maxBackups: settings.logMaxBackups,
+      maxAgeDays: settings.logMaxAgeDays,
+      compress: settings.logCompress,
+    })
     onExternalAccessChange(settings.externalAccessEnabled)
   }, [settings, onPortChange, onLogLevelChange, onLogRotationChange, onExternalAccessChange])
+}
 
-  if (isLoading) {return <LoadingState variant="list" count={3} />}
-  if (isError) {return <ErrorState onRetry={refetch} />}
+function LoggingGroup({
+  logLevel,
+  onLogLevelChange,
+  logPath,
+  isCopied,
+  onCopy,
+}: {
+  logLevel: string
+  onLogLevelChange: (level: string) => void
+  logPath: string
+  isCopied: boolean
+  onCopy: () => void
+}) {
+  return (
+    <Group header="Logging" footer={`Log files are stored at ${logPath}`}>
+      <SelectRow
+        label="Log Level"
+        value={logLevel}
+        onChange={onLogLevelChange}
+        options={LOG_LEVELS}
+      />
+      <Row
+        title="Copy Log Path"
+        onClick={onCopy}
+        trailing={isCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+      />
+    </Group>
+  )
+}
+
+function NetworkGroup({
+  port,
+  onPortChange,
+  portConflict,
+  configuredPort,
+  actualPort,
+}: {
+  port: string
+  onPortChange: (port: string) => void
+  portConflict: boolean
+  configuredPort?: number
+  actualPort?: number
+}) {
+  return (
+    <Group header="Network" footer={portFooter(portConflict, configuredPort, actualPort)}>
+      <InputRow
+        label="Port"
+        type="number"
+        value={port}
+        placeholder="8080"
+        onChange={(e) => onPortChange(e.target.value)}
+      />
+    </Group>
+  )
+}
+
+export function ServerSection(props: ServerSectionProps) {
+  const server = useServerSection()
+  useSyncServerSettings(props, server.settings)
+
+  if (server.isLoading) {
+    return <SectionLoading count={3} />
+  }
+  if (server.isError) {
+    return <SectionError onRetry={server.refetch} />
+  }
 
   return (
-    <div className="space-y-4">
-      <PortField port={port} onChange={onPortChange} portConflict={portConflict} configuredPort={status?.configuredPort} actualPort={status?.actualPort} />
-      <ExternalAccessField enabled={externalAccessEnabled} onChange={onExternalAccessChange} />
-      {externalAccessEnabled ? <FirewallStatusPanel firewallStatus={firewallStatus} firewallLoading={firewallLoading} isChecking={isCheckingFirewall} onCheck={handleCheckFirewall} /> : null}
-      <LogLevelField logLevel={logLevel} onChange={onLogLevelChange} />
-      <LogPathField logPath={settings?.logPath ?? ''} isCopied={isCopied} onCopy={handleCopyLogPath} />
-      <LogRotationField logRotation={logRotation} onChange={onLogRotationChange} />
-    </div>
+    <>
+      <NetworkGroup
+        port={props.port}
+        onPortChange={props.onPortChange}
+        portConflict={server.portConflict}
+        configuredPort={server.status?.configuredPort}
+        actualPort={server.status?.actualPort}
+      />
+      <ExternalAccessGroup
+        enabled={props.externalAccessEnabled}
+        onChange={props.onExternalAccessChange}
+      >
+        {props.externalAccessEnabled ? (
+          <div className="px-4 py-3">
+            <FirewallStatusPanel
+              firewallStatus={server.firewallStatus}
+              firewallLoading={server.firewallLoading}
+              isChecking={server.isCheckingFirewall}
+              onCheck={server.handleCheckFirewall}
+            />
+          </div>
+        ) : undefined}
+      </ExternalAccessGroup>
+      <LoggingGroup
+        logLevel={props.logLevel}
+        onLogLevelChange={props.onLogLevelChange}
+        logPath={server.settings?.logPath ?? ''}
+        isCopied={server.isCopied}
+        onCopy={() => void server.handleCopyLogPath()}
+      />
+      <LogRotationGroup logRotation={props.logRotation} onChange={props.onLogRotationChange} />
+    </>
   )
 }

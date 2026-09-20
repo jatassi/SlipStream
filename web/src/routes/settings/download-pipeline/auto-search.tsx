@@ -7,9 +7,7 @@ export function AutoSearchPage() {
 
   return (
     <Screen title="Auto Search" back={back}>
-      <div className="px-screen">
-        <AutoSearchSection />
-      </div>
+      <AutoSearchSection />
     </Screen>
   )
 }

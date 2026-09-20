@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { Pencil } from 'lucide-react'
 
-import { Label } from '@/components/ui/label'
+import { Group } from '@/components/grouped-list'
 import { useModuleNamingPreview, usePreviewNamingPattern } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
 import type { TokenBreakdown, TokenContext as BackendTokenContext } from '@/types'
@@ -11,21 +11,20 @@ import { TokenBuilderDialog } from './token-builder-dialog'
 
 function PatternPreview({ preview }: { preview: { valid: boolean; preview: string; error?: string; tokens?: TokenBreakdown[] } }) {
   return (
-    <div className="bg-muted/50 space-y-2 rounded-md p-3">
+    <div className="space-y-2 px-4 py-3">
       <div className="flex items-start gap-2">
-        <span className="shrink-0 text-xs font-medium">Preview:</span>
+        <span className="text-footnote shrink-0 font-medium">Preview:</span>
         {preview.valid ? (
-          <span className="font-mono text-sm break-all text-green-600 dark:text-green-400">
+          <span className="font-mono text-footnote break-all text-green-600 dark:text-green-400">
             {preview.preview}
           </span>
         ) : (
-          <span className="text-sm text-red-600 dark:text-red-400">{preview.error}</span>
+          <span className="text-footnote text-red-600 dark:text-red-400">{preview.error}</span>
         )}
       </div>
-      {preview.tokens && preview.tokens.length > 0 ? <details className="text-xs">
-          <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
-            Token breakdown
-          </summary>
+      {preview.tokens && preview.tokens.length > 0 ? (
+        <details className="text-caption">
+          <summary className="text-muted-foreground cursor-pointer">Token breakdown</summary>
           <div className="mt-2 space-y-1">
             {preview.tokens.map((t) => (
               <div key={`${t.token}-${t.value}`} className="flex items-center gap-2 font-mono">
@@ -35,7 +34,8 @@ function PatternPreview({ preview }: { preview: { valid: boolean; preview: strin
               </div>
             ))}
           </div>
-        </details> : null}
+        </details>
+      ) : null}
     </div>
   )
 }
@@ -92,17 +92,16 @@ export function PatternEditor({ label, value, onChange, description, mediaType =
   }
 
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
+    <Group header={label} footer={description}>
       <button
         type="button"
+        aria-label={label}
         onClick={() => setTokenDialogOpen(true)}
-        className="bg-muted/50 hover:bg-muted flex w-full cursor-pointer items-start gap-3 rounded-md border p-3 text-left font-mono text-sm transition-colors"
+        className="press-row flex min-h-tap w-full items-start gap-3 px-4 py-3 text-left font-mono text-footnote"
       >
         <Pencil className="text-muted-foreground mt-0.5 size-4 shrink-0" />
         <span className="break-all">{localValue || '(not configured)'}</span>
       </button>
-      {description ? <p className="text-muted-foreground text-xs">{description}</p> : null}
       {preview ? <PatternPreview preview={preview} /> : null}
       <TokenBuilderDialog
         open={tokenDialogOpen}
@@ -112,6 +111,6 @@ export function PatternEditor({ label, value, onChange, description, mediaType =
         tokenContext={tokenContext}
         dynamicTokenContexts={dynamicTokenContexts}
       />
-    </div>
+    </Group>
   )
 }

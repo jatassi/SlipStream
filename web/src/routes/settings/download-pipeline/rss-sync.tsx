@@ -7,9 +7,7 @@ export function RssSyncPage() {
 
   return (
     <Screen title="RSS Sync" back={back}>
-      <div className="px-screen">
-        <RssSyncSection />
-      </div>
+      <RssSyncSection />
     </Screen>
   )
 }

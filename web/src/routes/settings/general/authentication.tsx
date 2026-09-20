@@ -7,9 +7,7 @@ export function AuthenticationPage() {
 
   return (
     <Screen title="Authentication" back={back}>
-      <div className="px-screen max-w-2xl">
-        <AuthenticationSection />
-      </div>
+      <AuthenticationSection />
     </Screen>
   )
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
+import { Group } from '@/components/grouped-list'
+import { StackedRow } from '@/components/settings/control-row'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useParseFilename } from '@/hooks'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -66,23 +67,24 @@ export function FilenameTester({
   const showResult = filename.trim() && result
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Test Filename Parsing</CardTitle>
-        <CardDescription>Paste a filename to see how it will be parsed</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Group header="Test Filename Parsing" footer="Paste a filename to see how it will be parsed.">
+      <StackedRow>
         <Input
+          aria-label="Test filename"
           value={filename}
           onChange={(e) => setFilename(e.target.value)}
           placeholder={placeholder ?? PLACEHOLDERS[mediaType]}
-          className="font-mono text-sm"
+          className="h-11 font-mono text-base"
         />
-        {showResult ? <div className="bg-muted/30 space-y-3 rounded-md border p-4">
-            <ParseResult result={result} />
-          </div> : null}
-        {parseMutation.isPending ? <p className="text-muted-foreground text-sm">Parsing...</p> : null}
-      </CardContent>
-    </Card>
+      </StackedRow>
+      {showResult ? (
+        <div className="space-y-3 px-4 py-3">
+          <ParseResult result={result} />
+        </div>
+      ) : null}
+      {parseMutation.isPending ? (
+        <div className="text-footnote px-4 py-3 text-muted-foreground">Parsing...</div>
+      ) : null}
+    </Group>
   )
 }
