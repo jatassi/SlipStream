@@ -346,3 +346,27 @@ tooling to the repo (a Playwright dev dependency, a config, a test script and a 
   emulation or in the Playwright phone profile.
 - The Base UI conventions in `web/CLAUDE.md` (render prop composition, SelectValue label
   rendering) continue to apply to every new primitive.
+
+## Comments
+
+### The prototypes' fate (ticket 18)
+
+**Decision: the whole `web/src/prototypes/` tree and the `web/prototypes/mobile/index.html`
+harness entry point are removed from `main`.** The Cinematic and Console variants were already
+slated for deletion; the Native variant and its harness go with them.
+
+Reasoning. The production shell is the reference now: every part the Native prototype was drawn to
+answer — the tab bar and sidebar, `Screen` and push navigation, the grouped list, the action sheet,
+the segmented control, the poster grid — exists in `web/src/components/` with e2e tests and
+screenshot baselines behind it, and reads better there than in a mocked copy. Nothing in production
+imported from the tree (the dependency ran the other way: the prototype imported `@/lib/utils`), and
+the harness was not in the Vite build, so it was reachable only by typing its path into a dev
+server — a page nobody would find and nobody would keep true. A second, mock-data implementation of
+the same shell is a standing invitation to drift. The reference is preserved where the spec already
+says it is: branch `cursor/mobile-design-system-prototypes-20af`, plus
+`docs/mobile-design-system.md` section 3 for the direction and its trade-offs.
+
+### Real-hardware checklist (ticket 18)
+
+Not run: it needs a physical iOS and a physical Android device. See the ticket's Comments for what
+to check and how to reach the dev server from a phone.

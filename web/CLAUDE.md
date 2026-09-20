@@ -14,7 +14,30 @@ Movies use orange (`movie-*`), TV shows use blue (`tv-*`). CSS variables defined
 - Mixed content -> `media-gradient` utilities (`bg-media-gradient`, `text-media-gradient`)
 - Backgrounds: use `/10` or `/15` opacity (e.g., `bg-movie-500/10`)
 - Text on dark backgrounds: 400 shades; borders/accents: 500 shades
-- Glow effects for interactivity: `glow-movie`, `glow-tv`, `hover:glow-movie`, `glow-media`
+- No glow: the hover, card, pulse and data-active glow utilities are gone. What is left is
+  `icon-glow-movie` / `icon-glow-tv` and the `inset-glow-pulse-*` and `download-complete-flash-*`
+  keyframes, and they belong to active download progress and its completion flash only.
+
+## Motion
+
+The policy lives in `docs/admin-native-overhaul-spec.md`; the tokens and the shared rules are in
+`src/tokens.css`.
+
+- Only `transform` and `opacity` animate. The one exception is a progress fill's width (and the
+  edge glow's `left`), 700 ms linear. `transition-all` is not used anywhere — name the properties.
+- Durations come from `--dur-press` (120 ms), `--dur-fast` (160 ms), `--dur-base` (220 ms),
+  `--dur-sheet` (280 ms) and `--dur-sheet-out` (200 ms). An exit is always shorter than its
+  entrance, including under reduced motion.
+- Entrances are the `enter-fade-up` / `enter-fade` / `enter-scale` utilities plus `stagger`
+  (40 ms a child, capped at 200 ms). They are Tailwind `@utility` rules, so a variant such as
+  `[&>section]:enter-fade-up` generates, and each carries its own reduced-motion fade.
+- An entrance plays on first mount only. Gate it on `useFirstMount(key)` (`src/hooks`), which is
+  true the first time that key mounts in a page session: the wide shell remounts a route on every
+  visit, so without it the entrance replays on tab return and on back.
+- Reduced motion swaps slides and scales for fades, drops the press scale, and stops the
+  decorative loops (download shimmer and inset pulse, the completion flash, the searching shimmer
+  text and chasing lights, the skeleton sweep) and the sidebar's height collapse.
+- Reduced transparency makes `.material`, `.material-heavy` and `.material-chip` solid.
 
 ## Base UI (NOT Radix)
 
@@ -304,5 +327,9 @@ with `back={usePushBack()}` (the label reads "More"). The portal under `/request
 
 Browser tests live in `e2e/` and run against the real app in developer mode (`phone` 390×844 touch, `wide` 1440×900 mouse). `bun run test:e2e` starts the Go backend (`--dev-mode`) and Vite via Playwright `webServer`, then runs both projects. Locally both servers start through [portless](https://portless.sh) under the names `slipstream-e2e` and `slipstream-e2e-api` (prefixed with the branch inside a git worktree), so several suites can run at once in different checkouts without sharing a port or a database; `e2e/helpers/paths.ts` resolves the origins with `portless get`. CI (`CI=1`) has no proxy and uses fixed ports 3000 and 8080. Playwright always starts its own servers and refuses to reuse a leftover one; `portless prune` clears servers orphaned by a crashed run. `bun run test:e2e:headed` is the debugging variant. `bun run test:e2e:reduced-motion` runs the shell tests with `prefers-reduced-motion`.
 
-Screenshot comparison is opt-in: `PLAYWRIGHT_SCREENSHOTS=1 bun run test:e2e:screenshots` (or the same env with `bun run test:e2e`). Baselines are stored at `e2e/snapshots/{project}/{spec}-{name}.png`. Update them with `PLAYWRIGHT_SCREENSHOTS=1 bunx playwright test --project=phone --project=wide e2e/screenshots.spec.ts --update-snapshots`. Do not treat pixel diffs as a required gate; they exist to catch layout regressions.
+`bun run test:e2e:reduced-motion` runs the whole suite under `prefers-reduced-motion`, not a subset; the only test that branches on it is the library's press-scale check, which asserts the scale stays 1 there.
+
+Screenshot comparison is opt-in: `PLAYWRIGHT_SCREENSHOTS=1 bun run test:e2e:screenshots` (or the same env with `bun run test:e2e`). `e2e/screenshots.spec.ts` covers the five key screens (Dashboard, Library grid, Detail, Activity, Settings list) in both projects and both themes, and baselines are stored at `e2e/snapshots/{project}/{spec}-{name}-{theme}.png`. Update them with `PLAYWRIGHT_SCREENSHOTS=1 bunx playwright test --project=phone --project=wide e2e/screenshots.spec.ts --update-snapshots`. Do not treat pixel diffs as a required gate; they exist to catch layout regressions.
+
+The theme has no control in the app — it is a UI-store preference — so a test picks it with `useTheme(page, 'light' | 'dark')` from `e2e/helpers/theme.ts`, which patches the persisted store before the page's own scripts run. `e2e/appearance.spec.ts` holds the presentation checks that are not about a screen's content: the light palette, reduced transparency (emulated over CDP, which Playwright does not expose) and the list entrance not replaying.
 
