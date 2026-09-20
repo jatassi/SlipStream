@@ -13,11 +13,11 @@ This guide walks through everything needed to add a new media module (e.g., "mus
 │  (flat: movie)       │  (hierarchical: series→season→ep)    │
 ├──────────────────────┴──────────────────────────────────────┤
 │                  Module Interface                            │
-│  16 required sub-interfaces + optional capabilities         │
+│  17 required sub-interfaces + optional capabilities         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-A module is a single Go struct that satisfies the composite `module.Module` interface — a bundle of 16 required sub-interfaces, each responsible for a distinct concern:
+A module is a single Go struct that satisfies the composite `module.Module` interface — a bundle of 17 required sub-interfaces, each responsible for a distinct concern:
 
 ```
                         ┌──────────────┐
@@ -44,6 +44,7 @@ A module is a single Go struct that satisfies the composite `module.Module` inte
     │ Events      │    │ Provider    │    │ ReleaseDates │
     └─────────────┘    └─────────────┘    │ RouteProvider│
                                           │ TaskProvider │
+                                          │ DatabaseSwit.│
                                           └──────────────┘
 ```
 
@@ -51,7 +52,7 @@ A module is a single Go struct that satisfies the composite `module.Module` inte
 
 - Go 1.23+, Wire, sqlc
 - Node.js / Bun for frontend
-- Familiarity with `internal/module/interfaces.go` (all 16 interfaces defined there)
+- Familiarity with `internal/module/interfaces.go` (all 17 interfaces defined there)
 
 ## Step 1: Scaffold the Module
 
@@ -244,7 +245,7 @@ func (m *Module) DefaultTemplates() map[string]string {
 
 Add constructor parameters for any services your module depends on (e.g., a `musicService`, `metadataSvc`).
 
-## Step 5: Implement the 16 Required Interfaces
+## Step 5: Implement the 17 Required Interfaces
 
 Each interface lives in its own file. Here's what each one does and what you need to implement:
 
@@ -368,6 +369,7 @@ func (p *pathGenerator) AvailableVariables(level string) []module.TemplateVariab
 | `ReleaseDateResolver` | `release_dates.go` | Compute availability dates and detect transitions |
 | `RouteProvider` | `module.go` | Register custom API endpoints (can be a no-op stub) |
 | `TaskProvider` | `module.go` | Declare scheduled tasks (can return nil) |
+| `DatabaseSwitcher` | `module.go` | Rebind the module's `*sql.DB`/queries when dev mode switches databases |
 
 ## Step 6: Add Module-Specific Migrations
 

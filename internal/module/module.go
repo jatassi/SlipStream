@@ -29,6 +29,7 @@ type Module interface {
 	ReleaseDateResolver
 	RouteProvider
 	TaskProvider
+	DatabaseSwitcher
 }
 
 // Registry holds all registered modules and provides lookup.
