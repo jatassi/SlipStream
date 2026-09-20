@@ -1,6 +1,3 @@
-import { Check } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -21,9 +18,9 @@ export function FolderSelect({ rootFolderId, rootFolders, onChange }: FolderSele
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="rootFolder">Root Folder *</Label>
+      <Label>Root Folder *</Label>
       <Select value={rootFolderId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
+        <SelectTrigger aria-label="Root Folder">{label}</SelectTrigger>
         <SelectContent>
           {rootFolders?.map((folder) => (
             <SelectItem key={folder.id} value={String(folder.id)}>
@@ -49,9 +46,9 @@ export function ProfileSelect({ qualityProfileId, qualityProfiles, onChange }: P
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="qualityProfile">Quality Profile *</Label>
+      <Label>Quality Profile *</Label>
       <Select value={qualityProfileId} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{label}</SelectTrigger>
+        <SelectTrigger aria-label="Quality Profile">{label}</SelectTrigger>
         <SelectContent>
           {qualityProfiles?.map((profile) => (
             <SelectItem key={profile.id} value={String(profile.id)}>
@@ -83,29 +80,6 @@ export function ToggleField({ label, description, checked, onChange }: ToggleFie
   )
 }
 
-export type FormActionsProps = {
-  rootFolderId: string
-  qualityProfileId: string
-  isPending: boolean
-  onBack: () => void
-  onAdd: () => void
-  addLabel: string
-}
-
-export function FormActions({ rootFolderId, qualityProfileId, isPending, onBack, onAdd, addLabel }: FormActionsProps) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button variant="outline" onClick={onBack}>
-        Back
-      </Button>
-      <Button onClick={onAdd} disabled={!rootFolderId || !qualityProfileId || isPending}>
-        <Check className="mr-2 size-4" />
-        {addLabel}
-      </Button>
-    </div>
-  )
-}
-
 export type MonitorSelectProps = {
   value: string | undefined
   onChange: (v: string) => void
@@ -117,7 +91,7 @@ export function MonitorSelect({ value, onChange }: MonitorSelectProps) {
     <div className="space-y-2">
       <Label>Monitor</Label>
       <Select value={resolved} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{MONITOR_LABELS[resolved as keyof typeof MONITOR_LABELS]}</SelectTrigger>
+        <SelectTrigger aria-label="Monitor">{MONITOR_LABELS[resolved as keyof typeof MONITOR_LABELS]}</SelectTrigger>
         <SelectContent>
           {Object.entries(MONITOR_LABELS).map(([k, label]) => (
             <SelectItem key={k} value={k}>{label}</SelectItem>
@@ -142,7 +116,7 @@ export function SearchOnAddSelect({ value, onChange }: SearchOnAddSelectProps) {
     <div className="space-y-2">
       <Label>Search on Add</Label>
       <Select value={resolved} onValueChange={(v) => { if (v) { onChange(v) } }}>
-        <SelectTrigger>{SEARCH_ON_ADD_LABELS[resolved as keyof typeof SEARCH_ON_ADD_LABELS]}</SelectTrigger>
+        <SelectTrigger aria-label="Search on Add">{SEARCH_ON_ADD_LABELS[resolved as keyof typeof SEARCH_ON_ADD_LABELS]}</SelectTrigger>
         <SelectContent>
           {Object.entries(SEARCH_ON_ADD_LABELS).map(([k, label]) => (
             <SelectItem key={k} value={k}>{label}</SelectItem>

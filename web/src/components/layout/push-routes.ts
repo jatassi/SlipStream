@@ -11,6 +11,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { path: '/settings/general', title: 'General' },
 ]
 
+export function isAddPath(pathname: string): boolean {
+  return pathname === '/movies/add' || pathname === '/series/add'
+}
+
 export function isMovieDetailPath(pathname: string): boolean {
   return pathname.startsWith('/movies/') && pathname !== '/movies/add'
 }
@@ -58,16 +62,21 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
+const FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
+const FILL_PATHS = new Set(['/more', '/calendar', '/import'])
+
 export function isScreenFillPath(pathname: string): boolean {
   const pane = paneFromPathname(pathname)
-  if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
+  if (pane !== null && FILL_PANES.has(pane)) {
     return true
   }
-  if (pane === 'movies' || pane === 'series') {
+  if (FILL_PATHS.has(pathname)) {
     return true
   }
-  if (pathname === '/calendar' || pathname === '/import') {
-    return true
-  }
-  return isDetailPath(pathname) || isSettingsPath(pathname) || isSystemPath(pathname)
+  return (
+    isAddPath(pathname) ||
+    isDetailPath(pathname) ||
+    isSettingsPath(pathname) ||
+    isSystemPath(pathname)
+  )
 }

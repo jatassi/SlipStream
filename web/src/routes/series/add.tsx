@@ -1,16 +1,17 @@
 import { useEffect } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { PageHeader } from '@/components/layout/page-header'
-import { AddMediaConfigure, MediaPreview } from '@/components/media/add-media-configure'
+import {
+  AddMediaActions,
+  AddMediaConfigure,
+  MediaPreview,
+} from '@/components/media/add-media-configure'
+import { AddMediaPresenter } from '@/components/media/add-media-presenter'
 import { MonitorSelect, SearchOnAddSelect, ToggleField } from '@/components/media/media-configure-fields'
-import { Button } from '@/components/ui/button'
 
 import { useAddSeriesPage } from './use-add-series'
-
-const ADD_BREADCRUMBS = [{ label: 'Series', href: '/series' }, { label: 'Add' }]
 
 type PageState = ReturnType<typeof useAddSeriesPage>
 
@@ -29,19 +30,23 @@ export function AddSeriesPage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Add Series"
-        breadcrumbs={ADD_BREADCRUMBS}
-        actions={
-          <Button variant="ghost" onClick={state.handleBack}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back
-          </Button>
-        }
-      />
+    <AddMediaPresenter
+      title="Add Series"
+      backLabel="Library"
+      onClose={state.handleBack}
+      actions={
+        <AddMediaActions
+          rootFolderId={state.form.watch('rootFolderId')}
+          qualityProfileId={state.form.watch('qualityProfileId')}
+          isPending={state.isPending}
+          onCancel={state.handleBack}
+          onAdd={state.handleAdd}
+          addLabel="Add Series"
+        />
+      }
+    >
       <AddSeriesBody state={state} />
-    </div>
+    </AddMediaPresenter>
   )
 }
 
@@ -81,10 +86,6 @@ function SeriesConfigure({ state }: { state: PageState & { selectedSeries: NonNu
       qualityProfileId={form.watch('qualityProfileId')}
       onFolderChange={(v) => form.setValue('rootFolderId', v)}
       onProfileChange={(v) => form.setValue('qualityProfileId', v)}
-      isPending={state.isPending}
-      onBack={state.handleBack}
-      onAdd={state.handleAdd}
-      addLabel="Add Series"
     >
       <MonitorSelect value={form.watch('monitorOnAdd')} onChange={(v) => form.setValue('monitorOnAdd', v)} />
       <SearchOnAddSelect value={form.watch('searchOnAdd')} onChange={(v) => form.setValue('searchOnAdd', v)} />
