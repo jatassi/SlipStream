@@ -234,7 +234,10 @@ test('add searches the provider and puts the title in the grid', async ({
   await expect(page).toHaveURL(/\/search/)
 
   await page.goto(`/search?q=${encodeURIComponent(title)}`)
-  const result = page.getByRole('button', { name: /^Add/ }).first()
+  const result = page
+    .getByRole('region', { name: 'Add new' })
+    .getByRole('button', { name: new RegExp(escapeRegExp(title)) })
+    .first()
   await expect(result).toBeVisible()
   await activate(result)
 
@@ -263,4 +266,8 @@ test('add searches the provider and puts the title in the grid', async ({
 async function pickOption(shell: Shell, field: string, option: string): Promise<void> {
   await shell.activate(shell.page.getByRole('combobox', { name: field }))
   await shell.activate(shell.page.getByRole('option', { name: option, exact: true }))
+}
+
+function escapeRegExp(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 }
