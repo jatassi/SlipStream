@@ -76,13 +76,16 @@ test('monitored pill toggles and the state survives a reload', async ({ page, ac
   const first = movie.monitored ? 'Monitored' : 'Unmonitored'
   const second = movie.monitored ? 'Unmonitored' : 'Monitored'
 
-  await activate(page.getByRole('button', { name: first }))
-  await expect(page.getByRole('button', { name: second })).toBeVisible()
+  // Exact names and the detail region: "Monitored" is a substring of
+  // "Unmonitored", and the Library's Monitored chip sits behind the pushed screen.
+  const detail = page.getByRole('region', { name: movie.title })
+  await activate(detail.getByRole('button', { name: first, exact: true }))
+  await expect(detail.getByRole('button', { name: second, exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('button', { name: second })).toBeVisible()
+  await expect(detail.getByRole('button', { name: second, exact: true })).toBeVisible()
 
-  await activate(page.getByRole('button', { name: second }))
-  await expect(page.getByRole('button', { name: first })).toBeVisible()
+  await activate(detail.getByRole('button', { name: second, exact: true }))
+  await expect(detail.getByRole('button', { name: first, exact: true })).toBeVisible()
 })
 
 async function monitorTitle(page: Page, kind: ShellKind): Promise<string> {
