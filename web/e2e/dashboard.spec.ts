@@ -68,7 +68,7 @@ test('recent rows show event title and relative time and open the title', async 
   const title = entry.mediaTitle ?? ''
   expect(title.length).toBeGreaterThan(0)
   const recent = page.getByRole('region', { name: 'Recent' })
-  const row = recent.getByRole('link', { name: new RegExp(escapeRegExp(title)) })
+  const row = recent.getByRole('link', { name: new RegExp(escapeRegExp(title)) }).first()
   await expect(row).toBeVisible()
   await expect(row.getByText(/Grabbed|Imported|Upgraded|Failed|Auto/)).toBeVisible()
   await expect(row.getByText(/ago$|Just now/)).toBeVisible()
