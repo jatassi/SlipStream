@@ -105,7 +105,6 @@ function SeriesTriggerContent({ series: s, qualityProfileNames, actions }: Serie
           seriesId={s.id}
           title={s.title}
           theme="tv"
-          size="sm"
           monitored
           onMonitoredChange={(m) => actions.handleSeriesMonitored(s, m)}
           monitorDisabled={actions.isSeriesPending}
@@ -224,7 +223,6 @@ function SeasonTrigger({ series: s, season, actions }: SeasonTriggerProps) {
             seasonNumber={season.seasonNumber}
             title={`${s.title} Season ${season.seasonNumber}`}
             theme="tv"
-            size="xs"
             monitored
             onMonitoredChange={(m) => actions.handleSeasonMonitored(s.id, season.seasonNumber, m)}
             monitorDisabled={actions.isSeasonPending}
@@ -277,7 +275,6 @@ function MissingEpisodeRow({ series: s, episode, onMonitored, isDisabled }: Miss
           episodeNumber={episode.episodeNumber}
           title={epLabel}
           theme="tv"
-          size="xs"
           monitored
           onMonitoredChange={(m) =>
             onMonitored({ seriesId: s.id, episodeId: episode.id, label: epLabel, monitored: m })

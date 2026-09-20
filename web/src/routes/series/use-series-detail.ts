@@ -5,7 +5,6 @@ import { useNavigate, useParams } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
 import {
-  useAssignEpisodeFile,
   useDeleteSeries,
   useEpisodes,
   useExtendedSeriesMetadata,
@@ -22,27 +21,6 @@ import { seriesKeys } from '@/hooks/use-series'
 import { withToast } from '@/lib/with-toast'
 import { useUIStore } from '@/stores'
 import type { Episode } from '@/types'
-
-function buildEpisodeRatings(
-  extendedSeasons: { seasonNumber: number; episodes?: { episodeNumber: number; imdbRating?: number }[] }[] | undefined,
-): Record<number, Record<number, number>> | undefined {
-  if (!extendedSeasons) {return undefined}
-
-  const map: Record<number, Record<number, number>> = {}
-  for (const season of extendedSeasons) {
-    if (!season.episodes) {continue}
-    const seasonMap: Record<number, number> = {}
-    for (const ep of season.episodes) {
-      if (ep.imdbRating) {
-        seasonMap[ep.episodeNumber] = ep.imdbRating
-      }
-    }
-    if (Object.keys(seasonMap).length > 0) {
-      map[season.seasonNumber] = seasonMap
-    }
-  }
-  return Object.keys(map).length > 0 ? map : undefined
-}
 
 function useSeriesQueries(seriesId: number) {
   const globalLoading = useUIStore((s) => s.globalLoading)
@@ -70,23 +48,16 @@ function formatEpisodeCode(ep: Episode): string {
   return `S${ep.seasonNumber.toString().padStart(2, '0')}E${ep.episodeNumber.toString().padStart(2, '0')}`
 }
 
-function useSeriesMutations(seriesId: number, refetch: () => void) {
+function useSeriesMutations(seriesId: number) {
   const navigate = useNavigate()
   const update = useUpdateSeries()
   const remove = useDeleteSeries()
   const refresh = useRefreshSeries()
   const seasonMonitor = useUpdateSeasonMonitored()
   const episodeMonitor = useUpdateEpisodeMonitored()
-  const assign = useAssignEpisodeFile()
 
   return {
-    isAssigning: assign.isPending,
     isRefreshing: refresh.isPending,
-    handleAssignFileToSlot: withToast(async (fileId: number, episodeId: number, slotId: number) => {
-      await assign.mutateAsync({ episodeId, slotId, data: { fileId } })
-      refetch()
-      toast.success('File assigned to slot')
-    }),
     handleToggleMonitored: async (series: { id: number; monitored: boolean } | undefined, newMonitored?: boolean) => {
       if (!series) {return}
       const target = newMonitored ?? !series.monitored
@@ -123,22 +94,16 @@ export function useSeriesDetailPage() {
   const [overviewExpanded, setOverviewExpanded] = useState(false)
 
   const queries = useSeriesQueries(seriesId)
-  const mutations = useSeriesMutations(seriesId, () => { void queries.refetch() })
+  const mutations = useSeriesMutations(seriesId)
 
   const qualityProfileName = useMemo(
     () => queries.qualityProfiles?.find((p) => p.id === queries.series?.qualityProfileId)?.name,
     [queries.qualityProfiles, queries.series?.qualityProfileId],
   )
 
-  const episodeRatings = useMemo(
-    () => buildEpisodeRatings(queries.extendedData?.seasons),
-    [queries.extendedData?.seasons],
-  )
-
   return {
     ...queries,
     qualityProfileName,
-    episodeRatings,
     ...mutations,
     handleToggleMonitored: (newMonitored?: boolean) => mutations.handleToggleMonitored(queries.series, newMonitored),
     editDialogOpen,

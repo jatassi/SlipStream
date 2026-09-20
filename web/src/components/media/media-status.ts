@@ -19,15 +19,23 @@ export function mediaStatusColor(status: MediaStatus): string {
   return `var(--status-${status})`
 }
 
+type StatusCountLike = {
+  unreleased: number
+  missing: number
+  downloading: number
+  failed: number
+  upgradable: number
+  available: number
+}
+
 const AGGREGATE_PRIORITY: MediaStatus[] = [
   'downloading',
   'failed',
   'missing',
   'upgradable',
   'available',
-  'unreleased',
 ]
 
-export function aggregateMediaStatus(counts: Record<MediaStatus, number>): MediaStatus {
+export function aggregateMediaStatus(counts: StatusCountLike): MediaStatus {
   return AGGREGATE_PRIORITY.find((status) => counts[status] > 0) ?? 'unreleased'
 }

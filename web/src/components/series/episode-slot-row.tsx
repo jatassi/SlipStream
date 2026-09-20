@@ -100,7 +100,6 @@ function CompactSlotItem({
           episodeNumber={episodeNumber}
           title={`${slot.slotName} S${seasonNumber.toString().padStart(2, '0')}E${episodeNumber.toString().padStart(2, '0')}`}
           theme="tv"
-          size="xs"
           monitored={slot.monitored}
           onMonitoredChange={(m) => onMonitoredChange?.(slot.slotId, m)}
           monitorDisabled={isMonitorUpdating}

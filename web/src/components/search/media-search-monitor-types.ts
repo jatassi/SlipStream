@@ -1,13 +1,14 @@
 import type { SearchModal } from './search-modal'
 
 export type MediaTheme = 'movie' | 'tv'
-type ControlSize = 'lg' | 'sm' | 'xs' | 'responsive'
-export type ResolvedSize = 'lg' | 'sm' | 'xs'
+
+// One pill row for detail screens, one compact row of icon buttons for lists.
+export type ControlVariant = 'pill' | 'row'
 
 type BaseProps = {
   title: string
   theme: MediaTheme
-  size: ControlSize
+  variant?: ControlVariant
   monitored: boolean
   onMonitoredChange: (monitored: boolean) => void
   monitorDisabled?: boolean

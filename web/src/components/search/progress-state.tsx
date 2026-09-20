@@ -4,16 +4,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { formatBytes, formatEta, formatSpeed } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 
-import type { MediaTheme, ResolvedSize } from './media-search-monitor-types'
+import type { ControlVariant, MediaTheme } from './media-search-monitor-types'
 
-const HEIGHT_BY_SIZE: Record<ResolvedSize, string> = {
-  xs: 'h-6',
-  sm: 'h-8',
-  lg: 'h-9',
+const SHAPE: Record<ControlVariant, string> = {
+  pill: 'h-tap rounded-full',
+  row: 'h-8 rounded-md',
 }
 
 type ProgressStateProps = {
-  size: ResolvedSize
+  variant: ControlVariant
   theme: MediaTheme
   progress: number
   isPaused: boolean
@@ -25,7 +24,7 @@ type ProgressStateProps = {
 }
 
 export function ProgressState({
-  size,
+  variant,
   theme,
   progress,
   isPaused,
@@ -38,7 +37,7 @@ export function ProgressState({
   return (
     <Tooltip>
       <TooltipTrigger render={<div className="w-full" />}>
-        <ProgressBar size={size} theme={theme} progress={progress} isPaused={isPaused} eta={eta} />
+        <ProgressBar variant={variant} theme={theme} progress={progress} isPaused={isPaused} eta={eta} />
       </TooltipTrigger>
       <TooltipContent>
         <ProgressTooltip
@@ -56,30 +55,29 @@ export function ProgressState({
 }
 
 type BarProps = {
-  size: ResolvedSize
+  variant: ControlVariant
   theme: MediaTheme
   progress: number
   isPaused: boolean
   eta: number
 }
 
-function ProgressBar({ size, theme, progress, isPaused, eta }: BarProps) {
+function ProgressBar({ variant, theme, progress, isPaused, eta }: BarProps) {
   const clampedProgress = Math.max(progress, 2)
-  const showEffects = size !== 'xs'
 
   return (
     <div
       className={cn(
-        'relative w-full overflow-hidden rounded-md',
+        'relative w-full overflow-hidden',
         isPaused && 'animation-paused',
-        HEIGHT_BY_SIZE[size],
+        SHAPE[variant],
       )}
     >
       <div className="bg-muted/30 absolute inset-0" />
-      <ProgressFill theme={theme} clampedProgress={clampedProgress} showShimmer={showEffects} />
-      {showEffects ? <EdgeGlow theme={theme} clampedProgress={clampedProgress} /> : null}
-      {showEffects ? <InsetGlow theme={theme} /> : null}
-      <ProgressLabel size={size} eta={eta} />
+      <ProgressFill theme={theme} clampedProgress={clampedProgress} showShimmer />
+      <EdgeGlow theme={theme} clampedProgress={clampedProgress} />
+      <InsetGlow theme={theme} shape={SHAPE[variant]} />
+      <ProgressLabel variant={variant} eta={eta} />
     </div>
   )
 }
@@ -88,7 +86,7 @@ function ProgressFill({ theme, clampedProgress, showShimmer }: { theme: MediaThe
   return (
     <div
       className={cn(
-        'absolute inset-y-0 left-0 transition-all duration-500 ease-out',
+        'absolute inset-y-0 left-0 transition-[width] duration-700 ease-linear',
         theme === 'movie'
           ? 'from-movie-600/40 via-movie-500/50 to-movie-500/60 bg-gradient-to-r'
           : 'from-tv-600/40 via-tv-500/50 to-tv-500/60 bg-gradient-to-r',
@@ -113,7 +111,7 @@ function EdgeGlow({ theme, clampedProgress }: { theme: MediaTheme; clampedProgre
   return (
     <div
       className={cn(
-        'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-all duration-500',
+        'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-[left] duration-700 ease-linear',
         theme === 'movie' ? 'bg-movie-400' : 'bg-tv-400',
       )}
       style={{ left: `calc(${clampedProgress}% - 2px)` }}
@@ -121,11 +119,12 @@ function EdgeGlow({ theme, clampedProgress }: { theme: MediaTheme; clampedProgre
   )
 }
 
-function InsetGlow({ theme }: { theme: MediaTheme }) {
+function InsetGlow({ theme, shape }: { theme: MediaTheme; shape: string }) {
   return (
     <div
       className={cn(
-        'absolute inset-0 rounded-md ring-1 ring-inset',
+        'absolute inset-0 ring-1 ring-inset',
+        shape,
         theme === 'movie'
           ? 'ring-movie-500/40 animate-[inset-glow-pulse-movie_2s_ease-in-out_infinite]'
           : 'ring-tv-500/40 animate-[inset-glow-pulse-tv_2s_ease-in-out_infinite]',
@@ -134,12 +133,11 @@ function InsetGlow({ theme }: { theme: MediaTheme }) {
   )
 }
 
-function ProgressLabel({ size, eta }: { size: ResolvedSize; eta: number }) {
-  const iconSize = size === 'xs' ? 'size-3.5' : 'size-4'
+function ProgressLabel({ variant, eta }: { variant: ControlVariant; eta: number }) {
   return (
-    <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
-      <Download className={iconSize} />
-      {size === 'lg' && `Downloading${eta > 0 ? ` (${formatEta(eta)})` : ''}`}
+    <div className="text-muted-foreground text-footnote absolute inset-0 flex items-center justify-center gap-2">
+      <Download className="size-4" />
+      {variant === 'pill' && `Downloading${eta > 0 ? ` (${formatEta(eta)})` : ''}`}
     </div>
   )
 }

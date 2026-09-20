@@ -91,6 +91,71 @@ export async function apiGet<T>(page: Page, path: string): Promise<T> {
   return apiJson<T>(page, path)
 }
 
+export type MovieDetail = {
+  id: number
+  title: string
+  year?: number
+  runtime?: number
+  status: string
+  monitored: boolean
+  qualityProfileId: number
+}
+
+export type SeriesDetail = {
+  id: number
+  title: string
+  year?: number
+  monitored: boolean
+  seasons: { seasonNumber: number }[]
+}
+
+export async function findMovie(page: Page, title: string): Promise<MovieDetail> {
+  const movies = await apiJson<MovieDetail[]>(page, '/movies')
+  const movie = movies.find((item) => item.title === title)
+  if (!movie) {
+    throw new Error(`no movie titled ${title} in the developer library`)
+  }
+  return apiJson<MovieDetail>(page, `/movies/${movie.id}`)
+}
+
+export async function findSeries(page: Page, title: string): Promise<SeriesDetail> {
+  const library = await apiJson<SeriesDetail[]>(page, '/series')
+  const series = library.find((item) => item.title === title)
+  if (!series) {
+    throw new Error(`no series titled ${title} in the developer library`)
+  }
+  return apiJson<SeriesDetail>(page, `/series/${series.id}`)
+}
+
+// A throwaway movie the delete flow can remove without touching the library the
+// other specs read.
+export async function createScratchMovie(page: Page, title: string): Promise<MovieDetail> {
+  const rootFolders = await apiJson<{ id: number }[]>(page, '/rootfolders?mediaType=movie')
+  const profiles = await apiJson<{ id: number }[]>(page, '/qualityprofiles?mediaType=movie')
+  if (!rootFolders[0] || !profiles[0]) {
+    throw new Error('developer mode has no movie root folder or quality profile')
+  }
+  return apiJson<MovieDetail>(page, '/movies', {
+    method: 'POST',
+    data: {
+      title,
+      year: 2001,
+      overview: 'A scratch movie created by the end-to-end suite.',
+      rootFolderId: rootFolders[0].id,
+      qualityProfileId: profiles[0].id,
+      monitored: true,
+    },
+  })
+}
+
+export async function deleteMovieIfPresent(page: Page, id: number): Promise<void> {
+  const token = await bearerToken(page)
+  await page.request.fetch(`${apiBase}/movies/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
 export async function listHealthIssues(page: Page): Promise<HealthItem[]> {
   const health = await apiJson<HealthResponse>(page, '/system/health')
   return flattenIssues(health)
