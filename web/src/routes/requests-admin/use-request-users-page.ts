@@ -19,7 +19,7 @@ import { useUIStore } from '@/stores'
 import type { PortalUserWithQuota } from '@/types'
 
 function useUserActions() {
-  const [showUserDialog, setShowUserDialog] = useState(false)
+  const [showUserSheet, setShowUserSheet] = useState(false)
   const [editingUser, setEditingUser] = useState<PortalUserWithQuota | null>(null)
 
   const enableMutation = useEnableUser()
@@ -42,7 +42,7 @@ function useUserActions() {
 
   const handleOpenEdit = (user: PortalUserWithQuota) => {
     setEditingUser(user)
-    setShowUserDialog(true)
+    setShowUserSheet(true)
   }
 
   const handleDeleteUser = async (id: number) => {
@@ -55,8 +55,8 @@ function useUserActions() {
   }
 
   return {
-    showUserDialog,
-    setShowUserDialog,
+    showUserSheet,
+    setShowUserSheet,
     editingUser,
     togglePending: enableMutation.isPending || disableMutation.isPending,
     handleToggleEnabled,
@@ -65,33 +65,17 @@ function useUserActions() {
   }
 }
 
-function useClipboardLink() {
-  const [copiedToken, setCopiedToken] = useState<string | null>(null)
-  const [expandedLinkToken, setExpandedLinkToken] = useState<string | null>(null)
-
-  const handleCopyLink = async (token: string) => {
-    const link = getInvitationLink(token)
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopiedToken(token)
-      toast.success('Invitation link copied to clipboard')
-      setTimeout(() => setCopiedToken(null), 3000)
-      return
-    } catch {
-      setExpandedLinkToken(token)
-    }
-    toast.info('Select and copy the link below')
+async function copyInvitationLink(token: string) {
+  try {
+    await navigator.clipboard.writeText(getInvitationLink(token))
+    toast.success('Invitation link copied to clipboard')
+  } catch {
+    toast.error('Could not copy the invitation link')
   }
-
-  const toggleLinkVisibility = (token: string) => {
-    setExpandedLinkToken(expandedLinkToken === token ? null : token)
-  }
-
-  return { copiedToken, expandedLinkToken, handleCopyLink, toggleLinkVisibility }
 }
 
-function useInviteDialogState() {
-  const [showInviteDialog, setShowInviteDialog] = useState(false)
+function useInviteFormState() {
+  const [showInviteSheet, setShowInviteSheet] = useState(false)
   const [inviteName, setInviteName] = useState('')
   const [inviteModuleSettings, setInviteModuleSettings] = useState<Record<string, number | null>>({})
   const [inviteAutoApprove, setInviteAutoApprove] = useState(false)
@@ -102,58 +86,56 @@ function useInviteDialogState() {
     setInviteAutoApprove(false)
   }
 
-  const handleOpenInvite = () => {
-    reset()
-    setShowInviteDialog(true)
-  }
-
-  const setInviteModuleProfile = (moduleType: string, profileId: number | null) => {
-    setInviteModuleSettings((prev) => ({ ...prev, [moduleType]: profileId }))
-  }
-
   return {
-    showInviteDialog,
-    setShowInviteDialog,
+    showInviteSheet,
+    setShowInviteSheet,
     inviteName,
     setInviteName,
     inviteModuleSettings,
-    setInviteModuleProfile,
+    setInviteModuleProfile: (moduleType: string, profileId: number | null) => {
+      setInviteModuleSettings((prev) => ({ ...prev, [moduleType]: profileId }))
+    },
     inviteAutoApprove,
     setInviteAutoApprove,
     reset,
-    handleOpenInvite,
+    handleOpenInvite: () => {
+      reset()
+      setShowInviteSheet(true)
+    },
   }
 }
 
-function useInvitationActions(
-  dialog: ReturnType<typeof useInviteDialogState>,
-  handleCopyLink: (token: string) => Promise<void>,
-) {
+function useCreateInvitationAction(form: ReturnType<typeof useInviteFormState>) {
   const createMutation = useCreateInvitation()
-  const deleteMutation = useDeleteInvitation()
-  const resendMutation = useAdminResendInvitation()
 
   const handleCreateInvitation = async () => {
-    if (!dialog.inviteName.trim()) {
+    if (!form.inviteName.trim()) {
       toast.error('Name is required')
       return
     }
     try {
-      const params = {
-        username: dialog.inviteName,
-        moduleSettings: dialog.inviteModuleSettings,
-        autoApprove: dialog.inviteAutoApprove,
-      }
-      const invitation = await createMutation.mutateAsync(params)
+      const invitation = await createMutation.mutateAsync({
+        username: form.inviteName,
+        moduleSettings: form.inviteModuleSettings,
+        autoApprove: form.inviteAutoApprove,
+      })
       toast.success('Invitation created')
-      dialog.setShowInviteDialog(false)
-      dialog.reset()
-      void handleCopyLink(invitation.token)
+      form.setShowInviteSheet(false)
+      form.reset()
+      void copyInvitationLink(invitation.token)
     } catch (error) {
       const desc = error instanceof Error ? error.message : 'Unknown error'
       toast.error('Failed to create invitation', { description: desc })
     }
   }
+
+  return { createMutation, handleCreateInvitation }
+}
+
+function useInvitationActions(form: ReturnType<typeof useInviteFormState>) {
+  const deleteMutation = useDeleteInvitation()
+  const resendMutation = useAdminResendInvitation()
+  const create = useCreateInvitationAction(form)
 
   const handleDeleteInvitation = async (id: number) => {
     try {
@@ -168,34 +150,24 @@ function useInvitationActions(
     try {
       const invitation = await resendMutation.mutateAsync(id)
       toast.success('Invitation resent')
-      void handleCopyLink(invitation.token)
+      void copyInvitationLink(invitation.token)
     } catch {
       toast.error('Failed to resend invitation')
     }
   }
 
-  return { createMutation, resendMutation, handleCreateInvitation, handleDeleteInvitation, handleResendInvitation }
-}
-
-type TabQueryStateParams = {
-  activeTab: string
-  usersQuery: ReturnType<typeof useAdminUsers>
-  invitationsQuery: ReturnType<typeof useAdminInvitations>
-  globalLoading: boolean
-}
-
-function useTabQueryState({ activeTab, usersQuery, invitationsQuery, globalLoading }: TabQueryStateParams) {
-  const activeQuery = activeTab === 'users' ? usersQuery : invitationsQuery
   return {
-    isLoading: activeQuery.isLoading || globalLoading,
-    isError: activeQuery.isError,
-    refetch: activeQuery.refetch,
+    ...create,
+    resendPending: resendMutation.isPending,
+    handleDeleteInvitation,
+    handleResendInvitation,
+    handleCopyLink: (token: string) => {
+      void copyInvitationLink(token)
+    },
   }
 }
 
 export function useRequestUsersPage() {
-  const [activeTab, setActiveTab] = useState<string>('users')
-
   const globalLoading = useUIStore((s) => s.globalLoading)
   const usersQuery = useAdminUsers()
   const invitationsQuery = useAdminInvitations()
@@ -203,28 +175,31 @@ export function useRequestUsersPage() {
   const portalEnabled = usePortalEnabled()
 
   const userActions = useUserActions()
-  const clipboardLink = useClipboardLink()
-  const dialogState = useInviteDialogState()
-  const invitationActions = useInvitationActions(dialogState, clipboardLink.handleCopyLink)
-
-  const tabState = useTabQueryState({ activeTab, usersQuery, invitationsQuery, globalLoading })
+  const inviteForm = useInviteFormState()
+  const invitationActions = useInvitationActions(inviteForm)
 
   const users = usersQuery.data
   const invitations = invitationsQuery.data
 
   return {
-    activeTab,
-    setActiveTab,
     users,
     invitations,
     qualityProfiles,
     portalEnabled,
-    userCount: users?.length ?? 0,
-    pendingInvitationCount: invitations?.filter((i) => !i.usedAt).length ?? 0,
-    ...tabState,
+    usersState: {
+      isLoading: usersQuery.isLoading || globalLoading,
+      isError: usersQuery.isError,
+      isEmpty: !users?.length,
+      refetch: usersQuery.refetch,
+    },
+    invitationsState: {
+      isLoading: invitationsQuery.isLoading || globalLoading,
+      isError: invitationsQuery.isError,
+      isEmpty: !invitations?.length,
+      refetch: invitationsQuery.refetch,
+    },
     ...userActions,
-    ...clipboardLink,
-    ...dialogState,
+    ...inviteForm,
     ...invitationActions,
   }
 }

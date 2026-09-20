@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useApproveRequest, useAutoSearchMovie, useAutoSearchSeason } from '@/hooks'
 import type { ApproveRequestInput, Request } from '@/types'
 
-import type { SearchModalState } from './status-config'
+import type { SearchModalState } from './search-modal-state'
 import { useAddToLibrary } from './use-add-to-library'
 
 export function useRequestApprove() {

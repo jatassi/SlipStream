@@ -1,3 +1,4 @@
+import type { PaneId } from './use-tab-nav'
 import { paneFromPathname } from './use-tab-nav'
 
 export type SettingsSection = {
@@ -33,6 +34,10 @@ export function isSettingsPath(pathname: string): boolean {
 
 export const SYSTEM_INDEX_PATH = '/system/health'
 
+export function isRequestsAdminPath(pathname: string): boolean {
+  return pathname.startsWith('/requests-admin')
+}
+
 export function isSystemPath(pathname: string): boolean {
   return pathname === '/system' || pathname.startsWith('/system/')
 }
@@ -58,16 +63,21 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
+const FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series'])
+const FILL_PATHS = new Set(['/more', '/calendar', '/import'])
+
 export function isScreenFillPath(pathname: string): boolean {
   const pane = paneFromPathname(pathname)
-  if (pathname === '/more' || pane === 'dashboard' || pane === 'activity') {
+  if (pane !== null && FILL_PANES.has(pane)) {
     return true
   }
-  if (pane === 'movies' || pane === 'series') {
+  if (FILL_PATHS.has(pathname)) {
     return true
   }
-  if (pathname === '/calendar' || pathname === '/import') {
-    return true
-  }
-  return isDetailPath(pathname) || isSettingsPath(pathname) || isSystemPath(pathname)
+  return (
+    isRequestsAdminPath(pathname) ||
+    isDetailPath(pathname) ||
+    isSettingsPath(pathname) ||
+    isSystemPath(pathname)
+  )
 }

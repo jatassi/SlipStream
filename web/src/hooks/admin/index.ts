@@ -9,8 +9,6 @@ export {
   adminRequestKeys,
   useAdminRequests,
   useApproveRequest,
-  useBatchDeleteRequests,
-  useBatchDenyRequests,
   useDeleteRequest,
   useDenyRequest,
 } from './use-admin-requests'

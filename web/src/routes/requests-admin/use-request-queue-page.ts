@@ -1,29 +1,93 @@
-import { useAdminRequests, useDeveloperMode, usePortalEnabled } from '@/hooks'
-import { useUIStore } from '@/stores'
+import { useState } from 'react'
 
+import { toast } from 'sonner'
+
+import {
+  useAdminRequests,
+  useAdminUsers,
+  useDeleteRequest,
+  useDenyRequest,
+  usePortalEnabled,
+} from '@/hooks'
+import { useUIStore } from '@/stores'
+import type { Request } from '@/types'
+
+import type { RequestAction } from './request-actions'
+import type { QueueSegment } from './request-status'
+import { segmentOf } from './request-status'
 import { useRequestApprove } from './use-request-approve'
-import { useRequestDialogs } from './use-request-dialogs'
-import { useRequestSelection } from './use-request-selection'
+
+function useRequestDecisions() {
+  const denyMutation = useDenyRequest()
+  const deleteMutation = useDeleteRequest()
+
+  return {
+    handleDeny: async (request: Request) => {
+      try {
+        await denyMutation.mutateAsync({ id: request.id })
+        toast.success('Request denied')
+      } catch {
+        toast.error('Failed to deny request')
+      }
+    },
+    handleDelete: async (request: Request) => {
+      try {
+        await deleteMutation.mutateAsync(request.id)
+        toast.success('Request deleted')
+      } catch {
+        toast.error('Failed to delete request')
+      }
+    },
+  }
+}
 
 export function useRequestQueuePage() {
   const globalLoading = useUIStore((s) => s.globalLoading)
   const { data: requests = [], isLoading: queryLoading, isError, refetch } = useAdminRequests()
-  const isLoading = queryLoading || globalLoading
-  const developerMode = useDeveloperMode()
+  const { data: portalUsers } = useAdminUsers()
   const portalEnabled = usePortalEnabled()
-
-  const selection = useRequestSelection(requests)
   const approve = useRequestApprove()
-  const dialogs = useRequestDialogs(selection.selectedIds, selection.clearSelection)
+  const decisions = useRequestDecisions()
+
+  const [segment, setSegment] = useState<QueueSegment>('pending')
+
+  const handleAction = (request: Request, action: RequestAction) => {
+    switch (action) {
+      case 'approve': {
+        void approve.handleApproveOnly(request)
+        break
+      }
+      case 'approve-manual-search': {
+        void approve.handleApproveAndManualSearch(request)
+        break
+      }
+      case 'approve-auto-search': {
+        void approve.handleApproveAndAutoSearch(request)
+        break
+      }
+      case 'deny': {
+        void decisions.handleDeny(request)
+        break
+      }
+      case 'delete': {
+        void decisions.handleDelete(request)
+        break
+      }
+    }
+  }
 
   return {
-    ...selection,
-    ...approve,
-    ...dialogs,
-    isLoading,
+    isLoading: queryLoading || globalLoading,
     isError,
     refetch,
-    developerMode,
     portalEnabled,
+    segment,
+    setSegment,
+    visibleRequests: requests.filter((request) => segmentOf(request.status) === segment),
+    requesterFor: (userId: number) => portalUsers?.find((user) => user.id === userId)?.username,
+    processingRequest: approve.processingRequest,
+    searchModal: approve.searchModal,
+    handleSearchModalClose: approve.handleSearchModalClose,
+    handleAction,
   }
 }

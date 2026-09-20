@@ -248,8 +248,6 @@ export {
   useAdminResendInvitation,
   useAdminUsers,
   useApproveRequest,
-  useBatchDeleteRequests,
-  useBatchDenyRequests,
   useCreateInvitation,
   useDeleteAdminUser,
   useDeleteInvitation,

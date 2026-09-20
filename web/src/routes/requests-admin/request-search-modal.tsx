@@ -1,6 +1,6 @@
 import { SearchModal } from '@/components/search/search-modal'
 
-import type { SearchModalState } from './status-config'
+import type { SearchModalState } from './search-modal-state'
 
 type RequestSearchModalProps = {
   searchModal: SearchModalState

@@ -1,14 +1,7 @@
 import { AlertCircle } from 'lucide-react'
 
+import { SheetPresenter } from '@/components/presenter'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 import { SearchEmptyState, SearchErrorState, SearchLoadingState } from './search-empty-states'
 import { SearchFooter } from './search-footer'
@@ -47,41 +40,40 @@ export function SearchModal(props: SearchModalProps) {
   const state = useSearchModal(props)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[85vh] sm:max-w-6xl">
-        <DialogHeader>
-          <DialogTitle>{state.title}</DialogTitle>
-          <DialogDescription>
-            Search indexers for releases and send to download client.
-          </DialogDescription>
-        </DialogHeader>
-
-        <SearchInputBar
-          query={state.query}
-          isLoading={state.isLoading}
-          onQueryChange={state.setQuery}
-          onSearch={state.handleSearch}
-        />
-
-        {state.errors.length > 0 && (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertDescription>
-              {state.errors.length} indexer(s) returned errors. Some results may be missing.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <ScrollArea className="min-h-0 flex-1">
-          <SearchResultsArea {...state} />
-        </ScrollArea>
-
-        {state.data ? <SearchFooter
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      title={state.title}
+      description="Search indexers for releases and send to download client."
+      footer={
+        state.data ? (
+          <SearchFooter
             total={state.data.total}
             indexersSearched={state.data.indexersSearched}
             errors={state.errors}
-          /> : null}
-      </DialogContent>
-    </Dialog>
+          />
+        ) : undefined
+      }
+    >
+      <SearchInputBar
+        query={state.query}
+        isLoading={state.isLoading}
+        onQueryChange={state.setQuery}
+        onSearch={state.handleSearch}
+      />
+
+      {state.errors.length > 0 && (
+        <Alert variant="destructive" className="mt-3">
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            {state.errors.length} indexer(s) returned errors. Some results may be missing.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="mt-3">
+        <SearchResultsArea {...state} />
+      </div>
+    </SheetPresenter>
   )
 }
