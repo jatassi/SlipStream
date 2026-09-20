@@ -207,6 +207,28 @@ Developer Tools are `DevModeControls` (`src/components/layout/dev-mode-controls.
 "Developer Tools" `Group` of `<label>` rows carrying the `Developer mode` and `Force Loading`
 switches, shown on More. The wide shell keeps the header hammer popover instead.
 
+## Requests admin screens
+
+`/requests-admin/*` paths are `isScreenFillPath`, so each of the three routes renders a `Screen`
+with `back={usePushBack()}` (the label reads "More"). The portal under `/requests` is untouched.
+
+- `/requests-admin/queue` (title "Requests") opens with a `Group` of rows for Users and Request
+  Settings, then a `Segmented` across Pending, Approved, Downloading, Available and Denied
+  (`request-status.ts` maps each request status onto a segment and onto a `StatusPill` hue).
+  Each request is a row with a poster thumbnail, title, the status pill and a meta line of media
+  type, requester and age; the requester comes from `useAdminUsers()`, since the admin list
+  endpoint returns no user. Pending rows carry Approve and Deny as trailing controls: Deny
+  presents an `ActionPresenter` with `wide="dialog"`, so it confirms in an action sheet on phones
+  and a dialog on wide. The other actions (Approve & Manual Search, Approve & Auto Search, Delete)
+  sit behind the row's "More actions" presenter, and Delete uses `confirm`.
+- `/requests-admin/users` is two `SettingsList` groups (Users, Invitations) of `SettingsItemRow`s;
+  Invite is an `AddAction` in the `Screen` trailing slot and both the invite and user edit forms
+  present through `SheetPresenter`. Request multi-select and batch deny/delete are gone.
+- `/requests-admin/settings` is grouped control rows (`control-row.tsx`) with a "Save Changes"
+  button at the foot of the screen, matching the long-form settings sections.
+- `SearchModal` (`src/components/search/search-modal.tsx`) presents through `SheetPresenter` too;
+  the requests queue is its only consumer.
+
 ## Playwright E2E
 
 Browser tests live in `e2e/` and run against the real app in developer mode (`phone` 390×844 touch, `wide` 1440×900 mouse). `bun run test:e2e` starts the Go backend (`--dev-mode`) and Vite via Playwright `webServer`, then runs both projects. Locally both servers start through [portless](https://portless.sh) under the names `slipstream-e2e` and `slipstream-e2e-api` (prefixed with the branch inside a git worktree), so several suites can run at once in different checkouts without sharing a port or a database; `e2e/helpers/paths.ts` resolves the origins with `portless get`. CI (`CI=1`) has no proxy and uses fixed ports 3000 and 8080. Playwright always starts its own servers and refuses to reuse a leftover one; `portless prune` clears servers orphaned by a crashed run. `bun run test:e2e:headed` is the debugging variant. `bun run test:e2e:reduced-motion` runs the shell tests with `prefers-reduced-motion`.
