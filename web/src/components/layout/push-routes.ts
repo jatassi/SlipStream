@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import { paneFromPathname, type PaneId } from './use-tab-nav'
-=======
-import type { PaneId } from './use-tab-nav'
-import { paneFromPathname } from './use-tab-nav'
->>>>>>> worktree-agent-a67f3206ac9fd8c76
 
 export type SettingsSection = {
   path: string
@@ -71,47 +66,17 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-const FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
-=======
-const FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series'])
->>>>>>> worktree-agent-a67f3206ac9fd8c76
-const FILL_PATHS = new Set(['/more', '/calendar', '/import'])
-
-export function isScreenFillPath(pathname: string): boolean {
-  const pane = paneFromPathname(pathname)
-  if (pane !== null && FILL_PANES.has(pane)) {
-    return true
-  }
-  if (FILL_PATHS.has(pathname)) {
-<<<<<<< HEAD
-=======
 const SCREEN_FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series', 'search', 'more'])
-
-export function isScreenFillPath(pathname: string): boolean {
-  const pane = paneFromPathname(pathname)
-  if (pane !== null && SCREEN_FILL_PANES.has(pane)) {
->>>>>>> worktree-agent-a1500afee18095a29
-    return true
-  }
-  return (
-    isAddPath(pathname) ||
-=======
-=======
-const SCREEN_FILL_PATHS = new Set(['/more', '/calendar', '/import', '/missing', '/history'])
-const SCREEN_FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
+const SCREEN_FILL_PATHS = new Set(['/calendar', '/import', '/missing', '/history'])
 
 export function isScreenFillPath(pathname: string): boolean {
   const pane = paneFromPathname(pathname)
   if (SCREEN_FILL_PATHS.has(pathname) || (pane !== null && SCREEN_FILL_PANES.has(pane))) {
->>>>>>> worktree-agent-a2d2f3ad3d963c5ec
     return true
   }
   return (
+    isAddPath(pathname) ||
     isRequestsAdminPath(pathname) ||
->>>>>>> worktree-agent-a67f3206ac9fd8c76
     isDetailPath(pathname) ||
     isSettingsPath(pathname) ||
     isSystemPath(pathname)
