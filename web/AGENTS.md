@@ -111,6 +111,28 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 - `confirm: { title, description, actions }` routes the action through a second step instead of running it — another sheet on phones, an `AlertDialog` on wide. Use it for anything that deletes.
 - Describe the actions once and pass them in; never branch on `useViewport()` at the call site, and never hand-roll a second sheet.
 
+## Pill actions and the sheet presenter
+
+`PillAction` (`src/components/media/pill-action.tsx`) is the 44 px rounded action used under a
+detail hero: an icon, a label and the media tint (`movie` or `tv`) when it is active. `PillRow`
+is the flex row that holds three of them.
+
+- `MediaSearchMonitorControls` renders its states through it. The old `xs`/`sm`/`lg`/`responsive`
+  size matrix is gone: `variant="pill"` is the detail-screen row of three 44 px pills,
+  `variant="row"` (the default) is the compact set of icon buttons lists use. Searching, progress,
+  completed and error render inside whichever shape the variant picked.
+
+`SheetPresenter` (`src/components/presenter/sheet-presenter.tsx`) is the form counterpart of
+`ActionPresenter`: a draggable vaul bottom sheet on phones, the existing `Dialog` on wide screens,
+from one set of props — `title`, `description`, `open`, `onOpenChange`, `children` and an optional
+`footer`. The media edit form is its first consumer; settings and requests forms adopt it next.
+
+- Never branch on `useViewport()` at the call site and never hand-roll a second sheet.
+- vaul ships no stylesheet through its package exports, so `sheet-presenter.css` carries the
+  geometry and the motion: the sheet slides on `--dur-sheet` and reduced motion swaps the slide for
+  a fade. Drag is vaul's — 1:1, rubber-banded, velocity dismiss, catchable mid-animation — and it
+  ignores a gesture that starts within 500 ms of the sheet opening.
+
 ## Settings screens
 
 Every settings route renders a `Screen` with `back={usePushBack()}`; `backLabelForPathname` in

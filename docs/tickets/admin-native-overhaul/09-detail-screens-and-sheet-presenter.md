@@ -8,14 +8,55 @@ This ticket introduces the `PillAction` (wrapping the existing search/monitor co
 
 **Blocked by:** 04 (Push navigation), 06 (Activity queue rows, segmented filter and the action presenter)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Both projects: a movie detail shows backdrop, overlapping poster, title, year, runtime, genres, rating and a status pill; a series detail shows season count in place of runtime
-- [ ] Both projects: activating Monitored flips the pill to the media colour and the state survives a reload; activating again reverts it
-- [ ] Both projects: activating Search against the developer-mode indexer walks the control through searching and completed states inside the pill row; the error state offers dismiss
-- [ ] Both projects: a long overview shows three lines with an expand affordance; activating it reveals the full text
-- [ ] Both projects: File shows version slot and quality profile rows; Details shows metadata rows with trailing values
-- [ ] Both projects: on a series, a season group collapses and expands; an episode row shows air date and status dot and offers a search action
-- [ ] Phone project: the compact bar's trailing menu opens Edit as a bottom sheet that can be dragged to dismiss; Delete confirms in an action sheet and, on confirm, returns to the library without the item
-- [ ] Wide project: Edit opens a dialog with the same form; Delete confirms in a dialog
-- [ ] The sheet presenter and `PillAction` are shared components documented for reuse; the old size matrix on the search/monitor controls is gone
+- [x] Both projects: a movie detail shows backdrop, overlapping poster, title, year, runtime, genres, rating and a status pill; a series detail shows season count in place of runtime
+- [x] Both projects: activating Monitored flips the pill to the media colour and the state survives a reload; activating again reverts it
+- [x] Both projects: activating Search against the developer-mode indexer walks the control through searching and completed states inside the pill row; the error state offers dismiss
+- [x] Both projects: a long overview shows three lines with an expand affordance; activating it reveals the full text
+- [x] Both projects: File shows version slot and quality profile rows; Details shows metadata rows with trailing values
+- [x] Both projects: on a series, a season group collapses and expands; an episode row shows air date and status dot and offers a search action
+- [x] Phone project: the compact bar's trailing menu opens Edit as a bottom sheet that can be dragged to dismiss; Delete confirms in an action sheet and, on confirm, returns to the library without the item
+- [x] Wide project: Edit opens a dialog with the same form; Delete confirms in a dialog
+- [x] The sheet presenter and `PillAction` are shared components documented for reuse; the old size matrix on the search/monitor controls is gone
+
+## Comments
+
+The hero renders the title as a plain `h1` rather than `TitleTreatment`. The Native hero pairs a
+text title with the poster, and a logo image would leave the screen without a heading; the
+treatment component stays in the tree for other surfaces.
+
+`MediaSearchMonitorControls` keeps its `theme` prop for the tint and gains `variant` (`pill` |
+`row`, default `row`). Every list call site simply dropped its `size`; the `xs` ghost styling is
+gone — lists now use what `sm` was. The `/dev/controls` showcase drives its live components through
+the two variants, but its static mockups keep their own local `lg`/`sm`/`xs` types: they are a
+dev-only gallery of states and the spec puts that page out of scope.
+
+The old movie Files table, the SlotStatusCard and the episode table are replaced by Group/Row
+lists. Two things went with them: the version-slot summary badges, and the per-episode file→slot
+`Select`. Episode slot monitoring and slot search survive behind a chevron on the episode row (only
+when multi-version is on), and the movie File group keeps the slot assignment `Select` per file.
+Movie credits still render under the groups, unchanged.
+
+`Row` gained no new props; the season header is its own button so it can carry `aria-expanded`.
+`mediaStatusFromCounts` in `media-status.ts` now derives one status from `StatusCounts` (the spec's
+aggregate priority) for the series hero and the season pills.
+
+vaul does not export its stylesheet through its package exports (`Missing "./style.css" specifier`),
+so `sheet-presenter.css` carries the drawer geometry, the handle, the `::after` rubber-band filler
+and the animations on the app's tokens — the sheet slides over `--dur-sheet` instead of vaul's
+0.5s, and reduced motion swaps the slide for a fade. The progress bar's `transition-all` became
+`transition-[width]`/`transition-[left]` at 700 ms linear, the one width exception the motion
+policy allows.
+
+E2E: `detail.spec.ts` runs in both projects (the drag check is phone-only, the dialog check
+wide-only) and is picked up by the reduced-motion project as well. Three things are served from
+page routes so a state holds still: version slots (`/slots*`), an auto-search that finds nothing
+(the error state), and a finished download (the queue stub, which now carries `movieId`). The
+monitored toggle uses a movie of the project's own because both projects share one backend, and the
+delete check creates a scratch movie of its own instead of removing library data other specs read.
+vaul ignores a drag that begins within 500 ms of the sheet opening, so the drag gesture waits for
+the entrance to settle.
+
+Full-suite runs on a loaded machine flake in other specs (blank pages and portless 502s, and the
+known settings/activity contention); `detail.spec.ts` passes on its own and in clean full runs.
