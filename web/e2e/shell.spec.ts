@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test'
 
 import { expect, test } from './fixtures'
 import { shellKind } from './helpers/activate'
+import { ensureDownloading } from './helpers/dev-data'
 import { applySafeArea, expectPhoneTabs, expectWideSidebarGroups, openActivity, primaryNav, sidebarNav } from './helpers/shell'
 
 test('admin shell stays operable', async ({ page, activate }, testInfo) => {
@@ -33,6 +34,19 @@ test('phone tabs open destinations and mark the current tab', async ({ page, act
   await activate(nav.getByRole('link', { name: 'More' }))
   await expect(page.getByRole('heading', { name: 'More' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page')
+})
+
+test('the Activity tab badge counts active downloads', async ({ page }, testInfo) => {
+  test.skip(shellKind(testInfo.project.name) !== 'phone', 'phone profile only')
+  await page.goto('/')
+  await ensureDownloading(page)
+  await page.reload()
+  await expectPhoneTabs(page)
+  const badge = primaryNav(page)
+    .getByRole('link', { name: 'Activity', exact: false })
+    .getByText(/^\d+$/)
+  await expect(badge).toBeVisible()
+  expect(Number(await badge.textContent())).toBeGreaterThanOrEqual(1)
 })
 
 test('phone tab scroll is restored after switching away', async ({ page, activate }, testInfo) => {
