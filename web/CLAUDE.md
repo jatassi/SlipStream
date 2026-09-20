@@ -91,11 +91,25 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 
 `Group`, `Row`, `IconTile` and `ProgressLine` live in `src/components/grouped-list/`. Use them for inset grouped lists (Dashboard, More, Settings, and later History).
 
-- `Group`: inset (`px-screen`) card stack with optional `header` (uppercase footnote) and `header` `action`. Pass `inset={false}` when the parent already provides the 16 px gutter (e.g. a two-column dashboard grid).
+- `Group`: inset (`px-screen`) card stack with optional `header` (uppercase footnote), `header` `action` and `footer` (footnote text under the card, for the explanatory copy a settings group needs). Pass `inset={false}` when the parent already provides the 16 px gutter (e.g. a two-column dashboard grid).
 - `Row`: 44 px minimum (`min-h-tap`) row with `leading` (tile or thumbnail), `title`, `subtitle`, `trailing`, optional `chevron`, `tone` (`default` | `warning` | `destructive`). Renders a link when `href` is set, a button when `onClick` is set, otherwise a static row. Press feedback is the `press-row` tint.
 - `IconTile`: 28 px rounded square for a leading glyph (`[&_svg]:size-4`). Pass the fill with `className` (`bg-amber-500`, `bg-tv-600`, …).
 - `ProgressLine`: media-coloured bar (`kind` `movie` | `series`) with `role="progressbar"`. Width eases 700 ms linear. `muted` paints with `--muted-foreground`.
 - `RowSkeleton`: loading stand-in with the same padding and 44 px minimum as `Row`. `leading="poster"` and `progress` match download rows.
+
+## Settings control rows
+
+Long-form settings screens (Import & Naming, Auto Search, RSS Sync, Server, Authentication) are
+grouped lists of controls: a `Group` per topic, its explanatory text in the group `footer`, never a
+paragraph between controls. The rows live in `src/components/settings/control-row.tsx`.
+
+- `ControlRow`: 44 px row, label leading, control trailing. `StackedRow` is the full-width variant
+  (label above, control below) for sliders, textareas and anything wider than a trailing slot.
+- `SwitchRow`, `SelectRow`, `InputRow` (`stacked` for full width), `TextareaRow`, `SliderRow`. Every
+  field is 16 px and at least 44 px tall; each one carries an `aria-label` (or a `<label htmlFor>`)
+  so it is reachable by its visible label name.
+- `SectionLoading` / `SectionError` (`src/components/settings/section-state.tsx`) wrap the shared
+  loading and error states in the screen gutter, since `Group` supplies its own.
 
 ## Segmented control and the action presenter
 
