@@ -81,7 +81,7 @@ Additional lint helper scripts in `scripts/lint/`.
 ## Key Patterns
 
 ### Module System
-Media types (movie, TV, etc.) are implemented as pluggable modules. Each module is a Go struct satisfying the composite `module.Module` interface (16 required sub-interfaces) registered in a central `module.Registry`. The frontend mirrors this with `ModuleConfig` objects in `web/src/modules/`. Modules own their own DB migrations, quality definitions, search strategies, naming templates, and scheduled tasks. See `docs/adding-a-module.md` for the full guide, `internal/module/interfaces.go` for interface definitions, and `scripts/new-module/` for scaffolding.
+Media types (movie, TV, etc.) are implemented as pluggable modules. Each module is a Go struct satisfying the composite `module.Module` interface (17 required sub-interfaces) registered in a central `module.Registry`. The frontend mirrors this with `ModuleConfig` objects in `web/src/modules/`. Modules own their own DB migrations, quality definitions, search strategies, naming templates, and scheduled tasks. See `docs/adding-a-module.md` for the full guide, `internal/module/interfaces.go` for interface definitions, and `scripts/new-module/` for scaffolding.
 
 ### Database
 SQLite with WAL mode. Framework migrations via Goose (embedded). Per-module migrations in `internal/modules/<id>/migrations/` with independent version tables. Queries via sqlc (type-safe generated Go).

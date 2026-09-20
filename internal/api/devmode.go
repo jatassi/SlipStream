@@ -139,6 +139,9 @@ func (d *DevModeManager) switchIndexer(devMode bool) {
 func (d *DevModeManager) updateServicesDB() {
 	db := d.dbManager.Conn()
 	d.switchable.UpdateAll(db)
+	for _, mod := range d.registry.All() {
+		mod.SetDB(db)
+	}
 
 	if err := d.switchable.Auth.SetDB(sqlc.New(db)); err != nil {
 		d.logger.Error().Err(err).Msg("Failed to switch auth service database")

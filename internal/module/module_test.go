@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -136,6 +137,7 @@ func newMockMovieModule() *mockModule {
 		},
 	}
 }
+func (m *mockModule) SetDB(_ *sql.DB) {}
 
 func newMockTVModule() *mockModule {
 	return &mockModule{

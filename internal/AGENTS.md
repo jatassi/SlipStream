@@ -19,10 +19,10 @@ s.logger.Warn().Err(err).Str("key", val).Msg("something failed")
 
 ## Module System
 
-Media types are pluggable modules in `internal/modules/`. Each module satisfies the composite `module.Module` interface (16 sub-interfaces defined in `internal/module/interfaces.go`). The `module.Registry` holds all modules, validates schemas, and provides lookups.
+Media types are pluggable modules in `internal/modules/`. Each module satisfies the composite `module.Module` interface (17 sub-interfaces defined in `internal/module/interfaces.go`). The `module.Registry` holds all modules, validates schemas, and provides lookups.
 
 **Key framework files** (`internal/module/`):
-- `interfaces.go` — 16 required + optional interface definitions
+- `interfaces.go` — 17 required + optional interface definitions
 - `module.go` — `Module` composite interface, `Registry` type
 - `schema.go` — `NodeSchema` (entity hierarchy: flat vs hierarchical)
 - `migrate.go` — Per-module migration runner (`MigrateAll`)

@@ -68,6 +68,11 @@ func NewModule(db *sql.DB, logger *zerolog.Logger) *Module {
 	}
 }
 
+// SetDB rebinds the module's database handle when dev mode switches databases.
+func (m *Module) SetDB(db *sql.DB) {
+	m.db = db
+}
+
 // --- Descriptor delegation ---
 
 func (m *Module) ID() module.Type                  { return m.descriptor.ID() }

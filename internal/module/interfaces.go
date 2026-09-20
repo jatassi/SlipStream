@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -135,6 +136,13 @@ type RouteProvider interface {
 // TaskProvider declares scheduled tasks.
 type TaskProvider interface {
 	ScheduledTasks() []ScheduledTask
+}
+
+// DatabaseSwitcher rebinds the module's own database handles. Dev mode
+// calls it alongside the switchable services so module queries follow the
+// active database.
+type DatabaseSwitcher interface {
+	SetDB(db *sql.DB)
 }
 
 // Optional interfaces — modules may implement these for additional capabilities:

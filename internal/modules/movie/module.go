@@ -126,6 +126,12 @@ func NewModule(db *sql.DB, metadataSvc *metadata.Service, movieSvc *movies.Servi
 	}
 }
 
+// SetDB rebinds the module's database handles when dev mode switches databases.
+func (m *Module) SetDB(db *sql.DB) {
+	m.db = db
+	m.queries = sqlc.New(db)
+}
+
 // SetSlotsService sets the optional slots service for multi-version support during arr import.
 func (m *Module) SetSlotsService(svc module.ArrImportSlotsService) {
 	m.slotsService = svc

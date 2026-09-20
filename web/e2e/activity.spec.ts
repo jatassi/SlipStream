@@ -16,11 +16,12 @@ test.describe.configure({ mode: 'serial' })
 
 // Every real grab here is an episode of a series of the project's own, so the
 // two projects stay out of each other's way and out of the dashboard spec's.
-// Series always have missing episodes to grab; movies run out once the mock
-// client has finished importing them.
+// Both series are seeded with whole seasons still missing, so they keep
+// episodes to grab; movies run out once the mock client has finished
+// importing them, and Breaking Bad and Game of Thrones are seeded complete.
 const SERIES_TITLE: Record<ShellKind, string> = {
-  phone: 'Breaking Bad',
-  wide: 'Game of Thrones',
+  phone: 'The Boys',
+  wide: 'The Mandalorian',
 }
 
 const STUB_DOWNLOADING: StubQueueItem = {
