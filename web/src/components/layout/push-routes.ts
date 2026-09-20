@@ -66,5 +66,8 @@ export function isScreenFillPath(pathname: string): boolean {
   if (pane === 'movies' || pane === 'series') {
     return true
   }
+  if (pathname === '/calendar' || pathname === '/import') {
+    return true
+  }
   return isDetailPath(pathname) || isSettingsPath(pathname) || isSystemPath(pathname)
 }

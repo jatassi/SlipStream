@@ -18,4 +18,4 @@ export type CalendarRequest = {
   end: string // YYYY-MM-DD
 }
 
-export type CalendarView = 'month' | 'week' | 'agenda'
+export type CalendarView = 'month' | 'list'

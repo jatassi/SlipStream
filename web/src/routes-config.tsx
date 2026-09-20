@@ -124,7 +124,14 @@ export const tasksRoute = lazyRoute('/system/tasks', () => import('@/routes/syst
 export const logsRoute = lazyRoute('/system/logs', () => import('@/routes/system/logs'), 'LogsPage')
 export const updateRoute = lazyRoute('/system/update', () => import('@/routes/system/update'), 'UpdatePage')
 
-export const manualImportRoute = lazyRoute('/import', () => import('@/routes/import/index'), 'ManualImportPage')
+export const manualImportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/import',
+  component: lazyRouteComponent(() => import('@/routes/import/index'), 'ManualImportPage'),
+  validateSearch: (search: Record<string, unknown>): { path: string } => ({
+    path: typeof search.path === 'string' ? search.path : '',
+  }),
+})
 
 // Dev
 export const devControlsRoute = lazyRoute('/dev/controls', () => import('@/routes/dev/controls'), 'ControlsShowcasePage')

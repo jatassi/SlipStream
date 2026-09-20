@@ -18,7 +18,7 @@ import type { ScannedFile } from '@/types'
 import { formatFileSize } from './format-file-size'
 import { MatchToLibraryForm } from './match-to-library-form'
 import { ParsedInfoPanel } from './parsed-info-panel'
-import type { MatchParams } from './use-import-page'
+import type { MatchParams } from './use-import-actions'
 
 function resolveInitialType(file: ScannedFile): 'movie' | 'episode' {
   if (file.suggestedMatch?.mediaType === 'movie') {

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 import { ChevronLeft } from 'lucide-react'
 
@@ -18,6 +18,7 @@ export type ScreenProps = {
   largeTitle?: boolean
   transparentUntil?: number
   bottomInset?: string
+  scrollRef?: RefObject<HTMLDivElement | null>
 }
 
 const COLLAPSE_AT = 40
@@ -52,6 +53,7 @@ export function Screen({
   largeTitle = true,
   transparentUntil,
   bottomInset,
+  scrollRef,
 }: ScreenProps) {
   const chrome = useScreenChrome(largeTitle, transparentUntil, bottomInset)
 
@@ -65,6 +67,7 @@ export function Screen({
         trailing={chrome.trailingInBar ? trailing : undefined}
       />
       <div
+        ref={scrollRef}
         className="scroll h-full"
         role="region"
         aria-label={title}

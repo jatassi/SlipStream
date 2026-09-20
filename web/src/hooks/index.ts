@@ -35,13 +35,13 @@ export {
 } from './use-health'
 export { historyKeys, useClearHistory, useHistory, useHistorySettings, useUpdateHistorySettings } from './use-history'
 export {
+  useDirectoryScan,
   useImportSettings,
   useManualImport,
   useParseFilename,
   usePendingImports,
   usePreviewNamingPattern,
   useRetryImport,
-  useScanDirectory,
   useUpdateImportSettings,
 } from './use-import'
 export {
