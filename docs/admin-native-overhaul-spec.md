@@ -370,3 +370,33 @@ says it is: branch `cursor/mobile-design-system-prototypes-20af`, plus
 
 Not run: it needs a physical iOS and a physical Android device. See the ticket's Comments for what
 to check and how to reach the dev server from a phone.
+
+### Review decisions (post-implementation code review)
+
+The two-axis review after ticket 18 found the deviations below. Each was either fixed or accepted
+for the reason given.
+
+- **Backend changes.** The spec said "no backend changes", and the tickets held to that, but four
+  bugs the port exposed could only be fixed in Go and were: the no-tray process never exited on
+  SIGTERM on macOS or Windows (`internal/platform`), a built binary had no way to be a dev build
+  (`SLIPSTREAM_DEV_BUILD`, `internal/logger`), a persisted `server_port` overrode an explicit
+  `SLIPSTREAM_SERVER_PORT` (`cmd/slipstream`), season-pack history entries had no title
+  (`internal/history`), and manual import never resolved a module entity (`internal/import`, which
+  also dropped the unused `seriesId`/`seasonNum` request fields). Accepted: they are fixes, not
+  features, and each has tests.
+- **Restored after review:** the deny reason on requests (through the sheet presenter), the
+  per-episode file-to-slot assignment on the series detail, per-folder free-space figures in the
+  Dashboard's Storage group, and a Playwright check that the Activity tab badge shows a real count.
+- **Accepted removals:** request multi-select and batch deny/delete (the spec reserves bulk
+  selection for the Library's edit mode); the Calendar's week and agenda views (story 76 defines the
+  toggle as month and list); Manual Import's scanned-files mode, checkbox selection and path input
+  (story 79 defines the browser as pushed folder lists); version-slot summary badges on the episode
+  table (the table is gone; the slot panel carries the assignment).
+- **Accepted as implemented:** library search on the Search tab matches titles client-side over the
+  already-loaded lists, which is what gives the empty state its count; the Storage bar's movie/TV
+  split is weighted by root-folder count because the API exposes volume totals, not per-folder
+  usage; Missing lists series rather than episodes, with the row's search running the series
+  search.
+- **Still open:** ticket 01's light-theme switch and tap-flash checks, ticket 14's Developer Tools
+  toggle (toggling dev mode swaps the database under the whole suite) and ticket 18's real-hardware
+  checklist are asserted loosely or left to a person.
