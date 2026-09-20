@@ -74,12 +74,12 @@ function FirewallDetails({ firewallStatus }: { firewallStatus: FirewallStatus })
       <div className="flex items-center gap-2">
         <PortStatusIndicator firewallStatus={firewallStatus} />
       </div>
-      {firewallStatus.message &&
+      {Boolean(firewallStatus.message &&
       firewallStatus.firewallEnabled &&
-      !firewallStatus.firewallAllows ? <p className="text-muted-foreground text-xs">
+      !firewallStatus.firewallAllows) && <p className="text-muted-foreground text-xs">
           You may need to add a firewall rule to allow incoming connections on port{' '}
           {firewallStatus.port}.
-        </p> : null}
+        </p>}
     </div>
   )
 }
@@ -103,11 +103,12 @@ export function FirewallStatusPanel({
           <span className="ml-1">Check</span>
         </Button>
       </div>
-      {firewallLoading ? <div className="text-muted-foreground flex items-center gap-2 text-sm">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {firewallLoading && <div className="text-muted-foreground flex items-center gap-2 text-sm">
           <Loader2 className="size-4 animate-spin" />
           Checking firewall status...
-        </div> : null}
-      {!firewallLoading && firewallStatus ? <FirewallDetails firewallStatus={firewallStatus} /> : null}
+        </div>}
+      {!firewallLoading && firewallStatus !== undefined && <FirewallDetails firewallStatus={firewallStatus} />}
     </div>
   )
 }

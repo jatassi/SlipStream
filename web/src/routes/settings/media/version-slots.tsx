@@ -71,11 +71,12 @@ function VersionSlotsBody({
           <SlotRow key={slot.id} slot={slot} onEdit={onEdit} />
         ))}
       </SettingsList>
-      {section.developerMode ? (
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {section.developerMode && (
         <div className="px-screen">
           <SlotDebugPanel />
         </div>
-      ) : null}
+      )}
     </>
   )
 }

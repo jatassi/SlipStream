@@ -55,11 +55,12 @@ function NavSection({
       )}
       {items.map((item) => (
         <React.Fragment key={item.href}>
-          {includeDownloads && item.href === '/import' ? <DownloadsNavLink collapsed={collapsed} /> : null}
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {includeDownloads && item.href === '/import' && <DownloadsNavLink collapsed={collapsed} />}
           <NavLink
             item={item}
             collapsed={collapsed}
-            badge={item.href === '/missing' ? <MissingBadge /> : undefined}
+            badge={item.href === '/missing' && <MissingBadge />}
           />
         </React.Fragment>
       ))}

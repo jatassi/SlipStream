@@ -96,7 +96,7 @@ function MediaTableHeader<T extends { id: number }>({
   return (
     <TableHeader>
       <TableRow>
-        {editMode ? <TableHead className="w-[40px]" /> : null}
+        {Boolean(editMode) && <TableHead className="w-[40px]" />}
         {columns.map((col) => (
           <TableHead
             key={col.id}
@@ -111,7 +111,7 @@ function MediaTableHeader<T extends { id: number }>({
           >
             <span className="inline-flex items-center gap-1">
               {col.label}
-              {col.sortField && sortField === col.sortField ? <SortIcon direction={sortDirection} /> : null}
+              {Boolean(col.sortField && sortField === col.sortField) && <SortIcon direction={sortDirection} />}
             </span>
           </TableHead>
         ))}
@@ -149,14 +149,14 @@ function MediaTableRow<T extends { id: number }>({
       className={cn(editMode && 'cursor-pointer')}
       onClick={editMode && onToggleSelect ? () => onToggleSelect(item.id) : undefined}
     >
-      {editMode ? <TableCell>
+      {Boolean(editMode) && <TableCell>
           <Checkbox
             checked={selected}
             onCheckedChange={() => onToggleSelect?.(item.id)}
             onClick={(e) => e.stopPropagation()}
             className={checkboxClassName}
           />
-        </TableCell> : null}
+        </TableCell>}
       {columns.map((col) => (
         <TableCell
           key={col.id}

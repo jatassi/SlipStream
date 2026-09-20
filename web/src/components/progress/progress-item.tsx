@@ -85,7 +85,7 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
       )}
     >
       {/* Dismiss button */}
-      {onDismiss ? <Button
+      {Boolean(onDismiss) && <Button
           variant="ghost"
           size="icon-xs"
           className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100"
@@ -93,12 +93,12 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
         >
           <X className="size-3" />
           <span className="sr-only">Dismiss</span>
-        </Button> : null}
+        </Button>}
 
       {/* Header with icon and title */}
       <div className="flex items-start gap-2">
         <div className={cn('mt-0.5 shrink-0', statusColors[activity.status])}>
-          {StatusIcon ? <StatusIcon className={cn('size-4', isActive && 'animate-spin')} /> : null}
+          {StatusIcon !== null && <StatusIcon className={cn('size-4', isActive && 'animate-spin')} />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
@@ -109,9 +109,10 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
         </div>
       </div>
 
-      {isActive ? <div className="mt-2">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {isActive && <div className="mt-2">
           <ProgressBar isIndeterminate={isIndeterminate} progress={activity.progress} />
-        </div> : null}
+        </div>}
     </div>
   )
 }

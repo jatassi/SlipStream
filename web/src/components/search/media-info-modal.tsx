@@ -38,7 +38,7 @@ export function MediaInfoModal({
               {...state}
             />
 
-            {media.overview ? <p className="text-muted-foreground text-sm leading-relaxed">{media.overview}</p> : null}
+            {Boolean(media.overview) && <p className="text-muted-foreground text-sm leading-relaxed">{media.overview}</p>}
 
             <RatingsOrSkeleton
               isLoading={state.isLoading}
@@ -50,7 +50,9 @@ export function MediaInfoModal({
               cast={state.extendedData?.credits?.cast}
             />
 
-            {mediaType === 'series' && state.seasons && state.seasons.length > 0 ? <SeasonsList seasons={state.seasons} enrichedSeasons={state.enrichedSeasons} /> : null}
+            {mediaType === 'series' && state.seasons !== undefined && state.seasons.length > 0 && (
+              <SeasonsList seasons={state.seasons} enrichedSeasons={state.enrichedSeasons} />
+            )}
           </div>
         </ScrollArea>
       </DialogContent>

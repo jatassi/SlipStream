@@ -46,10 +46,10 @@ function IndexerBadges({
       <Badge variant="secondary" className={`text-xs ${protocolColors[indexer.protocol]}`}>
         {indexer.protocol}
       </Badge>
-      {indexer.privacy ? <Badge variant="secondary" className={`text-xs ${privacyColors[indexer.privacy]}`}>
+      {indexer.privacy !== undefined && <Badge variant="secondary" className={`text-xs ${privacyColors[indexer.privacy]}`}>
           <span className="mr-1">{privacyIcons[indexer.privacy]}</span>
           {indexer.privacy}
-        </Badge> : null}
+        </Badge>}
       <Badge variant="secondary" className={`text-xs ${contentTypeColors[contentType]}`}>
         {ContentTypeLabels[contentType]}
       </Badge>
@@ -67,7 +67,10 @@ function IndexerMeta({ indexer }: { indexer: ProwlarrIndexerWithSettings }) {
     <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
       <span>Priority: {priority}</span>
       <CapabilitiesInfo capabilities={caps} />
-      {hasStats ? <StatsInfo successCount={settings.successCount} failureCount={settings.failureCount} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- hasStats narrows settings to defined */}
+      {hasStats && (
+        <StatsInfo successCount={settings.successCount} failureCount={settings.failureCount} />
+      )}
     </div>
   )
 }
@@ -81,9 +84,12 @@ function CapabilitiesInfo({ capabilities }: { capabilities?: ProwlarrIndexerWith
   return (
     <>
       <span className="text-muted-foreground/50">|</span>
-      {supportsMovieSearch ? <span>Movies</span> : null}
-      {supportsMovieSearch && supportsTvSearch ? <span className="text-muted-foreground/50">/</span> : null}
-      {supportsTvSearch ? <span>TV</span> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {supportsMovieSearch && <span>Movies</span>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {supportsMovieSearch && supportsTvSearch && <span className="text-muted-foreground/50">/</span>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {supportsTvSearch && <span>TV</span>}
     </>
   )
 }

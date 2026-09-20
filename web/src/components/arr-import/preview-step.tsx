@@ -191,7 +191,8 @@ function PreviewCard({ item, isMovie, selected, onToggleSelect, profileName }: {
     <button type="button" disabled={!isSelectable} onClick={onToggleSelect} className={cn('group bg-card block overflow-hidden rounded-lg border-2 transition-[border-color,background-color] text-left w-full [content-visibility:auto] [contain-intrinsic-size:auto_200px]', getCardClassName(isSelectable, selected, isMovie))}>
       <div className="relative aspect-[2/3]">
         <PreviewPoster item={item} isMovie={isMovie} />
-        {isSelectable ? <SelectionCheckbox selected={selected} theme={theme} /> : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {isSelectable && <SelectionCheckbox selected={selected} theme={theme} />}
         <StatusBadge status={item.status} />
         <PreviewOverlay item={item} isMovie={isMovie} profileName={profileName} />
         {isSelectable ? null : <div className="pointer-events-none absolute inset-0 z-[5] bg-black/40" />}
@@ -239,7 +240,7 @@ function PreviewOverlay({ item, isMovie, profileName }: { item: MoviePreview | S
     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-2 pt-8">
       <div className="mb-1 flex flex-wrap gap-1">
         <Badge variant="secondary" className="text-[10px] leading-tight">{getQualityLabel(item)}</Badge>
-        {profileName ? <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[10px] leading-tight">{profileName}</Badge> : null}
+        {Boolean(profileName) && <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[10px] leading-tight">{profileName}</Badge>}
       </div>
       <div className="flex items-end gap-1">
         <h3 className="line-clamp-2 text-xs font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{item.title}</h3>

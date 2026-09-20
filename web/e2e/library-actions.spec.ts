@@ -5,6 +5,7 @@ import type { ShellKind } from './helpers/activate'
 import { shellKind } from './helpers/activate'
 import { apiGet, deleteMovieIfPresent, setMoviesMonitored } from './helpers/dev-data'
 import { applySafeArea, primaryNav } from './helpers/shell'
+import { escapeRegExp } from './helpers/text'
 
 type LibraryMovie = { id: number; title: string; monitored: boolean }
 type Named = { name: string }
@@ -266,8 +267,4 @@ test('add searches the provider and puts the title in the grid', async ({
 async function pickOption(shell: Shell, field: string, option: string): Promise<void> {
   await shell.activate(shell.page.getByRole('combobox', { name: field }))
   await shell.activate(shell.page.getByRole('option', { name: option, exact: true }))
-}
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 }

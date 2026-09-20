@@ -93,7 +93,8 @@ function ProgressFill({ theme, clampedProgress, showShimmer }: { theme: MediaThe
       )}
       style={{ width: `${clampedProgress}%` }}
     >
-      {showShimmer ? <div className="absolute inset-0 overflow-hidden">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showShimmer && <div className="absolute inset-0 overflow-hidden">
           <div
             className={cn(
               'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
@@ -102,7 +103,7 @@ function ProgressFill({ theme, clampedProgress, showShimmer }: { theme: MediaThe
                 : 'via-tv-400/25 bg-gradient-to-r from-transparent to-transparent',
             )}
           />
-        </div> : null}
+        </div>}
     </div>
   )
 }
@@ -161,7 +162,7 @@ function ProgressTooltip({
 }) {
   return (
     <div className="space-y-1 text-xs">
-      {releaseName ? <p className="max-w-64 truncate font-medium">{releaseName}</p> : null}
+      {Boolean(releaseName) && <p className="max-w-64 truncate font-medium">{releaseName}</p>}
       <p>
         {progress.toFixed(1)}% — {formatBytes(downloadedSize)} / {formatBytes(totalSize)}
       </p>
@@ -170,7 +171,8 @@ function ProgressTooltip({
           {formatSpeed(speed)} — ETA: {formatEta(eta)}
         </p>
       )}
-      {isPaused ? <p className="text-amber-400">Paused</p> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {isPaused && <p className="text-amber-400">Paused</p>}
     </div>
   )
 }

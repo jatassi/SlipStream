@@ -49,9 +49,10 @@ function SeasonsSelector({ seasons, loadingSeasons, selectedSeasons, onToggleSea
         </div>
       </div>
       <SeasonsList seasons={seasons} loading={loadingSeasons} selectedSeasons={selectedSeasons} onToggle={onToggleSeason} onWatchRequest={onWatchRequest} />
-      {selectedSeasons.size === 0 && monitorFuture ? <p className="text-muted-foreground text-xs">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {selectedSeasons.size === 0 && monitorFuture && <p className="text-muted-foreground text-xs">
           No seasons selected. Series will be added to library and only future episodes will be monitored.
-        </p> : null}
+        </p>}
     </div>
   )
 }
@@ -80,7 +81,8 @@ export function SeriesRequestDialog(props: SeriesRequestDialogProps) {
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>Cancel</Button>
           <Button onClick={props.onSubmit} disabled={submitDisabled}>
-            {props.isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+            {props.isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             Submit Request
           </Button>
         </DialogFooter>
@@ -157,11 +159,11 @@ function RequestedSeasonRow({ season, onWatchRequest }: { season: EnrichedSeason
       <Clock className="size-4 text-yellow-500" />
       <span className="flex-1 text-sm">{getSeasonLabel(season)}</span>
       <span className="text-muted-foreground text-xs">Requested</span>
-      {onWatchRequest && requestId && !season.existingRequestIsWatching ? <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onWatchRequest(requestId) }}>
+      {onWatchRequest !== undefined && requestId !== undefined && !season.existingRequestIsWatching && <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onWatchRequest(requestId) }}>
           <Eye className="mr-1 size-3" />
           Watch
-        </Button> : null}
-      {season.existingRequestIsWatching ? <span className="text-muted-foreground text-xs">Watching</span> : null}
+        </Button>}
+      {Boolean(season.existingRequestIsWatching) && <span className="text-muted-foreground text-xs">Watching</span>}
     </div>
   )
 }
@@ -171,7 +173,8 @@ function SelectableSeasonRow({ season, selected, onToggle }: { season: EnrichedS
     <div className="flex items-center space-x-2 py-1">
       <Checkbox id={`season-${season.seasonNumber}`} checked={selected} onCheckedChange={() => onToggle(season.seasonNumber)} />
       <Label htmlFor={`season-${season.seasonNumber}`} className="flex-1 cursor-pointer text-sm">{getSeasonLabel(season)}</Label>
-      {season.inLibrary && season.totalAiredEpisodes > 0 ? <span className="text-muted-foreground text-xs">{season.airedEpisodesWithFiles}/{season.totalAiredEpisodes} eps</span> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {season.inLibrary && season.totalAiredEpisodes > 0 && <span className="text-muted-foreground text-xs">{season.airedEpisodesWithFiles}/{season.totalAiredEpisodes} eps</span>}
     </div>
   )
 }

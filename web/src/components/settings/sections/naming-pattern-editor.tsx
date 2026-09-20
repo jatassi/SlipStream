@@ -22,8 +22,7 @@ function PatternPreview({ preview }: { preview: { valid: boolean; preview: strin
           <span className="text-footnote text-red-600 dark:text-red-400">{preview.error}</span>
         )}
       </div>
-      {preview.tokens && preview.tokens.length > 0 ? (
-        <details className="text-caption">
+      {preview.tokens !== undefined && preview.tokens.length > 0 && <details className="text-caption">
           <summary className="text-muted-foreground cursor-pointer">Token breakdown</summary>
           <div className="mt-2 space-y-1">
             {preview.tokens.map((t) => (
@@ -34,8 +33,7 @@ function PatternPreview({ preview }: { preview: { valid: boolean; preview: strin
               </div>
             ))}
           </div>
-        </details>
-      ) : null}
+        </details>}
     </div>
   )
 }
@@ -102,7 +100,7 @@ export function PatternEditor({ label, value, onChange, description, mediaType =
         <Pencil className="text-muted-foreground mt-0.5 size-4 shrink-0" />
         <span className="break-all">{localValue || '(not configured)'}</span>
       </button>
-      {preview ? <PatternPreview preview={preview} /> : null}
+      {preview !== undefined && <PatternPreview preview={preview} />}
       <TokenBuilderDialog
         open={tokenDialogOpen}
         onOpenChange={setTokenDialogOpen}

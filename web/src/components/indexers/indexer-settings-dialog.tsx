@@ -112,9 +112,9 @@ function StatisticsSection({
           <span>{settings.failureCount} failed</span>
         </div>
       </div>
-      {settings.lastFailureReason ? (
+      {Boolean(settings.lastFailureReason) && (
         <p className="text-muted-foreground text-xs">Last failure: {settings.lastFailureReason}</p>
-      ) : null}
+      )}
     </div>
   )
 }

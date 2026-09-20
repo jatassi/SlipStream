@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Row } from '@/components/grouped-list'
-import { PosterImage } from '@/components/media/poster-image'
+import { RowThumbnail } from '@/components/media/row-thumbnail'
 
 type MissingRowProps = {
   href: string
@@ -22,12 +22,12 @@ export function MissingRow({ href, title, subtitle, poster, children }: MissingR
     <Row
       className="relative"
       leading={
-        <PosterImage
+        <RowThumbnail
           tmdbId={poster.tmdbId}
           tvdbId={poster.tvdbId}
           alt={title}
           type={poster.type}
-          className="h-11 w-8 rounded"
+          size="sm"
         />
       }
       title={

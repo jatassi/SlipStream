@@ -47,7 +47,7 @@ function MediaTitle({ title, year }: { title: string; year?: number }) {
   return (
     <h2 className="text-xl font-bold">
       {title}
-      {year ? <span className="text-muted-foreground ml-2 font-normal">({year})</span> : null}
+      {Boolean(year) && <span className="text-muted-foreground ml-2 font-normal">({year})</span>}
     </h2>
   )
 }
@@ -55,8 +55,8 @@ function MediaTitle({ title, year }: { title: string; year?: number }) {
 function MetadataTags({ media, contentRating }: { media: { runtime?: number; genres?: string[] }; contentRating?: string }) {
   return (
     <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-      {contentRating ? <Badge variant="outline">{contentRating}</Badge> : null}
-      {media.runtime ? <span>{formatRuntime(media.runtime)}</span> : null}
+      {Boolean(contentRating) && <Badge variant="outline">{contentRating}</Badge>}
+      {Boolean(media.runtime) && <span>{formatRuntime(media.runtime)}</span>}
       {media.genres?.slice(0, 3).map((genre) => (
         <Badge key={genre} variant="secondary">{genre}</Badge>
       ))}

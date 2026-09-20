@@ -56,7 +56,8 @@ export function PasskeyManager() {
         onAddClick={() => hook.setIsRegistering(true)}
       />
 
-      {hook.isRegistering ? <PasskeyRegistrationForm
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hook.isRegistering && <PasskeyRegistrationForm
           nameInputRef={hook.nameInputRef}
           newPasskeyName={hook.newPasskeyName}
           onNameChange={hook.setNewPasskeyName}
@@ -64,7 +65,7 @@ export function PasskeyManager() {
           onPinChange={hook.handlePinChange}
           registerPending={hook.registerPending}
           onCancel={hook.handleCancelRegistration}
-        /> : null}
+        />}
 
       <PasskeyList
         isLoading={hook.isLoading}

@@ -80,7 +80,7 @@ export function TabPanes({ pathname, overlay }: { pathname: string; overlay: boo
   return (
     <>
       {PANE_ORDER.map((id) =>
-        visited[id] === true ? (
+        visited[id] === true && (
           <PaneFrame
             key={id}
             id={id}
@@ -88,7 +88,7 @@ export function TabPanes({ pathname, overlay }: { pathname: string; overlay: boo
             interactive={routePane === id}
             Page={PANE_PAGES[id]}
           />
-        ) : null,
+        ),
       )}
     </>
   )

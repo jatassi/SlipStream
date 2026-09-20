@@ -50,11 +50,13 @@ function HeaderRow({ sortColumn, sortDirection, onSort, hasTorrents, hasSlotInfo
       <SortableHeader label="Title" column="title" {...sortProps} />
       <SortableHeader label="Score" column="score" className="w-[70px]" {...sortProps} />
       <SortableHeader label="Quality" column="quality" className="w-[100px]" {...sortProps} />
-      {hasSlotInfo ? <SortableHeader label="Slot" column="slot" className="w-[120px]" {...sortProps} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasSlotInfo && <SortableHeader label="Slot" column="slot" className="w-[120px]" {...sortProps} />}
       <SortableHeader label="Indexer" column="indexer" className="w-[100px]" {...sortProps} />
       <SortableHeader label="Size" column="size" className="w-[80px]" {...sortProps} />
       <SortableHeader label="Age" column="age" className="w-[100px]" {...sortProps} />
-      {hasTorrents ? <SortableHeader label="Peers" column="peers" className="w-[100px]" {...sortProps} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasTorrents && <SortableHeader label="Peers" column="peers" className="w-[100px]" {...sortProps} />}
       <TableHead className="w-[80px] text-right">Actions</TableHead>
     </TableRow>
   )

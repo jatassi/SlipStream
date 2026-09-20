@@ -18,7 +18,7 @@ export const TAB_ITEMS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'more', label: 'More', icon: Ellipsis },
 ]
 
-export function libraryListPath(lastId: string | null): string {
+function libraryListPath(lastId: string | null): string {
   const modules = getEnabledModules()
   if (modules.length === 0) {
     throw new Error('No enabled modules')

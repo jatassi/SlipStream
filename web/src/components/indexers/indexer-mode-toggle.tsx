@@ -53,10 +53,10 @@ export function IndexerModeToggle({ onModeChange }: IndexerModeToggleProps) {
           />
         </RadioGroup>
 
-        {modeInfo?.devModeOverride ? <div className="mt-4 flex items-center gap-2 text-sm text-amber-500">
+        {Boolean(modeInfo?.devModeOverride) && <div className="mt-4 flex items-center gap-2 text-sm text-amber-500">
             <AlertTriangle className="size-4" />
             <span>Developer mode is active - mode may be overridden</span>
-          </div> : null}
+          </div>}
       </CardContent>
     </Card>
   )
@@ -102,10 +102,10 @@ function ModeOption({
       <Label htmlFor={`mode-${value}`} className="flex-1 cursor-pointer space-y-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{label}</span>
-          {badge ? <Badge variant="outline" className="border-amber-500/50 text-xs text-amber-500">
+          {Boolean(badge) && <Badge variant="outline" className="border-amber-500/50 text-xs text-amber-500">
               {badge}
-            </Badge> : null}
-          {showExternal ? <ExternalLink className="text-muted-foreground size-3.5" /> : null}
+            </Badge>}
+          {Boolean(showExternal) && <ExternalLink className="text-muted-foreground size-3.5" />}
         </div>
         <p className="text-muted-foreground text-sm">{description}</p>
       </Label>

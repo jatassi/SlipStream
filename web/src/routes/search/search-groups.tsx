@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react'
 
 import { Group, IconTile, Row, RowSkeleton } from '@/components/grouped-list'
 import type { PosterCellItem } from '@/components/media/poster-cell'
-import { PosterImage } from '@/components/media/poster-image'
+import { RowThumbnail } from '@/components/media/row-thumbnail'
 import { StatusDot } from '@/components/media/status-dot'
 
 import type { ExternalResult, ExternalSearch } from './use-search-page'
@@ -12,8 +12,6 @@ const KIND: Record<'movie' | 'series', { label: string; className: string }> = {
   movie: { label: 'Movie', className: 'text-movie-400' },
   series: { label: 'Series', className: 'text-tv-400' },
 }
-
-const THUMB = 'aspect-[2/3] w-9 rounded-[4px]'
 
 export const ADD_NEW = 'Add new'
 
@@ -49,13 +47,13 @@ export function LibraryResults({ results }: { results: PosterCellItem[] }) {
           href={item.href}
           chevron
           leading={
-            <PosterImage
+            <RowThumbnail
               tmdbId={item.tmdbId}
               tvdbId={item.tvdbId}
               type={item.posterType}
               version={item.version}
               alt=""
-              className={THUMB}
+              size="sm"
             />
           }
           title={item.title}
@@ -76,9 +74,7 @@ function ExternalRow({ result }: { result: ExternalResult }) {
     <Row
       chevron
       onClick={() => void navigate({ to: result.addTo, search: { tmdbId: result.tmdbId } })}
-      leading={
-        <PosterImage url={result.posterUrl} type={result.kind} alt="" className={THUMB} />
-      }
+      leading={<RowThumbnail url={result.posterUrl} type={result.kind} alt="" size="sm" />}
       title={result.title}
       subtitle={<Caption kind={result.kind} year={result.year} />}
       trailing={result.inLibrary ? 'In library' : undefined}

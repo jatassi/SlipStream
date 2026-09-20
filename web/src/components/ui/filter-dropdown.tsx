@@ -78,7 +78,7 @@ type OptionItemProps<T extends string> = {
 function OptionItem<T extends string>({ option, checked, onToggle }: OptionItemProps<T>) {
   return (
     <DropdownMenuCheckboxItem checked={checked} onCheckedChange={() => onToggle(option.value)}>
-      {option.icon ? <option.icon className="text-muted-foreground size-4 shrink-0" /> : null}
+      {option.icon !== undefined && <option.icon className="text-muted-foreground size-4 shrink-0" />}
       {option.label}
     </DropdownMenuCheckboxItem>
   )

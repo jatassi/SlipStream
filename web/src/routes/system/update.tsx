@@ -60,16 +60,14 @@ function ReleaseNotes({ notes }: { notes: string }) {
         >
           {displayedContent}
         </Markdown>
-        {!expanded && hasMore ? (
-          <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" />
-        ) : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {!expanded && hasMore && <div className="from-muted/50 absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent" />}
       </div>
-      {hasMore ? (
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasMore && <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="w-full">
           {expanded ? <ChevronUp className="mr-1 size-4" /> : <ChevronDown className="mr-1 size-4" />}
           {expanded ? 'Show Less' : 'Show More'}
-        </Button>
-      ) : null}
+        </Button>}
     </div>
   )
 }
@@ -86,11 +84,8 @@ export function UpdatePage() {
     <Screen
       title="Update"
       back={back}
-      trailing={
-        page.developerMode ? (
-          <DebugButton state={page.state} onClick={page.cycleDebugState} />
-        ) : undefined
-      }
+      // eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean
+      trailing={page.developerMode && <DebugButton state={page.state} onClick={page.cycleDebugState} />}
     >
       <div className="px-screen max-w-lg space-y-4">
         <UpdateCard>
@@ -109,11 +104,10 @@ export function UpdatePage() {
             isInstalling={page.isInstalling}
           />
         </UpdateCard>
-        {page.showReleaseNotes && page.releaseNotes ? (
-          <UpdateCard>
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {page.showReleaseNotes && page.releaseNotes !== undefined && <UpdateCard>
             <ReleaseNotes notes={page.releaseNotes} />
-          </UpdateCard>
-        ) : null}
+          </UpdateCard>}
       </div>
     </Screen>
   )

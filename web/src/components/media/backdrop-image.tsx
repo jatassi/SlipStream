@@ -63,7 +63,8 @@ export function BackdropImage({ path, tmdbId, tvdbId, type = 'movie', alt, size 
 
   return (
     <div className={cn('relative overflow-hidden', className)}>
-      {loading ? <div className="bg-muted absolute inset-0 animate-pulse" /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {loading && <div className="bg-muted absolute inset-0 animate-pulse" />}
       <img
         src={imageUrl}
         alt={alt}
@@ -71,7 +72,8 @@ export function BackdropImage({ path, tmdbId, tvdbId, type = 'movie', alt, size 
         onError={() => setError(true)}
         className={cn('size-full object-cover transition-opacity', loading ? 'opacity-0' : 'opacity-100')}
       />
-      {overlay ? <div className="from-background via-background/60 absolute inset-0 bg-gradient-to-t to-transparent" /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {overlay && <div className="from-background via-background/60 absolute inset-0 bg-gradient-to-t to-transparent" />}
     </div>
   )
 }

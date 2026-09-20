@@ -38,9 +38,9 @@ export function ConfirmModal(props: ConfirmModalProps) {
     >
       <div className="space-y-4 py-2">
         <MigrationInfoAlert />
-        {editedPreview ? (
+        {editedPreview !== null && (
           <ConfirmStats summary={editedPreview.summary} ignoredCount={ignoredCount} />
-        ) : null}
+        )}
       </div>
     </SheetPresenter>
   )

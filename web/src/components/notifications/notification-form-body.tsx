@@ -32,8 +32,10 @@ export function NotificationFormBody({ state: s }: { state: NotificationDialogSt
         sectionIds={(s.formData.settings.sectionIds ?? []) as number[]}
         isLoadingSections={s.isLoadingSections} plexSections={s.plexSections} onSettingChange={s.handleSettingChange}
       />
-      {s.hasAdvancedFields ? <AdvancedToggle showAdvanced={s.showAdvanced} onToggle={s.toggleAdvanced} /> : null}
-      {s.showAdvanced ? <ProviderFields fields={advancedFields} {...shared} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {s.hasAdvancedFields && <AdvancedToggle showAdvanced={s.showAdvanced} onToggle={s.toggleAdvanced} />}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {s.showAdvanced && <ProviderFields fields={advancedFields} {...shared} />}
       <EventTriggersSection eventGroups={s.eventGroups} formData={s.formData} setFormData={s.setFormData} />
       <EnabledToggle enabled={s.formData.enabled ?? true} onChange={(c) => s.handleFormDataChange('enabled', c)} />
     </div>

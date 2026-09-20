@@ -34,7 +34,7 @@ function SectionHeader({ title, icon, isLoading, hasResults }: {
         {title}
         {noResults ? ' (0 results)' : null}
       </h2>
-      {isLoading ? <Loader2 className="text-muted-foreground size-4 animate-spin" /> : null}
+      {Boolean(isLoading) && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
     </div>
   )
 }

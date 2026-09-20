@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { Ellipsis, Pause, Play } from 'lucide-react'
 
 import { ProgressLine } from '@/components/grouped-list'
-import { PosterImage } from '@/components/media/poster-image'
+import { RowThumbnail } from '@/components/media/row-thumbnail'
 import { ActionPresenter } from '@/components/presenter'
 import { useViewport } from '@/hooks/use-viewport'
 import type { QueueItem } from '@/types'
@@ -17,13 +17,12 @@ const CONTROL =
 
 function QueueThumbnail({ item, row }: { item: QueueItem; row: Row }) {
   return (
-    <PosterImage
+    <RowThumbnail
       tmdbId={row.tmdbId}
       tvdbId={row.tvdbId}
       alt={item.title}
       type={item.mediaType === 'movie' ? 'movie' : 'series'}
-      size="w92"
-      className="rounded-thumb h-15 w-10 shrink-0 object-cover"
+      size="md"
     />
   )
 }

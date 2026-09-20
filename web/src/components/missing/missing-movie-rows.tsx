@@ -15,14 +15,17 @@ type ToggleMonitored = (id: number, title: string, monitored: boolean) => void
 function useToggleMonitored(): { toggle: ToggleMonitored; isPending: boolean } {
   const mutation = useUpdateMovie()
   const toggle: ToggleMonitored = (id, title, monitored) => {
-    void (async () => {
-      try {
-        await mutation.mutateAsync({ id, data: { monitored } })
-        toast.success(monitored ? `"${title}" monitored` : `"${title}" unmonitored`)
-      } catch {
-        toast.error(`Failed to update "${title}"`)
-      }
-    })()
+    mutation.mutate(
+      { id, data: { monitored } },
+      {
+        onSuccess: () => {
+          toast.success(monitored ? `"${title}" monitored` : `"${title}" unmonitored`)
+        },
+        onError: (error: Error) => {
+          toast.error(`Failed to update "${title}"`, { description: error.message })
+        },
+      },
+    )
   }
   return { toggle, isPending: mutation.isPending }
 }

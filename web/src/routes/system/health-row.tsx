@@ -63,7 +63,8 @@ export function HealthRow({ item, testable = true }: { item: HealthItem; testabl
       leading={<StatusTile status={item.status} />}
       title={item.name}
       subtitle={subtitleFor(item)}
-      trailing={testable ? <TestItemButton item={item} /> : undefined}
+      // eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean
+      trailing={testable && <TestItemButton item={item} />}
     />
   )
 }

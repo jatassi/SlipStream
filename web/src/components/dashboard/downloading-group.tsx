@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowDownToLine } from 'lucide-react'
 
 import { Group, IconTile, ProgressLine, Row, RowSkeleton } from '@/components/grouped-list'
-import { PosterImage } from '@/components/media/poster-image'
+import { RowThumbnail } from '@/components/media/row-thumbnail'
 import { useMovie, useQueue, useSeriesDetail } from '@/hooks'
 import { formatEta, formatSpeed } from '@/lib/formatters'
 import { useUIStore } from '@/stores'
@@ -22,22 +22,13 @@ function queueHref(item: QueueItem): string | undefined {
 
 function MovieThumbnail({ movieId, title }: { movieId?: number; title: string }) {
   const { data } = useMovie(movieId ?? 0)
-  return (
-    <PosterImage tmdbId={data?.tmdbId} alt={title} type="movie" size="w92" className="h-12 w-8 rounded-[4px]" />
-  )
+  return <RowThumbnail tmdbId={data?.tmdbId} alt={title} type="movie" size="sm" />
 }
 
 function SeriesThumbnail({ seriesId, title }: { seriesId?: number; title: string }) {
   const { data } = useSeriesDetail(seriesId ?? 0)
   return (
-    <PosterImage
-      tmdbId={data?.tmdbId}
-      tvdbId={data?.tvdbId}
-      alt={title}
-      type="series"
-      size="w92"
-      className="h-12 w-8 rounded-[4px]"
-    />
+    <RowThumbnail tmdbId={data?.tmdbId} tvdbId={data?.tvdbId} alt={title} type="series" size="sm" />
   )
 }
 

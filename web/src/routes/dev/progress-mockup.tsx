@@ -28,8 +28,10 @@ export function ProgressMockup({ theme, size, progress, paused, fullWidth }: Pro
     >
       <div className="bg-muted/30 absolute inset-0" />
       <ProgressFill theme={theme} progress={clampedProgress} showShimmer={showDetails} />
-      {showDetails ? <EdgeGlow theme={theme} progress={clampedProgress} /> : null}
-      {showDetails ? <InsetGlowRing isMovie={isMovie} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showDetails && <EdgeGlow theme={theme} progress={clampedProgress} />}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showDetails && <InsetGlowRing isMovie={isMovie} />}
       <ProgressLabel size={size} />
     </div>
   )
@@ -55,7 +57,8 @@ function ProgressFill({
       className={cn('absolute inset-y-0 left-0 transition-[width] duration-500 ease-out', gradientClass)}
       style={{ width: `${progress}%` }}
     >
-      {showShimmer ? <div className="absolute inset-0 overflow-hidden">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showShimmer && <div className="absolute inset-0 overflow-hidden">
           <div
             className={cn(
               'absolute inset-y-0 w-12 animate-[shimmer_1.5s_linear_infinite]',
@@ -63,7 +66,7 @@ function ProgressFill({
               'bg-gradient-to-r from-transparent to-transparent',
             )}
           />
-        </div> : null}
+        </div>}
     </div>
   )
 }

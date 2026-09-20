@@ -94,7 +94,8 @@ export function PosterImage({ path, url, tmdbId, tvdbId, alt, size = 'w342', typ
 
   return (
     <div className={cn('relative overflow-hidden', className)}>
-      {loading ? <div className="bg-muted absolute inset-0 animate-pulse" /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {loading && <div className="bg-muted absolute inset-0 animate-pulse" />}
       <img
         src={imageUrl}
         alt={alt}

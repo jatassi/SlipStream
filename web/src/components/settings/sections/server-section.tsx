@@ -111,6 +111,7 @@ function LogRotationGroup({
   const updateField =
     (field: keyof LogRotationSettings, fallback: number) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
+      // `||` intentional: parseInt of an emptied/invalid field is NaN, which `??` would not catch
       onChange({ ...logRotation, [field]: Number.parseInt(e.target.value) || fallback })
 
   return (
@@ -249,16 +250,15 @@ export function ServerSection(props: ServerSectionProps) {
         enabled={props.externalAccessEnabled}
         onChange={props.onExternalAccessChange}
       >
-        {props.externalAccessEnabled ? (
-          <div className="px-4 py-3">
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {props.externalAccessEnabled && <div className="px-4 py-3">
             <FirewallStatusPanel
               firewallStatus={server.firewallStatus}
               firewallLoading={server.firewallLoading}
               isChecking={server.isCheckingFirewall}
               onCheck={server.handleCheckFirewall}
             />
-          </div>
-        ) : undefined}
+          </div>}
       </ExternalAccessGroup>
       <LoggingGroup
         logLevel={props.logLevel}

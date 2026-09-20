@@ -129,11 +129,12 @@ function PinLoginForm(props: PinFormProps) {
           Sign In
         </LoadingButton>
       </form>
-      {props.passkeySupported ? <div className="mt-4 text-center">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {props.passkeySupported && <div className="mt-4 text-center">
           <button type="button" onClick={props.onUsePasskey} className="text-muted-foreground hover:text-foreground text-sm hover:underline">
             Use Passkey instead
           </button>
-        </div> : null}
+        </div>}
     </>
   )
 }
@@ -197,10 +198,12 @@ export function LoginPage() {
           <CardDescription>Sign in to your SlipStream account</CardDescription>
         </CardHeader>
         <CardContent>
-          {vm.passkeyLoading ? <div className="flex items-center justify-center py-8">
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {vm.passkeyLoading && <div className="flex items-center justify-center py-8">
               <Loader2 className="text-muted-foreground size-6 animate-spin" />
-            </div> : null}
-          {vm.shouldShowPasskeyLogin ? <PasskeySection onPasskeyLogin={vm.handlePasskeyLogin} passkeyPending={vm.passkeyLoginPending} onShowPin={() => vm.setShowPinForm(true)} /> : null}
+            </div>}
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {vm.shouldShowPasskeyLogin && <PasskeySection onPasskeyLogin={vm.handlePasskeyLogin} passkeyPending={vm.passkeyLoginPending} onShowPin={() => vm.setShowPinForm(true)} />}
           {!vm.passkeyLoading && !vm.shouldShowPasskeyLogin && (
             <PinLoginForm
               username={vm.username} showUsernameInput={vm.showUsernameInput} onUsernameChange={vm.setUsername}

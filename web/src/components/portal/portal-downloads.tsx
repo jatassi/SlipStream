@@ -41,10 +41,12 @@ function DownloadStats({
       <span className="text-muted-foreground w-7 text-right text-[10px] sm:w-10 md:w-8 md:text-xs">
         {Math.round(progress)}%
       </span>
-      {showSpeed ? <span className="text-muted-foreground hidden w-20 text-right text-xs sm:inline">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showSpeed && <span className="text-muted-foreground hidden w-20 text-right text-xs sm:inline">
           {formatSpeed(downloadSpeed)}
-        </span> : null}
-      {isComplete ? <span className="text-muted-foreground hidden w-20 text-right text-xs sm:inline">--</span> : null}
+        </span>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {isComplete && <span className="text-muted-foreground hidden w-20 text-right text-xs sm:inline">--</span>}
       <span className="text-muted-foreground w-12 text-right text-[10px] sm:w-16 md:w-14 md:text-xs">
         {statusLabel}
       </span>
@@ -76,7 +78,7 @@ function DownloadRow({ download }: { download: PortalDownload }) {
       />
       <span className="min-w-0 flex-1 truncate text-xs font-medium md:text-sm" title={fullTitle}>
         {title}
-        {season ? <span className="text-muted-foreground font-normal"> {season}</span> : null}
+        {Boolean(season) && <span className="text-muted-foreground font-normal"> {season}</span>}
       </span>
       <DownloadStats
         progress={download.progress}

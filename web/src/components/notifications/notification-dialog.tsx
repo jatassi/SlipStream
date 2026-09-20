@@ -42,7 +42,7 @@ function Description({ description, infoUrl }: { description?: string; infoUrl?:
   return (
     <>
       {description ?? 'Configure notification settings and triggers.'}
-      {infoUrl ? (
+      {Boolean(infoUrl) && (
         <a
           href={infoUrl}
           target="_blank"
@@ -51,7 +51,7 @@ function Description({ description, infoUrl }: { description?: string; infoUrl?:
         >
           Learn more <ExternalLink className="size-3" />
         </a>
-      ) : null}
+      )}
     </>
   )
 }

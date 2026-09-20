@@ -33,7 +33,7 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
   return (
     <TableCell className="text-right">
       <div className="flex justify-end gap-1">
-        {release.infoUrl ? <a
+        {Boolean(release.infoUrl) && <a
             href={release.infoUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -41,7 +41,7 @@ function ActionsCell({ release, isGrabbing, onGrab }: { release: TorrentInfo, is
             className="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors"
           >
             <ExternalLink className="size-4" />
-          </a> : null}
+          </a>}
         <LoadingButton
           loading={isGrabbing}
           icon={Download}
@@ -95,9 +95,10 @@ export function SearchReleaseRow({
           <span className="text-muted-foreground">-</span>
         )}
       </TableCell>
-      {hasSlotInfo ? <TableCell>
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasSlotInfo && <TableCell>
           <ReleaseSlotCell release={release} />
-        </TableCell> : null}
+        </TableCell>}
       <TableCell>
         <Badge variant="outline">{release.indexer}</Badge>
       </TableCell>
@@ -105,7 +106,8 @@ export function SearchReleaseRow({
       <TableCell>
         {release.publishDate ? formatRelativeTime(release.publishDate) : '-'}
       </TableCell>
-      {hasTorrents ? <PeersCell seeders={release.seeders} leechers={release.leechers} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasTorrents && <PeersCell seeders={release.seeders} leechers={release.leechers} />}
       <ActionsCell release={release} isGrabbing={isGrabbing} onGrab={onGrab} />
     </TableRow>
   )

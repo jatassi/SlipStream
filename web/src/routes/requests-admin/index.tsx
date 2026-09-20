@@ -155,9 +155,9 @@ export function RequestQueuePage() {
         requesterFor={page.requesterFor}
         onAction={page.handleAction}
       />
-      {page.searchModal ? (
+      {page.searchModal !== null && (
         <RequestSearchModal searchModal={page.searchModal} onClose={page.handleSearchModalClose} />
-      ) : null}
+      )}
     </Screen>
   )
 }

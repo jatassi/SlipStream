@@ -55,7 +55,7 @@ export function ParseReleaseTester() {
       </div>
 
       <ParseErrorMessage message={parseError} />
-      {result ? <ParseResultDisplay result={result} /> : null}
+      {result !== null && <ParseResultDisplay result={result} />}
     </div>
   )
 }

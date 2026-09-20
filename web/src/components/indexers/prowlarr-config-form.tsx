@@ -71,7 +71,7 @@ function ConfigHeader({
           </CardDescription>
         </div>
         <div className="flex items-center gap-3">
-          {status ? <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
+          {status !== undefined && <Badge variant={status.connected ? 'default' : 'destructive'} className="gap-1">
               {status.connected ? (
                 <>
                   <CheckCircle2 className="size-3" />
@@ -83,7 +83,7 @@ function ConfigHeader({
                   Disconnected
                 </>
               )}
-            </Badge> : null}
+            </Badge>}
           <ChevronDown
             className={`text-muted-foreground size-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
@@ -101,7 +101,8 @@ function ConnectionSettings({ hook }: { hook: HookValues }) {
       <HostInput hook={hook} />
       <ApiKeyInput hook={hook} />
       <TimeoutInput hook={hook} />
-      {hook.useSsl ? <SslVerifyCheckbox hook={hook} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hook.useSsl && <SslVerifyCheckbox hook={hook} />}
     </div>
   )
 }

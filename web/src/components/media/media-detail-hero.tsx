@@ -79,7 +79,7 @@ function HeroFacts({ line, isMetadataLoading }: { line: string[]; isMetadataLoad
 
 function HeroRating({ rating, isMetadataLoading }: { rating?: number; isMetadataLoading?: boolean }) {
   if (rating === undefined) {
-    return isMetadataLoading === true ? <Skeleton className="h-4 w-10 bg-white/10" /> : null
+    return isMetadataLoading === true && <Skeleton className="h-4 w-10 bg-white/10" />
   }
   return (
     <span className="nums text-caption inline-flex items-center gap-1 font-semibold text-amber-400">

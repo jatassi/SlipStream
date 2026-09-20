@@ -18,12 +18,13 @@ function ParsedDetails({ parsed }: { parsed: ParsedMediaInfo }) {
     <div className="space-y-3">
       <h4 className="text-muted-foreground text-sm font-medium">Parsed Information</h4>
       <div className="space-y-2 text-sm">
-        {parsed.title ? <InfoRow label="Title"><span className="font-medium">{parsed.title}</span></InfoRow> : null}
-        {parsed.year ? <InfoRow label="Year"><span>{parsed.year}</span></InfoRow> : null}
-        {parsed.isTV ? <>
+        {Boolean(parsed.title) && <InfoRow label="Title"><span className="font-medium">{parsed.title}</span></InfoRow>}
+        {Boolean(parsed.year) && <InfoRow label="Year"><span>{parsed.year}</span></InfoRow>}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {parsed.isTV && <>
             <InfoRow label="Season"><span>{parsed.season}</span></InfoRow>
             <InfoRow label="Episode"><span>{parsed.episode}{endEpSuffix}</span></InfoRow>
-          </> : null}
+          </>}
       </div>
     </div>
   )
@@ -36,10 +37,10 @@ function QualityDetails({ parsed }: { parsed: ParsedMediaInfo }) {
     <div className="space-y-3">
       <h4 className="text-muted-foreground text-sm font-medium">Quality Information</h4>
       <div className="space-y-2 text-sm">
-        {parsed.quality ? <InfoRow label="Quality"><Badge variant="secondary">{parsed.quality}</Badge></InfoRow> : null}
-        {parsed.source ? <InfoRow label="Source"><span>{parsed.source}</span></InfoRow> : null}
-        {parsed.codec ? <InfoRow label="Codec"><span>{parsed.codec}</span></InfoRow> : null}
-        {hasAudio ? <InfoRow label="Audio"><span>{parsed.audioCodecs?.join(', ')}</span></InfoRow> : null}
+        {Boolean(parsed.quality) && <InfoRow label="Quality"><Badge variant="secondary">{parsed.quality}</Badge></InfoRow>}
+        {Boolean(parsed.source) && <InfoRow label="Source"><span>{parsed.source}</span></InfoRow>}
+        {Boolean(parsed.codec) && <InfoRow label="Codec"><span>{parsed.codec}</span></InfoRow>}
+        {Boolean(hasAudio) && <InfoRow label="Audio"><span>{parsed.audioCodecs?.join(', ')}</span></InfoRow>}
       </div>
     </div>
   )

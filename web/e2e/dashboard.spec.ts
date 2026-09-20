@@ -4,6 +4,7 @@ import { expect, test } from './fixtures'
 import { shellKind } from './helpers/activate'
 import { type DownloadRef, ensureDownloading, ensureHealthIssue, ensureRecentHistory } from './helpers/dev-data'
 import { primaryNav } from './helpers/shell'
+import { escapeRegExp } from './helpers/text'
 
 test('dashboard shows grouped Health Storage Downloading and Recent', async ({ page }) => {
   await page.goto('/')
@@ -120,10 +121,6 @@ test('skeleton rows match loaded row height', async ({ page, activate }, testInf
 
 function downloadRow(downloading: Locator, download: DownloadRef): Locator {
   return downloading.getByRole('link', { name: new RegExp(escapeRegExp(download.rowTitle)) })
-}
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 }
 
 async function expectTitleDetail(page: Page, title: string): Promise<void> {

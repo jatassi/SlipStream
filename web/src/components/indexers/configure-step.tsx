@@ -51,7 +51,7 @@ function DefinitionBanner({
     <div className="bg-muted/50 flex items-center gap-2 rounded-lg p-3">
       <div className="flex-1">
         <p className="font-medium">{definition.name}</p>
-        {definition.description ? <p className="text-muted-foreground text-sm">{definition.description}</p> : null}
+        {Boolean(definition.description) && <p className="text-muted-foreground text-sm">{definition.description}</p>}
       </div>
       <div className="flex gap-2">
         <Badge variant="secondary" className={protocolColors[definition.protocol]}>

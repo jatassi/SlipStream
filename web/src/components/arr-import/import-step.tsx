@@ -63,7 +63,7 @@ function InProgressView({
         <Loader2 className="size-12 animate-spin text-muted-foreground" />
         <div className="space-y-2 text-center">
           <h3 className="text-lg font-semibold">{title}</h3>
-          {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+          {Boolean(subtitle) && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="w-full max-w-md">
           <Progress
@@ -193,7 +193,8 @@ function ReportView({
         </div>
       </div>
 
-      {hasErrors ? <ErrorList errors={report.errors} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasErrors && <ErrorList errors={report.errors} />}
 
       <div className="flex justify-end gap-3">
         <ViewLibraryLink sourceType={sourceType} />

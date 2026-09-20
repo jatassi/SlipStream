@@ -70,7 +70,7 @@ export function FolderBrowser({
           onFileSelect={s.handleFileSelect}
           selectedFile={s.selectedFile}
         />
-        {s.selectedPath ? <SelectedPath path={s.selectedPath} /> : null}
+        {Boolean(s.selectedPath) && <SelectedPath path={s.selectedPath} />}
       </div>
     </SheetPresenter>
   )
@@ -162,7 +162,7 @@ function DirectoryContent({
 
   return (
     <>
-      {data.parent ? <ParentButton parent={data.parent} onNavigate={onNavigate} /> : null}
+      {data.parent !== undefined && <ParentButton parent={data.parent} onNavigate={onNavigate} />}
       {entries.length > 0 && (
         <EntriesList
           entries={entries}

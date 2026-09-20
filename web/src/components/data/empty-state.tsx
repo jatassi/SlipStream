@@ -17,10 +17,10 @@ export function EmptyState({ icon, title, description, action, className }: Empt
     <div
       className={cn('flex flex-col items-center justify-center px-4 py-12 text-center', className)}
     >
-      {icon ? <div className="text-muted-foreground mb-4">{icon}</div> : null}
+      {Boolean(icon) && <div className="text-muted-foreground mb-4">{icon}</div>}
       <h3 className="mb-1 text-lg font-semibold">{title}</h3>
-      {description ? <p className="text-muted-foreground mb-4 max-w-md text-sm">{description}</p> : null}
-      {action ? <Button onClick={action.onClick}>{action.label}</Button> : null}
+      {Boolean(description) && <p className="text-muted-foreground mb-4 max-w-md text-sm">{description}</p>}
+      {action !== undefined && <Button onClick={action.onClick}>{action.label}</Button>}
     </div>
   )
 }

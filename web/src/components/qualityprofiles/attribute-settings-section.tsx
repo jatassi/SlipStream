@@ -66,7 +66,7 @@ export function AttributeSettingsSection({
               onModeChange={(mode) => onItemModeChange(value, mode)}
             />
           ))}
-          {warning ? <WarningBanner message={warning} /> : null}
+          {warning !== null && warning !== undefined && <WarningBanner message={warning} />}
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -76,7 +76,7 @@ export function AttributeSettingsSection({
 function SectionLabel({ label, warning }: { label: string; warning?: string | null }) {
   return (
     <div className="flex items-center gap-2">
-      {warning ? <AlertTriangle className="size-4 text-yellow-500" /> : null}
+      {Boolean(warning) && <AlertTriangle className="size-4 text-yellow-500" />}
       <span className="text-sm font-medium">{label}</span>
     </div>
   )
@@ -112,7 +112,7 @@ function SectionBadges({
           {notAllowedCount} blocked
         </Badge>
       )}
-      {hasSettings ? null : <span className="text-muted-foreground text-xs">Acceptable</span>}
+      {!hasSettings && <span className="text-muted-foreground text-xs">Acceptable</span>}
       <ChevronDown
         className={`text-muted-foreground size-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
       />

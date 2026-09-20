@@ -73,9 +73,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
       <span className={cn('w-12 shrink-0 uppercase', LEVEL_COLORS[entry.level] || 'text-zinc-400')}>
         {entry.level.slice(0, 5).padEnd(5)}
       </span>
-      {entry.component ? <span className="shrink-0 text-cyan-400">[{entry.component}]</span> : null}
+      {Boolean(entry.component) && <span className="shrink-0 text-cyan-400">[{entry.component}]</span>}
       <span className="text-zinc-100">{entry.message}</span>
-      {fields ? <span className="text-zinc-500">{fields}</span> : null}
+      {Boolean(fields) && <span className="text-zinc-500">{fields}</span>}
     </div>
   )
 }
@@ -253,7 +253,8 @@ function LogsStatusBar({
   return (
     <div className="text-muted-foreground px-screen text-caption mt-2 flex items-center gap-4">
       <span className="nums">{entryCount} entries</span>
-      {isPaused ? <span className="text-yellow-500">Streaming paused</span> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {isPaused && <span className="text-yellow-500">Streaming paused</span>}
       {autoScroll ? null : <span>Auto-scroll disabled</span>}
     </div>
   )

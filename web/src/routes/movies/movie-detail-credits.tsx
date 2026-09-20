@@ -33,22 +33,24 @@ export function MovieDetailCredits({ credits, isLoading }: MovieDetailCreditsPro
 
   return (
     <>
-      {hasCast ? <Card>
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasCast && <Card>
           <CardHeader>
             <CardTitle>Cast</CardTitle>
           </CardHeader>
           <CardContent>
             <PersonList people={credits.cast} max={18} />
           </CardContent>
-        </Card> : null}
-      {hasCrew ? <Card>
+        </Card>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasCrew && <Card>
           <CardHeader>
             <CardTitle>Crew</CardTitle>
           </CardHeader>
           <CardContent>
             <PersonList people={crewMembers} max={12} />
           </CardContent>
-        </Card> : null}
+        </Card>}
     </>
   )
 }
@@ -90,9 +92,9 @@ function PersonList({ people, max = 12 }: { people: Person[]; max?: number }) {
             )}
           </div>
           <span className="line-clamp-2 w-full text-center text-xs">{person.name}</span>
-          {person.role ? <span className="text-muted-foreground line-clamp-2 w-full text-center text-xs">
+          {Boolean(person.role) && <span className="text-muted-foreground line-clamp-2 w-full text-center text-xs">
               {person.role}
-            </span> : null}
+            </span>}
         </div>
       ))}
     </div>
