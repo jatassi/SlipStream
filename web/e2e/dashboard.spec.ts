@@ -34,8 +34,8 @@ test('storage shows used total and a line per root folder', async ({ page }) => 
   const storage = page.getByRole('region', { name: 'Storage' })
   await expect(storage.getByText(/ used$/)).toBeVisible()
   await expect(storage.getByText(/^of /)).toBeVisible()
-  await expect(storage.getByText(/Movies Mock Movies/)).toBeVisible()
-  await expect(storage.getByText(/Series Mock TV/)).toBeVisible()
+  await expect(storage.getByText(/Movies Mock Movies\s+[\d.]+\s?\w+ free/)).toBeVisible()
+  await expect(storage.getByText(/Series Mock TV\s+[\d.]+\s?\w+ free/)).toBeVisible()
 })
 
 test('downloading lists at most three items and see all opens Activity', async ({ page, activate }) => {

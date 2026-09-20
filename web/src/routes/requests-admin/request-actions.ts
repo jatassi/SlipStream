@@ -1,6 +1,6 @@
 export type RequestAction =
-  | 'approve'
-  | 'approve-manual-search'
-  | 'approve-auto-search'
-  | 'deny'
-  | 'delete'
+  | { kind: 'approve' }
+  | { kind: 'approve-manual-search' }
+  | { kind: 'approve-auto-search' }
+  | { kind: 'deny'; reason: string }
+  | { kind: 'delete' }

@@ -206,13 +206,17 @@ test('deny confirms before the request moves to Denied', async ({ page, activate
 
     await expect(page.getByText(`Deny ${title}?`)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
-    await activate(page.getByRole('button', { name: 'Deny request' }))
+    const reason = page.getByRole('textbox', { name: 'Reason' })
+    await expect(reason).toBeVisible()
+    await reason.fill('Already in the library')
+    await activate(page.getByRole('button', { name: 'Deny', exact: true }))
 
     await expect(requestRow(page, title)).toBeHidden()
     await selectSegment(page, activate, 'Denied')
     const denied = requestRow(page, title)
     await expect(denied).toBeVisible()
     await expect(denied.getByText('Denied', { exact: true })).toBeVisible()
+    await expect(denied.getByText('Reason: Already in the library')).toBeVisible()
   } finally {
     await cleanUp(page, title)
   }

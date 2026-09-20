@@ -9,6 +9,7 @@ import type { ActionItem } from '@/components/presenter'
 import { ActionPresenter } from '@/components/presenter'
 import type { Request } from '@/types'
 
+import { DenySheet } from './deny-sheet'
 import type { RequestAction } from './request-actions'
 import { REQUEST_STATUS_LABEL, requestStatusTone } from './request-status'
 
@@ -156,7 +157,7 @@ function moreActions(request: Request, onAction: (action: RequestAction) => void
           label: 'Delete request',
           destructive: true,
           onClick: () => {
-            onAction('delete')
+            onAction({ kind: 'delete' })
           },
         },
       ],
@@ -171,13 +172,13 @@ function moreActions(request: Request, onAction: (action: RequestAction) => void
     {
       label: 'Approve & Manual Search',
       onClick: () => {
-        onAction('approve-manual-search')
+        onAction({ kind: 'approve-manual-search' })
       },
     },
     {
       label: 'Approve & Auto Search',
       onClick: () => {
-        onAction('approve-auto-search')
+        onAction({ kind: 'approve-auto-search' })
       },
     },
     deleteAction,
@@ -204,7 +205,7 @@ function PendingControls({
         title={request.title}
         isProcessing={isProcessing}
         onApprove={() => {
-          onAction('approve')
+          onAction({ kind: 'approve' })
         }}
       />
       <DenyButton title={request.title} isProcessing={isProcessing} onOpen={onDeny} />
@@ -222,37 +223,6 @@ function MoreButton({ title, onOpen }: { title: string; onOpen: () => void }) {
     >
       <Ellipsis className="size-5" />
     </button>
-  )
-}
-
-function DenyConfirm({
-  request,
-  open,
-  onOpenChange,
-  onAction,
-}: {
-  request: Request
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onAction: (action: RequestAction) => void
-}) {
-  return (
-    <ActionPresenter
-      open={open}
-      onOpenChange={onOpenChange}
-      wide="dialog"
-      title={`Deny ${request.title}?`}
-      description="The requester sees this request as denied. It stays in the Denied list."
-      actions={[
-        {
-          label: 'Deny request',
-          destructive: true,
-          onClick: () => {
-            onAction('deny')
-          },
-        },
-      ]}
-    />
   )
 }
 
@@ -291,11 +261,13 @@ export function RequestRow({ request, requester, isProcessing, onAction }: Reque
         actions={moreActions(request, onAction)}
         anchor={anchor}
       />
-      <DenyConfirm
-        request={request}
+      <DenySheet
+        title={request.title}
         open={denyOpen}
         onOpenChange={setDenyOpen}
-        onAction={onAction}
+        onDeny={(reason) => {
+          onAction({ kind: 'deny', reason })
+        }}
       />
     </div>
   )

@@ -60,3 +60,9 @@ the entrance to settle.
 
 Full-suite runs on a loaded machine flake in other specs (blank pages and portless 502s, and the
 known settings/activity contention); `detail.spec.ts` passes on its own and in clean full runs.
+
+The per-episode file→slot `Select` is back: `EpisodeSlotAssign`
+(`web/src/components/series/episode-slot-assign.tsx`) renders it inside the episode row's slot panel
+on `useAssignEpisodeFile`, leaving the row's own 44 px geometry untouched. It has no e2e cover
+because the developer-mode database seeds no episode files and multi-version can only be switched on
+through the global slot settings the other specs share.

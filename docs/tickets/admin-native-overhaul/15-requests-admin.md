@@ -67,3 +67,8 @@ the shells would otherwise overwrite each other between save and reload.
 
 Full suite: 156 passed with two unrelated flakes under load (`calendar-import` on phone,
 `dashboard` Recent rows on wide); both pass on their own. `test:e2e:reduced-motion` passes.
+
+The deny reason is back, and the second reduction above no longer holds: Deny now presents
+`DenySheet` (`web/src/routes/requests-admin/deny-sheet.tsx`) through `SheetPresenter` — a
+`TextareaRow` for the optional reason with a destructive Deny and Cancel in `FormActions` — and the
+reason is sent to the existing deny mutation, so the portal shows it as `deniedReason`.

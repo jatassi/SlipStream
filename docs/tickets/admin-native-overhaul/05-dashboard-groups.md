@@ -22,3 +22,7 @@ This ticket introduces the shared `Group`, `Row` and `IconTile` primitives (inse
 ## Comments
 
 Storage split segments are weighted by movie vs TV root-folder counts because the storage API exposes volume used/total, not per-folder used. Skeleton vs loaded Health row height is asserted within 4px (phone device-pixel rounding). Developer-mode library has no `missing` movies; dashboard e2e autosearches an upgradable title (and POSTs root-folder health tests) so Health/Downloading/Recent assert real data.
+
+Story 25's per-folder figures were restored: the Storage legend now prints each root folder's free
+space from `useRootFolders()` beside its name, while the bar's split stays count-weighted for the
+reason above.
