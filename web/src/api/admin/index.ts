@@ -7,8 +7,6 @@ export {
 } from './invitations'
 export {
   approveRequest,
-  batchDelete,
-  batchDeny,
   deleteRequest,
   denyRequest,
   listRequests,

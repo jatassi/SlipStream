@@ -1,126 +1,163 @@
-import { AlertCircle, FlaskConical } from 'lucide-react'
-import { toast } from 'sonner'
+import { AlertTriangle, Settings2, Users } from 'lucide-react'
 
 import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
+import { Group, IconTile, Row, RowSkeleton } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
+import { Segmented } from '@/components/ui/segmented'
 import type { Request } from '@/types'
 
 import type { RequestAction } from './request-actions'
-import { RequestDialogs } from './request-dialogs'
+import { RequestRow } from './request-row'
 import { RequestSearchModal } from './request-search-modal'
-import { RequestTabs } from './request-tabs'
-import { RequestsNav } from './requests-nav'
+import type { QueueSegment } from './request-status'
+import { QUEUE_SEGMENTS } from './request-status'
 import { useRequestQueuePage } from './use-request-queue-page'
+
+const SKELETONS = ['request-a', 'request-b', 'request-c'] as const
+
+const EMPTY_COPY: Record<QueueSegment, string> = {
+  pending: 'No requests waiting for approval',
+  approved: 'No approved requests',
+  downloading: 'No requests downloading',
+  available: 'No requests available yet',
+  denied: 'No denied requests',
+}
+
+function ManageGroup() {
+  return (
+    <Group>
+      <Row
+        leading={
+          <IconTile className="bg-violet-600">
+            <Users />
+          </IconTile>
+        }
+        title="Users"
+        href="/requests-admin/users"
+        chevron
+      />
+      <Row
+        leading={
+          <IconTile className="bg-zinc-600">
+            <Settings2 />
+          </IconTile>
+        }
+        title="Request Settings"
+        href="/requests-admin/settings"
+        chevron
+      />
+    </Group>
+  )
+}
+
+function PortalDisabledGroup({ enabled }: { enabled: boolean }) {
+  if (enabled) {
+    return null
+  }
+  return (
+    <Group>
+      <Row
+        tone="warning"
+        leading={
+          <IconTile className="bg-amber-500">
+            <AlertTriangle />
+          </IconTile>
+        }
+        title="The requests portal is disabled"
+        subtitle="Portal users cannot sign in or submit requests"
+        href="/requests-admin/settings"
+        chevron
+      />
+    </Group>
+  )
+}
+
+function QueueGroup({
+  isLoading,
+  segment,
+  requests,
+  processingRequest,
+  requesterFor,
+  onAction,
+}: {
+  isLoading: boolean
+  segment: QueueSegment
+  requests: Request[]
+  processingRequest: number | null
+  requesterFor: (userId: number) => string | undefined
+  onAction: (request: Request, action: RequestAction) => void
+}) {
+  if (isLoading) {
+    return (
+      <Group>
+        {SKELETONS.map((id) => (
+          <RowSkeleton key={id} leading="poster" trailing />
+        ))}
+      </Group>
+    )
+  }
+
+  if (requests.length === 0) {
+    return (
+      <Group>
+        <Row title={<span className="text-muted-foreground font-normal">{EMPTY_COPY[segment]}</span>} />
+      </Group>
+    )
+  }
+
+  return (
+    <Group>
+      {requests.map((request) => (
+        <RequestRow
+          key={request.id}
+          request={request}
+          requester={requesterFor(request.userId)}
+          isProcessing={processingRequest === request.id}
+          onAction={(action) => {
+            onAction(request, action)
+          }}
+        />
+      ))}
+    </Group>
+  )
+}
 
 export function RequestQueuePage() {
   const page = useRequestQueuePage()
-
-  if (page.isLoading) {
-    return <LoadingLayout />
-  }
+  const back = usePushBack()
 
   if (page.isError) {
-    return <ErrorLayout onRetry={page.refetch} />
-  }
-
-  const handleAction = (request: Request, action: RequestAction) => {
-    switch (action) {
-      case 'approve': { void page.handleApproveOnly(request); break }
-      case 'approve-manual-search': { void page.handleApproveAndManualSearch(request); break }
-      case 'approve-auto-search': { void page.handleApproveAndAutoSearch(request); break }
-      case 'deny': { page.openDenyDialog(request.id); break }
-      case 'delete': { page.openDeleteDialog(request.id); break }
-    }
+    return (
+      <Screen title="Requests" back={back}>
+        <ErrorState onRetry={page.refetch} />
+      </Screen>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="External Requests"
-        description="Manage portal users and content requests"
-        actions={page.developerMode ? <TestRequestButton /> : null}
-      />
-
-      <RequestsNav />
-      {page.portalEnabled ? null : <PortalDisabledAlert />}
-
-      <RequestTabs
-        activeTab={page.activeTab}
-        onTabChange={page.handleTabChange}
-        pendingCount={page.pendingCount}
-        isSomeSelected={page.isSomeSelected}
-        selectedCount={page.selectedIds.size}
-        requests={page.filteredRequests}
-        selectedIds={page.selectedIds}
-        isAllSelected={page.isAllSelected}
+    <Screen title="Requests" back={back}>
+      <PortalDisabledGroup enabled={page.portalEnabled} />
+      <ManageGroup />
+      <div className="px-screen pb-5">
+        <Segmented
+          label="Request status"
+          value={page.segment}
+          onChange={page.setSegment}
+          options={QUEUE_SEGMENTS}
+        />
+      </div>
+      <QueueGroup
+        isLoading={page.isLoading}
+        segment={page.segment}
+        requests={page.visibleRequests}
         processingRequest={page.processingRequest}
-        onOpenDenyDialog={() => page.openDenyDialog()}
-        onOpenBatchDeleteDialog={() => page.setShowBatchDeleteDialog(true)}
-        onToggleSelectAll={page.toggleSelectAll}
-        onToggleSelect={page.toggleSelect}
-        onAction={handleAction}
+        requesterFor={page.requesterFor}
+        onAction={page.handleAction}
       />
-
-      <RequestDialogs page={page} />
-
-      {page.searchModal ? <RequestSearchModal searchModal={page.searchModal} onClose={page.handleSearchModalClose} /> : null}
-    </div>
-  )
-}
-
-function LoadingLayout() {
-  return (
-    <div>
-      <PageHeader title="Request Queue" />
-      <div className="mx-auto max-w-6xl px-6 pt-6">
-        <LoadingState variant="list" count={5} />
-      </div>
-    </div>
-  )
-}
-
-function ErrorLayout({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div>
-      <PageHeader title="Request Queue" />
-      <div className="mx-auto max-w-6xl px-6 pt-6">
-        <ErrorState onRetry={onRetry} />
-      </div>
-    </div>
-  )
-}
-
-function TestRequestButton() {
-  return (
-    <Button
-      variant="outline"
-      onClick={() =>
-        toast.info('Test request feature coming soon', {
-          description: 'This will allow creating test requests for debugging.',
-        })
-      }
-    >
-      <FlaskConical className="mr-2 size-4" />
-      Test Request
-    </Button>
-  )
-}
-
-function PortalDisabledAlert() {
-  return (
-    <Alert>
-      <AlertCircle className="size-4" />
-      <AlertDescription>
-        The external requests portal is currently disabled. Portal users cannot submit new requests
-        or access the portal. You can re-enable it in the{' '}
-        <a href="/requests-admin/settings" className="font-medium underline">
-          Settings
-        </a>{' '}
-        tab.
-      </AlertDescription>
-    </Alert>
+      {page.searchModal ? (
+        <RequestSearchModal searchModal={page.searchModal} onClose={page.handleSearchModalClose} />
+      ) : null}
+    </Screen>
   )
 }

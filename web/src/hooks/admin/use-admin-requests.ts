@@ -4,7 +4,6 @@ import * as adminApi from '@/api/admin'
 import { createQueryKeys } from '@/lib/query-keys'
 import type {
   ApproveRequestInput,
-  BatchDenyInput,
   DenyRequestInput,
   RequestListFilters,
 } from '@/types'
@@ -44,30 +43,10 @@ export function useDenyRequest() {
   })
 }
 
-export function useBatchDenyRequests() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (input: BatchDenyInput) => adminApi.batchDeny(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
-    },
-  })
-}
-
 export function useDeleteRequest() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => adminApi.deleteRequest(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
-    },
-  })
-}
-
-export function useBatchDeleteRequests() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (ids: number[]) => adminApi.batchDelete(ids),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminRequestKeys.all })
     },

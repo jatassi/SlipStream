@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import { paneFromPathname, type PaneId } from './use-tab-nav'
+=======
+import type { PaneId } from './use-tab-nav'
+import { paneFromPathname } from './use-tab-nav'
+>>>>>>> worktree-agent-a67f3206ac9fd8c76
 
 export type SettingsSection = {
   path: string
@@ -37,6 +42,10 @@ export function isSettingsPath(pathname: string): boolean {
 
 export const SYSTEM_INDEX_PATH = '/system/health'
 
+export function isRequestsAdminPath(pathname: string): boolean {
+  return pathname.startsWith('/requests-admin')
+}
+
 export function isSystemPath(pathname: string): boolean {
   return pathname === '/system' || pathname.startsWith('/system/')
 }
@@ -63,7 +72,11 @@ export function backLabelForPathname(pathname: string): string | undefined {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 const FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
+=======
+const FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series'])
+>>>>>>> worktree-agent-a67f3206ac9fd8c76
 const FILL_PATHS = new Set(['/more', '/calendar', '/import'])
 
 export function isScreenFillPath(pathname: string): boolean {
@@ -72,6 +85,7 @@ export function isScreenFillPath(pathname: string): boolean {
     return true
   }
   if (FILL_PATHS.has(pathname)) {
+<<<<<<< HEAD
 =======
 const SCREEN_FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series', 'search', 'more'])
 
@@ -83,6 +97,12 @@ export function isScreenFillPath(pathname: string): boolean {
   }
   return (
     isAddPath(pathname) ||
+=======
+    return true
+  }
+  return (
+    isRequestsAdminPath(pathname) ||
+>>>>>>> worktree-agent-a67f3206ac9fd8c76
     isDetailPath(pathname) ||
     isSettingsPath(pathname) ||
     isSystemPath(pathname)

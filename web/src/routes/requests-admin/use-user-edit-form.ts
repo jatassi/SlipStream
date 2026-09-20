@@ -13,7 +13,7 @@ function getInitialModuleSettings(user: PortalUserWithQuota): Record<string, num
   return result
 }
 
-export function useUserEditDialog(
+export function useUserEditForm(
   user: PortalUserWithQuota,
   onOpenChange: (open: boolean) => void,
 ) {

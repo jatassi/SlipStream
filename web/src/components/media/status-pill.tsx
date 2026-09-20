@@ -6,10 +6,11 @@ import { StatusDot } from './status-dot'
 
 type StatusPillProps = {
   status: MediaStatus
+  label?: string
   className?: string
 }
 
-export function StatusPill({ status, className }: StatusPillProps) {
+export function StatusPill({ status, label, className }: StatusPillProps) {
   const color = mediaStatusColor(status)
   return (
     <span
@@ -23,7 +24,7 @@ export function StatusPill({ status, className }: StatusPillProps) {
       }}
     >
       <StatusDot status={status} decorative />
-      {MEDIA_STATUS_LABEL[status]}
+      {label ?? MEDIA_STATUS_LABEL[status]}
     </span>
   )
 }

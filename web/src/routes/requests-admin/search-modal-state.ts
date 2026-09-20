@@ -1,7 +1,3 @@
-import { getStatusConfig } from '@/lib/request-status-config'
-
-export type { StatusConfigEntry } from '@/lib/request-status-config'
-
 export type SearchModalState = {
   open: boolean
   mediaType: 'movie' | 'series'
@@ -15,5 +11,3 @@ export type SearchModalState = {
   season?: number
   pendingSeasons?: number[]
 }
-
-export const STATUS_CONFIG = getStatusConfig('sm')

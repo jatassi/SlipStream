@@ -1,156 +1,197 @@
-import { AlertCircle, UserPlus } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { AlertTriangle, UserPlus, Users } from 'lucide-react'
 
-import { ErrorState } from '@/components/data/error-state'
-import { LoadingState } from '@/components/data/loading-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Group, IconTile, Row } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
+import type { SettingsRowAction } from '@/components/settings/settings-item-row'
+import { SettingsItemRow } from '@/components/settings/settings-item-row'
+import { AddAction, SettingsList } from '@/components/settings/settings-list'
+import type { Invitation, PortalUserWithQuota } from '@/types'
 
-import { InviteDialog } from './invite-dialog'
-import { RequestsNav } from './requests-nav'
+import { InviteSheet } from './invite-sheet'
 import { useRequestUsersPage } from './use-request-users-page'
-import { UserEditDialog } from './user-edit-dialog'
-import { InvitationsTabContent, UsersTabContent } from './users-tab-content'
+import { UserEditSheet } from './user-edit-sheet'
+import { getInvitationStatus, userSubtitle } from './users-utils'
 
-export function RequestUsersPage() {
-  const state = useRequestUsersPage()
+type PageState = ReturnType<typeof useRequestUsersPage>
 
-  if (state.isLoading) {
-    return (
-      <div>
-        <PageHeader title="Portal Users" />
-        <LoadingState variant="list" count={3} />
-      </div>
-    )
-  }
-
-  if (state.isError) {
-    return (
-      <div>
-        <PageHeader title="Portal Users" />
-        <ErrorState onRetry={state.refetch} />
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="External Requests"
-        description="Manage portal users and content requests"
-        actions={
-          <Button onClick={state.handleOpenInvite}>
-            <UserPlus className="mr-2 size-4" />
-            Invite User
-          </Button>
-        }
-      />
-
-      <RequestsNav />
-      <PortalDisabledAlert enabled={state.portalEnabled} />
-      <UsersTabs state={state} />
-      <PageDialogs state={state} />
-    </div>
-  )
-}
-
-function PortalDisabledAlert({ enabled }: { enabled: boolean }) {
+function PortalDisabledGroup({ enabled }: { enabled: boolean }) {
   if (enabled) {
     return null
   }
-
   return (
-    <Alert>
-      <AlertCircle className="size-4" />
-      <AlertDescription>
-        The external requests portal is currently disabled. Portal users cannot submit new requests
-        or access the portal. You can re-enable it in the{' '}
-        <a href="/requests-admin/settings" className="font-medium underline">
-          Settings
-        </a>{' '}
-        tab.
-      </AlertDescription>
-    </Alert>
+    <Group>
+      <Row
+        tone="warning"
+        leading={
+          <IconTile className="bg-amber-500">
+            <AlertTriangle />
+          </IconTile>
+        }
+        title="The requests portal is disabled"
+        subtitle="Portal users cannot sign in or submit requests"
+        href="/requests-admin/settings"
+        chevron
+      />
+    </Group>
   )
 }
 
-function PageDialogs({ state }: { state: ReturnType<typeof useRequestUsersPage> }) {
+function UserRow({ user, page }: { user: PortalUserWithQuota; page: PageState }) {
+  const actions: SettingsRowAction[] = [
+    {
+      label: 'Delete user',
+      destructive: true,
+      onClick: () => page.handleDeleteUser(user.id),
+      confirm: {
+        title: `Delete ${user.username}?`,
+        description: 'Their requests are preserved. This cannot be undone.',
+      },
+    },
+  ]
+
+  return (
+    <SettingsItemRow
+      leading={
+        <IconTile className="bg-violet-600">
+          <Users />
+        </IconTile>
+      }
+      title={user.username}
+      subtitle={userSubtitle(user, page.qualityProfiles)}
+      onOpen={() => {
+        page.handleOpenEdit(user)
+      }}
+      openLabel={`Edit ${user.username}`}
+      toggle={{
+        label: `${user.username} enabled`,
+        checked: user.enabled,
+        onCheckedChange: () => void page.handleToggleEnabled(user),
+        disabled: page.togglePending,
+      }}
+      actions={actions}
+    />
+  )
+}
+
+function invitationSubtitle(invitation: Invitation): string {
+  const expiry = invitation.usedAt
+    ? []
+    : [`expires ${formatDistanceToNow(new Date(invitation.expiresAt), { addSuffix: true })}`]
+  return [
+    getInvitationStatus(invitation),
+    `created ${formatDistanceToNow(new Date(invitation.createdAt), { addSuffix: true })}`,
+    ...expiry,
+  ].join(' · ')
+}
+
+function invitationActions(invitation: Invitation, page: PageState): SettingsRowAction[] {
+  const unused: SettingsRowAction[] = invitation.usedAt
+    ? []
+    : [
+        {
+          label: 'Copy link',
+          onClick: () => {
+            page.handleCopyLink(invitation.token)
+          },
+        },
+        {
+          label: 'Resend',
+          onClick: () => page.handleResendInvitation(invitation.id),
+        },
+      ]
+
+  return [
+    ...unused,
+    {
+      label: 'Delete invitation',
+      destructive: true,
+      onClick: () => page.handleDeleteInvitation(invitation.id),
+      confirm: {
+        title: `Delete the invitation for ${invitation.username}?`,
+        description: 'The link stops working immediately.',
+      },
+    },
+  ]
+}
+
+function InvitationRow({ invitation, page }: { invitation: Invitation; page: PageState }) {
+  return (
+    <SettingsItemRow
+      leading={
+        <IconTile className="bg-sky-600">
+          <UserPlus />
+        </IconTile>
+      }
+      title={invitation.username}
+      subtitle={invitationSubtitle(invitation)}
+      actions={invitationActions(invitation, page)}
+    />
+  )
+}
+
+function UsersGroup({ page }: { page: PageState }) {
+  return (
+    <SettingsList state={page.usersState} header="Users" empty="No users yet">
+      {page.users?.map((user) => <UserRow key={user.id} user={user} page={page} />)}
+    </SettingsList>
+  )
+}
+
+function InvitationsGroup({ page }: { page: PageState }) {
+  return (
+    <SettingsList state={page.invitationsState} header="Invitations" empty="No invitations">
+      {page.invitations?.map((invitation) => (
+        <InvitationRow key={invitation.id} invitation={invitation} page={page} />
+      ))}
+    </SettingsList>
+  )
+}
+
+function UserSheets({ page }: { page: PageState }) {
   return (
     <>
-      <InviteDialog
-        open={state.showInviteDialog}
-        onOpenChange={state.setShowInviteDialog}
-        inviteName={state.inviteName}
-        onNameChange={state.setInviteName}
-        moduleSettings={state.inviteModuleSettings}
-        onModuleProfileChange={state.setInviteModuleProfile}
-        autoApprove={state.inviteAutoApprove}
-        onAutoApproveChange={state.setInviteAutoApprove}
-        qualityProfiles={state.qualityProfiles}
-        isPending={state.createMutation.isPending}
-        onSubmit={state.handleCreateInvitation}
+      <InviteSheet
+        open={page.showInviteSheet}
+        onOpenChange={page.setShowInviteSheet}
+        inviteName={page.inviteName}
+        onNameChange={page.setInviteName}
+        moduleSettings={page.inviteModuleSettings}
+        onModuleProfileChange={page.setInviteModuleProfile}
+        autoApprove={page.inviteAutoApprove}
+        onAutoApproveChange={page.setInviteAutoApprove}
+        qualityProfiles={page.qualityProfiles}
+        isPending={page.createMutation.isPending}
+        onSubmit={() => void page.handleCreateInvitation()}
       />
-
-      {state.editingUser ? <UserEditDialog
-          key={state.editingUser.id}
-          user={state.editingUser}
-          open={state.showUserDialog}
-          onOpenChange={state.setShowUserDialog}
-          qualityProfiles={state.qualityProfiles ?? []}
-        /> : null}
+      {page.editingUser === null ? null : (
+        <UserEditSheet
+          key={page.editingUser.id}
+          user={page.editingUser}
+          open={page.showUserSheet}
+          onOpenChange={page.setShowUserSheet}
+          qualityProfiles={page.qualityProfiles ?? []}
+        />
+      )}
     </>
   )
 }
 
-function UsersTabs({ state }: { state: ReturnType<typeof useRequestUsersPage> }) {
+export function RequestUsersPage() {
+  const page = useRequestUsersPage()
+  const back = usePushBack()
+
   return (
-    <Tabs value={state.activeTab} onValueChange={state.setActiveTab}>
-      <TabsList>
-        <TabsTrigger value="users">
-          Users{' '}
-          {state.userCount > 0 && (
-            <Badge variant="secondary" className="ml-1">
-              {state.userCount}
-            </Badge>
-          )}
-        </TabsTrigger>
-        <TabsTrigger value="invitations">
-          Invitations{' '}
-          {state.pendingInvitationCount > 0 && (
-            <Badge variant="secondary" className="ml-1">
-              {state.pendingInvitationCount}
-            </Badge>
-          )}
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="users" className="mt-4">
-        <UsersTabContent
-          users={state.users}
-          qualityProfiles={state.qualityProfiles}
-          togglePending={state.togglePending}
-          onToggleEnabled={state.handleToggleEnabled}
-          onEdit={state.handleOpenEdit}
-          onDelete={state.handleDeleteUser}
-          onInvite={state.handleOpenInvite}
-        />
-      </TabsContent>
-
-      <TabsContent value="invitations" className="mt-4">
-        <InvitationsTabContent
-          invitations={state.invitations}
-          copiedToken={state.copiedToken}
-          expandedLinkToken={state.expandedLinkToken}
-          resendPending={state.resendMutation.isPending}
-          onCopyLink={state.handleCopyLink}
-          onToggleLink={state.toggleLinkVisibility}
-          onResend={state.handleResendInvitation}
-          onDelete={state.handleDeleteInvitation}
-          onInvite={state.handleOpenInvite}
-        />
-      </TabsContent>
-    </Tabs>
+    <Screen
+      title="Users"
+      back={back}
+      trailing={<AddAction label="Invite user" onClick={page.handleOpenInvite} />}
+    >
+      <PortalDisabledGroup enabled={page.portalEnabled} />
+      <UsersGroup page={page} />
+      <InvitationsGroup page={page} />
+      <UserSheets page={page} />
+    </Screen>
   )
 }

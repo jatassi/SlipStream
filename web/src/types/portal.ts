@@ -146,17 +146,6 @@ export type DenyRequestInput = {
   reason?: string
 }
 
-export type BatchApproveInput = {
-  ids: number[]
-  action: 'approve_only' | 'auto_search' | 'manual_search'
-  rootFolderId?: number
-}
-
-export type BatchDenyInput = {
-  ids: number[]
-  reason?: string
-}
-
 // Quota types
 export type ModuleQuotaStatus = {
   moduleType: string

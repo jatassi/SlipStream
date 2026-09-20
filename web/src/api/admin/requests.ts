@@ -1,6 +1,5 @@
 import type {
   ApproveRequestInput,
-  BatchDenyInput,
   DenyRequestInput,
   Request,
   RequestListFilters,
@@ -29,22 +28,8 @@ export async function denyRequest(id: number, input?: DenyRequestInput): Promise
   })
 }
 
-export async function batchDeny(input: BatchDenyInput): Promise<Request[]> {
-  return apiFetch<Request[]>(`${BASE_PATH}/batch/deny`, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
-
 export async function deleteRequest(id: number): Promise<undefined> {
   return apiFetch<undefined>(`${BASE_PATH}/${id}`, {
     method: 'DELETE',
-  })
-}
-
-export async function batchDelete(ids: number[]): Promise<{ deleted: number }> {
-  return apiFetch<{ deleted: number }>(`${BASE_PATH}/batch/delete`, {
-    method: 'POST',
-    body: JSON.stringify({ ids }),
   })
 }
