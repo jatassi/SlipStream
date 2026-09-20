@@ -2,17 +2,12 @@ package tv
 
 import (
 	"context"
-	"database/sql"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog"
-
-	"github.com/slipstream/slipstream/internal/database/sqlc"
 	fsmock "github.com/slipstream/slipstream/internal/filesystem/mock"
 	"github.com/slipstream/slipstream/internal/library/quality"
-	"github.com/slipstream/slipstream/internal/library/status"
 	tvlib "github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
@@ -150,7 +145,7 @@ func (m *Module) createOneMockSeries(ctx context.Context, tvdbID int, hasFiles b
 	}
 
 	if hasFiles {
-		m.createMockEpisodeFiles(ctx, series.ID, path, qualityProfileID)
+		m.createMockEpisodeFiles(ctx, series.ID, path)
 	}
 
 	m.logger.Debug().Str("title", seriesMeta.Title).Bool("hasFiles", hasFiles).Int("seasons", len(seasons)).Msg("Created mock series")
@@ -189,7 +184,7 @@ func convertEpisodesMetadata(episodesMeta []metadata.EpisodeResult) []tvlib.Epis
 	return episodes
 }
 
-func (m *Module) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string, qualityProfileID int64) {
+func (m *Module) createMockEpisodeFiles(ctx context.Context, seriesID int64, seriesPath string) {
 	vfs := fsmock.GetInstance()
 	seasonDirs, err := vfs.ListDirectory(seriesPath)
 	if err != nil {
@@ -201,16 +196,10 @@ func (m *Module) createMockEpisodeFiles(ctx context.Context, seriesID int64, ser
 		return
 	}
 
-	var profile *quality.Profile
-	if m.qualitySvc != nil {
-		profile, _ = m.qualitySvc.Get(ctx, qualityProfileID)
-	}
-
-	queries := sqlc.New(m.db)
 	episodeMap := buildEpisodeMap(episodes)
 
 	for _, seasonDir := range seasonDirs {
-		processSeasonDirectory(ctx, m.logger, queries, episodeMap, profile, vfs, seasonDir)
+		m.processSeasonDirectory(ctx, episodeMap, vfs, seasonDir)
 	}
 }
 
@@ -223,7 +212,7 @@ func buildEpisodeMap(episodes []tvlib.Episode) map[string]int64 {
 	return episodeMap
 }
 
-func processSeasonDirectory(ctx context.Context, logger *zerolog.Logger, queries *sqlc.Queries, episodeMap map[string]int64, profile *quality.Profile, vfs *fsmock.VirtualFS, seasonDir *fsmock.VirtualFile) {
+func (m *Module) processSeasonDirectory(ctx context.Context, episodeMap map[string]int64, vfs *fsmock.VirtualFS, seasonDir *fsmock.VirtualFile) {
 	if seasonDir.Type != fsmock.FileTypeDirectory {
 		return
 	}
@@ -239,11 +228,11 @@ func processSeasonDirectory(ctx context.Context, logger *zerolog.Logger, queries
 	}
 
 	for _, f := range episodeFiles {
-		processEpisodeFile(ctx, logger, queries, episodeMap, profile, f, seasonNum)
+		m.processEpisodeFile(ctx, episodeMap, f, seasonNum)
 	}
 }
 
-func processEpisodeFile(ctx context.Context, _ *zerolog.Logger, queries *sqlc.Queries, episodeMap map[string]int64, profile *quality.Profile, f *fsmock.VirtualFile, seasonNum int) {
+func (m *Module) processEpisodeFile(ctx context.Context, episodeMap map[string]int64, f *fsmock.VirtualFile, seasonNum int) {
 	if f.Type != fsmock.FileTypeVideo {
 		return
 	}
@@ -260,27 +249,19 @@ func processEpisodeFile(ctx context.Context, _ *zerolog.Logger, queries *sqlc.Qu
 	}
 
 	qualityName := parseQualityFromFilename(f.Name)
-	qualityID := sql.NullInt64{}
+	input := tvlib.CreateEpisodeFileInput{
+		Path:    f.Path,
+		Size:    f.Size,
+		Quality: qualityName,
+	}
 	if q, ok := quality.GetQualityByName(qualityName); ok {
-		qualityID = sql.NullInt64{Int64: int64(q.ID), Valid: true}
+		qid := int64(q.ID)
+		input.QualityID = &qid
 	}
 
-	_, _ = queries.CreateEpisodeFile(ctx, sqlc.CreateEpisodeFileParams{
-		EpisodeID: episodeID,
-		Path:      f.Path,
-		Size:      f.Size,
-		Quality:   sql.NullString{String: qualityName, Valid: qualityName != ""},
-		QualityID: qualityID,
-	})
-
-	episodeStatus := status.Available
-	if qualityID.Valid && profile != nil {
-		episodeStatus = profile.StatusForQuality(int(qualityID.Int64))
+	if _, err := m.tvService.AddEpisodeFile(ctx, episodeID, &input); err != nil {
+		m.logger.Debug().Err(err).Str("path", f.Path).Msg("Failed to create mock episode file")
 	}
-	_ = queries.UpdateEpisodeStatusWithDetails(ctx, sqlc.UpdateEpisodeStatusWithDetailsParams{
-		ID:     episodeID,
-		Status: episodeStatus,
-	})
 }
 
 func parseQualityFromFilename(filename string) string {
