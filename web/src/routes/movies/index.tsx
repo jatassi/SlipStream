@@ -1,5 +1,5 @@
 import { ErrorState } from '@/components/data/error-state'
-import { PageHeader } from '@/components/layout/page-header'
+import { Screen } from '@/components/screen/screen'
 
 import { MovieListLayout } from './movie-list-layout'
 import { useMovieList } from './use-movie-list'
@@ -9,10 +9,9 @@ export function MoviesPage() {
 
   if (state.isError) {
     return (
-      <div>
-        <PageHeader title="Movies" />
+      <Screen title="Movies">
         <ErrorState onRetry={state.refetch} />
-      </div>
+      </Screen>
     )
   }
 

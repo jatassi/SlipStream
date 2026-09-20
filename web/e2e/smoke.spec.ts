@@ -30,12 +30,12 @@ test('focusing search does not change visual viewport scale', async ({ page, act
   expect(after).toBe(before)
 })
 
-test('status pills have accessible text', async ({ page }) => {
+test('status marks have accessible text', async ({ page }) => {
   await page.goto('/movies')
   await expect(page.getByRole('heading', { name: 'Movies' })).toBeVisible()
-  const pills = page.getByText(STATUS_LABEL)
-  await expect(pills.first()).toBeVisible()
-  expect(await pills.count()).toBeGreaterThan(0)
+  const marks = page.getByRole('img', { name: STATUS_LABEL })
+  await expect(marks.first()).toBeVisible()
+  expect(await marks.count()).toBeGreaterThan(0)
 })
 
 function readViewportScale(): number {

@@ -6,9 +6,9 @@ import type { FilterStatus, SortField } from './use-series-list'
 export function filterSeries(
   series: Series[],
   statusFilters: FilterStatus[],
-  allFiltersSelected: boolean,
+  unfiltered: boolean,
 ): Series[] {
-  if (allFiltersSelected) {
+  if (unfiltered) {
     return series
   }
   return series.filter((s) => {

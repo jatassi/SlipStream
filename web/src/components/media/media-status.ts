@@ -18,3 +18,16 @@ export const MEDIA_STATUS_LABEL: Record<MediaStatus, string> = {
 export function mediaStatusColor(status: MediaStatus): string {
   return `var(--status-${status})`
 }
+
+const AGGREGATE_PRIORITY: MediaStatus[] = [
+  'downloading',
+  'failed',
+  'missing',
+  'upgradable',
+  'available',
+  'unreleased',
+]
+
+export function aggregateMediaStatus(counts: Record<MediaStatus, number>): MediaStatus {
+  return AGGREGATE_PRIORITY.find((status) => counts[status] > 0) ?? 'unreleased'
+}

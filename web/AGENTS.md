@@ -111,6 +111,29 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 - `confirm: { title, description, actions }` routes the action through a second step instead of running it — another sheet on phones, an `AlertDialog` on wide. Use it for anything that deletes.
 - Describe the actions once and pass them in; never branch on `useViewport()` at the call site, and never hand-roll a second sheet.
 
+## Library grid: PosterCell and ChipRow
+
+The Library tab (`src/components/media/library-screen.tsx`, rendered by
+`src/routes/movies/index.tsx` and `src/routes/series/index.tsx`) is one `Screen` per module with a
+`Segmented` of `getEnabledModules()` on top; switching navigates to the other module's `basePath`
+and the shell records it as the last-used Library module.
+
+- `PosterCell` (`src/components/media/poster-cell.tsx`) is the only media cell: `PosterImage` in a
+  2:3 frame, then the title, then a caption line of `StatusDot`, year and quality. It takes a
+  `PosterCellItem` (`id`, `title`, `href`, `status`, `year`, `quality`, poster ids) — build one with
+  `movieToCell` / `seriesToCell` from `library-cells.ts`. It renders a `Link` normally and a
+  selectable button in edit mode. It replaced the per-module card components; `ModuleConfig` has no
+  `cardComponent`.
+- `PosterGrid` (`poster-grid.tsx`) lays cells out as an accessible list (`role="list"` plus
+  `PosterGridItem`): exactly three columns on phone, `auto-fill` at the poster-size preference on
+  wide. The table view is wide-only — the phone shell forces `view` to `grid`.
+- `ChipRow` (`src/components/ui/chip-row.tsx`) is the primary filter set: a horizontally scrolling
+  `role="group"` of `aria-pressed` chips fed by the module's `filterOptions`. No chip selected means
+  the whole library; selecting chips ORs them. It replaced the `FilterDropdown` here (that
+  component still serves History and Logs).
+- Secondary options (sort, view, poster size, columns, select, refresh) live behind the single
+  "Options" action in the top bar (`library-options.tsx`), which drives `ActionPresenter` menus.
+
 ## Settings screens
 
 Every settings route renders a `Screen` with `back={usePushBack()}`; `backLabelForPathname` in

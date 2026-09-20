@@ -1,5 +1,5 @@
 import { ErrorState } from '@/components/data/error-state'
-import { PageHeader } from '@/components/layout/page-header'
+import { Screen } from '@/components/screen/screen'
 
 import { SeriesListLayout } from './series-list-layout'
 import { useSeriesList } from './use-series-list'
@@ -9,10 +9,9 @@ export function SeriesListPage() {
 
   if (state.isError) {
     return (
-      <div>
-        <PageHeader title="Series" />
+      <Screen title="Series">
         <ErrorState onRetry={state.refetch} />
-      </div>
+      </Screen>
     )
   }
 
