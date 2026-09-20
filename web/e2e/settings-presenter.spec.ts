@@ -234,14 +234,14 @@ test('activating a row opens the edit form pre-filled and saving updates the row
 }, testInfo) => {
   const before = `${tag(shellKind(testInfo.project.name))} Edit Channel`
   const after = `${before} Renamed`
-  await page.goto(CHANNELS.path)
+  await page.goto('/')
   await api(page, '/notifications', {
     method: 'POST',
     data: { name: before, type: 'mock', enabled: true, settings: {}, eventToggles: { grab: true } },
   })
 
   try {
-    await page.reload()
+    await page.goto(CHANNELS.path)
     await activate(page.getByRole('button', { name: `Edit ${before}` }))
     const form = surface(page, 'Edit Notification')
     await expect(form).toBeVisible()
@@ -265,13 +265,13 @@ test('the version-slot dry run, the resolve flows and the token builder open thr
   page,
   activate,
 }) => {
-  await page.goto('/settings/media/version-slots')
+  await page.goto('/')
   const profiles = await api<Named[]>(page, '/qualityprofiles')
   if (profiles.length === 0) {
     throw new Error('developer mode has no quality profile')
   }
   await stubSlotSetup(page, profiles[0].id)
-  await page.reload()
+  await page.goto('/settings/media/version-slots')
   await expect(page.getByRole('heading', { name: 'Version Slots', level: 1 })).toBeVisible()
 
   await activate(page.getByRole('button', { name: 'Begin' }))
