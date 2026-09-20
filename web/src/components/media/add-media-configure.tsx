@@ -1,14 +1,12 @@
 import type { ReactNode } from 'react'
 
+import { Check } from 'lucide-react'
+
 import { PosterImage } from '@/components/media/poster-image'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import type { QualityProfile, RootFolder } from '@/types'
 
-import {
-  FolderSelect,
-  FormActions,
-  ProfileSelect,
-} from './media-configure-fields'
+import { FolderSelect, ProfileSelect } from './media-configure-fields'
 
 export type MediaPreviewProps = {
   title: string
@@ -21,28 +19,24 @@ export type MediaPreviewProps = {
 
 export function MediaPreview({ title, year, overview, posterUrl, type, subtitle }: MediaPreviewProps) {
   return (
-    <Card>
-      <CardContent className="flex gap-4 p-4">
-        <PosterImage
-          url={posterUrl}
-          alt={title}
-          type={type}
-          className="h-36 w-24 shrink-0 rounded"
-        />
-        <div>
-          <h2 className="text-xl font-semibold">{title}</h2>
-          <p className="text-muted-foreground">
-            {year ?? 'Unknown year'}
-            {subtitle ? ` - ${subtitle}` : null}
-          </p>
-          {!!overview && (
-            <p className="text-muted-foreground mt-2 line-clamp-3 text-sm">
-              {overview}
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex gap-4">
+      <PosterImage
+        url={posterUrl}
+        alt={title}
+        type={type}
+        className="h-32 w-[86px] shrink-0 rounded-[10px] shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+      />
+      <div className="min-w-0">
+        <h2 className="text-title font-semibold">{title}</h2>
+        <p className="text-footnote text-muted-foreground nums">
+          {year ?? 'Unknown year'}
+          {subtitle === undefined ? null : ` · ${subtitle}`}
+        </p>
+        {!!overview && (
+          <p className="text-footnote text-muted-foreground mt-2 line-clamp-3">{overview}</p>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -54,10 +48,6 @@ export type AddMediaConfigureProps = {
   qualityProfileId: string
   onFolderChange: (v: string) => void
   onProfileChange: (v: string) => void
-  isPending: boolean
-  onBack: () => void
-  onAdd: () => void
-  addLabel: string
   children: ReactNode
 }
 
@@ -69,41 +59,58 @@ export function AddMediaConfigure({
   qualityProfileId,
   onFolderChange,
   onProfileChange,
-  isPending,
-  onBack,
-  onAdd,
-  addLabel,
   children,
 }: AddMediaConfigureProps) {
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-5 pb-2">
       {preview}
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FolderSelect
-            rootFolderId={rootFolderId}
-            rootFolders={rootFolders}
-            onChange={onFolderChange}
-          />
-          <ProfileSelect
-            qualityProfileId={qualityProfileId}
-            qualityProfiles={qualityProfiles}
-            onChange={onProfileChange}
-          />
-          {children}
-        </CardContent>
-      </Card>
-      <FormActions
-        rootFolderId={rootFolderId}
-        qualityProfileId={qualityProfileId}
-        isPending={isPending}
-        onBack={onBack}
-        onAdd={onAdd}
-        addLabel={addLabel}
-      />
+      <div className="space-y-4">
+        <FolderSelect
+          rootFolderId={rootFolderId}
+          rootFolders={rootFolders}
+          onChange={onFolderChange}
+        />
+        <ProfileSelect
+          qualityProfileId={qualityProfileId}
+          qualityProfiles={qualityProfiles}
+          onChange={onProfileChange}
+        />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export type AddMediaActionsProps = {
+  rootFolderId: string
+  qualityProfileId: string
+  isPending: boolean
+  onCancel: () => void
+  onAdd: () => void
+  addLabel: string
+}
+
+export function AddMediaActions({
+  rootFolderId,
+  qualityProfileId,
+  isPending,
+  onCancel,
+  onAdd,
+  addLabel,
+}: AddMediaActionsProps) {
+  return (
+    <div className="flex w-full items-center gap-2">
+      <Button variant="outline" className="min-h-tap" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button
+        className="min-h-tap flex-1"
+        onClick={onAdd}
+        disabled={!rootFolderId || !qualityProfileId || isPending}
+      >
+        <Check className="mr-2 size-4" />
+        {addLabel}
+      </Button>
     </div>
   )
 }

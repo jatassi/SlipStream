@@ -146,8 +146,21 @@ and the shell records it as the last-used Library module.
   `role="group"` of `aria-pressed` chips fed by the module's `filterOptions`. No chip selected means
   the whole library; selecting chips ORs them. It replaced the `FilterDropdown` here (that
   component still serves History and Logs).
-- Secondary options (sort, view, poster size, columns, select, refresh) live behind the single
-  "Options" action in the top bar (`library-options.tsx`), which drives `ActionPresenter` menus.
+- Secondary options (sort, reverse order, view, poster size, columns, select, refresh) live behind
+  the single "Options" action in the top bar (`library-options.tsx`), which drives `ActionPresenter`
+  menus — an action sheet on phones, a dropdown on wide. View and columns are offered on wide only;
+  the sort field and direction persist in the UI store, so they survive a reload.
+- Edit mode replaces the trailing actions with "Done" and puts `LibraryEditBar`
+  (`library-edit-bar.tsx`) in the `Screen` `bottomBar` slot: a `toolbar` of Select All, the
+  selected count, monitor, unmonitor, quality profile (an `ActionPresenter` of the profiles) and
+  delete. `Screen`'s `bottomBar` renders above the tab bar on phones (it carries the
+  `--safe-bottom` plus `--spacing-tab-bar` clearance) and at the bottom of the content column on
+  wide, and adds its own height to the scroll region's bottom inset.
+- The add flow (`/movies/add`, `/series/add`) is presented by `AddMediaPresenter`
+  (`add-media-presenter.tsx`): a pushed `Screen` with a "Library" back control and the Add button in
+  its `bottomBar` on phones, the `SheetPresenter` dialog on wide. Both paths are `isScreenFillPath`,
+  so the shells leave the chrome to the presenter. `AddMediaConfigure` is the form body and
+  `AddMediaActions` the Cancel + Add pair; neither knows which surface it is in.
 
 ## Pill actions and the sheet presenter
 

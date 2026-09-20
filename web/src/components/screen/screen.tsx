@@ -18,11 +18,13 @@ export type ScreenProps = {
   largeTitle?: boolean
   transparentUntil?: number
   bottomInset?: string
+  bottomBar?: ReactNode
   scrollRef?: RefObject<HTMLDivElement | null>
 }
 
 const COLLAPSE_AT = 40
 const PHONE_BOTTOM = 'calc(var(--safe-bottom) + var(--spacing-tab-bar) + 24px)'
+const BOTTOM_BAR_SPACE = '68px'
 
 function defaultInset(shell: ViewportShell): string {
   if (shell === 'phone') {
@@ -31,13 +33,22 @@ function defaultInset(shell: ViewportShell): string {
   return '24px'
 }
 
-function useScreenChrome(largeTitle: boolean, transparentUntil: number | undefined, bottomInset: string | undefined) {
+type ChromeOptions = {
+  largeTitle: boolean
+  transparentUntil: number | undefined
+  bottomInset: string | undefined
+  bottomBar: boolean
+}
+
+function useScreenChrome({ largeTitle, transparentUntil, bottomInset, bottomBar }: ChromeOptions) {
   const shell = useViewport()
   const { collapsed, onScroll } = useScreenCollapse(transparentUntil ?? COLLAPSE_AT)
+  const base = bottomInset ?? defaultInset(shell)
   return {
+    shell,
     collapsed,
     onScroll,
-    inset: bottomInset ?? defaultInset(shell),
+    inset: bottomBar ? `calc(${base} + ${BOTTOM_BAR_SPACE})` : base,
     trailingInBar: shell === 'phone' || collapsed || !largeTitle,
     trailingBesideTitle: shell === 'wide' && largeTitle && !collapsed,
     paddingTop: largeTitle ? 'calc(var(--safe-top) + 44px)' : 0,
@@ -53,9 +64,15 @@ export function Screen({
   largeTitle = true,
   transparentUntil,
   bottomInset,
+  bottomBar,
   scrollRef,
 }: ScreenProps) {
-  const chrome = useScreenChrome(largeTitle, transparentUntil, bottomInset)
+  const chrome = useScreenChrome({
+    largeTitle,
+    transparentUntil,
+    bottomInset,
+    bottomBar: bottomBar !== undefined,
+  })
 
   return (
     <div className="relative h-full">
@@ -82,6 +99,20 @@ export function Screen({
           {children}
         </ScreenBody>
       </div>
+      {bottomBar === undefined ? null : <ScreenBottomBar shell={chrome.shell}>{bottomBar}</ScreenBottomBar>}
+    </div>
+  )
+}
+
+const PHONE_BAR_CLEARANCE = 'calc(var(--safe-bottom) + var(--spacing-tab-bar))'
+
+function ScreenBottomBar({ shell, children }: { shell: ViewportShell; children: ReactNode }) {
+  return (
+    <div
+      className="material absolute inset-x-0 bottom-0 z-20 shadow-[0_-1px_0_var(--material-edge)]"
+      style={{ paddingBottom: shell === 'phone' ? PHONE_BAR_CLEARANCE : undefined }}
+    >
+      <div className="mx-auto w-full max-w-5xl">{children}</div>
     </div>
   )
 }

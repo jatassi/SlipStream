@@ -4,9 +4,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 
 import { EmptyState } from '@/components/data/empty-state'
+import { LibraryEditBar } from '@/components/media/library-edit-bar'
 import { LibraryOptions } from '@/components/media/library-options'
 import { MediaDeleteDialog } from '@/components/media/media-delete-dialog'
-import { MediaListToolbar } from '@/components/media/media-list-toolbar'
 import { MediaTable } from '@/components/media/media-table'
 import type { PosterCellItem } from '@/components/media/poster-cell'
 import { PosterCell, PosterCellSkeleton } from '@/components/media/poster-cell'
@@ -45,6 +45,7 @@ export type LibraryScreenProps<T extends { id: number }> = {
   sortField: string
   sortDirection: 'asc' | 'desc'
   onSortFieldChange: (value: string) => void
+  onToggleSortDirection: () => void
   onColumnSort: (field: string) => void
 
   view: 'grid' | 'table'
@@ -116,7 +117,22 @@ function AddLink({ label }: { label: string }) {
   )
 }
 
+function DoneButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="press-dim focus-visible:ring-ring text-title text-primary min-h-tap rounded-full px-2 font-semibold outline-none focus-visible:ring-[3px]"
+    >
+      Done
+    </button>
+  )
+}
+
 function LibraryTrailing<T extends { id: number }>(props: LibraryScreenProps<T>) {
+  if (props.editMode) {
+    return <DoneButton onClick={props.onExitEdit} />
+  }
   return (
     <div className="flex items-center">
       <AddLink label={props.addLabel} />
@@ -124,7 +140,9 @@ function LibraryTrailing<T extends { id: number }>(props: LibraryScreenProps<T>)
         pluralMediaLabel={props.pluralMediaLabel}
         sortOptions={props.sortOptions}
         sortField={props.sortField}
+        sortDirection={props.sortDirection}
         onSortFieldChange={props.onSortFieldChange}
+        onToggleSortDirection={props.onToggleSortDirection}
         view={props.view}
         onViewChange={props.onViewChange}
         posterSize={props.posterSize}
@@ -132,9 +150,7 @@ function LibraryTrailing<T extends { id: number }>(props: LibraryScreenProps<T>)
         columns={props.staticColumns}
         visibleColumnIds={props.visibleColumnIds}
         onTableColumnsChange={props.onTableColumnsChange}
-        editMode={props.editMode}
         onEnterEdit={props.onEnterEdit}
-        onExitEdit={props.onExitEdit}
         isRefreshing={props.isRefreshing}
         onRefreshAll={props.onRefreshAll}
       />
@@ -234,26 +250,24 @@ function LibraryTable<T extends { id: number }>(props: LibraryScreenProps<T>) {
   )
 }
 
-function LibraryEditToolbar<T extends { id: number }>(props: LibraryScreenProps<T>) {
+function editBar<T extends { id: number }>(props: LibraryScreenProps<T>): ReactNode {
   if (!props.editMode) {
-    return null
+    return undefined
   }
   return (
-    <div className="px-screen pb-4">
-      <MediaListToolbar
-        selectedCount={props.selectedIds.size}
-        totalCount={props.filteredCount}
-        qualityProfiles={props.qualityProfiles}
-        isBulkUpdating={props.isBulkUpdating}
-        onSelectAll={props.onSelectAll}
-        onMonitor={props.onBulkMonitor}
-        onChangeQualityProfile={props.onBulkChangeQualityProfile}
-        onDelete={() => {
-          props.onShowDeleteDialog(true)
-        }}
-        theme={props.theme}
-      />
-    </div>
+    <LibraryEditBar
+      selectedCount={props.selectedIds.size}
+      totalCount={props.filteredCount}
+      pluralMediaLabel={props.pluralMediaLabel}
+      qualityProfiles={props.qualityProfiles}
+      isBulkUpdating={props.isBulkUpdating}
+      onSelectAll={props.onSelectAll}
+      onMonitor={props.onBulkMonitor}
+      onChangeQualityProfile={props.onBulkChangeQualityProfile}
+      onDelete={() => {
+        props.onShowDeleteDialog(true)
+      }}
+    />
   )
 }
 
@@ -300,7 +314,11 @@ export function LibraryScreen<T extends { id: number }>(props: LibraryScreenProp
   const resolved = { ...props, view }
 
   return (
-    <Screen title={props.title} trailing={<LibraryTrailing {...resolved} />}>
+    <Screen
+      title={props.title}
+      trailing={<LibraryTrailing {...resolved} />}
+      bottomBar={editBar(resolved)}
+    >
       <ModuleSegmented moduleId={props.moduleId} />
       <ChipRow
         label={`Filter ${props.pluralMediaLabel.toLowerCase()}`}
@@ -308,7 +326,6 @@ export function LibraryScreen<T extends { id: number }>(props: LibraryScreenProp
         selected={props.statusFilters}
         onToggle={props.onToggleFilter}
       />
-      <LibraryEditToolbar {...props} />
       <LibraryContent {...resolved} />
       <MediaDeleteDialog
         open={props.showDeleteDialog}

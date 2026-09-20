@@ -302,11 +302,21 @@ function useViewHandlers(local: LocalState) {
     )
   }
 
-  const handleSortFieldChange = handleColumnSort
+  const handleSortFieldChange = (field: string) => {
+    if (isSortField(field)) {
+      local.setSortField(field)
+      local.setSortDirection(DEFAULT_SORT_DIRECTIONS[field])
+    }
+  }
+
+  const handleToggleSortDirection = () => {
+    local.setSortDirection(local.sortDirection === 'asc' ? 'desc' : 'asc')
+  }
 
   return {
     handleColumnSort,
     handleToggleFilter,
     handleSortFieldChange,
+    handleToggleSortDirection,
   }
 }

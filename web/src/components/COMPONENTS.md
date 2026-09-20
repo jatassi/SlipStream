@@ -10,11 +10,11 @@ Reusable components available to module authors. All paths are relative to `web/
 
 | Component | Location | Purpose | Key Props |
 |---|---|---|---|
-| `LibraryScreen` | `components/media/library-screen.tsx` | The Library tab: `Screen`, module segmented control, chip filters, poster grid (or table on wide), edit toolbar and delete dialog. Generic over item type `T`. | `moduleId`, `theme`, `title`, `items`, `groups`, `toCell`, `filterOptions`, `statusFilters`, `sortOptions`, `view`, `posterSize`, table column props and callbacks (see `LibraryScreenProps`) |
-| `LibraryOptions` | `components/media/library-options.tsx` | The single trailing options action: sort, view, poster size, columns, select and refresh, through `ActionPresenter`. | `sortOptions`, `sortField`, `view`, `posterSize`, `columns`, `visibleColumnIds`, `editMode`, `isRefreshing` and their callbacks |
+| `LibraryScreen` | `components/media/library-screen.tsx` | The Library tab: `Screen`, module segmented control, chip filters, poster grid (or table on wide), the edit bar in the `bottomBar` slot and the delete dialog. Generic over item type `T`. | `moduleId`, `theme`, `title`, `items`, `groups`, `toCell`, `filterOptions`, `statusFilters`, `sortOptions`, `view`, `posterSize`, table column props and callbacks (see `LibraryScreenProps`) |
+| `LibraryOptions` | `components/media/library-options.tsx` | The single trailing options action: sort, reverse order, view, poster size, columns, select and refresh, through `ActionPresenter`. View, poster size and columns are wide-only. | `sortOptions`, `sortField`, `sortDirection`, `view`, `posterSize`, `columns`, `visibleColumnIds`, `isRefreshing` and their callbacks |
 | `PosterCell` | `components/media/poster-cell.tsx` | Poster with title, year, quality and a status dot beneath. Links to the detail; in edit mode it is a selectable button. | `item: PosterCellItem`, `editMode`, `selected`, `onToggleSelect` |
 | `PosterGrid` | `components/media/poster-grid.tsx` | Accessible list of cells: three columns on phone, `auto-fill` at the poster size on wide. Children are wrapped in `PosterGridItem`. | `label`, `posterSize` |
-| `MediaListToolbar` | `components/media/media-list-toolbar.tsx` | Bulk-edit toolbar shown in edit mode. Select all, monitor/unmonitor, change quality profile, delete. | `selectedCount`, `totalCount`, `qualityProfiles`, `isBulkUpdating`, `theme`, `onSelectAll`, `onMonitor`, `onDelete` |
+| `LibraryEditBar` | `components/media/library-edit-bar.tsx` | Edit-mode `toolbar` passed to the `Screen` `bottomBar`: select all, monitor, unmonitor, quality profile (through `ActionPresenter`) and delete. | `selectedCount`, `totalCount`, `pluralMediaLabel`, `qualityProfiles`, `isBulkUpdating`, `onSelectAll`, `onMonitor`, `onChangeQualityProfile`, `onDelete` |
 | `MediaGrid` | `components/media/media-grid.tsx` | Responsive CSS grid that renders cards via `renderCard`. Used by the requests portal. | `items`, `renderCard`, `posterSize`, `editMode`, `selectedIds`, `onToggleSelect` |
 | `MediaTable` | `components/media/media-table.tsx` | Sortable table view with optional edit-mode checkboxes. | `items`, `columns`, `visibleColumnIds`, `renderContext`, `sortField`, `sortDirection`, `editMode`, `selectedIds`, `theme` |
 
@@ -29,12 +29,13 @@ Reusable components available to module authors. All paths are relative to `web/
 
 | Component | Location | Purpose | Key Props |
 |---|---|---|---|
-| `AddMediaConfigure` | `components/media/add-media-configure.tsx` | Configuration step when adding media: preview card, root folder select, quality profile select, and module-specific `children` slot. | `preview`, `rootFolders`, `qualityProfiles`, `rootFolderId`, `qualityProfileId`, `onFolderChange`, `onProfileChange`, `isPending`, `onBack`, `onAdd`, `addLabel`, `children` |
-| `MediaPreview` | `components/media/add-media-configure.tsx` | Poster + title + overview preview card for the add flow. | `title`, `year`, `overview`, `posterUrl`, `type`, `subtitle` |
+| `AddMediaPresenter` | `components/media/add-media-presenter.tsx` | The add flow's surface: a pushed `Screen` with a back control on phones, a `SheetPresenter` dialog on wide. | `title`, `backLabel`, `onClose`, `actions`, `children` |
+| `AddMediaConfigure` | `components/media/add-media-configure.tsx` | Configuration step when adding media: preview, root folder select, quality profile select, and module-specific `children` slot. | `preview`, `rootFolders`, `qualityProfiles`, `rootFolderId`, `qualityProfileId`, `onFolderChange`, `onProfileChange`, `children` |
+| `AddMediaActions` | `components/media/add-media-configure.tsx` | Cancel + Add buttons for the add flow, passed to `AddMediaPresenter` as `actions`. | `rootFolderId`, `qualityProfileId`, `isPending`, `onCancel`, `onAdd`, `addLabel` |
+| `MediaPreview` | `components/media/add-media-configure.tsx` | Poster + title + overview preview for the add flow. | `title`, `year`, `overview`, `posterUrl`, `type`, `subtitle` |
 | `FolderSelect` | `components/media/media-configure-fields.tsx` | Root folder dropdown. | `rootFolderId`, `rootFolders`, `onChange` |
 | `ProfileSelect` | `components/media/media-configure-fields.tsx` | Quality profile dropdown. | `qualityProfileId`, `qualityProfiles`, `onChange` |
 | `ToggleField` | `components/media/media-configure-fields.tsx` | Label + description + switch toggle row. | `label`, `description`, `checked`, `onChange` |
-| `FormActions` | `components/media/media-configure-fields.tsx` | Back + Add action buttons with validation. | `rootFolderId`, `qualityProfileId`, `isPending`, `onBack`, `onAdd`, `addLabel` |
 | `MonitorSelect` | `components/media/media-configure-fields.tsx` | Monitor strategy dropdown (TV-specific: all, future, etc.). | `value`, `onChange` |
 | `SearchOnAddSelect` | `components/media/media-configure-fields.tsx` | Search-on-add strategy dropdown. | `value`, `onChange` |
 
@@ -184,7 +185,6 @@ The following files contain `Record<string, string>` maps that must be updated w
 | `components/media/media-list-filters.tsx` | `accentMap` | Sort indicator accent |
 | `components/media/media-table.tsx` | `checkboxClassMap` | Edit-mode checkbox color |
 | `components/media/media-page-actions.tsx` | (inline object) | Add button styling |
-| `components/media/media-list-toolbar.tsx` | (inline object) | Bulk toolbar border/bg |
 | `components/tables/column-config-popover.tsx` | `accentMap` | Column config accent |
 | `components/ui/filter-dropdown.tsx` | `THEME_ACTIVE_CLASS` | Active filter text color |
 | `routes/missing/media-tabs.tsx` | `THEME_GLOW_CLASSES` | Tab glow effect |

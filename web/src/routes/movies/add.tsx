@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { PageHeader } from '@/components/layout/page-header'
-import { AddMediaConfigure, MediaPreview } from '@/components/media/add-media-configure'
+import {
+  AddMediaActions,
+  AddMediaConfigure,
+  MediaPreview,
+} from '@/components/media/add-media-configure'
+import { AddMediaPresenter } from '@/components/media/add-media-presenter'
 import { ToggleField } from '@/components/media/media-configure-fields'
-import { Button } from '@/components/ui/button'
 
 import { useAddMoviePage } from './use-add-movie'
 
@@ -27,19 +30,23 @@ export function AddMoviePage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Add Movie"
-        breadcrumbs={[{ label: 'Movies', href: '/movies' }, { label: 'Add' }]}
-        actions={
-          <Button variant="ghost" onClick={state.handleBack}>
-            <ArrowLeft className="mr-2 size-4" />
-            Back
-          </Button>
-        }
-      />
+    <AddMediaPresenter
+      title="Add Movie"
+      backLabel="Library"
+      onClose={state.handleBack}
+      actions={
+        <AddMediaActions
+          rootFolderId={state.form.watch('rootFolderId')}
+          qualityProfileId={state.form.watch('qualityProfileId')}
+          isPending={state.isPending}
+          onCancel={state.handleBack}
+          onAdd={state.handleAdd}
+          addLabel="Add Movie"
+        />
+      }
+    >
       <AddMovieBody state={state} />
-    </div>
+    </AddMediaPresenter>
   )
 }
 
@@ -73,10 +80,6 @@ function AddMovieBody({ state }: { state: PageState }) {
       qualityProfileId={state.form.watch('qualityProfileId')}
       onFolderChange={(v) => state.form.setValue('rootFolderId', v)}
       onProfileChange={(v) => state.form.setValue('qualityProfileId', v)}
-      isPending={state.isPending}
-      onBack={state.handleBack}
-      onAdd={state.handleAdd}
-      addLabel="Add Movie"
     >
       <ToggleField
         label="Monitored"
