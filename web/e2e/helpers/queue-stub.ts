@@ -16,6 +16,8 @@ export type StubQueueItem = {
   progress: number
   season?: number
   episode?: number
+  movieId?: number
+  seriesId?: number
 }
 
 export type QueueStub = {
@@ -45,6 +47,8 @@ function toQueueItem(item: StubQueueItem) {
     attributes: [],
     season: item.season ?? 0,
     episode: item.episode ?? 0,
+    movieId: item.movieId,
+    seriesId: item.seriesId,
     downloadPath: '/mock/downloads',
   }
 }

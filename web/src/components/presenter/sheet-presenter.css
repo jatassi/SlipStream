@@ -1,5 +1,7 @@
-/* Positioning and the app's motion tokens for the vaul drawer. vaul ships a
-   0.5s slide; the motion policy caps sheets at 320ms. */
+/* vaul does not export its stylesheet through its package exports, so the
+   drawer's geometry and motion live here, on the app's tokens: the sheet slides
+   in over --dur-sheet rather than vaul's own 0.5s. No animation-fill-mode: the
+   drag sets an inline transform, and a filled animation would outrank it. */
 .sheet-presenter {
   position: fixed;
   inset-inline: 0;
@@ -12,8 +14,48 @@
   border-top-right-radius: var(--radius-sheet);
   background: var(--card);
   outline: none;
-  transition-duration: var(--dur-sheet);
-  animation-duration: var(--dur-sheet);
+  touch-action: none;
+  will-change: transform;
+  transition: transform var(--dur-sheet) var(--ease-drawer);
+}
+
+/* Fills the space below the sheet while it rubber-bands past its resting spot. */
+.sheet-presenter::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 200%;
+  background: inherit;
+}
+
+.sheet-presenter[data-state='open'] {
+  animation: sheet-presenter-in var(--dur-sheet) var(--ease-drawer);
+}
+.sheet-presenter[data-state='closed'] {
+  animation: sheet-presenter-out var(--dur-sheet) var(--ease-drawer);
+}
+
+.sheet-presenter [data-vaul-handle] {
+  display: block;
+  position: relative;
+  height: 5px;
+  width: 36px;
+  margin-inline: auto;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 25%, transparent);
+  touch-action: pan-y;
+}
+
+.sheet-presenter [data-vaul-handle-hitarea] {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+  touch-action: inherit;
 }
 
 .sheet-presenter-scrim {
@@ -21,7 +63,27 @@
   inset: 0;
   z-index: 50;
   background: rgba(0, 0, 0, 0.45);
-  animation-duration: var(--dur-sheet);
+}
+.sheet-presenter-scrim[data-state='open'] {
+  animation: sheet-presenter-fade-in var(--dur-sheet) var(--ease-out-strong);
+}
+.sheet-presenter-scrim[data-state='closed'] {
+  animation: sheet-presenter-fade-out var(--dur-sheet) var(--ease-out-strong);
+}
+
+@keyframes sheet-presenter-in {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheet-presenter-out {
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
 }
 
 @keyframes sheet-presenter-fade-in {
@@ -43,11 +105,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-vaul-drawer].sheet-presenter[data-vaul-snap-points='false'][data-vaul-drawer-direction='bottom'][data-state='open'] {
+  .sheet-presenter[data-state='open'] {
     animation-name: sheet-presenter-fade-in;
     animation-duration: var(--dur-fast);
   }
-  [data-vaul-drawer].sheet-presenter[data-vaul-snap-points='false'][data-vaul-drawer-direction='bottom'][data-state='closed'] {
+  .sheet-presenter[data-state='closed'] {
     animation-name: sheet-presenter-fade-out;
     animation-duration: var(--dur-fast);
   }

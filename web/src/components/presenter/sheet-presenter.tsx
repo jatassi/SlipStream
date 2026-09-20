@@ -14,7 +14,6 @@ import {
 import { useViewport } from '@/hooks/use-viewport'
 import { cn } from '@/lib/utils'
 
-import 'vaul/style.css'
 import './sheet-presenter.css'
 
 export type SheetPresenterProps = {
