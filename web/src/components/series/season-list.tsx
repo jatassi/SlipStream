@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 import type { Episode, Season, Slot } from '@/types'
 
+import { EpisodeSlotAssign } from './episode-slot-assign'
 import { EpisodeSlotStatusContent } from './episode-slot-status-content'
 import type { SeriesInfo } from './series-context'
 import { SeriesContext, useSeriesInfo } from './series-context'
@@ -93,6 +94,7 @@ export function SeasonList(props: SeasonListProps) {
                 episodes={episodesBySeason[season.seasonNumber] ?? []}
                 onEpisodeMonitoredChange={props.onEpisodeMonitoredChange}
                 isMultiVersionEnabled={isMultiVersionEnabled}
+                enabledSlots={enabledSlots}
                 slotQualityProfiles={slotQualityProfiles}
               />
             )}
@@ -178,11 +180,13 @@ function SeasonEpisodes({
   episodes,
   onEpisodeMonitoredChange,
   isMultiVersionEnabled,
+  enabledSlots,
   slotQualityProfiles,
 }: {
   episodes: Episode[]
   onEpisodeMonitoredChange?: (episode: Episode, monitored: boolean) => void
   isMultiVersionEnabled: boolean
+  enabledSlots: Slot[]
   slotQualityProfiles: Record<number, number>
 }) {
   const sorted = useMemo(
@@ -202,6 +206,7 @@ function SeasonEpisodes({
           episode={episode}
           onMonitoredChange={onEpisodeMonitoredChange}
           isMultiVersionEnabled={isMultiVersionEnabled}
+          enabledSlots={enabledSlots}
           slotQualityProfiles={slotQualityProfiles}
         />
       ))}
@@ -225,6 +230,7 @@ type EpisodeRowProps = {
   episode: Episode
   onMonitoredChange?: (episode: Episode, monitored: boolean) => void
   isMultiVersionEnabled: boolean
+  enabledSlots: Slot[]
   slotQualityProfiles: Record<number, number>
 }
 
@@ -232,6 +238,7 @@ function EpisodeRow({
   episode,
   onMonitoredChange,
   isMultiVersionEnabled,
+  enabledSlots,
   slotQualityProfiles,
 }: EpisodeRowProps) {
   const [slotsOpen, setSlotsOpen] = useState(false)
@@ -259,6 +266,7 @@ function EpisodeRow({
       <EpisodeSlots
         episode={episode}
         open={slotsVisible}
+        enabledSlots={enabledSlots}
         slotQualityProfiles={slotQualityProfiles}
       />
     </>
@@ -295,10 +303,12 @@ function SlotsToggle({
 function EpisodeSlots({
   episode,
   open,
+  enabledSlots,
   slotQualityProfiles,
 }: {
   episode: Episode
   open: boolean
+  enabledSlots: Slot[]
   slotQualityProfiles: Record<number, number>
 }) {
   if (!open) {
@@ -306,6 +316,7 @@ function EpisodeSlots({
   }
   return (
     <div className="px-4 py-2">
+      <EpisodeSlotAssign episode={episode} slots={enabledSlots} />
       <EpisodeSlotStatusContent episode={episode} slotQualityProfiles={slotQualityProfiles} />
     </div>
   )
