@@ -28,8 +28,8 @@ type ExternalMediaCardProps = {
 }
 
 const HOVER_CLASSES = {
-  movie: 'hover:border-movie-500/50 hover:glow-movie',
-  series: 'hover:border-tv-500/50 hover:glow-tv',
+  movie: 'hover:border-movie-500/50',
+  series: 'hover:border-tv-500/50',
 } as const
 
 const DEFAULT_ACTION_ICON = <Plus className="mr-1 size-3 md:mr-2 md:size-4" />
@@ -63,7 +63,7 @@ export function ExternalMediaCard(props: ExternalMediaCardProps) {
   })
 
   return (
-    <div className={cn('group bg-card border-border overflow-hidden rounded-lg border transition-all', HOVER_CLASSES[mediaType], props.className)}>
+    <div className={cn('group bg-card border-border overflow-hidden rounded-lg border transition-[border-color]', HOVER_CLASSES[mediaType], props.className)}>
       <CardPoster
         posterUrl={media.posterUrl} title={media.title} year={media.year} mediaType={mediaType}
         network={getSeriesField(media, mediaType, 'network')}

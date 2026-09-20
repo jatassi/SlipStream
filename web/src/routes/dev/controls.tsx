@@ -1,4 +1,3 @@
-import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,10 +12,12 @@ import { StateRow } from './state-row'
 export function ControlsShowcasePage() {
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="MediaSearchMonitorControls Showcase"
-        description="Every permutation of variant, theme, state, and monitored flag"
-      />
+      <div className="mb-6 space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">MediaSearchMonitorControls Showcase</h1>
+        <p className="text-muted-foreground">
+          Every permutation of variant, theme, state, and monitored flag
+        </p>
+      </div>
       <LiveComponentsSection />
       <InteractiveStatePreview />
       <VisualStatesSection />

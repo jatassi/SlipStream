@@ -34,7 +34,7 @@
   animation: sheet-presenter-in var(--dur-sheet) var(--ease-drawer);
 }
 .sheet-presenter[data-state='closed'] {
-  animation: sheet-presenter-out var(--dur-sheet) var(--ease-drawer);
+  animation: sheet-presenter-out var(--dur-sheet-out) var(--ease-drawer);
 }
 
 .sheet-presenter [data-vaul-handle] {
@@ -78,7 +78,7 @@
   animation: sheet-presenter-fade-in var(--dur-sheet) var(--ease-out-strong);
 }
 .sheet-presenter-scrim[data-state='closed'] {
-  animation: sheet-presenter-fade-out var(--dur-sheet) var(--ease-out-strong);
+  animation: sheet-presenter-fade-out var(--dur-sheet-out) var(--ease-out-strong);
 }
 
 @keyframes sheet-presenter-in {
@@ -121,6 +121,6 @@
   }
   .sheet-presenter[data-state='closed'] {
     animation-name: sheet-presenter-fade-out;
-    animation-duration: var(--dur-fast);
+    animation-duration: var(--dur-press);
   }
 }

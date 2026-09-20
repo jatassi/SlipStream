@@ -195,7 +195,8 @@ test('search renders library results as poster cells', async ({ page }) => {
   await expect(result.getByRole('img', { name: STATUS_LABEL })).toBeVisible()
 })
 
-test('cells scale on pointer down', async ({ page }) => {
+test('cells scale on pointer down', async ({ page }, testInfo) => {
+  const reducedMotion = testInfo.project.name === 'reduced-motion'
   await page.goto('/movies')
   const target = cells(page, 'Movies').first()
   await expect(target).toBeVisible()
@@ -209,7 +210,9 @@ test('cells scale on pointer down', async ({ page }) => {
   // held and the release is left to open the detail.
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.mouse.down()
-  await expect.poll(async () => scaleOf(target)).toBeLessThan(1)
+  // Reduced motion removes the press scale; the cell still opens the detail.
+  const pressed = expect.poll(async () => scaleOf(target))
+  await (reducedMotion ? pressed.toBe(1) : pressed.toBeLessThan(1))
   await page.mouse.up()
   await expect(page).toHaveURL(/\/movies\/\d+$/)
 })

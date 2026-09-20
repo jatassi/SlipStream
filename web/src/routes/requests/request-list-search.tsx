@@ -6,16 +6,12 @@ import { Input } from '@/components/ui/input'
 type SearchSectionProps = {
   searchQuery: string
   setSearchQuery: (q: string) => void
-  searchFocused: boolean
-  setSearchFocused: (f: boolean) => void
   onSearch: (e: React.SyntheticEvent) => void
 }
 
 export function SearchSection({
   searchQuery,
   setSearchQuery,
-  searchFocused,
-  setSearchFocused,
   onSearch,
 }: SearchSectionProps) {
   return (
@@ -27,17 +23,13 @@ export function SearchSection({
           <p className="text-muted-foreground text-sm">Find movies and TV series to request</p>
         </div>
         <form onSubmit={onSearch} className="flex gap-2">
-          <div
-            className={`relative flex-1 rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}
-          >
+          <div className="relative flex-1 rounded-md">
             <Search className="text-muted-foreground absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
             <Input
               type="text"
               placeholder="Search movies and series..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
               className="h-11 pl-10"
             />
           </div>

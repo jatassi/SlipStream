@@ -43,7 +43,7 @@ export function ProgressBar({
           )}
         >
           <ProgressPrimitive.Indicator
-            className={cn('h-full rounded-full transition-all', indicatorClasses[variant] ?? indicatorClasses.default)}
+            className={cn('h-full rounded-full transition-[width] duration-700 ease-linear', indicatorClasses[variant] ?? indicatorClasses.default)}
           />
         </ProgressPrimitive.Track>
       </ProgressPrimitive.Root>

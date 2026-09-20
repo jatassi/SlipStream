@@ -26,6 +26,7 @@ export {
   useUpdateDownloadClient,
 } from './use-download-clients'
 export { useBrowseDirectory, useBrowseForImport } from './use-filesystem'
+export { useFirstMount } from './use-first-mount'
 export {
   systemHealthKeys,
   useSystemHealth,

@@ -52,7 +52,7 @@ function ProgressFill({
 
   return (
     <div
-      className={cn('absolute inset-y-0 left-0 transition-all duration-500 ease-out', gradientClass)}
+      className={cn('absolute inset-y-0 left-0 transition-[width] duration-500 ease-out', gradientClass)}
       style={{ width: `${progress}%` }}
     >
       {showShimmer ? <div className="absolute inset-0 overflow-hidden">
@@ -72,7 +72,7 @@ function EdgeGlow({ theme, progress }: { theme: MediaTheme; progress: number }) 
   return (
     <div
       className={cn(
-        'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-all duration-500',
+        'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-[left] duration-500 ease-out',
         theme === 'movie' ? 'bg-movie-400' : 'bg-tv-400',
       )}
       style={{ left: `calc(${progress}% - 2px)` }}

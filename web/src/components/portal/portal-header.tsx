@@ -11,30 +11,22 @@ import { NotificationBell } from './notification-bell'
 
 function SearchForm({
   searchInput,
-  searchFocused,
   onInputChange,
-  onFocusChange,
   onSubmit,
 }: {
   searchInput: string
-  searchFocused: boolean
   onInputChange: (value: string) => void
-  onFocusChange: (focused: boolean) => void
   onSubmit: (e: React.SyntheticEvent) => void
 }) {
   return (
     <form onSubmit={onSubmit} className="mx-2 min-w-0 flex-1 sm:mx-8 sm:max-w-xl">
-      <div
-        className={`relative rounded-md transition-shadow duration-300 ${searchFocused ? 'glow-media-sm' : ''}`}
-      >
+      <div className="relative rounded-md">
         <Search className="text-muted-foreground absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
         <Input
           type="text"
           placeholder="Search movies and series..."
           value={searchInput}
           onChange={(e) => onInputChange(e.target.value)}
-          onFocus={() => onFocusChange(true)}
-          onBlur={() => onFocusChange(false)}
           className="pr-10 pl-10"
         />
         <button
@@ -53,7 +45,7 @@ function LibraryLink({ active, hideText }: { active: boolean; hideText: boolean 
     <Link
       to="/requests/library"
       className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${
-        active ? 'text-white icon-glow-media' : 'text-foreground/80 hover:text-foreground'
+        active ? 'text-white' : 'text-foreground/80 hover:text-foreground'
       }`}
     >
       <Library className="size-4 md:size-5" />
@@ -68,7 +60,7 @@ function LogoLink({ isHomePage }: { isHomePage: boolean }) {
       to="/requests"
       className="flex shrink-0 items-center gap-1.5 text-base font-semibold md:gap-2 md:text-lg"
     >
-      <div className="bg-media-gradient glow-media-sm flex size-7 items-center justify-center rounded text-xs font-bold text-white md:size-8 md:text-sm">
+      <div className="bg-media-gradient flex size-7 items-center justify-center rounded text-xs font-bold text-white md:size-8 md:text-sm">
         SS
       </div>
       <span className={`text-media-gradient ${isHomePage ? '' : 'hidden sm:inline'}`}>
@@ -110,7 +102,6 @@ function usePortalHeader() {
   )
   const currentQuery = searchParams.get('q') ?? ''
   const [searchInput, setSearchInput] = useState(currentQuery)
-  const [searchFocused, setSearchFocused] = useState(false)
   const [prevQuery, setPrevQuery] = useState(currentQuery)
 
   if (currentQuery !== prevQuery) {
@@ -125,11 +116,11 @@ function usePortalHeader() {
     }
   }
 
-  return { isHomePage, isSearchPage, isLibraryPage, searchInput, searchFocused, setSearchInput, setSearchFocused, handleSearch }
+  return { isHomePage, isSearchPage, isLibraryPage, searchInput, setSearchInput, handleSearch }
 }
 
 export function PortalHeader() {
-  const { isHomePage, isSearchPage, isLibraryPage, searchInput, searchFocused, setSearchInput, setSearchFocused, handleSearch } = usePortalHeader()
+  const { isHomePage, isSearchPage, isLibraryPage, searchInput, setSearchInput, handleSearch } = usePortalHeader()
 
   return (
     <header className="border-border bg-card flex h-14 items-center justify-between border-b px-3 sm:px-6">
@@ -137,9 +128,7 @@ export function PortalHeader() {
       {isSearchPage || isLibraryPage && (
         <SearchForm
           searchInput={searchInput}
-          searchFocused={searchFocused}
           onInputChange={setSearchInput}
-          onFocusChange={setSearchFocused}
           onSubmit={handleSearch}
         />
       )}

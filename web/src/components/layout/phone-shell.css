@@ -81,7 +81,7 @@
   }
   .phone-layer[data-exiting]:not([data-instant]) {
     animation-name: phone-fade-out;
-    animation-duration: var(--dur-fast);
+    animation-duration: var(--dur-press);
   }
   .phone-root[data-behind] {
     transform: none;

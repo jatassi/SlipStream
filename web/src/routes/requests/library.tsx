@@ -57,7 +57,7 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
         <TabsList>
           <TabsTrigger
             value="movies"
-            className="data-active:glow-movie px-2 data-active:bg-white data-active:text-black sm:px-4"
+            className="px-2 data-active:bg-white data-active:text-black sm:px-4"
           >
             <Film className="mr-1.5 size-4" />
             Movies
@@ -65,7 +65,7 @@ function LibraryTabs({ s }: { s: ReturnType<typeof usePortalLibrary> }) {
           </TabsTrigger>
           <TabsTrigger
             value="series"
-            className="data-active:glow-tv px-2 data-active:bg-white data-active:text-black sm:px-4"
+            className="px-2 data-active:bg-white data-active:text-black sm:px-4"
           >
             <Tv className="mr-1.5 size-4" />
             Series
