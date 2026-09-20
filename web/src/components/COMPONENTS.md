@@ -10,14 +10,12 @@ Reusable components available to module authors. All paths are relative to `web/
 
 | Component | Location | Purpose | Key Props |
 |---|---|---|---|
-| `ModuleListPage` | `components/media/module-list-page.tsx` | Top-level lazy-loading wrapper for a module's list page. Resolves module by ID and renders with Suspense. | `moduleId` |
-| `MediaListLayout` | `components/media/media-list-layout.tsx` | Full list/grid page shell with header, filters, sorting, bulk edit toolbar, and delete dialog. Generic over item type `T`, filter keys `F`, and sort keys `S`. | `theme`, `title`, `addLabel`, `mediaLabel`, `pluralMediaLabel`, `filterOptions`, `sortOptions`, `renderCard`, `allTableColumns`, `items`, `groups`, and many callback props (see type `MediaListLayoutProps`) |
-| `MediaListFilters` | `components/media/media-list-filters.tsx` | Filter dropdown, sort selector, view toggle (grid/table), poster size slider, column config. | `filterOptions`, `sortOptions`, `statusFilters`, `sortField`, `view`, `posterSize`, `theme`, `onToggleFilter`, `onSortFieldChange`, `onViewChange` |
+| `LibraryScreen` | `components/media/library-screen.tsx` | The Library tab: `Screen`, module segmented control, chip filters, poster grid (or table on wide), edit toolbar and delete dialog. Generic over item type `T`. | `moduleId`, `theme`, `title`, `items`, `groups`, `toCell`, `filterOptions`, `statusFilters`, `sortOptions`, `view`, `posterSize`, table column props and callbacks (see `LibraryScreenProps`) |
+| `LibraryOptions` | `components/media/library-options.tsx` | The single trailing options action: sort, view, poster size, columns, select and refresh, through `ActionPresenter`. | `sortOptions`, `sortField`, `view`, `posterSize`, `columns`, `visibleColumnIds`, `editMode`, `isRefreshing` and their callbacks |
+| `PosterCell` | `components/media/poster-cell.tsx` | Poster with title, year, quality and a status dot beneath. Links to the detail; in edit mode it is a selectable button. | `item: PosterCellItem`, `editMode`, `selected`, `onToggleSelect` |
+| `PosterGrid` | `components/media/poster-grid.tsx` | Accessible list of cells: three columns on phone, `auto-fill` at the poster size on wide. Children are wrapped in `PosterGridItem`. | `label`, `posterSize` |
 | `MediaListToolbar` | `components/media/media-list-toolbar.tsx` | Bulk-edit toolbar shown in edit mode. Select all, monitor/unmonitor, change quality profile, delete. | `selectedCount`, `totalCount`, `qualityProfiles`, `isBulkUpdating`, `theme`, `onSelectAll`, `onMonitor`, `onDelete` |
-| `MediaListContent` | `components/media/media-list-content.tsx` | Switches between loading, empty, grid, grouped grid, and table views based on state. | `isLoading`, `view`, `items`, `groups`, `renderCard`, `theme`, `emptyIcon`, `emptyTitle` |
-| `MediaPageActions` | `components/media/media-page-actions.tsx` | Header action buttons: Refresh, Edit mode toggle, Add button (themed). | `isLoading`, `editMode`, `isRefreshing`, `theme`, `addLabel`, `onRefreshAll`, `onEnterEdit`, `onExitEdit` |
-| `MediaGrid` | `components/media/media-grid.tsx` | Responsive CSS grid that renders cards via `renderCard`. | `items`, `renderCard`, `posterSize`, `editMode`, `selectedIds`, `onToggleSelect` |
-| `GroupedMediaGrid` | `components/media/grouped-media-grid.tsx` | Renders items in labeled groups with sticky headers. | `groups: MediaGroup<T>[]`, `renderGrid` |
+| `MediaGrid` | `components/media/media-grid.tsx` | Responsive CSS grid that renders cards via `renderCard`. Used by the requests portal. | `items`, `renderCard`, `posterSize`, `editMode`, `selectedIds`, `onToggleSelect` |
 | `MediaTable` | `components/media/media-table.tsx` | Sortable table view with optional edit-mode checkboxes. | `items`, `columns`, `visibleColumnIds`, `renderContext`, `sortField`, `sortDirection`, `editMode`, `selectedIds`, `theme` |
 
 ### Dialogs
@@ -86,7 +84,6 @@ Create `web/src/modules/<module-id>/index.ts` exporting a `ModuleConfig` object:
 ```ts
 import { MyIcon } from 'lucide-react'
 import { myApi } from '@/api/my-module'
-import { MyCard } from '@/components/my-module/my-card'
 import { myKeys } from '@/hooks/use-my-module'
 import type { ModuleConfig } from '../types'
 
@@ -110,7 +107,6 @@ export const myModuleConfig: ModuleConfig = {
   filterOptions: [ /* ... */ ],
   sortOptions: [ /* ... */ ],
   tableColumns: { static: [], defaults: [] },
-  cardComponent: MyCard,
   detailComponent: () => null,
   api: { /* implement ModuleApi */ },
 }
@@ -139,7 +135,7 @@ Add your module's theme key to every `Record<string, string>` lookup map that ma
 
 ### Step 5: Add routes
 
-Register lazy-loaded routes in `web/src/routes-config.tsx` and update `ModuleListPage` in `components/media/module-list-page.tsx` to handle the new module ID.
+Register lazy-loaded routes in `web/src/routes-config.tsx`. The list route renders `LibraryScreen` with the module's state and a `toCell` mapper (see `components/media/library-cells.ts`).
 
 ---
 
@@ -217,7 +213,6 @@ Defined in `web/src/modules/types.ts`.
 | `filterOptions` | `ModuleFilterOption[]` | Status filter options shown in the filter dropdown. Each has `value`, `label`, `icon`. |
 | `sortOptions` | `ModuleSortOption[]` | Sort field options. Each has `value` and `label`. |
 | `tableColumns` | `ModuleTableColumns` | Table column definitions: `static` (always visible) and `defaults` (default visible column IDs). |
-| `cardComponent` | `ComponentType<any>` | Card component rendered in grid view for each item. |
 | `detailComponent` | `ComponentType<any>` | Detail page component rendered for a single item. |
 | `addConfigFields` | `ComponentType<any>` (optional) | Extra configuration fields rendered as `children` inside `AddMediaConfigure`. |
 | `api` | `ModuleApi` | API adapter implementing `list`, `get`, `update`, `delete`, `bulkDelete`, `bulkUpdate`, `bulkMonitor`, `search`, `refresh`, `refreshAll`. |
