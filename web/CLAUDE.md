@@ -123,9 +123,9 @@ both shells let the `Screen` own its own back control and scrolling.
   tile, a trailing count and a warning summary from `use-health-warnings.ts`.
 - List pages (Root Folders, Quality Profiles, Version Slots, Indexers, Download Clients,
   Notifications) use `SettingsList` (loading / error / empty states around a `Group`) and
-  `SettingsItemRow` (icon tile, primary line, optional subtitle, trailing detail, `Switch` and an
-  overflow action menu with confirmation). Add is `AddAction` — a plus passed as the `Screen`
-  `trailing` slot.
+  `SettingsItemRow` (icon tile, primary line, optional subtitle, trailing detail, `Switch` and row
+  actions that present through `ActionPresenter`). Add is `AddAction` — a plus passed as the
+  `Screen` `trailing` slot.
 
 ## Playwright E2E
 
