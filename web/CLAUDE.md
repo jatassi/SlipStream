@@ -187,6 +187,25 @@ both shells let the `Screen` own its own back control and scrolling.
   actions that present through `ActionPresenter`). Add is `AddAction` — a plus passed as the
   `Screen` `trailing` slot.
 
+## Missing and History
+
+`/missing` and `/history` are `isScreenFillPath` and each renders a `Screen` with
+`back={usePushBack()}` (label "More").
+
+- Missing (`src/routes/missing/`) stacks two `Segmented` controls: one per `getEnabledModules()`
+  module, then Missing / Upgradable. Items are one `Group` of `MissingRow`s
+  (`src/components/missing/`): poster, title, count or quality subtitle, and
+  `MediaSearchMonitorControls` with `variant="row"` in the trailing slot — Auto Search starts the
+  search in one tap and the row carries its searching state. The row's own surface is an absolutely
+  positioned `Link` behind the controls (the `SettingsItemRow` trick), so the controls stay tappable
+  inside a row that opens the detail. The tab and accordion lists it replaced are gone.
+- History (`src/routes/history/`) groups entries into one `Group` per day ("Today", "Yesterday",
+  then the date) via `groupByDay` in `history-utils.ts`, and each `Row` matches the Dashboard's
+  Recent tiles: `IconTile`, title with its year or `S02E03` qualifier, `label · detail` subtitle and
+  relative time. `eventLook` in `src/lib/history-utils.ts` is the one source of the tile colour,
+  glyph and label for both screens. A media `Segmented` sits above the `FilterDropdown` of event
+  types and the date preset; paging is a "Load more" button, not the `Pagination` component.
+
 ## System screens and session actions
 
 `/system/*` paths are `isScreenFillPath` like settings, and each route renders a `Screen` with
