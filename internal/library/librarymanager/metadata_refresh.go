@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/module"
@@ -420,7 +421,7 @@ func (s *Service) updateSeriesWithMetadata(ctx context.Context, seriesID int64, 
 	imdbID := bestMatch.ImdbID
 	overview := bestMatch.Overview
 	runtime := bestMatch.Runtime
-	status := bestMatch.Status
+	productionStatus := bestMatch.Status
 	network := bestMatch.Network
 	networkLogoURL := bestMatch.NetworkLogoURL
 
@@ -432,7 +433,7 @@ func (s *Service) updateSeriesWithMetadata(ctx context.Context, seriesID int64, 
 		ImdbID:           &imdbID,
 		Overview:         &overview,
 		Runtime:          &runtime,
-		ProductionStatus: &status,
+		ProductionStatus: &productionStatus,
 		Network:          &network,
 		NetworkLogoURL:   &networkLogoURL,
 	})
@@ -547,7 +548,7 @@ func (s *Service) refreshUnreleasedMovies(ctx context.Context) (int, error) {
 
 	refreshed := 0
 	for _, m := range allMovies {
-		if m.Status != "unreleased" {
+		if m.Status != status.Unreleased {
 			continue
 		}
 		if ctx.Err() != nil {

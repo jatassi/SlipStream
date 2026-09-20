@@ -763,10 +763,10 @@ func (s *Service) moduleTypeForEntity(entityType string) string {
 			return string(mod.ID())
 		}
 	}
-	if entityType == "movie" {
-		return "movie"
+	if entityType == string(module.EntityMovie) {
+		return string(module.TypeMovie)
 	}
-	return "tv"
+	return string(module.TypeTV)
 }
 
 // buildSearchCriteria creates search criteria from a searchable item.
@@ -955,8 +955,8 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 
 	// Reset autosearch backoff
 	_ = s.queries.ResetAllAutosearchFailuresForItem(ctx, sqlc.ResetAllAutosearchFailuresForItemParams{
-		ModuleType: "movie",
-		EntityType: "movie",
+		ModuleType: string(module.TypeMovie),
+		EntityType: string(module.EntityMovie),
 		EntityID:   movieID,
 	})
 
@@ -966,7 +966,7 @@ func (s *Service) RetryMovie(ctx context.Context, movieID int64) (*RetryResult, 
 		})
 	}
 	if s.broadcaster != nil {
-		s.broadcaster.BroadcastEntity("movie", "movie", movieID, "updated", nil)
+		s.broadcaster.BroadcastEntity(string(module.TypeMovie), string(module.EntityMovie), movieID, "updated", nil)
 	}
 
 	return &RetryResult{

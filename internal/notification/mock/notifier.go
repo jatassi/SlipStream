@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -72,7 +73,7 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	if event.Movie != nil {
 		message = event.Movie.Title
 		if event.Movie.Year > 0 {
-			message += " (" + string(rune(event.Movie.Year)) + ")"
+			message += " (" + strconv.Itoa(event.Movie.Year) + ")"
 		}
 	} else if event.Episode != nil {
 		message = event.Episode.FormatTitle()

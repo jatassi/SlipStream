@@ -98,11 +98,11 @@ func formatDuplicate(season int, episodes []int, padding int) string {
 // formatRepeat: S01E01E02E03
 func formatRepeat(season int, episodes []int, padding int) string {
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("S%02d", season))
+	fmt.Fprintf(&result, "S%02d", season)
 
 	epFormat := fmt.Sprintf("E%%0%dd", padding)
 	for _, ep := range episodes {
-		result.WriteString(fmt.Sprintf(epFormat, ep))
+		fmt.Fprintf(&result, epFormat, ep)
 	}
 
 	return result.String()

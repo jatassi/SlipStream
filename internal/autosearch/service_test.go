@@ -2,8 +2,8 @@ package autosearch
 
 import (
 	"context"
-	"errors"
 	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/slipstream/slipstream/internal/config"

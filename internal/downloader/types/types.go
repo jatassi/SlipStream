@@ -234,10 +234,8 @@ func parseVersion(v string) ([3]int, error) {
 	v = strings.TrimPrefix(v, "v")
 	parts := strings.SplitN(v, ".", 3)
 	var result [3]int
-	for i, p := range parts {
-		if i >= 3 {
-			break
-		}
+	for i := 0; i < len(parts) && i < len(result); i++ {
+		p := parts[i]
 		// Strip any suffix after digits (e.g., "1beta" -> "1")
 		numStr := strings.TrimRight(p, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-+")
 		if numStr == "" {

@@ -80,22 +80,22 @@ func (n *Notifier) OnGrab(ctx context.Context, event *types.GrabEvent) error {
 	sb.WriteString("<b>🎬 Release Grabbed</b>\n\n")
 
 	if event.Movie != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Movie.Title)))
+		fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Movie.Title))
 		if event.Movie.Year > 0 {
-			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
+			fmt.Fprintf(&sb, " (%d)", event.Movie.Year)
 		}
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
+		fmt.Fprintf(&sb, "<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.FormatEpisodeLabel()))
+			event.Episode.FormatEpisodeLabel())
 	}
 
-	sb.WriteString(fmt.Sprintf("\n<code>%s</code>\n", html.EscapeString(event.Release.ReleaseName)))
-	sb.WriteString(fmt.Sprintf("\n📊 Quality: %s", event.Release.Quality))
-	sb.WriteString(fmt.Sprintf("\n🔍 Indexer: %s", event.Release.Indexer))
-	sb.WriteString(fmt.Sprintf("\n💾 Client: %s", event.DownloadClient.Name))
+	fmt.Fprintf(&sb, "\n<code>%s</code>\n", html.EscapeString(event.Release.ReleaseName))
+	fmt.Fprintf(&sb, "\n📊 Quality: %s", event.Release.Quality)
+	fmt.Fprintf(&sb, "\n🔍 Indexer: %s", event.Release.Indexer)
+	fmt.Fprintf(&sb, "\n💾 Client: %s", event.DownloadClient.Name)
 
 	return n.sendMessage(ctx, sb.String())
 }
@@ -105,21 +105,21 @@ func (n *Notifier) OnImport(ctx context.Context, event *types.ImportEvent) error
 	sb.WriteString("<b>✅ Download Complete</b>\n\n")
 
 	if event.Movie != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Movie.Title)))
+		fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Movie.Title))
 		if event.Movie.Year > 0 {
-			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
+			fmt.Fprintf(&sb, " (%d)", event.Movie.Year)
 		}
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
+		fmt.Fprintf(&sb, "<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.FormatEpisodeLabel()))
+			event.Episode.FormatEpisodeLabel())
 	}
 
-	sb.WriteString(fmt.Sprintf("\n📊 Quality: %s", event.Quality))
+	fmt.Fprintf(&sb, "\n📊 Quality: %s", event.Quality)
 	if event.ReleaseGroup != "" {
-		sb.WriteString(fmt.Sprintf("\n👥 Group: %s", event.ReleaseGroup))
+		fmt.Fprintf(&sb, "\n👥 Group: %s", event.ReleaseGroup)
 	}
 
 	return n.sendMessage(ctx, sb.String())
@@ -130,19 +130,19 @@ func (n *Notifier) OnUpgrade(ctx context.Context, event *types.UpgradeEvent) err
 	sb.WriteString("<b>⬆️ Quality Upgraded</b>\n\n")
 
 	if event.Movie != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Movie.Title)))
+		fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Movie.Title))
 		if event.Movie.Year > 0 {
-			sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
+			fmt.Fprintf(&sb, " (%d)", event.Movie.Year)
 		}
 		sb.WriteString("\n")
 		n.writeLinks(&sb, event.Movie.TMDbID, event.Movie.IMDbID, event.Movie.TraktID)
 	} else if event.Episode != nil {
-		sb.WriteString(fmt.Sprintf("<b>%s</b> %s\n",
+		fmt.Fprintf(&sb, "<b>%s</b> %s\n",
 			html.EscapeString(event.Episode.SeriesTitle),
-			event.Episode.FormatEpisodeLabel()))
+			event.Episode.FormatEpisodeLabel())
 	}
 
-	sb.WriteString(fmt.Sprintf("\n📊 %s → %s", event.OldQuality, event.NewQuality))
+	fmt.Fprintf(&sb, "\n📊 %s → %s", event.OldQuality, event.NewQuality)
 
 	return n.sendMessage(ctx, sb.String())
 }
@@ -151,9 +151,9 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEven
 	var sb strings.Builder
 	sb.WriteString("<b>➕ Movie Added</b>\n\n")
 
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Movie.Title)))
+	fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Movie.Title))
 	if event.Movie.Year > 0 {
-		sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
+		fmt.Fprintf(&sb, " (%d)", event.Movie.Year)
 	}
 	sb.WriteString("\n")
 
@@ -164,7 +164,7 @@ func (n *Notifier) OnMovieAdded(ctx context.Context, event *types.MovieAddedEven
 		if len(overview) > 200 {
 			overview = overview[:197] + "..."
 		}
-		sb.WriteString(fmt.Sprintf("\n%s", html.EscapeString(overview)))
+		fmt.Fprintf(&sb, "\n%s", html.EscapeString(overview))
 	}
 
 	return n.sendMessage(ctx, sb.String())
@@ -174,9 +174,9 @@ func (n *Notifier) OnMovieDeleted(ctx context.Context, event *types.MovieDeleted
 	var sb strings.Builder
 	sb.WriteString("<b>🗑️ Movie Deleted</b>\n\n")
 
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Movie.Title)))
+	fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Movie.Title))
 	if event.Movie.Year > 0 {
-		sb.WriteString(fmt.Sprintf(" (%d)", event.Movie.Year))
+		fmt.Fprintf(&sb, " (%d)", event.Movie.Year)
 	}
 	sb.WriteString("\n")
 
@@ -191,9 +191,9 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEv
 	var sb strings.Builder
 	sb.WriteString("<b>➕ Series Added</b>\n\n")
 
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Series.Title)))
+	fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Series.Title))
 	if event.Series.Year > 0 {
-		sb.WriteString(fmt.Sprintf(" (%d)", event.Series.Year))
+		fmt.Fprintf(&sb, " (%d)", event.Series.Year)
 	}
 	sb.WriteString("\n")
 
@@ -204,7 +204,7 @@ func (n *Notifier) OnSeriesAdded(ctx context.Context, event *types.SeriesAddedEv
 		if len(overview) > 200 {
 			overview = overview[:197] + "..."
 		}
-		sb.WriteString(fmt.Sprintf("\n%s", html.EscapeString(overview)))
+		fmt.Fprintf(&sb, "\n%s", html.EscapeString(overview))
 	}
 
 	return n.sendMessage(ctx, sb.String())
@@ -214,7 +214,7 @@ func (n *Notifier) OnSeriesDeleted(ctx context.Context, event *types.SeriesDelet
 	var sb strings.Builder
 	sb.WriteString("<b>🗑️ Series Deleted</b>\n\n")
 
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", html.EscapeString(event.Series.Title)))
+	fmt.Fprintf(&sb, "<b>%s</b>", html.EscapeString(event.Series.Title))
 	sb.WriteString("\n")
 
 	if event.DeletedFiles {
@@ -231,9 +231,9 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>%s Health Issue</b>\n\n", emoji))
-	sb.WriteString(fmt.Sprintf("Source: %s\n", event.Source))
-	sb.WriteString(fmt.Sprintf("Message: %s", html.EscapeString(event.Message)))
+	fmt.Fprintf(&sb, "<b>%s Health Issue</b>\n\n", emoji)
+	fmt.Fprintf(&sb, "Source: %s\n", event.Source)
+	fmt.Fprintf(&sb, "Message: %s", html.EscapeString(event.Message))
 
 	return n.sendMessage(ctx, sb.String())
 }
@@ -241,8 +241,8 @@ func (n *Notifier) OnHealthIssue(ctx context.Context, event *types.HealthEvent) 
 func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Health Issue Resolved</b>\n\n")
-	sb.WriteString(fmt.Sprintf("Source: %s\n", event.Source))
-	sb.WriteString(fmt.Sprintf("Message: %s", html.EscapeString(event.Message)))
+	fmt.Fprintf(&sb, "Source: %s\n", event.Source)
+	fmt.Fprintf(&sb, "Message: %s", html.EscapeString(event.Message))
 
 	return n.sendMessage(ctx, sb.String())
 }
@@ -250,14 +250,14 @@ func (n *Notifier) OnHealthRestored(ctx context.Context, event *types.HealthEven
 func (n *Notifier) OnApplicationUpdate(ctx context.Context, event *types.AppUpdateEvent) error {
 	var sb strings.Builder
 	sb.WriteString("<b>🔄 Application Updated</b>\n\n")
-	sb.WriteString(fmt.Sprintf("Version: %s → %s", event.PreviousVersion, event.NewVersion))
+	fmt.Fprintf(&sb, "Version: %s → %s", event.PreviousVersion, event.NewVersion)
 
 	return n.sendMessage(ctx, sb.String())
 }
 
 func (n *Notifier) SendMessage(ctx context.Context, event *types.MessageEvent) error {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>%s</b>\n\n", html.EscapeString(event.Title)))
+	fmt.Fprintf(&sb, "<b>%s</b>\n\n", html.EscapeString(event.Title))
 	sb.WriteString(html.EscapeString(event.Message))
 
 	return n.sendMessage(ctx, sb.String())

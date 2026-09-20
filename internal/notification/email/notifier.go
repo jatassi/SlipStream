@@ -279,14 +279,14 @@ func (n *Notifier) sendEmail(subject, body string) error {
 	}
 
 	var msg strings.Builder
-	msg.WriteString(fmt.Sprintf("From: %s\r\n", n.settings.From))
-	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(toAddrs, ", ")))
+	fmt.Fprintf(&msg, "From: %s\r\n", n.settings.From)
+	fmt.Fprintf(&msg, "To: %s\r\n", strings.Join(toAddrs, ", "))
 	if len(ccAddrs) > 0 {
-		msg.WriteString(fmt.Sprintf("Cc: %s\r\n", strings.Join(ccAddrs, ", ")))
+		fmt.Fprintf(&msg, "Cc: %s\r\n", strings.Join(ccAddrs, ", "))
 	}
-	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
 	msg.WriteString("MIME-Version: 1.0\r\n")
-	msg.WriteString(fmt.Sprintf("Content-Type: %s\r\n", contentType))
+	fmt.Fprintf(&msg, "Content-Type: %s\r\n", contentType)
 	msg.WriteString("\r\n")
 	msg.WriteString(emailBody)
 

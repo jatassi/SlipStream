@@ -1207,10 +1207,10 @@ func (s *ScheduledSearcher) moduleTypeFromEntityType(entityType string) string {
 		}
 	}
 	// Legacy fallback for pre-module code paths
-	if entityType == "movie" {
-		return "movie"
+	if entityType == string(module.EntityMovie) {
+		return string(module.TypeMovie)
 	}
-	return "tv"
+	return string(module.TypeTV)
 }
 
 // Broadcast helpers

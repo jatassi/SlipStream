@@ -226,35 +226,22 @@ func (s *Server) updateSettings(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.updateServerPort(ctx, queries, input.ServerPort); err != nil {
-		return err
+	updates := []func() error{
+		func() error { return s.updateServerPort(ctx, queries, input.ServerPort) },
+		func() error { return s.updateLogLevel(ctx, queries, input.LogLevel) },
+		func() error { return s.updateLogMaxSizeMB(ctx, queries, input.LogMaxSizeMB) },
+		func() error { return s.updateLogMaxBackups(ctx, queries, input.LogMaxBackups) },
+		func() error { return s.updateLogMaxAgeDays(ctx, queries, input.LogMaxAgeDays) },
+		func() error { return s.updateLogCompress(ctx, queries, input.LogCompress) },
+		func() error { return s.updateExternalAccessEnabled(ctx, queries, input.ExternalAccessEnabled) },
+		func() error { return s.updateWebAuthnRPID(ctx, queries, input.WebAuthnRPID) },
+		func() error { return s.updateWebAuthnRPOrigins(ctx, queries, input.WebAuthnRPOrigins) },
+		func() error { return s.updateWebAuthnRPDisplayName(ctx, queries, input.WebAuthnRPDisplayName) },
 	}
-	if err := s.updateLogLevel(ctx, queries, input.LogLevel); err != nil {
-		return err
-	}
-	if err := s.updateLogMaxSizeMB(ctx, queries, input.LogMaxSizeMB); err != nil {
-		return err
-	}
-	if err := s.updateLogMaxBackups(ctx, queries, input.LogMaxBackups); err != nil {
-		return err
-	}
-	if err := s.updateLogMaxAgeDays(ctx, queries, input.LogMaxAgeDays); err != nil {
-		return err
-	}
-	if err := s.updateLogCompress(ctx, queries, input.LogCompress); err != nil {
-		return err
-	}
-	if err := s.updateExternalAccessEnabled(ctx, queries, input.ExternalAccessEnabled); err != nil {
-		return err
-	}
-	if err := s.updateWebAuthnRPID(ctx, queries, input.WebAuthnRPID); err != nil {
-		return err
-	}
-	if err := s.updateWebAuthnRPOrigins(ctx, queries, input.WebAuthnRPOrigins); err != nil {
-		return err
-	}
-	if err := s.updateWebAuthnRPDisplayName(ctx, queries, input.WebAuthnRPDisplayName); err != nil {
-		return err
+	for _, update := range updates {
+		if err := update(); err != nil {
+			return err
+		}
 	}
 
 	return s.getSettings(c)
