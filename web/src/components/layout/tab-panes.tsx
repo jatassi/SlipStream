@@ -33,6 +33,7 @@ const SCREEN_PANES: Partial<Record<PaneId, true>> = {
   dashboard: true,
   more: true,
   movies: true,
+  search: true,
   series: true,
 }
 

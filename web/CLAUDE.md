@@ -184,6 +184,25 @@ from one set of props — `title`, `description`, `open`, `onOpenChange`, `child
   a fade. Drag is vaul's — 1:1, rubber-banded, velocity dismiss, catchable mid-animation — and it
   ignores a gesture that starts within 500 ms of the sheet opening.
 
+## Search
+
+The Search tab (`src/routes/search/`) is a `Screen` on both shells — `search` is in `SCREEN_PANES`
+and `isScreenFillPath`, so the phone pane and the wide content area both let it own its scrolling.
+
+- The field is the shared `SearchField` (`src/components/search/search-field.tsx`): a 16 px input
+  with a magnifier and a clear button, so focusing it never zooms the page. The wide header renders
+  the same field through `SearchBar`, which navigates to `/search?q=…`; the page seeds its text from
+  that `q`, so a header search from any page produces the page's own results view.
+- `use-search-page.ts` holds the state: it reads the whole library once (`useMovies()` /
+  `useSeries()`), filters it by title in the browser, and exposes the total as the count the empty
+  state names ("Search 14 titles across movies and series.").
+- Library results are `Group`/`Row`s (`search-groups.tsx`): poster thumbnail, title, and a caption of
+  `StatusDot`, year and the media type in its colour. The row links to the detail.
+- "Add new" is the entry to the external metadata search. It is a row while the library has matches
+  and opens in place; with no library match the external search runs on its own. Each external row
+  navigates to the module's add route (`/movies/add`, `/series/add`) with the `tmdbId`. The old
+  `ExternalSearchSection` card is gone; `SearchResultsSection` stays for the portal.
+
 ## Settings screens
 
 Every settings route renders a `Screen` with `back={usePushBack()}`; `backLabelForPathname` in

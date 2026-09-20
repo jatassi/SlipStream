@@ -1,4 +1,4 @@
-import { paneFromPathname } from './use-tab-nav'
+import { paneFromPathname, type PaneId } from './use-tab-nav'
 
 export type SettingsSection = {
   path: string
@@ -62,6 +62,7 @@ export function backLabelForPathname(pathname: string): string | undefined {
   return settingsSectionForLeaf(pathname)?.title ?? 'More'
 }
 
+<<<<<<< HEAD
 const FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
 const FILL_PATHS = new Set(['/more', '/calendar', '/import'])
 
@@ -71,6 +72,13 @@ export function isScreenFillPath(pathname: string): boolean {
     return true
   }
   if (FILL_PATHS.has(pathname)) {
+=======
+const SCREEN_FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series', 'search', 'more'])
+
+export function isScreenFillPath(pathname: string): boolean {
+  const pane = paneFromPathname(pathname)
+  if (pane !== null && SCREEN_FILL_PANES.has(pane)) {
+>>>>>>> worktree-agent-a1500afee18095a29
     return true
   }
   return (
