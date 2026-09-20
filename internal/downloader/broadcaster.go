@@ -242,7 +242,7 @@ func (b *QueueBroadcaster) checkForCompletions(ctx context.Context) {
 			b.mu.Unlock()
 		}()
 
-		importCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		importCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
 
 		if err := handler.CheckAndProcessCompletedDownloads(importCtx); err != nil {

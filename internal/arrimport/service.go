@@ -302,7 +302,7 @@ func (s *Service) Execute(ctx context.Context, mappings ImportMappings) error {
 	s.mu.Unlock()
 
 	executor := NewExecutor(s.db, reader, sourceType, s.registry, s.progressManager, s.logger)
-	go executor.Run(context.Background(), mappings)
+	go executor.Run(context.WithoutCancel(ctx), mappings)
 
 	return nil
 }

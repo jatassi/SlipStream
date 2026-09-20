@@ -71,7 +71,7 @@ func TestHandlers_SearchMovies(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=Matrix", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/movie/search?query=Matrix", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -100,7 +100,7 @@ func TestHandlers_SearchMovies_MissingQuery(t *testing.T) {
 	_, handlers := setupTestHandlers(t)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/movie/search", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -123,7 +123,7 @@ func TestHandlers_GetMovie(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/603", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/movie/603", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -151,7 +151,7 @@ func TestHandlers_GetMovie_InvalidID(t *testing.T) {
 	_, handlers := setupTestHandlers(t)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/invalid", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/movie/invalid", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -176,7 +176,7 @@ func TestHandlers_SearchSeries(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/series/search?query=Breaking", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/series/search?query=Breaking", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -206,7 +206,7 @@ func TestHandlers_GetSeriesByTMDB(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/series/tmdb/1396", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/series/tmdb/1396", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetParamNames("id")
@@ -238,7 +238,7 @@ func TestHandlers_ClearCache(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodDelete, "/metadata/cache", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/metadata/cache", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -256,7 +256,7 @@ func TestHandlers_GetStatus(t *testing.T) {
 	defer mockServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/status", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/status", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -298,7 +298,7 @@ func TestHandlers_NoProvidersConfigured(t *testing.T) {
 	handlers := NewHandlers(service, artwork)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/metadata/movie/search?query=test", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metadata/movie/search?query=test", http.NoBody)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 

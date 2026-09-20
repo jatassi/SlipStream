@@ -6,6 +6,7 @@ import (
 	"github.com/slipstream/slipstream/internal/autosearch"
 	"github.com/slipstream/slipstream/internal/database/sqlc"
 	"github.com/slipstream/slipstream/internal/library/movies"
+	"github.com/slipstream/slipstream/internal/library/status"
 	"github.com/slipstream/slipstream/internal/library/tv"
 	"github.com/slipstream/slipstream/internal/metadata"
 	"github.com/slipstream/slipstream/internal/preferences"
@@ -108,6 +109,7 @@ func (s *Service) downloadMovieArtworkIfNeeded(ctx context.Context, input *AddMo
 		return
 	}
 
+	artworkCtx := context.WithoutCancel(ctx)
 	go func() {
 		movieResult := &metadata.MovieResult{
 			ID:            input.TmdbID,
@@ -117,7 +119,7 @@ func (s *Service) downloadMovieArtworkIfNeeded(ctx context.Context, input *AddMo
 			LogoURL:       logoURL,
 			StudioLogoURL: studioLogoURL,
 		}
-		if err := s.artwork.DownloadMovieArtwork(context.Background(), movieResult); err != nil {
+		if err := s.artwork.DownloadMovieArtwork(artworkCtx, movieResult); err != nil {
 			s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Msg("Failed to download movie artwork")
 		} else {
 			s.logger.Info().Int("tmdbId", input.TmdbID).Msg("Movie artwork downloaded")
@@ -140,7 +142,7 @@ func (s *Service) fetchStudioLogoURL(ctx context.Context, tmdbID int) string {
 }
 
 func (s *Service) triggerMovieSearchIfNeeded(movie *movies.Movie, searchOnAdd *bool) {
-	if searchOnAdd == nil || !*searchOnAdd || s.autosearchSvc == nil || movie.Status == "unreleased" {
+	if searchOnAdd == nil || !*searchOnAdd || s.autosearchSvc == nil || movie.Status == status.Unreleased {
 		return
 	}
 
@@ -426,6 +428,7 @@ func (s *Service) downloadSeriesArtworkAsync(ctx context.Context, input *AddSeri
 		return
 	}
 
+	artworkCtx := context.WithoutCancel(ctx)
 	go func() {
 		seriesResult := &metadata.SeriesResult{
 			ID:          artworkID,
@@ -436,7 +439,7 @@ func (s *Service) downloadSeriesArtworkAsync(ctx context.Context, input *AddSeri
 			BackdropURL: input.BackdropURL,
 			LogoURL:     logoURL,
 		}
-		if err := s.artwork.DownloadSeriesArtwork(context.Background(), seriesResult); err != nil {
+		if err := s.artwork.DownloadSeriesArtwork(artworkCtx, seriesResult); err != nil {
 			s.logger.Warn().Err(err).Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Failed to download series artwork")
 		} else {
 			s.logger.Info().Int("tmdbId", input.TmdbID).Int("tvdbId", input.TvdbID).Msg("Series artwork downloaded")
@@ -543,7 +546,7 @@ func (s *Service) searchFirstEpisode(ctx context.Context, seriesID int64) {
 	}
 
 	for _, ep := range episodes {
-		if ep.EpisodeNumber == 1 && ep.Status != "unreleased" {
+		if ep.EpisodeNumber == 1 && ep.Status != status.Unreleased {
 			if _, err := s.autosearchSvc.SearchEpisode(ctx, ep.ID, autosearch.SearchSourceAdd); err != nil {
 				s.logger.Warn().Err(err).Int64("episodeId", ep.ID).Msg("Search-on-add failed for episode")
 			}

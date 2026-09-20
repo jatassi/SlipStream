@@ -261,8 +261,8 @@ func (s *RequestSearcher) logSearchCompletion(requestID int64, result *SearchFor
 }
 
 func (s *RequestSearcher) SearchForRequestAsync(ctx context.Context, requestID int64) {
+	bgCtx := context.WithoutCancel(ctx)
 	go func() {
-		bgCtx := context.Background()
 		if _, err := s.SearchForRequest(bgCtx, requestID); err != nil {
 			s.logger.Warn().Err(err).Int64("requestID", requestID).Msg("async search failed")
 		}

@@ -68,7 +68,7 @@ func TestHealthCheck(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	ts.echo.ServeHTTP(rec, req)
@@ -91,7 +91,7 @@ func TestGetStatus(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/status", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/status", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	ts.echo.ServeHTTP(rec, req)
@@ -120,7 +120,7 @@ func TestAuthStatus(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/status", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth/status", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	ts.echo.ServeHTTP(rec, req)
@@ -148,7 +148,7 @@ func TestMoviesAPI_Create(t *testing.T) {
 	defer cleanup()
 
 	body := `{"title": "The Matrix", "year": 1999, "tmdbId": 603, "monitored": true}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestMoviesAPI_List(t *testing.T) {
 	}
 
 	for _, body := range movies {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		ts.authRequest(req)
 		rec := httptest.NewRecorder()
@@ -191,7 +191,7 @@ func TestMoviesAPI_List(t *testing.T) {
 	}
 
 	// List movies
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/movies", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/movies", http.NoBody)
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
@@ -217,7 +217,7 @@ func TestMoviesAPI_Get(t *testing.T) {
 
 	// Create a movie
 	body := `{"title": "Test Movie", "year": 2020}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -228,7 +228,7 @@ func TestMoviesAPI_Get(t *testing.T) {
 	id := int(created["id"].(float64))
 
 	// Get the movie
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/movies/1", http.NoBody)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/movies/1", http.NoBody)
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
@@ -249,7 +249,7 @@ func TestMoviesAPI_Get_NotFound(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/movies/99999", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/movies/99999", http.NoBody)
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
@@ -266,7 +266,7 @@ func TestMoviesAPI_Update(t *testing.T) {
 
 	// Create a movie
 	createBody := `{"title": "Original", "year": 2020}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -274,7 +274,7 @@ func TestMoviesAPI_Update(t *testing.T) {
 
 	// Update the movie
 	updateBody := `{"title": "Updated"}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/movies/1", strings.NewReader(updateBody))
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/movies/1", strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
@@ -298,14 +298,14 @@ func TestMoviesAPI_Delete(t *testing.T) {
 
 	// Create a movie
 	createBody := `{"title": "To Delete"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(createBody))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
 
 	// Delete the movie
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/movies/1", http.NoBody)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/movies/1", http.NoBody)
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
@@ -315,7 +315,7 @@ func TestMoviesAPI_Delete(t *testing.T) {
 	}
 
 	// Verify it's gone
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/movies/1", http.NoBody)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/movies/1", http.NoBody)
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
@@ -332,7 +332,7 @@ func TestSeriesAPI_Create(t *testing.T) {
 	defer cleanup()
 
 	body := `{"title": "Breaking Bad", "year": 2008, "tvdbId": 81189, "monitored": true}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -362,7 +362,7 @@ func TestSeriesAPI_List(t *testing.T) {
 	}
 
 	for _, body := range series {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/series", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		ts.authRequest(req)
 		rec := httptest.NewRecorder()
@@ -370,7 +370,7 @@ func TestSeriesAPI_List(t *testing.T) {
 	}
 
 	// List series
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/series", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/series", http.NoBody)
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
@@ -394,14 +394,14 @@ func TestSeriesAPI_Get(t *testing.T) {
 
 	// Create a series
 	body := `{"title": "Test Series"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
 
 	// Get the series
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/series/1", http.NoBody)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/series/1", http.NoBody)
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
@@ -417,14 +417,14 @@ func TestSeriesAPI_Delete(t *testing.T) {
 
 	// Create a series
 	body := `{"title": "To Delete"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/series", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/series", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
 
 	// Delete the series
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/series/1", http.NoBody)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/series/1", http.NoBody)
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()
 	ts.echo.ServeHTTP(rec, req)
@@ -440,7 +440,7 @@ func TestQualityProfilesAPI_List(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/qualityprofiles", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/qualityprofiles", http.NoBody)
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
@@ -456,7 +456,7 @@ func TestQualityProfilesAPI_Create(t *testing.T) {
 	defer cleanup()
 
 	body := `{"name": "HD-1080p", "moduleType": "movie", "cutoff": 11, "items": []}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/qualityprofiles", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/qualityprofiles", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -474,7 +474,7 @@ func TestRootFoldersAPI_List(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rootfolders", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/rootfolders", http.NoBody)
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
 
@@ -506,7 +506,7 @@ func TestPlaceholderEndpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, http.NoBody)
 			ts.authRequest(req)
 			rec := httptest.NewRecorder()
 			ts.echo.ServeHTTP(rec, req)
@@ -522,7 +522,7 @@ func TestCORS(t *testing.T) {
 	ts, cleanup := setupTestServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/movies", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/v1/movies", http.NoBody)
 	req.Host = "localhost:8080"
 	req.Header.Set("Origin", "http://localhost:3000")
 	req.Header.Set("Access-Control-Request-Method", "POST")
@@ -541,7 +541,7 @@ func TestInvalidJSON(t *testing.T) {
 	defer cleanup()
 
 	body := `{invalid json}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -558,7 +558,7 @@ func TestMoviesAPI_CreateEmptyTitle(t *testing.T) {
 	defer cleanup()
 
 	body := `{"title": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/movies", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/movies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -578,7 +578,7 @@ func TestTMDBSearchOrdering(t *testing.T) {
 	ts.dbManager.SetDevMode(true)
 
 	// Test enabling search ordering
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": true}`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": true}`))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec := httptest.NewRecorder()
@@ -595,7 +595,7 @@ func TestTMDBSearchOrdering(t *testing.T) {
 
 	// Test with developer mode disabled
 	ts.dbManager.SetDevMode(false)
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": false}`))
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/metadata/tmdb/search-ordering", strings.NewReader(`{"disableSearchOrdering": false}`))
 	req.Header.Set("Content-Type", "application/json")
 	ts.authRequest(req)
 	rec = httptest.NewRecorder()

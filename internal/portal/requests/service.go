@@ -334,7 +334,7 @@ func (s *Service) Approve(ctx context.Context, id, approverID int64, _ ApprovalA
 	// Dispatch notification
 	if s.notifDispatcher != nil {
 		watcherIDs := s.getWatcherUserIDs(ctx, id)
-		go s.notifDispatcher.NotifyRequestApproved(context.Background(), result, watcherIDs)
+		go s.notifDispatcher.NotifyRequestApproved(context.WithoutCancel(ctx), result, watcherIDs)
 	}
 
 	s.logger.Info().Int64("requestID", id).Int64("approverID", approverID).Msg("request approved")
@@ -361,7 +361,7 @@ func (s *Service) AutoApprove(ctx context.Context, id int64) (*Request, error) {
 	// Dispatch notification
 	if s.notifDispatcher != nil {
 		watcherIDs := s.getWatcherUserIDs(ctx, id)
-		go s.notifDispatcher.NotifyRequestApproved(context.Background(), result, watcherIDs)
+		go s.notifDispatcher.NotifyRequestApproved(context.WithoutCancel(ctx), result, watcherIDs)
 	}
 
 	s.logger.Info().Int64("requestID", id).Msg("request auto-approved")
@@ -388,7 +388,7 @@ func (s *Service) Deny(ctx context.Context, id int64, reason *string) (*Request,
 	// Dispatch notification
 	if s.notifDispatcher != nil {
 		watcherIDs := s.getWatcherUserIDs(ctx, id)
-		go s.notifDispatcher.NotifyRequestDenied(context.Background(), result, watcherIDs)
+		go s.notifDispatcher.NotifyRequestDenied(context.WithoutCancel(ctx), result, watcherIDs)
 	}
 
 	s.logger.Info().Int64("requestID", id).Msg("request denied")

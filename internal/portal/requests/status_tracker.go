@@ -370,7 +370,7 @@ func (t *StatusTracker) markAvailable(ctx context.Context, req *Request) error {
 
 	if t.notifDispatcher != nil {
 		watcherIDs, _ := t.watchersService.GetWatcherUserIDs(ctx, req.ID)
-		go t.notifDispatcher.NotifyRequestAvailable(context.Background(), req, watcherIDs)
+		go t.notifDispatcher.NotifyRequestAvailable(context.WithoutCancel(ctx), req, watcherIDs)
 	}
 
 	return nil

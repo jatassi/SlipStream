@@ -134,7 +134,7 @@ func (s *Service) NotifyRequestAvailable(ctx context.Context, request *requests.
 	message := formatAvailableMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "available", "Request Available", message)
-		go s.sendAvailableNotification(context.Background(), userID, &event)
+		go s.sendAvailableNotification(context.WithoutCancel(ctx), userID, &event)
 	}
 }
 
@@ -157,7 +157,7 @@ func (s *Service) NotifyRequestApproved(ctx context.Context, request *requests.R
 	message := formatStatusMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "approved", "Request Approved", message)
-		go s.sendApprovedNotification(context.Background(), userID, &event)
+		go s.sendApprovedNotification(context.WithoutCancel(ctx), userID, &event)
 	}
 }
 
@@ -180,7 +180,7 @@ func (s *Service) NotifyRequestDenied(ctx context.Context, request *requests.Req
 	message := formatStatusMessage(&event)
 	for userID := range allUserIDs {
 		s.createInAppNotification(ctx, userID, request.ID, "denied", "Request Denied", message)
-		go s.sendDeniedNotification(context.Background(), userID, &event)
+		go s.sendDeniedNotification(context.WithoutCancel(ctx), userID, &event)
 	}
 }
 
