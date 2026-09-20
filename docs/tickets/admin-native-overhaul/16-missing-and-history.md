@@ -57,8 +57,11 @@ in `dashboard.spec.ts` now takes `.first()`, because a series detail matches its
 backdrop, the poster and the heading at once, which turned into a strict-mode violation once
 season grabs started carrying the series title.
 
-**Known failure not from this ticket.** `detail.spec.ts` "monitored pill toggles and the state
-survives a reload" fails on the phone project with a strict-mode violation between the Library
-`ChipRow`'s "Monitored" filter chip (still mounted behind the pushed detail) and the detail's
-Monitored pill. It reproduces without any change from this ticket and belongs to the library/detail
-tickets, so it was left alone.
+**Flakes not from this ticket.** Across three full suite runs the new spec passed every time, as did
+`shell.spec.ts`, but three other tests failed intermittently and in different combinations:
+`detail.spec.ts` "monitored pill toggles" (strict-mode violation between the Library `ChipRow`'s
+"Monitored" chip, still mounted behind the pushed detail, and the detail's Monitored pill),
+`dashboard.spec.ts` "activating a downloading row opens that title" and `calendar-import.spec.ts`
+(two different tests). They are data races on the shared developer-mode backend between specs that
+all reach for whatever is downloading, and they belong to the library, detail and import tickets, so
+they were left alone.
