@@ -20,6 +20,7 @@ const importKeys = {
   settings: () => [...baseKeys.all, 'settings'] as const,
   pending: () => [...baseKeys.all, 'pending'] as const,
   status: () => [...baseKeys.all, 'status'] as const,
+  scan: (path: string) => [...baseKeys.all, 'scan', path] as const,
 }
 
 // Settings hooks
@@ -97,14 +98,17 @@ export function useRetryImport() {
   })
 }
 
-// Scan directory
-export function useScanDirectory() {
-  return useMutation<ScanDirectoryResponse, Error, { path: string }>({
-    mutationFn: (req) =>
+// Scan a directory for importable files and their library matches.
+export function useDirectoryScan(path: string, enabled: boolean) {
+  return useQuery<ScanDirectoryResponse>({
+    queryKey: importKeys.scan(path),
+    queryFn: () =>
       apiFetch<ScanDirectoryResponse>('/import/scan', {
         method: 'POST',
-        body: JSON.stringify(req),
+        body: JSON.stringify({ path }),
       }),
+    enabled: enabled && path !== '',
+    staleTime: 30_000,
   })
 }
 

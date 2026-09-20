@@ -1,76 +1,74 @@
-import { useMemo, useState } from 'react'
+import { format, startOfMonth } from 'date-fns'
 
-import { addDays, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-fns'
-import { CalendarDays, CalendarRange, List } from 'lucide-react'
-
-import { CalendarAgendaView, CalendarMonthView, CalendarWeekView } from '@/components/calendar'
+import { CalendarListView, CalendarMonthView } from '@/components/calendar'
 import { ErrorState } from '@/components/data/error-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useCalendarEvents } from '@/hooks'
-import { useUIStore } from '@/stores'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { Screen } from '@/components/screen/screen'
+import { Segmented, type SegmentedOption } from '@/components/ui/segmented'
 import type { CalendarView } from '@/types/calendar'
 
-function getDateRange(view: CalendarView, currentDate: Date) {
-  if (view === 'month') {
-    return {
-      start: format(startOfWeek(startOfMonth(currentDate)), 'yyyy-MM-dd'),
-      end: format(endOfWeek(endOfMonth(currentDate)), 'yyyy-MM-dd'),
-    }
-  }
-  if (view === 'week') {
-    return {
-      start: format(startOfWeek(currentDate), 'yyyy-MM-dd'),
-      end: format(endOfWeek(currentDate), 'yyyy-MM-dd'),
-    }
-  }
-  return {
-    start: format(new Date(), 'yyyy-MM-dd'),
-    end: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
-  }
-}
+import { useCalendarPage } from './use-calendar-page'
 
-function ViewToggle({ view, onViewChange }: { view: CalendarView; onViewChange: (v: string[]) => void }) {
+const VIEW_OPTIONS: SegmentedOption<CalendarView>[] = [
+  { value: 'month', label: 'Month' },
+  { value: 'list', label: 'List' },
+]
+
+function TodayAction({ onToday }: { onToday: () => void }) {
   return (
-    <ToggleGroup value={[view]} onValueChange={onViewChange}>
-      <ToggleGroupItem value="month" aria-label="Month view"><CalendarDays className="size-4" /></ToggleGroupItem>
-      <ToggleGroupItem value="week" aria-label="Week view"><CalendarRange className="size-4" /></ToggleGroupItem>
-      <ToggleGroupItem value="agenda" aria-label="Agenda view"><List className="size-4" /></ToggleGroupItem>
-    </ToggleGroup>
+    <button
+      type="button"
+      onClick={onToday}
+      className="press-dim min-h-tap text-title focus-visible:ring-ring px-2 outline-none focus-visible:ring-[3px]"
+    >
+      Today
+    </button>
   )
 }
 
 export function CalendarPage() {
-  const [view, setView] = useState<CalendarView>('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const dateRange = useMemo(() => getDateRange(view, currentDate), [view, currentDate])
+  const state = useCalendarPage()
+  const back = usePushBack()
 
-  const globalLoading = useUIStore((s) => s.globalLoading)
-  const { data: events, isLoading: queryLoading, isError, refetch } = useCalendarEvents(dateRange)
-  const isLoading = queryLoading || globalLoading
-  const safeEvents = events ?? []
-
-  const handleViewChange = (newView: string[]) => {
-    if (newView.length > 0) {setView(newView[0] as CalendarView)}
+  const onToday = () => {
+    const today = new Date()
+    state.changeMonth(startOfMonth(today))
+    state.setSelected(format(today, 'yyyy-MM-dd'))
   }
 
-  if (isError) {
+  if (state.isError) {
     return (
-      <div>
-        <PageHeader title="Calendar" />
-        <ErrorState onRetry={refetch} />
-      </div>
+      <Screen title="Calendar" back={back}>
+        <ErrorState onRetry={state.refetch} />
+      </Screen>
     )
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <PageHeader title="Calendar" description="Upcoming releases and air dates" actions={<ViewToggle view={view} onViewChange={handleViewChange} />} />
-      <div className="min-h-0 flex-1">
-        {view === 'month' && <CalendarMonthView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} />}
-        {view === 'week' && <CalendarWeekView events={safeEvents} currentDate={currentDate} onDateChange={setCurrentDate} loading={isLoading} />}
-        {view === 'agenda' && <CalendarAgendaView events={safeEvents} loading={isLoading} />}
+    <Screen
+      title="Calendar"
+      back={back}
+      trailing={state.view === 'month' ? <TodayAction onToday={onToday} /> : undefined}
+    >
+      <div className="px-screen pb-5">
+        <Segmented
+          label="Calendar view"
+          value={state.view}
+          onChange={state.setView}
+          options={VIEW_OPTIONS}
+        />
       </div>
-    </div>
+      {state.view === 'month' ? (
+        <CalendarMonthView
+          events={state.events}
+          month={state.month}
+          onMonthChange={state.changeMonth}
+          selected={state.selected}
+          onSelect={state.setSelected}
+        />
+      ) : (
+        <CalendarListView events={state.events} loading={state.isLoading} />
+      )}
+    </Screen>
   )
 }
