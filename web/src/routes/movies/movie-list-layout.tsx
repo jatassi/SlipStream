@@ -18,7 +18,7 @@ export function MovieListLayout({ state: s }: { state: MovieListState }) {
       emptyTitle={`No ${mod.pluralName.toLowerCase()} found`}
       filterOptions={mod.filterOptions} statusFilters={s.statusFilters} onToggleFilter={(value) => s.handleToggleFilter(value as FilterStatus)}
       sortOptions={mod.sortOptions} sortField={s.sortField} sortDirection={s.sortDirection}
-      onSortFieldChange={s.handleSortFieldChange} onColumnSort={s.handleColumnSort}
+      onSortFieldChange={s.handleSortFieldChange} onToggleSortDirection={s.handleToggleSortDirection} onColumnSort={s.handleColumnSort}
       view={s.moviesView} onViewChange={s.setMoviesView}
       posterSize={s.posterSize} onPosterSizeChange={s.setPosterSize}
       allTableColumns={s.allColumns} staticColumns={MOVIE_COLUMNS}

@@ -32,7 +32,9 @@ export type LibraryOptionsProps<T> = {
   pluralMediaLabel: string
   sortOptions: { value: string; label: string }[]
   sortField: string
+  sortDirection: 'asc' | 'desc'
   onSortFieldChange: (value: string) => void
+  onToggleSortDirection: () => void
   view: 'grid' | 'table'
   onViewChange: (view: 'grid' | 'table') => void
   posterSize: number
@@ -40,9 +42,7 @@ export type LibraryOptionsProps<T> = {
   columns: ColumnDef<T>[]
   visibleColumnIds: string[]
   onTableColumnsChange: (ids: string[]) => void
-  editMode: boolean
   onEnterEdit: () => void
-  onExitEdit: () => void
   isRefreshing: boolean
   onRefreshAll: () => void
 }
@@ -114,21 +114,17 @@ function rootActions<T>(props: LibraryOptionsProps<T>, wide: boolean, nav: Nav):
   return [
     { label: `Sort by ${sortLabel}`, onClick: () => nav.open('sort') },
     {
-      label: 'Reverse order',
+      label: mark('Reverse order', props.sortDirection === 'desc'),
       onClick: () => {
-        props.onSortFieldChange(props.sortField)
+        props.onToggleSortDirection()
         nav.close()
       },
     },
     ...(wide ? wideActions(props, nav) : []),
     {
-      label: props.editMode ? 'Done selecting' : `Select ${props.pluralMediaLabel.toLowerCase()}`,
+      label: `Select ${props.pluralMediaLabel.toLowerCase()}`,
       onClick: () => {
-        if (props.editMode) {
-          props.onExitEdit()
-        } else {
-          props.onEnterEdit()
-        }
+        props.onEnterEdit()
         nav.close()
       },
     },
