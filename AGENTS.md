@@ -48,7 +48,7 @@ Dev servers run through [portless](https://portless.sh), which gives each one a 
 - Backend only: `make dev-backend` (`make dev-backend-devmode` for developer mode)
 - Frontend only: `make dev-frontend`
 
-Never start `go run` or `bun run dev` bare: the frontend reads its port from `PORT` and its API target from `SLIPSTREAM_API_ORIGIN`, which the Makefile targets set through portless. Ports 8080 and 3000 are only the defaults used when those variables are absent (CI).
+Never start `go run` or `bun run dev` bare: the frontend reads its port from `PORT` and its API target from `SLIPSTREAM_API_ORIGIN`, which the Makefile targets set through portless. Ports 8080 and 3000 are only the defaults used when those variables are absent (CI). The Makefile and Playwright start Vite through `node_modules/.bin/vite` rather than `bun run dev` — under portless, `bun run` does not forward `SIGTERM` to the underlying Vite process, so the server outlives the run; this is the one sanctioned exception to the bun rule.
 
 Stop a background task with `TaskStop`. After making backend changes, prompt the user to restart rather than restarting their running server yourself.
 

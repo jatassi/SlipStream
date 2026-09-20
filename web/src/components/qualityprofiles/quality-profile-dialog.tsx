@@ -83,12 +83,13 @@ function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
         onFieldChange={updateField}
       />
 
-      {showPreview ? <UpgradeStrategyPreview
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showPreview && <UpgradeStrategyPreview
           allowedQualities={formData.items}
           strategy={formData.upgradeStrategy}
           cutoffId={formData.cutoff}
           cutoffOverridesStrategy={formData.cutoffOverridesStrategy}
-        /> : null}
+        />}
 
       <AttributeFilters
         hdrSettings={formData.hdrSettings}

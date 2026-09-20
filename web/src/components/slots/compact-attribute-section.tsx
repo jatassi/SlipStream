@@ -104,7 +104,8 @@ function SectionLabel({ label, isConflicting }: { label: string; isConflicting: 
   const textClass = isConflicting ? 'text-orange-600 dark:text-orange-400' : ''
   return (
     <div className="flex items-center gap-1.5">
-      {isConflicting ? <AlertTriangle className="size-3.5 text-orange-500" /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {isConflicting && <AlertTriangle className="size-3.5 text-orange-500" />}
       <span className={`text-xs font-medium ${textClass}`}>{label}</span>
     </div>
   )

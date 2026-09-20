@@ -35,8 +35,8 @@ export function PhoneShell({ children }: { children: ReactNode }) {
       >
         <TabPanes pathname={pathname} overlay={layer.mounted} />
       </div>
-      {layer.mounted ? (
-        <PhoneOverlay
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {layer.mounted && <PhoneOverlay
           fill={isScreenFillPath(layer.path)}
           back={overlayBack(layer.path, back)}
           exiting={layer.exiting}
@@ -44,8 +44,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
           onExitEnd={layer.finishExit}
         >
           {children}
-        </PhoneOverlay>
-      ) : null}
+        </PhoneOverlay>}
       <TabBar current={currentTab} />
     </div>
   )

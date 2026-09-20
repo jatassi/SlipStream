@@ -30,6 +30,7 @@ function HistoryRetentionGroup() {
           min={1}
           max={3650}
           value={h.currentDays}
+          // `||` intentional: parseInt of an emptied/invalid field is NaN, which `??` would not catch
           onChange={(e) => h.setDays(Number.parseInt(e.target.value) || 1)}
         />
       ) : undefined}

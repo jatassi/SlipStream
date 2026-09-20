@@ -19,7 +19,7 @@ function ParseResult({ result }: { result: { parsedInfo?: { isTV: boolean; isSea
         <Badge variant={result.parsedInfo.isTV ? 'default' : 'secondary'}>
           {result.parsedInfo.isTV ? 'TV Show' : 'Movie'}
         </Badge>
-        {result.parsedInfo.isSeasonPack ? <Badge variant="outline">Season Pack</Badge> : null}
+        {Boolean(result.parsedInfo.isSeasonPack) && <Badge variant="outline">Season Pack</Badge>}
       </div>
       <div className="grid gap-2">
         {result.tokens.map((token: ParsedTokenDetail) => (
@@ -64,7 +64,7 @@ export function FilenameTester({
   }, [debouncedFilename, parseMutate])
 
   const result = parseMutation.data
-  const showResult = filename.trim() && result
+  const showResult = filename.trim().length > 0
 
   return (
     <Group header="Test Filename Parsing" footer="Paste a filename to see how it will be parsed.">
@@ -77,14 +77,12 @@ export function FilenameTester({
           className="h-11 font-mono text-base"
         />
       </StackedRow>
-      {showResult ? (
-        <div className="space-y-3 px-4 py-3">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showResult && result !== undefined && <div className="space-y-3 px-4 py-3">
           <ParseResult result={result} />
-        </div>
-      ) : null}
-      {parseMutation.isPending ? (
-        <div className="text-footnote px-4 py-3 text-muted-foreground">Parsing...</div>
-      ) : null}
+        </div>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {parseMutation.isPending && <div className="text-footnote px-4 py-3 text-muted-foreground">Parsing...</div>}
     </Group>
   )
 }

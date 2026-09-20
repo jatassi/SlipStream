@@ -95,6 +95,7 @@ function AutoSearchGroups({ form }: { form: ReturnType<typeof useAutoSearchForm>
           value={form.backoffThreshold}
           disabled={!form.enabled}
           onChange={(e) =>
+            // `||` intentional: parseInt of an emptied/invalid field is NaN, which `??` would not catch
             form.setBackoffThreshold(Math.max(1, Number.parseInt(e.target.value) || 1))
           }
         />

@@ -87,7 +87,7 @@ export function DrivesList({
           <HardDrive className="text-muted-foreground size-5" />
           <div className="flex-1">
             <span className="font-medium">{drive.letter}</span>
-            {drive.label ? <span className="text-muted-foreground ml-2">{drive.label}</span> : null}
+            {Boolean(drive.label) && <span className="text-muted-foreground ml-2">{drive.label}</span>}
           </div>
           {drive.freeSpace !== undefined && drive.freeSpace > 0 && (
             <span className="text-muted-foreground text-xs">

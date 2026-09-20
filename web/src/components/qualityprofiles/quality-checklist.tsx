@@ -27,7 +27,7 @@ function QualityGroup({ title, description, items, onToggle }: QualityGroupProps
   return (
     <div className="p-3">
       <div className="text-muted-foreground mb-2 text-xs font-medium">{title}</div>
-      {description ? <p className="text-muted-foreground mb-2 text-xs">{description}</p> : null}
+      {Boolean(description) && <p className="text-muted-foreground mb-2 text-xs">{description}</p>}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {items.map((item) => (
           <label key={item.quality.id} className="flex cursor-pointer items-center gap-2">

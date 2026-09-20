@@ -148,7 +148,8 @@ function SeasonItem({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center justify-between rounded p-2 transition-colors">
         <div className="flex items-center gap-2">
-          {hasAnyIssue ? <FileStatusIcon hasConflict={hasConflict} hasNoMatch={hasNoMatch} size="sm" /> : null}
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {hasAnyIssue && <FileStatusIcon hasConflict={hasConflict} hasNoMatch={hasNoMatch} size="sm" />}
           <span className="text-sm font-medium">Season {season.seasonNumber}</span>
           <span className="text-muted-foreground text-xs">
             ({season.episodes.length} episodes, {season.totalFiles} files)
@@ -190,7 +191,7 @@ function EpisodeItem({
         <div className="flex items-center gap-2">
           <EpisodeStatusIndicator episode={episode} />
           <span>E{String(episode.episodeNumber).padStart(2, '0')}</span>
-          {episode.title ? <span className="text-muted-foreground max-w-[200px] truncate">{episode.title}</span> : null}
+          {Boolean(episode.title) && <span className="text-muted-foreground max-w-[200px] truncate">{episode.title}</span>}
           <span className="text-muted-foreground text-xs">
             ({episode.files.length} file{episode.files.length === 1 ? '' : 's'})
           </span>

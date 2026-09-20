@@ -89,14 +89,14 @@ function SeasonItem({ season, enriched }: { season: SeasonResult; enriched?: Enr
           <span className={seasonIsFuture ? 'text-muted-foreground' : ''}>
             {season.name || `Season ${season.seasonNumber}`}
           </span>
-          {enriched ? <SeasonStatusBadge enriched={enriched} /> : null}
-          {season.episodes ? <Badge variant="secondary" className="text-xs">
+          {enriched !== undefined && <SeasonStatusBadge enriched={enriched} />}
+          {season.episodes !== undefined && <Badge variant="secondary" className="text-xs">
               {season.episodes.length} episodes
-            </Badge> : null}
+            </Badge>}
         </div>
       </AccordionTrigger>
       <AccordionContent>
-        {season.overview ? <p className="text-muted-foreground mb-2 text-sm">{season.overview}</p> : null}
+        {season.overview !== undefined && <p className="text-muted-foreground mb-2 text-sm">{season.overview}</p>}
         <EpisodeList episodes={season.episodes} enrichedEpisodes={enriched?.episodes} />
       </AccordionContent>
     </AccordionItem>
@@ -129,10 +129,10 @@ function EpisodeRow({ episode, enriched }: { episode: EpisodeResult; enriched?: 
   const isFuture = isFutureDate(episode.airDate)
   return (
     <div className={`flex items-center gap-2 text-sm ${isFuture ? 'text-muted-foreground' : ''}`}>
-      {enriched ? <EpisodeStatusIcon hasFile={enriched.hasFile} aired={enriched.aired} /> : null}
+      {enriched !== undefined && <EpisodeStatusIcon hasFile={enriched.hasFile} aired={enriched.aired} />}
       <span className={isFuture ? '' : 'text-muted-foreground'}>E{episode.episodeNumber}</span>
       <span className="truncate">{episode.title}</span>
-      {episode.airDate ? <span className="text-muted-foreground ml-auto shrink-0 text-xs">{episode.airDate}</span> : null}
+      {episode.airDate !== undefined && <span className="text-muted-foreground ml-auto shrink-0 text-xs">{episode.airDate}</span>}
     </div>
   )
 }

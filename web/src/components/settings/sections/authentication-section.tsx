@@ -18,11 +18,12 @@ export function AuthenticationSection() {
 
       <WebAuthnRPConfig />
 
-      {passkeySupported ? (
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {passkeySupported && (
         <div className="px-screen">
           <PasskeyManager />
         </div>
-      ) : null}
+      )}
 
       <ChangePinDialog open={pinDialogOpen} onOpenChange={setPinDialogOpen} />
     </>

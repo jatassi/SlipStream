@@ -87,6 +87,7 @@ function ConnectionFields({ hook }: { hook: HookValues }) {
           type="number"
           value={formData.port}
           onChange={(e) =>
+            // `||` intentional: parseInt of an emptied/invalid field is NaN, which `??` would not catch
             setFormData((prev) => ({ ...prev, port: Number.parseInt(e.target.value) || 0 }))
           }
         />
@@ -95,7 +96,8 @@ function ConnectionFields({ hook }: { hook: HookValues }) {
           checked={formData.useSsl ?? false}
           onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, useSsl: checked }))}
         />
-        {config.supportsUrlBase ? (
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {config.supportsUrlBase && (
           <InputRow
             stacked
             label="URL Base (optional)"
@@ -104,7 +106,7 @@ function ConnectionFields({ hook }: { hook: HookValues }) {
             value={formData.urlBase}
             onChange={(e) => setFormData((prev) => ({ ...prev, urlBase: e.target.value }))}
           />
-      ) : null}
+      )}
     </ControlStack>
   )
 }
@@ -122,6 +124,7 @@ function BehaviourFields({ hook }: { hook: HookValues }) {
           max={100}
           value={formData.priority}
           onChange={(e) =>
+            // `||` intentional: parseInt of an emptied/invalid field is NaN, which `??` would not catch
             setFormData((prev) => ({ ...prev, priority: Number.parseInt(e.target.value) || 50 }))
           }
         />
@@ -146,7 +149,8 @@ function CredentialFields({ hook }: { hook: HookValues }) {
   return (
     <ControlStack>
       <AuthFields hook={hook} />
-      {config.supportsCategory ? (
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {config.supportsCategory && (
         <InputRow
           stacked
           label="Category (optional)"
@@ -155,7 +159,7 @@ function CredentialFields({ hook }: { hook: HookValues }) {
           value={formData.category}
           onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
         />
-      ) : null}
+      )}
     </ControlStack>
   )
 }
@@ -165,7 +169,8 @@ function AuthFields({ hook }: { hook: HookValues }) {
 
   return (
     <>
-      {config.supportsUsername ? (
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {config.supportsUsername && (
         <InputRow
           stacked
           label={`${config.usernameLabel} (optional)`}
@@ -173,8 +178,9 @@ function AuthFields({ hook }: { hook: HookValues }) {
           value={formData.username}
           onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
         />
-      ) : null}
-      {config.supportsPassword ? (
+      )}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {config.supportsPassword && (
         <InputRow
           stacked
           label={config.passwordRequired ? config.passwordLabel : `${config.passwordLabel} (optional)`}
@@ -183,8 +189,9 @@ function AuthFields({ hook }: { hook: HookValues }) {
           value={formData.password}
           onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
         />
-      ) : null}
-      {config.supportsApiKey ? (
+      )}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {config.supportsApiKey && (
         <InputRow
           stacked
           label={`${config.apiKeyLabel} (optional)`}
@@ -193,7 +200,7 @@ function AuthFields({ hook }: { hook: HookValues }) {
           value={formData.apiKey}
           onChange={(e) => setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
         />
-      ) : null}
+      )}
     </>
   )
 }
@@ -224,7 +231,8 @@ function SecondaryActions({ hook, showDebug }: { hook: HookValues; showDebug: bo
       >
         Test
       </LoadingButton>
-      {showDebug ? (
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showDebug && (
         <LoadingButton
           className="min-h-tap flex-1"
           loading={hook.isAddingDebugTorrent}
@@ -235,7 +243,7 @@ function SecondaryActions({ hook, showDebug }: { hook: HookValues; showDebug: bo
         >
           Debug
         </LoadingButton>
-      ) : null}
+      )}
     </div>
   )
 }

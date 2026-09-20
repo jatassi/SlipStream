@@ -50,7 +50,7 @@ function TabLink({
     >
       <span className="relative">
         <Icon className="size-6" strokeWidth={active ? 2.25 : 1.75} />
-        {id === 'activity' ? <ActivityBadge loading={loading} count={activeCount} /> : null}
+        {id === 'activity' && <ActivityBadge loading={loading} count={activeCount} />}
       </span>
       <span className="text-[10px] leading-3 font-medium tracking-[0.01em]">{label}</span>
     </Link>

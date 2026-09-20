@@ -48,7 +48,7 @@ export function CalendarPage() {
     <Screen
       title="Calendar"
       back={back}
-      trailing={state.view === 'month' ? <TodayAction onToday={onToday} /> : undefined}
+      trailing={state.view === 'month' && <TodayAction onToday={onToday} />}
     >
       <div className="px-screen pb-5">
         <Segmented

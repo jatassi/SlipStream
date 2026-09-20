@@ -212,7 +212,8 @@ function SlotCardHeader({
         <div className="min-w-0 flex-1">
           <SlotNameInput slot={slot} onNameChange={onNameChange} />
         </div>
-        {showToggle ? <SlotToggle slot={slot} onEnabledChange={onEnabledChange} isUpdating={isUpdating} /> : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {showToggle && <SlotToggle slot={slot} onEnabledChange={onEnabledChange} isUpdating={isUpdating} />}
       </div>
       <CardDescription>
         {slot.enabled ? 'Active' : 'Disabled'}

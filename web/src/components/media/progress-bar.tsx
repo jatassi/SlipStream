@@ -47,7 +47,8 @@ export function ProgressBar({
           />
         </ProgressPrimitive.Track>
       </ProgressPrimitive.Root>
-      {showLabel ? <span className="text-muted-foreground text-xs tabular-nums">{percentage.toFixed(1)}%</span> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showLabel && <span className="text-muted-foreground text-xs tabular-nums">{percentage.toFixed(1)}%</span>}
     </div>
   )
 }

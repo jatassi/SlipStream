@@ -40,7 +40,8 @@ export function SearchResultsContent({
 }: SearchResultsContentProps) {
   return (
     <>
-      {hasLibraryResults ? <LibrarySection
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasLibraryResults && <LibrarySection
           isLoading={isLoading}
           libraryMovies={libraryMovies}
           librarySeriesItems={librarySeriesItems}
@@ -48,7 +49,7 @@ export function SearchResultsContent({
           currentUserId={currentUserId}
           onSeriesRequestClick={onSeriesRequestClick}
           onViewRequest={onViewRequest}
-        /> : null}
+        />}
 
       <RequestableSection
         query={query}

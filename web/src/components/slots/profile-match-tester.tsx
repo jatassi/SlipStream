@@ -56,7 +56,7 @@ export function ProfileMatchTester() {
       />
 
       <ProfileErrorMessage message={matchError} />
-      {result ? <ProfileMatchResultDisplay result={result} /> : null}
+      {result !== null && <ProfileMatchResultDisplay result={result} />}
     </div>
   )
 }
@@ -202,7 +202,7 @@ function AttributeMatchCard({ label, result }: { label: string; result: Attribut
             <span className="text-green-500">+{result.score}</span>
           </div>
         )}
-        {result.reason ? <div className="text-red-500">{result.reason}</div> : null}
+        {Boolean(result.reason) && <div className="text-red-500">{result.reason}</div>}
       </div>
     </div>
   )

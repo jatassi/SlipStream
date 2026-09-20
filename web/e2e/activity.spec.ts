@@ -8,6 +8,7 @@ import {
   removeDownloadClient,
 } from './helpers/dev-data'
 import { installQueueStub, type StubQueueItem } from './helpers/queue-stub'
+import { escapeRegExp } from './helpers/text'
 
 // These tests share the developer-mode queue with each other and with the
 // dashboard spec, so they run one at a time and hold the queue to three items:
@@ -212,10 +213,6 @@ test('wide row action opens a menu and removing confirms in a dialog', async ({ 
   await activate(dialog.getByRole('button', { name: 'Remove', exact: true }))
   await expect(queueRow(page, download.releaseName)).toHaveCount(0)
 })
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
-}
 
 function queueRow(page: Page, releaseName: string): Locator {
   return page.getByRole('button', { name: new RegExp(escapeRegExp(releaseName)) })

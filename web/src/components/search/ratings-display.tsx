@@ -15,10 +15,10 @@ export function RatingsDisplay({ ratings }: { ratings: ExternalRatings }) {
 
   return (
     <div className="space-y-2">
-      {hasRatings ? <RatingsBadges ratings={ratings} /> : null}
-      {ratings.awards ? <p className="text-muted-foreground text-sm">
+      {Boolean(hasRatings) && <RatingsBadges ratings={ratings} />}
+      {Boolean(ratings.awards) && <p className="text-muted-foreground text-sm">
           <span className="text-foreground font-medium">Awards:</span> {ratings.awards}
-        </p> : null}
+        </p>}
     </div>
   )
 }
@@ -59,7 +59,7 @@ function RatingItem({ icon, value, label }: { icon: React.ReactNode; value: stri
     <div className="flex items-center gap-1.5">
       {icon}
       <span className="text-sm font-medium">{value}</span>
-      {label ? <span className="text-muted-foreground text-xs">{label}</span> : null}
+      {Boolean(label) && <span className="text-muted-foreground text-xs">{label}</span>}
     </div>
   )
 }

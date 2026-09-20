@@ -47,7 +47,7 @@ export function HeaderNotifications({ notifications, onDismiss }: HeaderNotifica
               className="flex flex-col items-start gap-1 p-3"
             >
               <span className="font-medium">{notification.title}</span>
-              {notification.message ? <span className="text-muted-foreground text-sm">{notification.message}</span> : null}
+              {Boolean(notification.message) && <span className="text-muted-foreground text-sm">{notification.message}</span>}
             </DropdownMenuItem>
           ))
         )}

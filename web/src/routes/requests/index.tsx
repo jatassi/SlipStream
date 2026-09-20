@@ -203,13 +203,13 @@ function RequestCardBody(props: {
 
   return (
     <div className="min-w-0 flex-1">
-      {showUser && request.user ? <div className="text-muted-foreground mb-0.5 flex items-center gap-1 text-xs">
+      {Boolean(showUser) && request.user !== undefined && <div className="text-muted-foreground mb-0.5 flex items-center gap-1 text-xs">
           <User className="size-3" />
           <span>{request.user.username}</span>
-        </div> : null}
+        </div>}
       <div className="leading-snug">
         <span className="font-medium">{request.title}</span>
-        {request.year ? <span className="text-muted-foreground ml-1 text-sm">({request.year})</span> : null}
+        {request.year !== null && <span className="text-muted-foreground ml-1 text-sm">({request.year})</span>}
         <MobileStatusBadge statusConfig={statusConfig} isSearching={request.status === 'searching'} isMovie={isMovie} />
       </div>
       <RequestMetadata request={request} isMovie={isMovie} />
@@ -272,8 +272,8 @@ function RequestMetadata({ request, isMovie }: { request: Request; isMovie: bool
         {request.mediaType}
       </Badge>
       <SeriesMetadata request={request} />
-      {request.seasonNumber && request.mediaType !== 'series' ? <span>Season {request.seasonNumber}</span> : null}
-      {request.episodeNumber ? <span>Episode {request.episodeNumber}</span> : null}
+      {request.seasonNumber !== null && request.mediaType !== 'series' && <span>Season {request.seasonNumber}</span>}
+      {request.episodeNumber !== null && <span>Episode {request.episodeNumber}</span>}
       <span>•</span>
       <span>{formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}</span>
     </div>
@@ -296,9 +296,10 @@ function SeriesMetadata({ request }: { request: Request }) {
       ) : (
         <span className="text-muted-foreground/70">No seasons</span>
       )}
-      {request.monitorFuture ? <Badge variant="secondary" className="text-xs">
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {request.monitorFuture && <Badge variant="secondary" className="text-xs">
           Future
-        </Badge> : null}
+        </Badge>}
     </>
   )
 }

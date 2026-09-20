@@ -68,7 +68,8 @@ export function FileNamingSection() {
           ))}
           <TabsTrigger value="tokens">Token Reference</TabsTrigger>
         </TabsList>
-        {isImportTab ? <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} /> : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {isImportTab && <SaveStatus isSaving={isSaving} hasChanges={!!hasChanges} />}
       </div>
       <TabsContent value="validation">
         <ValidationTab form={form} updateField={updateField} />

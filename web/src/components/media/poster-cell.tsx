@@ -66,7 +66,8 @@ function SelectionMark({ selected }: { selected: boolean }) {
         selected ? 'bg-primary border-primary text-background' : 'bg-background/80 border-white/70',
       )}
     >
-      {selected ? <Check className="size-3.5" strokeWidth={3} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {selected && <Check className="size-3.5" strokeWidth={3} />}
     </span>
   )
 }

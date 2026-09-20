@@ -45,7 +45,7 @@ function RowBody({
       {trailing !== undefined && (
         <div className="text-body flex shrink-0 items-center text-muted-foreground">{trailing}</div>
       )}
-      {chevron ? <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" /> : null}
+      {Boolean(chevron) && <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" />}
     </>
   )
 }

@@ -84,9 +84,9 @@ function CompactSlotItem({
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 font-medium">{slot.slotName}</span>
         <CompactSlotBadge slot={slot} />
-        {slot.currentQuality ? <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
+        {Boolean(slot.currentQuality) && <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
             {slot.currentQuality}
-          </Badge> : null}
+          </Badge>}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

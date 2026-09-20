@@ -119,6 +119,9 @@ Use `??` by default. Use `||` only when falsy coalescing is intentional (0, `""`
 - `IconTile`: 28 px rounded square for a leading glyph (`[&_svg]:size-4`). Pass the fill with `className` (`bg-amber-500`, `bg-tv-600`, …).
 - `ProgressLine`: media-coloured bar (`kind` `movie` | `series`) with `role="progressbar"`. Width eases 700 ms linear. `muted` paints with `--muted-foreground`.
 - `RowSkeleton`: loading stand-in with the same padding and 44 px minimum as `Row`. `leading="poster"` and `progress` match download rows.
+- `RowThumbnail` (`src/components/media/row-thumbnail.tsx`) wraps `PosterImage` for a `Row`'s
+  `leading` slot, with `size` `'sm'` (`h-12 w-8 rounded-[4px]`) or `'md'` (`h-15 w-10 rounded-thumb`,
+  the downloads queue row).
 
 ## Settings control rows
 

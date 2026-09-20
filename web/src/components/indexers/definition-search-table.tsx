@@ -153,13 +153,14 @@ function SearchToolbar({
         </Button>
       </div>
 
-      {showFilters ? <FilterDropdowns
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showFilters && <FilterDropdowns
           protocolFilter={protocolFilter}
           setProtocolFilter={setProtocolFilter}
           privacyFilter={privacyFilter}
           setPrivacyFilter={setPrivacyFilter}
           stats={stats}
-        /> : null}
+        />}
 
       <p className="text-muted-foreground text-sm">
         {filteredCount} of {totalCount} definitions

@@ -19,7 +19,7 @@ export function eventKey(event: CalendarEvent): string {
   return `${event.mediaType}-${event.id}-${event.eventType}`
 }
 
-export function eventModuleId(event: CalendarEvent): string {
+function eventModuleId(event: CalendarEvent): string {
   if (event.moduleType) {
     return event.moduleType
   }
@@ -47,6 +47,7 @@ export function eventTitle(event: CalendarEvent): string {
 }
 
 function episodeDetail(event: CalendarEvent): string {
+  // `||` intentional: Number(undefined) is NaN, which `??` would not catch
   const season = Number(event.extra?.seasonNumber) || 0
   const episode = Number(event.extra?.episodeNumber) || 0
   if (event.title.startsWith('Season ')) {

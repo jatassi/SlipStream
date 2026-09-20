@@ -47,14 +47,14 @@ function DownloadsLink({
         getFlashClassName(nav.completionFlash),
       )}
     >
-      {nav.hasDownloads ? (
-        <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} />
-      ) : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {nav.hasDownloads && <DownloadsProgressOverlay theme={nav.theme} progress={nav.progress} allPaused={nav.allPaused} />}
       <Download className={getIconClassName(themeFlags)} />
       {collapsed ? null : (
         <>
           <span className="relative z-10 flex-1">Downloads</span>
-          {nav.hasDownloads ? <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} /> : null}
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {nav.hasDownloads && <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} />}
         </>
       )}
     </Link>
@@ -76,10 +76,10 @@ export function DownloadsNavLink({
         <TooltipContent side="right">
           <div className="flex items-center gap-2">
             Downloads
-            {nav.hasDownloads ? <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} /> : null}
-            {nav.hasDownloads ? (
-              <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span>
-            ) : null}
+            {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+            {nav.hasDownloads && <CountBadge movieCount={nav.movieCount} tvCount={nav.tvCount} />}
+            {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+            {nav.hasDownloads && <span className="text-muted-foreground text-xs">({nav.progress.toFixed(0)}%)</span>}
           </div>
         </TooltipContent>
       </Tooltip>

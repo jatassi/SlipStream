@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { shellKind } from './helpers/activate'
 import { apiGet, ensureHealthIssue } from './helpers/dev-data'
+import { escapeRegExp } from './helpers/text'
 
 type ListPage = {
   path: string
@@ -222,7 +223,3 @@ test('phone back from every section leaf reads its section name', async ({ page 
     await expect(page.getByRole('button', { name: leaf.back })).toBeVisible()
   }
 })
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
-}

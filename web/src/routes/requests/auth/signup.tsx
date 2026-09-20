@@ -149,7 +149,8 @@ function SignupForm({ username, signup }: SignupFormProps) {
               <p className="text-muted-foreground text-center text-xs">Choose a 4-digit PIN you&apos;ll remember</p>
             </div>
             <Button type="submit" className="w-full text-sm md:text-base" disabled={signup.isPending || signup.pin.length !== 4}>
-              {signup.isPending ? <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" /> : null}
+              {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+              {signup.isPending && <Loader2 className="mr-1 size-3 animate-spin md:mr-2 md:size-4" />}
               Create Account
             </Button>
           </form>

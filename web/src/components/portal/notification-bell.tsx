@@ -16,7 +16,8 @@ export function NotificationBell() {
         render={
           <Button variant="ghost" size="icon" aria-label="Notifications" className="relative size-8 md:size-9">
             <Bell className="size-4 md:size-5" />
-            {hasUnread ? <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" /> : null}
+            {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+            {hasUnread && <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" />}
           </Button>
         }
       />
@@ -26,16 +27,17 @@ export function NotificationBell() {
         </div>
 
         <div className="max-h-96 overflow-y-auto">
-          {isLoading ? <div className="text-muted-foreground p-4 text-center text-sm">Loading...</div> : null}
+          {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+          {isLoading && <div className="text-muted-foreground p-4 text-center text-sm">Loading...</div>}
           {!isLoading && (!inboxData || inboxData.notifications.length === 0) && (
             <div className="text-muted-foreground p-8 text-center text-sm">
               No notifications yet
             </div>
           )}
-          {!isLoading && inboxData && inboxData.notifications.length > 0 ? <NotificationBellList
+          {!isLoading && inboxData !== undefined && inboxData.notifications.length > 0 && <NotificationBellList
               notifications={inboxData.notifications}
               onNotificationClick={handleNotificationClick}
-            /> : null}
+            />}
         </div>
       </PopoverContent>
     </Popover>

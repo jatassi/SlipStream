@@ -43,7 +43,7 @@ function MovieTitle({ title, year }: { title: string; year?: number }) {
   return (
     <div className="font-medium">
       {title}
-      {year ? <span className="text-muted-foreground ml-1">({year})</span> : null}
+      {year !== undefined && <span className="text-muted-foreground ml-1">({year})</span>}
     </div>
   )
 }

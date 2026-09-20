@@ -43,7 +43,7 @@ export function ProviderFields({
                 <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
               )}
             </Label>
-            {field.helpText && field.type !== 'bool' ? <p className="text-muted-foreground text-xs">{field.helpText}</p> : null}
+            {Boolean(field.helpText && field.type !== 'bool') && <p className="text-muted-foreground text-xs">{field.helpText}</p>}
           </div>
           <SettingsFieldRenderer
             field={field}

@@ -162,7 +162,8 @@ export function WebAuthnRPConfig() {
   return (
     <>
       <FormGroups draft={draft} onChange={setDraft} />
-      {dirty ? <RestartNotice /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {dirty && <RestartNotice />}
       <div className="px-screen mb-7 flex justify-end">
         <LoadingButton
           className="h-11"

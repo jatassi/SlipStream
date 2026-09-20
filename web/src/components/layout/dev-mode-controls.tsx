@@ -58,8 +58,8 @@ export function DevModeControls({
           className={cn(devModeEnabled && 'data-checked:bg-amber-500')}
         />
       </SwitchRow>
-      {devModeEnabled ? (
-        <SwitchRow
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {devModeEnabled && <SwitchRow
           leading={
             <IconTile className="bg-zinc-600">
               <LayoutTemplate />
@@ -73,8 +73,7 @@ export function DevModeControls({
             size="sm"
             aria-label="Force Loading"
           />
-        </SwitchRow>
-      ) : null}
+        </SwitchRow>}
     </Group>
   )
 }

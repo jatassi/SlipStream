@@ -86,11 +86,11 @@ function GridHeader({
     )
   }
 
-  const Icon = icon && ICON_MAP[icon]
+  const Icon = icon ? ICON_MAP[icon] : undefined
 
   return (
     <div className={`flex items-center gap-2 text-sm ${colorClass}`}>
-      {Icon ? <Icon className="size-4" /> : null}
+      {Icon !== undefined && <Icon className="size-4" />}
       <span>
         {label} ({count})
       </span>
@@ -165,9 +165,11 @@ function GridBody<T>({
         {visibleItems.map((item, index) => (
           <div key={getKey(item)}>{renderItem(item, index)}</div>
         ))}
-        {!expanded && hasMore ? <ShowMoreCard remainingCount={remainingCount} onExpand={onExpand} /> : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {!expanded && hasMore && <ShowMoreCard remainingCount={remainingCount} onExpand={onExpand} />}
       </div>
-      {expanded && hasMore && collapsible ? <ShowLessButton onCollapse={onCollapse} /> : null}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {expanded && hasMore && collapsible && <ShowLessButton onCollapse={onCollapse} />}
     </>
   )
 }
@@ -204,7 +206,8 @@ export function ExpandableMediaGrid<T>({
   const visibleItems = expanded ? items : items.slice(0, initialCount)
   return (
     <div className="space-y-3">
-      {showHeader ? <GridHeader
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {showHeader && <GridHeader
           label={label}
           count={items.length}
           icon={icon}
@@ -212,7 +215,7 @@ export function ExpandableMediaGrid<T>({
           hasMore={hasMore}
           expanded={expanded}
           onToggle={() => setExpanded(!expanded)}
-        /> : null}
+        />}
       <GridBody
         visibleItems={visibleItems}
         renderItem={renderItem}

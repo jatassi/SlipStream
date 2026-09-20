@@ -98,7 +98,7 @@ function EditMatchDialogContent({ file, onClose, onConfirm }: {
           <p className="text-sm font-medium break-all">{file.fileName}</p>
           <p className="text-muted-foreground mt-1 text-xs">{formatFileSize(file.fileSize)}</p>
         </div>
-        {file.parsedInfo ? <ParsedInfoPanel parsed={file.parsedInfo} /> : null}
+        {file.parsedInfo !== undefined && <ParsedInfoPanel parsed={file.parsedInfo} />}
         <MatchToLibraryForm
           selectedType={s.selectedType} onTypeChange={s.setSelectedType}
           selectedMovieId={s.selectedMovieId} onMovieChange={s.setSelectedMovieId}
@@ -128,7 +128,7 @@ export function EditMatchDialog({ file, open, onClose, onConfirm }: {
           <DialogTitle>Edit Import Match</DialogTitle>
           <DialogDescription>Review parsed information and select the library item to import as</DialogDescription>
         </DialogHeader>
-        {file ? <EditMatchDialogContent file={file} onClose={onClose} onConfirm={onConfirm} /> : null}
+        {file !== null && <EditMatchDialogContent file={file} onClose={onClose} onConfirm={onConfirm} />}
       </DialogContent>
     </Dialog>
   )

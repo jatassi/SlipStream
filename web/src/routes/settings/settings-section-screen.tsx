@@ -53,13 +53,13 @@ function entryDetail({ count, warnings }: SectionEntry): ReactNode | undefined {
   }
   return (
     <span className="nums text-footnote flex items-center gap-1.5">
-      {count === undefined ? null : <span>{count}</span>}
-      {hasWarnings ? <span className="text-muted-foreground/50">·</span> : null}
-      {hasWarnings ? (
-        <span className="text-amber-400">
+      {count !== undefined && <span>{count}</span>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasWarnings && <span className="text-muted-foreground/50">·</span>}
+      {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+      {hasWarnings && <span className="text-amber-400">
           {warnings} {warnings === 1 ? 'warning' : 'warnings'}
-        </span>
-      ) : null}
+        </span>}
     </span>
   )
 }

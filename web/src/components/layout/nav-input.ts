@@ -1,4 +1,4 @@
-export type NavInput = 'keyboard' | 'pointer'
+type NavInput = 'keyboard' | 'pointer'
 
 let input: NavInput = 'pointer'
 let bound = false

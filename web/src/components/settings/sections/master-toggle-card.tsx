@@ -171,7 +171,7 @@ function SetupAlerts({
 
   return (
     <CardContent className="space-y-3">
-      {migrationError ? <MigrationErrorAlert error={migrationError} onDismiss={onDismissMigrationError} /> : null}
+      {migrationError !== null && <MigrationErrorAlert error={migrationError} onDismiss={onDismissMigrationError} />}
 
       {!settingsEnabled && (
         <DryRunAlert configurationReady={configurationReady} onBegin={onBeginDryRun} />

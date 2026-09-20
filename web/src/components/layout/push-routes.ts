@@ -1,47 +1,47 @@
 import { paneFromPathname, type PaneId } from './use-tab-nav'
 
-export type SettingsSection = {
+type SettingsSection = {
   path: string
   title: string
 }
 
-export const SETTINGS_SECTIONS: SettingsSection[] = [
+const SETTINGS_SECTIONS: SettingsSection[] = [
   { path: '/settings/media', title: 'Media' },
   { path: '/settings/download-pipeline', title: 'Download Pipeline' },
   { path: '/settings/general', title: 'General' },
 ]
 
-export function isAddPath(pathname: string): boolean {
+function isAddPath(pathname: string): boolean {
   return pathname === '/movies/add' || pathname === '/series/add'
 }
 
-export function isMovieDetailPath(pathname: string): boolean {
+function isMovieDetailPath(pathname: string): boolean {
   return pathname.startsWith('/movies/') && pathname !== '/movies/add'
 }
 
-export function isSeriesDetailPath(pathname: string): boolean {
+function isSeriesDetailPath(pathname: string): boolean {
   return pathname.startsWith('/series/') && pathname !== '/series/add'
 }
 
-export function isDetailPath(pathname: string): boolean {
+function isDetailPath(pathname: string): boolean {
   return isMovieDetailPath(pathname) || isSeriesDetailPath(pathname)
 }
 
-export function isLibraryPushPath(pathname: string): boolean {
+function isLibraryPushPath(pathname: string): boolean {
   return pathname.startsWith('/movies/') || pathname.startsWith('/series/')
 }
 
-export function isSettingsPath(pathname: string): boolean {
+function isSettingsPath(pathname: string): boolean {
   return pathname === '/settings' || pathname.startsWith('/settings/')
 }
 
-export const SYSTEM_INDEX_PATH = '/system/health'
+const SYSTEM_INDEX_PATH = '/system/health'
 
-export function isRequestsAdminPath(pathname: string): boolean {
+function isRequestsAdminPath(pathname: string): boolean {
   return pathname.startsWith('/requests-admin')
 }
 
-export function isSystemPath(pathname: string): boolean {
+function isSystemPath(pathname: string): boolean {
   return pathname === '/system' || pathname.startsWith('/system/')
 }
 
@@ -49,7 +49,7 @@ function isSystemSubScreen(pathname: string): boolean {
   return isSystemPath(pathname) && pathname !== SYSTEM_INDEX_PATH
 }
 
-export function settingsSectionForLeaf(pathname: string): SettingsSection | undefined {
+function settingsSectionForLeaf(pathname: string): SettingsSection | undefined {
   return SETTINGS_SECTIONS.find((section) => pathname.startsWith(`${section.path}/`))
 }
 

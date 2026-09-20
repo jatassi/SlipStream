@@ -32,7 +32,8 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
-        {hasRunningTasks ? <HeaderRunningTasks tasks={runningTasks} /> : null}
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {hasRunningTasks && <HeaderRunningTasks tasks={runningTasks} />}
 
         {activities.length > 0 && (
           <HeaderActivityIndicator
@@ -43,13 +44,14 @@ export function Header() {
           />
         )}
 
-        {isDevBuild ? <HeaderDevMode
+        {/* eslint-disable-next-line react/jsx-no-leaked-render -- condition is already a boolean */}
+        {isDevBuild && <HeaderDevMode
             devModeEnabled={devModeEnabled}
             devModeSwitching={devModeSwitching}
             onToggle={handleDevModeToggle}
             globalLoading={globalLoading}
             onGlobalLoadingChange={setGlobalLoading}
-          /> : null}
+          />}
 
         <HeaderNotifications notifications={notifications} onDismiss={dismissNotification} />
       </div>
