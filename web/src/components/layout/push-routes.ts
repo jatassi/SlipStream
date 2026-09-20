@@ -73,6 +73,7 @@ export function backLabelForPathname(pathname: string): string | undefined {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 const FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
 =======
 const FILL_PANES = new Set<PaneId>(['dashboard', 'activity', 'movies', 'series'])
@@ -98,6 +99,14 @@ export function isScreenFillPath(pathname: string): boolean {
   return (
     isAddPath(pathname) ||
 =======
+=======
+const SCREEN_FILL_PATHS = new Set(['/more', '/calendar', '/import', '/missing', '/history'])
+const SCREEN_FILL_PANES = new Set(['dashboard', 'activity', 'movies', 'series'])
+
+export function isScreenFillPath(pathname: string): boolean {
+  const pane = paneFromPathname(pathname)
+  if (SCREEN_FILL_PATHS.has(pathname) || (pane !== null && SCREEN_FILL_PANES.has(pane))) {
+>>>>>>> worktree-agent-a2d2f3ad3d963c5ec
     return true
   }
   return (

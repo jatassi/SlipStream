@@ -10,53 +10,75 @@ import type { HistoryEventType } from '@/types'
 import type { DatePreset, MediaFilter } from './history-utils'
 import { getAfterDate } from './history-utils'
 
+const PAGE_SIZE = 50
+
 function useHistoryFilters() {
   const [eventTypes, setEventTypes] = useState<HistoryEventType[]>(
     filterableEventTypes.map((et) => et.value),
   )
   const [mediaType, setMediaType] = useState<MediaFilter>('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
-  const [page, setPage] = useState(1)
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [limit, setLimit] = useState(PAGE_SIZE)
 
   const handleToggleEventType = (value: HistoryEventType) => {
     setEventTypes((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     )
-    setPage(1)
+    setLimit(PAGE_SIZE)
   }
-  const handleResetEventTypes = () => setEventTypes(filterableEventTypes.map((e) => e.value))
-  const handleMediaTypeChange = (v: string) => { setMediaType(v as MediaFilter); setPage(1) }
-  const handleDatePresetChange = (v: string | null) => {
-    if (v) { setDatePreset(v as DatePreset); setPage(1) }
+
+  const handleResetEventTypes = () => {
+    setEventTypes(filterableEventTypes.map((e) => e.value))
+    setLimit(PAGE_SIZE)
   }
-  const handleToggleExpanded = (itemId: number, hasDetails: boolean) => {
-    if (hasDetails) {setExpandedId(expandedId === itemId ? null : itemId)}
+
+  const handleMediaTypeChange = (value: MediaFilter) => {
+    setMediaType(value)
+    setLimit(PAGE_SIZE)
+  }
+
+  const handleDatePresetChange = (value: string | null) => {
+    if (value) {
+      setDatePreset(value as DatePreset)
+      setLimit(PAGE_SIZE)
+    }
   }
 
   return {
-    eventTypes, mediaType, datePreset, page, expandedId, setPage,
-    handleToggleEventType, handleResetEventTypes, handleMediaTypeChange,
-    handleDatePresetChange, handleToggleExpanded,
+    eventTypes,
+    mediaType,
+    datePreset,
+    limit,
+    handleToggleEventType,
+    handleResetEventTypes,
+    handleMediaTypeChange,
+    handleDatePresetChange,
+    handleLoadMore: () => {
+      setLimit((value) => value + PAGE_SIZE)
+    },
   }
 }
 
 export function useHistoryPage() {
   const filters = useHistoryFilters()
   const allSelected = filters.eventTypes.length >= filterableEventTypes.length
-  const mediaTypeParam = filters.mediaType === 'all' ? undefined : filters.mediaType
 
   const globalLoading = useUIStore((s) => s.globalLoading)
-  const { data: history, isLoading: queryLoading, isError, refetch } = useHistory({
+  const {
+    data: history,
+    isLoading: queryLoading,
+    isError,
+    refetch,
+  } = useHistory({
     eventType: allSelected ? undefined : filters.eventTypes.join(','),
-    mediaType: mediaTypeParam,
+    mediaType: filters.mediaType === 'all' ? undefined : filters.mediaType,
     after: getAfterDate(filters.datePreset),
-    page: filters.page,
-    pageSize: 50,
+    page: 1,
+    pageSize: filters.limit,
   })
 
-  const isLoading = queryLoading || globalLoading
   const clearMutation = useClearHistory()
+  const items = history?.items ?? []
 
   const handleClearHistory = async () => {
     try {
@@ -67,23 +89,13 @@ export function useHistoryPage() {
     }
   }
 
-  const handlePreviousPage = () => filters.setPage((p) => Math.max(1, p - 1))
-  const handleNextPage = () => {
-    if (history) {
-      filters.setPage((p) => Math.min(history.totalPages, p + 1))
-    }
-  }
-  const handlePageSelect = (p: number) => filters.setPage(p)
-
   return {
     ...filters,
-    history,
-    isLoading,
+    items,
+    hasMore: items.length < (history?.totalCount ?? 0),
+    isLoading: queryLoading || globalLoading,
     isError,
     refetch,
     handleClearHistory,
-    handlePreviousPage,
-    handleNextPage,
-    handlePageSelect,
   }
 }

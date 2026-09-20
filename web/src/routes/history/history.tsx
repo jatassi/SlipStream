@@ -1,81 +1,128 @@
-import { History } from 'lucide-react'
+import { useRef, useState } from 'react'
 
 import { EmptyState } from '@/components/data/empty-state'
 import { ErrorState } from '@/components/data/error-state'
-import { PageHeader } from '@/components/layout/page-header'
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import type { HistoryEntry } from '@/types'
+import { Group, RowSkeleton } from '@/components/grouped-list'
+import { usePushBack } from '@/components/layout/use-push-back'
+import { ActionPresenter } from '@/components/presenter'
+import { Screen } from '@/components/screen/screen'
 
-import { HistoryTable, HistoryTableSkeleton } from './history-components'
-import { ClearHistoryAction, HistoryFilters } from './history-filters'
-import { HistoryPagination } from './history-pagination'
+import { HistoryFilters } from './history-filters'
+import { HistoryDayGroup } from './history-groups'
+import { groupByDay } from './history-utils'
 import { useHistoryPage } from './use-history-page'
 
-export function HistoryPage() {
-  const s = useHistoryPage()
+const SKELETONS = ['history-a', 'history-b', 'history-c', 'history-d', 'history-e', 'history-f'] as const
 
-  if (s.isError) {
-    return (
-      <div>
-        <PageHeader title="History" />
-        <ErrorState onRetry={s.refetch} />
-      </div>
-    )
-  }
+type PageState = ReturnType<typeof useHistoryPage>
 
-  const description = s.isLoading ? <Skeleton className="h-4 w-48" /> : 'View past activity and events'
+function ClearHistoryAction({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const anchor = useRef<HTMLButtonElement>(null)
 
   return (
-    <div>
-      <PageHeader
-        title="History"
-        description={description}
-        actions={<ClearHistoryAction isLoading={s.isLoading} onConfirm={s.handleClearHistory} />}
+    <>
+      <button
+        ref={anchor}
+        type="button"
+        onClick={() => {
+          setOpen(true)
+        }}
+        className="press-dim min-h-tap text-title focus-visible:ring-ring px-2 outline-none focus-visible:ring-[3px]"
+      >
+        Clear
+      </button>
+      <ActionPresenter
+        open={open}
+        onOpenChange={setOpen}
+        title="Clear history"
+        description="Every history entry is removed. This cannot be undone."
+        wide="dialog"
+        anchor={anchor}
+        actions={[
+          {
+            label: 'Clear History',
+            destructive: true,
+            onClick: () => {
+              void onConfirm()
+            },
+          },
+        ]}
       />
-      <HistoryFilters
-        mediaType={s.mediaType}
-        datePreset={s.datePreset}
-        eventTypes={s.eventTypes}
-        isLoading={s.isLoading}
-        onMediaTypeChange={s.handleMediaTypeChange}
-        onDatePresetChange={s.handleDatePresetChange}
-        onToggleEventType={s.handleToggleEventType}
-        onResetEventTypes={s.handleResetEventTypes}
-      />
-      <Card>
-        <CardContent className="p-0">
-          <HistoryCardBody isLoading={s.isLoading} items={s.history?.items} expandedId={s.expandedId} onToggleExpanded={s.handleToggleExpanded} />
-        </CardContent>
-      </Card>
-      {!s.isLoading && s.history ? <HistoryPagination page={s.page} totalPages={s.history.totalPages} onPreviousPage={s.handlePreviousPage} onNextPage={s.handleNextPage} onPageSelect={s.handlePageSelect} /> : null}
+    </>
+  )
+}
+
+function LoadMore({ state }: { state: PageState }) {
+  if (!state.hasMore) {
+    return null
+  }
+  return (
+    <div className="px-screen pb-6">
+      <button
+        type="button"
+        onClick={state.handleLoadMore}
+        className="press-dim min-h-tap text-body bg-card focus-visible:ring-ring rounded-card text-primary w-full font-medium outline-none focus-visible:ring-[3px]"
+      >
+        Load more
+      </button>
     </div>
   )
 }
 
-function HistoryCardBody({
-  isLoading,
-  items,
-  expandedId,
-  onToggleExpanded,
-}: {
-  isLoading: boolean
-  items: HistoryEntry[] | undefined
-  expandedId: number | null
-  onToggleExpanded: (id: number, hasDetails: boolean) => void
-}) {
-  if (isLoading) {
-    return <HistoryTableSkeleton />
-  }
-  if (!items?.length) {
+function HistoryBody({ state }: { state: PageState }) {
+  if (state.isLoading) {
     return (
-      <EmptyState
-        icon={<History className="size-8" />}
-        title="No history"
-        description="Activity history will appear here"
-        className="py-8"
-      />
+      <Group>
+        {SKELETONS.map((id) => (
+          <RowSkeleton key={id} trailing />
+        ))}
+      </Group>
     )
   }
-  return <HistoryTable items={items} expandedId={expandedId} onToggleExpanded={onToggleExpanded} />
+
+  if (state.items.length === 0) {
+    return <EmptyState title="No history" description="Activity history will appear here" />
+  }
+
+  return (
+    <>
+      {groupByDay(state.items).map((group) => (
+        <HistoryDayGroup key={group.key} group={group} />
+      ))}
+      <LoadMore state={state} />
+    </>
+  )
+}
+
+export function HistoryPage() {
+  const state = useHistoryPage()
+  const back = usePushBack()
+
+  if (state.isError) {
+    return (
+      <Screen title="History" back={back}>
+        <ErrorState onRetry={state.refetch} />
+      </Screen>
+    )
+  }
+
+  return (
+    <Screen
+      title="History"
+      back={back}
+      trailing={<ClearHistoryAction onConfirm={state.handleClearHistory} />}
+    >
+      <HistoryFilters
+        mediaType={state.mediaType}
+        datePreset={state.datePreset}
+        eventTypes={state.eventTypes}
+        onMediaTypeChange={state.handleMediaTypeChange}
+        onDatePresetChange={state.handleDatePresetChange}
+        onToggleEventType={state.handleToggleEventType}
+        onResetEventTypes={state.handleResetEventTypes}
+      />
+      <HistoryBody state={state} />
+    </Screen>
+  )
 }

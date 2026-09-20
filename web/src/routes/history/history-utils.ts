@@ -1,6 +1,36 @@
+import { format, isToday, isYesterday, parseISO } from 'date-fns'
+
 import type { HistoryEntry, HistoryEventType } from '@/types'
 
 export type MediaFilter = 'all' | 'movie' | 'episode'
+
+export type DayGroup = { key: string; label: string; entries: HistoryEntry[] }
+
+function dayLabel(date: Date): string {
+  if (isToday(date)) {
+    return 'Today'
+  }
+  if (isYesterday(date)) {
+    return 'Yesterday'
+  }
+  return format(date, 'EEEE, d MMMM yyyy')
+}
+
+/** History arrives newest first, so consecutive entries of one day form a group. */
+export function groupByDay(entries: HistoryEntry[]): DayGroup[] {
+  const groups: DayGroup[] = []
+  for (const entry of entries) {
+    const date = parseISO(entry.createdAt)
+    const key = format(date, 'yyyy-MM-dd')
+    const last = groups.at(-1)
+    if (last?.key === key) {
+      last.entries.push(entry)
+    } else {
+      groups.push({ key, label: dayLabel(date), entries: [entry] })
+    }
+  }
+  return groups
+}
 
 export const DATE_PRESETS = [
   { value: 'all', label: 'All Time' },
@@ -97,138 +127,8 @@ function getFileRenamedText(
   return source ?? '-'
 }
 
-type DetailRow = { label: string; value: string }
-
-type DetailRowsFn = (data: Record<string, unknown>) => DetailRow[]
-
-const detailRowsByEvent: Partial<Record<HistoryEventType, DetailRowsFn>> = {
-  autosearch_download: getAutosearchDownloadRows,
-  autosearch_failed: getAutosearchFailedRows,
-  imported: getImportedRows,
-  import_failed: getImportFailedRows,
-  status_changed: getStatusChangedRows,
-  file_renamed: getFileRenamedRows,
-  slot_assigned: getSlotEventRows,
-  slot_reassigned: getSlotEventRows,
-  slot_unassigned: getSlotEventRows,
-}
-
-export function getDetailRows(item: HistoryEntry): DetailRow[] {
-  const data = item.data as Record<string, unknown> | undefined
-  if (!data) {
-    return []
-  }
-  const fn = detailRowsByEvent[item.eventType]
-  return fn ? fn(data) : []
-}
-
-function pushIfPresent(rows: DetailRow[], label: string, value: unknown) {
-  const s = str(value)
-  if (s) {
-    rows.push({ label, value: s })
-  }
-}
-
-function getAutosearchDownloadRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Release', data.releaseName)
-  pushIfPresent(rows, 'Indexer', data.indexer)
-  pushIfPresent(rows, 'Client', data.clientName)
-  pushIfPresent(rows, 'Download ID', data.downloadId)
-  pushIfPresent(rows, 'Trigger', data.source)
-  pushIfPresent(rows, 'Previous Quality', data.oldQuality)
-  pushIfPresent(rows, 'New Quality', data.newQuality)
-  return rows
-}
-
-function getAutosearchFailedRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Error', data.error)
-  pushIfPresent(rows, 'Indexer', data.indexer)
-  return rows
-}
-
-function getImportedRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Source', data.sourcePath)
-  pushIfPresent(rows, 'Destination', data.destinationPath)
-  pushIfPresent(rows, 'Original', data.originalFilename)
-  pushIfPresent(rows, 'Final', data.finalFilename)
-  pushIfPresent(rows, 'Client', data.clientName)
-  pushIfPresent(rows, 'Codec', data.codec)
-  if (typeof data.size === 'number' && data.size > 0) {
-    rows.push({ label: 'Size', value: formatFileSize(data.size) })
-  }
-  pushIfPresent(rows, 'Previous File', data.previousFile)
-  pushIfPresent(rows, 'Error', data.error)
-  return rows
-}
-
-function getImportFailedRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Error', data.error)
-  pushIfPresent(rows, 'Source', data.sourcePath)
-  return rows
-}
-
-function getStatusChangedRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'From', data.from)
-  pushIfPresent(rows, 'To', data.to)
-  pushIfPresent(rows, 'Reason', data.reason)
-  return rows
-}
-
-function getFileRenamedRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Old Path', data.source_path)
-  pushIfPresent(rows, 'New Path', data.destination_path)
-  return rows
-}
-
 function getSlotEventText(data: Record<string, unknown>): string {
   return str(data.slotName) ?? '-'
 }
 
-function getSlotEventRows(data: Record<string, unknown>): DetailRow[] {
-  const rows: DetailRow[] = []
-  pushIfPresent(rows, 'Slot', data.slotName)
-  pushIfPresent(rows, 'File', data.filePath)
-  return rows
-}
 
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) {
-    return '0 B'
-  }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
-}
-
-type PaginationEntry = number | 'ellipsis-start' | 'ellipsis-end'
-
-export function getPaginationPages(current: number, total: number): PaginationEntry[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }
-
-  const pages: PaginationEntry[] = [1]
-
-  if (current > 3) {
-    pages.push('ellipsis-start')
-  }
-
-  const start = Math.max(2, current - 1)
-  const end = Math.min(total - 1, current + 1)
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-
-  if (current < total - 2) {
-    pages.push('ellipsis-end')
-  }
-
-  pages.push(total)
-  return pages
-}

@@ -1,7 +1,17 @@
 import type { LucideIcon } from 'lucide-react'
-import { AlertCircle, FileEdit, Layers, PackageCheck, RefreshCw, Search } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowDownToLine,
+  CheckCircle2,
+  FileEdit,
+  Layers,
+  PackageCheck,
+  RefreshCw,
+  Search,
+  XCircle,
+} from 'lucide-react'
 
-import type { HistoryEventType } from '@/types'
+import type { HistoryEntry, HistoryEventType } from '@/types'
 
 export const eventTypeColors: Record<
   HistoryEventType,
@@ -56,4 +66,36 @@ export function isUpgradeEvent(data: Record<string, unknown> | undefined): boole
     return false
   }
   return Boolean(data.isUpgrade)
+}
+
+export type HistoryEventLook = { label: string; className: string; icon: LucideIcon }
+
+const IMPORTED_LOOK = { label: 'Imported', className: 'bg-emerald-600', icon: CheckCircle2 }
+const GRABBED_LOOK = { label: 'Grabbed', className: 'bg-tv-600', icon: ArrowDownToLine }
+const UPGRADED_LOOK = { label: 'Upgraded', className: 'bg-movie-600', icon: RefreshCw }
+const FAILED_LOOK = { label: 'Failed', className: 'bg-red-600', icon: XCircle }
+
+/** Tile colour, glyph and short label shared by the Dashboard's Recent group and History. */
+export function eventLook(entry: HistoryEntry): HistoryEventLook {
+  if (isUpgradeEvent(entry.data as Record<string, unknown> | undefined)) {
+    return UPGRADED_LOOK
+  }
+  if (entry.eventType === 'imported') {
+    return IMPORTED_LOOK
+  }
+  if (entry.eventType === 'grabbed' || entry.eventType === 'autosearch_download') {
+    return GRABBED_LOOK
+  }
+  if (
+    entry.eventType === 'failed' ||
+    entry.eventType === 'autosearch_failed' ||
+    entry.eventType === 'import_failed'
+  ) {
+    return FAILED_LOOK
+  }
+  return {
+    label: eventTypeLabels[entry.eventType],
+    className: 'bg-zinc-600',
+    icon: ArrowDownToLine,
+  }
 }

@@ -6,20 +6,18 @@ import {
   useMissingMovies,
   useMissingSeries,
   useQualityProfiles,
-  useSearchAllMissing,
   useSearchAllMissingMovies,
   useSearchAllMissingSeries,
-  useSearchAllUpgradable,
   useSearchAllUpgradableMovies,
   useSearchAllUpgradableSeries,
   useUpgradableMovies,
   useUpgradableSeries,
 } from '@/hooks'
+import { getEnabledModules } from '@/modules'
 import { useAutoSearchStore, useUIStore } from '@/stores'
 import type { QualityProfile } from '@/types/quality-profile'
 
 export type ViewMode = 'missing' | 'upgradable'
-export type MediaFilter = 'all' | 'movies' | 'series'
 
 async function executeSearch(searchFn: () => Promise<unknown>) {
   try {
@@ -59,50 +57,24 @@ function showTaskResultToast(result: {
   }
 }
 
-function getSearchCount(filter: MediaFilter, movieCount: number, episodeCount: number) {
-  if (filter === 'movies') {
-    return movieCount
-  }
-  if (filter === 'series') {
-    return episodeCount
-  }
-  return movieCount + episodeCount
-}
-
-function getSearchButtonStyle(filter: MediaFilter, movieCount: number, episodeCount: number) {
-  const hasMovies = filter === 'movies' || (filter === 'all' && movieCount > 0)
-  const hasSeries = filter === 'series' || (filter === 'all' && episodeCount > 0)
-  if (hasMovies && hasSeries) {
-    return 'glow-media-sm'
-  }
-  if (hasMovies) {
-    return 'bg-movie-500 hover:bg-movie-600 glow-movie-sm'
-  }
-  if (hasSeries) {
-    return 'bg-tv-500 hover:bg-tv-600 glow-tv-sm'
-  }
-  return ''
-}
-
 function useMissingQueries() {
-  const missingMovies = useMissingMovies()
-  const missingSeries = useMissingSeries()
-  const upgradableMovies = useUpgradableMovies()
-  const upgradableSeries = useUpgradableSeries()
-  return { missingMovies, missingSeries, upgradableMovies, upgradableSeries }
+  return {
+    missingMovies: useMissingMovies(),
+    missingSeries: useMissingSeries(),
+    upgradableMovies: useUpgradableMovies(),
+    upgradableSeries: useUpgradableSeries(),
+  }
 }
 
 function useSearchMutations() {
   return {
     missing: {
-      movies: useSearchAllMissingMovies(),
-      series: useSearchAllMissingSeries(),
-      all: useSearchAllMissing(),
+      movie: useSearchAllMissingMovies(),
+      tv: useSearchAllMissingSeries(),
     },
     upgradable: {
-      movies: useSearchAllUpgradableMovies(),
-      series: useSearchAllUpgradableSeries(),
-      all: useSearchAllUpgradable(),
+      movie: useSearchAllUpgradableMovies(),
+      tv: useSearchAllUpgradableSeries(),
     },
   }
 }
@@ -119,99 +91,79 @@ function useTaskResultNotifier() {
 }
 
 type Queries = ReturnType<typeof useMissingQueries>
+type Mutations = ReturnType<typeof useSearchMutations>
 
-function deriveCounts(queries: Queries) {
+function buildQualityMaps(profiles: QualityProfile[] | undefined) {
   return {
-    missingMovieCount: queries.missingMovies.data?.length ?? 0,
-    missingEpisodeCount:
-      queries.missingSeries.data?.reduce((acc, s) => acc + s.missingCount, 0) ?? 0,
-    upgradableMovieCount: queries.upgradableMovies.data?.length ?? 0,
-    upgradableEpisodeCount:
-      queries.upgradableSeries.data?.reduce((acc, s) => acc + s.upgradableCount, 0) ?? 0,
+    qualityProfileNames: new Map(profiles?.map((p) => [p.id, p.name])),
+    qualityProfileMap: new Map<number, QualityProfile>(profiles?.map((p) => [p.id, p])),
   }
 }
 
-function deriveViewState(queries: Queries, isMissingView: boolean, globalLoading: boolean) {
-  const viewLoading = isMissingView
-    ? queries.missingMovies.isLoading || queries.missingSeries.isLoading
-    : queries.upgradableMovies.isLoading || queries.upgradableSeries.isLoading
-  const isError = isMissingView
-    ? queries.missingMovies.isError || queries.missingSeries.isError
-    : queries.upgradableMovies.isError || queries.upgradableSeries.isError
-  return { isLoading: globalLoading || viewLoading, isError }
-}
-
-type Mutations = ReturnType<typeof useSearchMutations>
-
-function deriveIsSearching(task: { isRunning: boolean }, mutations: Mutations) {
+function deriveIsSearching(task: { isRunning: boolean }, mutations: Mutations): boolean {
   return (
     task.isRunning ||
-    mutations.missing.all.isPending ||
-    mutations.missing.movies.isPending ||
-    mutations.missing.series.isPending ||
-    mutations.upgradable.all.isPending ||
-    mutations.upgradable.movies.isPending ||
-    mutations.upgradable.series.isPending
+    mutations.missing.movie.isPending ||
+    mutations.missing.tv.isPending ||
+    mutations.upgradable.movie.isPending ||
+    mutations.upgradable.tv.isPending
   )
 }
 
-function buildQualityMaps(profiles: QualityProfile[] | undefined) {
-  const names = new Map(profiles?.map((p) => [p.id, p.name]))
-  const map = new Map<number, QualityProfile>(profiles?.map((p) => [p.id, p]))
-  return { qualityProfileNames: names, qualityProfileMap: map }
+function activeQueries(queries: Queries, moduleId: string, view: ViewMode) {
+  if (view === 'missing') {
+    return moduleId === 'movie' ? queries.missingMovies : queries.missingSeries
+  }
+  return moduleId === 'movie' ? queries.upgradableMovies : queries.upgradableSeries
 }
 
-function refetchQueries(queries: Queries, isMissingView: boolean) {
-  if (isMissingView) {
-    void queries.missingMovies.refetch()
-    void queries.missingSeries.refetch()
-  } else {
-    void queries.upgradableMovies.refetch()
-    void queries.upgradableSeries.refetch()
+function countFor(queries: Queries, moduleId: string, view: ViewMode): number {
+  if (moduleId === 'movie') {
+    const list = view === 'missing' ? queries.missingMovies.data : queries.upgradableMovies.data
+    return list?.length ?? 0
   }
+  if (view === 'missing') {
+    return queries.missingSeries.data?.reduce((acc, s) => acc + s.missingCount, 0) ?? 0
+  }
+  return queries.upgradableSeries.data?.reduce((acc, s) => acc + s.upgradableCount, 0) ?? 0
 }
 
 export function useMissingPage() {
+  const modules = getEnabledModules()
+  const [moduleId, setModuleId] = useState(modules[0]?.id ?? 'movie')
   const [view, setView] = useState<ViewMode>('missing')
-  const [filter, setFilter] = useState<MediaFilter>('all')
+
   const queries = useMissingQueries()
   const { data: qualityProfiles } = useQualityProfiles()
   const mutations = useSearchMutations()
   const task = useTaskResultNotifier()
   const globalLoading = useUIStore((s) => s.globalLoading)
 
-  const isMissingView = view === 'missing'
-  const counts = deriveCounts(queries)
-  const movieCount = isMissingView ? counts.missingMovieCount : counts.upgradableMovieCount
-  const episodeCount = isMissingView ? counts.missingEpisodeCount : counts.upgradableEpisodeCount
-  const { isLoading, isError } = deriveViewState(queries, isMissingView, globalLoading)
-
-  const upgradableTotalCount = counts.upgradableMovieCount + counts.upgradableEpisodeCount
-
+  const active = activeQueries(queries, moduleId, view)
   const qualityMaps = useMemo(() => buildQualityMaps(qualityProfiles), [qualityProfiles])
+  const searchMutation = view === 'missing' ? mutations.missing : mutations.upgradable
 
   return {
+    modules,
+    moduleId,
+    setModuleId,
     view,
     setView,
-    filter,
-    setFilter,
-    isMissingView,
-    isLoading,
-    isError,
+    isLoading: globalLoading || active.isLoading,
+    isError: active.isError,
     isSearching: deriveIsSearching(task, mutations),
-    movieCount,
-    episodeCount,
-    totalCount: movieCount + episodeCount,
-    upgradableTotalCount,
-    searchCount: getSearchCount(filter, movieCount, episodeCount),
-    searchButtonStyle: getSearchButtonStyle(filter, movieCount, episodeCount),
-    handleRefetch: () => refetchQueries(queries, isMissingView),
-    handleSearch: () => void executeSearch(() => mutations[view][filter].mutateAsync()),
+    count: countFor(queries, moduleId, view),
+    handleRefetch: () => {
+      void active.refetch()
+    },
+    handleSearchAll: () => {
+      const mutation = moduleId === 'movie' ? searchMutation.movie : searchMutation.tv
+      void executeSearch(() => mutation.mutateAsync())
+    },
     ...qualityMaps,
     missingMovies: queries.missingMovies.data ?? [],
     missingSeries: queries.missingSeries.data ?? [],
     upgradableMovies: queries.upgradableMovies.data ?? [],
     upgradableSeries: queries.upgradableSeries.data ?? [],
-    ...counts,
   }
 }

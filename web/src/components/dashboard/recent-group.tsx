@@ -1,39 +1,13 @@
-import type { LucideIcon } from 'lucide-react'
-import { ArrowDownToLine, CheckCircle2, RefreshCw, XCircle } from 'lucide-react'
+import { ArrowDownToLine } from 'lucide-react'
 
 import { Group, IconTile, Row, RowSkeleton } from '@/components/grouped-list'
 import { useHistory } from '@/hooks'
 import { formatRelativeTime } from '@/lib/formatters'
-import { eventTypeLabels, isUpgradeEvent } from '@/lib/history-utils'
+import { eventLook } from '@/lib/history-utils'
 import { useUIStore } from '@/stores'
 import type { HistoryEntry } from '@/types/history'
 
 const SKELETONS = ['recent-a', 'recent-b', 'recent-c', 'recent-d', 'recent-e'] as const
-
-const IMPORTED = { label: 'Imported', className: 'bg-emerald-600', icon: CheckCircle2 }
-const GRABBED = { label: 'Grabbed', className: 'bg-tv-600', icon: ArrowDownToLine }
-const UPGRADED = { label: 'Upgraded', className: 'bg-movie-600', icon: RefreshCw }
-const FAILED = { label: 'Failed', className: 'bg-red-600', icon: XCircle }
-const OTHER = { className: 'bg-zinc-600', icon: ArrowDownToLine }
-
-type EventLook = { label: string; className: string; icon: LucideIcon }
-
-function eventLook(entry: HistoryEntry): EventLook {
-  const data = entry.data as Record<string, unknown> | undefined
-  if (isUpgradeEvent(data)) {
-    return UPGRADED
-  }
-  if (entry.eventType === 'imported') {
-    return IMPORTED
-  }
-  if (entry.eventType === 'grabbed' || entry.eventType === 'autosearch_download') {
-    return GRABBED
-  }
-  if (entry.eventType === 'failed' || entry.eventType === 'autosearch_failed' || entry.eventType === 'import_failed') {
-    return FAILED
-  }
-  return { label: eventTypeLabels[entry.eventType], ...OTHER }
-}
 
 function recentHref(entry: HistoryEntry): string | undefined {
   if (entry.mediaType === 'movie') {
