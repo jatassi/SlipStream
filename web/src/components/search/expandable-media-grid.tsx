@@ -39,23 +39,11 @@ const THEME_COLOR_MAP: Record<string, string> = {
   series: 'text-tv-400',
 }
 
-const ICON_GLOW_MAP: Record<string, string> = {
-  movie: 'icon-glow-movie',
-  series: 'icon-glow-tv',
-}
-
 function getThemeColor(icon?: string): string {
   if (!icon) {
     return ''
   }
   return THEME_COLOR_MAP[icon] ?? ''
-}
-
-function getIconGlow(icon?: string): string {
-  if (!icon) {
-    return ''
-  }
-  return ICON_GLOW_MAP[icon] ?? ''
 }
 
 type HeaderProps = {
@@ -85,7 +73,7 @@ function GridHeader({
       <button
         type="button"
         aria-expanded={expanded}
-        className={`flex items-center gap-2 text-sm ${colorClass} cursor-pointer hover:brightness-125 transition-all duration-200`}
+        className={`flex items-center gap-2 text-sm ${colorClass} cursor-pointer hover:opacity-80 transition-opacity duration-200`}
         onClick={onToggle}
       >
         <ChevronRight
@@ -101,10 +89,8 @@ function GridHeader({
   const Icon = icon && ICON_MAP[icon]
 
   return (
-    <div
-      className={`flex items-center gap-2 text-sm ${colorClass} transition-all duration-200`}
-    >
-      {Icon ? <Icon className={`size-4 ${getIconGlow(icon)}`} /> : null}
+    <div className={`flex items-center gap-2 text-sm ${colorClass}`}>
+      {Icon ? <Icon className="size-4" /> : null}
       <span>
         {label} ({count})
       </span>
@@ -144,7 +130,7 @@ function ShowLessButton({ onCollapse }: { onCollapse: () => void }) {
   return (
     <button
       type="button"
-      className="hover:text-foreground flex cursor-pointer justify-center pt-2 transition-all duration-200 w-full"
+      className="hover:text-foreground flex cursor-pointer justify-center pt-2 transition-colors duration-200 w-full"
       onClick={onCollapse}
     >
       <div className="text-muted-foreground flex items-center gap-1 text-sm">

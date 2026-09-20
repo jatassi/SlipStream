@@ -92,7 +92,7 @@ function CardHeaderContent({
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex items-center gap-4">
         <div
-          className={`h-24 w-16 flex-shrink-0 overflow-hidden rounded-lg ${isMovie ? 'glow-movie-sm' : 'glow-tv-sm'}`}
+          className={`h-24 w-16 flex-shrink-0 overflow-hidden rounded-lg border ${isMovie ? 'border-movie-500/40' : 'border-tv-500/40'}`}
         >
           <PosterImage
             url={request.posterUrl}

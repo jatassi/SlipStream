@@ -23,7 +23,7 @@ export function DownloadsProgressOverlay({ theme, progress, allPaused }: Downloa
 
       <div
         className={cn(
-          'absolute inset-y-0 left-0 transition-all duration-500 ease-out',
+          'absolute inset-y-0 left-0 transition-[width] duration-500 ease-out',
           getProgressBarGradient(theme),
         )}
         style={{ width: `${clampedProgress}%` }}

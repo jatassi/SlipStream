@@ -20,7 +20,6 @@ const STATUS_CONFIG = getStatusConfig('xs')
 export function RequestsListPage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
   const [filter, setFilter] = useState<'mine' | 'all'>('mine')
   const { data: requests = [], isLoading } = useRequests({ scope: filter })
 
@@ -44,8 +43,6 @@ export function RequestsListPage() {
       <SearchSection
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        searchFocused={searchFocused}
-        setSearchFocused={setSearchFocused}
         onSearch={handleSearch}
       />
       <RequestsSection
@@ -154,10 +151,10 @@ function RequestCard(props: { request: Request; showUser?: boolean; onClick: () 
   return (
     <button
       onClick={onClick}
-      className={`bg-card flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-all sm:gap-4 sm:p-4 ${
+      className={`bg-card flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-[border-color] sm:gap-4 sm:p-4 ${
         isMovie
-          ? 'border-movie-500/20 hover:border-movie-500/50 hover:glow-movie-sm'
-          : 'border-tv-500/20 hover:border-tv-500/50 hover:glow-tv-sm'
+          ? 'border-movie-500/20 hover:border-movie-500/50'
+          : 'border-tv-500/20 hover:border-tv-500/50'
       }`}
     >
       <div className="h-18 w-12 flex-shrink-0 overflow-hidden rounded">

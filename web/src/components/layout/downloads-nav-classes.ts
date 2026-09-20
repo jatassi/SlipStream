@@ -16,7 +16,7 @@ type LayoutFlags = {
 
 export function getIconClassName({ theme, hasDownloads }: Omit<ThemeFlags, 'allPaused'>) {
   return cn(
-    'size-4 shrink-0 transition-all duration-300 relative z-10',
+    'size-4 shrink-0 transition-[color,filter] duration-300 relative z-10',
     hasDownloads && 'text-white',
     hasDownloads && theme === 'movie' && 'icon-glow-movie',
     hasDownloads && theme === 'tv' && 'icon-glow-tv',
@@ -26,7 +26,7 @@ export function getIconClassName({ theme, hasDownloads }: Omit<ThemeFlags, 'allP
 
 export function getBaseClassName({ collapsed, indented, popover }: LayoutFlags) {
   return cn(
-    'relative flex items-center rounded-md text-sm font-medium transition-all duration-300 border-l-2 border-transparent',
+    'relative flex items-center rounded-md text-sm font-medium transition-[color,background-color] duration-300 border-l-2 border-transparent',
     popover ? 'gap-2 px-2 py-1.5 border-l-0' : 'gap-3 px-3 py-2',
     collapsed && !popover && 'justify-center px-2 border-l-0',
     indented && !collapsed && !popover && 'ml-4 border-l border-border pl-4',
@@ -93,7 +93,7 @@ export function getShimmerClassName(theme: DownloadTheme) {
 
 export function getEdgeGlowClassName(theme: DownloadTheme) {
   return cn(
-    'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-all duration-500',
+    'absolute top-0 bottom-0 w-1 rounded-full blur-sm transition-[left] duration-500 ease-out',
     theme === 'movie' && 'bg-movie-400',
     theme === 'tv' && 'bg-tv-400',
     theme === 'both' && 'from-movie-400 to-tv-400 bg-gradient-to-b',

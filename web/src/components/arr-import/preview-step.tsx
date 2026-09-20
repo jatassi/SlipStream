@@ -122,7 +122,7 @@ function SelectionToolbar({ selectedCount, totalNew, onToggleAll, isMovie, isImp
         {selectedCount} of {totalNew} new {isMovie ? 'movies' : 'series'} selected
       </span>
       <div className="ml-auto">
-        <LoadingButton loading={isImporting} icon={Plus} onClick={onStartImport} disabled={selectedCount === 0} className={cn(isMovie ? 'bg-movie-500 hover:bg-movie-600 glow-movie-sm' : 'bg-tv-500 hover:bg-tv-600 glow-tv-sm')}>
+        <LoadingButton loading={isImporting} icon={Plus} onClick={onStartImport} disabled={selectedCount === 0} className={cn(isMovie ? 'bg-movie-500 hover:bg-movie-600' : 'bg-tv-500 hover:bg-tv-600')}>
           {label}
         </LoadingButton>
       </div>
@@ -188,7 +188,7 @@ function PreviewCard({ item, isMovie, selected, onToggleSelect, profileName }: {
   const theme = isMovie ? 'movie' : 'tv'
 
   return (
-    <button type="button" disabled={!isSelectable} onClick={onToggleSelect} className={cn('group bg-card block overflow-hidden rounded-lg border-2 transition-all text-left w-full [content-visibility:auto] [contain-intrinsic-size:auto_200px]', getCardClassName(isSelectable, selected, isMovie))}>
+    <button type="button" disabled={!isSelectable} onClick={onToggleSelect} className={cn('group bg-card block overflow-hidden rounded-lg border-2 transition-[border-color,background-color] text-left w-full [content-visibility:auto] [contain-intrinsic-size:auto_200px]', getCardClassName(isSelectable, selected, isMovie))}>
       <div className="relative aspect-[2/3]">
         <PreviewPoster item={item} isMovie={isMovie} />
         {isSelectable ? <SelectionCheckbox selected={selected} theme={theme} /> : null}

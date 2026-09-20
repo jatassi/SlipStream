@@ -18,7 +18,7 @@ export function LibraryMovieCard({ movie }: LibraryMovieCardProps) {
     <>
       <button
         type="button"
-        className="group bg-card border-border hover:border-movie-500/50 hover:glow-movie block w-full overflow-hidden rounded-lg border text-left transition-all"
+        className="group bg-card border-border hover:border-movie-500/50 block w-full overflow-hidden rounded-lg border text-left transition-[border-color]"
         onClick={() => setInfoOpen(true)}
       >
         <div className="relative aspect-[2/3]">

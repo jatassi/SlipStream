@@ -172,7 +172,6 @@ This enables Tailwind classes like `text-mymodule-500`, `bg-mymodule-500/10`, `b
 - Borders and accents: **500 shades** (`text-{theme}-500`, `border-{theme}-500`)
 - Subtle backgrounds: **500 shade with opacity** (`bg-{theme}-500/10`, `bg-{theme}-500/20`)
 - Buttons: `bg-{theme}-500 hover:bg-{theme}-400 border-{theme}-500`
-- Glow effects: `glow-{theme}`, `hover:glow-{theme}`
 - Mixed/gradient: `bg-media-gradient`, `text-media-gradient`
 
 ### Files with Theme Lookup Maps
@@ -182,15 +181,10 @@ The following files contain `Record<string, string>` maps that must be updated w
 | File | Map Name | Purpose |
 |---|---|---|
 | `components/media/progress-bar.tsx` | `indicatorClasses` | Progress bar fill color |
-| `components/media/media-list-filters.tsx` | `accentMap` | Sort indicator accent |
 | `components/media/media-table.tsx` | `checkboxClassMap` | Edit-mode checkbox color |
-| `components/media/media-page-actions.tsx` | (inline object) | Add button styling |
 | `components/tables/column-config-popover.tsx` | `accentMap` | Column config accent |
 | `components/ui/filter-dropdown.tsx` | `THEME_ACTIVE_CLASS` | Active filter text color |
-| `routes/missing/media-tabs.tsx` | `THEME_GLOW_CLASSES` | Tab glow effect |
-| `routes/missing/missing-tab-content.tsx` | `THEME_TEXT_CLASSES` | Missing tab text color |
-| `routes/missing/upgradable-tab-content.tsx` | `THEME_TEXT_CLASSES` | Upgradable tab text color |
-| `routes/history/history-components.tsx` | `MEDIA_HOVER_CLASSES`, `MEDIA_ROW_HOVER`, `MEDIA_ICON_CLASSES` | History row styling |
+| `components/grouped-list/progress-line.tsx` | `KIND_BG` | Grouped-row progress fill |
 
 ---
 

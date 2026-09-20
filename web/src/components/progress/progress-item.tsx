@@ -77,7 +77,7 @@ export function ProgressItem({ activity, onDismiss }: ProgressItemProps) {
   return (
     <div
       className={cn(
-        'group bg-card relative rounded-md border p-3 transition-all',
+        'group bg-card relative rounded-md border p-3 transition-[border-color,opacity]',
         isActive && 'border-primary/30',
         activity.status === 'completed' && 'border-green-500/30 opacity-80',
         activity.status === 'failed' && 'border-destructive/30',

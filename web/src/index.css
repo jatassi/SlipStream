@@ -211,149 +211,12 @@
     border-image: linear-gradient(to right, var(--movie-500), var(--tv-500)) 1;
   }
 
-  /* Movie glow effects */
-  .glow-movie-sm {
-    box-shadow: 0 0 8px var(--movie-500);
-  }
-  .glow-movie {
-    box-shadow: 0 0 15px var(--movie-500);
-  }
-  .glow-movie-lg {
-    box-shadow:
-      0 0 25px var(--movie-500),
-      0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
-  }
-  .glow-movie-border {
-    box-shadow:
-      0 0 0 1px var(--movie-500),
-      0 0 15px var(--movie-500);
-  }
-  .glow-movie-ring {
-    box-shadow:
-      0 0 0 2px color-mix(in oklch, var(--movie-500) 30%, transparent),
-      0 0 15px var(--movie-500);
-  }
-
-  /* TV glow effects */
-  .glow-tv-sm {
-    box-shadow: 0 0 8px var(--tv-500);
-  }
-  .glow-tv {
-    box-shadow: 0 0 15px var(--tv-500);
-  }
-  .glow-tv-lg {
-    box-shadow:
-      0 0 25px var(--tv-500),
-      0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-  .glow-tv-border {
-    box-shadow:
-      0 0 0 1px var(--tv-500),
-      0 0 15px var(--tv-500);
-  }
-  .glow-tv-ring {
-    box-shadow:
-      0 0 0 2px color-mix(in oklch, var(--tv-500) 30%, transparent),
-      0 0 15px var(--tv-500);
-  }
-
-  /* Media gradient glow (combines both colors) */
-  .glow-media-sm {
-    box-shadow:
-      -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
-      8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-  .glow-media {
-    box-shadow:
-      -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-      12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
-  }
-  .glow-media-lg {
-    box-shadow:
-      -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent),
-      15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
-  }
-
-  /* Animated pulse glows */
-  .glow-movie-pulse {
-    animation: glow-movie-pulse 2s ease-in-out infinite;
-  }
-  .glow-tv-pulse {
-    animation: glow-tv-pulse 2s ease-in-out infinite;
-  }
-  .glow-media-pulse {
-    animation: glow-media-pulse 2s ease-in-out infinite;
-  }
-
-  /* Hover variants for glows — fine pointer only so tap never sticks */
-  @media (hover: hover) and (pointer: fine) {
-    .hover\:glow-movie-sm:hover {
-      box-shadow: 0 0 8px var(--movie-500);
-    }
-    .hover\:glow-movie:hover {
-      box-shadow: 0 0 15px var(--movie-500);
-    }
-    .hover\:glow-movie-lg:hover {
-      box-shadow:
-        0 0 25px var(--movie-500),
-        0 0 50px color-mix(in oklch, var(--movie-500) 50%, transparent);
-    }
-    .hover\:glow-tv-sm:hover {
-      box-shadow: 0 0 8px var(--tv-500);
-    }
-    .hover\:glow-tv:hover {
-      box-shadow: 0 0 15px var(--tv-500);
-    }
-    .hover\:glow-tv-lg:hover {
-      box-shadow:
-        0 0 25px var(--tv-500),
-        0 0 50px color-mix(in oklch, var(--tv-500) 50%, transparent);
-    }
-    .hover\:glow-media-sm:hover {
-      box-shadow:
-        -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
-        8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
-    }
-    .hover\:glow-media:hover {
-      box-shadow:
-        -12px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-        12px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
-    }
-  }
-
   /* Icon glow effects (using drop-shadow for SVG icons) */
   .icon-glow-movie {
     filter: drop-shadow(0 0 4px var(--movie-500));
   }
   .icon-glow-tv {
     filter: drop-shadow(0 0 4px var(--tv-500));
-  }
-  .icon-glow-movie-lg {
-    filter: drop-shadow(0 0 6px var(--movie-500)) drop-shadow(0 0 10px var(--movie-500));
-  }
-  .icon-glow-tv-lg {
-    filter: drop-shadow(0 0 6px var(--tv-500)) drop-shadow(0 0 10px var(--tv-500));
-  }
-  .icon-glow-media {
-    filter: drop-shadow(-4px 0 5px var(--movie-500)) drop-shadow(4px 0 5px var(--tv-500));
-  }
-
-  /* Hover variants for icon glows */
-  @media (hover: hover) and (pointer: fine) {
-    .group:hover .group-hover\:icon-glow-movie,
-    .group\/btn:hover .group-hover\/btn\:icon-glow-movie {
-      filter: drop-shadow(0 0 4px var(--movie-500));
-    }
-    .group:hover .group-hover\:icon-glow-tv,
-    .group\/btn:hover .group-hover\/btn\:icon-glow-tv {
-      filter: drop-shadow(0 0 4px var(--tv-500));
-    }
-    .hover\:icon-glow-movie:hover {
-      filter: drop-shadow(0 0 4px var(--movie-500));
-    }
-    .hover\:icon-glow-tv:hover {
-      filter: drop-shadow(0 0 4px var(--tv-500));
-    }
   }
 }
 
@@ -364,70 +227,8 @@
 .data-active\:text-black[data-active] {
   color: black;
 }
-.data-active\:glow-movie[data-active] {
-  box-shadow: 0 0 15px var(--movie-500);
-}
-.data-active\:glow-tv[data-active] {
-  box-shadow: 0 0 15px var(--tv-500);
-}
-.data-active\:glow-media-sm[data-active] {
-  box-shadow:
-    -8px 0 15px color-mix(in oklch, var(--movie-500) 50%, transparent),
-    8px 0 15px color-mix(in oklch, var(--tv-500) 50%, transparent);
-}
-
-/* Glow animations */
-@keyframes glow-movie-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 10px color-mix(in oklch, var(--movie-500) 50%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 25px var(--movie-500),
-      0 0 40px color-mix(in oklch, var(--movie-500) 50%, transparent);
-  }
-}
-
-@keyframes glow-tv-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 10px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 25px var(--tv-500),
-      0 0 40px color-mix(in oklch, var(--tv-500) 50%, transparent);
-  }
-}
-
-@keyframes glow-media-pulse {
-  0%,
-  100% {
-    box-shadow:
-      -8px 0 15px color-mix(in oklch, var(--movie-500) 30%, transparent),
-      8px 0 15px color-mix(in oklch, var(--tv-500) 30%, transparent);
-  }
-  50% {
-    box-shadow:
-      -15px 0 30px color-mix(in oklch, var(--movie-500) 70%, transparent),
-      15px 0 30px color-mix(in oklch, var(--tv-500) 70%, transparent);
-  }
-}
 
 /* Download completion flash animation */
-@keyframes download-complete-flash {
-  0% {
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 @keyframes download-complete-flash-movie {
   0% {
     box-shadow:
@@ -506,40 +307,6 @@
 
 .animate-skeleton-shimmer {
   animation: skeleton-shimmer 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes progress-glow-movie {
-  0%,
-  100% {
-    box-shadow: 0 0 8px color-mix(in oklch, var(--movie-500) 40%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 16px var(--movie-500);
-  }
-}
-
-@keyframes progress-glow-tv {
-  0%,
-  100% {
-    box-shadow: 0 0 8px color-mix(in oklch, var(--tv-500) 40%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 16px var(--tv-500);
-  }
-}
-
-@keyframes progress-glow-media {
-  0%,
-  100% {
-    box-shadow:
-      -6px 0 12px color-mix(in oklch, var(--movie-500) 30%, transparent),
-      6px 0 12px color-mix(in oklch, var(--tv-500) 30%, transparent);
-  }
-  50% {
-    box-shadow:
-      -10px 0 20px color-mix(in oklch, var(--movie-500) 60%, transparent),
-      10px 0 20px color-mix(in oklch, var(--tv-500) 60%, transparent);
-  }
 }
 
 @keyframes inset-glow-pulse-movie {
