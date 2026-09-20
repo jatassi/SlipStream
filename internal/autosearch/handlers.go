@@ -63,6 +63,9 @@ func (h *Handlers) SearchMovie(c echo.Context) error {
 		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
 		}
+		if errors.Is(err, ErrSearchInProgress) {
+			return echo.NewHTTPError(http.StatusConflict, "search already in progress")
+		}
 		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "movie already in download queue")
 		}
@@ -90,6 +93,9 @@ func (h *Handlers) SearchMovieSlot(c echo.Context) error {
 		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "movie not found")
 		}
+		if errors.Is(err, ErrSearchInProgress) {
+			return echo.NewHTTPError(http.StatusConflict, "search already in progress")
+		}
 		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "movie already in download queue")
 		}
@@ -111,6 +117,9 @@ func (h *Handlers) SearchEpisode(c echo.Context) error {
 	if err != nil {
 		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
+		}
+		if errors.Is(err, ErrSearchInProgress) {
+			return echo.NewHTTPError(http.StatusConflict, "search already in progress")
 		}
 		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "episode already in download queue")
@@ -138,6 +147,9 @@ func (h *Handlers) SearchEpisodeSlot(c echo.Context) error {
 	if err != nil {
 		if errors.Is(err, ErrItemNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "episode not found")
+		}
+		if errors.Is(err, ErrSearchInProgress) {
+			return echo.NewHTTPError(http.StatusConflict, "search already in progress")
 		}
 		if errors.Is(err, ErrAlreadyInQueue) {
 			return echo.NewHTTPError(http.StatusConflict, "episode already in download queue")

@@ -27,10 +27,11 @@ const (
 )
 
 var (
-	ErrNoResults       = errors.New("no suitable releases found")
-	ErrItemNotFound    = errors.New("item not found")
-	ErrAlreadyInQueue  = errors.New("item already in download queue")
-	ErrSearchCancelled = errors.New("search was cancelled")
+	ErrNoResults        = errors.New("no suitable releases found")
+	ErrItemNotFound     = errors.New("item not found")
+	ErrAlreadyInQueue   = errors.New("item already in download queue")
+	ErrSearchInProgress = errors.New("search already in progress for item")
+	ErrSearchCancelled  = errors.New("search was cancelled")
 )
 
 // Service provides automatic release searching and grabbing functionality.
@@ -519,7 +520,10 @@ func (s *Service) searchAndGrab(_ctx context.Context, item SearchableItem, sourc
 	searchKey := fmt.Sprintf("%s:%d", mediaType, mediaID)
 
 	// Register this search and get a cancellable context
-	searchCtx, cancel := s.registerSearch(searchKey)
+	searchCtx, cancel, err := s.registerSearch(searchKey)
+	if err != nil {
+		return nil, err
+	}
 	defer s.unregisterSearch(searchKey, cancel)
 
 	// Broadcast search started
@@ -671,18 +675,19 @@ func (s *Service) buildGrabRequest(item SearchableItem, bestRelease *types.Torre
 }
 
 // registerSearch registers an active search and returns a cancellable context.
-func (s *Service) registerSearch(key string) (context.Context, context.CancelFunc) {
+// A search that is already running for the item keeps running; the caller gets
+// ErrSearchInProgress and must not cancel it (CancelSearch is the explicit way).
+func (s *Service) registerSearch(key string) (context.Context, context.CancelFunc, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Cancel any existing search for this item
-	if existingCancel, exists := s.activeSearches[key]; exists {
-		existingCancel()
+	if _, exists := s.activeSearches[key]; exists {
+		return nil, nil, ErrSearchInProgress
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.activeSearches[key] = cancel
-	return ctx, cancel
+	return ctx, cancel, nil
 }
 
 // unregisterSearch removes a search from active tracking.

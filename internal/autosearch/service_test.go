@@ -2,6 +2,7 @@ package autosearch
 
 import (
 	"context"
+	"errors"
 	"database/sql"
 	"testing"
 
@@ -52,5 +53,22 @@ func TestSearchMovie_SkipsUnreleased(t *testing.T) {
 	}
 	if result.Downloaded {
 		t.Errorf("expected Downloaded=false for unreleased movie, got Downloaded=true")
+	}
+}
+
+func TestRegisterSearch_SecondCallerGetsInProgress(t *testing.T) {
+	s := &Service{activeSearches: make(map[string]context.CancelFunc)}
+
+	ctx, cancel, err := s.registerSearch("movie:1")
+	if err != nil {
+		t.Fatalf("registerSearch() error = %v", err)
+	}
+	defer s.unregisterSearch("movie:1", cancel)
+
+	if _, _, err := s.registerSearch("movie:1"); !errors.Is(err, ErrSearchInProgress) {
+		t.Fatalf("second registerSearch() error = %v, want ErrSearchInProgress", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("first search context was canceled by the second caller: %v", ctx.Err())
 	}
 }
