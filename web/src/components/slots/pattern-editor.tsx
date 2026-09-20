@@ -32,10 +32,12 @@ function PatternPreview({ valid, preview, error }: { valid: boolean; preview: st
 }
 
 function PatternTriggerButton({
+  label,
   value,
   isMissing,
   onClick,
 }: {
+  label: string
   value: string
   isMissing: boolean
   onClick: () => void
@@ -44,10 +46,11 @@ function PatternTriggerButton({
   return (
     <button
       type="button"
+      aria-label={label}
       onClick={onClick}
-      className={`bg-muted/50 hover:bg-muted flex w-full cursor-pointer items-start gap-2 rounded-md border p-2 text-left font-mono text-xs transition-colors ${borderClass}`}
+      className={`bg-muted/50 hover:bg-muted min-h-tap flex w-full cursor-pointer items-center gap-2 rounded-lg border p-2 text-left font-mono text-xs transition-colors ${borderClass}`}
     >
-      <Pencil className="text-muted-foreground mt-0.5 size-3 shrink-0" />
+      <Pencil className="text-muted-foreground size-3 shrink-0" />
       <span className="break-all">{value || '(not configured)'}</span>
     </button>
   )
@@ -88,14 +91,16 @@ export function PatternEditor({
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-footnote font-medium">{label}</Label>
       <PatternTriggerButton
+        label={label}
         value={localValue}
         isMissing={isMissingTokens}
         onClick={() => setTokenDialogOpen(true)}
       />
       {preview ? <PatternPreview valid={preview.valid} preview={preview.preview} error={preview.error} /> : null}
       <TokenBuilderDialog
+        nested
         open={tokenDialogOpen}
         onOpenChange={setTokenDialogOpen}
         value={localValue}

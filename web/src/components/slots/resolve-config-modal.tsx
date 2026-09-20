@@ -1,15 +1,4 @@
-import { Loader2 } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import type { SlotConflict } from '@/types'
 
 import { ProfileEditorCard } from './profile-editor-card'
@@ -26,27 +15,22 @@ export function ResolveConfigModal(props: ResolveConfigModalProps) {
   const state = useResolveConfigModal(props)
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-6xl">
-        <DialogHeader>
-          <DialogTitle>Resolve Profile Conflicts</DialogTitle>
-          <DialogDescription>
-            Edit the conflicting profiles to make them mutually exclusive. Conflicting attributes
-            are highlighted in orange.
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogBody>
-          <ProfileGrid {...state} />
-        </DialogBody>
-
+    <SheetPresenter
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title="Resolve Profile Conflicts"
+      description="Edit the conflicting profiles to make them mutually exclusive. Conflicting attributes are highlighted in orange."
+      wideClassName="sm:max-w-6xl"
+      footer={
         <SaveFooter
           saving={state.saving}
           onCancel={() => props.onOpenChange(false)}
           onSave={state.handleSaveAll}
         />
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <ProfileGrid {...state} />
+    </SheetPresenter>
   )
 }
 
@@ -63,7 +47,7 @@ function ProfileGrid({
 }: ReturnType<typeof useResolveConfigModal>) {
   return (
     <div
-      className="grid gap-6"
+      className="grid gap-6 py-2 max-sm:!grid-cols-1"
       style={{ gridTemplateColumns: `repeat(${Math.min(profilesToEdit.length, 3)}, 1fr)` }}
     >
       {profilesToEdit.slice(0, 3).map((profile) => (
@@ -96,14 +80,6 @@ function SaveFooter({
   onSave: () => void
 }) {
   return (
-    <DialogFooter>
-      <Button variant="outline" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button onClick={onSave} disabled={saving}>
-        {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-        Save All
-      </Button>
-    </DialogFooter>
+    <FormActions onCancel={onCancel} confirmLabel="Save All" onConfirm={onSave} loading={saving} />
   )
 }

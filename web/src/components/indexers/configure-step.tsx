@@ -1,13 +1,10 @@
 import { Controller, useFormContext } from 'react-hook-form'
 
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
+import { ControlStack, InputRow, SwitchRow } from '@/components/settings/control-row'
 import { Badge } from '@/components/ui/badge'
-import { DialogBody } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 import type { Privacy, Protocol } from '@/types'
 
 import { DynamicSettingsForm } from './dynamic-settings-form'
@@ -16,26 +13,32 @@ import type { FormData, useIndexerDialog  } from './use-indexer-dialog'
 
 type HookValues = ReturnType<typeof useIndexerDialog>
 
-export function ConfigureStep({ hook }: { hook: HookValues }) {
+export function ConfigureStep({ hook, onBack }: { hook: HookValues; onBack?: () => void }) {
   if (!hook.selectedDefinition) {
     return null
   }
 
   return (
-    <DialogBody className="overflow-hidden">
-      <ScrollArea className="size-full">
-        <div className="space-y-4 py-4 pr-4">
-          <DefinitionBanner definition={hook.selectedDefinition} />
-          <NameInput />
-          <SchemaSettings hook={hook} />
-          <MediaTypeToggles />
-          <PriorityInput />
-          <EnabledToggle />
-          <AutoSearchToggle definition={hook.selectedDefinition} />
-          <RssToggle />
-        </div>
-      </ScrollArea>
-    </DialogBody>
+    <div className="space-y-4 py-2">
+      {onBack === undefined ? null : (
+        <Button variant="ghost" className="min-h-tap -ml-2" onClick={onBack}>
+          <ArrowLeft className="size-4" />
+          Indexer list
+        </Button>
+      )}
+      <DefinitionBanner definition={hook.selectedDefinition} />
+      <ControlStack>
+        <NameInput />
+      </ControlStack>
+      <SchemaSettings hook={hook} />
+      <ControlStack>
+        <MediaTypeToggles />
+        <PriorityInput />
+        <EnabledToggle />
+        <AutoSearchToggle definition={hook.selectedDefinition} />
+        <RssToggle />
+      </ControlStack>
+    </div>
   )
 }
 
@@ -65,12 +68,7 @@ function DefinitionBanner({
 
 function NameInput() {
   const { register } = useFormContext<FormData>()
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="name">Name</Label>
-      <Input id="name" placeholder="My Indexer" {...register('name')} />
-    </div>
-  )
+  return <InputRow stacked label="Name" aria-label="Name" placeholder="My Indexer" {...register('name')} />
 }
 
 function SchemaSettings({ hook }: { hook: HookValues }) {
@@ -103,61 +101,49 @@ function SchemaSettings({ hook }: { hook: HookValues }) {
 function MediaTypeToggles() {
   const { control } = useFormContext<FormData>()
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="flex items-center justify-between">
-        <Label htmlFor="supportsMovies">Movies</Label>
-        <Controller
-          control={control}
-          name="supportsMovies"
-          render={({ field }) => (
-            <Switch id="supportsMovies" checked={field.value} onCheckedChange={field.onChange} />
-          )}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <Label htmlFor="supportsTv">TV Shows</Label>
-        <Controller
-          control={control}
-          name="supportsTv"
-          render={({ field }) => (
-            <Switch id="supportsTv" checked={field.value} onCheckedChange={field.onChange} />
-          )}
-        />
-      </div>
-    </div>
+    <>
+      <Controller
+        control={control}
+        name="supportsMovies"
+        render={({ field }) => (
+          <SwitchRow label="Movies" checked={field.value} onCheckedChange={field.onChange} />
+        )}
+      />
+      <Controller
+        control={control}
+        name="supportsTv"
+        render={({ field }) => (
+          <SwitchRow label="TV Shows" checked={field.value} onCheckedChange={field.onChange} />
+        )}
+      />
+    </>
   )
 }
 
 function PriorityInput() {
   const { register } = useFormContext<FormData>()
   return (
-    <div className="space-y-2">
-      <Label htmlFor="priority">Priority</Label>
-      <Input
-        id="priority"
-        type="number"
-        min={1}
-        max={100}
-        {...register('priority', { valueAsNumber: true })}
-      />
-      <p className="text-muted-foreground text-xs">Lower values have higher priority (1-100)</p>
-    </div>
+    <InputRow
+      label="Priority"
+      aria-label="Priority"
+      type="number"
+      min={1}
+      max={100}
+      {...register('priority', { valueAsNumber: true })}
+    />
   )
 }
 
 function EnabledToggle() {
   const { control } = useFormContext<FormData>()
   return (
-    <div className="flex items-center justify-between">
-      <Label htmlFor="enabled">Enabled</Label>
-      <Controller
-        control={control}
-        name="enabled"
-        render={({ field }) => (
-          <Switch id="enabled" checked={field.value} onCheckedChange={field.onChange} />
-        )}
-      />
-    </div>
+    <Controller
+      control={control}
+      name="enabled"
+      render={({ field }) => (
+        <SwitchRow label="Enabled" checked={field.value} onCheckedChange={field.onChange} />
+      )}
+    />
   )
 }
 
@@ -165,48 +151,40 @@ function AutoSearchToggle({ definition }: { definition: { id: string } }) {
   const { control } = useFormContext<FormData>()
   const isGenericRss = definition.id === 'generic-rss'
   return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <Label htmlFor="autoSearchEnabled">Enable for Automatic Search</Label>
-        <p className="text-muted-foreground text-xs">
-          {isGenericRss
-            ? 'Generic RSS feeds do not support search'
-            : 'Use this indexer when automatically searching for releases'}
-        </p>
-      </div>
-      <Controller
-        control={control}
-        name="autoSearchEnabled"
-        render={({ field }) => (
-          <Switch
-            id="autoSearchEnabled"
-            checked={isGenericRss ? false : field.value}
-            onCheckedChange={field.onChange}
-            disabled={isGenericRss}
-          />
-        )}
-      />
-    </div>
+    <Controller
+      control={control}
+      name="autoSearchEnabled"
+      render={({ field }) => (
+        <SwitchRow
+          label="Enable for Automatic Search"
+          description={
+            isGenericRss
+              ? 'Generic RSS feeds do not support search'
+              : 'Use this indexer when automatically searching for releases'
+          }
+          checked={isGenericRss ? false : field.value}
+          onCheckedChange={field.onChange}
+          disabled={isGenericRss}
+        />
+      )}
+    />
   )
 }
 
 function RssToggle() {
   const { control } = useFormContext<FormData>()
   return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <Label htmlFor="rssEnabled">Enable for RSS Sync</Label>
-        <p className="text-muted-foreground text-xs">
-          Include this indexer when fetching RSS feeds for new releases
-        </p>
-      </div>
-      <Controller
-        control={control}
-        name="rssEnabled"
-        render={({ field }) => (
-          <Switch id="rssEnabled" checked={field.value} onCheckedChange={field.onChange} />
-        )}
-      />
-    </div>
+    <Controller
+      control={control}
+      name="rssEnabled"
+      render={({ field }) => (
+        <SwitchRow
+          label="Enable for RSS Sync"
+          description="Include this indexer when fetching RSS feeds for new releases"
+          checked={field.value}
+          onCheckedChange={field.onChange}
+        />
+      )}
+    />
   )
 }

@@ -1,16 +1,7 @@
-import { Layers, Loader2 } from 'lucide-react'
+import { Layers } from 'lucide-react'
 
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 import type { MigrationPreview } from '../shared/types'
 
@@ -27,38 +18,31 @@ export function ConfirmModal(props: ConfirmModalProps) {
   const { open, onOpenChange, editedPreview, ignoredCount, isExecuting, onExecute } = props
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <ConfirmHeader />
-        <DialogBody className="space-y-4">
-          <MigrationInfoAlert />
-          {editedPreview ? <ConfirmStats summary={editedPreview.summary} ignoredCount={ignoredCount} /> : null}
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExecuting}>
-            Back
-          </Button>
-          <Button onClick={onExecute} disabled={isExecuting}>
-            {isExecuting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            {isExecuting ? 'Enabling...' : 'Proceed'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ConfirmHeader() {
-  return (
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Layers className="size-5" />
-        Enable Multi-Version Mode
-      </DialogTitle>
-      <DialogDescription>
-        You are about to enable multi-version mode for your library.
-      </DialogDescription>
-    </DialogHeader>
+    <SheetPresenter
+      nested
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Enable Multi-Version Mode"
+      description="You are about to enable multi-version mode for your library."
+      wideClassName="sm:max-w-lg"
+      footer={
+        <FormActions
+          cancelLabel="Back"
+          onCancel={() => onOpenChange(false)}
+          cancelDisabled={isExecuting}
+          confirmLabel={isExecuting ? 'Enabling...' : 'Proceed'}
+          onConfirm={onExecute}
+          loading={isExecuting}
+        />
+      }
+    >
+      <div className="space-y-4 py-2">
+        <MigrationInfoAlert />
+        {editedPreview ? (
+          <ConfirmStats summary={editedPreview.summary} ignoredCount={ignoredCount} />
+        ) : null}
+      </div>
+    </SheetPresenter>
   )
 }
 

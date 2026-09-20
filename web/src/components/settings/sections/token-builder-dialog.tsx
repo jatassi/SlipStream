@@ -2,16 +2,7 @@ import { useRef, useState } from 'react'
 
 import { Code2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { TokenContext as BackendTokenContext } from '@/types'
@@ -66,7 +57,7 @@ function TokenButton({ entry, onInsert }: { entry: TokenEntry; onInsert: (token:
     <button
       type="button"
       onClick={() => onInsert(entry.token)}
-      className="bg-muted hover:bg-muted/80 inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 font-mono text-xs transition-colors"
+      className="bg-muted hover:bg-muted/80 min-h-tap inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-colors"
       title={`${entry.description}\nExample: ${entry.example}`}
     >
       <Code2 className="text-muted-foreground size-3" />
@@ -183,8 +174,10 @@ function PatternInput({ textareaRef, value, onChange, onCursorUpdate }: {
 }) {
   return (
     <div className="shrink-0 space-y-2 border-t pt-2">
-      <Label>Format Pattern</Label>
-      <Textarea ref={textareaRef} value={value} onChange={(e) => onChange(e.target.value)} onSelect={onCursorUpdate} onClick={onCursorUpdate} onKeyUp={onCursorUpdate} className="min-h-[80px] font-mono text-sm" placeholder="Click tokens above to build your format pattern..." />
+      <Label htmlFor="token-format-pattern" className="text-body font-medium">
+        Format Pattern
+      </Label>
+      <Textarea id="token-format-pattern" aria-label="Format Pattern" ref={textareaRef} value={value} onChange={(e) => onChange(e.target.value)} onSelect={onCursorUpdate} onClick={onCursorUpdate} onKeyUp={onCursorUpdate} className="min-h-[80px] font-mono text-base" placeholder="Click tokens above to build your format pattern..." />
     </div>
   )
 }
@@ -193,20 +186,27 @@ export function TokenBuilderDialog({ open, onOpenChange, value, onChange, tokenC
   const { textareaRef, localValue, setLocalValue, insertToken, handleCursorUpdate } = useTokenInserter(value, open)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Token Builder</DialogTitle>
-          <DialogDescription>Click a token to insert it into your format pattern</DialogDescription>
-        </DialogHeader>
-        <DialogBody>
-          <TokenListContent tokenContext={tokenContext} dynamicTokenContexts={dynamicTokenContexts} onInsert={insertToken} />
-        </DialogBody>
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Token Builder"
+      description="Click a token to insert it into your format pattern"
+      wideClassName="max-h-[80vh] sm:max-w-2xl"
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel="Apply"
+          onConfirm={() => {
+            onChange(localValue)
+            onOpenChange(false)
+          }}
+        />
+      }
+    >
+      <div className="space-y-3 py-2">
+        <TokenListContent tokenContext={tokenContext} dynamicTokenContexts={dynamicTokenContexts} onInsert={insertToken} />
         <PatternInput textareaRef={textareaRef} value={localValue} onChange={setLocalValue} onCursorUpdate={handleCursorUpdate} />
-        <DialogFooter showCloseButton>
-          <Button onClick={() => { onChange(localValue); onOpenChange(false) }}>Apply</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </SheetPresenter>
   )
 }

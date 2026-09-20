@@ -1,14 +1,7 @@
 import { Loader2 } from 'lucide-react'
 
+import { FormActions, SheetPresenter } from '@/components/presenter'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 import {
@@ -28,6 +21,8 @@ type FolderBrowserProps = {
   initialPath?: string
   onSelect: (path: string) => void
   fileExtensions?: string[]
+  /** Set when the browser opens from inside another presented form. */
+  nested?: boolean
 }
 
 export function FolderBrowser({
@@ -36,18 +31,28 @@ export function FolderBrowser({
   initialPath = '',
   onSelect,
   fileExtensions,
+  nested,
 }: FolderBrowserProps) {
   const s = useFolderBrowser({ initialPath, open, onSelect, onOpenChange, fileExtensions })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{s.showFiles ? 'Browse Files' : 'Browse Folders'}</DialogTitle>
-        </DialogHeader>
-
-        <DialogBody>
-          <PathInput
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      nested={nested}
+      title={s.showFiles ? 'Browse Files' : 'Browse Folders'}
+      wideClassName="sm:max-w-2xl"
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel={s.showFiles ? 'Select File' : 'Select Folder'}
+          onConfirm={s.handleSelect}
+          confirmDisabled={!s.selectedPath}
+        />
+      }
+    >
+      <div className="space-y-3 py-2">
+        <PathInput
           inputPath={s.inputPath}
           setInputPath={s.setInputPath}
           hasDrives={!!s.data?.drives}
@@ -66,18 +71,8 @@ export function FolderBrowser({
           selectedFile={s.selectedFile}
         />
         {s.selectedPath ? <SelectedPath path={s.selectedPath} /> : null}
-        </DialogBody>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={s.handleSelect} disabled={!s.selectedPath}>
-            {s.showFiles ? 'Select File' : 'Select Folder'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </SheetPresenter>
   )
 }
 

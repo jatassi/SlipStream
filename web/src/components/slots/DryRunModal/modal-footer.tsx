@@ -1,7 +1,6 @@
 import { Layers } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { DialogFooter } from '@/components/ui/dialog'
 
 import { DebugFooter } from './debug-footer'
 
@@ -19,7 +18,7 @@ type ModalFooterProps = {
 
 export function ModalFooter(props: ModalFooterProps) {
   return (
-    <DialogFooter className="mt-2 shrink-0">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
       <DebugFooter
         developerMode={props.developerMode}
         isDebugData={props.isDebugData}
@@ -27,13 +26,18 @@ export function ModalFooter(props: ModalFooterProps) {
         isExecuting={props.isExecuting}
         onLoadDebugData={props.onLoadDebugData}
       />
-      <Button variant="outline" onClick={props.onCancel} disabled={props.isExecuting}>
+      <Button
+        variant="outline"
+        className="min-h-tap"
+        onClick={props.onCancel}
+        disabled={props.isExecuting}
+      >
         Cancel
       </Button>
-      <Button onClick={props.onEnable} disabled={!props.canEnable}>
+      <Button className="min-h-tap" onClick={props.onEnable} disabled={!props.canEnable}>
         <Layers className="mr-2 size-4" />
         Enable Multi-Version Mode
       </Button>
-    </DialogFooter>
+    </div>
   )
 }

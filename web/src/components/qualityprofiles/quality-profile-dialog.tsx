@@ -1,18 +1,5 @@
-import { Loader2 } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { FormActions, SheetPresenter } from '@/components/presenter'
+import { ControlStack, InputRow, SelectRow } from '@/components/settings/control-row'
 import { getEnabledModules } from '@/modules'
 import type { QualityProfile } from '@/types'
 
@@ -34,35 +21,24 @@ export function QualityProfileDialog({ open, onOpenChange, profile, defaultModul
   const showPreview = state.formData.upgradesEnabled && state.allowedQualities.length >= 2
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>
-            {state.isEditing ? 'Edit Quality Profile' : 'Add Quality Profile'}
-          </DialogTitle>
-          <DialogDescription>
-            Configure quality preferences and attribute filters for downloads.
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogBody>
-          <ProfileFormBody state={state} showPreview={showPreview} />
-        </DialogBody>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={state.handleSubmit}
-            disabled={state.isPending || state.hasAttributeValidationError}
-          >
-            {state.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            {state.isEditing ? 'Save' : 'Create'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <SheetPresenter
+      open={open}
+      onOpenChange={onOpenChange}
+      title={state.isEditing ? 'Edit Quality Profile' : 'Add Quality Profile'}
+      description="Configure quality preferences and attribute filters for downloads."
+      wideClassName="sm:max-w-3xl"
+      footer={
+        <FormActions
+          onCancel={() => onOpenChange(false)}
+          confirmLabel={state.isEditing ? 'Save' : 'Create'}
+          onConfirm={state.handleSubmit}
+          confirmDisabled={state.hasAttributeValidationError}
+          loading={state.isPending}
+        />
+      }
+    >
+      <ProfileFormBody state={state} showPreview={showPreview} />
+    </SheetPresenter>
   )
 }
 
@@ -72,44 +48,28 @@ type ProfileFormBodyProps = {
 }
 
 function ModuleTypeSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const modules = getEnabledModules()
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="module-type">Module Type</Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger id="module-type">
-          {modules.find((m) => m.id === value)?.name ?? 'Select module type...'}
-        </SelectTrigger>
-        <SelectContent>
-          {modules.map((mod) => (
-            <SelectItem key={mod.id} value={mod.id}>
-              {mod.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
+  const options = getEnabledModules().map((mod) => ({ value: mod.id, label: mod.name }))
+  return <SelectRow label="Module Type" value={value} onChange={onChange} options={options} />
 }
 
 function ProfileFormBody({ state, showPreview }: ProfileFormBodyProps) {
   const { formData, cutoffOptions, updateField, toggleQuality, updateItemMode, isEditing } = state
 
   return (
-    <div className="space-y-6 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
+    <div className="space-y-6 py-2">
+      <ControlStack>
+        <InputRow
+          stacked
+          label="Name"
+          aria-label="Name"
           placeholder="HD-1080p"
           value={formData.name}
           onChange={(e) => updateField('name', e.target.value)}
         />
-      </div>
-
-      {!isEditing && (
-        <ModuleTypeSelector value={formData.moduleType} onChange={(v) => updateField('moduleType', v)} />
-      )}
+        {!isEditing && (
+          <ModuleTypeSelector value={formData.moduleType} onChange={(v) => updateField('moduleType', v)} />
+        )}
+      </ControlStack>
 
       <QualityChecklist items={formData.items} onToggle={toggleQuality} />
 

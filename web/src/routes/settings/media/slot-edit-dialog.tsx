@@ -1,6 +1,6 @@
+import { SheetPresenter } from '@/components/presenter'
 import { SlotCard } from '@/components/settings/sections/slot-card'
 import type { useVersionSlotsSection } from '@/components/settings/sections/use-version-slots-section'
-import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { Slot } from '@/types'
 
 type SectionState = ReturnType<typeof useVersionSlotsSection>
@@ -25,35 +25,32 @@ export function SlotEditDialog({
   }
 
   return (
-    <Dialog
+    <SheetPresenter
       open
       onOpenChange={(open) => {
         if (!open) {
           onClose()
         }
       }}
+      title={slot.name}
+      description="Configure this version slot."
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{slot.name}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <SlotCard
-            slot={slot}
-            profiles={section.profiles}
-            usedProfileIds={usedProfileIds(section.slots ?? [], slot.id)}
-            rootFoldersByModule={section.rootFoldersByModule}
-            onEnabledChange={(enabled) => section.handleSlotEnabledChange(slot, enabled)}
-            onNameChange={(name) => section.handleSlotNameChange(slot, name)}
-            onProfileChange={(profileId) => section.handleSlotProfileChange(slot, profileId)}
-            onRootFolderChange={(moduleType, rootFolderId) =>
-              section.handleSlotRootFolderChange(slot, moduleType, rootFolderId)
-            }
-            isUpdating={section.isSlotUpdating}
-            showToggle={slot.slotNumber === 3}
-          />
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+      <div className="py-2">
+        <SlotCard
+          slot={slot}
+          profiles={section.profiles}
+          usedProfileIds={usedProfileIds(section.slots ?? [], slot.id)}
+          rootFoldersByModule={section.rootFoldersByModule}
+          onEnabledChange={(enabled) => section.handleSlotEnabledChange(slot, enabled)}
+          onNameChange={(name) => section.handleSlotNameChange(slot, name)}
+          onProfileChange={(profileId) => section.handleSlotProfileChange(slot, profileId)}
+          onRootFolderChange={(moduleType, rootFolderId) =>
+            section.handleSlotRootFolderChange(slot, moduleType, rootFolderId)
+          }
+          isUpdating={section.isSlotUpdating}
+          showToggle={slot.slotNumber === 3}
+        />
+      </div>
+    </SheetPresenter>
   )
 }

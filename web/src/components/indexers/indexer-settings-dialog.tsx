@@ -1,108 +1,79 @@
-import { Loader2, RotateCcw, Settings, TrendingDown, TrendingUp } from 'lucide-react'
+import { RotateCcw, Settings, TrendingDown, TrendingUp } from 'lucide-react'
 
+import { FormActions, SheetPresenter } from '@/components/presenter'
+import { ControlStack, InputRow, SelectRow } from '@/components/settings/control-row'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import type { ContentType, ProwlarrIndexerWithSettings } from '@/types'
-import { ContentTypeLabels } from '@/types'
 
 import { useIndexerSettingsDialog } from './use-indexer-settings-dialog'
+
+const CONTENT_TYPE_OPTIONS = [
+  { value: 'both', label: 'Both' },
+  { value: 'movies', label: 'Movies Only' },
+  { value: 'series', label: 'Series Only' },
+]
 
 export function IndexerSettingsDialog({ indexer }: { indexer: ProwlarrIndexerWithSettings }) {
   const dialog = useIndexerSettingsDialog(indexer)
 
   return (
-    <Dialog open={dialog.open} onOpenChange={dialog.handleOpenChange}>
-      <DialogTrigger render={<Button variant="ghost" size="icon" aria-label="Settings" className="size-8" />}>
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`Settings for ${indexer.name}`}
+        className="size-8"
+        onClick={() => dialog.handleOpenChange(true)}
+      >
         <Settings className="size-4" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Settings for {indexer.name}</DialogTitle>
-          <DialogDescription>
-            Configure priority and content type filtering for this indexer
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogBody className="space-y-4 py-4">
-          <PriorityField priority={dialog.priority} onChange={dialog.handlePriorityChange} />
-          <ContentTypeField
-            contentType={dialog.contentType}
-            onChange={(v) => dialog.setContentType(v as ContentType)}
+      </Button>
+      <SheetPresenter
+        open={dialog.open}
+        onOpenChange={dialog.handleOpenChange}
+        title={`Settings for ${indexer.name}`}
+        description="Configure priority and content type filtering for this indexer"
+        footer={
+          <FormActions
+            onCancel={() => dialog.handleOpenChange(false)}
+            confirmLabel="Save"
+            onConfirm={dialog.handleSave}
+            loading={dialog.isSaving}
           />
-          <StatisticsSection
-            settings={dialog.settings}
-            onReset={dialog.handleResetStats}
-            isResetting={dialog.isResetting}
-          />
-        </DialogBody>
-
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button onClick={dialog.handleSave} disabled={dialog.isSaving}>
-            {dialog.isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        }
+      >
+        <SettingsForm dialog={dialog} />
+      </SheetPresenter>
+    </>
   )
 }
 
-function PriorityField({ priority, onChange }: { priority: number; onChange: (value: string) => void }) {
+function SettingsForm({ dialog }: { dialog: ReturnType<typeof useIndexerSettingsDialog> }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="priority">Priority (1-50)</Label>
-      <Input
-        id="priority"
-        type="number"
-        min={1}
-        max={50}
-        value={priority}
-        onChange={(e) => onChange(e.target.value)}
+    <div className="space-y-4 py-2">
+      <ControlStack footer="Lower priority indexers are preferred during deduplication.">
+        <InputRow
+          label="Priority (1-50)"
+          aria-label="Priority (1-50)"
+          type="number"
+          min={1}
+          max={50}
+          value={dialog.priority}
+          onChange={(e) => dialog.handlePriorityChange(e.target.value)}
+        />
+      </ControlStack>
+      <ControlStack footer="Filter this indexer to only be used for specific content types.">
+        <SelectRow
+          label="Content Type"
+          value={dialog.contentType}
+          onChange={(value) => dialog.setContentType(value as ContentType)}
+          options={CONTENT_TYPE_OPTIONS}
+        />
+      </ControlStack>
+      <StatisticsSection
+        settings={dialog.settings}
+        onReset={dialog.handleResetStats}
+        isResetting={dialog.isResetting}
       />
-      <p className="text-muted-foreground text-xs">
-        Lower priority indexers are preferred during deduplication
-      </p>
-    </div>
-  )
-}
-
-function ContentTypeField({
-  contentType,
-  onChange,
-}: {
-  contentType: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="contentType">Content Type</Label>
-      <Select value={contentType} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger id="contentType">
-          {ContentTypeLabels[contentType as keyof typeof ContentTypeLabels]}
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="both">Both</SelectItem>
-          <SelectItem value="movies">Movies Only</SelectItem>
-          <SelectItem value="series">Series Only</SelectItem>
-        </SelectContent>
-      </Select>
-      <p className="text-muted-foreground text-xs">
-        Filter this indexer to only be used for specific content types
-      </p>
     </div>
   )
 }
@@ -123,7 +94,7 @@ function StatisticsSection({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border p-3">
+    <div className="space-y-2 rounded-card border p-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Statistics</span>
         <Button variant="ghost" size="sm" onClick={onReset} disabled={isResetting}>
@@ -141,9 +112,9 @@ function StatisticsSection({
           <span>{settings.failureCount} failed</span>
         </div>
       </div>
-      {settings.lastFailureReason ? <p className="text-muted-foreground text-xs">
-          Last failure: {settings.lastFailureReason}
-        </p> : null}
+      {settings.lastFailureReason ? (
+        <p className="text-muted-foreground text-xs">Last failure: {settings.lastFailureReason}</p>
+      ) : null}
     </div>
   )
 }
